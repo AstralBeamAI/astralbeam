@@ -15,3 +15,6 @@
 - [ ] Claude Worktree Workflow (3 agents together)
 - [ ] Explain recommended folder structure
 - [ ] Example of how to use effect-ts
+- [ ] Set up a Vite+ monorepo
+- [ ] Deployment on Cloud VM (Hetzner/AWS)
+- [ ] how to set up middleware
