@@ -1,11 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/api/status')({
+export const Route = createFileRoute("/api/status")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        console.log(request.url);
-        return new Response('OK')
+        console.log(request.url)
+        return new Response("OK")
       },
       POST: async ({ request }) => {
         const body = await request.json()
@@ -14,4 +14,3 @@ export const Route = createFileRoute('/api/status')({
     },
   },
 })
-
