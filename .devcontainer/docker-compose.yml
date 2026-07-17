@@ -1,0 +1,57 @@
+# Isolation:
+# - initializeCommand writes COMPOSE_PROJECT_NAME into .devcontainer/.env.
+# - Named volumes are prefixed with that project name.
+
+x-postgres-env: &postgres-env
+  POSTGRES_USER: ${POSTGRES_USER:-astralbeam}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-astralbeam}
+  POSTGRES_DB: ${POSTGRES_DB:-astralbeam}
+  POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+
+x-valkey-env: &valkey-env
+  VALKEY_HOST: ${VALKEY_HOST:-valkey}
+  VALKEY_PORT: ${VALKEY_PORT:-6379}
+
+services:
+  astralbeam:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    environment:
+      <<: [*postgres-env, *valkey-env]
+    volumes:
+      - ..:/workspaces/astralbeam
+      # Persist Cursor/VS Code server + extensions across rebuilds
+      - ../tmp/.cursor-server:/root/.cursor-server:cached
+      - ../tmp/.vscode-server:/root/.vscode-server:cached
+    command: sleep infinity
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      <<: *postgres-env
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  valkey:
+    image: valkey/valkey:9
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+
+volumes:
+  postgres-data:
+  valkey-data:
