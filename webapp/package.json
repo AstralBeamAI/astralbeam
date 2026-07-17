@@ -1,6 +1,7 @@
 {
   "name": "webapp",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite dev --port 3000",
