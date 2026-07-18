@@ -1,4 +1,13 @@
-# TanStack Start + shadcn/ui
+# AstralBeam
+
+Vite+ monorepo with a TanStack Start application and shared shadcn/ui components.
+
+```text
+apps/
+  webapp/       @astralbeam/webapp
+packages/
+  ui/           @astralbeam/ui
+```
 
 ## Tasks
 
@@ -12,7 +21,6 @@
 - [ ] Claude Worktree Workflow (3 agents together)
 - [ ] Explain recommended folder structure
 - [ ] Example of how to use effect-ts
-- [ ] Set up a Vite+ monorepo
 - [ ] Deployment on Cloud VM (Hetzner/AWS)
 - [ ] how to set up middleware
 
@@ -24,7 +32,7 @@ To run this application:
 
 ```bash
 vp install
-vp dev
+vp run dev
 ```
 
 # Building For Production
@@ -32,7 +40,7 @@ vp dev
 To build this application for production:
 
 ```bash
-vp build
+vp run build
 ```
 
 ## Testing
@@ -40,7 +48,19 @@ vp build
 This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
 
 ```bash
-vp test
+vp run test
+```
+
+Run formatting, linting, and TypeScript checks together with:
+
+```bash
+vp check
+```
+
+Add shadcn components from the webapp workspace with:
+
+```bash
+vp run ui -- add button
 ```
 
 ## Styling
@@ -53,10 +73,10 @@ This project uses Nitro as a generic server adapter, so it can run on any Node-c
 
 ```bash
 vp run build
-node dist/server/index.mjs
+node apps/webapp/.output/server/index.mjs
 ```
 
-The build output is a self-contained Node server. To deploy, push the `dist/` directory to your host (Render, Fly.io, your own VPS, etc.) and run the server command above.
+The build output is a self-contained Node server under `apps/webapp/.output`. Deploy that output to your Node-compatible host and run the server command above.
 
 For host-specific presets (Vercel, Netlify, Cloudflare, AWS Lambda, etc.) and tuning, see https://v3.nitro.build/deploy.
 

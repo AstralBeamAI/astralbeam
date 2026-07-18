@@ -1,0 +1,31 @@
+{
+  "name": "@astralbeam/root",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "build": "vp run @astralbeam/webapp#build",
+    "check": "vp check",
+    "check:fix": "vp check --fix",
+    "dev": "vp run @astralbeam/webapp#dev",
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
+    "lint": "vp lint",
+    "lint:fix": "vp lint --fix",
+    "preview": "vp run @astralbeam/webapp#preview",
+    "ready": "vp check && vp run test && vp run build",
+    "test": "vp run -r test",
+    "ui": "vp run @astralbeam/webapp#ui"
+  },
+  "devDependencies": {
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.15.0",
+      "onFail": "download"
+    }
+  }
+}

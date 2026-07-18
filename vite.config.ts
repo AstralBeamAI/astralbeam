@@ -1,13 +1,15 @@
-import { defineConfig, lazyPlugins } from "vite-plus"
-import { devtools } from "@tanstack/devtools-vite"
+import { defineConfig } from "vite-plus"
 
-import { tanstackStart } from "@tanstack/react-start/plugin/vite"
-
-import viteReact from "@vitejs/plugin-react"
-import tailwindcss from "@tailwindcss/vite"
-import { nitro } from "nitro/vite"
-
-const generatedPaths = ["routeTree.gen.ts", "pnpm-lock.yaml"]
+const generatedPaths = [
+  "routeTree.gen.ts",
+  "node_modules",
+  ".tanstack",
+  ".tanstack-start",
+  ".nitro",
+  ".output",
+  ".wrangler",
+  "dist",
+]
 
 export default defineConfig({
   check: {
@@ -19,6 +21,12 @@ export default defineConfig({
     ignorePatterns: ["pnpm-lock.yaml", ...generatedPaths],
   },
   lint: {
+    plugins: ["typescript", "react", "jsx-a11y"],
+    env: {
+      builtin: true,
+      browser: true,
+      node: true,
+    },
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",
@@ -30,7 +38,6 @@ export default defineConfig({
     ignorePatterns: generatedPaths,
   },
   resolve: { tsconfigPaths: true },
-  plugins: lazyPlugins(() => [devtools(), nitro(), tailwindcss(), tanstackStart(), viteReact()]),
   run: {
     cache: {
       scripts: false,

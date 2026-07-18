@@ -1,0 +1,3 @@
+@import "@astralbeam/ui/styles.css";
+
+@source "./**/*.{ts,tsx}";

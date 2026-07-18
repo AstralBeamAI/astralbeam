@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/styles.css",
+    "css": "../../packages/ui/src/styles.css",
     "baseColor": "mist",
     "cssVariables": true,
     "prefix": ""
@@ -14,8 +14,8 @@
   "rtl": true,
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
+    "utils": "@astralbeam/ui/lib/utils",
+    "ui": "@astralbeam/ui/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
