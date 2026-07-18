@@ -1,0 +1,19 @@
+{
+  "name": "@astralbeam/brand",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    "./logo/svg/*": "./src/logo/svg/*",
+    "./logo/png/*": "./src/logo/png/*"
+  },
+  "scripts": {
+    "generate:png": "node scripts/export-png.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "sharp": "^0.34.3",
+    "typescript": "catalog:"
+  }
+}

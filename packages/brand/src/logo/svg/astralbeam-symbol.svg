@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="title desc">
+  <title id="title">AstralBeam symbol</title>
+  <desc id="desc">A clearer lowercase a/b monogram using two bowls joined by a shared central beam.</desc>
+  <metadata>
+    AstralBeam symbol construction:
+    - Intent: clarify the lowercase a/b read while keeping the original thin geometric style.
+    - Reusable id: #astralbeam-mark.
+    - Keep logo colors aligned with the theme values in packages/ui/src/styles.css.
+    - The center beam is shared by both letters.
+    - The bowls tuck slightly into the beam so the mark reads more like connected a/b forms.
+  </metadata>
+  <defs>
+    <symbol id="astralbeam-mark" viewBox="0 0 320 160">
+      <g fill="currentColor">
+        <path fill-rule="evenodd" d="
+          M 159 80
+          A 53 58 0 1 1 53 80
+          A 53 58 0 1 1 159 80
+          Z
+          M 147 80
+          A 41 52 0 1 0 65 80
+          A 41 52 0 1 0 147 80
+          Z"/>
+        <rect x="153" y="20" width="14" height="120"/>
+        <path fill-rule="evenodd" d="
+          M 267 80
+          A 53 58 0 1 1 161 80
+          A 53 58 0 1 1 267 80
+          Z
+          M 255 80
+          A 41 52 0 1 0 173 80
+          A 41 52 0 1 0 255 80
+          Z"/>
+      </g>
+    </symbol>
+  </defs>
+  <use href="#astralbeam-mark" color="oklch(0.148 0.004 228.8)"/>
+</svg>

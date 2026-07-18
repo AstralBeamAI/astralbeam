@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 696 220" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="title desc">
+  <title id="title">AstralBeam horizontal logo</title>
+  <desc id="desc">Clearer a/b monogram AstralBeam horizontal logo.</desc>
+  <metadata>
+    AstralBeam horizontal logo construction:
+    - Canvas: 696 x 220.
+    - Symbol box: x=18 y=39 w=276 h=138.
+    - Wordmark box: x=272 y=78 w=380 h=73.
+  </metadata>
+  <use href="astralbeam-symbol.svg#astralbeam-mark" x="18" y="39" width="276" height="138" color="oklch(0.148 0.004 228.8)"/>
+  <use href="astralbeam-wordmark.svg#astralbeam-wordmark" x="272" y="78" width="380" height="73" color="oklch(0.148 0.004 228.8)"/>
+</svg>
