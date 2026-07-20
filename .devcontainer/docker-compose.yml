@@ -25,6 +25,9 @@ services:
       # Persist Cursor/VS Code server + extensions across rebuilds
       - ../tmp/.cursor-server:/root/.cursor-server:cached
       - ../tmp/.vscode-server:/root/.vscode-server:cached
+      - "${HOME}/.cursor:/workspaces/astralbeam/tmp/.cursor:cached"
+      - "${HOME}/.codex:/workspaces/astralbeam/tmp/.codex:cached"
+      - "${HOME}/.claude:/workspaces/astralbeam/tmp/.claude:cached"
     command: sleep infinity
     init: true
     depends_on:
