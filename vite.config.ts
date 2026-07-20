@@ -2,6 +2,7 @@ import { defineConfig } from "vite-plus"
 
 const generatedPaths = [
   "routeTree.gen.ts",
+  ".astro",
   "node_modules",
   ".tanstack",
   ".tanstack-start",

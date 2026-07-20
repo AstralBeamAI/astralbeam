@@ -1,0 +1,95 @@
+---
+import logoHorizontal from "@astralbeam/brand/logo/png/astralbeam-logo-horizontal.png"
+import { Card, CardDescription, CardHeader, CardTitle } from "@astralbeam/ui/components/card"
+
+import { EmailCta } from "@/components/EmailCta"
+import { ProductPreview } from "@/components/ProductPreview"
+import SiteLayout from "@/layouts/SiteLayout.astro"
+
+const title = "AstralBeam | Open-source agent infrastructure for any app"
+const description =
+  "Ship agents in minutes, not months. AstralBeam is a single open-source service developers integrate to add production-ready agents to any app."
+const canonicalUrl = "https://www.astralbeam.com/"
+
+const capabilities = [
+  {
+    title: "Drop-in frontend SDK",
+    description:
+      "A fully customizable Cursor-like sidebar UI with tenant-aware auth, permissions, user context, and product data adapters.",
+  },
+  {
+    title: "Fully managed infra",
+    description:
+      "Resumable chat streaming, conversation history, observability, analytics, audit logs, token optimization, and model routing.",
+  },
+  {
+    title: "Production controls",
+    description:
+      "Tools, skills, user-added MCPs, guardrails, eval hooks, prompt tests, per-customer limits, Stripe billing, SSO, and privacy.",
+  },
+]
+---
+
+<SiteLayout {title} {description} {canonicalUrl}>
+  <div class="grid min-h-svh grid-rows-[auto_1fr_auto]">
+    <header class="mx-auto flex h-16 w-full max-w-7xl items-center px-4 sm:h-20 sm:px-6 lg:px-8">
+      <a href="/" aria-label="AstralBeam home">
+        <img src={logoHorizontal.src} width="696" height="220" alt="AstralBeam" class="w-44 invert sm:w-48" />
+      </a>
+    </header>
+
+    <main>
+      <section
+        aria-labelledby="hero-title"
+        class="mx-auto grid max-w-7xl items-center gap-10 px-4 pt-6 pb-10 sm:px-6 sm:pt-8 sm:pb-12 lg:min-h-[560px] lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.92fr)] lg:gap-14 lg:px-8 lg:pt-10 lg:pb-14"
+      >
+        <div class="min-w-0">
+          <p class="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-primary sm:text-sm">
+            Open-source agent infrastructure
+          </p>
+          <h1 id="hero-title" class="max-w-3xl font-heading text-5xl leading-[0.95] font-medium tracking-[-0.04em] sm:text-6xl lg:text-7xl xl:text-8xl">
+            Ship agents<br />
+            <span class="text-muted-foreground">in minutes</span><br />
+            <span class="text-primary">not months</span>
+          </h1>
+          <p class="mt-6 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
+            Stop patching together libraries, LLM providers, and observability tools. Focus on the
+            user experience while AstralBeam handles the agent backend.
+          </p>
+          <div class="mt-7 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <EmailCta />
+            <span class="text-sm text-muted-foreground">Self-host it or use AstralBeam Cloud</span>
+          </div>
+        </div>
+
+        <div class="hidden min-w-0 justify-center lg:flex lg:justify-end">
+          <ProductPreview />
+        </div>
+      </section>
+
+      <section aria-label="Product focus">
+        <div class="mx-auto grid max-w-7xl px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
+          {capabilities.map((capability) => (
+            <Card className="border-b bg-transparent py-6 ring-0 last:border-b-0 sm:py-7 lg:border-r lg:border-b-0 lg:last:border-r-0">
+              <CardHeader className="px-0 lg:px-7">
+                <CardTitle className="text-base">{capability.title}</CardTitle>
+                <CardDescription className="max-w-sm text-sm leading-6">
+                  {capability.description}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t">
+      <div class="mx-auto flex min-h-14 max-w-7xl flex-col justify-center gap-1 px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <span>© 2026 AstralBeam</span>
+        <a class="transition-colors hover:text-foreground" href="mailto:hello@astralbeam.ai">
+          hello@astralbeam.ai
+        </a>
+      </div>
+    </footer>
+  </div>
+</SiteLayout>

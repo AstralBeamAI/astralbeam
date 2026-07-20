@@ -1,0 +1,36 @@
+{
+  "name": "@astralbeam/www",
+  "version": "0.0.0",
+  "private": true,
+  "description": "https://www.astralbeam.ai/",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0 --port 3001",
+    "build": "astro build",
+    "preview": "astro preview --host 0.0.0.0 --port 4001",
+    "test": "astro check && astro build && node scripts/verify-build.mjs",
+    "typecheck": "astro check",
+    "ui": "vpx shadcn@latest"
+  },
+  "dependencies": {
+    "@astralbeam/brand": "workspace:*",
+    "@astralbeam/ui": "workspace:*",
+    "@astrojs/react": "6.0.1",
+    "@astrojs/sitemap": "3.7.3",
+    "astro": "7.1.1",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.9",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "sharp": "^0.35.2",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}
