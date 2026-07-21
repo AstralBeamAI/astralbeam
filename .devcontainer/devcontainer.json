@@ -1,0 +1,54 @@
+{
+  "name": "${localWorkspaceFolderBasename}",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "astralbeam",
+  "workspaceFolder": "/workspaces/astralbeam",
+  // https://code.visualstudio.com/remote/advancedcontainers/set-docker-compose-project-name
+  "initializeCommand": "echo COMPOSE_PROJECT_NAME=${localWorkspaceFolderBasename} > .devcontainer/.env",
+  "customizations": {
+    "vscode": {
+      // Keep in sync with .vscode/extensions.json recommendations.
+      "extensions": [
+        "ambar.bundle-size",
+        "Anthropic.claude-code",
+        "antfu.iconify",
+        "anysphere.remote-containers",
+        "astro-build.astro-vscode",
+        "bradlc.vscode-tailwindcss",
+        "christian-kohler.npm-intellisense",
+        "eamodio.gitlens",
+        "foxundermoon.shell-format",
+        "github.vscode-github-actions",
+        "GitHub.vscode-pull-request-github",
+        "jgclark.vscode-todo-highlight",
+        "mechatroner.rainbow-csv",
+        "ms-playwright.playwright",
+        "openai.chatgpt",
+        "oxc.oxc-vscode",
+        "redhat.vscode-yaml",
+        "shd101wyy.markdown-preview-enhanced",
+        "sst-dev.opencode",
+        "streetsidesoftware.code-spell-checker",
+        "tamasfe.even-better-toml",
+        "vitest.explorer",
+        "yoavbls.pretty-ts-errors",
+        "yokawasa.jwt-debugger"
+      ]
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": "true",
+      "configureZshAsDefaultShell": "true",
+      "username": "root"
+    },
+    "ghcr.io/devcontainers-extra/features/zsh-plugins:0": {
+      "plugins": "git zsh-autosuggestions",
+      "omzPlugins": "https://github.com/zsh-users/zsh-autosuggestions.git"
+    }
+  }
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  // "forwardPorts": [5000, 5001],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  // "postCreateCommand": "dotnet restore",
+}

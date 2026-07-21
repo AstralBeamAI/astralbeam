@@ -1,0 +1,29 @@
+{
+  // Keep in sync with customizations.vscode.extensions in .devcontainer/devcontainer.json
+  "recommendations": [
+    "ambar.bundle-size",
+    "Anthropic.claude-code",
+    "antfu.iconify",
+    "anysphere.remote-containers",
+    "astro-build.astro-vscode",
+    "bradlc.vscode-tailwindcss",
+    "christian-kohler.npm-intellisense",
+    "eamodio.gitlens",
+    "foxundermoon.shell-format",
+    "github.vscode-github-actions",
+    "GitHub.vscode-pull-request-github",
+    "jgclark.vscode-todo-highlight",
+    "mechatroner.rainbow-csv",
+    "ms-playwright.playwright",
+    "openai.chatgpt",
+    "oxc.oxc-vscode",
+    "redhat.vscode-yaml",
+    "shd101wyy.markdown-preview-enhanced",
+    "sst-dev.opencode",
+    "streetsidesoftware.code-spell-checker",
+    "tamasfe.even-better-toml",
+    "vitest.explorer",
+    "yoavbls.pretty-ts-errors",
+    "yokawasa.jwt-debugger"
+  ]
+}
