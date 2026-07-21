@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 100" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="title desc">
+  <title id="title">AstralBeam wordmark</title>
+  <desc id="desc">AstralBeam wordmark in a light, slightly tightened sans-serif style.</desc>
+  <metadata>
+    AstralBeam wordmark construction:
+    - Reusable id: #astralbeam-wordmark.
+    - Same personality as the current wordmark.
+    - Letter spacing tightened from 9 to 6 to pair with the clearer monogram.
+  </metadata>
+  <defs>
+    <symbol id="astralbeam-wordmark" viewBox="0 0 520 100">
+      <text
+        x="260"
+        y="76"
+        fill="currentColor"
+        font-family="Avenir Next, Avenir, Montserrat, Helvetica Neue, Arial, sans-serif"
+        font-size="82"
+        font-weight="300"
+        letter-spacing="6"
+        text-anchor="middle">AstralBeam</text>
+    </symbol>
+  </defs>
+  <use href="#astralbeam-wordmark" color="oklch(0.148 0.004 228.8)"/>
+</svg>

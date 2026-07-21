@@ -12,6 +12,7 @@
     "ui": "vpx shadcn@latest"
   },
   "dependencies": {
+    "@astralbeam/brand": "workspace:*",
     "@astralbeam/ui": "workspace:*",
     "@tanstack/react-devtools": "catalog:",
     "@tanstack/react-router": "catalog:",

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="title desc">
+  <title id="title">AstralBeam square logo</title>
+  <desc id="desc">Clearer a/b monogram AstralBeam stacked logo.</desc>
+  <metadata>
+    AstralBeam square logo construction:
+    - Square canvas: 720 x 720.
+    - Symbol box: x=141 y=170 w=441 h=221.
+    - Wordmark box: x=100 y=423 w=520 h=100.
+  </metadata>
+  <use href="astralbeam-symbol.svg#astralbeam-mark" x="141" y="170" width="441" height="221" color="oklch(0.148 0.004 228.8)"/>
+  <use href="astralbeam-wordmark.svg#astralbeam-wordmark" x="100" y="423" width="520" height="100" color="oklch(0.148 0.004 228.8)"/>
+</svg>
