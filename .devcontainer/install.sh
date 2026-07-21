@@ -16,6 +16,7 @@ apt-get install -y --no-install-recommends \
   vim nano \
   iputils-ping net-tools procps openssh-client \
   fontconfig pkg-config python3 \
+  xdg-utils \
   liburing-dev
 
 # Autoload defaults.env into login shells

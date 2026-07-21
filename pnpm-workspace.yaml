@@ -6,6 +6,7 @@ allowBuilds:
   esbuild: true
   lightningcss: true
   sharp: true
+  workerd: true
 
 catalogMode: prefer
 
@@ -43,6 +44,7 @@ catalog:
   typescript: ^6.0.3
   vite: npm:@voidzero-dev/vite-plus-core@0.2.5
   vite-plus: 0.2.5
+  wrangler: ^4.112.0
 
 overrides:
   vite: "catalog:"
