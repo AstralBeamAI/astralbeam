@@ -1,0 +1,5 @@
+@import "@astralbeam/ui/styles.css";
+
+/* Paths are relative to this stylesheet. Keep app and workspace UI sources explicit. */
+@source "../";
+@source "../../../../packages/ui/src/";
