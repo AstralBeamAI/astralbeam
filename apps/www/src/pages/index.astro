@@ -1,9 +1,18 @@
 ---
 import logoHorizontal from "@astralbeam/brand/logo/png/astralbeam-logo-horizontal.png"
-import { Card, CardDescription, CardHeader, CardTitle } from "@astralbeam/ui/components/card"
+import {
+  RiFlaskLine,
+  RiGitBranchLine,
+  RiLayoutRightLine,
+  RiMoneyDollarCircleLine,
+  RiPlugLine,
+  RiPuzzle2Line,
+  RiServerLine,
+  RiShieldKeyholeLine,
+} from "@remixicon/react"
 
-import { EmailCta } from "@/components/EmailCta"
 import { ProductPreview } from "@/components/ProductPreview"
+import { WaitlistCta } from "@/components/WaitlistCta"
 import SiteLayout from "@/layouts/SiteLayout.astro"
 
 const title = "AstralBeam | Open-source agent infrastructure for any app"
@@ -13,51 +22,88 @@ const canonicalUrl = "https://www.astralbeam.com/"
 
 const capabilities = [
   {
+    icon: RiLayoutRightLine,
     title: "Drop-in frontend SDK",
     description:
-      "A fully customizable Cursor-like sidebar UI with tenant-aware auth, permissions, user context, and product data adapters.",
+      "A fully-customizable, Cursor-like agent sidebar. Add it to your web app in just a few lines of code.",
   },
   {
-    title: "Fully managed infra",
+    icon: RiServerLine,
+    title: "Fully-managed backend",
     description:
-      "Resumable chat streaming, conversation history, observability, analytics, audit logs, token optimization, and model routing.",
+      "Resumable chat streaming, conversation history, and observability, managed for you, with nothing to run.",
   },
   {
-    title: "Production controls",
+    icon: RiPlugLine,
+    title: "Tools, skills & MCP",
     description:
-      "Tools, skills, user-added MCPs, guardrails, eval hooks, prompt tests, per-customer limits, Stripe billing, SSO, and privacy.",
+      "Wire up tools and skills, let users bring their own MCPs, and let agents take real actions inside your app.",
   },
+  {
+    icon: RiMoneyDollarCircleLine,
+    title: "Billing & rate limits",
+    description:
+      "Per-customer flexible rate limits and token-based billing, integrated with Stripe out of the box.",
+  },
+  {
+    icon: RiShieldKeyholeLine,
+    title: "Enterprise-ready",
+    description:
+      "Multi-tenant enterprise-grade SSO, data privacy, and access control, built in from day one.",
+  },
+  {
+    icon: RiFlaskLine,
+    title: "Prompts & evals",
+    description:
+      "PMs and non-engineers can manage, A/B test prompts, and run evals in production, no deploy required.",
+  },
+]
+
+const moreFeatures = [
+  "Multiplayer chat",
+  "Background agents",
+  "Dynamic LLM routing",
+  "Prompt caching",
+  "Audit logs",
+  "Token optimization",
 ]
 ---
 
 <SiteLayout {title} {description} {canonicalUrl}>
   <div class="grid min-h-svh grid-rows-[auto_1fr_auto]">
-    <header class="mx-auto flex h-16 w-full max-w-7xl items-center px-4 sm:h-20 sm:px-6 lg:px-8">
+    <header
+      class="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:h-20 sm:px-6 lg:px-8"
+    >
       <a href="/" aria-label="AstralBeam home">
         <img src={logoHorizontal.src} width="696" height="220" alt="AstralBeam" class="w-44 invert sm:w-48" />
       </a>
+      <WaitlistCta variant="outline" className="h-9 px-4" showArrow={false} label="Join the waitlist" />
     </header>
 
     <main>
+      <!-- Hero -->
       <section
         aria-labelledby="hero-title"
-        class="mx-auto grid max-w-7xl items-center gap-10 px-4 pt-6 pb-10 sm:px-6 sm:pt-8 sm:pb-12 lg:min-h-[560px] lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.92fr)] lg:gap-14 lg:px-8 lg:pt-10 lg:pb-14"
+        class="mx-auto grid max-w-7xl items-center gap-10 px-4 pt-6 pb-14 sm:px-6 sm:pt-8 sm:pb-16 lg:min-h-[560px] lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.92fr)] lg:gap-14 lg:px-8 lg:pt-10 lg:pb-20"
       >
         <div class="min-w-0">
           <p class="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-primary sm:text-sm">
             Open-source agent infrastructure
           </p>
-          <h1 id="hero-title" class="max-w-3xl font-heading text-5xl leading-[0.95] font-medium tracking-[-0.04em] sm:text-6xl lg:text-7xl xl:text-8xl">
+          <h1
+            id="hero-title"
+            class="max-w-3xl font-heading text-5xl leading-[0.95] font-medium tracking-[-0.04em] sm:text-6xl lg:text-7xl xl:text-8xl"
+          >
             Ship agents<br />
             <span class="text-muted-foreground">in minutes</span><br />
             <span class="text-primary">not months</span>
           </h1>
           <p class="mt-6 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Stop patching together libraries, LLM providers, and observability tools. Focus on the
-            user experience while AstralBeam handles the agent backend.
+            One service to add production-ready agents to your app. Drop in the frontend SDK, and
+            AstralBeam handles streaming, history, tools, billing, auth, and evals.
           </p>
-          <div class="mt-7 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-            <EmailCta />
+          <div class="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <WaitlistCta />
             <span class="text-sm text-muted-foreground">Self-host it or use AstralBeam Cloud</span>
           </div>
         </div>
@@ -67,18 +113,129 @@ const capabilities = [
         </div>
       </section>
 
-      <section aria-label="Product focus">
-        <div class="mx-auto grid max-w-7xl px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
-          {capabilities.map((capability) => (
-            <Card className="border-b bg-transparent py-6 ring-0 last:border-b-0 sm:py-7 lg:border-r lg:border-b-0 lg:last:border-r-0">
-              <CardHeader className="px-0 lg:px-7">
-                <CardTitle className="text-base">{capability.title}</CardTitle>
-                <CardDescription className="max-w-sm text-sm leading-6">
-                  {capability.description}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
+      <!-- Features -->
+      <section aria-labelledby="features-title" class="border-t">
+        <div class="mx-auto max-w-7xl px-4 pt-12 pb-4 sm:px-6 sm:pt-16 lg:px-8">
+          <h2
+            id="features-title"
+            class="max-w-2xl font-heading text-3xl leading-tight font-medium tracking-[-0.03em] sm:text-4xl"
+          >
+            Everything you need to run agents in production
+          </h2>
+          <p class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+            Stop stitching together LLM providers, backend frameworks, and observability tools.
+            Focus on the experience, AstralBeam handles the rest.
+          </p>
+        </div>
+
+        <div class="mx-auto max-w-7xl px-4 pb-12 sm:px-6 sm:pb-16 lg:px-8">
+          <div class="grid border-t border-l sm:grid-cols-2 lg:grid-cols-3">
+            {
+              capabilities.map((capability) => {
+                const Icon = capability.icon
+                return (
+                  <div class="flex flex-col gap-4 border-r border-b p-6 sm:p-7">
+                    <span class="flex size-10 items-center justify-center bg-primary/10 text-primary ring-1 ring-primary/25">
+                      <Icon size={20} aria-hidden="true" />
+                    </span>
+                    <h3 class="font-heading text-base font-medium">{capability.title}</h3>
+                    <p class="text-sm leading-6 text-muted-foreground">{capability.description}</p>
+                  </div>
+                )
+              })
+            }
+            <div
+              class="flex flex-col gap-4 border-r border-b bg-muted/20 p-6 sm:col-span-2 sm:p-7 lg:col-span-3"
+            >
+              <div class="flex items-center gap-3">
+                <span class="flex size-10 items-center justify-center bg-primary/10 text-primary ring-1 ring-primary/25">
+                  <RiPuzzle2Line size={20} aria-hidden="true" />
+                </span>
+                <h3 class="font-heading text-base font-medium">And more, out of the box</h3>
+              </div>
+              <ul class="flex flex-wrap gap-2">
+                {
+                  moreFeatures.map((feature) => (
+                    <li class="border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                      {feature}
+                    </li>
+                  ))
+                }
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Open source -->
+      <section aria-labelledby="open-source-title" class="border-t">
+        <div
+          class="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:px-8"
+        >
+          <div class="min-w-0">
+            <p class="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary sm:text-sm">
+              <RiGitBranchLine size={16} aria-hidden="true" />
+              Open source from day one
+            </p>
+            <h2
+              id="open-source-title"
+              class="max-w-xl font-heading text-3xl leading-tight font-medium tracking-[-0.03em] sm:text-4xl"
+            >
+              Yours to run, and yours to extend
+            </h2>
+            <p class="mt-5 max-w-xl text-base leading-7 text-muted-foreground">
+              The entire platform is open source, self-host it or use AstralBeam Cloud. It's
+              modular and built on open standards, so you can adopt it incrementally alongside the
+              stack you already have.
+            </p>
+            <div class="mt-8">
+              <WaitlistCta />
+            </div>
+          </div>
+
+          <div class="min-w-0">
+            <div class="border border-border bg-card/40 p-6 sm:p-8">
+              <div class="border-b pb-4">
+                <div class="font-heading text-sm font-medium">Modular · built on open standards</div>
+              </div>
+              <div class="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                <div>
+                  <div class="font-heading font-medium">Self-host</div>
+                  <p class="mt-1 leading-6 text-muted-foreground">Run the whole platform on your own infrastructure.</p>
+                </div>
+                <div>
+                  <div class="font-heading font-medium">Cloud</div>
+                  <p class="mt-1 leading-6 text-muted-foreground">Let us run it for you with managed infrastructure.</p>
+                </div>
+                <div>
+                  <div class="font-heading font-medium">Incremental</div>
+                  <p class="mt-1 leading-6 text-muted-foreground">Adopt one piece at a time, not all at once.</p>
+                </div>
+                <div>
+                  <div class="font-heading font-medium">Open standards</div>
+                  <p class="mt-1 leading-6 text-muted-foreground">MCP and open protocols, compatible with your stack.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom CTA -->
+      <section aria-labelledby="cta-title" class="border-t">
+        <div class="mx-auto flex max-w-7xl flex-col items-center gap-6 px-4 py-16 text-center sm:px-6 sm:py-24 lg:px-8">
+          <h2
+            id="cta-title"
+            class="max-w-3xl font-heading text-4xl leading-[1.05] font-medium tracking-[-0.03em] sm:text-5xl lg:text-6xl"
+          >
+            Ship agents in minutes, <span class="text-primary">not months</span>
+          </h2>
+          <p class="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
+            Get started with just a few lines of code. Join the waitlist for early access.
+          </p>
+          <div class="mt-2">
+            <WaitlistCta className="h-12 px-6" />
+          </div>
         </div>
       </section>
     </main>
