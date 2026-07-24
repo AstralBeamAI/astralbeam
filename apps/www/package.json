@@ -19,6 +19,7 @@
     "@astralbeam/ui": "workspace:*",
     "@astrojs/react": "6.0.1",
     "@astrojs/sitemap": "3.7.3",
+    "@remixicon/react": "catalog:",
     "astro": "7.1.1",
     "react": "catalog:",
     "react-dom": "catalog:"
