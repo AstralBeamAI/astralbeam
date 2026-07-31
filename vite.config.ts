@@ -20,6 +20,14 @@ export default defineConfig({
   fmt: {
     semi: false, // Prevents semicolons
     ignorePatterns: ["pnpm-lock.yaml", ...generatedPaths],
+    overrides: [
+      {
+        files: ["**/*.md"],
+        options: {
+          proseWrap: "never",
+        },
+      },
+    ],
   },
   lint: {
     plugins: ["typescript", "react", "jsx-a11y"],

@@ -8,8 +8,7 @@
     "generate-routes": "tsr generate",
     "build": "tsr generate && vp build",
     "preview": "vp preview",
-    "test": "vp test run --passWithNoTests",
-    "ui": "vpx shadcn@latest"
+    "test": "vp test run --passWithNoTests"
   },
   "dependencies": {
     "@astralbeam/brand": "workspace:*",

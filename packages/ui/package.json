@@ -11,7 +11,7 @@
     "./lib/*": "./src/lib/*.ts"
   },
   "scripts": {
-    "ui": "vpx shadcn@latest"
+    "ui": "vpx shadcn@4"
   },
   "dependencies": {
     "@base-ui/react": "catalog:",

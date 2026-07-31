@@ -2,14 +2,6 @@
 
 Shared AstralBeam brand assets live here. Logo files are available as SVG masters and generated PNGs under `src/logo`.
 
-## Importing assets
-
-Import assets through the package's exported paths:
-
-```ts
-import logoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-horizontal.svg"
-```
-
 ## Logo colors
 
 - Treat `packages/ui/src/styles.css` as the source of truth for logo colors.

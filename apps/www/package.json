@@ -11,8 +11,7 @@
     "deploy": "vp run -r build && wrangler deploy",
     "preview": "astro preview --host 0.0.0.0 --port 4001",
     "test": "astro check && astro build && node scripts/verify-build.mjs",
-    "typecheck": "astro check",
-    "ui": "vpx shadcn@latest"
+    "typecheck": "astro check"
   },
   "dependencies": {
     "@astralbeam/brand": "workspace:*",

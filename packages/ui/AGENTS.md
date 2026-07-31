@@ -2,6 +2,7 @@
 
 ## Adding shadcn Components
 
+- Keep all shadcn-generated components, hooks, and utilities in this package. Applications must import them through the `@astralbeam/ui` exports.
 - Add shadcn components through the package's configured CLI from the repository root:
 
   ```sh

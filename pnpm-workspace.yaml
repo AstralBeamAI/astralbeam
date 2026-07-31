@@ -17,14 +17,14 @@ catalog:
   "@remixicon/react": ^4.9.0
   "@tailwindcss/typography": ^0.5.16
   "@tailwindcss/vite": ^4
-  "@tanstack/devtools-vite": latest
-  "@tanstack/react-devtools": latest
-  "@tanstack/react-router": latest
-  "@tanstack/react-router-devtools": latest
-  "@tanstack/react-router-ssr-query": latest
-  "@tanstack/react-start": latest
-  "@tanstack/router-cli": latest
-  "@tanstack/router-plugin": latest
+  "@tanstack/devtools-vite": ^0.8.3
+  "@tanstack/react-devtools": ^0.10.9
+  "@tanstack/react-router": ^1.170.18
+  "@tanstack/react-router-devtools": ^1.167.0
+  "@tanstack/react-router-ssr-query": ^1.167.1
+  "@tanstack/react-start": ^1.168.32
+  "@tanstack/router-cli": ^1.167.21
+  "@tanstack/router-plugin": ^1.168.23
   "@testing-library/dom": ^10.4.1
   "@testing-library/react": ^16.3.2
   "@types/node": ^22
@@ -33,8 +33,11 @@ catalog:
   "@vitejs/plugin-react": ^6
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
+  drizzle-kit: ^1.0.0-rc.4
+  drizzle-orm: ^1.0.0-rc.4
   jsdom: ^28
-  nitro: npm:nitro-nightly@latest
+  nitro: npm:nitro-nightly@^4.0.0-20251010-091516-7cafddba
+  postgres: ^3.4.9
   react: ^19.2.6
   react-dom: ^19.2.6
   shadcn: ^4.13.0
