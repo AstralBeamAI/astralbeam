@@ -42,7 +42,6 @@ catalog:
   drizzle-kit: ^1.0.0-rc.4
   drizzle-orm: ^1.0.0-rc.4
   jsdom: ^28
-  # Pin the official Nitro v3 beta until the release line stabilizes.
   nitro: 3.0.260610-beta
   postgres: ^3.4.9
   react: ^19.2.6
