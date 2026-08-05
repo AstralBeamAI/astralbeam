@@ -1,0 +1,34 @@
+name: Push CI
+
+on:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ready:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1.16.1
+        with:
+          node-version-file: .node-version
+          cache: true
+          run-install: |
+            args:
+              - --frozen-lockfile
+
+      - name: Check, test, and build
+        run: vp run ready

@@ -12,6 +12,7 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 - [ ] Run `vp run check` and `vp run test` to format, lint, type check and test changes through the repository tasks.
 - [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
+- [ ] Run `vp run ready` before handing off changes; it runs the repository checks, tests, and production builds.
 
 <!--VITE PLUS END-->
 
@@ -20,6 +21,7 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 - Use a folder's `README.md` for consumers of its public API.
 - Use a folder's `AGENTS.md` for authors editing its contents.
 - Keep each Markdown prose paragraph and list item on one source line; rely on editor word wrap instead of inserting fixed-width line breaks.
+- For non-obvious code or configuration decisions, add a concise nearby comment explaining why with a link to authoritative upstream documentation or an issue; do not comment self-explanatory code.
 - Whenever you create an `AGENTS.md`, create a sibling `CLAUDE.md` symlink to it with `ln -s AGENTS.md CLAUDE.md`; never duplicate the instructions.
 
 ## Shared UI workflow
