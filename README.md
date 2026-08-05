@@ -1,53 +1,25 @@
 # AstralBeam
 
-Vite+ monorepo with a TanStack Start application and shared shadcn/ui components.
+A Vite+ monorepo with a TanStack Start application and shared shadcn/ui components.
 
 ```text
 apps/
-  webapp/       @astralbeam/webapp
-  www/          @astralbeam/www
+  webapp/       @astralbeam/webapp  # TanStack Start application
+  www/          @astralbeam/www     # Public website
 packages/
-  brand/        @astralbeam/brand
-  db/           @astralbeam/db
-  ui/           @astralbeam/ui
+  brand/        @astralbeam/brand   # Approved SVG and PNG brand assets
+  db/           @astralbeam/db      # Server-only Drizzle client and schemas
+  ui/           @astralbeam/ui      # Shared styles, components, and utilities
 ```
 
-## Run the applications
+## Local development
 
-Use the included devcontainer, then install the workspace and start the product application:
+Choose either the included devcontainer or the direct macOS workflow. Follow [`SETUP.md`](SETUP.md) for prerequisites and the PostgreSQL and Valkey service lifecycle.
 
 ```sh
 vp install
-vp run dev
-```
-
-Run the public website separately:
-
-```sh
-vp run @astralbeam/www#dev
-```
-
-The devcontainer provides PostgreSQL and exports the `DATABASE_URL` required by database-backed server modules.
-
-## Shared packages
-
-- [`@astralbeam/brand`](packages/brand/README.md) exposes approved SVG and PNG brand assets.
-- [`@astralbeam/db`](packages/db/README.md) exposes the server-only Drizzle client and schema definitions.
-- [`@astralbeam/ui`](packages/ui/README.md) exposes shared styles, components, and utilities.
-
-## Validate and build
-
-Run formatting, linting, and TypeScript checks:
-
-```sh
-vp run check
-```
-
-Run tests and build the product application:
-
-```sh
-vp run test
-vp run build
+vp run webapp # Starts app on http://localhost:3000
+vp run www # Starts website on http://localhost:3001
 ```
 
 Add shadcn components to the shared UI package:
@@ -55,6 +27,26 @@ Add shadcn components to the shared UI package:
 ```sh
 vp run ui add button
 ```
+
+## Validate and build
+
+- Run formatting, linting, and TypeScript checks:
+
+  ```sh
+  vp run check
+  ```
+
+- Run tests:
+
+  ```sh
+  vp run test
+  ```
+
+- Build the product application:
+
+  ```sh
+  vp run @astralbeam/webapp#build
+  ```
 
 ## Tasks
 

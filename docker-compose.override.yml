@@ -1,0 +1,10 @@
+# Host workflows load this automatically; explicit devcontainer files skip it: https://docs.docker.com/compose/how-tos/multiple-compose-files/merge/
+# Loopback avoids publishing on every host interface: https://docs.docker.com/reference/compose-file/services/#ports
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+  valkey:
+    ports:
+      - "127.0.0.1:${VALKEY_HOST_PORT:-6379}:6379"

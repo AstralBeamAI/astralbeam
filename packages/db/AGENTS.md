@@ -62,9 +62,7 @@ Run from the repository root:
 ```sh
 vp run @astralbeam/db#db generate
 vp run @astralbeam/db#db check
-vp run check
-vp run test
-vp run build
+vp run ready
 git diff --check
 ```
 
