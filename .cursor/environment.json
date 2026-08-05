@@ -1,0 +1,31 @@
+{
+  "name": "AstralBeam",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "install": "vp env install && vp install --frozen-lockfile",
+  "start": "service docker start && docker compose up -d --wait",
+  "ports": [
+    {
+      "name": "Product application",
+      "port": 3000
+    },
+    {
+      "name": "Public website",
+      "port": 3001
+    }
+  ],
+  "terminals": [
+    {
+      "name": "Product application",
+      "command": "vp run webapp",
+      "description": "Runs the TanStack Start application on port 3000."
+    },
+    {
+      "name": "Public website",
+      "command": "vp run www",
+      "description": "Runs the Astro website on port 3001."
+    }
+  ]
+}

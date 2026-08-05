@@ -1,4 +1,4 @@
-import { defineConfig } from "vite-plus"
+import { defineConfig, type UserConfig } from "vite-plus"
 
 const generatedPaths = [
   "routeTree.gen.ts",
@@ -12,7 +12,9 @@ const generatedPaths = [
   "dist",
 ]
 
-export default defineConfig({
+// Shared app config via imports: https://viteplus.dev/guide/monorepo#composing-configuration-files
+export const sharedViteConfig = {
+  envDir: import.meta.dirname,
   check: {
     fmt: true,
     lint: true,
@@ -48,6 +50,11 @@ export default defineConfig({
     ignorePatterns: generatedPaths,
   },
   resolve: { tsconfigPaths: true },
+} satisfies UserConfig
+
+export default defineConfig({
+  ...sharedViteConfig,
+  // run.cache is workspace-root config: https://viteplus.dev/guide/cache#workspace-config
   run: {
     cache: {
       scripts: false,

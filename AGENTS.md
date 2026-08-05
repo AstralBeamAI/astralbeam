@@ -36,5 +36,9 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 - Run database commands from the repository root through `vp run @astralbeam/db#db <command>`.
 - After changing a schema, run `generate` with a descriptive `--name`, inspect the generated SQL, run `check`, and commit the schema and migration files together.
 - Use `migrate` for checked-in migrations. Treat `push` as a local prototyping command, preview it with `push --explain`, and do not use it as the normal deployment workflow.
-- Import `@astralbeam/db` only from server-only modules.
+- Import `@astralbeam/db` and keep database operations in server-only modules.
 - Use the environment-provided `DATABASE_URL`; do not commit credentials or package-local environment files.
+
+## Cursor Cloud
+
+- For UI changes, verify the affected flow through browser computer use, attach a screenshot or video artifact, then run `vp run ready`.

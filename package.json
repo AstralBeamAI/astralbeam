@@ -4,19 +4,18 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "build": "vp run @astralbeam/webapp#build",
     "check": "vp check",
     "check:fix": "vp check --fix",
     "db": "vp run @astralbeam/db#db",
-    "dev": "vp run @astralbeam/webapp#dev",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
-    "preview": "vp run @astralbeam/webapp#preview",
-    "ready": "vp run check && vp run test && vp run build",
+    "ready": "vp run check && vp run test && vp run @astralbeam/webapp#build",
     "test": "vp run -r test",
-    "ui": "vp run @astralbeam/ui#ui"
+    "ui": "vp run @astralbeam/ui#ui",
+    "webapp": "vp run @astralbeam/webapp#dev",
+    "www": "vp run @astralbeam/www#dev"
   },
   "devDependencies": {
     "vite": "catalog:",

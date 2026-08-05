@@ -1,10 +1,15 @@
 {
   "name": "${localWorkspaceFolderBasename}",
-  "dockerComposeFile": "docker-compose.yml",
+  // The root file makes each worktree directory its Compose project namespace: https://docs.docker.com/compose/how-tos/project-name/
+  "dockerComposeFile": ["../docker-compose.yml", "docker-compose.yml"],
   "service": "astralbeam",
   "workspaceFolder": "/workspaces/astralbeam",
-  // https://code.visualstudio.com/remote/advancedcontainers/set-docker-compose-project-name
-  "initializeCommand": "echo COMPOSE_PROJECT_NAME=${localWorkspaceFolderBasename} > .devcontainer/.env",
+  // .env.development defaults to 127.0.0.1 for host workflows, but inside this container that loops back to astralbeam rather than its dependencies.
+  // Override only editor subprocesses with Compose service DNS https://code.visualstudio.com/remote/advancedcontainers/environment-variables
+  "remoteEnv": {
+    "POSTGRES_HOST": "postgres",
+    "VALKEY_HOST": "valkey"
+  },
   "customizations": {
     "vscode": {
       // Keep in sync with .vscode/extensions.json recommendations.

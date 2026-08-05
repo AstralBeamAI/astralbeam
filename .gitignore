@@ -1,5 +1,4 @@
 tmp/
-.devcontainer/.env
 
 # Logs
 logs
@@ -15,11 +14,6 @@ node_modules
 dist
 dist-ssr
 *.local
-
-# dotenv environment variable files
-.env
-.env.*
-!.env.example
 
 # Editor directories and files
 .vscode/*

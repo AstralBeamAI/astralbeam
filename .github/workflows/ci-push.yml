@@ -30,5 +30,9 @@ jobs:
             args:
               - --frozen-lockfile
 
+      - name: Start test dependencies
+        # --wait blocks until services are healthy
+        run: docker compose up --detach --wait
+
       - name: Check, test, and build
         run: vp run ready

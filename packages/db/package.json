@@ -18,7 +18,8 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "drizzle-kit": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite": "catalog:"
   },
   "peerDependencies": {
     "@tanstack/react-start": "catalog:"

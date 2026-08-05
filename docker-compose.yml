@@ -1,0 +1,36 @@
+x-postgres-env: &postgres-env
+  POSTGRES_USER: ${POSTGRES_USER:-astralbeam}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-astralbeam}
+  POSTGRES_DB: ${POSTGRES_DB:-astralbeam}
+  POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+
+x-valkey-env: &valkey-env
+  VALKEY_HOST: ${VALKEY_HOST:-valkey}
+  VALKEY_PORT: ${VALKEY_PORT:-6379}
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      <<: *postgres-env
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  valkey:
+    image: valkey/valkey:9
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "60", "1", "--loglevel", "warning"]
+    environment:
+      <<: *valkey-env
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+
+volumes:
+  postgres-data:
+  valkey-data:

@@ -1,0 +1,22 @@
+# Codex desktop reads this file for Local and Worktree modes; cloud lifecycle settings remain in Codex Settings.
+# https://learn.chatgpt.com/docs/environments/local-environment
+version = 1
+name = "AstralBeam"
+
+[setup]
+script = "bash scripts/setup.sh"
+
+[[actions]]
+name = "Product application"
+icon = "run"
+command = "vp run webapp"
+
+[[actions]]
+name = "Public website"
+icon = "run"
+command = "vp run www"
+
+[[actions]]
+name = "Ready"
+icon = "tool"
+command = "vp run ready"
