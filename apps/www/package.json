@@ -29,6 +29,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
     "sharp": "^0.35.2",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",

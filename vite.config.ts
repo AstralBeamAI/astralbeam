@@ -38,6 +38,7 @@ export default defineConfig({
     },
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
+      "react/react-compiler": "error",
       "vite-plus/prefer-vite-plus-imports": "error",
     },
     options: {
