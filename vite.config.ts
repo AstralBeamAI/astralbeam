@@ -1,6 +1,8 @@
 import { defineConfig, type UserConfig } from "vite-plus"
 
 const generatedPaths = [
+  ".agents/skills",
+  ".claude/skills",
   "routeTree.gen.ts",
   ".astro",
   "node_modules",
@@ -31,23 +33,57 @@ export const sharedViteConfig = {
       },
     ],
   },
+
+  // Use Oxlint's native categories and plugins instead of a third-party shared configuration.
+  // https://oxc.rs/docs/guide/usage/linter/config.html#enable-groups-of-rules-with-categories
   lint: {
-    plugins: ["typescript", "react", "jsx-a11y"],
+    plugins: [
+      "eslint",
+      "typescript",
+      "unicorn",
+      "react",
+      "react-perf",
+      "oxc",
+      "import",
+      "jsx-a11y",
+      "promise",
+      "vitest",
+    ],
     env: {
       builtin: true,
       browser: true,
       node: true,
     },
+    categories: {
+      correctness: "error",
+      suspicious: "error",
+      perf: "error",
+    },
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
+      // Stylesheets and TanStack's server-only guard are intentionally loaded for side effects.
+      "import/no-unassigned-import": [
+        "error",
+        { allow: ["**/*.css", "@tanstack/react-start/server-only"] },
+      ],
+      // The automatic JSX runtime does not require React to be imported in every TSX file.
+      "react/react-in-jsx-scope": "off",
+      // React Compiler lint is experimental and intentionally absent from category presets.
       "react/react-compiler": "error",
       "vite-plus/prefer-vite-plus-imports": "error",
     },
     options: {
+      reportUnusedDisableDirectives: "error",
       typeAware: true,
       typeCheck: true,
     },
     ignorePatterns: generatedPaths,
+    overrides: [
+      {
+        files: ["apps/www/src/**/*.astro"],
+        env: { astro: true },
+      },
+    ],
   },
   resolve: { tsconfigPaths: true },
 } satisfies UserConfig

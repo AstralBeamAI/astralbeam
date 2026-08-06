@@ -4,6 +4,14 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
 import appCss from "../styles.css?url"
 
+const devtoolsConfig = { position: "bottom-right" } as const
+const devtoolsPlugins = [
+  {
+    name: "Tanstack Router",
+    render: <TanStackRouterDevtoolsPanel />,
+  },
+]
+
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -42,17 +50,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <TanStackDevtools
-          config={{
-            position: "bottom-right",
-          }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+        <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />
         <Scripts />
       </body>
     </html>

@@ -29,6 +29,8 @@ dist-ssr
 
 # AI agent worktrees
 .claude/worktrees/
+# Skills are reviewed and refreshed from the upstream sources
+skills-lock.json
 !.vscode/
 !.vscode/settings.json
 !.vscode/extensions.json

@@ -1,8 +1,10 @@
 {
-  "extends": "astro/tsconfigs/strict",
+  "extends": ["../../tsconfig.json", "astro/tsconfigs/strictest"],
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist"],
   "compilerOptions": {
+    "checkJs": true,
+    "lib": ["ES2025", "DOM"],
     "paths": {
       "@/*": ["./src/*"]
     },
