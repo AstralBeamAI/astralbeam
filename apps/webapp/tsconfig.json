@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.json",
   "include": ["**/*.ts", "**/*.tsx"],
   "compilerOptions": {
+    "lib": ["ES2025", "DOM"],
     "paths": {
       "@/*": ["./src/*"]
     },

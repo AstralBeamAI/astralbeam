@@ -23,3 +23,9 @@
   ```
 
 - Preserve these comments when the component is regenerated. Reconcile the regenerated output with all documented local edits and update the note if those edits change.
+
+## Component quality
+
+- Prefer native semantic elements, accessible names, keyboard-operable interactions, visible focus, and correct label and description relationships before adding ARIA.
+- Preserve consumer props, refs, variants, and `className` composition when wrapping Base UI or shadcn primitives; do not hide required accessibility behavior behind application-specific defaults.
+- Keep components compatible with React Compiler. Avoid manual memoization, effect-driven derived state, and lint suppressions unless a measured case and upstream guidance justify them.

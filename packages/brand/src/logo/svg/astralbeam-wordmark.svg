@@ -4,7 +4,7 @@
   <metadata>
     AstralBeam wordmark construction:
     - Reusable id: #astralbeam-wordmark.
-    - Same personality as the current wordmark.
+    - Open-source typeface: Montserrat.
     - Letter spacing tightened from 9 to 6 to pair with the clearer monogram.
   </metadata>
   <defs>
@@ -13,12 +13,12 @@
         x="260"
         y="76"
         fill="currentColor"
-        font-family="Avenir Next, Avenir, Montserrat, Helvetica Neue, Arial, sans-serif"
+        font-family="Montserrat, sans-serif"
         font-size="82"
-        font-weight="300"
+        font-weight="500"
         letter-spacing="6"
         text-anchor="middle">AstralBeam</text>
     </symbol>
   </defs>
-  <use href="#astralbeam-wordmark" color="oklch(0.148 0.004 228.8)"/>
+  <use href="#astralbeam-wordmark" width="520" height="100" color="oklch(0.148 0.004 228.8)"/>
 </svg>

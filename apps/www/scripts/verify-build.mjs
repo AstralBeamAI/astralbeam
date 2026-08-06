@@ -22,10 +22,12 @@ const expectedFiles = [
   "sitemap-index.xml",
 ]
 
-for (const file of expectedFiles) {
-  const result = await stat(new URL(file, distUrl))
-  assert.equal(result.isFile(), true, `${file} was not generated`)
-}
+await Promise.all(
+  expectedFiles.map(async (file) => {
+    const result = await stat(new URL(file, distUrl))
+    assert.equal(result.isFile(), true, `${file} was not generated`)
+  }),
+)
 
 const robots = await readFile(new URL("robots.txt", distUrl), "utf8")
 assert.match(robots, /https:\/\/www\.astralbeam\.com\/sitemap-index\.xml/)

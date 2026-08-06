@@ -1,4 +1,4 @@
-import { Button } from "@astralbeam/ui/components/button"
+import { buttonVariants } from "@astralbeam/ui/components/button"
 import { cn } from "@astralbeam/ui/lib/utils"
 import { RiArrowRightLine } from "@remixicon/react"
 
@@ -18,15 +18,14 @@ export function WaitlistCta({
   showArrow = true,
 }: WaitlistCtaProps) {
   return (
-    <Button
-      variant={variant}
-      className={cn("h-11 gap-2 px-5 text-sm", className)}
-      render={
-        <a href={WAITLIST_URL} target="_blank" rel="noopener noreferrer">
-          {label}
-          {showArrow ? <RiArrowRightLine /> : null}
-        </a>
-      }
-    />
+    <a
+      href={WAITLIST_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(buttonVariants({ variant }), "h-11 gap-2 px-5 text-sm", className)}
+    >
+      {label}
+      {showArrow ? <RiArrowRightLine /> : null}
+    </a>
   )
 }

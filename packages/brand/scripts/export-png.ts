@@ -38,7 +38,7 @@ try {
 const svgFiles = entries
   .filter((entry) => entry.isFile() && extname(entry.name).toLowerCase() === ".svg")
   .map((entry) => entry.name)
-  .sort()
+  .toSorted()
 
 if (svgFiles.length === 0) {
   throw new Error(`No SVG files found in ${svgDirectory}`)
@@ -85,6 +85,8 @@ try {
     }),
   )
 
+  // Process one image at a time to bound Sharp/libvips work and memory. https://sharp.pixelplumbing.com/performance/#parallelism-and-concurrency
+  /* oxlint-disable no-await-in-loop */
   for (const svgFile of svgFiles) {
     const pngFile = `${svgFile.slice(0, -extname(svgFile).length)}.png`
     const pngPath = join(pngDirectory, pngFile)
@@ -137,6 +139,7 @@ try {
 
     console.log(`Wrote ${relative(packageDirectory, pngPath)}`)
   }
+  /* oxlint-enable no-await-in-loop */
 } finally {
   await rm(renderDirectory, { recursive: true, force: true })
 }
