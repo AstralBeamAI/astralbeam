@@ -9,6 +9,7 @@ assert.match(index, /Drop-in frontend SDK/)
 assert.match(index, /mailto:hello@astralbeam\.ai/)
 assert.match(index, /https:\/\/www\.astralbeam\.com\//)
 assert.match(index, /application\/ld\+json/)
+assert.match(index, /product-screenshot[^"]*\.(?:webp|png)/)
 assert.doesNotMatch(index, /<script[^>]+src=/)
 
 const expectedFiles = [
