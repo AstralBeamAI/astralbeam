@@ -1,0 +1,28 @@
+{
+  "name": "@astralbeam/www2",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cinematic landing page prototype for https://www.astralbeam.ai/",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0 --port 3002",
+    "build": "astro build",
+    "deploy": "astro build && wrangler deploy",
+    "preview": "astro preview --host 0.0.0.0 --port 4002",
+    "test": "astro check && astro build",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@fontsource-variable/space-grotesk": "^5.2.8",
+    "@fontsource/anton": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "astro": "7.1.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.9",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
