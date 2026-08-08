@@ -6,6 +6,7 @@ A Vite+ monorepo with a TanStack Start application and shared shadcn/ui componen
 apps/
   webapp/       @astralbeam/webapp  # TanStack Start application
   www/          @astralbeam/www     # Public website
+  www-old/      @astralbeam/www-old # Previous public website
 packages/
   brand/        @astralbeam/brand   # Approved SVG and PNG brand assets
   db/           @astralbeam/db      # Server-only Drizzle client and schemas

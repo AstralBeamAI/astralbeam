@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "www2-astralbeam-ai",
+  "name": "www-old-astralbeam-ai",
   "compatibility_date": "2026-07-21",
   "assets": {
     "directory": "./dist",

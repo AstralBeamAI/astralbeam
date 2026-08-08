@@ -53,9 +53,7 @@ function initStarfield() {
       const alpha = (0.25 + 0.55 * s.depth) * (0.72 + 0.28 * Math.sin(s.twinkle))
       const size = 0.5 + s.depth * 1.3
       ctx!.fillStyle =
-        s.depth > 0.82
-          ? `rgba(133, 246, 219, ${alpha})`
-          : `rgba(214, 235, 240, ${alpha})`
+        s.depth > 0.82 ? `rgba(133, 246, 219, ${alpha})` : `rgba(214, 235, 240, ${alpha})`
       ctx!.fillRect(s.x, y, size, size)
     }
 
