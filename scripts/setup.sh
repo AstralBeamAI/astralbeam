@@ -71,7 +71,8 @@ install_vite_plus() {
 
 install_workspace_packages() {
   [ -f "$WORKSPACE_PATH/package.json" ] || return 0
-  (cd "$WORKSPACE_PATH" && vp install --frozen-lockfile)
+   # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
+  (cd "$WORKSPACE_PATH" && SHARP_IGNORE_GLOBAL_LIBVIPS=1 vp install --frozen-lockfile)
 }
 
 run_install_extras() {

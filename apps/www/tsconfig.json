@@ -1,8 +1,9 @@
 {
-  "extends": "astro/tsconfigs/strict",
+  "extends": ["../../tsconfig.json", "astro/tsconfigs/strict"],
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist"],
   "compilerOptions": {
+    "lib": ["ES2025", "DOM", "DOM.Iterable"],
     "paths": {
       "@/*": ["./src/*"]
     },
