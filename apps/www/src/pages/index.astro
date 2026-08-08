@@ -1,14 +1,7 @@
 ---
-import "@fontsource/anton"
-import "@fontsource/jetbrains-mono"
-import "@fontsource/jetbrains-mono/700.css"
-import "@fontsource-variable/space-grotesk"
-import "@/styles/global.css"
+import SiteLayout from "@/layouts/SiteLayout.astro"
+import { siteMetadata } from "@/lib/site"
 
-const title = "AstralBeam - Ship agents in minutes, not months"
-const description =
-  "Open-source agent infrastructure. One service to add production-ready agents to any app: streaming, history, tools, billing, auth, and evals."
-const canonicalUrl = "https://www.astralbeam.ai/"
 const waitlistUrl = "https://airtable.com/app5bJZxFB5NoPBUX/paghAGYUoz5JoIQDs/form"
 
 const systems = [
@@ -69,22 +62,7 @@ const bootChecks = [
 ]
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
-    <link rel="canonical" href={canonicalUrl} />
-    <meta name="theme-color" content="#04080a" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content={canonicalUrl} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  </head>
-  <body>
+<SiteLayout title={siteMetadata.title} description={siteMetadata.description} canonicalPath="/">
     <!-- fixed deep-space starfield -->
     <canvas id="starfield" aria-hidden="true"></canvas>
 
@@ -399,6 +377,5 @@ const bootChecks = [
       <span class="footer-status"><i class="blink-dot"></i>ALL SYSTEMS NOMINAL</span>
     </footer>
 
-    <script src="../scripts/main.ts"></script>
-  </body>
-</html>
+  <script src="../scripts/main.ts"></script>
+</SiteLayout>

@@ -8,12 +8,13 @@
   "scripts": {
     "dev": "astro dev --host 0.0.0.0 --port 3001",
     "build": "astro build",
-    "deploy": "astro build && wrangler deploy",
+    "deploy": "vp run test && wrangler deploy",
     "preview": "astro preview --host 0.0.0.0 --port 4001",
-    "test": "astro check && astro build",
+    "test": "astro check && astro build && vp test run",
     "typecheck": "astro check"
   },
   "dependencies": {
+    "@astrojs/sitemap": "3.7.3",
     "@fontsource-variable/space-grotesk": "^5.2.8",
     "@fontsource/anton": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@astrojs/check": "0.9.9",
     "@types/node": "catalog:",
+    "sharp": "^0.35.2",
     "typescript": "catalog:",
     "wrangler": "catalog:"
   }
