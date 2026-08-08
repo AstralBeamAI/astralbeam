@@ -61,10 +61,17 @@ export const sharedViteConfig = {
     },
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
-      // Stylesheets and TanStack's server-only guard are intentionally loaded for side effects.
+      // Stylesheets, Fontsource fonts (CSS entry points), and TanStack's server-only guard are intentionally loaded for side effects.
       "import/no-unassigned-import": [
         "error",
-        { allow: ["**/*.css", "@tanstack/react-start/server-only"] },
+        {
+          allow: [
+            "**/*.css",
+            "@fontsource/**",
+            "@fontsource-variable/**",
+            "@tanstack/react-start/server-only",
+          ],
+        },
       ],
       // The automatic JSX runtime does not require React to be imported in every TSX file.
       "react/react-in-jsx-scope": "off",

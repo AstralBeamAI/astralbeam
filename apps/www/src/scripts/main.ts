@@ -10,9 +10,12 @@ interface Star {
 }
 
 function initStarfield() {
-  const canvas = document.getElementById("starfield") as HTMLCanvasElement | null
-  const ctx = canvas?.getContext("2d")
-  if (!canvas || !ctx) return
+  const el = document.getElementById("starfield")
+  const maybeCtx = el instanceof HTMLCanvasElement ? el.getContext("2d") : null
+  if (!maybeCtx) return
+  // Rebind after the guard: hoisted inner functions don't see narrowing of `maybeCtx`.
+  const ctx = maybeCtx
+  const canvas = ctx.canvas
 
   let width = 0
   let height = 0
@@ -26,9 +29,9 @@ function initStarfield() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     width = window.innerWidth
     height = window.innerHeight
-    canvas!.width = width * dpr
-    canvas!.height = height * dpr
-    ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
+    canvas.width = width * dpr
+    canvas.height = height * dpr
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     const count = Math.min(320, Math.floor((width * height) / 6500))
     stars = Array.from({ length: count }, () => ({
       x: Math.random() * width,
@@ -157,7 +160,8 @@ function initReveals() {
     (entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue
-        const el = entry.target as HTMLElement
+        const el = entry.target
+        if (!(el instanceof HTMLElement)) continue
         el.classList.add("in-view")
         if (el.classList.contains("scramble") && !scrambled.has(el)) {
           scrambled.add(el)
