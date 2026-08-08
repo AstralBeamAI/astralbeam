@@ -44,7 +44,7 @@ function initStarfield() {
   function draw(now: number) {
     const dt = Math.min(50, now - last)
     last = now
-    ctx!.clearRect(0, 0, width, height)
+    ctx.clearRect(0, 0, width, height)
 
     const scroll = window.scrollY
     for (const s of stars) {
@@ -55,9 +55,9 @@ function initStarfield() {
       s.twinkle += dt * 0.0012 * (0.5 + s.depth)
       const alpha = (0.25 + 0.55 * s.depth) * (0.72 + 0.28 * Math.sin(s.twinkle))
       const size = 0.5 + s.depth * 1.3
-      ctx!.fillStyle =
+      ctx.fillStyle =
         s.depth > 0.82 ? `rgba(133, 246, 219, ${alpha})` : `rgba(214, 235, 240, ${alpha})`
-      ctx!.fillRect(s.x, y, size, size)
+      ctx.fillRect(s.x, y, size, size)
     }
 
     // occasional shooting star
@@ -80,7 +80,7 @@ function initStarfield() {
       if (streak.life <= 0 || streak.x > width + 60) {
         streak = null
       } else {
-        const grad = ctx!.createLinearGradient(
+        const grad = ctx.createLinearGradient(
           streak.x - streak.vx * 90,
           streak.y - streak.vy * 90,
           streak.x,
@@ -88,12 +88,12 @@ function initStarfield() {
         )
         grad.addColorStop(0, "rgba(55, 242, 201, 0)")
         grad.addColorStop(1, `rgba(180, 250, 232, ${0.7 * streak.life})`)
-        ctx!.strokeStyle = grad
-        ctx!.lineWidth = 1.2
-        ctx!.beginPath()
-        ctx!.moveTo(streak.x - streak.vx * 90, streak.y - streak.vy * 90)
-        ctx!.lineTo(streak.x, streak.y)
-        ctx!.stroke()
+        ctx.strokeStyle = grad
+        ctx.lineWidth = 1.2
+        ctx.beginPath()
+        ctx.moveTo(streak.x - streak.vx * 90, streak.y - streak.vy * 90)
+        ctx.lineTo(streak.x, streak.y)
+        ctx.stroke()
       }
     }
 
