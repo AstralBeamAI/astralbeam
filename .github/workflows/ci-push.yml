@@ -5,7 +5,7 @@ on:
     branches: ["**"]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,21 +18,29 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          persist-credentials: false
 
       - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1.16.1
+        uses: voidzero-dev/setup-vp@v1.17.0
         with:
           node-version-file: .node-version
           cache: true
-          run-install: |
-            args:
-              - --frozen-lockfile
+          # The shared setup script performs the frozen install after provisioning system packages.
+          run-install: false
+
+      - name: Set up workspace
+        run: |
+          ./scripts/setup.sh
 
       - name: Start test dependencies
         # --wait blocks until services are healthy
         run: docker compose up --detach --wait
 
+      - name: Auto-fix checks
+        run: vp run -r check:fix
+
       - name: Check, test, and build
         run: vp run ready
+
+      - name: Push auto-fixes
+        run: |
+          git diff --quiet || (git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit --all --message "chore: apply CI auto-fixes" && git push)

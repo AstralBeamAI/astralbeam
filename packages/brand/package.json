@@ -9,6 +9,7 @@
     "./logo/png/*": "./src/logo/png/*"
   },
   "scripts": {
+    "check:fix": "vp check --fix && vp run generate:png",
     "generate:png": "node scripts/export-png.ts"
   },
   "devDependencies": {

@@ -20,5 +20,5 @@
         text-anchor="middle">AstralBeam</text>
     </symbol>
   </defs>
-  <use href="#astralbeam-wordmark" width="520" height="100" color="oklch(0.148 0.004 228.8)"/>
+  <use href="#astralbeam-wordmark" width="520" height="100" color="#07191d"/>
 </svg>
