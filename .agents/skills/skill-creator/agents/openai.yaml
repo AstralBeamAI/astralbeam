@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Creator"
+  short_description: "Create, test, and improve agent skills"
+  default_prompt: "Use $skill-creator to create or improve a reusable project skill and validate it with realistic examples."
