@@ -1,0 +1,10 @@
+AstralBeam skill-creator derivative
+
+Derived from these Apache-2.0 sources:
+
+- OpenAI skill-creator, https://github.com/openai/skills/tree/49f948faa9258a0c61caceaf225e179651397431/skills/.system/skill-creator
+- Anthropic skill-creator, https://github.com/anthropics/skills/tree/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/skill-creator
+
+See LICENSE.txt. Anthropic upstream: Copyright 2026 Anthropic, PBC.
+
+The pinned links record the merged revisions; SKILL.md links to current guidance.

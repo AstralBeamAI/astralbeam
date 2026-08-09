@@ -58,7 +58,7 @@ install_ubuntu_packages() {
     zsh \
     vim nano \
     iputils-ping net-tools procps openssh-client \
-    fontconfig fonts-montserrat pkg-config python3 \
+    fontconfig fonts-montserrat pkg-config python3 python3-yaml \
     xdg-utils \
     liburing-dev
 
