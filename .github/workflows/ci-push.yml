@@ -22,17 +22,30 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1.16.1
+        uses: voidzero-dev/setup-vp@v1.17.0
         with:
           node-version-file: .node-version
           cache: true
-          run-install: |
-            args:
-              - --frozen-lockfile
+          # The shared setup script performs the frozen install after provisioning system packages.
+          run-install: false
+
+      - name: Set up workspace
+        run: |
+          ./scripts/setup.sh
 
       - name: Start test dependencies
         # --wait blocks until services are healthy
         run: docker compose up --detach --wait
 
+      - name: Auto-fix checks
+        run: vp run -r check:fix
+
       - name: Check, test, and build
         run: vp run ready
+
+      - name: Commit and push auto-fixes
+        uses: ./.github/actions/commit-and-push
+        with:
+          commit-message: "chore: apply CI auto-fixes"
+          app-client-id: ${{ vars.AUTOFIX_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.AUTOFIX_APP_PRIVATE_KEY }}

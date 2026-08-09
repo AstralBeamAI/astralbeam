@@ -30,6 +30,8 @@ vp run ui add button
 
 ## Validate and build
 
+Use `vp run -r <script>` for tasks that must run in every workspace package; for example, `vp run -r check:fix` also runs package-specific generators.
+
 - Run formatting, linting, and TypeScript checks:
 
   ```sh

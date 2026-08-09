@@ -15,6 +15,15 @@ case "$platform_name" in
     ;;
 esac
 
+# GitHub-hosted Ubuntu runners use sudo for system packages; container builds already run as root. https://docs.github.com/en/actions/how-tos/manage-runners/github-hosted-runners/customize-runners#installing-software-on-ubuntu-runners
+run_as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
 if [ -z "${WORKSPACE_PATH:-}" ]; then
   WORKSPACE_PATH=$(git rev-parse --show-toplevel 2>/dev/null || true)
   WORKSPACE_PATH=${WORKSPACE_PATH:-/workspaces/astralbeam}
@@ -32,12 +41,17 @@ if [ ! -r "$NODE_VERSION_FILE" ]; then
   exit 1
 fi
 
+install_macos_packages() {
+  [ "$platform_name" = Darwin ] || return 0
+  if ! brew list --cask font-montserrat >/dev/null 2>&1; then
+    brew install --cask font-montserrat
+  fi
+}
+
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -yq
-  apt-get dist-upgrade -yq
-  apt-get install -y --no-install-recommends \
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get update -yq
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential libatomic1 ca-certificates locales lsb-release tzdata \
     curl wget \
     git \
@@ -49,14 +63,14 @@ install_ubuntu_packages() {
     liburing-dev
 
   # Host-mounted workspaces often have a different UID than the container user.
-  if ! git config --system --get-all safe.directory | grep -qxF '*'; then
-    git config --system --add safe.directory '*'
+  if ! run_as_root git config --system --get-all safe.directory | grep -qxF '*'; then
+    run_as_root git config --system --add safe.directory '*'
   fi
 }
 
 install_vite_plus() {
   # Install the full development/build toolchain; production images need a separate runtime stage: https://viteplus.dev/guide/docker#production-ssr-node-js-server-app
-  if [ ! -x "$VP_HOME/bin/vp" ]; then
+  if ! command -v vp >/dev/null 2>&1; then
     mkdir -p "$VP_HOME"
     curl -fsSL https://vite.plus | bash
     # The installer pre-provisions a default Node.js; use the project pin instead.
@@ -95,6 +109,7 @@ run_install_extras() {
   done
 }
 
+install_macos_packages
 install_ubuntu_packages
 install_vite_plus
 install_workspace_packages
