@@ -1,0 +1,39 @@
+name: Commit and push
+description: Commit all non-ignored worktree changes and push them with a GitHub App token.
+
+inputs:
+  commit-message: { description: Message for the generated commit, required: true }
+  app-client-id: { description: GitHub App client ID, required: true }
+  app-private-key: { description: GitHub App private key, required: true }
+
+runs:
+  using: composite
+  steps:
+    - name: Commit changes
+      id: commit
+      shell: bash
+      env:
+        COMMIT_MESSAGE: ${{ inputs.commit-message }}
+      run: |
+        git add --all
+        if ! git diff --cached --quiet; then
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit --message "$COMMIT_MESSAGE"
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    # A GITHUB_TOKEN push cannot trigger CI for the new commit. https://docs.github.com/en/actions/concepts/security/github_token#when-github_token-triggers-workflow-runs
+    - name: Create GitHub App token
+      id: app_token
+      if: steps.commit.outputs.committed == 'true'
+      uses: actions/create-github-app-token@v3
+      with:
+        client-id: ${{ inputs.app-client-id }}
+        private-key: ${{ inputs.app-private-key }}
+        permission-contents: write
+
+    - name: Push commit
+      if: steps.commit.outputs.committed == 'true'
+      shell: bash
+      env:
+        APP_TOKEN: ${{ steps.app_token.outputs.token }}
+      run: git push "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
