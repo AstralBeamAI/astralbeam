@@ -51,7 +51,6 @@ install_macos_packages() {
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
   run_as_root env DEBIAN_FRONTEND=noninteractive apt-get update -yq
-  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -yq
   run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential libatomic1 ca-certificates locales lsb-release tzdata \
     curl wget \
