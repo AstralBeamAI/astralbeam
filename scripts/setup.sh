@@ -50,22 +50,29 @@ install_macos_packages() {
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
-  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get update -yq
-  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    build-essential libatomic1 ca-certificates locales lsb-release tzdata \
-    curl wget \
-    git \
-    zsh \
-    vim nano \
-    iputils-ping net-tools procps openssh-client \
-    fontconfig fonts-montserrat pkg-config python3 python3-yaml \
-    xdg-utils \
-    liburing-dev
 
-  # Host-mounted workspaces often have a different UID than the container user.
-  if ! run_as_root git config --system --get-all safe.directory | grep -qxF '*'; then
-    run_as_root git config --system --add safe.directory '*'
-  fi
+  run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
+apt-get update -yq
+apt-get install -y --no-install-recommends \
+  build-essential libatomic1 ca-certificates locales lsb-release tzdata \
+  curl wget \
+  git \
+  zsh \
+  vim nano \
+  iputils-ping net-tools procps openssh-client \
+  fontconfig fonts-montserrat pkg-config python3 python3-yaml \
+  xdg-utils \
+  liburing-dev
+
+# Install GitHub CLI from its supported signed Debian repository: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian
+mkdir -p -m 755 /etc/apt/keyrings /etc/apt/sources.list.d; curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null; chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg; printf 'deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n' "$(dpkg --print-architecture)" | tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+apt-get update -yq; apt-get install -y --no-install-recommends gh
+
+# Host-mounted workspaces often have a different UID than the container user.
+if ! git config --system --get-all safe.directory | grep -qxF '*'; then
+  git config --system --add safe.directory '*'
+fi
+EOF
 }
 
 install_vite_plus() {

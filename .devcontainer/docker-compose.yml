@@ -12,6 +12,7 @@ services:
       - "${HOME}/.cursor:/workspaces/astralbeam/tmp/.cursor:cached"
       - "${HOME}/.codex:/workspaces/astralbeam/tmp/.codex:cached"
       - "${HOME}/.claude:/workspaces/astralbeam/tmp/.claude:cached"
+      - "${HOME}/.config/gh:/workspaces/astralbeam/tmp/.gh:cached"
     command: sleep infinity
     init: true
     depends_on:
