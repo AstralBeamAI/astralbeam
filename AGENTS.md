@@ -3,8 +3,7 @@
 ## Tooling and validation
 
 - Use Vite+ from the repository root: `vp run <script>`, with `-r` only when every workspace package is intended. Docs are in `node_modules/vite-plus/docs` and at https://viteplus.dev/guide/.
-- Run unused-code fixes with `vp run knip:fix`, then run recursive Vite+ checks and fixes with `vp run -r check:fix`.
-- Before deleting files Knip reports as unused with `vp run knip:fix:files`, commit or back up untracked work because Git cannot restore an untracked file after deletion; then inspect the complete diff before committing.
+- Before running `vp run knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete diff before running recursive Vite+ checks and fixes with `vp run -r check:fix`.
 - Run `vp install` once after pulling. Otherwise, use the smallest relevant package task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `vp run check`, `vp run test`, or `vp run ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
 - Run `vp env doctor` only for setup, runtime, or package-manager problems.

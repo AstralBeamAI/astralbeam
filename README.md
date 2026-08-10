@@ -30,7 +30,7 @@ vp run ui add button
 
 ## Validate and build
 
-Use `vp run -r <script>` for tasks that must run in every workspace package. Run unused-code fixes with `vp run knip:fix`, then run recursive Vite+ checks and fixes with `vp run -r check:fix`. Before deleting files Knip reports as unused with `vp run knip:fix:files`, commit or back up untracked work because Git cannot restore an untracked file after deletion; then review the resulting diff before committing.
+Use `vp run -r <script>` for tasks that must run in every workspace package. Before running `vp run knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then review the resulting diff before running recursive Vite+ checks and fixes with `vp run -r check:fix`.
 
 - Run formatting, linting, TypeScript, and unused-code checks:
 
