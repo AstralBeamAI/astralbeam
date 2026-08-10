@@ -41,6 +41,7 @@ catalog:
   drizzle-kit: ^1.0.0-rc.4
   drizzle-orm: ^1.0.0-rc.4
   jsdom: ^28
+  knip: ^6.32.1
   nitro: 3.0.260610-beta
   postgres: ^3.4.9
   react: ^19.2.6
@@ -62,3 +63,6 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
+
+minimumReleaseAgeExclude:
+  - knip@6.32.1

@@ -30,9 +30,9 @@ vp run ui add button
 
 ## Validate and build
 
-Use `vp run -r <script>` for tasks that must run in every workspace package; for example, `vp run -r check:fix` also runs package-specific generators.
+Use `vp run -r <script>` for tasks that must run in every workspace package. Run auto-fixes serially with `vp run -r --concurrency-limit 1 check:fix` because the root Knip fixer can update workspace manifests while package-specific fixers run.
 
-- Run formatting, linting, and TypeScript checks:
+- Run formatting, linting, TypeScript, and unused-code checks:
 
   ```sh
   vp run check

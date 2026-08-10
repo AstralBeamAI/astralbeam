@@ -3,6 +3,7 @@
 ## Tooling and validation
 
 - Use Vite+ from the repository root: `vp run <script>`, with `-r` only when every workspace package is intended. Docs are in `node_modules/vite-plus/docs` and at https://viteplus.dev/guide/.
+- Run recursive auto-fixes serially with `vp run -r --concurrency-limit 1 check:fix`; the root Knip fixer can update workspace manifests while package-specific fixers run.
 - Run `vp install` once after pulling. Otherwise, use the smallest relevant package task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `vp run check`, `vp run test`, or `vp run ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
 - Run `vp env doctor` only for setup, runtime, or package-manager problems.
