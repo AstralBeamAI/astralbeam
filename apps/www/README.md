@@ -21,3 +21,7 @@ Structure:
 - `scripts/verify-build.test.ts` — Vite+/Vitest contract tests for page metadata and every generated discovery asset
 
 All animation respects `prefers-reduced-motion`. Fonts are self-hosted via @fontsource (Anton / Space Grotesk / JetBrains Mono).
+
+## License
+
+Except for third-party material, files in this package are licensed under the [MIT License](../../LICENSE-MIT). See [third-party notices](../../docs/legal/THIRD_PARTY_NOTICES.md) for bundled fonts.

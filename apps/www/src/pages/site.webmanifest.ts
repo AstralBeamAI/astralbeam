@@ -20,7 +20,7 @@ export const GET: APIRoute = ({ site }) => {
         background_color: siteMetadata.themeColor,
         theme_color: siteMetadata.themeColor,
         icons: [
-          { src: siteUrl("/favicon.svg", baseUrl), sizes: "any", type: "image/svg+xml" },
+          { src: siteUrl("/favicon.png", baseUrl), sizes: "160x160", type: "image/png" },
           {
             src: siteUrl("/icon-512.png", baseUrl),
             sizes: "512x512",

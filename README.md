@@ -50,6 +50,16 @@ Use `vp run -r <script>` for tasks that must run in every workspace package; for
   vp run @astralbeam/webapp#build
   ```
 
+## Licensing
+
+Portions of this repository are licensed as follows:
+
+- Files under [`apps/www`](apps/www) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
+- All other files in this repository are licensed under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL) (`AGPL-3.0-only`), except where an adjacent license or notice states otherwise.
+- Third-party components and materials are licensed under the applicable licenses provided by their respective owners. See [third-party notices](docs/legal/THIRD_PARTY_NOTICES.md).
+
+Copyright © 2026 AstralBeam Inc. for AstralBeam-controlled material. Third-party material remains subject to its respective copyright and license terms.
+
 ## Tasks
 
 - [ ] How to Create Server Routes

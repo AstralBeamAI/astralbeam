@@ -11,4 +11,4 @@ Approved AstralBeam logo assets are exposed as:
 import logoSvgUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-horizontal.svg"
 ```
 
-Available names are `astralbeam-logo-horizontal`, `astralbeam-logo-square`, `astralbeam-symbol`, and `astralbeam-wordmark`.
+Available names are `astralbeam-favicon`, `astralbeam-logo-horizontal`, `astralbeam-logo-square`, `astralbeam-symbol`, and `astralbeam-wordmark`.

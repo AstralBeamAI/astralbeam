@@ -1,3 +1,4 @@
+import astralbeamFaviconUrl from "@astralbeam/brand/logo/png/astralbeam-favicon.png?url&no-inline"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
@@ -23,13 +24,22 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "AstralBeam",
       },
     ],
     links: [
       {
+        rel: "icon",
+        type: "image/png",
+        href: astralbeamFaviconUrl,
+      },
+      {
         rel: "stylesheet",
         href: appCss,
+      },
+      {
+        rel: "license",
+        href: "/LICENSE-AGPL",
       },
     ],
   }),

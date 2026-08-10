@@ -217,9 +217,6 @@ catalogs:
     '@fontsource-variable/manrope':
       specifier: ^5.2.8
       version: 5.2.8
-    '@remixicon/react':
-      specifier: ^4.9.0
-      version: 4.9.0
     '@rolldown/plugin-babel':
       specifier: ^0.2.3
       version: 0.2.3
@@ -433,6 +430,9 @@ importers:
 
   apps/www:
     dependencies:
+      '@astralbeam/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       '@astrojs/sitemap':
         specifier: 3.7.3
         version: 3.7.3
@@ -513,9 +513,6 @@ importers:
       '@fontsource-variable/manrope':
         specifier: 'catalog:'
         version: 5.2.8
-      '@remixicon/react':
-        specifier: 'catalog:'
-        version: 4.9.0(react@19.2.7)
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -2204,11 +2201,6 @@ packages:
 
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
-
-  '@remixicon/react@4.9.0':
-    resolution: {integrity: sha512-5/jLDD4DtKxH2B4QVXTobvV1C2uL8ab9D5yAYNtFt+w80O0Ys1xFOrspqROL3fjrZi+7ElFUWE37hBfaAl6U+Q==}
-    peerDependencies:
-      react: '>=18.2.0'
 
   '@rolldown/binding-android-arm64@1.2.0':
     resolution: {integrity: sha512-9yB1l95IrJuNGDFdOYe79vdApdz6WWBCObE+rQ2LUliYUlcyFwSYIb2xb5/Ifw7dAtMy2ZqNyd8QTSOc7duAKw==}
@@ -7155,10 +7147,6 @@ snapshots:
       supports-color: 10.2.2
 
   '@poppinss/exception@1.2.3': {}
-
-  '@remixicon/react@4.9.0(react@19.2.7)':
-    dependencies:
-      react: 19.2.7
 
   '@rolldown/binding-android-arm64@1.2.0':
     optional: true

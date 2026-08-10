@@ -1,7 +1,7 @@
 {
   "name": "@astralbeam/webapp",
   "private": true,
-  "license": "AGPL-3.0-or-later",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vp dev",
