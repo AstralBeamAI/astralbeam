@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "check": "vp check && knip",
-    "check:fix": "knip --fix && knip --fix && vp install --lockfile-only --no-frozen-lockfile && vp check --fix",
+    "check:fix": "vp check --fix",
     "db": "vp run @astralbeam/db#db",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "knip": "knip",
+    "knip:fix": "knip --fix && knip --fix && vp install --lockfile-only --no-frozen-lockfile",
     "knip:fix:files": "knip --fix --allow-remove-files",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
