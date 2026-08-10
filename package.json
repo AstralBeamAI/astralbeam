@@ -10,6 +10,7 @@
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "knip": "knip",
+    "knip:fix:files": "knip --fix --fix-type files --allow-remove-files",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
     "ready": "vp run check && vp run test && vp run @astralbeam/webapp#build",

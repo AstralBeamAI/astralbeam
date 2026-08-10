@@ -13,4 +13,4 @@ import { Button } from "@astralbeam/ui/components/button"
 import { cn } from "@astralbeam/ui/lib/utils"
 ```
 
-Components, hooks, and utilities are exposed through `@astralbeam/ui/components/*`, `@astralbeam/ui/hooks/*`, and `@astralbeam/ui/lib/*`. Consumers provide `react` and `react-dom`.
+Components and utilities are exposed through `@astralbeam/ui/components/*` and `@astralbeam/ui/lib/*`. Consumers provide `react` and `react-dom`.
