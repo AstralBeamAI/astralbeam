@@ -5,13 +5,14 @@
     AstralBeam symbol construction:
     - Intent: two overlapping orbit rings (the a/b bowls) interlocked like links of a chain,
       with a tapered shaft of light passing through them at a gentle 22-degree slant.
-    - Reusable id: #astralbeam-mark.
+    - Reusable ids: #astralbeam-mark, #astralbeam-rings, and #astralbeam-beam.
     - Design grid: rings are stroked ellipses (centerline rx 30 / ry 34, stroke 12) centered
       at x = -32 and x = +32. The left ring has an arc gap (+/-32 degrees around its right
       tip) so the right ring reads as passing over it.
     - The beam is a spindle (tapered at both tips) rotated 22 degrees, drawn above the rings.
     - Keep logo colors aligned with the theme values in packages/ui/src/styles.css:
-      rings use currentColor (default: light theme foreground), beam uses --primary.
+      rings use currentColor (default: light theme foreground), and the beam uses
+      --astralbeam-primary with the light theme primary as its fallback.
     - The default color #07191d is the sRGB hex of --foreground oklch(0.200064 0.025239 213.919);
       the beam fill #0c7a69 is the sRGB hex of --primary oklch(0.519852 0.092904 178.167).
     - The PNG exporter (librsvg) cannot parse oklch(), so the hex values are embedded. If either
@@ -19,14 +20,17 @@
   </metadata>
   <defs>
     <symbol id="astralbeam-mark" viewBox="0 0 320 160">
-      <g transform="translate(160,80) scale(1.25)">
+      <g id="astralbeam-rings" transform="translate(160,80) scale(1.25)">
         <!-- left ring, with a gap where the right ring passes over -->
         <path fill="none" stroke="currentColor" stroke-width="12"
           d="M -6.56 -18.02 A 30 34 0 1 0 -6.56 18.02"/>
         <!-- right ring -->
         <ellipse cx="32" cy="0" rx="30" ry="34" fill="none" stroke="currentColor" stroke-width="12"/>
-        <!-- beam: tapered shaft of light, 22 degrees -->
-        <path fill="#0c7a69" transform="rotate(22)"
+      </g>
+      <!-- beam: tapered shaft of light, 22 degrees -->
+      <g color="var(--astralbeam-primary, #0c7a69)">
+        <path id="astralbeam-beam" fill="currentColor"
+          transform="translate(160,80) scale(1.25) rotate(22)"
           d="M 0 -56 C 4 -50 6.5 -42 6.5 -31 L 6.5 31 C 6.5 42 4 50 0 56
              C -4 50 -6.5 42 -6.5 31 L -6.5 -31 C -6.5 -42 -4 -50 0 -56 Z"/>
       </g>

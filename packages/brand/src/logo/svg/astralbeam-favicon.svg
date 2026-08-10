@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">AstralBeam favicon</title>
+  <desc id="desc">Two linked orbit rings crossed by a slanted beam of light.</desc>
+  <metadata>
+    AstralBeam favicon construction:
+    - Composite source: #astralbeam-rings and #astralbeam-beam from astralbeam-symbol.svg.
+    - Colors match the dark theme tokens in packages/ui/src/styles.css: background #061014,
+      foreground #edf8f6, and primary #35d6b0.
+  </metadata>
+  <rect width="160" height="160" fill="#061014"/>
+  <use href="astralbeam-symbol.svg#astralbeam-rings"
+    transform="translate(-30 25) scale(.6875)" color="#edf8f6"/>
+  <use href="astralbeam-symbol.svg#astralbeam-beam"
+    transform="translate(-30 25) scale(.6875)" color="#35d6b0"/>
+</svg>

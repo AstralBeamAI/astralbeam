@@ -1,13 +1,13 @@
 import type { APIRoute } from "astro"
 
-import faviconSvg from "@/assets/favicon.svg?raw"
+import { getSiteIcon } from "@/lib/site-image"
 
 export const prerender = true
 
 export const GET: APIRoute = () =>
-  new Response(faviconSvg, {
+  new Response(new Uint8Array(getSiteIcon()), {
     headers: {
-      "Content-Type": "image/svg+xml; charset=utf-8",
+      "Content-Type": "image/png",
       "Cache-Control": "public, max-age=3600",
     },
   })

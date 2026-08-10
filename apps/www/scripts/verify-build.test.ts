@@ -22,6 +22,8 @@ describe("production website build", () => {
     expect(html).toContain(`<meta property="og:image" content="${origin}/og-image.png">`)
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">')
     expect(html).toContain('<link rel="manifest" href="/site.webmanifest">')
+    expect(html).toContain('<link rel="license" href="/licenses.txt">')
+    expect(html).toContain('<a href="/licenses.txt">LICENSES</a>')
     expect(html).toMatch(/application\/ld\+json/u)
     expect(html).not.toMatch(/astralbeam\.com/iu)
   })
@@ -36,22 +38,45 @@ describe("production website build", () => {
   })
 
   test("publishes discovery files", async () => {
-    const [robots, llms, sitemapIndex, sitemap, manifestText] = await Promise.all([
+    const [
+      robots,
+      llms,
+      licenses,
+      sitemapIndex,
+      sitemap,
+      manifestText,
+      favicon,
+      mitLicense,
+      oflLicense,
+    ] = await Promise.all([
       readText("robots.txt"),
       readText("llms.txt"),
+      readText("licenses.txt"),
       readText("sitemap-index.xml"),
       readText("sitemap-0.xml"),
       readText("site.webmanifest"),
-      readText("favicon.svg"),
+      readFile(new URL("favicon.png", distUrl)),
+      readFile(new URL("../../../LICENSE-MIT", import.meta.url), "utf8"),
+      readFile(new URL("../../../docs/legal/LICENSES/OFL-1.1.txt", import.meta.url), "utf8"),
     ])
     const manifest: unknown = JSON.parse(manifestText)
 
     expect(robots).toContain(`Sitemap: ${origin}/sitemap-index.xml`)
     expect(llms).toMatch(/^# AstralBeam$/mu)
     expect(llms).toContain(homeUrl)
+    expect(licenses).toContain(mitLicense.trimEnd())
+    expect(licenses).toContain(oflLicense.trimEnd())
+    expect(licenses).toContain("Copyright 2020 The Anton Project Authors")
+    expect(licenses).toContain("Copyright 2020 The JetBrains Mono Project Authors")
+    expect(licenses).toContain("Copyright 2020 The Space Grotesk Project Authors")
     expect(sitemapIndex).toContain(`${origin}/sitemap-0.xml`)
     expect(sitemap).toContain(`<loc>${homeUrl}</loc>`)
     expect(sitemap).not.toContain("/404")
+    await expect(sharp(favicon).metadata()).resolves.toMatchObject({
+      format: "png",
+      width: 160,
+      height: 160,
+    })
     expect(manifest).toMatchObject({
       name: "AstralBeam",
       theme_color: "#04080a",
