@@ -16,7 +16,6 @@
     "@tanstack/react-devtools": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
-    "@tanstack/react-router-ssr-query": "catalog:",
     "@tanstack/react-start": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
@@ -24,22 +23,16 @@
   "devDependencies": {
     "@babel/core": "catalog:",
     "@rolldown/plugin-babel": "catalog:",
-    "@tailwindcss/typography": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/devtools-vite": "catalog:",
     "@tanstack/router-cli": "catalog:",
-    "@tanstack/router-plugin": "catalog:",
-    "@testing-library/dom": "catalog:",
-    "@testing-library/react": "catalog:",
     "@types/babel__core": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
-    "jsdom": "catalog:",
     "nitro": "catalog:",
-    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }
