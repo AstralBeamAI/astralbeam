@@ -30,9 +30,9 @@ vp run ui add button
 
 ## Validate and build
 
-Use `vp run -r <script>` for tasks that must run in every workspace package; for example, `vp run -r check:fix` also runs package-specific generators.
+Use `vp run -r <script>` for tasks that must run in every workspace package. Before running `vp run knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then review the resulting diff before running recursive Vite+ checks and fixes with `vp run -r check:fix`.
 
-- Run formatting, linting, and TypeScript checks:
+- Run formatting, linting, TypeScript, and unused-code checks:
 
   ```sh
   vp run check

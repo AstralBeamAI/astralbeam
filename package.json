@@ -4,11 +4,13 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "check": "vp check",
+    "check": "vp check && knip",
     "check:fix": "vp check --fix",
     "db": "vp run @astralbeam/db#db",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
+    "knip": "knip",
+    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && vp install --lockfile-only --no-frozen-lockfile",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
     "ready": "vp run check && vp run test && vp run @astralbeam/webapp#build",
@@ -18,6 +20,9 @@
     "www": "vp run @astralbeam/www#dev"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
+    "knip": "catalog:",
+    "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },

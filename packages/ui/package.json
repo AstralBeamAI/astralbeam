@@ -7,7 +7,6 @@
   "exports": {
     "./styles.css": "./src/styles.css",
     "./components/*": "./src/components/*.tsx",
-    "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts"
   },
   "scripts": {

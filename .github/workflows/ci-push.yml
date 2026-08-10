@@ -37,6 +37,9 @@ jobs:
         # --wait blocks until services are healthy
         run: docker compose up --detach --wait
 
+      - name: Auto-fix Knip issues
+        run: vp run knip:fix
+
       - name: Auto-fix checks
         run: vp run -r check:fix
 
