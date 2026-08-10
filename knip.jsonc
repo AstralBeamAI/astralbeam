@@ -26,10 +26,16 @@
   "rules": {
     "cycles": "error",
   },
+  // Use `/** @knipignore */` only for exports whose external use cannot be represented in the entry graph.
+  // https://knip.dev/reference/jsdoc-tsdoc-tags
+  "tags": ["-knipignore"],
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,
   "workspaces": {
     "apps/www": {
+      // Suppression examples for runtime-only edges; keep commented until a concrete exception is required.
+      // "ignoreDependencies": ["runtime-loaded-package"],
+      // "ignore": ["src/runtime-loaded/**"],
       // Applications are self-contained, so their source entry exports must also be used within the monorepo.
       // https://knip.dev/reference/configuration#includeentryexports
       "includeEntryExports": true,
