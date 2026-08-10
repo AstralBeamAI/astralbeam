@@ -38,7 +38,9 @@ jobs:
         run: docker compose up --detach --wait
 
       - name: Auto-fix checks
-        run: vp run -r --concurrency-limit 1 check:fix
+        run: |
+          vp run check:fix
+          vp run @astralbeam/brand#check:fix
 
       - name: Check, test, and build
         run: vp run ready

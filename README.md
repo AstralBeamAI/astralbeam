@@ -30,7 +30,7 @@ vp run ui add button
 
 ## Validate and build
 
-Use `vp run -r <script>` for tasks that must run in every workspace package. Run auto-fixes serially with `vp run -r --concurrency-limit 1 check:fix` because the root and brand fixers can otherwise write the same files concurrently. Before deleting files Knip reports as unused with `vp run knip:fix:files`, commit or back up untracked work because Git cannot restore an untracked file after deletion; then review the resulting diff before committing.
+Use `vp run -r <script>` for tasks that must run in every workspace package. Run auto-fixes in order with `vp run check:fix && vp run @astralbeam/brand#check:fix` so the root and brand fixers cannot write the same files concurrently. Before deleting files Knip reports as unused with `vp run knip:fix:files`, commit or back up untracked work because Git cannot restore an untracked file after deletion; then review the resulting diff before committing.
 
 - Run formatting, linting, TypeScript, and unused-code checks:
 
