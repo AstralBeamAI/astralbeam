@@ -1,6 +1,6 @@
 ---
 name: create-github-pr
-description: Use this skill when the user explicitly asks to create or publish a GitHub pull request from local repository changes. Confirm scope, publish the intended diff, synthesize a concise title and bullet-only description from relevant user chat, publish ready for review by default and use draft only when explicitly requested, prevent duplicates, and verify the created PR. Do not use for text-only PR drafts, reviews, comments, or CI repair.
+description: Use this skill when the user explicitly asks to create or publish a GitHub pull request from local repository changes. Confirm scope, publish the intended diff, synthesize a concise title and bullet-only description from relevant user chat, push the branch, publish ready for review by default and use draft only when explicitly requested, prevent duplicates, and verify the created PR. If PR creation fails for any reason after the branch is pushed, still hand the user copyable title and description. Do not use for text-only PR drafts, reviews, comments, or CI repair.
 compatibility: Requires git, network access, and authenticated GitHub write access through the GitHub CLI or an equivalent GitHub connector.
 ---
 
@@ -11,10 +11,19 @@ Publish the intended local change set as a verified GitHub pull request. Use ord
 ## Workflow
 
 1. Read applicable repository instructions and PR templates, inspect the full proposed change and target, and check whether the head already has an open PR. Report an existing PR instead of creating a duplicate; edit it only when requested.
-2. Confirm scope, leave clearly separable user work untouched, follow repository conventions, run required checks, then commit and push the intended changes without rewriting history.
-3. Compose the title and description using the content contract below.
-4. Create the PR ready for review unless the user explicitly requested a draft. Prefer an authenticated GitHub connector that can create and read PRs; otherwise use [`gh pr create`](https://cli.github.com/manual/gh_pr_create) with a body file so Markdown is preserved.
-5. Read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results.
+2. Confirm scope, leave clearly separable user work untouched, follow repository conventions, run required checks, then commit the intended changes without rewriting history.
+3. Compose the title and description using the content contract below before attempting publish, so they remain available if create fails.
+4. Push the branch to the remote with upstream tracking. Do not skip this step when later PR creation is expected to fail; a pushed head plus copyable text is the recovery path.
+5. Create the PR ready for review unless the user explicitly requested a draft. Prefer an authenticated GitHub connector that can create and read PRs; otherwise use [`gh pr create`](https://cli.github.com/manual/gh_pr_create) with a body file so Markdown is preserved.
+6. On any PR creation failure (auth, permissions, API, ambiguous create, or missing tooling), check for a newly created PR before retrying. If none exists, report the blocker without requesting credentials in chat, then output the already-composed title and description as separate copyable fenced blocks so the user can open the PR manually from the pushed branch:
+   ```text
+   <title>
+   ```
+
+   ```markdown
+   <description>
+   ```
+7. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back.
 
 ## Content contract
 
@@ -30,5 +39,5 @@ Publish the intended local change set as a verified GitHub pull request. Use ord
 - Never stage unrelated work or stash, discard, amend, rebase, squash, or force-push without explicit authorization.
 - Fix or stop for a required check broken by the change. A demonstrably pre-existing or environmental failure may proceed in the requested PR state and belongs in the handoff, not the PR description.
 - Do not add reviewers, assignees, labels, milestones, or projects unless requested or required by repository instructions.
-- If GitHub access is unavailable, report the blocker without requesting credentials in chat. After an ambiguous create error, check for a new PR before retrying.
-- Claim success only after remote read-back confirms the PR.
+- If push fails, stop after reporting the blocker; still output the copyable title and description so the user can finish once auth or network is fixed.
+- Never omit the copyable title and description after a failed create when those fields were already composed.
