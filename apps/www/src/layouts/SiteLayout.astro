@@ -1,4 +1,7 @@
 ---
+import astralbeamDarkLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
+import astralbeamLightLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-light.svg?url&no-inline"
+import { palette } from "@astralbeam/brand/theme"
 import "@fontsource/anton"
 import "@fontsource/jetbrains-mono"
 import "@fontsource/jetbrains-mono/700.css"
@@ -25,6 +28,8 @@ const {
 const baseUrl = Astro.site?.href ?? siteMetadata.origin
 const canonicalUrl = canonicalPath ? siteUrl(canonicalPath, baseUrl) : undefined
 const homeUrl = siteUrl("/", baseUrl)
+const iconUrl = siteUrl(siteMetadata.icon.path, baseUrl)
+const iconSize = `${siteMetadata.icon.size}x${siteMetadata.icon.size}`
 const socialImageUrl = siteUrl(siteMetadata.socialImage.path, baseUrl)
 const structuredData = {
   "@context": "https://schema.org",
@@ -32,14 +37,14 @@ const structuredData = {
   "@id": `${homeUrl}#organization`,
   name: siteMetadata.name,
   url: homeUrl,
-  logo: siteUrl("/icon-512.png", baseUrl),
+  logo: iconUrl,
   description: siteMetadata.description,
   email: siteMetadata.email,
 }
 ---
 
 <!doctype html>
-<html lang="en" style="color-scheme: dark;">
+<html class="dark" lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -47,11 +52,13 @@ const structuredData = {
     <meta name="description" content={description} />
     <meta name="robots" content={robots} />
     <meta name="application-name" content={siteMetadata.name} />
-    <meta name="theme-color" content={siteMetadata.themeColor} />
+    <meta name="theme-color" content={palette.dark.background.srgbHex} />
     <meta name="color-scheme" content="dark" />
     {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
-    <link rel="icon" type="image/png" sizes="160x160" href="/favicon.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes={iconSize} href={siteMetadata.icon.path} />
+    <link rel="icon" type="image/svg+xml" href={astralbeamLightLogoUrl} media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/svg+xml" href={astralbeamDarkLogoUrl} media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" sizes={iconSize} href={siteMetadata.icon.path} />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="license" href="/licenses.txt" />
     <link rel="sitemap" href="/sitemap-index.xml" />

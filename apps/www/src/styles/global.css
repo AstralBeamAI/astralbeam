@@ -1,23 +1,18 @@
+@import "@astralbeam/brand/colors.css";
+
 /* ============================================================
    ASTRALBEAM - mission console
    deep-space HUD aesthetic: chamfered panels, neon beam accent,
    scanlines, mono readouts, condensed display type.
    ============================================================ */
 
-:root {
-  --bg: #04080a;
-  --bg-raise: #070d11;
-  --panel: rgba(9, 16, 20, 0.82);
-  --panel-solid: #0a1216;
-  --edge: rgba(140, 170, 175, 0.22);
-  --edge-strong: rgba(140, 170, 175, 0.45);
-  --ink: #e9f4f1;
-  --muted: #8ba5a1;
-  --beam: #37f2c9;
-  --beam-soft: rgba(55, 242, 201, 0.45);
-  --beam-faint: rgba(55, 242, 201, 0.14);
-  --violet: #8d7bff;
-  --danger: #ff5d5d;
+.light,
+.dark {
+  --panel: color-mix(in srgb, var(--card) 82%, transparent);
+  --beam-soft: color-mix(in srgb, var(--primary) 45%, transparent);
+  --beam-faint: color-mix(in srgb, var(--primary) 14%, transparent);
+  --danger-soft: color-mix(in srgb, var(--destructive) 38%, transparent);
+  --shadow: color-mix(in srgb, var(--background) 60%, transparent);
   --font-display: "Anton", "Arial Narrow", sans-serif;
   --font-body: "Space Grotesk Variable", "Space Grotesk", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
@@ -31,22 +26,23 @@
 }
 
 html {
+  color-scheme: dark;
   scroll-behavior: smooth;
-  background: var(--bg);
+  background: var(--background);
 }
 
 body {
   font-family: var(--font-body);
-  background: var(--bg);
-  color: var(--ink);
+  background: var(--background);
+  color: var(--foreground);
   line-height: 1.6;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: var(--beam);
-  color: #04211a;
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 a {
@@ -84,7 +80,7 @@ a {
   pointer-events: none;
   background: repeating-linear-gradient(
     0deg,
-    rgba(255, 255, 255, 0.018) 0 1px,
+    color-mix(in srgb, var(--foreground) 1.8%, transparent) 0 1px,
     transparent 1px 3px
   );
   mix-blend-mode: overlay;
@@ -96,7 +92,12 @@ a {
   left: 0;
   right: 0;
   height: 22vh;
-  background: linear-gradient(to bottom, transparent, rgba(55, 242, 201, 0.03), transparent);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--primary) 3%, transparent),
+    transparent
+  );
   animation: scan-sweep 9s linear infinite;
 }
 
@@ -114,7 +115,7 @@ a {
   inset: 0;
   z-index: 39;
   pointer-events: none;
-  background: radial-gradient(ellipse 90% 75% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.6));
+  background: radial-gradient(ellipse 90% 75% at 50% 45%, transparent 55%, var(--shadow));
 }
 
 /* ---------- HUD chrome ---------- */
@@ -171,8 +172,8 @@ a {
   padding: 0.9rem clamp(1.25rem, 4vw, 3rem);
   background: linear-gradient(
     to bottom,
-    rgba(4, 8, 10, 0.92),
-    rgba(4, 8, 10, 0.55) 70%,
+    color-mix(in srgb, var(--background) 92%, transparent),
+    color-mix(in srgb, var(--background) 55%, transparent) 70%,
     transparent
   );
   backdrop-filter: blur(6px);
@@ -182,26 +183,14 @@ a {
 .hud-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  color: var(--ink);
+  color: var(--foreground);
 }
 
-.hud-brand-mark {
+.hud-brand-wordmark {
+  display: block;
   height: 24px;
   width: auto;
-  color: var(--ink);
   filter: drop-shadow(0 0 6px var(--beam-faint));
-}
-
-.hud-brand-mark .mark-beam {
-  fill: var(--beam);
-}
-
-.hud-brand-name {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.32em;
 }
 
 .hud-nav {
@@ -214,14 +203,14 @@ a {
 }
 
 .hud-nav a {
-  color: var(--muted);
+  color: var(--muted-foreground);
   transition:
     color 0.2s,
     text-shadow 0.2s;
 }
 
 .hud-nav a:hover {
-  color: var(--beam);
+  color: var(--primary);
   text-shadow: 0 0 12px var(--beam-soft);
 }
 
@@ -238,8 +227,12 @@ a {
   font-family: var(--font-mono);
   font-size: 0.64rem;
   letter-spacing: 0.16em;
-  color: var(--muted);
-  background: linear-gradient(to top, rgba(4, 8, 10, 0.9), transparent);
+  color: var(--muted-foreground);
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--background) 90%, transparent),
+    transparent
+  );
   pointer-events: none;
 }
 
@@ -254,7 +247,7 @@ a {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--beam);
+  background: var(--primary);
   box-shadow: 0 0 8px var(--beam-soft);
   animation: blink 1.6s steps(2, start) infinite;
 }
@@ -291,8 +284,8 @@ a {
 }
 
 .btn-primary {
-  background: var(--beam);
-  color: #032019;
+  background: var(--primary);
+  color: var(--primary-foreground);
   padding: 0.7rem 1.4rem;
   font-size: 0.72rem;
 }
@@ -359,7 +352,7 @@ main {
     to bottom,
     transparent 0%,
     var(--beam-faint) 18%,
-    rgba(55, 242, 201, 0.5) 50%,
+    color-mix(in srgb, var(--primary) 50%, transparent) 50%,
     var(--beam-faint) 82%,
     transparent 100%
   );
@@ -375,9 +368,9 @@ main {
   background: linear-gradient(
     to bottom,
     transparent,
-    rgba(55, 242, 201, 0.045) 35%,
-    rgba(55, 242, 201, 0.085) 50%,
-    rgba(55, 242, 201, 0.045) 65%,
+    color-mix(in srgb, var(--primary) 4.5%, transparent) 35%,
+    color-mix(in srgb, var(--primary) 8.5%, transparent) 50%,
+    color-mix(in srgb, var(--primary) 4.5%, transparent) 65%,
     transparent
   );
   filter: blur(14px);
@@ -402,29 +395,29 @@ main {
   font-family: var(--font-mono);
   font-size: clamp(0.66rem, 1.4vw, 0.8rem);
   letter-spacing: 0.42em;
-  color: var(--beam);
+  color: var(--primary);
   text-shadow: 0 0 14px var(--beam-soft);
   margin-bottom: 1.5rem;
 }
 
 .hero-title {
   font-size: clamp(3.4rem, 11vw, 8.5rem);
-  text-shadow: 0 4px 40px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 4px 40px var(--shadow);
 }
 
 .beam-text {
-  color: var(--beam);
+  color: var(--primary);
   text-shadow:
     0 0 16px var(--beam-soft),
-    0 0 70px rgba(55, 242, 201, 0.3),
-    0 4px 40px rgba(0, 0, 0, 0.6);
+    0 0 70px color-mix(in srgb, var(--primary) 30%, transparent),
+    0 4px 40px var(--shadow);
 }
 
 .hero-sub {
   margin: 1.8rem auto 0;
   max-width: 36rem;
   font-size: clamp(0.98rem, 2vw, 1.15rem);
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .hero-ctas {
@@ -439,7 +432,7 @@ main {
 .hero-alt {
   font-size: 0.66rem;
   letter-spacing: 0.22em;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .hero-readouts {
@@ -450,12 +443,12 @@ main {
   gap: 0.5rem 1.6rem;
   font-size: 0.6rem;
   letter-spacing: 0.14em;
-  color: rgba(139, 165, 161, 0.75);
+  color: color-mix(in srgb, var(--muted-foreground) 75%, transparent);
   max-width: min(90rem, 94vw);
 }
 
 .readout-chip b {
-  color: var(--beam);
+  color: var(--primary);
   font-weight: 400;
 }
 
@@ -470,14 +463,14 @@ main {
   gap: 0.55rem;
   font-size: 0.6rem;
   letter-spacing: 0.34em;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .scroll-chevron {
   width: 10px;
   height: 10px;
-  border-right: 1px solid var(--beam);
-  border-bottom: 1px solid var(--beam);
+  border-right: 1px solid var(--primary);
+  border-bottom: 1px solid var(--primary);
   transform: rotate(45deg);
   animation: cue-drop 1.8s ease-in-out infinite;
 }
@@ -511,7 +504,7 @@ main {
 .section-tag {
   font-size: 0.68rem;
   letter-spacing: 0.4em;
-  color: var(--beam);
+  color: var(--primary);
   text-shadow: 0 0 12px var(--beam-soft);
   margin-bottom: 1.2rem;
 }
@@ -519,14 +512,14 @@ main {
 .section-title {
   font-size: clamp(2.3rem, 6vw, 4.6rem);
   text-shadow:
-    -1px 0 rgba(141, 123, 255, 0.28),
-    1px 0 rgba(55, 242, 201, 0.28),
-    0 4px 30px rgba(0, 0, 0, 0.5);
+    -1px 0 color-mix(in srgb, var(--chart-4) 28%, transparent),
+    1px 0 color-mix(in srgb, var(--primary) 28%, transparent),
+    0 4px 30px color-mix(in srgb, var(--background) 50%, transparent);
 }
 
 .section-sub {
   margin-top: 1.5rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: clamp(0.95rem, 1.8vw, 1.06rem);
   max-width: 40rem;
 }
@@ -536,7 +529,7 @@ main {
 .panel {
   --cut: var(--chamfer);
   position: relative;
-  background: var(--edge);
+  background: var(--border);
   clip-path: polygon(
     0 0,
     calc(100% - var(--cut)) 0,
@@ -570,7 +563,7 @@ main {
 .panel-label {
   font-size: 0.66rem;
   letter-spacing: 0.26em;
-  color: var(--muted);
+  color: var(--muted-foreground);
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -589,18 +582,22 @@ main {
 }
 
 .compare-panel.is-beam {
-  background: rgba(55, 242, 201, 0.4);
+  background: color-mix(in srgb, var(--primary) 40%, transparent);
 }
 
 .compare-panel.is-beam::before {
-  background: linear-gradient(180deg, rgba(8, 21, 18, 0.94), rgba(5, 13, 12, 0.96));
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--card) 94%, var(--primary)),
+    color-mix(in oklab, var(--background) 96%, var(--primary))
+  );
 }
 
 .compare-panel .x-mark {
-  color: var(--danger);
+  color: var(--destructive);
 }
 .compare-panel .check-mark {
-  color: var(--beam);
+  color: var(--primary);
 }
 
 .compare-art {
@@ -610,6 +607,7 @@ main {
 }
 
 .compare-art .tangle path {
+  stroke: var(--danger-soft);
   animation: tangle-drift 14s linear infinite;
 }
 
@@ -620,12 +618,12 @@ main {
 }
 
 .node-set rect {
-  fill: #0d181d;
-  stroke: rgba(140, 170, 175, 0.4);
+  fill: var(--card);
+  stroke: var(--input);
 }
 
 .node-set text {
-  fill: var(--muted);
+  fill: var(--muted-foreground);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
@@ -633,21 +631,21 @@ main {
 }
 
 .node-set.is-aligned rect {
-  stroke: rgba(55, 242, 201, 0.4);
+  stroke: color-mix(in srgb, var(--primary) 40%, transparent);
 }
 
 .core-node rect {
-  fill: rgba(55, 242, 201, 0.1);
-  stroke: var(--beam);
+  fill: color-mix(in srgb, var(--primary) 10%, transparent);
+  stroke: var(--primary);
 }
 
 .core-node text {
-  fill: var(--beam);
+  fill: var(--primary);
   font-weight: 700;
 }
 
 .beam-line {
-  stroke: var(--beam);
+  stroke: var(--primary);
   stroke-width: 2;
   stroke-dasharray: 6 8;
   filter: drop-shadow(0 0 6px var(--beam-soft));
@@ -662,7 +660,7 @@ main {
 
 .compare-note {
   font-size: 0.85rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   padding-top: 0.6rem;
 }
 
@@ -682,7 +680,7 @@ main {
 .sys-panel:hover {
   --edge-hover: 1;
   background: var(--beam-soft);
-  filter: drop-shadow(0 0 18px rgba(55, 242, 201, 0.16));
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--primary) 16%, transparent));
 }
 
 .sys-head {
@@ -690,12 +688,12 @@ main {
   justify-content: space-between;
   font-size: 0.64rem;
   letter-spacing: 0.2em;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-bottom: 1.5rem;
 }
 
 .sys-id {
-  color: var(--beam);
+  color: var(--primary);
 }
 
 .sys-status {
@@ -708,15 +706,15 @@ main {
 .sys-icon svg {
   width: 34px;
   height: 34px;
-  stroke: var(--beam);
+  stroke: var(--primary);
   stroke-width: 1.6;
   fill: none;
   stroke-linecap: square;
-  filter: drop-shadow(0 0 8px rgba(55, 242, 201, 0.35));
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 35%, transparent));
 }
 
 .sys-icon svg .fill {
-  fill: var(--beam);
+  fill: var(--primary);
   stroke: none;
 }
 
@@ -730,7 +728,7 @@ main {
 .sys-desc {
   margin-top: 0.6rem;
   font-size: 0.88rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .panel-corner {
@@ -761,7 +759,7 @@ main {
 .aux-label {
   font-size: 0.66rem;
   letter-spacing: 0.3em;
-  color: var(--beam);
+  color: var(--primary);
 }
 
 .aux-chips {
@@ -775,8 +773,8 @@ main {
   font-size: 0.64rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--edge);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
   padding: 0.42rem 0.8rem;
   transition:
     border-color 0.2s,
@@ -785,7 +783,7 @@ main {
 
 .aux-chips li:hover {
   border-color: var(--beam-soft);
-  color: var(--beam);
+  color: var(--primary);
 }
 
 /* ---------- 03 deploy ---------- */
@@ -808,8 +806,8 @@ main {
   padding: 0.8rem 1.2rem;
   font-size: 0.64rem;
   letter-spacing: 0.18em;
-  color: var(--muted);
-  border-bottom: 1px solid var(--edge);
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
 }
 
 .term-dots {
@@ -821,19 +819,19 @@ main {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--edge-strong);
+  background: var(--input);
 }
 
 .term-dots i:first-child {
-  background: var(--danger);
+  background: var(--destructive);
   opacity: 0.7;
 }
 .term-dots i:nth-child(2) {
-  background: #ffc861;
+  background: var(--warning);
   opacity: 0.7;
 }
 .term-dots i:last-child {
-  background: var(--beam);
+  background: var(--primary);
   opacity: 0.8;
 }
 
@@ -862,32 +860,32 @@ main {
 }
 
 .t-line[data-type="out"] {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .t-line[data-type="ok"] {
-  color: var(--beam);
+  color: var(--primary);
   font-weight: 700;
   text-shadow: 0 0 12px var(--beam-soft);
 }
 
 .t-prompt {
-  color: var(--beam);
+  color: var(--primary);
 }
 .t-kw {
-  color: var(--violet);
+  color: var(--chart-4);
 }
 .t-str {
-  color: #ffc861;
+  color: var(--warning);
 }
 .t-tag {
-  color: var(--beam);
+  color: var(--primary);
 }
 .t-attr {
-  color: #9fc7dd;
+  color: var(--chart-3);
 }
 .t-fn {
-  color: #cfe8ff;
+  color: var(--accent-foreground);
 }
 
 .t-caret {
@@ -895,7 +893,7 @@ main {
   width: 8px;
   height: 1.1em;
   vertical-align: text-bottom;
-  background: var(--beam);
+  background: var(--primary);
   box-shadow: 0 0 10px var(--beam-soft);
   animation: blink 1.1s steps(2, start) infinite;
 }
@@ -920,12 +918,12 @@ main {
   gap: 0.8rem;
   font-size: 0.68rem;
   letter-spacing: 0.16em;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .boot-track {
   height: 1px;
-  background: var(--edge);
+  background: var(--border);
   position: relative;
   overflow: hidden;
 }
@@ -934,7 +932,7 @@ main {
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--beam);
+  background: var(--primary);
   box-shadow: 0 0 8px var(--beam-soft);
   transform: translateX(-101%);
   transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
@@ -946,7 +944,7 @@ main {
 
 .boot-state {
   opacity: 0;
-  color: var(--beam);
+  color: var(--primary);
   transition: opacity 0.3s 0.5s;
 }
 
@@ -958,7 +956,7 @@ main {
   margin-top: 1.6rem;
   font-size: 0.64rem;
   letter-spacing: 0.26em;
-  color: var(--beam);
+  color: var(--primary);
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -982,7 +980,7 @@ main {
   top: 50%;
   transform: translateY(-50%);
   width: min(44rem, 60vw);
-  color: rgba(55, 242, 201, 0.05);
+  color: color-mix(in srgb, var(--primary) 5%, transparent);
   pointer-events: none;
 }
 
@@ -1000,13 +998,13 @@ main {
 .os-name {
   font-size: 0.72rem;
   letter-spacing: 0.26em;
-  color: var(--beam);
+  color: var(--primary);
   margin-bottom: 0.9rem;
 }
 
 .os-panel p {
   font-size: 0.86rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 /* ---------- 05 launch ---------- */
@@ -1027,16 +1025,21 @@ main {
   left: 50%;
   width: 1px;
   transform: translateX(-50%);
-  background: linear-gradient(to bottom, transparent, rgba(55, 242, 201, 0.4), transparent);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--primary) 40%, transparent),
+    transparent
+  );
   pointer-events: none;
 }
 
 .launch-title {
   font-size: clamp(3rem, 10vw, 8rem);
-  color: var(--beam);
+  color: var(--primary);
   text-shadow:
     0 0 18px var(--beam-soft),
-    0 0 90px rgba(55, 242, 201, 0.25);
+    0 0 90px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
 .launch-sub {
@@ -1056,14 +1059,14 @@ main {
   padding: 1.3rem clamp(1.25rem, 4vw, 3rem) 2.6rem;
   font-size: 0.62rem;
   letter-spacing: 0.2em;
-  color: var(--muted);
-  border-top: 1px solid var(--edge);
+  color: var(--muted-foreground);
+  border-top: 1px solid var(--border);
   max-width: 78rem;
   margin: 0 auto;
 }
 
 .site-footer a:hover {
-  color: var(--beam);
+  color: var(--primary);
 }
 
 .footer-status {
@@ -1104,9 +1107,8 @@ main {
     padding: 0.6rem 0.9rem;
     letter-spacing: 0.1em;
   }
-  .hud-brand-name {
-    letter-spacing: 0.2em;
-    font-size: 0.74rem;
+  .hud-brand-wordmark {
+    height: clamp(16px, 4.6vw, 18px);
   }
   .systems-grid,
   .os-grid {

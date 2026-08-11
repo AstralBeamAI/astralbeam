@@ -1,12 +1,3 @@
-export const sitePalette = {
-  background: "#04080a",
-  panel: "#0a1216",
-  foreground: "#e9f4f1",
-  muted: "#8ba5a1",
-  accent: "#37f2c9",
-  border: "#314449",
-} as const
-
 export const siteMetadata = {
   name: "AstralBeam",
   origin: "https://www.astralbeam.ai",
@@ -14,7 +5,10 @@ export const siteMetadata = {
   description:
     "Open-source agent infrastructure. One service to add production-ready agents to any app: streaming, history, tools, billing, auth, and evals.",
   email: "hello@astralbeam.ai",
-  themeColor: sitePalette.background,
+  icon: {
+    path: "/favicon.png",
+    size: 512,
+  },
   socialImage: {
     path: "/og-image.png",
     width: 1200,

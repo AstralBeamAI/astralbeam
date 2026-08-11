@@ -9,6 +9,16 @@ interface Star {
   twinkle: number
 }
 
+function readCssColor(styles: CSSStyleDeclaration, property: `--${string}`) {
+  const value = styles.getPropertyValue(property).trim()
+
+  if (!value || !CSS.supports("color", value)) {
+    throw new Error(`Invalid ${property} brand color`)
+  }
+
+  return value
+}
+
 function initStarfield() {
   const el = document.getElementById("starfield")
   const maybeCtx = el instanceof HTMLCanvasElement ? el.getContext("2d") : null
@@ -16,6 +26,9 @@ function initStarfield() {
   // Rebind after the guard: hoisted inner functions don't see narrowing of `maybeCtx`.
   const ctx = maybeCtx
   const canvas = ctx.canvas
+  const styles = getComputedStyle(document.documentElement)
+  const nearColor = readCssColor(styles, "--chart-5")
+  const farColor = readCssColor(styles, "--secondary-foreground")
 
   let width = 0
   let height = 0
@@ -55,10 +68,11 @@ function initStarfield() {
       s.twinkle += dt * 0.0012 * (0.5 + s.depth)
       const alpha = (0.25 + 0.55 * s.depth) * (0.72 + 0.28 * Math.sin(s.twinkle))
       const size = 0.5 + s.depth * 1.3
-      ctx.fillStyle =
-        s.depth > 0.82 ? `rgba(133, 246, 219, ${alpha})` : `rgba(214, 235, 240, ${alpha})`
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = s.depth > 0.82 ? nearColor : farColor
       ctx.fillRect(s.x, y, size, size)
     }
+    ctx.globalAlpha = 1
 
     // occasional shooting star
     nextStreakAt -= dt
@@ -86,14 +100,16 @@ function initStarfield() {
           streak.x,
           streak.y,
         )
-        grad.addColorStop(0, "rgba(55, 242, 201, 0)")
-        grad.addColorStop(1, `rgba(180, 250, 232, ${0.7 * streak.life})`)
+        grad.addColorStop(0, "transparent")
+        grad.addColorStop(1, nearColor)
         ctx.strokeStyle = grad
+        ctx.globalAlpha = 0.7 * streak.life
         ctx.lineWidth = 1.2
         ctx.beginPath()
         ctx.moveTo(streak.x - streak.vx * 90, streak.y - streak.vy * 90)
         ctx.lineTo(streak.x, streak.y)
         ctx.stroke()
+        ctx.globalAlpha = 1
       }
     }
 

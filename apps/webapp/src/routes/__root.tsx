@@ -1,4 +1,5 @@
-import astralbeamFaviconUrl from "@astralbeam/brand/logo/png/astralbeam-favicon.png?url&no-inline"
+import astralbeamDarkLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
+import astralbeamLightLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-light.svg?url&no-inline"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
@@ -30,8 +31,15 @@ export const Route = createRootRoute({
     links: [
       {
         rel: "icon",
-        type: "image/png",
-        href: astralbeamFaviconUrl,
+        type: "image/svg+xml",
+        href: astralbeamLightLogoUrl,
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: astralbeamDarkLogoUrl,
+        media: "(prefers-color-scheme: dark)",
       },
       {
         rel: "stylesheet",
@@ -54,7 +62,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html className="light" lang="en">
       <head>
         <HeadContent />
       </head>
