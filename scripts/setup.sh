@@ -48,7 +48,7 @@ install_ubuntu_packages() {
 apt-get update -yq
 apt-get install -y --no-install-recommends \
   build-essential libatomic1 ca-certificates locales lsb-release tzdata \
-  curl wget \
+  curl wget file \
   git \
   zsh \
   vim nano \
@@ -72,7 +72,7 @@ install_vite_plus() {
   # Install the full development/build toolchain; production images need a separate runtime stage: https://viteplus.dev/guide/docker#production-ssr-node-js-server-app
   if ! command -v vp >/dev/null 2>&1; then
     mkdir -p "$VP_HOME"
-    curl -fsSL https://vite.plus | bash
+    curl -fsSL https://vite.plus | env VP_NODE_MANAGER=yes bash
     # The installer pre-provisions a default Node.js; use the project pin instead.
     rm -rf "$VP_HOME/js_runtime"
   fi
