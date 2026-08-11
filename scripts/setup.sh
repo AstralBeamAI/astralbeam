@@ -41,13 +41,6 @@ if [ ! -r "$NODE_VERSION_FILE" ]; then
   exit 1
 fi
 
-install_macos_packages() {
-  [ "$platform_name" = Darwin ] || return 0
-  if ! brew list --cask font-montserrat >/dev/null 2>&1; then
-    brew install --cask font-montserrat
-  fi
-}
-
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
 
@@ -60,7 +53,7 @@ apt-get install -y --no-install-recommends \
   zsh \
   vim nano \
   iputils-ping net-tools procps openssh-client \
-  fontconfig fonts-montserrat pkg-config python3 python3-yaml \
+  fontconfig pkg-config python3 python3-yaml \
   xdg-utils \
   liburing-dev
 
@@ -116,7 +109,6 @@ run_install_extras() {
   done
 }
 
-install_macos_packages
 install_ubuntu_packages
 install_vite_plus
 install_workspace_packages

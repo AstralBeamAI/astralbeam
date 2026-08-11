@@ -7,7 +7,7 @@ apps/
   webapp/       @astralbeam/webapp  # TanStack Start application
   www/          @astralbeam/www     # Public website
 packages/
-  brand/        @astralbeam/brand   # Approved SVG and PNG brand assets
+  brand/        @astralbeam/brand   # Shared palette and approved light/dark logo assets
   db/           @astralbeam/db      # Server-only Drizzle client and schemas
   ui/           @astralbeam/ui      # Shared styles, components, and utilities
 ```

@@ -1,5 +1,12 @@
 # Shared UI Components
 
+## Shared colors
+
+- Keep semantic color values in `packages/brand/src/colors.css`; `src/styles.css` imports that palette and maps it into Tailwind without duplicating the values.
+- Keep the shared base radius in the brand stylesheet and derive Tailwind's radius scale from that imported token.
+- Preserve the explicit theme contract: every consumer must apply exactly one of `.light` or `.dark` to a root or ancestor before first paint.
+- Scope shared custom properties under the combined `.light` and `.dark` selectors instead of a global selector.
+
 ## Adding shadcn Components
 
 - Keep all shadcn-generated components, hooks, and utilities in this package. Applications must import them through the `@astralbeam/ui` exports.

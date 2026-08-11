@@ -1,13 +1,6 @@
-import type { APIRoute } from "astro"
-
-import { getSiteIcon } from "@/lib/site-image"
+import { createPngRoute, renderSiteLogo } from "@/lib/site-image"
+import { siteMetadata } from "@/lib/site"
 
 export const prerender = true
 
-export const GET: APIRoute = () =>
-  new Response(new Uint8Array(getSiteIcon()), {
-    headers: {
-      "Content-Type": "image/png",
-      "Cache-Control": "public, max-age=3600",
-    },
-  })
+export const GET = createPngRoute(() => renderSiteLogo(siteMetadata.icon.size))

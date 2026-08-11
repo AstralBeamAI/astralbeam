@@ -439,6 +439,10 @@ importers:
         version: 4.112.0
 
   packages/brand:
+    dependencies:
+      '@asamuzakjp/css-color':
+        specifier: 5.1.11
+        version: 5.1.11
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -477,6 +481,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@astralbeam/brand':
+        specifier: workspace:*
+        version: link:../brand
       '@base-ui/react':
         specifier: 'catalog:'
         version: 1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -6101,7 +6108,6 @@ snapshots:
       '@csstools/css-color-parser': 4.1.9(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@asamuzakjp/dom-selector@6.8.1':
     dependencies:
@@ -6112,8 +6118,7 @@ snapshots:
       lru-cache: 11.5.2
     optional: true
 
-  '@asamuzakjp/generational-cache@1.0.1':
-    optional: true
+  '@asamuzakjp/generational-cache@1.0.1': {}
 
   '@asamuzakjp/nwsapi@2.3.9':
     optional: true
@@ -6548,14 +6553,12 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@csstools/color-helpers@6.1.0':
-    optional: true
+  '@csstools/color-helpers@6.1.0': {}
 
   '@csstools/css-calc@3.2.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)':
     dependencies:
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-color-parser@4.1.9(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)':
     dependencies:
@@ -6563,20 +6566,17 @@ snapshots:
       '@csstools/css-calc': 3.2.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0)':
     dependencies:
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-syntax-patches-for-csstree@1.1.6(css-tree@3.2.1)':
     optionalDependencies:
       css-tree: 3.2.1
     optional: true
 
-  '@csstools/css-tokenizer@4.0.0':
-    optional: true
+  '@csstools/css-tokenizer@4.0.0': {}
 
   '@dotenvx/dotenvx@1.75.1':
     dependencies:

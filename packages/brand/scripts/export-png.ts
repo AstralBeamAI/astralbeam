@@ -1,5 +1,4 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { mkdir, readdir, writeFile } from "node:fs/promises"
 import { dirname, extname, join, relative } from "node:path"
 import { fileURLToPath } from "node:url"
 import sharp from "sharp"
@@ -46,100 +45,22 @@ if (svgFiles.length === 0) {
 
 await mkdir(pngDirectory, { recursive: true })
 
-const renderDirectory = await mkdtemp(join(tmpdir(), "astralbeam-brand-"))
+// Process one image at a time to bound Sharp/libvips work and memory. https://sharp.pixelplumbing.com/performance/#parallelism-and-concurrency
+/* oxlint-disable no-await-in-loop */
+for (const svgFile of svgFiles) {
+  const pngFile = `${svgFile.slice(0, -extname(svgFile).length)}.png`
+  const pngPath = join(pngDirectory, pngFile)
 
-function prepareSvgForRendering(svg: string) {
-  let prepared = svg
-    .replaceAll("<symbol ", '<symbol overflow="visible" ')
-    .replaceAll("<use ", '<use overflow="visible" ')
+  // Sharp/libvips renders SVG viewBox units at 72 DPI, so this is equivalent
+  // to the original script's rsvg-convert --zoom behavior.
+  const output = await sharp(join(svgDirectory, svgFile), {
+    density: 72 * scale,
+  })
+    .png()
+    .toBuffer()
 
-  if (!prepared.includes("<text")) {
-    return prepared
-  }
+  await writeFile(pngPath, output)
 
-  prepared = prepared.replace(
-    /<svg\b([^>]*?)viewBox="([^"]+)"([^>]*)>/u,
-    (root, before: string, viewBox: string, after: string) => {
-      const values = viewBox.trim().split(/\s+/u).map(Number)
-
-      if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) {
-        return root
-      }
-
-      const [x = 0, y = 0, width = 0, height = 0] = values
-      const horizontalPadding = width * 0.04
-      const verticalPadding = height * 0.04
-
-      return `<svg width="${width}" height="${height}"${before}viewBox="${x - horizontalPadding} ${y - verticalPadding} ${width + horizontalPadding * 2} ${height + verticalPadding * 2}"${after}>`
-    },
-  )
-
-  return prepared
+  console.log(`Wrote ${relative(packageDirectory, pngPath)}`)
 }
-
-try {
-  await Promise.all(
-    svgFiles.map(async (svgFile) => {
-      const svg = await readFile(join(svgDirectory, svgFile), "utf8")
-      await writeFile(join(renderDirectory, svgFile), prepareSvgForRendering(svg))
-    }),
-  )
-
-  // Process one image at a time to bound Sharp/libvips work and memory. https://sharp.pixelplumbing.com/performance/#parallelism-and-concurrency
-  /* oxlint-disable no-await-in-loop */
-  for (const svgFile of svgFiles) {
-    const pngFile = `${svgFile.slice(0, -extname(svgFile).length)}.png`
-    const pngPath = join(pngDirectory, pngFile)
-
-    // Sharp/libvips renders SVG viewBox units at 72 DPI, so this is equivalent
-    // to the original script's rsvg-convert --zoom behavior.
-    const rendered = await sharp(join(renderDirectory, svgFile), {
-      density: 72 * scale,
-    })
-      .png()
-      .toBuffer({ resolveWithObject: true })
-
-    const minimumHorizontalPadding = Math.ceil(rendered.info.width * 0.04)
-    const minimumVerticalPadding = Math.ceil(rendered.info.height * 0.04)
-    const maximumContentWidth = rendered.info.width - minimumHorizontalPadding * 2
-    const maximumContentHeight = rendered.info.height - minimumVerticalPadding * 2
-    const trimmed = await sharp(rendered.data)
-      .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } })
-      .png()
-      .toBuffer({ resolveWithObject: true })
-
-    let output = rendered.data
-
-    if (trimmed.info.width > maximumContentWidth || trimmed.info.height > maximumContentHeight) {
-      const resized = await sharp(trimmed.data)
-        .resize({
-          width: maximumContentWidth,
-          height: maximumContentHeight,
-          fit: "inside",
-          withoutEnlargement: true,
-        })
-        .png()
-        .toBuffer({ resolveWithObject: true })
-      const horizontalPadding = rendered.info.width - resized.info.width
-      const verticalPadding = rendered.info.height - resized.info.height
-
-      output = await sharp(resized.data)
-        .extend({
-          top: Math.floor(verticalPadding / 2),
-          bottom: Math.ceil(verticalPadding / 2),
-          left: Math.floor(horizontalPadding / 2),
-          right: Math.ceil(horizontalPadding / 2),
-          background: { r: 0, g: 0, b: 0, alpha: 0 },
-        })
-        .png()
-        .toBuffer()
-    }
-
-    await writeFile(pngPath, output)
-
-    console.log(`Wrote ${relative(packageDirectory, pngPath)}`)
-  }
-  /* oxlint-enable no-await-in-loop */
-} finally {
-  await rm(renderDirectory, { recursive: true, force: true })
-}
+/* oxlint-enable no-await-in-loop */

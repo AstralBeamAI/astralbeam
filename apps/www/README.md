@@ -16,7 +16,7 @@ Structure:
 - `src/pages/index.astro` — the whole page (hero, transmission, systems, deploy sequence, open source, launch) plus HUD chrome
 - `src/pages/404.astro` — "SIGNAL LOST" error page (wrangler `404-page` handling)
 - `src/pages/*.ts` — prerendered metadata resources, sitemap, icons, social image, `robots.txt`, and `llms.txt`
-- `src/styles/global.css` — all styling; design tokens in `:root`
+- `src/styles/global.css` — all styling; site-specific derived tokens and shared semantic colors under explicit theme selectors
 - `src/scripts/main.ts` — canvas starfield, scramble-in headlines, scroll reveals, terminal typing, boot log, HUD scroll/sector readouts
 - `scripts/verify-build.test.ts` — Vite+/Vitest contract tests for page metadata and every generated discovery asset
 
