@@ -1,3 +1,4 @@
+import astralbeamLightLogoPngUrl from "@astralbeam/brand/logo/png/astralbeam-logo-light.png?url&no-inline"
 import astralbeamDarkLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamLightLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-light.svg?url&no-inline"
 import { TanStackDevtools } from "@tanstack/react-devtools"
@@ -29,6 +30,12 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      {
+        rel: "icon",
+        type: "image/png",
+        href: astralbeamLightLogoPngUrl,
+        sizes: "270x270",
+      },
       {
         rel: "icon",
         type: "image/svg+xml",
