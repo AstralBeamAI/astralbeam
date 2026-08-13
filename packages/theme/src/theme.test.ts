@@ -377,6 +377,21 @@ describe("theme definitions", () => {
         expectedPath: ["colors", "light", "primary"],
       },
       {
+        colors: { light: { primary: "red; --injected: lime" } },
+        geometry: {},
+        expectedPath: ["colors", "light", "primary"],
+      },
+      {
+        colors: { light: { primary: "red/**/; --injected: lime" } },
+        geometry: {},
+        expectedPath: ["colors", "light", "primary"],
+      },
+      {
+        colors: { light: { primary: "rgb(255 0 0))" } },
+        geometry: {},
+        expectedPath: ["colors", "light", "primary"],
+      },
+      {
         colors: { light: { primary: "#006b66" } },
         geometry: { radius: "1rem; } body { color: lime" },
         expectedPath: ["geometry", "radius"],
@@ -402,7 +417,7 @@ describe("theme definitions", () => {
       expect(
         result.issues.some((issue) => JSON.stringify(issue.path) === JSON.stringify(expectedPath)),
       ).toBe(true)
-      expect(JSON.stringify(result)).not.toContain("body { color: lime")
+      expect(JSON.stringify(result)).not.toMatch(/body \{ color: lime|--injected/iu)
     }
   })
 

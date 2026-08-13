@@ -19,7 +19,7 @@ import {
   XYZ_D65_to_sRGB,
   type Color,
 } from "@csstools/color-helpers"
-import { parseComponentValue } from "@csstools/css-parser-algorithms"
+import { parseListOfComponentValues } from "@csstools/css-parser-algorithms"
 import { tokenize } from "@csstools/css-tokenizer"
 import { Schema, SchemaIssue } from "effect"
 
@@ -1230,8 +1230,15 @@ function isOpaqueThemeColor(value: string): boolean {
 }
 
 function parseOpaqueColor(value: string): ColorData | undefined {
-  const component = parseComponentValue(tokenize({ css: value }))
-  if (!component) return undefined
+  let hasParseError = false
+  const onParseError = () => {
+    hasParseError = true
+  }
+  const components = parseListOfComponentValues(tokenize({ css: value }, { onParseError }), {
+    onParseError,
+  })
+  const component = components[0]
+  if (hasParseError || components.length !== 1 || !component) return undefined
 
   const parsed = color(component)
   if (
