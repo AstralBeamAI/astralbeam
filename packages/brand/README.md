@@ -4,7 +4,7 @@ The shared semantic palette and approved AstralBeam logo assets are exposed as C
 
 ```text
 @astralbeam/brand/colors.css
-@astralbeam/brand/theme
+@astralbeam/brand
 @astralbeam/brand/logo/svg/*
 @astralbeam/brand/logo/png/*
 ```
@@ -21,13 +21,20 @@ Apply exactly one theme class to a root or ancestor before the page first paints
 
 Use `dark` instead of `light` for the dark palette.
 
-Node-only consumers can use the complete resolved theme directly:
+Tools that need the resolved AstralBeam brand theme can import its validated document. Static applications should prefer the generated stylesheet so the authoring validator and color math stay out of their ordinary client bundle.
 
 ```ts
-import { theme } from "@astralbeam/brand/theme"
+import { theme } from "@astralbeam/brand"
 
-const background = theme.palette.dark.background.srgbHex
-const radius = theme.radius
+const radius = theme.geometry.radius
+```
+
+Consumers that need resolved sRGB values can use the concrete AstralBeam palette, which is materialized by the generic converter in `@astralbeam/theme`:
+
+```ts
+import { palette } from "@astralbeam/brand"
+
+const background = palette.dark.background.srgbHex
 ```
 
 ```ts
@@ -38,4 +45,8 @@ import lightWordmarkUrl from "@astralbeam/brand/logo/svg/astralbeam-wordmark-lig
 
 Use the square `astralbeam-logo-light` and `astralbeam-logo-dark` variants, which place the A and B initials side by side, for icons and compact placements. Use the horizontal `astralbeam-wordmark-light` and `astralbeam-wordmark-dark` variants where the full name belongs. The suffix describes the intended background, and every master has a transparent canvas.
 
-Semantic light and dark colors plus the shared radius are published under the explicit `.light` and `.dark` selectors in `colors.css`. Standalone SVGs embed resolved sRGB paints for renderer compatibility. Node-only build tools can use the complete `theme`, its `palette`, or resolve an individual color with `resolveBrandColor` from `@astralbeam/brand/theme`; that export is blocked by the package's browser condition.
+Edit `src/theme.json`, then run `vp run @astralbeam/brand#generate:colors` and commit both the definition and checked-in stylesheet. Do not edit `colors.css` directly; Brand tests fail when it drifts from the JSON source.
+
+Only `colors.light.primary` is required; omitted roles are derived by `@astralbeam/theme`. The `$schema` URL provides editor validation and completion. Standalone SVG and PNG paints are independent of semantic theme generation.
+
+Reusable color conversion belongs to `@astralbeam/theme`; `theme` and `palette` are the concrete AstralBeam bindings exported from the package root.

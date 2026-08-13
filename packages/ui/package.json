@@ -13,7 +13,6 @@
     "ui": "vp exec shadcn"
   },
   "dependencies": {
-    "@astralbeam/brand": "workspace:*",
     "@base-ui/react": "catalog:",
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/manrope": "catalog:",

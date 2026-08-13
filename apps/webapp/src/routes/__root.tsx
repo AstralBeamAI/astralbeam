@@ -1,3 +1,4 @@
+import brandThemeCss from "@astralbeam/brand/colors.css?raw"
 import astralbeamLightLogoPngUrl from "@astralbeam/brand/logo/png/astralbeam-logo-light.png?url&no-inline"
 import astralbeamDarkLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamLightLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-light.svg?url&no-inline"
@@ -7,6 +8,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
 import appCss from "../styles.css?url"
 
+// Route-managed head styles apply before first paint and keep theme selection app-owned. https://tanstack.com/router/latest/docs/guide/document-head-management
 const devtoolsConfig = { position: "bottom-right" } as const
 const devtoolsPlugins = [
   {
@@ -55,6 +57,12 @@ export const Route = createRootRoute({
       {
         rel: "license",
         href: "/LICENSE-AGPL",
+      },
+    ],
+    styles: [
+      {
+        children: brandThemeCss,
+        id: "app-theme",
       },
     ],
   }),

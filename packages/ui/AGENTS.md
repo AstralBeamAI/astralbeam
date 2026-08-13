@@ -2,10 +2,11 @@
 
 ## Shared colors
 
-- Keep semantic color values in `packages/brand/src/colors.css`; `src/styles.css` imports that palette and maps it into Tailwind without duplicating the values.
-- Keep the shared base radius in the brand stylesheet and derive Tailwind's radius scale from that imported token.
+- Keep `src/styles.css` theme-agnostic: it maps semantic CSS variables into Tailwind but must not import or define a product palette.
+- Require every application to supply `--radius` and the complete semantic variable set referenced by `src/styles.css` before rendering shared components.
+- Keep theme selection, validation, fallback, and first-paint injection in the consuming application rather than this package.
+- Derive Tailwind's radius scale from the consumer-supplied `--radius` token.
 - Preserve the explicit theme contract: every consumer must apply exactly one of `.light` or `.dark` to a root or ancestor before first paint.
-- Scope shared custom properties under the combined `.light` and `.dark` selectors instead of a global selector.
 
 ## Adding shadcn Components
 

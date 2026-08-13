@@ -1,5 +1,5 @@
 import darkLogoSvg from "@astralbeam/brand/logo/svg/astralbeam-logo-dark.svg?raw"
-import { palette } from "@astralbeam/brand/theme"
+import { palette } from "@astralbeam/brand"
 import type { APIRoute } from "astro"
 import sharp from "sharp"
 

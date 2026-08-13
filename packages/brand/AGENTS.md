@@ -2,16 +2,19 @@
 
 Shared AstralBeam brand assets live here. The four SVG masters and their generated PNGs cover light- and dark-background square logos and horizontal wordmarks under `src/logo`.
 
+## Theme
+
+- Treat the compact `src/theme.json` definition as the source of truth: author optional semantic values under `colors.light`, optional `background`, `foreground`, `primary`, and `accent` values under `colors.dark`, and shared dimensions under `geometry`; every other dark role is derived.
+- Generate and commit `src/colors.css` with `vp run @astralbeam/brand#generate:colors`; do not edit the generated stylesheet directly. Brand tests fail when it drifts from `src/theme.json`.
+- Keep `colors.css`, `theme`, and `palette` browser-safe; prefer the generated stylesheet for static applications, and import the exhaustive document and resolved sRGB values from `@astralbeam/brand`. Generic conversion belongs to `@astralbeam/theme`.
+- Keep the resolved brand theme exhaustive and symmetric with the shared semantic contract; retain an optional authored role only when its value intentionally differs from the resolver default.
+- Keep theme-invariant values such as radius under `geometry` so generation emits them once under the combined `.light, .dark` selector and `theme` exposes them once.
+- Require every CSS consumer to apply exactly one of `.light` or `.dark` to a root or ancestor before first paint.
+
 ## Logo colors
 
-- Treat `src/colors.css` as the repository's source of truth for semantic brand colors and shared theme dimensions such as radius.
-- Keep `colors.css` browser-safe and token-only; Node consumers that need resolved sRGB values must use the complete `palette` or `resolveBrandColor` from the browser-blocked `@astralbeam/brand/theme` export.
-- Keep both exported palette themes exhaustive and symmetric with the semantic tokens in `colors.css`.
-- Keep theme-invariant tokens declared once under the combined `.light, .dark` selector and exposed through the `theme` export.
-- Require every CSS consumer to apply exactly one of `.light` or `.dark` to a root or ancestor before first paint.
 - Keep the `data-theme-token` markers on each SVG's `foreground` and `primary` paint group.
-- Manually keep every marked `color` attribute equal to the resolved sRGB hex value of its matching token in `colors.css`: use `.light` for `-light` SVGs and `.dark` for `-dark` SVGs.
-- When either token changes, update both affected SVG variants before regenerating PNGs; the PNG generator renders the checked-in SVGs without changing their colors.
+- Treat logo paints as approved standalone asset colors independent of theme generation; do not change SVG or PNG paints when semantic theme colors change.
 - Keep each light/dark pair transparent and geometrically identical.
 
 ## Geometry

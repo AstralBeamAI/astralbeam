@@ -5,6 +5,7 @@ packages:
 allowBuilds:
   esbuild: true
   lightningcss: true
+  msgpackr-extract: false
   sharp: true
   workerd: true
 
@@ -15,6 +16,10 @@ catalog:
   # https://babeljs.io/docs/v8-migration-api/#remove-assignmentpattern-and-restelement-from-the-lval-alias-17387
   "@babel/core": ^7
   "@base-ui/react": ^1.6.0
+  "@csstools/color-helpers": 6.1.0
+  "@csstools/css-color-parser": 4.1.10
+  "@csstools/css-parser-algorithms": 4.0.0
+  "@csstools/css-tokenizer": 4.0.0
   "@fontsource-variable/inter": ^5.2.8
   "@fontsource-variable/manrope": ^5.2.8
   "@rolldown/plugin-babel": ^0.2.3
@@ -35,6 +40,7 @@ catalog:
   clsx: ^2.1.1
   drizzle-kit: ^1.0.0-rc.4
   drizzle-orm: ^1.0.0-rc.4
+  effect: 4.0.0-rc.108
   knip: ^6.32.0
   nitro: 3.0.260610-beta
   postgres: ^3.4.9
