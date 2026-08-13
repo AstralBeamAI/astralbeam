@@ -795,6 +795,13 @@ main {
   align-items: start;
 }
 
+/* `fr` tracks floor at min-content, so the pre-formatted terminal lines would
+   widen the grid past the viewport instead of scrolling inside .terminal-body.
+   https://www.w3.org/TR/css-grid-1/#min-size-auto */
+.deploy-grid > * {
+  min-width: 0;
+}
+
 .terminal {
   --cut: 14px;
 }
@@ -808,6 +815,12 @@ main {
   letter-spacing: 0.18em;
   color: var(--muted-foreground);
   border-bottom: 1px solid var(--border);
+}
+
+.terminal-bar > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .term-dots {
@@ -970,8 +983,13 @@ main {
 
 /* ---------- 04 open source ---------- */
 
+/* The watermark bleeds off the right edge by design; clip horizontally so it
+   cannot extend the document scroll width. `clip` rather than `hidden` avoids
+   creating a scroll container, which would trap the vertical overhang.
+   https://developer.mozilla.org/en-US/docs/Web/CSS/overflow#clip */
 #open-source {
-  overflow: visible;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .os-watermark {
@@ -1122,6 +1140,16 @@ main {
   }
   .hud-bottom .hud-readout:first-child {
     display: none;
+  }
+  /* The widest snippet line is 45 mono chars (27em at JetBrains Mono's 0.6em
+     advance), so scale the type down to keep it inside a phone viewport. */
+  .terminal-body {
+    padding: 1rem 1.05rem 1.2rem;
+    font-size: clamp(0.58rem, 2.6vw, 0.82rem);
+  }
+  .terminal-bar {
+    gap: 0.7rem;
+    padding: 0.7rem 1.05rem;
   }
 }
 
