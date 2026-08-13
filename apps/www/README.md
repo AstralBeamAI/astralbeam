@@ -1,6 +1,6 @@
 # @astralbeam/www
 
-Cinematic "mission console" landing page for astralbeam.ai, inspired by the HUD/cockpit aesthetic of sazabi.com but translated into AstralBeam's own starship-bridge identity (deep space, neon-teal beam, scanlines, mono readouts).
+Cinematic "mission console" landing page for astralbeam.ai, translated into AstralBeam's own starship-bridge identity (deep space, neon-teal beam, scanlines, mono readouts).
 
 Plain Astro + hand-rolled CSS + vanilla TypeScript. No React, no Tailwind, and no client framework runtime.
 
