@@ -18,6 +18,7 @@ Structure:
 - `src/pages/*.ts` — prerendered metadata resources, sitemap, icons, social image, `robots.txt`, and `llms.txt`
 - `src/styles/global.css` — all styling; site-specific derived tokens and shared semantic colors under explicit theme selectors
 - `src/scripts/main.ts` — canvas starfield, scramble-in headlines, scroll reveals, terminal typing, boot log, HUD scroll/sector readouts
+- `src/pages/schemas/theme.schema.json.ts` — prerendered route that publishes the checked-in `@astralbeam/theme/theme.schema.json`
 - `scripts/verify-build.test.ts` — Vite+/Vitest contract tests for page metadata and every generated discovery asset
 
 All animation respects `prefers-reduced-motion`. Fonts are self-hosted via @fontsource (Anton / Space Grotesk / JetBrains Mono).

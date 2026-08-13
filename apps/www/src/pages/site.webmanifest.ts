@@ -1,4 +1,4 @@
-import { palette } from "@astralbeam/brand/theme"
+import { palette } from "@astralbeam/brand"
 import type { APIRoute } from "astro"
 
 import { siteMetadata, siteUrl } from "@/lib/site"

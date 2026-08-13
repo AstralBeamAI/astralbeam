@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@astralbeam/brand": "workspace:*",
+    "@astralbeam/theme": "workspace:*",
     "@astrojs/sitemap": "3.7.3",
     "@fontsource-variable/space-grotesk": "^5.2.8",
     "@fontsource/anton": "^5.2.8",

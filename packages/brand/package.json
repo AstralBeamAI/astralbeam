@@ -5,21 +5,19 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "exports": {
+    ".": "./src/index.ts",
     "./colors.css": "./src/colors.css",
-    "./theme": {
-      "types": "./src/theme.ts",
-      "browser": null,
-      "default": "./src/theme.ts"
-    },
     "./logo/svg/*": "./src/logo/svg/*",
     "./logo/png/*": "./src/logo/png/*"
   },
   "scripts": {
-    "check:fix": "vp check --fix && vp run generate:png",
-    "generate:png": "node scripts/export-png.ts"
+    "check:fix": "vp run generate:colors && vp run generate:png && vp check --fix",
+    "generate:colors": "node scripts/generate-colors.ts",
+    "generate:png": "node scripts/export-png.ts",
+    "test": "vp test run"
   },
   "dependencies": {
-    "@asamuzakjp/css-color": "5.1.11"
+    "@astralbeam/theme": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
