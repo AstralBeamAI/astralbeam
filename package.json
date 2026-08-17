@@ -4,6 +4,8 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
+    "auth:generate": "vp run @astralbeam/db#auth:generate",
+    "auth:secret": "vp dlx auth@1.7.0-rc.5 secret",
     "check": "vp check && knip",
     "check:fix": "vp check --fix",
     "db": "vp run @astralbeam/db#db",

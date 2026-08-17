@@ -3,9 +3,11 @@ import astralbeamLightLogoPngUrl from "@astralbeam/brand/logo/png/astralbeam-log
 import astralbeamDarkLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamLightLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-light.svg?url&no-inline"
 import { TanStackDevtools } from "@tanstack/react-devtools"
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import type { QueryClient } from "@tanstack/react-query"
+import { HeadContent, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
+import { Providers } from "@/components/providers"
 import appCss from "../styles.css?url"
 
 // Route-managed head styles apply before first paint and keep theme selection app-owned. https://tanstack.com/router/latest/docs/guide/document-head-management
@@ -17,7 +19,7 @@ const devtoolsPlugins = [
   },
 ]
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       {
@@ -82,7 +84,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <Providers>{children}</Providers>
         <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />
         <Scripts />
       </body>

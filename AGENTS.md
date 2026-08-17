@@ -17,7 +17,7 @@
 
 ## Environment
 
-- Keep environment files at the repository root. Commit only reviewed non-secret templates and defaults (`.env.example`, `.env.development`, and its `.env.test` symlink); never commit credentials or deployment-specific values.
+- Keep environment files at the repository root. Commit only reviewed non-secret templates and defaults (`.env`, `.env.example`, `.env.development`, and its `.env.test` symlink); never commit credentials or deployment-specific values.
 - Reuse `@astralbeam/utils/environment` from application and standalone-tool configuration instead of adding package-local loaders or environment files. Shell, CI, and deployment variables must take precedence over file values.
 
 ## Shared UI
@@ -31,6 +31,13 @@
 - Run database commands from the repository root with `vp run @astralbeam/db#db <command>`.
 - After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
 - Use `migrate` for checked-in migrations; reserve `push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or package-local environment files.
+
+## Authentication
+
+- Keep Better Auth server configuration and reusable TanStack Start auth utilities in `packages/auth`; applications consume its explicit `@astralbeam/auth/*` exports.
+- Keep Google and GitHub OAuth as the only sign-in methods and Better Auth Organizations as the SaaS membership boundary; do not enable email/password, two-factor authentication, teams, or dynamic organization roles unless product scope explicitly changes.
+- Regenerate the auth schema with `vp run auth:generate`, then follow the database migration workflow and commit the schema and migration together.
+- Route guards are navigation UX, not authorization. Protect organization-owned server functions with `organizationMiddleware`, using `freshOrganizationMiddleware` for sensitive or destructive operations; use `authMiddleware` only for authenticated operations intentionally outside an organization.
 
 ## Cursor Cloud
 

@@ -7,6 +7,7 @@ apps/
   webapp/       @astralbeam/webapp  # TanStack Start application
   www/          @astralbeam/www     # Public website
 packages/
+  auth/         @astralbeam/auth    # Better Auth server, client, and TanStack Start utilities
   brand/        @astralbeam/brand   # Shared palette and approved light/dark logo assets
   db/           @astralbeam/db      # Server-only Drizzle client and schemas
   ui/           @astralbeam/ui      # Shared styles, components, and utilities
@@ -22,13 +23,19 @@ vp run webapp # Starts app on http://localhost:3000
 vp run www # Starts website on http://localhost:3001
 ```
 
-Applications and repository tools load environment files from the repository root through [`@astralbeam/utils/environment`](packages/utils/src/environment.ts). Optional overrides are documented in `.env.example`, local service defaults live in `.env.development`, and secrets belong in the ignored `.env.local`. Keep secrets unprefixed for server-only `process.env` access; only variables intentionally exposed to browsers may use an application's public prefix (`VITE_` for the TanStack Start app and `PUBLIC_` for Astro). Deployment environments must inject secrets at runtime rather than relying on checked-out environment files.
+Applications and repository tools load environment files from the repository root through [`@astralbeam/utils/environment`](packages/utils/src/environment.ts). Reviewed public defaults live in `.env`, local service defaults live in `.env.development`, and secrets belong in the ignored `.env.local`. Keep secrets unprefixed for server-only `process.env` access; only variables intentionally exposed to browsers may use an application's public prefix (`VITE_` for the TanStack Start app and `PUBLIC_` for Astro). Deployment environments must inject secrets at runtime rather than relying on checked-out environment files.
 
 Add shadcn components to the shared UI package:
 
 ```sh
 vp run ui add button
 ```
+
+## Authentication
+
+The product application uses [`@astralbeam/auth`](packages/auth/README.md) for Google and GitHub OAuth, explicit terms-gated registration, and Better Auth Organizations as its SaaS membership boundary. Follow the step-by-step [Google and GitHub OAuth setup guide](SETUP.md#configure-google-and-github-oauth) before starting the web app.
+
+Generate the Better Auth Drizzle schema with `vp run auth:generate`. After auth configuration changes, inspect that output and follow the checked-in migration workflow in [`@astralbeam/db`](packages/db/README.md).
 
 ## Validate and build
 
@@ -65,7 +72,7 @@ Copyright © 2026 AstralBeam Inc. for AstralBeam-controlled material. Third-part
 ## Tasks
 
 - [ ] How to Create Server Routes
-- [ ] Add Better Auth
+- [x] Add Better Auth
 - [ ] Add react-email
 - [ ] Update to Latest TanStack Start API (if needed)
 - [ ] Set up CLAUDE.md properly

@@ -1,6 +1,6 @@
 # `@astralbeam/db`
 
-Server-only PostgreSQL access for AstralBeam applications.
+Server-only PostgreSQL access for AstralBeam applications, including the Better Auth schema and Drizzle Relations v2 configuration.
 
 ## Query from a server function
 
@@ -17,6 +17,10 @@ export const listProjects = createServerFn({ method: "GET" }).handler(() =>
 ```
 
 `db` is the shared Drizzle client. The schema entrypoint exports the available tables and relations. Both require server-only code and `DATABASE_URL`.
+
+## Authentication schema
+
+The user, session, account, verification, organization, member, invitation, and rate-limit tables are generated from `@astralbeam/auth`. Regenerate them from the repository root with `vp run auth:generate`, then generate and inspect a checked-in Drizzle migration before applying it.
 
 ## Database commands
 
