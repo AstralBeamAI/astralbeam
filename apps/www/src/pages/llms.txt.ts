@@ -19,7 +19,7 @@ AstralBeam gives application teams one service for adding production-ready agent
 - Drop-in frontend SDK for a customizable, Cursor-like agent sidebar
 - Managed resumable chat streaming, conversation history, observability, analytics, and audit logs
 - Tools, skills, app actions, user-provided MCP support, guardrails, and evaluation hooks
-- Tenant-aware authentication, permissions, context, flexible rate limits, and token-based billing
+- Organization-aware authentication, permissions, context, flexible rate limits, and token-based billing
 - Enterprise SSO, data privacy, access control, prompt management, A/B testing, and production evaluations
 - Multiplayer chat, background agents, dynamic model routing, prompt caching, and token optimization
 

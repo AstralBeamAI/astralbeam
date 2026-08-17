@@ -2,17 +2,23 @@
 
 ## Tooling and validation
 
-- Use Vite+ from the repository root: `vp run <script>`, with `-r` only when every workspace package is intended. Docs are in `node_modules/vite-plus/docs` and at https://viteplus.dev/guide/.
+- Use Vite+ from the repository root: `vp run <script>`, with `-r` only when every workspace package is intended. Docs are in `node_modules/vite-plus/docs` and at <https://viteplus.dev/guide/>.
 - Before running `vp run knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete diff before running recursive Vite+ checks and fixes with `vp run -r check:fix`.
-- Run `vp install` once after pulling. Otherwise, use the smallest relevant package task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
+- Run `./scripts/setup.sh` once after pulling. Otherwise, use the smallest relevant package task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `vp run check`, `vp run test`, or `vp run ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
 - Run `vp env doctor` only for setup, runtime, or package-manager problems.
 
 ## Documentation
 
 - Use `README.md` for consumers and `AGENTS.md` for authors. When creating an `AGENTS.md`, add a sibling `CLAUDE.md` symlink to it.
+- Name planning documents with the `*.plan.md` suffix so they are distinguishable from durable documentation.
 - Keep each Markdown paragraph and list item on one source line.
 - Comment only non-obvious code or configuration decisions, including a link to authoritative documentation or an issue.
+
+## Environment
+
+- Keep environment files at the repository root. Commit only reviewed non-secret templates and defaults (`.env.example`, `.env.development`, and its `.env.test` symlink); never commit credentials or deployment-specific values.
+- Reuse `@astralbeam/utils/environment` from application and standalone-tool configuration instead of adding package-local loaders or environment files. Shell, CI, and deployment variables must take precedence over file values.
 
 ## Shared UI
 

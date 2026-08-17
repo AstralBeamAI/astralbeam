@@ -50,6 +50,21 @@ describe("production website build", () => {
     expect(html).not.toMatch(/astralbeam\.com/iu)
   })
 
+  test("publishes and links the legal pages", async () => {
+    const [home, terms, privacy] = await Promise.all([
+      readText("index.html"),
+      readText("terms/index.html"),
+      readText("privacy/index.html"),
+    ])
+
+    expect(home).toContain('href="/terms"')
+    expect(home).toContain('href="/privacy"')
+    expect(terms).toContain(`<link rel="canonical" href="${origin}/terms">`)
+    expect(terms).toContain("Terms of Service")
+    expect(privacy).toContain(`<link rel="canonical" href="${origin}/privacy">`)
+    expect(privacy).toContain("Google API Services User Data Policy")
+  })
+
   test("ships brand colors without Node APIs", async () => {
     const assetDirectory = new URL("_astro/", distUrl)
     const assets = await readdir(assetDirectory)
@@ -104,6 +119,8 @@ describe("production website build", () => {
     expect(licenses).toContain(oflLicense.trimEnd())
     expect(sitemapIndex).toContain(`${origin}/sitemap-0.xml`)
     expect(sitemap).toContain(`<loc>${homeUrl}</loc>`)
+    expect(sitemap).toContain(`<loc>${origin}/privacy/</loc>`)
+    expect(sitemap).toContain(`<loc>${origin}/terms/</loc>`)
     expect(sitemap).not.toContain("/404")
     expect(manifest).toMatchObject({
       name: "AstralBeam",

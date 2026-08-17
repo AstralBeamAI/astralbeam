@@ -12,10 +12,9 @@ Choose one of the two local workflows below: use the devcontainer or run the cod
   brew install --cask podman-desktop
   ```
 
-  - Start Podman Desktop.
-  - Create a Podman machine.
-  - Enable Docker compatibility.
-  - Do not install the Compose extension from Podman Desktop. Its official Compose provider installs a `docker-compose` wrapper that breaks BuildKit functionality.
+- Start Podman Desktop, create a Podman machine, and enable Docker compatibility.
+
+- Do not install the Compose extension from Podman Desktop. Its provider installs a `docker-compose` wrapper that breaks BuildKit functionality.
 
 - Install `podman-compose`:
 

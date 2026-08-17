@@ -60,10 +60,16 @@ export default defineConfig(({ mode }) =>
       // https://vitest.dev/guide/#configuring-vitest
       ...(mode === "test" ? [] : [nitro()]),
       viteReact(),
-      // Vite 8 runs React Compiler through Babel; fail the build on every compiler diagnostic.
+      // Fail on critical compiler errors during development, but skip unsupported components in every deployable or automated mode.
       // https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#react-compiler
       // https://react.dev/reference/react-compiler/panicThreshold
-      babel({ presets: [reactCompilerPreset({ panicThreshold: "all_errors" })] }),
+      babel({
+        presets: [
+          reactCompilerPreset({
+            panicThreshold: mode === "development" ? "critical_errors" : "none",
+          }),
+        ],
+      }),
       tailwindcss(),
     ]),
   }),

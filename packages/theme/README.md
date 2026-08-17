@@ -1,6 +1,6 @@
 # `@astralbeam/theme`
 
-`@astralbeam/theme` defines the neutral semantic theme contract shared by AstralBeam and tenant-provided color systems. UI components consume the resulting CSS custom properties and do not own theme selection or persistence.
+`@astralbeam/theme` defines the neutral semantic theme contract shared by AstralBeam and organization-provided color systems. UI components consume the resulting CSS custom properties and do not own theme selection or persistence.
 
 ## Theme documents
 
@@ -29,9 +29,9 @@ const stylesheet = generateThemeCss(theme)
 
 `resolveThemePalette` converts every semantic color to its CSS value, sRGB tuple, and hex value under stable camel-case properties such as `cardForeground` and `chart1`. It accepts an already validated exhaustive document and returns a fresh frozen value without mutating the document. `themeCssVariables` includes `--radius` and every semantic `--*` color property. `generateThemeCss` emits deterministic `.light` and `.dark` rules from the same document.
 
-## Tenant authoring
+## Organization authoring
 
-A `ThemeDefinition` is the compact tenant-authoring input. It requires `colors` and `geometry` and may include the published `$schema` URL for editor assistance. `colors.light.primary` is the sole required color; light `background`, `foreground`, and every other semantic token are optional direct properties. An optional `colors.dark` object accepts only `background`, `foreground`, `primary`, and `accent`; all other dark roles remain derived. The resolver uses shadcn's neutral light background and foreground when they are omitted. An omitted `geometry.radius` resolves to shadcn's `0.625rem` default.
+A `ThemeDefinition` is the compact organization-authoring input. It requires `colors` and `geometry` and may include the published `$schema` URL for editor assistance. `colors.light.primary` is the sole required color; light `background`, `foreground`, and every other semantic token are optional direct properties. An optional `colors.dark` object accepts only `background`, `foreground`, `primary`, and `accent`; all other dark roles remain derived. The resolver uses shadcn's neutral light background and foreground when they are omitted. An omitted `geometry.radius` resolves to shadcn's `0.625rem` default.
 
 ```ts
 import { resolveThemeDefinition } from "@astralbeam/theme"

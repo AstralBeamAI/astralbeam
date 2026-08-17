@@ -70,7 +70,7 @@ function createThemeDefinition(): ThemeDefinition {
   }
 }
 
-function createTenantTheme(): ThemeDocument {
+function createOrganizationTheme(): ThemeDocument {
   return parseThemeDocument({
     colors: {
       light: createColorMap("#123456", "#ffffff"),
@@ -98,7 +98,7 @@ function createColorMap(surface: string, foreground: string) {
 
 describe("theme document schema", () => {
   test("accepts an exhaustive non-AstralBeam theme", () => {
-    const parsed = parseThemeDocument(createTenantTheme())
+    const parsed = parseThemeDocument(createOrganizationTheme())
 
     expect(Object.keys(parsed)).toEqual(["colors", "geometry"])
     expect(Object.keys(parsed.colors.light)).toEqual(themeTokenNames)
@@ -107,40 +107,40 @@ describe("theme document schema", () => {
   })
 
   test("requires the exact resolved structure and semantic token set", () => {
-    const tenantTheme = createTenantTheme()
-    const missingToken = { ...tenantTheme.colors.light } as Record<string, string>
+    const organizationTheme = createOrganizationTheme()
+    const missingToken = { ...organizationTheme.colors.light } as Record<string, string>
     delete missingToken.background
 
     expect(() =>
       parseThemeDocument({
-        ...tenantTheme,
-        colors: { ...tenantTheme.colors, light: missingToken },
+        ...organizationTheme,
+        colors: { ...organizationTheme.colors, light: missingToken },
       }),
     ).toThrow(/background/u)
 
     const documentsWithExtras = [
-      { ...tenantTheme, metadata: "tenant-aurora" },
+      { ...organizationTheme, metadata: "organization-aurora" },
       {
-        ...tenantTheme,
-        colors: { ...tenantTheme.colors, tenantMode: "tenant" },
+        ...organizationTheme,
+        colors: { ...organizationTheme.colors, organizationMode: "organization" },
       },
       {
-        ...tenantTheme,
+        ...organizationTheme,
         colors: {
-          ...tenantTheme.colors,
-          light: { ...tenantTheme.colors.light, "tenant-light": "#000000" },
+          ...organizationTheme.colors,
+          light: { ...organizationTheme.colors.light, "organization-light": "#000000" },
         },
       },
       {
-        ...tenantTheme,
+        ...organizationTheme,
         colors: {
-          ...tenantTheme.colors,
-          dark: { ...tenantTheme.colors.dark, "tenant-dark": "#000000" },
+          ...organizationTheme.colors,
+          dark: { ...organizationTheme.colors.dark, "organization-dark": "#000000" },
         },
       },
       {
-        ...tenantTheme,
-        geometry: { ...tenantTheme.geometry, density: "compact" },
+        ...organizationTheme,
+        geometry: { ...organizationTheme.geometry, density: "compact" },
       },
     ]
 
@@ -149,33 +149,33 @@ describe("theme document schema", () => {
     }
     expect(() =>
       parseThemeDocument({
-        ...tenantTheme,
+        ...organizationTheme,
         colors: {
-          ...tenantTheme.colors,
-          dark: { ...tenantTheme.colors.dark, "tenant-only": "#000000" },
+          ...organizationTheme.colors,
+          dark: { ...organizationTheme.colors.dark, "organization-only": "#000000" },
         },
       }),
-    ).toThrow(/tenant-only/u)
+    ).toThrow(/organization-only/u)
   })
 
   test("rejects unsafe radius values", () => {
-    const tenantTheme = createTenantTheme()
+    const organizationTheme = createOrganizationTheme()
 
     expect(() =>
-      parseThemeDocument({ ...tenantTheme, geometry: { radius: "calc(1rem + 1px)" } }),
+      parseThemeDocument({ ...organizationTheme, geometry: { radius: "calc(1rem + 1px)" } }),
     ).toThrow("Theme radius must be zero or a nonnegative px, rem, em, or percentage length")
     expect(() =>
-      parseThemeDocument({ ...tenantTheme, geometry: { radius: "1rem; color: red" } }),
+      parseThemeDocument({ ...organizationTheme, geometry: { radius: "1rem; color: red" } }),
     ).toThrow("Theme radius must be zero or a nonnegative px, rem, em, or percentage length")
   })
 
   test("rejects invalid and transparent color values without throwing from safeParse", () => {
-    const tenantTheme = createTenantTheme()
+    const organizationTheme = createOrganizationTheme()
     const malformedTheme = {
-      ...tenantTheme,
+      ...organizationTheme,
       colors: {
-        ...tenantTheme.colors,
-        light: { ...tenantTheme.colors.light, primary: "color(display-p3" },
+        ...organizationTheme.colors,
+        light: { ...organizationTheme.colors.light, primary: "color(display-p3" },
       },
     }
 
@@ -186,38 +186,38 @@ describe("theme document schema", () => {
     expect(Exit.isFailure(safelyDecodeMalformedTheme())).toBe(true)
     expect(() =>
       parseThemeDocument({
-        ...tenantTheme,
+        ...organizationTheme,
         colors: {
-          ...tenantTheme.colors,
-          light: { ...tenantTheme.colors.light, primary: "not-a-color" },
+          ...organizationTheme.colors,
+          light: { ...organizationTheme.colors.light, primary: "not-a-color" },
         },
       }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
     expect(() =>
       parseThemeDocument({
-        ...tenantTheme,
+        ...organizationTheme,
         colors: {
-          ...tenantTheme.colors,
-          dark: { ...tenantTheme.colors.dark, primary: "rgb(0 0 0 / 50%)" },
+          ...organizationTheme.colors,
+          dark: { ...organizationTheme.colors.dark, primary: "rgb(0 0 0 / 50%)" },
         },
       }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
     expect(() =>
       parseThemeDocument({
-        ...tenantTheme,
+        ...organizationTheme,
         colors: {
-          ...tenantTheme.colors,
-          dark: { ...tenantTheme.colors.dark, primary: "rgb(0 0 0 / 99.95%)" },
+          ...organizationTheme.colors,
+          dark: { ...organizationTheme.colors.dark, primary: "rgb(0 0 0 / 99.95%)" },
         },
       }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
     expect(() =>
       parseThemeDocument({
-        ...tenantTheme,
+        ...organizationTheme,
         colors: {
-          ...tenantTheme.colors,
+          ...organizationTheme.colors,
           dark: {
-            ...tenantTheme.colors.dark,
+            ...organizationTheme.colors.dark,
             primary: "color-mix(in srgb, transparent 0.05%, black)",
           },
         },
@@ -226,14 +226,14 @@ describe("theme document schema", () => {
   })
 
   test("rejects low-contrast foreground pairs in resolved documents", () => {
-    const tenantTheme = createTenantTheme()
+    const organizationTheme = createOrganizationTheme()
     const lowContrastTheme = {
-      ...tenantTheme,
+      ...organizationTheme,
       colors: {
-        ...tenantTheme.colors,
+        ...organizationTheme.colors,
         light: {
-          ...tenantTheme.colors.light,
-          "primary-foreground": tenantTheme.colors.light.primary,
+          ...organizationTheme.colors.light,
+          "primary-foreground": organizationTheme.colors.light.primary,
         },
       },
     }
@@ -246,12 +246,12 @@ describe("theme document schema", () => {
     for (const token of ["destructive", "warning"] as const) {
       expect(() =>
         parseThemeDocument({
-          ...tenantTheme,
+          ...organizationTheme,
           colors: {
-            ...tenantTheme.colors,
+            ...organizationTheme.colors,
             light: {
-              ...tenantTheme.colors.light,
-              [token]: tenantTheme.colors.light.background,
+              ...organizationTheme.colors.light,
+              [token]: organizationTheme.colors.light.background,
             },
           },
         }),
@@ -260,12 +260,12 @@ describe("theme document schema", () => {
 
     expect(() =>
       parseThemeDocument({
-        ...tenantTheme,
+        ...organizationTheme,
         colors: {
-          ...tenantTheme.colors,
+          ...organizationTheme.colors,
           light: {
-            ...tenantTheme.colors.light,
-            ring: tenantTheme.colors.light.background,
+            ...organizationTheme.colors.light,
+            ring: organizationTheme.colors.light.background,
           },
         },
       }),
@@ -275,7 +275,7 @@ describe("theme document schema", () => {
 
 describe("theme color and CSS utilities", () => {
   test("resolves a selected mode and token to opaque sRGB", () => {
-    const resolved = resolveThemeColor(createTenantTheme(), "dark", "primary")
+    const resolved = resolveThemeColor(createOrganizationTheme(), "dark", "primary")
 
     expect(resolved).toEqual({
       css: "#abcdef",
@@ -287,26 +287,26 @@ describe("theme color and CSS utilities", () => {
   })
 
   test("resolves every token into a reusable mode palette", () => {
-    const tenantTheme = createTenantTheme()
-    const before = JSON.stringify(tenantTheme)
-    const palette = resolveThemePalette(tenantTheme, "dark")
+    const organizationTheme = createOrganizationTheme()
+    const before = JSON.stringify(organizationTheme)
+    const palette = resolveThemePalette(organizationTheme, "dark")
 
     expect(Object.keys(palette)).toEqual(Object.keys(paletteTokenByProperty))
     expect(Object.values(palette)).toEqual(
       Object.values(paletteTokenByProperty).map((token) =>
-        resolveThemeColor(tenantTheme, "dark", token),
+        resolveThemeColor(organizationTheme, "dark", token),
       ),
     )
     expect(Object.isFrozen(palette)).toBe(true)
     expect(Object.values(palette).every((resolvedColor) => Object.isFrozen(resolvedColor))).toBe(
       true,
     )
-    expect(resolveThemePalette(tenantTheme, "dark")).not.toBe(palette)
-    expect(JSON.stringify(tenantTheme)).toBe(before)
+    expect(resolveThemePalette(organizationTheme, "dark")).not.toBe(palette)
+    expect(JSON.stringify(organizationTheme)).toBe(before)
   })
 
   test("generates deterministic light and dark CSS", () => {
-    const css = generateThemeCss(createTenantTheme())
+    const css = generateThemeCss(createOrganizationTheme())
 
     expect(css).toMatch(/^\/\* Generated by @astralbeam\/theme\. Do not edit\. \*\//u)
     expect(css).toContain(".light,\n.dark {\n  --radius: 0.75rem;\n}")
@@ -317,25 +317,25 @@ describe("theme color and CSS utilities", () => {
   })
 
   test("creates every CSS variable without mutating the document", () => {
-    const tenantTheme = createTenantTheme()
-    const before = JSON.stringify(tenantTheme)
-    const variables = themeCssVariables(tenantTheme, "light")
+    const organizationTheme = createOrganizationTheme()
+    const before = JSON.stringify(organizationTheme)
+    const variables = themeCssVariables(organizationTheme, "light")
 
     expect(Object.keys(variables)).toHaveLength(themeTokenNames.length + 1)
     expect(variables["--radius"]).toBe("0.75rem")
     expect(variables["--primary"]).toBe("#123456")
     expect(Object.isFrozen(variables)).toBe(true)
-    expect(JSON.stringify(tenantTheme)).toBe(before)
+    expect(JSON.stringify(organizationTheme)).toBe(before)
   })
 
   test("runtime-validates resolved documents before serializing CSS", () => {
-    const tenantTheme = createTenantTheme()
+    const organizationTheme = createOrganizationTheme()
     const maliciousTheme = {
-      ...tenantTheme,
+      ...organizationTheme,
       colors: {
-        ...tenantTheme.colors,
+        ...organizationTheme.colors,
         light: {
-          ...tenantTheme.colors.light,
+          ...organizationTheme.colors.light,
           primary: "red; } body { color: lime",
         },
       },
@@ -346,7 +346,7 @@ describe("theme color and CSS utilities", () => {
     )
     expect(() =>
       generateThemeCss({
-        ...tenantTheme,
+        ...organizationTheme,
         geometry: { radius: "1rem; } body { color: lime" },
       }),
     ).toThrow("Theme radius must be zero or a nonnegative px, rem, em, or percentage length")
@@ -481,7 +481,7 @@ describe("theme definitions", () => {
     expect(() =>
       resolveThemeDefinition({ $schema: "https://example.com/theme.json", ...definition }),
     ).toThrow(/\$schema/u)
-    expect(() => resolveThemeDefinition({ ...definition, metadata: "tenant-seed" })).toThrow(
+    expect(() => resolveThemeDefinition({ ...definition, metadata: "organization-seed" })).toThrow(
       /metadata/u,
     )
     expect(() => resolveThemeDefinition({ colors: definition.colors })).toThrow(/geometry/u)

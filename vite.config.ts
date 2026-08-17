@@ -1,3 +1,4 @@
+import { workspaceEnvironmentViteConfig } from "@astralbeam/utils/environment"
 import { defineConfig, type UserConfig } from "vite-plus"
 
 const generatedPaths = [
@@ -16,7 +17,7 @@ const generatedPaths = [
 
 // Shared app config via imports: https://viteplus.dev/guide/monorepo#composing-configuration-files
 export const sharedViteConfig = {
-  envDir: import.meta.dirname,
+  ...workspaceEnvironmentViteConfig,
   check: {
     fmt: true,
     lint: true,
@@ -75,8 +76,15 @@ export const sharedViteConfig = {
       ],
       // The automatic JSX runtime does not require React to be imported in every TSX file.
       "react/react-in-jsx-scope": "off",
+      // Keep the stable Rules of Hooks check explicit even though compiler lint also reports hook-order violations. https://react.dev/reference/eslint-plugin-react-hooks
+      "react/rules-of-hooks": "error",
       // React Compiler lint is experimental and intentionally absent from category presets.
       "react/react-compiler": "error",
+      // Compiler enforcement lives in react/react-compiler and the webapp's compiler preset; disable legacy allocation rules that encourage redundant manual memoization. https://react.dev/reference/react-compiler/introduction#what-does-react-compiler-do
+      "react-perf/jsx-no-jsx-as-prop": "off",
+      "react-perf/jsx-no-new-array-as-prop": "off",
+      "react-perf/jsx-no-new-function-as-prop": "off",
+      "react-perf/jsx-no-new-object-as-prop": "off",
       "vite-plus/prefer-vite-plus-imports": "error",
     },
     options: {

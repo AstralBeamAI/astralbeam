@@ -20,6 +20,7 @@
     "www": "vp run @astralbeam/www#dev"
   },
   "devDependencies": {
+    "@astralbeam/utils": "workspace:*",
     "@types/node": "catalog:",
     "knip": "catalog:",
     "typescript": "catalog:",

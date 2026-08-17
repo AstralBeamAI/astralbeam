@@ -4,7 +4,7 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
-  "install": "vp env install && vp install --frozen-lockfile",
+  "install": "vp env install && ./scripts/setup.sh",
   "start": "service docker start && docker compose up -d --wait",
   "ports": [
     {
