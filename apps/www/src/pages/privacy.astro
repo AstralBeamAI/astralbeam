@@ -1,0 +1,85 @@
+---
+import LegalPageLayout from "@/layouts/LegalPageLayout.astro"
+import { siteMetadata } from "@/lib/site"
+
+const effectiveDate = "August 17, 2026"
+---
+
+<LegalPageLayout
+  title="Privacy Policy"
+  description="How AstralBeam collects, uses, shares, and protects personal information."
+  canonicalPath="/privacy"
+  effectiveDate={effectiveDate}
+>
+  <section>
+    <h2>1. Scope</h2>
+    <p>This Privacy Policy explains how AstralBeam collects, uses, shares, and retains personal information when you visit our websites, create an account, join an organization, use our hosted services, or communicate with us. An organization may separately control Customer Content processed through its account; contact that organization about its own privacy practices.</p>
+  </section>
+
+  <section>
+    <h2>2. Information we collect</h2>
+    <ul>
+      <li><strong>Account information:</strong> name, email address, profile image, identity-provider account identifier, and sign-in records received from Google or GitHub.</li>
+      <li><strong>Organization information:</strong> organization name, membership, role, invitations, settings, and related administrative activity.</li>
+      <li><strong>Customer Content:</strong> prompts, messages, files, tool inputs and outputs, agent configurations, and other information submitted through the Services.</li>
+      <li><strong>Usage and technical information:</strong> IP address, browser and device information, timestamps, session information, diagnostics, security events, and interactions with the Services.</li>
+      <li><strong>Communications:</strong> messages, support requests, feedback, and information submitted through our waitlist or other forms.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. How we use information</h2>
+    <p>We use information to provide and personalize the Services; authenticate users; manage organizations; process requested agent and tool operations; maintain security and prevent abuse; monitor reliability and usage; provide support; communicate about the Services; comply with law; and improve our products. We may use aggregated or de-identified information for analytics and product development where it cannot reasonably identify you.</p>
+  </section>
+
+  <section>
+    <h2>4. Google user data</h2>
+    <p>When you choose Google sign-in, AstralBeam requests only the `openid`, `email`, and `profile` scopes. We use the resulting account identifier, name, email address, profile image, and authentication information to create or authenticate your account, display your profile, secure your session, and support account administration.</p>
+    <p>We do not sell Google user data, use it for advertising or credit decisions, or use it to train generalized AI models. We share it only with service providers acting for us, when needed to secure or operate the Services, when you direct us to, or when required by law. Our use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including its Limited Use requirements.</p>
+  </section>
+
+  <section>
+    <h2>5. How we share information</h2>
+    <p>We may share information with infrastructure, hosting, identity, analytics, communications, payment, model, and tool providers that process it for us; with connected services you choose to use; with organization owners or administrators; to investigate abuse or protect rights and safety; in connection with a business transaction; or when required by law. We do not sell personal information.</p>
+  </section>
+
+  <section>
+    <h2>6. Cookies and similar technologies</h2>
+    <p>We use cookies and similar technologies that are necessary to authenticate users, maintain sessions, remember preferences, protect the Services, and understand operation and usage. Browser settings may let you block cookies, but essential features may stop working.</p>
+  </section>
+
+  <section>
+    <h2>7. Retention and deletion</h2>
+    <p>We retain information for as long as needed to provide the Services, maintain security and business records, resolve disputes, and meet legal obligations. Retention depends on the type of information, why it was collected, and applicable requirements. You may request account or personal-data deletion by contacting us. Organization-controlled information may need to be handled by the organization administrator. We may retain limited information where legally required or necessary to protect the Services.</p>
+  </section>
+
+  <section>
+    <h2>8. Security</h2>
+    <p>We use administrative, technical, and organizational measures designed to protect personal information. No system is completely secure, so we cannot guarantee that information will never be accessed, altered, or lost without authorization.</p>
+  </section>
+
+  <section>
+    <h2>9. International processing</h2>
+    <p>AstralBeam and its service providers may process information in countries other than where you live. Where required, we use appropriate safeguards for cross-border transfers.</p>
+  </section>
+
+  <section>
+    <h2>10. Your choices and rights</h2>
+    <p>You may update certain account information through the Services and disconnect connected services through the relevant provider. Depending on where you live, you may have rights to access, correct, delete, restrict, object to, or receive a copy of personal information. Contact us to make a request. We may need to verify your identity and may retain information where an exception applies.</p>
+  </section>
+
+  <section>
+    <h2>11. Children</h2>
+    <p>The Services are intended for businesses and developers and are not directed to children. Do not use the Services if you lack legal capacity to agree to the applicable terms.</p>
+  </section>
+
+  <section>
+    <h2>12. Changes to this policy</h2>
+    <p>We may update this policy as our practices or legal requirements change. We will post the revised policy with a new effective date and provide additional notice when required.</p>
+  </section>
+
+  <section>
+    <h2>13. Contact</h2>
+    <p>For privacy questions or requests, email <a href={`mailto:${siteMetadata.email}`}>{siteMetadata.email}</a>.</p>
+  </section>
+</LegalPageLayout>

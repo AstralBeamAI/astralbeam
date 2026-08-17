@@ -17,10 +17,12 @@ packages/
 Choose either the included devcontainer or the direct macOS workflow. Follow [`SETUP.md`](SETUP.md) for prerequisites and the PostgreSQL and Valkey service lifecycle.
 
 ```sh
-vp install
+./scripts/setup.sh # Install dependencies
 vp run webapp # Starts app on http://localhost:3000
 vp run www # Starts website on http://localhost:3001
 ```
+
+Applications and repository tools load environment files from the repository root through [`@astralbeam/utils/environment`](packages/utils/src/environment.ts). Optional overrides are documented in `.env.example`, local service defaults live in `.env.development`, and secrets belong in the ignored `.env.local`. Keep secrets unprefixed for server-only `process.env` access; only variables intentionally exposed to browsers may use an application's public prefix (`VITE_` for the TanStack Start app and `PUBLIC_` for Astro). Deployment environments must inject secrets at runtime rather than relying on checked-out environment files.
 
 Add shadcn components to the shared UI package:
 

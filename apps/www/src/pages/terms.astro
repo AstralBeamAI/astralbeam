@@ -1,0 +1,79 @@
+---
+import LegalPageLayout from "@/layouts/LegalPageLayout.astro"
+import { siteMetadata } from "@/lib/site"
+
+const effectiveDate = "August 17, 2026"
+---
+
+<LegalPageLayout
+  title="Terms of Service"
+  description="Terms governing access to and use of AstralBeam services."
+  canonicalPath="/terms"
+  effectiveDate={effectiveDate}
+>
+  <section>
+    <h2>1. Agreement</h2>
+    <p>These Terms of Service govern your access to and use of AstralBeam websites, hosted services, software, APIs, and related offerings (the “Services”). By creating an account or using the Services, you agree to these terms. If you use the Services for an organization, you represent that you have authority to bind that organization.</p>
+  </section>
+
+  <section>
+    <h2>2. Accounts and organizations</h2>
+    <p>You must provide accurate account information, keep your sign-in credentials secure, and promptly notify us of suspected unauthorized access. Organization owners and administrators control membership and may access or manage organization information through the controls available in the Services. You are responsible for the activity of users you authorize.</p>
+  </section>
+
+  <section>
+    <h2>3. Acceptable use</h2>
+    <p>You may not use the Services to violate law or third-party rights; distribute malware; gain unauthorized access; interfere with the Services; evade limits or security controls; conduct abusive surveillance; or create, distribute, or facilitate harmful, deceptive, or unlawful content. You may not resell or exploit the hosted Services except under an agreement with us.</p>
+  </section>
+
+  <section>
+    <h2>4. Your content and AI output</h2>
+    <p>You retain your rights in prompts, files, configurations, data, and other content you submit (“Customer Content”). You grant us the limited rights needed to host, process, transmit, and display Customer Content to provide, secure, and support the Services. You are responsible for Customer Content, the instructions you provide to models and tools, and how you evaluate and use generated output.</p>
+    <p>AI output can be inaccurate, incomplete, or unsuitable for a particular purpose. Review output before relying on it, especially for decisions that may affect a person’s rights, safety, finances, health, or legal interests.</p>
+  </section>
+
+  <section>
+    <h2>5. Connected and third-party services</h2>
+    <p>The Services may connect to identity providers, model providers, tools, data sources, payment processors, and other third-party services. Their terms and privacy practices govern their services. You authorize us to exchange information with a connected service as necessary to complete the actions you request.</p>
+  </section>
+
+  <section>
+    <h2>6. AstralBeam software and intellectual property</h2>
+    <p>We and our licensors retain all rights in the Services, branding, documentation, and hosted platform except for Customer Content and software expressly distributed under an open-source license. Open-source components are governed by their applicable licenses. These terms do not grant rights to use AstralBeam names, logos, or marks.</p>
+  </section>
+
+  <section>
+    <h2>7. Fees</h2>
+    <p>If you purchase a paid plan, the pricing, usage limits, billing cycle, taxes, renewal terms, and cancellation rights shown at purchase or in an order form apply. Except where required by law or stated otherwise, fees are non-refundable.</p>
+  </section>
+
+  <section>
+    <h2>8. Service changes and availability</h2>
+    <p>We may modify, suspend, or discontinue features and may apply usage or security limits. Preview, beta, and early-access features may change without notice and may be less reliable than generally available features. We aim to operate the Services reliably but do not guarantee uninterrupted or error-free availability.</p>
+  </section>
+
+  <section>
+    <h2>9. Suspension and termination</h2>
+    <p>You may stop using the Services at any time. We may suspend or terminate access when reasonably necessary to protect the Services or others, respond to legal requirements, prevent abuse, address non-payment, or enforce these terms. Provisions that by their nature should survive termination will remain in effect.</p>
+  </section>
+
+  <section>
+    <h2>10. Disclaimers</h2>
+    <p>To the maximum extent permitted by law, the Services are provided “as is” and “as available.” We disclaim implied warranties of merchantability, fitness for a particular purpose, non-infringement, and any warranty arising from course of dealing or usage of trade. Nothing in these terms limits rights that cannot legally be waived.</p>
+  </section>
+
+  <section>
+    <h2>11. Limitation of liability</h2>
+    <p>To the maximum extent permitted by law, AstralBeam and its affiliates, officers, employees, and suppliers will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for lost profits, revenues, goodwill, data, or business opportunities. Our aggregate liability relating to the Services will not exceed the greater of the amount you paid for the Services during the twelve months before the event giving rise to the claim or US$100.</p>
+  </section>
+
+  <section>
+    <h2>12. Changes to these terms</h2>
+    <p>We may update these terms as the Services or legal requirements change. We will post the revised terms with a new effective date and provide additional notice when required. Continuing to use the Services after the updated terms take effect means you accept them.</p>
+  </section>
+
+  <section>
+    <h2>13. Contact</h2>
+    <p>Questions about these terms can be sent to <a href={`mailto:${siteMetadata.email}`}>{siteMetadata.email}</a>.</p>
+  </section>
+</LegalPageLayout>

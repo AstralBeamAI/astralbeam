@@ -65,7 +65,7 @@
         },
         "primary": {
           "$ref": "#/$defs/themeColor",
-          "description": "Required tenant brand color used to derive primary accents and dark roles."
+          "description": "Required organization brand color used to derive primary accents and dark roles."
         },
         "primary-foreground": { "$ref": "#/$defs/themeColor" },
         "secondary": { "$ref": "#/$defs/themeColor" },

@@ -1,0 +1,195 @@
+---
+import astralbeamDarkWordmarkUrl from "@astralbeam/brand/logo/svg/astralbeam-wordmark-dark.svg?url&no-inline"
+import SiteLayout from "@/layouts/SiteLayout.astro"
+import { siteMetadata } from "@/lib/site"
+
+interface Props {
+  title: string
+  description: string
+  canonicalPath: string
+  effectiveDate: string
+}
+
+const { title, description, canonicalPath, effectiveDate } = Astro.props
+---
+
+<SiteLayout title={`${title} | ${siteMetadata.name}`} description={description} canonicalPath={canonicalPath}>
+  <div class="legal-shell">
+    <header class="legal-header">
+      <a class="legal-brand" href="/" aria-label="AstralBeam home">
+        <img src={astralbeamDarkWordmarkUrl} alt="AstralBeam" width="1241" height="136" />
+      </a>
+      <nav aria-label="Legal documents">
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main class="legal-main">
+      <header class="legal-title">
+        <p class="mono">// LEGAL</p>
+        <h1>{title}</h1>
+        <p>Effective {effectiveDate}</p>
+      </header>
+
+      <article class="legal-content">
+        <slot />
+      </article>
+    </main>
+
+    <footer class="legal-footer mono">
+      <span>© 2026 ASTRALBEAM</span>
+      <a href={`mailto:${siteMetadata.email}`}>{siteMetadata.email}</a>
+      <a href="/">HOME</a>
+    </footer>
+  </div>
+</SiteLayout>
+
+<style>
+  .legal-shell {
+    min-height: 100svh;
+    background:
+      linear-gradient(to bottom, color-mix(in srgb, var(--primary) 7%, transparent), transparent 22rem),
+      var(--background);
+  }
+
+  .legal-header,
+  .legal-footer {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    width: min(calc(100% - 2.5rem), 78rem);
+    margin-inline: auto;
+  }
+
+  .legal-header {
+    justify-content: space-between;
+    min-height: 5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legal-brand img {
+    display: block;
+    width: auto;
+    height: 1.5rem;
+  }
+
+  .legal-header nav {
+    display: flex;
+    gap: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .legal-header a,
+  .legal-footer a,
+  :global(.legal-content a) {
+    color: var(--primary);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 0.25em;
+    transition: text-decoration-color 0.2s;
+  }
+
+  .legal-header a:hover,
+  .legal-footer a:hover,
+  :global(.legal-content a:hover) {
+    text-decoration-color: currentColor;
+  }
+
+  .legal-main {
+    width: min(calc(100% - 2.5rem), 52rem);
+    margin-inline: auto;
+    padding-block: clamp(4rem, 10vw, 7rem);
+  }
+
+  .legal-title {
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legal-title .mono {
+    color: var(--primary);
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+  }
+
+  .legal-title h1 {
+    margin-top: 0.75rem;
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 10vw, 5.5rem);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.015em;
+    text-transform: uppercase;
+  }
+
+  .legal-title > p:last-child {
+    margin-top: 1rem;
+    color: var(--muted-foreground);
+  }
+
+  .legal-content {
+    padding-top: 1rem;
+  }
+
+  :global(.legal-content section) {
+    padding-block: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  :global(.legal-content h2) {
+    margin-bottom: 0.9rem;
+    font-size: 1.2rem;
+    line-height: 1.3;
+  }
+
+  :global(.legal-content p),
+  :global(.legal-content li) {
+    color: var(--muted-foreground);
+  }
+
+  :global(.legal-content p + p),
+  :global(.legal-content ul + p),
+  :global(.legal-content p + ul) {
+    margin-top: 0.9rem;
+  }
+
+  :global(.legal-content ul) {
+    padding-left: 1.25rem;
+  }
+
+  :global(.legal-content li + li) {
+    margin-top: 0.45rem;
+  }
+
+  .legal-footer {
+    flex-wrap: wrap;
+    padding-block: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+  }
+
+  .legal-footer a:first-of-type {
+    margin-left: auto;
+  }
+
+  @media (max-width: 40rem) {
+    .legal-header,
+    .legal-footer {
+      width: min(calc(100% - 2rem), 78rem);
+    }
+
+    .legal-main {
+      width: min(calc(100% - 2rem), 52rem);
+    }
+
+    .legal-footer a:first-of-type {
+      margin-left: 0;
+    }
+  }
+</style>
