@@ -3,4 +3,5 @@
 # Keep deterministic generated outputs committed while collapsing their GitHub diffs. https://docs.github.com/repositories/working-with-files/managing-files/customizing-how-changed-files-appear-on-github
 apps/webapp/src/routeTree.gen.ts linguist-generated
 packages/brand/src/colors.css linguist-generated
+packages/db/src/schema/auth.ts linguist-generated
 packages/db/migrations/**/snapshot.json linguist-generated

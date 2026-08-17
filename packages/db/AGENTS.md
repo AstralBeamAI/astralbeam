@@ -21,8 +21,11 @@
 ## Schema changes
 
 - Keep one domain concern per schema module and use explicit PostgreSQL column names.
+- Give every organization-owned product table a non-null `organizationId`, scope every query through authenticated organization context, and add PostgreSQL row-level security when the first organization-owned table is introduced.
 - Do not add placeholder tables or migrations.
 - Use Drizzle 1.0 `defineRelations(...)`. Export relation configuration from the schema package and pass `{ relations }` to each runtime driver; do not use the Drizzle 0.x `{ schema }` runtime option.
+- Treat `src/schema/auth.ts` as Better Auth CLI output: regenerate it with `vp run @astralbeam/db#auth:generate` after auth configuration changes and do not hand-edit it.
+- Keep application relations in the full `defineRelations(...)` result and spread generated `authRelations` after it when constructing the runtime driver.
 
 ## Migrations
 
@@ -37,6 +40,7 @@ vp run @astralbeam/db#db migrate
 - Resolve rename prompts carefully and inspect every generated SQL statement.
 - Commit the schema, SQL, and Drizzle snapshot metadata together.
 - Treat snapshots as Drizzle-owned state. Never rewrite a migration that has reached a shared environment; create a new migration.
+- Keep snapshot metadata marked `linguist-generated` in the root `.gitattributes`, but leave migration SQL visible by default so reviewers inspect the executable database change.
 - Use `generate --custom --name=<name>` for data migrations or unsupported DDL.
 - Do not use `--ignore-conflicts` without linking a confirmed Drizzle Kit bug.
 - Use `push --explain` only with disposable local data. Never use `push --force` against shared data.

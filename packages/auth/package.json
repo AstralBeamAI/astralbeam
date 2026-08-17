@@ -1,0 +1,31 @@
+{
+  "name": "@astralbeam/auth",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    "./auth": "./src/auth.ts",
+    "./auth-client": "./src/auth-client.ts",
+    "./terms": "./src/terms.ts",
+    "./tanstack/functions": "./src/tanstack/functions.ts",
+    "./tanstack/middleware": "./src/tanstack/middleware.ts",
+    "./tanstack/queries": "./src/tanstack/queries.ts"
+  },
+  "dependencies": {
+    "@astralbeam/db": "workspace:*",
+    "@better-auth-ui/core": "catalog:",
+    "@better-auth/drizzle-adapter": "catalog:",
+    "better-auth": "catalog:",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "react": "catalog:"
+  }
+}

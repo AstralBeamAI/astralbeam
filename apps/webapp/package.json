@@ -10,11 +10,14 @@
     "preview": "vp preview"
   },
   "dependencies": {
+    "@astralbeam/auth": "workspace:*",
     "@astralbeam/brand": "workspace:*",
     "@astralbeam/ui": "workspace:*",
     "@tanstack/react-devtools": "catalog:",
+    "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
+    "@tanstack/react-router-ssr-query": "catalog:",
     "@tanstack/react-start": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"

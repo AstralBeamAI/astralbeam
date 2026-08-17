@@ -9,6 +9,7 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
+    "auth:generate": "node ./scripts/generate-auth-schema.ts",
     "db": "drizzle-kit"
   },
   "dependencies": {

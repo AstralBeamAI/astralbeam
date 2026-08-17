@@ -14,17 +14,23 @@
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
+    "@better-auth-ui/core": "catalog:",
+    "@better-auth-ui/react": "catalog:",
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/manrope": "catalog:",
+    "@phosphor-icons/react": "catalog:",
+    "@tanstack/react-pacer": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "better-auth": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
-    "shadcn": "catalog:",
     "tailwind-merge": "catalog:",
     "tw-animate-css": "catalog:"
   },
   "devDependencies": {
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "shadcn": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:"
   },

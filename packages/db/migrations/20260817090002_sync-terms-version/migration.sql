@@ -1,0 +1,1 @@
+ALTER TABLE "user" ALTER COLUMN "terms_version" SET DEFAULT '2026-08-17';
