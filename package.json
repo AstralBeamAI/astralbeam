@@ -13,10 +13,10 @@
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && vp install --lockfile-only --no-frozen-lockfile",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
-    "ready": "vp run check && vp run test && vp run @astralbeam/webapp#build",
-    "test": "vp run -r test",
+    "ready": "vp run check && vp run test && (cd webapp && deno task build)",
+    "test": "vp run -r test && (cd webapp && deno task test)",
     "ui": "vp run @astralbeam/webapp#ui",
-    "webapp": "vp run @astralbeam/webapp#dev",
+    "webapp": "cd webapp && deno task dev",
     "www": "vp run @astralbeam/www#dev"
   },
   "devDependencies": {

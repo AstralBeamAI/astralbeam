@@ -31,6 +31,8 @@ fi
 export WORKSPACE_PATH
 export VP_HOME="${VP_HOME:-$HOME/.vite-plus}"
 export PATH="$VP_HOME/bin:$PATH"
+export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
+export PATH="$DENO_INSTALL/bin:$PATH"
 
 NODE_VERSION_FILE="$WORKSPACE_PATH/.node-version"
 if [ ! -r "$NODE_VERSION_FILE" ]; then
@@ -83,10 +85,22 @@ install_vite_plus() {
   node --version
 }
 
+install_deno() {
+  # webapp/ runs on Deno rather than the vite-plus/Node toolchain: https://docs.deno.com/runtime/getting_started/installation/
+  if ! command -v deno >/dev/null 2>&1; then
+    curl -fsSL https://deno.land/install.sh | sh
+  fi
+  deno --version
+}
+
 install_workspace_packages() {
-  [ -f "$WORKSPACE_PATH/package.json" ] || return 0
-   # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
-  (cd "$WORKSPACE_PATH" && SHARP_IGNORE_GLOBAL_LIBVIPS=1 vp install --frozen-lockfile)
+  if [ -f "$WORKSPACE_PATH/package.json" ]; then
+     # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
+    (cd "$WORKSPACE_PATH" && SHARP_IGNORE_GLOBAL_LIBVIPS=1 vp install --frozen-lockfile)
+  fi
+  if [ -f "$WORKSPACE_PATH/webapp/package.json" ]; then
+    (cd "$WORKSPACE_PATH/webapp" && deno install --frozen)
+  fi
 }
 
 run_install_extras() {
@@ -111,5 +125,6 @@ run_install_extras() {
 
 install_ubuntu_packages
 install_vite_plus
+install_deno
 install_workspace_packages
 run_install_extras
