@@ -1,15 +1,11 @@
 # AstralBeam
 
-A Vite+ monorepo with a TanStack Start application and shared shadcn/ui components.
+A Vite+ monorepo with a TanStack Start application and app-local shadcn/ui components.
 
 ```text
 apps/
-  webapp/       @astralbeam/webapp  # TanStack Start application
+  webapp/       @astralbeam/webapp  # TanStack Start application, database, theme, brand, and UI
   www/          @astralbeam/www     # Public website
-packages/
-  brand/        @astralbeam/brand   # Shared palette and approved light/dark logo assets
-  db/           @astralbeam/db      # Server-only Drizzle client and schemas
-  ui/           @astralbeam/ui      # Shared styles, components, and utilities
 ```
 
 ## Local development
@@ -22,9 +18,9 @@ vp run webapp # Starts app on http://localhost:3000
 vp run www # Starts website on http://localhost:3001
 ```
 
-Applications and repository tools load environment files from the repository root through [`@astralbeam/utils/environment`](packages/utils/src/environment.ts). Optional overrides are documented in `.env.example`, local service defaults live in `.env.development`, and secrets belong in the ignored `.env.local`. Keep secrets unprefixed for server-only `process.env` access; only variables intentionally exposed to browsers may use an application's public prefix (`VITE_` for the TanStack Start app and `PUBLIC_` for Astro). Deployment environments must inject secrets at runtime rather than relying on checked-out environment files.
+Applications and repository tools load environment files from the repository root through [`apps/webapp/config/workspace-environment.ts`](apps/webapp/config/workspace-environment.ts). Optional overrides are documented in `.env.example`, local service defaults live in `.env.development`, and secrets belong in the ignored `.env.local`. Keep secrets unprefixed for server-only `process.env` access; only variables intentionally exposed to browsers may use an application's public prefix (`VITE_` for the TanStack Start app and `PUBLIC_` for Astro). Deployment environments must inject secrets at runtime rather than relying on checked-out environment files.
 
-Add shadcn components to the shared UI package:
+Add shadcn components directly to the webapp:
 
 ```sh
 vp run ui add button

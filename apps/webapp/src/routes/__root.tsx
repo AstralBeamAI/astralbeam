@@ -1,11 +1,11 @@
-import brandThemeCss from "@astralbeam/brand/colors.css?raw"
-import astralbeamLightLogoPngUrl from "@astralbeam/brand/logo/png/astralbeam-logo-light.png?url&no-inline"
-import astralbeamDarkLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
-import astralbeamLightLogoUrl from "@astralbeam/brand/logo/svg/astralbeam-logo-light.svg?url&no-inline"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
+import brandThemeCss from "../brand/colors.css?raw"
+import astralbeamLightLogoPngUrl from "../brand/logo/png/astralbeam-logo-light.png?url&no-inline"
+import astralbeamDarkLogoUrl from "../brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
+import astralbeamLightLogoUrl from "../brand/logo/svg/astralbeam-logo-light.svg?url&no-inline"
 import appCss from "../styles.css?url"
 
 // Route-managed head styles apply before first paint and keep theme selection app-owned. https://tanstack.com/router/latest/docs/guide/document-head-management

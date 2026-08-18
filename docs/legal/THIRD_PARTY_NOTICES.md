@@ -11,9 +11,9 @@ Package manifests and `pnpm-lock.yaml` identify additional dependencies. Every d
 Common license text: [MIT License](LICENSES/MIT.txt).
 
 - [Create TanStack App / TanStack CLI](https://github.com/TanStack/cli)-derived portions of `apps/webapp`, including its router, routes, generated route tree, and build configuration — Copyright (c) 2021-present Tanner Linsley
-- [shadcn/ui](https://github.com/shadcn-ui/ui)-generated or adapted source, configuration, and styles used by `packages/ui`, including the imported `shadcn/tailwind.css` — Copyright (c) 2023 shadcn
+- [shadcn/ui](https://github.com/shadcn-ui/ui)-generated or adapted source, configuration, and styles used by `apps/webapp`, including the imported `shadcn/tailwind.css` — Copyright (c) 2023 shadcn
 - [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) output included in `apps/webapp` — Copyright (c) Tailwind Labs, Inc.
-- [`tw-animate-css`](https://github.com/Wombosvideo/tw-animate-css) styles imported by `packages/ui/src/styles.css` and included in `apps/webapp` — Copyright (c) 2025 Wombosvideo
+- [`tw-animate-css`](https://github.com/Wombosvideo/tw-animate-css) styles imported by `apps/webapp/src/styles.css` — Copyright (c) 2025 Wombosvideo
 
 ## OFL-1.1
 
@@ -22,5 +22,5 @@ Common license text: [SIL Open Font License 1.1](LICENSES/OFL-1.1.txt).
 - `@fontsource/anton` font files in `apps/www` — Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont.git)
 - `@fontsource/jetbrains-mono` font files in `apps/www` — Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) JetBrainsMono-Italic[wght].ttf: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
 - `@fontsource-variable/space-grotesk` font files in `apps/www` — Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)
-- `@fontsource-variable/inter` font files in `packages/ui` and `apps/webapp` — Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
-- `@fontsource-variable/manrope` font files in `packages/ui` and `apps/webapp` — Copyright 2019 The Manrope Project Authors (https://github.com/sharanda/manrope)
+- `@fontsource-variable/inter` font files in `apps/webapp` — Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
+- `@fontsource-variable/manrope` font files in `apps/webapp` — Copyright 2019 The Manrope Project Authors (https://github.com/sharanda/manrope)

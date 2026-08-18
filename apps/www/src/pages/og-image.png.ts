@@ -1,4 +1,4 @@
-import { palette } from "@astralbeam/brand"
+import { palette } from "@astralbeam/webapp/brand"
 import sharp from "sharp"
 
 import { createPngRoute, renderSiteLogo } from "@/lib/site-image"

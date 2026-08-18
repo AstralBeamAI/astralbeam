@@ -4,7 +4,7 @@ import type { APIRoute } from "astro"
 
 export const prerender = true
 
-const themeSchemaUrl = new URL(import.meta.resolve("@astralbeam/theme/theme.schema.json"))
+const themeSchemaUrl = new URL(import.meta.resolve("@astralbeam/webapp/theme.schema.json"))
 
 export const GET: APIRoute = async () =>
   new Response(await readFile(themeSchemaUrl, "utf8"), {
