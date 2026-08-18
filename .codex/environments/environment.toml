@@ -9,14 +9,14 @@ script = "bash scripts/setup.sh"
 [[actions]]
 name = "Product application"
 icon = "run"
-command = "vp run webapp"
+command = "cd webapp && deno task dev"
 
 [[actions]]
 name = "Public website"
 icon = "run"
-command = "vp run www"
+command = "cd www && deno task dev"
 
 [[actions]]
 name = "Ready"
 icon = "tool"
-command = "vp run ready"
+command = "(cd webapp && deno task check && deno task test && deno task build) && (cd www && deno task check && deno task test && deno task build)"

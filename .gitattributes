@@ -1,6 +1,8 @@
 * text=auto eol=lf
 
 # Keep deterministic generated outputs committed while collapsing their GitHub diffs. https://docs.github.com/repositories/working-with-files/managing-files/customizing-how-changed-files-appear-on-github
-apps/webapp/src/routeTree.gen.ts linguist-generated
-apps/webapp/src/brand/colors.css linguist-generated
-apps/webapp/migrations/**/snapshot.json linguist-generated
+webapp/src/routeTree.gen.ts linguist-generated
+www/src/brand/colors.css linguist-generated
+webapp/migrations/**/snapshot.json linguist-generated
+webapp/deno.lock linguist-generated
+www/deno.lock linguist-generated

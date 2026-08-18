@@ -7,7 +7,7 @@
     "anysphere.remote-containers",
     "astro-build.astro-vscode",
     "bradlc.vscode-tailwindcss",
-    "christian-kohler.npm-intellisense",
+    "denoland.vscode-deno",
     "eamodio.gitlens",
     "foxundermoon.shell-format",
     "github.vscode-github-actions",
@@ -16,14 +16,12 @@
     "mechatroner.rainbow-csv",
     "ms-playwright.playwright",
     "openai.chatgpt",
-    "oxc.oxc-vscode",
     "redhat.vscode-yaml",
     "shd101wyy.markdown-preview-enhanced",
     "sst-dev.opencode",
     "streetsidesoftware.code-spell-checker",
     "tamasfe.even-better-toml",
     "vitest.explorer",
-    "webpro.vscode-knip",
     "yoavbls.pretty-ts-errors",
     "yokawasa.jwt-debugger"
   ]

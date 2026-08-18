@@ -10,7 +10,7 @@
     - Shared weight: every letter uses a nominal 14-unit stroke on the 100-unit cap height.
     - ASTRAL uses round caps and joins. BEAM uses square terminals, mitered corners, an
       open-left three-stroke B, a crossbarless A, and a geometric valley-centered M.
-    - Palette source: apps/webapp/src/brand/colors.css .light.
+    - Palette source: www/src/brand/colors.css .light.
     - Embedded sRGB paints match the semantic tokens so this standalone SVG has no runtime CSS dependency.
   </metadata>
   <g id="astralbeam-wordmark" transform="translate(-36 13)">

@@ -29,19 +29,11 @@ if [ -z "${WORKSPACE_PATH:-}" ]; then
   WORKSPACE_PATH=${WORKSPACE_PATH:-/workspaces/astralbeam}
 fi
 export WORKSPACE_PATH
-export VP_HOME="${VP_HOME:-$HOME/.vite-plus}"
-export PATH="$VP_HOME/bin:$PATH"
 export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
 export PATH="$DENO_INSTALL/bin:$PATH"
 
-NODE_VERSION_FILE="$WORKSPACE_PATH/.node-version"
-if [ ! -r "$NODE_VERSION_FILE" ]; then
-  NODE_VERSION_FILE=/tmp/.node-version
-fi
-if [ ! -r "$NODE_VERSION_FILE" ]; then
-  echo "Could not find .node-version in $WORKSPACE_PATH or /tmp." >&2
-  exit 1
-fi
+# Each application is an independent Deno project with its own package.json, deno.lock, and node_modules.
+WORKSPACE_APPS=(webapp www)
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
@@ -70,23 +62,8 @@ fi
 EOF
 }
 
-install_vite_plus() {
-  # Install the full development/build toolchain; production images need a separate runtime stage: https://viteplus.dev/guide/docker#production-ssr-node-js-server-app
-  if ! command -v vp >/dev/null 2>&1; then
-    mkdir -p "$VP_HOME"
-    curl -fsSL https://vite.plus | env VP_NODE_MANAGER=yes bash
-    # The installer pre-provisions a default Node.js; use the project pin instead.
-    rm -rf "$VP_HOME/js_runtime"
-  fi
-  vp --version
-  vp env setup
-  vp env on
-  vp env install "$(cat "$NODE_VERSION_FILE")"
-  node --version
-}
-
 install_deno() {
-  # webapp/ runs on Deno rather than the vite-plus/Node toolchain: https://docs.deno.com/runtime/getting_started/installation/
+  # Deno is the only runtime and package manager for this repository: https://docs.deno.com/runtime/getting_started/installation/
   if ! command -v deno >/dev/null 2>&1; then
     curl -fsSL https://deno.land/install.sh | sh
   fi
@@ -94,13 +71,12 @@ install_deno() {
 }
 
 install_workspace_packages() {
-  if [ -f "$WORKSPACE_PATH/package.json" ]; then
-     # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
-    (cd "$WORKSPACE_PATH" && SHARP_IGNORE_GLOBAL_LIBVIPS=1 vp install --frozen-lockfile)
-  fi
-  if [ -f "$WORKSPACE_PATH/webapp/package.json" ]; then
-    (cd "$WORKSPACE_PATH/webapp" && deno install --frozen)
-  fi
+  local app
+  for app in "${WORKSPACE_APPS[@]}"; do
+    if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
+      (cd "$WORKSPACE_PATH/$app" && deno install --frozen)
+    fi
+  done
 }
 
 run_install_extras() {
@@ -124,7 +100,6 @@ run_install_extras() {
 }
 
 install_ubuntu_packages
-install_vite_plus
 install_deno
 install_workspace_packages
 run_install_extras
