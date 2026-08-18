@@ -57,14 +57,12 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
 - Open a new terminal so the project-managed Deno LTS is on `PATH` before running `deno task` commands.
 
-- Start PostgreSQL and Valkey and wait for both services to become healthy:
+- The setup script does not install PostgreSQL or Valkey on macOS. When Docker Compose is available, it starts both services unless `SKIP_DOCKER_COMPOSE=true` is set.
 
-  ```bash
-  podman compose up --detach --wait
-  ```
-
-- From the repository root, stop services with `podman compose down`. Add `--volumes` to permanently delete the local PostgreSQL and Valkey data.
+- From the repository root, stop services with `docker compose down`. Add `--volumes` to permanently delete the local PostgreSQL and Valkey data.
 
 ## Cloud agent setup
+
+Codex Cloud runs on Ubuntu and uses `INSTALL_EXTRA=codex-db SKIP_DOCKER_COMPOSE=true` so the explicit setup extra installs and starts host PostgreSQL and Valkey without starting Docker Compose.
 
 See the setup guides for [Codex](.codex/README.md) and [Cursor Cloud Agents](.cursor/README.md).

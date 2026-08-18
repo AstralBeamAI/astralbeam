@@ -39,7 +39,7 @@ install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
 
   run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
-if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev >/dev/null 2>&1; then
+if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev postgresql-common libsystemd0 libssl3t64 >/dev/null 2>&1; then
 apt-get update -yq
 apt-get install -y --no-install-recommends \
   build-essential libatomic1 ca-certificates locales lsb-release tzdata \
@@ -50,7 +50,7 @@ apt-get install -y --no-install-recommends \
   iputils-ping net-tools procps openssh-client \
   fontconfig pkg-config python3 python3-yaml \
   xdg-utils \
-  liburing-dev
+  liburing-dev postgresql-common libsystemd0 libssl3t64
 
 # Install GitHub CLI from its supported signed Debian repository: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian
 mkdir -p -m 755 /etc/apt/keyrings /etc/apt/sources.list.d; curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null; chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg; printf 'deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n' "$(dpkg --print-architecture)" | tee /etc/apt/sources.list.d/github-cli.list >/dev/null
@@ -86,6 +86,12 @@ install_workspace_packages() {
   done
 }
 
+configure_workspace_git() {
+  [ -e "$WORKSPACE_PATH/.git" ] || return 0
+  git -C "$WORKSPACE_PATH" remote get-url origin >/dev/null 2>&1 || git -C "$WORKSPACE_PATH" remote add origin https://github.com/AstralBeamAI/astralbeam
+  git -C "$WORKSPACE_PATH" config push.default current
+}
+
 run_install_extras() {
   [ "$platform_name" = Linux ] || return 0
   [ -n "${INSTALL_EXTRA:-}" ] || return 0
@@ -106,7 +112,32 @@ run_install_extras() {
   done
 }
 
+docker_compose_available() {
+  docker compose version >/dev/null 2>&1 && docker info >/dev/null 2>&1
+}
+
+databases_are_external() {
+  case "${POSTGRES_HOST:-}" in
+    "" | 127.0.0.1 | localhost | ::1) return 1 ;;
+  esac
+  case "${VALKEY_HOST:-}" in
+    "" | 127.0.0.1 | localhost | ::1) return 1 ;;
+  esac
+  return 0
+}
+
+start_databases() {
+  [ -f "$WORKSPACE_PATH/docker-compose.yml" ] || return 0
+  if databases_are_external; then return; fi
+  if [ "${SKIP_DOCKER_COMPOSE:-false}" = true ]; then return; fi
+  if docker_compose_available; then
+    (cd "$WORKSPACE_PATH" && docker compose up --detach --wait)
+  fi
+}
+
 install_ubuntu_packages
+configure_workspace_git
 install_deno
 install_workspace_packages
 run_install_extras
+start_databases
