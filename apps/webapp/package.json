@@ -7,17 +7,34 @@
     "dev": "vp dev",
     "generate-routes": "tsr generate",
     "build": "tsr generate && vp build",
-    "preview": "vp preview"
+    "preview": "vp preview",
+    "db": "drizzle-kit --config drizzle.config.ts",
+    "ui": "vp exec shadcn",
+    "generate:colors": "node scripts/brand/generate-colors.ts",
+    "generate:png": "node scripts/brand/export-png.ts",
+    "test": "vp test run"
   },
   "dependencies": {
-    "@astralbeam/brand": "workspace:*",
-    "@astralbeam/ui": "workspace:*",
+    "@base-ui/react": "catalog:",
+    "@csstools/color-helpers": "catalog:",
+    "@csstools/css-color-parser": "catalog:",
+    "@csstools/css-parser-algorithms": "catalog:",
+    "@csstools/css-tokenizer": "catalog:",
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource-variable/manrope": "catalog:",
     "@tanstack/react-devtools": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:",
+    "postgres": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tw-animate-css": "catalog:"
   },
   "devDependencies": {
     "@babel/core": "catalog:",
@@ -31,7 +48,11 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
+    "drizzle-kit": "catalog:",
     "nitro": "catalog:",
+    "shadcn": "catalog:",
+    "sharp": "^0.34.3",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }

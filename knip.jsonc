@@ -10,6 +10,10 @@
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,
   "workspaces": {
+    "apps/webapp": {
+      // Application-owned infrastructure and generated UI components are maintained entry points even before a route consumes them.
+      "entry": ["src/db/**/*.ts!", "src/ui/components/*.tsx!", "src/theme/theme.ts!"],
+    },
     "apps/www": {
       // Suppression examples for runtime-only edges; keep commented until a concrete exception is required.
       // "ignoreDependencies": ["runtime-loaded-package"],

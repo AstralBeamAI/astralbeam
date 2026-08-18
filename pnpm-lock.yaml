@@ -330,9 +330,6 @@ importers:
 
   .:
     devDependencies:
-      '@astralbeam/utils':
-        specifier: workspace:*
-        version: link:packages/utils
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.1
@@ -351,12 +348,27 @@ importers:
 
   apps/webapp:
     dependencies:
-      '@astralbeam/brand':
-        specifier: workspace:*
-        version: link:../../packages/brand
-      '@astralbeam/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
+      '@base-ui/react':
+        specifier: 'catalog:'
+        version: 1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@csstools/color-helpers':
+        specifier: 'catalog:'
+        version: 6.1.0
+      '@csstools/css-color-parser':
+        specifier: 'catalog:'
+        version: 4.1.10(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
+      '@csstools/css-parser-algorithms':
+        specifier: 'catalog:'
+        version: 4.0.0(@csstools/css-tokenizer@4.0.0)
+      '@csstools/css-tokenizer':
+        specifier: 'catalog:'
+        version: 4.0.0
+      '@fontsource-variable/inter':
+        specifier: 'catalog:'
+        version: 5.2.8
+      '@fontsource-variable/manrope':
+        specifier: 'catalog:'
+        version: 5.2.8
       '@tanstack/react-devtools':
         specifier: 'catalog:'
         version: 0.10.9(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(solid-js@1.9.14)
@@ -369,12 +381,33 @@ importers:
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.168.32(@voidzero-dev/vite-plus-core@0.2.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(crossws@0.4.10(srvx@0.11.22))(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.0)(supports-color@10.2.2)
+      class-variance-authority:
+        specifier: 'catalog:'
+        version: 0.7.1
+      clsx:
+        specifier: 'catalog:'
+        version: 2.1.1
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.108
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
       react:
         specifier: 'catalog:'
         version: 19.2.7
       react-dom:
         specifier: 'catalog:'
         version: 19.2.7(react@19.2.7)
+      tailwind-merge:
+        specifier: 'catalog:'
+        version: 3.6.0
+      tw-animate-css:
+        specifier: 'catalog:'
+        version: 1.4.0
     devDependencies:
       '@babel/core':
         specifier: 'catalog:'
@@ -409,9 +442,21 @@ importers:
       babel-plugin-react-compiler:
         specifier: 'catalog:'
         version: 1.0.0
+      drizzle-kit:
+        specifier: 'catalog:'
+        version: 1.0.0-rc.4
       nitro:
         specifier: 'catalog:'
-        version: 3.0.260610-beta(@voidzero-dev/vite-plus-core@0.2.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.5.2)(miniflare@4.20260714.0)(wrangler@4.112.0)
+        version: 3.0.260610-beta(@voidzero-dev/vite-plus-core@0.2.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(chokidar@5.0.0)(dotenv@17.4.2)(drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76))(jiti@2.7.0)(lru-cache@11.5.2)(miniflare@4.20260714.0)(wrangler@4.112.0)
+      shadcn:
+        specifier: 'catalog:'
+        version: 4.18.0(supports-color@10.2.2)(typescript@6.0.3)
+      sharp:
+        specifier: ^0.34.3
+        version: 0.34.5
+      tailwindcss:
+        specifier: 'catalog:'
+        version: 4.3.3
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -421,12 +466,6 @@ importers:
 
   apps/www:
     dependencies:
-      '@astralbeam/brand':
-        specifier: workspace:*
-        version: link:../../packages/brand
-      '@astralbeam/theme':
-        specifier: workspace:*
-        version: link:../../packages/theme
       '@astrojs/sitemap':
         specifier: 3.7.3
         version: 3.7.3
@@ -443,9 +482,6 @@ importers:
         specifier: 7.1.1
         version: 7.1.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.1)(db0@0.3.4)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0)
     devDependencies:
-      '@astralbeam/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       '@astrojs/check':
         specifier: 0.9.9
         version: 0.9.9(prettier@3.9.5)(typescript@6.0.3)
@@ -461,128 +497,6 @@ importers:
       wrangler:
         specifier: 'catalog:'
         version: 4.112.0
-
-  packages/brand:
-    dependencies:
-      '@astralbeam/theme':
-        specifier: workspace:*
-        version: link:../theme
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 22.20.1
-      sharp:
-        specifier: ^0.34.3
-        version: 0.34.5
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-
-  packages/db:
-    dependencies:
-      '@tanstack/react-start':
-        specifier: 'catalog:'
-        version: 1.168.32(@voidzero-dev/vite-plus-core@0.2.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(crossws@0.4.10(srvx@0.11.22))(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.0)(supports-color@10.2.2)
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@4.4.3)
-      postgres:
-        specifier: 'catalog:'
-        version: 3.4.9
-    devDependencies:
-      '@astralbeam/utils':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: 'catalog:'
-        version: 22.20.1
-      drizzle-kit:
-        specifier: 'catalog:'
-        version: 1.0.0-rc.4
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-
-  packages/theme:
-    dependencies:
-      '@csstools/color-helpers':
-        specifier: 'catalog:'
-        version: 6.1.0
-      '@csstools/css-color-parser':
-        specifier: 'catalog:'
-        version: 4.1.10(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
-      '@csstools/css-parser-algorithms':
-        specifier: 'catalog:'
-        version: 4.0.0(@csstools/css-tokenizer@4.0.0)
-      '@csstools/css-tokenizer':
-        specifier: 'catalog:'
-        version: 4.0.0
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.108
-    devDependencies:
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-
-  packages/ui:
-    dependencies:
-      '@base-ui/react':
-        specifier: 'catalog:'
-        version: 1.6.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@fontsource-variable/inter':
-        specifier: 'catalog:'
-        version: 5.2.8
-      '@fontsource-variable/manrope':
-        specifier: 'catalog:'
-        version: 5.2.8
-      class-variance-authority:
-        specifier: 'catalog:'
-        version: 0.7.1
-      clsx:
-        specifier: 'catalog:'
-        version: 2.1.1
-      react:
-        specifier: 'catalog:'
-        version: 19.2.7
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.2.7(react@19.2.7)
-      shadcn:
-        specifier: 'catalog:'
-        version: 4.18.0(supports-color@10.2.2)(typescript@6.0.3)
-      tailwind-merge:
-        specifier: 'catalog:'
-        version: 3.6.0
-      tw-animate-css:
-        specifier: 'catalog:'
-        version: 1.4.0
-    devDependencies:
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: 'catalog:'
-        version: 19.2.3(@types/react@19.2.17)
-      tailwindcss:
-        specifier: 'catalog:'
-        version: 4.3.3
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-
-  packages/utils:
-    dependencies:
-      vite-plus:
-        specifier: 'catalog:'
-        version: 0.2.5(@types/node@22.20.1)(@voidzero-dev/vite-plus-core@0.2.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(esbuild@0.28.1)(jiti@2.7.0)(jsdom@28.1.0(@noble/hashes@2.3.0)(supports-color@10.2.2))(typescript@6.0.3)(yaml@2.9.0)
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 22.20.1
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
 
 packages:
 
@@ -8930,7 +8844,9 @@ snapshots:
 
   dayjs@1.11.21: {}
 
-  db0@0.3.4: {}
+  db0@0.3.4(drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76)):
+    optionalDependencies:
+      drizzle-orm: 1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76)
 
   debounce-fn@4.0.0:
     dependencies:
@@ -9012,12 +8928,12 @@ snapshots:
       get-tsconfig: 4.14.1
       jiti: 2.7.0
 
-  drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@4.4.3):
+  drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76):
     optionalDependencies:
       effect: 4.0.0-rc.108
       postgres: 3.4.9
       valibot: 1.4.2(typescript@6.0.3)
-      zod: 4.4.3
+      zod: 3.25.76
 
   dset@3.1.4: {}
 
@@ -9883,11 +9799,11 @@ snapshots:
 
   nf3@0.3.23: {}
 
-  nitro@3.0.260610-beta(@voidzero-dev/vite-plus-core@0.2.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.5.2)(miniflare@4.20260714.0)(wrangler@4.112.0):
+  nitro@3.0.260610-beta(@voidzero-dev/vite-plus-core@0.2.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(chokidar@5.0.0)(dotenv@17.4.2)(drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76))(jiti@2.7.0)(lru-cache@11.5.2)(miniflare@4.20260714.0)(wrangler@4.112.0):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.10(srvx@0.11.22)
-      db0: 0.3.4
+      db0: 0.3.4(drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76))
       env-runner: 0.1.16(miniflare@4.20260714.0)(wrangler@4.112.0)
       h3: 2.0.1-rc.22(crossws@0.4.10(srvx@0.11.22))
       hookable: 6.1.1
@@ -9898,7 +9814,7 @@ snapshots:
       rolldown: 1.2.0
       srvx: 0.11.22
       unenv: 2.0.0-rc.24
-      unstorage: 2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4)(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3)
+      unstorage: 2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4(drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76)))(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3)
     optionalDependencies:
       dotenv: 17.4.2
       jiti: 2.7.0
@@ -10912,12 +10828,12 @@ snapshots:
       ofetch: 1.5.1
       ufo: 1.6.4
     optionalDependencies:
-      db0: 0.3.4
+      db0: 0.3.4(drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76))
 
-  unstorage@2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4)(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3):
+  unstorage@2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4(drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76)))(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3):
     optionalDependencies:
       chokidar: 5.0.0
-      db0: 0.3.4
+      db0: 0.3.4(drizzle-orm@1.0.0-rc.4(effect@4.0.0-rc.108)(postgres@3.4.9)(valibot@1.4.2(typescript@6.0.3))(zod@3.25.76))
       lru-cache: 11.5.2
       ofetch: 2.0.0-alpha.3
 
