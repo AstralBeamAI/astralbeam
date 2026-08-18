@@ -9,9 +9,9 @@ LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbea
 # Set locale so Unicode characters render correctly in locale-aware tools (e.g. tmux).
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-ENV VP_HOME=${HOME}/vp/.vite-plus
-ENV PATH="${VP_HOME}/bin:${PATH}"
-COPY .node-version scripts/ /tmp/
+ENV DENO_INSTALL=${HOME}/.deno
+ENV PATH="${DENO_INSTALL}/bin:${PATH}"
+COPY scripts/ /tmp/
 RUN INSTALL_EXTRA="cursor-dnd" /tmp/setup.sh \
   && apt-get autoremove -yq \
   && apt-get clean -yq \

@@ -1,6 +1,5 @@
 {
-  "name": "@astralbeam/www",
-  "version": "0.0.0",
+  "name": "www",
   "private": true,
   "description": "https://www.astralbeam.ai/",
   "license": "MIT",
@@ -8,24 +7,24 @@
   "scripts": {
     "dev": "astro dev --host 0.0.0.0 --port 3001",
     "build": "astro build",
-    "deploy": "vp run test && wrangler deploy",
     "preview": "astro preview --host 0.0.0.0 --port 4001",
-    "test": "astro check && astro build && vp test run",
-    "typecheck": "astro check"
+    "check": "astro check",
+    "test": "astro build && vitest run",
+    "deploy": "deno task check && deno task test && wrangler deploy"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",
     "@fontsource-variable/space-grotesk": "^5.2.8",
     "@fontsource/anton": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
-    "astro": "7.1.1"
+    "astro": "7.1.1",
+    "sharp": "^0.35.2"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.9",
-    "@types/node": "catalog:",
-    "sharp": "^0.35.2",
-    "typescript": "catalog:",
-    "vite-plus": "catalog:",
-    "wrangler": "catalog:"
+    "@types/node": "^22.10.2",
+    "typescript": "^6.0.2",
+    "vitest": "4.1.10",
+    "wrangler": "^4.112.0"
   }
 }

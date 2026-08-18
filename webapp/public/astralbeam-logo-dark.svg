@@ -10,7 +10,7 @@
     - Layout: both initials share the same cap line and baseline; padding is 18 units horizontally and 85 vertically.
     - Shared weight: both letters retain the wordmark's nominal 14-unit stroke on a 100-unit cap height.
     - A uses round caps and joins. B retains its open-left bowls, square terminals, and mitered joins.
-    - Palette source: apps/webapp/src/brand/colors.css .dark.
+    - Palette source: www/src/brand/colors.css .dark.
     - Embedded sRGB paints match the semantic tokens so this standalone SVG has no runtime CSS dependency.
   </metadata>
   <g id="astralbeam-logo">

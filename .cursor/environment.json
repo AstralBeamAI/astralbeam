@@ -4,7 +4,7 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
-  "install": "vp env install && ./scripts/setup.sh",
+  "install": "./scripts/setup.sh",
   "start": "service docker start && docker compose up -d --wait",
   "ports": [
     {
@@ -19,12 +19,12 @@
   "terminals": [
     {
       "name": "Product application",
-      "command": "vp run webapp",
+      "command": "cd webapp && deno task dev",
       "description": "Runs the TanStack Start application on port 3000."
     },
     {
       "name": "Public website",
-      "command": "vp run www",
+      "command": "cd www && deno task dev",
       "description": "Runs the Astro website on port 3001."
     }
   ]

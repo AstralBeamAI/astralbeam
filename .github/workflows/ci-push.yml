@@ -21,15 +21,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1.17.0
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
         with:
-          node-version-file: .node-version
+          deno-version: v2.x
+          # Caches the module cache, keyed by a hash of the per-application deno.lock files.
           cache: true
-          # The shared setup script performs the frozen install after provisioning system packages.
-          run-install: false
 
       - name: Set up workspace
+        # The shared setup script provisions system packages and runs the frozen install for every application.
         run: |
           ./scripts/setup.sh
 
@@ -37,18 +37,16 @@ jobs:
         # --wait blocks until services are healthy
         run: docker compose up --detach --wait
 
-      - name: Auto-fix Knip issues
-        run: vp run knip:fix
+      - name: Check and test webapp
+        working-directory: webapp
+        run: |
+          deno task check
+          deno task test
+          deno task build
 
-      - name: Auto-fix checks
-        run: vp run -r check:fix
-
-      - name: Check, test, and build
-        run: vp run ready
-
-      - name: Commit and push auto-fixes
-        uses: ./.github/actions/commit-and-push
-        with:
-          commit-message: "chore: apply CI auto-fixes"
-          app-client-id: ${{ vars.AUTOFIX_APP_CLIENT_ID }}
-          app-private-key: ${{ secrets.AUTOFIX_APP_PRIVATE_KEY }}
+      - name: Check and test website
+        working-directory: www
+        run: |
+          deno task check
+          deno task test
+          deno task build

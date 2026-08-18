@@ -47,7 +47,7 @@ const config = defineConfig({
   },
   plugins: [
     {
-      name: 'webapp2-legal-assets',
+      name: 'webapp-legal-assets',
       apply: 'build',
       generateBundle() {
         for (const asset of legalAssets) this.emitFile({ type: 'asset', ...asset })

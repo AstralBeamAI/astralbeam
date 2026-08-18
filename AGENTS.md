@@ -2,11 +2,11 @@
 
 ## Tooling and validation
 
-- Use Vite+ from the repository root: `vp run <script>`, with `-r` only when every workspace package is intended. Docs are in `node_modules/vite-plus/docs` and at <https://viteplus.dev/guide/>.
-- Before running `vp run knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete diff before running recursive Vite+ checks and fixes with `vp run -r check:fix`.
-- Run `./scripts/setup.sh` once after pulling. Otherwise, use the smallest relevant package task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
-- Do not automatically run `vp run check`, `vp run test`, or `vp run ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
-- Run `vp env doctor` only for setup, runtime, or package-manager problems.
+- `webapp` and `www` are independent Deno projects with their own `package.json`, `deno.lock`, and `node_modules`. There is no repository-level package manager, workspace, or task runner, so run every command from inside the application directory with `deno task <script>`.
+- Both applications expose `check` (type diagnostics), `test`, and `build`. Add dependencies with `deno add npm:<package>` and install from a lockfile with `deno install --frozen`.
+- Run `./scripts/setup.sh` once after pulling. Otherwise, use the smallest relevant application task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
+- Do not automatically run `check`, `test`, or `build`. Run the affected application's tasks once before creating a PR or when explicitly requested, and only separately when diagnosing a failure.
+- Formatting and linting are not enforced by tooling; match the surrounding style, which omits semicolons.
 
 ## Documentation
 
@@ -18,19 +18,19 @@
 ## Environment
 
 - Keep environment files at the repository root. Commit only reviewed non-secret templates and defaults (`.env.example`, `.env.development`, and its `.env.test` symlink); never commit credentials or deployment-specific values.
-- Reuse `apps/webapp/config/workspace-environment.ts` from application and standalone-tool configuration instead of adding additional loaders or environment files. Shell, CI, and deployment variables must take precedence over file values.
+- Load root environment files through each application's build configuration (`envDir` in `www/astro.config.ts`) instead of adding additional loaders or package-local environment files. Shell, CI, and deployment variables must take precedence over file values.
 
 ## Webapp UI
 
-- `apps/webapp` owns the repository's only `components.json` and all shadcn-generated components, hooks, and utilities.
-- Add components from the repository root with `vp run ui add <component>`.
+- `webapp` owns the repository's only `components.json` and all shadcn-generated components, hooks, and utilities.
+- Add components with `deno task ui add <component>` from `webapp`.
 
 ## Database
 
-- Keep PostgreSQL and Drizzle code in the server-only `apps/webapp/src/database` directory and never re-export the runtime client through a client-reachable module.
-- Run database commands from the repository root with `vp run db <command>`.
-- After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
-- Use `migrate` for checked-in migrations; reserve `push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or package-local environment files.
+- Keep PostgreSQL and Drizzle code in server-only modules under `webapp/src` and never re-export the runtime client through a client-reachable module.
+- Run database commands with `deno task db <command>` from `webapp`.
+- After schema changes, run `db generate --name <description>`, inspect the SQL, run `db check`, and commit schema and migration files together.
+- Use `db migrate` for checked-in migrations; reserve `db push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or package-local environment files.
 
 ## Cursor Cloud
 

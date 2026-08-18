@@ -1,7 +1,7 @@
 import { readFile, readdir } from "node:fs/promises"
 
 import sharp from "sharp"
-import { describe, expect, test } from "vite-plus/test"
+import { describe, expect, test } from "vitest"
 
 import { palette } from "../src/brand/palette"
 import { siteMetadata } from "../src/lib/site"
@@ -107,8 +107,8 @@ describe("production website build", () => {
         readText("sitemap-index.xml"),
         readText("sitemap-0.xml"),
         readText("site.webmanifest"),
-        readFile(new URL("../../../LICENSE-MIT", import.meta.url), "utf8"),
-        readFile(new URL("../../../docs/legal/LICENSES/OFL-1.1.txt", import.meta.url), "utf8"),
+        readFile(new URL("../../LICENSE-MIT", import.meta.url), "utf8"),
+        readFile(new URL("../../docs/legal/LICENSES/OFL-1.1.txt", import.meta.url), "utf8"),
       ])
     const manifest: unknown = JSON.parse(manifestText)
 
