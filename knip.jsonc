@@ -9,11 +9,10 @@
   "tags": ["-knipignore"],
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,
+  // webapp/ is a standalone Deno-managed app outside the pnpm workspace (see pnpm-workspace.yaml)
+  // and has its own tooling (deno check/lint), so it's out of scope for knip's pnpm-based analysis.
+  "ignore": ["webapp/**"],
   "workspaces": {
-    "apps/webapp": {
-      // Preserve app-local scaffolds before a route consumes them.
-      "entry": ["src/components/ui/*.tsx!", "src/database/database.ts!", "src/theme/theme.ts!"],
-    },
     "apps/www": {
       // Suppression examples for runtime-only edges; keep commented until a concrete exception is required.
       // "ignoreDependencies": ["runtime-loaded-package"],
