@@ -25,6 +25,12 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@astralbeam/brand": ["./apps/webapp/src/brand/index.ts"],
+      "@astralbeam/brand/*": ["./apps/webapp/src/brand/*"],
+      "@astralbeam/theme": ["./apps/webapp/src/theme/theme.ts"],
+      "@astralbeam/theme/*": ["./apps/webapp/src/theme/*"]
+    }
   }
 }

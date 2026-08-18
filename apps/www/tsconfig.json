@@ -5,7 +5,11 @@
   "compilerOptions": {
     "lib": ["ES2025", "DOM", "DOM.Iterable"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@astralbeam/brand": ["../webapp/src/brand/index.ts"],
+      "@astralbeam/brand/*": ["../webapp/src/brand/*"],
+      "@astralbeam/theme": ["../webapp/src/theme/theme.ts"],
+      "@astralbeam/theme/*": ["../webapp/src/theme/*"]
     },
     "types": ["node", "vite/client"]
   }

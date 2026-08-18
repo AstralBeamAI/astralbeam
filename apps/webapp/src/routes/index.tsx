@@ -1,4 +1,4 @@
-import { Button } from "@astralbeam/ui/components/button"
+import { Button } from "@/ui/components/button"
 import { createFileRoute } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/")({ component: App })

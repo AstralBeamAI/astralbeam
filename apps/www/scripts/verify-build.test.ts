@@ -1,4 +1,5 @@
 import { readFile, readdir } from "node:fs/promises"
+import { resolve } from "node:path"
 
 import { palette } from "@astralbeam/brand"
 import sharp from "sharp"
@@ -140,7 +141,7 @@ describe("production website build", () => {
   test("publishes the strict compact theme authoring schema", async () => {
     const publishedSchemaText = await readText("schemas/theme.schema.json")
     const masterSchemaText = await readFile(
-      new URL(import.meta.resolve("@astralbeam/theme/theme.schema.json")),
+      resolve("../webapp/src/theme/theme.schema.json"),
       "utf8",
     )
 
