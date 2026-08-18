@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.astralbeam.ai/schemas/theme.schema.json",
+  "title": "AstralBeam theme definition",
+  "description": "A compact theme definition. The runtime derives reasonable light defaults and a complete dark theme from optional dark background, foreground, primary, and accent values, then validates opaque CSS colors and semantic contrast.",
+  "type": "object",
+  "required": ["colors", "geometry"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "enum": ["https://www.astralbeam.ai/schemas/theme.schema.json"],
+      "default": "https://www.astralbeam.ai/schemas/theme.schema.json",
+      "description": "JSON Schema URL for editor validation and completion."
+    },
+    "colors": { "$ref": "#/$defs/colors" },
+    "geometry": { "$ref": "#/$defs/geometry" }
+  },
+  "$defs": {
+    "themeColor": {
+      "type": "string",
+      "allOf": [{ "minLength": 1 }, { "pattern": "^\\S[\\s\\S]*\\S$|^\\S$" }, { "maxLength": 256 }],
+      "description": "An opaque CSS <color> value. CSS parsing, opacity, derived-color generation, and semantic contrast are validated at runtime.",
+      "examples": ["#006b66", "oklch(0.519852 0.092904 178.167)"]
+    },
+    "colors": {
+      "type": "object",
+      "properties": {
+        "light": { "$ref": "#/$defs/lightColors" },
+        "dark": { "$ref": "#/$defs/darkColors" }
+      },
+      "required": ["light"],
+      "additionalProperties": false,
+      "description": "Theme colors. Light semantic roles are authorable; dark background, foreground, primary, and accent values are optional, and all remaining dark roles are derived."
+    },
+    "lightColors": {
+      "type": "object",
+      "properties": {
+        "background": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(1 0 0)",
+          "description": "Page background. Defaults to shadcn's neutral white light surface."
+        },
+        "foreground": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(0.145 0 0)",
+          "description": "Default page text. Defaults to shadcn's neutral near-black foreground."
+        },
+        "card": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(1 0 0)",
+          "description": "Card surface. Defaults to a neutral white surface."
+        },
+        "card-foreground": {
+          "$ref": "#/$defs/themeColor",
+          "description": "Card text. Defaults to an accessible value derived from foreground."
+        },
+        "popover": {
+          "$ref": "#/$defs/themeColor",
+          "description": "Popover surface. Defaults to card."
+        },
+        "popover-foreground": {
+          "$ref": "#/$defs/themeColor",
+          "description": "Popover text. Defaults to an accessible value derived from card text."
+        },
+        "primary": {
+          "$ref": "#/$defs/themeColor",
+          "description": "Required organization brand color used to derive primary accents and dark roles."
+        },
+        "primary-foreground": { "$ref": "#/$defs/themeColor" },
+        "secondary": { "$ref": "#/$defs/themeColor" },
+        "secondary-foreground": { "$ref": "#/$defs/themeColor" },
+        "muted": { "$ref": "#/$defs/themeColor" },
+        "muted-foreground": { "$ref": "#/$defs/themeColor" },
+        "accent": { "$ref": "#/$defs/themeColor" },
+        "accent-foreground": { "$ref": "#/$defs/themeColor" },
+        "destructive": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(0.577 0.245 27.325)",
+          "description": "Destructive status color. Defaults to shadcn's red status color and is contrast-corrected when necessary."
+        },
+        "warning": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(0.55 0.13 64.5)",
+          "description": "Warning status color. Defaults to an amber status color and is contrast-corrected when necessary."
+        },
+        "border": { "$ref": "#/$defs/themeColor" },
+        "input": { "$ref": "#/$defs/themeColor" },
+        "ring": {
+          "$ref": "#/$defs/themeColor",
+          "description": "Focus indicator color. Defaults to an accessible value derived from primary."
+        },
+        "chart-1": {
+          "$ref": "#/$defs/themeColor",
+          "description": "First categorical chart color. Defaults to primary."
+        },
+        "chart-2": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(0.60557 0.107271 183.982408)",
+          "description": "Second categorical chart color. Defaults to an sRGB-gamut-mapped shadcn neutral color."
+        },
+        "chart-3": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(0.398 0.07 227.392)",
+          "description": "Third categorical chart color. Defaults to an sRGB-gamut-mapped shadcn neutral color."
+        },
+        "chart-4": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(0.8299 0.171283 81.314511)",
+          "description": "Fourth categorical chart color. Defaults to an sRGB-gamut-mapped shadcn neutral color."
+        },
+        "chart-5": {
+          "$ref": "#/$defs/themeColor",
+          "default": "oklch(0.770892 0.1721 65.636832)",
+          "description": "Fifth categorical chart color. Defaults to an sRGB-gamut-mapped shadcn neutral color."
+        },
+        "sidebar": { "$ref": "#/$defs/themeColor" },
+        "sidebar-foreground": { "$ref": "#/$defs/themeColor" },
+        "sidebar-primary": { "$ref": "#/$defs/themeColor" },
+        "sidebar-primary-foreground": {
+          "$ref": "#/$defs/themeColor",
+          "description": "Sidebar primary text. Defaults to an accessible value derived from the card surface."
+        },
+        "sidebar-accent": { "$ref": "#/$defs/themeColor" },
+        "sidebar-accent-foreground": { "$ref": "#/$defs/themeColor" },
+        "sidebar-border": { "$ref": "#/$defs/themeColor" },
+        "sidebar-ring": { "$ref": "#/$defs/themeColor" }
+      },
+      "required": ["primary"],
+      "additionalProperties": false,
+      "description": "Light-mode semantic colors. Primary is the only required seed; every other role is optional and derived when omitted."
+    },
+    "geometry": {
+      "type": "object",
+      "properties": {
+        "radius": {
+          "type": "string",
+          "allOf": [
+            { "maxLength": 32 },
+            { "pattern": "^(?:0|(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:em|px|rem|%))$" }
+          ],
+          "default": "0.625rem",
+          "description": "A nonnegative px, rem, em, or percentage length. Unitless zero is also accepted.",
+          "examples": ["0.625rem", "0.45rem"]
+        }
+      },
+      "additionalProperties": false,
+      "description": "Shared component geometry."
+    },
+    "darkColors": {
+      "type": "object",
+      "properties": {
+        "background": {
+          "$ref": "#/$defs/themeColor",
+          "description": "Optional dark background seed."
+        },
+        "foreground": {
+          "$ref": "#/$defs/themeColor",
+          "description": "Optional dark foreground seed."
+        },
+        "primary": { "$ref": "#/$defs/themeColor", "description": "Optional dark primary seed." },
+        "accent": { "$ref": "#/$defs/themeColor", "description": "Optional dark accent seed." }
+      },
+      "additionalProperties": false,
+      "description": "Optional dark-mode values. Background, foreground, primary, and accent can be authored; every other dark role is derived."
+    }
+  }
+}
