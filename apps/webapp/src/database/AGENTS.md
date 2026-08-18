@@ -1,12 +1,12 @@
-# Database package
+# Database
 
-`@astralbeam/db` owns the PostgreSQL client, Drizzle schema, and migrations. Keep consumer documentation in `README.md` and author guidance here.
+The webapp owns the PostgreSQL client, Drizzle schema, and migrations. Keep consumer documentation in `apps/webapp/docs/database.md` and author guidance here.
 
 ## Boundaries
 
-- Keep the runtime client in `src/index.ts` and preserve its `@tanstack/react-start/server-only` marker.
+- Keep the runtime client in `database.ts` and preserve its `@tanstack/react-start/server-only` marker.
 - Never import the runtime entrypoint into browser code.
-- Keep tables and relations under `src/schema/` and re-export every model Drizzle Kit must discover from `src/schema/index.ts`.
+- Keep tables and relations in responsibility-named modules under this directory and re-export every model Drizzle Kit must discover from `schema.ts`.
 - Keep schema modules independent of runtime drivers and Effect.
 - Read `DATABASE_URL` from the environment; do not add package-local environment files or credentials.
 - Reuse one production connection pool. Keep Postgres.js prepared statements enabled unless the selected pooler explicitly does not support them.
@@ -14,7 +14,7 @@
 
 ## Drizzle configuration
 
-- Keep `drizzle.config.ts` minimal: PostgreSQL dialect, the schema barrel, package-owned `migrations/`, and `DATABASE_URL`.
+- Keep `apps/webapp/drizzle.config.ts` minimal: PostgreSQL dialect, the schema entrypoint, app-owned `migrations/`, and `DATABASE_URL`.
 - Do not add a standard PostgreSQL `driver`; Drizzle Kit selects it from the dialect and installed package.
 - Do not add the removed `strict` option. Request verbose output only for commands that need it.
 
@@ -22,16 +22,16 @@
 
 - Keep one domain concern per schema module and use explicit PostgreSQL column names.
 - Do not add placeholder tables or migrations.
-- Use Drizzle 1.0 `defineRelations(...)`. Export relation configuration from the schema package and pass `{ relations }` to each runtime driver; do not use the Drizzle 0.x `{ schema }` runtime option.
+- Use Drizzle 1.0 `defineRelations(...)`. Export relation configuration from the schema and pass `{ relations }` to each runtime driver; do not use the Drizzle 0.x `{ schema }` runtime option.
 
 ## Migrations
 
 The TypeScript schema is the source of truth. Generate, review, and commit migrations:
 
 ```sh
-vp run @astralbeam/db#db generate --name=<descriptive-name>
-vp run @astralbeam/db#db check
-vp run @astralbeam/db#db migrate
+vp run db generate --name=<descriptive-name>
+vp run db check
+vp run db migrate
 ```
 
 - Resolve rename prompts carefully and inspect every generated SQL statement.
@@ -60,8 +60,8 @@ When adopting Effect 4:
 Run from the repository root:
 
 ```sh
-vp run @astralbeam/db#db generate
-vp run @astralbeam/db#db check
+vp run db generate
+vp run db check
 vp run ready
 git diff --check
 ```

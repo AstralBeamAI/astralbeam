@@ -6,7 +6,7 @@
   "scripts": {
     "check": "vp check && knip",
     "check:fix": "vp check --fix",
-    "db": "vp run @astralbeam/db#db",
+    "db": "vp run @astralbeam/webapp#db",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "knip": "knip",
@@ -15,12 +15,11 @@
     "lint:fix": "vp lint --fix",
     "ready": "vp run check && vp run test && vp run @astralbeam/webapp#build",
     "test": "vp run -r test",
-    "ui": "vp run @astralbeam/ui#ui",
+    "ui": "vp run @astralbeam/webapp#ui",
     "webapp": "vp run @astralbeam/webapp#dev",
     "www": "vp run @astralbeam/www#dev"
   },
   "devDependencies": {
-    "@astralbeam/utils": "workspace:*",
     "@types/node": "catalog:",
     "knip": "catalog:",
     "typescript": "catalog:",

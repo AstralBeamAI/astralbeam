@@ -1,4 +1,4 @@
-// shadcn command: `vp run @astralbeam/ui#ui add skeleton`
+// shadcn command: `vp run ui add skeleton`
 
 import { cn } from "@/lib/utils"
 

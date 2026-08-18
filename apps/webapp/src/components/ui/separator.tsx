@@ -1,4 +1,4 @@
-// shadcn command: `vp run @astralbeam/ui#ui add separator`
+// shadcn command: `vp run ui add separator`
 
 import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
 

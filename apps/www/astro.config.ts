@@ -1,5 +1,5 @@
 import sitemap from "@astrojs/sitemap"
-import { workspaceEnvironmentViteConfig } from "@astralbeam/utils/environment"
+import { workspaceEnvironmentViteConfig } from "@astralbeam/webapp/workspace-environment"
 import { defineConfig } from "astro/config"
 
 import { siteMetadata } from "./src/lib/site.ts"

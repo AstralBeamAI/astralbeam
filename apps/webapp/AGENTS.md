@@ -1,32 +1,32 @@
-# Shared UI Components
+# Webapp UI
 
 ## Shared colors
 
 - Keep `src/styles.css` theme-agnostic: it maps semantic CSS variables into Tailwind but must not import or define a product palette.
-- Require every application to supply `--radius` and the complete semantic variable set referenced by `src/styles.css` before rendering shared components.
-- Keep theme selection, validation, fallback, and first-paint injection in the consuming application rather than this package.
+- Require the application to supply `--radius` and the complete semantic variable set referenced by `src/styles.css` before rendering components.
+- Keep theme selection, validation, fallback, and first-paint injection at the application boundary.
 - Derive Tailwind's radius scale from the consumer-supplied `--radius` token.
-- Preserve the explicit theme contract: every consumer must apply exactly one of `.light` or `.dark` to a root or ancestor before first paint.
+- Preserve the explicit theme contract: apply exactly one of `.light` or `.dark` to a root or ancestor before first paint.
 
 ## Adding shadcn Components
 
-- Keep all shadcn-generated components, hooks, and utilities in this package. Applications must import them through the `@astralbeam/ui` exports.
-- Add shadcn components through the package's configured CLI from the repository root:
+- Keep shadcn-generated components under `src/components/ui`, application components under `src/components`, hooks under `src/hooks`, and utilities under `src/lib`.
+- Add shadcn components from the repository root:
 
   ```sh
-  vp run @astralbeam/ui#ui add <component>
+  vp run ui add <component>
   ```
 
 - For every component downloaded from shadcn, add a provenance comment at the very top of the generated file. The comment must name only that file's component, even when several components were added in one CLI invocation. Use this format:
 
   ```tsx
-  // shadcn command: `vp run @astralbeam/ui#ui add <component>`
+  // shadcn command: `vp run ui add <component>`
   ```
 
 - When making later manual edits to a downloaded shadcn component, keep the command comment and add or update a concise `Local edits` comment immediately below it. Mention every intentional deviation from the generated component; do not record formatting-only changes.
 
   ```tsx
-  // shadcn command: `vp run @astralbeam/ui#ui add <component>`
+  // shadcn command: `vp run ui add <component>`
   // Local edits: Uses the project button sizing and Base UI focus treatment.
   ```
 

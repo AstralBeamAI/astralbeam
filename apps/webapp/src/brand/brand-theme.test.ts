@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process"
 import { readFile } from "node:fs/promises"
-import { palette, theme } from "@astralbeam/brand"
-import { generateThemeCss, resolveThemePalette, type ThemeMode } from "@astralbeam/theme"
 import { describe, expect, test } from "vite-plus/test"
+
+import { generateThemeCss, resolveThemePalette, type ThemeMode } from "../theme/theme.ts"
+import { palette, theme } from "./brand-theme.ts"
 
 const themeModes = ["light", "dark"] as const satisfies readonly ThemeMode[]
 
@@ -37,7 +38,7 @@ describe("AstralBeam brand theme", () => {
         "--conditions=browser",
         "--input-type=module",
         "--eval",
-        'const brand = await import("@astralbeam/brand"); if (!brand.theme || !brand.palette) process.exit(1)',
+        'const brand = await import("@astralbeam/webapp/brand"); if (!brand.theme || !brand.palette) process.exit(1)',
       ],
       {
         encoding: "utf8",

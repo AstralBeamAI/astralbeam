@@ -1,5 +1,6 @@
-import { loadWorkspaceEnvironment } from "@astralbeam/utils/environment"
 import { defineConfig } from "drizzle-kit"
+
+import { loadWorkspaceEnvironment } from "./config/workspace-environment.ts"
 
 // Drizzle Kit does not load Vite modes; fall back to local development defaults only. https://vite.dev/config/#using-environment-variables-in-config
 loadWorkspaceEnvironment("development")
@@ -11,7 +12,7 @@ if (!databaseUrl) {
 
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/schema/index.ts",
+  schema: "./src/database/schema.ts",
   out: "./migrations",
   dbCredentials: {
     url: databaseUrl,

@@ -18,17 +18,17 @@
 ## Environment
 
 - Keep environment files at the repository root. Commit only reviewed non-secret templates and defaults (`.env.example`, `.env.development`, and its `.env.test` symlink); never commit credentials or deployment-specific values.
-- Reuse `@astralbeam/utils/environment` from application and standalone-tool configuration instead of adding package-local loaders or environment files. Shell, CI, and deployment variables must take precedence over file values.
+- Reuse `apps/webapp/config/workspace-environment.ts` from application and standalone-tool configuration instead of adding additional loaders or environment files. Shell, CI, and deployment variables must take precedence over file values.
 
-## Shared UI
+## Webapp UI
 
-- `packages/ui` owns the monorepo's only `components.json` and all shadcn-generated components, hooks, and utilities; applications import them from `@astralbeam/ui`.
-- Add components from the repository root with `vp run @astralbeam/ui#ui add <component>`.
+- `apps/webapp` owns the repository's only `components.json` and all shadcn-generated components, hooks, and utilities.
+- Add components from the repository root with `vp run ui add <component>`.
 
 ## Database
 
-- Keep PostgreSQL and Drizzle code in the server-only `packages/db` package and import it through `@astralbeam/db`.
-- Run database commands from the repository root with `vp run @astralbeam/db#db <command>`.
+- Keep PostgreSQL and Drizzle code in the server-only `apps/webapp/src/database` directory and never re-export the runtime client through a client-reachable module.
+- Run database commands from the repository root with `vp run db <command>`.
 - After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
 - Use `migrate` for checked-in migrations; reserve `push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or package-local environment files.
 

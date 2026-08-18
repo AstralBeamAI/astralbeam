@@ -1,6 +1,6 @@
-# `@astralbeam/theme`
+# Theme
 
-`@astralbeam/theme` defines the neutral semantic theme contract shared by AstralBeam and organization-provided color systems. UI components consume the resulting CSS custom properties and do not own theme selection or persistence.
+`apps/webapp/src/theme/theme.ts` defines the neutral semantic theme contract shared by AstralBeam and organization-provided color systems. UI components consume the resulting CSS custom properties and do not own theme selection or persistence.
 
 ## Theme documents
 
@@ -9,7 +9,7 @@ A `ThemeDocument` has exactly `colors` and `geometry` at the top level. `colors.
 Theme documents are deliberately resolved rather than abbreviated. Equal values in one preset do not make roles such as cards, popovers, charts, focus rings, and sidebars permanently identical, so every downstream CSS variable remains independently overrideable and reviewable.
 
 ```ts
-import { parseThemeDocument } from "@astralbeam/theme"
+import { parseThemeDocument } from "@/theme/theme"
 
 const theme = parseThemeDocument(JSON.parse(themeJson))
 ```
@@ -19,7 +19,7 @@ const theme = parseThemeDocument(JSON.parse(themeJson))
 Use an explicit mode to resolve one color, materialize an ergonomic sRGB palette, serialize a complete stylesheet, or create a CSS-variable value record.
 
 ```ts
-import { generateThemeCss, resolveThemePalette, themeCssVariables } from "@astralbeam/theme"
+import { generateThemeCss, resolveThemePalette, themeCssVariables } from "@/theme/theme"
 
 const variables = themeCssVariables(theme, "light")
 const palette = resolveThemePalette(theme, "light")
@@ -34,7 +34,7 @@ const stylesheet = generateThemeCss(theme)
 A `ThemeDefinition` is the compact organization-authoring input. It requires `colors` and `geometry` and may include the published `$schema` URL for editor assistance. `colors.light.primary` is the sole required color; light `background`, `foreground`, and every other semantic token are optional direct properties. An optional `colors.dark` object accepts only `background`, `foreground`, `primary`, and `accent`; all other dark roles remain derived. The resolver uses shadcn's neutral light background and foreground when they are omitted. An omitted `geometry.radius` resolves to shadcn's `0.625rem` default.
 
 ```ts
-import { resolveThemeDefinition } from "@astralbeam/theme"
+import { resolveThemeDefinition } from "@/theme/theme"
 
 const theme = resolveThemeDefinition({
   colors: {
@@ -64,7 +64,7 @@ Runtime validation uses Effect Schema, and the exported schemas implement Standa
 For an endpoint or preview tool, pass already decoded untrusted data to the pure compiler. It returns plain serializable issues for expected validation failures and never reads requests, writes files, mutates browser state, or caches inputs.
 
 ```ts
-import { compileThemeCss } from "@astralbeam/theme"
+import { compileThemeCss } from "@/theme/theme"
 
 const result = compileThemeCss(untrustedThemeDefinition)
 
@@ -79,4 +79,4 @@ JSON decoding, request-size limits, status codes, response headers, rate limitin
 
 Keep the compact definition separate from the resolved runtime contract. Persist the resolved document when values must remain stable across resolver changes; derivation formulas are an authoring convenience and are not evaluated by UI components.
 
-The checked-in authoring schema at `public/schemas/theme.schema.json`, also exported as `@astralbeam/theme/theme.schema.json`, defines token inventory, documented defaults, length limits, radius syntax, and editor tooling. WWW publishes the same bytes at `https://www.astralbeam.ai/schemas/theme.schema.json`. Theme definition files may reference that URL through `$schema`; resolved `ThemeDocument` values contain only `colors` and `geometry`. Effect Schema remains authoritative for CSS color parsing, opacity, derivation, and semantic contrast.
+The checked-in authoring schema at `apps/webapp/src/theme/theme.schema.json`, also exposed internally as `@astralbeam/webapp/theme.schema.json`, defines token inventory, documented defaults, length limits, radius syntax, and editor tooling. WWW publishes the same bytes at `https://www.astralbeam.ai/schemas/theme.schema.json`. Theme definition files may reference that URL through `$schema`; resolved `ThemeDocument` values contain only `colors` and `geometry`. Effect Schema remains authoritative for CSS color parsing, opacity, derivation, and semantic contrast.

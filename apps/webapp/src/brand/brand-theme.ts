@@ -1,4 +1,4 @@
-import { resolveThemeDefinition, resolveThemePalette } from "@astralbeam/theme"
+import { resolveThemeDefinition, resolveThemePalette } from "../theme/theme.ts"
 
 import themeDefinition from "./theme.json" with { type: "json" }
 

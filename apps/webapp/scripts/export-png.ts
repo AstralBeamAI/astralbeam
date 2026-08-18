@@ -3,7 +3,7 @@ import { dirname, extname, join, relative } from "node:path"
 import { fileURLToPath } from "node:url"
 import sharp from "sharp"
 
-const packageDirectory = join(dirname(fileURLToPath(import.meta.url)), "..")
+const webappDirectory = join(dirname(fileURLToPath(import.meta.url)), "..")
 const assetGroup = process.argv.slice(2).find((argument) => argument !== "--") ?? "logo"
 
 if (!/^[a-z0-9-]+$/u.test(assetGroup)) {
@@ -12,7 +12,7 @@ if (!/^[a-z0-9-]+$/u.test(assetGroup)) {
   )
 }
 
-const assetDirectory = join(packageDirectory, "src", assetGroup)
+const assetDirectory = join(webappDirectory, "src", "brand", assetGroup)
 const svgDirectory = join(assetDirectory, "svg")
 const pngDirectory = join(assetDirectory, "png")
 
@@ -61,6 +61,6 @@ for (const svgFile of svgFiles) {
 
   await writeFile(pngPath, output)
 
-  console.log(`Wrote ${relative(packageDirectory, pngPath)}`)
+  console.log(`Wrote ${relative(webappDirectory, pngPath)}`)
 }
 /* oxlint-enable no-await-in-loop */

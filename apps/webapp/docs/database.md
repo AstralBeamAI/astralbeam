@@ -1,4 +1,4 @@
-# `@astralbeam/db`
+# Webapp database
 
 Server-only PostgreSQL access for AstralBeam applications.
 
@@ -7,9 +7,10 @@ Server-only PostgreSQL access for AstralBeam applications.
 Once a table is exported from the schema entrypoint, consume it from a server-only module:
 
 ```ts
-import { db } from "@astralbeam/db"
-import { projects } from "@astralbeam/db/schema"
 import { createServerFn } from "@tanstack/react-start"
+
+import { db } from "@/database/database"
+import { projects } from "@/database/schema"
 
 export const listProjects = createServerFn({ method: "GET" }).handler(() =>
   db.select().from(projects),
@@ -29,22 +30,22 @@ podman compose up --detach --wait
 Apply every checked-in migration that has not yet run against the configured database:
 
 ```sh
-vp run @astralbeam/db#db migrate
+vp run db migrate
 ```
 
 After changing the TypeScript schema, generate a named migration, inspect its SQL and snapshot, verify migration-history consistency, then apply it:
 
 ```sh
-vp run @astralbeam/db#db generate --name=<descriptive-name>
-vp run @astralbeam/db#db check
-vp run @astralbeam/db#db migrate
+vp run db generate --name=<descriptive-name>
+vp run db check
+vp run db migrate
 ```
 
 Reset only the disposable local PostgreSQL database without installing PostgreSQL tools on the host, then reapply all checked-in migrations:
 
 ```sh
 podman compose exec postgres sh -ceu 'dropdb --if-exists --force --username "$POSTGRES_USER" "$POSTGRES_DB"; createdb --username "$POSTGRES_USER" "$POSTGRES_DB"'
-vp run @astralbeam/db#db migrate
+vp run db migrate
 ```
 
 To remove all local PostgreSQL and Valkey data instead, recreate both named volumes:
@@ -52,7 +53,7 @@ To remove all local PostgreSQL and Valkey data instead, recreate both named volu
 ```sh
 podman compose down --volumes
 podman compose up --detach --wait
-vp run @astralbeam/db#db migrate
+vp run db migrate
 ```
 
 Both reset workflows are destructive and must only be used for disposable local data. `migrate` applies pending checked-in migrations; `check` validates migration-history consistency and does not inspect which migrations a live database has applied.

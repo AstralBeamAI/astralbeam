@@ -1,4 +1,4 @@
-// shadcn command: `vp run @astralbeam/ui#ui add card`
+// shadcn command: `vp run ui add card`
 
 import * as React from "react"
 

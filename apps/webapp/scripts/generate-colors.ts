@@ -1,11 +1,10 @@
 import { writeFile } from "node:fs/promises"
 
-import { generateThemeCss } from "@astralbeam/theme"
+import { theme } from "../src/brand/brand-theme.ts"
+import { generateThemeCss } from "../src/theme/theme.ts"
 
-import { theme } from "@astralbeam/brand"
-
-const outputUrl = new URL("../src/colors.css", import.meta.url)
+const outputUrl = new URL("../src/brand/colors.css", import.meta.url)
 
 await writeFile(outputUrl, generateThemeCss(theme), "utf8")
 
-console.log("Wrote src/colors.css")
+console.log("Wrote src/brand/colors.css")

@@ -1,5 +1,6 @@
-import { workspaceEnvironmentViteConfig } from "@astralbeam/utils/environment"
 import { defineConfig, type UserConfig } from "vite-plus"
+
+import { workspaceEnvironmentViteConfig } from "./apps/webapp/config/workspace-environment.ts"
 
 const generatedPaths = [
   ".agents/skills",

@@ -1,4 +1,4 @@
-// shadcn command: `vp run @astralbeam/ui#ui add button`
+// shadcn command: `vp run ui add button`
 
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"

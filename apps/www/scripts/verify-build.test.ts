@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises"
 
-import { palette } from "@astralbeam/brand"
+import { palette } from "@astralbeam/webapp/brand"
 import sharp from "sharp"
 import { describe, expect, test } from "vite-plus/test"
 
@@ -140,7 +140,7 @@ describe("production website build", () => {
   test("publishes the strict compact theme authoring schema", async () => {
     const publishedSchemaText = await readText("schemas/theme.schema.json")
     const masterSchemaText = await readFile(
-      new URL(import.meta.resolve("@astralbeam/theme/theme.schema.json")),
+      new URL(import.meta.resolve("@astralbeam/webapp/theme.schema.json")),
       "utf8",
     )
 

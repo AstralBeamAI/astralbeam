@@ -3,21 +3,49 @@
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
+  "exports": {
+    "./brand": "./src/brand/brand-theme.ts",
+    "./brand/colors.css": "./src/brand/colors.css",
+    "./brand/logo/png/*": "./src/brand/logo/png/*",
+    "./brand/logo/svg/*": "./src/brand/logo/svg/*",
+    "./theme.schema.json": "./src/theme/theme.schema.json",
+    "./workspace-environment": "./config/workspace-environment.ts"
+  },
   "scripts": {
     "dev": "vp dev",
     "generate-routes": "tsr generate",
     "build": "tsr generate && vp build",
-    "preview": "vp preview"
+    "preview": "vp preview",
+    "check:fix": "vp run generate:colors && vp run generate:png && vp check --fix",
+    "generate:colors": "node scripts/generate-colors.ts",
+    "generate:png": "node scripts/export-png.ts",
+    "test": "vp test run",
+    "db": "drizzle-kit",
+    "ui": "vp exec shadcn"
   },
   "dependencies": {
-    "@astralbeam/brand": "workspace:*",
-    "@astralbeam/ui": "workspace:*",
+    "@base-ui/react": "catalog:",
+    "@csstools/color-helpers": "catalog:",
+    "@csstools/css-color-parser": "catalog:",
+    "@csstools/css-parser-algorithms": "catalog:",
+    "@csstools/css-tokenizer": "catalog:",
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource-variable/manrope": "catalog:",
     "@tanstack/react-devtools": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:",
+    "postgres": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "shadcn": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tw-animate-css": "catalog:",
+    "vite-plus": "catalog:"
   },
   "devDependencies": {
     "@babel/core": "catalog:",
@@ -31,7 +59,10 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
+    "drizzle-kit": "catalog:",
     "nitro": "catalog:",
+    "sharp": "^0.34.3",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }

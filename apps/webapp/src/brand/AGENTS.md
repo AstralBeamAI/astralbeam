@@ -1,12 +1,12 @@
-# Brand package
+# Brand
 
-Shared AstralBeam brand assets live here. The four SVG masters and their generated PNGs cover light- and dark-background square logos and horizontal wordmarks under `src/logo`.
+Shared AstralBeam brand assets live here. The four SVG masters and their generated PNGs cover light- and dark-background square logos and horizontal wordmarks under `logo`.
 
 ## Theme
 
-- Treat the compact `src/theme.json` definition as the source of truth: author optional semantic values under `colors.light`, optional `background`, `foreground`, `primary`, and `accent` values under `colors.dark`, and shared dimensions under `geometry`; every other dark role is derived.
-- Generate and commit `src/colors.css` with `vp run @astralbeam/brand#generate:colors`; do not edit the generated stylesheet directly. Brand tests fail when it drifts from `src/theme.json`.
-- Keep `colors.css`, `theme`, and `palette` browser-safe; prefer the generated stylesheet for static applications, and import the exhaustive document and resolved sRGB values from `@astralbeam/brand`. Generic conversion belongs to `@astralbeam/theme`.
+- Treat the compact `theme.json` definition as the source of truth: author optional semantic values under `colors.light`, optional `background`, `foreground`, `primary`, and `accent` values under `colors.dark`, and shared dimensions under `geometry`; every other dark role is derived.
+- Generate and commit `colors.css` with `vp run @astralbeam/webapp#generate:colors`; do not edit the generated stylesheet directly. Brand tests fail when it drifts from `theme.json`.
+- Keep `colors.css`, `theme`, and `palette` browser-safe; prefer the generated stylesheet for static applications. Generic conversion belongs to the adjacent Theme module.
 - Keep the resolved brand theme exhaustive and symmetric with the shared semantic contract; retain an optional authored role only when its value intentionally differs from the resolver default.
 - Keep theme-invariant values such as radius under `geometry` so generation emits them once under the combined `.light, .dark` selector and `theme` exposes them once.
 - Require every CSS consumer to apply exactly one of `.light` or `.dark` to a root or ancestor before first paint.
@@ -27,8 +27,8 @@ Shared AstralBeam brand assets live here. The four SVG masters and their generat
 
 ## Generated PNGs
 
-- SVG files in `src/logo/svg/` are the logo masters.
-- After changing an SVG, regenerate all PNG variants with `vp run @astralbeam/brand#generate:png`.
-- Commit the generated files in `src/logo/png/` with their SVG sources.
-- Set `SCALE` for higher-resolution PNGs, for example `SCALE=2 vp run @astralbeam/brand#generate:png`.
-- The generator accepts an asset-group name and defaults to `logo`; use `vp run @astralbeam/brand#generate:png logo` to pass it explicitly.
+- SVG files in `logo/svg/` are the logo masters.
+- After changing an SVG, regenerate all PNG variants with `vp run @astralbeam/webapp#generate:png`.
+- Commit the generated files in `logo/png/` with their SVG sources.
+- Set `SCALE` for higher-resolution PNGs, for example `SCALE=2 vp run @astralbeam/webapp#generate:png`.
+- The generator accepts an asset-group name and defaults to `logo`; use `vp run @astralbeam/webapp#generate:png logo` to pass it explicitly.
