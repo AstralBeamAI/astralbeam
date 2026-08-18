@@ -25,7 +25,7 @@ const legalAssets = [
   ...readdirSync(licensesDirectory, { withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
-    .toSorted()
+    .sort()
     .map((fileName) => ({
       fileName: `LICENSES/${fileName}`,
       source: readFileSync(new URL(fileName, licensesDirectory), 'utf8'),
