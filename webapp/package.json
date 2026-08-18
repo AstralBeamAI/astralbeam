@@ -10,7 +10,7 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
-    "preview": "vite preview",
+    "start": "./.output/astralbeam",
     "compile": "deno compile -A --output .output/astralbeam .",
     "test": "vitest run"
   },
