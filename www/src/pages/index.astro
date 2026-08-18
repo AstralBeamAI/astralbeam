@@ -1,11 +1,12 @@
 ---
+import astralbeamDarkLogoUrl from "@/brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamDarkWordmarkUrl from "@/brand/logo/svg/astralbeam-wordmark-dark.svg?url&no-inline"
 import SiteLayout from "@/layouts/SiteLayout.astro"
 import { siteMetadata } from "@/lib/site"
 
 const waitlistUrl = "https://airtable.com/app5bJZxFB5NoPBUX/paghAGYUoz5JoIQDs/form"
 
-const systems = [
+const features = [
   {
     id: "01",
     name: "Frontend SDK",
@@ -14,53 +15,51 @@ const systems = [
   },
   {
     id: "02",
-    name: "Managed backend",
+    name: "Managed Backend",
     desc: "Resumable chat streaming, conversation history, and observability, all managed for you, nothing to run.",
     icon: "server",
   },
   {
     id: "03",
-    name: "Tools · Skills · MCP",
+    name: "Tools, Skills & MCP",
     desc: "Wire up tools and skills, let users bring their own MCPs, and let agents take real actions in your app.",
     icon: "plug",
   },
   {
     id: "04",
-    name: "Billing & rate limits",
-    desc: "Per-customer flexible rate limits and token-based billing, integrated with Stripe out of the box.",
+    name: "Metered Billing & Rate Limits",
+    desc: "Per-customer rate limits and token-metered billing, wired to Stripe subscriptions out of the box.",
     icon: "meter",
   },
   {
     id: "05",
-    name: "Enterprise-ready",
+    name: "Enterprise-Ready",
     desc: "Organization-aware, enterprise-grade SSO, data privacy, and access control, all built in from day one.",
     icon: "shield",
   },
   {
     id: "06",
-    name: "Prompts & evals",
-    desc: "PMs and non-engineers manage prompts, run A/B tests, and evaluate in production. No deploy required.",
+    name: "Prompts & Evals",
+    desc: "Edit prompts, run A/B tests, and score live conversations from a web UI. No redeploy, no engineer needed.",
     icon: "flask",
   },
 ]
 
-const auxSystems = [
-  "Multiplayer chat",
-  "Background agents",
-  "Dynamic LLM routing",
-  "Prompt caching",
-  "Audit logs",
-  "Token optimization",
+// The same responsibilities appear in both comparison panels: seven vendors to
+// integrate on the left, one service that covers them on the right.
+const stackPieces = [
+  "LLM Gateway",
+  "Agent Framework",
+  "Observability",
+  "Tools & MCPs",
+  "Metering & Billing",
+  "Auth & SSO",
+  "Prompts & Evals",
 ]
 
-const bootChecks = [
-  ["STREAMING", "RESUMABLE"],
-  ["HISTORY", "PERSISTED"],
-  ["TOOLS + MCP", "ARMED"],
-  ["BILLING", "METERED"],
-  ["SSO / AUTH", "LOCKED IN"],
-  ["EVALS", "LIVE"],
-]
+const openStandards = ["AG-UI", "MCP", "OpenResponses"]
+
+const githubUrl = "https://github.com/astralbeamai/astralbeam"
 ---
 
 <SiteLayout title={siteMetadata.title} description={siteMetadata.description} canonicalPath="/">
@@ -82,28 +81,26 @@ const bootChecks = [
         <img class="hud-brand-wordmark" src={astralbeamDarkWordmarkUrl} alt="" width="1241" height="136" />
       </a>
       <nav class="hud-nav" aria-label="Primary">
-        <a href="#systems">SYSTEMS</a>
-        <a href="#deploy">DEPLOY</a>
+        <a href="#features">FEATURES</a>
+        <a href="#quickstart">QUICKSTART</a>
         <a href="#open-source">OPEN&nbsp;SOURCE</a>
+        <a class="hud-nav-github" href={githubUrl} target="_blank" rel="noopener noreferrer" aria-label="AstralBeam on GitHub">
+          <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
+          <span class="hud-nav-label">GITHUB</span>
+        </a>
       </nav>
       <a class="btn btn-primary hud-cta" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
-        JOIN THE WAITLIST
+        JOIN WAITLIST
       </a>
     </header>
 
-    <div class="hud-bottom" aria-hidden="true">
-      <span class="hud-readout"><i class="blink-dot"></i>SYS.STATUS: NOMINAL</span>
-      <span class="hud-readout hud-readout-mid">OPEN SOURCE // AGPL-3.0</span>
-      <span class="hud-readout"><span id="hud-sector">SECTOR 01/05</span> · SCROLL <span id="hud-scroll">000</span>%</span>
-    </div>
-
     <main>
-      <!-- ============ 00 / HERO ============ -->
+      <!-- ============ HERO ============ -->
       <section class="hero" id="top">
         <div class="hero-beam" aria-hidden="true"></div>
 
         <div class="hero-inner">
-          <p class="eyebrow reveal">// OPEN-SOURCE AGENT INFRASTRUCTURE</p>
+          <p class="eyebrow reveal">OPEN SOURCE AI AGENT INFRASTRUCTURE</p>
           <h1 class="display hero-title">
             <span class="reveal scramble" data-text="SHIP AGENTS">SHIP AGENTS</span><br />
             <span class="reveal scramble" data-text="IN MINUTES" style="--reveal-delay:.12s">IN MINUTES</span><br />
@@ -114,14 +111,14 @@ const bootChecks = [
           </p>
           <div class="hero-ctas reveal" style="--reveal-delay:.48s">
             <a class="btn btn-primary btn-lg" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
-              JOIN THE WAITLIST
+              JOIN WAITLIST
             </a>
-            <span class="hero-alt mono">SELF-HOST IT // OR ASTRALBEAM CLOUD</span>
+            <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank" rel="noopener noreferrer">
+              <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
+              STAR ON GITHUB
+            </a>
           </div>
-        </div>
-
-        <div class="hero-readouts mono reveal" style="--reveal-delay:.6s" aria-hidden="true">
-          {bootChecks.map(([k, v]) => <span class="readout-chip">{k}: <b>{v}</b></span>)}
+          <p class="hero-alt mono reveal" style="--reveal-delay:.56s">SELF-HOST IT // OR ASTRALBEAM CLOUD</p>
         </div>
 
         <div class="scroll-cue mono" aria-hidden="true">
@@ -130,140 +127,129 @@ const bootChecks = [
         </div>
       </section>
 
-      <!-- ============ 01 / TRANSMISSION ============ -->
-      <section class="section" id="transmission" data-sector="02">
+      <!-- ============ COMPARE ============ -->
+      <section class="section" id="compare">
         <div class="section-head">
-          <p class="section-tag mono reveal">01 // TRANSMISSION</p>
           <h2 class="display section-title reveal scramble" data-text="STOP STITCHING YOUR STACK">
             STOP STITCHING YOUR STACK
           </h2>
           <p class="section-sub reveal">
-            LLM providers. Backend frameworks. Observability. Billing glue. Every team rebuilds
-            the same plumbing before their first agent ships. AstralBeam cuts through all
-            of it: a single open-source service, production-ready on day one.
+            LLM gateways. Agent frameworks. Observability. Billing. Every team rebuilds the same
+            seven pieces before their first agent ships. AstralBeam replaces all of them with a
+            single open-source service.
           </p>
         </div>
 
         <div class="compare-grid">
           <figure class="panel compare-panel reveal">
             <figcaption class="panel-label mono"><span class="x-mark">✕</span> WITHOUT ASTRALBEAM</figcaption>
-            <svg class="compare-art" viewBox="0 0 400 220" aria-hidden="true">
-              <g class="tangle" fill="none" stroke-dasharray="5 6">
-                <path d="M60 60 C 140 20, 180 130, 260 66"></path>
-                <path d="M60 60 C 90 160, 220 40, 210 150"></path>
-                <path d="M210 150 C 260 190, 300 90, 340 140"></path>
-                <path d="M260 66 C 230 120, 320 170, 340 140"></path>
-                <path d="M60 160 C 150 200, 200 90, 340 60"></path>
-                <path d="M60 160 C 110 110, 160 190, 210 150"></path>
-              </g>
-              <g class="node-set">
-                <g transform="translate(60,60)"><rect x="-34" y="-13" width="68" height="26"></rect><text y="4">LLM API</text></g>
-                <g transform="translate(260,66)"><rect x="-38" y="-13" width="76" height="26"></rect><text y="4">FRAMEWORK</text></g>
-                <g transform="translate(60,160)"><rect x="-34" y="-13" width="68" height="26"></rect><text y="4">TRACING</text></g>
-                <g transform="translate(210,150)"><rect x="-34" y="-13" width="68" height="26"></rect><text y="4">BILLING</text></g>
-                <g transform="translate(340,60)"><rect x="-26" y="-13" width="52" height="26"></rect><text y="4">AUTH</text></g>
-                <g transform="translate(340,140)"><rect x="-28" y="-13" width="56" height="26"></rect><text y="4">EVALS</text></g>
-              </g>
-            </svg>
-            <p class="compare-note">Multiple services, months of integration, all before a single agent ships.</p>
+            <div class="compare-body">
+              <svg class="tangle-art" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true">
+                <g class="tangle" fill="none" stroke-dasharray="5 6">
+                  <path d="M40 30 C 180 10, 120 150, 330 60"></path>
+                  <path d="M40 30 C 90 180, 300 60, 250 240"></path>
+                  <path d="M40 130 C 200 230, 220 40, 360 150"></path>
+                  <path d="M60 230 C 140 120, 260 200, 350 90"></path>
+                  <path d="M30 190 C 190 250, 180 90, 370 220"></path>
+                </g>
+              </svg>
+              <ul class="stack-chips mono">
+                {stackPieces.map((piece) => <li>{piece}</li>)}
+              </ul>
+            </div>
+            <p class="compare-note">
+              Multiple vendors, months of integration, all before a single agent ships.
+            </p>
           </figure>
 
           <figure class="panel compare-panel is-beam reveal" style="--reveal-delay:.15s">
             <figcaption class="panel-label mono"><span class="check-mark">✓</span> WITH ASTRALBEAM</figcaption>
-            <svg class="compare-art" viewBox="0 0 400 220" aria-hidden="true">
-              <line class="beam-line" x1="200" y1="10" x2="200" y2="210"></line>
-              <g class="node-set is-aligned">
-                <g transform="translate(200,36)"><rect x="-52" y="-13" width="104" height="26"></rect><text y="4">YOUR APP</text></g>
-                <g transform="translate(200,110)" class="core-node">
-                  <rect x="-64" y="-16" width="128" height="32"></rect><text y="5">ASTRALBEAM</text>
-                </g>
-                <g transform="translate(200,184)"><rect x="-52" y="-13" width="104" height="26"></rect><text y="4">ANY LLM</text></g>
-              </g>
-            </svg>
-            <p class="compare-note">One service. One SDK. Everything between your app and the model, handled.</p>
+            <div class="compare-body is-single">
+              <div class="single-core">
+                <span class="single-beam" aria-hidden="true"></span>
+                <img class="single-logo" src={astralbeamDarkLogoUrl} alt="" width="270" height="270" />
+                <span class="single-name mono">ONE SERVICE</span>
+              </div>
+              <ul class="stack-chips is-included mono">
+                {stackPieces.map((piece) => <li>{piece}</li>)}
+              </ul>
+            </div>
+            <p class="compare-note">
+              One service. One SDK. Everything between your app and the model, handled.
+            </p>
           </figure>
         </div>
       </section>
 
-      <!-- ============ 02 / SYSTEMS ============ -->
-      <section class="section" id="systems" data-sector="03">
+      <!-- ============ FEATURES ============ -->
+      <section class="section" id="features">
         <div class="section-head">
-          <p class="section-tag mono reveal">02 // SYSTEMS ONLINE</p>
           <h2 class="display section-title reveal scramble" data-text="EVERYTHING YOU NEED IN PRODUCTION">
             EVERYTHING YOU NEED IN PRODUCTION
           </h2>
           <p class="section-sub reveal">
-            Stop wiring together six tools. Every system below ships in the box, you focus on the
-            experience, AstralBeam handles the rest.
+            A drop-in agent sidebar, a managed streaming backend, tools and MCP, metered billing,
+            enterprise auth, and live evals. Every feature below ships in the box.
           </p>
         </div>
 
-        <div class="systems-grid">
+        <div class="features-grid">
           {
-            systems.map((sys, i) => (
-              <article class="panel sys-panel reveal" style={`--reveal-delay:${(i % 3) * 0.12}s`}>
-                <header class="sys-head mono">
-                  <span class="sys-id">SYS.{sys.id}</span>
-                  <span class="sys-status"><i class="blink-dot"></i>ONLINE</span>
+            features.map((feature, i) => (
+              <article class="panel feature-panel reveal" style={`--reveal-delay:${(i % 3) * 0.12}s`}>
+                <header class="feature-head mono">
+                  <span class="feature-id">FEATURE {feature.id}</span>
                 </header>
-                <div class={`sys-icon icon-${sys.icon}`} aria-hidden="true">
-                  {sys.icon === "panel" && (
+                <div class={`feature-icon icon-${feature.icon}`} aria-hidden="true">
+                  {feature.icon === "panel" && (
                     <svg viewBox="0 0 32 32"><rect x="3" y="5" width="26" height="22" rx="1"></rect><line x1="19" y1="5" x2="19" y2="27"></line><line x1="22" y1="10" x2="26" y2="10"></line><line x1="22" y1="14" x2="26" y2="14"></line></svg>
                   )}
-                  {sys.icon === "server" && (
+                  {feature.icon === "server" && (
                     <svg viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="10" rx="1"></rect><rect x="4" y="18" width="24" height="10" rx="1"></rect><circle cx="9" cy="9" r="1.5" class="fill"></circle><circle cx="9" cy="23" r="1.5" class="fill"></circle></svg>
                   )}
-                  {sys.icon === "plug" && (
+                  {feature.icon === "plug" && (
                     <svg viewBox="0 0 32 32"><path d="M11 4v7M21 4v7"></path><path d="M7 11h18l-2 8a7 7 0 0 1-14 0z"></path><path d="M16 22v6"></path></svg>
                   )}
-                  {sys.icon === "meter" && (
+                  {feature.icon === "meter" && (
                     <svg viewBox="0 0 32 32"><path d="M4 24a12 12 0 0 1 24 0"></path><line x1="16" y1="24" x2="23" y2="13"></line><circle cx="16" cy="24" r="2" class="fill"></circle></svg>
                   )}
-                  {sys.icon === "shield" && (
+                  {feature.icon === "shield" && (
                     <svg viewBox="0 0 32 32"><path d="M16 3l11 4v9c0 7-5 11-11 13C10 27 5 23 5 16V7z"></path><path d="M11 16l4 4 6-7"></path></svg>
                   )}
-                  {sys.icon === "flask" && (
+                  {feature.icon === "flask" && (
                     <svg viewBox="0 0 32 32"><path d="M13 4v8L5 26a2 2 0 0 0 2 3h18a2 2 0 0 0 2-3l-8-14V4"></path><line x1="10" y1="4" x2="22" y2="4"></line><line x1="9" y1="21" x2="23" y2="21"></line></svg>
                   )}
                 </div>
-                <h3 class="sys-name">{sys.name}</h3>
-                <p class="sys-desc">{sys.desc}</p>
+                <h3 class="feature-name">{feature.name}</h3>
+                <p class="feature-desc">{feature.desc}</p>
                 <i class="panel-corner" aria-hidden="true"></i>
               </article>
             ))
           }
         </div>
-
-        <div class="aux-row reveal">
-          <span class="aux-label mono">AUX. SYSTEMS //</span>
-          <ul class="aux-chips mono">
-            {auxSystems.map((f) => <li>{f}</li>)}
-          </ul>
-        </div>
       </section>
 
-      <!-- ============ 03 / DEPLOY SEQUENCE ============ -->
-      <section class="section" id="deploy" data-sector="04">
+      <!-- ============ QUICKSTART ============ -->
+      <section class="section" id="quickstart">
         <div class="section-head">
-          <p class="section-tag mono reveal">03 // DEPLOY SEQUENCE</p>
-          <h2 class="display section-title reveal scramble" data-text="T-MINUS FIVE MINUTES">
-            T-MINUS FIVE MINUTES
+          <h2 class="display section-title reveal scramble" data-text="LIFT OFF IN FIVE MINUTES">
+            LIFT OFF IN FIVE MINUTES
           </h2>
           <p class="section-sub reveal">
-            Install the SDK, mount the sidebar, ship. Every subsystem comes online with it,
-            no backend to stand up, no pipeline to build.
+            One package, one component. Point it at your tools and the agent starts working on
+            real data in your own UI.
           </p>
         </div>
 
-        <div class="deploy-grid">
+        <div class="quickstart-grid">
           <div class="panel terminal reveal" id="terminal">
             <header class="terminal-bar mono">
               <span class="term-dots"><i></i><i></i><i></i></span>
-              <span>app.tsx - astralbeam deploy console</span>
+              <span>app.tsx</span>
             </header>
             <pre class="terminal-body mono" aria-label="Example: install and mount the AstralBeam sidebar"><code
-><span class="t-line" data-type="cmd"><span class="t-prompt">$</span> pnpm add @astralbeam/react</span>
-<span class="t-line" data-type="out">+ @astralbeam/react 1.0.0 - installed in 2.4s</span>
+><span class="t-line" data-type="cmd"><span class="t-prompt">$</span> npm i @astralbeam/react</span>
+<span class="t-line" data-type="out">+ @astralbeam/react 1.0.0</span>
 <span class="t-line"> </span>
 <span class="t-line"><span class="t-kw">import</span> {"{"} AgentSidebar {"}"} <span class="t-kw">from</span> <span class="t-str">"@astralbeam/react"</span></span>
 <span class="t-line"> </span>
@@ -271,35 +257,49 @@ const bootChecks = [
 <span class="t-line">  <span class="t-kw">return</span> (</span>
 <span class="t-line">    &lt;&gt;</span>
 <span class="t-line">      &lt;<span class="t-tag">YourApp</span> /&gt;</span>
-<span class="t-line">      &lt;<span class="t-tag">AgentSidebar</span> <span class="t-attr">agent</span>=<span class="t-str">"copilot"</span></span>
-<span class="t-line">        <span class="t-attr">tools</span>={"{"}[searchDocs, createTicket]{"}"} /&gt;</span>
+<span class="t-line">      &lt;<span class="t-tag">AgentSidebar</span> <span class="t-attr">agent</span>=<span class="t-str">"support"</span></span>
+<span class="t-line">        <span class="t-attr">tools</span>={"{"}[lookupOrder, refund]{"}"} /&gt;</span>
 <span class="t-line">    &lt;/&gt;</span>
 <span class="t-line">  )</span>
-<span class="t-line">{"}"}</span>
-<span class="t-line"> </span>
-<span class="t-line" data-type="ok">▲ ALL SYSTEMS GO - agents are live.</span></code><span class="t-caret" aria-hidden="true"></span></pre>
+<span class="t-line">{"}"}</span></code><span class="t-caret" aria-hidden="true"></span></pre>
           </div>
 
-          <aside class="panel boot-panel reveal" style="--reveal-delay:.15s" id="bootlist">
-            <header class="panel-label mono">SUBSYSTEM BOOT LOG</header>
-            <ul class="boot-list mono">
-              {
-                bootChecks.map(([k]) => (
-                  <li class="boot-item">
-                    <span class="boot-name">{k}</span>
-                    <span class="boot-track" aria-hidden="true" />
-                    <span class="boot-state">ONLINE</span>
+          <aside class="panel agent-panel reveal" style="--reveal-delay:.15s" id="agent-demo">
+            <header class="agent-bar mono">
+              <span class="agent-title">SUPPORT AGENT</span>
+              <span class="agent-model">STREAMING</span>
+            </header>
+            <div class="agent-thread">
+              <article class="agent-msg is-user" data-step>
+                <p>Refund order 4821 and let the customer know.</p>
+              </article>
+              <article class="agent-msg is-agent" data-step>
+                <ul class="agent-tools mono">
+                  <li class="agent-tool" data-tool>
+                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">lookupOrder</span><b>4821</b>
                   </li>
-                ))
-              }
-            </ul>
-            <p class="boot-foot mono"><i class="blink-dot"></i>READY FOR LAUNCH</p>
+                  <li class="agent-tool" data-tool>
+                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">refund</span><b>$128.00</b>
+                  </li>
+                  <li class="agent-tool" data-tool>
+                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">sendEmail</span><b>receipt</b>
+                  </li>
+                </ul>
+                <p class="agent-stream" data-stream>
+                  Refunded $128.00 on order 4821 and emailed the customer a confirmation. Want me to close the ticket too?
+                </p>
+              </article>
+            </div>
+            <div class="agent-composer" aria-hidden="true">
+              <span class="agent-placeholder">Ask the agent…</span>
+              <span class="agent-send">↑</span>
+            </div>
           </aside>
         </div>
       </section>
 
-      <!-- ============ 04 / OPEN SOURCE ============ -->
-      <section class="section" id="open-source" data-sector="05">
+      <!-- ============ OPEN SOURCE ============ -->
+      <section class="section" id="open-source">
         <svg class="os-watermark" viewBox="-84 -62 168 124" aria-hidden="true">
           <g fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M -6.56 -18.02 A 30 34 0 1 0 -6.56 18.02"></path>
@@ -312,13 +312,12 @@ const bootChecks = [
         </svg>
 
         <div class="section-head">
-          <p class="section-tag mono reveal">04 // SOURCE CODE</p>
           <h2 class="display section-title reveal scramble" data-text="YOURS TO RUN. YOURS TO EXTEND.">
             YOURS TO RUN. YOURS TO EXTEND.
           </h2>
           <p class="section-sub reveal">
-            The entire platform is open source under AGPL-3.0. Modular and built on open
-            standards, so you can adopt it incrementally alongside the stack you already have.
+            Every line of AstralBeam is open source under AGPL-3.0, built on open standards, and
+            modular by design. Read it, fork it, run it, extend it.
           </p>
         </div>
 
@@ -332,27 +331,37 @@ const bootChecks = [
             <p>Let us run it for you: managed infrastructure, zero maintenance, always current.</p>
           </div>
           <div class="panel os-panel reveal" style="--reveal-delay:.2s">
-            <h3 class="os-name mono">INCREMENTAL</h3>
-            <p>Modular by design. Adopt one piece at a time, not all at once.</p>
+            <h3 class="os-name mono">MODULAR</h3>
+            <p>Start with the entire platform, or adopt it incrementally, piece by piece.</p>
           </div>
           <div class="panel os-panel reveal" style="--reveal-delay:.3s">
             <h3 class="os-name mono">OPEN STANDARDS</h3>
-            <p>MCP and open protocols throughout. Compatible with the stack you already run.</p>
+            <p>Built on protocols you can swap in and out, not a proprietary runtime.</p>
+            <ul class="os-standards mono">
+              {openStandards.map((standard) => <li>{standard}</li>)}
+            </ul>
           </div>
+        </div>
+
+        <div class="os-repo reveal" style="--reveal-delay:.35s">
+          <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank" rel="noopener noreferrer">
+            <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
+            BROWSE THE SOURCE
+          </a>
+          <span class="os-repo-path mono">github.com/astralbeamai/astralbeam</span>
         </div>
       </section>
 
-      <!-- ============ 05 / LAUNCH ============ -->
+      <!-- ============ LAUNCH ============ -->
       <section class="section launch" id="launch">
         <div class="launch-beam" aria-hidden="true"></div>
-        <p class="section-tag mono reveal">05 // FINAL CHECK</p>
         <h2 class="display launch-title reveal scramble" data-text="READY FOR LAUNCH">READY FOR LAUNCH</h2>
         <p class="section-sub launch-sub reveal">
           Get started with a few lines of code. Join the waitlist for early access.
         </p>
         <div class="reveal" style="--reveal-delay:.2s">
           <a class="btn btn-primary btn-xl" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
-            JOIN THE WAITLIST
+            JOIN WAITLIST
           </a>
         </div>
       </section>
@@ -360,11 +369,11 @@ const bootChecks = [
 
     <footer class="site-footer mono">
       <span>© 2026 ASTRALBEAM</span>
+      <a href={githubUrl} target="_blank" rel="noopener noreferrer">GITHUB</a>
       <a href="mailto:hello@astralbeam.ai">HELLO@ASTRALBEAM.AI</a>
       <a href="/terms">TERMS</a>
       <a href="/privacy">PRIVACY</a>
       <a href="/licenses.txt">LICENSES</a>
-      <span class="footer-status"><i class="blink-dot"></i>ALL SYSTEMS NOMINAL</span>
     </footer>
 
   <script src="../scripts/main.ts"></script>

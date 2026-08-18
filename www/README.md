@@ -16,11 +16,11 @@ Run all tasks from this directory:
 Structure:
 
 - `src/layouts/SiteLayout.astro` — shared document shell, search/social metadata, icons, manifest, and Organization structured data
-- `src/pages/index.astro` — the whole page (hero, transmission, systems, deploy sequence, open source, launch) plus HUD chrome
+- `src/pages/index.astro` — the whole page (hero, compare, features, quickstart, open source, launch) plus HUD chrome
 - `src/pages/404.astro` — "SIGNAL LOST" error page (wrangler `404-page` handling)
 - `src/pages/*.ts` — prerendered metadata resources, sitemap, icons, social image, `robots.txt`, and `llms.txt`
 - `src/styles/global.css` — all styling; site-specific derived tokens and shared semantic colors under explicit theme selectors
-- `src/scripts/main.ts` — canvas starfield, scramble-in headlines, scroll reveals, terminal typing, boot log, HUD scroll/sector readouts
+- `src/scripts/main.ts` — canvas starfield, scramble-in headlines, scroll reveals, terminal typing, and the hardcoded agent-sidebar prototype replay
 - `src/pages/schemas/theme.schema.json.ts` — prerendered route that publishes the checked-in `src/brand/theme.schema.json`
 - `scripts/verify-build.test.ts` — Vitest contract tests for page metadata and every generated discovery asset
 

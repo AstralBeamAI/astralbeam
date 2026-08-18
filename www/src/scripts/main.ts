@@ -143,7 +143,7 @@ const SCRAMBLE_CHARS = "▓▒░<>/\\|=+*ASTRLBEM0123456789"
 
 function scramble(el: HTMLElement) {
   const finalText = el.dataset.text ?? el.textContent ?? ""
-  const duration = 620
+  const duration = 260
   const start = performance.now()
 
   function frame(now: number) {
@@ -213,8 +213,6 @@ function initTerminal() {
       let delay = 300
       for (const line of lines) {
         const isCmd = line.dataset.type === "cmd"
-        const isOk = line.dataset.type === "ok"
-        if (isOk) delay += 500
         setTimeout(() => line.classList.add("typed"), delay)
         delay += isCmd ? 650 : 120
       }
@@ -225,80 +223,73 @@ function initTerminal() {
   io.observe(terminal)
 }
 
-/* ============ boot log ============ */
+/* ============ agent sidebar prototype ============ */
 
-function initBootLog() {
-  const panel = document.getElementById("bootlist")
+/* Hardcoded stand-in for the shipped sidebar: replay one turn (user message,
+   tool calls, streamed answer) the first time the panel scrolls into view. */
+function initAgentDemo() {
+  const panel = document.getElementById("agent-demo")
   if (!panel) return
-  const items = Array.from(panel.querySelectorAll<HTMLElement>(".boot-item"))
+  const steps = Array.from(panel.querySelectorAll<HTMLElement>("[data-step]"))
+  const tools = Array.from(panel.querySelectorAll<HTMLElement>("[data-tool]"))
+  const stream = panel.querySelector<HTMLElement>("[data-stream]")
+  const answer = stream?.textContent?.trim() ?? ""
+
+  if (stream) stream.textContent = answer
 
   if (reducedMotion) {
-    items.forEach((i) => i.classList.add("online"))
-    panel.classList.add("booted")
+    steps.forEach((step) => step.classList.add("shown"))
+    tools.forEach((tool) => tool.classList.add("running", "done"))
     return
+  }
+
+  if (stream) stream.textContent = ""
+
+  function streamAnswer() {
+    if (!stream) return
+    // Rebind after the guard: the hoisted frame callback doesn't see narrowing.
+    const target = stream
+    target.classList.add("streaming")
+    // Reveal a few characters per frame so the answer lands in about a second,
+    // matching the cadence of a real token stream.
+    let shown = 0
+    function frame() {
+      shown = Math.min(answer.length, shown + 2)
+      target.textContent = answer.slice(0, shown)
+      if (shown < answer.length) {
+        requestAnimationFrame(frame)
+      } else {
+        setTimeout(() => target.classList.remove("streaming"), 1200)
+      }
+    }
+    requestAnimationFrame(frame)
   }
 
   const io = new IntersectionObserver(
     (entries) => {
       if (!entries.some((e) => e.isIntersecting)) return
       io.disconnect()
-      items.forEach((item, i) => {
-        setTimeout(() => item.classList.add("online"), 350 + i * 260)
+
+      let delay = 250
+      steps.forEach((step) => {
+        setTimeout(() => step.classList.add("shown"), delay)
+        delay += 500
       })
-      setTimeout(() => panel.classList.add("booted"), 350 + items.length * 260)
+      tools.forEach((tool) => {
+        setTimeout(() => tool.classList.add("running"), delay)
+        delay += 450
+        setTimeout(() => tool.classList.add("done"), delay)
+        delay += 120
+      })
+      setTimeout(streamAnswer, delay + 200)
     },
-    { threshold: 0.4 },
+    { threshold: 0.35 },
   )
 
   io.observe(panel)
 }
 
-/* ============ HUD readouts ============ */
-
-function initHud() {
-  const scrollEl = document.getElementById("hud-scroll")
-  const sectorEl = document.getElementById("hud-sector")
-  if (!scrollEl || !sectorEl) return
-
-  const sectors: Array<[string, HTMLElement | null]> = [
-    ["01", document.getElementById("top")],
-    ["02", document.getElementById("transmission")],
-    ["03", document.getElementById("systems")],
-    ["04", document.getElementById("deploy")],
-    ["05", document.getElementById("open-source")],
-  ]
-
-  let ticking = false
-
-  function update() {
-    ticking = false
-    const max = document.documentElement.scrollHeight - window.innerHeight
-    const pct = max > 0 ? Math.round((window.scrollY / max) * 100) : 0
-    scrollEl!.textContent = String(pct).padStart(3, "0")
-
-    const probe = window.scrollY + window.innerHeight * 0.45
-    let current = "01"
-    for (const [id, el] of sectors) {
-      if (el && el.offsetTop <= probe) current = id
-    }
-    sectorEl!.textContent = `SECTOR ${current}/05`
-  }
-
-  window.addEventListener(
-    "scroll",
-    () => {
-      if (!ticking) {
-        ticking = true
-        requestAnimationFrame(update)
-      }
-    },
-    { passive: true },
-  )
-  update()
-}
-
 initStarfield()
 initReveals()
 initTerminal()
-initBootLog()
-initHud()
+initAgentDemo()
