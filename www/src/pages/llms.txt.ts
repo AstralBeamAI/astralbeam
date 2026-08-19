@@ -10,28 +10,30 @@ export const GET: APIRoute = ({ site }) => {
   return new Response(
     `# AstralBeam
 
-> AstralBeam is open-source infrastructure for shipping agents in minutes, not months.
+> AstralBeam is open source AI infrastructure for shipping agents in minutes, not months.
 
-AstralBeam gives application teams one service for adding production-ready agents instead of assembling separate frontend, backend, model, observability, billing, authentication, and evaluation systems.
+Drop in the AstralBeam frontend SDK, and AstralBeam handles agentic chat, streaming, history, tools, metering, billing, and auth. Application teams get one service instead of stitching together an LLM gateway, an agent framework, observability, tools and MCP plumbing, billing, authentication, and evaluations.
 
-## Product Focus
+## Features
 
-- Drop-in frontend SDK for a customizable, Cursor-like agent sidebar
-- Managed resumable chat streaming, conversation history, observability, analytics, and audit logs
-- Tools, skills, app actions, user-provided MCP support, guardrails, and evaluation hooks
-- Organization-aware authentication, permissions, context, flexible rate limits, and token-based billing
-- Enterprise SSO, data privacy, access control, prompt management, A/B testing, and production evaluations
-- Multiplayer chat, background agents, dynamic model routing, prompt caching, and token optimization
+- Frontend SDK (@astralbeam/sdk): a fully-customizable, Cursor-like agent sidebar with your own UI widgets
+- Managed backend: resumable chat streaming, conversation history, and observability, with nothing to run
+- Tools, skills, and MCP: app actions, user-provided MCP servers, and real actions inside your product
+- Metered billing and rate limits: per-customer rate limits and token-metered billing wired to Stripe
+- Enterprise-ready: organization-aware SSO, data privacy, and access control built in from day one
+- Prompts and evals: prompt editing, A/B tests, and scoring of live conversations from a web UI
 
 ## Deployment
 
 - Self-host the open-source AGPL-3.0 platform on your own infrastructure.
 - Use AstralBeam Cloud for managed infrastructure and maintenance.
-- Adopt the modular platform incrementally through open standards.
+- Start with the entire platform, or adopt it incrementally, piece by piece.
+- Built on open protocols: AG-UI, MCP, and A2A.
 
-## Pages
+## Links
 
-- [Home](${homeUrl}): Product overview, capabilities, deployment model, and early-access waitlist.
+- [Home](${homeUrl}): Product overview, features, deployment model, and early-access waitlist.
+- [Source code](https://github.com/astralbeamai/astralbeam): The open-source platform under AGPL-3.0.
 
 ## Contact
 

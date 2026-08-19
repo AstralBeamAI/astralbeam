@@ -143,7 +143,7 @@ const SCRAMBLE_CHARS = "▓▒░<>/\\|=+*ASTRLBEM0123456789"
 
 function scramble(el: HTMLElement) {
   const finalText = el.dataset.text ?? el.textContent ?? ""
-  const duration = 620
+  const duration = 260
   const start = performance.now()
 
   function frame(now: number) {
@@ -195,110 +195,323 @@ function initReveals() {
 
 /* ============ terminal typing ============ */
 
+/* Resolves once the snippet has finished typing, so the agent demo beside it can
+   start streaming only after the code it illustrates is on screen. */
 function initTerminal() {
   const terminal = document.getElementById("terminal")
-  if (!terminal) return
+  if (!terminal) return Promise.resolve()
   const lines = Array.from(terminal.querySelectorAll<HTMLElement>(".t-line"))
 
   if (reducedMotion) {
     lines.forEach((l) => l.classList.add("typed"))
-    return
+    return Promise.resolve()
   }
 
-  const io = new IntersectionObserver(
-    (entries) => {
-      if (!entries.some((e) => e.isIntersecting)) return
-      io.disconnect()
+  return new Promise<void>((resolve) => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        io.disconnect()
 
-      let delay = 300
-      for (const line of lines) {
-        const isCmd = line.dataset.type === "cmd"
-        const isOk = line.dataset.type === "ok"
-        if (isOk) delay += 500
-        setTimeout(() => line.classList.add("typed"), delay)
-        delay += isCmd ? 650 : 120
-      }
-    },
-    { threshold: 0.35 },
-  )
+        let delay = 300
+        for (const line of lines) {
+          const isCmd = line.dataset.type === "cmd"
+          setTimeout(() => line.classList.add("typed"), delay)
+          delay += isCmd ? 650 : 120
+        }
+        setTimeout(resolve, delay + 250)
+      },
+      { threshold: 0.35 },
+    )
 
-  io.observe(terminal)
+    io.observe(terminal)
+  })
 }
 
-/* ============ boot log ============ */
+/* ============ agent sidebar prototype ============ */
 
-function initBootLog() {
-  const panel = document.getElementById("bootlist")
+/* Canned replies for anything the visitor types. Hardcoded stand-in until the
+   real sidebar SDK can be embedded here. */
+const DEMO_REPLIES: Array<{ tool?: [string, string]; text: string }> = [
+  { tool: ["lookupOrder", "4830"], text: "Order 4830 shipped this morning. Tracking is already in her inbox." },
+  { tool: ["refund", "$9.00"], text: "Refunded the shipping fee too, since the delay was on us." },
+  { text: "Two similar tickets came in this week. Want me to group them into one thread?" },
+  { tool: ["addNote", "account"], text: "Done. I left a note on the account so the next agent has the context." },
+  { text: "Her plan renews on the 14th. I can pause it if she would rather wait." },
+  { text: "I only see the last four digits of the card, so payment details are out of scope for me." },
+  { tool: ["draftEmail", "reply"], text: "Drafted a reply for you to approve before it goes out." },
+  { text: "Nothing else is outstanding on this account right now." },
+  { tool: ["lookupOrder", "4830"], text: "That one ships from the Ohio warehouse, so delivery lands Thursday." },
+  { tool: ["escalate", "payments"], text: "Escalated to the payments team and linked this conversation for them." },
+]
+
+function initAgentDemo(codeReady: Promise<void>) {
+  const panel = document.getElementById("agent-demo")
   if (!panel) return
-  const items = Array.from(panel.querySelectorAll<HTMLElement>(".boot-item"))
+  const composer = panel.querySelector<HTMLFormElement>("[data-composer]")
+  const input = panel.querySelector<HTMLInputElement>("[data-input]")
+  const replayButton = panel.querySelector<HTMLButtonElement>("[data-replay]")
+  const thread = panel.querySelector<HTMLElement>("[data-thread]")
+  if (!thread || !composer || !input) return
+  const feed = thread
+
+  // The scripted transcript ships in the HTML so the panel is not empty without
+  // JavaScript. Playback detaches it and mounts one message at a time: leaving
+  // the hidden messages in flow would reserve their height, and scrolling the
+  // thread to the newest message would then start below the visible ones.
+  const scripted = Array.from(feed.children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement,
+  )
+  const answers = new Map<HTMLElement, string>()
+  for (const stream of feed.querySelectorAll<HTMLElement>("[data-stream]")) {
+    answers.set(stream, (stream.textContent ?? "").trim().replace(/\s+/gu, " "))
+  }
+
+  // Bumped by a replay or a visitor message so an in-flight intro can tell that
+  // it has been superseded. Visitor replies are never cancelled.
+  let intro = 0
+  const always = () => true
+
+  // Pauses in ms. The intro should read like a conversation happening in real
+  // time rather than a transcript being dumped into the panel.
+  const PACE = {
+    open: 450,
+    beforeUser: 1250,
+    beforeAgent: 750,
+    afterMessage: 650,
+    tool: 520,
+    betweenTools: 240,
+    widget: 400,
+    visitorReply: 900,
+  }
+
+  function wait(ms: number) {
+    return new Promise<void>((resolve) => setTimeout(resolve, ms))
+  }
+
+  function nextFrame() {
+    return new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+  }
+
+  function scrollToEnd() {
+    feed.scrollTop = feed.scrollHeight
+  }
+
+  function clear(message: HTMLElement) {
+    message.classList.remove("shown")
+    message.querySelectorAll(".agent-tool").forEach((tool) => {
+      tool.classList.remove("running", "done")
+    })
+    message.querySelectorAll(".agent-widget").forEach((widget) => widget.classList.remove("shown"))
+    message.querySelectorAll<HTMLElement>("[data-stream]").forEach((stream) => {
+      stream.classList.remove("streaming")
+      stream.textContent = ""
+    })
+  }
+
+  function finish(message: HTMLElement) {
+    message.classList.add("shown")
+    message.querySelectorAll(".agent-tool").forEach((tool) => tool.classList.add("running", "done"))
+    message.querySelectorAll(".agent-widget").forEach((widget) => widget.classList.add("shown"))
+    message.querySelectorAll<HTMLElement>("[data-stream]").forEach((stream) => {
+      stream.classList.remove("streaming")
+      stream.textContent = answers.get(stream) ?? ""
+    })
+  }
+
+  function reset() {
+    feed.replaceChildren()
+    scripted.forEach(clear)
+    feed.scrollTop = 0
+  }
+
+  /* Jump the intro to its end without touching anything the visitor has sent. */
+  function completeScripted() {
+    for (const message of scripted) {
+      if (!message.isConnected) feed.append(message)
+      finish(message)
+    }
+    scrollToEnd()
+  }
+
+  async function mount(message: HTMLElement) {
+    feed.append(message)
+    scrollToEnd()
+    // One frame with the message in flow at opacity 0, so the reveal transitions.
+    await nextFrame()
+    message.classList.add("shown")
+    scrollToEnd()
+  }
+
+  function streamText(stream: HTMLElement, text: string, alive: () => boolean) {
+    return new Promise<void>((resolve) => {
+      stream.classList.add("streaming")
+      let shown = 0
+      function frame() {
+        if (!alive()) return resolve()
+        // A few characters per frame reads like a real token stream.
+        shown = Math.min(text.length, shown + 2)
+        stream.textContent = text.slice(0, shown)
+        scrollToEnd()
+        if (shown < text.length) {
+          requestAnimationFrame(frame)
+        } else {
+          setTimeout(() => stream.classList.remove("streaming"), 900)
+          resolve()
+        }
+      }
+      requestAnimationFrame(frame)
+    })
+  }
+
+  async function playMessage(message: HTMLElement, alive: () => boolean) {
+    await mount(message)
+    if (!alive()) return
+
+    for (const tool of message.querySelectorAll<HTMLElement>("[data-tool]")) {
+      tool.classList.add("running")
+      scrollToEnd()
+      await wait(PACE.tool)
+      if (!alive()) return
+      tool.classList.add("done")
+      await wait(PACE.betweenTools)
+      if (!alive()) return
+    }
+
+    const widget = message.querySelector<HTMLElement>("[data-widget]")
+    if (widget) {
+      widget.classList.add("shown")
+      scrollToEnd()
+      await wait(PACE.widget)
+      if (!alive()) return
+    }
+
+    const stream = message.querySelector<HTMLElement>("[data-stream]")
+    if (stream) await streamText(stream, answers.get(stream) ?? "", alive)
+  }
+
+  async function play() {
+    const id = ++intro
+    const alive = () => id === intro
+    reset()
+    for (const [index, message] of scripted.entries()) {
+      const isUser = message.classList.contains("is-user")
+      await wait(index === 0 ? PACE.open : isUser ? PACE.beforeUser : PACE.beforeAgent)
+      if (!alive()) return
+      await playMessage(message, alive)
+      if (!alive()) return
+      await wait(PACE.afterMessage)
+      if (!alive()) return
+    }
+  }
+
+  function createUserMessage(text: string) {
+    const message = document.createElement("article")
+    message.className = "agent-msg is-user"
+    const body = document.createElement("p")
+    body.textContent = text
+    message.append(body)
+    return message
+  }
+
+  function createAgentMessage(reply: (typeof DEMO_REPLIES)[number]) {
+    const message = document.createElement("article")
+    message.className = "agent-msg is-agent"
+
+    if (reply.tool) {
+      const [name, argument] = reply.tool
+      const tools = document.createElement("ul")
+      tools.className = "agent-tools mono"
+      const item = document.createElement("li")
+      item.className = "agent-tool"
+      item.dataset.tool = ""
+      const dot = document.createElement("i")
+      dot.className = "tool-dot"
+      dot.setAttribute("aria-hidden", "true")
+      const toolName = document.createElement("span")
+      toolName.className = "tool-name"
+      toolName.textContent = name
+      const detail = document.createElement("b")
+      detail.textContent = argument
+      item.append(dot, toolName, detail)
+      tools.append(item)
+      message.append(tools)
+    }
+
+    const stream = document.createElement("p")
+    stream.className = "agent-stream"
+    stream.dataset.stream = ""
+    message.append(stream)
+    answers.set(stream, reply.text)
+    return message
+  }
+
+  composer.addEventListener("submit", (event) => {
+    event.preventDefault()
+    const text = input.value.trim()
+    if (!text) return
+    input.value = ""
+
+    // Supersede the intro and land it at its end, so the transcript above the
+    // visitor's message is never left half-revealed.
+    intro += 1
+    completeScripted()
+
+    const reply = DEMO_REPLIES[Math.floor(Math.random() * DEMO_REPLIES.length)]
+    if (!reply) return
+    const userMessage = createUserMessage(text)
+    const agentMessage = createAgentMessage(reply)
+
+    if (reducedMotion) {
+      feed.append(userMessage, agentMessage)
+      finish(userMessage)
+      finish(agentMessage)
+      scrollToEnd()
+      return
+    }
+
+    void (async () => {
+      await mount(userMessage)
+      await wait(PACE.visitorReply)
+      await playMessage(agentMessage, always)
+    })()
+  })
+
+  replayButton?.addEventListener("click", () => {
+    input.value = ""
+    if (reducedMotion) {
+      intro += 1
+      reset()
+      completeScripted()
+      return
+    }
+    void play()
+  })
 
   if (reducedMotion) {
-    items.forEach((i) => i.classList.add("online"))
-    panel.classList.add("booted")
+    completeScripted()
     return
   }
 
+  reset()
   const io = new IntersectionObserver(
     (entries) => {
-      if (!entries.some((e) => e.isIntersecting)) return
+      if (!entries.some((entry) => entry.isIntersecting)) return
       io.disconnect()
-      items.forEach((item, i) => {
-        setTimeout(() => item.classList.add("online"), 350 + i * 260)
+      void codeReady.then(() => {
+        // A zero here means nothing has interrupted the intro while the snippet
+        // was typing, so it is still safe to start it.
+        if (intro === 0) void play()
       })
-      setTimeout(() => panel.classList.add("booted"), 350 + items.length * 260)
     },
-    { threshold: 0.4 },
+    { threshold: 0.3 },
   )
 
   io.observe(panel)
 }
 
-/* ============ HUD readouts ============ */
-
-function initHud() {
-  const scrollEl = document.getElementById("hud-scroll")
-  const sectorEl = document.getElementById("hud-sector")
-  if (!scrollEl || !sectorEl) return
-
-  const sectors: Array<[string, HTMLElement | null]> = [
-    ["01", document.getElementById("top")],
-    ["02", document.getElementById("transmission")],
-    ["03", document.getElementById("systems")],
-    ["04", document.getElementById("deploy")],
-    ["05", document.getElementById("open-source")],
-  ]
-
-  let ticking = false
-
-  function update() {
-    ticking = false
-    const max = document.documentElement.scrollHeight - window.innerHeight
-    const pct = max > 0 ? Math.round((window.scrollY / max) * 100) : 0
-    scrollEl!.textContent = String(pct).padStart(3, "0")
-
-    const probe = window.scrollY + window.innerHeight * 0.45
-    let current = "01"
-    for (const [id, el] of sectors) {
-      if (el && el.offsetTop <= probe) current = id
-    }
-    sectorEl!.textContent = `SECTOR ${current}/05`
-  }
-
-  window.addEventListener(
-    "scroll",
-    () => {
-      if (!ticking) {
-        ticking = true
-        requestAnimationFrame(update)
-      }
-    },
-    { passive: true },
-  )
-  update()
-}
-
 initStarfield()
 initReveals()
-initTerminal()
-initBootLog()
-initHud()
+initAgentDemo(initTerminal())
