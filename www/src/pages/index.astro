@@ -1,5 +1,5 @@
 ---
-import astralbeamDarkWordmarkUrl from "@/brand/logo/svg/astralbeam-wordmark-dark.svg?url&no-inline"
+import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
 import SiteLayout from "@/layouts/SiteLayout.astro"
 import { siteMetadata } from "@/lib/site"
 
@@ -8,32 +8,38 @@ const waitlistUrl = "https://airtable.com/app5bJZxFB5NoPBUX/paghAGYUoz5JoIQDs/fo
 const features = [
   {
     name: "Frontend SDK",
-    desc: "A fully-customizable, Cursor-like agent sidebar. Drop it into your web app in a few lines of code.",
+    desc:
+      "A fully-customizable, Cursor-like agent sidebar. Drop it into your web app in a few lines of code.",
     icon: "panel",
   },
   {
     name: "Managed Backend",
-    desc: "Resumable chat streaming, conversation history, and observability, all managed for you, nothing to run.",
+    desc:
+      "Resumable chat streaming, conversation history, and observability, all managed for you, nothing to run.",
     icon: "server",
   },
   {
     name: "Tools, Skills & MCP",
-    desc: "Wire up tools and skills, let users bring their own MCPs, and let agents take real actions in your app.",
+    desc:
+      "Wire up tools and skills, let users bring their own MCPs, and let agents take real actions in your app.",
     icon: "plug",
   },
   {
     name: "Metered Billing & Rate Limits",
-    desc: "Per-customer rate limits and token-metered billing, wired to Stripe subscriptions out of the box.",
+    desc:
+      "Per-customer rate limits and token-metered billing, wired to Stripe subscriptions out of the box.",
     icon: "meter",
   },
   {
     name: "Enterprise-Ready",
-    desc: "Organization-aware, enterprise-grade SSO, data privacy, and access control, all built in from day one.",
+    desc:
+      "Organization-aware, enterprise-grade SSO, data privacy, and access control, all built in from day one.",
     icon: "shield",
   },
   {
     name: "Prompts & Evals",
-    desc: "Edit prompts, run A/B tests, and score live conversations from a web UI. No redeploy, no engineer needed.",
+    desc:
+      "Edit prompts, run A/B tests, and score live conversations from a web UI. No redeploy, no engineer needed.",
     icon: "flask",
   },
 ]
@@ -53,106 +59,113 @@ const tangledNodes = [
 
 const githubUrl = "https://github.com/astralbeamai/astralbeam"
 ---
-
 <SiteLayout title={siteMetadata.title} description={siteMetadata.description} canonicalPath="/">
-    <!-- fixed deep-space starfield -->
-    <canvas id="starfield" aria-hidden="true"></canvas>
+  <!-- fixed deep-space starfield -->
+  <canvas id="starfield" aria-hidden="true"></canvas>
 
-    <!-- CRT / scanline / vignette overlays -->
-    <div class="fx-scanlines" aria-hidden="true"></div>
-    <div class="fx-vignette" aria-hidden="true"></div>
+  <!-- CRT / scanline / vignette overlays -->
+  <div class="fx-scanlines" aria-hidden="true"></div>
+  <div class="fx-vignette" aria-hidden="true"></div>
 
-    <!-- HUD chrome -->
-    <div class="hud-frame" aria-hidden="true">
+  <!-- HUD chrome -->
+  <div class="hud-frame" aria-hidden="true">
       <i class="hud-corner tl"></i><i class="hud-corner tr"></i>
       <i class="hud-corner bl"></i><i class="hud-corner br"></i>
     </div>
 
-    <header class="hud-top">
-      <a class="hud-brand" href="/" aria-label="AstralBeam home">
-        <img class="hud-brand-wordmark" src={astralbeamDarkWordmarkUrl} alt="" width="1241" height="136" />
+  <header class="hud-top">
+    <a class="hud-brand" href="/" aria-label="AstralBeam home">
+      <img class="hud-brand-wordmark" src={astralbeamDarkWordmarkUrl} alt="" width="1241"
+        height="136" />
+    </a>
+    <nav class="hud-nav" aria-label="Primary">
+      <a href="#quickstart">QUICKSTART</a>
+      <a href="#features">FEATURES</a>
+      <a href="#open-source">OPEN&nbsp;SOURCE</a>
+      <a class="hud-nav-github" href={githubUrl} target="_blank" rel="noopener noreferrer"
+        aria-label="AstralBeam on GitHub">
+        <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path>
+        </svg>
+        <span class="hud-nav-label">GITHUB</span>
       </a>
-      <nav class="hud-nav" aria-label="Primary">
-        <a href="#quickstart">QUICKSTART</a>
-        <a href="#features">FEATURES</a>
-        <a href="#open-source">OPEN&nbsp;SOURCE</a>
-        <a class="hud-nav-github" href={githubUrl} target="_blank" rel="noopener noreferrer" aria-label="AstralBeam on GitHub">
-          <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
-          <span class="hud-nav-label">GITHUB</span>
-        </a>
-      </nav>
-      <a class="btn btn-primary hud-cta" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
+    </nav>
+    <a class="btn btn-primary hud-cta" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
         JOIN WAITLIST
       </a>
-    </header>
+  </header>
 
-    <main>
-      <!-- ============ HERO ============ -->
-      <section class="hero" id="top">
-        <div class="hero-beam" aria-hidden="true"></div>
+  <main>
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="top">
+      <div class="hero-beam" aria-hidden="true"></div>
 
-        <div class="hero-inner">
-          <p class="eyebrow reveal">OPEN SOURCE AI INFRASTRUCTURE</p>
-          <h1 class="display hero-title">
+      <div class="hero-inner">
+        <p class="eyebrow reveal">OPEN SOURCE AI INFRASTRUCTURE</p>
+        <h1 class="display hero-title">
             <span class="reveal scramble" data-text="SHIP AGENTS">SHIP AGENTS</span><br />
             <span class="reveal scramble" data-text="IN MINUTES" style="--reveal-delay:.12s">IN MINUTES</span><br />
             <span class="reveal scramble beam-text" data-text="NOT MONTHS" style="--reveal-delay:.24s">NOT MONTHS</span>
           </h1>
-          <p class="hero-sub reveal" style="--reveal-delay:.36s">
+        <p class="hero-sub reveal" style="--reveal-delay:.36s">
             Drop in the frontend SDK, and AstralBeam handles agentic chat, streaming, history, tools, metering, billing, auth, and more...
           </p>
-          <div class="hero-ctas reveal" style="--reveal-delay:.48s">
-            <a class="btn btn-primary btn-lg" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
+        <div class="hero-ctas reveal" style="--reveal-delay:.48s">
+          <a class="btn btn-primary btn-lg" href={waitlistUrl} target="_blank"
+            rel="noopener noreferrer">
               JOIN WAITLIST
             </a>
-            <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank" rel="noopener noreferrer">
+          <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank"
+            rel="noopener noreferrer">
               <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
               STAR ON GITHUB
             </a>
-          </div>
         </div>
+      </div>
 
-        <a class="scroll-cue" href="#compare" aria-label="Skip to the next section">
-          <i class="scroll-chevron" aria-hidden="true"></i>
-        </a>
-      </section>
+      <a class="scroll-cue" href="#compare" aria-label="Skip to the next section">
+        <i class="scroll-chevron" aria-hidden="true"></i>
+      </a>
+    </section>
 
-      <!-- ============ COMPARE ============ -->
-      <section class="section" id="compare">
-        <div class="section-head">
-          <h2 class="display section-title reveal scramble" data-text="STOP STITCHING YOUR STACK">
+    <!-- ============ COMPARE ============ -->
+    <section class="section" id="compare">
+      <div class="section-head">
+        <h2 class="display section-title reveal scramble" data-text="STOP STITCHING YOUR STACK">
             STOP STITCHING YOUR STACK
           </h2>
-          <p class="section-sub reveal">
+        <p class="section-sub reveal">
             LLM gateways. Agent frameworks. Observability. Billing. Every team rebuilds the same
             seven pieces before their first agent ships. AstralBeam replaces all of them with a
             single open-source service.
           </p>
-        </div>
+      </div>
 
-        <div class="compare-grid">
-          <figure class="panel compare-panel reveal">
-            <figcaption class="panel-label mono"><span class="x-mark">✕</span> WITHOUT ASTRALBEAM</figcaption>
-            <svg class="compare-art is-chaos" viewBox="0 0 420 260" aria-hidden="true">
-              <defs>
-                <radialGradient id="chaos-glow">
-                  <stop offset="0" stop-color="currentColor" stop-opacity="0.18"></stop>
-                  <stop offset="1" stop-color="currentColor" stop-opacity="0"></stop>
-                </radialGradient>
-              </defs>
-              <ellipse cx="210" cy="130" rx="205" ry="130" fill="url(#chaos-glow)"></ellipse>
-              <g class="tangle" fill="none" stroke-dasharray="6 7">
-                <path d="M30 30 C 200 0, 120 170, 390 70"></path>
-                <path d="M40 60 C 130 210, 330 40, 300 250"></path>
-                <path d="M60 130 C 240 240, 250 30, 400 160"></path>
-                <path d="M30 210 C 160 90, 300 220, 380 40"></path>
-                <path d="M20 170 C 200 250, 150 60, 400 230"></path>
-                <path d="M100 20 C 60 140, 380 130, 340 230"></path>
-                <path d="M380 20 C 220 90, 260 200, 40 240"></path>
-                <path d="M50 100 C 180 150, 220 100, 390 120"></path>
-                <path d="M150 250 C 250 150, 100 100, 260 20"></path>
-              </g>
-              <g class="node-set is-tangled">
+      <div class="compare-grid">
+        <figure class="panel compare-panel reveal">
+          <figcaption
+            class="panel-label mono"><span class="x-mark">✕</span> WITHOUT ASTRALBEAM</figcaption>
+          <svg class="compare-art is-chaos" viewBox="0 0 420 260" aria-hidden="true">
+            <defs>
+              <radialGradient id="chaos-glow">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.18"></stop>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"></stop>
+              </radialGradient>
+            </defs>
+            <ellipse cx="210" cy="130" rx="205" ry="130" fill="url(#chaos-glow)"></ellipse>
+            <g class="tangle" fill="none" stroke-dasharray="6 7">
+              <path d="M30 30 C 200 0, 120 170, 390 70"></path>
+              <path d="M40 60 C 130 210, 330 40, 300 250"></path>
+              <path d="M60 130 C 240 240, 250 30, 400 160"></path>
+              <path d="M30 210 C 160 90, 300 220, 380 40"></path>
+              <path d="M20 170 C 200 250, 150 60, 400 230"></path>
+              <path d="M100 20 C 60 140, 380 130, 340 230"></path>
+              <path d="M380 20 C 220 90, 260 200, 40 240"></path>
+              <path d="M50 100 C 180 150, 220 100, 390 120"></path>
+              <path d="M150 250 C 250 150, 100 100, 260 20"></path>
+            </g>
+            <g class="node-set is-tangled">
                 {
                   tangledNodes.map((node) => (
                     <g transform={`translate(${node.x},${node.y}) rotate(${node.tilt})`}>
@@ -164,19 +177,23 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
                   ))
                 }
               </g>
-            </svg>
-            <p class="compare-note">
+          </svg>
+          <p class="compare-note">
               Multiple vendors & months of integration before a single agent ships.
             </p>
-          </figure>
+        </figure>
 
-          <figure class="panel compare-panel is-beam reveal" style="--reveal-delay:.15s">
-            <figcaption class="panel-label mono"><span class="check-mark">✓</span> WITH ASTRALBEAM</figcaption>
-            <svg class="compare-art" viewBox="0 0 420 260" aria-hidden="true">
-              <line class="beam-line" x1="210" y1="12" x2="210" y2="248"></line>
-              <g class="node-set is-aligned">
-                <g transform="translate(210,44)"><rect x="-56" y="-13" width="112" height="26"></rect><text y="4">YOUR APP</text></g>
-                <g transform="translate(210,130)" class="core-node">
+        <figure class="panel compare-panel is-beam reveal" style="--reveal-delay:.15s">
+          <figcaption
+            class="panel-label mono"><span class="check-mark">✓</span> WITH ASTRALBEAM</figcaption>
+          <svg class="compare-art" viewBox="0 0 420 260" aria-hidden="true">
+            <line class="beam-line" x1="210" y1="12" x2="210" y2="248"></line>
+            <g class="node-set is-aligned">
+              <g transform="translate(210,44)">
+                <rect x="-56" y="-13" width="112" height="26"></rect>
+                <text y="4">YOUR APP</text>
+              </g>
+              <g transform="translate(210,130)" class="core-node">
                   <rect x="-108" y="-25" width="216" height="50"></rect>
                   {/* The wordmark carries its own sRGB paints, so it renders correctly as an <image> reference. */}
                   <image
@@ -188,36 +205,40 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
                     height="20.4"
                   />
                 </g>
-                <g transform="translate(210,216)"><rect x="-56" y="-13" width="112" height="26"></rect><text y="4">ANY LLM</text></g>
+              <g transform="translate(210,216)">
+                <rect x="-56" y="-13" width="112" height="26"></rect>
+                <text y="4">ANY LLM</text>
               </g>
-            </svg>
-            <p class="compare-note">
+            </g>
+          </svg>
+          <p class="compare-note">
               One service. Everything between your app and the model, handled.
             </p>
-          </figure>
-        </div>
-      </section>
+        </figure>
+      </div>
+    </section>
 
-      <!-- ============ QUICKSTART ============ -->
-      <section class="section" id="quickstart">
-        <div class="section-head">
-          <h2 class="display section-title reveal scramble" data-text="LIFT OFF IN FIVE MINUTES">
+    <!-- ============ QUICKSTART ============ -->
+    <section class="section" id="quickstart">
+      <div class="section-head">
+        <h2 class="display section-title reveal scramble" data-text="LIFT OFF IN FIVE MINUTES">
             LIFT OFF IN FIVE MINUTES
           </h2>
-          <p class="section-sub reveal">
+        <p class="section-sub reveal">
             One package, one component. Point it at your tools, bring your own UI elements, and
             the agent starts working on real data inside your product.
           </p>
-        </div>
+      </div>
 
-        <div class="quickstart-grid">
-          <div class="panel terminal reveal" id="terminal">
-            <header class="terminal-bar mono">
-              <span class="term-dots"><i></i><i></i><i></i></span>
-              <span>app.tsx</span>
-            </header>
-            <pre class="terminal-body mono" aria-label="Example: install and mount the AstralBeam chat component"><code
-><span class="t-line" data-type="cmd"><span class="t-prompt">$</span> npm i @astralbeam/sdk</span>
+      <div class="quickstart-grid">
+        <div class="panel terminal reveal" id="terminal">
+          <header class="terminal-bar mono">
+            <span class="term-dots"><i></i><i></i><i></i></span>
+            <span>app.tsx</span>
+          </header>
+          <pre class="terminal-body mono"
+            aria-label="Example: install and mount the AstralBeam chat component"><code
+><span class="t-line" data-type="cmd"><span class="t-prompt">$</span> deno add npm:@astralbeam/sdk</span>
 <span class="t-line" data-type="out">+ @astralbeam/sdk 1.0.0</span>
 <span class="t-line"> </span>
 <span class="t-line"><span class="t-kw">import</span> {"{"} AstralBeamChat {"}"} <span class="t-kw">from</span> <span class="t-str">"@astralbeam/sdk/react"</span></span>
@@ -233,9 +254,9 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
 <span class="t-line">    &lt;/&gt;</span>
 <span class="t-line">  )</span>
 <span class="t-line">{"}"}</span></code><span class="t-caret" aria-hidden="true"></span></pre>
-          </div>
+        </div>
 
-          <div class="agent-slot reveal" style="--reveal-delay:.15s">
+        <div class="agent-slot reveal" style="--reveal-delay:.15s">
           <aside class="panel agent-panel" id="agent-demo">
             <header class="agent-bar mono">
               <span class="agent-title">SUPPORT AGENT</span>
@@ -271,9 +292,18 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
                     <span class="widget-badge">REFUNDED</span>
                   </header>
                   <dl class="widget-rows mono">
-                    <div><dt>Customer</dt><dd>Dana Whitfield</dd></div>
-                    <div><dt>Total</dt><dd>$128.00</dd></div>
-                    <div><dt>Card</dt><dd>Visa ···4242</dd></div>
+                    <div>
+                      <dt>Customer</dt>
+                      <dd>Dana Whitfield</dd>
+                    </div>
+                    <div>
+                      <dt>Total</dt>
+                      <dd>$128.00</dd>
+                    </div>
+                    <div>
+                      <dt>Card</dt>
+                      <dd>Visa ···4242</dd>
+                    </div>
                   </dl>
                 </div>
                 <p class="agent-stream" data-stream>
@@ -307,23 +337,24 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
               <button class="agent-send" type="submit" aria-label="Send message">↑</button>
             </form>
           </aside>
-          </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- ============ FEATURES ============ -->
-      <section class="section" id="features">
-        <div class="section-head">
-          <h2 class="display section-title reveal scramble" data-text="EVERYTHING YOU NEED IN PRODUCTION">
+    <!-- ============ FEATURES ============ -->
+    <section class="section" id="features">
+      <div class="section-head">
+        <h2 class="display section-title reveal scramble"
+          data-text="EVERYTHING YOU NEED IN PRODUCTION">
             EVERYTHING YOU NEED IN PRODUCTION
           </h2>
-          <p class="section-sub reveal">
+        <p class="section-sub reveal">
             A drop-in agent sidebar, a managed streaming backend, tools and MCP, metered billing,
             enterprise auth, and live evals. Every feature below ships in the box.
           </p>
-        </div>
+      </div>
 
-        <div class="features-grid">
+      <div class="features-grid">
           {
             features.map((feature, i) => (
               <article class="panel feature-panel reveal" style={`--reveal-delay:${(i % 3) * 0.12}s`}>
@@ -354,82 +385,85 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
             ))
           }
         </div>
-      </section>
+    </section>
 
-      <!-- ============ OPEN SOURCE ============ -->
-      <section class="section" id="open-source">
-        <svg class="os-watermark" viewBox="-84 -62 168 124" aria-hidden="true">
-          <g fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M -6.56 -18.02 A 30 34 0 1 0 -6.56 18.02"></path>
-            <ellipse cx="32" cy="0" rx="30" ry="34"></ellipse>
-            <path
-              transform="rotate(22)"
-              d="M 0 -56 C 4 -50 6.5 -42 6.5 -31 L 6.5 31 C 6.5 42 4 50 0 56 C -4 50 -6.5 42 -6.5 31 L -6.5 -31 C -6.5 -42 -4 -50 0 -56 Z"
-            ></path>
-          </g>
-        </svg>
+    <!-- ============ OPEN SOURCE ============ -->
+    <section class="section" id="open-source">
+      <svg class="os-watermark" viewBox="-84 -62 168 124" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M -6.56 -18.02 A 30 34 0 1 0 -6.56 18.02"></path>
+          <ellipse cx="32" cy="0" rx="30" ry="34"></ellipse>
+          <path
+            transform="rotate(22)"
+            d="M 0 -56 C 4 -50 6.5 -42 6.5 -31 L 6.5 31 C 6.5 42 4 50 0 56 C -4 50 -6.5 42 -6.5 31 L -6.5 -31 C -6.5 -42 -4 -50 0 -56 Z"
+          ></path>
+        </g>
+      </svg>
 
-        <div class="section-head">
-          <h2 class="display section-title reveal scramble" data-text="YOURS TO RUN. YOURS TO EXTEND.">
+      <div class="section-head">
+        <h2 class="display section-title reveal scramble"
+          data-text="YOURS TO RUN. YOURS TO EXTEND.">
             YOURS TO RUN. YOURS TO EXTEND.
           </h2>
-          <p class="section-sub reveal">
+        <p class="section-sub reveal">
             Every line of AstralBeam is open source under AGPL-3.0, built on open standards, and
             modular by design. Read it, fork it, run it, extend it.
           </p>
-        </div>
+      </div>
 
-        <div class="os-grid">
-          <div class="panel os-panel reveal">
-            <h3 class="os-name mono">SELF-HOST</h3>
-            <p>Run the whole platform on your own infrastructure. Your data never leaves your orbit.</p>
-          </div>
-          <div class="panel os-panel reveal" style="--reveal-delay:.1s">
-            <h3 class="os-name mono">CLOUD</h3>
-            <p>Let us run it for you: managed infrastructure, zero maintenance, always current.</p>
-          </div>
-          <div class="panel os-panel reveal" style="--reveal-delay:.2s">
-            <h3 class="os-name mono">MODULAR</h3>
-            <p>Start with the entire platform, or adopt it incrementally, piece by piece.</p>
-          </div>
-          <div class="panel os-panel reveal" style="--reveal-delay:.3s">
-            <h3 class="os-name mono">OPEN PROTOCOLS</h3>
-            <p>Built on open protocols: AG-UI, MCP, A2A. Swap pieces in and out instead of adopting a proprietary runtime.</p>
-          </div>
+      <div class="os-grid">
+        <div class="panel os-panel reveal">
+          <h3 class="os-name mono">SELF-HOST</h3>
+          <p>Run the whole platform on your own infrastructure. Your data never leaves your orbit.</p>
         </div>
+        <div class="panel os-panel reveal" style="--reveal-delay:.1s">
+          <h3 class="os-name mono">CLOUD</h3>
+          <p>Let us run it for you: managed infrastructure, zero maintenance, always current.</p>
+        </div>
+        <div class="panel os-panel reveal" style="--reveal-delay:.2s">
+          <h3 class="os-name mono">MODULAR</h3>
+          <p>Start with the entire platform, or adopt it incrementally, piece by piece.</p>
+        </div>
+        <div class="panel os-panel reveal" style="--reveal-delay:.3s">
+          <h3 class="os-name mono">OPEN PROTOCOLS</h3>
+          <p>Built on open protocols: AG-UI, MCP, A2A. Swap pieces in and out instead of adopting a proprietary runtime.</p>
+        </div>
+      </div>
 
-        <div class="os-repo reveal" style="--reveal-delay:.35s">
-          <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank" rel="noopener noreferrer">
+      <div class="os-repo reveal" style="--reveal-delay:.35s">
+        <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank" rel="noopener noreferrer">
             <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
             BROWSE THE SOURCE
           </a>
-          <span class="os-repo-path mono">github.com/astralbeamai/astralbeam</span>
-        </div>
-      </section>
+        <span class="os-repo-path mono">github.com/astralbeamai/astralbeam</span>
+      </div>
+    </section>
 
-      <!-- ============ LAUNCH ============ -->
-      <section class="section launch" id="launch">
-        <div class="launch-beam" aria-hidden="true"></div>
-        <h2 class="display launch-title reveal scramble" data-text="READY FOR LAUNCH">READY FOR LAUNCH</h2>
-        <p class="section-sub launch-sub reveal">
+    <!-- ============ LAUNCH ============ -->
+    <section class="section launch" id="launch">
+      <div class="launch-beam" aria-hidden="true"></div>
+      <h2 class="display launch-title reveal scramble"
+        data-text="READY FOR LAUNCH">READY FOR LAUNCH</h2>
+      <p class="section-sub launch-sub reveal">
           Get started with a few lines of code. Join the waitlist for early access.
         </p>
-        <div class="reveal" style="--reveal-delay:.2s">
-          <a class="btn btn-primary btn-xl" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
+      <div class="reveal" style="--reveal-delay:.2s">
+        <a class="btn btn-primary btn-xl" href={waitlistUrl} target="_blank"
+          rel="noopener noreferrer">
             JOIN WAITLIST
           </a>
-        </div>
-      </section>
-    </main>
+      </div>
+    </section>
+  </main>
 
-    <footer class="site-footer mono">
-      <span>© 2026 ASTRALBEAM</span>
-      <a href={githubUrl} target="_blank" rel="noopener noreferrer">GITHUB</a>
-      <a href="mailto:hello@astralbeam.ai">HELLO@ASTRALBEAM.AI</a>
-      <a href="/terms">TERMS</a>
-      <a href="/privacy">PRIVACY</a>
-      <a href="/licenses.txt">LICENSES</a>
-    </footer>
+  <footer class="site-footer mono">
+    <span>© 2026 ASTRALBEAM</span>
+    <a href={githubUrl} target="_blank" rel="noopener noreferrer">GITHUB</a>
+    <a href="mailto:hello@astralbeam.ai">HELLO@ASTRALBEAM.AI</a>
+    <a href="/terms">TERMS</a>
+    <a href="/privacy">PRIVACY</a>
+    <a href="/licenses.txt">LICENSES</a>
+  </footer>
 
   <script src="../scripts/main.ts"></script>
 </SiteLayout>

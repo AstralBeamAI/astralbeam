@@ -1,26 +1,21 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from "node:fs"
 
-import { defineConfig } from 'vite'
-import { devtools } from '@tanstack/devtools-vite'
+import tailwindcss from "@tailwindcss/vite"
+import { devtools } from "@tanstack/devtools-vite"
+import { tanstackStart } from "@tanstack/react-start/plugin/vite"
+import viteReact from "@vitejs/plugin-react"
+import { nitro } from "nitro/vite"
+import { defineConfig } from "vite"
 
-import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-
-import viteReact from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-import { nitro } from 'nitro/vite'
-
-const licensesDirectory = new URL('../docs/legal/LICENSES/', import.meta.url)
+const licensesDirectory = new URL("../docs/legal/LICENSES/", import.meta.url)
 const legalAssets = [
   {
-    fileName: 'LICENSE-AGPL',
-    source: readFileSync(new URL('../LICENSE-AGPL', import.meta.url), 'utf8'),
+    fileName: "LICENSE-AGPL",
+    source: readFileSync(new URL("../LICENSE-AGPL", import.meta.url), "utf8"),
   },
   {
-    fileName: 'THIRD_PARTY_NOTICES.md',
-    source: readFileSync(
-      new URL('../docs/legal/THIRD_PARTY_NOTICES.md', import.meta.url),
-      'utf8',
-    ),
+    fileName: "THIRD_PARTY_NOTICES.md",
+    source: readFileSync(new URL("../docs/legal/THIRD_PARTY_NOTICES.md", import.meta.url), "utf8"),
   },
   ...readdirSync(licensesDirectory, { withFileTypes: true })
     .filter((entry) => entry.isFile())
@@ -28,37 +23,37 @@ const legalAssets = [
     .toSorted()
     .map((fileName) => ({
       fileName: `LICENSES/${fileName}`,
-      source: readFileSync(new URL(fileName, licensesDirectory), 'utf8'),
+      source: readFileSync(new URL(fileName, licensesDirectory), "utf8"),
     })),
 ]
 
-const config = defineConfig({
+const config = defineConfig(({ mode }) => ({
   resolve: { tsconfigPaths: true },
   build: {
-    // Generate exact client and server dependency license reports from the bundle graph.
+    // Generate exact client and server dependency license reports from each bundle graph.
     // https://vite.dev/config/build-options.html#build-license
-    license: { fileName: 'THIRD_PARTY_LICENSES.md' },
-    rollupOptions: {
+    license: { fileName: "THIRD_PARTY_LICENSES.md" },
+    rolldownOptions: {
       output: {
-        banner:
-          '/*! See LICENSE-AGPL, THIRD_PARTY_LICENSES.md, and THIRD_PARTY_NOTICES.md in this distribution. */',
+        postBanner:
+          "/*! See LICENSE-AGPL, THIRD_PARTY_LICENSES.md, and THIRD_PARTY_NOTICES.md in this distribution. */",
       },
     },
   },
   plugins: [
     {
-      name: 'webapp-legal-assets',
-      apply: 'build',
+      name: "astralbeam-legal-assets",
+      apply: "build",
       generateBundle() {
-        for (const asset of legalAssets) this.emitFile({ type: 'asset', ...asset })
+        for (const asset of legalAssets) this.emitFile({ type: "asset", ...asset })
       },
     },
     devtools(),
-    nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+    ...(mode === "test" ? [] : nitro()),
     tailwindcss(),
     tanstackStart(),
     viteReact(),
   ],
-})
+}))
 
 export default config

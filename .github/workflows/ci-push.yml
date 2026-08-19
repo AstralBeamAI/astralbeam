@@ -24,7 +24,8 @@ jobs:
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          # setup-deno names the latest stable channel "latest". https://github.com/denoland/setup-deno#version-from-input
+          deno-version: latest
           # Caches the module cache, keyed by a hash of the per-application deno.lock files.
           cache: true
 
@@ -37,16 +38,21 @@ jobs:
         # --wait blocks until services are healthy
         run: docker compose up --detach --wait
 
-      - name: Check and test webapp
-        working-directory: webapp
+      - name: Auto-fix project issues
         run: |
-          deno task check
-          deno task test
-          deno task build
+          deno task --cwd webapp knip:fix
+          deno task --cwd webapp check:fix
+          deno task --cwd www knip:fix
+          deno task --cwd www check:fix
 
-      - name: Check and test website
-        working-directory: www
+      - name: Check, test, and build projects
         run: |
-          deno task check
-          deno task test
-          deno task build
+          deno task --cwd webapp ready
+          deno task --cwd www ready
+
+      - name: Commit and push auto-fixes
+        uses: ./.github/actions/commit-and-push
+        with:
+          commit-message: "chore: apply CI auto-fixes"
+          app-client-id: ${{ vars.AUTOFIX_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.AUTOFIX_APP_PRIVATE_KEY }}

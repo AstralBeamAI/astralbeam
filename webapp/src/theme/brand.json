@@ -1,0 +1,20 @@
+{
+  "$schema": "https://www.astralbeam.ai/schemas/theme.schema.json",
+  "colors": {
+    "light": {
+      "background": "oklch(0.987029 0.00544 183.026)",
+      "foreground": "oklch(0.200064 0.025239 213.919)",
+      "primary": "oklch(0.519852 0.092904 178.167)",
+      "accent": "oklch(0.955502 0.021173 259.192)"
+    },
+    "dark": {
+      "background": "oklch(0.164955 0.017684 224.116)",
+      "foreground": "oklch(0.970362 0.0119 184.086)",
+      "primary": "oklch(0.786458 0.140021 172.519)",
+      "accent": "oklch(0.286716 0.067477 254.365)"
+    }
+  },
+  "geometry": {
+    "radius": "0.45rem"
+  }
+}

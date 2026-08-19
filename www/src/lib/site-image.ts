@@ -1,14 +1,12 @@
-import { Buffer } from "node:buffer"
-
 import type { APIRoute } from "astro"
 import sharp from "sharp"
 
-import darkLogoSvg from "@/brand/logo/svg/astralbeam-logo-dark.svg?raw"
+import darkLogoSvg from "@/assets/astralbeam-logo-dark.svg?raw"
 import { palette } from "@/brand/palette"
 
 const darkLogo = Buffer.from(darkLogoSvg)
 
-export async function renderSiteLogo(size: number) {
+export function renderSiteLogo(size: number) {
   return sharp(darkLogo)
     .resize({ width: size, height: size, fit: "contain" })
     .flatten({ background: palette.dark.background.srgbHex })

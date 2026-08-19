@@ -1,49 +1,58 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
+import { TanStackDevtools } from "@tanstack/react-devtools"
+import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router"
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
-import appCss from '../styles.css?url'
+import appCss from "@/styles.css?url"
+
+// Route-managed head styles apply before first paint and keep theme selection app-owned. https://tanstack.com/router/latest/docs/guide/document-head-management
+const devtoolsConfig = { position: "bottom-right" } as const
+const devtoolsPlugins = [
+  {
+    name: "Tanstack Router",
+    render: <TanStackRouterDevtoolsPanel />,
+  },
+]
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       {
-        charSet: 'utf-8',
+        charSet: "utf-8",
       },
       {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        name: "viewport",
+        content: "width=device-width, initial-scale=1",
       },
       {
-        title: 'AstralBeam',
+        title: "AstralBeam",
       },
     ],
     links: [
       {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/astralbeam-logo-light.png',
-        sizes: '270x270',
+        rel: "icon",
+        type: "image/png",
+        href: "/astralbeam-logo-light.png",
+        sizes: "270x270",
       },
       {
-        rel: 'icon',
-        type: 'image/svg+xml',
-        href: '/astralbeam-logo-light.svg',
-        media: '(prefers-color-scheme: light)',
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/astralbeam-logo-light.svg",
+        media: "(prefers-color-scheme: light)",
       },
       {
-        rel: 'icon',
-        type: 'image/svg+xml',
-        href: '/astralbeam-logo-dark.svg',
-        media: '(prefers-color-scheme: dark)',
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/astralbeam-logo-dark.svg",
+        media: "(prefers-color-scheme: dark)",
       },
       {
-        rel: 'stylesheet',
+        rel: "stylesheet",
         href: appCss,
       },
       {
-        rel: 'license',
-        href: '/LICENSE-AGPL',
+        rel: "license",
+        href: "/LICENSE-AGPL",
       },
     ],
   }),
@@ -64,17 +73,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+        <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />
         <Scripts />
       </body>
     </html>

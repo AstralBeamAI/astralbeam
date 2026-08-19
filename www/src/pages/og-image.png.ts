@@ -1,9 +1,6 @@
-import { Buffer } from "node:buffer"
-
 import sharp from "sharp"
 
 import { palette } from "@/brand/palette"
-
 import { createPngRoute, renderSiteLogo } from "@/lib/site-image"
 import { siteMetadata } from "@/lib/site"
 

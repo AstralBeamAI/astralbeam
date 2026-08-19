@@ -1,4 +1,4 @@
-import { readFile, readdir } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 
 import sharp from "sharp"
 import { describe, expect, test } from "vitest"
@@ -11,6 +11,7 @@ const homeUrl = `${origin}/`
 const iconUrl = `${origin}${siteMetadata.icon.path}`
 const iconSize = `${siteMetadata.icon.size}x${siteMetadata.icon.size}`
 const distUrl = new URL("../dist/", import.meta.url)
+const themeSchemaUrl = new URL("../src/brand/theme.schema.json", import.meta.url)
 
 function readText(path: string) {
   return readFile(new URL(path, distUrl), "utf8")
@@ -22,7 +23,9 @@ describe("production website build", () => {
 
     expect(html).toContain(`<link rel="canonical" href="${homeUrl}">`)
     expect(html).toContain('<meta name="robots" content="index,follow">')
-    expect(html).toContain(`<meta name="theme-color" content="${palette.dark.background.srgbHex}">`)
+    expect(html).toContain(
+      `<meta name="theme-color" content="${palette.dark.background.srgbHex}">`,
+    )
     expect(html).toMatch(/<html[^>]*class="dark"/u)
     expect(html).toContain(`<meta property="og:image" content="${origin}/og-image.png">`)
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">')
@@ -137,14 +140,14 @@ describe("production website build", () => {
     })
   })
 
-  test("publishes the strict compact theme authoring schema", async () => {
+  test("publishes the local theme authoring schema", async () => {
     const publishedSchemaText = await readText("schemas/theme.schema.json")
-    const masterSchemaText = await readFile(
-      new URL("../src/brand/theme.schema.json", import.meta.url),
-      "utf8",
-    )
 
-    expect(publishedSchemaText).toBe(masterSchemaText)
+    expect(publishedSchemaText).toBe(await readFile(themeSchemaUrl, "utf8"))
+    expect(JSON.parse(publishedSchemaText)).toMatchObject({
+      $id: `${origin}/schemas/theme.schema.json`,
+      type: "object",
+    })
   })
 
   test("renders the social image at 1200 x 630", async () => {
