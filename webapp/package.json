@@ -22,7 +22,7 @@
     "preview": "vite preview",
     "ready": "deno task check && deno task test && deno task build",
     "test": "vitest run",
-    "typecheck": "deno check vite.config.ts drizzle.config.ts scripts/*.ts src/router.tsx src/db/db.server.ts src/theme/*.test.ts",
+    "typecheck": "deno check",
     "ui": "shadcn"
   },
   "dependencies": {
