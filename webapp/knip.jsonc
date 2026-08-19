@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Use `/** @knipignore */` only for exports whose external use cannot be represented in the entry graph.
+  // https://knip.dev/reference/jsdoc-tsdoc-tags
+  "tags": ["-knipignore"],
+  "treatConfigHintsAsErrors": true,
+  "treatTagHintsAsErrors": true,
+  // Keep Deno-run generators and the server-only database client as explicit application extension points.
+  "entry": ["scripts/*.ts", "src/db/db.server.ts"]
+}

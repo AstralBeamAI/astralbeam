@@ -3,11 +3,6 @@ tmp/
 # Logs
 logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
 node_modules
 dist
 dist-ssr
@@ -29,9 +24,6 @@ dist-ssr
 .claude/worktrees/
 # Skills are reviewed and refreshed from the upstream sources
 skills-lock.json
-!.vscode/
-!.vscode/settings.json
-!.vscode/extensions.json
 __pycache__/
 
 # Tanstack

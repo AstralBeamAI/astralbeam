@@ -39,10 +39,11 @@ install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
 
   run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
+if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev >/dev/null 2>&1; then
 apt-get update -yq
 apt-get install -y --no-install-recommends \
   build-essential libatomic1 ca-certificates locales lsb-release tzdata \
-  curl wget file \
+  curl wget file unzip \
   git \
   zsh \
   vim nano \
@@ -54,6 +55,7 @@ apt-get install -y --no-install-recommends \
 # Install GitHub CLI from its supported signed Debian repository: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian
 mkdir -p -m 755 /etc/apt/keyrings /etc/apt/sources.list.d; curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null; chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg; printf 'deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n' "$(dpkg --print-architecture)" | tee /etc/apt/sources.list.d/github-cli.list >/dev/null
 apt-get update -yq; apt-get install -y --no-install-recommends gh
+fi
 
 # Host-mounted workspaces often have a different UID than the container user.
 if ! git config --system --get-all safe.directory | grep -qxF '*'; then
@@ -63,9 +65,12 @@ EOF
 }
 
 install_deno() {
-  # Deno is the only runtime and package manager for this repository: https://docs.deno.com/runtime/getting_started/installation/
-  if ! command -v deno >/dev/null 2>&1; then
-    curl -fsSL https://deno.land/install.sh | sh
+  local deno_lts_version installed_deno_version
+  # Resolve the rolling LTS channel, then install outside package-manager-owned paths. https://docs.deno.com/runtime/fundamentals/stability_and_releases/#long-term-support-lts
+  deno_lts_version=$(curl -fsSL https://dl.deno.land/release-lts-latest.txt)
+  installed_deno_version=$(deno eval 'console.log(`v${Deno.version.deno}`)' 2>/dev/null || true)
+  if [ "$installed_deno_version" != "$deno_lts_version" ]; then
+    curl -fsSL https://deno.land/install.sh | sh -s -- "$deno_lts_version" -y
   fi
   deno --version
 }
@@ -74,7 +79,9 @@ install_workspace_packages() {
   local app
   for app in "${WORKSPACE_APPS[@]}"; do
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
-      (cd "$WORKSPACE_PATH/$app" && deno install --frozen)
+      # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
+      cd "$WORKSPACE_PATH/$app"
+      SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen
     fi
   done
 }

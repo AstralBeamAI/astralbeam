@@ -4,14 +4,14 @@ Third-party components and materials included in this repository or in AstralBea
 
 This curated inventory covers known third-party material intentionally copied, generated, or bundled into maintained source and release outputs. It is not a software bill of materials. Components with adjacent license or notice files are not repeated here, and an omission does not imply AstralBeam ownership or relicensing or alter the applicable third-party terms.
 
-Package manifests and each application's `deno.lock` identify additional dependencies. Every distribution must be reviewed against its actual contents and preserve all required license and notice material. Common license texts are stored under [`LICENSES`](LICENSES/), and each `webapp` build generates client and server `THIRD_PARTY_LICENSES.md` reports from its bundle graphs.
+Project manifests and lockfiles identify additional dependencies. Every distribution must be reviewed against its actual contents and preserve all required license and notice material. Common license texts are stored under [`LICENSES`](LICENSES/), and each `webapp` build generates client and server `THIRD_PARTY_LICENSES.md` reports from its bundle graphs.
 
 ## MIT
 
 Common license text: [MIT License](LICENSES/MIT.txt).
 
 - [Create TanStack App / TanStack CLI](https://github.com/TanStack/cli)-derived portions of `webapp`, including its router, routes, generated route tree, and build configuration — Copyright (c) 2021-present Tanner Linsley
-- [shadcn/ui](https://github.com/shadcn-ui/ui)-generated or adapted source, configuration, and styles used by `webapp`, including the imported `shadcn/tailwind.css` — Copyright (c) 2023 shadcn
+- [shadcn/ui](https://github.com/shadcn-ui/ui)-generated or adapted source, configuration, and styles under `webapp`, including the imported `shadcn/tailwind.css` — Copyright (c) 2023 shadcn
 - [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) output included in `webapp` — Copyright (c) Tailwind Labs, Inc.
 - [`tw-animate-css`](https://github.com/Wombosvideo/tw-animate-css) styles imported by `webapp/src/styles.css` — Copyright (c) 2025 Wombosvideo
 

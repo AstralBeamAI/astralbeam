@@ -1,0 +1,12 @@
+{
+  "folders": [
+    {
+      "name": "Webapp",
+      "path": "webapp"
+    },
+    {
+      "name": "WWW",
+      "path": "www"
+    }
+  ]
+}
