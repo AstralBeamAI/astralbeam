@@ -1,2 +1,2 @@
 // Placeholder entry point for Vue components.
-export const entrypoint = 'vue'
+export const entrypoint = "vue"

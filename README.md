@@ -31,7 +31,7 @@ sdk/          # Frontend SDK, published to npm as @astralbeam/sdk
 Choose either the included devcontainer or the direct macOS workflow. Follow [`SETUP.md`](SETUP.md) for prerequisites and the PostgreSQL and Valkey service lifecycle.
 
 ```sh
-./scripts/setup.sh          # Install Deno and both applications' dependencies
+./scripts/setup.sh          # Install Deno and the projects' dependencies
 cd webapp && deno task dev  # Starts app on http://localhost:3000
 cd www && deno task dev     # Starts website on http://localhost:3001
 ```

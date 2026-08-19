@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "tags": ["-knipignore"],
+  "treatConfigHintsAsErrors": true,
+  "treatTagHintsAsErrors": true
+}

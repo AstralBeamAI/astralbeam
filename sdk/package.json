@@ -35,9 +35,18 @@
     "access": "public"
   },
   "scripts": {
-    "check": "tsc --noEmit",
+    "build": "tsdown",
+    "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
+    "check:fix": "deno fmt && deno lint --fix",
+    "format": "deno fmt",
+    "format:check": "deno fmt --check",
+    "knip": "knip",
+    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install",
+    "lint": "deno lint",
+    "lint:fix": "deno lint --fix",
+    "ready": "deno task check && deno task test && deno task build",
     "test": "vitest run",
-    "build": "tsdown"
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -52,6 +61,7 @@
     }
   },
   "devDependencies": {
+    "knip": "^6.32.2",
     "tsdown": "0.22.3",
     "typescript": "^6.0.3",
     "vitest": "4.1.10"
