@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 export const Route = createFileRoute("/api/status")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: ({ request }) => {
         console.log(request.url)
         return new Response("OK")
       },

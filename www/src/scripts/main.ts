@@ -233,16 +233,31 @@ function initTerminal() {
 /* Canned replies for anything the visitor types. Hardcoded stand-in until the
    real sidebar SDK can be embedded here. */
 const DEMO_REPLIES: Array<{ tool?: [string, string]; text: string }> = [
-  { tool: ["lookupOrder", "4830"], text: "Order 4830 shipped this morning. Tracking is already in her inbox." },
+  {
+    tool: ["lookupOrder", "4830"],
+    text: "Order 4830 shipped this morning. Tracking is already in her inbox.",
+  },
   { tool: ["refund", "$9.00"], text: "Refunded the shipping fee too, since the delay was on us." },
   { text: "Two similar tickets came in this week. Want me to group them into one thread?" },
-  { tool: ["addNote", "account"], text: "Done. I left a note on the account so the next agent has the context." },
+  {
+    tool: ["addNote", "account"],
+    text: "Done. I left a note on the account so the next agent has the context.",
+  },
   { text: "Her plan renews on the 14th. I can pause it if she would rather wait." },
-  { text: "I only see the last four digits of the card, so payment details are out of scope for me." },
+  {
+    text:
+      "I only see the last four digits of the card, so payment details are out of scope for me.",
+  },
   { tool: ["draftEmail", "reply"], text: "Drafted a reply for you to approve before it goes out." },
   { text: "Nothing else is outstanding on this account right now." },
-  { tool: ["lookupOrder", "4830"], text: "That one ships from the Ohio warehouse, so delivery lands Thursday." },
-  { tool: ["escalate", "payments"], text: "Escalated to the payments team and linked this conversation for them." },
+  {
+    tool: ["lookupOrder", "4830"],
+    text: "That one ships from the Ohio warehouse, so delivery lands Thursday.",
+  },
+  {
+    tool: ["escalate", "payments"],
+    text: "Escalated to the payments team and linked this conversation for them.",
+  },
 ]
 
 function initAgentDemo(codeReady: Promise<void>) {

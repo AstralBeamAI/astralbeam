@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 270" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 270" preserveAspectRatio="xMidYMid meet"
+  role="img" aria-labelledby="title desc">
   <title id="title">AstralBeam AB logo for light backgrounds</title>
-  <desc id="desc">Horizontal geometric A and open-left B initials in the light theme foreground and primary colors on a transparent square canvas.</desc>
+  <desc
+    id="desc">Horizontal geometric A and open-left B initials in the light theme foreground and primary colors on a transparent square canvas.</desc>
   <metadata>
     AstralBeam light AB logo construction:
     - Provenance: the accepted A and B paths from astralbeam-wordmark-light.svg are reused unchanged.
@@ -10,14 +12,16 @@
     - Layout: both initials share the same cap line and baseline; padding is 18 units horizontally and 85 vertically.
     - Shared weight: both letters retain the wordmark's nominal 14-unit stroke on a 100-unit cap height.
     - A uses round caps and joins. B retains its open-left bowls, square terminals, and mitered joins.
-    - Palette source: www/src/brand/colors.css .light.
+    - Palette source: webapp/src/styles.css :root.
     - Embedded sRGB paints match the semantic tokens so this standalone SVG has no runtime CSS dependency.
   </metadata>
   <g id="astralbeam-logo">
     <path id="astralbeam-logo-a" d="M61 98 110 12 159 98" transform="translate(-36 80)"
-      data-theme-token="foreground" color="#07191d" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      data-theme-token="foreground" color="#07191d" fill="none" stroke="currentColor"
+      stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
     <path id="astralbeam-logo-b"
       d="M769 12H827C850 12 866 20 866 34S853 55 834 55H769M769 55H834C853 55 866 63 866 76S850 98 827 98H769"
-      transform="translate(-621 80)" data-theme-token="primary" color="#0c7a69" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="butt" stroke-linejoin="miter"/>
+      transform="translate(-621 80)" data-theme-token="primary" color="#0c7a69" fill="none"
+      stroke="currentColor" stroke-width="14" stroke-linecap="butt" stroke-linejoin="miter" />
   </g>
 </svg>

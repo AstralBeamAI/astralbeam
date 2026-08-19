@@ -11,3 +11,6 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+mcp-todos.json
+*storybook.log
+storybook-static

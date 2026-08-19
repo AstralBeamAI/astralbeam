@@ -36,7 +36,6 @@ cd webapp && deno task dev  # Starts app on http://localhost:3000
 cd www && deno task dev     # Starts website on http://localhost:3001
 ```
 
-
 ## Licensing
 
 Portions of this repository are licensed as follows:
@@ -46,4 +45,3 @@ Portions of this repository are licensed as follows:
 - Third-party components and materials are licensed under the applicable licenses provided by their respective owners. See [third-party notices](docs/legal/THIRD_PARTY_NOTICES.md).
 
 Copyright © 2026 AstralBeam Inc. for AstralBeam-controlled material. Third-party material remains subject to its respective copyright and license terms.
-

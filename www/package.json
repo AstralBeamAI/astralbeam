@@ -1,5 +1,6 @@
 {
-  "name": "www",
+  "name": "@astralbeam/www",
+  "version": "0.0.0",
   "private": true,
   "description": "https://www.astralbeam.ai/",
   "license": "MIT",
@@ -8,23 +9,33 @@
     "dev": "astro dev --host 0.0.0.0 --port 3001",
     "build": "astro build",
     "preview": "astro preview --host 0.0.0.0 --port 4001",
-    "check": "astro check",
-    "test": "astro build && vitest run",
-    "deploy": "deno task check && deno task test && wrangler deploy"
+    "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
+    "check:fix": "deno fmt && deno lint --fix",
+    "format": "deno fmt",
+    "format:check": "deno fmt --check",
+    "knip": "knip",
+    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install",
+    "lint": "deno lint",
+    "lint:fix": "deno lint --fix",
+    "ready": "deno task check && deno task test",
+    "test": "astro check && astro build && vitest run scripts/verify-build.test.ts",
+    "typecheck": "astro check",
+    "deploy": "deno task test && wrangler deploy"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",
     "@fontsource-variable/space-grotesk": "^5.2.8",
     "@fontsource/anton": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
-    "astro": "7.1.1",
-    "sharp": "^0.35.2"
+    "astro": "7.1.1"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.9",
-    "@types/node": "^22.10.2",
-    "typescript": "^6.0.2",
-    "vitest": "4.1.10",
+    "knip": "^6.32.0",
+    "sharp": "^0.35.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.3",
     "wrangler": "^4.112.0"
   }
 }

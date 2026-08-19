@@ -2,11 +2,10 @@
 
 ## Tooling and validation
 
-- `webapp`, `www`, and `sdk` are independent Deno projects with their own `package.json`, `deno.lock`, and `node_modules`. There is no repository-level package manager, workspace, or task runner, so run every command from inside the application directory with `deno task <script>`.
-- All three projects expose `check` (type diagnostics), `test`, and `build`. Add dependencies with `deno add npm:<package>` and install from a lockfile with `deno install --frozen`.
-- Run `./scripts/setup.sh` once after pulling. Otherwise, use the smallest relevant application task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
-- Do not automatically run `check`, `test`, or `build`. Run the affected application's tasks once before creating a PR or when explicitly requested, and only separately when diagnosing a failure.
-- Formatting and linting are not enforced by tooling; match the surrounding style, which omits semicolons.
+- Use Deno from the affected project directory (`webapp`, `www`, or `sdk`) with `deno task <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
+- Before running `deno task knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete project diff before running `deno task check:fix`.
+- Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
+- Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
 
 ## Documentation
 
@@ -17,20 +16,29 @@
 
 ## Environment
 
-- Keep environment files at the repository root. Commit only reviewed non-secret templates and defaults (`.env.example`, `.env.development`, and its `.env.test` symlink); never commit credentials or deployment-specific values.
-- Load root environment files through each application's build configuration (`envDir` in `www/astro.config.ts`) instead of adding additional loaders or package-local environment files. Shell, CI, and deployment variables must take precedence over file values.
+- Keep Webapp environment files under `webapp`. Commit reviewed non-secret environment files such as `.env`, `.env.development`, `.env.test`, and `.env.example`; ignore `*.local` files and never commit credentials or deployment-specific values.
+- Let application runtime configuration use the framework's environment loading. Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
 
 ## Webapp UI
 
-- `webapp` owns the repository's only `components.json` and all shadcn-generated components, hooks, and utilities.
-- Add components with `deno task ui add <component>` from `webapp`.
+- `webapp` owns the repository's only `components.json` and all shadcn-generated components, hooks, and utilities under `src/components/ui`, `src/hooks`, and `src/lib`.
+- Add components from `webapp` with `deno task ui add <component>`.
+- Keep the hand-authored portions of `webapp/src/styles.css` theme-agnostic; concrete palette values belong only in its marked generated section.
+
+## Theme and brand
+
+- Keep the pure semantic theme compiler in `webapp/src/theme/theme.ts`; it must not perform filesystem, HTTP, DOM, environment, or mutable global-state work.
+- Treat `webapp/src/theme/brand.json` as the concrete theme source of truth and keep the marked theme section in `webapp/src/styles.css` synchronized through explicit edits.
+- Keep `webapp/src/theme/theme.schema.json`, the runtime contract, and the independently published `www/src/brand/theme.schema.json` snapshot synchronized through explicit edits; neither project may import the other.
+- Keep SVG logo masters and their generated PNG variants under `webapp/public` and regenerate the PNGs from `webapp` with `deno task generate:png` after SVG changes.
 
 ## Database
 
-- Keep PostgreSQL and Drizzle code in server-only modules under `webapp/src` and never re-export the runtime client through a client-reachable module.
-- Run database commands with `deno task db <command>` from `webapp`.
-- After schema changes, run `db generate --name <description>`, inspect the SQL, run `db check`, and commit schema and migration files together.
-- Use `db migrate` for checked-in migrations; reserve `db push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or package-local environment files.
+- Keep PostgreSQL and Drizzle code under `webapp/src/db`; use the `.server.ts` suffix for server-only modules and never import the runtime client into browser code.
+- Re-export every table and relation Drizzle Kit must discover from `webapp/src/db/schema.server.ts`, and keep generated migrations under `webapp/src/db/migrations`.
+- Run database commands from `webapp` with `deno task db <command>`.
+- After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
+- Use `migrate` for checked-in migrations; reserve `push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or `*.local` environment files.
 
 ## Cursor Cloud
 

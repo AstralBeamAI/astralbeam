@@ -23,7 +23,7 @@ If remote documentation is unavailable, follow the portable invariants below and
 
 ## Workflow
 
-1. For a new skill, start with market research: search current skill registries with `npx skills@latest find <query>`, relevant repositories, local skills, and maintained primary documentation. Compare scope, maintenance, adoption, license, portability, dependencies, and security; record sources and prefer reuse or improvement over duplication.
+1. For a new skill, start with market research: search current skill registries with `deno run -A npm:skills@latest find <query>`, relevant repositories, local skills, and maintained primary documentation. Compare scope, maintenance, adoption, license, portability, dependencies, and security; record sources and prefer reuse or improvement over duplication.
 2. Read the conversation, target skill, direct references, author instructions, provenance or lock data, and current diff.
 3. Decide whether the workflow belongs in an on-demand skill; keep rules that apply to nearly every task in `AGENTS.md` or its equivalent.
 4. Capture two or three realistic requests, expected outcomes, near-misses, dependencies, permissions, failure recovery, and verification.
@@ -37,7 +37,7 @@ If remote documentation is unavailable, follow the portable invariants below and
 - Keep `SKILL.md` concise, imperative, and generally below 500 lines and 5,000 tokens. Link maintained remote specifications and documentation instead of copying them locally; retain only durable workflow, project policy, offline-critical guidance, and reusable resources, and state when each link should be read.
 - Match specificity to risk. Put non-obvious gotchas and security-critical warnings beside the relevant step; disclose dependencies, network access, credentials, permissions, side effects, and recovery.
 - Prefer clear defaults over menus. Use tested, non-interactive scripts only for deterministic or repeated work.
-- Before sourcing a skill, review its resolved source, license, instructions, references, scripts, and update diff. Run `npx skills@latest` ephemerally and select `--agent universal`; do not let detected harnesses change the canonical content or destination.
+- Before sourcing a skill, review its resolved source, license, instructions, references, scripts, and update diff. Run `deno run -A npm:skills@latest` ephemerally and select `--agent universal`; do not let detected harnesses change the canonical content or destination.
 
 ## Initialize and author
 

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "tags": ["-knipignore"],
+  "treatConfigHintsAsErrors": true,
+  "treatTagHintsAsErrors": true,
+  // The website is self-contained, so source entry exports must also be used within this project.
+  // https://knip.dev/reference/configuration#includeentryexports
+  "includeEntryExports": true,
+  // Astro's compiler does not follow external script src references, so keep this production entry explicit.
+  // https://github.com/webpro-nl/knip/blob/main/packages/knip/src/plugins/astro/compiler.ts
+  "entry": ["src/scripts/main.ts!"]
+}

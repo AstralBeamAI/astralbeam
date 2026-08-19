@@ -1,13 +1,15 @@
 import { defineConfig } from "drizzle-kit"
-import { loadEnv } from "vite";
+import { loadEnv } from "vite"
 
-const env = loadEnv("development", new URL(".", import.meta.url).pathname, "");
+const databaseUrl = loadEnv("development", new URL(".", import.meta.url).pathname, "").DATABASE_URL
+
+if (!databaseUrl) throw new Error("DATABASE_URL is required")
 
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/lib/schema.server.ts",
-  out: "./migrations",
+  schema: "./src/db/schema.server.ts",
+  out: "./src/db/migrations",
   dbCredentials: {
-    url: env.DATABASE_URL,
+    url: databaseUrl,
   },
 })
