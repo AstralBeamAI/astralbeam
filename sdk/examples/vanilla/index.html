@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AstralBeam vanilla example</title>
+    <style>
+    body {
+      margin: 0;
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      height: 100vh;
+      font-family: Georgia, serif;
+      background: #fdf6e3;
+    }
+    /* Deliberately hostile global styles: they restyle every matching element in the host page,
+       including some that target the widget's own elements and class names, but none of them can
+       cross the shadow boundary — not even with !important. */
+    p {
+      color: crimson;
+      font-style: italic;
+    }
+    p::before {
+      content: "🔥 ";
+    }
+    aside,
+    header,
+    .astralbeam-chat {
+      background: #000 !important;
+      color: #0f0 !important;
+    }
+    main {
+      padding: 24px;
+      max-width: 65ch;
+    }
+    #astralbeam-sidebar {
+      height: 100vh;
+    }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Host application</h1>
+      <p>
+        Every paragraph on this page is crimson, italic, and prefixed with a 🔥 by hostile global
+        styles, and there are rules targeting the widget's own elements and class names with
+        <code>!important</code>.
+      </p>
+      <h2>What to check</h2>
+      <ol>
+        <li>
+          <strong>Shadow DOM isolation:</strong> the widget's header and "Hello world" bubble in the
+          sidebar ignore all of the global styles — they render with the widget's own styles from
+          inside its shadow root.
+        </li>
+        <li>
+          <strong>Slot projection:</strong> the crimson 🔥 paragraph inside the widget's dashed
+          "slotted host content" box is light-DOM markup owned by this page (see the sidebar div in
+          <code>index.html</code>); it is projected into the widget's <code>&lt;slot&gt;</code> and
+          keeps host styling.
+        </li>
+        <li>
+          <strong>Lazy loading:</strong> the network tab shows the React widget module loading as a
+          separate chunk after the page.
+        </li>
+        <li>
+          <strong>Mount / unmount:</strong> the button below disposes and remounts the widget
+          through the handle returned by <code>mountAstralBeamChat</code>.
+        </li>
+      </ol>
+      <button id="toggle" type="button">Unmount widget</button>
+    </main>
+    <div id="astralbeam-sidebar">
+      <!-- Light-DOM children of the mount target are projected into the widget's <slot>. -->
+      <p>Custom slotted content from the host page</p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,6 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   "tags": ["-knipignore"],
+  // The example apps under examples/ are independent Deno projects with their own package.json;
+  // knip analyzes only the SDK package itself.
+  "ignore": ["examples/**"],
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true
 }

@@ -33,7 +33,7 @@ export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
 export PATH="$DENO_INSTALL/bin:$PATH"
 
 # Each application is an independent Deno project with its own package.json, deno.lock, and node_modules.
-WORKSPACE_APPS=(webapp www sdk)
+WORKSPACE_APPS=(webapp www sdk sdk/examples/vanilla sdk/examples/react)
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0

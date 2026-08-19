@@ -4,6 +4,7 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "exactOptionalPropertyTypes": true,
+    "jsx": "react-jsx",
     "lib": ["ES2025", "DOM", "DOM.Iterable"],
     "module": "Preserve",
     "noEmit": true,
@@ -16,6 +17,9 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@astralbeam/sdk/client": ["./src/client.ts"]
+    }
   }
 }
