@@ -1,0 +1,69 @@
+{
+  "name": "@astralbeam/sdk",
+  "version": "0.0.1",
+  "description": "Frontend SDK for AstralBeam: drop-in agent UI, chat streaming, and server helpers",
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://astralbeam.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/astralbeamai/astralbeam.git",
+    "directory": "sdk"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "exports": {
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "default": "./dist/vue.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
+    "check:fix": "deno fmt && deno lint --fix",
+    "format": "deno fmt",
+    "format:check": "deno fmt --check",
+    "knip": "knip",
+    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install",
+    "lint": "deno lint",
+    "lint:fix": "deno lint --fix",
+    "ready": "deno task check && deno task test && deno task build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "vue": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "knip": "^6.32.2",
+    "tsdown": "0.22.3",
+    "typescript": "^6.0.3",
+    "vitest": "4.1.10"
+  }
+}

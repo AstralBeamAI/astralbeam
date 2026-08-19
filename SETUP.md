@@ -49,7 +49,7 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
 ### Option 2: Run directly on macOS
 
-- From the repository root, run the setup script. It installs the Deno LTS toolchain and both projects' frozen dependencies:
+- From the repository root, run the setup script. It installs the Deno LTS toolchain and the projects' frozen dependencies:
 
   ```bash
   ./scripts/setup.sh

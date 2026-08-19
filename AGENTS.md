@@ -2,9 +2,9 @@
 
 ## Tooling and validation
 
-- Use Deno from the affected project directory (`webapp` or `www`) with `deno task <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
+- Use Deno from the affected project directory (`webapp`, `www`, or `sdk`) with `deno task <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
 - Before running `deno task knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete project diff before running `deno task check:fix`.
-- Run `scripts/setup.sh` once after pulling to install the OS-level tooling and both projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
+- Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
 
 ## Documentation
