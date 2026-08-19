@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
+import type { CustomComponentRenderRequest, MountAstralBeamChatOptions } from "../client.ts"
 
 const widgetStyles = `
 :host {
@@ -33,13 +35,12 @@ const widgetStyles = `
   color: #312e81;
   align-self: flex-start;
 }
-.astralbeam-chat-slot {
-  margin-top: auto;
+.astralbeam-chat-custom {
   padding: 12px;
   border: 1px dashed #c0c0c0;
   border-radius: 8px;
 }
-.astralbeam-chat-slot-label {
+.astralbeam-chat-custom-label {
   margin: 0 0 4px;
   font-size: 11px;
   text-transform: uppercase;
@@ -48,27 +49,48 @@ const widgetStyles = `
 }
 `
 
-function ChatWidget() {
+function ChatWidget(
+  { customComponents = [], onRenderCustomComponent }: MountAstralBeamChatOptions,
+) {
+  const [renderRequests, setRenderRequests] = useState<CustomComponentRenderRequest[]>([])
+  useEffect(() => {
+    // Stands in for the agent: eventually the LLM decides when to render custom components and
+    // with which props; until then, request one test render of each registered component.
+    const testRenders = customComponents.map((_descriptor, componentIndex) => ({
+      componentIndex,
+      props: {},
+      slotName: `astralbeam-custom-${componentIndex}`,
+    }))
+    for (const request of testRenders) onRenderCustomComponent?.(request)
+    setRenderRequests(testRenders)
+  }, [])
   return (
     <aside className="astralbeam-chat">
       <header className="astralbeam-chat-header">AstralBeam</header>
       <p className="astralbeam-chat-message">Hello world</p>
-      <div className="astralbeam-chat-slot">
-        <div className="astralbeam-chat-slot-label">Slotted host content</div>
-        <slot />
-      </div>
+      {renderRequests.map((request) => (
+        <div className="astralbeam-chat-custom" key={request.slotName}>
+          <div className="astralbeam-chat-custom-label">
+            {customComponents[request.componentIndex]?.description}
+          </div>
+          <slot name={request.slotName} />
+        </div>
+      ))}
     </aside>
   )
 }
 
-export function renderWidget(shadowRoot: ShadowRoot): () => void {
+export function renderWidget(
+  shadowRoot: ShadowRoot,
+  options: MountAstralBeamChatOptions,
+): () => void {
   const style = document.createElement("style")
   style.textContent = widgetStyles
   const container = document.createElement("div")
   container.style.height = "100%"
   shadowRoot.append(style, container)
   const root = createRoot(container)
-  root.render(<ChatWidget />)
+  root.render(<ChatWidget {...options} />)
   return () => {
     root.unmount()
     style.remove()

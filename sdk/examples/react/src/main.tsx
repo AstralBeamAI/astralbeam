@@ -2,15 +2,16 @@ import { StrictMode, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
-function SlottedPanel() {
+function StatusCard({ status }: { status: string }) {
+  return <p>Status: {status}</p>
+}
+
+function CounterCard({ label }: { label: string }) {
   const [count, setCount] = useState(0)
   return (
-    <div>
-      <p>Custom React component from the host app</p>
-      <button type="button" onClick={() => setCount(count + 1)}>
-        Host state works in here: {count}
-      </button>
-    </div>
+    <button type="button" onClick={() => setCount(count + 1)}>
+      {label}: {count}
+    </button>
   )
 }
 
@@ -33,11 +34,12 @@ function App() {
             render with the widget's own styles from inside its shadow root.
           </li>
           <li>
-            <strong>Slot projection:</strong>{" "}
-            the crimson 🔥 panel inside the widget's dashed "slotted host content" box is the{" "}
-            <code>SlottedPanel</code> component passed as <code>children</code> to{" "}
-            <code>&lt;AstralBeamChat&gt;</code>; it keeps host styling and its counter proves host
-            React state keeps working inside the widget.
+            <strong>Custom components:</strong> <code>StatusCard</code> and <code>CounterCard</code>
+            {" "}
+            are registered through the <code>customComponents</code>{" "}
+            prop with descriptions for the agent; the widget (standing in for the agent) requested a
+            test render of each. They run in this app's React tree — the counter's state keeps
+            working — while host styles (crimson 🔥) still apply to them.
           </li>
           <li>
             <strong>Mount / unmount:</strong> the button below removes{" "}
@@ -53,9 +55,20 @@ function App() {
       </main>
       <div className="sidebar">
         {showChat && (
-          <AstralBeamChat>
-            <SlottedPanel />
-          </AstralBeamChat>
+          <AstralBeamChat
+            customComponents={[
+              {
+                component: StatusCard,
+                props: { status: "All systems operational" },
+                description: "Shows the host app's current status",
+              },
+              {
+                component: CounterCard,
+                props: { label: "Host clicks" },
+                description: "An interactive counter owned by the host app",
+              },
+            ]}
+          />
         )}
       </div>
     </>

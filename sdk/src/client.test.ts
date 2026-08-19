@@ -1,20 +1,33 @@
 // @vitest-environment jsdom
 import { expect, test, vi } from "vitest"
-import { mountAstralBeamChat } from "./client.ts"
+import { type CustomComponentRenderRequest, mountAstralBeamChat } from "./client.ts"
 
-test("mounts the widget into a shadow root and unmounts cleanly", async () => {
+test("mounts the widget, requests custom component renders, and unmounts cleanly", async () => {
   const target = document.createElement("div")
-  target.innerHTML = "<span>slotted content</span>"
   document.body.append(target)
+  const requests: CustomComponentRenderRequest[] = []
 
-  const handle = mountAstralBeamChat(target)
+  const handle = mountAstralBeamChat(target, {
+    customComponents: [{ description: "Test panel" }],
+    onRenderCustomComponent: (request) => {
+      requests.push(request)
+      const container = document.createElement("div")
+      container.setAttribute("slot", request.slotName)
+      container.textContent = "host rendered content"
+      target.append(container)
+    },
+  })
   const shadowRoot = target.shadowRoot
   expect(shadowRoot).not.toBeNull()
 
   await vi.waitFor(() => expect(shadowRoot?.textContent).toContain("Hello world"))
-  expect(shadowRoot?.querySelector("slot")).not.toBeNull()
-  // Light-DOM children stay in place so the widget's <slot> can project them.
-  expect(target.querySelector("span")?.textContent).toBe("slotted content")
+  expect(requests).toHaveLength(1)
+  expect(requests[0]?.componentIndex).toBe(0)
+  // The widget shows the component's description and projects the host's slotted render.
+  expect(shadowRoot?.textContent).toContain("Test panel")
+  expect(shadowRoot?.querySelector(`slot[name="${requests[0]?.slotName}"]`)).not.toBeNull()
+  // The host's render stays in the light DOM, where the named <slot> projects it.
+  expect(target.querySelector("[slot]")?.textContent).toBe("host rendered content")
 
   handle.unmount()
   await vi.waitFor(() => expect(shadowRoot?.childNodes.length).toBe(0))

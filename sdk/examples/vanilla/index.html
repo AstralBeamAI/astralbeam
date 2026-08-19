@@ -54,10 +54,11 @@
           inside its shadow root.
         </li>
         <li>
-          <strong>Slot projection:</strong> the crimson 🔥 paragraph inside the widget's dashed
-          "slotted host content" box is light-DOM markup owned by this page (see the sidebar div in
-          <code>index.html</code>); it is projected into the widget's <code>&lt;slot&gt;</code> and
-          keeps host styling.
+          <strong>Custom components:</strong> the page registers two components with descriptions
+          through <code>customComponents</code>; the widget (standing in for the agent) requested a
+          test render of each, and the page drew them as light-DOM elements that the widget
+          projects through named slots. The crimson 🔥 status line keeps host styling, and the
+          counter button proves host event handlers keep working inside the widget.
         </li>
         <li>
           <strong>Lazy loading:</strong> the network tab shows the React widget module loading as a
@@ -70,10 +71,9 @@
       </ol>
       <button id="toggle" type="button">Unmount widget</button>
     </main>
-    <div id="astralbeam-sidebar">
-      <!-- Light-DOM children of the mount target are projected into the widget's <slot>. -->
-      <p>Custom slotted content from the host page</p>
-    </div>
+    <!-- The page renders requested custom components in here as light-DOM children with slot
+         attributes, which the widget projects through named slots. -->
+    <div id="astralbeam-sidebar"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -19,11 +19,20 @@ npm install @astralbeam/sdk
 ```ts
 import { mountAstralBeamChat } from "@astralbeam/sdk/client"
 
-const handle = mountAstralBeamChat(document.getElementById("sidebar"))
+const sidebar = document.getElementById("sidebar")
+const handle = mountAstralBeamChat(sidebar, {
+  customComponents: [{ description: "Shows the host app's current status" }],
+  onRenderCustomComponent: ({ slotName }) => {
+    const status = document.createElement("p")
+    status.slot = slotName
+    status.textContent = "All systems operational"
+    sidebar.append(status)
+  },
+})
 // later: handle.unmount()
 ```
 
-The widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. Any children already inside the mount target are projected into the widget's `<slot>`, which is how host apps place their own UI inside the widget.
+The widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. Host UI enters the widget through custom components: each entry's `description` tells the agent what the component does, and when the widget decides to render one (for now it test-renders each registered component on startup) it calls `onRenderCustomComponent`. The host draws the UI as a light-DOM child of the mount target with the requested `slot` attribute, and the widget projects it into place through a named `<slot>`.
 
 ### React
 
@@ -33,16 +42,22 @@ The widget renders inside a shadow root on the mount target, so its styles never
 npm install @astralbeam/sdk react react-dom
 ```
 
-Render `<AstralBeamChat>` wherever the chat sidebar should appear; it fills its container's height, mounts the widget on mount, and unmounts it on cleanup. Anything passed as `children` is projected into the widget's `<slot>`, so you can place your own components inside the widget — they stay part of your React tree, so state, context, and event handlers keep working:
+Render `<AstralBeamChat>` wherever the chat sidebar should appear; it fills its container's height, mounts the widget on mount, and unmounts it on cleanup. Register your own components through `customComponents`: the agent reads each `description` to decide when to render the component and with which props (for now the widget test-renders each entry on startup). Requested components render in your app's React tree and are projected into the widget through slots, so state, context, and event handlers keep working:
 
 ```tsx
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 export function Sidebar() {
   return (
-    <AstralBeamChat>
-      <MyCustomPanel />
-    </AstralBeamChat>
+    <AstralBeamChat
+      customComponents={[
+        {
+          component: StatusCard,
+          props: { status: "All systems operational" },
+          description: "Shows the host app's current status",
+        },
+      ]}
+    />
   )
 }
 ```
