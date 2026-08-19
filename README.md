@@ -17,11 +17,12 @@ Our north star is to enable developers to ship agents in minutes, instead of wee
 
 ## Codebase Structure
 
-There are two independent applications: a TanStack Start product application with app-local shadcn/ui components, and the public Astro website.
+There are three independent Deno projects: a TanStack Start product application with app-local shadcn/ui components, the public Astro website, and the frontend SDK published to npm.
 
 ```text
 webapp/       # TanStack Start application, database, theme, and UI
 www/          # Public website
+sdk/          # Frontend SDK, published to npm as @astralbeam/sdk
 ```
 
 
@@ -40,7 +41,7 @@ cd www && deno task dev     # Starts website on http://localhost:3001
 
 Portions of this repository are licensed as follows:
 
-- Files under [`www`](www) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
+- Files under [`www`](www) and [`sdk`](sdk) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
 - All other files in this repository are licensed under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL) (`AGPL-3.0-only`), except where an adjacent license or notice states otherwise.
 - Third-party components and materials are licensed under the applicable licenses provided by their respective owners. See [third-party notices](docs/legal/THIRD_PARTY_NOTICES.md).
 

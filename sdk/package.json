@@ -1,0 +1,59 @@
+{
+  "name": "@astralbeam/sdk",
+  "version": "0.0.1",
+  "description": "Frontend SDK for AstralBeam: drop-in agent UI, chat streaming, and server helpers",
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://astralbeam.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/astralbeamai/astralbeam.git",
+    "directory": "sdk"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "exports": {
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "default": "./dist/vue.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsdown"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "vue": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "tsdown": "0.22.3",
+    "typescript": "^6.0.3",
+    "vitest": "4.1.10"
+  }
+}

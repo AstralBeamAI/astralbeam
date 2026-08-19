@@ -2,8 +2,8 @@
 
 ## Tooling and validation
 
-- `webapp` and `www` are independent Deno projects with their own `package.json`, `deno.lock`, and `node_modules`. There is no repository-level package manager, workspace, or task runner, so run every command from inside the application directory with `deno task <script>`.
-- Both applications expose `check` (type diagnostics), `test`, and `build`. Add dependencies with `deno add npm:<package>` and install from a lockfile with `deno install --frozen`.
+- `webapp`, `www`, and `sdk` are independent Deno projects with their own `package.json`, `deno.lock`, and `node_modules`. There is no repository-level package manager, workspace, or task runner, so run every command from inside the application directory with `deno task <script>`.
+- All three projects expose `check` (type diagnostics), `test`, and `build`. Add dependencies with `deno add npm:<package>` and install from a lockfile with `deno install --frozen`.
 - Run `./scripts/setup.sh` once after pulling. Otherwise, use the smallest relevant application task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `check`, `test`, or `build`. Run the affected application's tasks once before creating a PR or when explicitly requested, and only separately when diagnosing a failure.
 - Formatting and linting are not enforced by tooling; match the surrounding style, which omits semicolons.
