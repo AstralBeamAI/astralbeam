@@ -3,7 +3,7 @@ export const siteMetadata = {
   origin: "https://www.astralbeam.ai",
   title: "AstralBeam - Ship agents in minutes, not months",
   description:
-    "Open source AI agent infrastructure. Drop in the frontend SDK, and AstralBeam handles agentic chat, streaming, history, tools, metering, billing, and auth.",
+    "Open source AI infrastructure. Drop in the frontend SDK, and AstralBeam handles agentic chat, streaming, history, tools, metering, billing, and auth.",
   email: "hello@astralbeam.ai",
   icon: {
     path: "/favicon.png",

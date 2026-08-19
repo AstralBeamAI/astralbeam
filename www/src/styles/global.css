@@ -265,24 +265,16 @@ a[href] {
 /* ---------- buttons ---------- */
 
 .btn {
-  --cut: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
+  border: 0;
   font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.14em;
   white-space: nowrap;
   cursor: pointer;
-  clip-path: polygon(
-    var(--cut) 0,
-    100% 0,
-    100% calc(100% - var(--cut)),
-    calc(100% - var(--cut)) 100%,
-    0 100%,
-    0 var(--cut)
-  );
   transition:
     filter 0.2s,
     transform 0.15s,
@@ -307,12 +299,12 @@ a[href] {
   font-size: 0.74rem;
   color: var(--foreground);
   background: color-mix(in srgb, var(--card) 70%, transparent);
-  box-shadow: inset 0 0 0 1px var(--input);
+  border: 1px solid var(--input);
 }
 
 .btn-ghost:hover {
   color: var(--primary);
-  box-shadow: inset 0 0 0 1px var(--beam-soft);
+  border-color: var(--beam-soft);
   transform: translateY(-1px);
 }
 
@@ -451,34 +443,40 @@ main {
   gap: 1rem;
 }
 
-.hero-alt {
-  margin-top: 1.4rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.2em;
-  color: var(--text-chrome);
-}
-
+/* The hero grows past 100svh on short viewports, so anchor the cue to the fold
+   itself rather than to the bottom of the section: the hero starts at the top of
+   the document, so this always lands just inside the first screen. */
 .scroll-cue {
   position: absolute;
-  bottom: 2.5rem;
+  top: calc(100svh - 3.75rem);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
-  font-size: 0.66rem;
-  letter-spacing: 0.3em;
-  color: var(--text-chrome);
+  justify-content: center;
+  padding: 0.75rem 1.1rem;
 }
 
 .scroll-chevron {
-  width: 10px;
-  height: 10px;
-  border-right: 1px solid var(--primary);
-  border-bottom: 1px solid var(--primary);
+  width: 14px;
+  height: 14px;
+  border-right: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
+  filter: drop-shadow(0 0 8px var(--beam-soft));
   transform: rotate(45deg);
   animation: cue-drop 1.8s ease-in-out infinite;
+}
+
+/* Only the glow changes on hover: the cue-drop keyframes own `transform`, and an
+   animated property beats a normal declaration in the cascade. */
+.scroll-cue:hover .scroll-chevron {
+  border-color: var(--primary);
+  filter: drop-shadow(0 0 14px var(--primary));
+}
+
+.scroll-cue:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 @keyframes cue-drop {
@@ -581,6 +579,10 @@ main {
   padding: 1.6rem 1.8rem 1.5rem;
 }
 
+.compare-panel .compare-note {
+  margin-top: auto;
+}
+
 .compare-panel.is-beam {
   background: color-mix(in srgb, var(--primary) 40%, transparent);
 }
@@ -600,112 +602,129 @@ main {
   color: var(--primary);
 }
 
-.compare-body {
-  position: relative;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  margin: 1.5rem 0 0.4rem;
-  min-height: 15rem;
+.compare-art {
+  width: 100%;
+  height: auto;
+  margin: 1.4rem 0 0.9rem;
 }
 
-.compare-body.is-single {
-  flex-direction: column;
-  justify-content: center;
-  gap: 1.6rem;
+/* ---------- chaos side ---------- */
+
+.compare-art.is-chaos {
+  color: var(--destructive);
 }
 
-.tangle-art {
-  position: absolute;
-  inset: -0.4rem -0.6rem;
-  width: calc(100% + 1.2rem);
-  height: calc(100% + 0.8rem);
-  pointer-events: none;
+.compare-art .tangle path {
+  stroke: color-mix(in srgb, var(--destructive) 88%, transparent);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--destructive) 60%, transparent));
+  animation: tangle-drift 5s linear infinite;
 }
 
-.tangle-art .tangle path {
-  stroke: var(--danger-soft);
-  animation: tangle-drift 14s linear infinite;
+/* Mixed colors, speeds, and directions so no two wires read as one system. */
+.compare-art .tangle path:nth-child(2n) {
+  stroke: color-mix(in srgb, var(--chart-4) 80%, transparent);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--chart-4) 45%, transparent));
+  animation-duration: 3.4s;
+  animation-direction: reverse;
+}
+
+.compare-art .tangle path:nth-child(3n) {
+  stroke: color-mix(in srgb, var(--destructive) 65%, transparent);
+  animation-duration: 7.5s;
+}
+
+.compare-art .tangle path:nth-child(4n) {
+  stroke-width: 2;
+  animation-duration: 2.6s;
 }
 
 @keyframes tangle-drift {
   to {
-    stroke-dashoffset: -110;
+    stroke-dashoffset: -130;
   }
 }
 
-.stack-chips {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  list-style: none;
+.node-set rect {
+  fill: var(--card);
+  stroke: var(--input);
 }
 
-.stack-chips li {
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  background: color-mix(in srgb, var(--card) 92%, transparent);
-  border: 1px solid var(--input);
-  padding: 0.42rem 0.7rem;
+.node-set text {
+  fill: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-anchor: middle;
 }
 
-.stack-chips li::before {
-  content: "✕";
-  color: var(--destructive);
-  margin-right: 0.45rem;
-  font-size: 0.8em;
+.node-set.is-tangled rect {
+  fill: color-mix(in oklab, var(--card) 88%, var(--destructive));
+  stroke: color-mix(in srgb, var(--destructive) 70%, transparent);
+  stroke-width: 1.2;
 }
 
-.stack-chips.is-included li {
-  color: var(--foreground);
-  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+.node-set.is-tangled text {
+  fill: var(--foreground);
+  font-weight: 700;
 }
 
-.stack-chips.is-included li::before {
-  content: "✓";
-  color: var(--primary);
+/* The positioning transform lives on the wrapper `g`, so the jitter animates an
+   inner group whose local origin is already the box center. transform-origin
+   must be pinned to that origin: the default 50% 50% resolves against the
+   viewBox, which would swing each node around the canvas center instead.
+   https://drafts.csswg.org/css-transforms-2/#transform-box */
+.node-set.is-tangled .node {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: node-jitter 2.9s ease-in-out infinite;
+  animation-delay: var(--jitter-delay, 0s);
 }
 
-.single-core {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.8rem 0 0.2rem;
+@keyframes node-jitter {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(1.5px, -1px) rotate(-1.1deg);
+  }
+  50% {
+    transform: translate(-1px, 1.5px) rotate(0.9deg);
+  }
+  75% {
+    transform: translate(1px, 1px) rotate(-0.5deg);
+  }
 }
 
-.single-beam {
-  position: absolute;
-  top: -1.6rem;
-  bottom: -1.6rem;
-  left: 50%;
-  width: 1px;
-  transform: translateX(-50%);
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    color-mix(in srgb, var(--primary) 55%, transparent),
-    transparent
-  );
+/* ---------- beam side ---------- */
+
+.node-set.is-aligned rect {
+  fill: var(--card);
+  stroke: color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
-.single-logo {
-  position: relative;
-  width: clamp(5rem, 12vw, 7rem);
-  height: auto;
-  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--primary) 28%, transparent));
+.core-node rect {
+  fill: color-mix(in srgb, var(--primary) 12%, transparent);
+  stroke: var(--primary);
 }
 
-.single-name {
-  position: relative;
-  font-size: 0.7rem;
-  letter-spacing: 0.3em;
-  color: var(--primary);
+.core-wordmark {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 45%, transparent));
+}
+
+.beam-line {
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-dasharray: 6 8;
+  filter: drop-shadow(0 0 6px var(--beam-soft));
+  animation: beam-flow 1.6s linear infinite;
+}
+
+@keyframes beam-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
 }
 
 .compare-note {
@@ -731,18 +750,6 @@ main {
 .feature-panel:hover {
   background: var(--beam-soft);
   filter: drop-shadow(0 0 18px color-mix(in srgb, var(--primary) 16%, transparent));
-}
-
-.feature-head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.7rem;
-  letter-spacing: 0.2em;
-  margin-bottom: 1.4rem;
-}
-
-.feature-id {
-  color: var(--primary);
 }
 
 .feature-icon svg {
@@ -794,9 +801,8 @@ main {
 
 .quickstart-grid {
   display: grid;
-  grid-template-columns: 1.35fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
-  align-items: start;
 }
 
 /* `fr` tracks floor at min-content, so the pre-formatted terminal lines would
@@ -854,7 +860,7 @@ main {
 
 .terminal-body {
   padding: 1.3rem 1.4rem 1.5rem;
-  font-size: 0.84rem;
+  font-size: clamp(0.72rem, 1.15vw, 0.84rem);
   line-height: 1.75;
   overflow-x: auto;
   white-space: normal;
@@ -911,11 +917,21 @@ main {
 
 /* ---------- quickstart: agent sidebar prototype ---------- */
 
+/* The transcript grows as the visitor chats. If the panel were a normal grid
+   item, that growth would feed back into the auto row height and stretch both
+   boxes, so the panel is absolutely positioned inside its cell: it fills the row
+   the code panel establishes, and its content no longer sizes the row. */
+.agent-slot {
+  position: relative;
+  min-height: 26rem;
+}
+
 .agent-panel {
   --cut: 14px;
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  min-height: 22rem;
 }
 
 .agent-bar {
@@ -923,23 +939,55 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.8rem 1.1rem;
+  padding: 0.7rem 1.1rem;
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   color: var(--text-chrome);
   border-bottom: 1px solid var(--border);
 }
 
-.agent-model {
-  color: var(--primary);
+.agent-replay {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  color: var(--text-chrome);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
 }
 
+.agent-replay:hover {
+  color: var(--primary);
+  border-color: var(--beam-soft);
+}
+
+.icon-replay {
+  width: 0.9em;
+  height: 0.9em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+/* min-height: 0 lets the thread shrink below its content so the transcript
+   scrolls inside the panel instead of stretching it past the code panel. */
 .agent-thread {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
   padding: 1.1rem 1.1rem 1.3rem;
+  scrollbar-width: thin;
 }
 
 .agent-msg {
@@ -1028,8 +1076,66 @@ main {
   animation: none;
 }
 
+/* the host app's own component, rendered inline by the agent */
+.agent-widget {
+  margin-bottom: 0.8rem;
+  padding: 0.7rem 0.8rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, transparent);
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+
+.agent-widget.shown {
+  opacity: 1;
+  transform: none;
+}
+
+.widget-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--primary);
+}
+
+.widget-badge {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  padding: 0.1rem 0.35rem;
+  font-weight: 700;
+}
+
+.widget-rows {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.7rem;
+  font-size: 0.7rem;
+}
+
+.widget-rows > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.widget-rows dt {
+  color: var(--text-chrome);
+  letter-spacing: 0.06em;
+}
+
+.widget-rows dd {
+  color: var(--foreground);
+}
+
 .agent-stream {
-  min-height: 3.2em;
+  min-height: 1.6em;
 }
 
 .agent-stream::after {
@@ -1050,24 +1156,54 @@ main {
 .agent-composer {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.6rem;
   margin: 0 1.1rem 1.1rem;
-  padding: 0.7rem 0.9rem;
+  padding: 0.45rem 0.5rem 0.45rem 0.75rem;
   border: 1px solid var(--input);
+  transition: border-color 0.2s;
+}
+
+.agent-composer:focus-within {
+  border-color: var(--beam-soft);
+}
+
+.agent-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
   font-size: 0.9rem;
+  color: var(--foreground);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.agent-input::placeholder {
   color: var(--text-chrome);
 }
 
 .agent-send {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: none;
+  font-size: 0.8rem;
   color: var(--primary-foreground);
   background: var(--primary);
-  font-size: 0.8rem;
+  border: 0;
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+
+.agent-send:hover {
+  filter: brightness(1.12);
+}
+
+:where(.agent-replay, .agent-send, .agent-input):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* ---------- open source ---------- */
@@ -1112,22 +1248,6 @@ main {
 .os-panel p {
   font-size: 0.93rem;
   color: var(--text-muted);
-}
-
-.os-standards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.9rem;
-  list-style: none;
-}
-
-.os-standards li {
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-  color: var(--primary);
-  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
-  padding: 0.24rem 0.5rem;
 }
 
 .os-repo {
@@ -1271,9 +1391,6 @@ main {
   .compare-panel {
     padding: 1.4rem 1.2rem 1.3rem;
   }
-  .compare-body {
-    min-height: 0;
-  }
   /* Wrap the snippet instead of scrolling it: a horizontally scrollable code
      block inside a full-width page reads as a stuck page swipe on touch. */
   .terminal-body {
@@ -1289,9 +1406,6 @@ main {
   .terminal-bar {
     gap: 0.7rem;
     padding: 0.7rem 1.05rem;
-  }
-  .agent-panel {
-    min-height: 0;
   }
 }
 
@@ -1313,7 +1427,9 @@ main {
   .scroll-chevron,
   .blink-dot,
   .t-caret,
-  .tangle-art .tangle path {
+  .beam-line,
+  .compare-art .tangle path,
+  .node-set.is-tangled .node {
     animation: none;
   }
 
@@ -1324,7 +1440,8 @@ main {
   }
 
   .agent-msg,
-  .agent-tool {
+  .agent-tool,
+  .agent-widget {
     opacity: 1;
     transform: none;
     transition: none;

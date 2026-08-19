@@ -1,5 +1,4 @@
 ---
-import astralbeamDarkLogoUrl from "@/brand/logo/svg/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamDarkWordmarkUrl from "@/brand/logo/svg/astralbeam-wordmark-dark.svg?url&no-inline"
 import SiteLayout from "@/layouts/SiteLayout.astro"
 import { siteMetadata } from "@/lib/site"
@@ -8,56 +7,49 @@ const waitlistUrl = "https://airtable.com/app5bJZxFB5NoPBUX/paghAGYUoz5JoIQDs/fo
 
 const features = [
   {
-    id: "01",
     name: "Frontend SDK",
     desc: "A fully-customizable, Cursor-like agent sidebar. Drop it into your web app in a few lines of code.",
     icon: "panel",
   },
   {
-    id: "02",
     name: "Managed Backend",
     desc: "Resumable chat streaming, conversation history, and observability, all managed for you, nothing to run.",
     icon: "server",
   },
   {
-    id: "03",
     name: "Tools, Skills & MCP",
     desc: "Wire up tools and skills, let users bring their own MCPs, and let agents take real actions in your app.",
     icon: "plug",
   },
   {
-    id: "04",
     name: "Metered Billing & Rate Limits",
     desc: "Per-customer rate limits and token-metered billing, wired to Stripe subscriptions out of the box.",
     icon: "meter",
   },
   {
-    id: "05",
     name: "Enterprise-Ready",
     desc: "Organization-aware, enterprise-grade SSO, data privacy, and access control, all built in from day one.",
     icon: "shield",
   },
   {
-    id: "06",
     name: "Prompts & Evals",
     desc: "Edit prompts, run A/B tests, and score live conversations from a web UI. No redeploy, no engineer needed.",
     icon: "flask",
   },
 ]
 
-// The same responsibilities appear in both comparison panels: seven vendors to
-// integrate on the left, one service that covers them on the right.
-const stackPieces = [
-  "LLM Gateway",
-  "Agent Framework",
-  "Observability",
-  "Tools & MCPs",
-  "Metering & Billing",
-  "Auth & SSO",
-  "Prompts & Evals",
+// Nodes of the "without AstralBeam" tangle. Scattered positions and per-node
+// tilts are hand-picked so the diagram reads as a mess, not a grid; `w` is the
+// box width that fits the label at 10px mono with 0.14em tracking.
+const tangledNodes = [
+  { label: "LLM GATEWAY", x: 96, y: 40, w: 104, tilt: -4, delay: "0s" },
+  { label: "FRAMEWORK", x: 300, y: 28, w: 88, tilt: 3, delay: "-1.1s" },
+  { label: "OBSERVABILITY", x: 112, y: 116, w: 118, tilt: 2.5, delay: "-0.5s" },
+  { label: "TOOLS & MCPS", x: 296, y: 106, w: 110, tilt: -3, delay: "-1.7s" },
+  { label: "BILLING", x: 66, y: 196, w: 74, tilt: 4, delay: "-0.8s" },
+  { label: "AUTH & SSO", x: 214, y: 176, w: 96, tilt: -2, delay: "-2.2s" },
+  { label: "EVALS", x: 350, y: 208, w: 58, tilt: 3.5, delay: "-1.4s" },
 ]
-
-const openStandards = ["AG-UI", "MCP", "OpenResponses"]
 
 const githubUrl = "https://github.com/astralbeamai/astralbeam"
 ---
@@ -81,8 +73,8 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
         <img class="hud-brand-wordmark" src={astralbeamDarkWordmarkUrl} alt="" width="1241" height="136" />
       </a>
       <nav class="hud-nav" aria-label="Primary">
-        <a href="#features">FEATURES</a>
         <a href="#quickstart">QUICKSTART</a>
+        <a href="#features">FEATURES</a>
         <a href="#open-source">OPEN&nbsp;SOURCE</a>
         <a class="hud-nav-github" href={githubUrl} target="_blank" rel="noopener noreferrer" aria-label="AstralBeam on GitHub">
           <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
@@ -100,7 +92,7 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
         <div class="hero-beam" aria-hidden="true"></div>
 
         <div class="hero-inner">
-          <p class="eyebrow reveal">OPEN SOURCE AI AGENT INFRASTRUCTURE</p>
+          <p class="eyebrow reveal">OPEN SOURCE AI INFRASTRUCTURE</p>
           <h1 class="display hero-title">
             <span class="reveal scramble" data-text="SHIP AGENTS">SHIP AGENTS</span><br />
             <span class="reveal scramble" data-text="IN MINUTES" style="--reveal-delay:.12s">IN MINUTES</span><br />
@@ -118,13 +110,11 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
               STAR ON GITHUB
             </a>
           </div>
-          <p class="hero-alt mono reveal" style="--reveal-delay:.56s">SELF-HOST IT // OR ASTRALBEAM CLOUD</p>
         </div>
 
-        <div class="scroll-cue mono" aria-hidden="true">
-          <span>SCROLL TO INITIALIZE</span>
-          <i class="scroll-chevron"></i>
-        </div>
+        <a class="scroll-cue" href="#compare" aria-label="Skip to the next section">
+          <i class="scroll-chevron" aria-hidden="true"></i>
+        </a>
       </section>
 
       <!-- ============ COMPARE ============ -->
@@ -143,41 +133,181 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
         <div class="compare-grid">
           <figure class="panel compare-panel reveal">
             <figcaption class="panel-label mono"><span class="x-mark">✕</span> WITHOUT ASTRALBEAM</figcaption>
-            <div class="compare-body">
-              <svg class="tangle-art" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true">
-                <g class="tangle" fill="none" stroke-dasharray="5 6">
-                  <path d="M40 30 C 180 10, 120 150, 330 60"></path>
-                  <path d="M40 30 C 90 180, 300 60, 250 240"></path>
-                  <path d="M40 130 C 200 230, 220 40, 360 150"></path>
-                  <path d="M60 230 C 140 120, 260 200, 350 90"></path>
-                  <path d="M30 190 C 190 250, 180 90, 370 220"></path>
-                </g>
-              </svg>
-              <ul class="stack-chips mono">
-                {stackPieces.map((piece) => <li>{piece}</li>)}
-              </ul>
-            </div>
+            <svg class="compare-art is-chaos" viewBox="0 0 420 260" aria-hidden="true">
+              <defs>
+                <radialGradient id="chaos-glow">
+                  <stop offset="0" stop-color="currentColor" stop-opacity="0.18"></stop>
+                  <stop offset="1" stop-color="currentColor" stop-opacity="0"></stop>
+                </radialGradient>
+              </defs>
+              <ellipse cx="210" cy="130" rx="205" ry="130" fill="url(#chaos-glow)"></ellipse>
+              <g class="tangle" fill="none" stroke-dasharray="6 7">
+                <path d="M30 30 C 200 0, 120 170, 390 70"></path>
+                <path d="M40 60 C 130 210, 330 40, 300 250"></path>
+                <path d="M60 130 C 240 240, 250 30, 400 160"></path>
+                <path d="M30 210 C 160 90, 300 220, 380 40"></path>
+                <path d="M20 170 C 200 250, 150 60, 400 230"></path>
+                <path d="M100 20 C 60 140, 380 130, 340 230"></path>
+                <path d="M380 20 C 220 90, 260 200, 40 240"></path>
+                <path d="M50 100 C 180 150, 220 100, 390 120"></path>
+                <path d="M150 250 C 250 150, 100 100, 260 20"></path>
+              </g>
+              <g class="node-set is-tangled">
+                {
+                  tangledNodes.map((node) => (
+                    <g transform={`translate(${node.x},${node.y}) rotate(${node.tilt})`}>
+                      <g class="node" style={`--jitter-delay:${node.delay}`}>
+                        <rect x={-node.w / 2} y="-13" width={node.w} height="26"></rect>
+                        <text y="4">{node.label}</text>
+                      </g>
+                    </g>
+                  ))
+                }
+              </g>
+            </svg>
             <p class="compare-note">
-              Multiple vendors, months of integration, all before a single agent ships.
+              Multiple vendors & months of integration before a single agent ships.
             </p>
           </figure>
 
           <figure class="panel compare-panel is-beam reveal" style="--reveal-delay:.15s">
             <figcaption class="panel-label mono"><span class="check-mark">✓</span> WITH ASTRALBEAM</figcaption>
-            <div class="compare-body is-single">
-              <div class="single-core">
-                <span class="single-beam" aria-hidden="true"></span>
-                <img class="single-logo" src={astralbeamDarkLogoUrl} alt="" width="270" height="270" />
-                <span class="single-name mono">ONE SERVICE</span>
-              </div>
-              <ul class="stack-chips is-included mono">
-                {stackPieces.map((piece) => <li>{piece}</li>)}
-              </ul>
-            </div>
+            <svg class="compare-art" viewBox="0 0 420 260" aria-hidden="true">
+              <line class="beam-line" x1="210" y1="12" x2="210" y2="248"></line>
+              <g class="node-set is-aligned">
+                <g transform="translate(210,44)"><rect x="-56" y="-13" width="112" height="26"></rect><text y="4">YOUR APP</text></g>
+                <g transform="translate(210,130)" class="core-node">
+                  <rect x="-108" y="-25" width="216" height="50"></rect>
+                  {/* The wordmark carries its own sRGB paints, so it renders correctly as an <image> reference. */}
+                  <image
+                    class="core-wordmark"
+                    href={astralbeamDarkWordmarkUrl}
+                    x="-93"
+                    y="-10.2"
+                    width="186"
+                    height="20.4"
+                  />
+                </g>
+                <g transform="translate(210,216)"><rect x="-56" y="-13" width="112" height="26"></rect><text y="4">ANY LLM</text></g>
+              </g>
+            </svg>
             <p class="compare-note">
-              One service. One SDK. Everything between your app and the model, handled.
+              One service. Everything between your app and the model, handled.
             </p>
           </figure>
+        </div>
+      </section>
+
+      <!-- ============ QUICKSTART ============ -->
+      <section class="section" id="quickstart">
+        <div class="section-head">
+          <h2 class="display section-title reveal scramble" data-text="LIFT OFF IN FIVE MINUTES">
+            LIFT OFF IN FIVE MINUTES
+          </h2>
+          <p class="section-sub reveal">
+            One package, one component. Point it at your tools, bring your own UI elements, and
+            the agent starts working on real data inside your product.
+          </p>
+        </div>
+
+        <div class="quickstart-grid">
+          <div class="panel terminal reveal" id="terminal">
+            <header class="terminal-bar mono">
+              <span class="term-dots"><i></i><i></i><i></i></span>
+              <span>app.tsx</span>
+            </header>
+            <pre class="terminal-body mono" aria-label="Example: install and mount the AstralBeam chat component"><code
+><span class="t-line" data-type="cmd"><span class="t-prompt">$</span> npm i @astralbeam/sdk</span>
+<span class="t-line" data-type="out">+ @astralbeam/sdk 1.0.0</span>
+<span class="t-line"> </span>
+<span class="t-line"><span class="t-kw">import</span> {"{"} AstralBeamChat {"}"} <span class="t-kw">from</span> <span class="t-str">"@astralbeam/sdk/react"</span></span>
+<span class="t-line"><span class="t-kw">import</span> {"{"} OrderCard {"}"} <span class="t-kw">from</span> <span class="t-str">"./widgets"</span></span>
+<span class="t-line"> </span>
+<span class="t-line"><span class="t-kw">export function</span> <span class="t-fn">App</span>() {"{"}</span>
+<span class="t-line">  <span class="t-kw">return</span> (</span>
+<span class="t-line">    &lt;&gt;</span>
+<span class="t-line">      &lt;<span class="t-tag">YourApp</span> /&gt;</span>
+<span class="t-line">      &lt;<span class="t-tag">AstralBeamChat</span> <span class="t-attr">agent</span>=<span class="t-str">"support"</span></span>
+<span class="t-line">        <span class="t-attr">tools</span>={"{"}[lookupOrder, refund, sendEmail]{"}"}</span>
+<span class="t-line">        <span class="t-attr">widgets</span>={"{{"} order: OrderCard {"}}"} /&gt;</span>
+<span class="t-line">    &lt;/&gt;</span>
+<span class="t-line">  )</span>
+<span class="t-line">{"}"}</span></code><span class="t-caret" aria-hidden="true"></span></pre>
+          </div>
+
+          <div class="agent-slot reveal" style="--reveal-delay:.15s">
+          <aside class="panel agent-panel" id="agent-demo">
+            <header class="agent-bar mono">
+              <span class="agent-title">SUPPORT AGENT</span>
+              <button class="agent-replay mono" type="button" data-replay>
+                <svg class="icon-replay" viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M13.6 8a5.6 5.6 0 1 1-1.7-4"></path>
+                  <path d="M12.6 1.3v3.2H9.4"></path>
+                </svg>
+                REPLAY
+              </button>
+            </header>
+
+            <div class="agent-thread" data-thread>
+              <article class="agent-msg is-user" data-step>
+                <p>Refund order 4821 and let the customer know.</p>
+              </article>
+              <article class="agent-msg is-agent" data-step>
+                <ul class="agent-tools mono">
+                  <li class="agent-tool" data-tool>
+                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">lookupOrder</span><b>4821</b>
+                  </li>
+                  <li class="agent-tool" data-tool>
+                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">refund</span><b>$128.00</b>
+                  </li>
+                  <li class="agent-tool" data-tool>
+                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">sendEmail</span><b>receipt</b>
+                  </li>
+                </ul>
+                <!-- The <OrderCard /> widget passed to `widgets` in the snippet above. -->
+                <div class="agent-widget" data-widget>
+                  <header class="widget-head mono">
+                    <span>ORDER 4821</span>
+                    <span class="widget-badge">REFUNDED</span>
+                  </header>
+                  <dl class="widget-rows mono">
+                    <div><dt>Customer</dt><dd>Dana Whitfield</dd></div>
+                    <div><dt>Total</dt><dd>$128.00</dd></div>
+                    <div><dt>Card</dt><dd>Visa ···4242</dd></div>
+                  </dl>
+                </div>
+                <p class="agent-stream" data-stream>
+                  Refunded $128.00 and emailed Dana the confirmation.
+                </p>
+              </article>
+              <article class="agent-msg is-user" data-step>
+                <p>Anything else open on her account?</p>
+              </article>
+              <article class="agent-msg is-agent" data-step>
+                <ul class="agent-tools mono">
+                  <li class="agent-tool" data-tool>
+                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">lookupOrder</span><b>open</b>
+                  </li>
+                </ul>
+                <p class="agent-stream" data-stream>
+                  One order still open, 4830, shipping tomorrow. I'll watch it and flag any delay.
+                </p>
+              </article>
+            </div>
+
+            <form class="agent-composer" data-composer>
+              <input
+                class="agent-input"
+                type="text"
+                autocomplete="off"
+                placeholder="Ask the agent…"
+                aria-label="Ask the demo agent"
+                data-input
+              />
+              <button class="agent-send" type="submit" aria-label="Send message">↑</button>
+            </form>
+          </aside>
+          </div>
         </div>
       </section>
 
@@ -197,9 +327,6 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
           {
             features.map((feature, i) => (
               <article class="panel feature-panel reveal" style={`--reveal-delay:${(i % 3) * 0.12}s`}>
-                <header class="feature-head mono">
-                  <span class="feature-id">FEATURE {feature.id}</span>
-                </header>
                 <div class={`feature-icon icon-${feature.icon}`} aria-hidden="true">
                   {feature.icon === "panel" && (
                     <svg viewBox="0 0 32 32"><rect x="3" y="5" width="26" height="22" rx="1"></rect><line x1="19" y1="5" x2="19" y2="27"></line><line x1="22" y1="10" x2="26" y2="10"></line><line x1="22" y1="14" x2="26" y2="14"></line></svg>
@@ -226,75 +353,6 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
               </article>
             ))
           }
-        </div>
-      </section>
-
-      <!-- ============ QUICKSTART ============ -->
-      <section class="section" id="quickstart">
-        <div class="section-head">
-          <h2 class="display section-title reveal scramble" data-text="LIFT OFF IN FIVE MINUTES">
-            LIFT OFF IN FIVE MINUTES
-          </h2>
-          <p class="section-sub reveal">
-            One package, one component. Point it at your tools and the agent starts working on
-            real data in your own UI.
-          </p>
-        </div>
-
-        <div class="quickstart-grid">
-          <div class="panel terminal reveal" id="terminal">
-            <header class="terminal-bar mono">
-              <span class="term-dots"><i></i><i></i><i></i></span>
-              <span>app.tsx</span>
-            </header>
-            <pre class="terminal-body mono" aria-label="Example: install and mount the AstralBeam sidebar"><code
-><span class="t-line" data-type="cmd"><span class="t-prompt">$</span> npm i @astralbeam/react</span>
-<span class="t-line" data-type="out">+ @astralbeam/react 1.0.0</span>
-<span class="t-line"> </span>
-<span class="t-line"><span class="t-kw">import</span> {"{"} AgentSidebar {"}"} <span class="t-kw">from</span> <span class="t-str">"@astralbeam/react"</span></span>
-<span class="t-line"> </span>
-<span class="t-line"><span class="t-kw">export function</span> <span class="t-fn">App</span>() {"{"}</span>
-<span class="t-line">  <span class="t-kw">return</span> (</span>
-<span class="t-line">    &lt;&gt;</span>
-<span class="t-line">      &lt;<span class="t-tag">YourApp</span> /&gt;</span>
-<span class="t-line">      &lt;<span class="t-tag">AgentSidebar</span> <span class="t-attr">agent</span>=<span class="t-str">"support"</span></span>
-<span class="t-line">        <span class="t-attr">tools</span>={"{"}[lookupOrder, refund]{"}"} /&gt;</span>
-<span class="t-line">    &lt;/&gt;</span>
-<span class="t-line">  )</span>
-<span class="t-line">{"}"}</span></code><span class="t-caret" aria-hidden="true"></span></pre>
-          </div>
-
-          <aside class="panel agent-panel reveal" style="--reveal-delay:.15s" id="agent-demo">
-            <header class="agent-bar mono">
-              <span class="agent-title">SUPPORT AGENT</span>
-              <span class="agent-model">STREAMING</span>
-            </header>
-            <div class="agent-thread">
-              <article class="agent-msg is-user" data-step>
-                <p>Refund order 4821 and let the customer know.</p>
-              </article>
-              <article class="agent-msg is-agent" data-step>
-                <ul class="agent-tools mono">
-                  <li class="agent-tool" data-tool>
-                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">lookupOrder</span><b>4821</b>
-                  </li>
-                  <li class="agent-tool" data-tool>
-                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">refund</span><b>$128.00</b>
-                  </li>
-                  <li class="agent-tool" data-tool>
-                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">sendEmail</span><b>receipt</b>
-                  </li>
-                </ul>
-                <p class="agent-stream" data-stream>
-                  Refunded $128.00 on order 4821 and emailed the customer a confirmation. Want me to close the ticket too?
-                </p>
-              </article>
-            </div>
-            <div class="agent-composer" aria-hidden="true">
-              <span class="agent-placeholder">Ask the agent…</span>
-              <span class="agent-send">↑</span>
-            </div>
-          </aside>
         </div>
       </section>
 
@@ -335,11 +393,8 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
             <p>Start with the entire platform, or adopt it incrementally, piece by piece.</p>
           </div>
           <div class="panel os-panel reveal" style="--reveal-delay:.3s">
-            <h3 class="os-name mono">OPEN STANDARDS</h3>
-            <p>Built on protocols you can swap in and out, not a proprietary runtime.</p>
-            <ul class="os-standards mono">
-              {openStandards.map((standard) => <li>{standard}</li>)}
-            </ul>
+            <h3 class="os-name mono">OPEN PROTOCOLS</h3>
+            <p>Built on open protocols: AG-UI, MCP, A2A. Swap pieces in and out instead of adopting a proprietary runtime.</p>
           </div>
         </div>
 

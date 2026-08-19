@@ -16,7 +16,7 @@ Run all tasks from this directory:
 Structure:
 
 - `src/layouts/SiteLayout.astro` — shared document shell, search/social metadata, icons, manifest, and Organization structured data
-- `src/pages/index.astro` — the whole page (hero, compare, features, quickstart, open source, launch) plus HUD chrome
+- `src/pages/index.astro` — the whole page (hero, compare, quickstart, features, open source, launch) plus HUD chrome
 - `src/pages/404.astro` — "SIGNAL LOST" error page (wrangler `404-page` handling)
 - `src/pages/*.ts` — prerendered metadata resources, sitemap, icons, social image, `robots.txt`, and `llms.txt`
 - `src/styles/global.css` — all styling; site-specific derived tokens and shared semantic colors under explicit theme selectors
