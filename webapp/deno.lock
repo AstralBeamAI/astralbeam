@@ -8,6 +8,7 @@
     "npm:@csstools/css-tokenizer@4.0.0": "4.0.0",
     "npm:@fontsource-variable/inter@^5.2.8": "5.3.0",
     "npm:@fontsource-variable/manrope@^5.2.8": "5.3.0",
+    "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tailwindcss/vite@4": "4.3.3_vite@8.2.1",
     "npm:@tanstack/devtools-vite@~0.8.3": "0.8.3_vite@8.2.1_@emnapi+core@1.11.2_@emnapi+runtime@1.11.2",
     "npm:@tanstack/react-devtools@~0.10.9": "0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8_@neodrag+core@3.0.0-next.11_csstype@3.2.3_solid-js@1.9.14",
@@ -1141,6 +1142,13 @@
       "integrity": "sha512-UqGPmo56KDfLlfXFAFIrNflHT8tFxWGEivWg3Zeyp4Uy2NlKN1FGPr6/BxcLGG3+kZ6Wp14g5Uj+n71boqZfiw==",
       "os": ["win32"],
       "cpu": ["x64"]
+    },
+    "@phosphor-icons/react@2.1.10_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+      "integrity": "sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA==",
+      "dependencies": [
+        "react",
+        "react-dom"
+      ]
     },
     "@rolldown/binding-android-arm64@1.2.4": {
       "integrity": "sha512-jHC2cnyKz5xU2fhECtFl8OZ83cYNt13GZQD+0uMJ/X3o+ijmd56okHhTUwxVSHPx1IRVIJEZ1/1pPzeLCU6XKA==",
@@ -4134,6 +4142,7 @@
         "npm:@csstools/css-tokenizer@4.0.0",
         "npm:@fontsource-variable/inter@^5.2.8",
         "npm:@fontsource-variable/manrope@^5.2.8",
+        "npm:@phosphor-icons/react@^2.1.10",
         "npm:@tailwindcss/vite@4",
         "npm:@tanstack/devtools-vite@~0.8.3",
         "npm:@tanstack/react-devtools@~0.10.9",

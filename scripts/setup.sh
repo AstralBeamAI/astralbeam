@@ -65,12 +65,12 @@ EOF
 }
 
 install_deno() {
-  local deno_lts_version installed_deno_version
-  # Resolve the rolling LTS channel, then install outside package-manager-owned paths. https://docs.deno.com/runtime/fundamentals/stability_and_releases/#long-term-support-lts
-  deno_lts_version=$(curl -fsSL https://dl.deno.land/release-lts-latest.txt)
+  local deno_stable_version installed_deno_version
+  # Resolve the rolling stable channel, then install outside package-manager-owned paths. https://docs.deno.com/runtime/fundamentals/stability_and_releases/
+  deno_stable_version=$(curl -fsSL https://dl.deno.land/release-latest.txt)
   installed_deno_version=$(deno eval 'console.log(`v${Deno.version.deno}`)' 2>/dev/null || true)
-  if [ "$installed_deno_version" != "$deno_lts_version" ]; then
-    curl -fsSL https://deno.land/install.sh | sh -s -- "$deno_lts_version" -y
+  if [ "$installed_deno_version" != "$deno_stable_version" ]; then
+    curl -fsSL https://deno.land/install.sh | sh -s -- "$deno_stable_version" -y
   fi
   deno --version
 }

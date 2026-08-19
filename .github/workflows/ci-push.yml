@@ -24,7 +24,8 @@ jobs:
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: lts
+          # setup-deno names the latest stable channel "latest". https://github.com/denoland/setup-deno#version-from-input
+          deno-version: latest
           # Caches the module cache, keyed by a hash of the per-application deno.lock files.
           cache: true
 

@@ -25,16 +25,3 @@ dist-ssr
 # Skills are reviewed and refreshed from the upstream sources
 skills-lock.json
 __pycache__/
-
-# Tanstack
-.nitro
-.tanstack
-.wrangler
-.output
-.vinxi
-__unconfig*
-todos.json
-mcp-todos.json
-*storybook.log
-storybook-static
-.astro

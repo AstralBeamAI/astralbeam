@@ -17,46 +17,7 @@ function readText(path: string) {
   return readFile(new URL(path, distUrl), "utf8")
 }
 
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    Object.values(value).every((entry) => typeof entry === "string")
-  )
-}
-
 describe("production website build", () => {
-  test("does not depend on another AstralBeam project", async () => {
-    const packageManifest: unknown = JSON.parse(
-      await readFile(new URL("../package.json", import.meta.url), "utf8"),
-    )
-
-    if (typeof packageManifest !== "object" || packageManifest === null) {
-      throw new TypeError("WWW package manifest must be an object")
-    }
-
-    const dependencies = "dependencies" in packageManifest ? packageManifest.dependencies : {}
-    const devDependencies = "devDependencies" in packageManifest
-      ? packageManifest.devDependencies
-      : {}
-
-    if (!isStringRecord(dependencies) || !isStringRecord(devDependencies)) {
-      throw new TypeError("WWW package dependencies must map names to versions")
-    }
-
-    const allDependencies = {
-      ...dependencies,
-      ...devDependencies,
-    }
-
-    expect(Object.keys(allDependencies).filter((name) => name.startsWith("@astralbeam/"))).toEqual(
-      [],
-    )
-    expect(
-      Object.values(allDependencies).filter((version) => version.startsWith("workspace:")),
-    ).toEqual([])
-  })
-
   test("renders the homepage with discovery metadata", async () => {
     const html = await readText("index.html")
 

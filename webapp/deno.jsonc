@@ -24,7 +24,12 @@
     "lineWidth": 100,
     "semiColons": false,
     "proseWrap": "never",
-    "exclude": ["deno.lock", "src/routeTree.gen.ts", "src/db/migrations"]
+    "exclude": [
+      "deno.lock",
+      "src/components/ui",
+      "src/routeTree.gen.ts",
+      "src/db/migrations"
+    ]
   },
   "lint": {
     "rules": {
