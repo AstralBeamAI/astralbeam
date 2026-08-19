@@ -1,12 +1,22 @@
 {
   "folders": [
     {
-      "name": "Webapp",
+      "name": "root",
+      "path": "."
+    },
+    {
+      "name": "webapp",
       "path": "webapp"
     },
     {
-      "name": "WWW",
+      "name": "www",
       "path": "www"
     }
-  ]
+  ],
+  "settings": {
+    "files.exclude": {
+      "webapp": true,
+      "www": true
+    }
+  }
 }
