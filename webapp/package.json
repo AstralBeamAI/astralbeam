@@ -4,7 +4,7 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
     "start": "deno run --config deno.jsonc -P=runtime .output/server/index.mjs",

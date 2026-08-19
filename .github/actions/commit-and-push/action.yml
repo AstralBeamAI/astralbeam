@@ -27,6 +27,7 @@ runs:
       if: steps.commit.outputs.committed == 'true'
       uses: actions/create-github-app-token@v3
       with:
+        # v3 supports client-id and deprecates app-id. https://github.com/actions/create-github-app-token/blob/v3/action.yml
         client-id: ${{ inputs.app-client-id }}
         private-key: ${{ inputs.app-private-key }}
         permission-contents: write
