@@ -1,13 +1,29 @@
 # AstralBeam
 
-Two independent Deno applications: a TanStack Start product application with app-local shadcn/ui components, and the public Astro website.
+Adding agents to a web app today involves patching together a bunch of frontend libraries, backend frameworks, LLM providers, observability tools, billing APIs, etc. which is time-taking and error-prone.
+
+[AstralBeam](https://astralbeam.ai) aims to provide a single service developers can integrate to add production-ready agents to any web app:
+- you drop-in our frontend SDK to get a fully-customizable Cursor-like agent sidebar UI
+- you get fully-managed infra for chat streaming, conversation history, and observability
+- you can hook up tools & skills, let users add MCPs, and let agents take actions in the app
+- you can set up per-customer rate limits & token-based billing integrated with Stripe
+- non-technical users (PMs etc.) can manage & A/B test prompts & run evals in production
+- and more: multiplayer chat, background agents, dynamic LLM routing, prompt caching
+- includes multi-tenancy, enterprise-grade SSO, data privacy & role-based access control
+
+The entire platform is open-source, so you can self-host it or use our cloud offering. It’s modular & compatible with open standards like MCP and AG-UI, so you can adopt it incrementally if you have an existing stack in place.
+
+Our north star is to enable developers to ship agents in minutes, instead of weeks/months, and get started with just a few lines of code.
+
+## Codebase Structure
+
+There are two independent applications: a TanStack Start product application with app-local shadcn/ui components, and the public Astro website.
 
 ```text
 webapp/       # TanStack Start application, database, theme, and UI
 www/          # Public website
 ```
 
-Each application owns its own `package.json`, `deno.lock`, and `node_modules`; there is no repository-level package manager, workspace, or task runner. Run every command from inside the application directory with `deno task <script>`.
 
 ## Local development
 
@@ -19,29 +35,6 @@ cd webapp && deno task dev  # Starts app on http://localhost:3000
 cd www && deno task dev     # Starts website on http://localhost:3001
 ```
 
-Environment files live at the repository root. The website loads them through the `envDir` setting in [`www/astro.config.ts`](www/astro.config.ts). Optional overrides are documented in `.env.example`, local service defaults live in `.env.development`, and secrets belong in the ignored `.env.local`. Keep secrets unprefixed for server-only `process.env` access; only variables intentionally exposed to browsers may use an application's public prefix (`VITE_` for the TanStack Start app and `PUBLIC_` for Astro). Deployment environments must inject secrets at runtime rather than relying on checked-out environment files.
-
-Add shadcn components from the webapp directory:
-
-```sh
-cd webapp && deno task ui add button
-```
-
-## Validate and build
-
-Both applications expose the same three task names, so run each from its own directory:
-
-```sh
-cd webapp && deno task check  # TypeScript diagnostics (tsc)
-cd webapp && deno task test   # Vitest
-cd webapp && deno task build  # Production build
-```
-
-```sh
-cd www && deno task check   # Astro diagnostics
-cd www && deno task test    # Production build and generated-output verification
-cd www && deno task build   # Static build to www/dist/
-```
 
 ## Licensing
 
@@ -53,15 +46,3 @@ Portions of this repository are licensed as follows:
 
 Copyright © 2026 AstralBeam Inc. for AstralBeam-controlled material. Third-party material remains subject to its respective copyright and license terms.
 
-## Tasks
-
-- [ ] How to Create Server Routes
-- [ ] Add Better Auth
-- [ ] Add react-email
-- [ ] Update to Latest TanStack Start API (if needed)
-- [ ] Set up CLAUDE.md properly
-- [ ] Claude Worktree Workflow (3 agents together)
-- [ ] Explain recommended folder structure
-- [ ] Example of how to use effect-ts
-- [ ] Deployment on Cloud VM (Hetzner/AWS)
-- [ ] how to set up middleware
