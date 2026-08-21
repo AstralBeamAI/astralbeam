@@ -56,7 +56,7 @@ export function mountAstralBeamChat(
   const shadowRoot = target.shadowRoot ?? target.attachShadow({ mode: "open" })
   let unmounted = false
   let disposeChat: (() => void) | undefined
-  import("./chat/chat.tsx").then(({ renderChat }) => {
+  import("./chat/index.tsx").then(({ renderChat }) => {
     if (!unmounted) disposeChat = renderChat(shadowRoot, options)
   })
   return {
