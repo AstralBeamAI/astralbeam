@@ -9,6 +9,9 @@ import { TodoCard } from "./todo-card.tsx"
 // The example talks straight to the locally running webapp's agent endpoint.
 const CHAT_ENDPOINT = "http://localhost:3000/api/chat"
 
+// Open the app with `?debug` to watch the SDK and the endpoint log the conversation.
+const DEBUG = new URLSearchParams(location.search).has("debug")
+
 const SYSTEM_PROMPT =
   "You are the assistant inside a personal todo-list app. The user manages a flat list of " +
   "todos, each with an id, a text, and a completed flag. Use the tools to read and change the " +
@@ -170,6 +173,7 @@ export function App() {
             systemPrompt={SYSTEM_PROMPT}
             tools={tools}
             theme={theme}
+            debug={DEBUG}
             widgets={{
               todoCard: {
                 description: "The most important todo from the host app",

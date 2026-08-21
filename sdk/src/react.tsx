@@ -28,6 +28,11 @@ export interface AstralBeamChatProps {
   widgets?: Record<string, WidgetDefinition>
   /** Color scheme of the chat widget; prop changes apply immediately. Default `"system"`. */
   theme?: AstralBeamChatTheme
+  /**
+   * Logs every SDK action to the browser console with UTC timestamps and full payloads,
+   * and asks the endpoint to log its side of the run too. Fixed at mount.
+   */
+  debug?: boolean
 }
 
 interface ActiveRender {
@@ -36,7 +41,7 @@ interface ActiveRender {
 }
 
 export function AstralBeamChat(
-  { endpoint, systemPrompt, tools, widgets = {}, theme = "system" }: AstralBeamChatProps,
+  { endpoint, systemPrompt, tools, widgets = {}, theme = "system", debug }: AstralBeamChatProps,
 ) {
   const targetRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<AstralBeamChatHandle | null>(null)
@@ -54,6 +59,7 @@ export function AstralBeamChat(
       endpoint,
       systemPrompt,
       theme,
+      debug,
       tools: Object.fromEntries(
         Object.entries(tools ?? {}).map(([name, definition]) => [name, {
           ...definition,
