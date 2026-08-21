@@ -1,6 +1,19 @@
-import { useState, useSyncExternalStore } from "react"
-import { AstralBeamChat, type AstralBeamChatTheme } from "@astralbeam/sdk/react"
+import { useRef, useState, useSyncExternalStore } from "react"
+import {
+  AstralBeamChat,
+  type AstralBeamChatTheme,
+  type ToolDefinition,
+} from "@astralbeam/sdk/react"
 import { TodoCard } from "./todo-card.tsx"
+
+// The example talks straight to the locally running webapp's agent endpoint.
+const CHAT_ENDPOINT = "http://localhost:3000/api/chat"
+
+const SYSTEM_PROMPT =
+  "You are the assistant inside a personal todo-list app. The user manages a flat list of " +
+  "todos, each with an id, a text, and a completed flag. Use the tools to read and change the " +
+  "list instead of guessing its contents, and render the todoCard widget when the conversation " +
+  "focuses on the most important (first uncompleted) todo."
 
 const themeCycle: AstralBeamChatTheme[] = ["system", "light", "dark"]
 
@@ -29,6 +42,9 @@ export function App() {
   const [draft, setDraft] = useState("")
   const [chatOpen, setChatOpen] = useState(true)
   const [theme, setTheme] = useState<AstralBeamChatTheme>("system")
+  // Agent tools run outside React's render cycle, so they read the list through a live ref.
+  const todosRef = useRef(todos)
+  todosRef.current = todos
 
   const toggleTodo = (id: number) =>
     setTodos((current) =>
@@ -40,6 +56,49 @@ export function App() {
     if (!text) return
     setTodos((current) => [...current, { id: Date.now(), text, completed: false }])
     setDraft("")
+  }
+
+  const tools: Record<string, ToolDefinition> = {
+    list_todos: {
+      description: "List every todo with its id, text, and completed flag.",
+      execute: () => ({ todos: todosRef.current }),
+    },
+    add_todo: {
+      description: "Add a new todo to the list.",
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What needs to be done" },
+        },
+        required: ["text"],
+      },
+      execute: (input) => {
+        const text = String(input.text ?? "").trim()
+        if (!text) throw new Error("A todo needs a non-empty text")
+        const todo: Todo = { id: Date.now(), text, completed: false }
+        setTodos((current) => [...current, todo])
+        return { added: todo }
+      },
+    },
+    set_todo_completed: {
+      description: "Mark a todo as completed or uncompleted by its id.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "number", description: "Id of the todo to update" },
+          completed: { type: "boolean", description: "New completed state" },
+        },
+        required: ["id", "completed"],
+      },
+      execute: (input) => {
+        const id = Number(input.id)
+        const todo = todosRef.current.find((candidate) => candidate.id === id)
+        if (!todo) throw new Error(`No todo with id ${id}`)
+        const updated: Todo = { ...todo, completed: Boolean(input.completed) }
+        setTodos((current) => current.map((candidate) => candidate.id === id ? updated : candidate))
+        return { updated }
+      },
+    },
   }
 
   // The chat's "top todo" tracks live app state: toggling it in the list updates the chat copy.
@@ -104,6 +163,9 @@ export function App() {
       {chatOpen && (
         <aside className="chat-sidebar">
           <AstralBeamChat
+            endpoint={CHAT_ENDPOINT}
+            systemPrompt={SYSTEM_PROMPT}
+            tools={tools}
             theme={theme}
             widgets={{
               todoCard: {

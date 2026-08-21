@@ -4,10 +4,11 @@ import {
   ChatCircleDotsIcon,
   CheckIcon,
   FileTextIcon,
+  WarningCircleIcon,
   WrenchIcon,
 } from "@phosphor-icons/react"
 import type { MessagePart, UIMessage } from "@tanstack/ai-client"
-import { useChat } from "@tanstack/ai-react"
+import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useEffect, useRef, useState } from "react"
 import {
   Attachment,
@@ -51,38 +52,27 @@ import {
   QuestionnaireTitle,
 } from "@/components/ui/questionnaire"
 import { Spinner } from "@/components/ui/spinner"
-import type { MountAstralBeamChatOptions, StandardSchemaV1, WidgetDefinition } from "../client.ts"
+import type { MountAstralBeamChatOptions, WidgetDefinition } from "../client.ts"
 import {
-  ANSWERS_PREFIX,
   ASK_QUESTIONNAIRE_TOOL,
-  buildConversation,
+  buildAskQuestionnaireTool,
+  buildHostTools,
+  buildRenderWidgetTool,
   getMessageText,
+  type QuestionnaireAnswer,
   type QuestionnaireInput as QuestionnaireToolInput,
   type QuestionnaireItemSpec,
   RENDER_WIDGET_TOOL,
   type RenderWidgetInput,
   slotNameForWidget,
-} from "./conversation.ts"
+  validateParameters,
+} from "./agent.ts"
+
+const DEFAULT_ENDPOINT = "/api/chat"
 
 /** Widget names come from the agent, so inherited keys like "constructor" must not resolve. */
 function getWidget(widgets: Record<string, WidgetDefinition>, name: string) {
   return Object.hasOwn(widgets, name) ? widgets[name] : undefined
-}
-
-/**
- * Agent-supplied props are untrusted: a Standard Schema in `parameters` validates them before the
- * host's `render` runs (null means rejected); plain JSON Schemas have no validator and pass through.
- */
-async function validateWidgetProps(
-  { parameters }: WidgetDefinition,
-  props: Record<string, unknown>,
-): Promise<Record<string, unknown> | null> {
-  if (!parameters || !("~standard" in parameters)) return props
-  const result = (await (parameters as StandardSchemaV1)["~standard"].validate(props)) as {
-    value?: Record<string, unknown>
-    issues?: unknown
-  }
-  return result.issues ? null : result.value ?? {}
 }
 
 interface ActiveWidgetRender {
@@ -124,20 +114,22 @@ function UserMessageBody({ message }: { message: UIMessage }) {
   )
 }
 
-/** Formats questionnaire answers as the user message the simulated agent responds to. */
-function summarizeAnswers(items: QuestionnaireItemSpec[], formData: FormData): string {
-  const lines = items.map((item) => {
+/** Collects submitted questionnaire answers as the structured tool output the agent receives. */
+function collectAnswers(items: QuestionnaireItemSpec[], formData: FormData): QuestionnaireAnswer[] {
+  return items.map((item) => {
     const values = formData.getAll(item.name).map(String).filter((value) => value.length > 0)
     const labels = values.map(
       (value) => item.choices.find((choice) => choice.value === value)?.label ?? value,
     )
-    return `${item.title} ${labels.length > 0 ? labels.join(", ") : "(skipped)"}`
+    return { name: item.name, question: item.title, answers: labels }
   })
-  return `${ANSWERS_PREFIX} ${lines.join(" · ")}`
 }
 
 function InlineQuestionnaire(
-  { items, onAnswers }: { items: QuestionnaireItemSpec[]; onAnswers: (summary: string) => void },
+  { items, onAnswers }: {
+    items: QuestionnaireItemSpec[]
+    onAnswers: (answers: QuestionnaireAnswer[]) => void
+  },
 ) {
   return (
     <Questionnaire
@@ -145,7 +137,7 @@ function InlineQuestionnaire(
       items={items}
       onSubmit={(event) => {
         event.preventDefault()
-        onAnswers(summarizeAnswers(items, new FormData(event.currentTarget)))
+        onAnswers(collectAnswers(items, new FormData(event.currentTarget)))
       }}
     >
       <QuestionnaireProgress />
@@ -192,13 +184,10 @@ function InlineQuestionnaire(
 interface AssistantPartProps {
   part: MessagePart
   widgets: Record<string, WidgetDefinition>
-  submittedQuestionnaires: ReadonlySet<string>
-  onQuestionnaireAnswers: (toolCallId: string, summary: string) => void
+  onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
 }
 
-function AssistantPart(
-  { part, widgets, submittedQuestionnaires, onQuestionnaireAnswers }: AssistantPartProps,
-) {
+function AssistantPart({ part, widgets, onQuestionnaireAnswers }: AssistantPartProps) {
   switch (part.type) {
     case "text":
       return (
@@ -209,6 +198,18 @@ function AssistantPart(
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
+      if (part.state === "error") {
+        return (
+          <Marker>
+            <MarkerIcon>
+              <WarningCircleIcon />
+            </MarkerIcon>
+            <MarkerContent>
+              <span className="font-mono">{part.name}</span> failed
+            </MarkerContent>
+          </Marker>
+        )
+      }
       if (part.name === RENDER_WIDGET_TOOL) {
         const input = part.input as RenderWidgetInput | undefined
         const definition = input ? getWidget(widgets, input.widget) : undefined
@@ -227,8 +228,8 @@ function AssistantPart(
       }
       if (part.name === ASK_QUESTIONNAIRE_TOOL) {
         const input = part.input as QuestionnaireToolInput | undefined
-        if (!input || part.output == null) return null
-        if (submittedQuestionnaires.has(part.id)) {
+        if (!input?.items?.length || part.state === "input-streaming") return null
+        if (part.output != null) {
           return (
             <Marker>
               <MarkerIcon>
@@ -241,7 +242,7 @@ function AssistantPart(
         return (
           <InlineQuestionnaire
             items={input.items}
-            onAnswers={(summary) => onQuestionnaireAnswers(part.id, summary)}
+            onAnswers={(answers) => onQuestionnaireAnswers(part.id, answers)}
           />
         )
       }
@@ -249,7 +250,7 @@ function AssistantPart(
         <Marker>
           <MarkerIcon>{part.output == null ? <Spinner /> : <WrenchIcon />}</MarkerIcon>
           <MarkerContent className={part.output == null ? "shimmer" : ""}>
-            Running <span className="font-mono">{part.name}</span>…
+            {part.output == null ? "Running" : "Ran"} <span className="font-mono">{part.name}</span>
           </MarkerContent>
         </Marker>
       )
@@ -264,56 +265,13 @@ export function ChatWidget(
   { options, host }: { options: MountAstralBeamChatOptions; host: HTMLElement },
 ) {
   const widgets = options.widgets ?? {}
-  // The conversation is scripted per mount; widget changes after mount are not supported yet.
-  const [{ chat, connection }] = useState(() => buildConversation(widgets))
-  const { messages, append, sendMessage, setMessages, status } = useChat({
-    initialMessages: [],
-    connection,
-  })
-  const [draft, setDraft] = useState("")
-  const [submittedQuestionnaires, setSubmittedQuestionnaires] = useState<ReadonlySet<string>>(
-    new Set(),
-  )
-  const isBusy = status === "submitted" || status === "streaming"
-  const nextMessage = chat.next(messages)
-  const nextMessageText = nextMessage ? getMessageText(nextMessage) : null
-
-  // Render a widget the first time its tool call completes: the container is a light-DOM child of
-  // the shadow host, so the <slot> in the transcript projects it into the conversation.
-  const dispatchedToolCalls = useRef(new Set<string>())
+  // A slot holds at most one active render per widget; a repeated request replaces the previous.
   const activeRenders = useRef(new Map<string, ActiveWidgetRender>())
   const removeActiveRenders = () => {
     activeRenders.current.forEach(disposeWidgetRender)
     activeRenders.current.clear()
   }
   const mounted = useRef(true)
-  useEffect(() => {
-    for (const message of messages) {
-      for (const part of message.parts) {
-        if (
-          part.type !== "tool-call" || part.name !== RENDER_WIDGET_TOOL ||
-          part.output == null || dispatchedToolCalls.current.has(part.id)
-        ) continue
-        dispatchedToolCalls.current.add(part.id)
-        const input = part.input as RenderWidgetInput
-        const definition = getWidget(widgets, input.widget)
-        if (!definition) continue
-        // Validation may be async, so the mounted flag stops a render arriving after unmount.
-        void validateWidgetProps(definition, input.props ?? {}).then((props) => {
-          if (props == null || !mounted.current) return
-          // A slot holds at most one active render; a repeated request replaces the previous one.
-          const slotName = slotNameForWidget(input.widget)
-          const previous = activeRenders.current.get(slotName)
-          if (previous) disposeWidgetRender(previous)
-          const container = document.createElement("div")
-          container.slot = slotName
-          host.append(container)
-          const cleanup = definition.render(props, container)
-          activeRenders.current.set(slotName, { container, cleanup: cleanup ?? undefined })
-        })
-      }
-    }
-  }, [messages])
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -322,14 +280,49 @@ export function ChatWidget(
     }
   }, [])
 
-  const sendCurrent = () => {
-    if (isBusy) return
-    if (nextMessage) {
-      void append(nextMessage)
-    } else if (draft.trim().length > 0) {
-      void sendMessage(draft.trim())
-      setDraft("")
+  // The connection and tool set are fixed per mount; widget or tool changes afterwards are not
+  // supported yet. Everything the closures need lives in refs, so first-render capture is safe.
+  const [session] = useState(() => {
+    const renderWidget = async ({ widget, props }: RenderWidgetInput) => {
+      const definition = getWidget(widgets, widget)
+      if (!definition) throw new Error(`Unknown widget "${widget}"`)
+      const validated = await validateParameters(definition.parameters, props ?? {})
+      if (validated == null) throw new Error(`Props for widget "${widget}" failed validation`)
+      if (!mounted.current) throw new Error("The chat is no longer mounted")
+      const slotName = slotNameForWidget(widget)
+      const previous = activeRenders.current.get(slotName)
+      if (previous) disposeWidgetRender(previous)
+      // The container is a light-DOM child of the shadow host, so the <slot> rendered in the
+      // transcript once the tool call completes projects it into the conversation.
+      const container = document.createElement("div")
+      container.slot = slotName
+      host.append(container)
+      const cleanup = definition.render(validated, container)
+      activeRenders.current.set(slotName, { container, cleanup: cleanup ?? undefined })
+      return { widget, rendered: true }
     }
+    return {
+      connection: fetchServerSentEvents(options.endpoint ?? DEFAULT_ENDPOINT),
+      tools: [
+        ...(Object.keys(widgets).length > 0 ? [buildRenderWidgetTool(widgets, renderWidget)] : []),
+        buildAskQuestionnaireTool(),
+        ...buildHostTools(options.tools ?? {}),
+      ],
+    }
+  })
+  const { messages, sendMessage, setMessages, status, error, addToolResult } = useChat({
+    initialMessages: [],
+    connection: session.connection,
+    tools: session.tools,
+    ...(options.systemPrompt ? { forwardedProps: { systemPrompt: options.systemPrompt } } : {}),
+  })
+  const [draft, setDraft] = useState("")
+  const isBusy = status === "submitted" || status === "streaming"
+
+  const sendDraft = () => {
+    if (isBusy || draft.trim().length === 0) return
+    void sendMessage(draft.trim())
+    setDraft("")
   }
   const lastMessage = messages[messages.length - 1]
 
@@ -338,7 +331,7 @@ export function ChatWidget(
       <header className="flex items-center justify-between gap-2 border-b px-4 py-3">
         <div>
           <div className="font-semibold">AstralBeam</div>
-          <div className="text-xs text-muted-foreground">Simulated agent — scripted replies</div>
+          <div className="text-xs text-muted-foreground">Assistant</div>
         </div>
         <Button
           variant="ghost"
@@ -348,8 +341,6 @@ export function ChatWidget(
           onClick={() => {
             setMessages([])
             setDraft("")
-            setSubmittedQuestionnaires(new Set())
-            dispatchedToolCalls.current.clear()
             removeActiveRenders()
           }}
         >
@@ -364,9 +355,9 @@ export function ChatWidget(
                 <EmptyMedia variant="icon">
                   <ChatCircleDotsIcon />
                 </EmptyMedia>
-                <EmptyTitle>Start the demo conversation</EmptyTitle>
+                <EmptyTitle>Ask the assistant</EmptyTitle>
                 <EmptyDescription>
-                  Press send to play the queued messages through a simulated agent.
+                  It can answer questions and act through this app's own tools and widgets.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -391,12 +382,12 @@ export function ChatWidget(
                                   key={partIndex}
                                   part={part}
                                   widgets={widgets}
-                                  submittedQuestionnaires={submittedQuestionnaires}
-                                  onQuestionnaireAnswers={(toolCallId, summary) => {
-                                    setSubmittedQuestionnaires(
-                                      (previous) => new Set(previous).add(toolCallId),
-                                    )
-                                    void sendMessage(summary)
+                                  onQuestionnaireAnswers={(toolCallId, answers) => {
+                                    void addToolResult({
+                                      toolCallId,
+                                      tool: ASK_QUESTIONNAIRE_TOOL,
+                                      output: { answers },
+                                    })
                                   }}
                                 />
                               ))}
@@ -422,21 +413,25 @@ export function ChatWidget(
         className="border-t p-3"
         onSubmit={(event) => {
           event.preventDefault()
-          sendCurrent()
+          sendDraft()
         }}
       >
+        {status === "error" && (
+          <div className="mb-2 rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive">
+            {error?.message ?? "Something went wrong. Try sending your message again."}
+          </div>
+        )}
         <InputGroup>
           <InputGroupTextarea
-            aria-label={nextMessage ? "Next queued message" : "Message"}
+            aria-label="Message"
             className="max-h-24 min-h-9"
             placeholder="Message AstralBeam…"
-            readOnly={nextMessage != null}
-            value={nextMessageText ?? draft}
+            value={draft}
             onChange={(event) => setDraft(event.currentTarget.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault()
-                sendCurrent()
+                sendDraft()
               }
             }}
           />
@@ -446,7 +441,7 @@ export function ChatWidget(
               variant="default"
               size="icon-sm"
               className="ml-auto"
-              disabled={isBusy || (nextMessage == null && draft.trim().length === 0)}
+              disabled={isBusy || draft.trim().length === 0}
             >
               <ArrowUpIcon />
               <span className="sr-only">Send</span>

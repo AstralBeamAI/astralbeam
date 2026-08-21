@@ -19,18 +19,18 @@ export interface JsonSchemaObject {
   [keyword: string]: unknown
 }
 
-/** Schema of the props the agent supplies to a widget, like a tool definition's parameters. */
-export type WidgetParameters = StandardSchemaV1 | JsonSchemaObject
+/** Schema of the input the agent supplies to a widget or tool, like a tool definition's parameters. */
+export type ParametersSchema = StandardSchemaV1 | JsonSchemaObject
 
 export interface WidgetDefinition {
   /** Tells the agent what the widget shows so it can decide when to render it. */
   description: string
   /**
-   * Schema of the agent-supplied props; passed to the agent verbatim. A Standard Schema also
-   * validates the props before `render` runs; a plain JSON Schema does not, so treat the props
-   * as untrusted input.
+   * Schema of the agent-supplied props; forwarded to the agent as JSON Schema. A Standard Schema
+   * also validates the props before `render` runs; a plain JSON Schema does not, so treat the
+   * props as untrusted input.
    */
-  parameters?: WidgetParameters
+  parameters?: ParametersSchema
   /**
    * Draws the widget with the agent-chosen props into `container`, a light-DOM child of the mount
    * target that the chat projects into the conversation. May return a cleanup function, called
@@ -39,10 +39,32 @@ export interface WidgetDefinition {
   render: (props: Record<string, unknown>, container: HTMLElement) => (() => void) | void
 }
 
+export interface ToolDefinition {
+  /** Tells the agent what the tool does so it can decide when to call it. */
+  description: string
+  /**
+   * Schema of the agent-supplied input; forwarded to the agent as JSON Schema. A Standard Schema
+   * also validates the input before `execute` runs; a plain JSON Schema does not, so treat the
+   * input as untrusted.
+   */
+  parameters?: ParametersSchema
+  /**
+   * Runs the tool in the host page with the agent-chosen input. The resolved value is returned
+   * to the agent as the tool result; a thrown error is returned as a tool error.
+   */
+  execute: (input: Record<string, unknown>) => unknown | Promise<unknown>
+}
+
 /** Color scheme of the chat widget; `"system"` follows the OS `prefers-color-scheme` setting. */
 export type AstralBeamChatTheme = "light" | "dark" | "system"
 
 export interface MountAstralBeamChatOptions {
+  /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
+  endpoint?: string | undefined
+  /** Host-specific instructions the endpoint appends to the agent's system prompt. */
+  systemPrompt?: string | undefined
+  /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
+  tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
   /** Initial color scheme; change it after mount with the handle's `setTheme`. Default `"system"`. */

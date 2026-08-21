@@ -34,6 +34,8 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/manrope": "^5.2.8",
     "@phosphor-icons/react": "^2.1.10",
+    "@tanstack/ai": "^0.46.0",
+    "@tanstack/ai-openai": "^0.20.0",
     "@tanstack/react-devtools": "^0.10.9",
     "@tanstack/react-router": "^1.170.18",
     "@tanstack/react-router-devtools": "^1.167.0",

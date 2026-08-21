@@ -1,7 +1,7 @@
 export interface TodoCardProps {
   title?: string
   completed?: boolean
-  /** Set by the simulated agent when it wants the todo to stand out. */
+  /** Set by the agent when it wants the todo to stand out. */
   highlight?: boolean
   onToggle?: () => void
 }
