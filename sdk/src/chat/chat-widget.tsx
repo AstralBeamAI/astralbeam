@@ -59,9 +59,9 @@ import {
   getMessageText,
   type QuestionnaireInput as QuestionnaireToolInput,
   type QuestionnaireItemSpec,
-  RENDER_COMPONENT_TOOL,
-  type RenderComponentInput,
-  slotNameForComponent,
+  RENDER_WIDGET_TOOL,
+  type RenderWidgetInput,
+  slotNameForWidget,
 } from "./conversation.ts"
 
 function UserMessageBody({ message }: { message: UIMessage }) {
@@ -168,7 +168,7 @@ interface AssistantPartProps {
 function AssistantPart(
   { part, options, submittedQuestionnaires, onQuestionnaireAnswers }: AssistantPartProps,
 ) {
-  const customComponents = options.customComponents ?? []
+  const widgets = options.widgets ?? {}
   switch (part.type) {
     case "text":
       return (
@@ -179,18 +179,18 @@ function AssistantPart(
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
-      if (part.name === RENDER_COMPONENT_TOOL) {
-        const input = part.input as RenderComponentInput | undefined
-        const descriptor = input ? customComponents[input.componentIndex] : undefined
-        if (!input || !descriptor) return null
+      if (part.name === RENDER_WIDGET_TOOL) {
+        const input = part.input as RenderWidgetInput | undefined
+        const definition = input ? widgets[input.widget] : undefined
+        if (!input || !definition) return null
         return (
           <div className="flex flex-col gap-1">
             <div className="px-1 text-[0.625rem] tracking-wide text-muted-foreground uppercase">
-              {descriptor.description}
+              {definition.description}
             </div>
             <div className="rounded-xl border border-dashed p-1.5">
-              {/* The host's light-DOM child with this slot attribute projects in here. */}
-              {part.output != null && <slot name={slotNameForComponent(input.componentIndex)} />}
+              {/* The light-DOM child holding the widget render projects in here. */}
+              {part.output != null && <slot name={slotNameForWidget(input.widget)} />}
             </div>
           </div>
         )
@@ -230,10 +230,12 @@ function AssistantPart(
   }
 }
 
-export function ChatWidget(options: MountAstralBeamChatOptions) {
-  const customComponents = options.customComponents ?? []
-  // The conversation is scripted per mount; descriptor changes after mount are not supported yet.
-  const [{ chat, connection }] = useState(() => buildConversation(customComponents))
+export function ChatWidget(
+  { options, host }: { options: MountAstralBeamChatOptions; host: HTMLElement },
+) {
+  const widgets = options.widgets ?? {}
+  // The conversation is scripted per mount; widget changes after mount are not supported yet.
+  const [{ chat, connection }] = useState(() => buildConversation(widgets))
   const { messages, append, sendMessage, setMessages, status } = useChat({
     initialMessages: [],
     connection,
@@ -246,25 +248,46 @@ export function ChatWidget(options: MountAstralBeamChatOptions) {
   const nextMessage = chat.next(messages)
   const nextMessageText = nextMessage ? getMessageText(nextMessage) : null
 
-  // Ask the host to render a custom component the first time its tool call completes.
+  // Render a widget the first time its tool call completes: the container is a light-DOM child of
+  // the shadow host, so the <slot> in the transcript projects it into the conversation.
   const dispatchedToolCalls = useRef(new Set<string>())
+  const activeRenders = useRef(
+    new Map<string, { container: HTMLElement; cleanup: (() => void) | undefined }>(),
+  )
+  const removeActiveRenders = () => {
+    for (const { container, cleanup } of activeRenders.current.values()) {
+      cleanup?.()
+      container.remove()
+    }
+    activeRenders.current.clear()
+  }
   useEffect(() => {
     for (const message of messages) {
       for (const part of message.parts) {
         if (
-          part.type !== "tool-call" || part.name !== RENDER_COMPONENT_TOOL ||
+          part.type !== "tool-call" || part.name !== RENDER_WIDGET_TOOL ||
           part.output == null || dispatchedToolCalls.current.has(part.id)
         ) continue
         dispatchedToolCalls.current.add(part.id)
-        const input = part.input as RenderComponentInput
-        options.onRenderCustomComponent?.({
-          componentIndex: input.componentIndex,
-          props: input.props ?? {},
-          slotName: slotNameForComponent(input.componentIndex),
-        })
+        const input = part.input as RenderWidgetInput
+        const definition = widgets[input.widget]
+        if (!definition) continue
+        // A slot holds at most one active render, so a repeated request replaces the previous one.
+        const slotName = slotNameForWidget(input.widget)
+        const previous = activeRenders.current.get(slotName)
+        if (previous) {
+          previous.cleanup?.()
+          previous.container.remove()
+        }
+        const container = document.createElement("div")
+        container.slot = slotName
+        host.append(container)
+        const cleanup = definition.render(input.props ?? {}, container)
+        activeRenders.current.set(slotName, { container, cleanup: cleanup ?? undefined })
       }
     }
   }, [messages])
+  useEffect(() => removeActiveRenders, [])
 
   const sendCurrent = () => {
     if (isBusy) return
@@ -294,6 +317,7 @@ export function ChatWidget(options: MountAstralBeamChatOptions) {
             setDraft("")
             setSubmittedQuestionnaires(new Set())
             dispatchedToolCalls.current.clear()
+            removeActiveRenders()
           }}
         >
           <ArrowCounterClockwiseIcon />

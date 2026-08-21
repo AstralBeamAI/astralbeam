@@ -7,9 +7,9 @@ export interface TodoCardProps {
 }
 
 /**
- * The host app's representation of a todo, registered with the chat widget as a custom component.
- * It renders in the app's own React tree with the app's own plain CSS, and the widget only decides
- * where it appears in the conversation.
+ * The host app's representation of a todo, registered with the chat as the `todoCard` widget.
+ * It renders in the app's own React tree with the app's own plain CSS, and the chat only decides
+ * where it appears in the conversation and which agent-chosen props it receives.
  */
 export function TodoCard({ title, completed = false, highlight = false, onToggle }: TodoCardProps) {
   return (

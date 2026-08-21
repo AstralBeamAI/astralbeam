@@ -36,7 +36,7 @@
   },
   "scripts": {
     "build": "deno task generate:styles && tsdown",
-    "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts",
+    "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && deno run --allow-read=.generated --allow-write=src/chat scripts/embed-styles.ts",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno fmt && deno lint --fix",
     "format": "deno fmt",
@@ -51,10 +51,14 @@
   },
   "peerDependencies": {
     "react": ">=18",
+    "react-dom": ">=18",
     "vue": ">=3"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "react-dom": {
       "optional": true
     },
     "vue": {

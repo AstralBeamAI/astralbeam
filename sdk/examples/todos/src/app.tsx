@@ -76,19 +76,29 @@ export function App() {
       {chatOpen && (
         <aside className="chat-sidebar">
           <AstralBeamChat
-            customComponents={[
-              {
-                component: TodoCard,
+            widgets={{
+              todoCard: {
                 description: "The most important todo from the host app",
-                props: topTodo
-                  ? {
-                    title: topTodo.text,
-                    completed: topTodo.completed,
-                    onToggle: () => toggleTodo(topTodo.id),
-                  }
-                  : {},
+                parameters: {
+                  type: "object",
+                  properties: {
+                    highlight: {
+                      type: "boolean",
+                      description: "Make the todo stand out in the conversation",
+                    },
+                  },
+                },
+                render: ({ highlight }) =>
+                  topTodo && (
+                    <TodoCard
+                      title={topTodo.text}
+                      completed={topTodo.completed}
+                      highlight={Boolean(highlight)}
+                      onToggle={() => toggleTodo(topTodo.id)}
+                    />
+                  ),
               },
-            ]}
+            }}
           />
         </aside>
       )}

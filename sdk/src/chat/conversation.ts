@@ -1,16 +1,17 @@
 import { createChat } from "@shadcn/helpers/tanstack-ai"
 import type { UIMessage } from "@tanstack/ai-client"
-import type { CustomComponentDescriptor } from "../client.ts"
+import type { WidgetDefinition } from "../client.ts"
 
 /**
  * Simulated tool names: until a real agent drives the chat, the scripted assistant "calls" these
- * tools and the widget reacts to their parts while rendering the transcript.
+ * tools and the chat widget reacts to their parts while rendering the transcript.
  */
-export const RENDER_COMPONENT_TOOL = "render_component"
+export const RENDER_WIDGET_TOOL = "render_widget"
 export const ASK_QUESTIONNAIRE_TOOL = "ask_questionnaire"
 
-export interface RenderComponentInput {
-  componentIndex: number
+export interface RenderWidgetInput {
+  /** Key into the `widgets` object passed at mount. */
+  widget: string
   props: Record<string, unknown>
 }
 
@@ -37,8 +38,8 @@ export interface QuestionnaireInput {
 /** Marks questionnaire answers in the transcript so the fallback response can react to them. */
 export const ANSWERS_PREFIX = "Here are my answers:"
 
-export function slotNameForComponent(componentIndex: number): string {
-  return `astralbeam-custom-${componentIndex}`
+export function slotNameForWidget(widget: string): string {
+  return `astralbeam-widget-${widget}`
 }
 
 export function getMessageText(message: UIMessage): string {
@@ -81,43 +82,46 @@ const planningItems: QuestionnaireItemSpec[] = [
 ]
 
 /**
- * Scripts the demo conversation for one widget mount. The transcript adapts to the registered
- * custom components: when the host registered at least one, the assistant "renders" the first one
- * inline through the render_component tool.
+ * Scripts the demo conversation for one chat mount. The transcript adapts to the registered
+ * widgets: when the host registered at least one, the assistant "renders" the first one inline
+ * through the render_widget tool.
  */
-export function buildConversation(customComponents: CustomComponentDescriptor[]) {
+export function buildConversation(widgets: Record<string, WidgetDefinition>) {
+  const widgetEntries = Object.entries(widgets)
   const chat = createChat()
   chat.user("Hey! What can you do in this app?")
   chat.sleep(400)
   chat.assistant(
     "Hi! I'm the AstralBeam assistant. I'm running on a scripted conversation while the real agent is under construction, so send the queued messages to see streaming text, reasoning, tool calls, an in-chat questionnaire" +
-      (customComponents.length > 0 ? ", and your app's own components rendered inline." : "."),
+      (widgetEntries.length > 0 ? ", and your app's own widgets rendered inline." : "."),
   )
-  if (customComponents.length > 0) {
+  const firstWidget = widgetEntries[0]
+  if (firstWidget) {
+    const [widgetName] = firstWidget
     chat.user("Show me the most important thing on my plate.")
     chat.sleep(400)
     chat.assistant(({ writer }) => {
       writer.reasoning(
-        `The host app registered ${customComponents.length} custom component(s): ${
-          customComponents.map((descriptor) => `"${descriptor.description}"`).join("; ")
-        }. The first one fits this request, so I'll render it inline and highlight it.`,
+        `The host app registered ${widgetEntries.length} widget(s): ${
+          widgetEntries.map(([name, { description }]) => `${name} ("${description}")`).join("; ")
+        }. "${widgetName}" fits this request, so I'll render it inline and highlight it.`,
       )
       writer
-        .tool(RENDER_COMPONENT_TOOL, {
+        .tool(RENDER_WIDGET_TOOL, {
           input: {
-            componentIndex: 0,
+            widget: widgetName,
             props: { highlight: true },
-          } satisfies RenderComponentInput,
+          } satisfies RenderWidgetInput,
         })
         .sleep(700)
-        .output({ slotName: slotNameForComponent(0), rendered: true })
+        .output({ widget: widgetName, rendered: true })
       writer.text(
-        "Here it is — rendered by your app's own component, inside the chat but outside my styles.",
+        "Here it is — rendered by your app's own widget, inside the chat but outside my styles.",
       )
     })
   }
   chat.user("Can you help me plan the rest of my day? Here are my notes.", {
-    // Becomes a document part, which the widget renders with the Attachment component.
+    // Becomes a document part, which the chat widget renders with the Attachment component.
     files: [{ mediaType: "text/markdown", url: "https://astralbeam.ai/demo/day-notes.md" }],
   })
   chat.sleep(400)
