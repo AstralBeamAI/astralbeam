@@ -1,3 +1,2 @@
-export const tables = {}
-// Export real table and relation modules from this barrel as they are introduced.
-// Keep it empty until AstralBeam has its first domain schema.
+export * from "./auth-schema.server"
+export * from "./organization-access-schema.server"

@@ -6,6 +6,7 @@
 - Before running `deno task knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete project diff before running `deno task check:fix`.
 - Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
+- Keep tests that protect durable behavior, security boundaries, or previously observed regressions; avoid tests that only restate implementation details or exercise trivial constants and generated structure.
 
 ## Documentation
 
@@ -23,6 +24,9 @@
 
 - `webapp` and `sdk` each own a `components.json` and their own shadcn-generated components, hooks, and utilities under that project's `src/components/ui`, `src/hooks`, and `src/lib`; neither imports the other's.
 - Add components from the owning project with `deno task ui add <component>`, keeping both `components.json` files on the same style, base color, and icon library.
+- At the top of each registry-added `src/components/ui` file, record the repeatable `deno task ui add <component>` command and every intentional local change; omit nonessential automation flags such as `--overwrite` and `-y` from the recorded command.
+- Let Knip remove unreachable registry files under `src/components/ui`; ignore generated export-level noise rather than excluding the directory from unused-file discovery.
+- Use `@phosphor-icons/react` throughout Webapp and SDK UI; replace other icon-library imports in registry source during integration and do not add `lucide-react` as a dependency.
 - Keep the hand-authored portions of `webapp/src/styles.css` theme-agnostic; concrete palette values belong only in its marked generated section. The theme block in `sdk/src/styles.css` is a copy of the webapp light palette, kept in sync through explicit edits.
 
 ## Theme and brand
@@ -38,7 +42,23 @@
 - Re-export every table and relation Drizzle Kit must discover from `webapp/src/db/schema.server.ts`, and keep generated migrations under `webapp/src/db/migrations`.
 - Run database commands from `webapp` with `deno task db <command>`.
 - After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
+- Use PostgreSQL `uuid` primary and foreign keys with database-generated `uuidv7()` defaults, `citext` for email identity, and `timestamp with time zone` without forced precision for application instants; PostgreSQL 18 is the minimum supported server version.
+- Define tables with `snakeCase.table`, keep TypeScript property names camel case, and omit redundant column-name arguments when Drizzle can derive the lower snake-case SQL name.
+- Spread the shared `timestamps()` column group into tables by default so `created_at` and `updated_at` are non-null `timestamp with time zone` columns with `now()` defaults; keep `updated_at` on Drizzle's `$onUpdateFn` hook returning PostgreSQL `now()`. The hook is runtime-only, so raw SQL and other clients must set `updated_at` explicitly.
+- Keep required extension DDL such as `CREATE EXTENSION IF NOT EXISTS citext` in the generated migration because a Drizzle `customType` does not install its PostgreSQL extension. Regenerate an unmerged, unapplied migration when refining the same schema change, but never rewrite migration history that may have been applied by others.
+- Follow the applicable PostgreSQL [Don't Do This](https://wiki.postgresql.org/wiki/Don't_Do_This) guidance: keep identifiers lower snake case, use half-open timestamp ranges and `NOT EXISTS` where null-aware exclusion is needed, retain unconstrained `text`/`citext`, and avoid `timetz`, `CURRENT_TIME`, `char(n)`, default `varchar(n)`, `money`, `serial`, rules, table inheritance, and trust authentication over TCP/IP.
 - Use `migrate` for checked-in migrations; reserve `push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or `*.local` environment files.
+
+## Authentication
+
+- Keep Better Auth server configuration, middleware, environment validation, and organization access functions under `webapp/src/server`; browser-safe auth code belongs under `webapp/src/auth` and `webapp/src/lib/auth`.
+- Keep Better Auth UI registry components under `webapp/src/components/auth`, update them from the latest compatible registry release, and preserve the upstream implementation with only necessary product, framework, or strict-typing adaptations. Do not add provenance headers to these files, and let Deno format and lint them normally.
+- Keep Google and GitHub OAuth as the only sign-in methods and Better Auth Organizations as the SaaS membership boundary; do not enable email/password, two-factor authentication, teams, or dynamic organization roles unless product scope explicitly changes.
+- Keep implicit OAuth signup disabled. New users must enter through the terms-gated sign-up flow, while existing users use sign-in.
+- Provision organization access through pending grants keyed by `citext` email and activate them only after Better Auth creates the real user; never pre-create Better Auth user rows to represent invitations or access grants.
+- Treat route guards as navigation UX, not authorization. Protect every organization-owned server function with `organizationMiddleware` and re-check roles and target privileges at the server boundary.
+- Keep `tanstackStartCookies()` last in the Better Auth plugin list and keep session cookie caching disabled while session revocation is expected to take effect immediately.
+- After auth models, fields, or plugins change, update the TypeScript schema, generate and inspect a Drizzle migration, run `deno task db check`, and commit the schema and migration together.
 
 ## Cursor Cloud
 

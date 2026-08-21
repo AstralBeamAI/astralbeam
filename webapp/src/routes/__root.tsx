@@ -1,8 +1,10 @@
 import { TanStackDevtools } from "@tanstack/react-devtools"
-import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router"
+import type { QueryClient } from "@tanstack/react-query"
+import { createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
 import appCss from "@/styles.css?url"
+import { Providers } from "@/components/providers"
 
 // Route-managed head styles apply before first paint and keep theme selection app-owned. https://tanstack.com/router/latest/docs/guide/document-head-management
 const devtoolsConfig = { position: "bottom-right" } as const
@@ -13,7 +15,7 @@ const devtoolsPlugins = [
   },
 ]
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       {
@@ -72,7 +74,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <Providers>{children}</Providers>
         <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />
         <Scripts />
       </body>
