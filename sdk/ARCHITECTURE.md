@@ -39,7 +39,7 @@ Host UI enters the widget through custom components, which cross the shadow boun
 3. The host renders the component as a light-DOM child of `target` carrying `slot="<slotName>"`.
 4. The widget renders a matching `<slot name="<slotName>">`, and the browser projects the host's element into that position.
 
-The consequence is that host components execute in the host's own tree — so their state, context, and event handlers keep working — while the widget controls only _where_ they appear. The React wrapper implements step 3 by keeping render requests in `useState` and rendering the corresponding entries as slotted `<div>`s; a repeated request for a slot replaces the previous one, since a slot holds at most one active render.
+The consequence is that host components execute in the host's own tree — so their state, context, and event handlers keep working — while the widget controls only _where_ they appear. The React wrapper implements step 3 by keeping render requests in `useState` and rendering the corresponding entries as slotted `<div>`s; a repeated request for a slot replaces the previous one, since a slot holds at most one active render. Descriptors are registered once at mount, so changing `customComponents` afterwards has no effect on what the widget knows about.
 
 Current placeholder behavior: the widget has no agent yet, so it requests one test render of each registered component on startup.
 

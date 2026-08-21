@@ -1,13 +1,10 @@
 import { type ComponentType, useEffect, useRef, useState } from "react"
-// The package self-reference (resolved through the exports field) makes the built react entry
-// load the client entry's self-contained widget chunk, so the widget always runs on its own
-// bundled React regardless of the host app's React version:
-// https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name
+// Self-reference rather than a relative path, so this entry shares the client entry's widget
+// chunk and its bundled React instead of bundling a second copy.
 import { type CustomComponentRenderRequest, mountAstralBeamChat } from "@astralbeam/sdk/client"
 
 export interface CustomComponentEntry {
-  /** Rendered by the host app's React tree whenever the widget requests it, so hooks, state, and
-   * context work as usual. The widget's agent chooses per-render props, hence the loose typing. */
+  /** Rendered in the host's React tree on request; the agent picks props, hence the loose typing. */
   // deno-lint-ignore no-explicit-any
   component: ComponentType<any>
   /** Base props for every render, merged under the props chosen per render request. */
@@ -25,8 +22,7 @@ export function AstralBeamChat({ customComponents = [] }: AstralBeamChatProps) {
   const [renderRequests, setRenderRequests] = useState<CustomComponentRenderRequest[]>([])
   useEffect(() => {
     if (!targetRef.current) return
-    // Component descriptions are registered once at mount; changing customComponents afterwards
-    // is not supported yet.
+    // Registered once at mount; changing customComponents afterwards is not supported yet.
     const handle = mountAstralBeamChat(targetRef.current, {
       customComponents: customComponents.map(({ description }) => ({ description })),
       // A slot holds at most one active render, so a repeated request replaces the previous one.
