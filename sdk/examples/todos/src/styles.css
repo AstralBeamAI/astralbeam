@@ -1,0 +1,121 @@
+/* Deliberately plain, non-Tailwind styling with a warm palette, so any style leaking across the
+   widget's shadow boundary in either direction is immediately visible. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  background: #faf6ef;
+  color: #3d2f1e;
+}
+
+#root,
+.app {
+  height: 100vh;
+}
+
+.app {
+  display: flex;
+}
+
+.todos {
+  flex: 1;
+  min-width: 0;
+  padding: 2rem 3rem;
+  overflow-y: auto;
+}
+
+.todos-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.todos-header h1 {
+  margin: 0 0 1rem;
+  font-size: 2.25rem;
+}
+
+.todos button {
+  padding: 0.4rem 0.9rem;
+  border: 2px solid #3d2f1e;
+  border-radius: 999px;
+  background: #f3e8d3;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.todos button:hover {
+  background: #e9d9bb;
+}
+
+.todos-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.todos-form input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid #c9b892;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+}
+
+.todos-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todos-list li {
+  padding: 0.6rem 0.25rem;
+  border-bottom: 1px dotted #c9b892;
+}
+
+.todos-list label,
+.todo-card-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.todo-done {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.chat-sidebar {
+  width: 380px;
+  flex-shrink: 0;
+  height: 100%;
+  border-left: 2px solid #c9b892;
+}
+
+/* The todo representation that the chat widget projects into the conversation. */
+.todo-card {
+  padding: 0.75rem;
+  border: 2px solid #c9b892;
+  border-radius: 10px;
+  background: #fdf9f0;
+}
+
+.todo-card-highlight {
+  border-color: #b4762a;
+  box-shadow: 0 0 0 3px rgb(180 118 42 / 0.2);
+}
+
+.todo-card-note {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  font-style: italic;
+  opacity: 0.6;
+}

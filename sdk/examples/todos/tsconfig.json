@@ -1,26 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "include": ["src", "tsdown.config.ts"],
+  "include": ["src", "vite.config.ts"],
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "exactOptionalPropertyTypes": true,
     "jsx": "react-jsx",
     "lib": ["ES2025", "DOM", "DOM.Iterable"],
     "module": "Preserve",
     "noEmit": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "verbatimModuleSyntax": true,
-    "paths": {
-      "@astralbeam/sdk/client": ["./src/client.ts"],
-      "@/*": ["./src/*"]
-    }
+    "types": ["vite/client"],
+    "verbatimModuleSyntax": true
   }
 }

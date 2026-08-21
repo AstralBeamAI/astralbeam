@@ -1,0 +1,79 @@
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@source "./**/*.{ts,tsx}";
+
+/* The compiled sheet is injected into the widget's shadow root, so document-level selectors like
+   `:root`, `html`, and `body` never match; theme variables and base styles live on `:host`. */
+
+/* Theme variables: copied from the light palette in webapp/src/styles.css (source of truth:
+   webapp/src/theme/brand.json); keep in sync through explicit edits. */
+:host {
+  --radius: 0.45rem;
+  --background: oklch(0.987029 0.00544 183.026);
+  --foreground: oklch(0.200064 0.025239 213.919);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.200064 0.025239 213.919);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.200064 0.025239 213.919);
+  --primary: oklch(0.519852 0.092904 178.167);
+  --primary-foreground: oklch(0.987029 0.00544 183.026);
+  --secondary: oklch(0.95555 0.006231 184.26172);
+  --secondary-foreground: oklch(0.200064 0.025239 213.919);
+  --muted: oklch(0.95555 0.006231 184.26172);
+  --muted-foreground: oklch(0.535809 0.016791 200.73901);
+  --accent: oklch(0.955502 0.021173 259.192);
+  --accent-foreground: oklch(0.200064 0.025239 213.919);
+  --destructive: oklch(0.583315 0.23879 28.494347);
+  --warning: oklch(0.550575 0.126099 62.535678);
+  --border: oklch(0.916202 0.007221 185.80637);
+  --input: oklch(0.916202 0.007221 185.80637);
+  --ring: oklch(0.630515 0.115912 178.140935);
+}
+
+@theme inline {
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  :host {
+    @apply bg-background text-foreground text-sm;
+    display: block;
+    font-family: system-ui, sans-serif;
+    font-style: normal;
+    line-height: 1.5;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}

@@ -3,6 +3,8 @@ import { defineConfig } from "tsdown"
 // Two ordered passes handle React in opposite ways; see ARCHITECTURE.md for the rationale.
 const reactPackages = /^react(-dom)?(\/|$)/
 const selfPackage = /^@astralbeam\/sdk(\/|$)/
+// Mirrors the tsconfig `@/*` path shadcn-generated components import through.
+const srcAlias = { "@": new URL("src", import.meta.url).pathname }
 
 export default defineConfig([
   {
@@ -10,6 +12,7 @@ export default defineConfig([
     entry: { client: "src/client.ts" },
     platform: "neutral",
     dts: true,
+    alias: srcAlias,
     deps: { alwaysBundle: [reactPackages] },
     minify: true,
     // React's published files branch on process.env.NODE_ENV, which browsers do not define.

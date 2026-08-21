@@ -19,11 +19,11 @@
 - Keep Webapp environment files under `webapp`. Commit reviewed non-secret environment files such as `.env`, `.env.development`, `.env.test`, and `.env.example`; ignore `*.local` files and never commit credentials or deployment-specific values.
 - Let application runtime configuration use the framework's environment loading. Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
 
-## Webapp UI
+## Webapp and SDK UI
 
-- `webapp` owns the repository's only `components.json` and all shadcn-generated components, hooks, and utilities under `src/components/ui`, `src/hooks`, and `src/lib`.
-- Add components from `webapp` with `deno task ui add <component>`.
-- Keep the hand-authored portions of `webapp/src/styles.css` theme-agnostic; concrete palette values belong only in its marked generated section.
+- `webapp` and `sdk` each own a `components.json` and their own shadcn-generated components, hooks, and utilities under that project's `src/components/ui`, `src/hooks`, and `src/lib`; neither imports the other's.
+- Add components from the owning project with `deno task ui add <component>`, keeping both `components.json` files on the same style, base color, and icon library.
+- Keep the hand-authored portions of `webapp/src/styles.css` theme-agnostic; concrete palette values belong only in its marked generated section. The theme block in `sdk/src/styles.css` is a copy of the webapp light palette, kept in sync through explicit edits.
 
 ## Theme and brand
 
