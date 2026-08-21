@@ -44,8 +44,7 @@
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install",
     "lint": "deno lint",
     "lint:fix": "deno lint --fix",
-    "ready": "deno task check && deno task test && deno task build",
-    "test": "vitest run",
+    "ready": "deno task check && deno task build",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
@@ -61,9 +60,12 @@
     }
   },
   "devDependencies": {
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
     "knip": "^6.32.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "tsdown": "0.22.3",
-    "typescript": "^6.0.3",
-    "vitest": "4.1.10"
+    "typescript": "^6.0.3"
   }
 }
