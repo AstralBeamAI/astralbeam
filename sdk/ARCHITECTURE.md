@@ -25,9 +25,10 @@ High-level map of `@astralbeam/sdk`: entry points, the embedded chat widget, the
 
 ## Chat widget and host boundary
 
-- `mountAstralBeamChat(target, options)` attaches a shadow root to `target` (reusing an existing one — `attachShadow` throws if called twice) and renders the chat widget inside with its CSS as a `<style>` in that root, so styles neither leak out nor inherit in.
+- `mountAstralBeamChat(target, options)` attaches a shadow root to `target` (reusing an existing one — `attachShadow` throws if called twice), creates the widget container `<div>` inside it, and renders the chat widget into that container with its CSS as a `<style>` in the root, so styles neither leak out nor inherit in.
+- The loader owns the container because theming is container-level DOM work that must not wait for the lazy chunk: the `theme` option (`"light" | "dark" | "system"`, default `"system"`) and the handle's `setTheme` toggle a `.dark` class on it, with `"system"` resolved through a `matchMedia("(prefers-color-scheme: dark)")` listener that re-applies on OS changes and is removed on unmount. The React wrapper exposes this as a `theme` prop and forwards changes to `setTheme` from an effect.
 - Host UI enters via **widgets**, crossing the boundary as [slotted light-DOM children](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_templates_and_slots).
-- Each widget definition is shaped like a tool definition: a `description`, a `parameters` schema ([Standard Schema](https://standardschema.dev) or plain JSON Schema, forwarded to the agent verbatim; `StandardSchemaV1` is vendored into `src/client.ts`), and `render(props, container)`, which may return a cleanup.
+- Each widget definition is shaped like a tool definition: a `description`, a `parameters` schema ([Standard Schema](https://standardschema.dev) or plain JSON Schema, forwarded to the agent verbatim; `StandardSchemaV1` is vendored into `src/client.ts`), and `render(props, container)`, which may return a cleanup. Agent-supplied input is untrusted, so widget lookups guard against inherited object keys and a Standard Schema `parameters` validates the props before `render` runs.
 - To render one, the chat widget creates a `<div slot="astralbeam-widget-<name>">` as a light-DOM child of `target`, calls `render` with the agent-chosen props, and renders a matching `<slot>` in the transcript.
 - Widgets thus run in the host's own environment; a slot holds one active render (a repeated request cleans up and replaces), and registration happens once at mount.
 - The React wrapper adapts `render` to JSX by [portaling](https://react.dev/reference/react-dom/createPortal) the host-defined `render(props)` output into the recorded container from the host's React tree, so state, context, and handlers keep working.
@@ -35,7 +36,8 @@ High-level map of `@astralbeam/sdk`: entry points, the embedded chat widget, the
 ## Chat widget styles inside the shadow root
 
 - `deno task generate:styles` compiles `src/styles.css` (imports `tailwindcss`, `tw-animate-css`, `shadcn/tailwind.css`; scans `src/**/*.{ts,tsx}`) with the Tailwind CLI, and `scripts/embed-styles.ts` wraps the output into the checked-in `src/chat/styles.generated.ts` string module — `deno task build` regenerates it; commit it with the source change.
-- Because the sheet lives in a shadow root, theme variables and base styles sit on `:host` instead of `:root`/`body`; the theme block is a copy of the webapp light palette, kept in sync through explicit edits.
+- Because the sheet lives in a shadow root, theme variables and base styles sit on `:host` instead of `:root`/`body`; the theme blocks are copies of the webapp light and dark palettes, kept in sync through explicit edits.
+- Dark mode is class-based: the dark palette lives on `.dark` and `@custom-variant dark (&:is(.dark *))` rebinds Tailwind's `dark:` utilities to it, because a `.dark` on a light-DOM ancestor (the webapp convention) can never match inside the shadow root. The loader toggles that class on the widget container (see the theming bullet above), and `color-scheme` is set per mode so native controls and scrollbars ignore the host page's scheme.
 
 ## Two-pass build
 
@@ -45,5 +47,5 @@ High-level map of `@astralbeam/sdk`: entry points, the embedded chat widget, the
 
 ## Examples and publishing
 
-- `examples/` holds standalone consumer apps (own `package.json` and `deno.jsonc`, ignored by knip) depending on `@astralbeam/sdk` via `file:../..`, so they resolve to the built `dist` — run `deno task build` in `sdk` first; `examples/todos` deliberately uses plain CSS to demonstrate the shadow-root boundary.
+- `examples/` holds standalone consumer apps (own `package.json` and `deno.jsonc`, ignored by knip) depending on `@astralbeam/sdk` via `file:../..`, so they resolve to the built `dist` — run `deno task build` in `sdk` first; `examples/todos` deliberately uses plain CSS to demonstrate the shadow-root boundary and themes both the app and the widget's `theme` prop from one system/light/dark preference.
 - `npm publish` from `sdk` ships only `dist`, `README.md`, `LICENSE`, and `package.json`, with `sideEffects: false` so bundlers drop unused entry points.

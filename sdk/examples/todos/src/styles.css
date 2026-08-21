@@ -8,8 +8,6 @@
 body {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
-  background: #faf6ef;
-  color: #3d2f1e;
 }
 
 #root,
@@ -18,7 +16,31 @@ body {
 }
 
 .app {
+  --fg: #3d2f1e;
+  --bg: #faf6ef;
+  --border: #c9b892;
+  --surface: #f3e8d3;
+  --surface-hover: #e9d9bb;
+  --field: #fff;
+  --card: #fdf9f0;
+  --highlight: #b4762a;
   display: flex;
+  background: var(--bg);
+  color: var(--fg);
+  color-scheme: light;
+}
+
+/* Warm dark counterpart; the App component applies this class from its theme preference. */
+.app.dark {
+  --fg: #ede3cf;
+  --bg: #201a11;
+  --border: #6b5a3e;
+  --surface: #3a3020;
+  --surface-hover: #4a3d28;
+  --field: #2b2416;
+  --card: #2b2416;
+  --highlight: #d99a45;
+  color-scheme: dark;
 }
 
 .todos {
@@ -35,6 +57,11 @@ body {
   gap: 1rem;
 }
 
+.todos-header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .todos-header h1 {
   margin: 0 0 1rem;
   font-size: 2.25rem;
@@ -42,16 +69,16 @@ body {
 
 .todos button {
   padding: 0.4rem 0.9rem;
-  border: 2px solid #3d2f1e;
+  border: 2px solid var(--fg);
   border-radius: 999px;
-  background: #f3e8d3;
+  background: var(--surface);
   color: inherit;
   font: inherit;
   font-size: 0.9rem;
 }
 
 .todos button:hover {
-  background: #e9d9bb;
+  background: var(--surface-hover);
 }
 
 .todos-form {
@@ -63,9 +90,9 @@ body {
 .todos-form input {
   flex: 1;
   padding: 0.5rem 0.75rem;
-  border: 2px solid #c9b892;
+  border: 2px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--field);
   font: inherit;
 }
 
@@ -77,7 +104,7 @@ body {
 
 .todos-list li {
   padding: 0.6rem 0.25rem;
-  border-bottom: 1px dotted #c9b892;
+  border-bottom: 1px dotted var(--border);
 }
 
 .todos-list label,
@@ -97,20 +124,20 @@ body {
   width: 380px;
   flex-shrink: 0;
   height: 100%;
-  border-left: 2px solid #c9b892;
+  border-left: 2px solid var(--border);
 }
 
 /* The todo representation that the chat widget projects into the conversation. */
 .todo-card {
   padding: 0.75rem;
-  border: 2px solid #c9b892;
+  border: 2px solid var(--border);
   border-radius: 10px;
-  background: #fdf9f0;
+  background: var(--card);
 }
 
 .todo-card-highlight {
-  border-color: #b4762a;
-  box-shadow: 0 0 0 3px rgb(180 118 42 / 0.2);
+  border-color: var(--highlight);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight) 20%, transparent);
 }
 
 .todo-card-note {

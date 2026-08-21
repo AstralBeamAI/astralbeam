@@ -51,7 +51,7 @@ import {
   QuestionnaireTitle,
 } from "@/components/ui/questionnaire"
 import { Spinner } from "@/components/ui/spinner"
-import type { MountAstralBeamChatOptions } from "../client.ts"
+import type { MountAstralBeamChatOptions, StandardSchemaV1, WidgetDefinition } from "../client.ts"
 import {
   ANSWERS_PREFIX,
   ASK_QUESTIONNAIRE_TOOL,
@@ -63,6 +63,37 @@ import {
   type RenderWidgetInput,
   slotNameForWidget,
 } from "./conversation.ts"
+
+/** Widget names come from the agent, so inherited keys like "constructor" must not resolve. */
+function getWidget(widgets: Record<string, WidgetDefinition>, name: string) {
+  return Object.hasOwn(widgets, name) ? widgets[name] : undefined
+}
+
+/**
+ * Agent-supplied props are untrusted: a Standard Schema in `parameters` validates them before the
+ * host's `render` runs (null means rejected); plain JSON Schemas have no validator and pass through.
+ */
+async function validateWidgetProps(
+  { parameters }: WidgetDefinition,
+  props: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  if (!parameters || !("~standard" in parameters)) return props
+  const result = (await (parameters as StandardSchemaV1)["~standard"].validate(props)) as {
+    value?: Record<string, unknown>
+    issues?: unknown
+  }
+  return result.issues ? null : result.value ?? {}
+}
+
+interface ActiveWidgetRender {
+  container: HTMLElement
+  cleanup: (() => void) | undefined
+}
+
+function disposeWidgetRender({ container, cleanup }: ActiveWidgetRender) {
+  cleanup?.()
+  container.remove()
+}
 
 function UserMessageBody({ message }: { message: UIMessage }) {
   const text = getMessageText(message)
@@ -160,15 +191,14 @@ function InlineQuestionnaire(
 
 interface AssistantPartProps {
   part: MessagePart
-  options: MountAstralBeamChatOptions
+  widgets: Record<string, WidgetDefinition>
   submittedQuestionnaires: ReadonlySet<string>
   onQuestionnaireAnswers: (toolCallId: string, summary: string) => void
 }
 
 function AssistantPart(
-  { part, options, submittedQuestionnaires, onQuestionnaireAnswers }: AssistantPartProps,
+  { part, widgets, submittedQuestionnaires, onQuestionnaireAnswers }: AssistantPartProps,
 ) {
-  const widgets = options.widgets ?? {}
   switch (part.type) {
     case "text":
       return (
@@ -181,7 +211,7 @@ function AssistantPart(
     case "tool-call": {
       if (part.name === RENDER_WIDGET_TOOL) {
         const input = part.input as RenderWidgetInput | undefined
-        const definition = input ? widgets[input.widget] : undefined
+        const definition = input ? getWidget(widgets, input.widget) : undefined
         if (!input || !definition) return null
         return (
           <div className="flex flex-col gap-1">
@@ -251,16 +281,12 @@ export function ChatWidget(
   // Render a widget the first time its tool call completes: the container is a light-DOM child of
   // the shadow host, so the <slot> in the transcript projects it into the conversation.
   const dispatchedToolCalls = useRef(new Set<string>())
-  const activeRenders = useRef(
-    new Map<string, { container: HTMLElement; cleanup: (() => void) | undefined }>(),
-  )
+  const activeRenders = useRef(new Map<string, ActiveWidgetRender>())
   const removeActiveRenders = () => {
-    for (const { container, cleanup } of activeRenders.current.values()) {
-      cleanup?.()
-      container.remove()
-    }
+    activeRenders.current.forEach(disposeWidgetRender)
     activeRenders.current.clear()
   }
+  const mounted = useRef(true)
   useEffect(() => {
     for (const message of messages) {
       for (const part of message.parts) {
@@ -270,24 +296,31 @@ export function ChatWidget(
         ) continue
         dispatchedToolCalls.current.add(part.id)
         const input = part.input as RenderWidgetInput
-        const definition = widgets[input.widget]
+        const definition = getWidget(widgets, input.widget)
         if (!definition) continue
-        // A slot holds at most one active render, so a repeated request replaces the previous one.
-        const slotName = slotNameForWidget(input.widget)
-        const previous = activeRenders.current.get(slotName)
-        if (previous) {
-          previous.cleanup?.()
-          previous.container.remove()
-        }
-        const container = document.createElement("div")
-        container.slot = slotName
-        host.append(container)
-        const cleanup = definition.render(input.props ?? {}, container)
-        activeRenders.current.set(slotName, { container, cleanup: cleanup ?? undefined })
+        // Validation may be async, so the mounted flag stops a render arriving after unmount.
+        void validateWidgetProps(definition, input.props ?? {}).then((props) => {
+          if (props == null || !mounted.current) return
+          // A slot holds at most one active render; a repeated request replaces the previous one.
+          const slotName = slotNameForWidget(input.widget)
+          const previous = activeRenders.current.get(slotName)
+          if (previous) disposeWidgetRender(previous)
+          const container = document.createElement("div")
+          container.slot = slotName
+          host.append(container)
+          const cleanup = definition.render(props, container)
+          activeRenders.current.set(slotName, { container, cleanup: cleanup ?? undefined })
+        })
       }
     }
   }, [messages])
-  useEffect(() => removeActiveRenders, [])
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      removeActiveRenders()
+    }
+  }, [])
 
   const sendCurrent = () => {
     if (isBusy) return
@@ -357,7 +390,7 @@ export function ChatWidget(
                                 <AssistantPart
                                   key={partIndex}
                                   part={part}
-                                  options={options}
+                                  widgets={widgets}
                                   submittedQuestionnaires={submittedQuestionnaires}
                                   onQuestionnaireAnswers={(toolCallId, summary) => {
                                     setSubmittedQuestionnaires(

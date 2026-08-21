@@ -6,13 +6,13 @@
     "lineWidth": 100,
     "semiColons": false,
     "proseWrap": "never",
-    "exclude": ["deno.lock", "src/components/ui", "src/widget/styles.generated.ts"]
+    "exclude": ["deno.lock", "src/components/ui", "src/chat/styles.generated.ts"]
   },
   "lint": {
     "rules": {
       "tags": ["recommended", "jsx", "react"],
       "exclude": ["no-sloppy-imports"]
     },
-    "exclude": ["src/components/ui", "src/widget/styles.generated.ts"]
+    "exclude": ["src/components/ui", "src/chat/styles.generated.ts"]
   }
 }

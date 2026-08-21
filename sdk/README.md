@@ -21,6 +21,7 @@ import { mountAstralBeamChat } from "@astralbeam/sdk/client"
 
 const sidebar = document.getElementById("sidebar")
 const handle = mountAstralBeamChat(sidebar, {
+  theme: "system", // "light" | "dark" | "system" (default)
   widgets: {
     systemStatus: {
       description: "Shows the current status of the host app's systems",
@@ -34,10 +35,10 @@ const handle = mountAstralBeamChat(sidebar, {
     },
   },
 })
-// later: handle.unmount()
+// later: handle.setTheme("dark"), handle.unmount()
 ```
 
-The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. Host UI enters the conversation through **widgets** — dynamic UI the agent can show, keyed by identifier. Each definition reads like a tool definition: the `description` tells the agent what the widget shows, `parameters` describes the props the agent may supply — either a plain JSON Schema object as above or any [Standard Schema](https://standardschema.dev) validator (Zod, Valibot, ArkType, ...), with no validator dependency required — and `render` draws the widget with the agent-chosen props. When the agent decides to render a widget (the current scripted agent renders the first registered one mid-conversation), the SDK creates a light-DOM child of the mount target, calls `render(props, container)` on it, and projects it into the conversation through a named `<slot>`; `render` may return a cleanup function.
+The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. The `theme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live, and `handle.setTheme` switches it later, e.g. when the host app's own theme toggles. Host UI enters the conversation through **widgets** — dynamic UI the agent can show, keyed by identifier. Each definition reads like a tool definition: the `description` tells the agent what the widget shows, `parameters` describes the props the agent may supply — either a plain JSON Schema object as above or any [Standard Schema](https://standardschema.dev) validator (Zod, Valibot, ArkType, ...), with no validator dependency required — and `render` draws the widget with the agent-chosen props. A Standard Schema is also enforced client-side, validating the props before `render` runs; with a plain JSON Schema, treat the props as untrusted input. When the agent decides to render a widget (the current scripted agent renders the first registered one mid-conversation), the SDK creates a light-DOM child of the mount target, calls `render(props, container)` on it, and projects it into the conversation through a named `<slot>`; `render` may return a cleanup function.
 
 ### React
 
@@ -47,7 +48,7 @@ The chat widget renders inside a shadow root on the mount target, so its styles 
 npm install @astralbeam/sdk react react-dom
 ```
 
-Render `<AstralBeamChat>` wherever the chat sidebar should appear; it fills its container's height, mounts the chat widget on mount, and unmounts it on cleanup. Register widgets through the `widgets` prop — the same tool-definition shape as the vanilla client, except `render` returns JSX instead of drawing into a container. The agent reads each `description` and `parameters` to decide when to render a widget and with which props (the current scripted agent renders the first entry mid-conversation). Rendered widgets live in your app's React tree and are projected into the chat through slots, so state, context, and event handlers keep working:
+Render `<AstralBeamChat>` wherever the chat sidebar should appear; it fills its container's height, mounts the chat widget on mount, and unmounts it on cleanup. The `theme` prop (`"light" | "dark" | "system"`, default `"system"`) picks the color scheme, and prop changes apply immediately. Register widgets through the `widgets` prop — the same tool-definition shape as the vanilla client, except `render` returns JSX instead of drawing into a container. The agent reads each `description` and `parameters` to decide when to render a widget and with which props (the current scripted agent renders the first entry mid-conversation). Rendered widgets live in your app's React tree and are projected into the chat through slots, so state, context, and event handlers keep working:
 
 ```tsx
 import { AstralBeamChat } from "@astralbeam/sdk/react"

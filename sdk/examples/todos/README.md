@@ -8,6 +8,6 @@ The app uses plain CSS with no Tailwind or shadcn/ui. That is the point: the cha
 
 1. Build the SDK first: `deno task build` from `sdk`.
 2. From this directory: `deno install`, then `deno task dev`.
-3. Open http://localhost:3100. Toggle the sidebar with "Hide assistant", press send to play the scripted conversation, and toggle the todo inside the chat to see host state update.
+3. Open http://localhost:3100. Toggle the sidebar with "Hide assistant", cycle "Theme" through system/light/dark to retheme the app (plain CSS variables) and the widget (`theme` prop) from one preference — each side resolves "system" against the OS setting live — press send to play the scripted conversation, and toggle the todo inside the chat to see host state update.
 
 After changing SDK sources, rebuild from `sdk` and reload the page.
