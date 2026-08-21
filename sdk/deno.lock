@@ -3,11 +3,11 @@
   "specifiers": {
     "npm:@base-ui/react@^1.7.0": "1.7.0_@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.2.8_react-dom@19.2.8__react@19.2.8",
-    "npm:@shadcn/helpers@0.2": "0.2.0_@tanstack+ai@0.46.0__zod@4.4.3_@tanstack+ai-client@0.24.0__zod@4.4.3_zod@4.4.3",
     "npm:@shadcn/react@0.3": "0.3.0_@types+react@19.2.18_react@19.2.8",
     "npm:@tailwindcss/cli@^4.3.3": "4.3.3",
     "npm:@tanstack/ai-client@0.24": "0.24.0_zod@4.4.3",
     "npm:@tanstack/ai-react@0.20": "0.20.0_@tanstack+ai@0.46.0__zod@4.4.3_@types+react@19.2.18_react@19.2.8_zod@4.4.3",
+    "npm:@tanstack/ai@0.46": "0.46.0_zod@4.4.3",
     "npm:@types/react-dom@^19.2.3": "19.2.4_@types+react@19.2.18",
     "npm:@types/react@^19.2.13": "19.2.18",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
@@ -866,17 +866,6 @@
     },
     "@sec-ant/readable-stream@0.4.1": {
       "integrity": "sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg=="
-    },
-    "@shadcn/helpers@0.2.0_@tanstack+ai@0.46.0__zod@4.4.3_@tanstack+ai-client@0.24.0__zod@4.4.3_zod@4.4.3": {
-      "integrity": "sha512-wpcZNuRgdW16jLwjvh4mbREKpVFrGY+nBM3Okgic8b04sijN5CHW1Nl/AEMajsP3INaCTNnqMCouOalZ7OHvEQ==",
-      "dependencies": [
-        "@tanstack/ai",
-        "@tanstack/ai-client"
-      ],
-      "optionalPeers": [
-        "@tanstack/ai",
-        "@tanstack/ai-client"
-      ]
     },
     "@shadcn/react@0.3.0_@types+react@19.2.18_react@19.2.8": {
       "integrity": "sha512-iKN0NuYe850VDHlxEfvppFrpa7CMV3zArTHusXlaSmeFeQhohGbIqclv6WwPTs/44I8EkXQpcuRt6sXEVKkWqQ==",
@@ -2857,11 +2846,11 @@
       "dependencies": [
         "npm:@base-ui/react@^1.7.0",
         "npm:@phosphor-icons/react@^2.1.10",
-        "npm:@shadcn/helpers@0.2",
         "npm:@shadcn/react@0.3",
         "npm:@tailwindcss/cli@^4.3.3",
         "npm:@tanstack/ai-client@0.24",
         "npm:@tanstack/ai-react@0.20",
+        "npm:@tanstack/ai@0.46",
         "npm:@types/react-dom@^19.2.3",
         "npm:@types/react@^19.2.13",
         "npm:class-variance-authority@~0.7.1",

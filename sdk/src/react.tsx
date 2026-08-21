@@ -6,10 +6,11 @@ import {
   type AstralBeamChatHandle,
   type AstralBeamChatTheme,
   mountAstralBeamChat,
+  type ToolDefinition,
   type WidgetDefinition as ClientWidgetDefinition,
 } from "@astralbeam/sdk/client"
 
-export type { AstralBeamChatTheme }
+export type { AstralBeamChatTheme, ToolDefinition }
 
 export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render"> {
   /** Draws the widget with the agent-chosen props, in the host's own React tree. */
@@ -17,6 +18,12 @@ export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render">
 }
 
 export interface AstralBeamChatProps {
+  /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
+  endpoint?: string
+  /** Host-specific instructions the endpoint appends to the agent's system prompt. */
+  systemPrompt?: string
+  /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
+  tools?: Record<string, ToolDefinition>
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
   /** Color scheme of the chat widget; prop changes apply immediately. Default `"system"`. */
@@ -28,15 +35,35 @@ interface ActiveRender {
   props: Record<string, unknown>
 }
 
-export function AstralBeamChat({ widgets = {}, theme = "system" }: AstralBeamChatProps) {
+export function AstralBeamChat(
+  { endpoint, systemPrompt, tools, widgets = {}, theme = "system" }: AstralBeamChatProps,
+) {
   const targetRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<AstralBeamChatHandle | null>(null)
   const [activeRenders, setActiveRenders] = useState<ReadonlyMap<string, ActiveRender>>(new Map())
+  // The chat calls tools long after mount, so route execution through the latest prop value —
+  // otherwise every execute would close over the first render's host state.
+  const toolsRef = useRef(tools)
+  useEffect(() => {
+    toolsRef.current = tools
+  })
   useEffect(() => {
     if (!targetRef.current) return
-    // Registered once at mount; changing widgets afterwards is not supported yet.
+    // Registered once at mount; changing widgets or tool schemas afterwards is not supported yet.
     const handle = mountAstralBeamChat(targetRef.current, {
+      endpoint,
+      systemPrompt,
       theme,
+      tools: Object.fromEntries(
+        Object.entries(tools ?? {}).map(([name, definition]) => [name, {
+          ...definition,
+          execute: (input: Record<string, unknown>) => {
+            const current = toolsRef.current?.[name]
+            if (!current) throw new Error(`Tool "${name}" is no longer registered`)
+            return current.execute(input)
+          },
+        }]),
+      ),
       widgets: Object.fromEntries(
         Object.entries(widgets).map(([name, definition]) => [name, {
           ...definition,
