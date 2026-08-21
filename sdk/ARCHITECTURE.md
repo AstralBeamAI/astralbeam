@@ -47,5 +47,5 @@ High-level map of `@astralbeam/sdk`: entry points, the embedded chat widget, the
 
 ## Examples and publishing
 
-- `examples/` holds standalone consumer apps (own `package.json` and `deno.jsonc`, ignored by knip) depending on `@astralbeam/sdk` via `file:../..`, so they resolve to the built `dist` — run `deno task build` in `sdk` first; `examples/todos` deliberately uses plain CSS to demonstrate the shadow-root boundary and cycles the `theme` prop through system/light/dark to demonstrate theming.
+- `examples/` holds standalone consumer apps (own `package.json` and `deno.jsonc`, ignored by knip) depending on `@astralbeam/sdk` via `file:../..`, so they resolve to the built `dist` — run `deno task build` in `sdk` first; `examples/todos` deliberately uses plain CSS to demonstrate the shadow-root boundary and themes both the app and the widget's `theme` prop from one system/light/dark preference.
 - `npm publish` from `sdk` ships only `dist`, `README.md`, `LICENSE`, and `package.json`, with `sideEffects: false` so bundlers drop unused entry points.
