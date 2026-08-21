@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client"
-import type { MountAstralBeamChatOptions } from "../client.ts"
+import type { MountAstralBeamChatOptions } from "../lib/client-types.ts"
 import { ChatWidget } from "./chat-widget.tsx"
 import { chatStyles } from "./styles.generated.ts"
 

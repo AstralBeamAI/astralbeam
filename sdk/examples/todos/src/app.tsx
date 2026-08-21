@@ -9,6 +9,17 @@ import { TodoCard } from "./todo-card.tsx"
 // The example talks straight to the locally running webapp's agent endpoint.
 const CHAT_ENDPOINT = "http://localhost:3000/api/chat"
 
+// Open the app with `?debug` to watch the SDK and the endpoint log the conversation. The
+// widget reads the flag once per mount, so the header toggle reloads with `?debug` flipped.
+const DEBUG = new URLSearchParams(location.search).has("debug")
+
+const toggleDebug = () => {
+  const params = new URLSearchParams(location.search)
+  if (DEBUG) params.delete("debug")
+  else params.set("debug", "")
+  location.search = params.toString()
+}
+
 const SYSTEM_PROMPT =
   "You are the assistant inside a personal todo-list app. The user manages a flat list of " +
   "todos, each with an id, a text, and a completed flag. Use the tools to read and change the " +
@@ -131,6 +142,9 @@ export function App() {
             <button type="button" onClick={() => setChatOpen((open) => !open)}>
               {chatOpen ? "Hide assistant" : "Show assistant"}
             </button>
+            <button type="button" onClick={toggleDebug}>
+              Debug: {DEBUG ? "on" : "off"}
+            </button>
           </div>
         </header>
         <form
@@ -170,6 +184,7 @@ export function App() {
             systemPrompt={SYSTEM_PROMPT}
             tools={tools}
             theme={theme}
+            debug={DEBUG}
             widgets={{
               todoCard: {
                 description: "The most important todo from the host app",
