@@ -2,7 +2,7 @@
 
 Frontend SDK for [AstralBeam](https://astralbeam.ai): drop-in, fully-customizable agent UI with managed chat streaming, conversation history, and observability.
 
-> Work in progress: the chat widget is currently a hello-world placeholder.
+> Work in progress: the chat UI is real (streaming messages, reasoning, tool activity, in-chat questionnaires, and host-rendered custom components), but the agent behind it is simulated — a scripted conversation stands in until real LLM calls are integrated.
 
 ## Installation
 
@@ -32,7 +32,7 @@ const handle = mountAstralBeamChat(sidebar, {
 // later: handle.unmount()
 ```
 
-The widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. Host UI enters the widget through custom components: each entry's `description` tells the agent what the component does, and when the widget decides to render one (for now it test-renders each registered component on startup) it calls `onRenderCustomComponent`. The host draws the UI as a light-DOM child of the mount target with the requested `slot` attribute, and the widget projects it into place through a named `<slot>`.
+The widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. Host UI enters the widget through custom components: each entry's `description` tells the agent what the component does, and when the agent decides to render one (the current scripted agent renders the first registered component mid-conversation) it calls `onRenderCustomComponent`. The host draws the UI as a light-DOM child of the mount target with the requested `slot` attribute, and the widget projects it into place through a named `<slot>`.
 
 ### React
 
@@ -42,7 +42,7 @@ The widget renders inside a shadow root on the mount target, so its styles never
 npm install @astralbeam/sdk react react-dom
 ```
 
-Render `<AstralBeamChat>` wherever the chat sidebar should appear; it fills its container's height, mounts the widget on mount, and unmounts it on cleanup. Register your own components through `customComponents`: the agent reads each `description` to decide when to render the component and with which props (for now the widget test-renders each entry on startup). Requested components render in your app's React tree and are projected into the widget through slots, so state, context, and event handlers keep working:
+Render `<AstralBeamChat>` wherever the chat sidebar should appear; it fills its container's height, mounts the widget on mount, and unmounts it on cleanup. Register your own components through `customComponents`: the agent reads each `description` to decide when to render the component and with which props (the current scripted agent renders the first entry mid-conversation). Requested components render in your app's React tree and are projected into the widget through slots, so state, context, and event handlers keep working:
 
 ```tsx
 import { AstralBeamChat } from "@astralbeam/sdk/react"
@@ -70,6 +70,10 @@ The widget itself loads as a separate lazy chunk with its own bundled React copy
 - `@astralbeam/sdk/server` — server-side helpers (placeholder)
 - `@astralbeam/sdk/react` — React components (e.g. `<AstralBeamChat />`), requires the `react` peer dependency
 - `@astralbeam/sdk/vue` — Vue components, requires the `vue` peer dependency (placeholder)
+
+## Examples
+
+[`examples/todos`](./examples/todos) is a minimal Vite + React todos app that embeds the chat sidebar from the built package, toggles it from the host UI, and projects its own `TodoCard` component into the conversation — with no Tailwind or shadcn/ui of its own, to demonstrate the shadow-root style boundary.
 
 ## Architecture
 
