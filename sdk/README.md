@@ -71,6 +71,10 @@ The widget itself loads as a separate lazy chunk with its own bundled React copy
 - `@astralbeam/sdk/react` — React components (e.g. `<AstralBeamChat />`), requires the `react` peer dependency
 - `@astralbeam/sdk/vue` — Vue components, requires the `vue` peer dependency (placeholder)
 
+## Architecture
+
+[ARCHITECTURE.md](./ARCHITECTURE.md) explains how the SDK is put together: the entry-point layout, the embedded-React widget, the shadow-root and slot boundary between widget and host, and the two-pass build.
+
 ## License
 
 [MIT](./LICENSE)
