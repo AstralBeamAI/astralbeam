@@ -5,6 +5,8 @@
 
 - `src/components/ui` contains shadcn-ui components and should never be edited/linted/formatted
   - New components should only be added using `deno x shadcn@latest <component>`
+  - Use a `// Added with: deno task ui add <component>` top comment with every intentional local change; do not include `--overwrite` or `-y` in that comment.
+  - Let Knip delete unreachable registry files, while suppressing only generated export-level noise.
 - `src/components` contains common components used throught the application
 
 - `src/routes` contains routes, as expected by TanStack Router:
@@ -45,6 +47,10 @@
 - `src/db` contains the database schema and migrations
   - `index.server.ts` contains the databse connection and drizzle db object
   - `schema.server.ts` contains the drizzle schema
+  - Keep domain schema definitions in responsibility-named `src/db/schema/*.server.ts` files and re-export every table and relation Drizzle Kit must discover from `schema.server.ts`.
+  - Define tables with `snakeCase.table` and camel-case TypeScript keys so Drizzle derives lower snake-case SQL column names.
+  - Both audit columns use `DEFAULT now()`; Drizzle's `updatedAt` `$onUpdateFn` hook returns PostgreSQL `now()` but does not create a database trigger, so non-Drizzle updates must set `updated_at` explicitly.
+  - Preserve required extension DDL such as `CREATE EXTENSION IF NOT EXISTS citext` when regenerating an unmerged migration.
   - `migrations` contains the drizzle migrations
 
 - `src/lib` contains application-wide shared code like:
@@ -62,6 +68,8 @@
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
 
 - While writing DB queries, always put in the right authorization checks to avoid leaking one user/org's data to another
+
+- Keep only tests that protect durable behavior, security boundaries, or regressions; avoid trivial assertions over constants, generated files, and implementation structure.
 
 - After every major change, look for opportunities to reuse or refactor code (components, server functions, db queries etc.)
   - in general, as more patterns emerge across routes/modules, lift up the reusable code to common ancestors
