@@ -27,10 +27,10 @@ deno task generate:png
 
 ## Database
 
-Export schema modules from `src/db/schema.server.ts`, then generate and validate migrations from this directory:
+See the [database guide](src/db/README.md) for local service, migration, reset, and schema workflow details. Export schema modules from `src/db/schema.server.ts`, then generate and validate migrations from this directory:
 
 ```sh
-deno task db generate --name=<description>
+deno task db generate --name=add-projects
 deno task db check
 deno task db migrate
 ```
