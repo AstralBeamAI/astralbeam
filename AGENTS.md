@@ -4,12 +4,16 @@
 
 - Use Deno from the affected project directory (`webapp`, `www`, or `sdk`) with `deno task <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
 - Before running `deno task knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete project diff before running `deno task check:fix`.
+- Protect intentionally reusable, unreferenced modules with explicit Knip entries rather than broad directory exclusions; verify `knip:fix` preserves them.
 - Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
+- Keep tests that protect durable behavior, security boundaries, or previously observed regressions; avoid tests that only restate implementation details or exercise trivial constants and generated structure.
+- Before final validation, turn durable, non-obvious user corrections into one concise, nonduplicative instruction in the closest `AGENTS.md` or skill; skip one-off decisions and preferences.
 
 ## Documentation
 
 - Use `README.md` for consumers and `AGENTS.md` for authors. When creating an `AGENTS.md`, add a sibling `CLAUDE.md` symlink to it.
+- Preserve existing `AGENTS.md` and skill instructions unless removal is explicit or resolves a documented conflict.
 - Name planning documents with the `*.plan.md` suffix so they are distinguishable from durable documentation.
 - Keep each Markdown paragraph and list item on one source line.
 - Comment only non-obvious code or configuration decisions, including a link to authoritative documentation or an issue.
@@ -23,6 +27,9 @@
 
 - `webapp` and `sdk` each own a `components.json` and their own shadcn-generated components, hooks, and utilities under that project's `src/components/ui`, `src/hooks`, and `src/lib`; neither imports the other's.
 - Add components from the owning project with `deno task ui add <component>`, keeping both `components.json` files on the same style, base color, and icon library.
+- At the top of each registry-added `src/components/ui` file, record the repeatable command as `// Added with: deno task ui add <component>` and every intentional local change; omit nonessential automation flags such as `--overwrite` and `-y` from the recorded command.
+- Let Knip remove unreachable registry files under `src/components/ui`; ignore generated export-level noise rather than excluding the directory from unused-file discovery.
+- Use `@phosphor-icons/react` throughout Webapp and SDK UI; replace other icon-library imports in registry source during integration and do not add `lucide-react` as a dependency.
 - Keep the hand-authored portions of `webapp/src/styles.css` theme-agnostic; concrete palette values belong only in its marked generated section. The theme block in `sdk/src/styles.css` is a copy of the webapp light palette, kept in sync through explicit edits.
 
 ## Theme and brand
@@ -35,9 +42,13 @@
 ## Database
 
 - Keep PostgreSQL and Drizzle code under `webapp/src/db`; use the `.server.ts` suffix for server-only modules and never import the runtime client into browser code.
-- Re-export every table and relation Drizzle Kit must discover from `webapp/src/db/schema.server.ts`, and keep generated migrations under `webapp/src/db/migrations`.
+- Keep domain table and relation modules under `webapp/src/db/schema`, re-export every module Drizzle Kit must discover from `webapp/src/db/schema.server.ts`, and keep generated migrations under `webapp/src/db/migrations`.
 - Run database commands from `webapp` with `deno task db <command>`.
 - After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
+- Use PostgreSQL `uuid` primary and foreign keys with database-generated `uuidv7()` defaults, `citext` for email identity, and `timestamp with time zone` without forced precision for application instants; PostgreSQL 18 is the minimum supported server version.
+- Define tables with `snakeCase.table`, keep TypeScript property names camel case, and omit redundant column-name arguments when Drizzle can derive the lower snake-case SQL name.
+- Keep required extension DDL such as `CREATE EXTENSION IF NOT EXISTS citext` in the generated migration because a Drizzle `customType` does not install its PostgreSQL extension. Regenerate an unmerged, unapplied migration when refining the same schema change, but never rewrite migration history that may have been applied by others.
+- Follow the applicable PostgreSQL [Don't Do This](https://wiki.postgresql.org/wiki/Don't_Do_This) guidance: keep identifiers lower snake case, use half-open timestamp ranges and `NOT EXISTS` where null-aware exclusion is needed, retain unconstrained `text`/`citext`, and avoid `timetz`, `CURRENT_TIME`, `char(n)`, default `varchar(n)`, `money`, `serial`, rules, table inheritance, and trust authentication over TCP/IP.
 - Use `migrate` for checked-in migrations; reserve `push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or `*.local` environment files.
 
 ## Cursor Cloud
