@@ -1,44 +1,7 @@
 import type { StreamChunk } from "@tanstack/ai/client"
-
-/** Logs one debug line: a colored category badge, a summary, and the full data. */
-export type DebugLogger = (category: string, summary: string, data?: unknown) => void
-
-const BADGE_STYLE =
-  "background:#7c3aed;color:#fff;border-radius:3px;padding:1px 5px;font-weight:600"
-const TIME_STYLE = "color:#94a3b8;font-weight:400"
-const CATEGORY_COLORS: Record<string, string> = {
-  mount: "#7c3aed",
-  theme: "#8b5cf6",
-  send: "#2563eb",
-  run: "#0891b2",
-  stream: "#0e7490",
-  text: "#16a34a",
-  reasoning: "#64748b",
-  tool: "#d97706",
-  widget: "#db2777",
-  questionnaire: "#9333ea",
-  status: "#475569",
-  error: "#dc2626",
-}
-
-// Every line carries a UTC HH:MM:SS timestamp and, when given, the raw data object,
-// so the console shows exactly what happened and when, with all fields expandable.
-export function createDebugLogger(enabled: boolean | undefined): DebugLogger | undefined {
-  if (!enabled) return undefined
-  return (category, summary, data) => {
-    const categoryStyle = `background:${
-      CATEGORY_COLORS[category] ?? "#475569"
-    };color:#fff;border-radius:3px;padding:1px 5px`
-    console.log(
-      `%cAstralBeam%c ${new Date().toISOString().slice(11, 19)} %c${category}%c ${summary}`,
-      BADGE_STYLE,
-      TIME_STYLE,
-      categoryStyle,
-      "",
-      ...(data === undefined ? [] : [data]),
-    )
-  }
-}
+// Type-only, so this chat-chunk module shares no runtime code with the client entry;
+// the logger itself (client-utils.ts) loads eagerly because the loader logs too.
+import type { DebugLogger } from "./client-utils.ts"
 
 // Loose view over the AG-UI chunk fields the logger reads; chunks are typed with
 // enum discriminants upstream, which plain string switches cannot narrow.

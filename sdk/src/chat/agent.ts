@@ -3,9 +3,9 @@ import type {
   JsonSchemaObject,
   ToolDefinition as HostToolDefinition,
   WidgetDefinition,
-} from "../client.ts"
+} from "../lib/client-types.ts"
+import type { DebugLogger } from "../lib/client-utils.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../lib/constants.ts"
-import type { DebugLogger } from "../lib/debug.ts"
 import type { RenderWidgetInput } from "../lib/types.ts"
 import { toJsonSchema, validateParameters } from "../lib/utils.ts"
 

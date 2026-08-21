@@ -1,3 +1,5 @@
+// Chat-chunk-internal types; the client entry's public types live in client-types.ts.
+
 export interface RenderWidgetInput {
   /** Key into the `widgets` object passed at mount. */
   widget: string

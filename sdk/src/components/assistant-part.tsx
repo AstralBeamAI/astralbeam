@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Spinner } from "@/components/ui/spinner"
-import type { WidgetDefinition } from "../client.ts"
+import type { WidgetDefinition } from "../lib/client-types.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../lib/constants.ts"
 import type { QuestionnaireAnswer, RenderWidgetInput } from "../lib/types.ts"
 import {

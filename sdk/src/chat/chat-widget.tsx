@@ -25,12 +25,14 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
-import type { MountAstralBeamChatOptions } from "../client.ts"
 import { AssistantPart } from "../components/assistant-part.tsx"
 import { PartErrorBoundary } from "../components/part-error-boundary.tsx"
 import { UserMessageBody } from "../components/user-message-body.tsx"
-import { ASK_QUESTIONNAIRE_TOOL, DEFAULT_ENDPOINT } from "../lib/constants.ts"
-import { createChunkLogger, createDebugLogger } from "../lib/debug.ts"
+import { DEFAULT_ENDPOINT } from "../lib/client-constants.ts"
+import type { MountAstralBeamChatOptions } from "../lib/client-types.ts"
+import { createDebugLogger } from "../lib/client-utils.ts"
+import { ASK_QUESTIONNAIRE_TOOL } from "../lib/constants.ts"
+import { createChunkLogger } from "../lib/debug.ts"
 import type { RenderWidgetInput } from "../lib/types.ts"
 import {
   describeError,

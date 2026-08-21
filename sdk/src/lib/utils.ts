@@ -7,7 +7,7 @@ import type {
   ParametersSchema,
   StandardSchemaV1,
   WidgetDefinition,
-} from "../client.ts"
+} from "./client-types.ts"
 import type { QuestionnaireItemSpec } from "./types.ts"
 
 export function cn(...inputs: ClassValue[]) {

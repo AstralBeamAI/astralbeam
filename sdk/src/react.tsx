@@ -9,6 +9,8 @@ import {
   type ToolDefinition,
   type WidgetDefinition as ClientWidgetDefinition,
 } from "@astralbeam/sdk/client"
+// A constant-only module, safe to import relatively: it pulls no React into this entry.
+import { DEFAULT_THEME } from "./lib/client-constants.ts"
 
 export type { AstralBeamChatTheme, ToolDefinition }
 
@@ -41,7 +43,8 @@ interface ActiveRender {
 }
 
 export function AstralBeamChat(
-  { endpoint, systemPrompt, tools, widgets = {}, theme = "system", debug }: AstralBeamChatProps,
+  { endpoint, systemPrompt, tools, widgets = {}, theme = DEFAULT_THEME, debug }:
+    AstralBeamChatProps,
 ) {
   const targetRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<AstralBeamChatHandle | null>(null)

@@ -21,7 +21,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "types": ["vite/client"],
+    "types": ["vite/client", "@tanstack/react-start"],
     "verbatimModuleSyntax": true
   }
 }
