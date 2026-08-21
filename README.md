@@ -36,6 +36,12 @@ cd webapp && deno task dev  # Starts app on http://localhost:3000
 cd www && deno task dev     # Starts website on http://localhost:3001
 ```
 
+## Authentication
+
+The product application uses Better Auth for Google and GitHub OAuth, explicit terms-gated registration, and Organizations as its SaaS membership boundary. Follow the [OAuth setup guide](SETUP.md#configure-google-and-github-oauth) before testing sign-in or sign-up locally.
+
+Authentication, authorization, environment validation, and the Drizzle schema are owned by `webapp`. Run database commands from that directory and review generated SQL before applying a checked-in migration.
+
 ## Licensing
 
 Portions of this repository are licensed as follows:
