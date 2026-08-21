@@ -5,6 +5,7 @@
 
 - `src/components/ui` contains shadcn-ui components and should never be edited/linted/formatted
     - New components should only be added using `deno x shadcn@latest <component>` 
+- `src/components` contains common components used throught the application
 
 - `src/routes` contains routes, as expected by TanStack Router:
     - Prefer `routes/my/route/path/index.ts/tsx` to `route/my/route/path.ts/tsx` in general for better code organization
@@ -42,8 +43,8 @@
     - Related routes can sometimes be grouped together using a route group folder e.g. `(auth)` if it better structures the codebase
 
 - `src/db` contains the database schema and migrations
-    - `index.ts` contains the databse connection and drizzle db object
-    - `schema.ts` contains the drizzle schema
+    - `index.server.ts` contains the databse connection and drizzle db object
+    - `schema.server.ts` contains the drizzle schema
     - `migrations` contains the drizzle migrations
 
 - `src/lib` contains application-wide shared code like:
@@ -60,8 +61,6 @@
 
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
 
-- Never leak database-level errors to client, always wrap server function logic in try catch, log db error, and return user-readble error
-
 - While writing DB queries, always put in the right authorization checks to avoid leaking one user/org's data to another
 
 - After every major change, look for opportunities to reuse or refactor code (components, server functions, db queries etc.)
@@ -73,6 +72,7 @@
     - In every server function, you might need to check if the current user is authorized to access & update the data
     - In every databsae query, you might need to ensures that the right filters are applied to avoid leaking data accidentally
     - Errors in the backend must be handled, logged and gracefully shown to a user to convey why something didn't work without leaking critical info that might compromise the application security.
+    - Server-only code should typically go into `*.server.ts` files. be careful not to leak server environment vars into the client.
 
 TODO: add common commands
 
