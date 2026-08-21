@@ -18,6 +18,10 @@
   },
   // shadcn uses this package when generating components for the configured Phosphor icon library.
   "ignoreDependencies": ["@phosphor-icons/react"],
-  // Keep Deno-run generators and the server-only database client as explicit application extension points.
-  "entry": ["scripts/*.ts", "src/db/index.server.ts"]
+  // Keep Deno-run generators, the server-only database client, and reusable PostgreSQL column helpers as explicit application extension points.
+  "entry": [
+    "scripts/*.ts",
+    "src/db/index.server.ts",
+    "src/db/postgresql-types.server.ts"
+  ]
 }

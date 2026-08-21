@@ -47,7 +47,7 @@
 - `src/db` contains the database schema and migrations
   - `index.server.ts` contains the databse connection and drizzle db object
   - `schema.server.ts` contains the drizzle schema
-  - Re-export every table and relation Drizzle Kit must discover from `schema.server.ts`; keep domain schema definitions in responsibility-named `*.server.ts` files.
+  - Keep domain schema definitions in responsibility-named `src/db/schema/*.server.ts` files and re-export every table and relation Drizzle Kit must discover from `schema.server.ts`.
   - Define tables with `snakeCase.table` and camel-case TypeScript keys so Drizzle derives lower snake-case SQL column names.
   - Both audit columns use `DEFAULT now()`; Drizzle's `updatedAt` `$onUpdateFn` hook returns PostgreSQL `now()` but does not create a database trigger, so non-Drizzle updates must set `updated_at` explicitly.
   - Preserve required extension DDL such as `CREATE EXTENSION IF NOT EXISTS citext` when regenerating an unmerged migration.

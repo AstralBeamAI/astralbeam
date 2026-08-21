@@ -39,7 +39,7 @@
 ## Database
 
 - Keep PostgreSQL and Drizzle code under `webapp/src/db`; use the `.server.ts` suffix for server-only modules and never import the runtime client into browser code.
-- Re-export every table and relation Drizzle Kit must discover from `webapp/src/db/schema.server.ts`, and keep generated migrations under `webapp/src/db/migrations`.
+- Keep domain table and relation modules under `webapp/src/db/schema`, re-export every module Drizzle Kit must discover from `webapp/src/db/schema.server.ts`, and keep generated migrations under `webapp/src/db/migrations`.
 - Run database commands from `webapp` with `deno task db <command>`.
 - After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
 - Use PostgreSQL `uuid` primary and foreign keys with database-generated `uuidv7()` defaults, `citext` for email identity, and `timestamp with time zone` without forced precision for application instants; PostgreSQL 18 is the minimum supported server version.
