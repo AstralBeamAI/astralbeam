@@ -2,13 +2,16 @@ import { type ReactNode, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 // Self-reference rather than a relative path, so this entry shares the client entry's chat
 // chunk and its bundled React instead of bundling a second copy.
-import { mountAstralBeamChat, type WidgetParameters } from "@astralbeam/sdk/client"
+import {
+  type AstralBeamChatHandle,
+  type AstralBeamChatTheme,
+  mountAstralBeamChat,
+  type WidgetDefinition as ClientWidgetDefinition,
+} from "@astralbeam/sdk/client"
 
-export interface WidgetDefinition {
-  /** Tells the agent what the widget shows so it can decide when to render it. */
-  description: string
-  /** Schema of the agent-supplied props; passed to the agent verbatim. */
-  parameters?: WidgetParameters
+export type { AstralBeamChatTheme }
+
+export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render"> {
   /** Draws the widget with the agent-chosen props, in the host's own React tree. */
   render: (props: Record<string, unknown>) => ReactNode
 }
@@ -16,6 +19,8 @@ export interface WidgetDefinition {
 export interface AstralBeamChatProps {
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
+  /** Color scheme of the chat widget; prop changes apply immediately. Default `"system"`. */
+  theme?: AstralBeamChatTheme
 }
 
 interface ActiveRender {
@@ -23,18 +28,18 @@ interface ActiveRender {
   props: Record<string, unknown>
 }
 
-export function AstralBeamChat({ widgets = {} }: AstralBeamChatProps) {
+export function AstralBeamChat({ widgets = {}, theme = "system" }: AstralBeamChatProps) {
   const targetRef = useRef<HTMLDivElement>(null)
+  const handleRef = useRef<AstralBeamChatHandle | null>(null)
   const [activeRenders, setActiveRenders] = useState<ReadonlyMap<string, ActiveRender>>(new Map())
   useEffect(() => {
     if (!targetRef.current) return
     // Registered once at mount; changing widgets afterwards is not supported yet.
     const handle = mountAstralBeamChat(targetRef.current, {
+      theme,
       widgets: Object.fromEntries(
-        Object.entries(widgets).map(([name, { description, parameters }]) => [name, {
-          description,
-          // Spread keeps the key absent when unset, as exactOptionalPropertyTypes requires.
-          ...(parameters !== undefined ? { parameters } : {}),
+        Object.entries(widgets).map(([name, definition]) => [name, {
+          ...definition,
           // The chat provides a slotted container; record it and portal the JSX into it below,
           // so the widget renders in the host's React tree with working state and context.
           render: (props: Record<string, unknown>, container: HTMLElement) => {
@@ -50,8 +55,16 @@ export function AstralBeamChat({ widgets = {} }: AstralBeamChatProps) {
         }]),
       ),
     })
-    return handle.unmount
+    handleRef.current = handle
+    return () => {
+      handleRef.current = null
+      handle.unmount()
+    }
   }, [])
+  // Re-applies the initial value harmlessly; afterwards, every prop change retunes the widget.
+  useEffect(() => {
+    handleRef.current?.setTheme(theme)
+  }, [theme])
   return (
     <div style={{ height: "100%" }} ref={targetRef}>
       {[...activeRenders].map(([name, { container, props }]) => {

@@ -4,11 +4,15 @@
 
 @source "./**/*.{ts,tsx}";
 
+/* The widget container carries the `.dark` class (toggled by mountAstralBeamChat), because a
+   `.dark` on a light-DOM ancestor of the shadow host can never match inside the shadow root. */
+@custom-variant dark (&:is(.dark *));
+
 /* The compiled sheet is injected into the widget's shadow root, so document-level selectors like
    `:root`, `html`, and `body` never match; theme variables and base styles live on `:host`. */
 
-/* Theme variables: copied from the light palette in webapp/src/styles.css (source of truth:
-   webapp/src/theme/brand.json); keep in sync through explicit edits. */
+/* Theme variables: copied from the light and dark palettes in webapp/src/styles.css (source of
+   truth: webapp/src/theme/brand.json); keep in sync through explicit edits. */
 :host {
   --radius: 0.45rem;
   --background: oklch(0.987029 0.00544 183.026);
@@ -30,6 +34,28 @@
   --border: oklch(0.916202 0.007221 185.80637);
   --input: oklch(0.916202 0.007221 185.80637);
   --ring: oklch(0.630515 0.115912 178.140935);
+}
+
+.dark {
+  --background: oklch(0.164955 0.017684 224.116);
+  --foreground: oklch(0.970362 0.0119 184.086);
+  --card: oklch(0.204955 0.02122 224.116);
+  --card-foreground: oklch(0.970362 0.0119 184.086);
+  --popover: oklch(0.204955 0.02122 224.116);
+  --popover-foreground: oklch(0.970362 0.0119 184.086);
+  --primary: oklch(0.786458 0.140021 172.519);
+  --primary-foreground: oklch(0.164955 0.017684 224.116);
+  --secondary: oklch(0.244955 0.02122 224.116);
+  --secondary-foreground: oklch(0.970362 0.0119 184.086);
+  --muted: oklch(0.244955 0.02122 224.116);
+  --muted-foreground: oklch(0.774502 0.014416 194.8941);
+  --accent: oklch(0.286716 0.067477 254.365);
+  --accent-foreground: oklch(0.970362 0.0119 184.086);
+  --destructive: oklch(0.694978 0.195467 28.534404);
+  --warning: oklch(0.821012 0.113489 62.535678);
+  --border: oklch(0.304955 0.02122 224.116);
+  --input: oklch(0.364955 0.02122 224.116);
+  --ring: oklch(0.825729 0.140021 172.519);
 }
 
 @theme inline {
@@ -67,10 +93,15 @@
   }
   :host {
     @apply bg-background text-foreground text-sm;
+    /* Explicit on both modes, so native controls and scrollbars ignore the host page's scheme. */
+    color-scheme: light;
     display: block;
     font-family: system-ui, sans-serif;
     font-style: normal;
     line-height: 1.5;
+  }
+  .dark {
+    color-scheme: dark;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {

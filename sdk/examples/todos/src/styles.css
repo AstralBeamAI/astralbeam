@@ -35,6 +35,11 @@ body {
   gap: 1rem;
 }
 
+.todos-header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .todos-header h1 {
   margin: 0 0 1rem;
   font-size: 2.25rem;

@@ -1,6 +1,8 @@
 import { useState } from "react"
-import { AstralBeamChat } from "@astralbeam/sdk/react"
+import { AstralBeamChat, type AstralBeamChatTheme } from "@astralbeam/sdk/react"
 import { TodoCard } from "./todo-card.tsx"
+
+const themeCycle: AstralBeamChatTheme[] = ["system", "light", "dark"]
 
 interface Todo {
   id: number
@@ -18,6 +20,7 @@ export function App() {
   const [todos, setTodos] = useState(initialTodos)
   const [draft, setDraft] = useState("")
   const [chatOpen, setChatOpen] = useState(true)
+  const [theme, setTheme] = useState<AstralBeamChatTheme>("system")
 
   const toggleTodo = (id: number) =>
     setTodos((current) =>
@@ -39,9 +42,24 @@ export function App() {
       <main className="todos">
         <header className="todos-header">
           <h1>Todos</h1>
-          <button type="button" onClick={() => setChatOpen((open) => !open)}>
-            {chatOpen ? "Hide assistant" : "Show assistant"}
-          </button>
+          <div className="todos-header-actions">
+            {
+              /* Only the chat widget follows this theme; the host app deliberately keeps its own
+                warm palette to show the theme stays inside the shadow boundary. */
+            }
+            <button
+              type="button"
+              onClick={() =>
+                setTheme((current) =>
+                  themeCycle[(themeCycle.indexOf(current) + 1) % themeCycle.length]!
+                )}
+            >
+              Assistant theme: {theme}
+            </button>
+            <button type="button" onClick={() => setChatOpen((open) => !open)}>
+              {chatOpen ? "Hide assistant" : "Show assistant"}
+            </button>
+          </div>
         </header>
         <form
           className="todos-form"
@@ -76,6 +94,7 @@ export function App() {
       {chatOpen && (
         <aside className="chat-sidebar">
           <AstralBeamChat
+            theme={theme}
             widgets={{
               todoCard: {
                 description: "The most important todo from the host app",
