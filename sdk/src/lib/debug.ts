@@ -21,8 +21,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   error: "#dc2626",
 }
 
-// Every line carries a UTC timestamp and, when given, the raw data object so the
-// console shows exactly what happened and when, with all fields expandable.
+// Every line carries a UTC HH:MM:SS timestamp and, when given, the raw data object,
+// so the console shows exactly what happened and when, with all fields expandable.
 export function createDebugLogger(enabled: boolean | undefined): DebugLogger | undefined {
   if (!enabled) return undefined
   return (category, summary, data) => {
@@ -30,7 +30,7 @@ export function createDebugLogger(enabled: boolean | undefined): DebugLogger | u
       CATEGORY_COLORS[category] ?? "#475569"
     };color:#fff;border-radius:3px;padding:1px 5px`
     console.log(
-      `%cAstralBeam%c ${new Date().toISOString()} %c${category}%c ${summary}`,
+      `%cAstralBeam%c ${new Date().toISOString().slice(11, 19)} %c${category}%c ${summary}`,
       BADGE_STYLE,
       TIME_STYLE,
       categoryStyle,

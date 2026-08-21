@@ -49,6 +49,31 @@ function isRateLimited(request: Request): boolean {
   return window.count > RATE_LIMIT_MAX_REQUESTS
 }
 
+type ChatMessages = Awaited<ReturnType<typeof chatParamsFromRequest>>["messages"]
+
+// The OpenAI adapter replays a completed tool call's Responses item id (metadata.itemId)
+// on follow-up requests but not the reasoning item it was paired with, which reasoning
+// models reject with a 400. Dropping the metadata replays the call by call_id alone.
+function stripToolCallMetadata(messages: ChatMessages): ChatMessages {
+  return messages.map((message) => {
+    if ("parts" in message && Array.isArray(message.parts)) {
+      return {
+        ...message,
+        parts: message.parts.map((part) =>
+          part.type === "tool-call" ? { ...part, metadata: undefined } : part
+        ),
+      }
+    }
+    if ("toolCalls" in message && Array.isArray(message.toolCalls)) {
+      return {
+        ...message,
+        toolCalls: message.toolCalls.map((toolCall) => ({ ...toolCall, metadata: undefined })),
+      }
+    }
+    return message
+  })
+}
+
 const BASE_SYSTEM_PROMPT =
   "You are the AstralBeam assistant, embedded as a chat widget inside a host application. " +
   "Be concise and act through the declared tools. Widgets and questionnaires already render " +
@@ -220,7 +245,7 @@ export const Route = createFileRoute("/api/chat")({
           const abortController = new AbortController()
           const stream = chat({
             adapter: openaiText("gpt-5.6-luna"),
-            messages: params.messages,
+            messages: stripToolCallMetadata(params.messages),
             systemPrompts: [
               BASE_SYSTEM_PROMPT,
               ...(typeof systemPrompt === "string" && systemPrompt.length > 0

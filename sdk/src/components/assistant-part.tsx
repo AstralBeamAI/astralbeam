@@ -51,7 +51,13 @@ function WidgetCallPart(
 ) {
   const input = part.input as RenderWidgetInput | undefined
   const definition = input ? getWidget(widgets, input.widget) : undefined
-  if (!input || !definition) return null
+  // While the agent still streams the call's input, the widget name may be absent or
+  // partial; show progress rather than a blank transcript.
+  if (!input || !definition) {
+    return isSettledToolCall(part)
+      ? null
+      : <ToolCallMarker running>Preparing a widget</ToolCallMarker>
+  }
   const slotName = slotNameForToolCall(part.id)
   // Only the newest render of a widget owns a live container; superseded (or reset)
   // calls collapse to a summary line instead of an empty frame.
@@ -92,7 +98,10 @@ function QuestionnaireCallPart(
       </Marker>
     )
   }
-  if (part.state !== "input-complete") return null
+  // Questionnaire items stream in over several seconds; show progress meanwhile.
+  if (part.state !== "input-complete") {
+    return <ToolCallMarker running>Preparing a questionnaire</ToolCallMarker>
+  }
   const items = sanitizeQuestionnaireItems(part.input)
   if (items.length === 0) {
     return <FailureMarker>The questionnaire could not be displayed</FailureMarker>

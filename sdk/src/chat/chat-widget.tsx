@@ -159,6 +159,16 @@ export function ChatWidget(
   }, [debug, status])
   const [draft, setDraft] = useState("")
   const streamBusy = status === "submitted" || status === "streaming"
+  // A busy stream can be silent for a while (server-side reasoning, follow-ups after
+  // tool results), so "Thinking…" shows until some part visibly makes progress.
+  const lastMessage = messages.at(-1)
+  const lastPart = lastMessage?.role === "assistant" ? lastMessage.parts.at(-1) : undefined
+  const lastPartInProgress = lastPart != null && (
+    ((lastPart.type === "text" || lastPart.type === "thinking") &&
+      lastPart.content.length > 0) ||
+    (lastPart.type === "tool-call" && !isSettledToolCall(lastPart))
+  )
+  const awaitingReply = streamBusy && !lastPartInProgress
   // Host tools execute between runs with status "ready". A send in that window ships
   // their call unresolved: the endpoint re-offers the pending tool instead of calling
   // the model, the message goes unanswered, and the redelivered call can re-execute a
@@ -288,12 +298,7 @@ export function ChatWidget(
                         </Message>
                       </MessageScrollerItem>
                     ))}
-                    {
-                      /* "submitted" covers fresh sends AND the follow-up request after every
-                        tool result, where the last message is the assistant's — the model is
-                        working either way, so the indicator ignores who spoke last. */
-                    }
-                    {status === "submitted" && (
+                    {awaitingReply && (
                       <MessageScrollerItem messageId="astralbeam-thinking">
                         <Marker role="status">
                           <MarkerContent className="shimmer">Thinking…</MarkerContent>
