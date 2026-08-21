@@ -4,13 +4,16 @@
 
 - Use Deno from the affected project directory (`webapp`, `www`, or `sdk`) with `deno task <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
 - Before running `deno task knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete project diff before running `deno task check:fix`.
+- Protect intentionally reusable, unreferenced modules with explicit Knip entries rather than broad directory exclusions; verify `knip:fix` preserves them.
 - Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
 - Keep tests that protect durable behavior, security boundaries, or previously observed regressions; avoid tests that only restate implementation details or exercise trivial constants and generated structure.
+- Before final validation, turn durable, non-obvious user corrections into one concise, nonduplicative instruction in the closest `AGENTS.md` or skill; skip one-off decisions and preferences.
 
 ## Documentation
 
 - Use `README.md` for consumers and `AGENTS.md` for authors. When creating an `AGENTS.md`, add a sibling `CLAUDE.md` symlink to it.
+- Preserve existing `AGENTS.md` and skill instructions unless removal is explicit or resolves a documented conflict.
 - Name planning documents with the `*.plan.md` suffix so they are distinguishable from durable documentation.
 - Keep each Markdown paragraph and list item on one source line.
 - Comment only non-obvious code or configuration decisions, including a link to authoritative documentation or an issue.
