@@ -45,6 +45,9 @@ export function App() {
   // Agent tools run outside React's render cycle, so they read the list through a live ref.
   const todosRef = useRef(todos)
   todosRef.current = todos
+  // A counter rather than Date.now(): the agent can add several todos in one batch of parallel
+  // tool calls, which would mint the same millisecond id twice.
+  const nextTodoId = useRef(Math.max(0, ...initialTodos.map((todo) => todo.id)) + 1)
 
   const toggleTodo = (id: number) =>
     setTodos((current) =>
@@ -54,7 +57,7 @@ export function App() {
   const addTodo = () => {
     const text = draft.trim()
     if (!text) return
-    setTodos((current) => [...current, { id: Date.now(), text, completed: false }])
+    setTodos((current) => [...current, { id: nextTodoId.current++, text, completed: false }])
     setDraft("")
   }
 
@@ -75,7 +78,7 @@ export function App() {
       execute: (input) => {
         const text = String(input.text ?? "").trim()
         if (!text) throw new Error("A todo needs a non-empty text")
-        const todo: Todo = { id: Date.now(), text, completed: false }
+        const todo: Todo = { id: nextTodoId.current++, text, completed: false }
         setTodos((current) => [...current, todo])
         return { added: todo }
       },

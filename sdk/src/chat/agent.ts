@@ -37,7 +37,7 @@ export interface QuestionnaireItemSpec {
   input?: { label: string; placeholder: string }
 }
 
-export interface QuestionnaireInput {
+interface QuestionnaireInput {
   items: QuestionnaireItemSpec[]
 }
 
@@ -48,8 +48,12 @@ export interface QuestionnaireAnswer {
   answers: string[]
 }
 
-export function slotNameForWidget(widget: string): string {
-  return `astralbeam-widget-${widget}`
+/**
+ * Slot names are per tool call, not per widget: a repeated render of the same widget would
+ * otherwise project into the first matching `<slot>` in the transcript instead of the newest one.
+ */
+export function slotNameForToolCall(toolCallId: string): string {
+  return `astralbeam-widget-${toolCallId}`
 }
 
 export function getMessageText(message: UIMessage): string {
@@ -91,13 +95,50 @@ export async function validateParameters(
 }
 
 /**
+ * Questionnaire items arrive from the agent and providers do not enforce the nested schema, so a
+ * malformed item must degrade to "not shown" instead of crashing the transcript render. Items
+ * survive only with a string name and title plus at least one usable choice or a free-form input.
+ */
+export function sanitizeQuestionnaireItems(rawInput: unknown): QuestionnaireItemSpec[] {
+  const items = (rawInput as Partial<QuestionnaireInput> | undefined)?.items
+  if (!Array.isArray(items)) return []
+  const sanitized: QuestionnaireItemSpec[] = []
+  for (const item of items as Partial<QuestionnaireItemSpec>[]) {
+    if (typeof item?.name !== "string" || typeof item.title !== "string") continue
+    const choices = Array.isArray(item.choices)
+      ? item.choices.filter((choice) =>
+        typeof choice?.value === "string" && typeof choice.label === "string"
+      )
+      : []
+    const freeform = typeof item.input?.label === "string" &&
+        typeof item.input.placeholder === "string"
+      ? item.input
+      : undefined
+    if (choices.length === 0 && !freeform) continue
+    sanitized.push({
+      name: item.name,
+      title: item.title,
+      ...(typeof item.description === "string" ? { description: item.description } : {}),
+      required: item.required === true,
+      multiple: item.multiple === true,
+      choices,
+      ...(freeform ? { input: freeform } : {}),
+    })
+  }
+  return sanitized
+}
+
+/**
  * Declares the registered widgets to the agent as one `render_widget` tool whose description
  * carries the per-widget catalog. `render` is the chat widget's DOM-side implementation; its
  * resolved value becomes the tool output the agent sees.
  */
 export function buildRenderWidgetTool(
   widgets: Record<string, WidgetDefinition>,
-  render: (input: RenderWidgetInput) => Promise<{ widget: string; rendered: boolean }>,
+  render: (
+    input: RenderWidgetInput,
+    toolCallId: string,
+  ) => Promise<{ widget: string; rendered: boolean }>,
 ) {
   const catalog = Object.entries(widgets).map(([name, { description, parameters }]) =>
     `- ${name}: ${description} Props schema: ${JSON.stringify(toJsonSchema(parameters))}`
@@ -122,7 +163,7 @@ export function buildRenderWidgetTool(
       },
       required: ["widget"],
     } satisfies JsonSchemaObject,
-  }).client((input) => render(input as RenderWidgetInput))
+  }).client((input, context) => render(input as RenderWidgetInput, context?.toolCallId ?? ""))
 }
 
 /**
@@ -136,7 +177,9 @@ export function buildAskQuestionnaireTool() {
     description: "Ask the user a short structured questionnaire rendered inline in the chat. " +
       "Use it when the next step genuinely depends on their choices instead of asking in prose. " +
       "The call stays pending until the user submits; their answers arrive as the tool output. " +
-      "Skipped optional questions come back with an empty answers array.",
+      "Skipped optional questions come back with an empty answers array. An output with " +
+      "skipped: true means the user dismissed the questionnaire by continuing the conversation " +
+      "instead — do not re-ask; address their next message.",
     inputSchema: {
       type: "object",
       properties: {
