@@ -12,7 +12,8 @@ export interface EmailAttachment {
 
 export interface SendEmailOptions {
   to: string | string[]
-  from: string
+  /** Defaults to the `EMAIL_FROM_ADDRESS` environment variable. */
+  from?: string | undefined
   subject: string
   /** A react-email template element; rendered to both HTML and plain text. */
   react?: ReactElement | undefined

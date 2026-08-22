@@ -67,7 +67,7 @@
   - `index.ts` is server-only despite the name and exports `sendEmail`; never import it from browser code
   - `types.ts` defines the caller contract (`SendEmailOptions`) and the normalized `ProviderEmailInput` every `sendProviderEmail` receives
   - `providers/*.ts` each export one `sendProviderEmail`; `sendEmail` reaches them through a static map of dynamic imports so only the selected provider's SDK loads
-  - Pick the provider per call with the `provider` option, or fall back to the `EMAIL_PROVIDER` environment variable
+  - The `provider` and `from` options override the `EMAIL_PROVIDER` and `EMAIL_FROM_ADDRESS` defaults, both read from `src/lib/config.server.ts`
   - Attachment `path` is an HTTP(S) URL, a `data:` URI, or bare base64; `index.ts` resolves it to bytes so providers never fetch
   - `templates/*.tsx` are react-email templates with a default export and `PreviewProps`; preview them with `deno task email`
   - That task runs `scripts/preview-emails.ts`, a `Deno.serve` preview server, instead of react-email's own CLI: the CLI respawns itself until node's `--experimental-vm-modules` appears in `process.execArgv`, which loops forever under Deno's node shim

@@ -2,9 +2,9 @@
  * Server-only email dispatch. Importing this from browser code would pull provider SDKs and
  * credentials into the client bundle; keep it behind server functions and server routes.
  */
-import process from "node:process"
 import { Buffer } from "node:buffer"
 import { render } from "react-email"
+import { EMAIL_FROM_ADDRESS, EMAIL_PROVIDER } from "../lib/config.server.ts"
 import type {
   EmailAttachment,
   EmailProvider,
@@ -51,7 +51,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 }
 
 function resolveProvider(provider: SendEmailOptions["provider"]): EmailProvider {
-  const resolved = provider ?? process.env.EMAIL_PROVIDER
+  const resolved = provider ?? EMAIL_PROVIDER
   if (!resolved) {
     throw new Error("No email provider given and 'EMAIL_PROVIDER' environment variable is not set")
   }
@@ -68,11 +68,18 @@ async function buildProviderEmailInput(options: SendEmailOptions): Promise<Provi
     throw new Error("An email needs either a 'react' template or 'html' content")
   }
 
+  const from = options.from ?? EMAIL_FROM_ADDRESS
+  if (!from) {
+    throw new Error(
+      "No 'from' address given and 'EMAIL_FROM_ADDRESS' environment variable is not set",
+    )
+  }
+
   const text = options.text ?? (react ? await render(react, { plainText: true }) : undefined)
 
   return {
     to: toArray(options.to),
-    from: options.from,
+    from,
     subject: options.subject,
     html,
     ...text ? { text } : {},
