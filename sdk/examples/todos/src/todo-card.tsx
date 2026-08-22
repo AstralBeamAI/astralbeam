@@ -18,7 +18,6 @@ export function TodoCard({ title, completed = false, highlight = false, onToggle
         <input type="checkbox" checked={completed} onChange={() => onToggle?.()} />
         <span className={completed ? "todo-done" : ""}>{title ?? "Untitled todo"}</span>
       </label>
-      <div className="todo-card-note">Rendered by the todos app, not the chat widget</div>
     </div>
   )
 }

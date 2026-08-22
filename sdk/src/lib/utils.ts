@@ -8,6 +8,7 @@ import type {
   StandardSchemaV1,
   WidgetDefinition,
 } from "./client-types.ts"
+import { INHERITED_PROPERTIES, WIDGET_SLOT_PREFIX, WIDGET_SLOT_SELECTOR } from "./constants.ts"
 import type { QuestionnaireItemSpec } from "./types.ts"
 
 export function cn(...inputs: ClassValue[]) {
@@ -25,7 +26,7 @@ export function getWidget(
 // Slot names are per tool call: per-widget names would project a repeated render
 // into the oldest matching <slot> in the transcript instead of the newest.
 export function slotNameForToolCall(toolCallId: string): string {
-  return `astralbeam-widget-${toolCallId}`
+  return `${WIDGET_SLOT_PREFIX}${toolCallId}`
 }
 
 export function getMessageText(message: UIMessage): string {
@@ -104,4 +105,52 @@ export function describeError(error: Error | undefined): string {
     return "The assistant service could not be reached. Check your connection."
   }
   return "Something went wrong while talking to the assistant."
+}
+
+// Custom properties are inherited like any other, and `all` never resets them, so a host token
+// such as `--card` would otherwise resolve against this sheet's palette of the same name. The
+// CSSOM exposes no per-element enumeration, so names are collected from the page's stylesheets
+// once and their values read per update. Cross-origin sheets throw on `cssRules`, so they are
+// skipped; their tokens stay unreachable.
+export function collectCustomPropertyNames(): string[] {
+  const names = new Set<string>()
+  const visit = (rules: CSSRuleList) => {
+    for (const rule of rules) {
+      if (rule instanceof CSSStyleRule) {
+        for (const property of rule.style) if (property.startsWith("--")) names.add(property)
+      } else if (rule instanceof CSSImportRule) {
+        try {
+          if (rule.styleSheet) visit(rule.styleSheet.cssRules)
+        } catch { /* cross-origin import */ }
+      } else if (rule instanceof CSSGroupingRule) {
+        visit(rule.cssRules)
+      }
+    }
+  }
+  for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) {
+    try {
+      visit(sheet.cssRules)
+    } catch { /* cross-origin sheet */ }
+  }
+  return [...names]
+}
+
+/**
+ * Builds the one rule that gives every widget slot the host page's inherited style. Slotted
+ * content inherits through the flattened tree, whose parent is the slot in this shadow root, so
+ * without it a render inherits the chat's typography and resolves `var()` against the chat's own
+ * tokens. One rule covers slots that do not exist yet, so nothing has to be applied per render.
+ * https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_scoping
+ */
+export function hostStyleRule(source: Element, customProperties: readonly string[]): string {
+  const computed = getComputedStyle(source)
+  const declarations: string[] = []
+  for (const property of [...INHERITED_PROPERTIES, ...customProperties]) {
+    const value = computed.getPropertyValue(property)
+    // A custom property may legitimately hold a `{}` block, which would close the rule early and
+    // drop every declaration after it; skipping such a value costs one token, not the whole rule.
+    if (!value || value.includes("{") || value.includes("}")) continue
+    declarations.push(`${property}:${value}`)
+  }
+  return `${WIDGET_SLOT_SELECTOR}{${declarations.join(";")}}`
 }

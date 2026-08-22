@@ -6,7 +6,7 @@ import {
 } from "@phosphor-icons/react"
 import type { UIMessage } from "@tanstack/ai-client"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import {
@@ -15,7 +15,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group"
-import { Marker, MarkerContent } from "@/components/ui/marker"
+import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Message, MessageContent } from "@/components/ui/message"
 import {
   MessageScroller,
@@ -25,13 +25,14 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
+import { Spinner } from "@/components/ui/spinner"
 import { AssistantPart } from "../components/assistant-part.tsx"
 import { PartErrorBoundary } from "../components/part-error-boundary.tsx"
 import { UserMessageBody } from "../components/user-message-body.tsx"
-import { DEFAULT_ENDPOINT } from "../lib/client-constants.ts"
+import { DEFAULT_ENDPOINT, DEFAULT_TITLE } from "../lib/client-constants.ts"
 import type { MountAstralBeamChatOptions } from "../lib/client-types.ts"
 import { createDebugLogger } from "../lib/client-utils.ts"
-import { ASK_QUESTIONNAIRE_TOOL } from "../lib/constants.ts"
+import { ASK_QUESTIONNAIRE_TOOL, MAX_ACTIVE_WIDGET_RENDERS } from "../lib/constants.ts"
 import { createChunkLogger } from "../lib/debug.ts"
 import type { RenderWidgetInput } from "../lib/types.ts"
 import {
@@ -44,9 +45,10 @@ import {
 import { buildAskQuestionnaireTool, buildHostTools, buildRenderWidgetTool } from "./agent.ts"
 
 interface ActiveWidgetRender {
+  /** Kept so an update that drops the widget can dispose renders it can no longer resolve. */
+  widget: string
   container: HTMLElement
   cleanup: (() => void) | undefined
-  slotName: string
 }
 
 function disposeWidgetRender({ container, cleanup }: ActiveWidgetRender) {
@@ -61,29 +63,54 @@ export function ChatWidget(
   // Slot names whose light-DOM container currently holds a live widget render; the
   // transcript renders a real <slot> only for these, a summary marker otherwise.
   const [activeSlots, setActiveSlots] = useState<ReadonlySet<string>>(new Set())
-  // A widget holds at most one active render; a repeated request replaces the previous.
+  // Keyed by tool call, not by widget, so a listing that renders one widget per item keeps
+  // every card alive; only a repeat of the same call replaces its own render.
   const activeRenders = useRef(new Map<string, ActiveWidgetRender>())
-  const removeActiveRenders = () => {
-    activeRenders.current.forEach(disposeWidgetRender)
-    activeRenders.current.clear()
-    setActiveSlots(new Set())
+  // Reset, the active-render cap, and cleanup after a widget is unregistered differ only in which
+  // renders they select, so they share one path: dispose, forget, and drop the slot so the
+  // transcript entry falls back to a summary marker. Returns how many went.
+  const discardRenders = (discard: (render: ActiveWidgetRender) => boolean) => {
+    const dropped: string[] = []
+    // Deleting the current entry while iterating a Map is well defined, and insertion order makes
+    // a size-based predicate discard oldest-first.
+    for (const [toolCallId, render] of activeRenders.current) {
+      if (!discard(render)) continue
+      disposeWidgetRender(render)
+      activeRenders.current.delete(toolCallId)
+      dropped.push(slotNameForToolCall(toolCallId))
+    }
+    if (dropped.length > 0) {
+      setActiveSlots((current) => {
+        const next = new Set(current)
+        for (const slot of dropped) next.delete(slot)
+        return next
+      })
+    }
+    return dropped.length
   }
   const mounted = useRef(true)
   useEffect(() => {
     mounted.current = true
     return () => {
       mounted.current = false
-      removeActiveRenders()
+      discardRenders(() => true)
     }
   }, [])
 
-  // The connection and tool set are fixed per mount; widget or tool changes afterwards
-  // are not supported yet. The closures read refs, so first-render capture is safe.
-  const [session] = useState(() => {
-    const debug = createDebugLogger(options.debug)
-    const renderWidget = async ({ widget, props }: RenderWidgetInput, toolCallId: string) => {
+  const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
+  // `renderWidget` has to stay referentially stable or the tool set below would rebuild on every
+  // render, so it reads the widgets and the logger through refs instead of capturing them: a
+  // render can be requested many turns after the update that declared the widget.
+  const widgetsRef = useRef(widgets)
+  widgetsRef.current = widgets
+  const debugRef = useRef(debug)
+  debugRef.current = debug
+
+  const renderWidget = useCallback(
+    async ({ widget, props }: RenderWidgetInput, toolCallId: string) => {
+      const debug = debugRef.current
       debug?.("widget", `agent requested widget "${widget}"`, { toolCallId, props })
-      const definition = getWidget(widgets, widget)
+      const definition = getWidget(widgetsRef.current, widget)
       if (!definition) throw new Error(`Unknown widget "${widget}"`)
       const validated = await validateParameters(definition.parameters, props ?? {})
       if (validated == null) {
@@ -92,9 +119,9 @@ export function ChatWidget(
       }
       if (!mounted.current) throw new Error("The chat is no longer mounted")
       const slotName = slotNameForToolCall(toolCallId)
-      const previous = activeRenders.current.get(widget)
+      const previous = activeRenders.current.get(toolCallId)
       if (previous) {
-        debug?.("widget", `replacing previous render of "${widget}"`)
+        debug?.("widget", `replacing previous render of "${widget}"`, { toolCallId })
         disposeWidgetRender(previous)
       }
       // The container is a light-DOM child of the shadow host, so the <slot> rendered
@@ -103,34 +130,54 @@ export function ChatWidget(
       container.slot = slotName
       host.append(container)
       const cleanup = definition.render(validated, container)
-      activeRenders.current.set(widget, { container, cleanup: cleanup ?? undefined, slotName })
-      setActiveSlots((current) => {
-        const next = new Set(current)
-        if (previous) next.delete(previous.slotName)
-        next.add(slotName)
-        return next
-      })
+      activeRenders.current.set(toolCallId, { widget, container, cleanup: cleanup ?? undefined })
+      // Deleting the current entry while iterating a Map is well defined, and insertion order
+      // makes this evict oldest-first; their transcript entries collapse to a summary marker.
+      const evicted = discardRenders(() => activeRenders.current.size > MAX_ACTIVE_WIDGET_RENDERS)
+      if (evicted > 0) {
+        debug?.("widget", `evicted ${evicted} widget render(s) past the active cap`, {
+          cap: MAX_ACTIVE_WIDGET_RENDERS,
+        })
+      }
+      setActiveSlots((current) => new Set(current).add(slotName))
       debug?.("widget", `widget "${widget}" rendered`, { slotName })
       return { widget, rendered: true }
-    }
-    const tools = [
-      ...(Object.keys(widgets).length > 0 ? [buildRenderWidgetTool(widgets, renderWidget)] : []),
-      buildAskQuestionnaireTool(),
-      ...buildHostTools(options.tools ?? {}, debug),
-    ]
-    const endpoint = options.endpoint ?? DEFAULT_ENDPOINT
-    debug?.("mount", `chat session ready, streaming from ${endpoint}`, {
-      endpoint,
-      systemPrompt: options.systemPrompt,
-      tools: tools.map((tool) => tool.name),
-      widgets: Object.keys(widgets),
+    },
+    [host],
+  )
+
+  // Rebuilt whenever the declared surface changes: `render_widget` carries the widget catalog in
+  // its description, and a host tool's schema and `execute` are captured per definition. useChat
+  // pushes a new array through `client.updateOptions`, so the next run sees the current set.
+  const tools = useMemo(() => [
+    ...(Object.keys(widgets).length > 0 ? [buildRenderWidgetTool(widgets, renderWidget)] : []),
+    buildAskQuestionnaireTool(),
+    ...buildHostTools(options.tools ?? {}, debug),
+  ], [widgets, options.tools, debug, renderWidget])
+  const toolNames = useMemo(() => new Set(tools.map((tool) => tool.name)), [tools])
+  useEffect(() => {
+    debug?.("mount", "tool set declared to the agent", {
+      tools: [...toolNames],
+      widgets: Object.keys(widgetsRef.current),
     })
-    return {
-      connection: fetchServerSentEvents(endpoint),
-      tools,
-      toolNames: new Set(tools.map((tool) => tool.name)),
-      debug,
-      debugCallbacks: debug && {
+  }, [debug, toolNames])
+
+  // A widget dropped by an update leaves its render unreachable: the transcript can no longer
+  // resolve the definition, so the container would linger in the host's DOM behind a slot that
+  // is never rendered. Those entries fall back to the summary marker instead.
+  useEffect(() => {
+    const orphaned = discardRenders((render) => !getWidget(widgets, render.widget))
+    if (orphaned > 0) {
+      debug?.("widget", `disposed ${orphaned} render(s) of widgets no longer registered`)
+    }
+  }, [widgets, debug])
+
+  // Fixed for the mount, which is why `endpoint` is not part of an update: useChat reads the
+  // connection only when it constructs its client, so a new one would cost the transcript.
+  const [connection] = useState(() => fetchServerSentEvents(options.endpoint ?? DEFAULT_ENDPOINT))
+  const debugCallbacks = useMemo(
+    () =>
+      debug && {
         onChunk: createChunkLogger(debug),
         onResponse: (response?: Response) =>
           debug(
@@ -140,21 +187,22 @@ export function ChatWidget(
         onFinish: (message: UIMessage) => debug("run", "assistant turn finished", message),
         onError: (chatError: Error) => debug("error", chatError.message, chatError),
       },
-    }
-  })
-  const debug = session.debug
-  // `debug: true` rides along in the forwarded props so the endpoint logs its side too.
-  const forwardedProps = {
+    [debug],
+  )
+  // `debug: true` rides along in the forwarded props so the endpoint logs its side too. Always
+  // passed, even when empty: useChat skips an undefined value, so omitting it would leave a
+  // previously forwarded `debug` in place after the host turns it back off.
+  const forwardedProps = useMemo(() => ({
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     ...(options.debug ? { debug: true } : {}),
-  }
+  }), [options.systemPrompt, options.debug])
   const { messages, sendMessage, setMessages, status, error, addToolResult, stop, reload } =
     useChat({
       initialMessages: [],
-      connection: session.connection,
-      tools: session.tools,
-      ...(Object.keys(forwardedProps).length > 0 ? { forwardedProps } : {}),
-      ...(session.debugCallbacks || {}),
+      connection,
+      tools,
+      forwardedProps,
+      ...(debugCallbacks || {}),
     })
   useEffect(() => {
     debug?.("status", `chat status is "${status}"`)
@@ -179,7 +227,7 @@ export function ChatWidget(
   const pendingToolRun = messages.some((message) =>
     message.parts.some((part) =>
       part.type === "tool-call" && !isSettledToolCall(part) &&
-      part.name !== ASK_QUESTIONNAIRE_TOOL && session.toolNames.has(part.name)
+      part.name !== ASK_QUESTIONNAIRE_TOOL && toolNames.has(part.name)
     )
   )
   const isBusy = streamBusy || pendingToolRun
@@ -227,10 +275,7 @@ export function ChatWidget(
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <header className="flex items-center justify-between gap-2 border-b px-4 py-3">
-        <div>
-          <div className="font-semibold">AstralBeam</div>
-          <div className="text-xs text-muted-foreground">Assistant</div>
-        </div>
+        <div className="font-semibold">{options.title ?? DEFAULT_TITLE}</div>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -240,7 +285,7 @@ export function ChatWidget(
             debug?.("status", "conversation reset")
             setMessages([])
             setDraft("")
-            removeActiveRenders()
+            discardRenders(() => true)
           }}
         >
           <ArrowCounterClockwiseIcon />
@@ -262,16 +307,16 @@ export function ChatWidget(
             </Empty>
           )
           : (
-            <MessageScrollerProvider>
+            /* autoScroll with no scroll anchors keeps the newest content at the bottom. The
+             * alternative, anchoring each user message to the top, grows a spacer sized to make
+             * that scroll position reachable, which reads as dead space whenever the reply is
+             * shorter than the viewport — common in a narrow sidebar. */
+            <MessageScrollerProvider autoScroll>
               <MessageScroller className="h-full">
                 <MessageScrollerViewport>
                   <MessageScrollerContent aria-busy={isBusy} className="p-3">
                     {messages.map((message) => (
-                      <MessageScrollerItem
-                        key={message.id}
-                        messageId={message.id}
-                        scrollAnchor={message.role === "user"}
-                      >
+                      <MessageScrollerItem key={message.id} messageId={message.id}>
                         <Message align={message.role === "user" ? "end" : "start"}>
                           <MessageContent>
                             {message.role === "user"
@@ -303,7 +348,11 @@ export function ChatWidget(
                     {awaitingReply && (
                       <MessageScrollerItem messageId="astralbeam-thinking">
                         <Marker role="status">
-                          <MarkerContent className="shimmer">Thinking…</MarkerContent>
+                          {/* No `shimmer` here or on tool-call labels: see ARCHITECTURE.md. */}
+                          <MarkerIcon>
+                            <Spinner />
+                          </MarkerIcon>
+                          <MarkerContent>Thinking…</MarkerContent>
                         </Marker>
                       </MessageScrollerItem>
                     )}

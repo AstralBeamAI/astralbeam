@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/chat/")({
           }
           const abortController = new AbortController()
           const stream = chat({
-            adapter: openaiText("gpt-5.6-luna"),
+            adapter: openaiText("gpt-5.6-terra"),
             messages: stripToolCallMetadata(params.messages),
             systemPrompts: [
               BASE_SYSTEM_PROMPT,
@@ -68,7 +68,7 @@ export const Route = createFileRoute("/api/chat/")({
             runId: params.runId,
             parentRunId: params.parentRunId,
             resume: params.resume,
-            modelOptions: { reasoning: { effort: "low" } },
+            modelOptions: { reasoning: { effort: "high" } },
             abortController,
           })
           const response = toServerSentEventsResponse(

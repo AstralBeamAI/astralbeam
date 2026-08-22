@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 // Self-reference rather than a relative path, so this entry shares the client entry's chat
 // chunk and its bundled React instead of bundling a second copy.
@@ -20,6 +20,8 @@ export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render">
 }
 
 export interface AstralBeamChatProps {
+  /** Name shown in the widget's header; prop changes apply immediately. Default `"AstralBeam"`. */
+  title?: string
   /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
   endpoint?: string
   /** Host-specific instructions the endpoint appends to the agent's system prompt. */
@@ -32,18 +34,19 @@ export interface AstralBeamChatProps {
   theme?: AstralBeamChatTheme
   /**
    * Logs every SDK action to the browser console with UTC timestamps and full payloads,
-   * and asks the endpoint to log its side of the run too. Fixed at mount.
+   * and asks the endpoint to log its side of the run too; prop changes apply immediately.
    */
   debug?: boolean
 }
 
 interface ActiveRender {
+  widget: string
   container: HTMLElement
   props: Record<string, unknown>
 }
 
 export function AstralBeamChat(
-  { endpoint, systemPrompt, tools, widgets = {}, theme = DEFAULT_THEME, debug }:
+  { title, endpoint, systemPrompt, tools, widgets = {}, theme = DEFAULT_THEME, debug }:
     AstralBeamChatProps,
 ) {
   const targetRef = useRef<HTMLDivElement>(null)
@@ -55,15 +58,14 @@ export function AstralBeamChat(
   useEffect(() => {
     toolsRef.current = tools
   })
-  useEffect(() => {
-    if (!targetRef.current) return
-    // Registered once at mount; changing widgets or tool schemas afterwards is not supported yet.
-    const handle = mountAstralBeamChat(targetRef.current, {
-      endpoint,
-      systemPrompt,
-      theme,
-      debug,
-      tools: Object.fromEntries(
+  // The chat keeps one render per tool call, so several renders of the same widget can be live
+  // at once (a listing that renders a card per item); each needs its own portal and React key.
+  const nextRenderKey = useRef(0)
+  // Memoized on the props they adapt: the update effect below ships them to the chat, and a fresh
+  // object every render would rebuild the declared tool set on every render along with it.
+  const hostTools = useMemo(
+    () =>
+      Object.fromEntries(
         Object.entries(tools ?? {}).map(([name, definition]) => [name, {
           ...definition,
           execute: (input: Record<string, unknown>) => {
@@ -73,40 +75,60 @@ export function AstralBeamChat(
           },
         }]),
       ),
-      widgets: Object.fromEntries(
+    [tools],
+  )
+  const hostWidgets = useMemo(
+    () =>
+      Object.fromEntries(
         Object.entries(widgets).map(([name, definition]) => [name, {
           ...definition,
           // The chat provides a slotted container; record it and portal the JSX into it below,
           // so the widget renders in the host's React tree with working state and context.
           render: (props: Record<string, unknown>, container: HTMLElement) => {
-            setActiveRenders((previous) => new Map(previous).set(name, { container, props }))
+            const key = `astralbeam-render-${nextRenderKey.current++}`
+            setActiveRenders((previous) =>
+              new Map(previous).set(key, { widget: name, container, props })
+            )
             return () => {
               setActiveRenders((previous) => {
                 const next = new Map(previous)
-                next.delete(name)
+                next.delete(key)
                 return next
               })
             }
           },
         }]),
       ),
-    })
+    [widgets],
+  )
+  // The one set of updatable options, so mounting and updating cannot drift apart as options are
+  // added. Memoized because the update effect keys off it.
+  const live = useMemo(
+    () => ({ title, systemPrompt, theme, debug, tools: hostTools, widgets: hostWidgets }),
+    [title, systemPrompt, theme, debug, hostTools, hostWidgets],
+  )
+  const liveRef = useRef(live)
+  liveRef.current = live
+  useEffect(() => {
+    if (!targetRef.current) return
+    // Mounted once; `endpoint` is the only option that cannot be updated afterwards.
+    const handle = mountAstralBeamChat(targetRef.current, { ...liveRef.current, endpoint })
     handleRef.current = handle
     return () => {
       handleRef.current = null
       handle.unmount()
     }
   }, [])
-  // Re-applies the initial value harmlessly; afterwards, every prop change retunes the widget.
+  // Re-applies the initial values harmlessly; afterwards, every prop change retunes the widget.
   useEffect(() => {
-    handleRef.current?.setTheme(theme)
-  }, [theme])
+    handleRef.current?.update(live)
+  }, [live])
   return (
     <div style={{ height: "100%" }} ref={targetRef}>
-      {[...activeRenders].map(([name, { container, props }]) => {
+      {[...activeRenders].map(([key, { widget, container, props }]) => {
         // Read the current prop on every render, so live host state flows into the widget.
-        const definition = widgets[name]
-        return definition ? createPortal(definition.render(props), container, name) : null
+        const definition = widgets[widget]
+        return definition ? createPortal(definition.render(props), container, key) : null
       })}
     </div>
   )

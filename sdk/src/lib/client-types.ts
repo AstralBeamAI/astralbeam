@@ -56,7 +56,9 @@ export interface ToolDefinition {
 export type AstralBeamChatTheme = "light" | "dark" | "system"
 
 export interface MountAstralBeamChatOptions {
-  /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
+  /** Name shown in the widget's header. Default `"AstralBeam"`. */
+  title?: string | undefined
+  /** URL of the AstralBeam chat endpoint the widget streams from. Fixed at mount. Default `"/api/chat"`. */
   endpoint?: string | undefined
   /** Host-specific instructions the endpoint appends to the agent's system prompt. */
   systemPrompt?: string | undefined
@@ -64,7 +66,7 @@ export interface MountAstralBeamChatOptions {
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
-  /** Initial color scheme; change it after mount with the handle's `setTheme`. Default `"system"`. */
+  /** Color scheme of the widget. Default `"system"`. */
   theme?: AstralBeamChatTheme
   /**
    * Logs every SDK action to the browser console with UTC timestamps and full payloads,
@@ -73,8 +75,18 @@ export interface MountAstralBeamChatOptions {
   debug?: boolean | undefined
 }
 
+/**
+ * Mount options the handle can change afterwards. `endpoint` is excluded on purpose: the
+ * streaming connection is constructed once, so a new endpoint would mean a new client and a
+ * discarded transcript.
+ */
+export type AstralBeamChatUpdate = Partial<Omit<MountAstralBeamChatOptions, "endpoint">>
+
 export interface AstralBeamChatHandle {
   unmount: () => void
-  /** Switches the widget's color scheme, e.g. when the host app's own theme toggles. */
-  setTheme: (theme: AstralBeamChatTheme) => void
+  /**
+   * Merges option changes into the live mount options and applies them in place, keeping the
+   * transcript, the chat session, and live widget renders. Only the keys given are replaced.
+   */
+  update: (options: AstralBeamChatUpdate) => void
 }

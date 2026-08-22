@@ -23,8 +23,9 @@ const toggleDebug = () => {
 const SYSTEM_PROMPT =
   "You are the assistant inside a personal todo-list app. The user manages a flat list of " +
   "todos, each with an id, a text, and a completed flag. Use the tools to read and change the " +
-  "list instead of guessing its contents, and render the todoCard widget when the conversation " +
-  "focuses on the most important (first uncompleted) todo."
+  "list instead of guessing its contents. Always show todos through the todoCard widget rather " +
+  "than describing them in prose: render one card per todo you are showing, each with that " +
+  "todo's id, including when the user asks to see the whole list."
 
 const themeCycle: AstralBeamChatTheme[] = ["system", "light", "dark"]
 
@@ -73,50 +74,82 @@ export function App() {
   }
 
   const tools: Record<string, ToolDefinition> = {
-    list_todos: {
+    get_todos: {
       description: "List every todo with its id, text, and completed flag.",
       execute: () => ({ todos: todosRef.current }),
     },
-    add_todo: {
-      description: "Add a new todo to the list.",
+    create_todo: {
+      description: "Create a new todo and append it to the list.",
       parameters: {
         type: "object",
         properties: {
           text: { type: "string", description: "What needs to be done" },
+          completed: {
+            type: "boolean",
+            description: "Whether it starts out done. Defaults to false.",
+          },
         },
         required: ["text"],
       },
       execute: (input) => {
         const text = String(input.text ?? "").trim()
         if (!text) throw new Error("A todo needs a non-empty text")
-        const todo: Todo = { id: nextTodoId.current++, text, completed: false }
+        const todo: Todo = { id: nextTodoId.current++, text, completed: input.completed === true }
         setTodos((current) => [...current, todo])
-        return { added: todo }
+        return { created: todo }
       },
     },
-    set_todo_completed: {
-      description: "Mark a todo as completed or uncompleted by its id.",
+    update_todo: {
+      description: "Update a todo's text, its completed flag, or both, by its id.",
       parameters: {
         type: "object",
         properties: {
           id: { type: "number", description: "Id of the todo to update" },
-          completed: { type: "boolean", description: "New completed state" },
+          text: { type: "string", description: "Replacement text; omit to keep the current one" },
+          completed: {
+            type: "boolean",
+            description: "New completed state; omit to keep the current one",
+          },
         },
-        required: ["id", "completed"],
+        required: ["id"],
       },
       execute: (input) => {
         const id = Number(input.id)
         const todo = todosRef.current.find((candidate) => candidate.id === id)
         if (!todo) throw new Error(`No todo with id ${id}`)
-        const updated: Todo = { ...todo, completed: Boolean(input.completed) }
+        // An omitted field keeps its current value, and the agent sends "omitted" as either a
+        // missing key or an explicit null, so both must be treated the same: coercing null would
+        // rename the todo to the string "null" or silently reopen a completed one.
+        const text = input.text == null ? todo.text : String(input.text).trim()
+        if (!text) throw new Error("A todo needs a non-empty text")
+        const updated: Todo = {
+          ...todo,
+          text,
+          completed: input.completed == null ? todo.completed : Boolean(input.completed),
+        }
         setTodos((current) => current.map((candidate) => candidate.id === id ? updated : candidate))
         return { updated }
       },
     },
+    delete_todo: {
+      description: "Delete a todo from the list by its id.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "number", description: "Id of the todo to delete" },
+        },
+        required: ["id"],
+      },
+      execute: (input) => {
+        const id = Number(input.id)
+        const todo = todosRef.current.find((candidate) => candidate.id === id)
+        if (!todo) throw new Error(`No todo with id ${id}`)
+        setTodos((current) => current.filter((candidate) => candidate.id !== id))
+        return { deleted: todo }
+      },
+    },
   }
 
-  // The chat's "top todo" tracks live app state: toggling it in the list updates the chat copy.
-  const topTodo = todos.find((todo) => !todo.completed) ?? todos[0]
   const systemIsDark = useSystemDark()
   const dark = theme === "dark" || (theme === "system" && systemIsDark)
 
@@ -180,6 +213,7 @@ export function App() {
       {chatOpen && (
         <aside className="chat-sidebar">
           <AstralBeamChat
+            title="Todos assistant"
             endpoint={CHAT_ENDPOINT}
             systemPrompt={SYSTEM_PROMPT}
             tools={tools}
@@ -187,25 +221,31 @@ export function App() {
             debug={DEBUG}
             widgets={{
               todoCard: {
-                description: "The most important todo from the host app",
+                description: "A single todo from the host app, addressed by its id",
                 parameters: {
                   type: "object",
                   properties: {
+                    id: { type: "number", description: "Id of the todo to render" },
                     highlight: {
                       type: "boolean",
                       description: "Make the todo stand out in the conversation",
                     },
                   },
+                  required: ["id"],
                 },
-                render: ({ highlight }) =>
-                  topTodo && (
+                // Reads `todos` rather than the ref: the wrapper re-runs this on every app
+                // render, so toggling the todo in the list updates the copy in the conversation.
+                render: ({ id, highlight }) => {
+                  const todo = todos.find((candidate) => candidate.id === Number(id))
+                  return todo && (
                     <TodoCard
-                      title={topTodo.text}
-                      completed={topTodo.completed}
+                      title={todo.text}
+                      completed={todo.completed}
                       highlight={Boolean(highlight)}
-                      onToggle={() => toggleTodo(topTodo.id)}
+                      onToggle={() => toggleTodo(todo.id)}
                     />
-                  ),
+                  )
+                },
               },
             }}
           />
