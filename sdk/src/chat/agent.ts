@@ -9,14 +9,30 @@ import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../lib/constants.ts"
 import type { RenderWidgetInput } from "../lib/types.ts"
 import { toJsonSchema, validateParameters } from "../lib/utils.ts"
 
+type RenderWidget = (
+  input: RenderWidgetInput,
+  toolCallId: string,
+) => Promise<{ widget: string; rendered: boolean }>
+
+/** The full tool set declared to the agent; `render_widget` only when widgets are registered. */
+export function buildAgentTools(
+  widgets: Record<string, WidgetDefinition>,
+  hostTools: Record<string, HostToolDefinition>,
+  renderWidget: RenderWidget,
+  debug?: DebugLogger,
+) {
+  return [
+    ...(Object.keys(widgets).length > 0 ? [buildRenderWidgetTool(widgets, renderWidget)] : []),
+    buildAskQuestionnaireTool(),
+    ...buildHostTools(hostTools, debug),
+  ]
+}
+
 // Declares the registered widgets to the agent as one `render_widget` tool whose
 // description carries the per-widget catalog; `render` is the chat widget's DOM side.
-export function buildRenderWidgetTool(
+function buildRenderWidgetTool(
   widgets: Record<string, WidgetDefinition>,
-  render: (
-    input: RenderWidgetInput,
-    toolCallId: string,
-  ) => Promise<{ widget: string; rendered: boolean }>,
+  render: RenderWidget,
 ) {
   const catalog = Object.entries(widgets).map(([name, { description, parameters }]) =>
     `- ${name}: ${description} Props schema: ${JSON.stringify(toJsonSchema(parameters))}`
@@ -46,7 +62,7 @@ export function buildRenderWidgetTool(
 
 // Declared without an execute function on purpose: the call stays pending while the
 // questionnaire renders, and the user's submission resolves it through `addToolResult`.
-export function buildAskQuestionnaireTool() {
+function buildAskQuestionnaireTool() {
   return toolDefinition({
     name: ASK_QUESTIONNAIRE_TOOL,
     description: "Ask the user a short structured questionnaire rendered inline in the chat. " +
@@ -106,7 +122,7 @@ export function buildAskQuestionnaireTool() {
 }
 
 /** Wraps the host's mount-time tools as client tools the agent can call. */
-export function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: DebugLogger) {
+function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: DebugLogger) {
   return Object.entries(tools).map(([name, tool]) =>
     toolDefinition({
       name,
