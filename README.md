@@ -28,13 +28,49 @@ sdk/          # Frontend SDK, published to npm as @astralbeam/sdk
 
 ## Local development
 
-Choose either the included devcontainer or the direct macOS workflow. Follow [`SETUP.md`](SETUP.md) for prerequisites and the PostgreSQL and Valkey service lifecycle.
+Local development & testing is split across three apps: the webapp serves the agent endpoint, the SDK builds the chat widget, and the todos example embeds it.
+
+### 1. Set up the toolchain
+
+Follow [`SETUP.md`](SETUP.md) for prerequisites and the PostgreSQL and Valkey service lifecycle, then install Deno and the projects' frozen dependencies:
 
 ```sh
-./scripts/setup.sh          # Install Deno and the projects' dependencies
-cd webapp && deno task dev  # Starts app on http://localhost:3000
-cd www && deno task dev     # Starts website on http://localhost:3001
+./scripts/setup.sh
 ```
+
+### 2. Run the webapp
+
+Serve the product application and the `/api/chat` agent endpoint on http://localhost:3000 :
+
+```sh
+cd webapp
+deno install
+deno task dev
+```
+
+`OPENAI_API_KEY` and other environment variables are required to run the app; put them in the git-ignored `webapp/.env`. See [`webapp/.env.example`](webapp/.env.example).
+
+### 3. Build the SDK
+
+The SDK bundles the client, server, React, and Vue entry points into `sdk/dist`, the artifacts consumers import:
+
+```sh
+cd sdk
+deno install
+deno task build
+```
+
+### 4. Run the todos example
+
+A barebones Vite + React app that embeds the widget from `sdk/dist` and points it at the webapp's `/api/chat`, on http://localhost:3100. See [`sdk/examples/todos/README.md`](sdk/examples/todos/README.md) for what to try.
+
+```sh
+cd sdk/examples/todos
+deno install
+deno task dev
+```
+
+Rebuild the SDK and reload the page after changing SDK sources. The public website is separate: `cd www && deno task dev` starts it on http://localhost:3001.
 
 ## Licensing
 
