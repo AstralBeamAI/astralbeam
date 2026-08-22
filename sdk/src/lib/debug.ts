@@ -1,7 +1,21 @@
 import type { StreamChunk } from "@tanstack/ai/client"
+import type { UIMessage } from "@tanstack/ai-client"
 // Type-only, so this chat-chunk module shares no runtime code with the client entry;
 // the logger itself (client-utils.ts) loads eagerly because the loader logs too.
 import type { DebugLogger } from "./client-utils.ts"
+
+// useChat lifecycle callbacks that mirror the run into the console; undefined when
+// debugging is off, so useChat receives no callbacks at all.
+export function createDebugCallbacks(debug: DebugLogger | undefined) {
+  if (!debug) return undefined
+  return {
+    onChunk: createChunkLogger(debug),
+    onResponse: (response?: Response) =>
+      debug("run", response ? `endpoint responded with HTTP ${response.status}` : "request sent"),
+    onFinish: (message: UIMessage) => debug("run", "assistant turn finished", message),
+    onError: (chatError: Error) => debug("error", chatError.message, chatError),
+  }
+}
 
 // Loose view over the AG-UI chunk fields the logger reads; chunks are typed with
 // enum discriminants upstream, which plain string switches cannot narrow.
