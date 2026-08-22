@@ -2,6 +2,14 @@ import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { ChatComposer } from "../components/chat-composer.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
 import { DEFAULT_ENDPOINT, DEFAULT_TITLE } from "../lib/client-constants.ts"
@@ -123,21 +131,26 @@ export function ChatWidget(
     discardAllRenders()
   }
 
+  // The Card frame with a bordered header, an unpadded content area, and a footer composer is
+  // shadcn's canonical chat assembly (docs/changelog/2026-06-chat-components). The host sizes and
+  // frames the widget, so the card's own radius and ring are stripped for a full-bleed fit.
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
-      <header className="flex items-center justify-between gap-2 border-b px-4 py-3">
-        <div className="font-semibold">{options.title ?? DEFAULT_TITLE}</div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Reset conversation"
-          disabled={streamBusy || messages.length === 0}
-          onClick={resetConversation}
-        >
-          <ArrowCounterClockwiseIcon />
-        </Button>
-      </header>
-      <div className="min-h-0 flex-1">
+    <Card className="h-full w-full gap-0 rounded-none ring-0">
+      <CardHeader className="gap-1 border-b">
+        <CardTitle>{options.title ?? DEFAULT_TITLE}</CardTitle>
+        <CardAction>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Reset conversation"
+            disabled={streamBusy || messages.length === 0}
+            onClick={resetConversation}
+          >
+            <ArrowCounterClockwiseIcon />
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
           messages={messages}
           widgets={widgets}
@@ -146,21 +159,27 @@ export function ChatWidget(
           awaitingReply={awaitingReply}
           onQuestionnaireAnswers={submitQuestionnaireAnswers}
         />
-      </div>
-      <ChatComposer
-        draft={draft}
-        onDraftChange={setDraft}
-        onSend={sendDraft}
-        onStop={() => {
-          debug?.("status", "generation stopped by user")
-          stop()
-        }}
-        onRetry={messages.length > 0 ? () => void reload() : undefined}
-        showError={status === "error"}
-        error={error}
-        streamBusy={streamBusy}
-        isBusy={isBusy}
-      />
-    </div>
+      </CardContent>
+      {
+        /* No border, bg-muted band, or full top padding on the composer: the scroller already
+          fades messages at the edge, so the footer needs no separation of its own. */
+      }
+      <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
+        <ChatComposer
+          draft={draft}
+          onDraftChange={setDraft}
+          onSend={sendDraft}
+          onStop={() => {
+            debug?.("status", "generation stopped by user")
+            stop()
+          }}
+          onRetry={messages.length > 0 ? () => void reload() : undefined}
+          showError={status === "error"}
+          error={error}
+          streamBusy={streamBusy}
+          isBusy={isBusy}
+        />
+      </CardFooter>
+    </Card>
   )
 }

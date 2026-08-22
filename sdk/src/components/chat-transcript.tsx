@@ -55,7 +55,7 @@ export function ChatTranscript(
     <MessageScrollerProvider autoScroll>
       <MessageScroller className="h-full">
         <MessageScrollerViewport>
-          <MessageScrollerContent aria-busy={isBusy} className="p-3">
+          <MessageScrollerContent aria-busy={isBusy} className="p-(--card-spacing)">
             {messages.map((message) => (
               <MessageScrollerItem key={message.id} messageId={message.id}>
                 <Message align={message.role === "user" ? "end" : "start"}>
@@ -79,11 +79,10 @@ export function ChatTranscript(
             {awaitingReply && (
               <MessageScrollerItem messageId="astralbeam-thinking">
                 <Marker role="status">
-                  {/* No `shimmer` here or on tool-call labels: see ARCHITECTURE.md. */}
                   <MarkerIcon>
                     <Spinner />
                   </MarkerIcon>
-                  <MarkerContent>Thinking…</MarkerContent>
+                  <MarkerContent className="shimmer">Thinking…</MarkerContent>
                 </Marker>
               </MessageScrollerItem>
             )}

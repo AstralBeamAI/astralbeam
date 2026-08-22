@@ -39,7 +39,7 @@ function ToolCallMarker({ running, children }: { running: boolean; children: Rea
   return (
     <Marker role={running ? "status" : undefined}>
       <MarkerIcon>{running ? <Spinner /> : <WrenchIcon />}</MarkerIcon>
-      <MarkerContent>{children}</MarkerContent>
+      <MarkerContent className={running ? "shimmer" : undefined}>{children}</MarkerContent>
     </Marker>
   )
 }
@@ -116,9 +116,12 @@ export function AssistantPart(
 ) {
   switch (part.type) {
     case "text":
+      // Ghost, per the docs: assistant replies are unframed and take the container's full width.
       return (
-        <Bubble variant="muted">
-          <BubbleContent className="whitespace-pre-wrap">{part.content}</BubbleContent>
+        <Bubble variant="ghost">
+          <BubbleContent>
+            <span className="whitespace-pre-wrap">{part.content}</span>
+          </BubbleContent>
         </Bubble>
       )
     case "thinking":

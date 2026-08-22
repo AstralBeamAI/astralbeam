@@ -8,7 +8,7 @@ export const DEFAULT_TITLE = "AstralBeam"
 export const DEFAULT_ENDPOINT = "/api/chat"
 
 /** Color scheme used when the mount options and the React prop give none. */
-export const DEFAULT_THEME = "system"
+export const DEFAULT_COLOR_SCHEME = "system"
 
 /**
  * Class on the widget container the loader creates. `src/styles.css` paints the palette through

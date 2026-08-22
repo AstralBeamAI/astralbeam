@@ -24,7 +24,12 @@ const handle = mountAstralBeamChat(sidebar, {
   title: "Dashboard assistant", // name in the widget header (default "AstralBeam")
   endpoint: "https://myapp.example/api/chat", // AstralBeam chat endpoint (default "/api/chat")
   systemPrompt: "You are the assistant of an infrastructure dashboard.",
-  theme: "system", // "light" | "dark" | "system" (default)
+  colorScheme: "system", // "light" | "dark" | "system" (default)
+  theme: {
+    // custom values for the widget's theming CSS variables (all optional)
+    light: { "--primary": "#b4762a", "--radius": "0px" },
+    dark: { "--primary": "#d99a45" },
+  },
   debug: false, // log every SDK and endpoint action to the consoles (default false)
   tools: {
     restart_service: {
@@ -50,10 +55,10 @@ const handle = mountAstralBeamChat(sidebar, {
     },
   },
 })
-// later: handle.update({ theme: "dark", widgets: nextWidgets }), handle.unmount()
+// later: handle.update({ colorScheme: "dark", widgets: nextWidgets }), handle.unmount()
 ```
 
-The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. It streams the conversation from the `endpoint` (an AstralBeam webapp's `/api/chat`), forwarding the optional `systemPrompt` for the endpoint to append to the agent's instructions. The `title` option names the assistant in the widget's header. The `theme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live.
+The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. It streams the conversation from the `endpoint` (an AstralBeam webapp's `/api/chat`), forwarding the optional `systemPrompt` for the endpoint to append to the agent's instructions. The `title` option names the assistant in the widget's header. The `colorScheme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live. The `theme` option overrides the widget's theming CSS variables — the [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) such as `--background`, `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` font stacks — per color scheme: mirroring shadcn's `:root`/`.dark` split, `theme.light` is the base applied in both schemes and `theme.dark` overrides it when the resolved scheme is dark.
 
 `handle.update(options)` replaces any subset of the mount options in place, keeping the transcript, the chat session, and live widget renders: rename the assistant, retheme it alongside the host app, revise the `systemPrompt`, register or drop `tools` and `widgets`, or turn `debug` on mid-conversation. Newly declared tools and widgets reach the agent on its next run. `endpoint` is the one exception and is fixed at mount, because the streaming connection is built once. Dropping a widget disposes any render of it still in the transcript, which falls back to a summary marker.
 
@@ -71,7 +76,7 @@ Widget renders pick up the host page's typography and custom properties automati
 npm install @astralbeam/sdk react react-dom
 ```
 
-Render `<AstralBeamChat>` wherever the chat sidebar should appear; it fills its container's height, mounts the chat widget on mount, and unmounts it on cleanup. The `title`, `endpoint`, `systemPrompt`, and `tools` props work like the vanilla options (tool `execute` calls always reach the latest prop value, so they can close over current component state). The `theme` prop (`"light" | "dark" | "system"`, default `"system"`) picks the color scheme. Every prop except `endpoint` applies immediately on change — the wrapper forwards them to `handle.update` from an effect. Register widgets through the `widgets` prop — the same tool-definition shape as the vanilla client, except `render` returns JSX instead of drawing into a container. The agent reads each `description` and `parameters` to decide when to render a widget and with which props. Rendered widgets live in your app's React tree and are projected into the chat through slots, so state, context, and event handlers keep working:
+Render `<AstralBeamChat>` wherever the chat sidebar should appear; it fills its container's height, mounts the chat widget on mount, and unmounts it on cleanup. The `title`, `endpoint`, `systemPrompt`, and `tools` props work like the vanilla options (tool `execute` calls always reach the latest prop value, so they can close over current component state). The `colorScheme` prop (`"light" | "dark" | "system"`, default `"system"`) picks the color scheme, and the `theme` prop overrides the widget's theming CSS variables per scheme, like the vanilla options. Every prop except `endpoint` applies immediately on change — the wrapper forwards them to `handle.update` from an effect. Register widgets through the `widgets` prop — the same tool-definition shape as the vanilla client, except `render` returns JSX instead of drawing into a container. The agent reads each `description` and `parameters` to decide when to render a widget and with which props. Rendered widgets live in your app's React tree and are projected into the chat through slots, so state, context, and event handlers keep working:
 
 ```tsx
 import { AstralBeamChat } from "@astralbeam/sdk/react"

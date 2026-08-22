@@ -15,7 +15,9 @@ export function UserMessageBody({ message }: { message: UIMessage }) {
     <>
       {text.length > 0 && (
         <Bubble>
-          <BubbleContent>{text}</BubbleContent>
+          <BubbleContent>
+            <span className="whitespace-pre-wrap">{text}</span>
+          </BubbleContent>
         </Bubble>
       )}
       {message.parts.map((part, partIndex) => {

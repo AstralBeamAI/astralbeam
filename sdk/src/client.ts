@@ -1,6 +1,6 @@
 import {
+  DEFAULT_COLOR_SCHEME,
   DEFAULT_ENDPOINT,
-  DEFAULT_THEME,
   DEFAULT_TITLE,
   WIDGET_CONTAINER_CLASS,
 } from "./lib/client-constants.ts"
@@ -10,8 +10,10 @@ import type { AstralBeamChatHandle, MountAstralBeamChatOptions } from "./lib/cli
 import type { ChatHandle } from "./chat/index.tsx"
 
 export type {
+  AstralBeamChatColorScheme,
   AstralBeamChatHandle,
   AstralBeamChatTheme,
+  AstralBeamChatThemeVariables,
   AstralBeamChatUpdate,
   JsonSchemaObject,
   MountAstralBeamChatOptions,
@@ -34,7 +36,8 @@ export function mountAstralBeamChat(
   debug?.("mount", "mounting chat widget", {
     title: live.title ?? DEFAULT_TITLE,
     endpoint: live.endpoint ?? DEFAULT_ENDPOINT,
-    theme: live.theme ?? DEFAULT_THEME,
+    colorScheme: live.colorScheme ?? DEFAULT_COLOR_SCHEME,
+    theme: live.theme,
     systemPrompt: live.systemPrompt,
     tools: Object.keys(live.tools ?? {}),
     widgets: Object.keys(live.widgets ?? {}),
@@ -48,13 +51,30 @@ export function mountAstralBeamChat(
   shadowRoot.append(container)
 
   const systemDark = matchMedia("(prefers-color-scheme: dark)")
+  // Inline custom properties on the container override the sheet's `:host`/`.dark` blocks by
+  // inheritance; `setProperty` keeps host-supplied names and values out of parsed CSS text.
+  const appliedVariables = new Set<string>()
+  const applyThemeVariables = (dark: boolean) => {
+    for (const name of appliedVariables) container.style.removeProperty(name)
+    appliedVariables.clear()
+    // Mirrors shadcn's `:root`/`.dark` split: `light` is the base for both schemes.
+    const overrides = { ...live.theme?.light, ...(dark ? live.theme?.dark : undefined) }
+    for (const [name, value] of Object.entries(overrides)) {
+      if (!name.startsWith("--")) continue
+      container.style.setProperty(name, value)
+      appliedVariables.add(name)
+    }
+  }
   // The `.dark` class on the container drives the palette and the Tailwind `dark:` variant; light
   // needs no class. `"system"` re-resolves on OS preference changes.
   const applyTheme = () => {
-    const theme = live.theme ?? DEFAULT_THEME
-    const dark = theme === "dark" || (theme === "system" && systemDark.matches)
+    const colorScheme = live.colorScheme ?? DEFAULT_COLOR_SCHEME
+    const dark = colorScheme === "dark" || (colorScheme === "system" && systemDark.matches)
     container.classList.toggle("dark", dark)
-    debug?.("theme", `theme "${theme}" resolved to ${dark ? "dark" : "light"}`)
+    applyThemeVariables(dark)
+    debug?.("theme", `color scheme "${colorScheme}" resolved to ${dark ? "dark" : "light"}`, {
+      themeVariables: [...appliedVariables],
+    })
   }
   applyTheme()
   systemDark.addEventListener("change", applyTheme)

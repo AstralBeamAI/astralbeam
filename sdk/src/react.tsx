@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 // Self-reference rather than a relative path, so this entry shares the client entry's chat
 // chunk and its bundled React instead of bundling a second copy.
 import {
+  type AstralBeamChatColorScheme,
   type AstralBeamChatHandle,
   type AstralBeamChatTheme,
   mountAstralBeamChat,
@@ -10,9 +11,9 @@ import {
   type WidgetDefinition as ClientWidgetDefinition,
 } from "@astralbeam/sdk/client"
 // A constant-only module, safe to import relatively: it pulls no React into this entry.
-import { DEFAULT_THEME } from "./lib/client-constants.ts"
+import { DEFAULT_COLOR_SCHEME } from "./lib/client-constants.ts"
 
-export type { AstralBeamChatTheme, ToolDefinition }
+export type { AstralBeamChatColorScheme, AstralBeamChatTheme, ToolDefinition }
 
 export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render"> {
   /** Draws the widget with the agent-chosen props, in the host's own React tree. */
@@ -31,7 +32,9 @@ export interface AstralBeamChatProps {
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
   /** Color scheme of the chat widget; prop changes apply immediately. Default `"system"`. */
-  theme?: AstralBeamChatTheme
+  colorScheme?: AstralBeamChatColorScheme
+  /** Custom values for the widget's theming CSS variables, per color scheme; changes apply immediately. */
+  theme?: AstralBeamChatTheme | undefined
   /**
    * Logs every SDK action to the browser console with UTC timestamps and full payloads,
    * and asks the endpoint to log its side of the run too; prop changes apply immediately.
@@ -46,8 +49,16 @@ interface ActiveRender {
 }
 
 export function AstralBeamChat(
-  { title, endpoint, systemPrompt, tools, widgets = {}, theme = DEFAULT_THEME, debug }:
-    AstralBeamChatProps,
+  {
+    title,
+    endpoint,
+    systemPrompt,
+    tools,
+    widgets = {},
+    colorScheme = DEFAULT_COLOR_SCHEME,
+    theme,
+    debug,
+  }: AstralBeamChatProps,
 ) {
   const targetRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<AstralBeamChatHandle | null>(null)
@@ -104,8 +115,16 @@ export function AstralBeamChat(
   // The one set of updatable options, so mounting and updating cannot drift apart as options are
   // added. Memoized because the update effect keys off it.
   const live = useMemo(
-    () => ({ title, systemPrompt, theme, debug, tools: hostTools, widgets: hostWidgets }),
-    [title, systemPrompt, theme, debug, hostTools, hostWidgets],
+    () => ({
+      title,
+      systemPrompt,
+      colorScheme,
+      theme,
+      debug,
+      tools: hostTools,
+      widgets: hostWidgets,
+    }),
+    [title, systemPrompt, colorScheme, theme, debug, hostTools, hostWidgets],
   )
   const liveRef = useRef(live)
   liveRef.current = live

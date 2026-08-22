@@ -27,7 +27,7 @@
 ## Webapp and SDK UI
 
 - `webapp` and `sdk` each own a `components.json` and their own shadcn-generated components, hooks, and utilities under that project's `src/components/ui`, `src/hooks`, and `src/lib`; neither imports the other's.
-- Add components from the owning project with `deno task ui add <component>`, keeping both `components.json` files on the same style, base color, and icon library.
+- Add components from the owning project with `deno task ui add <component>`. Both `components.json` files use the phosphor icon library, but their styles diverge on purpose: the webapp uses `base-lyra`/`mist`, while the SDK stays on the plain `b0` preset baseline (`base-nova`/`neutral`).
 - At the top of each registry-added `src/components/ui` file, record the repeatable command as `// Added with: deno task ui add <component>` and every intentional local change; omit nonessential automation flags such as `--overwrite` and `-y` from the recorded command.
 - Let Knip remove unreachable registry files under `src/components/ui`; ignore generated export-level noise rather than excluding the directory from unused-file discovery.
 - Use `@phosphor-icons/react` throughout Webapp and SDK UI; replace other icon-library imports in registry source during integration and do not add `lucide-react` as a dependency.

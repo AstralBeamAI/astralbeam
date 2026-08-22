@@ -29,8 +29,9 @@ export function ChatComposer(
     ChatComposerProps,
 ) {
   return (
+    // The CardFooter around this form owns the border, padding, and background.
     <form
-      className="border-t p-3"
+      className="w-full"
       onSubmit={(event) => {
         event.preventDefault()
         onSend()
