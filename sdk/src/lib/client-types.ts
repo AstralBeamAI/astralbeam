@@ -60,8 +60,9 @@ export type AstralBeamChatThemeVariables = Record<`--${string}`, string>
 
 /**
  * Custom values for the CSS variables the widget's shadcn theme exposes (`--background`,
- * `--primary`, `--radius`, ...), mirroring shadcn's `:root`/`.dark` split: `light` is the base
- * applied in both color schemes, and `dark` overrides it when the resolved scheme is dark.
+ * `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` stacks, ...),
+ * mirroring shadcn's `:root`/`.dark` split: `light` is the base applied in both color schemes,
+ * and `dark` overrides it when the resolved scheme is dark.
  */
 export interface AstralBeamChatTheme {
   light?: AstralBeamChatThemeVariables | undefined

@@ -35,6 +35,8 @@ const colorSchemeCycle: AstralBeamChatColorScheme[] = ["system", "light", "dark"
 const WIDGET_THEME: AstralBeamChatTheme = {
   light: {
     "--radius": "0.5rem",
+    "--font-sans": 'Georgia, "Times New Roman", serif',
+    "--font-heading": 'Georgia, "Times New Roman", serif',
     "--background": "#faf6ef",
     "--foreground": "#3d2f1e",
     "--card": "#fdf9f0",

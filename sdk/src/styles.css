@@ -11,8 +11,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: system-ui, sans-serif;
+  /* Reference the `:host` runtime variables instead of literal font stacks, so the mount options'
+     `theme` can override the fonts like any other token (the generated block inlined them). */
+  --font-heading: var(--font-heading);
+  --font-sans: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -56,6 +58,10 @@
 /* The widget's own palette, independent of webapp/src/theme/brand.json; generated as `:root`,
    which never matches inside a shadow root, so it lives on `:host`. */
 :host {
+  /* Body and heading fonts are independent tokens set separately by the `theme` mount option;
+     aliasing heading to sans would compute here with the default, before container overrides. */
+  --font-sans: system-ui, sans-serif;
+  --font-heading: system-ui, sans-serif;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -138,10 +144,10 @@
     font-style: normal;
     line-height: 1.5;
   }
-  /* The palette paints on the loader's container (WIDGET_CONTAINER_CLASS), not `:host`: `.dark` is
-     toggled on the container, so `:host` would flash the light background before React's first paint. */
+  /* The palette and font paint on the loader's container (WIDGET_CONTAINER_CLASS), not `:host`:
+     `.dark` and the theme-option variables land on the container, so `:host` would miss them. */
   .astralbeam-root {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground;
   }
   .dark {
     color-scheme: dark;
