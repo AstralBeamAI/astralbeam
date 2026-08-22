@@ -1,6 +1,7 @@
 import { useRef, useState, useSyncExternalStore } from "react"
 import {
   AstralBeamChat,
+  type AstralBeamChatColorScheme,
   type AstralBeamChatTheme,
   type ToolDefinition,
 } from "@astralbeam/sdk/react"
@@ -27,7 +28,53 @@ const SYSTEM_PROMPT =
   "than describing them in prose: render one card per todo you are showing, each with that " +
   "todo's id, including when the user asks to see the whole list."
 
-const themeCycle: AstralBeamChatTheme[] = ["system", "light", "dark"]
+const colorSchemeCycle: AstralBeamChatColorScheme[] = ["system", "light", "dark"]
+
+// Overrides every core shadcn token with the app's parchment palette (see styles.css), so the
+// "Custom theme" toggle is stark; `light` is the base for both schemes, so `--radius` carries over.
+const WIDGET_THEME: AstralBeamChatTheme = {
+  light: {
+    "--radius": "0.5rem",
+    "--background": "#faf6ef",
+    "--foreground": "#3d2f1e",
+    "--card": "#fdf9f0",
+    "--card-foreground": "#3d2f1e",
+    "--popover": "#fdf9f0",
+    "--popover-foreground": "#3d2f1e",
+    "--primary": "#b4762a",
+    "--primary-foreground": "#ffffff",
+    "--secondary": "#f3e8d3",
+    "--secondary-foreground": "#3d2f1e",
+    "--muted": "#f3e8d3",
+    "--muted-foreground": "#8a7355",
+    "--accent": "#e9d9bb",
+    "--accent-foreground": "#3d2f1e",
+    "--destructive": "#a03c2e",
+    "--border": "#c9b892",
+    "--input": "#c9b892",
+    "--ring": "#b4762a",
+  },
+  dark: {
+    "--background": "#201a11",
+    "--foreground": "#ede3cf",
+    "--card": "#2b2416",
+    "--card-foreground": "#ede3cf",
+    "--popover": "#2b2416",
+    "--popover-foreground": "#ede3cf",
+    "--primary": "#d99a45",
+    "--primary-foreground": "#201a11",
+    "--secondary": "#3a3020",
+    "--secondary-foreground": "#ede3cf",
+    "--muted": "#3a3020",
+    "--muted-foreground": "#b3a184",
+    "--accent": "#4a3d28",
+    "--accent-foreground": "#ede3cf",
+    "--destructive": "#e2694e",
+    "--border": "#6b5a3e",
+    "--input": "#6b5a3e",
+    "--ring": "#d99a45",
+  },
+}
 
 // The app resolves "system" for its own styling; the widget resolves it independently inside.
 const systemDark = matchMedia("(prefers-color-scheme: dark)")
@@ -53,7 +100,8 @@ export function App() {
   const [todos, setTodos] = useState(initialTodos)
   const [draft, setDraft] = useState("")
   const [chatOpen, setChatOpen] = useState(true)
-  const [theme, setTheme] = useState<AstralBeamChatTheme>("system")
+  const [colorScheme, setColorScheme] = useState<AstralBeamChatColorScheme>("system")
+  const [customTheme, setCustomTheme] = useState(true)
   // Agent tools run outside React's render cycle, so they read the list through a live ref.
   const todosRef = useRef(todos)
   todosRef.current = todos
@@ -151,34 +199,13 @@ export function App() {
   }
 
   const systemIsDark = useSystemDark()
-  const dark = theme === "dark" || (theme === "system" && systemIsDark)
+  const dark = colorScheme === "dark" || (colorScheme === "system" && systemIsDark)
 
   return (
     <div className={dark ? "app dark" : "app"}>
       <main className="todos">
         <header className="todos-header">
           <h1>Todos</h1>
-          <div className="todos-header-actions">
-            {
-              /* One preference themes both sides: the app through its own `.dark` CSS, and the
-                widget through the `theme` prop — each resolves "system" on its own. */
-            }
-            <button
-              type="button"
-              onClick={() =>
-                setTheme((current) =>
-                  themeCycle[(themeCycle.indexOf(current) + 1) % themeCycle.length]!
-                )}
-            >
-              Theme: {theme}
-            </button>
-            <button type="button" onClick={() => setChatOpen((open) => !open)}>
-              {chatOpen ? "Hide assistant" : "Show assistant"}
-            </button>
-            <button type="button" onClick={toggleDebug}>
-              Debug: {DEBUG ? "on" : "off"}
-            </button>
-          </div>
         </header>
         <form
           className="todos-form"
@@ -209,6 +236,32 @@ export function App() {
             </li>
           ))}
         </ul>
+        <div className="todos-actions">
+          {
+            /* One preference themes both sides: the app through its own `.dark` CSS, and the
+              widget through the `colorScheme` prop — each resolves "system" on its own. */
+          }
+          <button
+            type="button"
+            onClick={() =>
+              setColorScheme((current) =>
+                colorSchemeCycle[
+                  (colorSchemeCycle.indexOf(current) + 1) % colorSchemeCycle.length
+                ]!
+              )}
+          >
+            Theme: {colorScheme}
+          </button>
+          <button type="button" onClick={() => setCustomTheme((on) => !on)}>
+            Custom theme: {customTheme ? "on" : "off"}
+          </button>
+          <button type="button" onClick={() => setChatOpen((open) => !open)}>
+            {chatOpen ? "Hide assistant" : "Show assistant"}
+          </button>
+          <button type="button" onClick={toggleDebug}>
+            Debug: {DEBUG ? "on" : "off"}
+          </button>
+        </div>
       </main>
       {chatOpen && (
         <aside className="chat-sidebar">
@@ -217,7 +270,8 @@ export function App() {
             endpoint={CHAT_ENDPOINT}
             systemPrompt={SYSTEM_PROMPT}
             tools={tools}
-            theme={theme}
+            colorScheme={colorScheme}
+            theme={customTheme ? WIDGET_THEME : undefined}
             debug={DEBUG}
             widgets={{
               todoCard: {

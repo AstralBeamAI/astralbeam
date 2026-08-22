@@ -116,9 +116,12 @@ export function AssistantPart(
 ) {
   switch (part.type) {
     case "text":
+      // Ghost, per the docs: assistant replies are unframed and take the container's full width.
       return (
-        <Bubble variant="muted">
-          <BubbleContent className="whitespace-pre-wrap">{part.content}</BubbleContent>
+        <Bubble variant="ghost">
+          <BubbleContent>
+            <span className="whitespace-pre-wrap">{part.content}</span>
+          </BubbleContent>
         </Bubble>
       )
     case "thinking":

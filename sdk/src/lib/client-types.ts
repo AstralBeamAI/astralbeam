@@ -53,7 +53,20 @@ export interface ToolDefinition {
 }
 
 /** Color scheme of the chat widget; `"system"` follows the OS `prefers-color-scheme` setting. */
-export type AstralBeamChatTheme = "light" | "dark" | "system"
+export type AstralBeamChatColorScheme = "light" | "dark" | "system"
+
+/** Overrides for the widget's theming CSS variables, keyed by custom-property name (`"--primary"`). */
+export type AstralBeamChatThemeVariables = Record<`--${string}`, string>
+
+/**
+ * Custom values for the CSS variables the widget's shadcn theme exposes (`--background`,
+ * `--primary`, `--radius`, ...), mirroring shadcn's `:root`/`.dark` split: `light` is the base
+ * applied in both color schemes, and `dark` overrides it when the resolved scheme is dark.
+ */
+export interface AstralBeamChatTheme {
+  light?: AstralBeamChatThemeVariables | undefined
+  dark?: AstralBeamChatThemeVariables | undefined
+}
 
 export interface MountAstralBeamChatOptions {
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
@@ -67,7 +80,9 @@ export interface MountAstralBeamChatOptions {
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
   /** Color scheme of the widget. Default `"system"`. */
-  theme?: AstralBeamChatTheme
+  colorScheme?: AstralBeamChatColorScheme
+  /** Custom values for the widget's theming CSS variables, per color scheme. */
+  theme?: AstralBeamChatTheme | undefined
   /**
    * Logs every SDK action to the browser console with UTC timestamps and full payloads,
    * and asks the endpoint (via the forwarded props) to log its side of the run too.

@@ -57,9 +57,11 @@ body {
   gap: 1rem;
 }
 
-.todos-header-actions {
+.todos-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  margin-top: 1.5rem;
 }
 
 .todos-header h1 {
