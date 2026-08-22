@@ -39,7 +39,7 @@ function ToolCallMarker({ running, children }: { running: boolean; children: Rea
   return (
     <Marker role={running ? "status" : undefined}>
       <MarkerIcon>{running ? <Spinner /> : <WrenchIcon />}</MarkerIcon>
-      <MarkerContent>{children}</MarkerContent>
+      <MarkerContent className={running ? "shimmer" : undefined}>{children}</MarkerContent>
     </Marker>
   )
 }

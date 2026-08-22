@@ -79,11 +79,10 @@ export function ChatTranscript(
             {awaitingReply && (
               <MessageScrollerItem messageId="astralbeam-thinking">
                 <Marker role="status">
-                  {/* No `shimmer` here or on tool-call labels: see ARCHITECTURE.md. */}
                   <MarkerIcon>
                     <Spinner />
                   </MarkerIcon>
-                  <MarkerContent>Thinking…</MarkerContent>
+                  <MarkerContent className="shimmer">Thinking…</MarkerContent>
                 </Marker>
               </MessageScrollerItem>
             )}
