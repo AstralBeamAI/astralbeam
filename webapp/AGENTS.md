@@ -63,7 +63,14 @@
   - `auth.ts` contains the better-auth setup for authentication
   - avoid creating new files in `src/lib`, use new code goes into one of the above files or into a module-specific `-lib` folder.
 
-- `src/emails` contains emails powered by react-email (TODO: not set up yet, add more docs later)
+- `src/emails` contains emails powered by react-email
+  - `index.ts` is server-only despite the name and exports `sendEmail`; never import it from browser code
+  - `types.ts` defines the caller contract (`SendEmailOptions`) and the normalized `ProviderEmailInput` every `sendProviderEmail` receives
+  - `providers/*.ts` each export one `sendProviderEmail`; `sendEmail` reaches them through a static map of dynamic imports so only the selected provider's SDK loads
+  - The `provider` and `from` options override the `EMAIL_PROVIDER` and `EMAIL_FROM_ADDRESS` defaults, both read from `src/lib/config.server.ts`
+  - Attachment `path` is an HTTP(S) URL, a `data:` URI, or bare base64; `index.ts` resolves it to bytes so providers never fetch
+  - `templates/*.tsx` are react-email templates with a default export and `PreviewProps`; preview them with `deno task email`
+  - That task runs `scripts/preview-emails.ts`, a `Deno.serve` preview server, instead of react-email's own CLI: the CLI respawns itself until node's `--experimental-vm-modules` appears in `process.execArgv`, which loops forever under Deno's node shim
 
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
 

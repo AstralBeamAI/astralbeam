@@ -7,3 +7,21 @@ function ensureServerEnv(key: string) {
 }
 
 export const DATABASE_URL = ensureServerEnv("DATABASE_URL")
+
+// Defaults for `src/emails`; every `sendEmail` call can override either one.
+export const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER
+export const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS
+
+// Provider credentials are read through functions, not module constants, so a deployment only needs
+// the variables for the email providers it actually sends through.
+export function requireResendConfig() {
+  return { apiKey: ensureServerEnv("RESEND_API_KEY") }
+}
+
+export function requireSesConfig() {
+  return {
+    region: ensureServerEnv("AWS_REGION"),
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }
+}
