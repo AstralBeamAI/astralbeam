@@ -31,7 +31,7 @@
 - At the top of each registry-added `src/components/ui` file, record the repeatable command as `// Added with: deno task ui add <component>` and every intentional local change; omit nonessential automation flags such as `--overwrite` and `-y` from the recorded command.
 - Let Knip remove unreachable registry files under `src/components/ui`; ignore generated export-level noise rather than excluding the directory from unused-file discovery.
 - Use `@phosphor-icons/react` throughout Webapp and SDK UI; replace other icon-library imports in registry source during integration and do not add `lucide-react` as a dependency.
-- Keep the hand-authored portions of `webapp/src/styles.css` theme-agnostic; concrete palette values belong only in its marked generated section. The theme block in `sdk/src/styles.css` is a copy of the webapp light palette, kept in sync through explicit edits.
+- Keep the hand-authored portions of `webapp/src/styles.css` theme-agnostic; concrete palette values belong only in its marked generated section. The theme blocks in `sdk/src/styles.css` are the chat widget's own palette, deliberately independent of the webapp's; edit them directly and do not resynchronize them with `brand.json`.
 
 ## Theme and brand
 

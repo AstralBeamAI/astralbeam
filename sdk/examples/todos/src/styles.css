@@ -139,10 +139,3 @@ body {
   border-color: var(--highlight);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight) 20%, transparent);
 }
-
-.todo-card-note {
-  margin-top: 0.5rem;
-  font-size: 0.7rem;
-  font-style: italic;
-  opacity: 0.6;
-}

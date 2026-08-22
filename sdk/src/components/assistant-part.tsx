@@ -39,15 +39,18 @@ function ToolCallMarker({ running, children }: { running: boolean; children: Rea
   return (
     <Marker role={running ? "status" : undefined}>
       <MarkerIcon>{running ? <Spinner /> : <WrenchIcon />}</MarkerIcon>
-      <MarkerContent className={running ? "shimmer" : ""}>{children}</MarkerContent>
+      <MarkerContent>{children}</MarkerContent>
     </Marker>
   )
 }
 
 function WidgetCallPart(
-  { part, widgets, activeSlots }: Omit<AssistantPartProps, "onQuestionnaireAnswers" | "part"> & {
-    part: ToolCallPart
-  },
+  { part, widgets, activeSlots }:
+    & Omit<
+      AssistantPartProps,
+      "onQuestionnaireAnswers" | "part"
+    >
+    & { part: ToolCallPart },
 ) {
   const input = part.input as RenderWidgetInput | undefined
   const definition = input ? getWidget(widgets, input.widget) : undefined
@@ -59,8 +62,9 @@ function WidgetCallPart(
       : <ToolCallMarker running>Preparing a widget</ToolCallMarker>
   }
   const slotName = slotNameForToolCall(part.id)
-  // Only the newest render of a widget owns a live container; superseded (or reset)
-  // calls collapse to a summary line instead of an empty frame.
+  // Renders coexist per tool call, but a call whose render was evicted past the active
+  // cap (or cleared by a reset) has no live container; those collapse to a summary line
+  // instead of an empty frame.
   if (!activeSlots.has(slotName)) {
     const running = part.output == null
     return (
@@ -69,17 +73,10 @@ function WidgetCallPart(
       </ToolCallMarker>
     )
   }
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="px-1 text-[0.625rem] tracking-wide text-muted-foreground uppercase">
-        {definition.description}
-      </div>
-      <div className="rounded-xl border border-dashed p-1.5">
-        {/* The light-DOM child holding the widget render projects in here. */}
-        <slot name={slotName} />
-      </div>
-    </div>
-  )
+  // Neither framed nor captioned: a widget render is the host app's own UI, and the
+  // definition's `description` is written for the agent, not for the transcript. A bare
+  // <slot> is display: contents, so the projected container is laid out by MessageContent.
+  return <slot name={slotName} />
 }
 
 function QuestionnaireCallPart(
