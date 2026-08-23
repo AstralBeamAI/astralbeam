@@ -11,7 +11,7 @@
   - Let Knip delete unreachable registry files, while suppressing only generated export-level noise.
 - `src/components` contains other common components used throught the application
   - build components using the proper shadcn-ui primitives, instead of raw HTML elements
-  - always use icons from
+  - always use icons from the configured icon library in `components.json`
 
 - `src/routes` contains routes, as expected by TanStack Router:
   - Prefer `routes/my/route/path/index.ts/tsx` to `route/my/route/path.ts/tsx` in general for better code organization
@@ -72,7 +72,7 @@
   - `sendEmail` loads only the selected `providers/*.ts` module, through a static map of dynamic imports
   - `provider`, `from`, and `replyTo` default to `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS`, and the resolved `from`
   - Templates cannot resolve relative paths, so build absolute URLs from `APP_BASE_URL`; attachment `path` is a URL, a `data:` URI, or bare base64
-  - Preview with `deno task email`, which runs a server as configured in `scripts/preview-emails.ts` 
+  - Preview with `deno task email`, which runs a server as configured in `scripts/preview-emails.ts`
 
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
 
