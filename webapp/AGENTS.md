@@ -1,13 +1,17 @@
 ## Codebase Structure and Guidelines
 
-- This is TanStack Start React app, and all app code lives inside `src`, everything outside is configuration
-  - `deno` is the runtime cum package manager. all useful commands are listed in `package.json`
+- This is TanStack Start React app
+  - Tech stack: TanStack Router, Tailwind, Shadcn UI, Better Auth, Drizzle ORM, React Email
+  - `deno` is the runtime and package manager, all useful commands are listed in `package.json`
+  - all the application code lives in `src/`
+  - custom scripts are placed in `scripts/`, and invoked using `package.json` commands
 
 - `src/components/ui` contains shadcn-ui components and should never be edited/linted/formatted
   - New components should only be added using `deno x shadcn@latest <component>`
-  - Use a `// Added with: deno task ui add <component>` top comment with every intentional local change; do not include `--overwrite` or `-y` in that comment.
   - Let Knip delete unreachable registry files, while suppressing only generated export-level noise.
-- `src/components` contains common components used throught the application
+- `src/components` contains other common components used throught the application
+  - build components using the proper shadcn-ui primitives, instead of raw HTML elements
+  - always use icons from the configured icon library in `components.json`
 
 - `src/routes` contains routes, as expected by TanStack Router:
   - Prefer `routes/my/route/path/index.ts/tsx` to `route/my/route/path.ts/tsx` in general for better code organization
@@ -63,7 +67,12 @@
   - `auth.ts` contains the better-auth setup for authentication
   - avoid creating new files in `src/lib`, use new code goes into one of the above files or into a module-specific `-lib` folder.
 
-- `src/emails` contains emails powered by react-email (TODO: not set up yet, add more docs later)
+- `src/emails` contains emails powered by react-email
+  - `index.ts` exports `sendEmail` plus one `send<Template>Email` wrapper per template, each owning its own subject and props
+  - `sendEmail` loads only the selected `providers/*.ts` module, through a static map of dynamic imports
+  - `provider`, `from`, and `replyTo` default to `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS`, and the resolved `from`
+  - Templates cannot resolve relative paths, so build absolute URLs from `APP_BASE_URL`; attachment `path` is a URL, a `data:` URI, or bare base64
+  - Preview with `deno task email`, which runs a server as configured in `scripts/preview-emails.ts`
 
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
 
@@ -80,6 +89,6 @@
   - In every server function, you might need to check if the current user is authorized to access & update the data
   - In every databsae query, you might need to ensures that the right filters are applied to avoid leaking data accidentally
   - Errors in the backend must be handled, logged and gracefully shown to a user to convey why something didn't work without leaking critical info that might compromise the application security.
-  - Server-only code should typically go into `*.server.ts` files. be careful not to leak server environment vars into the client.
+  - Server-only code should typically go into `*.server.ts` files (except `index.ts` files where you can use a "server-only" import from TanStack Start as the guard). be careful not to leak server environment vars into the client.
 
 TODO: add common commands
