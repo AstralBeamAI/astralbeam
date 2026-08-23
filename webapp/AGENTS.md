@@ -68,16 +68,11 @@
   - avoid creating new files in `src/lib`, use new code goes into one of the above files or into a module-specific `-lib` folder.
 
 - `src/emails` contains emails powered by react-email
-  - `index.ts` is server-only despite the name and exports `sendEmail` plus one `send<Template>Email` wrapper per template; never import it from browser code
-  - A wrapper takes a single `options` argument with an inline type: its own template props plus a required `to` and optional `from`, `replyTo`, and `provider`; it owns the subject and passes those four through to `sendEmail`
-  - `utils.server.ts` holds every helper `sendEmail` composes: the provider registry, option resolution, rendering, and attachment decoding
-  - `types.ts` defines the caller contract (`SendEmailOptions`) and the normalized `ProviderEmailInput` every `sendProviderEmail` receives
-  - `providers/*.ts` each export one `sendProviderEmail`; `sendEmail` reaches them through a static map of dynamic imports so only the selected provider's SDK loads
-  - The `provider` and `from` options override the `EMAIL_PROVIDER` and `EMAIL_FROM_ADDRESS` defaults, both read from `src/lib/config.server.ts`; `replyTo` defaults to the resolved `from`
-  - Templates cannot resolve relative paths, so build absolute image and link URLs from `APP_BASE_URL`
-  - Attachment `path` is an HTTP(S) URL, a `data:` URI, or bare base64; `utils.server.ts` resolves it to bytes so providers never fetch
-  - `templates/*.tsx` are react-email templates with a default export and `PreviewProps`; preview them with `deno task email`
-  - That task runs `scripts/preview-emails.ts`, a `Deno.serve` preview server, instead of react-email's own CLI: the CLI respawns itself until node's `--experimental-vm-modules` appears in `process.execArgv`, which loops forever under Deno's node shim
+  - `index.ts` exports `sendEmail` plus one `send<Template>Email` wrapper per template, each owning its own subject and props
+  - `sendEmail` loads only the selected `providers/*.ts` module, through a static map of dynamic imports
+  - `provider`, `from`, and `replyTo` default to `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS`, and the resolved `from`
+  - Templates cannot resolve relative paths, so build absolute URLs from `APP_BASE_URL`; attachment `path` is a URL, a `data:` URI, or bare base64
+  - Preview with `deno task email`, which runs a server as configured in `scripts/preview-emails.ts` 
 
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
 
@@ -94,6 +89,6 @@
   - In every server function, you might need to check if the current user is authorized to access & update the data
   - In every databsae query, you might need to ensures that the right filters are applied to avoid leaking data accidentally
   - Errors in the backend must be handled, logged and gracefully shown to a user to convey why something didn't work without leaking critical info that might compromise the application security.
-  - Server-only code should typically go into `*.server.ts` files. be careful not to leak server environment vars into the client.
+  - Server-only code should typically go into `*.server.ts` files (except `index.ts` files where you can use a "server-only" import from TanStack Start as the guard). be careful not to leak server environment vars into the client.
 
 TODO: add common commands
