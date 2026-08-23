@@ -14,8 +14,7 @@ import {
   Tailwind,
   Text,
 } from "react-email"
-
-const APP_NAME = "AstralBeam"
+import { APP_NAME } from "../../lib/config.ts"
 
 interface EmailVerificationEmailProps {
   logoUrl: string

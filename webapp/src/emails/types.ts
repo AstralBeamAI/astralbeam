@@ -21,6 +21,7 @@ export interface SendEmailOptions {
   html?: string | undefined
   /** Plain-text alternative; derived from `react` when omitted. */
   text?: string | undefined
+  /** Defaults to the resolved `from` address. */
   replyTo?: string | string[] | undefined
   attachments?: EmailAttachment[] | undefined
   /** Defaults to the `EMAIL_PROVIDER` environment variable. */

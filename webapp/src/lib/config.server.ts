@@ -8,6 +8,9 @@ function ensureServerEnv(key: string) {
 
 export const DATABASE_URL = ensureServerEnv("DATABASE_URL")
 
+// Absolute origin used to build links and image sources for emails, which cannot resolve relative paths.
+export const APP_BASE_URL = ensureServerEnv("APP_BASE_URL")
+
 // Defaults for `src/emails`; every `sendEmail` call can override either one.
 export const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER
 export const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS

@@ -2,45 +2,12 @@
  * Server-only email dispatch. Importing this from browser code would pull provider SDKs and
  * credentials into the client bundle; keep it behind server functions and server routes.
  */
-import { Buffer } from "node:buffer"
-import { render } from "react-email"
-import { EMAIL_FROM_ADDRESS, EMAIL_PROVIDER } from "../lib/config.server.ts"
-import type {
-  EmailAttachment,
-  EmailProvider,
-  ProviderEmailInput,
-  ResolvedEmailAttachment,
-  SendEmailOptions,
-  SendEmailResult,
-  SendProviderEmail,
-} from "./types.ts"
-
-/**
- * Static map of dynamic imports: the selected provider's SDK is the only one ever loaded, while
- * the literal specifiers stay statically analyzable for bundling and unused-file detection.
- */
-const providerLoaders: Record<
-  EmailProvider,
-  () => Promise<{ sendProviderEmail: SendProviderEmail }>
-> = {
-  resend: () => import("./providers/resend.ts"),
-  ses: () => import("./providers/ses.ts"),
-}
-
-const CONTENT_TYPES_BY_EXTENSION: Record<string, string> = {
-  csv: "text/csv",
-  gif: "image/gif",
-  html: "text/html",
-  ics: "text/calendar",
-  jpeg: "image/jpeg",
-  jpg: "image/jpeg",
-  json: "application/json",
-  pdf: "application/pdf",
-  png: "image/png",
-  svg: "image/svg+xml",
-  txt: "text/plain",
-  zip: "application/zip",
-}
+import { createElement } from "react"
+import { APP_BASE_URL } from "../lib/config.server.ts"
+import { APP_NAME } from "../lib/config.ts"
+import EmailVerificationEmail from "./templates/email-verification.tsx"
+import type { EmailProvider, SendEmailOptions, SendEmailResult } from "./types.ts"
+import { buildProviderEmailInput, providerLoaders, resolveProvider } from "./utils.server.ts"
 
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   const provider = resolveProvider(options.provider)
@@ -50,91 +17,28 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   return { ...result, provider }
 }
 
-function resolveProvider(provider: SendEmailOptions["provider"]): EmailProvider {
-  const resolved = provider ?? EMAIL_PROVIDER
-  if (!resolved) {
-    throw new Error("No email provider given and 'EMAIL_PROVIDER' environment variable is not set")
-  }
-  if (!(resolved in providerLoaders)) {
-    throw new Error(`Unknown email provider '${resolved}'`)
-  }
-  return resolved as EmailProvider
-}
-
-async function buildProviderEmailInput(options: SendEmailOptions): Promise<ProviderEmailInput> {
-  const { react } = options
-  const html = options.html ?? (react ? await render(react) : undefined)
-  if (!html) {
-    throw new Error("An email needs either a 'react' template or 'html' content")
-  }
-
-  const from = options.from ?? EMAIL_FROM_ADDRESS
-  if (!from) {
-    throw new Error(
-      "No 'from' address given and 'EMAIL_FROM_ADDRESS' environment variable is not set",
-    )
-  }
-
-  const text = options.text ?? (react ? await render(react, { plainText: true }) : undefined)
-
-  return {
-    to: toArray(options.to),
-    from,
-    subject: options.subject,
-    html,
-    ...text ? { text } : {},
-    replyTo: toArray(options.replyTo),
-    attachments: await Promise.all((options.attachments ?? []).map(resolveAttachment)),
-  }
-}
-
-function toArray(value: string | string[] | undefined): string[] {
-  if (!value) return []
-  return Array.isArray(value) ? value : [value]
-}
-
-/**
- * Attachments are resolved to bytes here rather than per provider, because SES has to build its own
- * MIME parts and cannot fetch a remote attachment the way Resend can.
- */
-async function resolveAttachment(attachment: EmailAttachment): Promise<ResolvedEmailAttachment> {
-  const { filename, path } = attachment
-  const resolved = /^https?:\/\//i.test(path) ? await fetchAttachment(path) : decodeBase64(path)
-  return {
-    filename,
-    contentType: resolved.contentType ?? guessContentType(filename),
-    content: resolved.content,
-  }
-}
-
-interface ResolvedAttachmentContent {
-  content: Uint8Array
-  /** Media type reported by the source, when it reports one. */
-  contentType?: string | undefined
-}
-
-async function fetchAttachment(url: string): Promise<ResolvedAttachmentContent> {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch email attachment '${url}': ${response.status}`)
-  }
-  return {
-    content: new Uint8Array(await response.arrayBuffer()),
-    contentType: response.headers.get("content-type")?.split(";")[0]?.trim() || undefined,
-  }
-}
-
-/** Accepts either a bare base64 payload or a full `data:` URI. */
-function decodeBase64(path: string): ResolvedAttachmentContent {
-  const dataUri = /^data:([^;,]*)?(?:;[^,]*)*,/i.exec(path)
-  const base64 = dataUri ? path.slice(dataUri[0].length) : path
-  return {
-    content: new Uint8Array(Buffer.from(base64, "base64")),
-    contentType: dataUri?.[1] || undefined,
-  }
-}
-
-function guessContentType(filename: string): string {
-  const extension = filename.split(".").pop()?.toLowerCase() ?? ""
-  return CONTENT_TYPES_BY_EXTENSION[extension] ?? "application/octet-stream"
+// One `send<Template>Email` wrapper per template in `./templates`: it owns that template's subject
+// and props, and passes `from`, `replyTo`, and `provider` through so `sendEmail` applies the
+// defaults for whichever the caller leaves out.
+export async function sendVerificationEmail(options: {
+  to: string
+  from?: string | undefined
+  replyTo?: string | string[] | undefined
+  provider?: EmailProvider | undefined
+  verificationUrl: string
+  expiryMinutes: number
+}): Promise<SendEmailResult> {
+  return await sendEmail({
+    to: options.to,
+    from: options.from,
+    replyTo: options.replyTo,
+    provider: options.provider,
+    subject: `Verify your email on ${APP_NAME}`,
+    react: createElement(EmailVerificationEmail, {
+      logoUrl: `${APP_BASE_URL}/astralbeam-logo-light.png`,
+      verificationUrl: options.verificationUrl,
+      expiryMinutes: options.expiryMinutes,
+      email: options.to,
+    }),
+  })
 }

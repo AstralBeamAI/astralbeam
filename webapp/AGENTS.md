@@ -1,13 +1,17 @@
 ## Codebase Structure and Guidelines
 
-- This is TanStack Start React app, and all app code lives inside `src`, everything outside is configuration
-  - `deno` is the runtime cum package manager. all useful commands are listed in `package.json`
+- This is TanStack Start React app
+  - Tech stack: TanStack Router, Tailwind, Shadcn UI, Better Auth, Drizzle ORM, React Email
+  - `deno` is the runtime and package manager, all useful commands are listed in `package.json`
+  - all the application code lives in `src/`
+  - custom scripts are placed in `scripts/`, and invoked using `package.json` commands
 
 - `src/components/ui` contains shadcn-ui components and should never be edited/linted/formatted
   - New components should only be added using `deno x shadcn@latest <component>`
-  - Use a `// Added with: deno task ui add <component>` top comment with every intentional local change; do not include `--overwrite` or `-y` in that comment.
   - Let Knip delete unreachable registry files, while suppressing only generated export-level noise.
-- `src/components` contains common components used throught the application
+- `src/components` contains other common components used throught the application
+  - build components using the proper shadcn-ui primitives, instead of raw HTML elements
+  - always use icons from
 
 - `src/routes` contains routes, as expected by TanStack Router:
   - Prefer `routes/my/route/path/index.ts/tsx` to `route/my/route/path.ts/tsx` in general for better code organization
@@ -64,11 +68,14 @@
   - avoid creating new files in `src/lib`, use new code goes into one of the above files or into a module-specific `-lib` folder.
 
 - `src/emails` contains emails powered by react-email
-  - `index.ts` is server-only despite the name and exports `sendEmail`; never import it from browser code
+  - `index.ts` is server-only despite the name and exports `sendEmail` plus one `send<Template>Email` wrapper per template; never import it from browser code
+  - A wrapper takes a single `options` argument with an inline type: its own template props plus a required `to` and optional `from`, `replyTo`, and `provider`; it owns the subject and passes those four through to `sendEmail`
+  - `utils.server.ts` holds every helper `sendEmail` composes: the provider registry, option resolution, rendering, and attachment decoding
   - `types.ts` defines the caller contract (`SendEmailOptions`) and the normalized `ProviderEmailInput` every `sendProviderEmail` receives
   - `providers/*.ts` each export one `sendProviderEmail`; `sendEmail` reaches them through a static map of dynamic imports so only the selected provider's SDK loads
-  - The `provider` and `from` options override the `EMAIL_PROVIDER` and `EMAIL_FROM_ADDRESS` defaults, both read from `src/lib/config.server.ts`
-  - Attachment `path` is an HTTP(S) URL, a `data:` URI, or bare base64; `index.ts` resolves it to bytes so providers never fetch
+  - The `provider` and `from` options override the `EMAIL_PROVIDER` and `EMAIL_FROM_ADDRESS` defaults, both read from `src/lib/config.server.ts`; `replyTo` defaults to the resolved `from`
+  - Templates cannot resolve relative paths, so build absolute image and link URLs from `APP_BASE_URL`
+  - Attachment `path` is an HTTP(S) URL, a `data:` URI, or bare base64; `utils.server.ts` resolves it to bytes so providers never fetch
   - `templates/*.tsx` are react-email templates with a default export and `PreviewProps`; preview them with `deno task email`
   - That task runs `scripts/preview-emails.ts`, a `Deno.serve` preview server, instead of react-email's own CLI: the CLI respawns itself until node's `--experimental-vm-modules` appears in `process.execArgv`, which loops forever under Deno's node shim
 
