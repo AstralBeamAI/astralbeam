@@ -507,12 +507,16 @@ main {
   color: var(--text-muted);
 }
 
+/* Grid rather than flex so the CTAs match widths: `1fr` tracks inside a
+   `fit-content` container all resolve to the widest item's size.
+   https://drafts.csswg.org/css-grid/#algo-flex-tracks */
 .hero-ctas {
-  margin-top: 2.2rem;
-  display: flex;
-  flex-wrap: wrap;
+  margin: 2.2rem auto 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: fit-content;
   align-items: center;
-  justify-content: center;
   gap: 1rem;
 }
 
@@ -1274,7 +1278,7 @@ main {
   filter: brightness(1.12);
 }
 
-:where(.agent-replay, .agent-send, .agent-input):focus-visible {
+:where(.agent-replay, .agent-send):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
@@ -1329,12 +1333,6 @@ main {
   align-items: center;
   gap: 1rem 1.4rem;
   margin-top: 2.4rem;
-}
-
-.os-repo-path {
-  font-size: 0.76rem;
-  letter-spacing: 0.1em;
-  color: var(--text-chrome);
 }
 
 /* ---------- launch ---------- */
@@ -1479,6 +1477,10 @@ main {
   .terminal-bar {
     gap: 0.7rem;
     padding: 0.7rem 1.05rem;
+  }
+  /* Stack the CTAs; the single implicit column keeps them the same width. */
+  .hero-ctas {
+    grid-auto-flow: row;
   }
 }
 
