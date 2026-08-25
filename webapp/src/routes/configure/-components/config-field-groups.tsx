@@ -4,7 +4,11 @@ import { GlobeIcon } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CURRENT_ORIGIN_KEY, FIELD_GROUPS, ROTATABLE_KEYS } from "../-lib/constants"
+import {
+  APP_BASE_URL_CONFIG_KEY,
+  CONFIG_FIELD_GROUPS,
+  ROTATABLE_CONFIG_KEYS,
+} from "../-lib/constants"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
 
@@ -25,7 +29,7 @@ export function ConfigFieldGroups({
 }) {
   const fieldsByKey = new Map(fields.map((field) => [field.key, field]))
 
-  return FIELD_GROUPS.map((group) => {
+  return CONFIG_FIELD_GROUPS.map((group) => {
     const groupFields = group.keys
       .map((key) => fieldsByKey.get(key))
       .filter((field): field is ConfigureField => field !== undefined)
@@ -45,8 +49,10 @@ export function ConfigFieldGroups({
               error={fieldErrors[field.key]}
               disabled={disabled}
               onDraftChange={(draft) => onDraftChange(field.key, draft)}
-              onRotate={ROTATABLE_KEYS.has(field.key) ? () => onRotate(field.key) : undefined}
-              footer={field.key === CURRENT_ORIGIN_KEY
+              onRotate={ROTATABLE_CONFIG_KEYS.has(field.key)
+                ? () => onRotate(field.key)
+                : undefined}
+              footer={field.key === APP_BASE_URL_CONFIG_KEY
                 ? (
                   <Button
                     type="button"

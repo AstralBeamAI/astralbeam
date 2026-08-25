@@ -5,7 +5,7 @@ import postgres from "postgres"
 
 import { db } from "@/db/index.server"
 import { DATABASE_URL, hasPostgresErrorCode, invalidateConfigCache } from "@/lib/config.server"
-import { MIGRATION_ADVISORY_LOCK_KEY } from "./constants.server"
+import { CONFIG_MIGRATION_LOCK_KEY } from "./constants.server"
 import { promoteMemorySessions } from "./operator-session.server"
 
 export interface BundledMigration {
@@ -124,7 +124,7 @@ export async function applyPendingMigrations(
   const client = postgres(DATABASE_URL, { max: 1 })
   try {
     const [lock] = await client`
-      select pg_try_advisory_lock(hashtext(${MIGRATION_ADVISORY_LOCK_KEY})) as locked
+      select pg_try_advisory_lock(hashtext(${CONFIG_MIGRATION_LOCK_KEY})) as locked
     `
     if (!lock?.locked) return { ok: false, error: "A migration run is already in progress" }
     try {
@@ -178,7 +178,7 @@ export async function applyPendingMigrations(
       }
       return { ok: true, applied }
     } finally {
-      await client`select pg_advisory_unlock(hashtext(${MIGRATION_ADVISORY_LOCK_KEY}))`
+      await client`select pg_advisory_unlock(hashtext(${CONFIG_MIGRATION_LOCK_KEY}))`
     }
   } finally {
     await client.end()

@@ -1,5 +1,5 @@
 /** Registry keys laid out in the order the editor shows them, grouped into one card each. */
-export const FIELD_GROUPS: { title: string; keys: string[] }[] = [
+export const CONFIG_FIELD_GROUPS: { title: string; keys: string[] }[] = [
   {
     title: "General",
     keys: ["app_base_url", "privacy_policy_url", "terms_of_service_url", "chat_auth_secret"],
@@ -28,7 +28,7 @@ export const FIELD_GROUPS: { title: string; keys: string[] }[] = [
   { title: "LLM Providers", keys: ["openai_api_key"] },
 ]
 
-export const ROTATABLE_KEYS = new Set(["better_auth_secret", "chat_auth_secret"])
+export const ROTATABLE_CONFIG_KEYS = new Set(["better_auth_secret", "chat_auth_secret"])
 
 // The base URL is the origin the operator is already browsing, so the editor offers to fill it in.
-export const CURRENT_ORIGIN_KEY = "app_base_url"
+export const APP_BASE_URL_CONFIG_KEY = "app_base_url"

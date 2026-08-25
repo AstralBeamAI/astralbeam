@@ -26,7 +26,7 @@ import {
   APP_LOGO_LIGHT_PNG_URL,
   APP_LOGO_LIGHT_SVG_URL,
   APP_NAME,
-  AUTH_RETURN_PATHS,
+  AUTH_ALLOWED_RETURN_PATHS,
   DEFAULT_PUBLIC_CONFIG,
   INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
@@ -88,7 +88,7 @@ export const Route = createRootRouteWithContext<{
     const redirectTo = normalizeReturnPath(
       rawRedirectTo,
       await getRedirectOrigin(),
-      AUTH_RETURN_PATHS,
+      AUTH_ALLOWED_RETURN_PATHS,
     )
 
     if (
@@ -176,7 +176,7 @@ function AppProviders({ children }: { children: ReactNode }) {
   const redirectTo = normalizeReturnPath(
     new URLSearchParams(searchStr).get("redirectTo"),
     origin,
-    AUTH_RETURN_PATHS,
+    AUTH_ALLOWED_RETURN_PATHS,
   )
 
   return (

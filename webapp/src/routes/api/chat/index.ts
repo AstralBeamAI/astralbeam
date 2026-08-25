@@ -13,7 +13,7 @@ import {
   isChatAuthenticationConfigurationError,
   isChatAuthenticationError,
 } from "./-lib/auth.server"
-import { BASE_SYSTEM_PROMPT, CHAT_TOKEN_AUDIENCE } from "./-lib/constants.server"
+import { CHAT_SYSTEM_PROMPT, CHAT_TOKEN_AUDIENCE } from "./-lib/constants.server"
 import { createDebugLog, withDebugLog } from "./-lib/debug.server"
 import type { ChatParams } from "./-lib/types"
 import {
@@ -88,7 +88,7 @@ export const Route = createFileRoute("/api/chat/")({
             adapter: createOpenaiChat("gpt-5.6-terra", openaiApiKey),
             messages: stripToolCallMetadata(params.messages),
             systemPrompts: [
-              BASE_SYSTEM_PROMPT,
+              CHAT_SYSTEM_PROMPT,
               ...(typeof systemPrompt === "string" && systemPrompt.length > 0
                 ? [systemPrompt]
                 : []),
