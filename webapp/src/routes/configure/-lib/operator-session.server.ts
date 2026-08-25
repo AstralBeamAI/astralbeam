@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto"
 
-import { and, eq, gt } from "drizzle-orm"
+import { and, eq, gt, lte } from "drizzle-orm"
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server"
 
 import { isMissingTableError } from "@/lib/config.server"
@@ -8,6 +8,7 @@ import { OPERATOR_SESSION_COOKIE, OPERATOR_SESSION_TTL_SECONDS } from "./constan
 
 export interface OperatorSession {
   dbUsername: string
+  expiresAt: Date
 }
 
 // Bootstrap fallback: on a fresh database the config_session table does not exist until the first
@@ -19,7 +20,23 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex")
 }
 
+// Expired sessions can never be revived, so drop them instead of letting them accumulate.
+async function pruneExpiredSessions(): Promise<void> {
+  const now = Date.now()
+  for (const [tokenHash, session] of memorySessions) {
+    if (session.expiresAt <= now) memorySessions.delete(tokenHash)
+  }
+  try {
+    const { db } = await import("@/db/index.server")
+    const { configSession } = await import("@/db/schema.server")
+    await db.delete(configSession).where(lte(configSession.expiresAt, new Date(now)))
+  } catch (error) {
+    if (!isMissingTableError(error)) throw error
+  }
+}
+
 export async function createOperatorSession(dbUsername: string): Promise<string> {
+  await pruneExpiredSessions()
   const token = randomBytes(32).toString("base64url")
   const tokenHash = hashToken(token)
   const expiresAt = new Date(Date.now() + OPERATOR_SESSION_TTL_SECONDS * 1000)
@@ -46,13 +63,13 @@ export async function verifyOperatorSession(
       return null
     }
     await promoteMemorySessions()
-    return { dbUsername: memory.dbUsername }
+    return { dbUsername: memory.dbUsername, expiresAt: new Date(memory.expiresAt) }
   }
   try {
     const { db } = await import("@/db/index.server")
     const { configSession } = await import("@/db/schema.server")
     const rows = await db
-      .select({ dbUsername: configSession.dbUsername })
+      .select({ dbUsername: configSession.dbUsername, expiresAt: configSession.expiresAt })
       .from(configSession)
       .where(and(
         eq(configSession.tokenHash, tokenHash),

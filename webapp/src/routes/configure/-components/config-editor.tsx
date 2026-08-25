@@ -1,19 +1,18 @@
 "use client"
 
 import { CheckCircleIcon, GlobeIcon, WarningCircleIcon } from "@phosphor-icons/react"
-import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "@/components/ui/toast"
-import { Spinner } from "@/components/ui/spinner"
 import { completeSetup } from "../-functions/complete-setup"
 import { rotateAuthSecret } from "../-functions/rotate-auth-secret"
 import { saveConfigValues } from "../-functions/save-config-values"
 import type { ConfigureField, ConfigureIssue, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
+import { ConfigureActions } from "./configure-actions"
 
 const FIELD_GROUPS: { title: string; keys: string[] }[] = [
   {
@@ -97,9 +96,16 @@ export function ConfigEditor({
         setDrafts({})
         toast.add({ title: "Configuration saved", type: "success" })
         onChanged()
-      } else {
-        toast.add({ title: "Some values could not be saved", type: "error" })
+        return
       }
+      // An empty key marks a request-level failure such as an expired operator session, which the
+      // per-field errors cannot show; reloading then swaps the editor for the login form.
+      const requestError = result.fieldErrors.find((issue) => issue.key === "")
+      toast.add({
+        title: requestError?.message ?? "Some values could not be saved",
+        type: "error",
+      })
+      if (requestError) onChanged()
     })
 
   const handleRotate = (key: string) =>
@@ -129,16 +135,27 @@ export function ConfigEditor({
       onChanged()
     })
 
+  const actions = (
+    <ConfigureActions
+      setupComplete={setupComplete}
+      busy={busy}
+      onSave={() => void handleSave()}
+      saveDisabled={pendingUpdates.length === 0}
+      {...(setupComplete ? {} : { onFinishSetup: () => void handleCompleteSetup() })}
+    />
+  )
+
   return (
     <div className="flex flex-col gap-6">
+      {actions}
+
       {setupComplete
         ? (
           <Alert>
             <CheckCircleIcon aria-hidden="true" />
             <AlertTitle>Setup is complete</AlertTitle>
             <AlertDescription>
-              Saved changes apply within about ten seconds.{" "}
-              <Link to="/" className="underline underline-offset-4">Go to the app</Link>
+              Saved changes apply within about ten seconds and reach every server instance.
             </AlertDescription>
           </Alert>
         )
@@ -210,29 +227,7 @@ export function ConfigEditor({
         )
       })}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={busy || pendingUpdates.length === 0}
-        >
-          {busy && <Spinner />}
-          Save changes
-        </Button>
-        {!setupComplete && (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void handleCompleteSetup()}
-            disabled={busy}
-          >
-            Finish setup
-          </Button>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Saved values reach every server instance within about ten seconds.
-        </p>
-      </div>
+      {actions}
     </div>
   )
 }

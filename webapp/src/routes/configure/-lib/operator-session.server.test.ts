@@ -5,8 +5,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 const state = vi.hoisted(() => ({
   tableExists: false,
   inserted: [] as Record<string, unknown>[],
-  selectRows: [] as { dbUsername: string }[],
+  selectRows: [] as { dbUsername: string; expiresAt: Date }[],
 }))
+
+function currentExpiry() {
+  return new Date(Date.now() + OPERATOR_SESSION_TTL_SECONDS * 1000)
+}
 
 function missingTableError() {
   return Object.assign(new Error("relation does not exist"), { code: "42P01" })
@@ -61,7 +65,10 @@ describe("operator session boundary", () => {
 
   test("bootstrap sessions verify in memory and reject other tokens", async () => {
     const token = await createOperatorSession("astralbeam")
-    await expect(verifyOperatorSession(token)).resolves.toEqual({ dbUsername: "astralbeam" })
+    await expect(verifyOperatorSession(token)).resolves.toEqual({
+      dbUsername: "astralbeam",
+      expiresAt: currentExpiry(),
+    })
     await expect(verifyOperatorSession("not-the-token")).resolves.toBeNull()
     await expect(verifyOperatorSession(undefined)).resolves.toBeNull()
   })
@@ -87,13 +94,19 @@ describe("operator session boundary", () => {
     expect(state.inserted).toHaveLength(0)
 
     state.tableExists = true
-    await expect(verifyOperatorSession(token)).resolves.toEqual({ dbUsername: "astralbeam" })
+    await expect(verifyOperatorSession(token)).resolves.toEqual({
+      dbUsername: "astralbeam",
+      expiresAt: currentExpiry(),
+    })
     expect(state.inserted.some((row) => row.tokenHash === tokenHash)).toBe(true)
 
     // The memory copy is gone: verification now depends on the database row alone.
     state.selectRows = []
     await expect(verifyOperatorSession(token)).resolves.toBeNull()
-    state.selectRows = [{ dbUsername: "astralbeam" }]
-    await expect(verifyOperatorSession(token)).resolves.toEqual({ dbUsername: "astralbeam" })
+    state.selectRows = [{ dbUsername: "astralbeam", expiresAt: currentExpiry() }]
+    await expect(verifyOperatorSession(token)).resolves.toEqual({
+      dbUsername: "astralbeam",
+      expiresAt: currentExpiry(),
+    })
   })
 })

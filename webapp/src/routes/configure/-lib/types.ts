@@ -35,6 +35,8 @@ export type ConfigureState =
   | {
     authenticated: true
     dbUsername: string
+    /** ISO instant the operator session expires at, for the live countdown. */
+    sessionExpiresAt: string
     setupComplete: boolean
     migrations: { pending: PendingMigrationInfo[]; appliedCount: number }
     fields: ConfigureField[]

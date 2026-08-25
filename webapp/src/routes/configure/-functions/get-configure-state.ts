@@ -40,6 +40,7 @@ export const getConfigureState = createServerFn({ method: "GET" }).handler(
     return {
       authenticated: true,
       dbUsername: session.dbUsername,
+      sessionExpiresAt: session.expiresAt.toISOString(),
       setupComplete: snapshot.setupComplete,
       migrations: {
         pending: migrationState.pending.map(({ name, sql }) => ({ name, sql })),
