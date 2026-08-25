@@ -34,6 +34,7 @@ export function PendingMigrationsCard({
 }) {
   const [error, setError] = useState<string | null>(null)
   const [pendingApply, setPendingApply] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const handleApply = async () => {
     setPendingApply(true)
@@ -88,7 +89,7 @@ export function PendingMigrationsCard({
             </li>
           ))}
         </ul>
-        <AlertDialog>
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger
             type="button"
             disabled={pendingApply}
@@ -108,7 +109,12 @@ export function PendingMigrationsCard({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => void handleApply()}>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmOpen(false)
+                  void handleApply()
+                }}
+              >
                 Apply migrations
               </AlertDialogAction>
             </AlertDialogFooter>

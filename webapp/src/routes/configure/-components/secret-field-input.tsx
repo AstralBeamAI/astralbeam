@@ -1,6 +1,7 @@
 "use client"
 
-import { ArrowsClockwiseIcon, XIcon } from "@phosphor-icons/react"
+import { ArrowsClockwiseIcon, EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react"
+import { useState } from "react"
 
 import {
   AlertDialog,
@@ -11,13 +12,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
+import { CopyValueButton } from "./copy-value-button"
 
 export function SecretFieldInput({
   field,
@@ -32,92 +36,90 @@ export function SecretFieldInput({
   onRotate?: (() => void) | undefined
   disabled: boolean
 }) {
+  const [visible, setVisible] = useState(false)
+  const [confirmRotateOpen, setConfirmRotateOpen] = useState(false)
+
+  const value = draft.kind === "set" ? draft.value : field.value ?? ""
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {draft.kind === "clear"
-          ? <Badge variant="outline">Cleared on save</Badge>
-          : field.isSet
-          ? (
-            <Badge variant="secondary">
-              Configured <span aria-hidden="true">••••••••</span>
-            </Badge>
-          )
-          : <Badge variant="outline">Not configured</Badge>}
-        {draft.kind !== "set" && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => onDraftChange({ kind: "set", value: "" })}
-          >
-            {field.isSet ? "Replace" : "Set value"}
-          </Button>
-        )}
-        {field.isSet && draft.kind === "unchanged" && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => onDraftChange({ kind: "clear" })}
-          >
-            Clear
-          </Button>
-        )}
-        {draft.kind !== "unchanged" && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={disabled}
-            aria-label={`Discard the pending change to ${field.label}`}
-            title={`Discard the pending change to ${field.label}`}
-            onClick={() => onDraftChange({ kind: "unchanged" })}
-          >
-            <XIcon aria-hidden="true" />
-          </Button>
-        )}
-        {field.canGenerate && onRotate && (
-          <AlertDialog>
-            <AlertDialogTrigger
-              type="button"
-              disabled={disabled}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              <ArrowsClockwiseIcon aria-hidden="true" />
-              {field.isSet ? "Rotate" : "Generate"}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {field.isSet ? "Rotate" : "Generate"} {field.label.toLowerCase()}?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  This stores a new random value immediately. {field.description}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={onRotate}>
-                  {field.isSet ? "Rotate" : "Generate"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-      </div>
-      {draft.kind === "set" && (
-        <Input
-          type="password"
+      <InputGroup>
+        <InputGroupInput
+          id={`config-${field.key}`}
+          type={visible ? "text" : "password"}
           autoComplete="off"
-          placeholder={`New ${field.label.toLowerCase()}`}
-          value={draft.value}
+          value={value}
+          placeholder="Not set"
           disabled={disabled}
           onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
         />
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            aria-label={visible ? `Hide ${field.label}` : `Show ${field.label}`}
+            title={visible ? `Hide ${field.label}` : `Show ${field.label}`}
+            onClick={() => setVisible((current) => !current)}
+          >
+            {visible ? <EyeSlashIcon aria-hidden="true" /> : <EyeIcon aria-hidden="true" />}
+          </InputGroupButton>
+          <CopyValueButton value={value} label={field.label} />
+        </InputGroupAddon>
+      </InputGroup>
+      {(draft.kind !== "unchanged" || (field.canGenerate && onRotate !== undefined)) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {draft.kind !== "unchanged" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={disabled}
+              onClick={() => {
+                setVisible(false)
+                onDraftChange({ kind: "unchanged" })
+              }}
+            >
+              <XIcon aria-hidden="true" />
+              Discard
+            </Button>
+          )}
+          {field.canGenerate && onRotate !== undefined && draft.kind === "unchanged" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              onClick={() => setConfirmRotateOpen(true)}
+            >
+              <ArrowsClockwiseIcon aria-hidden="true" />
+              {field.isSet ? "Rotate" : "Generate"}
+            </Button>
+          )}
+        </div>
       )}
+      <AlertDialog open={confirmRotateOpen} onOpenChange={setConfirmRotateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {field.isSet ? "Rotate" : "Generate"} {field.label.toLowerCase()}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This stores a new random value immediately. {field.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmRotateOpen(false)
+                setVisible(false)
+                onRotate?.()
+              }}
+            >
+              {field.isSet ? "Rotate" : "Generate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

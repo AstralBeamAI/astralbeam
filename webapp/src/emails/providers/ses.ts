@@ -3,18 +3,22 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2"
 import { requireSesConfig } from "../../lib/config.server.ts"
 import type { ProviderEmailInput, ResolvedEmailAttachment, SendProviderEmail } from "../types.ts"
 
-// Keyed on the region so changing it at /configure rebuilds the client.
-let cachedClient: { region: string; client: SESv2Client } | undefined
+// Keyed on the configured values so changing them at /configure rebuilds the client.
+let cachedClient: { cacheKey: string; client: SESv2Client } | undefined
 
 async function getClient(): Promise<SESv2Client> {
-  const { region } = await requireSesConfig()
-  if (cachedClient?.region !== region) {
+  const { region, credentials } = await requireSesConfig()
+  const cacheKey = `${region}:${credentials?.accessKeyId ?? ""}:${
+    credentials?.secretAccessKey ?? ""
+  }`
+  if (cachedClient?.cacheKey !== cacheKey) {
     cachedClient = {
-      region,
+      cacheKey,
       client: new SESv2Client({
         region,
-        // The default chain supports roles, SSO/profiles, and temporary environment credentials.
-        // https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html
+        // Without configured credentials, the default chain supports roles, SSO/profiles, and
+        // temporary environment credentials. https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html
+        ...(credentials ? { credentials } : {}),
       }),
     }
   }

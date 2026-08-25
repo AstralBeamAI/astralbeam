@@ -86,6 +86,8 @@ type ConfigKey =
   | "email_from_address"
   | "resend_api_key"
   | "aws_region"
+  | "aws_access_key_id"
+  | "aws_secret_access_key"
   | "openai_api_key"
   | "chat_auth_secret"
   | "privacy_policy_url"
@@ -102,6 +104,8 @@ interface ConfigDefinition {
   kind: "text" | "url" | "secret" | "enum"
   required: boolean
   secret: boolean
+  /** The stored value is visible to end users (public pages or browser-visible URLs). */
+  isPublic?: true
   options?: readonly string[]
   decode: (value: unknown) => string
   generate?: () => string
@@ -113,12 +117,13 @@ const nonEmptyDecoder = (label: string) =>
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
     key: "app_base_url",
-    label: "Application base URL",
+    label: "Application Base URL",
     description:
       "Public origin the application is served from; used for authentication callbacks and links in emails.",
     kind: "url",
     required: true,
     secret: false,
+    isPublic: true,
     decode: sanitizedDecoder(
       (value) => decodeServerOrigin(value).origin,
       "Application base URL must be an HTTP(S) origin without credentials, path, query, or fragment, and must use HTTPS outside local development",
@@ -126,7 +131,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "better_auth_secret",
-    label: "Authentication secret",
+    label: "Authentication Secret",
     description:
       "Signs authentication sessions and tokens. Rotating it signs every user out immediately.",
     kind: "secret",
@@ -140,17 +145,18 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "google_client_id",
-    label: "Google client ID",
+    label: "Google Client ID",
     description:
       "OAuth client ID from the Google Cloud console. Set both Google fields to enable Google sign-in.",
     kind: "text",
     required: false,
     secret: false,
+    isPublic: true,
     decode: nonEmptyDecoder("Google client ID"),
   },
   {
     key: "google_client_secret",
-    label: "Google client secret",
+    label: "Google Client Secret",
     description: "OAuth client secret paired with the Google client ID.",
     kind: "secret",
     required: false,
@@ -159,17 +165,18 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "github_client_id",
-    label: "GitHub client ID",
+    label: "GitHub Client ID",
     description:
       "OAuth client ID from the GitHub developer settings. Set both GitHub fields to enable GitHub sign-in.",
     kind: "text",
     required: false,
     secret: false,
+    isPublic: true,
     decode: nonEmptyDecoder("GitHub client ID"),
   },
   {
     key: "github_client_secret",
-    label: "GitHub client secret",
+    label: "GitHub Client Secret",
     description: "OAuth client secret paired with the GitHub client ID.",
     kind: "secret",
     required: false,
@@ -178,7 +185,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "email_provider",
-    label: "Email provider",
+    label: "Email Provider",
     description:
       "Delivery provider for authentication and notification emails. Leave unset to disable email delivery.",
     kind: "enum",
@@ -192,7 +199,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "email_from_address",
-    label: "Email from address",
+    label: "Email From Address",
     description: "Default From address for outgoing email.",
     kind: "text",
     required: false,
@@ -201,7 +208,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "resend_api_key",
-    label: "Resend API key",
+    label: "Resend API Key",
     description: "Required when the email provider is Resend.",
     kind: "secret",
     required: false,
@@ -210,17 +217,35 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "aws_region",
-    label: "AWS region",
-    description:
-      "Required when the email provider is SES. AWS credentials themselves come from the SDK credential chain of the deployment.",
+    label: "AWS Region",
+    description: "Required when the email provider is SES.",
     kind: "text",
     required: false,
     secret: false,
     decode: nonEmptyDecoder("AWS region"),
   },
   {
+    key: "aws_access_key_id",
+    label: "AWS Access Key ID",
+    description:
+      "Used to send email through SES. Leave both AWS credential fields unset to use the deployment's own AWS credential chain, such as an IAM role or profile.",
+    kind: "text",
+    required: false,
+    secret: false,
+    decode: nonEmptyDecoder("AWS access key ID"),
+  },
+  {
+    key: "aws_secret_access_key",
+    label: "AWS Secret Access Key",
+    description: "Paired with the AWS access key ID.",
+    kind: "secret",
+    required: false,
+    secret: true,
+    decode: nonEmptyDecoder("AWS secret access key"),
+  },
+  {
     key: "openai_api_key",
-    label: "OpenAI API key",
+    label: "OpenAI API Key",
     description: "Powers the chat API. Chat requests fail with 503 while it is unset.",
     kind: "secret",
     required: false,
@@ -229,7 +254,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "chat_auth_secret",
-    label: "Chat authentication secret",
+    label: "Chat Authentication Secret",
     description:
       "Verifies authenticated SDK chat requests. Guest chat works without it; authenticated requests fail closed while it is unset.",
     kind: "secret",
@@ -243,11 +268,12 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "privacy_policy_url",
-    label: "Privacy policy URL",
+    label: "Privacy Policy URL",
     description: "Public link shown during sign-up.",
     kind: "url",
     required: false,
     secret: false,
+    isPublic: true,
     decode: sanitizedDecoder(
       (value) => decodePublicHttpUrl(value).href,
       "Privacy policy URL must use HTTP(S)",
@@ -255,11 +281,12 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "terms_of_service_url",
-    label: "Terms of service URL",
+    label: "Terms of Service URL",
     description: "Public link shown during sign-up.",
     kind: "url",
     required: false,
     secret: false,
+    isPublic: true,
     decode: sanitizedDecoder(
       (value) => decodePublicHttpUrl(value).href,
       "Terms of service URL must use HTTP(S)",
@@ -306,6 +333,13 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
       message: "Resend is the selected email provider but no Resend API key is configured",
     })
   }
+  if (Boolean(values.aws_access_key_id) !== Boolean(values.aws_secret_access_key)) {
+    const missing = values.aws_access_key_id ? "aws_secret_access_key" : "aws_access_key_id"
+    issues.push({
+      key: missing as ConfigKey,
+      message: `${configDefinition(missing)?.label} is required to use static AWS credentials`,
+    })
+  }
   if (values.email_provider === "ses" && !values.aws_region) {
     issues.push({
       key: "aws_region",
@@ -332,6 +366,8 @@ export interface ConfigSnapshot {
   emailFromAddress: string | null
   resendApiKey: string | null
   awsRegion: string | null
+  awsAccessKeyId: string | null
+  awsSecretAccessKey: string | null
   openaiApiKey: string | null
   chatAuthSecret: string | null
   privacyPolicyUrl: string
@@ -379,6 +415,8 @@ export function buildConfigSnapshot(rows: ConfigValueRow[] | null): ConfigSnapsh
     emailFromAddress: values.email_from_address ?? null,
     resendApiKey: values.resend_api_key ?? null,
     awsRegion: values.aws_region ?? null,
+    awsAccessKeyId: values.aws_access_key_id ?? null,
+    awsSecretAccessKey: values.aws_secret_access_key ?? null,
     openaiApiKey: values.openai_api_key ?? null,
     chatAuthSecret: values.chat_auth_secret ?? null,
     privacyPolicyUrl: values.privacy_policy_url ?? DEFAULT_PRIVACY_POLICY_URL,
@@ -487,9 +525,15 @@ export async function requireResendConfig() {
 }
 
 export async function requireSesConfig() {
-  const { awsRegion } = await getConfig()
+  const { awsRegion, awsAccessKeyId, awsSecretAccessKey } = await getConfig()
   if (!awsRegion) {
     throw new Error("SES is the selected email provider but no AWS region is configured")
   }
-  return { region: awsRegion }
+  return {
+    region: awsRegion,
+    // Static credentials apply only as a complete pair; otherwise the SDK credential chain wins.
+    credentials: awsAccessKeyId && awsSecretAccessKey
+      ? { accessKeyId: awsAccessKeyId, secretAccessKey: awsSecretAccessKey }
+      : null,
+  }
 }

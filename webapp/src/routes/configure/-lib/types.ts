@@ -5,19 +5,18 @@ export interface ConfigureField {
   kind: "text" | "url" | "secret" | "enum"
   required: boolean
   secret: boolean
+  isPublic: boolean
   options?: readonly string[]
   canGenerate: boolean
   isSet: boolean
-  /** Stored value for non-secret fields; always null for secrets. */
+  /** Stored string value, null when unset; delivered only to authenticated operators. */
   value: string | null
-  updatedAt: string | null
-  updatedBy: string | null
 }
 
+// Saving an empty "set" draft clears the stored value.
 export type FieldDraft =
   | { kind: "unchanged" }
   | { kind: "set"; value: string }
-  | { kind: "clear" }
 
 export interface PendingMigrationInfo {
   name: string

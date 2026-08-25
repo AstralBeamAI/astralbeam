@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "@/components/ui/toast"
 import { Spinner } from "@/components/ui/spinner"
-import { applyConfigChanges } from "../-functions/apply-config-changes"
 import { completeSetup } from "../-functions/complete-setup"
 import { rotateAuthSecret } from "../-functions/rotate-auth-secret"
 import { saveConfigValues } from "../-functions/save-config-values"
@@ -17,15 +16,32 @@ import type { ConfigureField, ConfigureIssue, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
 
 const FIELD_GROUPS: { title: string; keys: string[] }[] = [
-  { title: "Application", keys: ["app_base_url", "privacy_policy_url", "terms_of_service_url"] },
-  { title: "Authentication", keys: ["better_auth_secret"] },
-  { title: "Google sign-in", keys: ["google_client_id", "google_client_secret"] },
-  { title: "GitHub sign-in", keys: ["github_client_id", "github_client_secret"] },
   {
-    title: "Email delivery",
-    keys: ["email_provider", "email_from_address", "resend_api_key", "aws_region"],
+    title: "General",
+    keys: ["app_base_url", "privacy_policy_url", "terms_of_service_url", "chat_auth_secret"],
   },
-  { title: "Chat", keys: ["openai_api_key", "chat_auth_secret"] },
+  {
+    title: "Authentication",
+    keys: [
+      "better_auth_secret",
+      "google_client_id",
+      "google_client_secret",
+      "github_client_id",
+      "github_client_secret",
+    ],
+  },
+  {
+    title: "Email Delivery",
+    keys: [
+      "email_provider",
+      "email_from_address",
+      "resend_api_key",
+      "aws_region",
+      "aws_access_key_id",
+      "aws_secret_access_key",
+    ],
+  },
+  { title: "LLM Providers", keys: ["openai_api_key"] },
 ]
 
 const ROTATABLE_KEYS = new Set(["better_auth_secret", "chat_auth_secret"])
@@ -50,9 +66,7 @@ export function ConfigEditor({
 
   const pendingUpdates = fields.flatMap((field) => {
     const draft = draftFor(field.key)
-    if (draft.kind === "clear") return [{ key: field.key, value: null }]
-    if (draft.kind !== "set") return []
-    if (!field.secret && draft.value === (field.value ?? "")) return []
+    if (draft.kind !== "set" || draft.value === (field.value ?? "")) return []
     return [{ key: field.key, value: draft.value === "" ? null : draft.value }]
   })
 
@@ -95,17 +109,6 @@ export function ConfigEditor({
       }
     })
 
-  const handleApplyNow = () =>
-    run(async () => {
-      const result = await applyConfigChanges()
-      if (result.ok) {
-        toast.add({ title: "Configuration reloaded", type: "success" })
-        onChanged()
-      } else {
-        toast.add({ title: result.error ?? "The reload failed", type: "error" })
-      }
-    })
-
   const handleCompleteSetup = () =>
     run(async () => {
       const result = await completeSetup()
@@ -128,8 +131,8 @@ export function ConfigEditor({
             <CheckCircleIcon aria-hidden="true" />
             <AlertTitle>Setup is complete</AlertTitle>
             <AlertDescription>
-              Changes apply within about ten seconds, or immediately with &ldquo;Apply changes
-              now&rdquo;. <Link to="/" className="underline underline-offset-4">Go to the app</Link>
+              Saved changes apply within about ten seconds.{" "}
+              <Link to="/" className="underline underline-offset-4">Go to the app</Link>
             </AlertDescription>
           </Alert>
         )
@@ -181,7 +184,7 @@ export function ConfigEditor({
         )
       })}
 
-      <div className="sticky bottom-4 flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 p-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           onClick={() => void handleSave()}
@@ -200,14 +203,6 @@ export function ConfigEditor({
             Finish setup
           </Button>
         )}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void handleApplyNow()}
-          disabled={busy}
-        >
-          Apply changes now
-        </Button>
         <p className="text-xs text-muted-foreground">
           Saved values reach every server instance within about ten seconds.
         </p>

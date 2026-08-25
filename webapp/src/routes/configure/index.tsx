@@ -35,7 +35,7 @@ function ConfigurePage() {
             Configure {APP_NAME}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Runtime settings live in the database and are managed here by the deployment operator.
+            Your {APP_NAME} deployment needs to be configured before others can use it.
           </p>
         </div>
         {state.authenticated && (

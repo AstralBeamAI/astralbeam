@@ -12,6 +12,7 @@
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno task generate:png && deno fmt && deno lint --fix",
     "db": "drizzle-kit",
+    "drizzle-studio": "drizzle-kit studio",
     "format": "deno fmt",
     "format:check": "deno fmt --check",
     "email": "deno run -P=tooling scripts/preview-emails.ts",

@@ -27,13 +27,13 @@ export const getConfigureState = createServerFn({ method: "GET" }).handler(
         kind: definition.kind,
         required: definition.required,
         secret: definition.secret,
+        isPublic: definition.isPublic === true,
         ...(definition.options ? { options: definition.options } : {}),
         canGenerate: definition.generate !== undefined,
         isSet: row !== undefined,
-        // Secret values never leave the server; the editor only learns that one is set.
-        value: !definition.secret && typeof row?.value === "string" ? row.value : null,
-        updatedAt: row?.updatedAt.toISOString() ?? null,
-        updatedBy: row?.updatedBy ?? null,
+        // This state is returned only to an authenticated operator, so secrets are included; the
+        // unauthenticated branch above and the public config slice never carry them.
+        value: typeof row?.value === "string" ? row.value : null,
       }
     })
     const issues = validateConfigCompleteness(decodeStoredConfigValues(rows ?? []))

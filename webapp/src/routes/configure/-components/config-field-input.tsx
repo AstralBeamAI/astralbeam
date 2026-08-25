@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import {
   Select,
   SelectContent,
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
+import { CopyValueButton } from "./copy-value-button"
 import { SecretFieldInput } from "./secret-field-input"
 
 const UNSET_OPTION = "__unset__"
@@ -30,17 +31,14 @@ export function ConfigFieldInput({
   onRotate?: (() => void) | undefined
   disabled: boolean
 }) {
-  const currentValue = draft.kind === "set"
-    ? draft.value
-    : draft.kind === "clear"
-    ? ""
-    : field.value ?? ""
+  const currentValue = draft.kind === "set" ? draft.value : field.value ?? ""
 
   return (
     <Field data-invalid={error ? true : undefined}>
       <FieldLabel htmlFor={`config-${field.key}`}>
         {field.label}
         {field.required && <Badge variant="outline">Required</Badge>}
+        {field.isPublic && <Badge variant="secondary">Public</Badge>}
       </FieldLabel>
       {field.secret
         ? (
@@ -57,9 +55,7 @@ export function ConfigFieldInput({
           <Select
             value={currentValue === "" ? UNSET_OPTION : currentValue}
             onValueChange={(value) =>
-              onDraftChange(
-                value === UNSET_OPTION ? { kind: "clear" } : { kind: "set", value: String(value) },
-              )}
+              onDraftChange({ kind: "set", value: value === UNSET_OPTION ? "" : String(value) })}
           >
             <SelectTrigger id={`config-${field.key}`} disabled={disabled}>
               <SelectValue />
@@ -75,21 +71,21 @@ export function ConfigFieldInput({
           </Select>
         )
         : (
-          <Input
-            id={`config-${field.key}`}
-            type={field.kind === "url" ? "url" : "text"}
-            value={currentValue}
-            disabled={disabled}
-            onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
-          />
+          <InputGroup>
+            <InputGroupInput
+              id={`config-${field.key}`}
+              type={field.kind === "url" ? "url" : "text"}
+              value={currentValue}
+              placeholder="Not set"
+              disabled={disabled}
+              onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
+            />
+            <InputGroupAddon align="inline-end">
+              <CopyValueButton value={currentValue} label={field.label} />
+            </InputGroupAddon>
+          </InputGroup>
         )}
       <FieldDescription>{field.description}</FieldDescription>
-      {field.isSet && field.updatedAt && (
-        <p className="text-xs text-muted-foreground">
-          Updated {new Date(field.updatedAt).toLocaleString()}
-          {field.updatedBy ? ` by ${field.updatedBy}` : ""}
-        </p>
-      )}
       {error && <FieldError>{error}</FieldError>}
     </Field>
   )

@@ -40,14 +40,13 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <DatabaseIcon aria-hidden="true" />
-          Operator sign-in
+          Operator Sign-In
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            Enter the database credentials from this deployment&apos;s connection string to manage
-            its configuration.
+            Enter your database credentials for this deployment to manage the configuration.
           </p>
           {error && (
             <Alert variant="destructive">
@@ -56,7 +55,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
             </Alert>
           )}
           <Field>
-            <FieldLabel htmlFor="operator-username">Database username</FieldLabel>
+            <FieldLabel htmlFor="operator-username">Database Username</FieldLabel>
             <Input
               id="operator-username"
               name="username"
@@ -68,7 +67,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="operator-password">Database password</FieldLabel>
+            <FieldLabel htmlFor="operator-password">Database Password</FieldLabel>
             <Input
               id="operator-password"
               name="password"
@@ -80,8 +79,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
               disabled={pending}
             />
             <FieldDescription>
-              Credentials are verified against the server&apos;s connection string and are never
-              stored.
+              Credentials are transmitted securely for verification and never stored.
             </FieldDescription>
           </Field>
           <Button type="submit" disabled={pending}>

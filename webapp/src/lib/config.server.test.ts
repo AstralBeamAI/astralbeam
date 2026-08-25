@@ -88,6 +88,15 @@ describe("config snapshot boundary", () => {
     expect(issues.some((issue) => issue.key === "resend_api_key")).toBe(true)
   })
 
+  test("static aws credentials must be set as a pair", () => {
+    const issues = validateConfigCompleteness({
+      app_base_url: "http://localhost:3000",
+      better_auth_secret: SECRET,
+      aws_access_key_id: "AKIA123",
+    })
+    expect(issues.some((issue) => issue.key === "aws_secret_access_key")).toBe(true)
+  })
+
   test("the public config projection never contains secret values", () => {
     const snapshot = buildConfigSnapshot([
       ...completeRows,
