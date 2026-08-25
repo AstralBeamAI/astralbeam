@@ -11,11 +11,11 @@ import {
 } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
-import type { ReactNode } from "react"
+import { type ReactNode, useCallback } from "react"
+import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
 
 import { AuthProvider } from "@/components/auth/auth-provider"
 import { Toaster } from "@/components/ui/toast"
-import { APP_THEMES, useAppTheme } from "@/hooks/use-app-theme"
 import { authClient } from "@/lib/auth/client"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { normalizeReturnPath, resolveRedirectOrigin } from "@/lib/auth/redirect"
@@ -29,9 +29,9 @@ import {
 } from "@/lib/config"
 import appCss from "@/styles.css?url"
 
-// Route-managed styles load through the document head; the saved theme is applied after hydration
-// so the server and client render the same initial markup. https://tanstack.com/router/latest/docs/guide/document-head-management
 const ALLOWED_AUTH_RETURN_PATHS = ["/auth/accept-invitation"] as const
+const APP_THEMES = ["system", "light", "dark"] as const
+type AppTheme = (typeof APP_THEMES)[number]
 const devtoolsConfig = { position: "bottom-right" } as const
 const devtoolsPlugins = [
   {
@@ -46,6 +46,10 @@ const getRedirectOrigin = createIsomorphicFn()
     return APP_BASE_URL
   })
   .client(() => globalThis.location.origin)
+
+function isAppTheme(theme: string): theme is AppTheme {
+  return APP_THEMES.some((appTheme) => appTheme === theme)
+}
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -130,7 +134,13 @@ export const Route = createRootRouteWithContext<{
 
 function AppProviders({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
-  const { setTheme, theme } = useAppTheme()
+  const { setTheme, theme } = useTheme()
+  const setAppTheme = useCallback(
+    (nextTheme: string) => {
+      if (isAppTheme(nextTheme)) setTheme(nextTheme)
+    },
+    [setTheme],
+  )
   const searchStr = useLocation({ select: (location) => location.searchStr })
   const origin = resolveRedirectOrigin(
     globalThis.location,
@@ -166,7 +176,7 @@ function AppProviders({ children }: { children: ReactNode }) {
       multipleAccountsPerProvider={false}
       navigate={navigate}
       plugins={[
-        themePlugin({ setTheme, theme, themes: [...APP_THEMES] }),
+        themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
         organizationPlugin({
           localization: { people: "Members" },
           viewPaths: { organization: { people: "members" } },
@@ -181,16 +191,18 @@ function AppProviders({ children }: { children: ReactNode }) {
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body className="min-h-svh antialiased">
-        <Toaster>
-          <AppProviders>{children}</AppProviders>
-        </Toaster>
-        <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />
-        <Scripts />
+        <ThemeProvider storageKey="theme">
+          <Toaster>
+            <AppProviders>{children}</AppProviders>
+          </Toaster>
+          <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />
+          <Scripts />
+        </ThemeProvider>
       </body>
     </html>
   )

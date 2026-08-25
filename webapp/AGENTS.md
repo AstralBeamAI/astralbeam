@@ -94,6 +94,7 @@
 
 - Keep only tests that protect durable behavior, security boundaries, or regressions; avoid trivial assertions over constants, generated files, and implementation structure.
 - Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
+- Keep the root `ThemeProvider` around the document content so its SSR startup script applies the persisted or system theme before first paint; do not defer initial theme application to a post-hydration effect.
 
 - After every major change, look for opportunities to reuse or refactor code (components, server functions, db queries etc.)
   - in general, as more patterns emerge across routes/modules, lift up the reusable code to common ancestors
