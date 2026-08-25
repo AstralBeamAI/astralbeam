@@ -15,8 +15,9 @@ import {
   sendResetPasswordEmail,
   sendVerificationEmail,
 } from "@/emails/index"
-import { type ConfigSnapshot, getRequiredConfig } from "@/lib/config.server"
-import { APP_NAME } from "@/lib/config"
+import { getRequiredConfig } from "@/lib/config.server"
+import type { ConfigSnapshot } from "@/lib/types"
+import { APP_NAME } from "@/lib/constants"
 import {
   acceptedAtForUserCreation,
   assertLegalAcceptance,

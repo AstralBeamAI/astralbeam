@@ -15,9 +15,9 @@ export const completeSetup = createServerFn({ method: "POST" }).handler(
       configDefinition,
       decodeStoredConfigValues,
       invalidateConfigCache,
-      SETUP_COMPLETED_KEY,
       validateConfigCompleteness,
     } = await import("@/lib/config.server")
+    const { SETUP_COMPLETED_KEY } = await import("@/lib/config.server")
     const { listConfigRows, upsertConfigValue } = await import("../-lib/db.server")
     const { getMigrationState } = await import("../-lib/migrations.server")
     const session = await getOperatorSession()

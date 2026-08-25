@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { ConfigOption } from "@/lib/config"
+import type { ConfigOption } from "@/lib/types"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { CopyValueButton } from "./copy-value-button"
 import { SecretFieldInput } from "./secret-field-input"

@@ -15,6 +15,7 @@ import { type ReactNode, useCallback } from "react"
 import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
 
 import { AuthProvider } from "@/components/auth/auth-provider"
+import { PublicConfigProvider } from "@/components/public-config-provider"
 import { Toaster } from "@/components/ui/toast"
 import { authClient } from "@/lib/auth/client"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
@@ -26,11 +27,11 @@ import {
   APP_LOGO_LIGHT_SVG_URL,
   APP_NAME,
   DEFAULT_PUBLIC_CONFIG,
-  getPublicConfig,
   INERT_REDIRECT_ORIGIN,
-  PublicConfigContext,
-} from "@/lib/config"
+} from "@/lib/constants"
 import appCss from "@/styles.css?url"
+
+import { getPublicConfig } from "./-functions/get-public-config"
 
 const ALLOWED_AUTH_RETURN_PATHS = ["/auth/accept-invitation"] as const
 const APP_THEMES = ["system", "light", "dark"] as const
@@ -179,7 +180,7 @@ function AppProviders({ children }: { children: ReactNode }) {
   )
 
   return (
-    <PublicConfigContext.Provider value={publicConfig}>
+    <PublicConfigProvider value={publicConfig}>
       <AuthProvider
         authClient={authClient}
         redirectTo={redirectTo}
@@ -213,7 +214,7 @@ function AppProviders({ children }: { children: ReactNode }) {
       >
         {children}
       </AuthProvider>
-    </PublicConfigContext.Provider>
+    </PublicConfigProvider>
   )
 }
 

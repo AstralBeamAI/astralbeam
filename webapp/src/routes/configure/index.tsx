@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 
 import { Skeleton } from "@/components/ui/skeleton"
-import { APP_NAME } from "@/lib/config"
+import { APP_NAME } from "@/lib/constants"
 import { ConfigEditor } from "./-components/config-editor"
 import { ConfigureActions } from "./-components/configure-actions"
 import { OperatorLoginForm } from "./-components/operator-login-form"

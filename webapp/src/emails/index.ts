@@ -2,7 +2,7 @@ import process from "node:process"
 
 import { createElement } from "react"
 import { getConfig } from "../lib/config.server.ts"
-import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/config.ts"
+import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/constants.ts"
 import type { SendEmailOptions, SendEmailResult } from "./types.ts"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
 import OrganizationInvitationEmail from "./templates/organization-invitation.tsx"

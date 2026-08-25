@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { getGravatarAvatarUrl } from "./gravatar.ts"
+import { getGravatarAvatarUrl } from "./utils.ts"
 
 describe("Gravatar avatar URLs", () => {
   test("normalizes and hashes email addresses with SHA-256", async () => {

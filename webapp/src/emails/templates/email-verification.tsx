@@ -14,7 +14,7 @@ import {
   Text,
 } from "react-email"
 
-import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../../lib/config.ts"
+import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../../lib/constants.ts"
 import { EmailStyles, emailTailwindConfig } from "../email-styles.tsx"
 
 interface EmailVerificationEmailProps {

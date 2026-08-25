@@ -5,8 +5,10 @@ import type { ConfigureField, ConfigureState } from "../-lib/types"
 export const getConfigureState = createServerFn({ method: "GET" }).handler(
   async (): Promise<ConfigureState> => {
     const { getOperatorSession } = await import("../-lib/operator-session.server")
-    const { CONFIG_DEFINITIONS, decodeStoredConfigValues, getConfig, validateConfigCompleteness } =
-      await import("@/lib/config.server")
+    const { decodeStoredConfigValues, getConfig, validateConfigCompleteness } = await import(
+      "@/lib/config.server"
+    )
+    const { CONFIG_DEFINITIONS } = await import("@/lib/config.server")
     const { getMigrationState } = await import("../-lib/migrations.server")
     const { listConfigRows } = await import("../-lib/db.server")
     const snapshot = await getConfig()

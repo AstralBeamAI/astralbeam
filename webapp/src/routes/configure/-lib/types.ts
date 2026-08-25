@@ -1,4 +1,4 @@
-import type { ConfigOption } from "@/lib/config"
+import type { ConfigOption } from "@/lib/types"
 
 export interface ConfigureField {
   key: string

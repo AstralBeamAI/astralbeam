@@ -2,7 +2,7 @@ import { render } from "@react-email/render"
 import { createElement } from "react"
 import { describe, expect, test } from "vitest"
 
-import { APP_NAME } from "../lib/config.ts"
+import { APP_NAME } from "../lib/constants.ts"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
 
 describe("authentication email theme", () => {

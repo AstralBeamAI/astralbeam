@@ -3,12 +3,16 @@ import process from "node:process"
 
 import { Schema } from "effect"
 
-import {
-  type ConfigOption,
-  DEFAULT_PRIVACY_POLICY_URL,
-  DEFAULT_TERMS_OF_SERVICE_URL,
-  type PublicConfig,
-} from "@/lib/config"
+import { DEFAULT_PRIVACY_POLICY_URL, DEFAULT_TERMS_OF_SERVICE_URL } from "@/lib/constants"
+import type {
+  ConfigDefinition,
+  ConfigIssue,
+  ConfigKey,
+  ConfigSnapshot,
+  ConfigValueRow,
+  ConfigValues,
+  PublicConfig,
+} from "@/lib/types"
 
 const decodeRequiredEnvironmentValue = Schema.decodeUnknownSync(Schema.NonEmptyString)
 
@@ -25,6 +29,10 @@ function ensureServerEnv(key: string): string {
 // managed through the /configure operator page.
 export const DATABASE_URL = ensureServerEnv("DATABASE_URL")
 
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+}
+
 function isServerOrigin(url: URL): boolean {
   return (url.protocol === "https:" ||
     (url.protocol === "http:" && isLoopbackHost(url.hostname))) &&
@@ -33,10 +41,6 @@ function isServerOrigin(url: URL): boolean {
     url.pathname === "/" &&
     !url.search &&
     !url.hash
-}
-
-function isLoopbackHost(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
 }
 
 const decodeServerOrigin = Schema.decodeUnknownSync(
@@ -76,41 +80,9 @@ function generateSecret(): string {
   return randomBytes(32).toString("base64url")
 }
 
-type ConfigKey =
-  | "app_base_url"
-  | "better_auth_secret"
-  | "google_client_id"
-  | "google_client_secret"
-  | "github_client_id"
-  | "github_client_secret"
-  | "email_provider"
-  | "email_from_address"
-  | "resend_api_key"
-  | "aws_region"
-  | "aws_access_key_id"
-  | "aws_secret_access_key"
-  | "openai_api_key"
-  | "chat_auth_secret"
-  | "privacy_policy_url"
-  | "terms_of_service_url"
-
 // Marker row written by /configure when setup finishes; deliberately not a registry key so the
 // editor never lists it and saves never touch it directly.
 export const SETUP_COMPLETED_KEY = "setup_completed"
-
-interface ConfigDefinition {
-  key: ConfigKey
-  label: string
-  description: string
-  kind: "text" | "url" | "secret" | "enum"
-  required: boolean
-  secret: boolean
-  /** The stored value is visible to end users (public pages or browser-visible URLs). */
-  isPublic?: true
-  options?: readonly ConfigOption[]
-  decode: (value: unknown) => string
-  generate?: () => string
-}
 
 const nonEmptyDecoder = (label: string) =>
   sanitizedDecoder(decodeNonEmptyText, `${label} must not be empty`)
@@ -298,19 +270,13 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
 ]
 
+const CONFIG_CACHE_TTL_MS = 10_000
 const definitionByKey = new Map<string, ConfigDefinition>(
   CONFIG_DEFINITIONS.map((definition) => [definition.key, definition]),
 )
 
 export function configDefinition(key: string): ConfigDefinition | undefined {
   return definitionByKey.get(key)
-}
-
-export type ConfigValues = Partial<Record<ConfigKey, string>>
-
-export interface ConfigIssue {
-  key: ConfigKey
-  message: string
 }
 
 export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] {
@@ -351,31 +317,6 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
     })
   }
   return issues
-}
-
-export interface ConfigValueRow {
-  key: string
-  value: unknown
-  updatedAt: Date
-}
-
-export interface ConfigSnapshot {
-  version: string
-  setupComplete: boolean
-  appBaseUrl: string | null
-  betterAuthSecret: string | null
-  google: { clientId: string; clientSecret: string } | null
-  github: { clientId: string; clientSecret: string } | null
-  emailProvider: "resend" | "ses" | null
-  emailFromAddress: string | null
-  resendApiKey: string | null
-  awsRegion: string | null
-  awsAccessKeyId: string | null
-  awsSecretAccessKey: string | null
-  openaiApiKey: string | null
-  chatAuthSecret: string | null
-  privacyPolicyUrl: string
-  termsOfServiceUrl: string
 }
 
 export function decodeStoredConfigValues(rows: { key: string; value: unknown }[]): ConfigValues {
@@ -427,8 +368,6 @@ export function buildConfigSnapshot(rows: ConfigValueRow[] | null): ConfigSnapsh
     termsOfServiceUrl: values.terms_of_service_url ?? DEFAULT_TERMS_OF_SERVICE_URL,
   }
 }
-
-const CONFIG_CACHE_TTL_MS = 10_000
 
 let configCache: { snapshot: ConfigSnapshot; expiresAt: number } | null = null
 let configRefresh: Promise<ConfigSnapshot> | null = null

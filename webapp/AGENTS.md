@@ -67,10 +67,9 @@
 - `src/lib` contains application-wide shared code like:
   - `utils.ts`: utility functions
   - `utils.server.ts`: server-only utilities
-  - `config.server.ts`: the database-backed runtime configuration. `DATABASE_URL` is the only environment variable; every other setting lives in the `config` table as a code-defined registry (`CONFIG_DEFINITIONS`) with Effect Schema validation, read through the cached async `getConfig()` (10s TTL, `invalidateConfigCache()` to force a reload). Never include stored or submitted values in configuration errors.
-    - can also contain some global constants
-  - `config.ts`: constants readable from both server and client, plus the secret-free `PublicConfig` slice (`getPublicConfig` server fn, `usePublicConfig()` hook) delivered through the root route loader
-  - `types.ts`: common types used across the application
+  - `config.server.ts`: the database-backed runtime configuration, including the code-defined config registry (`CONFIG_DEFINITIONS`) with its Effect Schema decoders and secret generators. `DATABASE_URL` is the only environment variable; every other setting lives in the `config` table, read through the cached async `getConfig()` (10s TTL, `invalidateConfigCache()` to force a reload). Never include stored or submitted values in configuration errors.
+  - `constants.ts`: constant values readable from both server and client
+  - `types.ts`: common types used across the application, including the config registry types and `PublicConfig`, the secret-free config slice
   - `auth.server.ts` contains the server-only Better Auth setup for authentication
   - avoid creating new files in `src/lib`, use new code goes into one of the above files or into a module-specific `-lib` folder.
 
@@ -103,7 +102,7 @@
   - be especially careful with types, it is very easy to end up with heavy type duplication with minor changes
 
 - Never hardcode the word "AstralBeam" or any AstralBeam-specific description or nomenclature anywhere in the app; assume it may be white-labeled.
-  - Put labels and constants in `src/lib/config.ts` or `src/lib/config.server.ts` and import them elsewhere so changes stay centralized.
+  - Put labels and constants in `src/lib/constants.ts` and import them elsewhere so changes stay centralized.
   - Use `APP_NAME` for display text and `APP_HANDLE` for brand-derived domains, protocol identifiers, asset paths, and test fixtures.
 
 - IMPORTANT SECURITY CHECKS after implementing new features:

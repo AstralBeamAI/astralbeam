@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useToastManager } from "@/components/ui/toast"
-import { APP_NAME } from "@/lib/config"
+import { APP_NAME } from "@/lib/constants"
 
 const ROUTE_ERROR_TOAST_ID = "route-error"
 
