@@ -14,6 +14,12 @@ export const INERT_REDIRECT_ORIGIN = `https://${APP_HANDLE}.invalid`
 export const DEFAULT_PRIVACY_POLICY_URL = `${APP_WEBSITE}/privacy`
 export const DEFAULT_TERMS_OF_SERVICE_URL = `${APP_WEBSITE}/terms`
 
+// An enum config choice: `value` is stored in the database, `label` is shown in the /configure editor.
+export interface ConfigOption {
+  value: string
+  label: string
+}
+
 // The non-secret slice of the database-backed runtime configuration that the client may see.
 export interface PublicConfig {
   enabledSocialProviders: ("google" | "github")[]

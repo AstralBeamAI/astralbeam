@@ -10,11 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import type { ConfigOption } from "@/lib/config"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { CopyValueButton } from "./copy-value-button"
 import { SecretFieldInput } from "./secret-field-input"
 
 const UNSET_OPTION = "__unset__"
+
+// The unset choice leads so both the trigger label and the popup list come from one source.
+function enumItems(options: readonly ConfigOption[] | undefined): ConfigOption[] {
+  return [{ value: UNSET_OPTION, label: "Not set" }, ...(options ?? [])]
+}
 
 export function ConfigFieldInput({
   field,
@@ -53,6 +59,9 @@ export function ConfigFieldInput({
         : field.kind === "enum"
         ? (
           <Select
+            // Base UI renders the raw value in the trigger unless it knows each option's label.
+            // https://base-ui.com/react/components/select#value
+            items={enumItems(field.options)}
             value={currentValue === "" ? UNSET_OPTION : currentValue}
             onValueChange={(value) =>
               onDraftChange({ kind: "set", value: value === UNSET_OPTION ? "" : String(value) })}
@@ -61,10 +70,9 @@ export function ConfigFieldInput({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={UNSET_OPTION}>Not set</SelectItem>
-              {(field.options ?? []).map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
+              {enumItems(field.options).map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
                 </SelectItem>
               ))}
             </SelectContent>

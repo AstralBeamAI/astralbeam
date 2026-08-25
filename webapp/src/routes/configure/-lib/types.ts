@@ -1,3 +1,5 @@
+import type { ConfigOption } from "@/lib/config"
+
 export interface ConfigureField {
   key: string
   label: string
@@ -6,7 +8,7 @@ export interface ConfigureField {
   required: boolean
   secret: boolean
   isPublic: boolean
-  options?: readonly string[]
+  options?: readonly ConfigOption[]
   canGenerate: boolean
   isSet: boolean
   /** Stored string value, null when unset; delivered only to authenticated operators. */

@@ -4,6 +4,7 @@ import process from "node:process"
 import { Schema } from "effect"
 
 import {
+  type ConfigOption,
   DEFAULT_PRIVACY_POLICY_URL,
   DEFAULT_TERMS_OF_SERVICE_URL,
   type PublicConfig,
@@ -106,7 +107,7 @@ interface ConfigDefinition {
   secret: boolean
   /** The stored value is visible to end users (public pages or browser-visible URLs). */
   isPublic?: true
-  options?: readonly string[]
+  options?: readonly ConfigOption[]
   decode: (value: unknown) => string
   generate?: () => string
 }
@@ -191,7 +192,10 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "enum",
     required: false,
     secret: false,
-    options: ["resend", "ses"],
+    options: [
+      { value: "resend", label: "Resend" },
+      { value: "ses", label: "Amazon SES" },
+    ],
     decode: sanitizedDecoder(
       (value) => decodeEmailProvider(value),
       "Email provider must be 'resend' or 'ses'",
