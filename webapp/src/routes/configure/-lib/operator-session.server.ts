@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto"
 
 import { and, eq, gt } from "drizzle-orm"
-import { deleteCookie, getCookie, getRequest, setCookie } from "@tanstack/react-start/server"
+import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server"
 
 import { isMissingTableError } from "@/lib/config.server"
 import { OPERATOR_SESSION_COOKIE, OPERATOR_SESSION_TTL_SECONDS } from "./constants.server"
@@ -113,8 +113,9 @@ export function setOperatorSessionCookie(token: string): void {
     sameSite: "strict",
     path: "/",
     maxAge: OPERATOR_SESSION_TTL_SECONDS,
-    // The base URL may not be configured yet, so infer HTTPS from the request itself.
-    secure: new URL(getRequest().url).protocol === "https:",
+    // Always require HTTPS outside the Vite dev server; the request protocol is attacker-influenced
+    // behind proxies and the base URL may not be configured yet. https://vite.dev/guide/env-and-mode
+    secure: !import.meta.env.DEV,
   })
 }
 
