@@ -23,7 +23,6 @@
     "lint:fix": "deno lint --fix",
     "preview": "vite preview",
     "ready": "deno task check && deno task test && deno task build",
-    "seed:config": "deno run -P=tooling scripts/seed-config.ts",
     "test": "vitest run",
     "typecheck": "deno check",
     "ui": "shadcn"
