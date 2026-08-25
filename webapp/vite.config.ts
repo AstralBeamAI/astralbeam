@@ -52,7 +52,7 @@ const config = defineConfig(({ mode }) => {
     },
     plugins: [
       {
-        name: "astralbeam-legal-assets",
+        name: "legal-assets",
         apply: "build",
         generateBundle() {
           for (const asset of legalAssets) this.emitFile({ type: "asset", ...asset })

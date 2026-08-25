@@ -20,11 +20,17 @@ import { authClient } from "@/lib/auth/client"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { normalizeReturnPath, resolveRedirectOrigin } from "@/lib/auth/redirect"
 import { themePlugin } from "@/lib/auth/theme-plugin"
+import {
+  APP_LOGO_DARK_SVG_URL,
+  APP_LOGO_LIGHT_PNG_URL,
+  APP_LOGO_LIGHT_SVG_URL,
+  APP_NAME,
+  INERT_REDIRECT_ORIGIN,
+} from "@/lib/config"
 import appCss from "@/styles.css?url"
 
 // Route-managed styles load through the document head; the saved theme is applied after hydration
 // so the server and client render the same initial markup. https://tanstack.com/router/latest/docs/guide/document-head-management
-const INERT_REDIRECT_ORIGIN = "https://astralbeam.invalid"
 const ALLOWED_AUTH_RETURN_PATHS = ["/auth/accept-invitation"] as const
 const devtoolsConfig = { position: "bottom-right" } as const
 const devtoolsPlugins = [
@@ -81,26 +87,26 @@ export const Route = createRootRouteWithContext<{
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "AstralBeam",
+        title: APP_NAME,
       },
     ],
     links: [
       {
         rel: "icon",
         type: "image/png",
-        href: "/astralbeam-logo-light.png",
+        href: APP_LOGO_LIGHT_PNG_URL,
         sizes: "270x270",
       },
       {
         rel: "icon",
         type: "image/svg+xml",
-        href: "/astralbeam-logo-light.svg",
+        href: APP_LOGO_LIGHT_SVG_URL,
         media: "(prefers-color-scheme: light)",
       },
       {
         rel: "icon",
         type: "image/svg+xml",
-        href: "/astralbeam-logo-dark.svg",
+        href: APP_LOGO_DARK_SVG_URL,
         media: "(prefers-color-scheme: dark)",
       },
       {

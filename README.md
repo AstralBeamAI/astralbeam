@@ -17,12 +17,13 @@ Our north star is to enable developers to ship agents in minutes, instead of wee
 
 ## Codebase Structure
 
-There are three independent Deno projects: a TanStack Start product application with app-local shadcn/ui components, the public Astro website, and the frontend SDK published to npm.
+There are four independent Deno projects: a TanStack Start product application with app-local shadcn/ui components, the public Astro website, the frontend SDK published to npm, and a standalone TanStack Start example that consumes the built SDK.
 
 ```text
 webapp/       # TanStack Start application, database, theme, and UI
 www/          # Public website
 sdk/          # Frontend SDK, published to npm as @astralbeam/sdk
+examples/     # Standalone SDK consumer applications
 ```
 
 
@@ -62,10 +63,10 @@ deno task build
 
 ### 4. Run the todos example
 
-A barebones Vite + React app that embeds the widget from `sdk/dist` and points it at the webapp's `/api/chat`, on http://localhost:3100. See [`sdk/examples/todos/README.md`](sdk/examples/todos/README.md) for what to try.
+A barebones TanStack Start app that embeds the widget from `sdk/dist`, mints demo chat tokens on the server, and points the widget at the webapp's `/api/chat`, on http://localhost:3100. See [`examples/todos/README.md`](examples/todos/README.md) for what to try.
 
 ```sh
-cd sdk/examples/todos
+cd examples/todos
 deno install
 deno task dev
 ```
@@ -82,7 +83,7 @@ The Webapp owns authentication configuration, authorization boundaries, account 
 
 Portions of this repository are licensed as follows:
 
-- Files under [`www`](www) and [`sdk`](sdk) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
+- Files under [`www`](www), [`sdk`](sdk), and [`examples`](examples) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
 - All other files in this repository are licensed under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL) (`AGPL-3.0-only`), except where an adjacent license or notice states otherwise.
 - Third-party components and materials are licensed under the applicable licenses provided by their respective owners. See [third-party notices](docs/legal/THIRD_PARTY_NOTICES.md).
 

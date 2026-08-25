@@ -40,7 +40,7 @@ function parseJson(text: string): unknown {
 
 // Streams arrive as many tiny deltas; logging each would drown the console, so text
 // and tool inputs accumulate per id and log whole when their end event arrives.
-export function createChunkLogger(log: DebugLogger): (chunk: StreamChunk) => void {
+function createChunkLogger(log: DebugLogger): (chunk: StreamChunk) => void {
   const texts = new Map<string, string>()
   const toolCalls = new Map<string, { name: string; args: string }>()
   const appendText = (key: string, delta: string) => {

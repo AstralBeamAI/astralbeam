@@ -49,6 +49,8 @@ jobs:
         run: |
           deno task --cwd webapp ready
           deno task --cwd www ready
+          deno task --cwd sdk ready
+          deno task --cwd examples/todos ready
 
       - name: Commit and push auto-fixes
         uses: ./.github/actions/commit-and-push

@@ -14,6 +14,7 @@ import {
   Text,
 } from "react-email"
 
+import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../../lib/config.ts"
 import { EmailStyles, emailTailwindConfig } from "../email-styles.tsx"
 
 interface EmailVerificationEmailProps {
@@ -103,12 +104,12 @@ export default function EmailVerificationEmail({
 }
 
 EmailVerificationEmail.PreviewProps = {
-  appName: "AstralBeam",
+  appName: APP_NAME,
   verificationUrl: "https://example.com/api/auth/verify-email?token=sdfsfsdfsfsdf",
   email: "test@example.com",
   logoURL: {
-    light: "http://localhost:3000/astralbeam-logo-light.png",
-    dark: "http://localhost:3000/astralbeam-logo-dark.png",
+    light: new URL(APP_LOGO_LIGHT_PNG_URL, "http://localhost:3000").href,
+    dark: new URL(APP_LOGO_DARK_PNG_URL, "http://localhost:3000").href,
   },
   expiryMinutes: 10,
 } satisfies EmailVerificationEmailProps

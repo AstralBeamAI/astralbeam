@@ -1,5 +1,7 @@
 ## Codebase Structure and Guidelines
 
+- Use plain data and helper functions with explicit options objects for application logic; do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
+
 - This is TanStack Start React app
   - Tech stack: TanStack Router, Tailwind, Shadcn UI, Better Auth, Drizzle ORM, React Email
   - `deno` is the runtime and package manager, all useful commands are listed in `package.json`
@@ -37,7 +39,7 @@
       - name `update-xyz-data` for the function `updateXYZData` normal export (not default)
       - validate server functions using `.validator` with an Effect schema exposed through `Schema.toStandardSchemaV1`; do not introduce Zod
     - `-lib`: Contains helper functions `utils.ts`, database queries `db.ts` specific to the route
-      - Don't create separate files for utiliies, put them in `utils.ts` and `utils.server.ts`
+      - Keep route-local utilities in `utils.ts` and `utils.server.ts` by default. When a cohesive group of related utilities grows beyond roughly 100 lines, place it in a responsibility-named file under `-lib` to keep the general utility files focused.
       - Always put constants in a `constants.ts` or `constants.server.ts` files
       - each function in `-lib/db.ts` should typically wrap one db query / transaction and return its result
       - `-lib/types.ts` can contain any types specif to the route.
@@ -91,10 +93,15 @@
 - While writing DB queries, always put in the right authorization checks to avoid leaking one user/org's data to another
 
 - Keep only tests that protect durable behavior, security boundaries, or regressions; avoid trivial assertions over constants, generated files, and implementation structure.
+- Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
 
 - After every major change, look for opportunities to reuse or refactor code (components, server functions, db queries etc.)
   - in general, as more patterns emerge across routes/modules, lift up the reusable code to common ancestors
   - be especially careful with types, it is very easy to end up with heavy type duplication with minor changes
+
+- Never hardcode the word "AstralBeam" or any AstralBeam-specific description or nomenclature anywhere in the app; assume it may be white-labeled.
+  - Put labels and constants in `src/lib/config.ts` or `src/lib/config.server.ts` and import them elsewhere so changes stay centralized.
+  - Use `APP_NAME` for display text and `APP_HANDLE` for brand-derived domains, protocol identifiers, asset paths, and test fixtures.
 
 - IMPORTANT SECURITY CHECKS after implementing new features:
   - In `beforeLoad` you might need to check if the page is actually accessible to the curent user

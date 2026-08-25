@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useToastManager } from "@/components/ui/toast"
+import { APP_NAME } from "@/lib/config"
 
 const ROUTE_ERROR_TOAST_ID = "route-error"
 
@@ -46,7 +47,7 @@ export function RouteErrorBoundary() {
         className="w-full max-w-md border bg-card p-6 text-card-foreground shadow-sm"
       >
         <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          AstralBeam
+          {APP_NAME}
         </p>
         <h1
           id="route-error-title"

@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { APP_NAME } from "@/lib/config"
+
 export const Route = createFileRoute("/_authenticated/_organization/")({
   component: DashboardRoute,
 })
@@ -12,7 +14,7 @@ function DashboardRoute() {
           Dashboard
         </h1>
         <p className="text-sm text-muted-foreground sm:text-base">
-          Your AstralBeam organization is ready.
+          Your {APP_NAME} organization is ready.
         </p>
       </div>
     </div>

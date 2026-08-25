@@ -22,11 +22,27 @@ interface ChatComposerProps {
   streamBusy: boolean
   /** `streamBusy` or host tools executing between runs; blocks sending. */
   isBusy: boolean
+  /** Authentication is not ready, so the composer cannot start a run. */
+  authPending: boolean
+  authError: Error | undefined
+  onAuthRetry: (() => void) | undefined
 }
 
 export function ChatComposer(
-  { draft, onDraftChange, onSend, onStop, onRetry, showError, error, streamBusy, isBusy }:
-    ChatComposerProps,
+  {
+    draft,
+    onDraftChange,
+    onSend,
+    onStop,
+    onRetry,
+    showError,
+    error,
+    streamBusy,
+    isBusy,
+    authPending,
+    authError,
+    onAuthRetry,
+  }: ChatComposerProps,
 ) {
   return (
     // The CardFooter around this form owns the border, padding, and background.
@@ -57,11 +73,25 @@ export function ChatComposer(
           )}
         </div>
       )}
+      {authError && (
+        <div
+          role="alert"
+          className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive"
+        >
+          <div className="min-w-0 flex-1">The assistant could not verify your session.</div>
+          {onAuthRetry && (
+            <Button type="button" variant="outline" size="sm" onClick={onAuthRetry}>
+              Retry
+            </Button>
+          )}
+        </div>
+      )}
       <InputGroup>
         <InputGroupTextarea
           aria-label="Message"
           className="max-h-24 min-h-9"
-          placeholder="Message AstralBeam…"
+          placeholder={authPending ? "Verifying your session…" : "Message AstralBeam…"}
+          disabled={authPending || authError !== undefined}
           value={draft}
           onChange={(event) => onDraftChange(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -91,7 +121,8 @@ export function ChatComposer(
                 variant="default"
                 size="icon-sm"
                 className="ml-auto"
-                disabled={isBusy || draft.trim().length === 0}
+                disabled={isBusy || authPending || authError !== undefined ||
+                  draft.trim().length === 0}
               >
                 <ArrowUpIcon />
                 <span className="sr-only">Send</span>

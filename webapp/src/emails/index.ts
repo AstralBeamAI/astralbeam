@@ -2,7 +2,7 @@ import process from "node:process"
 
 import { createElement } from "react"
 import { APP_BASE_URL } from "../lib/config.server.ts"
-import { APP_NAME } from "../lib/config.ts"
+import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/config.ts"
 import type { SendEmailOptions, SendEmailResult } from "./types.ts"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
 import OrganizationInvitationEmail from "./templates/organization-invitation.tsx"
@@ -16,8 +16,8 @@ const EMAIL_LINK_EXPIRY_MINUTES = 60
 const ORGANIZATION_INVITATION_EXPIRY_HOURS = 48
 
 const logoURL = {
-  light: `${APP_BASE_URL}/astralbeam-logo-light.png`,
-  dark: `${APP_BASE_URL}/astralbeam-logo-dark.png`,
+  light: new URL(APP_LOGO_LIGHT_PNG_URL, APP_BASE_URL).href,
+  dark: new URL(APP_LOGO_DARK_PNG_URL, APP_BASE_URL).href,
 }
 
 export interface BetterAuthLinkEmailData {

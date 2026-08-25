@@ -16,7 +16,7 @@ export function resolveRedirectOrigin(
 }
 
 /**
- * Layer AstralBeam's reserved-route policy on Better Auth UI's same-origin
+ * Layer the application's reserved-route policy on Better Auth UI's same-origin
  * redirect normalizer. https://better-auth-ui.com/docs/shadcn/integrations/tanstack-start
  */
 export function normalizeReturnPath(

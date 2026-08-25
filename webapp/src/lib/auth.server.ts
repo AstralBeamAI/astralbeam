@@ -23,6 +23,7 @@ import {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
 } from "@/lib/config.server"
+import { APP_NAME } from "@/lib/config"
 import {
   acceptedAtForUserCreation,
   assertLegalAcceptance,
@@ -59,7 +60,7 @@ async function notifyPasswordChanged(user: { email: string }): Promise<void> {
 }
 
 export const auth = betterAuth({
-  appName: "AstralBeam",
+  appName: APP_NAME,
   baseURL: BETTER_AUTH_URL,
   secret: BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {

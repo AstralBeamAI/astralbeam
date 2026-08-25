@@ -5,8 +5,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { authClient } from "@/lib/auth/client"
 import { normalizeReturnPath } from "@/lib/auth/redirect"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
-
-const SSR_REDIRECT_ORIGIN = "https://astralbeam.invalid"
+import { INERT_REDIRECT_ORIGIN } from "@/lib/config"
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ context, location }) => {
@@ -15,7 +14,7 @@ export const Route = createFileRoute("/_authenticated")({
 
     const redirectTo = normalizeReturnPath(
       location.href,
-      SSR_REDIRECT_ORIGIN,
+      INERT_REDIRECT_ORIGIN,
     )
     const search = new URLSearchParams({ redirectTo })
     throw redirect({ href: `/auth/sign-in?${search}`, replace: true })

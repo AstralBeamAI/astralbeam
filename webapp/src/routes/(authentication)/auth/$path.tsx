@@ -4,8 +4,8 @@ import { createFileRoute, notFound, redirect } from "@tanstack/react-router"
 import { Auth } from "@/components/auth/auth"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
 import { normalizeReturnPath, normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
+import { INERT_REDIRECT_ORIGIN } from "@/lib/config"
 
-const SSR_REDIRECT_ORIGIN = "https://astralbeam.invalid"
 const ALLOWED_AUTH_RETURN_PATHS = ["/auth/accept-invitation"] as const
 const AUTH_PATHS = new Set([
   ...Object.values(viewPaths.auth),
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
     if (result.reason === "signupDisabled" && params.path !== "sign-up") {
       const redirectTo = normalizeReturnPathFromSearch(
         location.searchStr,
-        SSR_REDIRECT_ORIGIN,
+        INERT_REDIRECT_ORIGIN,
         ALLOWED_AUTH_RETURN_PATHS,
       )
       const search = new URLSearchParams({ redirectTo })
@@ -44,7 +44,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
         const invitationSearch = new URLSearchParams(location.searchStr).toString()
         const redirectTo = normalizeReturnPath(
           `${location.pathname}${invitationSearch ? `?${invitationSearch}` : ""}`,
-          SSR_REDIRECT_ORIGIN,
+          INERT_REDIRECT_ORIGIN,
           ALLOWED_AUTH_RETURN_PATHS,
         )
         throw redirect({

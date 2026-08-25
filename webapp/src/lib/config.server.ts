@@ -10,6 +10,9 @@ const decodeServerOrigin = Schema.decodeUnknownSync(
 const decodeServerSecret = Schema.decodeUnknownSync(
   Schema.String.pipe(Schema.check(Schema.isMinLength(32))),
 )
+const decodeOptionalServerSecret = Schema.decodeUnknownSync(
+  Schema.UndefinedOr(Schema.String.pipe(Schema.check(Schema.isMinLength(32)))),
+)
 
 function ensureServerEnv(key: string): string {
   try {
@@ -56,6 +59,15 @@ function ensureServerSecret(key: string): string {
   }
 }
 
+function optionalServerSecret(key: string): string | undefined {
+  try {
+    return decodeOptionalServerSecret(process.env[key])
+  } catch (error) {
+    if (!Schema.isSchemaError(error)) throw error
+    throw new Error(`'${key}' must be at least 32 characters when set`)
+  }
+}
+
 export const DATABASE_URL = ensureServerEnv("DATABASE_URL")
 
 // Absolute origin used to build links and image sources for emails, which cannot resolve relative paths.
@@ -87,3 +99,7 @@ export function requireSesConfig() {
     region: ensureServerEnv("AWS_REGION"),
   }
 }
+
+// Guest chat remains available without this value; authenticated requests fail closed when the
+// verifier is not configured rather than silently losing their identity.
+export const CHAT_AUTH_SECRET = optionalServerSecret("ASTRALBEAM_CHAT_AUTH_SECRET")
