@@ -8,7 +8,7 @@ type TestSession = {
 } | null
 
 const mocks = vi.hoisted(() => ({
-  getRequest: vi.fn(() => new Request("https://app.astralbeam.test/")),
+  getRequest: vi.fn(() => new Request("https://app.example.test/")),
   getSession: vi.fn((): Promise<TestSession> => Promise.resolve(null)),
   ensureSessionServer: vi.fn(
     (): Promise<TestSession> => Promise.resolve(null),

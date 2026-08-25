@@ -6,7 +6,7 @@ import {
   resolveRedirectOrigin,
 } from "./redirect.ts"
 
-const ORIGIN = "https://app.astralbeam.ai"
+const ORIGIN = "https://app.example.com"
 
 describe("resolveRedirectOrigin", () => {
   test.each([

@@ -7,6 +7,7 @@ const BADGE_STYLE = `${badgeStyle("#7c3aed")};font-weight:600`
 const TIME_STYLE = "color:#94a3b8;font-weight:400"
 const CATEGORY_COLORS = {
   mount: "#7c3aed",
+  auth: "#be185d",
   theme: "#8b5cf6",
   send: "#2563eb",
   run: "#0891b2",
@@ -21,7 +22,7 @@ const CATEGORY_COLORS = {
 } as const
 
 /** Category of a debug line, each with its own badge color; a typo fails the typecheck. */
-export type DebugCategory = keyof typeof CATEGORY_COLORS
+type DebugCategory = keyof typeof CATEGORY_COLORS
 
 /** Logs one debug line: a colored category badge, a summary, and the full data. */
 export type DebugLogger = (category: DebugCategory, summary: string, data?: unknown) => void

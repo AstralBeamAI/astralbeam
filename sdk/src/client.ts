@@ -35,7 +35,8 @@ export function mountAstralBeamChat(
   let debug = createDebugLogger(live.debug)
   debug?.("mount", "mounting chat widget", {
     title: live.title ?? DEFAULT_TITLE,
-    endpoint: live.endpoint ?? DEFAULT_ENDPOINT,
+    chatEndpoint: live.chatEndpoint ?? DEFAULT_ENDPOINT,
+    authentication: live.authEndpoint ? "configured" : "guest",
     colorScheme: live.colorScheme ?? DEFAULT_COLOR_SCHEME,
     theme: live.theme,
     systemPrompt: live.systemPrompt,

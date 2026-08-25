@@ -1,0 +1,36 @@
+{
+  "name": "@astralbeam/example-todos",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
+    "dev": "vite --port 3100",
+    "format": "deno fmt",
+    "format:check": "deno fmt --check",
+    "knip": "knip",
+    "lint": "deno lint",
+    "preview": "vite preview",
+    "ready": "deno task check && deno task build",
+    "start": "deno run --config deno.jsonc -P=runtime .output/server/index.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@astralbeam/sdk": "file:../../sdk",
+    "@tanstack/react-router": "^1.170.18",
+    "@tanstack/react-start": "^1.168.32",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6",
+    "knip": "^6.32.2",
+    "nitro": "3.0.260610-beta",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}

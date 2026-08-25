@@ -5,7 +5,7 @@ import sharp from "sharp"
 
 const applicationDirectory = join(dirname(fileURLToPath(import.meta.url)), "..")
 const publicDirectory = join(applicationDirectory, "public")
-const logoSvgPattern = /^astralbeam-(?:logo|wordmark)-(?:dark|light)\.svg$/u
+const logoSvgPattern = /^[a-z0-9-]+-(?:logo|wordmark)-(?:dark|light)\.svg$/u
 
 const scale = Number(process.env.SCALE ?? "1")
 
@@ -31,7 +31,7 @@ const svgFiles = entries
   .toSorted()
 
 if (svgFiles.length === 0) {
-  throw new Error(`No AstralBeam logo SVG files found in ${publicDirectory}`)
+  throw new Error(`No logo SVG files found in ${publicDirectory}`)
 }
 
 // Process one image at a time to bound Sharp/libvips work and memory. https://sharp.pixelplumbing.com/performance/#parallelism-and-concurrency

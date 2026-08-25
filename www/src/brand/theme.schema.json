@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://www.astralbeam.ai/schemas/theme.schema.json",
-  "title": "AstralBeam theme definition",
+  "title": "Application theme definition",
   "description": "A compact theme definition. The runtime derives reasonable light defaults and a complete dark theme from optional dark background, foreground, primary, and accent values, then validates opaque CSS colors and semantic contrast.",
   "type": "object",
   "required": ["colors", "geometry"],

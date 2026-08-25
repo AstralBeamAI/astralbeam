@@ -24,7 +24,9 @@ export interface AstralBeamChatProps {
   /** Name shown in the widget's header; prop changes apply immediately. Default `"AstralBeam"`. */
   title?: string
   /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
-  endpoint?: string
+  chatEndpoint?: string
+  /** Application endpoint that mints a short-lived chat JWT; omit for guest chat. */
+  authEndpoint?: string
   /** Host-specific instructions the endpoint appends to the agent's system prompt. */
   systemPrompt?: string
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
@@ -51,7 +53,8 @@ interface ActiveRender {
 export function AstralBeamChat(
   {
     title,
-    endpoint,
+    chatEndpoint,
+    authEndpoint,
     systemPrompt,
     tools,
     widgets = {},
@@ -130,8 +133,12 @@ export function AstralBeamChat(
   liveRef.current = live
   useEffect(() => {
     if (!targetRef.current) return
-    // Mounted once; `endpoint` is the only option that cannot be updated afterwards.
-    const handle = mountAstralBeamChat(targetRef.current, { ...liveRef.current, endpoint })
+    // Mounted once; transport endpoints cannot be updated afterwards.
+    const handle = mountAstralBeamChat(targetRef.current, {
+      ...liveRef.current,
+      chatEndpoint,
+      authEndpoint,
+    })
     handleRef.current = handle
     return () => {
       handleRef.current = null

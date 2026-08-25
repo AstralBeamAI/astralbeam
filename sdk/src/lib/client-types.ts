@@ -73,7 +73,9 @@ export interface MountAstralBeamChatOptions {
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
   title?: string | undefined
   /** URL of the AstralBeam chat endpoint the widget streams from. Fixed at mount. Default `"/api/chat"`. */
-  endpoint?: string | undefined
+  chatEndpoint?: string | undefined
+  /** Application endpoint that mints a short-lived chat JWT. Fixed at mount; omit for guest chat. */
+  authEndpoint?: string | undefined
   /** Host-specific instructions the endpoint appends to the agent's system prompt. */
   systemPrompt?: string | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
@@ -92,11 +94,13 @@ export interface MountAstralBeamChatOptions {
 }
 
 /**
- * Mount options the handle can change afterwards. `endpoint` is excluded on purpose: the
+ * Mount options the handle can change afterwards. `chatEndpoint` is excluded on purpose: the
  * streaming connection is constructed once, so a new endpoint would mean a new client and a
  * discarded transcript.
  */
-export type AstralBeamChatUpdate = Partial<Omit<MountAstralBeamChatOptions, "endpoint">>
+export type AstralBeamChatUpdate = Partial<
+  Omit<MountAstralBeamChatOptions, "chatEndpoint" | "authEndpoint">
+>
 
 export interface AstralBeamChatHandle {
   unmount: () => void

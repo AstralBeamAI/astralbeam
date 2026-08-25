@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons and activate typed AstralBeam plugin settings tabs.
+// Local changes: use Phosphor icons and activate typed application plugin settings tabs.
 
 import type { SettingsView } from "@better-auth-ui/core"
 import { useAuth, useAuthenticate } from "@better-auth-ui/react"

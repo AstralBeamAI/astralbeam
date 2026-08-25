@@ -20,6 +20,14 @@ import { createDebugCallbacks } from "../lib/debug.ts"
 import type { QuestionnaireAnswer } from "../lib/types.ts"
 import { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../lib/utils.ts"
 import { buildAgentTools } from "./agent.ts"
+import {
+  type ChatAuthenticationOptions,
+  type ChatAuthenticationState,
+  disposeChatAuthentication,
+  fetchAuthenticatedChat,
+  getValidChatToken,
+  initializeChatAuthentication,
+} from "./auth.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
 
 // Shared fallback so `widgets` keeps its identity across renders when the host registers none;
@@ -32,6 +40,30 @@ export function ChatWidget(
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
   const { activeSlots, renderWidget, discardAllRenders } = useWidgetRenders(widgets, host, debug)
+  const [authenticationState, setAuthenticationState] = useState<ChatAuthenticationState>(() =>
+    options.authEndpoint ? { status: "loading" } : { status: "ready" }
+  )
+  const [authentication] = useState<ChatAuthenticationOptions | undefined>(() =>
+    options.authEndpoint
+      ? {
+        authEndpoint: options.authEndpoint,
+        session: {
+          cached: undefined,
+          refreshPromise: undefined,
+          abortController: new AbortController(),
+        },
+        onStateChange: setAuthenticationState,
+        fetchClient: globalThis.fetch.bind(globalThis),
+        debug,
+      }
+      : undefined
+  )
+  if (authentication) authentication.debug = debug
+  useEffect(() => {
+    if (!authentication) return
+    void initializeChatAuthentication(authentication).catch(() => undefined)
+    return () => disposeChatAuthentication(authentication)
+  }, [authentication])
 
   // Rebuilt whenever the declared surface changes: `render_widget` carries the widget catalog in
   // its description, and a host tool's schema and `execute` are captured per definition. useChat
@@ -48,9 +80,19 @@ export function ChatWidget(
     })
   }, [debug, toolNames, widgets])
 
-  // Fixed for the mount, which is why `endpoint` is not part of an update: useChat reads the
+  // Fixed for the mount, which is why `chatEndpoint` is not part of an update: useChat reads the
   // connection only when it constructs its client, so a new one would cost the transcript.
-  const [connection] = useState(() => fetchServerSentEvents(options.endpoint ?? DEFAULT_ENDPOINT))
+  const [connection] = useState(() =>
+    fetchServerSentEvents(
+      options.chatEndpoint ?? DEFAULT_ENDPOINT,
+      authentication
+        ? async () => ({
+          headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
+          fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
+        })
+        : undefined,
+    )
+  )
   const debugCallbacks = useMemo(() => createDebugCallbacks(debug), [debug])
   // `debug: true` rides along in the forwarded props so the endpoint logs its side too. Always
   // passed, even when empty: useChat skips an undefined value, so omitting it would leave a
@@ -73,7 +115,10 @@ export function ChatWidget(
   const [draft, setDraft] = useState("")
   const streamBusy = status === "submitted" || status === "streaming"
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
-  const isBusy = streamBusy || hasPendingToolRun(messages, toolNames)
+  const authPending = authenticationState.status === "loading"
+  const authError = authenticationState.status === "error" ? authenticationState.error : undefined
+  const isBusy = authPending || authError !== undefined || streamBusy ||
+    hasPendingToolRun(messages, toolNames)
 
   // A run input holding an unresolved tool call never reaches the model — the endpoint
   // re-offers the pending tool and finishes, leaving the message unanswered — so a send
@@ -178,6 +223,12 @@ export function ChatWidget(
           error={error}
           streamBusy={streamBusy}
           isBusy={isBusy}
+          authPending={authPending}
+          authError={authError}
+          onAuthRetry={authentication
+            ? () =>
+              void getValidChatToken({ ...authentication, force: true }).catch(() => undefined)
+            : undefined}
         />
       </CardFooter>
     </Card>

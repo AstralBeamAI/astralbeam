@@ -4,7 +4,7 @@ import { suggestOrganizationNameFromEmail } from "./utils"
 
 describe("suggestOrganizationNameFromEmail", () => {
   it.each([
-    ["person@astralbeam.ai", "Astralbeam"],
+    ["person@example.ai", "Example"],
     ["person@acme-labs.co.uk", "Acme Labs"],
     ["person@team.example.com", "Example"],
     ["person@gmail.com", ""],

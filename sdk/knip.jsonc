@@ -4,8 +4,7 @@
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,
   // Deno-run generator scripts are explicit extension points, like webapp's.
-  "entry": ["scripts/*.ts"],
-  // Examples are standalone apps with their own package.json; the shadcn-generated components are
-  // vendored copy-paste code whose unused sub-exports are expected.
-  "ignore": ["examples/**", "src/components/ui/**"]
+  "entry": ["scripts/*.ts", "src/**/*.test.ts"],
+  // The shadcn-generated components are vendored copy-paste code whose unused sub-exports are expected.
+  "ignore": ["src/components/ui/**"]
 }

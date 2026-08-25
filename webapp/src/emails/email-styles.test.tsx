@@ -2,12 +2,13 @@ import { render } from "@react-email/render"
 import { createElement } from "react"
 import { describe, expect, test } from "vitest"
 
+import { APP_NAME } from "../lib/config.ts"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
 
 describe("authentication email theme", () => {
   test("inlines the light palette and preserves selectors for dark-mode overrides", async () => {
     const html = await render(createElement(EmailVerificationEmail, {
-      appName: "AstralBeam",
+      appName: APP_NAME,
       email: "member@example.com",
       expiryMinutes: 60,
       logoURL: {

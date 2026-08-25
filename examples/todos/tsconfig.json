@@ -1,6 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "include": ["src", "vite.config.ts"],
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", ".nitro", ".output", ".tanstack", ".tanstack-start", "dist"],
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
@@ -10,9 +11,12 @@
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "skipLibCheck": true,
     "strict": true,
-    "types": ["vite/client"],
+    "types": ["vite/client", "@tanstack/react-start"],
     "verbatimModuleSyntax": true
   }
 }

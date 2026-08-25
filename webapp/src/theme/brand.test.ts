@@ -7,7 +7,7 @@ import { generateThemeCss, resolveThemePalette, type ThemeMode } from "./theme.t
 
 const themeModes = ["light", "dark"] as const satisfies readonly ThemeMode[]
 
-describe("AstralBeam brand theme", () => {
+describe("application brand theme", () => {
   test("validates and exhaustively resolves the source document", () => {
     expect(theme.geometry).toEqual({ radius: "0.45rem" })
     expect(Object.keys(theme.colors.light)).toHaveLength(32)
