@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react"
+import { CheckCircleIcon, GlobeIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
@@ -46,6 +46,9 @@ const FIELD_GROUPS: { title: string; keys: string[] }[] = [
 
 const ROTATABLE_KEYS = new Set(["better_auth_secret", "chat_auth_secret"])
 
+// The base URL is the origin the operator is already browsing, so the editor offers to fill it in.
+const CURRENT_ORIGIN_KEY = "app_base_url"
+
 export function ConfigEditor({
   fields,
   issues,
@@ -69,6 +72,9 @@ export function ConfigEditor({
     if (draft.kind !== "set" || draft.value === (field.value ?? "")) return []
     return [{ key: field.key, value: draft.value === "" ? null : draft.value }]
   })
+
+  const setDraft = (key: string, draft: FieldDraft) =>
+    setDrafts((current) => ({ ...current, [key]: draft }))
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true)
@@ -172,10 +178,33 @@ export function ConfigEditor({
                   draft={draftFor(field.key)}
                   error={fieldErrors[field.key]}
                   disabled={busy}
-                  onDraftChange={(draft) =>
-                    setDrafts((current) => ({ ...current, [field.key]: draft }))}
+                  onDraftChange={(draft) => setDraft(field.key, draft)}
                   onRotate={ROTATABLE_KEYS.has(field.key)
                     ? () => void handleRotate(field.key)
+                    : undefined}
+                  footer={field.key === CURRENT_ORIGIN_KEY
+                    ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          // Reading location in the handler keeps it out of the server render.
+                          onClick={() =>
+                            setDraft(field.key, {
+                              kind: "set",
+                              value: globalThis.location.origin,
+                            })}
+                        >
+                          <GlobeIcon aria-hidden="true" />
+                          Use current origin
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Fills in the origin this page is served from; review it, then save.
+                        </p>
+                      </div>
+                    )
                     : undefined}
                 />
               ))}

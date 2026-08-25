@@ -1,5 +1,7 @@
 "use client"
 
+import type { ReactNode } from "react"
+
 import { Badge } from "@/components/ui/badge"
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
@@ -28,6 +30,7 @@ export function ConfigFieldInput({
   error,
   onDraftChange,
   onRotate,
+  footer,
   disabled,
 }: {
   field: ConfigureField
@@ -35,6 +38,8 @@ export function ConfigFieldInput({
   error: string | undefined
   onDraftChange: (draft: FieldDraft) => void
   onRotate?: (() => void) | undefined
+  /** Rendered under a plain text or URL input, for actions only the editor knows how to offer. */
+  footer?: ReactNode
   disabled: boolean
 }) {
   const currentValue = draft.kind === "set" ? draft.value : field.value ?? ""
@@ -79,19 +84,22 @@ export function ConfigFieldInput({
           </Select>
         )
         : (
-          <InputGroup>
-            <InputGroupInput
-              id={`config-${field.key}`}
-              type={field.kind === "url" ? "url" : "text"}
-              value={currentValue}
-              placeholder="Not set"
-              disabled={disabled}
-              onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
-            />
-            <InputGroupAddon align="inline-end">
-              <CopyValueButton value={currentValue} label={field.label} />
-            </InputGroupAddon>
-          </InputGroup>
+          <div className="flex flex-col gap-2">
+            <InputGroup>
+              <InputGroupInput
+                id={`config-${field.key}`}
+                type={field.kind === "url" ? "url" : "text"}
+                value={currentValue}
+                placeholder="Not set"
+                disabled={disabled}
+                onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
+              />
+              <InputGroupAddon align="inline-end">
+                <CopyValueButton value={currentValue} label={field.label} />
+              </InputGroupAddon>
+            </InputGroup>
+            {footer}
+          </div>
         )}
       <FieldDescription>{field.description}</FieldDescription>
       {error && <FieldError>{error}</FieldError>}
