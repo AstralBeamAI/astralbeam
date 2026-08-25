@@ -22,7 +22,7 @@
 ## Environment
 
 - Keep Webapp environment files under `webapp`. Commit reviewed non-secret environment files such as `.env`, `.env.development`, `.env.test`, and `.env.example`; ignore `*.local` files and never commit credentials or deployment-specific values.
-- Let application runtime configuration use the framework's environment loading. Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
+- The webapp reads only `DATABASE_URL` from the environment; every other runtime setting lives in its database `config` table and is managed at `/configure` (see `webapp/AGENTS.md`). Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
 - Never install PostgreSQL or Valkey from `scripts/setup.sh` on macOS; start its Podman services through the Docker-compatible `docker compose` command when available unless `SKIP_DOCKER_COMPOSE=true` is set. Invoke `scripts/codex-db.sh` only through `INSTALL_EXTRA=codex-db` in Codex Cloud's Ubuntu environment, paired with `SKIP_DOCKER_COMPOSE=true` to prevent a Compose start.
 
 ## Webapp and SDK UI
