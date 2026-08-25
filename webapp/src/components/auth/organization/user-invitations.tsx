@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: expose an invitation-action callback so onboarding can refresh organization access.
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
 import { useListUserInvitations } from "@better-auth-ui/react/plugins/organization"
@@ -14,13 +14,14 @@ import { UserInvitationsEmpty } from "./user-invitations-empty"
 
 export type UserInvitationsProps = {
   className?: string
+  onInvitationAction?: () => unknown | Promise<unknown>
 }
 
 /**
  * Organization invitations for the signed-in user. Always renders the section
  * card; uses `UserInvitationsEmpty` when there are no pending invitations.
  */
-export function UserInvitations({ className }: UserInvitationsProps) {
+export function UserInvitations({ className, onInvitationAction }: UserInvitationsProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
   const session = useSession(authClient)
@@ -52,7 +53,10 @@ export function UserInvitations({ className }: UserInvitationsProps) {
                   {invitations.map((invitation, index) => (
                     <Fragment key={invitation.id}>
                       {index > 0 && <ItemSeparator />}
-                      <UserInvitationRow invitation={invitation} />
+                      <UserInvitationRow
+                        invitation={invitation}
+                        {...onInvitationAction ? { onInvitationAction } : {}}
+                      />
                     </Fragment>
                   ))}
                 </ItemGroup>

@@ -1,13 +1,15 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: none.
-import { isTwoFactorRedirect } from "@better-auth-ui/core/plugins/two-factor"
-import { useAuth, useSession, useSignInEmail } from "@better-auth-ui/react"
+// Local changes: remove the unconfigured two-factor continuation branch, choose reauthentication from the user's actual accounts, preserve the return path, and keep credential errors non-sensitive.
+
+"use client"
+
+import { getAuthLinkURL, getSafeRedirectTo } from "@better-auth-ui/core"
+import { useAuth, useListAccounts, useSession, useSignInEmail } from "@better-auth-ui/react"
 import { type FormEvent, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
-import { useSignInContinuation } from "@/lib/auth/use-sign-in-continuation"
 
 export interface FreshSessionPromptProps {
   onFresh: () => unknown | Promise<unknown>
@@ -16,16 +18,15 @@ export interface FreshSessionPromptProps {
 export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
   const auth = useAuth()
   const session = useSession(auth.authClient)
-  const continueSignIn = useSignInContinuation()
+  const accounts = useListAccounts(auth.authClient)
+  const hasCredentialAccount = accounts.data?.some(
+    (account) => account.providerId === "credential",
+  ) ?? false
   const [password, setPassword] = useState("")
   const signIn = useSignInEmail(auth.authClient, {
     meta: { errorPresentation: "inline" },
     onError: () => setPassword(""),
-    onSuccess: async (data) => {
-      if (isTwoFactorRedirect(data)) {
-        continueSignIn(data)
-        return
-      }
+    onSuccess: async () => {
       setPassword("")
       await onFresh()
     },
@@ -36,6 +37,22 @@ export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
     const email = session.data?.user.email
     if (!email) return
     signIn.mutate({ email, password })
+  }
+
+  const signInAgain = () => {
+    const returnPath = getSafeRedirectTo(
+      `${globalThis.location.pathname}${globalThis.location.search}`,
+      globalThis.location.origin,
+    )
+    const link = new URL(
+      getAuthLinkURL(
+        `${auth.basePaths.auth}/${auth.viewPaths.auth.signIn}`,
+        returnPath,
+      ),
+      globalThis.location.origin,
+    )
+    link.searchParams.set("fresh", "true")
+    auth.navigate({ to: `${link.pathname}${link.search}` })
   }
 
   return (
@@ -49,7 +66,9 @@ export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
             {auth.localization.settings.freshSessionDescription}
           </FieldDescription>
         </div>
-        {auth.emailAndPassword?.enabled
+        {accounts.isPending
+          ? <Spinner aria-label="Loading sign-in methods" />
+          : auth.emailAndPassword?.enabled && hasCredentialAccount
           ? (
             <form className="flex flex-col gap-3" onSubmit={submit}>
               <Field data-invalid={signIn.isError}>
@@ -67,7 +86,7 @@ export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
                 />
                 {signIn.error && (
                   <FieldError>
-                    {signIn.error.error?.message ?? signIn.error.message}
+                    Your password could not be verified. Please try again.
                   </FieldError>
                 )}
               </Field>
@@ -79,10 +98,7 @@ export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
           )
           : (
             <Button
-              onClick={() =>
-                auth.navigate({
-                  to: `${auth.basePaths.auth}/${auth.viewPaths.auth.signIn}`,
-                })}
+              onClick={signInAgain}
             >
               {auth.localization.settings.freshSessionSignIn}
             </Button>

@@ -1,11 +1,10 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: none.
-"use client"
+// Local changes: use Phosphor icons and Base UI Toast.
 
 import { useAuth, useRevokeOtherSessions, useRevokeSessions } from "@better-auth-ui/react"
-import { LogOut } from "lucide-react"
+import { SignOutIcon as LogOut } from "@phosphor-icons/react"
 import { useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 
 import {
   AlertDialog,
@@ -28,7 +27,7 @@ export function SessionActions(props: { hasOtherSessions: boolean }) {
 
   const revokeOtherSessions = useRevokeOtherSessions(authClient, {
     onSuccess: () => {
-      toast.success(localization.settings.signOutOtherDevicesSuccess)
+      toast.add({ title: localization.settings.signOutOtherDevicesSuccess, type: "success" })
       setAction(null)
     },
   })

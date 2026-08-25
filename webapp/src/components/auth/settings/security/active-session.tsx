@@ -1,10 +1,16 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: none.
+// Local changes: Use Phosphor icons and Base UI Toast; correct the generated session-field documentation.
+
 import { useAuth, useRevokeSession, useSession } from "@better-auth-ui/react"
 import type { Session } from "better-auth"
 import Bowser from "bowser"
-import { LogOut, Monitor, Smartphone, X } from "lucide-react"
-import { toast } from "sonner"
+import {
+  DeviceMobileIcon as Smartphone,
+  MonitorIcon as Monitor,
+  SignOutIcon as LogOut,
+  XIcon as X,
+} from "@phosphor-icons/react"
+import { toast } from "@/components/ui/toast"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -51,7 +57,7 @@ export type ActiveSessionProps = {
  * Shows the session's browser, OS, and creation time. The current session is marked
  * and navigates to sign-out on click, while other sessions can be revoked individually.
  *
- * @param session - The session object containing id, token, userAgent, ipAddress, and createdAt
+ * @param activeSession - The session object containing its token, user agent, and creation time.
  * @returns A JSX element containing the active session row
  */
 export function ActiveSession({ activeSession }: ActiveSessionProps) {
@@ -61,7 +67,8 @@ export function ActiveSession({ activeSession }: ActiveSessionProps) {
   const { mutate: revokeSession, isPending: isRevoking } = useRevokeSession(
     authClient,
     {
-      onSuccess: () => toast.success(localization.settings.revokeSessionSuccess),
+      onSuccess: () =>
+        toast.add({ title: localization.settings.revokeSessionSuccess, type: "success" }),
     },
   )
 

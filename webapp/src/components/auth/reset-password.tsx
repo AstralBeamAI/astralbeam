@@ -1,12 +1,13 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Use Phosphor icons, the contextual Base UI Toast manager, and Deno-compatible browser globals; preserve strict error-state typing; render a semantic page heading.
+
 "use client"
 
 import { getAuthLinkURL, isPasswordCompromisedError } from "@better-auth-ui/core"
 import { useAuth, useResetPassword } from "@better-auth-ui/react"
-import { Eye, EyeOff } from "lucide-react"
+import { EyeIcon as Eye, EyeSlashIcon as EyeOff } from "@phosphor-icons/react"
 import { type SyntheticEvent, useEffect, useState } from "react"
-import { toast } from "sonner"
+import { useToastManager } from "@/components/ui/toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,6 +34,7 @@ export type ResetPasswordProps = {
  * @returns The password reset form UI ready to be mounted in the app layout.
  */
 export function ResetPassword({ className }: ResetPasswordProps) {
+  const { add: addToast } = useToastManager()
   const {
     authClient,
     basePaths,
@@ -60,7 +62,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
       }
     },
     onSuccess: () => {
-      toast.success(localization.auth.passwordResetSuccess)
+      addToast({ title: localization.auth.passwordResetSuccess, type: "success" })
       navigate({ to: signInURL })
     },
   })
@@ -70,28 +72,28 @@ export function ResetPassword({ className }: ResetPasswordProps) {
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
 
   const [fieldErrors, setFieldErrors] = useState<{
-    password?: string
-    confirmPassword?: string
-  }>({})
+    password: string | undefined
+    confirmPassword: string | undefined
+  }>({ password: undefined, confirmPassword: undefined })
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search)
+    const searchParams = new URLSearchParams(globalThis.location.search)
     const token = searchParams.get("token") as string
 
     if (!token) {
-      toast.error(localization.auth.invalidResetPasswordToken)
+      addToast({ title: localization.auth.invalidResetPasswordToken, type: "error" })
       navigate({ to: signInURL })
     }
-  }, [localization.auth.invalidResetPasswordToken, navigate, signInURL])
+  }, [addToast, localization.auth.invalidResetPasswordToken, navigate, signInURL])
 
   function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
 
-    const searchParams = new URLSearchParams(window.location.search)
+    const searchParams = new URLSearchParams(globalThis.location.search)
     const token = searchParams.get("token") as string
 
     if (!token) {
-      toast.error(localization.auth.invalidResetPasswordToken)
+      addToast({ title: localization.auth.invalidResetPasswordToken, type: "error" })
       navigate({ to: signInURL })
       return
     }
@@ -101,7 +103,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
     const confirmPassword = formData.get("confirmPassword") as string
 
     if (emailAndPassword?.confirmPassword && password !== confirmPassword) {
-      toast.error(localization.auth.passwordsDoNotMatch)
+      addToast({ title: localization.auth.passwordsDoNotMatch, type: "error" })
       return
     }
 
@@ -112,7 +114,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
     <Card className={cn("w-full max-w-sm", className)}>
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
-          {localization.auth.resetPassword}
+          <h1>{localization.auth.resetPassword}</h1>
         </CardTitle>
       </CardHeader>
 

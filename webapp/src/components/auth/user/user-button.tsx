@@ -1,9 +1,14 @@
 // Added with: deno task ui add @better-auth-ui/user-button
-// Local changes: none.
-import type { MultiSessionAuthClient } from "@better-auth-ui/core/plugins/multi-session"
+// Local changes: Remove multi-session support, use Phosphor icons, retain typed plugin items, add a stable trigger label and hover title, apply strict typing, and keep internal visibility types module-private.
+
 import { useAuth, useSession } from "@better-auth-ui/react"
-import { useSetActiveSession } from "@better-auth-ui/react/plugins/multi-session"
-import { ChevronsUpDown, LogIn, LogOut, Settings, UserPlus2 } from "lucide-react"
+import {
+  CaretUpDownIcon as ChevronsUpDown,
+  GearIcon as Settings,
+  SignInIcon as LogIn,
+  SignOutIcon as LogOut,
+  UserPlusIcon as UserPlus2,
+} from "@phosphor-icons/react"
 import { isValidElement, type ReactElement, type ReactNode } from "react"
 
 import { buttonVariants } from "@/components/ui/button"
@@ -16,12 +21,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import type {} from "@/lib/auth/auth-plugin"
 import { cn } from "@/lib/utils"
 import { UserAvatar } from "./user-avatar"
 import { UserView } from "./user-view"
 
 /** Auth states a `UserButton` link can be visible in. */
-export type UserButtonLinkVisibility =
+type UserButtonLinkVisibility =
   | "authenticated"
   | "unauthenticated"
   | "always"
@@ -72,7 +78,7 @@ function renderUserLink(
   return (
     <DropdownMenuItem
       key={fallbackKey}
-      variant={variant}
+      {...(variant ? { variant } : {})}
       onClick={() => navigate({ to: href })}
     >
       {icon}
@@ -84,8 +90,7 @@ function renderUserLink(
 /**
  * Render a user dropdown button that shows user info, settings, theme controls, and authentication actions.
  *
- * Includes user profile, settings link, optional multi-session account switching, theme picker,
- * and sign-in/sign-up/sign-out actions depending on authentication state.
+ * Includes user profile, settings link, plugin menu items, and sign-in/sign-up/sign-out actions depending on authentication state.
  *
  * @param className - Additional CSS classes applied to the button trigger
  * @param align - Alignment of the dropdown menu relative to the trigger
@@ -105,11 +110,8 @@ export function UserButton({
   links,
   hideSettings = false,
 }: UserButtonProps) {
-  const { authClient, basePaths, viewPaths, localization, plugins, navigate } = useAuth<
-    MultiSessionAuthClient
-  >()
+  const { authClient, basePaths, viewPaths, localization, plugins, navigate } = useAuth()
 
-  const { isPending: settingActiveSession } = useSetActiveSession(authClient)
   const { data: session, isPending: sessionPending } = useSession(authClient)
 
   const userLinks = links?.flatMap((link, index) => {
@@ -133,7 +135,8 @@ export function UserButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={size === "icon" ? localization.auth.account : undefined}
+        aria-label={localization.auth.account}
+        title={localization.auth.account}
         className={size === "icon" ? cn("rounded-full", className) : cn(
           buttonVariants({ variant, size: "lg" }),
           "py-2.5 h-auto font-normal",
@@ -142,17 +145,15 @@ export function UserButton({
       >
         {size === "icon" ? <UserAvatar /> : (
           <>
-            {session || sessionPending || settingActiveSession
-              ? <UserView isPending={!!settingActiveSession} />
-              : (
-                <>
-                  <UserAvatar />
+            {session || sessionPending ? <UserView /> : (
+              <>
+                <UserAvatar />
 
-                  <div className="grid flex-1 text-start text-sm leading-tight">
-                    {localization.auth.account}
-                  </div>
-                </>
-              )}
+                <div className="grid flex-1 text-start text-sm leading-tight">
+                  {localization.auth.account}
+                </div>
+              </>
+            )}
 
             <ChevronsUpDown className="ms-auto size-4" />
           </>

@@ -1,5 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Use browser-safe globals and a semantic page heading.
+
 import { getAuthLinkURL } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
 import { useEffect, useState } from "react"
@@ -33,18 +34,22 @@ export function ResetLinkSent({ className }: ResetLinkSentProps) {
 
   const isHydrated = useIsHydrated()
   const [email, setEmail] = useState(
-    (isHydrated && sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY)) || "",
+    (isHydrated &&
+      globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY)) ||
+      "",
   )
 
   useEffect(() => {
-    setEmail(sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY) ?? "")
+    setEmail(
+      globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY) ?? "",
+    )
   }, [])
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
-          {localization.auth.checkYourEmailTitle}
+          <h1>{localization.auth.checkYourEmailTitle}</h1>
         </CardTitle>
       </CardHeader>
 

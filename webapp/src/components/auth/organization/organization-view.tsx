@@ -1,8 +1,10 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
-"use client"
+// Local changes: repair strict optional props and query only the signed-in member for static role labels.
 
-import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
+import {
+  memberRoleLabels,
+  type OrganizationAuthClient,
+} from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
 import {
   useActiveOrganization,
@@ -55,13 +57,15 @@ export function OrganizationView({
   const { data: membersList, isPending: membersPending } = useListOrganizationMembers(authClient, {
     query: {
       organizationId: resolvedOrganization?.id,
+      filterField: "userId",
+      filterValue: session?.user.id ?? "",
+      limit: 1,
     },
-    enabled: !!resolvedOrganization?.id && !hideRole,
+    enabled: !!resolvedOrganization?.id && !!session?.user.id && !hideRole,
   })
 
-  const membership = membersList?.members?.find(
-    (member) => member.userId === session?.user.id,
-  )
+  const membership = membersList?.members[0]
+  const roleLabel = membership ? memberRoleLabels(membership.role, roles).join(", ") : undefined
 
   if (
     isPending ||
@@ -70,9 +74,9 @@ export function OrganizationView({
   ) {
     return (
       <OrganizationViewSkeleton
-        className={className}
-        hideSlug={hideSlug}
         size={size}
+        {...(className ? { className } : {})}
+        {...(hideSlug === undefined ? {} : { hideSlug })}
         {...props}
       />
     )
@@ -84,9 +88,9 @@ export function OrganizationView({
       {...props}
     >
       <OrganizationLogo
-        organization={resolvedOrganization}
-        className={size === "sm" ? "size-5" : undefined}
+        className={size === "sm" ? "size-5" : ""}
         size={size === "lg" ? "md" : "sm"}
+        {...(resolvedOrganization ? { organization: resolvedOrganization } : {})}
       />
 
       <div className="flex min-w-0 flex-col">
@@ -97,7 +101,7 @@ export function OrganizationView({
 
           {!hideRole && !!membership && (
             <Badge variant="secondary" className="-my-0.5 shrink-0">
-              {roles?.[membership.role] ?? membership.role}
+              {roleLabel}
             </Badge>
           )}
         </div>

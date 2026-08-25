@@ -1,5 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: none.
+// Local changes: Keep the current session first with a stable comparator and correct the generated session-field documentation.
+
 "use client"
 
 import { isSessionNotFreshError } from "@better-auth-ui/core"
@@ -20,7 +21,7 @@ export type ActiveSessionsProps = {
 /**
  * Render a card listing all active sessions for the current user with revoke controls.
  *
- * Shows each session's browser, OS, IP address, and creation time. The current session is marked
+ * Shows each session's browser, OS, and creation time. The current session is marked
  * and navigates to sign-out on click, while other sessions can be revoked individually.
  *
  * @returns A JSX element containing the sessions card
@@ -32,9 +33,12 @@ export function ActiveSessions({ className }: ActiveSessionsProps) {
   const sessionsQuery = useListSessions(authClient)
   const { data: sessions, error, isPending } = sessionsQuery
 
-  const activeSessions = [...(sessions ?? [])].sort((activeSession) =>
-    activeSession.id === session?.session.id ? -1 : 1
-  )
+  const currentSessionId = session?.session.id
+  const activeSessions = [...(sessions ?? [])].sort((first, second) => {
+    const firstIsCurrent = first.id === currentSessionId
+    const secondIsCurrent = second.id === currentSessionId
+    return Number(secondIsCurrent) - Number(firstIsCurrent)
+  })
 
   return (
     <div>

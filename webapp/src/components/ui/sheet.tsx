@@ -1,5 +1,5 @@
 // Added with: deno task ui add sidebar
-// Local changes: none.
+// Local changes: Add a hover title to the icon-only close action.
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 
@@ -67,6 +67,7 @@ function SheetContent({
                 variant="ghost"
                 className="absolute top-3 end-3"
                 size="icon-sm"
+                title="Close"
               />
             }
           >

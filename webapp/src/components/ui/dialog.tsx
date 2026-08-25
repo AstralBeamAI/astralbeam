@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Add a hover title to the icon-only close action.
 "use client"
 
 import * as React from "react"
@@ -69,6 +69,7 @@ function DialogContent({
                 variant="ghost"
                 className="absolute top-2 end-2"
                 size="icon-sm"
+                title="Close"
               />
             }
           >

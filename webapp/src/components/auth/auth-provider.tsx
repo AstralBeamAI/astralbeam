@@ -1,10 +1,11 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Inject the Base UI Toast error handler and remove unused custom-field typing.
+
 import {
   AuthProvider as AuthProviderPrimitive,
   type AuthProviderProps,
 } from "@better-auth-ui/react"
-import type { ComponentPropsWithoutRef, ComponentType, PropsWithChildren, ReactNode } from "react"
+import type { ComponentPropsWithoutRef, ComponentType, PropsWithChildren } from "react"
 
 import { ErrorToaster } from "./error-toaster"
 
@@ -24,15 +25,11 @@ declare module "@better-auth-ui/core" {
       >
     >
   }
-
-  /** Widen `AdditionalField.label` to `ReactNode` in the shadcn package. */
-  interface AdditionalFieldRegister {
-    label: ReactNode
-  }
 }
 
 /**
- * Provides an authentication context by rendering an auth provider with the sonner toast handler injected, forwarding remaining configuration and rendering `children` inside it.
+ * Provides an authentication context with the Base UI Toast error handler,
+ * forwarding the remaining configuration and rendering `children` inside it.
  *
  * @param children - React nodes to render inside the authentication provider
  * @returns A React element that renders an authentication provider configured with the provided props and toast handler

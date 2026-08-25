@@ -1,5 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Forward the controlled legal-acceptance gate to OAuth signup buttons and preserve strict optional-property typing.
+
+"use client"
+
 import { type AuthView, getProviderId } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
 import { useMemo } from "react"
@@ -8,7 +11,9 @@ import { cn } from "@/lib/utils"
 import { ProviderButton } from "./provider-button"
 
 export type ProviderButtonsProps = {
+  disabled?: boolean
   socialLayout?: SocialLayout
+  termsAccepted?: boolean
   view?: AuthView
 }
 
@@ -21,7 +26,9 @@ export type SocialLayout = "auto" | "horizontal" | "vertical" | "grid"
  * @param socialLayout - Preferred layout for the provider buttons; `"auto"` chooses based on the number of providers.
  */
 export function ProviderButtons({
+  disabled,
   socialLayout = "auto",
+  termsAccepted,
   view = "signIn",
 }: ProviderButtonsProps) {
   const { socialProviders } = useAuth()
@@ -51,6 +58,8 @@ export function ProviderButtons({
         <ProviderButton
           key={getProviderId(provider)}
           provider={provider}
+          {...(disabled === undefined ? {} : { disabled })}
+          {...(termsAccepted === undefined ? {} : { termsAccepted })}
           view={view}
           display={resolvedSocialLayout === "vertical"
             ? "full"

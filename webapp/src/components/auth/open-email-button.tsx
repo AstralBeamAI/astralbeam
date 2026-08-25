@@ -1,11 +1,10 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
-"use client"
+// Local changes: Use Phosphor icons and browser-safe globals.
 
 import { createQrCodeSvgData, getEmailProviderLink } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
 import type { VariantProps } from "class-variance-authority"
-import { QrCode } from "lucide-react"
+import { QrCodeIcon as QrCode } from "@phosphor-icons/react"
 import { useMemo } from "react"
 
 import { buttonVariants } from "@/components/ui/button"
@@ -65,7 +64,7 @@ export function OpenEmailButton({
         <TooltipTrigger
           type="button"
           className={cn(buttonVariants({ variant }), "w-full", className)}
-          onClick={() => window.open(provider.loginUrl, "_blank", "noopener,noreferrer")}
+          onClick={() => globalThis.open(provider.loginUrl, "_blank", "noopener,noreferrer")}
         >
           {localization.auth.openEmailProvider.replace(
             "{{provider}}",

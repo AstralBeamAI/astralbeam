@@ -1,5 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Omit the team column because organization teams are disabled.
+
+"use client"
+
 import { Skeleton } from "@/components/ui/skeleton"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { UserView } from "../user/user-view"
@@ -7,11 +10,7 @@ import { UserView } from "../user/user-view"
 /**
  * Placeholder row matching `OrganizationMemberRow` while members load.
  */
-export function OrganizationMemberRowSkeleton({
-  showTeams,
-}: {
-  showTeams?: boolean
-}) {
+export function OrganizationMemberRowSkeleton() {
   return (
     <TableRow>
       <TableCell>
@@ -21,12 +20,6 @@ export function OrganizationMemberRowSkeleton({
       <TableCell>
         <Skeleton className="h-4 w-18 rounded-md" />
       </TableCell>
-
-      {showTeams && (
-        <TableCell>
-          <Skeleton className="h-4 w-24 rounded-md" />
-        </TableCell>
-      )}
 
       <TableCell className="flex justify-end">
         <Skeleton className="size-8 rounded-md" />

@@ -1,5 +1,5 @@
 // Added with: deno task ui add toast
-// Local changes: none.
+// Local changes: Add a hover title to the icon-only close action.
 import * as React from "react"
 import { Toast as ToastPrimitive } from "@base-ui/react/toast"
 
@@ -118,6 +118,7 @@ function ToastClose({
     <ToastPrimitive.Close
       data-slot="toast-close"
       aria-label="Close toast"
+      title="Close toast"
       render={render}
       className={cn(
         "relative shrink-0 text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:text-foreground",

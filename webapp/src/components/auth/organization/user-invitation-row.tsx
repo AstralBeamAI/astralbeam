@@ -1,13 +1,19 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
-import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
+// Local changes: render Better Auth's comma-joined static roles as separate labels, add an icon-action hover title, and notify onboarding after an invitation action.
+
+"use client"
+
+import {
+  memberRoleLabels,
+  type OrganizationAuthClient,
+} from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import {
   useAcceptInvitation,
   useRejectInvitation,
 } from "@better-auth-ui/react/plugins/organization"
 import type { Invitation } from "better-auth/client"
-import { Check, Clock, X } from "lucide-react"
+import { CheckIcon as Check, ClockIcon as Clock, XIcon as X } from "@phosphor-icons/react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,18 +30,23 @@ import { organizationPlugin } from "@/lib/auth/organization-plugin"
 
 export type UserInvitationRowProps = {
   invitation: Invitation & { organizationName?: string }
+  onInvitationAction?: () => unknown | Promise<unknown>
 }
 
 /**
  * Single invitation row with accept/reject actions for the current user.
  */
-export function UserInvitationRow({ invitation }: UserInvitationRowProps) {
+export function UserInvitationRow({ invitation, onInvitationAction }: UserInvitationRowProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
   const { localization: organizationLocalization, roles } = useAuthPlugin(organizationPlugin)
 
-  const { mutate: acceptInvitation, isPending: isAccepting } = useAcceptInvitation(authClient)
+  const { mutate: acceptInvitation, isPending: isAccepting } = useAcceptInvitation(authClient, {
+    onSuccess: () => onInvitationAction?.(),
+  })
 
-  const { mutate: rejectInvitation, isPending: isRejecting } = useRejectInvitation(authClient)
+  const { mutate: rejectInvitation, isPending: isRejecting } = useRejectInvitation(authClient, {
+    onSuccess: () => onInvitationAction?.(),
+  })
 
   return (
     <Item>
@@ -46,7 +57,7 @@ export function UserInvitationRow({ invitation }: UserInvitationRowProps) {
         <ItemTitle>
           {invitation.organizationName}
           <Badge variant="secondary">
-            {roles?.[invitation.role] ?? invitation.role}
+            {memberRoleLabels(invitation.role, roles).join(", ")}
           </Badge>
         </ItemTitle>
         <ItemDescription>
@@ -75,6 +86,7 @@ export function UserInvitationRow({ invitation }: UserInvitationRowProps) {
           disabled={isAccepting || isRejecting}
           onClick={() => rejectInvitation({ invitationId: invitation.id })}
           aria-label={organizationLocalization.rejectInvitation}
+          title={organizationLocalization.rejectInvitation}
         >
           {isRejecting ? <Spinner /> : <X />}
         </Button>

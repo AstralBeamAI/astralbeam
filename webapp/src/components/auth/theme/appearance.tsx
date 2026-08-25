@@ -1,12 +1,13 @@
 // Added with: deno task ui add @better-auth-ui/theme
-// Local changes: none.
+// Local changes: Replace Lucide with Phosphor icons, consume the static theme API directly, and label the theme radio group.
+
 import {
   ThemePreviewDark,
   ThemePreviewLight,
   ThemePreviewSystem,
   useAuthPlugin,
 } from "@better-auth-ui/react"
-import { Monitor, Moon, Sun } from "lucide-react"
+import { MonitorIcon as Monitor, MoonIcon as Moon, SunIcon as Sun } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 
 import { Card, CardContent } from "@/components/ui/card"
@@ -29,8 +30,7 @@ export type AppearanceProps = {
  * @returns A JSX element containing the theme selector card.
  */
 export function Appearance({ className }: AppearanceProps) {
-  const { useTheme, localization } = useAuthPlugin(themePlugin)
-  const { theme, setTheme, themes = [] } = useTheme()
+  const { localization, setTheme, theme, themes = [] } = useAuthPlugin(themePlugin)
 
   const [isMounted, setIsMounted] = useState(false)
   useEffect(() => setIsMounted(true), [])
@@ -42,9 +42,10 @@ export function Appearance({ className }: AppearanceProps) {
       <Card className={cn(className)}>
         <CardContent>
           <Field>
-            <FieldLabel>{localization.theme}</FieldLabel>
+            <FieldLabel id="appearance-theme-label">{localization.theme}</FieldLabel>
 
             <RadioGroup
+              aria-labelledby="appearance-theme-label"
               value={isMounted ? theme : ""}
               onValueChange={setTheme}
               className="grid gap-3 grid-cols-2 sm:grid-cols-3"

@@ -1,5 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/organization-invitation-email
-// Local changes: none.
+// Local changes: Move into the email delivery domain, rewire imports, apply the shared semantic shadcn email theme, omit an unused optional prop binding, and keep one default component export for directory-driven previews.
+
 import type { ReactNode } from "react"
 import {
   Body,
@@ -11,15 +12,19 @@ import {
   Html,
   Img,
   Link,
-  pixelBasedPreset,
   Preview,
   Section,
   Tailwind,
   Text,
 } from "react-email"
 
-import { cn } from "../../../lib/utils"
-import { type EmailClassNames, type EmailColors, EmailStyles } from "./email-styles"
+import { cn } from "../../lib/utils"
+import {
+  type EmailClassNames,
+  type EmailColors,
+  EmailStyles,
+  emailTailwindConfig,
+} from "../email-styles"
 
 const organizationInvitationEmailLocalization = {
   YOU_RE_INVITED_TO_ORGANIZATION: "You're invited to {organizationName}",
@@ -120,9 +125,8 @@ export interface OrganizationInvitationEmailProps {
  * />
  * ```
  */
-export const OrganizationInvitationEmail = ({
+const OrganizationInvitationEmail = ({
   url,
-  email,
   inviterName,
   inviterEmail,
   organizationName,
@@ -163,8 +167,13 @@ export const OrganizationInvitationEmail = ({
 
       <Preview>{previewText}</Preview>
 
-      <Tailwind config={{ presets: [pixelBasedPreset] }}>
-        <Body className={cn("bg-background font-sans", classNames?.body)}>
+      <Tailwind config={emailTailwindConfig}>
+        <Body
+          className={cn(
+            "email-bg-background email-text-foreground bg-background font-sans text-foreground",
+            classNames?.body,
+          )}
+        >
           <Container
             className={cn(
               "mx-auto my-auto max-w-xl px-2 py-10",
@@ -173,7 +182,7 @@ export const OrganizationInvitationEmail = ({
           >
             <Section
               className={cn(
-                "bg-card text-card-foreground rounded-none border border-border p-8",
+                "email-bg-card email-border-border email-text-card-foreground bg-card text-card-foreground rounded-none border border-border p-8",
                 classNames?.card,
               )}
             >
@@ -215,7 +224,7 @@ export const OrganizationInvitationEmail = ({
 
               <Heading
                 className={cn(
-                  "m-0 mb-5 text-2xl font-semibold",
+                  "m-0 mb-5 font-heading text-2xl font-semibold",
                   classNames?.title,
                 )}
               >
@@ -300,7 +309,7 @@ export const OrganizationInvitationEmail = ({
                         {beforeInviterEmail}
                         <Link
                           href={`mailto:${inviterEmail}`}
-                          className="text-primary font-medium"
+                          className="email-text-primary text-primary font-medium"
                         >
                           {inviterEmail}
                         </Link>
@@ -332,7 +341,7 @@ export const OrganizationInvitationEmail = ({
                 <Button
                   href={url}
                   className={cn(
-                    "inline-block whitespace-nowrap rounded-none text-sm font-medium py-2.5 px-6 bg-primary text-primary-foreground no-underline",
+                    "email-bg-primary email-text-primary-foreground inline-block whitespace-nowrap rounded-none text-sm font-medium py-2.5 px-6 bg-primary text-primary-foreground no-underline",
                     classNames?.button,
                   )}
                 >
@@ -342,7 +351,7 @@ export const OrganizationInvitationEmail = ({
 
               <Text
                 className={cn(
-                  "m-0 mb-3 text-xs text-muted-foreground",
+                  "email-text-muted-foreground m-0 mb-3 text-xs text-muted-foreground",
                   classNames?.description,
                 )}
               >
@@ -351,7 +360,7 @@ export const OrganizationInvitationEmail = ({
 
               <Link
                 className={cn(
-                  "break-all text-xs text-primary",
+                  "email-text-primary break-all text-xs text-primary",
                   classNames?.link,
                 )}
                 href={url}
@@ -361,7 +370,7 @@ export const OrganizationInvitationEmail = ({
 
               <Hr
                 className={cn(
-                  "my-6 w-full border border-solid border-border",
+                  "email-border-border my-6 w-full border border-solid border-border",
                   classNames?.separator,
                 )}
               />
@@ -370,7 +379,7 @@ export const OrganizationInvitationEmail = ({
                 ? (
                   <Text
                     className={cn(
-                      "m-0 mb-3 text-xs text-muted-foreground",
+                      "email-text-muted-foreground m-0 mb-3 text-xs text-muted-foreground",
                       classNames?.description,
                     )}
                   >
@@ -392,7 +401,7 @@ export const OrganizationInvitationEmail = ({
 
               <Text
                 className={cn(
-                  "m-0 text-xs text-muted-foreground",
+                  "email-text-muted-foreground m-0 text-xs text-muted-foreground",
                   classNames?.description,
                 )}
               >
@@ -402,7 +411,7 @@ export const OrganizationInvitationEmail = ({
               {poweredBy && (
                 <Text
                   className={cn(
-                    "m-0 mt-4 text-center text-[11px] text-muted-foreground",
+                    "email-text-muted-foreground m-0 mt-4 text-center text-[11px] text-muted-foreground",
                     classNames?.poweredBy,
                   )}
                 >
@@ -416,7 +425,7 @@ export const OrganizationInvitationEmail = ({
                         <Link
                           href="https://better-auth.com"
                           className={cn(
-                            "text-primary underline",
+                            "email-text-primary text-primary underline",
                             classNames?.link,
                           )}
                         >
@@ -439,7 +448,7 @@ export const OrganizationInvitationEmail = ({
 OrganizationInvitationEmail.localization = organizationInvitationEmailLocalization
 
 OrganizationInvitationEmail.PreviewProps = {
-  url: "https://better-auth-ui.com/auth/accept-invitation?invitationId=example",
+  url: "https://better-auth-ui.com/settings/organizations",
   email: "m@example.com",
   inviterName: "Jane Doe",
   inviterEmail: "jane@example.com",

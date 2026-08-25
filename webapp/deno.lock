@@ -23,8 +23,11 @@
     "npm:@tanstack/react-query@5.102.0": "5.102.0_react@19.2.8",
     "npm:@tanstack/react-router-devtools@^1.167.0": "1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_@tanstack+router-core@1.171.24_react@19.2.8_react-dom@19.2.8__react@19.2.8_csstype@3.2.3",
     "npm:@tanstack/react-router-ssr-query@1.167.1": "1.167.1_@tanstack+query-core@5.102.0_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8_@tanstack+router-core@1.171.24",
+    "npm:@tanstack/react-router@*": "1.170.29_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-router@^1.170.18": "1.170.29_react@19.2.8_react-dom@19.2.8__react@19.2.8",
+    "npm:@tanstack/react-start@*": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4",
     "npm:@tanstack/react-start@^1.168.32": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4",
+    "npm:@tanstack/router-cli@*": "1.167.30",
     "npm:@tanstack/router-cli@^1.167.21": "1.167.30",
     "npm:@types/react-dom@19": "19.2.4_@types+react@19.2.18",
     "npm:@types/react@19": "19.2.18",
@@ -33,16 +36,12 @@
     "npm:bowser@^2.14.1": "2.14.1",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
     "npm:clsx@^2.1.1": "2.1.1",
-    "npm:date-fns@^4.4.0": "4.4.0",
     "npm:drizzle-kit@^1.0.0-rc.4": "1.0.0-rc.5-ab785fc",
     "npm:drizzle-orm@^1.0.0-rc.4": "1.0.0-rc.5-ab785fc_effect@4.0.0-rc.108_postgres@3.4.9_zod@4.4.3",
     "npm:effect@4.0.0-rc.108": "4.0.0-rc.108",
     "npm:knip@^6.32.0": "6.32.2",
-    "npm:lucide-react@^1.33.0": "1.33.0_react@19.2.8",
-    "npm:next-themes@~0.4.6": "0.4.6_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:nitro@3.0.260610-beta": "3.0.260610-beta_vite@8.2.1_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.108__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.108_postgres@3.4.9_zod@4.4.3",
     "npm:postgres@^3.4.9": "3.4.9",
-    "npm:react-day-picker@^10.0.1": "10.0.1_@types+react@19.2.18_react@19.2.8",
     "npm:react-dom@^19.2.6": "19.2.8_react@19.2.8",
     "npm:react-email@6.9.2": "6.9.2_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:react-email@^6.9.2": "6.9.2_react@19.2.8_react-dom@19.2.8__react@19.2.8",
@@ -50,7 +49,6 @@
     "npm:resend@^6.21.0": "6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8",
     "npm:shadcn@^4.13.0": "4.18.0_typescript@6.0.3",
     "npm:sharp@~0.34.3": "0.34.5",
-    "npm:sonner@^2.0.8": "2.0.8_@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:tailwind-merge@^3.6.0": "3.6.0",
     "npm:tailwindcss@4": "4.3.3",
     "npm:tw-animate-css@^1.4.0": "1.4.0",
@@ -722,9 +720,6 @@
     },
     "@csstools/css-tokenizer@4.0.0": {
       "integrity": "sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA=="
-    },
-    "@date-fns/tz@1.5.0": {
-      "integrity": "sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg=="
     },
     "@dotenvx/dotenvx@1.75.1": {
       "integrity": "sha512-/BITOC9dmS/edY2zQwZNicQ059O6RKabtQfyEafV0nGtfYRNHYy1DIPiYVcov40+tob9hfmBnbR963dS+EQ1DQ==",
@@ -3102,13 +3097,7 @@
       "integrity": "sha512-QDTCU0M0MxR3hQfnlDJfwekQiaanm1ubOD231u73WBckQ/fsamwRLiE2GBz6D3a/xF1NgfiDLJjXBa1hYOYTtQ=="
     },
     "db0@0.3.4_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.108__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.108_postgres@3.4.9_zod@4.4.3": {
-      "integrity": "sha512-RiXXi4WaNzPTHEOu8UPQKMooIbqOEyqA1t7Z6MsdxSCeb8iUC9ko3LcmsLmeUt2SM5bctfArZKkRQggKZz7JNw==",
-      "dependencies": [
-        "drizzle-orm"
-      ],
-      "optionalPeers": [
-        "drizzle-orm"
-      ]
+      "integrity": "sha512-RiXXi4WaNzPTHEOu8UPQKMooIbqOEyqA1t7Z6MsdxSCeb8iUC9ko3LcmsLmeUt2SM5bctfArZKkRQggKZz7JNw=="
     },
     "debounce-fn@4.0.0": {
       "integrity": "sha512-8pYCQiL9Xdcg0UPSD3d+0KMlOjp+KGU5EPwYddgzQ7DATsg4fuUDjQtsYLmWjnk2obnNHgV3vE2Y4jejSOJVBQ==",
@@ -4158,12 +4147,6 @@
         "yallist"
       ]
     },
-    "lucide-react@1.33.0_react@19.2.8": {
-      "integrity": "sha512-MTRwMy0ZlL8Ur/vOAiJ9XGHE+kFPC7brq6MxAm0GiGXEBj0qy0jA/pG4N675oSzciO/UCdX8T+5yUQdmDeTLxg==",
-      "dependencies": [
-        "react"
-      ]
-    },
     "magic-string@0.30.21": {
       "integrity": "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==",
       "dependencies": [
@@ -4275,13 +4258,6 @@
     },
     "negotiator@1.0.0": {
       "integrity": "sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg=="
-    },
-    "next-themes@0.4.6_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
-      "integrity": "sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==",
-      "dependencies": [
-        "react",
-        "react-dom"
-      ]
     },
     "nf3@0.3.23": {
       "integrity": "sha512-RWVLAWozmVD3AaDmaU3qMGB3v+yNlH5d9qqStI4e/WLlNQVnJ4YErGDbYCIrGFyrHdbF6I6Baf0Ae6c7tFYmSg=="
@@ -4697,18 +4673,6 @@
         "unpipe"
       ]
     },
-    "react-day-picker@10.0.1_@types+react@19.2.18_react@19.2.8": {
-      "integrity": "sha512-eNh6BlwcYInWaJtRv18mXQ06Ys/H6rdTZAnTaSdOYJuTpwP1JMCHNd1FDRadA+gbeinq+psdULN5Xnowy9mV8w==",
-      "dependencies": [
-        "@date-fns/tz",
-        "@types/react",
-        "date-fns",
-        "react"
-      ],
-      "optionalPeers": [
-        "@types/react"
-      ]
-    },
     "react-dom@19.2.8_react@19.2.8": {
       "integrity": "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==",
       "dependencies": [
@@ -5104,17 +5068,6 @@
         "csstype",
         "seroval@1.5.6",
         "seroval-plugins@1.5.6_seroval@1.5.6"
-      ]
-    },
-    "sonner@2.0.8_@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
-      "integrity": "sha512-UM/ByIoFra8yzV75n1o0Puu0bw5U/9UNnDacrJNspekBewIfsQ3D6ez1nvlWpt7aTsO6rujQtifBpycwIivqlg==",
-      "dependencies": [
-        "@types/react",
-        "react",
-        "react-dom"
-      ],
-      "optionalPeers": [
-        "@types/react"
       ]
     },
     "source-map-js@1.2.1": {
@@ -5577,23 +5530,18 @@
         "npm:bowser@^2.14.1",
         "npm:class-variance-authority@~0.7.1",
         "npm:clsx@^2.1.1",
-        "npm:date-fns@^4.4.0",
         "npm:drizzle-kit@^1.0.0-rc.4",
         "npm:drizzle-orm@^1.0.0-rc.4",
         "npm:effect@4.0.0-rc.108",
         "npm:knip@^6.32.0",
-        "npm:lucide-react@^1.33.0",
-        "npm:next-themes@~0.4.6",
         "npm:nitro@3.0.260610-beta",
         "npm:postgres@^3.4.9",
-        "npm:react-day-picker@^10.0.1",
         "npm:react-dom@^19.2.6",
         "npm:react-email@^6.9.2",
         "npm:react@^19.2.6",
         "npm:resend@^6.21.0",
         "npm:shadcn@^4.13.0",
         "npm:sharp@~0.34.3",
-        "npm:sonner@^2.0.8",
         "npm:tailwind-merge@^3.6.0",
         "npm:tailwindcss@4",
         "npm:tw-animate-css@^1.4.0",

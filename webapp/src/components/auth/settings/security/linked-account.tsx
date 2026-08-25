@@ -1,11 +1,12 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: none.
-"use client"
+// Local changes: Use Phosphor icons, Base UI Toast, safer OAuth callback/error URLs, strict typing, and skip account-info requests for unlinked providers.
 
 import {
   type AuthSocialProvider,
+  getAuthLinkURL,
   getProviderId,
   getProviderName,
+  getSafeRedirectTo,
   isSessionNotFreshError,
 } from "@better-auth-ui/core"
 import {
@@ -16,8 +17,12 @@ import {
   useUnlinkAccount,
 } from "@better-auth-ui/react"
 import type { Account } from "better-auth"
-import { Link2, Link2Off, Plug } from "lucide-react"
-import { toast } from "sonner"
+import {
+  LinkBreakIcon as Link2Off,
+  LinkIcon as Link2,
+  PlugsConnectedIcon as Plug,
+} from "@phosphor-icons/react"
+import { toast } from "@/components/ui/toast"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -35,7 +40,7 @@ import { cn } from "@/lib/utils"
 import { FreshSessionPrompt } from "./fresh-session-prompt"
 
 export type LinkedAccountProps = {
-  account?: Account
+  account?: Account | undefined
   canUnlink?: boolean
   provider: AuthSocialProvider | string
 }
@@ -55,17 +60,26 @@ export function LinkedAccount({
   canUnlink = true,
   provider,
 }: LinkedAccountProps) {
-  const { authClient, baseURL, localization } = useAuth()
+  const {
+    authClient,
+    basePaths,
+    baseURL,
+    localization,
+    viewPaths,
+  } = useAuth()
 
   const { data: accountInfo, isPending: isLoadingInfo } = useAccountInfo(
     authClient,
-    { query: { accountId: account?.id ?? "" } },
+    {
+      query: { accountId: account?.id ?? "" },
+      enabled: Boolean(account),
+    },
   )
 
   const { mutate: linkSocial, isPending: isLinking } = useLinkSocial(authClient)
 
   const unlinkAccount = useUnlinkAccount(authClient, {
-    onSuccess: () => toast.success(localization.settings.accountUnlinked),
+    onSuccess: () => toast.add({ title: localization.settings.accountUnlinked, type: "success" }),
   })
 
   const providerId = getProviderId(provider)
@@ -124,11 +138,20 @@ export function LinkedAccount({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() =>
+                onClick={() => {
+                  const safeReturnPath = getSafeRedirectTo(
+                    globalThis.location.pathname,
+                    globalThis.location.origin,
+                  )
                   linkSocial({
                     provider: providerId,
-                    callbackURL: `${baseURL}${window.location.pathname}`,
-                  })}
+                    callbackURL: `${baseURL}${safeReturnPath}`,
+                    errorCallbackURL: getAuthLinkURL(
+                      `${baseURL}${basePaths.auth}/${viewPaths.auth.error}`,
+                      safeReturnPath,
+                    ),
+                  })
+                }}
                 disabled={isLinking}
                 aria-label={localization.settings.linkProvider.replace(
                   "{{provider}}",

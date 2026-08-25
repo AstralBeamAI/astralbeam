@@ -1,7 +1,11 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: use Phosphor/Deno browser globals, render comma-joined static roles correctly, and provide a semantic page heading.
+
 import { getSafeRedirectTo } from "@better-auth-ui/core"
-import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
+import {
+  memberRoleLabels,
+  type OrganizationAuthClient,
+} from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthenticate, useAuthPlugin } from "@better-auth-ui/react"
 import {
   useAcceptInvitation,
@@ -9,7 +13,11 @@ import {
   useRejectInvitation,
 } from "@better-auth-ui/react/plugins/organization"
 import type { Invitation } from "better-auth/client"
-import { BriefcaseBusiness, Check, X } from "lucide-react"
+import {
+  BriefcaseIcon as BriefcaseBusiness,
+  CheckIcon as Check,
+  XIcon as X,
+} from "@phosphor-icons/react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -43,7 +51,7 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
   const organizationAuthClient = authClient as OrganizationAuthClient
   const isHydrated = useIsHydrated()
   const invitationId = isHydrated
-    ? new URLSearchParams(window.location.search).get("invitationId")
+    ? new URLSearchParams(globalThis.location.search).get("invitationId")
     : null
   const session = useAuthenticate(organizationAuthClient)
   const invitationQuery = useInvitation(organizationAuthClient, {
@@ -54,7 +62,7 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
 
   const returnToApplication = () => {
     navigate({
-      to: getSafeRedirectTo(redirectTo, window.location.origin),
+      to: getSafeRedirectTo(redirectTo, globalThis.location.origin),
       replace: true,
     })
   }
@@ -77,7 +85,9 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
     (Boolean(invitationId) && invitationQuery.isPending)
   const isAvailable = isPendingInvitation(invitation)
   const organizationName = invitation?.organizationName || localization.organization
-  const role = invitation ? (roles?.[invitation.role] ?? invitation.role) : localization.member
+  const role = invitation
+    ? memberRoleLabels(invitation.role, roles).join(", ")
+    : localization.member
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -87,13 +97,13 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
         </div>
 
         <CardTitle className="text-xl font-semibold">
-          {isLoading ? <Skeleton className="h-6 w-48" /> : isAvailable
-            ? (
-              localization.acceptInvitationTitle
-            )
-            : (
-              localization.invitationUnavailable
-            )}
+          {isLoading ? <Skeleton className="h-6 w-48" /> : (
+            <h1>
+              {isAvailable
+                ? localization.acceptInvitationTitle
+                : localization.invitationUnavailable}
+            </h1>
+          )}
         </CardTitle>
       </CardHeader>
 

@@ -1,12 +1,12 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Use Phosphor icons/browser-safe globals; remove unconfigured passkey, last-login, two-factor, CAPTCHA, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
+
 "use client"
 
-import { authMutationKeys } from "@better-auth-ui/core"
-import { isPasskeyAutoFillEnabled, withPasskeyAutoFill } from "@better-auth-ui/core/plugins/passkey"
+import { authMutationKeys, getAuthLinkURL } from "@better-auth-ui/core"
 import { AuthPrompts, useAuth, useFetchOptions, useSignInEmail } from "@better-auth-ui/react"
 import { useIsMutating } from "@tanstack/react-query"
-import { Eye, EyeOff } from "lucide-react"
+import { EyeIcon as Eye, EyeSlashIcon as EyeOff } from "@phosphor-icons/react"
 import { type SyntheticEvent, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -28,9 +28,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
-import { useSignInContinuation } from "@/lib/auth/use-sign-in-continuation"
 import { cn } from "@/lib/utils"
-import { LastUsedBadge } from "./last-login-method/last-used-badge"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
 
 export type SignInProps = {
@@ -40,7 +38,7 @@ export type SignInProps = {
 }
 
 /**
- * Render the sign-in form UI with email/password, magic link, and social provider options.
+ * Render the sign-in form UI with email/password and social provider options.
  *
  * @param className - Optional additional container class names
  * @param socialLayout - Layout style for social provider buttons
@@ -57,7 +55,7 @@ export function SignIn({
     basePaths,
     emailAndPassword,
     localization,
-    plugins,
+    redirectTo,
     socialProviders,
     viewPaths,
     navigate,
@@ -65,7 +63,6 @@ export function SignIn({
   } = useAuth()
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
-  const continueSignIn = useSignInContinuation()
 
   const [password, setPassword] = useState("")
 
@@ -76,15 +73,25 @@ export function SignIn({
         setPassword("")
 
         if (error.error?.code === "EMAIL_NOT_VERIFIED") {
-          sessionStorage.setItem("better-auth-ui.verify-email", email)
+          try {
+            globalThis.sessionStorage.setItem(
+              "better-auth-ui.verify-email",
+              email,
+            )
+          } catch {
+            // The stored email is only a convenience for the verification view.
+          }
           navigate({
-            to: `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
+            to: getAuthLinkURL(
+              `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
+              redirectTo,
+            ),
           })
         }
 
         resetFetchOptions()
       },
-      onSuccess: (data) => continueSignIn(data),
+      onSuccess: () => navigate({ to: redirectTo }),
     },
   )
 
@@ -96,18 +103,14 @@ export function SignIn({
   })
   const isPending = signInMutating + signUpMutating > 0
 
-  const Captcha = plugins.find(
-    (plugin) => plugin.captchaComponent,
-  )?.captchaComponent
-
-  const passkeyAutoFill = isPasskeyAutoFillEnabled(plugins)
-
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
 
   const [fieldErrors, setFieldErrors] = useState<{
-    email?: string
-    password?: string
-  }>({})
+    email: string | undefined
+    password: string | undefined
+  }>({ email: undefined, password: undefined })
+
+  const providerButtonsProps = socialLayout === undefined ? {} : { socialLayout }
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -131,7 +134,7 @@ export function SignIn({
       <AuthPrompts view="signIn" />
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
-          {localization.auth.signIn}
+          <h1>{localization.auth.signIn}</h1>
         </CardTitle>
       </CardHeader>
 
@@ -140,7 +143,7 @@ export function SignIn({
           {socialPosition === "top" && (
             <>
               {socialProviders && socialProviders.length > 0 && (
-                <ProviderButtons socialLayout={socialLayout} view="signIn" />
+                <ProviderButtons {...providerButtonsProps} view="signIn" />
               )}
 
               {showSeparator && (
@@ -163,7 +166,7 @@ export function SignIn({
                     id="email"
                     name="email"
                     type="email"
-                    autoComplete={withPasskeyAutoFill("email", passkeyAutoFill)}
+                    autoComplete="email"
                     placeholder={localization.auth.emailPlaceholder}
                     required
                     disabled={isPending}
@@ -201,10 +204,7 @@ export function SignIn({
                       id="password"
                       name="password"
                       type={isPasswordVisible ? "text" : "password"}
-                      autoComplete={withPasskeyAutoFill(
-                        "current-password",
-                        passkeyAutoFill,
-                      )}
+                      autoComplete="current-password"
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value)
@@ -284,29 +284,15 @@ export function SignIn({
                   </Field>
                 )}
 
-                {Captcha && <div className="flex justify-center">{Captcha}</div>}
-
                 <div className="flex flex-col gap-3">
                   <Button
                     type="submit"
-                    className="relative overflow-visible"
                     disabled={isPending}
                   >
                     {signInEmailPending && <Spinner />}
 
                     {localization.auth.signIn}
-
-                    <LastUsedBadge method="email" floating />
                   </Button>
-
-                  {plugins.flatMap((plugin) =>
-                    (plugin.authButtons ?? []).map((AuthButton, index) => (
-                      <AuthButton
-                        key={`${plugin.id}-${index.toString()}`}
-                        view="signIn"
-                      />
-                    ))
-                  )}
                 </div>
               </FieldGroup>
             </form>
@@ -321,7 +307,7 @@ export function SignIn({
               )}
 
               {socialProviders && socialProviders.length > 0 && (
-                <ProviderButtons socialLayout={socialLayout} view="signIn" />
+                <ProviderButtons {...providerButtonsProps} view="signIn" />
               )}
             </>
           )}
@@ -330,7 +316,10 @@ export function SignIn({
         <div className="flex flex-col gap-3 items-center w-full mt-4">
           {emailAndPassword?.enabled && emailAndPassword?.forgotPassword && (
             <Link
-              href={`${basePaths.auth}/${viewPaths.auth.forgotPassword}`}
+              href={getAuthLinkURL(
+                `${basePaths.auth}/${viewPaths.auth.forgotPassword}`,
+                redirectTo,
+              )}
               className="self-center text-sm underline-offset-4 hover:underline"
             >
               {localization.auth.forgotPasswordLink}
@@ -341,7 +330,10 @@ export function SignIn({
             <FieldDescription className="text-center">
               {localization.auth.needToCreateAnAccount}{" "}
               <Link
-                href={`${basePaths.auth}/${viewPaths.auth.signUp}`}
+                href={getAuthLinkURL(
+                  `${basePaths.auth}/${viewPaths.auth.signUp}`,
+                  redirectTo,
+                )}
                 className="underline underline-offset-4"
               >
                 {localization.auth.signUp}

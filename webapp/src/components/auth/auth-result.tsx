@@ -1,8 +1,20 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
-import { type AuthResult, getAuthResultMessage, parseAuthResult } from "@better-auth-ui/core"
+// Local changes: Use Phosphor icons and semantic shadcn colors, and route OAuth signup-disabled results to signup while preserving the return path.
+
+"use client"
+
+import {
+  type AuthResult,
+  getAuthLinkURL,
+  getAuthResultMessage,
+  parseAuthResult,
+} from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
-import { CircleCheckIcon, CircleXIcon, TriangleAlertIcon } from "lucide-react"
+import {
+  CheckCircleIcon as CircleCheckIcon,
+  WarningIcon as TriangleAlertIcon,
+  XCircleIcon as CircleXIcon,
+} from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -15,15 +27,25 @@ type AuthResultProps = {
 }
 
 function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
-  const { basePaths, localization, navigate, viewPaths } = useAuth()
+  const { basePaths, localization, navigate, redirectTo, viewPaths } = useAuth()
   const [result, setResult] = useState<AuthResult>(() => parseAuthResult("", fallbackIntent))
 
   useEffect(() => {
-    setResult(parseAuthResult(window.location.search, fallbackIntent))
+    setResult(parseAuthResult(globalThis.location.search, fallbackIntent))
   }, [fallbackIntent])
 
   const message = getAuthResultMessage(result, localization)
   const action = (() => {
+    if (result.reason === "signupDisabled") {
+      return {
+        label: localization.auth.signUp,
+        to: getAuthLinkURL(
+          `${basePaths.auth}/${viewPaths.auth.signUp}`,
+          redirectTo,
+        ),
+      }
+    }
+
     switch (result.action) {
       case "accountSettings":
         return {
@@ -73,11 +95,13 @@ function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
             result.intent === "success"
               ? "text-primary"
               : result.intent === "warning"
-              ? "text-amber-600 dark:text-amber-400"
+              ? "text-warning"
               : "text-destructive",
           )}
         />
-        <CardTitle className="text-xl">{message.title}</CardTitle>
+        <CardTitle className="text-xl">
+          <h1>{message.title}</h1>
+        </CardTitle>
         <CardDescription>{message.description}</CardDescription>
       </CardHeader>
       <CardContent>

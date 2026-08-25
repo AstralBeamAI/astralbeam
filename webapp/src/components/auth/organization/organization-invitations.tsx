@@ -1,5 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: use Phosphor and hover titles for icon-only filter actions, make filters/table responsive, and repair strict optional props.
+
 import {
   hasMemberRole,
   type OrganizationAuthClient,
@@ -10,7 +11,12 @@ import {
   useHasPermission,
   useListOrganizationInvitations,
 } from "@better-auth-ui/react/plugins/organization"
-import { ChevronUp, Filter, Search, X } from "lucide-react"
+import {
+  CaretUpIcon as ChevronUp,
+  FunnelIcon as Filter,
+  MagnifyingGlassIcon as Search,
+  XIcon as X,
+} from "@phosphor-icons/react"
 import { type ComponentProps, type ReactNode, useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -127,8 +133,8 @@ export function OrganizationInvitations({
       </h3>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <InputGroup className="min-w-0 sm:w-[220px]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <InputGroup className="w-full min-w-0 sm:w-[220px]">
             <InputGroupInput
               type="search"
               value={search}
@@ -145,7 +151,10 @@ export function OrganizationInvitations({
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+              className={cn(
+                buttonVariants({ size: "sm", variant: "outline" }),
+                "w-full justify-start sm:w-auto",
+              )}
               disabled={isPending}
             >
               <Filter />
@@ -173,7 +182,10 @@ export function OrganizationInvitations({
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+              className={cn(
+                buttonVariants({ size: "sm", variant: "outline" }),
+                "w-full justify-start sm:w-auto",
+              )}
               disabled={isPending}
             >
               <Filter />
@@ -214,6 +226,7 @@ export function OrganizationInvitations({
                 </span>
                 <Button
                   aria-label={organizationLocalization.clear}
+                  title={organizationLocalization.clear}
                   className="size-4 rounded-sm text-muted-foreground"
                   onClick={() => setRoleFilter("all")}
                   size="icon-xs"
@@ -232,6 +245,7 @@ export function OrganizationInvitations({
                 ] ?? statusFilter}
                 <Button
                   aria-label={organizationLocalization.clear}
+                  title={organizationLocalization.clear}
                   className="size-4 rounded-sm text-muted-foreground"
                   onClick={() => setStatusFilter("all")}
                   size="icon-xs"
@@ -245,7 +259,7 @@ export function OrganizationInvitations({
           </div>
         )}
 
-        <Card className="p-0">
+        <Card className="overflow-x-auto p-0">
           <Table aria-label={organizationLocalization.invitations}>
             <TableHeader>
               <TableRow>
@@ -300,9 +314,9 @@ export function OrganizationInvitations({
                     <TableCell colSpan={5}>
                       <OrganizationInvitationsEmpty
                         isInvitePending={canInvite.isPending}
-                        onInvitePress={canInvite.data?.success
-                          ? () => setInviteOpen(true)
-                          : undefined}
+                        {...(canInvite.data?.success
+                          ? { onInvitePress: () => setInviteOpen(true) }
+                          : {})}
                       />
                     </TableCell>
                   </TableRow>
@@ -333,7 +347,7 @@ function SortableTableHead({
   onClick,
 }: {
   children: ReactNode
-  sortDirection?: SortDirection
+  sortDirection?: SortDirection | undefined
   onClick: () => void
 }) {
   return (

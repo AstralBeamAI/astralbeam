@@ -1,10 +1,13 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Replace Lucide with Phosphor icons and make Manage activate the organization before opening the approved members page.
+
+"use client"
+
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useSetActiveOrganization } from "@better-auth-ui/react/plugins/organization"
 import type { Organization } from "better-auth/client"
-import { Settings as SettingsIcon } from "lucide-react"
+import { GearIcon as SettingsIcon } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
 import { Item, ItemActions } from "@/components/ui/item"
@@ -24,8 +27,6 @@ export function OrganizationRow({ organization }: OrganizationRowProps) {
   const {
     localization: organizationLocalization,
     viewPaths: organizationViewPaths,
-    slug,
-    slugPrefix,
   } = useAuthPlugin(organizationPlugin)
 
   const { mutate: setActiveOrganization, isPending: setActivePending } = useSetActiveOrganization(
@@ -33,21 +34,14 @@ export function OrganizationRow({ organization }: OrganizationRowProps) {
     {
       onSuccess: () => {
         navigate({
-          to: `${basePaths.organization}/${organizationViewPaths.organization.settings}`,
+          to: `${basePaths.organization}/${organizationViewPaths.organization.people}`,
         })
       },
     },
   )
 
   function manageOrganization() {
-    if (slug !== undefined) {
-      navigate({
-        to:
-          `${basePaths.organization}/${slugPrefix}${organization.slug}/${organizationViewPaths.organization.settings}`,
-      })
-    } else {
-      setActiveOrganization({ organizationId: organization.id })
-    }
+    setActiveOrganization({ organizationId: organization.id })
   }
 
   return (

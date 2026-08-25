@@ -66,3 +66,123 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 Codex Cloud runs on Ubuntu and uses `INSTALL_EXTRA=codex-db SKIP_DOCKER_COMPOSE=true` so the explicit setup extra installs and starts host PostgreSQL and Valkey without starting Docker Compose.
 
 See the setup guides for [Codex](.codex/README.md) and [Cursor Cloud Agents](.cursor/README.md).
+
+## Authentication and transactional email
+
+AstralBeam uses Better Auth for email/password, Google, and GitHub authentication. Every signup requires legal acceptance; email/password signup also requires email verification, and OAuth providers must return a verified email. New OAuth identities must start from signup rather than being created implicitly from sign-in.
+
+Passwords are 12–128 characters and are screened for known compromise outside tests. Verification and reset links expire after one hour, verification signs the user in, password reset revokes other sessions, password changes send a notification, and organization invitations expire after 48 hours. Username, passwordless, OTP, magic-link, change-email, and account-deletion flows are disabled. See Better Auth's [email/password](https://better-auth.com/docs/authentication/email-password), [email](https://better-auth.com/docs/concepts/email), and [organization invitation](https://better-auth.com/docs/plugins/organization#invitations) documentation.
+
+### Configure the environment
+
+Keep local secrets only in ignored Webapp env files and production secrets only in the deployment secret manager. Existing shell and deployment variables take precedence over every Vite env file. Use `webapp/.env.local` for values not defined by the active mode file and `webapp/.env.development.local` or `webapp/.env.test.local` for mode-specific overrides; every `VITE_` value is public browser data. See the [Vite](https://vite.dev/guide/env-and-mode) and [TanStack Start](https://tanstack.com/start/latest/docs/framework/react/guide/environment-variables) environment guides.
+
+Generate a unique Better Auth secret per environment as described in the [installation guide](https://better-auth.com/docs/installation):
+
+```sh
+openssl rand -base64 32
+```
+
+Start from `webapp/.env.example`. `APP_BASE_URL` and `BETTER_AUTH_URL` must be the same pathless HTTP(S) origin; production must use HTTPS. The legal-link overrides are optional public build values.
+
+```dotenv
+APP_BASE_URL=http://localhost:3000
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_SECRET=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+EMAIL_PROVIDER=resend
+EMAIL_FROM_ADDRESS=onboarding@resend.dev
+RESEND_API_KEY=
+VITE_PRIVACY_POLICY_URL=https://www.astralbeam.ai/privacy
+VITE_TERMS_OF_SERVICE_URL=https://www.astralbeam.ai/terms
+```
+
+For SES, replace the Resend settings with `EMAIL_PROVIDER=ses`, a verified `EMAIL_FROM_ADDRESS`, and `AWS_REGION`; use the AWS default credential chain and add `AWS_ACCESS_KEY_ID` with `AWS_SECRET_ACCESS_KEY` only when a role or local profile is unavailable. For production, use the same variable names with the real HTTPS application origin, environment-specific credentials, and an email sender on a verified domain. Never reuse local Better Auth secrets, OAuth clients, or email credentials in production.
+
+OAuth callbacks are always derived from the environment origin:
+
+```text
+${BETTER_AUTH_URL}/api/auth/callback/google
+${BETTER_AUTH_URL}/api/auth/callback/github
+```
+
+Separate local and production OAuth applications keep localhost callbacks, branding, access, logs, revocation, and credential rotation isolated.
+
+### Configure Google OAuth
+
+Follow Google's current [client](https://support.google.com/cloud/answer/15549257), [branding](https://support.google.com/cloud/answer/15549049), [audience](https://support.google.com/cloud/answer/15549945), and [OAuth policy](https://developers.google.com/identity/protocols/oauth2/policies) instructions. Request only the standard `openid`, `email`, and `profile` scopes documented for [OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect).
+
+1. Create separate Google Cloud projects and **Web application** clients named `AstralBeam Local` and `AstralBeam Production`.
+2. Configure Branding with AstralBeam's public homepage, privacy policy, terms, monitored support email, and developer contacts; add the owned domain under **Authorized domains**.
+3. For local use, select an External/Testing audience unless access is intentionally organization-restricted, add test users when Google or Workspace policy requires them, add `http://localhost:3000` as the exact JavaScript origin, and add `http://localhost:3000/api/auth/callback/google` as the exact redirect URI.
+4. For production, [verify the production domain](https://support.google.com/webmasters/answer/9008080), keep the homepage and legal links public and consistent, select the intended audience and publishing status, add the exact HTTPS application origin, and add `<production-app-origin>/api/auth/callback/google` as the exact redirect URI.
+5. Store local client credentials in `webapp/.env.local` and production credentials in the deployment secret manager; confirm the production project has no localhost origin, callback, or development credential.
+6. Smoke-test signup with legal acceptance, existing-account sign-in, account linking, and logout in both environments; confirm Google returns a verified email and requests no scope beyond OpenID/profile/email.
+
+### Configure GitHub OAuth
+
+Create browser-flow OAuth Apps—not GitHub Apps or Device Flow applications—using GitHub's [OAuth App creation](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app), [authorization](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps), and [scope](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps) guides. Better Auth requests `read:user` and `user:email`; the latter is required to retrieve private verified addresses.
+
+1. Open **Settings → Developer settings → OAuth Apps → New OAuth App**, or create the app under the owning AstralBeam organization.
+2. Create `AstralBeam Local` with homepage `http://localhost:3000` and callback `http://localhost:3000/api/auth/callback/github`.
+3. Create a separate `AstralBeam Production` app with the public HTTPS application homepage and callback `<production-app-origin>/api/auth/callback/github`.
+4. Leave **Enable Device Flow** and callback wildcard matching disabled for both apps.
+5. Generate separate secrets; keep local credentials in `webapp/.env.local`, production credentials in the deployment secret manager, and localhost values out of the production app.
+6. Smoke-test signup, sign-in, account linking, and logout with public- and private-email profiles in both environments; confirm the authorization screen requests only `read:user` and `user:email`.
+
+If GitHub returns `email_not_found`, ensure the account has a verified email, reauthorize with `user:email`, and confirm the application authorization was not reduced.
+
+### Configure Resend
+
+Use Resend's [API-key](https://resend.com/docs/dashboard/api-keys/introduction), [domain](https://resend.com/docs/dashboard/domains/introduction), and [sender-address](https://resend.com/docs/knowledge-base/how-do-I-create-an-email-address-or-sender-in-resend) guides.
+
+1. Create separate local and production API keys with **Sending access**, restrict each to its sending domain when possible, and store it only in the matching environment.
+2. For a single-developer local test, `onboarding@resend.dev` may send only to the Resend account owner's address; see the [shared-domain restriction](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain).
+3. For teammates or production, verify an owned environment-specific sending subdomain with the exact SPF and DKIM records Resend supplies, then use a From address on that domain.
+4. Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM_ADDRESS`, and `RESEND_API_KEY`, then smoke-test verification, reset, password-change notification, and invitation links with controlled inboxes. Inspect link origins, expiry copy, authentication, delivery logs, and spam placement before production rollout.
+
+### Configure Amazon SES
+
+SES identities, sandbox status, and limits are regional. Follow AWS's [identity](https://docs.aws.amazon.com/ses/latest/dg/creating-identities.html), [Regions](https://docs.aws.amazon.com/ses/latest/dg/regions.html), [IAM](https://docs.aws.amazon.com/ses/latest/dg/control-user-access.html), [production-access](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html), and [credential-chain](https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html) guides.
+
+1. In separate development and production AWS accounts or environments, choose the SES Region and verify an environment-specific email or domain identity with Easy DKIM.
+2. During local sandbox use, verify every real sender and recipient; the [mailbox simulator](https://docs.aws.amazon.com/ses/latest/dg/send-an-email-from-console.html) can test delivery outcomes but cannot complete a token-bearing link flow.
+3. Grant only `ses:SendEmail`, preferably limited to the verified identity ARN. Use a local SSO/profile and a deployment role rather than static keys whenever possible.
+4. For production, verify the domain in the selected Region, configure DKIM and the planned MAIL FROM/DMARC records, request production access for transactional mail, and confirm the account is out of the sandbox in that Region.
+5. Set `EMAIL_PROVIDER=ses`, the verified `EMAIL_FROM_ADDRESS`, and matching `AWS_REGION`; set `AWS_PROFILE` locally when needed and let production use role credentials.
+6. Smoke-test verification, reset, password-change notification, and invitation links with controlled inboxes, then monitor bounces, complaints, suppression, and sending health.
+
+Choose exactly one email provider per environment and do not configure credentials or permissions for the unused provider.
+
+### Apply the database and run locally
+
+After configuration, run from `webapp`:
+
+```sh
+deno task db migrate
+deno task dev
+```
+
+Open `http://localhost:3000/auth/sign-up`. Confirm signup controls remain disabled until legal acceptance, email/password signup requires verification, new social identities cannot be created from sign-in, and invitation acceptance requires the matching verified email.
+
+### Test email safety
+
+Automated tests never send live email. Test mode rejects delivery before loading Resend or SES, so tests must inject or mock provider boundaries and use only deterministic non-secret OAuth placeholders. Never add live Resend, AWS, OAuth, or recipient credentials to test environment files, fixtures, snapshots, CI variables, logs, screenshots, or acceptance output.
+
+Provider-console smoke tests are manual and use controlled accounts. Resend's [test addresses](https://resend.com/docs/dashboard/emails/send-test-emails) and the SES mailbox simulator cover non-clickable delivery outcomes; token-bearing verification, reset, and invitation flows require a controlled inbox that can open the link.
+
+### Troubleshooting
+
+- **Missing environment variable:** compare the running environment with `webapp/.env.example` and restart after changing `.env.local`; public production variables must exist at build time.
+- **Origins do not match:** set `APP_BASE_URL` and `BETTER_AUTH_URL` to the same exact origin with no path, query, or fragment.
+- **Google redirect, audience, or branding error:** compare the exact origin and callback against the correct Web client, check test-user/audience state, verify the production domain, and keep scopes to `openid`, `email`, and `profile`; see Better Auth's [Google guide](https://better-auth.com/docs/authentication/google).
+- **GitHub callback or email error:** use the exact callback in the correct environment's OAuth App, keep wildcard matching off, and reauthorize a verified address with `user:email`; see Better Auth's [GitHub guide](https://better-auth.com/docs/authentication/github).
+- **OAuth state expired:** restart from AstralBeam instead of reusing a provider callback, keep the same host and port throughout the flow, and allow application cookies.
+- **Email link opens the wrong environment:** correct both origins and that environment's provider credentials, then discard the old message and request a new link.
+- **Resend returns 403:** send from `onboarding@resend.dev` only to the Resend account owner or verify an owned sending domain.
+- **SES returns `MessageRejected`:** check identity verification, sandbox status, `AWS_REGION`, recipient verification, and `ses:SendEmail` permission.
+- **Tests reject email delivery:** keep the safety boundary and mock the provider rather than adding real credentials.
+- **Invitation cannot be accepted:** use an unexpired link while signed in with the exact invited, verified email; renewal extends and resends the pending invitation without changing its recipient.

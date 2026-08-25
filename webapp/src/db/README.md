@@ -9,6 +9,8 @@ The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated
 - `schema/` contains responsibility-named domain table and relation modules.
 - `migrations/` contains generated migration SQL and Drizzle snapshots.
 
+`schema/tables.server.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.server.ts` creates the base relation definition, adds Better Auth's generated-shape relation part, and exports the single composition root passed to `drizzle()`.
+
 ## Query from server-only code
 
 Once a table is exported from the schema entrypoint, consume it with the Drizzle client:
@@ -75,6 +77,18 @@ Each generated `src/db/migrations/<timestamp>_<name>/` directory is one migratio
 - `snapshot.json` is Drizzle Kit-owned metadata describing the complete Drizzle-managed schema after that migration and its place in migration history. PostgreSQL never executes it, and it is not a database or data backup.
 
 Review the SQL and commit it with its matching snapshot and TypeScript schema change. Do not edit snapshots by hand.
+
+## Relations v2 composition
+
+The relation composition root always spreads `baseRelations` first and then each responsibility-named relation part. Better Auth core and its organization plugin remain together in the generated-shape `authRelations` part.
+
+When adding a domain such as billing or projects:
+
+1. Add its tables to a responsibility-named schema module and re-export them from `schema/tables.server.ts`.
+2. Define one relation part, such as `billingRelations`, with `defineRelationsPart(schema, ...)`.
+3. Spread that part after `baseRelations` in `databaseRelations`.
+
+Each source table must be owned by exactly one relation part. Two parts defining the same source table would allow a later object spread to silently replace relationships from the earlier part. See Drizzle's [Relations v2 part ordering](https://orm.drizzle.team/docs/relations#relations-parts).
 
 - This workflow has no automatic rollback command; reverse an applied change with another forward migration, and never rewrite migration history that may have reached a shared environment.
 - Resolve rename prompts carefully because a mistaken answer can produce destructive drop-and-create SQL.

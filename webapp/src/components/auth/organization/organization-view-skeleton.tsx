@@ -1,5 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: repair strict optional logo props.
+
+"use client"
+
 import type { ComponentProps } from "react"
 
 import { Skeleton } from "@/components/ui/skeleton"
@@ -28,7 +31,7 @@ export function OrganizationViewSkeleton({
     >
       <OrganizationLogo
         isPending
-        className={size === "sm" ? "size-5" : undefined}
+        className={size === "sm" ? "size-5" : ""}
         size={size === "lg" ? "md" : "sm"}
       />
 

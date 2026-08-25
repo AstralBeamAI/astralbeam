@@ -1,12 +1,11 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: none.
-"use client"
+// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, preserve database success when remote cleanup fails, label the avatar action, and apply strict lint compatibility.
 
 import { fileToAvatarDataUrl } from "@better-auth-ui/core"
 import { useAuth, useSession, useUpdateUser } from "@better-auth-ui/react"
-import { Trash2, Upload } from "lucide-react"
+import { TrashIcon as Trash2, UploadSimpleIcon as Upload } from "@phosphor-icons/react"
 import { type ChangeEvent, useRef, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { UserAvatar } from "@/components/auth/user/user-avatar"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -51,35 +50,45 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
       updateUser(
         { image },
         {
-          onSuccess: () => toast.success(localization.settings.avatarChangedSuccess),
+          onSuccess: () =>
+            toast.add({ title: localization.settings.avatarChangedSuccess, type: "success" }),
         },
       )
-    } catch (error) {
-      if (error instanceof Error) {
-        toast.error(error.message)
-      }
+    } catch {
+      toast.add({
+        title: "Your avatar could not be updated. Please try again.",
+        type: "error",
+      })
     }
 
     setIsUploading(false)
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     const currentImage = session?.user.image
 
     updateUser(
       { image: null },
       {
         onSuccess: async () => {
+          let cleanupFailed = false
           if (currentImage) {
             setIsDeleting(true)
             try {
               await avatar.delete?.(currentImage)
+            } catch {
+              cleanupFailed = true
             } finally {
               setIsDeleting(false)
             }
           }
 
-          toast.success(localization.settings.avatarDeletedSuccess)
+          toast.add({
+            title: cleanupFailed
+              ? "Your avatar was removed, but its previous file could not be deleted."
+              : localization.settings.avatarDeletedSuccess,
+            type: cleanupFailed ? "warning" : "success",
+          })
         },
       },
     )
@@ -102,6 +111,8 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
           type="button"
           variant="ghost"
           className="p-0 h-auto w-auto rounded-full"
+          aria-label={localization.settings.changeAvatar}
+          title={localization.settings.changeAvatar}
           disabled={isPending}
           onClick={() => fileInputRef.current?.click()}
         >

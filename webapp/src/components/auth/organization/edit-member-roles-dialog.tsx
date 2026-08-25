@@ -1,12 +1,14 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Use Phosphor icons and Base UI Toast with the app's static owner/admin/member roles.
+
+"use client"
+
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { parseMemberRoles } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useUpdateMemberRole } from "@better-auth-ui/react/plugins/organization"
-import { ShieldCheck } from "lucide-react"
+import { ShieldCheckIcon as ShieldCheck } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
-import { toast } from "sonner"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Field, FieldContent, FieldLabel, FieldTitle } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
+import { toast } from "@/components/ui/toast"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 
 export type EditMemberRolesDialogProps = {
@@ -48,15 +51,12 @@ export function EditMemberRolesDialog({
   const { authClient, localization } = useAuth<OrganizationAuthClient>()
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
   const [selectedRoles, setSelectedRoles] = useState(() => parseMemberRoles(member.role))
-  const { mutate: updateMemberRole, isPending } = useUpdateMemberRole(
-    authClient,
-    {
-      onSuccess: () => {
-        toast.success(organizationLocalization.memberRoleUpdated)
-        onOpenChange(false)
-      },
+  const { mutate: updateMemberRole, isPending } = useUpdateMemberRole(authClient, {
+    onSuccess: () => {
+      toast.add({ title: organizationLocalization.memberRoleUpdated, type: "success" })
+      onOpenChange(false)
     },
-  )
+  })
 
   useEffect(() => {
     if (open) setSelectedRoles(parseMemberRoles(member.role))
@@ -103,7 +103,7 @@ export function EditMemberRolesDialog({
                 (checked && selectedRoles.length === 1) ||
                 (role === protectedRole &&
                   checked &&
-                  protectedRoleRemovalDisabled)
+                  protectedRoleRemovalDisabled === true)
               const id = `member-${member.id}-role-${role}`
 
               return (
@@ -132,7 +132,7 @@ export function EditMemberRolesDialog({
             >
               {localization.settings.cancel}
             </DialogClose>
-            <Button disabled={isPending || selectedRoles.length === 0}>
+            <Button disabled={isPending || selectedRoles.length === 0} type="submit">
               {isPending && <Spinner />}
               {localization.settings.saveChanges}
             </Button>

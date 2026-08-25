@@ -1,6 +1,9 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
-import { getViewURL } from "@better-auth-ui/core"
+// Local changes: Remove the unconfigured CAPTCHA surface; use browser-safe globals; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
+
+"use client"
+
+import { getAuthLinkURL, getViewURL } from "@better-auth-ui/core"
 import { useAuth, useFetchOptions, useRequestPasswordReset } from "@better-auth-ui/react"
 import { type SyntheticEvent, useState } from "react"
 
@@ -34,7 +37,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
     basePaths,
     localization,
     navigate,
-    plugins,
+    redirectTo,
     viewPaths,
     Link,
   } = useAuth()
@@ -48,8 +51,17 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
         resetFetchOptions()
       },
       onSuccess: (_data, { email }) => {
-        sessionStorage.setItem(RESET_LINK_SENT_STORAGE_KEY, email)
-        navigate({ to: `${basePaths.auth}/${viewPaths.auth.resetLinkSent}` })
+        try {
+          globalThis.sessionStorage.setItem(RESET_LINK_SENT_STORAGE_KEY, email)
+        } catch {
+          // The stored email is only a convenience for the confirmation view.
+        }
+        navigate({
+          to: getAuthLinkURL(
+            `${basePaths.auth}/${viewPaths.auth.resetLinkSent}`,
+            redirectTo,
+          ),
+        })
       },
     },
   )
@@ -59,28 +71,27 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
     const formData = new FormData(e.currentTarget)
     requestPasswordReset({
       email: formData.get("email") as string,
-      redirectTo: getViewURL(
-        baseURL,
-        basePaths.auth,
-        viewPaths.auth.resetPassword,
+      redirectTo: getAuthLinkURL(
+        getViewURL(
+          baseURL,
+          basePaths.auth,
+          viewPaths.auth.resetPassword,
+        ),
+        redirectTo,
       ),
       fetchOptions,
     })
   }
 
-  const Captcha = plugins.find(
-    (plugin) => plugin.captchaComponent,
-  )?.captchaComponent
-
   const [fieldErrors, setFieldErrors] = useState<{
-    email?: string
-  }>({})
+    email: string | undefined
+  }>({ email: undefined })
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
-          {localization.auth.forgotPassword}
+          <h1>{localization.auth.forgotPassword}</h1>
         </CardTitle>
       </CardHeader>
 
@@ -122,8 +133,6 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
               <FieldError>{fieldErrors.email}</FieldError>
             </Field>
 
-            {Captcha && <div className="flex justify-center">{Captcha}</div>}
-
             <div className="flex flex-col gap-3">
               <Button type="submit" disabled={isPending}>
                 {isPending && <Spinner />}
@@ -138,7 +147,10 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
           <FieldDescription className="text-center">
             {localization.auth.rememberYourPassword}{" "}
             <Link
-              href={`${basePaths.auth}/${viewPaths.auth.signIn}`}
+              href={getAuthLinkURL(
+                `${basePaths.auth}/${viewPaths.auth.signIn}`,
+                redirectTo,
+              )}
               className="underline underline-offset-4"
             >
               {localization.auth.signIn}

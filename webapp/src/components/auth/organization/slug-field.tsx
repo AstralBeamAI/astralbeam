@@ -1,12 +1,12 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Replace Lucide with Phosphor icons.
 "use client"
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useCheckSlug } from "@better-auth-ui/react/plugins/organization"
 import { useDebouncer } from "@tanstack/react-pacer"
-import { Check, X } from "lucide-react"
+import { CheckIcon as Check, XIcon as X } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"

@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: use the app's semantic shadcn status colors.
 import { evaluatePasswordStrength, type PasswordStrengthLevel } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
 
@@ -12,9 +12,9 @@ type FilledLevel = Exclude<PasswordStrengthLevel, "empty">
 
 const segmentColors: Record<FilledLevel, string> = {
   weak: "bg-destructive",
-  fair: "bg-amber-500",
-  good: "bg-sky-500",
-  strong: "bg-emerald-500",
+  fair: "bg-warning",
+  good: "bg-primary/70",
+  strong: "bg-primary",
 }
 
 export type PasswordStrengthMeterProps = {

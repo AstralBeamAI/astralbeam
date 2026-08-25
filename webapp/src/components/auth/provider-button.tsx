@@ -1,34 +1,31 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Use redirect-mode OAuth, forward explicit signup/legal intent and error redirects, honor disabled state, and omit the unconfigured last-login badge.
+
 "use client"
 
 import {
   authMutationKeys,
   type AuthSocialProvider,
   type AuthView,
+  getAuthLinkURL,
   getProviderId,
   getProviderName,
-  type OAuthPopupAuthClient,
+  getSafeRedirectTo,
 } from "@better-auth-ui/core"
-import {
-  renderProviderIcon,
-  useAuth,
-  useSignInOAuthPopup,
-  useSignInSocial,
-} from "@better-auth-ui/react"
+import { renderProviderIcon, useAuth, useSignInSocial } from "@better-auth-ui/react"
 import { useIsMutating } from "@tanstack/react-query"
 import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
-import { LastUsedBadge } from "./last-login-method/last-used-badge"
 
 export type ProviderButtonProps = {
   provider: AuthSocialProvider
   display?: "full" | "name" | "icon"
+  termsAccepted?: boolean
   view?: AuthView
-} & Omit<ComponentProps<typeof Button>, "onClick" | "children" | "disabled">
+} & Omit<ComponentProps<typeof Button>, "onClick" | "children">
 
 /**
  * Social provider sign-in button.
@@ -39,6 +36,8 @@ export type ProviderButtonProps = {
 export function ProviderButton({
   provider,
   display = "full",
+  disabled,
+  termsAccepted = false,
   view = "signIn",
   variant = "outline",
   className,
@@ -46,19 +45,14 @@ export function ProviderButton({
 }: ProviderButtonProps) {
   const {
     authClient,
+    basePaths,
     baseURL,
     localization,
-    navigate,
     redirectTo,
-    socialSignInMode,
+    viewPaths,
   } = useAuth()
 
-  const callbackURL = `${baseURL}${redirectTo}`
-
   const { mutate: signInSocial, isPending: signInSocialPending } = useSignInSocial(authClient)
-  const { mutate: signInPopup, isPending: signInPopupPending } = useSignInOAuthPopup(
-    authClient as OAuthPopupAuthClient,
-  )
 
   const providerId = getProviderId(provider)
   const providerIcon = renderProviderIcon(provider)
@@ -70,33 +64,45 @@ export function ProviderButton({
     mutationKey: authMutationKeys.signUp.all,
   })
   const isPending = signInMutating + signUpMutating > 0
+  const isDisabled = Boolean(disabled || isPending)
 
   const handleSignIn = () => {
-    if (socialSignInMode === "popup") {
-      signInPopup(
-        {
-          provider: providerId,
-          callbackURL,
-          requestSignUp: view === "signUp",
-        },
-        { onSuccess: () => navigate({ to: redirectTo }) },
-      )
-      return
-    }
+    if (isDisabled || (view === "signUp" && !termsAccepted)) return
 
-    signInSocial({ provider: providerId, callbackURL })
+    const safeRedirectTo = getSafeRedirectTo(
+      redirectTo,
+      globalThis.location.origin,
+    )
+
+    const signUpOptions = view === "signUp"
+      ? {
+        additionalData: { termsAccepted: true },
+        requestSignUp: true,
+      }
+      : {}
+
+    signInSocial({
+      provider: providerId,
+      callbackURL: `${baseURL}${safeRedirectTo}`,
+      errorCallbackURL: getAuthLinkURL(
+        `${baseURL}${basePaths.auth}/${viewPaths.auth.error}`,
+        safeRedirectTo,
+      ),
+      ...signUpOptions,
+    })
   }
 
   return (
     <Button
       type="button"
       variant={variant}
-      disabled={isPending}
+      disabled={isDisabled}
+      aria-busy={signInSocialPending}
       onClick={handleSignIn}
       className={cn("relative overflow-visible", className)}
       {...props}
     >
-      {signInSocialPending || signInPopupPending ? <Spinner /> : providerIcon}
+      {signInSocialPending ? <Spinner /> : providerIcon}
 
       {display === "full"
         ? localization.auth.continueWith.replace(
@@ -108,8 +114,6 @@ export function ProviderButton({
         : null}
 
       {display === "icon" && <span className="sr-only">{getProviderName(provider)}</span>}
-
-      {view !== "signUp" && <LastUsedBadge method={providerId} floating />}
     </Button>
   )
 }

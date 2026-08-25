@@ -1,26 +1,22 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
-"use client"
+// Local changes: Use Phosphor icons, hover titles for icon-only actions, and static owner/admin/member roles; omit dynamic roles, teams, and member model fields.
 
-import { formatAdditionalFieldValue } from "@better-auth-ui/core"
 import {
   hasMemberRole,
   memberRoleLabels,
-  mergeOrganizationRoleLabels,
   type OrganizationAuthClient,
 } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
-import {
-  useHasPermission,
-  useListRoles,
-  useListUserTeams,
-} from "@better-auth-ui/react/plugins/organization"
+import { useHasPermission } from "@better-auth-ui/react/plugins/organization"
 import type { Member, Organization, User } from "better-auth/client"
-import { LogOut, Pencil, Trash2 } from "lucide-react"
+import {
+  PencilSimpleIcon as Pencil,
+  SignOutIcon as LogOut,
+  TrashIcon as Trash2,
+} from "@phosphor-icons/react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { UserView } from "../user/user-view"
@@ -31,9 +27,8 @@ import { RemoveMemberDialog } from "./remove-member-dialog"
 export type OrganizationMemberRowProps = {
   member: Member & { user: Partial<User> }
   isOwner?: boolean
-  ownerCount?: number
+  ownerCount?: number | undefined
   organization: Organization
-  showTeams?: boolean
 }
 
 export function OrganizationMemberRow({
@@ -41,34 +36,15 @@ export function OrganizationMemberRow({
   isOwner,
   ownerCount,
   organization,
-  showTeams,
 }: OrganizationMemberRowProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
   const {
-    modelFields: { member: memberFields },
-    dynamicAccessControl,
     creatorRole,
     localization: organizationLocalization,
     roles,
   } = useAuthPlugin(organizationPlugin)
 
   const { data: session } = useSession(authClient)
-  const canReadRoles = useHasPermission(authClient, {
-    organizationId: organization.id,
-    permissions: { ac: ["read"] },
-  })
-  const dynamicRoles = useListRoles(authClient, {
-    query: { organizationId: organization.id },
-    enabled: dynamicAccessControl?.enabled === true &&
-      canReadRoles.data?.success === true,
-  })
-  const memberTeams = useListUserTeams(authClient, {
-    query: {
-      organizationId: organization.id,
-      userId: member.userId,
-    },
-    enabled: showTeams === true,
-  })
 
   const { data: hasUpdatePermission, isPending: updatePermissionPending } = useHasPermission(
     authClient,
@@ -86,18 +62,17 @@ export function OrganizationMemberRow({
     },
   )
 
-  const mergedRoles = mergeOrganizationRoleLabels(roles, dynamicRoles.data)
-  const roleLabel = memberRoleLabels(member.role, mergedRoles).join(", ")
-  const teamNames = memberTeams.data?.map((team) => team.name).join(", ")
+  const roleLabel = memberRoleLabels(member.role, roles).join(", ")
 
-  const assignableRoles = Object.entries(mergedRoles).filter(
+  const assignableRoles = Object.entries(roles).filter(
     ([key]) => isOwner || key !== creatorRole,
   )
 
   const isCurrentUser = session?.user.id === member.userId
   const targetIsOwner = hasMemberRole(member.role, creatorRole)
   const canManageTarget = isOwner || !targetIsOwner
-  const onlyOwnerActionDisabled = targetIsOwner && (ownerCount === undefined || ownerCount <= 1)
+  const onlyOwnerActionDisabled = targetIsOwner &&
+    (ownerCount === undefined || ownerCount <= 1)
 
   const [removeOpen, setRemoveOpen] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
@@ -106,46 +81,17 @@ export function OrganizationMemberRow({
   return (
     <TableRow>
       <TableCell>
-        <div className="flex flex-col gap-1">
-          <UserView user={member.user} />
-          {memberFields.map((field) => {
-            const value = formatAdditionalFieldValue(
-              (member as unknown as Record<string, unknown>)[field.name],
-            )
-            return value
-              ? (
-                <span className="text-xs text-muted-foreground" key={field.name}>
-                  {field.label}: {value}
-                </span>
-              )
-              : null
-          })}
-        </div>
+        <UserView user={member.user} />
       </TableCell>
 
       <TableCell>{roleLabel}</TableCell>
-
-      {showTeams && (
-        <TableCell className="text-sm">
-          {memberTeams.isPending
-            ? <Skeleton className="h-4 w-24 rounded-md" />
-            : memberTeams.isError
-            ? null
-            : teamNames
-            ? teamNames
-            : (
-              <span className="text-muted-foreground">
-                {organizationLocalization.noTeams}
-              </span>
-            )}
-        </TableCell>
-      )}
 
       <TableCell>
         <div className="flex items-center justify-end gap-1">
           {canManageTarget && updatePermissionPending && (
             <Button
               aria-label={organizationLocalization.changeMemberRole}
+              title={organizationLocalization.changeMemberRole}
               className="size-8"
               disabled
               size="icon"
@@ -156,15 +102,14 @@ export function OrganizationMemberRow({
           )}
           {canManageTarget && hasUpdatePermission?.success && (
             <Button
+              aria-label={organizationLocalization.changeMemberRole}
+              title={organizationLocalization.changeMemberRole}
               className="size-8"
               onClick={() => setRoleEditorOpen(true)}
               size="icon"
               variant="ghost"
             >
               <Pencil />
-              <span className="sr-only">
-                {organizationLocalization.changeMemberRole}
-              </span>
             </Button>
           )}
 
@@ -190,7 +135,7 @@ export function OrganizationMemberRow({
                 disabled={onlyOwnerActionDisabled}
                 title={onlyOwnerActionDisabled
                   ? organizationLocalization.onlyOwnerActionDisabled
-                  : undefined}
+                  : organizationLocalization.leaveOrganization}
                 onClick={() => setLeaveOpen(true)}
               >
                 <LogOut />
@@ -200,6 +145,7 @@ export function OrganizationMemberRow({
             ? (
               <Button
                 aria-label={organizationLocalization.removeMember}
+                title={organizationLocalization.removeMember}
                 className="size-8 text-destructive"
                 disabled
                 size="icon"
@@ -218,7 +164,7 @@ export function OrganizationMemberRow({
                 disabled={onlyOwnerActionDisabled}
                 title={onlyOwnerActionDisabled
                   ? organizationLocalization.onlyOwnerActionDisabled
-                  : undefined}
+                  : organizationLocalization.removeMember}
                 onClick={() => setRemoveOpen(true)}
               >
                 <Trash2 />

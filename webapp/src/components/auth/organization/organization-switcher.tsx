@@ -1,5 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Replace Lucide with Phosphor icons and add a stable accessible trigger name and hover title.
+
+"use client"
+
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
 import {
@@ -8,7 +11,11 @@ import {
   useSetActiveOrganization,
 } from "@better-auth-ui/react/plugins/organization"
 import type { Organization } from "better-auth/client"
-import { ChevronsUpDown, PlusCircle, Settings as SettingsIcon } from "lucide-react"
+import {
+  CaretUpDownIcon as ChevronsUpDown,
+  GearIcon as SettingsIcon,
+  PlusCircleIcon as PlusCircle,
+} from "@phosphor-icons/react"
 import { type ComponentProps, type ReactElement, useState } from "react"
 
 import { buttonVariants } from "@/components/ui/button"
@@ -107,6 +114,8 @@ export function OrganizationSwitcher({
       <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
         {trigger ?? (
           <DropdownMenuTrigger
+            aria-label={activeOrganization?.name ?? organizationLocalization.organization}
+            title={activeOrganization?.name ?? organizationLocalization.organization}
             className={cn(
               buttonVariants({ variant: "ghost" }),
               "h-auto px-2 py-2 text-start",

@@ -1,11 +1,14 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Replace Lucide with Phosphor icons and Sonner with Base UI Toast.
+
+"use client"
+
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useLeaveOrganization } from "@better-auth-ui/react/plugins/organization"
 import type { Organization } from "better-auth/client"
-import { LogOut } from "lucide-react"
-import { toast } from "sonner"
+import { SignOutIcon as LogOut } from "@phosphor-icons/react"
+import { toast } from "@/components/ui/toast"
 
 import {
   AlertDialog,
@@ -45,7 +48,7 @@ export function LeaveOrganizationDialog({
     {
       onSuccess: () => {
         onOpenChange(false)
-        toast.success(organizationLocalization.leftOrganization)
+        toast.add({ title: organizationLocalization.leftOrganization, type: "success" })
 
         navigate({
           to: `${basePaths.settings}/${organizationPluginViewPaths.settings.organizations}`,

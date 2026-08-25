@@ -1,20 +1,17 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Add the legal gate for email/OAuth signup, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured CAPTCHA/plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast, and repair strict typing.
+
 "use client"
 
-import {
-  authMutationKeys,
-  getAuthLinkURL,
-  isPasswordCompromisedError,
-  parseAdditionalFieldValue,
-} from "@better-auth-ui/core"
+import { authMutationKeys, getAuthLinkURL, isPasswordCompromisedError } from "@better-auth-ui/core"
 import { AuthPrompts, useAuth, useFetchOptions, useSignUpEmail } from "@better-auth-ui/react"
 import { useIsMutating } from "@tanstack/react-query"
-import { Eye, EyeOff } from "lucide-react"
+import { EyeIcon as Eye, EyeSlashIcon as EyeOff } from "@phosphor-icons/react"
 import { type SyntheticEvent, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
   FieldDescription,
@@ -31,8 +28,8 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/lib/config"
 import { cn } from "@/lib/utils"
-import { AdditionalField } from "./additional-field"
 import { PasswordStrengthMeter } from "./password-strength-meter"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
 
@@ -70,12 +67,10 @@ export function SignUp({
   onSignUpSuccess,
 }: SignUpProps) {
   const {
-    additionalFields,
     authClient,
     basePaths,
     emailAndPassword,
     localization,
-    plugins,
     redirectTo,
     socialProviders,
     viewPaths,
@@ -87,6 +82,7 @@ export function SignUp({
 
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const { mutate: signUpEmail, isPending: signUpEmailPending } = useSignUpEmail(
     authClient,
@@ -107,7 +103,11 @@ export function SignUp({
       },
       onSuccess: (_data, { email }) => {
         if (emailAndPassword?.requireEmailVerification) {
-          sessionStorage.setItem("better-auth-ui.verify-email", email)
+          try {
+            globalThis.sessionStorage.setItem("better-auth-ui.verify-email", email)
+          } catch {
+            // The stored email is only a convenience for the verification view.
+          }
           navigate({
             to: getAuthLinkURL(
               `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
@@ -131,22 +131,23 @@ export function SignUp({
   })
   const isPending = signInMutating + signUpMutating > 0
 
-  const Captcha = plugins.find(
-    (plugin) => plugin.captchaComponent,
-  )?.captchaComponent
-
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
 
   const [fieldErrors, setFieldErrors] = useState<{
-    name?: string
-    email?: string
-    password?: string
-    confirmPassword?: string
+    name?: string | undefined
+    email?: string | undefined
+    password?: string | undefined
+    confirmPassword?: string | undefined
   }>({})
 
-  const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
+
+    if (!termsAccepted) {
+      globalThis.document.querySelector<HTMLElement>("#accept-legal")?.focus()
+      return
+    }
 
     const formData = new FormData(e.currentTarget)
     // `emailAndPassword.name === false` hides the name field and submits "".
@@ -154,42 +155,24 @@ export function SignUp({
     const email = formData.get("email") as string
 
     if (emailAndPassword?.confirmPassword && password !== confirmPassword) {
-      toast.error(localization.auth.passwordsDoNotMatch)
+      toast.add({ title: localization.auth.passwordsDoNotMatch, type: "error" })
       setPassword("")
       setConfirmPassword("")
       return
     }
 
-    const additionalFieldValues: Record<string, unknown> = {}
-
-    for (const field of additionalFields ?? []) {
-      if (!field.signUp || field.readOnly) continue
-      const value = parseAdditionalFieldValue(
-        field,
-        formData.get(field.name) as string | null,
-      )
-
-      if (field.validate) {
-        try {
-          await field.validate(value)
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : String(error))
-          return
-        }
-      }
-
-      if (value !== undefined) {
-        additionalFieldValues[field.name] = value
-      }
-    }
-
-    signUpEmail({
-      name,
-      email,
-      password,
-      ...additionalFieldValues,
-      fetchOptions,
-    })
+    signUpEmail(
+      {
+        name,
+        email,
+        password,
+        callbackURL: redirectTo,
+        fetchOptions,
+        termsAccepted: true,
+      } as Parameters<typeof authClient.signUp.email>[0] & {
+        termsAccepted: true
+      },
+    )
   }
 
   const showSeparator = emailAndPassword?.enabled && socialProviders && socialProviders.length > 0
@@ -199,7 +182,7 @@ export function SignUp({
       <AuthPrompts view="signUp" />
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
-          {localization.auth.signUp}
+          <h1>{localization.auth.signUp}</h1>
         </CardTitle>
       </CardHeader>
 
@@ -208,7 +191,12 @@ export function SignUp({
           {socialPosition === "top" && (
             <>
               {socialProviders && socialProviders.length > 0 && (
-                <ProviderButtons socialLayout={socialLayout} view="signUp" />
+                <ProviderButtons
+                  disabled={!termsAccepted}
+                  {...(socialLayout === undefined ? {} : { socialLayout })}
+                  termsAccepted={termsAccepted}
+                  view="signUp"
+                />
               )}
 
               {showSeparator && (
@@ -293,19 +281,6 @@ export function SignUp({
 
                   <FieldError>{fieldErrors.email}</FieldError>
                 </Field>
-
-                {additionalFields?.map(
-                  (field) =>
-                    field.signUp === "above" && (
-                      <AdditionalField
-                        key={field.name}
-                        name={field.name}
-                        field={field}
-                        isPending={isPending}
-                        optionalLabel={localization.auth.optional}
-                      />
-                    ),
-                )}
 
                 <Field data-invalid={!!fieldErrors.password}>
                   <FieldLabel htmlFor="password">
@@ -451,37 +426,46 @@ export function SignUp({
                   </Field>
                 )}
 
-                {additionalFields?.map(
-                  (field) =>
-                    field.signUp &&
-                    field.signUp !== "above" && (
-                      <AdditionalField
-                        key={field.name}
-                        name={field.name}
-                        field={field}
-                        isPending={isPending}
-                        optionalLabel={localization.auth.optional}
-                      />
-                    ),
-                )}
-
-                {Captcha && <div className="flex justify-center">{Captcha}</div>}
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="accept-legal"
+                    checked={termsAccepted}
+                    onCheckedChange={(checked) => setTermsAccepted(checked)}
+                    aria-labelledby="accept-legal-copy"
+                    required
+                    disabled={isPending}
+                  />
+                  <p id="accept-legal-copy" className="text-sm text-muted-foreground">
+                    <label htmlFor="accept-legal" className="cursor-pointer">
+                      I accept the{" "}
+                    </label>
+                    <a
+                      href={TERMS_OF_SERVICE_URL}
+                      className="font-medium text-foreground underline underline-offset-4"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href={PRIVACY_POLICY_URL}
+                      className="font-medium text-foreground underline underline-offset-4"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Privacy Policy
+                    </a>
+                    .
+                  </p>
+                </Field>
 
                 <div className="flex flex-col gap-3">
-                  <Button type="submit" disabled={isPending}>
+                  <Button type="submit" disabled={isPending || !termsAccepted}>
                     {signUpEmailPending && <Spinner />}
 
                     {localization.auth.signUp}
                   </Button>
-
-                  {plugins.flatMap((plugin) =>
-                    (plugin.authButtons ?? []).map((AuthButton, index) => (
-                      <AuthButton
-                        key={`${plugin.id}-${index.toString()}`}
-                        view="signUp"
-                      />
-                    ))
-                  )}
                 </div>
               </FieldGroup>
             </form>
@@ -496,7 +480,12 @@ export function SignUp({
               )}
 
               {socialProviders && socialProviders.length > 0 && (
-                <ProviderButtons socialLayout={socialLayout} view="signUp" />
+                <ProviderButtons
+                  disabled={!termsAccepted}
+                  {...(socialLayout === undefined ? {} : { socialLayout })}
+                  termsAccepted={termsAccepted}
+                  view="signUp"
+                />
               )}
             </>
           )}

@@ -9,21 +9,57 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthenticatedOrganizationRouteRouteImport } from './routes/_authenticated/_organization/route'
+import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
+import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
+import { Route as AuthenticatedOrganizationIndexRouteImport } from './routes/_authenticated/_organization/index'
+import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
+import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
+import { Route as AuthenticatedSettingsOrganizationsIndexRouteImport } from './routes/_authenticated/settings/organizations/index'
+import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
+import { Route as AuthenticatedOrganizationOrganizationMembersIndexRouteImport } from './routes/_authenticated/_organization/organization/members/index'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedOrganizationRouteRoute =
+  AuthenticatedOrganizationRouteRouteImport.update({
+    id: '/_organization',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSettingsRouteRoute =
+  AuthenticatedSettingsRouteRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const authenticationAuthPathRoute = authenticationAuthPathRouteImport.update({
+  id: '/(authentication)/auth/$path',
+  path: '/auth/$path',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedOrganizationIndexRoute =
+  AuthenticatedOrganizationIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+  } as any)
+const AuthenticatedOnboardingIndexRoute =
+  AuthenticatedOnboardingIndexRouteImport.update({
+    id: '/onboarding/',
+    path: '/onboarding/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -34,49 +70,147 @@ const ApiChatIndexRoute = ApiChatIndexRouteImport.update({
   path: '/api/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSettingsAccountIndexRoute =
+  AuthenticatedSettingsAccountIndexRouteImport.update({
+    id: '/account/',
+    path: '/account/',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsOrganizationsIndexRoute =
+  AuthenticatedSettingsOrganizationsIndexRouteImport.update({
+    id: '/organizations/',
+    path: '/organizations/',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSecurityIndexRoute =
+  AuthenticatedSettingsSecurityIndexRouteImport.update({
+    id: '/security/',
+    path: '/security/',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedOrganizationOrganizationMembersIndexRoute =
+  AuthenticatedOrganizationOrganizationMembersIndexRouteImport.update({
+    id: '/organization/members/',
+    path: '/organization/members/',
+    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthenticatedOrganizationIndexRoute
+  '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
+  '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
+  '/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
+  '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/': typeof AuthenticatedOrganizationIndexRoute
+  '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/onboarding': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat': typeof ApiChatIndexRoute
+  '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
+  '/settings/organizations': typeof AuthenticatedSettingsOrganizationsIndexRoute
+  '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/organization/members': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/_authenticated/_organization': typeof AuthenticatedOrganizationRouteRouteWithChildren
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/_authenticated/_organization/': typeof AuthenticatedOrganizationIndexRoute
+  '/_authenticated/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
+  '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
+  '/_authenticated/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
+  '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/_authenticated/_organization/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/status' | '/api/auth/$' | '/api/chat/'
+  fullPaths:
+    | '/'
+    | '/settings'
+    | '/api/status'
+    | '/auth/$path'
+    | '/api/auth/$'
+    | '/onboarding/'
+    | '/api/chat/'
+    | '/settings/account/'
+    | '/settings/organizations/'
+    | '/settings/security/'
+    | '/organization/members/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/status' | '/api/auth/$' | '/api/chat'
-  id: '__root__' | '/' | '/api/status' | '/api/auth/$' | '/api/chat/'
+  to:
+    | '/'
+    | '/settings'
+    | '/api/status'
+    | '/auth/$path'
+    | '/api/auth/$'
+    | '/onboarding'
+    | '/api/chat'
+    | '/settings/account'
+    | '/settings/organizations'
+    | '/settings/security'
+    | '/organization/members'
+  id:
+    | '__root__'
+    | '/_authenticated'
+    | '/_authenticated/_organization'
+    | '/_authenticated/settings'
+    | '/api/status'
+    | '/(authentication)/auth/$path'
+    | '/api/auth/$'
+    | '/_authenticated/_organization/'
+    | '/_authenticated/onboarding/'
+    | '/api/chat/'
+    | '/_authenticated/settings/account/'
+    | '/_authenticated/settings/organizations/'
+    | '/_authenticated/settings/security/'
+    | '/_authenticated/_organization/organization/members/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   ApiStatusRoute: typeof ApiStatusRoute
+  authenticationAuthPathRoute: typeof authenticationAuthPathRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatIndexRoute: typeof ApiChatIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/_organization': {
+      id: '/_authenticated/_organization'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedOrganizationRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/status': {
       id: '/api/status'
@@ -84,6 +218,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/status'
       preLoaderRoute: typeof ApiStatusRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/(authentication)/auth/$path': {
+      id: '/(authentication)/auth/$path'
+      path: '/auth/$path'
+      fullPath: '/auth/$path'
+      preLoaderRoute: typeof authenticationAuthPathRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/_organization/': {
+      id: '/_authenticated/_organization/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedOrganizationIndexRouteImport
+      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    }
+    '/_authenticated/onboarding/': {
+      id: '/_authenticated/onboarding/'
+      path: '/onboarding'
+      fullPath: '/onboarding/'
+      preLoaderRoute: typeof AuthenticatedOnboardingIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -99,12 +254,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/settings/account/': {
+      id: '/_authenticated/settings/account/'
+      path: '/account'
+      fullPath: '/settings/account/'
+      preLoaderRoute: typeof AuthenticatedSettingsAccountIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/organizations/': {
+      id: '/_authenticated/settings/organizations/'
+      path: '/organizations'
+      fullPath: '/settings/organizations/'
+      preLoaderRoute: typeof AuthenticatedSettingsOrganizationsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/security/': {
+      id: '/_authenticated/settings/security/'
+      path: '/security'
+      fullPath: '/settings/security/'
+      preLoaderRoute: typeof AuthenticatedSettingsSecurityIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/_organization/organization/members/': {
+      id: '/_authenticated/_organization/organization/members/'
+      path: '/organization/members'
+      fullPath: '/organization/members/'
+      preLoaderRoute: typeof AuthenticatedOrganizationOrganizationMembersIndexRouteImport
+      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    }
   }
 }
 
+interface AuthenticatedOrganizationRouteRouteChildren {
+  AuthenticatedOrganizationIndexRoute: typeof AuthenticatedOrganizationIndexRoute
+  AuthenticatedOrganizationOrganizationMembersIndexRoute: typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
+}
+
+const AuthenticatedOrganizationRouteRouteChildren: AuthenticatedOrganizationRouteRouteChildren =
+  {
+    AuthenticatedOrganizationIndexRoute: AuthenticatedOrganizationIndexRoute,
+    AuthenticatedOrganizationOrganizationMembersIndexRoute:
+      AuthenticatedOrganizationOrganizationMembersIndexRoute,
+  }
+
+const AuthenticatedOrganizationRouteRouteWithChildren =
+  AuthenticatedOrganizationRouteRoute._addFileChildren(
+    AuthenticatedOrganizationRouteRouteChildren,
+  )
+
+interface AuthenticatedSettingsRouteRouteChildren {
+  AuthenticatedSettingsAccountIndexRoute: typeof AuthenticatedSettingsAccountIndexRoute
+  AuthenticatedSettingsOrganizationsIndexRoute: typeof AuthenticatedSettingsOrganizationsIndexRoute
+  AuthenticatedSettingsSecurityIndexRoute: typeof AuthenticatedSettingsSecurityIndexRoute
+}
+
+const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
+  {
+    AuthenticatedSettingsAccountIndexRoute:
+      AuthenticatedSettingsAccountIndexRoute,
+    AuthenticatedSettingsOrganizationsIndexRoute:
+      AuthenticatedSettingsOrganizationsIndexRoute,
+    AuthenticatedSettingsSecurityIndexRoute:
+      AuthenticatedSettingsSecurityIndexRoute,
+  }
+
+const AuthenticatedSettingsRouteRouteWithChildren =
+  AuthenticatedSettingsRouteRoute._addFileChildren(
+    AuthenticatedSettingsRouteRouteChildren,
+  )
+
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedOrganizationRouteRoute: typeof AuthenticatedOrganizationRouteRouteWithChildren
+  AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedOnboardingIndexRoute: typeof AuthenticatedOnboardingIndexRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedOrganizationRouteRoute:
+    AuthenticatedOrganizationRouteRouteWithChildren,
+  AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedOnboardingIndexRoute: AuthenticatedOnboardingIndexRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   ApiStatusRoute: ApiStatusRoute,
+  authenticationAuthPathRoute: authenticationAuthPathRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatIndexRoute: ApiChatIndexRoute,
 }

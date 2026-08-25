@@ -1,10 +1,12 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Use Base UI Toast/browser-safe globals, preserve the return path, and render a semantic page heading.
+
 "use client"
 
+import { getAuthLinkURL } from "@better-auth-ui/core"
 import { useAuth, useSendVerificationEmail } from "@better-auth-ui/react"
 import { useEffect, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -46,12 +48,16 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
 
   const isHydrated = useIsHydrated()
   const [email, setEmail] = useState(
-    (isHydrated && sessionStorage.getItem("better-auth-ui.verify-email")) || "",
+    (isHydrated &&
+      globalThis.sessionStorage.getItem("better-auth-ui.verify-email")) ||
+      "",
   )
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS)
 
   useEffect(() => {
-    setEmail(sessionStorage.getItem("better-auth-ui.verify-email") ?? "")
+    setEmail(
+      globalThis.sessionStorage.getItem("better-auth-ui.verify-email") ?? "",
+    )
   }, [])
 
   useEffect(() => {
@@ -68,7 +74,7 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
     authClient,
     {
       onSuccess: () => {
-        toast.success(localization.auth.verificationEmailSent)
+        toast.add({ title: localization.auth.verificationEmailSent, type: "success" })
         setCooldown(RESEND_COOLDOWN_SECONDS)
       },
     },
@@ -80,7 +86,7 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
     <Card className={cn("w-full max-w-sm", className)}>
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
-          {localization.auth.verifyEmail}
+          <h1>{localization.auth.verifyEmail}</h1>
         </CardTitle>
       </CardHeader>
 
@@ -121,7 +127,10 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
           <FieldDescription className="text-center">
             {localization.auth.alreadyVerifiedYourEmail}{" "}
             <Link
-              href={`${basePaths.auth}/${viewPaths.auth.signIn}`}
+              href={getAuthLinkURL(
+                `${basePaths.auth}/${viewPaths.auth.signIn}`,
+                redirectTo,
+              )}
               className="underline underline-offset-4"
             >
               {localization.auth.signIn}

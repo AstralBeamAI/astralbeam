@@ -1,6 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/user-button
-// Local changes: none.
-import type { UsernameAuthClient } from "@better-auth-ui/core/plugins/username"
+// Local changes: remove username-plugin fields and apply strict optional typing.
+
 import { useAuth, useSession } from "@better-auth-ui/react"
 import type { User } from "better-auth"
 
@@ -12,19 +12,16 @@ export type UserViewProps = {
   className?: string
   isPending?: boolean
   /**
-   * When true, the subtitle line (email when name/username is shown) is hidden.
+   * When true, the subtitle line (email when a name is shown) is hidden.
    * @default false
    */
   hideSubtitle?: boolean
   /** @remarks `User` */
-  user?: Partial<User> & {
-    username?: string | null
-    displayUsername?: string | null
-  }
+  user?: Partial<User> | undefined
 }
 
 /**
- * Render a compact user item with an avatar, a primary label (display username, name, or email), and an optional subtitle (email).
+ * Render a compact user item with an avatar, a primary label (name or email), and an optional subtitle (email).
  *
  * @param isPending - If true and no `user` prop is provided, renders a loading skeleton instead of user details
  * @param className - Additional CSS classes applied to the outer container
@@ -38,7 +35,7 @@ export function UserView({
   hideSubtitle = false,
   user,
 }: UserViewProps) {
-  const { authClient } = useAuth<UsernameAuthClient>()
+  const { authClient } = useAuth()
   const { data: session, isPending: sessionPending } = useSession(authClient, {
     enabled: !user && !isPending,
   })
@@ -61,17 +58,15 @@ export function UserView({
 
   return (
     <div className={cn("flex items-center gap-2 min-w-0", className)}>
-      <UserAvatar user={resolvedUser as User | undefined} />
+      <UserAvatar {...(resolvedUser ? { user: resolvedUser } : {})} />
 
       <div className="grid min-w-0 flex-1 text-start text-sm leading-tight">
         <span className="truncate font-medium text-foreground">
-          {resolvedUser?.displayUsername ||
-            resolvedUser?.name ||
-            resolvedUser?.email}
+          {resolvedUser?.name || resolvedUser?.email}
         </span>
 
         {!hideSubtitle &&
-          (resolvedUser?.displayUsername || resolvedUser?.name) && (
+          resolvedUser?.name && (
           <span className="text-muted-foreground truncate text-xs">
             {resolvedUser?.email}
           </span>

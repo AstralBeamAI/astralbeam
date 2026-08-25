@@ -7,17 +7,26 @@ The application owns its complete product stack, dependency lockfile, and projec
 ## Structure
 
 - `public` — approved SVG logo masters, generated PNG variants, and other static files
+- `src/components/auth` — ejected Better Auth UI feature components
 - `src/components/ui` — shadcn-generated components
 - `src/db` — server-only Drizzle client, schema, and migrations
-- `src/lib` — application utilities
+- `src/emails` — React Email templates and Resend/SES delivery adapters
+- `src/lib` — application utilities and server-only Better Auth configuration
+- `src/routes` — public auth routes and protected application layouts
 - `src/styles.css` — Tailwind, fonts, semantic theme mappings, and generated brand variables
 - `src/theme` — pure theme compiler, concrete brand definition, schema, and tests
 
+## Authentication
+
+Better Auth is mounted at `/api/auth/*`. Existing users sign in at `/auth/sign-in`, new users accept the legal terms at `/auth/sign-up`, unassociated users create an organization at `/onboarding`, and the authenticated application lives at `/` with organization members and account/security settings.
+
+The enabled methods are email/password, Google, and GitHub. Credential signup requires email verification; OAuth signup requires a verified provider identity and explicit signup intent. Organization invitations are emailed to the recipient and can be accepted only by the matching verified account.
+
+Authenticated layouts provide first-render and reactive navigation protection, but they are not authorization boundaries. Better Auth APIs and server-only functions independently enforce sessions, organization membership, and owner/admin/member permissions. Follow the repository [authentication setup](../SETUP.md#authentication-and-transactional-email) before testing these flows.
+
 ## Theme
 
-The root route links the checked-in `src/styles.css` stylesheet. Its marked generated section applies the light theme through `:root` by default and keeps `.dark` as the only explicit theme class without shipping the Theme resolver in the client bundle.
-
-Organization lookup, persistence, fallback, and request handling belong at the application boundary. Convert organization definitions with the local server-side theme compiler and deliver the selected CSS through the same document-head path.
+The root route links the checked-in `src/styles.css` stylesheet. Its marked generated section supplies the light and dark semantic tokens, while the app theme controller applies system, light, or dark mode and persists the user's selection locally.
 
 Generate checked-in logo output from this directory:
 

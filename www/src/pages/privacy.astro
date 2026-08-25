@@ -2,7 +2,7 @@
 import LegalPageLayout from "@/layouts/LegalPageLayout.astro"
 import { siteMetadata } from "@/lib/site"
 
-const effectiveDate = "August 17, 2026"
+const effectiveDate = "August 25, 2026"
 ---
 <LegalPageLayout
   title="Privacy Policy"
@@ -18,67 +18,77 @@ const effectiveDate = "August 17, 2026"
   <section>
     <h2>2. Information we collect</h2>
     <ul>
-      <li><strong>Account information:</strong> name, email address, profile image, identity-provider account identifier, and sign-in records received from Google or GitHub.</li>
-      <li><strong>Organization information:</strong> organization name, membership, role, invitations, settings, and related administrative activity.</li>
+      <li><strong>Account information:</strong> name, email address, email-verification status, profile image received from Google, GitHub, or Gravatar, a hashed password credential when you use email and password, and account identifiers and profile information received from Google or GitHub when you use those sign-in methods.</li>
+      <li><strong>Authentication and security information:</strong> linked sign-in methods, OAuth scopes and token records, the date and time you accepted the Terms of Service and Privacy Policy at signup, session identifiers, active-organization selection, verification and password-reset records, rate-limit records, and sign-in or other security events.</li>
+      <li><strong>Organization information:</strong> organization name, membership, role, invitations, settings, and related administrative activity. If an organization invites someone, we collect the invitee's email address and the inviter's account information before the invitee creates or joins an account.</li>
       <li><strong>Customer Content:</strong> prompts, messages, files, tool inputs and outputs, agent configurations, and other information submitted through the Services.</li>
       <li><strong>Usage and technical information:</strong> IP address, browser and device information, timestamps, session information, diagnostics, security events, and interactions with the Services.</li>
-      <li><strong>Communications:</strong> messages, support requests, feedback, and information submitted through our waitlist or other forms.</li>
+      <li><strong>Communications:</strong> messages, support requests, feedback, information submitted through our waitlist or other forms, and account-verification, password-reset, password-change, security, and organization-invitation emails we send.</li>
     </ul>
   </section>
 
   <section>
     <h2>3. How we use information</h2>
-    <p>We use information to provide and personalize the Services; authenticate users; manage organizations; process requested agent and tool operations; maintain security and prevent abuse; monitor reliability and usage; provide support; communicate about the Services; comply with law; and improve our products. We may use aggregated or de-identified information for analytics and product development where it cannot reasonably identify you.</p>
+    <p>We use information to provide and personalize the Services; create and authenticate accounts; verify email addresses; link sign-in methods; maintain and revoke sessions; deliver account, security, password-reset, and organization-invitation messages; manage organizations, memberships, roles, and invitations; process requested agent and tool operations; detect compromised passwords; enforce rate limits; maintain security and prevent abuse; monitor reliability and usage; provide support; comply with law; and improve our products. We may use aggregated or de-identified information for analytics and product development where it cannot reasonably identify you.</p>
   </section>
 
   <section>
-    <h2>4. Google user data</h2>
-    <p>When you choose Google sign-in, AstralBeam requests only the `openid`, `email`, and `profile` scopes. We use the resulting account identifier, name, email address, profile image, and authentication information to create or authenticate your account, display your profile, secure your session, and support account administration.</p>
+    <h2>4. Authentication and identity providers</h2>
+    <p>When you use email and password, we store a cryptographic hash of the password rather than the plaintext password. We use your email address to verify the account and, when requested or triggered by account activity, to send password-reset and password-change messages. Verification and reset links contain short-lived authentication data and should not be shared.</p>
+    <p>When you create, change, or reset a password, we screen it against Have I Been Pwned's Pwned Passwords service. The check sends only the first five characters of a SHA-1 hash derived from the password—not the password or its full hash—to retrieve a range of possible matches, which our authentication service checks locally. We use the result only to reject passwords reported as compromised. Learn more about the <a href="https://haveibeenpwned.com/API/v3#PwnedPasswords" target="_blank" rel="noopener noreferrer">Pwned Passwords privacy-preserving range search</a>.</p>
+    <p>When you choose Google or GitHub, the provider authenticates you and returns the account identifier, verified email address, name, profile image, and authorization information permitted by the requested scopes. AstralBeam uses these records to create or authenticate your account and, when the verified email matches, to link sign-in methods to the same account. Stored OAuth tokens are encrypted. We do not request access to Google Drive, Gmail, GitHub repositories, or organization administration through these sign-in flows. Google and GitHub process your interaction with their authorization services under their own privacy policies.</p>
+    <p>When a profile image is not available from your sign-in method, AstralBeam may request a Gravatar associated with your email address. We normalize the email address and send Gravatar only its SHA-256 hash, not the plaintext address. Because the image is loaded from Gravatar, Gravatar receives the hash and ordinary request information such as your IP address and browser details under <a href="https://automattic.com/privacy/" target="_blank" rel="noopener noreferrer">Automattic's privacy policy</a>.</p>
+    <p>GitHub sign-in uses the <code>user:email</code> scope so GitHub can provide a verified address, including when your primary address is private. This scope provides read-only access to your GitHub email addresses; AstralBeam uses the verified address for authentication and account linking, not to access repository content. You can review GitHub's <a href="https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps" target="_blank" rel="noopener noreferrer">OAuth scope documentation</a> and <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener noreferrer">privacy statement</a>.</p>
+  </section>
+
+  <section>
+    <h2>5. Google user data</h2>
+    <p>When you choose Google sign-in, AstralBeam requests only the <code>openid</code>, <code>email</code>, and <code>profile</code> scopes. We use the resulting account identifier, name, email address, profile image, and authentication information to create or authenticate your account, display your profile, secure your session, and support account administration.</p>
     <p>We do not sell Google user data, use it for advertising or credit decisions, or use it to train generalized AI models. We share it only with service providers acting for us, when needed to secure or operate the Services, when you direct us to, or when required by law. Our use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including its Limited Use requirements.</p>
   </section>
 
   <section>
-    <h2>5. How we share information</h2>
-    <p>We may share information with infrastructure, hosting, identity, analytics, communications, payment, model, and tool providers that process it for us; with connected services you choose to use; with organization owners or administrators; to investigate abuse or protect rights and safety; in connection with a business transaction; or when required by law. We do not sell personal information.</p>
+    <h2>6. How we share information</h2>
+    <p>We may share information with infrastructure, hosting, identity, analytics, communications, payment, model, and tool providers that process it for us; with connected services you choose to use; with organization owners or administrators; to investigate abuse or protect rights and safety; in connection with a business transaction; or when required by law. Authentication-related recipients include Google or GitHub when you choose their sign-in method, Gravatar when we request a fallback profile image, our configured transactional-email provider (such as Amazon Simple Email Service or Resend) for account and invitation messages, and Have I Been Pwned for the partial password-hash range check described above. We do not sell personal information.</p>
   </section>
 
   <section>
-    <h2>6. Cookies and similar technologies</h2>
+    <h2>7. Cookies and similar technologies</h2>
     <p>We use cookies and similar technologies that are necessary to authenticate users, maintain sessions, remember preferences, protect the Services, and understand operation and usage. Browser settings may let you block cookies, but essential features may stop working.</p>
   </section>
 
   <section>
-    <h2>7. Retention and deletion</h2>
+    <h2>8. Retention and deletion</h2>
     <p>We retain information for as long as needed to provide the Services, maintain security and business records, resolve disputes, and meet legal obligations. Retention depends on the type of information, why it was collected, and applicable requirements. You may request account or personal-data deletion by contacting us. Organization-controlled information may need to be handled by the organization administrator. We may retain limited information where legally required or necessary to protect the Services.</p>
   </section>
 
   <section>
-    <h2>8. Security</h2>
-    <p>We use administrative, technical, and organizational measures designed to protect personal information. No system is completely secure, so we cannot guarantee that information will never be accessed, altered, or lost without authorization.</p>
+    <h2>9. Security</h2>
+    <p>We use administrative, technical, and organizational measures designed to protect personal information. These measures include hashed password credentials, encrypted stored OAuth tokens, time-limited verification and reset links, session controls, and authentication rate limits. No system is completely secure, so we cannot guarantee that information will never be accessed, altered, or lost without authorization.</p>
   </section>
 
   <section>
-    <h2>9. International processing</h2>
+    <h2>10. International processing</h2>
     <p>AstralBeam and its service providers may process information in countries other than where you live. Where required, we use appropriate safeguards for cross-border transfers.</p>
   </section>
 
   <section>
-    <h2>10. Your choices and rights</h2>
-    <p>You may update certain account information through the Services and disconnect connected services through the relevant provider. Depending on where you live, you may have rights to access, correct, delete, restrict, object to, or receive a copy of personal information. Contact us to make a request. We may need to verify your identity and may retain information where an exception applies.</p>
+    <h2>11. Your choices and rights</h2>
+    <p>You may update certain profile information, review or revoke active sessions, and manage linked sign-in methods through the Services where those controls are available. You can also revoke AstralBeam's access through Google or GitHub, although doing so does not by itself delete information already held by AstralBeam. Depending on where you live, you may have rights to access, correct, delete, restrict, object to, or receive a copy of personal information. Contact us to make a request. We may need to verify your identity and may retain information where an exception applies.</p>
   </section>
 
   <section>
-    <h2>11. Children</h2>
+    <h2>12. Children</h2>
     <p>The Services are intended for businesses and developers and are not directed to children. Do not use the Services if you lack legal capacity to agree to the applicable terms.</p>
   </section>
 
   <section>
-    <h2>12. Changes to this policy</h2>
+    <h2>13. Changes to this policy</h2>
     <p>We may update this policy as our practices or legal requirements change. We will post the revised policy with a new effective date and provide additional notice when required.</p>
   </section>
 
   <section>
-    <h2>13. Contact</h2>
+    <h2>14. Contact</h2>
     <p>For privacy questions or requests, email <a href={`mailto:${siteMetadata.email}`}>{siteMetadata.email}</a>.</p>
   </section>
 </LegalPageLayout>

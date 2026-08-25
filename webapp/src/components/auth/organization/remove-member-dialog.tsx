@@ -1,11 +1,17 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
-import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
+// Local changes: render Better Auth's comma-joined static roles as separate labels.
+
+"use client"
+
+import {
+  memberRoleLabels,
+  type OrganizationAuthClient,
+} from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useRemoveMember } from "@better-auth-ui/react/plugins/organization"
 import type { Member, User } from "better-auth/client"
-import { Trash2 } from "lucide-react"
-import { toast } from "sonner"
+import { TrashIcon as Trash2 } from "@phosphor-icons/react"
+import { toast } from "@/components/ui/toast"
 
 import {
   AlertDialog,
@@ -41,7 +47,7 @@ export function RemoveMemberDialog({
   const { mutate: removeMember, isPending } = useRemoveMember(authClient, {
     onSuccess: () => {
       onOpenChange(false)
-      toast.success(organizationLocalization.memberRemoved)
+      toast.add({ title: organizationLocalization.memberRemoved, type: "success" })
     },
   })
 
@@ -67,7 +73,7 @@ export function RemoveMemberDialog({
             <UserView user={member.user} />
 
             <Badge variant="outline">
-              {roles?.[member.role] ?? member.role}
+              {memberRoleLabels(member.role, roles).join(", ")}
             </Badge>
           </CardContent>
         </Card>

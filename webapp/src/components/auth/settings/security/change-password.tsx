@@ -1,6 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: none.
-"use client"
+// Local changes: use Phosphor icons, Base UI Toast, and hover titles for password visibility controls; omit unconfigured captcha UI and apply strict optional typing.
 
 import { getViewURL, isPasswordCompromisedError } from "@better-auth-ui/core"
 import {
@@ -11,9 +10,9 @@ import {
   useRequestPasswordReset,
   useSession,
 } from "@better-auth-ui/react"
-import { Eye, EyeOff } from "lucide-react"
+import { EyeIcon as Eye, EyeSlashIcon as EyeOff } from "@phosphor-icons/react"
 import { type SyntheticEvent, useState } from "react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
@@ -54,12 +53,12 @@ export function ChangePassword({ className }: ChangePasswordProps) {
   )
 
   if (!isAccountsPending && !hasCredentialAccount) {
-    return <SetPassword className={className} />
+    return <SetPassword {...(className ? { className } : {})} />
   }
 
   return (
     <ChangePasswordForm
-      className={className}
+      {...(className ? { className } : {})}
       emailAndPassword={emailAndPassword}
       localization={localization}
       session={isAccountsPending ? undefined : session}
@@ -68,7 +67,7 @@ export function ChangePassword({ className }: ChangePasswordProps) {
 }
 
 function SetPassword({ className }: { className?: string }) {
-  const { authClient, basePaths, baseURL, localization, plugins, viewPaths } = useAuth()
+  const { authClient, basePaths, baseURL, localization, viewPaths } = useAuth()
   const { data: session } = useSession(authClient)
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
   const [sentEmail, setSentEmail] = useState("")
@@ -84,10 +83,6 @@ function SetPassword({ className }: { className?: string }) {
       },
     },
   )
-
-  const Captcha = plugins.find(
-    (plugin) => plugin.captchaComponent,
-  )?.captchaComponent
 
   const handleSetPassword = () => {
     if (!session) return
@@ -136,9 +131,8 @@ function SetPassword({ className }: { className?: string }) {
             )
             : (
               <div className="flex flex-col gap-3 items-start sm:items-end">
-                {Captcha && <div>{Captcha}</div>}
-
                 <Button
+                  type="button"
                   size="sm"
                   disabled={isPending || !session?.user.email}
                   onClick={handleSetPassword}
@@ -190,7 +184,7 @@ function ChangePasswordForm({
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
-      toast.success(localization.settings.changePasswordSuccess)
+      toast.add({ title: localization.settings.changePasswordSuccess, type: "success" })
     },
   })
 
@@ -199,9 +193,9 @@ function ChangePasswordForm({
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
 
   const [fieldErrors, setFieldErrors] = useState<{
-    currentPassword?: string
-    newPassword?: string
-    confirmPassword?: string
+    currentPassword?: string | undefined
+    newPassword?: string | undefined
+    confirmPassword?: string | undefined
   }>({})
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
@@ -211,7 +205,7 @@ function ChangePasswordForm({
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
-      toast.error(localization.auth.passwordsDoNotMatch)
+      toast.add({ title: localization.auth.passwordsDoNotMatch, type: "error" })
       return
     }
 
@@ -339,6 +333,9 @@ function ChangePasswordForm({
                         aria-label={isNewPasswordVisible
                           ? localization.auth.hidePassword
                           : localization.auth.showPassword}
+                        title={isNewPasswordVisible
+                          ? localization.auth.hidePassword
+                          : localization.auth.showPassword}
                         onClick={() => setIsNewPasswordVisible((visible) => !visible)}
                       >
                         {isNewPasswordVisible ? <EyeOff /> : <Eye />}
@@ -401,6 +398,9 @@ function ChangePasswordForm({
                         <InputGroupButton
                           size="icon-xs"
                           aria-label={isConfirmPasswordVisible
+                            ? localization.auth.hidePassword
+                            : localization.auth.showPassword}
+                          title={isConfirmPasswordVisible
                             ? localization.auth.hidePassword
                             : localization.auth.showPassword}
                           onClick={() =>

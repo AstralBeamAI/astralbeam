@@ -1,25 +1,23 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: use Phosphor/Base Toast and actor-assignable static roles; omit disabled teams, dynamic roles, and invitation model fields.
+
 "use client"
 
-import { parseAdditionalFieldValues } from "@better-auth-ui/core"
 import {
-  mergeOrganizationRoleLabels,
+  hasMemberRole,
   type OrganizationAuthClient,
 } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import {
+  useActiveMemberRole,
   useActiveOrganization,
   useHasPermission,
   useInviteMember,
   useListOrganizationInvitations,
-  useListRoles,
-  useListTeams,
 } from "@better-auth-ui/react/plugins/organization"
-import { ChevronDown, UserPlus } from "lucide-react"
-import { type SyntheticEvent, useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
-import { AdditionalField } from "@/components/auth/additional-field"
+import { CaretDownIcon as ChevronDown, UserPlusIcon as UserPlus } from "@phosphor-icons/react"
+import { type SyntheticEvent, useEffect, useMemo, useState } from "react"
+import { toast } from "@/components/ui/toast"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
@@ -38,14 +36,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { cn } from "@/lib/utils"
@@ -67,51 +57,37 @@ export function InviteMemberDialog({
 }: InviteMemberDialogProps) {
   const { authClient, localization } = useAuth<OrganizationAuthClient>()
   const {
-    modelFields: { invitation: invitationFields },
-    dynamicAccessControl,
+    creatorRole,
     invitationLimit,
     localization: organizationLocalization,
     roles,
-    teams: teamsEnabled,
   } = useAuthPlugin(organizationPlugin)
   const { data: activeOrganization } = useActiveOrganization(authClient)
-  const teams = useListTeams(authClient, {
-    query: { organizationId: activeOrganization?.id },
-    enabled: teamsEnabled,
-  })
+  const { data: activeMemberRole } = useActiveMemberRole(authClient)
   const invitations = useListOrganizationInvitations(authClient)
   const canInvite = useHasPermission(authClient, {
     organizationId: activeOrganization?.id,
     permissions: { invitation: ["create"] },
   })
-  const canReadRoles = useHasPermission(authClient, {
-    organizationId: activeOrganization?.id,
-    permissions: { ac: ["read"] },
-  })
-  const dynamicRoles = useListRoles(authClient, {
-    query: { organizationId: activeOrganization?.id },
-    enabled: dynamicAccessControl?.enabled === true &&
-      canReadRoles.data?.success === true,
-  })
+  const isOwner = hasMemberRole(activeMemberRole?.role, creatorRole)
   const assignableRoles = useMemo(
-    () => mergeOrganizationRoleLabels(roles, dynamicRoles.data),
-    [dynamicRoles.data, roles],
+    () =>
+      Object.fromEntries(
+        Object.entries(roles).filter(([role]) => isOwner || role !== creatorRole),
+      ),
+    [creatorRole, isOwner, roles],
   )
 
   const [selectedRoles, setSelectedRoles] = useState(() => {
     const fallback = pickDefaultRole(Object.keys(assignableRoles))
     return fallback ? [fallback] : []
   })
-  const [teamId, setTeamId] = useState("")
   const [emailError, setEmailError] = useState<string>()
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const activeOrganizationId = activeOrganization?.id
-  const previousOrganizationId = useRef(activeOrganizationId)
   const roleItems = Object.entries(assignableRoles).map(([value, label]) => ({
     label,
     value,
   }))
-  const teamItems = teams.data?.map((team) => ({ label: team.name, value: team.id })) ?? []
 
   useEffect(() => {
     setSelectedRoles((current) => {
@@ -126,19 +102,15 @@ export function InviteMemberDialog({
   }, [assignableRoles])
 
   useEffect(() => {
-    const organizationChanged = previousOrganizationId.current !== activeOrganizationId
-
-    if (open || organizationChanged) setTeamId("")
     if (!open) setEmailError(undefined)
-    previousOrganizationId.current = activeOrganizationId
-  }, [open, activeOrganizationId])
+  }, [open])
 
   const { mutate: inviteMember, isPending: isInviting } = useInviteMember(
     authClient,
     {
       onSuccess: () => {
         onOpenChange(false)
-        toast.success(organizationLocalization.inviteMemberSuccess)
+        toast.add({ title: organizationLocalization.inviteMemberSuccess, type: "success" })
       },
     },
   )
@@ -155,7 +127,7 @@ export function InviteMemberDialog({
     )
   }
 
-  const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (
@@ -172,30 +144,13 @@ export function InviteMemberDialog({
     const invitationRoles = [...selectedRoles] as Parameters<
       typeof inviteMember
     >[0]["role"]
-    const selectedTeamId = teams.data?.some((team) => team.id === teamId) ? teamId : undefined
-
-    setIsSubmitting(true)
-    let invitationValues: Record<string, unknown>
-    try {
-      invitationValues = await parseAdditionalFieldValues(
-        invitationFields,
-        formData,
-      )
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
-      setIsSubmitting(false)
-      return
-    }
 
     inviteMember(
       {
-        ...invitationValues,
         email: invitationEmail,
         organizationId: activeOrganizationId,
         role: invitationRoles,
-        teamId: selectedTeamId,
       },
-      { onSettled: () => setIsSubmitting(false) },
     )
   }
 
@@ -287,51 +242,12 @@ export function InviteMemberDialog({
 
               <FieldError />
             </Field>
-
-            {teamsEnabled && (
-              <Field>
-                <FieldLabel htmlFor="invite-member-team">
-                  {organizationLocalization.team}
-                </FieldLabel>
-                <Select
-                  items={teamItems}
-                  value={teamId}
-                  onValueChange={(value) => setTeamId(value ?? "")}
-                  disabled={isInviting}
-                >
-                  <SelectTrigger id="invite-member-team" className="w-full">
-                    <SelectValue
-                      placeholder={organizationLocalization.selectTeam}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {teamItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
-
-            {invitationFields.map((field) => (
-              <AdditionalField
-                key={field.name}
-                field={field}
-                name={field.name}
-                isPending={isInviting || isSubmitting}
-                optionalLabel={localization.settings.optional}
-              />
-            ))}
           </div>
 
           <DialogFooter>
             <DialogClose
               className={buttonVariants({ variant: "outline" })}
-              disabled={isInviting || isSubmitting}
+              disabled={isInviting}
               type="button"
             >
               {localization.settings.cancel}
@@ -340,13 +256,12 @@ export function InviteMemberDialog({
             <Button
               type="submit"
               disabled={isInviting ||
-                isSubmitting ||
                 !isRoleValid ||
                 atInvitationLimit ||
                 canInvite.isPending ||
                 !canInvite.data?.success}
             >
-              {(isInviting || isSubmitting) && <Spinner />}
+              {isInviting && <Spinner />}
 
               {organizationLocalization.inviteMember}
             </Button>

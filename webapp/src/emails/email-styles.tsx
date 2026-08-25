@@ -1,27 +1,56 @@
 // Added with: deno task ui add @better-auth-ui/email-verification-email
-// Local changes: none.
-export const defaultColors = {
+// Local changes: Move into the email delivery domain, derive email-safe colors and typography from the app's semantic shadcn theme, accept explicit undefined values under strict optional typing, and keep style internals module-private.
+
+import { pixelBasedPreset } from "react-email"
+
+import { palette } from "../theme/brand.ts"
+
+const defaultColors = {
   light: {
-    background: "#F5F5F5",
-    border: "#E5E5E5",
-    card: "#FFFFFF",
-    cardForeground: "#0A0A0A",
-    foreground: "#262626",
-    muted: "#F5F5F5",
-    mutedForeground: "#737373",
-    primary: "#171717",
-    primaryForeground: "#FAFAFA",
+    background: palette.light.background.srgbHex,
+    border: palette.light.border.srgbHex,
+    card: palette.light.card.srgbHex,
+    cardForeground: palette.light.cardForeground.srgbHex,
+    foreground: palette.light.foreground.srgbHex,
+    muted: palette.light.muted.srgbHex,
+    mutedForeground: palette.light.mutedForeground.srgbHex,
+    primary: palette.light.primary.srgbHex,
+    primaryForeground: palette.light.primaryForeground.srgbHex,
   },
   dark: {
-    background: "#0A0A0A",
-    border: "#2E2E2E",
-    card: "#171717",
-    cardForeground: "#FAFAFA",
-    foreground: "#D4D4D4",
-    muted: "#212121",
-    mutedForeground: "#A1A1A1",
-    primary: "#E5E5E5",
-    primaryForeground: "#171717",
+    background: palette.dark.background.srgbHex,
+    border: palette.dark.border.srgbHex,
+    card: palette.dark.card.srgbHex,
+    cardForeground: palette.dark.cardForeground.srgbHex,
+    foreground: palette.dark.foreground.srgbHex,
+    muted: palette.dark.muted.srgbHex,
+    mutedForeground: palette.dark.mutedForeground.srgbHex,
+    primary: palette.dark.primary.srgbHex,
+    primaryForeground: palette.dark.primaryForeground.srgbHex,
+  },
+}
+
+/** Inline the light semantic theme for clients that strip media-query styles. */
+export const emailTailwindConfig = {
+  presets: [pixelBasedPreset],
+  theme: {
+    extend: {
+      colors: {
+        background: defaultColors.light.background,
+        border: defaultColors.light.border,
+        card: defaultColors.light.card,
+        "card-foreground": defaultColors.light.cardForeground,
+        foreground: defaultColors.light.foreground,
+        muted: defaultColors.light.muted,
+        "muted-foreground": defaultColors.light.mutedForeground,
+        primary: defaultColors.light.primary,
+        "primary-foreground": defaultColors.light.primaryForeground,
+      },
+      fontFamily: {
+        heading: ["Manrope", "Inter", "Arial", "sans-serif"],
+        sans: ["Inter", "Arial", "sans-serif"],
+      },
+    },
   },
 }
 
@@ -61,9 +90,9 @@ export type EmailColors = {
  */
 interface EmailStylesProps {
   /** Custom color scheme for light and dark modes */
-  colors?: EmailColors
+  colors?: EmailColors | undefined
   /** Whether to enable dark mode support */
-  darkMode?: boolean
+  darkMode?: boolean | undefined
 }
 
 /**
@@ -90,31 +119,34 @@ export const EmailStyles = ({ colors, darkMode = true }: EmailStylesProps) => {
   return (
     <style type="text/css">
       {`
-      .bg-background {
+      .email-bg-background {
         background-color: ${colors?.light?.background || defaultColors.light.background} !important;
       }
-      .bg-card {
+      .email-bg-card {
         background-color: ${colors?.light?.card || defaultColors.light.card} !important;
       }
-      .bg-primary {
+      .email-bg-primary {
         background-color: ${colors?.light?.primary || defaultColors.light.primary} !important;
       }
-      .bg-muted {
+      .email-bg-muted {
         background-color: ${colors?.light?.muted || defaultColors.light.muted} !important;
       }
-      .border-border {
+      .email-border-border {
         border-color: ${colors?.light?.border || defaultColors.light.border} !important;
       }
-      .text-card-foreground {
+      .email-text-card-foreground {
         color: ${colors?.light?.cardForeground || defaultColors.light.cardForeground} !important;
       }
-      .text-muted-foreground {
+      .email-text-foreground {
+        color: ${colors?.light?.foreground || defaultColors.light.foreground} !important;
+      }
+      .email-text-muted-foreground {
         color: ${colors?.light?.mutedForeground || defaultColors.light.mutedForeground} !important;
       }
-      .text-primary {
+      .email-text-primary {
         color: ${colors?.light?.primary || defaultColors.light.primary} !important;
       }
-      .text-primary-foreground {
+      .email-text-primary-foreground {
         color: ${
         colors?.light?.primaryForeground || defaultColors.light.primaryForeground
       } !important;
@@ -129,31 +161,34 @@ export const EmailStyles = ({ colors, darkMode = true }: EmailStylesProps) => {
       ${
         darkMode
           ? `@media (prefers-color-scheme: dark) {
-        .bg-background {
+        .email-bg-background {
           background-color: ${colors?.dark?.background || defaultColors.dark.background} !important;
         }
-        .bg-card {
+        .email-bg-card {
           background-color: ${colors?.dark?.card || defaultColors.dark.card} !important;
         }
-        .bg-primary {
+        .email-bg-primary {
           background-color: ${colors?.dark?.primary || defaultColors.dark.primary} !important;
         }
-        .bg-muted {
+        .email-bg-muted {
           background-color: ${colors?.dark?.muted || defaultColors.dark.muted} !important;
         }
-        .border-border {
+        .email-border-border {
           border-color: ${colors?.dark?.border || defaultColors.dark.border} !important;
         }
-        .text-card-foreground {
+        .email-text-card-foreground {
           color: ${colors?.dark?.cardForeground || defaultColors.dark.cardForeground} !important;
         }
-        .text-muted-foreground {
+        .email-text-foreground {
+          color: ${colors?.dark?.foreground || defaultColors.dark.foreground} !important;
+        }
+        .email-text-muted-foreground {
           color: ${colors?.dark?.mutedForeground || defaultColors.dark.mutedForeground} !important;
         }
-        .text-primary {
+        .email-text-primary {
           color: ${colors?.dark?.primary || defaultColors.dark.primary} !important;
         }
-        .text-primary-foreground {
+        .email-text-primary-foreground {
           color: ${
             colors?.dark?.primaryForeground || defaultColors.dark.primaryForeground
           } !important;
@@ -174,5 +209,3 @@ export const EmailStyles = ({ colors, darkMode = true }: EmailStylesProps) => {
     </style>
   )
 }
-
-export default EmailStyles

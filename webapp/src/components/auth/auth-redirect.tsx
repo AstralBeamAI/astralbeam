@@ -1,5 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Use browser-safe globals.
+
 "use client"
 
 import { getAuthRedirectAction } from "@better-auth-ui/core"
@@ -32,12 +33,12 @@ export function AuthRedirect({ className }: AuthRedirectProps) {
     hasRedirected.current = true
 
     const action = getAuthRedirectAction(
-      new URL(window.location.href),
+      new URL(globalThis.location.href),
       Boolean(session),
       `${basePaths.auth}/${viewPaths.auth.signIn}`,
     )
 
-    window.location.replace(action.to)
+    globalThis.location.replace(action.to)
   }, [basePaths.auth, isPending, session, viewPaths.auth.signIn])
 
   return <Spinner className={cn("mx-auto my-auto", className)} />

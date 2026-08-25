@@ -1,5 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Keep generated plugin implementation types module-private.
+
 import type { AuthPlugin as AuthPluginPrimitive, AuthPluginComponents } from "@better-auth-ui/react"
 
 declare module "@better-auth-ui/core" {
@@ -10,19 +11,19 @@ declare module "@better-auth-ui/core" {
 }
 
 /** Props the shadcn `<Auth>` router spreads onto plugin-contributed auth views. */
-export type AuthViewProps = {
+type AuthViewProps = {
   className?: string
   socialLayout?: "auto" | "horizontal" | "vertical" | "grid"
   socialPosition?: "top" | "bottom"
 }
 
 /** Props the shadcn `<Settings>` router spreads onto plugin-contributed settings views. */
-export type SettingsViewProps = {
+type SettingsViewProps = {
   className?: string
 }
 
-/** Shadcn plugin type. Plugin authors import this from `@/lib/auth/auth-plugin`. */
-export type AuthPlugin = AuthPluginPrimitive<
+/** Shadcn plugin type registered with Better Auth UI's module augmentation. */
+type AuthPlugin = AuthPluginPrimitive<
   AuthPluginComponents,
   AuthViewProps,
   SettingsViewProps

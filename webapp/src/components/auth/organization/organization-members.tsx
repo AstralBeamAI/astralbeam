@@ -1,5 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: none.
+// Local changes: Use Phosphor and a hover title for the icon-only filter action; omit disabled teams and support responsive controls/table and strict optional props.
+
+"use client"
+
 import {
   hasMemberRole,
   type OrganizationAuthClient,
@@ -12,7 +15,12 @@ import {
   useListOrganizationMembers,
 } from "@better-auth-ui/react/plugins/organization"
 import type { Member } from "better-auth/client"
-import { ChevronUp, Filter, Search, X } from "lucide-react"
+import {
+  CaretUpIcon as ChevronUp,
+  FunnelIcon as Filter,
+  MagnifyingGlassIcon as Search,
+  XIcon as X,
+} from "@phosphor-icons/react"
 import { type ComponentProps, type ReactNode, useEffect, useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -81,7 +89,6 @@ export function OrganizationMembers({
     membershipLimit,
     roles,
     creatorRole,
-    teams,
   } = useAuthPlugin(organizationPlugin)
 
   const { data: activeOrganization, isPending: activeOrganizationPending } = useActiveOrganization(
@@ -136,16 +143,8 @@ export function OrganizationMembers({
   const canInvite = useHasPermission(authClient, {
     permissions: { invitation: ["create"] },
   })
-  const canListMemberTeams = useHasPermission(authClient, {
-    organizationId: activeOrganization?.id,
-    permissions: { member: ["update"] },
-    enabled: teams && Boolean(activeOrganization?.id),
-  })
 
-  const isPending = activeOrganizationPending ||
-    membersPending ||
-    owners.isPending ||
-    (teams && canListMemberTeams.isPending)
+  const isPending = activeOrganizationPending || membersPending || owners.isPending
 
   const filteredMembers = useMemo(() => {
     // The server already applied the role filter when paging, and it has no
@@ -184,7 +183,6 @@ export function OrganizationMembers({
 
   const isOwner = hasMemberRole(activeMemberRole?.role, creatorRole)
   const ownerCount = owners.data?.total ?? owners.data?.members.length
-  const showTeams = teams && canListMemberTeams.data?.success === true
 
   const total = membersData?.total ?? membersData?.members.length ?? 0
 
@@ -232,13 +230,13 @@ export function OrganizationMembers({
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           {
             /* list-members has no search parameter, so a search box would
               only ever filter the page in front of you. */
           }
           {!paged && (
-            <InputGroup className="min-w-0 sm:w-[220px]">
+            <InputGroup className="w-full min-w-0 sm:w-[220px]">
               <InputGroupInput
                 type="search"
                 value={search}
@@ -256,7 +254,10 @@ export function OrganizationMembers({
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+              className={cn(
+                buttonVariants({ size: "sm", variant: "outline" }),
+                "w-full justify-start sm:w-auto",
+              )}
               disabled={isPending}
             >
               <Filter />
@@ -291,6 +292,7 @@ export function OrganizationMembers({
             </span>
             <Button
               aria-label={organizationLocalization.clear}
+              title={organizationLocalization.clear}
               className="size-4 rounded-sm text-muted-foreground"
               onClick={() => setRoleFilter("all")}
               size="icon-xs"
@@ -302,7 +304,7 @@ export function OrganizationMembers({
           </Badge>
         )}
 
-        <Card className="p-0">
+        <Card className="overflow-x-auto p-0">
           <Table aria-label={organizationLocalization.members}>
             <TableHeader>
               <TableRow>
@@ -332,8 +334,6 @@ export function OrganizationMembers({
                   {organizationLocalization.role}
                 </SortableTableHead>
 
-                {showTeams && <TableHead>{organizationLocalization.teams}</TableHead>}
-
                 <TableHead className="text-end">
                   {organizationLocalization.actions}
                 </TableHead>
@@ -341,7 +341,7 @@ export function OrganizationMembers({
             </TableHeader>
 
             <TableBody>
-              {isPending ? <OrganizationMemberRowSkeleton showTeams={showTeams} /> : (
+              {isPending ? <OrganizationMemberRowSkeleton /> : (
                 !!activeOrganization &&
                 sortedMembers?.map((member) => (
                   <OrganizationMemberRow
@@ -350,7 +350,6 @@ export function OrganizationMembers({
                     isOwner={isOwner}
                     ownerCount={ownerCount}
                     organization={activeOrganization}
-                    showTeams={showTeams}
                   />
                 ))
               )}
@@ -359,7 +358,7 @@ export function OrganizationMembers({
         </Card>
 
         {paged && total > 0 && (
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-muted-foreground text-sm tabular-nums">
               {organizationLocalization.paginationRange
                 .replace("{{from}}", String(pageStart + 1))
@@ -367,10 +366,11 @@ export function OrganizationMembers({
                 .replace("{{total}}", String(total))}
             </p>
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex">
               <Button
                 size="sm"
                 variant="outline"
+                className="w-full sm:w-auto"
                 disabled={isPending || page === 0}
                 onClick={() => setPage((current) => Math.max(0, current - 1))}
               >
@@ -380,6 +380,7 @@ export function OrganizationMembers({
               <Button
                 size="sm"
                 variant="outline"
+                className="w-full sm:w-auto"
                 disabled={isPending || !hasNextPage}
                 onClick={() => setPage((current) => current + 1)}
               >
@@ -403,7 +404,7 @@ function SortableTableHead({
   onClick,
 }: {
   children: ReactNode
-  sortDirection?: SortDirection
+  sortDirection?: SortDirection | undefined
   onClick: () => void
 }) {
   return (
