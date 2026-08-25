@@ -6,12 +6,14 @@
   - all the application code lives in `src/`
   - custom scripts are placed in `scripts/`, and invoked using `package.json` commands
 
-- `src/components/ui` contains shadcn-ui components and should never be edited/linted/formatted
-  - New components should only be added using `deno x shadcn@latest <component>`
+- `src/components/ui` contains registry-generated shadcn UI components and remains excluded from formatting; make only intentional integration edits and record every divergence in the file's provenance header.
+  - Add new components only with `deno task ui add <component>`.
+  - Better Auth UI registry output under `src/components/auth`, `src/lib/auth`, and `src/emails` follows the same provenance rule: record the top-level `deno task ui add` command and every intentional local change.
   - Let Knip delete unreachable registry files, while suppressing only generated export-level noise.
 - `src/components` contains other common components used throught the application
   - build components using the proper shadcn-ui primitives, instead of raw HTML elements
   - always use icons from the configured icon library in `components.json`
+  - Every icon-only interactive control needs an accessible name and a hover explanation; pair `aria-label` with `title` unless the interaction specifically needs richer shadcn Tooltip content.
 
 - `src/routes` contains routes, as expected by TanStack Router:
   - Prefer `routes/my/route/path/index.ts/tsx` to `route/my/route/path.ts/tsx` in general for better code organization
@@ -33,7 +35,7 @@
       - one server function per file, with proper middleware & authorization check
       - use the proper HTTTP method (GET or POST or DELETE) depending on what the server function does
       - name `update-xyz-data` for the function `updateXYZData` normal export (not default)
-      - validate server functions using `.validator` (typically a zod schema, but can be plain text)
+      - validate server functions using `.validator` with an Effect schema exposed through `Schema.toStandardSchemaV1`; do not introduce Zod
     - `-lib`: Contains helper functions `utils.ts`, database queries `db.ts` specific to the route
       - Don't create separate files for utiliies, put them in `utils.ts` and `utils.server.ts`
       - Always put constants in a `constants.ts` or `constants.server.ts` files
@@ -53,6 +55,9 @@
   - `schema.server.ts` contains the drizzle schema
   - Keep domain schema definitions in responsibility-named `src/db/schema/*.server.ts` files and re-export every table and relation Drizzle Kit must discover from `schema.server.ts`.
   - Define tables with `snakeCase.table` and camel-case TypeScript keys so Drizzle derives lower snake-case SQL column names.
+  - Every organization-owned table must have a non-null `organizationId`, include it in its primary key as the leading shard-key column, and reference the canonical organization table (`organization` today). Propagate the full organization-scoped key through foreign keys and unique constraints; do not create cross-organization references or uniqueness rules that omit the shard key.
+  - A tenant belongs to an organization, so define its key as `(organizationId, id)`. Every tenant-owned table must include both `organizationId` and `tenantId` as the leading primary-key columns and use a composite `(organizationId, tenantId)` foreign key to the tenant key; propagate both columns through deeper tenant-scoped foreign keys and unique constraints.
+  - Treat third-party-managed tables as subject to the same shard-key rules. Better Auth's existing `member` and `invitation` tables are approved global control-plane exceptions because its supported APIs and adapter perform ID-only lookups; keep their `organizationId` foreign keys and upstream-compatible single-column primary keys. Document any other incompatibility and obtain explicit architectural approval before adding another exception.
   - Both audit columns use `DEFAULT now()`; Drizzle's `updatedAt` `$onUpdateFn` hook returns PostgreSQL `now()` but does not create a database trigger, so non-Drizzle updates must set `updated_at` explicitly.
   - Preserve required extension DDL such as `CREATE EXTENSION IF NOT EXISTS citext` when regenerating an unmerged migration.
   - `migrations` contains the drizzle migrations
@@ -60,11 +65,11 @@
 - `src/lib` contains application-wide shared code like:
   - `utils.ts`: utility functions
   - `utils.server.ts`: server-only utilities
-  - `config.server.ts`: server-side environment variables (from process.env using `ensureServerEnv`) - always read them from this file
+  - `config.server.ts`: server-side environment variables validated from `process.env` with Effect Schema; always read them from this file, and never include parsed values in configuration errors
     - can also contain some global constants
   - `config.ts`: constants and environment variables readable from both server and client
   - `types.ts`: common types used across the application
-  - `auth.ts` contains the better-auth setup for authentication
+  - `auth.server.ts` contains the server-only Better Auth setup for authentication
   - avoid creating new files in `src/lib`, use new code goes into one of the above files or into a module-specific `-lib` folder.
 
 - `src/emails` contains emails powered by react-email
@@ -73,6 +78,13 @@
   - `provider`, `from`, and `replyTo` default to `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS`, and the resolved `from`
   - Templates cannot resolve relative paths, so build absolute URLs from `APP_BASE_URL`; attachment `path` is a URL, a `data:` URI, or bare base64
   - Preview with `deno task email`, which runs a server as configured in `scripts/preview-emails.ts`
+
+- Authentication uses Better Auth with verified email/password, Google, GitHub, and Organizations. Keep username, passwordless, OTP, magic-link, change-email, account deletion, organization deletion, teams, and dynamic roles disabled unless product scope changes.
+  - Use `user` only for the global authenticated identity, `account` for a credential or OAuth connection, `organization` for the SaaS boundary, and `member` for a user's relationship to an organization. Name organization-management routes, files, navigation, and visible copy “Members”; do not use “People” or “Workspace” as synonyms.
+  - Keep `termsAcceptedAt` server-owned. Require explicit legal acceptance for credential and OAuth signup, disable implicit OAuth signup, and accept provider identities or invitations only after verified-email checks.
+  - Keep OAuth tokens encrypted, account linking restricted to matching verified emails, unlinking the final sign-in method disabled, session cookie caching disabled, and rate limits in the database.
+  - Keep `tanstackStartCookies()` last in the server plugin list. Route guards are navigation UX; every Better Auth API or server function must independently enforce its session, fresh-session, organization, and role requirements.
+  - Keep invitation delivery on the official Better Auth organization flow and expose only owner/admin/member operations supported by the configured plugin.
 
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
 

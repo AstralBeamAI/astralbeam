@@ -72,6 +72,12 @@ deno task dev
 
 Rebuild the SDK and reload the page after changing SDK sources. The public website is separate: `cd www && deno task dev` starts it on http://localhost:3001.
 
+## Authentication
+
+The product application uses Better Auth for verified email/password accounts and Google or GitHub OAuth, requires legal acceptance before signup, and uses organizations as its SaaS membership boundary. Follow the [authentication and transactional-email setup](SETUP.md#authentication-and-transactional-email) before testing account creation locally.
+
+The Webapp owns authentication configuration, authorization boundaries, account UI, transactional auth email, and the Drizzle auth schema. Route guards control navigation, while Better Auth APIs and server-only functions enforce session and organization authorization.
+
 ## Licensing
 
 Portions of this repository are licensed as follows:

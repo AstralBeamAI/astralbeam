@@ -1,0 +1,89 @@
+// Added with: deno task ui add @better-auth-ui/settings
+// Local changes: remove username-plugin fields, use Phosphor icons, and prefer SSO photos with a Gravatar fallback.
+
+import { useAuth, useSession } from "@better-auth-ui/react"
+import type { User } from "better-auth"
+import { UserIcon as User2 } from "@phosphor-icons/react"
+import { type ReactNode, useEffect, useState } from "react"
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getGravatarAvatarUrl } from "@/lib/gravatar"
+import { cn } from "@/lib/utils"
+
+export type UserAvatarProps = {
+  className?: string
+  fallback?: ReactNode
+  isPending?: boolean
+  /** @remarks `User` */
+  user?: Partial<User> | undefined
+}
+
+/**
+ * Display a user's avatar using session information or an explicit user prop.
+ *
+ * Renders a circular avatar that shows the user's image when available, a fallback node if provided, or the user's first two initials; while the session is loading (or when `isPending` is true) and no `user` prop is supplied, renders a skeleton placeholder.
+ *
+ * @param className - Additional CSS classes applied to the avatar container
+ * @param user - Optional user object to display instead of the session user
+ * @param isPending - When true, treat the component as loading and show the skeleton if no `user` is provided
+ * @param fallback - Node to render inside the avatar fallback area before initials or the default icon
+ * @returns The avatar element to render (JSX)
+ */
+export function UserAvatar({
+  className,
+  user,
+  isPending,
+  fallback,
+}: UserAvatarProps) {
+  const { authClient } = useAuth()
+  const { data: session, isPending: sessionPending } = useSession(authClient, {
+    enabled: !user && !isPending,
+  })
+  const resolvedUser = user ?? session?.user
+  const [gravatarImage, setGravatarImage] = useState<string>()
+
+  useEffect(() => {
+    let active = true
+    setGravatarImage(undefined)
+
+    if (resolvedUser?.image || !resolvedUser?.email) return
+
+    void getGravatarAvatarUrl(resolvedUser.email).then((url) => {
+      if (active) setGravatarImage(url)
+    }).catch(() => {
+      // Initials remain available when the browser cannot create the fallback URL.
+    })
+
+    return () => {
+      active = false
+    }
+  }, [resolvedUser?.email, resolvedUser?.image])
+
+  if ((isPending || sessionPending) && !user) {
+    return <Skeleton className={cn("size-8 rounded-full", className)} />
+  }
+
+  const initials = (resolvedUser?.name || resolvedUser?.email)
+    ?.slice(0, 2)
+    .toUpperCase()
+
+  return (
+    <Avatar
+      className={cn(
+        "size-8 bg-muted text-foreground text-sm rounded-full",
+        className,
+      )}
+    >
+      <AvatarImage
+        src={resolvedUser?.image ?? gravatarImage}
+        alt={resolvedUser?.name || resolvedUser?.email}
+        referrerPolicy="no-referrer"
+      />
+
+      <AvatarFallback className="text-muted-foreground!">
+        {fallback || initials || <User2 className="size-4" />}
+      </AvatarFallback>
+    </Avatar>
+  )
+}

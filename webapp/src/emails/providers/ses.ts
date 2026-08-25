@@ -7,12 +7,11 @@ let client: SESv2Client | undefined
 
 function getClient(): SESv2Client {
   if (!client) {
-    const { region, accessKeyId, secretAccessKey } = requireSesConfig()
+    const { region } = requireSesConfig()
     client = new SESv2Client({
       region,
-      // Omitting `credentials` falls through to the SDK's default credential chain (instance role,
-      // SSO, profile). https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html
-      ...accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {},
+      // The default chain supports roles, SSO/profiles, and temporary environment credentials.
+      // https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html
     })
   }
   return client

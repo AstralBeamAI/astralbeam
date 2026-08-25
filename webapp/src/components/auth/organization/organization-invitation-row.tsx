@@ -1,0 +1,149 @@
+// Added with: deno task ui add @better-auth-ui/organization
+// Local changes: use Phosphor/Base Toast, semantic shadcn status colors, and hover titles for icon-only actions; retain resend/cancel with static roles and omit invitation model fields.
+
+"use client"
+
+import {
+  memberRoleLabels,
+  type OrganizationAuthClient,
+} from "@better-auth-ui/core/plugins/organization"
+import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
+import {
+  useCancelInvitation,
+  useHasPermission,
+  useInviteMember,
+} from "@better-auth-ui/react/plugins/organization"
+import type { Invitation } from "better-auth/client"
+import { PaperPlaneTiltIcon as Send, XIcon as X } from "@phosphor-icons/react"
+import { toast } from "@/components/ui/toast"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import { TableCell, TableRow } from "@/components/ui/table"
+import { organizationPlugin } from "@/lib/auth/organization-plugin"
+import { cn } from "@/lib/utils"
+import { OrganizationInvitationRowSkeleton } from "./organization-invitation-row-skeleton"
+
+export type OrganizationInvitationRowProps = {
+  invitation: Invitation
+}
+
+const statusBadgeClasses: Record<string, string> = {
+  pending: "bg-warning/10 text-warning",
+  accepted: "bg-primary/10 text-primary",
+  rejected: "bg-destructive/10 text-destructive",
+  canceled: "bg-muted text-muted-foreground",
+}
+
+export function OrganizationInvitationRow({
+  invitation,
+}: OrganizationInvitationRowProps) {
+  const { authClient } = useAuth<OrganizationAuthClient>()
+  const {
+    localization: organizationLocalization,
+    roles,
+  } = useAuthPlugin(organizationPlugin)
+
+  const {
+    data: cancelInvitationPermission,
+    isPending: cancelPermissionPending,
+  } = useHasPermission(authClient, {
+    permissions: { invitation: ["cancel"] },
+  })
+
+  const { mutate: cancelInvitation, isPending: cancelPending } = useCancelInvitation(authClient)
+
+  const { data: inviteMemberPermission, isPending: invitePermissionPending } = useHasPermission(
+    authClient,
+    {
+      permissions: { invitation: ["create"] },
+    },
+  )
+
+  // Better Auth treats a re-invite as a resend: it extends the existing
+  // invitation's expiry and sends the email again rather than creating a
+  // second row.
+  const { mutate: resendInvitation, isPending: resendPending } = useInviteMember(authClient, {
+    onSuccess: () =>
+      toast.add({ title: organizationLocalization.invitationResent, type: "success" }),
+  })
+
+  const roleLabel = memberRoleLabels(invitation.role, roles).join(", ")
+
+  const statusLabel = organizationLocalization[
+    invitation.status as keyof typeof organizationLocalization
+  ] ?? invitation.status
+
+  if (cancelPermissionPending || invitePermissionPending) {
+    return <OrganizationInvitationRowSkeleton />
+  }
+
+  const isPending = invitation.status === "pending"
+
+  return (
+    <TableRow>
+      <TableCell>
+        <span className="font-medium text-sm">{invitation.email}</span>
+      </TableCell>
+
+      <TableCell className="text-muted-foreground text-xs tabular-nums whitespace-nowrap">
+        {new Date(invitation.createdAt).toLocaleString(undefined, {
+          dateStyle: "short",
+          timeStyle: "short",
+        })}
+      </TableCell>
+
+      <TableCell className="text-sm">{roleLabel}</TableCell>
+
+      <TableCell className="text-sm">
+        <Badge
+          variant="secondary"
+          className={cn(statusBadgeClasses[invitation.status])}
+        >
+          {String(statusLabel)}
+        </Badge>
+      </TableCell>
+
+      <TableCell className="text-end">
+        <div className="flex justify-end gap-2">
+          {inviteMemberPermission?.success && isPending && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="size-8"
+              disabled={resendPending}
+              onClick={() =>
+                resendInvitation({
+                  email: invitation.email,
+                  organizationId: invitation.organizationId,
+                  role: invitation.role as Parameters<
+                    typeof resendInvitation
+                  >[0]["role"],
+                  resend: true,
+                })}
+              aria-label={organizationLocalization.resendInvitation}
+              title={organizationLocalization.resendInvitation}
+            >
+              {resendPending ? <Spinner /> : <Send />}
+            </Button>
+          )}
+
+          {cancelInvitationPermission?.success && isPending && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="size-8 text-destructive"
+              disabled={cancelPending}
+              onClick={() => cancelInvitation({ invitationId: invitation.id })}
+              aria-label={organizationLocalization.cancelInvitation}
+              title={organizationLocalization.cancelInvitation}
+            >
+              {cancelPending ? <Spinner /> : <X />}
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}

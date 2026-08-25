@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer"
-import { render } from "react-email"
+import { render, toPlainText } from "@react-email/render"
 import { EMAIL_FROM_ADDRESS, EMAIL_PROVIDER } from "../lib/config.server.ts"
 import type {
   EmailAttachment,
@@ -65,7 +65,7 @@ export async function buildProviderEmailInput(
     )
   }
 
-  const text = options.text ?? (react ? await render(react, { plainText: true }) : undefined)
+  const text = options.text ?? (react ? toPlainText(html) : undefined)
   const replyTo = toArray(options.replyTo)
 
   return {
