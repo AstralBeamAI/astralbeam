@@ -4,10 +4,10 @@ import {
   mergeAgentTools,
   toServerSentEventsResponse,
 } from "@tanstack/ai"
-import { openaiText } from "@tanstack/ai-openai"
+import { createOpenaiChat } from "@tanstack/ai-openai"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { CHAT_AUTH_SECRET } from "@/lib/config.server"
+import { getConfig, setupGateResponse } from "@/lib/config.server"
 import {
   authenticateChatRequest,
   isChatAuthenticationConfigurationError,
@@ -28,12 +28,15 @@ export const Route = createFileRoute("/api/chat/")({
     handlers: {
       OPTIONS: ({ request }) => new Response(null, { status: 204, headers: corsHeaders(request) }),
       POST: async ({ request }) => {
+        const gate = await setupGateResponse()
+        if (gate) return gate
         if (isRateLimited(request)) {
           return errorResponse(request, 429, "Too many chat requests; try again in a minute.")
         }
+        const { chatAuthSecret, openaiApiKey } = await getConfig()
         let principal
         try {
-          principal = await authenticateChatRequest(request, CHAT_AUTH_SECRET)
+          principal = await authenticateChatRequest(request, chatAuthSecret ?? undefined)
         } catch (error) {
           if (isChatAuthenticationConfigurationError(error)) {
             console.error("Authenticated /api/chat request rejected: verifier is not configured")
@@ -77,9 +80,12 @@ export const Route = createFileRoute("/api/chat/")({
             log("request", "conversation messages", params.messages)
             log("request", `client-declared tools (${params.tools.length})`, params.tools)
           }
+          if (!openaiApiKey) {
+            return errorResponse(request, 503, "Chat is not configured.")
+          }
           const abortController = new AbortController()
           const stream = chat({
-            adapter: openaiText("gpt-5.6-terra"),
+            adapter: createOpenaiChat("gpt-5.6-terra", openaiApiKey),
             messages: stripToolCallMetadata(params.messages),
             systemPrompts: [
               BASE_SYSTEM_PROMPT,
@@ -106,8 +112,8 @@ export const Route = createFileRoute("/api/chat/")({
           }
           return response
         } catch (error) {
-          // Most likely a missing OPENAI_API_KEY; the message is deliberately forwarded while the
-          // endpoint is a development tool, so integrators can diagnose setup from the widget side.
+          // The message is deliberately forwarded while the endpoint is a development tool, so
+          // integrators can diagnose setup from the widget side.
           console.error("Failed to start /api/chat run:", error)
           return errorResponse(
             request,

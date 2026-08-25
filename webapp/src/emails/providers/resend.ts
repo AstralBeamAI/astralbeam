@@ -3,15 +3,17 @@ import { Resend } from "resend"
 import { requireResendConfig } from "../../lib/config.server.ts"
 import type { SendProviderEmail } from "../types.ts"
 
-let client: Resend | undefined
+// Keyed on the API key so rotating it at /configure rebuilds the client.
+let cachedClient: { apiKey: string; client: Resend } | undefined
 
-function getClient(): Resend {
-  if (!client) client = new Resend(requireResendConfig().apiKey)
-  return client
+async function getClient(): Promise<Resend> {
+  const { apiKey } = await requireResendConfig()
+  if (cachedClient?.apiKey !== apiKey) cachedClient = { apiKey, client: new Resend(apiKey) }
+  return cachedClient.client
 }
 
 export const sendProviderEmail: SendProviderEmail = async (input) => {
-  const { data, error } = await getClient().emails.send({
+  const { data, error } = await (await getClient()).emails.send({
     from: input.from,
     to: input.to,
     subject: input.subject,

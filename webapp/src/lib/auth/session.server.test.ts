@@ -30,13 +30,14 @@ vi.mock("@tanstack/react-start/server", () => ({
 }))
 
 vi.mock("@/lib/auth.server", () => ({
-  auth: {
-    api: {
-      getSession: mocks.getSession,
-      listOrganizations: mocks.listOrganizations,
-      setActiveOrganization: mocks.setActiveOrganization,
-    },
-  },
+  getAuth: () =>
+    Promise.resolve({
+      api: {
+        getSession: mocks.getSession,
+        listOrganizations: mocks.listOrganizations,
+        setActiveOrganization: mocks.setActiveOrganization,
+      },
+    }),
 }))
 
 import { getSessionAccessDecisionForRequest } from "@/lib/auth/session.server"

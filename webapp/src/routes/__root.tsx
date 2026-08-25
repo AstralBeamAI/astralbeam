@@ -25,7 +25,10 @@ import {
   APP_LOGO_LIGHT_PNG_URL,
   APP_LOGO_LIGHT_SVG_URL,
   APP_NAME,
+  DEFAULT_PUBLIC_CONFIG,
+  getPublicConfig,
   INERT_REDIRECT_ORIGIN,
+  PublicConfigContext,
 } from "@/lib/config"
 import appCss from "@/styles.css?url"
 
@@ -42,10 +45,23 @@ const devtoolsPlugins = [
 
 const getRedirectOrigin = createIsomorphicFn()
   .server(async () => {
-    const { APP_BASE_URL } = await import("@/lib/config.server")
-    return APP_BASE_URL
+    const [{ getConfig }, { getRequest }] = await Promise.all([
+      import("@/lib/config.server"),
+      import("@tanstack/react-start/server"),
+    ])
+    const { appBaseUrl } = await getConfig()
+    // Requests can carry redirectTo before setup configures the base URL; fall back to the request origin.
+    return appBaseUrl ?? new URL(getRequest().url).origin
   })
   .client(() => globalThis.location.origin)
+
+const getSetupComplete = createIsomorphicFn()
+  .server(async () => {
+    const { getConfig } = await import("@/lib/config.server")
+    return (await getConfig()).setupComplete
+  })
+  // The server gates every document request; client-side navigation within a served app is safe.
+  .client(() => true)
 
 function isAppTheme(theme: string): theme is AppTheme {
   return APP_THEMES.some((appTheme) => appTheme === theme)
@@ -55,6 +71,14 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   beforeLoad: async ({ location }) => {
+    // Until the operator completes setup at /configure, every other page redirects there.
+    if (
+      !location.pathname.startsWith("/configure") &&
+      !(await getSetupComplete())
+    ) {
+      throw redirect({ to: "/configure", replace: true })
+    }
+
     // Better Auth UI v1.7.12 rereads this query value in the browser, so canonicalize it before its provider renders. https://github.com/better-auth-ui/better-auth-ui/blob/v1.7.12/packages/react/src/components/auth/auth-provider.tsx
     const searchParams = new URLSearchParams(location.searchStr)
     const rawRedirectTo = searchParams.get("redirectTo")
@@ -81,6 +105,7 @@ export const Route = createRootRouteWithContext<{
       replace: true,
     })
   },
+  loader: () => getPublicConfig(),
   head: () => ({
     meta: [
       {
@@ -134,6 +159,7 @@ export const Route = createRootRouteWithContext<{
 
 function AppProviders({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
+  const publicConfig = Route.useLoaderData() ?? DEFAULT_PUBLIC_CONFIG
   const { setTheme, theme } = useTheme()
   const setAppTheme = useCallback(
     (nextTheme: string) => {
@@ -153,39 +179,41 @@ function AppProviders({ children }: { children: ReactNode }) {
   )
 
   return (
-    <AuthProvider
-      authClient={authClient}
-      redirectTo={redirectTo}
-      socialProviders={["google", "github"]}
-      emailAndPassword={{
-        enabled: true,
-        confirmPassword: true,
-        forgotPassword: true,
-        maxPasswordLength: 128,
-        minPasswordLength: 12,
-        requireEmailVerification: true,
-        strengthMeter: true,
-      }}
-      localization={{
-        auth: {
-          callbackAccountLinkConflictTitle: "This provider is linked to another account",
-          callbackAccountLinkConflictDescription:
-            "Sign in to the account that owns this provider, add another sign-in method if needed, unlink it in Security, then return and link it here.",
-        },
-      }}
-      multipleAccountsPerProvider={false}
-      navigate={navigate}
-      plugins={[
-        themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
-        organizationPlugin({
-          localization: { people: "Members" },
-          viewPaths: { organization: { people: "members" } },
-        }),
-      ]}
-      Link={({ href, ...props }) => <Link {...props} to={href} />}
-    >
-      {children}
-    </AuthProvider>
+    <PublicConfigContext.Provider value={publicConfig}>
+      <AuthProvider
+        authClient={authClient}
+        redirectTo={redirectTo}
+        socialProviders={publicConfig.enabledSocialProviders}
+        emailAndPassword={{
+          enabled: true,
+          confirmPassword: true,
+          forgotPassword: true,
+          maxPasswordLength: 128,
+          minPasswordLength: 12,
+          requireEmailVerification: true,
+          strengthMeter: true,
+        }}
+        localization={{
+          auth: {
+            callbackAccountLinkConflictTitle: "This provider is linked to another account",
+            callbackAccountLinkConflictDescription:
+              "Sign in to the account that owns this provider, add another sign-in method if needed, unlink it in Security, then return and link it here.",
+          },
+        }}
+        multipleAccountsPerProvider={false}
+        navigate={navigate}
+        plugins={[
+          themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
+          organizationPlugin({
+            localization: { people: "Members" },
+            viewPaths: { organization: { people: "members" } },
+          }),
+        ]}
+        Link={({ href, ...props }) => <Link {...props} to={href} />}
+      >
+        {children}
+      </AuthProvider>
+    </PublicConfigContext.Provider>
   )
 }
 

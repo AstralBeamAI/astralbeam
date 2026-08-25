@@ -13,6 +13,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedOrganizationRouteRouteImport } from './routes/_authenticated/_organization/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
+import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
 import { Route as AuthenticatedOrganizationIndexRouteImport } from './routes/_authenticated/_organization/index'
 import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
@@ -41,6 +42,11 @@ const AuthenticatedSettingsRouteRoute =
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigureIndexRoute = ConfigureIndexRouteImport.update({
+  id: '/configure/',
+  path: '/configure/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authenticationAuthPathRoute = authenticationAuthPathRouteImport.update({
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedOrganizationIndexRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/configure/': typeof ConfigureIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/onboarding/': typeof AuthenticatedOnboardingIndexRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedOrganizationIndexRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/configure': typeof ConfigureIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/onboarding': typeof AuthenticatedOnboardingIndexRoute
@@ -127,6 +135,7 @@ export interface FileRoutesById {
   '/_authenticated/_organization': typeof AuthenticatedOrganizationRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/configure/': typeof ConfigureIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authenticated/_organization/': typeof AuthenticatedOrganizationIndexRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/'
     | '/settings'
     | '/api/status'
+    | '/configure/'
     | '/auth/$path'
     | '/api/auth/$'
     | '/onboarding/'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/'
     | '/settings'
     | '/api/status'
+    | '/configure'
     | '/auth/$path'
     | '/api/auth/$'
     | '/onboarding'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_organization'
     | '/_authenticated/settings'
     | '/api/status'
+    | '/configure/'
     | '/(authentication)/auth/$path'
     | '/api/auth/$'
     | '/_authenticated/_organization/'
@@ -184,6 +196,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   ApiStatusRoute: typeof ApiStatusRoute
+  ConfigureIndexRoute: typeof ConfigureIndexRoute
   authenticationAuthPathRoute: typeof authenticationAuthPathRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatIndexRoute: typeof ApiChatIndexRoute
@@ -217,6 +230,13 @@ declare module '@tanstack/react-router' {
       path: '/api/status'
       fullPath: '/api/status'
       preLoaderRoute: typeof ApiStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configure/': {
+      id: '/configure/'
+      path: '/configure'
+      fullPath: '/configure/'
+      preLoaderRoute: typeof ConfigureIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(authentication)/auth/$path': {
@@ -342,6 +362,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   ApiStatusRoute: ApiStatusRoute,
+  ConfigureIndexRoute: ConfigureIndexRoute,
   authenticationAuthPathRoute: authenticationAuthPathRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatIndexRoute: ApiChatIndexRoute,
