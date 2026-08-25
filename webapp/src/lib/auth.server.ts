@@ -23,6 +23,8 @@ import {
   assertLegalAcceptance,
   recordValue,
 } from "@/lib/auth/legal.server"
+import { organizationRoles } from "@/lib/auth/organization-access"
+import { organizationRoleHooks } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 
 const AUTH_EMAIL_EXPIRY_SECONDS = 60 * 60
@@ -218,6 +220,8 @@ function buildAuth(snapshot: ConfigSnapshot) {
         paths: ["/sign-up/email", "/change-password", "/reset-password"],
       }),
       organization({
+        roles: organizationRoles,
+        organizationHooks: organizationRoleHooks,
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,

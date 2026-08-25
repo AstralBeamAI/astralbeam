@@ -52,7 +52,7 @@ export function OrganizationOnboarding({
         <InfoIcon aria-hidden="true" />
         <AlertTitle>Don&apos;t see your organization?</AlertTitle>
         <AlertDescription>
-          Ask its administrator to invite{" "}
+          Ask its owner to invite{" "}
           <strong className="break-all">{email}</strong>, the exact email address you use with email
           and password, Google, or GitHub.
         </AlertDescription>
