@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Add the legal gate for email/OAuth signup, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured CAPTCHA/plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants.
+// Local changes: Add the legal gate for email/OAuth signup, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured CAPTCHA/plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants.
 
 "use client"
 
@@ -142,7 +142,7 @@ export function SignUp({
     confirmPassword?: string | undefined
   }>({})
 
-  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
+  const submitSignUp = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!termsAccepted) {
@@ -209,7 +209,7 @@ export function SignUp({
           )}
 
           {emailAndPassword?.enabled && (
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={submitSignUp}>
               <FieldGroup>
                 {emailAndPassword.name !== false && (
                   <Field data-invalid={!!fieldErrors.name}>

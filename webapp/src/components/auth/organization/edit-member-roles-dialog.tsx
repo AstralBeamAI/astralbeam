@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor icons and Base UI Toast with the app's static owner/admin/member roles.
+// Local changes: Use Phosphor icons, Base UI Toast, and domain-specific function names with the app's static owner/admin/member roles.
 
 "use client"
 
@@ -62,7 +62,7 @@ export function EditMemberRolesDialog({
     if (open) setSelectedRoles(parseMemberRoles(member.role))
   }, [member.role, open])
 
-  const toggleRole = (role: string, checked: boolean) => {
+  const toggleMemberRole = (role: string, checked: boolean) => {
     setSelectedRoles((current) =>
       checked
         ? current.includes(role) ? current : [...current, role]
@@ -116,7 +116,7 @@ export function EditMemberRolesDialog({
                       checked={checked}
                       disabled={disabled}
                       id={id}
-                      onCheckedChange={(next) => toggleRole(role, next === true)}
+                      onCheckedChange={(next) => toggleMemberRole(role, next === true)}
                     />
                   </Field>
                 </FieldLabel>

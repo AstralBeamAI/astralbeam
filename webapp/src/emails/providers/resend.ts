@@ -3,7 +3,7 @@ import { Resend } from "resend"
 import { requireResendConfig } from "../../lib/config.server.ts"
 import type { SendProviderEmail } from "../types.ts"
 
-export const sendProviderEmail: SendProviderEmail = async (input) => {
+export const sendResendEmail: SendProviderEmail = async (input) => {
   // The constructor only stores the key and sends over global fetch, so there is nothing to reuse.
   const { apiKey } = await requireResendConfig()
   const { data, error } = await new Resend(apiKey).emails.send({

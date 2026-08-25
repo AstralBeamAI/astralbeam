@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use Phosphor icons/browser-safe globals; remove unconfigured passkey, last-login, two-factor, CAPTCHA, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
+// Local changes: Use Phosphor icons, browser-safe globals, and domain-specific function names; remove unconfigured passkey, last-login, two-factor, CAPTCHA, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
 
 "use client"
 
@@ -112,7 +112,7 @@ export function SignIn({
 
   const providerButtonsProps = socialLayout === undefined ? {} : { socialLayout }
 
-  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
+  const submitSignIn = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     const formData = new FormData(e.currentTarget)
@@ -155,7 +155,7 @@ export function SignIn({
           )}
 
           {emailAndPassword?.enabled && (
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={submitSignIn}>
               <FieldGroup>
                 <Field data-invalid={!!fieldErrors.email}>
                   <FieldLabel htmlFor="email">

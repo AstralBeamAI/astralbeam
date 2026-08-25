@@ -1,4 +1,4 @@
-import { RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS } from "./constants.server"
+import { CHAT_RATE_LIMIT_MAX_REQUESTS, CHAT_RATE_LIMIT_WINDOW_MS } from "./constants.server"
 import type { ChatMessages } from "./types"
 
 // The SDK chat widget embeds on host origins the webapp does not serve, so the endpoint must
@@ -25,15 +25,15 @@ export function isRateLimited(request: Request): boolean {
   const client = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local"
   const now = Date.now()
   const window = requestWindows.get(client)
-  if (!window || now - window.windowStart >= RATE_LIMIT_WINDOW_MS) {
+  if (!window || now - window.windowStart >= CHAT_RATE_LIMIT_WINDOW_MS) {
     for (const [key, value] of requestWindows) {
-      if (now - value.windowStart >= RATE_LIMIT_WINDOW_MS) requestWindows.delete(key)
+      if (now - value.windowStart >= CHAT_RATE_LIMIT_WINDOW_MS) requestWindows.delete(key)
     }
     requestWindows.set(client, { windowStart: now, count: 1 })
     return false
   }
   window.count += 1
-  return window.count > RATE_LIMIT_MAX_REQUESTS
+  return window.count > CHAT_RATE_LIMIT_MAX_REQUESTS
 }
 
 // The OpenAI adapter replays a completed tool call's Responses item id (metadata.itemId)

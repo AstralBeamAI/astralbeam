@@ -16,10 +16,10 @@ import type {
  */
 export const providerLoaders: Record<
   EmailProvider,
-  () => Promise<{ sendProviderEmail: SendProviderEmail }>
+  () => Promise<SendProviderEmail>
 > = {
-  resend: () => import("./providers/resend.ts"),
-  ses: () => import("./providers/ses.ts"),
+  resend: async () => (await import("./providers/resend.ts")).sendResendEmail,
+  ses: async () => (await import("./providers/ses.ts")).sendSesEmail,
 }
 
 const CONTENT_TYPES_BY_EXTENSION: Record<string, string> = {

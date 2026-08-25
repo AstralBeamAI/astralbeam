@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor and a hover title for the icon-only filter action; omit disabled teams and support responsive controls/table and strict optional props.
+// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; omit disabled teams and support responsive controls/table and strict optional props.
 
 "use client"
 
@@ -198,7 +198,7 @@ export function OrganizationMembers({
   const pageEnd = pageStart + (sortedMembers?.length ?? 0)
   const hasNextPage = pageEnd < total
 
-  function toggleSort(column: string) {
+  function toggleMemberSort(column: string) {
     setSortDescriptor((current) => {
       if (current?.column !== column) {
         return { column, direction: "ascending" }
@@ -315,24 +315,24 @@ export function OrganizationMembers({
                 {paged
                   ? <TableHead>{organizationLocalization.member}</TableHead>
                   : (
-                    <SortableTableHead
+                    <MemberSortableTableHead
                       sortDirection={sortDescriptor?.column === "user"
                         ? sortDescriptor.direction
                         : undefined}
-                      onClick={() => toggleSort("user")}
+                      onClick={() => toggleMemberSort("user")}
                     >
                       {organizationLocalization.member}
-                    </SortableTableHead>
+                    </MemberSortableTableHead>
                   )}
 
-                <SortableTableHead
+                <MemberSortableTableHead
                   sortDirection={sortDescriptor?.column === "role"
                     ? sortDescriptor.direction
                     : undefined}
-                  onClick={() => toggleSort("role")}
+                  onClick={() => toggleMemberSort("role")}
                 >
                   {organizationLocalization.role}
-                </SortableTableHead>
+                </MemberSortableTableHead>
 
                 <TableHead className="text-end">
                   {organizationLocalization.actions}
@@ -398,7 +398,7 @@ export function OrganizationMembers({
   )
 }
 
-function SortableTableHead({
+function MemberSortableTableHead({
   children,
   sortDirection,
   onClick,

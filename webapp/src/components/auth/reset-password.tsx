@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use Phosphor icons, the contextual Base UI Toast manager, and Deno-compatible browser globals; preserve strict error-state typing; render a semantic page heading.
+// Local changes: Use Phosphor icons, the contextual Base UI Toast manager, Deno-compatible browser globals, and domain-specific function names; preserve strict error-state typing; render a semantic page heading.
 
 "use client"
 
@@ -86,7 +86,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
     }
   }, [addToast, localization.auth.invalidResetPasswordToken, navigate, signInURL])
 
-  function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
+  function submitPasswordReset(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
 
     const searchParams = new URLSearchParams(globalThis.location.search)
@@ -119,7 +119,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={submitPasswordReset}>
           <FieldGroup>
             <Field data-invalid={!!fieldErrors.password}>
               <FieldLabel htmlFor="password">

@@ -1,6 +1,7 @@
 ## Codebase Structure and Guidelines
 
 - Use plain data and helper functions with explicit options objects for application logic; do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
+- Keep named functions, function-valued variables, and module-level constants globally unique within `webapp`; use concise domain qualifiers when needed, while retaining framework-mandated names such as TanStack Router's `Route` export.
 
 - This is TanStack Start React app
   - Tech stack: TanStack Router, Tailwind, Shadcn UI, Better Auth, Drizzle ORM, React Email

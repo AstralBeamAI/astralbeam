@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and hover titles for icon-only filter actions, make filters/table responsive, and repair strict optional props.
+// Local changes: use Phosphor, domain-specific function names, and hover titles for icon-only filter actions; make filters/table responsive and repair strict optional props.
 
 import {
   hasMemberRole,
@@ -114,7 +114,7 @@ export function OrganizationInvitations({
 
   const [inviteOpen, setInviteOpen] = useState(false)
 
-  function toggleSort(column: string) {
+  function toggleInvitationSort(column: string) {
     setSortDescriptor((current) => {
       if (current?.column !== column) {
         return { column, direction: "ascending" }
@@ -263,41 +263,41 @@ export function OrganizationInvitations({
           <Table aria-label={organizationLocalization.invitations}>
             <TableHeader>
               <TableRow>
-                <SortableTableHead
+                <InvitationSortableTableHead
                   sortDirection={sortDescriptor?.column === "email"
                     ? sortDescriptor.direction
                     : undefined}
-                  onClick={() => toggleSort("email")}
+                  onClick={() => toggleInvitationSort("email")}
                 >
                   {localization.auth.email}
-                </SortableTableHead>
+                </InvitationSortableTableHead>
 
-                <SortableTableHead
+                <InvitationSortableTableHead
                   sortDirection={sortDescriptor?.column === "createdAt"
                     ? sortDescriptor.direction
                     : undefined}
-                  onClick={() => toggleSort("createdAt")}
+                  onClick={() => toggleInvitationSort("createdAt")}
                 >
                   {organizationLocalization.invitedAt}
-                </SortableTableHead>
+                </InvitationSortableTableHead>
 
-                <SortableTableHead
+                <InvitationSortableTableHead
                   sortDirection={sortDescriptor?.column === "role"
                     ? sortDescriptor.direction
                     : undefined}
-                  onClick={() => toggleSort("role")}
+                  onClick={() => toggleInvitationSort("role")}
                 >
                   {organizationLocalization.role}
-                </SortableTableHead>
+                </InvitationSortableTableHead>
 
-                <SortableTableHead
+                <InvitationSortableTableHead
                   sortDirection={sortDescriptor?.column === "status"
                     ? sortDescriptor.direction
                     : undefined}
-                  onClick={() => toggleSort("status")}
+                  onClick={() => toggleInvitationSort("status")}
                 >
                   {organizationLocalization.status}
-                </SortableTableHead>
+                </InvitationSortableTableHead>
 
                 <TableHead className="text-end">
                   {organizationLocalization.actions}
@@ -341,7 +341,7 @@ export function OrganizationInvitations({
   )
 }
 
-function SortableTableHead({
+function InvitationSortableTableHead({
   children,
   sortDirection,
   onClick,

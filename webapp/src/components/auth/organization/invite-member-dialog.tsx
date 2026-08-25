@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast and actor-assignable static roles; omit disabled teams, dynamic roles, and invitation model fields.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and actor-assignable static roles; omit disabled teams, dynamic roles, and invitation model fields.
 
 "use client"
 
@@ -121,13 +121,13 @@ export function InviteMemberDialog({
     .map((entry) => assignableRoles[entry] ?? entry)
     .join(", ")
 
-  const toggleRole = (role: string) => {
+  const toggleInvitationRole = (role: string) => {
     setSelectedRoles((current) =>
       current.includes(role) ? current.filter((entry) => entry !== role) : [...current, role]
     )
   }
 
-  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
+  const submitMemberInvitation = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (
@@ -161,7 +161,7 @@ export function InviteMemberDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <form onSubmit={submitMemberInvitation} className="flex flex-col gap-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus />
@@ -231,7 +231,7 @@ export function InviteMemberDialog({
                         key={item.value}
                         checked={checked}
                         disabled={checked && selectedRoles.length === 1}
-                        onCheckedChange={() => toggleRole(item.value)}
+                        onCheckedChange={() => toggleInvitationRole(item.value)}
                       >
                         {item.label}
                       </DropdownMenuCheckboxItem>

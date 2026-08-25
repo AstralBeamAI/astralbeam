@@ -66,7 +66,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   const { emailProvider, emailFromAddress } = await getConfig()
   const provider = resolveProvider(options.provider, emailProvider)
   const input = await buildProviderEmailInput(options, emailFromAddress)
-  const { sendProviderEmail } = await providerLoaders[provider]()
+  const sendProviderEmail = await providerLoaders[provider]()
   const result = await sendProviderEmail(input)
   return { ...result, provider }
 }

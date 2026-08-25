@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons, Base UI Toast, and hover titles for password visibility controls; omit unconfigured captcha UI and apply strict optional typing.
+// Local changes: use Phosphor icons, Base UI Toast, domain-specific function names, and hover titles for password visibility controls; omit unconfigured captcha UI and apply strict optional typing.
 
 import { getViewURL, isPasswordCompromisedError } from "@better-auth-ui/core"
 import {
@@ -198,7 +198,7 @@ function ChangePasswordForm({
     confirmPassword?: string | undefined
   }>({})
 
-  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
+  const submitPasswordChange = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (emailAndPassword.confirmPassword && newPassword !== confirmPassword) {
@@ -222,7 +222,7 @@ function ChangePasswordForm({
         {localization.settings.changePassword}
       </h2>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={submitPasswordChange}>
         <Card className={cn(className)}>
           <CardContent className="flex flex-col gap-6">
             <Field data-invalid={!!fieldErrors.currentPassword}>

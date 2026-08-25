@@ -392,11 +392,15 @@ async function readConfigRows(): Promise<ConfigValueRow[] | null> {
   // Dynamic import: db/index.server.ts imports DATABASE_URL from this module, so a static
   // back-import would be a module cycle.
   const { db } = await import("@/db/index.server")
-  const { config } = await import("@/db/schema.server")
+  const { configTable } = await import("@/db/schema.server")
   try {
     return await db
-      .select({ key: config.key, value: config.value, updatedAt: config.updatedAt })
-      .from(config)
+      .select({
+        key: configTable.key,
+        value: configTable.value,
+        updatedAt: configTable.updatedAt,
+      })
+      .from(configTable)
   } catch (error) {
     if (isMissingTableError(error)) return null
     throw error

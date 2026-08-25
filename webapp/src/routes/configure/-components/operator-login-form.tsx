@@ -17,7 +17,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const submitOperatorLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setPending(true)
     setError(null)
@@ -44,7 +44,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={submitOperatorLogin} className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
             Enter your database credentials for this deployment to manage the configuration.
           </p>

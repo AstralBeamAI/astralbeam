@@ -1,18 +1,23 @@
 import type { StreamChunk } from "@tanstack/ai"
 
 import { APP_HANDLE } from "@/lib/constants"
-import { ANSI_BADGE, ANSI_DIM, ANSI_RESET, CATEGORY_ANSI } from "./constants.server"
+import {
+  DEBUG_ANSI_BADGE,
+  DEBUG_ANSI_BY_CATEGORY,
+  DEBUG_ANSI_DIM,
+  DEBUG_ANSI_RESET,
+} from "./constants.server"
 import type { DebugLog } from "./types"
 
 // Mirrors the SDK's browser-console debug logger so a `debug: true` conversation can be
 // followed from both sides: UTC timestamp, colored category, then the full data object.
 export function createDebugLog(runId: string): DebugLog {
   return (category, summary, data) => {
-    const color = CATEGORY_ANSI[category] ?? ""
+    const color = DEBUG_ANSI_BY_CATEGORY[category] ?? ""
     console.log(
-      `${ANSI_BADGE} ${APP_HANDLE} ${ANSI_RESET} ${ANSI_DIM}${
+      `${DEBUG_ANSI_BADGE} ${APP_HANDLE} ${DEBUG_ANSI_RESET} ${DEBUG_ANSI_DIM}${
         new Date().toISOString()
-      } run=${runId}${ANSI_RESET} ${color}${category}${ANSI_RESET} ${summary}`,
+      } run=${runId}${DEBUG_ANSI_RESET} ${color}${category}${DEBUG_ANSI_RESET} ${summary}`,
     )
     if (data !== undefined) console.dir(data, { depth: null, colors: true })
   }

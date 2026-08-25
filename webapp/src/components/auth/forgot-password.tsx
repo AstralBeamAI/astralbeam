@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Remove the unconfigured CAPTCHA surface; use browser-safe globals; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
+// Local changes: Remove the unconfigured CAPTCHA surface; use browser-safe globals and domain-specific function names; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
 
 "use client"
 
@@ -66,7 +66,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
     },
   )
 
-  function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
+  function submitPasswordResetRequest(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     requestPasswordReset({
@@ -96,7 +96,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={submitPasswordResetRequest}>
           <FieldGroup>
             <Field data-invalid={!!fieldErrors.email}>
               <FieldLabel htmlFor="email">{localization.auth.email}</FieldLabel>

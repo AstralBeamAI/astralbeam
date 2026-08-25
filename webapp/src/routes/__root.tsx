@@ -26,6 +26,7 @@ import {
   APP_LOGO_LIGHT_PNG_URL,
   APP_LOGO_LIGHT_SVG_URL,
   APP_NAME,
+  AUTH_ALLOWED_RETURN_PATHS,
   DEFAULT_PUBLIC_CONFIG,
   INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
@@ -33,7 +34,6 @@ import appCss from "@/styles.css?url"
 
 import { getPublicConfig } from "./-functions/get-public-config"
 
-const ALLOWED_AUTH_RETURN_PATHS = ["/auth/accept-invitation"] as const
 const APP_THEMES = ["system", "light", "dark"] as const
 type AppTheme = (typeof APP_THEMES)[number]
 const devtoolsConfig = { position: "bottom-right" } as const
@@ -88,7 +88,7 @@ export const Route = createRootRouteWithContext<{
     const redirectTo = normalizeReturnPath(
       rawRedirectTo,
       await getRedirectOrigin(),
-      ALLOWED_AUTH_RETURN_PATHS,
+      AUTH_ALLOWED_RETURN_PATHS,
     )
 
     if (
@@ -176,7 +176,7 @@ function AppProviders({ children }: { children: ReactNode }) {
   const redirectTo = normalizeReturnPath(
     new URLSearchParams(searchStr).get("redirectTo"),
     origin,
-    ALLOWED_AUTH_RETURN_PATHS,
+    AUTH_ALLOWED_RETURN_PATHS,
   )
 
   return (
