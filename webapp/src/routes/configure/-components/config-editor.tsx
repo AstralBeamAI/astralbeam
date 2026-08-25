@@ -200,9 +200,6 @@ export function ConfigEditor({
                           <GlobeIcon aria-hidden="true" />
                           Use current origin
                         </Button>
-                        <p className="text-xs text-muted-foreground">
-                          Fills in the origin this page is served from; review it, then save.
-                        </p>
                       </div>
                     )
                     : undefined}
