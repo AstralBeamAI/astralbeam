@@ -4,7 +4,7 @@ import { timestamps, timestampWithTimeZone, uuidV7PrimaryKey } from "../postgres
 
 // Global control-plane tables without an organizationId: runtime configuration and operator
 // sessions exist before any organization does and are managed by the deployment operator.
-export const config = snakeCase.table(
+export const configTable = snakeCase.table(
   "config",
   {
     id: uuidV7PrimaryKey(),

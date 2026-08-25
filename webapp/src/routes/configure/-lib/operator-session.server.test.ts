@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
-const state = vi.hoisted(() => ({
+const operatorSessionTestState = vi.hoisted(() => ({
   tableExists: false,
   inserted: [] as Record<string, unknown>[],
   selectRows: [] as { dbUsername: string; expiresAt: Date }[],
@@ -21,8 +21,8 @@ vi.mock("@/db/index.server", () => ({
     insert: () => ({
       values: (row: Record<string, unknown>) => {
         const execute = () => {
-          if (!state.tableExists) return Promise.reject(missingTableError())
-          state.inserted.push(row)
+          if (!operatorSessionTestState.tableExists) return Promise.reject(missingTableError())
+          operatorSessionTestState.inserted.push(row)
           return Promise.resolve()
         }
         return {
@@ -37,13 +37,16 @@ vi.mock("@/db/index.server", () => ({
     select: () => ({
       from: () => ({
         where: () =>
-          state.tableExists
-            ? Promise.resolve(state.selectRows)
+          operatorSessionTestState.tableExists
+            ? Promise.resolve(operatorSessionTestState.selectRows)
             : Promise.reject(missingTableError()),
       }),
     }),
     delete: () => ({
-      where: () => (state.tableExists ? Promise.resolve() : Promise.reject(missingTableError())),
+      where: () =>
+        operatorSessionTestState.tableExists
+          ? Promise.resolve()
+          : Promise.reject(missingTableError()),
     }),
   },
 }))
@@ -54,9 +57,9 @@ import { OPERATOR_SESSION_TTL_SECONDS } from "./constants.server"
 describe("operator session boundary", () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    state.tableExists = false
-    state.inserted = []
-    state.selectRows = []
+    operatorSessionTestState.tableExists = false
+    operatorSessionTestState.inserted = []
+    operatorSessionTestState.selectRows = []
   })
 
   afterEach(() => {
@@ -80,10 +83,10 @@ describe("operator session boundary", () => {
   })
 
   test("database sessions store only a token hash", async () => {
-    state.tableExists = true
+    operatorSessionTestState.tableExists = true
     const token = await createOperatorSession("astralbeam")
-    expect(state.inserted).toHaveLength(1)
-    const stored = state.inserted[0]
+    expect(operatorSessionTestState.inserted).toHaveLength(1)
+    const stored = operatorSessionTestState.inserted[0]
     expect(stored?.tokenHash).toBe(createHash("sha256").update(token).digest("hex"))
     expect(JSON.stringify(stored)).not.toContain(token)
   })
@@ -91,19 +94,22 @@ describe("operator session boundary", () => {
   test("bootstrap sessions move into the database once the table exists", async () => {
     const token = await createOperatorSession("astralbeam")
     const tokenHash = createHash("sha256").update(token).digest("hex")
-    expect(state.inserted).toHaveLength(0)
+    expect(operatorSessionTestState.inserted).toHaveLength(0)
 
-    state.tableExists = true
+    operatorSessionTestState.tableExists = true
     await expect(verifyOperatorSession(token)).resolves.toEqual({
       dbUsername: "astralbeam",
       expiresAt: currentExpiry(),
     })
-    expect(state.inserted.some((row) => row.tokenHash === tokenHash)).toBe(true)
+    expect(operatorSessionTestState.inserted.some((row) => row.tokenHash === tokenHash)).toBe(true)
 
     // The memory copy is gone: verification now depends on the database row alone.
-    state.selectRows = []
+    operatorSessionTestState.selectRows = []
     await expect(verifyOperatorSession(token)).resolves.toBeNull()
-    state.selectRows = [{ dbUsername: "astralbeam", expiresAt: currentExpiry() }]
+    operatorSessionTestState.selectRows = [{
+      dbUsername: "astralbeam",
+      expiresAt: currentExpiry(),
+    }]
     await expect(verifyOperatorSession(token)).resolves.toEqual({
       dbUsername: "astralbeam",
       expiresAt: currentExpiry(),

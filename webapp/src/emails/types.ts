@@ -35,7 +35,7 @@ export interface ResolvedEmailAttachment {
   content: Uint8Array
 }
 
-/** The normalized, fully rendered payload every `sendProviderEmail` receives. */
+/** The normalized, fully rendered payload every provider sender receives. */
 export interface ProviderEmailInput {
   to: string[]
   from: string

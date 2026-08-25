@@ -29,7 +29,7 @@ const legalAssets = [
     })),
 ]
 
-const config = defineConfig(({ mode }) => {
+const viteConfig = defineConfig(({ mode }) => {
   // Expand mode files through Vite before server modules read process.env; existing shell and
   // deployment variables still win. https://vite.dev/config/#using-environment-variables-in-config
   const runtimeEnvironment = loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "")
@@ -67,4 +67,4 @@ const config = defineConfig(({ mode }) => {
   }
 })
 
-export default config
+export default viteConfig

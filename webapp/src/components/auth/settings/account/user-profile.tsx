@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: remove username and generic additional fields; use Base UI Toast and strict typing.
+// Local changes: remove username and generic additional fields; use Base UI Toast, domain-specific function names, and strict typing.
 
 "use client"
 
@@ -39,7 +39,7 @@ export function UserProfile({ className }: UserProfileProps) {
     name?: string | undefined
   }>({})
 
-  function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
+  function submitUserProfile(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
 
     const formData = new FormData(e.currentTarget)
@@ -53,7 +53,7 @@ export function UserProfile({ className }: UserProfileProps) {
         {localization.settings.userProfile}
       </h2>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={submitUserProfile}>
         <Card className={cn(className)}>
           <CardContent className="flex flex-col gap-6">
             <ChangeAvatar />

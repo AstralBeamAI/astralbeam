@@ -25,7 +25,7 @@ async function getClient(): Promise<SESv2Client> {
   return cachedClient.client
 }
 
-export const sendProviderEmail: SendProviderEmail = async (input) => {
+export const sendSesEmail: SendProviderEmail = async (input) => {
   const response = await (await getClient()).send(
     new SendEmailCommand({
       FromEmailAddress: input.from,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
-const state = vi.hoisted(() => ({
+const configTestState = vi.hoisted(() => ({
   rows: null as { key: string; value: unknown; updatedAt: Date }[] | null,
 }))
 
@@ -8,10 +8,10 @@ vi.mock("@/db/index.server", () => ({
   db: {
     select: () => ({
       from: () => {
-        if (state.rows === null) {
+        if (configTestState.rows === null) {
           return Promise.reject(Object.assign(new Error("missing table"), { code: "42P01" }))
         }
-        return Promise.resolve(state.rows)
+        return Promise.resolve(configTestState.rows)
       },
     }),
   },
@@ -119,14 +119,14 @@ describe("setup gate boundary", () => {
   })
 
   test("returns 503 with retry-after while the config table is missing", async () => {
-    state.rows = null
+    configTestState.rows = null
     const response = await setupGateResponse()
     expect(response?.status).toBe(503)
     expect(response?.headers.get("retry-after")).toBe("10")
   })
 
   test("returns null once setup is complete", async () => {
-    state.rows = completeRows
+    configTestState.rows = completeRows
     await expect(setupGateResponse()).resolves.toBeNull()
   })
 })

@@ -4,9 +4,8 @@ import { createFileRoute, notFound, redirect } from "@tanstack/react-router"
 import { Auth } from "@/components/auth/auth"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
 import { normalizeReturnPath, normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
-import { INERT_REDIRECT_ORIGIN } from "@/lib/constants"
+import { AUTH_RETURN_PATHS, INERT_REDIRECT_ORIGIN } from "@/lib/constants"
 
-const ALLOWED_AUTH_RETURN_PATHS = ["/auth/accept-invitation"] as const
 const AUTH_PATHS = new Set([
   ...Object.values(viewPaths.auth),
   "accept-invitation",
@@ -29,7 +28,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
       const redirectTo = normalizeReturnPathFromSearch(
         location.searchStr,
         INERT_REDIRECT_ORIGIN,
-        ALLOWED_AUTH_RETURN_PATHS,
+        AUTH_RETURN_PATHS,
       )
       const search = new URLSearchParams({ redirectTo })
       throw redirect({
@@ -45,7 +44,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
         const redirectTo = normalizeReturnPath(
           `${location.pathname}${invitationSearch ? `?${invitationSearch}` : ""}`,
           INERT_REDIRECT_ORIGIN,
-          ALLOWED_AUTH_RETURN_PATHS,
+          AUTH_RETURN_PATHS,
         )
         throw redirect({
           href: `/auth/sign-in?${new URLSearchParams({ redirectTo })}`,
