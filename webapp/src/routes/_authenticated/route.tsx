@@ -5,7 +5,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { authClient } from "@/lib/auth/client"
 import { normalizeReturnPath } from "@/lib/auth/redirect"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
-import { INERT_REDIRECT_ORIGIN } from "@/lib/config"
+import { INERT_REDIRECT_ORIGIN } from "@/lib/constants"
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ context, location }) => {

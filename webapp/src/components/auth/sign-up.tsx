@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Add the legal gate for email/OAuth signup, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured CAPTCHA/plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast, and repair strict typing.
+// Local changes: Add the legal gate for email/OAuth signup, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured CAPTCHA/plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants.
 
 "use client"
 
@@ -28,7 +28,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
-import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/lib/config"
+import { usePublicConfig } from "@/components/public-config-provider"
 import { cn } from "@/lib/utils"
 import { PasswordStrengthMeter } from "./password-strength-meter"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
@@ -77,6 +77,7 @@ export function SignUp({
     navigate,
     Link,
   } = useAuth()
+  const { privacyPolicyUrl, termsOfServiceUrl } = usePublicConfig()
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
@@ -440,7 +441,7 @@ export function SignUp({
                       I accept the{" "}
                     </label>
                     <a
-                      href={TERMS_OF_SERVICE_URL}
+                      href={termsOfServiceUrl}
                       className="font-medium text-foreground underline underline-offset-4"
                       target="_blank"
                       rel="noreferrer"
@@ -449,7 +450,7 @@ export function SignUp({
                     </a>{" "}
                     and{" "}
                     <a
-                      href={PRIVACY_POLICY_URL}
+                      href={privacyPolicyUrl}
                       className="font-medium text-foreground underline underline-offset-4"
                       target="_blank"
                       rel="noreferrer"

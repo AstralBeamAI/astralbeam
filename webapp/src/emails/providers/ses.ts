@@ -3,22 +3,30 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2"
 import { requireSesConfig } from "../../lib/config.server.ts"
 import type { ProviderEmailInput, ResolvedEmailAttachment, SendProviderEmail } from "../types.ts"
 
-let client: SESv2Client | undefined
+// Keyed on the configured values so changing them at /configure rebuilds the client.
+let cachedClient: { cacheKey: string; client: SESv2Client } | undefined
 
-function getClient(): SESv2Client {
-  if (!client) {
-    const { region } = requireSesConfig()
-    client = new SESv2Client({
-      region,
-      // The default chain supports roles, SSO/profiles, and temporary environment credentials.
-      // https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html
-    })
+async function getClient(): Promise<SESv2Client> {
+  const { region, credentials } = await requireSesConfig()
+  const cacheKey = `${region}:${credentials?.accessKeyId ?? ""}:${
+    credentials?.secretAccessKey ?? ""
+  }`
+  if (cachedClient?.cacheKey !== cacheKey) {
+    cachedClient = {
+      cacheKey,
+      client: new SESv2Client({
+        region,
+        // Without configured credentials, the default chain supports roles, SSO/profiles, and
+        // temporary environment credentials. https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html
+        ...(credentials ? { credentials } : {}),
+      }),
+    }
   }
-  return client
+  return cachedClient.client
 }
 
 export const sendProviderEmail: SendProviderEmail = async (input) => {
-  const response = await getClient().send(
+  const response = await (await getClient()).send(
     new SendEmailCommand({
       FromEmailAddress: input.from,
       Destination: { ToAddresses: input.to },

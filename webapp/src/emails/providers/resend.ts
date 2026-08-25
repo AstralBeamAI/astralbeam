@@ -3,15 +3,10 @@ import { Resend } from "resend"
 import { requireResendConfig } from "../../lib/config.server.ts"
 import type { SendProviderEmail } from "../types.ts"
 
-let client: Resend | undefined
-
-function getClient(): Resend {
-  if (!client) client = new Resend(requireResendConfig().apiKey)
-  return client
-}
-
 export const sendProviderEmail: SendProviderEmail = async (input) => {
-  const { data, error } = await getClient().emails.send({
+  // The constructor only stores the key and sends over global fetch, so there is nothing to reuse.
+  const { apiKey } = await requireResendConfig()
+  const { data, error } = await new Resend(apiKey).emails.send({
     from: input.from,
     to: input.to,
     subject: input.subject,

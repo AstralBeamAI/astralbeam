@@ -67,21 +67,22 @@
 - `src/lib` contains application-wide shared code like:
   - `utils.ts`: utility functions
   - `utils.server.ts`: server-only utilities
-  - `config.server.ts`: server-side environment variables validated from `process.env` with Effect Schema; always read them from this file, and never include parsed values in configuration errors
-    - can also contain some global constants
-  - `config.ts`: constants and environment variables readable from both server and client
-  - `types.ts`: common types used across the application
+  - `config.server.ts`: the database-backed runtime configuration, including the code-defined config registry (`CONFIG_DEFINITIONS`) with its Effect Schema decoders and secret generators. `DATABASE_URL` is the only environment variable; every other setting lives in the `config` table, read through the cached async `getConfig()` (10s TTL, `invalidateConfigCache()` to force a reload). Never include stored or submitted values in configuration errors.
+  - `constants.ts`: constant values readable from both server and client
+  - `types.ts`: common types used across the application, including the config registry types and `PublicConfig`, the secret-free config slice
   - `auth.server.ts` contains the server-only Better Auth setup for authentication
   - avoid creating new files in `src/lib`, use new code goes into one of the above files or into a module-specific `-lib` folder.
 
 - `src/emails` contains emails powered by react-email
   - `index.ts` exports `sendEmail` plus one `send<Template>Email` wrapper per template, each owning its own subject and props
   - `sendEmail` loads only the selected `providers/*.ts` module, through a static map of dynamic imports
-  - `provider`, `from`, and `replyTo` default to `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS`, and the resolved `from`
-  - Templates cannot resolve relative paths, so build absolute URLs from `APP_BASE_URL`; attachment `path` is a URL, a `data:` URI, or bare base64
+  - `provider`, `from`, and `replyTo` default to the `email_provider` and `email_from_address` config values and the resolved `from`
+  - Templates cannot resolve relative paths, so build absolute URLs from the configured `app_base_url`; attachment `path` is a URL, a `data:` URI, or bare base64
   - Preview with `deno task email`, which runs a server as configured in `scripts/preview-emails.ts`
 
-- Authentication uses Better Auth with verified email/password, Google, GitHub, and Organizations. Keep username, passwordless, OTP, magic-link, change-email, account deletion, organization deletion, teams, and dynamic roles disabled unless product scope changes.
+- `/configure` (`src/routes/configure`) is the operator surface for the database-backed config: sign in with the database credentials from `DATABASE_URL` (timing-safe comparison, hashed session token in `config_session`, in-memory fallback until migrations run), review and approve pending bundled migrations before they run, then edit registry values. Secret values stay out of editor state and reach the client only through the operator-gated reveal action; the app gates itself (page redirect, API 503) until `setup_completed` is stored.
+
+- Authentication uses Better Auth with verified email/password, Google, GitHub, and Organizations. Keep username, passwordless, OTP, magic-link, change-email, account deletion, organization deletion, teams, and dynamic roles disabled unless product scope changes. The Better Auth instance is built per config snapshot through `getAuth()`; Google and GitHub are enabled only when both of a provider's config credentials are set.
   - Use `user` only for the global authenticated identity, `account` for a credential or OAuth connection, `organization` for the SaaS boundary, and `member` for a user's relationship to an organization. Name organization-management routes, files, navigation, and visible copy “Members”; do not use “People” or “Workspace” as synonyms.
   - Keep `termsAcceptedAt` server-owned. Require explicit legal acceptance for credential and OAuth signup, disable implicit OAuth signup, and accept provider identities or invitations only after verified-email checks.
   - Keep OAuth tokens encrypted, account linking restricted to matching verified emails, unlinking the final sign-in method disabled, session cookie caching disabled, and rate limits in the database.
@@ -101,7 +102,7 @@
   - be especially careful with types, it is very easy to end up with heavy type duplication with minor changes
 
 - Never hardcode the word "AstralBeam" or any AstralBeam-specific description or nomenclature anywhere in the app; assume it may be white-labeled.
-  - Put labels and constants in `src/lib/config.ts` or `src/lib/config.server.ts` and import them elsewhere so changes stay centralized.
+  - Put labels and constants in `src/lib/constants.ts` and import them elsewhere so changes stay centralized.
   - Use `APP_NAME` for display text and `APP_HANDLE` for brand-derived domains, protocol identifiers, asset paths, and test fixtures.
 
 - IMPORTANT SECURITY CHECKS after implementing new features:

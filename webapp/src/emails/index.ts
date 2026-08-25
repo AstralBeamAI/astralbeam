@@ -1,8 +1,8 @@
 import process from "node:process"
 
 import { createElement } from "react"
-import { APP_BASE_URL } from "../lib/config.server.ts"
-import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/config.ts"
+import { getConfig } from "../lib/config.server.ts"
+import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/constants.ts"
 import type { SendEmailOptions, SendEmailResult } from "./types.ts"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
 import OrganizationInvitationEmail from "./templates/organization-invitation.tsx"
@@ -15,9 +15,22 @@ const AUTH_EMAIL_DELIVERY_ERROR = "Unable to deliver authentication email"
 const EMAIL_LINK_EXPIRY_MINUTES = 60
 const ORGANIZATION_INVITATION_EXPIRY_HOURS = 48
 
-const logoURL = {
-  light: new URL(APP_LOGO_LIGHT_PNG_URL, APP_BASE_URL).href,
-  dark: new URL(APP_LOGO_DARK_PNG_URL, APP_BASE_URL).href,
+interface AuthEmailContext {
+  appBaseUrl: string
+  logoURL: { light: string; dark: string }
+}
+
+// Templates cannot resolve relative paths, so links and logos need the configured absolute origin.
+async function authEmailContext(): Promise<AuthEmailContext> {
+  const { appBaseUrl } = await getConfig()
+  if (!appBaseUrl) throw new Error("Application base URL is not configured")
+  return {
+    appBaseUrl,
+    logoURL: {
+      light: new URL(APP_LOGO_LIGHT_PNG_URL, appBaseUrl).href,
+      dark: new URL(APP_LOGO_DARK_PNG_URL, appBaseUrl).href,
+    },
+  }
 }
 
 export interface BetterAuthLinkEmailData {
@@ -50,15 +63,16 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   if (process.env.VITEST === "true" || process.env.NODE_ENV === "test") {
     throw new Error("Email delivery is disabled during tests")
   }
-  const provider = resolveProvider(options.provider)
-  const input = await buildProviderEmailInput(options)
+  const { emailProvider, emailFromAddress } = await getConfig()
+  const provider = resolveProvider(options.provider, emailProvider)
+  const input = await buildProviderEmailInput(options, emailFromAddress)
   const { sendProviderEmail } = await providerLoaders[provider]()
   const result = await sendProviderEmail(input)
   return { ...result, provider }
 }
 
 export async function sendVerificationEmail(data: BetterAuthLinkEmailData): Promise<void> {
-  await deliverAuthEmail(() => ({
+  await deliverAuthEmail(({ logoURL }) => ({
     to: data.user.email,
     subject: `Verify your email on ${APP_NAME}`,
     react: createElement(EmailVerificationEmail, {
@@ -72,7 +86,7 @@ export async function sendVerificationEmail(data: BetterAuthLinkEmailData): Prom
 }
 
 export async function sendResetPasswordEmail(data: BetterAuthLinkEmailData): Promise<void> {
-  await deliverAuthEmail(() => ({
+  await deliverAuthEmail(({ logoURL }) => ({
     to: data.user.email,
     subject: `Reset your ${APP_NAME} password`,
     react: createElement(ResetPasswordEmail, {
@@ -88,8 +102,8 @@ export async function sendResetPasswordEmail(data: BetterAuthLinkEmailData): Pro
 export async function sendPasswordChangedEmail(
   data: BetterAuthPasswordChangedEmailData,
 ): Promise<void> {
-  await deliverAuthEmail(() => {
-    const secureAccountURL = new URL("/settings/security", APP_BASE_URL).toString()
+  await deliverAuthEmail(({ appBaseUrl, logoURL }) => {
+    const secureAccountURL = new URL("/settings/security", appBaseUrl).toString()
     return {
       to: data.user.email,
       subject: `Your ${APP_NAME} password was changed`,
@@ -107,13 +121,13 @@ export async function sendPasswordChangedEmail(
 export async function sendOrganizationInvitationEmail(
   data: BetterAuthOrganizationInvitationEmailData,
 ): Promise<void> {
-  await deliverAuthEmail(() => {
+  await deliverAuthEmail(({ appBaseUrl, logoURL }) => {
     const organizationName = sanitizeSubjectPart(data.organization.name)
     return {
       to: data.email,
       subject: `You're invited to ${organizationName} on ${APP_NAME}`,
       react: createElement(OrganizationInvitationEmail, {
-        url: new URL("/settings/organizations", APP_BASE_URL).toString(),
+        url: new URL("/settings/organizations", appBaseUrl).toString(),
         email: data.email,
         inviterName: data.inviter.user.name,
         inviterEmail: data.inviter.user.email,
@@ -127,10 +141,12 @@ export async function sendOrganizationInvitationEmail(
   })
 }
 
-async function deliverAuthEmail(createOptions: () => SendEmailOptions): Promise<void> {
+async function deliverAuthEmail(
+  createOptions: (context: AuthEmailContext) => SendEmailOptions,
+): Promise<void> {
   let options: SendEmailOptions
   try {
-    options = createOptions()
+    options = createOptions(await authEmailContext())
   } catch {
     console.error("Authentication email preparation failed")
     throw new Error(AUTH_EMAIL_DELIVERY_ERROR)

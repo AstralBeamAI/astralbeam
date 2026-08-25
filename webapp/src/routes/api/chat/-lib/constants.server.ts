@@ -1,4 +1,4 @@
-import { APP_HANDLE, APP_NAME } from "@/lib/config"
+import { APP_HANDLE, APP_NAME } from "@/lib/constants"
 
 export const BASE_SYSTEM_PROMPT =
   `You are the ${APP_NAME} assistant, embedded as a chat widget inside a host application. ` +

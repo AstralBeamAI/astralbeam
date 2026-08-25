@@ -1,6 +1,5 @@
 import { Buffer } from "node:buffer"
 import { render, toPlainText } from "@react-email/render"
-import { EMAIL_FROM_ADDRESS, EMAIL_PROVIDER } from "../lib/config.server.ts"
 import type {
   EmailAttachment,
   EmailProvider,
@@ -38,10 +37,13 @@ const CONTENT_TYPES_BY_EXTENSION: Record<string, string> = {
   zip: "application/zip",
 }
 
-export function resolveProvider(provider: SendEmailOptions["provider"]): EmailProvider {
-  const resolved = provider ?? EMAIL_PROVIDER
+export function resolveProvider(
+  provider: SendEmailOptions["provider"],
+  defaultProvider: string | null,
+): EmailProvider {
+  const resolved = provider ?? defaultProvider
   if (!resolved) {
-    throw new Error("No email provider given and 'EMAIL_PROVIDER' environment variable is not set")
+    throw new Error("No email provider given and no default email provider is configured")
   }
   if (!(resolved in providerLoaders)) {
     throw new Error(`Unknown email provider '${resolved}'`)
@@ -51,6 +53,7 @@ export function resolveProvider(provider: SendEmailOptions["provider"]): EmailPr
 
 export async function buildProviderEmailInput(
   options: SendEmailOptions,
+  defaultFrom: string | null,
 ): Promise<ProviderEmailInput> {
   const { react } = options
   const html = options.html ?? (react ? await render(react) : undefined)
@@ -58,11 +61,9 @@ export async function buildProviderEmailInput(
     throw new Error("An email needs either a 'react' template or 'html' content")
   }
 
-  const from = options.from ?? EMAIL_FROM_ADDRESS
+  const from = options.from ?? defaultFrom
   if (!from) {
-    throw new Error(
-      "No 'from' address given and 'EMAIL_FROM_ADDRESS' environment variable is not set",
-    )
+    throw new Error("No 'from' address given and no default from address is configured")
   }
 
   const text = options.text ?? (react ? toPlainText(html) : undefined)

@@ -8,8 +8,7 @@ import { type ReactNode, useEffect, useState } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getGravatarAvatarUrl } from "@/lib/gravatar"
-import { cn } from "@/lib/utils"
+import { cn, getGravatarAvatarUrl } from "@/lib/utils"
 
 export type UserAvatarProps = {
   className?: string

@@ -4,7 +4,7 @@ import { createFileRoute, notFound, redirect } from "@tanstack/react-router"
 import { Auth } from "@/components/auth/auth"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
 import { normalizeReturnPath, normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
-import { INERT_REDIRECT_ORIGIN } from "@/lib/config"
+import { INERT_REDIRECT_ORIGIN } from "@/lib/constants"
 
 const ALLOWED_AUTH_RETURN_PATHS = ["/auth/accept-invitation"] as const
 const AUTH_PATHS = new Set([

@@ -1,6 +1,6 @@
 import type { StreamChunk } from "@tanstack/ai"
 
-import { APP_HANDLE } from "@/lib/config"
+import { APP_HANDLE } from "@/lib/constants"
 import { ANSI_BADGE, ANSI_DIM, ANSI_RESET, CATEGORY_ANSI } from "./constants.server"
 import type { DebugLog } from "./types"
 
