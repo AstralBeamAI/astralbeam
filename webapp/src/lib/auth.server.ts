@@ -58,8 +58,11 @@ async function notifyPasswordChanged(user: { email: string }): Promise<void> {
 // The instance is built from the database-backed config snapshot; `getAuth` rebuilds it whenever
 // the snapshot version changes so credential and secret updates apply without a restart.
 function buildAuth(snapshot: ConfigSnapshot) {
-  if (!snapshot.appBaseUrl || !snapshot.turnstile) {
+  if (!snapshot.appBaseUrl) {
     throw new Error("Required authentication configuration is unavailable")
+  }
+  if (!snapshot.turnstile) {
+    throw new Error("Cloudflare Turnstile configuration is required")
   }
 
   // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
