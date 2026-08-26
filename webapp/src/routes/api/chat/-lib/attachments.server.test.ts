@@ -5,6 +5,10 @@ import type { ChatMessages } from "./types"
 
 const base64 = (text: string) => btoa(text)
 
+/** A real 64x64 PNG, so the signature check is proven against genuine bytes. */
+const REAL_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAeUlEQVR4nO3PQQkAMAzAwCqpf1ETMxF7HINABFzm7H7dcEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFj13PLIEAOXyUUwAAAABJRU5ErkJggg=="
+
 function userMessage(content: unknown[]): ChatMessages {
   return [{ id: "user-1", role: "user", content }] as unknown as ChatMessages
 }
@@ -37,7 +41,7 @@ test("passes images and PDFs through with a sanitized filename for the provider"
   const { messages, attachments } = normalizeChatAttachments(userMessage([
     {
       type: "image",
-      source: { type: "data", value: base64("png-bytes"), mimeType: "image/png" },
+      source: { type: "data", value: REAL_PNG, mimeType: "image/png" },
       metadata: { filename: "shot.png" },
     },
     {
@@ -129,7 +133,7 @@ test("repairs a part whose type contradicts its MIME type", () => {
   const { messages, attachments } = normalizeChatAttachments(userMessage([
     {
       type: "document",
-      source: { type: "data", value: base64("png-bytes"), mimeType: "image/png" },
+      source: { type: "data", value: REAL_PNG, mimeType: "image/png" },
       metadata: { filename: "shot.png" },
     },
     {
@@ -140,4 +144,39 @@ test("repairs a part whose type contradicts its MIME type", () => {
   ]))
   expect(contentOf(messages).map((entry) => entry.type)).toEqual(["image", "document"])
   expect(attachments.map((attachment) => attachment.result)).toEqual(["image", "pdf"])
+})
+
+// A renamed or truncated file used to reach the provider and fail the whole run with an opaque
+// 400; it is refused here with an explanation instead, while a genuine file still passes.
+test("refuses a payload whose bytes do not match its declared type", () => {
+  const { messages, attachments } = normalizeChatAttachments(userMessage([
+    {
+      type: "image",
+      source: { type: "data", value: base64("this is not a png"), mimeType: "image/png" },
+      metadata: { filename: "renamed.png" },
+    },
+    {
+      type: "document",
+      source: { type: "data", value: base64("this is not a pdf"), mimeType: "application/pdf" },
+      metadata: { filename: "renamed.pdf" },
+    },
+    {
+      type: "image",
+      source: { type: "data", value: "!!! not base64 !!!", mimeType: "image/png" },
+      metadata: { filename: "corrupt.png" },
+    },
+    {
+      type: "image",
+      source: { type: "data", value: REAL_PNG, mimeType: "image/png" },
+      metadata: { filename: "red.png" },
+    },
+  ]))
+  expect(contentOf(messages).map((entry) => entry.type)).toEqual(["text", "text", "text", "image"])
+  expect(contentOf(messages)[0]?.text).toContain("not a image/png file")
+  expect(attachments.map((attachment) => attachment.result)).toEqual([
+    "rejected",
+    "rejected",
+    "rejected",
+    "image",
+  ])
 })

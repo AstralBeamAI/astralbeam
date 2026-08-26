@@ -1,5 +1,6 @@
 import {
   CHAT_ATTACHMENT_IMAGE_MIME_TYPES,
+  CHAT_ATTACHMENT_MAGIC_BYTES,
   CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
   CHAT_ATTACHMENT_MAX_FILENAME_LENGTH,
   CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS,
@@ -78,6 +79,29 @@ function decodeUtf8Attachment(value: string): string | undefined {
   } catch {
     return undefined
   }
+}
+
+/**
+ * Checks the head of a pass-through payload against its declared type. Only the first few bytes
+ * are decoded, so a renamed 20 MB file costs nothing to refuse. A type with no known signature
+ * (and an undecodable head) passes, leaving the provider as the judge.
+ */
+function hasDeclaredFileSignature(value: string, mimeType: string): boolean {
+  const signatures = CHAT_ATTACHMENT_MAGIC_BYTES[mimeType]
+  if (!signatures) return true
+  const payload = base64Payload(value).replace(/\s/g, "")
+  // atob needs whole 4-character groups, and 24 of them cover the deepest signature offset.
+  const head = payload.slice(0, 24)
+  const aligned = head.slice(0, head.length - (head.length % 4))
+  let bytes: Uint8Array
+  try {
+    bytes = Uint8Array.from(atob(aligned), (character) => character.charCodeAt(0))
+  } catch {
+    return false
+  }
+  return signatures.every(({ offset, bytes: expected }) =>
+    expected.every((byte, index) => bytes[offset + index] === byte)
+  )
 }
 
 function formatBytes(bytes: number): string {
@@ -190,6 +214,9 @@ export function normalizeChatAttachments(
       totalBytes += bytes
       attachments.push({ filename, mimeType, bytes, result: "text" })
       return textEntry(shape, attachedFileText({ filename, mimeType, bytes, content }))
+    }
+    if (!hasDeclaredFileSignature(entry.source.value, mimeType)) {
+      return refuse(`its contents are not a ${mimeType} file.`)
     }
     totalBytes += bytes
     attachments.push({ filename, mimeType, bytes, result: kind })

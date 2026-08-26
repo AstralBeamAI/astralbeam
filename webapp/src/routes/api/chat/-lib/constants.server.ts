@@ -50,6 +50,27 @@ export const CHAT_ATTACHMENT_PDF_MIME_TYPE = "application/pdf"
 
 // Textual `application/*` types, since `text/*` is matched by prefix. SVG is markup, so its
 // source is more useful to the model than a rejected image would be.
+/**
+ * Leading bytes each pass-through type must actually start with, so a renamed or truncated file
+ * is refused with an explanation here instead of failing the run with a provider 400. Criteria
+ * match the provider's own PDF check, so nothing that used to reach the model stops reaching it.
+ * https://www.iana.org/assignments/media-types/media-types.xhtml
+ */
+export const CHAT_ATTACHMENT_MAGIC_BYTES: Record<
+  string,
+  ReadonlyArray<{ offset: number; bytes: readonly number[] }>
+> = {
+  "image/png": [{ offset: 0, bytes: [0x89, 0x50, 0x4e, 0x47] }],
+  "image/jpeg": [{ offset: 0, bytes: [0xff, 0xd8, 0xff] }],
+  "image/gif": [{ offset: 0, bytes: [0x47, 0x49, 0x46, 0x38] }],
+  // RIFF container with a WEBP tag at offset 8.
+  "image/webp": [
+    { offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] },
+    { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
+  ],
+  "application/pdf": [{ offset: 0, bytes: [0x25, 0x50, 0x44, 0x46] }],
+}
+
 export const CHAT_ATTACHMENT_TEXT_MIME_TYPES = [
   "application/json",
   "application/xml",
