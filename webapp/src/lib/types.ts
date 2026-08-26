@@ -7,6 +7,7 @@ export interface ConfigOption {
 // The non-secret slice of the database-backed runtime configuration that the client may see.
 export interface PublicConfig {
   enabledSocialProviders: ("google" | "github")[]
+  turnstileSiteKey: string | null
   privacyPolicyUrl: string
   termsOfServiceUrl: string
 }
@@ -18,6 +19,8 @@ export type ConfigKey =
   | "google_client_secret"
   | "github_client_id"
   | "github_client_secret"
+  | "turnstile_site_key"
+  | "turnstile_secret_key"
   | "email_provider"
   | "email_from_address"
   | "resend_api_key"
@@ -63,6 +66,7 @@ export interface ConfigSnapshot {
   betterAuthSecret: string | null
   google: { clientId: string; clientSecret: string } | null
   github: { clientId: string; clientSecret: string } | null
+  turnstile: { siteKey: string; secretKey: string } | null
   emailProvider: "resend" | "ses" | null
   emailFromAddress: string | null
   resendApiKey: string | null

@@ -2,9 +2,10 @@ import process from "node:process"
 
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import { getRequest } from "@tanstack/react-start/server"
+import type { BetterAuthPlugin } from "better-auth"
 import { betterAuth } from "better-auth/minimal"
 import { addOAuthServerContext, createAuthMiddleware, isAPIError } from "better-auth/api"
-import { haveIBeenPwned, organization } from "better-auth/plugins"
+import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 
 import { db } from "@/db/index.server"
@@ -57,6 +58,17 @@ async function notifyPasswordChanged(user: { email: string }): Promise<void> {
 // The instance is built from the database-backed config snapshot; `getAuth` rebuilds it whenever
 // the snapshot version changes so credential and secret updates apply without a restart.
 function buildAuth(snapshot: ConfigSnapshot) {
+  if (!snapshot.appBaseUrl || !snapshot.turnstile) {
+    throw new Error("Required authentication configuration is unavailable")
+  }
+
+  // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
+  const turnstileAuthPlugin = captcha({
+    provider: "cloudflare-turnstile",
+    secretKey: snapshot.turnstile.secretKey,
+    endpoints: ["/sign-in/email", "/sign-up/email", "/request-password-reset"],
+  }) as BetterAuthPlugin
+
   const enabledOAuthProviders = new Set<string>()
   if (snapshot.google) enabledOAuthProviders.add("google")
   if (snapshot.github) enabledOAuthProviders.add("github")
@@ -215,6 +227,7 @@ function buildAuth(snapshot: ConfigSnapshot) {
       },
     },
     plugins: [
+      turnstileAuthPlugin,
       haveIBeenPwned({
         enabled: process.env.VITEST !== "true" && process.env.NODE_ENV !== "test",
         paths: ["/sign-up/email", "/change-password", "/reset-password"],

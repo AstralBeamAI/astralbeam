@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Remove the unconfigured CAPTCHA surface; use browser-safe globals and domain-specific function names; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
+// Local changes: Add configured CAPTCHA; use browser-safe globals and domain-specific function names; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
 
 "use client"
 
@@ -36,6 +36,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
     baseURL,
     basePaths,
     localization,
+    plugins,
     navigate,
     redirectTo,
     viewPaths,
@@ -86,6 +87,8 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
   const [fieldErrors, setFieldErrors] = useState<{
     email: string | undefined
   }>({ email: undefined })
+  const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
+  const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -133,8 +136,10 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
               <FieldError>{fieldErrors.email}</FieldError>
             </Field>
 
+            {captchaComponent}
+
             <div className="flex flex-col gap-3">
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending || !captchaReady}>
                 {isPending && <Spinner />}
 
                 {localization.auth.sendResetLink}

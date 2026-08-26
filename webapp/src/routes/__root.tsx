@@ -1,5 +1,6 @@
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
+import { captchaPlugin } from "@better-auth-ui/react/plugins/captcha"
 import {
   createRootRouteWithContext,
   HeadContent,
@@ -15,6 +16,7 @@ import { type ReactNode, useCallback } from "react"
 import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
 
 import { AuthProvider } from "@/components/auth/auth-provider"
+import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
 import { PublicConfigProvider } from "@/components/public-config-provider"
 import { Toaster } from "@/components/ui/toast"
 import { authClient } from "@/lib/auth/client"
@@ -204,6 +206,7 @@ function AppProviders({ children }: { children: ReactNode }) {
         multipleAccountsPerProvider={false}
         navigate={navigate}
         plugins={[
+          ...(publicConfig.turnstileSiteKey ? [captchaPlugin({ render: TurnstileCaptcha })] : []),
           themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
           organizationPlugin({
             roles: {

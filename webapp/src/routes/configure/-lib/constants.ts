@@ -12,6 +12,8 @@ export const CONFIG_FIELD_GROUPS: { title: string; keys: string[] }[] = [
       "google_client_secret",
       "github_client_id",
       "github_client_secret",
+      "turnstile_site_key",
+      "turnstile_secret_key",
     ],
   },
   {

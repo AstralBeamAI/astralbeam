@@ -1,10 +1,16 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: remove the unconfigured two-factor continuation branch, choose reauthentication from the user's actual accounts, preserve the return path, and keep credential errors non-sensitive.
+// Local changes: remove the unconfigured two-factor continuation branch, add configured CAPTCHA, choose reauthentication from the user's actual accounts, preserve the return path, and keep credential errors non-sensitive.
 
 "use client"
 
 import { getAuthLinkURL, getSafeRedirectTo } from "@better-auth-ui/core"
-import { useAuth, useListAccounts, useSession, useSignInEmail } from "@better-auth-ui/react"
+import {
+  useAuth,
+  useFetchOptions,
+  useListAccounts,
+  useSession,
+  useSignInEmail,
+} from "@better-auth-ui/react"
 import { type FormEvent, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -17,6 +23,7 @@ export interface FreshSessionPromptProps {
 
 export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
   const auth = useAuth()
+  const { fetchOptions, resetFetchOptions } = useFetchOptions()
   const session = useSession(auth.authClient)
   const accounts = useListAccounts(auth.authClient)
   const hasCredentialAccount = accounts.data?.some(
@@ -25,18 +32,25 @@ export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
   const [password, setPassword] = useState("")
   const signIn = useSignInEmail(auth.authClient, {
     meta: { errorPresentation: "inline" },
-    onError: () => setPassword(""),
+    onError: () => {
+      setPassword("")
+      resetFetchOptions()
+    },
     onSuccess: async () => {
       setPassword("")
+      resetFetchOptions()
       await onFresh()
     },
   })
+  const captchaComponent = auth.plugins?.find((plugin) => plugin.id === "captcha")
+    ?.captchaComponent
+  const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const email = session.data?.user.email
     if (!email) return
-    signIn.mutate({ email, password })
+    signIn.mutate({ email, password, fetchOptions })
   }
 
   const signInAgain = () => {
@@ -90,7 +104,11 @@ export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
                   </FieldError>
                 )}
               </Field>
-              <Button disabled={!password || signIn.isPending} type="submit">
+              {captchaComponent}
+              <Button
+                disabled={!password || signIn.isPending || !captchaReady}
+                type="submit"
+              >
                 {signIn.isPending && <Spinner />}
                 {auth.localization.settings.freshSessionSubmit}
               </Button>
