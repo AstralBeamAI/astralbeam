@@ -10,7 +10,7 @@ import { usePublicConfig } from "@/components/public-config-provider"
 
 export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRenderProps) {
   const { turnstileSiteKey } = usePublicConfig()
-  const { resolvedTheme } = useTheme()
+  const { theme } = useTheme()
   const turnstileRef = useRef<TurnstileInstance | undefined>(undefined)
   const [error, setError] = useState<string>()
 
@@ -33,7 +33,7 @@ export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRend
         ref={turnstileRef}
         siteKey={turnstileSiteKey}
         options={{
-          theme: resolvedTheme ?? "auto",
+          theme: theme === "system" ? "auto" : theme,
           size: "flexible",
           responseField: false,
         }}
