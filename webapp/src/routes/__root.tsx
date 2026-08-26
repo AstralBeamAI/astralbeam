@@ -206,7 +206,7 @@ function AppProviders({ children }: { children: ReactNode }) {
         multipleAccountsPerProvider={false}
         navigate={navigate}
         plugins={[
-          ...(publicConfig.turnstileSiteKey ? [captchaPlugin({ render: TurnstileCaptcha })] : []),
+          captchaPlugin({ render: TurnstileCaptcha }),
           themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
           organizationPlugin({
             roles: {
