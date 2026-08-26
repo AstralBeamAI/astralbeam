@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Add the legal gate for email/OAuth signup, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured CAPTCHA/plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants.
+// Local changes: Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants.
 
 "use client"
 
@@ -71,6 +71,7 @@ export function SignUp({
     basePaths,
     emailAndPassword,
     localization,
+    plugins,
     redirectTo,
     socialProviders,
     viewPaths,
@@ -177,6 +178,8 @@ export function SignUp({
   }
 
   const showSeparator = emailAndPassword?.enabled && socialProviders && socialProviders.length > 0
+  const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
+  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -461,8 +464,10 @@ export function SignUp({
                   </p>
                 </Field>
 
+                {captchaComponent}
+
                 <div className="flex flex-col gap-3">
-                  <Button type="submit" disabled={isPending || !termsAccepted}>
+                  <Button type="submit" disabled={isPending || !termsAccepted || !captchaReady}>
                     {signUpEmailPending && <Spinner />}
 
                     {localization.auth.signUp}

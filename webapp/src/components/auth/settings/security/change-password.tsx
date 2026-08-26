@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons, Base UI Toast, domain-specific function names, and hover titles for password visibility controls; omit unconfigured captcha UI and apply strict optional typing.
+// Local changes: use Phosphor icons, Base UI Toast, configured CAPTCHA, domain-specific function names, and hover titles for password visibility controls; apply strict optional typing.
 
 import { getViewURL, isPasswordCompromisedError } from "@better-auth-ui/core"
 import {
@@ -67,10 +67,12 @@ export function ChangePassword({ className }: ChangePasswordProps) {
 }
 
 function SetPassword({ className }: { className?: string }) {
-  const { authClient, basePaths, baseURL, localization, viewPaths } = useAuth()
+  const { authClient, basePaths, baseURL, localization, plugins, viewPaths } = useAuth()
   const { data: session } = useSession(authClient)
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
   const [sentEmail, setSentEmail] = useState("")
+  const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
+  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   const { mutate: requestPasswordReset, isPending } = useRequestPasswordReset(
     authClient,
@@ -131,10 +133,11 @@ function SetPassword({ className }: { className?: string }) {
             )
             : (
               <div className="flex flex-col gap-3 items-start sm:items-end">
+                {captchaComponent}
                 <Button
                   type="button"
                   size="sm"
-                  disabled={isPending || !session?.user.email}
+                  disabled={isPending || !session?.user.email || !captchaReady}
                   onClick={handleSetPassword}
                 >
                   {isPending && <Spinner />}

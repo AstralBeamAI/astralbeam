@@ -35,6 +35,8 @@ function row(key: string, value: unknown) {
 const completeRows = [
   row("app_base_url", "http://localhost:3000"),
   row("better_auth_secret", SECRET),
+  row("turnstile_site_key", "turnstile-site-key"),
+  row("turnstile_secret_key", "turnstile-secret-key"),
   row("setup_completed", true),
 ]
 
@@ -79,6 +81,21 @@ describe("config snapshot boundary", () => {
     expect(paired.google).toEqual({ clientId: "id", clientSecret: "secret" })
   })
 
+  test("setup requires both turnstile keys", () => {
+    for (const missingKey of ["turnstile_site_key", "turnstile_secret_key"]) {
+      const partial = buildConfigSnapshot(
+        completeRows.filter((configRow) => configRow.key !== missingKey),
+      )
+      expect(partial.turnstile).toBeNull()
+      expect(partial.setupComplete).toBe(false)
+    }
+
+    expect(buildConfigSnapshot(completeRows).turnstile).toEqual({
+      siteKey: "turnstile-site-key",
+      secretKey: "turnstile-secret-key",
+    })
+  })
+
   test("a selected email provider requires its credential", () => {
     const issues = validateConfigCompleteness({
       app_base_url: "http://localhost:3000",
@@ -109,6 +126,8 @@ describe("config snapshot boundary", () => {
     expect(serialized).not.toContain("google-secret-value")
     expect(serialized).not.toContain("openai-secret-value")
     expect(serialized).not.toContain(SECRET)
+    expect(serialized).not.toContain("turnstile-secret-key")
+    expect(serialized).toContain("turnstile-site-key")
     expect(serialized).toContain("google")
   })
 })

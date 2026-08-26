@@ -16,6 +16,7 @@ export const DEFAULT_TERMS_OF_SERVICE_URL = `${APP_WEBSITE}/terms`
 
 export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
   enabledSocialProviders: [],
+  turnstileSiteKey: null,
   privacyPolicyUrl: DEFAULT_PRIVACY_POLICY_URL,
   termsOfServiceUrl: DEFAULT_TERMS_OF_SERVICE_URL,
 }

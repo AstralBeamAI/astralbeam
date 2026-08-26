@@ -157,6 +157,26 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     decode: nonEmptyDecoder("GitHub client secret"),
   },
   {
+    key: "turnstile_site_key",
+    label: "Turnstile Site Key",
+    description:
+      "Public Cloudflare Turnstile site key used to protect sign-in, sign-up, and password-reset requests.",
+    kind: "text",
+    required: true,
+    secret: false,
+    isPublic: true,
+    decode: nonEmptyDecoder("Turnstile site key"),
+  },
+  {
+    key: "turnstile_secret_key",
+    label: "Turnstile Secret Key",
+    description: "Server-only Cloudflare Turnstile secret paired with the site key.",
+    kind: "secret",
+    required: true,
+    secret: true,
+    decode: nonEmptyDecoder("Turnstile secret key"),
+  },
+  {
     key: "email_provider",
     label: "Email Provider",
     description:
@@ -356,6 +376,9 @@ export function buildConfigSnapshot(rows: ConfigValueRow[] | null): ConfigSnapsh
     github: values.github_client_id && values.github_client_secret
       ? { clientId: values.github_client_id, clientSecret: values.github_client_secret }
       : null,
+    turnstile: values.turnstile_site_key && values.turnstile_secret_key
+      ? { siteKey: values.turnstile_site_key, secretKey: values.turnstile_secret_key }
+      : null,
     emailProvider: (values.email_provider as "resend" | "ses" | undefined) ?? null,
     emailFromAddress: values.email_from_address ?? null,
     resendApiKey: values.resend_api_key ?? null,
@@ -454,6 +477,7 @@ export function publicConfigFromSnapshot(snapshot: ConfigSnapshot): PublicConfig
   if (snapshot.github) enabledSocialProviders.push("github")
   return {
     enabledSocialProviders,
+    turnstileSiteKey: snapshot.turnstile?.siteKey ?? null,
     privacyPolicyUrl: snapshot.privacyPolicyUrl,
     termsOfServiceUrl: snapshot.termsOfServiceUrl,
   }

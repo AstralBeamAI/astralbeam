@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use Phosphor icons, browser-safe globals, and domain-specific function names; remove unconfigured passkey, last-login, two-factor, CAPTCHA, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
+// Local changes: Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
 
 "use client"
 
@@ -55,6 +55,7 @@ export function SignIn({
     basePaths,
     emailAndPassword,
     localization,
+    plugins,
     redirectTo,
     socialProviders,
     viewPaths,
@@ -111,6 +112,8 @@ export function SignIn({
   }>({ email: undefined, password: undefined })
 
   const providerButtonsProps = socialLayout === undefined ? {} : { socialLayout }
+  const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
+  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   const submitSignIn = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -284,10 +287,12 @@ export function SignIn({
                   </Field>
                 )}
 
+                {captchaComponent}
+
                 <div className="flex flex-col gap-3">
                   <Button
                     type="submit"
-                    disabled={isPending}
+                    disabled={isPending || !captchaReady}
                   >
                     {signInEmailPending && <Spinner />}
 
