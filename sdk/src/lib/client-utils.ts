@@ -16,6 +16,7 @@ const CATEGORY_COLORS = {
   reasoning: "#64748b",
   tool: "#d97706",
   widget: "#db2777",
+  attachment: "#0d9488",
   questionnaire: "#9333ea",
   status: "#475569",
   error: "#dc2626",

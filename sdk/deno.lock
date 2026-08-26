@@ -5,9 +5,9 @@
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@shadcn/react@0.3": "0.3.0_@types+react@19.2.18_react@19.2.8",
     "npm:@tailwindcss/cli@^4.3.3": "4.3.3",
-    "npm:@tanstack/ai-client@0.24": "0.24.0_zod@4.4.3",
-    "npm:@tanstack/ai-react@0.20": "0.20.0_@tanstack+ai@0.46.0__zod@4.4.3_@types+react@19.2.18_react@19.2.8_zod@4.4.3",
-    "npm:@tanstack/ai@0.46": "0.46.0_zod@4.4.3",
+    "npm:@tanstack/ai-client@0.28": "0.28.0",
+    "npm:@tanstack/ai-react@~0.22.1": "0.22.1_@tanstack+ai@0.49.1_@types+react@19.2.18_react@19.2.8",
+    "npm:@tanstack/ai@~0.49.1": "0.49.1",
     "npm:@types/react-dom@^19.2.3": "19.2.4_@types+react@19.2.18",
     "npm:@types/react@^19.2.13": "19.2.18",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
@@ -25,14 +25,8 @@
     "npm:vitest@^4.1.3": "4.1.11_vite@8.2.2"
   },
   "npm": {
-    "@ag-ui/core@0.1.1-canary.beta.0_zod@4.4.3": {
-      "integrity": "sha512-zcP3RH5p3HJTZ0kyQxNOL1blnVFTDpaShitR7UMS/thwFdl48V6CAG+WQBcYEu/dfa8mKonRez88N0Ok+nEI+w==",
-      "dependencies": [
-        "zod@4.4.3"
-      ],
-      "optionalPeers": [
-        "zod@4.4.3"
-      ]
+    "@ag-ui/core@0.1.1-canary.beta.0": {
+      "integrity": "sha512-zcP3RH5p3HJTZ0kyQxNOL1blnVFTDpaShitR7UMS/thwFdl48V6CAG+WQBcYEu/dfa8mKonRez88N0Ok+nEI+w=="
     },
     "@babel/code-frame@7.29.7": {
       "integrity": "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==",
@@ -1065,22 +1059,22 @@
         "@tailwindcss/oxide-win32-x64-msvc"
       ]
     },
-    "@tanstack/ai-client@0.24.0_zod@4.4.3": {
-      "integrity": "sha512-HB2CKZJfC6BqiYFLpPfUL/hurxD+vIJ24GsYp32LM2fjXt/BZIem5iCxZvhIa0aHsPqZDXzFkAcvBJ3n2cs3TA==",
+    "@tanstack/ai-client@0.28.0": {
+      "integrity": "sha512-KkOLqw4d2MkzhmqFiHGANjmhpvBWHlKDSSCdZA/o57d+Sc/dS+1fJBqRO5tKGI2m8Y9q3+TINGGo4pNUUFyfTQ==",
       "dependencies": [
         "@tanstack/ai",
         "@tanstack/ai-event-client",
         "@tanstack/ai-utils"
       ]
     },
-    "@tanstack/ai-event-client@0.9.0": {
-      "integrity": "sha512-R4jd8Gt6ZGFezteh9nH3E2Zii5b2x6Pv6Y3Gk3MoU8f9vMxCLckm3rohkC6JqYY1zESiS9ZG0mxrkJAZc+p+GA==",
+    "@tanstack/ai-event-client@0.10.0": {
+      "integrity": "sha512-grvlmM0z4rMLvjwPKBfT4/sL4D97yqocSzyaTvUa+2wZmXESCf/uR/7ZAldOKBasEx6qO5EJ31hdKDEDjnrnDg==",
       "dependencies": [
         "@tanstack/devtools-event-client"
       ]
     },
-    "@tanstack/ai-react@0.20.0_@tanstack+ai@0.46.0__zod@4.4.3_@types+react@19.2.18_react@19.2.8_zod@4.4.3": {
-      "integrity": "sha512-bIGYW+5LX1kAnk8G8cJfjWrE0rlQesCIeIY/d9Y+qYhOlKBmTYvz3oKIWWsrk3y2swRa9IvU4HVkM4rkhapzKQ==",
+    "@tanstack/ai-react@0.22.1_@tanstack+ai@0.49.1_@types+react@19.2.18_react@19.2.8": {
+      "integrity": "sha512-3v2MJ4V11RDAxQ3JUaOp33ET0nobckQgPKnxdaqWexCqdaHZox0xGu4/w1u3bmQqjm5w73+9lOnRgp+fUfu4Fw==",
       "dependencies": [
         "@tanstack/ai",
         "@tanstack/ai-client",
@@ -1091,8 +1085,8 @@
     "@tanstack/ai-utils@0.4.0": {
       "integrity": "sha512-xqvAgPJkIuGk1m+jZKyb7vBTQIaBmUD9EVzlPkDWWMp80n69uwL0TnBZCVk+OwL9goTQiFy648dnBfLsiJgl6A=="
     },
-    "@tanstack/ai@0.46.0_zod@4.4.3": {
-      "integrity": "sha512-c0L9MssuCEdVTxNlWQ8R39v1sTqvahDA3OsFfUSWIFwtE39fc3SKY5osOElkPs5/UpwsCvhVmMOHDFA2PrdtzQ==",
+    "@tanstack/ai@0.49.1": {
+      "integrity": "sha512-tOyeMiegTztxLReWpdlzcjAvQ1RutGXwONniixErozeLiErNyNo9fbgTOwdKX9sGM9Gp3HvvXvB5zwGkintxbg==",
       "dependencies": [
         "@ag-ui/core",
         "@standard-schema/spec",
@@ -3173,9 +3167,9 @@
         "npm:@phosphor-icons/react@^2.1.10",
         "npm:@shadcn/react@0.3",
         "npm:@tailwindcss/cli@^4.3.3",
-        "npm:@tanstack/ai-client@0.24",
-        "npm:@tanstack/ai-react@0.20",
-        "npm:@tanstack/ai@0.46",
+        "npm:@tanstack/ai-client@0.28",
+        "npm:@tanstack/ai-react@~0.22.1",
+        "npm:@tanstack/ai@~0.49.1",
         "npm:@types/react-dom@^19.2.3",
         "npm:@types/react@^19.2.13",
         "npm:class-variance-authority@~0.7.1",

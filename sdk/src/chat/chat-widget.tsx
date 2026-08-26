@@ -1,6 +1,6 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -12,12 +12,18 @@ import {
 } from "@/components/ui/card"
 import { ChatComposer } from "../components/chat-composer.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
+import {
+  acceptAttachmentFiles,
+  attachmentContentParts,
+  readAttachmentData,
+  resolveAttachmentOptions,
+} from "../lib/attachments.ts"
 import { DEFAULT_ENDPOINT, DEFAULT_TITLE } from "../lib/client-constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/client-types.ts"
 import { createDebugLogger } from "../lib/client-utils.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../lib/constants.ts"
 import { createDebugCallbacks } from "../lib/debug.ts"
-import type { QuestionnaireAnswer } from "../lib/types.ts"
+import type { DraftAttachment, QuestionnaireAnswer } from "../lib/types.ts"
 import { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../lib/utils.ts"
 import { buildAgentTools } from "./agent.ts"
 import {
@@ -113,6 +119,19 @@ export function ChatWidget(
     debug?.("status", `chat status is "${status}"`)
   }, [debug, status])
   const [draft, setDraft] = useState("")
+  const [attachments, setAttachments] = useState<DraftAttachment[]>([])
+  const attachmentLimits = useMemo(
+    () => resolveAttachmentOptions(options.attachments),
+    [options.attachments],
+  )
+  // Ids only have to be unique within this composer, and `crypto.randomUUID` is undefined on a
+  // host page served over plain HTTP. https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
+  const nextAttachmentId = useRef(0)
+  // An update that turns attachments off must drop the picked files too; hiding the button alone
+  // would leave them sendable.
+  useEffect(() => {
+    if (!attachmentLimits.enabled) setAttachments([])
+  }, [attachmentLimits.enabled])
   const streamBusy = status === "submitted" || status === "streaming"
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = authenticationState.status === "loading"
@@ -151,13 +170,78 @@ export function ChatWidget(
     }
   }
 
+  // Every picked file becomes a chip, a rejected one included, so a file the limits turn away
+  // says why instead of vanishing. Reads are per file: one unreadable file must not lose the rest.
+  const addAttachmentFiles = (files: File[]) => {
+    const picked = acceptAttachmentFiles({
+      files,
+      existing: attachments,
+      limits: attachmentLimits,
+      createId: () => `attachment-${nextAttachmentId.current++}`,
+    })
+    setAttachments((current) => [...current, ...picked.map(({ draft: pick }) => pick)])
+    const settle = (id: string, update: Partial<DraftAttachment>) =>
+      setAttachments((current) =>
+        current.map((attachment) =>
+          attachment.id === id ? { ...attachment, ...update } : attachment
+        )
+      )
+    for (const { draft: pick, file } of picked) {
+      if (pick.status === "error") {
+        debug?.("attachment", `rejected "${pick.name}"`, {
+          reason: pick.error,
+          size: pick.size,
+          type: file.type,
+        })
+        continue
+      }
+      debug?.("attachment", `attached "${pick.name}"`, {
+        kind: pick.kind,
+        mimeType: pick.mimeType,
+        size: pick.size,
+      })
+      void readAttachmentData(file).then(
+        (data) => settle(pick.id, { status: "ready", data }),
+        (error: unknown) => {
+          debug?.("error", `attachment "${pick.name}" could not be read`, error)
+          settle(pick.id, { status: "error", error: "The file could not be read" })
+        },
+      )
+    }
+  }
+
+  const removeAttachment = (id: string) => {
+    debug?.("attachment", "attachment removed", { id })
+    setAttachments((current) => current.filter((attachment) => attachment.id !== id))
+  }
+
   const sendDraft = () => {
     const text = draft.trim()
-    if (isBusy || text.length === 0) return
+    // Files are sent ahead of the text so the agent reads the question with them already in
+    // context, and a file still being read blocks the send rather than being left behind.
+    const parts = attachmentContentParts(attachments)
+    const pendingRead = attachments.some((attachment) => attachment.status === "reading")
+    if (isBusy || pendingRead || (text.length === 0 && parts.length === 0)) return
     settleDanglingToolCalls()
-    debug?.("send", text)
-    void sendMessage(text)
+    debug?.(
+      "send",
+      text.length > 0 ? text : `${parts.length} attachment(s), no message text`,
+      parts.length === 0 ? undefined : {
+        attachments: attachments.filter((attachment) => attachment.status === "ready").map((
+          attachment,
+        ) => ({ name: attachment.name, kind: attachment.kind, size: attachment.size })),
+      },
+    )
+    void sendMessage(
+      parts.length === 0 ? text : {
+        content: [
+          ...parts,
+          ...(text.length > 0 ? [{ type: "text" as const, content: text }] : []),
+        ],
+      },
+    )
     setDraft("")
+    setAttachments([])
   }
 
   const submitQuestionnaireAnswers = (toolCallId: string, answers: QuestionnaireAnswer[]) => {
@@ -173,6 +257,7 @@ export function ChatWidget(
     debug?.("status", "conversation reset")
     setMessages([])
     setDraft("")
+    setAttachments([])
     discardAllRenders()
   }
 
@@ -229,6 +314,10 @@ export function ChatWidget(
             ? () =>
               void getValidChatToken({ ...authentication, force: true }).catch(() => undefined)
             : undefined}
+          attachments={attachments}
+          attachmentLimits={attachmentLimits}
+          onAddFiles={addAttachmentFiles}
+          onRemoveAttachment={removeAttachment}
         />
       </CardFooter>
     </Card>

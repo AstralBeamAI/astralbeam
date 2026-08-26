@@ -52,6 +52,30 @@ export interface ToolDefinition {
   execute: (input: Record<string, unknown>) => unknown | Promise<unknown>
 }
 
+/**
+ * Limits and accepted types for the composer's file attachments. Every field is optional;
+ * omitting the whole option leaves attachments enabled with the defaults below.
+ */
+export interface AstralBeamChatAttachmentOptions {
+  /** Hides the attach button (and ignores drops and pastes) when `false`. Default `true`. */
+  enabled?: boolean | undefined
+  /** How many files one message may carry. Default `5`. */
+  maxFiles?: number | undefined
+  /**
+   * Ceiling for a single file, in bytes. The widget also applies its own per-kind caps
+   * (5 MB image, 10 MB PDF, 1 MB text file), so the smaller of the two wins.
+   */
+  maxFileBytes?: number | undefined
+  /** Ceiling for all files on one message, in bytes. Default 20 MB. */
+  maxTotalBytes?: number | undefined
+  /**
+   * Narrows what the composer takes, as MIME types or `type/*` patterns (`["image/*"]` for
+   * images only). Omit to accept everything the chat endpoint supports: PNG, JPEG, WebP and
+   * GIF images, PDFs, and text files (which the endpoint reads as text for the agent).
+   */
+  accept?: readonly string[] | undefined
+}
+
 /** Color scheme of the chat widget; `"system"` follows the OS `prefers-color-scheme` setting. */
 export type AstralBeamChatColorScheme = "light" | "dark" | "system"
 
@@ -82,6 +106,11 @@ export interface MountAstralBeamChatOptions {
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
+  /**
+   * File attachments in the composer, on by default. `false` turns them off; an options object
+   * narrows the limits and accepted types.
+   */
+  attachments?: boolean | AstralBeamChatAttachmentOptions | undefined
   /** Color scheme of the widget. Default `"system"`. */
   colorScheme?: AstralBeamChatColorScheme
   /** Custom values for the widget's theming CSS variables, per color scheme. */

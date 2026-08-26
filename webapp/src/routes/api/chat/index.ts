@@ -8,19 +8,22 @@ import { createOpenaiChat } from "@tanstack/ai-openai"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { getConfig, setupGateResponse } from "@/lib/config.server"
+import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
 import {
   authenticateChatRequest,
   isChatAuthenticationConfigurationError,
   isChatAuthenticationError,
 } from "./-lib/auth.server"
-import { CHAT_SYSTEM_PROMPT, CHAT_TOKEN_AUDIENCE } from "./-lib/constants.server"
+import { CHAT_SYSTEM_PROMPT } from "./-lib/constants.server"
 import { createDebugLog, withDebugLog } from "./-lib/debug.server"
 import type { ChatParams } from "./-lib/types"
 import {
   corsHeaders,
   errorResponse,
+  isChatRequestTooLarge,
   isRateLimited,
   stripToolCallMetadata,
+  unauthorizedChatResponse,
 } from "./-lib/utils.server"
 
 export const Route = createFileRoute("/api/chat/")({
@@ -33,6 +36,11 @@ export const Route = createFileRoute("/api/chat/")({
         if (isRateLimited(request)) {
           return errorResponse(request, 429, "Too many chat requests; try again in a minute.")
         }
+        // Attachments ride inline in the run input, so a run can be tens of megabytes. Refused
+        // from the header, before the body is read; a request without one is not pre-checked.
+        if (isChatRequestTooLarge(request)) {
+          return errorResponse(request, 413, "The message and its attachments are too large.")
+        }
         const { chatAuthSecret, openaiApiKey } = await getConfig()
         let principal
         try {
@@ -43,16 +51,15 @@ export const Route = createFileRoute("/api/chat/")({
             return errorResponse(request, 503, "Chat authentication is temporarily unavailable.")
           }
           if (isChatAuthenticationError(error)) {
-            const response = errorResponse(
-              request,
-              401,
-              "The chat authentication token is invalid.",
-            )
-            response.headers.set("www-authenticate", `Bearer realm="${CHAT_TOKEN_AUDIENCE}"`)
-            return response
+            return unauthorizedChatResponse(request, "The chat authentication token is invalid.")
           }
           console.error("Failed to authenticate /api/chat request:", error)
           return errorResponse(request, 500, "The chat request could not be authenticated.")
+        }
+        // Guest chat is off for now: a run costs provider tokens, attachments especially, so
+        // every request must carry a token minted by a host application for a signed-in user.
+        if (principal.kind !== "authenticated") {
+          return unauthorizedChatResponse(request, "This chat endpoint requires a signed-in user.")
         }
         // Parses the AG-UI run input the SDK's connection sends: messages, the host-declared
         // client tools (widgets and host tools, schemas included), and forwarded props.
@@ -74,19 +81,29 @@ export const Route = createFileRoute("/api/chat/")({
               runId: params.runId,
               parentRunId: params.parentRunId,
               resume: params.resume,
-              authenticated: principal.kind === "authenticated",
+              user: principal.user.id,
+              tenant: principal.tenant.id,
               forwardedProps: params.forwardedProps,
             })
-            log("request", "conversation messages", params.messages)
+            log("request", "conversation messages", redactChatAttachmentData(params.messages))
             log("request", `client-declared tools (${params.tools.length})`, params.tools)
           }
           if (!openaiApiKey) {
             return errorResponse(request, 503, "Chat is not configured.")
           }
+          // Attachments are rewritten into what the model reads before the run starts: the
+          // provider adapter throws on a content part it cannot map, which would fail the whole
+          // run over one unsupported file.
+          const { messages, attachments } = normalizeChatAttachments(
+            stripToolCallMetadata(params.messages),
+          )
+          if (log && attachments.length > 0) {
+            log("attachment", `${attachments.length} attachment(s) normalized`, attachments)
+          }
           const abortController = new AbortController()
           const stream = chat({
             adapter: createOpenaiChat("gpt-5.6-terra", openaiApiKey),
-            messages: stripToolCallMetadata(params.messages),
+            messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
               ...(typeof systemPrompt === "string" && systemPrompt.length > 0

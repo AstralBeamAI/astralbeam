@@ -10,6 +10,7 @@ import type { AstralBeamChatHandle, MountAstralBeamChatOptions } from "./lib/cli
 import type { ChatHandle } from "./chat/index.tsx"
 
 export type {
+  AstralBeamChatAttachmentOptions,
   AstralBeamChatColorScheme,
   AstralBeamChatHandle,
   AstralBeamChatTheme,
@@ -42,6 +43,7 @@ export function mountAstralBeamChat(
     systemPrompt: live.systemPrompt,
     tools: Object.keys(live.tools ?? {}),
     widgets: Object.keys(live.widgets ?? {}),
+    attachments: live.attachments ?? true,
   })
   // attachShadow throws when called twice, so reuse the root across mount/unmount cycles.
   const shadowRoot = target.shadowRoot ?? target.attachShadow({ mode: "open" })

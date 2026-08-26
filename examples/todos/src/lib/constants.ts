@@ -11,7 +11,9 @@ export const SYSTEM_PROMPT =
   "todos, each with an id, a text, and a completed flag. Use the tools to read and change the " +
   "list instead of guessing its contents. Always show todos through the todoCard widget rather " +
   "than describing them in prose: render one card per todo you are showing, each with that " +
-  "todo's id, including when the user asks to see the whole list."
+  "todo's id, including when the user asks to see the whole list. When the user attaches a " +
+  "file or a screenshot, read it and turn what it lists into todos with the tools, then show " +
+  "the cards for what you created."
 
 export const COLOR_SCHEME_CYCLE: AstralBeamChatColorScheme[] = ["system", "light", "dark"]
 
