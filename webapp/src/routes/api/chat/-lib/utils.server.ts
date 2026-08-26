@@ -2,6 +2,7 @@ import {
   CHAT_MAX_REQUEST_BYTES,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_WINDOW_MS,
+  CHAT_TOKEN_AUDIENCE,
 } from "./constants.server"
 import type { ChatMessages } from "./types"
 
@@ -28,6 +29,13 @@ export function errorResponse(request: Request, status: number, message: string)
 export function isChatRequestTooLarge(request: Request): boolean {
   const declared = Number(request.headers.get("content-length"))
   return Number.isFinite(declared) && declared > CHAT_MAX_REQUEST_BYTES
+}
+
+// A 401 must advertise the scheme it wants, or a client cannot tell "no token" from "wrong token".
+export function unauthorizedChatResponse(request: Request, message: string) {
+  const response = errorResponse(request, 401, message)
+  response.headers.set("www-authenticate", `Bearer realm="${CHAT_TOKEN_AUDIENCE}"`)
+  return response
 }
 
 const requestWindows = new Map<string, { windowStart: number; count: number }>()

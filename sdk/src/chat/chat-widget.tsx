@@ -127,6 +127,11 @@ export function ChatWidget(
   // Ids only have to be unique within this composer, and `crypto.randomUUID` is undefined on a
   // host page served over plain HTTP. https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
   const nextAttachmentId = useRef(0)
+  // An update that turns attachments off must drop the picked files too; hiding the button alone
+  // would leave them sendable.
+  useEffect(() => {
+    if (!attachmentLimits.enabled) setAttachments([])
+  }, [attachmentLimits.enabled])
   const streamBusy = status === "submitted" || status === "streaming"
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = authenticationState.status === "loading"

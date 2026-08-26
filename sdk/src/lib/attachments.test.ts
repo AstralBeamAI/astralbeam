@@ -35,6 +35,16 @@ test("corrects the browser's MIME guess for source files", () => {
     .toEqual({ kind: "text", mimeType: "text/plain" })
 })
 
+// A repo file with no extension has nothing but its name to go by, and browsers report no type.
+test("recognizes text files that carry no extension", () => {
+  for (const name of ["Dockerfile", "LICENSE", "Makefile", ".gitignore", ".env.production"]) {
+    expect(classifyAttachmentFile({ name, type: "", size: 10 }, limits))
+      .toEqual({ kind: "text", mimeType: "text/plain" })
+  }
+  expect(classifyAttachmentFile({ name: "photo", type: "", size: 10 }, limits))
+    .toEqual({ error: "Unsupported file type" })
+})
+
 test("honors a host-narrowed accept list", () => {
   const imagesOnly = resolveAttachmentOptions({ accept: ["image/*"] })
   expect(classifyAttachmentFile({ name: "shot.png", type: "image/png", size: 10 }, imagesOnly))

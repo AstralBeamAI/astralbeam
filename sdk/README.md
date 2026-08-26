@@ -23,7 +23,7 @@ const sidebar = document.getElementById("sidebar")
 const handle = mountAstralBeamChat(sidebar, {
   title: "Dashboard assistant", // name in the widget header (default "AstralBeam")
   chatEndpoint: "https://myapp.example/api/chat", // AstralBeam chat endpoint (default "/api/chat")
-  authEndpoint: "/api/astralbeam/token", // optional host endpoint for authenticated chat
+  authEndpoint: "/api/astralbeam/token", // host endpoint minting the chat token (required today)
   systemPrompt: "You are the assistant of an infrastructure dashboard.",
   colorScheme: "system", // "light" | "dark" | "system" (default)
   theme: {
@@ -60,7 +60,7 @@ const handle = mountAstralBeamChat(sidebar, {
 // later: handle.update({ colorScheme: "dark", widgets: nextWidgets }), handle.unmount()
 ```
 
-The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. It streams the conversation from the `chatEndpoint` (an AstralBeam webapp's `/api/chat`), forwarding the optional `systemPrompt` for the endpoint to append to the agent's instructions. When `authEndpoint` is present, the widget obtains a short-lived bearer token before enabling its composer and renews it in memory as needed; omit it to preserve guest chat. The `title` option names the assistant in the widget's header. The `colorScheme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live. The `theme` option overrides the widget's theming CSS variables — the [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) such as `--background`, `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` font stacks — per color scheme: mirroring shadcn's `:root`/`.dark` split, `theme.light` is the base applied in both schemes and `theme.dark` overrides it when the resolved scheme is dark.
+The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. It streams the conversation from the `chatEndpoint` (an AstralBeam webapp's `/api/chat`), forwarding the optional `systemPrompt` for the endpoint to append to the agent's instructions. When `authEndpoint` is present, the widget obtains a short-lived bearer token before enabling its composer and renews it in memory as needed. The AstralBeam endpoint currently answers unauthenticated runs with `401`, so `authEndpoint` is required in practice. The `title` option names the assistant in the widget's header. The `colorScheme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live. The `theme` option overrides the widget's theming CSS variables — the [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) such as `--background`, `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` font stacks — per color scheme: mirroring shadcn's `:root`/`.dark` split, `theme.light` is the base applied in both schemes and `theme.dark` overrides it when the resolved scheme is dark.
 
 ### Attachments
 
@@ -88,7 +88,7 @@ Widget renders pick up the host page's typography and custom properties automati
 
 ### Authentication
 
-Authentication is optional per widget. Supply `authEndpoint` when the host application has a signed-in user; that endpoint must authenticate the application's existing session, load the active user and tenant from trusted server-side state, and return `{ "token": "..." }`. The SDK calls it with `POST`, `credentials: "include"`, and `cache: "no-store"`, keeps the token only in memory, refreshes it within one minute of expiry, and retries one rejected chat request with a fresh token. A configured endpoint fails closed: its loading or error state disables the composer instead of falling back to guest chat.
+Supply `authEndpoint`; the AstralBeam endpoint serves signed-in users only for now and rejects a run with no token, so a widget without it can stream nothing. The host endpoint must authenticate the application's existing session, load the active user and tenant from trusted server-side state, and return `{ "token": "..." }`. The SDK calls it with `POST`, `credentials: "include"`, and `cache: "no-store"`, keeps the token only in memory, refreshes it within one minute of expiry, and retries one rejected chat request with a fresh token. A configured endpoint fails closed: its loading or error state disables the composer instead of falling back to guest chat.
 
 Use the server entry to mint the token without exposing the signing secret to browser code:
 

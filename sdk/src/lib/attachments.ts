@@ -7,6 +7,7 @@ import {
   ATTACHMENT_IMAGE_MIME_TYPES,
   ATTACHMENT_PDF_MIME_TYPE,
   ATTACHMENT_TEXT_EXTENSIONS,
+  ATTACHMENT_TEXT_FILENAMES,
   ATTACHMENT_TEXT_MIME_TYPES,
   MAX_ATTACHMENT_BYTES_BY_KIND,
   MAX_ATTACHMENT_TOTAL_BYTES,
@@ -73,9 +74,14 @@ export function classifyAttachmentFile(
 ): { kind: AttachmentKind; mimeType: string } | { error: string } {
   const reported = normalizeMimeType(file.type)
   const extension = fileExtension(file.name)
+  const name = file.name.toLowerCase()
   let kind: AttachmentKind | undefined
   let mimeType = reported
-  if (ATTACHMENT_TEXT_EXTENSIONS.includes(extension)) {
+  // `.env.production` and friends are the one family worth a prefix; the rest are exact names.
+  if (ATTACHMENT_TEXT_FILENAMES.includes(name) || name === ".env" || name.startsWith(".env.")) {
+    kind = "text"
+    mimeType = isTextualMimeType(reported) ? reported : "text/plain"
+  } else if (ATTACHMENT_TEXT_EXTENSIONS.includes(extension)) {
     kind = "text"
     // Sent as the browser's type only when that type is itself textual; `.ts` arrives as
     // `video/mp2t`, which the endpoint would refuse to read.

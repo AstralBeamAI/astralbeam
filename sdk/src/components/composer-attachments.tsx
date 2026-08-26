@@ -49,7 +49,13 @@ export function ComposerAttachments(
           ? attachmentDataUri(attachment.mimeType, attachment.data)
           : undefined
         return (
-          <Attachment key={attachment.id} size="sm" state={CHIP_STATE[attachment.status]}>
+          <Attachment
+            key={attachment.id}
+            size="sm"
+            state={CHIP_STATE[attachment.status]}
+            // The reason a file was refused lives only in this chip, so it has to be announced.
+            role={attachment.status === "error" ? "alert" : undefined}
+          >
             <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
               {thumbnail
                 ? <img src={thumbnail} alt="" />

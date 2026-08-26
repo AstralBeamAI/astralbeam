@@ -101,6 +101,38 @@ export const ATTACHMENT_TEXT_EXTENSIONS = [
   "zsh",
 ]
 
+// Text files with no extension to go by, matched on the whole (lower-cased) filename. A picker
+// `accept` list cannot express a bare filename, so these arrive by drop, paste, or the dialog's
+// "All Files" mode; the endpoint's strict UTF-8 decode is what catches a binary named like one.
+export const ATTACHMENT_TEXT_FILENAMES = [
+  ".babelrc",
+  ".bashrc",
+  ".dockerignore",
+  ".editorconfig",
+  ".eslintrc",
+  ".gitattributes",
+  ".gitignore",
+  ".gitmodules",
+  ".npmrc",
+  ".nvmrc",
+  ".prettierrc",
+  ".profile",
+  ".zshrc",
+  "authors",
+  "changelog",
+  "codeowners",
+  "contributing",
+  "dockerfile",
+  "gemfile",
+  "licence",
+  "license",
+  "makefile",
+  "notice",
+  "procfile",
+  "rakefile",
+  "readme",
+]
+
 /** Slot name prefix for widget renders; the bridged style rule keys off it. */
 export const WIDGET_SLOT_PREFIX = "astralbeam-widget-"
 export const WIDGET_SLOT_SELECTOR = `slot[name^="${WIDGET_SLOT_PREFIX}"]`
