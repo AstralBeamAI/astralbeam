@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor icons, Base UI Toast, and domain-specific function names with the app's static owner/admin/member roles.
+// Local changes: Use Phosphor icons, Base UI Toast, domain-specific function names, and composable static roles.
 
 "use client"
 

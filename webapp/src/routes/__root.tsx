@@ -206,6 +206,11 @@ function AppProviders({ children }: { children: ReactNode }) {
         plugins={[
           themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
           organizationPlugin({
+            roles: {
+              owner: "Owner",
+              developer: "Developer",
+              viewer: "Viewer",
+            },
             localization: { people: "Members" },
             viewPaths: { organization: { people: "members" } },
           }),

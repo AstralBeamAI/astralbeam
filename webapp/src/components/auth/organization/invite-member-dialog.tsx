@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and actor-assignable static roles; omit disabled teams, dynamic roles, and invitation model fields.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; omit disabled teams, dynamic roles, and invitation model fields.
 
 "use client"
 
@@ -46,7 +46,7 @@ export type InviteMemberDialogProps = {
   onOpenChange: (open: boolean) => void
 }
 
-const pickDefaultRole = (keys: string[]) => keys.includes("member") ? "member" : (keys.at(-1) ?? "")
+const pickDefaultRole = (keys: string[]) => keys.includes("viewer") ? "viewer" : (keys.at(-1) ?? "")
 
 /**
  * Render a dialog for inviting a member to the organization.

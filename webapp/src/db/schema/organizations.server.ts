@@ -29,7 +29,7 @@ export const member = snakeCase.table(
       onDelete: "cascade",
     }),
     userId: uuid().notNull().references(() => user.id, { onDelete: "cascade" }),
-    role: text().default("member").notNull(),
+    role: text().default("viewer").notNull(),
     ...timestamps(),
   },
   (table) => [

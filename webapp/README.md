@@ -22,7 +22,7 @@ Better Auth is mounted at `/api/auth/*`. Existing users sign in at `/auth/sign-i
 
 The enabled methods are email/password, Google, and GitHub. Credential signup requires email verification; OAuth signup requires a verified provider identity and explicit signup intent. Organization invitations are emailed to the recipient and can be accepted only by the matching verified account.
 
-Authenticated layouts provide first-render and reactive navigation protection, but they are not authorization boundaries. Better Auth APIs and server-only functions independently enforce sessions, organization membership, and owner/admin/member permissions. Follow the repository [authentication setup](../SETUP.md#authentication-and-transactional-email) before testing these flows.
+Authenticated layouts provide first-render and reactive navigation protection, but they are not authorization boundaries. Better Auth APIs and server-only functions independently enforce sessions, organization membership, and configured organization permissions. Follow the repository [authentication setup](../SETUP.md#authentication-and-transactional-email) before testing these flows.
 
 ## Theme
 

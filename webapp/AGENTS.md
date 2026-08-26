@@ -88,7 +88,7 @@
   - Keep `termsAcceptedAt` server-owned. Require explicit legal acceptance for credential and OAuth signup, disable implicit OAuth signup, and accept provider identities or invitations only after verified-email checks.
   - Keep OAuth tokens encrypted, account linking restricted to matching verified emails, unlinking the final sign-in method disabled, session cookie caching disabled, and rate limits in the database.
   - Keep `tanstackStartCookies()` last in the server plugin list. Route guards are navigation UX; every Better Auth API or server function must independently enforce its session, fresh-session, organization, and role requirements.
-  - Keep invitation delivery on the official Better Auth organization flow and expose only owner/admin/member operations supported by the configured plugin.
+  - Configure organization roles through Better Auth's static server/client role maps and hooks: creators are owners, invitations initially select viewer, owner/developer/viewer roles are composable, viewer and developer share the Better Auth member access statement, and roles outside the configured map are rejected. Keep dynamic roles disabled.
 
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
 

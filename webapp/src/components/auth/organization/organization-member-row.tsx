@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor icons, hover titles for icon-only actions, and static owner/admin/member roles; omit dynamic roles, teams, and member model fields.
+// Local changes: Use Phosphor icons, hover titles for icon-only actions, and static roles; omit dynamic roles, teams, and member model fields.
 
 import {
   hasMemberRole,

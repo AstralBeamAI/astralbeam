@@ -71,7 +71,7 @@ export interface OrganizationInvitationEmailProps {
   organizationName?: string
   /** Organization logo URL(s) - a single string or light/dark variants. */
   organizationLogoURL?: string | { light: string; dark: string }
-  /** Role being offered to the invitee (e.g. "member", "admin", "owner") */
+  /** Comma-joined configured roles offered to the invitee. */
   role?: string
   /** Name of the application sending the email */
   appName?: string
@@ -118,7 +118,7 @@ export interface OrganizationInvitationEmailProps {
  *   inviterEmail="jane@example.com"
  *   organizationName="Acme Inc."
  *   organizationLogoURL="https://example.com/acme-logo.png"
- *   role="member"
+ *   role="viewer"
  *   appName="My App"
  *   expirationHours={48}
  *   darkMode={true}
@@ -453,7 +453,7 @@ OrganizationInvitationEmail.PreviewProps = {
   inviterName: "Jane Doe",
   inviterEmail: "jane@example.com",
   organizationName: "Acme Inc.",
-  role: "member",
+  role: "viewer",
   appName: "Better Auth",
   expirationHours: 48,
   darkMode: true,
