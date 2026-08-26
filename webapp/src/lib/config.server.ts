@@ -52,6 +52,22 @@ const decodeSecretValue = Schema.decodeUnknownSync(
   Schema.String.pipe(Schema.check(Schema.isMinLength(32))),
 )
 const decodeNonEmptyText = Schema.decodeUnknownSync(Schema.NonEmptyString)
+
+// Resend rejects a From value that is not `email@example.com` or `Name <email@example.com>`, and
+// SES has the same requirement, so the shape is validated here instead of failing at send time.
+// https://resend.com/docs/api-reference/emails/send-email
+const EMAIL_ADDRESS_PATTERN = /^[^\s@<>,]+@[^\s@<>,.]+(?:\.[^\s@<>,.]+)+$/
+const NAMED_EMAIL_ADDRESS_PATTERN = /^(?:[^<>@,]*\S\s*)?<([^\s<>,]+)>$/
+
+const decodeEmailFromAddress = Schema.decodeUnknownSync(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.makeFilter((value) =>
+        EMAIL_ADDRESS_PATTERN.test(NAMED_EMAIL_ADDRESS_PATTERN.exec(value)?.[1] ?? value)
+      ),
+    ),
+  ),
+)
 const decodeEmailProvider = Schema.decodeUnknownSync(Schema.Literals(["resend", "ses"]))
 const decodePublicHttpUrl = Schema.decodeUnknownSync(
   Schema.URLFromString.pipe(
@@ -196,11 +212,15 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
     key: "email_from_address",
     label: "Email From Address",
-    description: "Default From address for outgoing email.",
+    description:
+      "Default From address for outgoing email, as 'email@example.com' or 'Name <email@example.com>'.",
     kind: "text",
     required: false,
     secret: false,
-    decode: nonEmptyDecoder("Email from address"),
+    decode: sanitizedDecoder(
+      decodeEmailFromAddress,
+      "Email from address must be 'email@example.com' or 'Name <email@example.com>'",
+    ),
   },
   {
     key: "resend_api_key",
@@ -316,6 +336,12 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
         message: `${configDefinition(missing)?.label} is required to enable this sign-in provider`,
       })
     }
+  }
+  if (values.email_provider && !values.email_from_address) {
+    issues.push({
+      key: "email_from_address",
+      message: "An email provider is selected but no valid From address is configured",
+    })
   }
   if (values.email_provider === "resend" && !values.resend_api_key) {
     issues.push({

@@ -96,6 +96,20 @@ describe("config snapshot boundary", () => {
     })
   })
 
+  test("a malformed from address is rejected instead of reaching the provider", () => {
+    const malformed = buildConfigSnapshot([
+      ...completeRows,
+      row("email_from_address", "onboarding.resend.dev"),
+    ])
+    expect(malformed.emailFromAddress).toBeNull()
+
+    const named = buildConfigSnapshot([
+      ...completeRows,
+      row("email_from_address", "App <onboarding@resend.dev>"),
+    ])
+    expect(named.emailFromAddress).toBe("App <onboarding@resend.dev>")
+  })
+
   test("a selected email provider requires its credential", () => {
     const issues = validateConfigCompleteness({
       app_base_url: "http://localhost:3000",

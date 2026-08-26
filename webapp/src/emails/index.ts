@@ -154,11 +154,16 @@ async function deliverAuthEmail(
 
   try {
     await sendEmail(options)
-  } catch {
-    // Record the failure category without retaining provider responses, recipients, or token URLs.
-    console.error("Authentication email provider delivery failed")
+  } catch (error) {
+    // Log the provider's own reason, which an operator needs to fix a rejected sender or key, but
+    // never the options: they carry the recipient, the rendered email, and the token URL.
+    console.error("Authentication email provider delivery failed:", providerFailureReason(error))
     throw new Error(AUTH_EMAIL_DELIVERY_ERROR)
   }
+}
+
+function providerFailureReason(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : "unknown provider failure"
 }
 
 function formatTimestamp(date: Date): string {

@@ -20,6 +20,10 @@ import { getRequiredConfig } from "@/lib/config.server"
 import type { ConfigSnapshot } from "@/lib/types"
 import { APP_NAME } from "@/lib/constants"
 import {
+  assertAuthEmailDelivered,
+  deliverBlockingAuthEmail,
+} from "@/lib/auth/email-delivery.server"
+import {
   acceptedAtForUserCreation,
   assertLegalAcceptance,
   recordValue,
@@ -47,6 +51,8 @@ async function runAfterResponse(promise: Promise<unknown>): Promise<void> {
   await promise
 }
 
+// A password-change notice is informational and its recipient is not waiting on it, so it stays
+// deferred past the response instead of blocking like the emails deliverBlockingAuthEmail guards.
 async function notifyPasswordChanged(user: { email: string }): Promise<void> {
   await runAfterResponse(
     sendPasswordChangedEmail({ user }).catch(() => {
@@ -99,8 +105,8 @@ function buildAuth(snapshot: ConfigSnapshot) {
       resetPasswordTokenExpiresIn: AUTH_EMAIL_EXPIRY_SECONDS,
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
-      // Better Auth schedules the returned promise through advanced.backgroundTasks. https://better-auth.com/docs/concepts/email
-      sendResetPassword: ({ user, url }) => sendResetPasswordEmail({ user, url }),
+      sendResetPassword: ({ user, url }) =>
+        deliverBlockingAuthEmail(() => sendResetPasswordEmail({ user, url })),
       onPasswordReset: async ({ user }) => {
         await notifyPasswordChanged(user)
       },
@@ -110,9 +116,8 @@ function buildAuth(snapshot: ConfigSnapshot) {
       sendOnSignUp: true,
       sendOnSignIn: false,
       autoSignInAfterVerification: true,
-      sendVerificationEmail: async ({ user, url }) => {
-        await runAfterResponse(sendVerificationEmail({ user, url }))
-      },
+      sendVerificationEmail: ({ user, url }) =>
+        deliverBlockingAuthEmail(() => sendVerificationEmail({ user, url })),
     },
     socialProviders: {
       ...(snapshot.google && {
@@ -186,18 +191,12 @@ function buildAuth(snapshot: ConfigSnapshot) {
       },
     },
     advanced: {
+      // advanced.backgroundTasks stays unset so Better Auth awaits each email send inside the
+      // request; a handler would defer it and swallow the rejection. https://better-auth.com/docs/concepts/email
       database: {
         // Let PostgreSQL apply the schema's UUIDv7 defaults. https://better-auth.com/docs/concepts/database#id-generation
         generateId: false,
         joins: true,
-      },
-      backgroundTasks: {
-        // Nitro exposes request.waitUntil in its Deno adapter. https://better-auth.com/docs/concepts/email
-        handler: (promise) => {
-          void runAfterResponse(promise).catch(() => {
-            console.error("Authentication background task failed")
-          })
-        },
       },
     },
     hooks: {
@@ -213,6 +212,7 @@ function buildAuth(snapshot: ConfigSnapshot) {
         await addOAuthServerContext({ termsAccepted: true })
       }),
       after: createAuthMiddleware(async (context) => {
+        assertAuthEmailDelivered()
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
         const user = context.context.session?.user
         if (user) await notifyPasswordChanged(user)
@@ -246,9 +246,8 @@ function buildAuth(snapshot: ConfigSnapshot) {
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
-        sendInvitationEmail: async (data) => {
-          await sendOrganizationInvitationEmail(data)
-        },
+        sendInvitationEmail: (data) =>
+          deliverBlockingAuthEmail(() => sendOrganizationInvitationEmail(data)),
       }),
       tanstackStartCookies(),
     ],
