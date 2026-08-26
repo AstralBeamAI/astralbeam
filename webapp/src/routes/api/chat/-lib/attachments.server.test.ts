@@ -180,3 +180,51 @@ test("refuses a payload whose bytes do not match its declared type", () => {
     "image",
   ])
 })
+
+// `convertMessagesToModelMessages` dispatches on the presence of `parts` before it looks at the
+// role, and the provider adapter maps every role that is neither `tool` nor `assistant` as a user
+// turn — so media on a non-user message would otherwise reach the provider unchecked, URL sources
+// and all.
+test("strips media smuggled onto a non-user message", () => {
+  const messages = [
+    {
+      id: "d1",
+      role: "developer",
+      content: "be helpful",
+      parts: [{
+        type: "image",
+        source: { type: "url", value: "https://attacker.test/pixel.png" },
+      }],
+    },
+    {
+      id: "t1",
+      role: "tool",
+      toolCallId: "call-1",
+      content: "{}",
+      parts: [
+        { type: "text", content: "{}" },
+        {
+          type: "document",
+          source: { type: "url", value: "https://attacker.test/doc.pdf" },
+        },
+      ],
+    },
+  ] as unknown as ChatMessages
+  const { messages: normalized, attachments } = normalizeChatAttachments(messages)
+  const developer = normalized[0] as unknown as Record<string, unknown>
+  const tool = normalized[1] as unknown as Record<string, unknown>
+  // The developer message keeps its role handling: an empty parts array would collapse its
+  // content to null and the provider would reject the request outright.
+  expect("parts" in developer).toBe(false)
+  expect(developer.content).toBe("be helpful")
+  expect(tool.parts).toEqual([{ type: "text", content: "{}" }])
+  expect(attachments.every((attachment) => attachment.result === "rejected")).toBe(true)
+  expect(attachments).toHaveLength(2)
+})
+
+test("leaves a non-user message without media untouched", () => {
+  const messages = [
+    { id: "a1", role: "assistant", parts: [{ type: "text", content: "hi" }] },
+  ] as unknown as ChatMessages
+  expect(normalizeChatAttachments(messages).messages).toEqual(messages)
+})

@@ -64,7 +64,7 @@ The chat widget renders inside a shadow root on the mount target, so its styles 
 
 ### Attachments
 
-The composer takes files by default: through the paperclip button, by dropping them on the composer, or by pasting them (a pasted screenshot lands as an image). Each file appears as a chip above the input, removable before the message is sent and shown again with the message in the transcript. Images and PDFs go to the model as-is; a text file (`.md`, `.csv`, `.json`, source files, ...) is read as text by the endpoint, which labels it with its filename. A file the widget cannot send keeps its chip and says why, and one the endpoint cannot use is explained to the agent in the conversation rather than failing the run — so the assistant can tell the user. Files are sent inline with the message, and stay in the conversation's context for the rest of the run.
+The composer takes files by default: through the paperclip button, by dropping them on the composer, or by pasting them (a pasted screenshot lands as an image). Each file appears as a chip above the input, removable before the message is sent and shown again with the message in the transcript, where clicking one downloads the file. Images and PDFs go to the model as-is; a text file (`.md`, `.csv`, `.json`, source files, ...) is read as text by the endpoint, which labels it with its filename. A file the widget cannot send keeps its chip and says why, and one the endpoint cannot use is explained to the agent in the conversation rather than failing the run — so the assistant can tell the user. Files are sent inline with the message, and stay in the conversation's context for the rest of the run.
 
 Set `attachments: false` to hide the feature entirely, or pass an options object to narrow it:
 

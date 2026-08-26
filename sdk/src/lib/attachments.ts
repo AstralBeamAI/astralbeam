@@ -235,7 +235,8 @@ export function describeSentAttachment(
   kind: AttachmentKind
   title: string
   description: string | undefined
-  thumbnail: string | undefined
+  /** Where the file itself lives, for the thumbnail and the download; absent if it carries none. */
+  href: string | undefined
 } {
   const metadata = typeof part.metadata === "object" && part.metadata !== null
     ? part.metadata as { filename?: unknown; size?: unknown }
@@ -249,16 +250,23 @@ export function describeSentAttachment(
   const size = typeof metadata.size === "number" && metadata.size > 0
     ? formatAttachmentSize(metadata.size)
     : undefined
-  const thumbnail = part.type !== "image" ? undefined : url ??
-    (part.source.value.startsWith("data:")
-      ? part.source.value
-      : attachmentDataUri(part.source.mimeType ?? "image/png", part.source.value))
   const kind: AttachmentKind = part.type === "image"
     ? "image"
     : normalizeMimeType(part.source.mimeType ?? "") === ATTACHMENT_PDF_MIME_TYPE
     ? "pdf"
     : "text"
-  return { kind, title, description: size, thumbnail }
+  // The part already carries the bytes, so one reference serves both the thumbnail and the
+  // download; a `data` source becomes the data URI a download anchor can point at.
+  const href = url ??
+    (part.source.value.length === 0
+      ? undefined
+      : part.source.value.startsWith("data:")
+      ? part.source.value
+      : attachmentDataUri(
+        part.source.mimeType ?? (kind === "image" ? "image/png" : "application/octet-stream"),
+        part.source.value,
+      ))
+  return { kind, title, description: size, href }
 }
 
 /** The parts to send with a message, in pick order; unread and rejected files are left out. */

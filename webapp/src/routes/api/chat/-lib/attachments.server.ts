@@ -232,11 +232,50 @@ export function normalizeChatAttachments(
   const normalizeEntries = (entries: unknown[], shape: ContentShape) =>
     entries.map((entry) => isMediaEntry(entry) ? convert(entry, shape) : entry)
 
+  // A file is something a user attaches to their own message. Every other role reaches the
+  // provider through the same multimodal path — `convertMessagesToModelMessages` dispatches on
+  // the presence of `parts` before it looks at the role, and the provider adapter maps anything
+  // that is neither `tool` nor `assistant` as a user turn — so a media part smuggled onto a
+  // `developer`, `reasoning`, `activity`, or `tool` message would skip every check above it.
+  const stripMedia = (entries: unknown[]) =>
+    entries.filter((entry) => {
+      if (!isMediaEntry(entry)) return true
+      const metadata = typeof entry.metadata === "object" && entry.metadata !== null
+        ? entry.metadata as { filename?: unknown }
+        : {}
+      attachments.push({
+        filename: sanitizeAttachmentFilename(metadata.filename, "attachment"),
+        mimeType: normalizeMimeType(entry.source.mimeType),
+        bytes: 0,
+        result: "rejected",
+        reason: "attachments are read only from a user's own message.",
+      })
+      return false
+    })
+
   const normalized = messages.map((message) => {
-    if (message.role !== "user") return message
     const next = { ...message } as typeof message & { content?: unknown; parts?: unknown }
-    if (Array.isArray(next.content)) next.content = normalizeEntries(next.content, "agui")
-    if (Array.isArray(next.parts)) next.parts = normalizeEntries(next.parts, "ui")
+    if (message.role === "user") {
+      if (Array.isArray(next.content)) next.content = normalizeEntries(next.content, "agui")
+      if (Array.isArray(next.parts)) next.parts = normalizeEntries(next.parts, "ui")
+      return next
+    }
+    if (Array.isArray(next.parts)) {
+      const kept = stripMedia(next.parts)
+      if (kept.length === next.parts.length) return message
+      // An empty `parts` array is worse than none: it collapses the message to null content and
+      // the provider rejects the request. Dropping the key restores the role's normal handling.
+      if (kept.length === 0) Reflect.deleteProperty(next, "parts")
+      else next.parts = kept
+      return next
+    }
+    // Unreachable through the AG-UI validator, which allows array content only on a user
+    // message, but stripping costs one branch and does not depend on that staying true.
+    if (Array.isArray(next.content)) {
+      const kept = stripMedia(next.content)
+      if (kept.length === next.content.length) return message
+      next.content = kept.length === 0 ? "" : kept
+    }
     return next
   })
   return { messages: normalized, attachments }

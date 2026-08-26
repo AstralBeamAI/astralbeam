@@ -5,6 +5,7 @@ import {
   AttachmentDescription,
   AttachmentMedia,
   AttachmentTitle,
+  AttachmentTrigger,
 } from "@/components/ui/attachment"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { describeSentAttachment } from "../lib/attachments.ts"
@@ -14,7 +15,8 @@ import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
 type MediaPart = Extract<MessagePart, { type: "image" | "document" }>
 
 function SentAttachment({ part }: { part: MediaPart }) {
-  const { kind, title, description, thumbnail } = describeSentAttachment(part)
+  const { kind, title, description, href } = describeSentAttachment(part)
+  const thumbnail = kind === "image" ? href : undefined
   return (
     <Attachment size="sm">
       <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
@@ -24,6 +26,23 @@ function SentAttachment({ part }: { part: MediaPart }) {
         <AttachmentTitle>{title}</AttachmentTitle>
         {description && <AttachmentDescription>{description}</AttachmentDescription>}
       </AttachmentContent>
+      {href && (
+        // The trigger covers the whole chip, making it the download control. `download` is
+        // honored for the inline `data:` source; a remote one, where browsers ignore it, opens
+        // in its own tab rather than navigating the host page away.
+        <AttachmentTrigger
+          render={
+            <a
+              href={href}
+              download={title}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Download ${title}`}
+              title={`Download ${title}`}
+            />
+          }
+        />
+      )}
     </Attachment>
   )
 }
