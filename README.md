@@ -49,7 +49,7 @@ deno install
 deno task dev
 ```
 
-`OPENAI_API_KEY` and other environment variables are required to run the app; put them in the git-ignored `webapp/.env`. See [`webapp/.env.example`](webapp/.env.example).
+`DATABASE_URL` is the only environment variable; `webapp/.env.development` supplies the local default and any shell value overrides it. Every other setting (base URL, auth secret, OAuth credentials, email delivery, API keys, legal links) is stored in the database and managed at http://localhost:3000/configure .
 
 ### 3. Build the SDK
 
