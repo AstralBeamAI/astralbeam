@@ -1,13 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs"
-import process from "node:process"
-import { fileURLToPath } from "node:url"
 
 import tailwindcss from "@tailwindcss/vite"
 import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
-import { defineConfig, loadEnv } from "vite"
+import { defineConfig } from "vite"
 
 const licensesDirectory = new URL("../docs/legal/LICENSES/", import.meta.url)
 const legalAssets = [
@@ -30,13 +28,6 @@ const legalAssets = [
 ]
 
 const viteConfig = defineConfig(({ mode }) => {
-  // Expand mode files through Vite before server modules read process.env; existing shell and
-  // deployment variables still win. https://vite.dev/config/#using-environment-variables-in-config
-  const runtimeEnvironment = loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "")
-  for (const [key, value] of Object.entries(runtimeEnvironment)) {
-    process.env[key] ??= value
-  }
-
   return {
     resolve: { tsconfigPaths: true },
     build: {
@@ -64,6 +55,11 @@ const viteConfig = defineConfig(({ mode }) => {
       tanstackStart(),
       viteReact(),
     ],
+    test: {
+      // Vitest workers do not inherit the .env.development values that nitro loads, and every test
+      // mocks the database, so a parseable placeholder is all module-level clients need.
+      env: { DATABASE_URL: "postgres://test:test@127.0.0.1:5432/test" },
+    },
   }
 })
 
