@@ -10,6 +10,97 @@ export const ASK_QUESTIONNAIRE_TOOL = "ask_questionnaire"
 // component state for the life of the conversation, so the oldest are evicted past this many.
 export const MAX_ACTIVE_WIDGET_RENDERS = 20
 
+// Attachment limits and accepted types. The caps are per kind because the cost of a file to a
+// run differs by kind: an image is billed as tokens by area, a PDF page by page, a text file by
+// its characters. The endpoint enforces the same numbers, so a patched client gains nothing.
+export const MAX_ATTACHMENTS_PER_MESSAGE = 5
+export const MAX_ATTACHMENT_TOTAL_BYTES = 20 * 1024 * 1024
+export const MAX_ATTACHMENT_BYTES_BY_KIND = {
+  image: 5 * 1024 * 1024,
+  pdf: 10 * 1024 * 1024,
+  text: 1024 * 1024,
+} as const
+
+/** Image types the chat endpoint's model reads natively; SVG is text, so it is not one of them. */
+export const ATTACHMENT_IMAGE_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]
+
+/** The one document type the model reads natively; every other document is read as text. */
+export const ATTACHMENT_PDF_MIME_TYPE = "application/pdf"
+
+// Types the endpoint decodes into text for the agent. `text/*` is covered by prefix, so this
+// lists only the textual formats browsers label as `application/*` (plus SVG, which is markup).
+export const ATTACHMENT_TEXT_MIME_TYPES = [
+  "application/json",
+  "application/xml",
+  "application/yaml",
+  "application/x-yaml",
+  "application/toml",
+  "application/x-ndjson",
+  "application/csv",
+  "application/sql",
+  "application/x-sh",
+  "application/javascript",
+  "application/typescript",
+  "image/svg+xml",
+]
+
+// Browsers derive a file's type from its extension and get source files wrong: Chrome reports
+// `.ts` as `video/mp2t` and leaves `.tsx`, `.rs`, and `.toml` empty. Extensions are therefore
+// checked before the reported type, so a source file is never rejected as a video.
+// https://developer.mozilla.org/en-US/docs/Web/API/File/type
+export const ATTACHMENT_TEXT_EXTENSIONS = [
+  "c",
+  "cfg",
+  "conf",
+  "cpp",
+  "cs",
+  "css",
+  "csv",
+  "go",
+  "h",
+  "hpp",
+  "htm",
+  "html",
+  "ini",
+  "java",
+  "js",
+  "json",
+  "jsonl",
+  "jsx",
+  "kt",
+  "log",
+  "lua",
+  "md",
+  "mdx",
+  "mjs",
+  "php",
+  "pl",
+  "py",
+  "rb",
+  "rs",
+  "rst",
+  "scss",
+  "sh",
+  "sql",
+  "svg",
+  "swift",
+  "toml",
+  "ts",
+  "tsv",
+  "tsx",
+  "txt",
+  "vue",
+  "xml",
+  "yaml",
+  "yml",
+  "zsh",
+]
+
 /** Slot name prefix for widget renders; the bridged style rule keys off it. */
 export const WIDGET_SLOT_PREFIX = "astralbeam-widget-"
 export const WIDGET_SLOT_SELECTOR = `slot[name^="${WIDGET_SLOT_PREFIX}"]`

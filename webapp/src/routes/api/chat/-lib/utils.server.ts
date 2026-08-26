@@ -1,4 +1,8 @@
-import { CHAT_RATE_LIMIT_MAX_REQUESTS, CHAT_RATE_LIMIT_WINDOW_MS } from "./constants.server"
+import {
+  CHAT_MAX_REQUEST_BYTES,
+  CHAT_RATE_LIMIT_MAX_REQUESTS,
+  CHAT_RATE_LIMIT_WINDOW_MS,
+} from "./constants.server"
 import type { ChatMessages } from "./types"
 
 // The SDK chat widget embeds on host origins the webapp does not serve, so the endpoint must
@@ -17,6 +21,13 @@ export function corsHeaders(_request: Request) {
 // cross-origin widgets cannot read at all; every failure must be answered as a readable response.
 export function errorResponse(request: Request, status: number, message: string) {
   return Response.json({ error: message }, { status, headers: corsHeaders(request) })
+}
+
+// A declared length is only a claim, but refusing on it costs nothing and keeps an oversized
+// attachment payload from being buffered and JSON-parsed at all.
+export function isChatRequestTooLarge(request: Request): boolean {
+  const declared = Number(request.headers.get("content-length"))
+  return Number.isFinite(declared) && declared > CHAT_MAX_REQUEST_BYTES
 }
 
 const requestWindows = new Map<string, { windowStart: number; count: number }>()

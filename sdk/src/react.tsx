@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 // Self-reference rather than a relative path, so this entry shares the client entry's chat
 // chunk and its bundled React instead of bundling a second copy.
 import {
+  type AstralBeamChatAttachmentOptions,
   type AstralBeamChatColorScheme,
   type AstralBeamChatHandle,
   type AstralBeamChatTheme,
@@ -13,7 +14,12 @@ import {
 // A constant-only module, safe to import relatively: it pulls no React into this entry.
 import { DEFAULT_COLOR_SCHEME } from "./lib/client-constants.ts"
 
-export type { AstralBeamChatColorScheme, AstralBeamChatTheme, ToolDefinition }
+export type {
+  AstralBeamChatAttachmentOptions,
+  AstralBeamChatColorScheme,
+  AstralBeamChatTheme,
+  ToolDefinition,
+}
 
 export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render"> {
   /** Draws the widget with the agent-chosen props, in the host's own React tree. */
@@ -37,6 +43,8 @@ export interface AstralBeamChatProps {
   colorScheme?: AstralBeamChatColorScheme
   /** Custom values for the widget's theming CSS variables, per color scheme; changes apply immediately. */
   theme?: AstralBeamChatTheme | undefined
+  /** File attachments in the composer, on by default; `false` turns them off. */
+  attachments?: boolean | AstralBeamChatAttachmentOptions
   /**
    * Logs every SDK action to the browser console with UTC timestamps and full payloads,
    * and asks the endpoint to log its side of the run too; prop changes apply immediately.
@@ -60,6 +68,7 @@ export function AstralBeamChat(
     widgets = {},
     colorScheme = DEFAULT_COLOR_SCHEME,
     theme,
+    attachments,
     debug,
   }: AstralBeamChatProps,
 ) {
@@ -123,11 +132,12 @@ export function AstralBeamChat(
       systemPrompt,
       colorScheme,
       theme,
+      attachments,
       debug,
       tools: hostTools,
       widgets: hostWidgets,
     }),
-    [title, systemPrompt, colorScheme, theme, debug, hostTools, hostWidgets],
+    [title, systemPrompt, colorScheme, theme, attachments, debug, hostTools, hostWidgets],
   )
   const liveRef = useRef(live)
   liveRef.current = live

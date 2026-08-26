@@ -8,6 +8,7 @@ import { createOpenaiChat } from "@tanstack/ai-openai"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { getConfig, setupGateResponse } from "@/lib/config.server"
+import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
 import {
   authenticateChatRequest,
   isChatAuthenticationConfigurationError,
@@ -19,6 +20,7 @@ import type { ChatParams } from "./-lib/types"
 import {
   corsHeaders,
   errorResponse,
+  isChatRequestTooLarge,
   isRateLimited,
   stripToolCallMetadata,
 } from "./-lib/utils.server"
@@ -32,6 +34,11 @@ export const Route = createFileRoute("/api/chat/")({
         if (gate) return gate
         if (isRateLimited(request)) {
           return errorResponse(request, 429, "Too many chat requests; try again in a minute.")
+        }
+        // Attachments ride inline in the run input, so a run can be tens of megabytes. Refused
+        // from the header, before the body is read; a request without one is not pre-checked.
+        if (isChatRequestTooLarge(request)) {
+          return errorResponse(request, 413, "The message and its attachments are too large.")
         }
         const { chatAuthSecret, openaiApiKey } = await getConfig()
         let principal
@@ -77,16 +84,25 @@ export const Route = createFileRoute("/api/chat/")({
               authenticated: principal.kind === "authenticated",
               forwardedProps: params.forwardedProps,
             })
-            log("request", "conversation messages", params.messages)
+            log("request", "conversation messages", redactChatAttachmentData(params.messages))
             log("request", `client-declared tools (${params.tools.length})`, params.tools)
           }
           if (!openaiApiKey) {
             return errorResponse(request, 503, "Chat is not configured.")
           }
+          // Attachments are rewritten into what the model reads before the run starts: the
+          // provider adapter throws on a content part it cannot map, which would fail the whole
+          // run over one unsupported file.
+          const { messages, attachments } = normalizeChatAttachments(
+            stripToolCallMetadata(params.messages),
+          )
+          if (log && attachments.length > 0) {
+            log("attachment", `${attachments.length} attachment(s) normalized`, attachments)
+          }
           const abortController = new AbortController()
           const stream = chat({
             adapter: createOpenaiChat("gpt-5.6-terra", openaiApiKey),
-            messages: stripToolCallMetadata(params.messages),
+            messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
               ...(typeof systemPrompt === "string" && systemPrompt.length > 0
