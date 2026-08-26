@@ -55,7 +55,7 @@ start_valkey() {
   fi
 }
 
-: "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam}" "${POSTGRES_DB:=astralbeam}"
+: "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
 install_postgres
 install_valkey
 configure_postgres
