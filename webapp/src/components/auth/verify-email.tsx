@@ -1,10 +1,10 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use Base UI Toast/browser-safe globals, preserve the return path, and render a semantic page heading.
+// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, and render a semantic page heading.
 
 "use client"
 
 import { getAuthLinkURL } from "@better-auth-ui/core"
-import { useAuth, useSendVerificationEmail } from "@better-auth-ui/react"
+import { useAuth, useFetchOptions, useSendVerificationEmail } from "@better-auth-ui/react"
 import { useEffect, useState } from "react"
 import { toast } from "@/components/ui/toast"
 
@@ -41,10 +41,12 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
     basePaths,
     baseURL,
     localization,
+    plugins,
     redirectTo,
     viewPaths,
     Link,
   } = useAuth()
+  const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
   const isHydrated = useIsHydrated()
   const [email, setEmail] = useState(
@@ -73,7 +75,11 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
   const { mutate: sendVerificationEmail, isPending } = useSendVerificationEmail(
     authClient,
     {
+      onError: () => {
+        resetFetchOptions()
+      },
       onSuccess: () => {
+        resetFetchOptions()
         toast.add({ title: localization.auth.verificationEmailSent, type: "success" })
         setCooldown(RESEND_COOLDOWN_SECONDS)
       },
@@ -81,6 +87,8 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
   )
 
   const isCoolingDown = cooldown > 0
+  const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
+  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -99,15 +107,17 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
           {email && (
             <div className="flex flex-col gap-3">
               <OpenEmailButton email={email} />
+              {captchaComponent}
 
               <Button
                 type="button"
                 variant="outline"
-                disabled={!email || isCoolingDown || isPending}
+                disabled={!email || isCoolingDown || isPending || !captchaReady}
                 onClick={() =>
                   sendVerificationEmail({
                     email,
                     callbackURL: `${baseURL}${redirectTo}`,
+                    fetchOptions,
                   })}
               >
                 {isPending && <Spinner />}

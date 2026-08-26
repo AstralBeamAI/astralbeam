@@ -88,7 +88,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
     email: string | undefined
   }>({ email: undefined })
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
-  const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
+  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>

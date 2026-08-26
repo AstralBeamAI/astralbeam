@@ -69,7 +69,12 @@ function buildAuth(snapshot: ConfigSnapshot) {
   const turnstileAuthPlugin = captcha({
     provider: "cloudflare-turnstile",
     secretKey: snapshot.turnstile.secretKey,
-    endpoints: ["/sign-in/email", "/sign-up/email", "/request-password-reset"],
+    endpoints: [
+      "/sign-in/email",
+      "/sign-up/email",
+      "/request-password-reset",
+      "/send-verification-email",
+    ],
   }) as BetterAuthPlugin
 
   const enabledOAuthProviders = new Set<string>()

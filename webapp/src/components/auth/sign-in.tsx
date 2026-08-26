@@ -113,7 +113,7 @@ export function SignIn({
 
   const providerButtonsProps = socialLayout === undefined ? {} : { socialLayout }
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
-  const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
+  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   const submitSignIn = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()

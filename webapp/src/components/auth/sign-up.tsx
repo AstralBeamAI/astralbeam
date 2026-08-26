@@ -179,7 +179,7 @@ export function SignUp({
 
   const showSeparator = emailAndPassword?.enabled && socialProviders && socialProviders.length > 0
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
-  const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
+  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
