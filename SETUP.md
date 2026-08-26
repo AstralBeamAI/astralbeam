@@ -75,38 +75,23 @@ Passwords are 12–128 characters and are screened for known compromise outside 
 
 ### Configure the environment
 
-Keep local secrets only in ignored Webapp env files and production secrets only in the deployment secret manager. Existing shell and deployment variables take precedence over every Vite env file. Use `webapp/.env.local` for values not defined by the active mode file and `webapp/.env.development.local` or `webapp/.env.test.local` for mode-specific overrides; every `VITE_` value is public browser data. See the [Vite](https://vite.dev/guide/env-and-mode) and [TanStack Start](https://tanstack.com/start/latest/docs/framework/react/guide/environment-variables) environment guides.
+`DATABASE_URL` is the only environment variable the webapp reads. `webapp/.env.development` supplies the local default and is loaded automatically; an existing shell, CI, or deployment value always wins, and `webapp/.env.development.local` holds ignored local overrides. See the [Vite](https://vite.dev/guide/env-and-mode) environment guide.
 
-Generate a unique Better Auth secret per environment as described in the [installation guide](https://better-auth.com/docs/installation):
+Every other runtime setting — application base URL, Better Auth secret, Google and GitHub OAuth credentials, email provider and sender, provider API keys, and legal links — is stored in the database `config` table and managed in the browser at `/configure`. Sign in there with the username and password from the deployment's `DATABASE_URL`, approve the pending migrations, then fill in the values. The application gates itself until setup is completed.
+
+The base URL must be a pathless HTTP(S) origin, and production must use HTTPS. Generate a unique Better Auth secret per environment as described in the [installation guide](https://better-auth.com/docs/installation):
 
 ```sh
 openssl rand -base64 32
 ```
 
-Start from `webapp/.env.example`. `APP_BASE_URL` and `BETTER_AUTH_URL` must be the same pathless HTTP(S) origin; production must use HTTPS. The legal-link overrides are optional public build values.
-
-```dotenv
-APP_BASE_URL=http://localhost:3000
-BETTER_AUTH_URL=http://localhost:3000
-BETTER_AUTH_SECRET=
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
-EMAIL_PROVIDER=resend
-EMAIL_FROM_ADDRESS=onboarding@resend.dev
-RESEND_API_KEY=
-VITE_PRIVACY_POLICY_URL=https://www.astralbeam.ai/privacy
-VITE_TERMS_OF_SERVICE_URL=https://www.astralbeam.ai/terms
-```
-
-For SES, replace the Resend settings with `EMAIL_PROVIDER=ses`, a verified `EMAIL_FROM_ADDRESS`, and `AWS_REGION`; use the AWS default credential chain and add `AWS_ACCESS_KEY_ID` with `AWS_SECRET_ACCESS_KEY` only when a role or local profile is unavailable. For production, use the same variable names with the real HTTPS application origin, environment-specific credentials, and an email sender on a verified domain. Never reuse local Better Auth secrets, OAuth clients, or email credentials in production.
+For SES, select the `ses` email provider with a verified sender address and a region; leave the access-key fields empty to use the deployment's AWS credential chain (role, SSO, or profile). Never reuse local Better Auth secrets, OAuth clients, or email credentials in production.
 
 OAuth callbacks are always derived from the environment origin:
 
 ```text
-${BETTER_AUTH_URL}/api/auth/callback/google
-${BETTER_AUTH_URL}/api/auth/callback/github
+<app-base-url>/api/auth/callback/google
+<app-base-url>/api/auth/callback/github
 ```
 
 Separate local and production OAuth applications keep localhost callbacks, branding, access, logs, revocation, and credential rotation isolated.
@@ -119,7 +104,7 @@ Follow Google's current [client](https://support.google.com/cloud/answer/1554925
 2. Configure Branding with AstralBeam's public homepage, privacy policy, terms, monitored support email, and developer contacts; add the owned domain under **Authorized domains**.
 3. For local use, select an External/Testing audience unless access is intentionally organization-restricted, add test users when Google or Workspace policy requires them, add `http://localhost:3000` as the exact JavaScript origin, and add `http://localhost:3000/api/auth/callback/google` as the exact redirect URI.
 4. For production, [verify the production domain](https://support.google.com/webmasters/answer/9008080), keep the homepage and legal links public and consistent, select the intended audience and publishing status, add the exact HTTPS application origin, and add `<production-app-origin>/api/auth/callback/google` as the exact redirect URI.
-5. Store local client credentials in `webapp/.env.local` and production credentials in the deployment secret manager; confirm the production project has no localhost origin, callback, or development credential.
+5. Store each environment's client credentials at that deployment's `/configure` page; confirm the production project has no localhost origin, callback, or development credential.
 6. Smoke-test signup with legal acceptance, existing-account sign-in, account linking, and logout in both environments; confirm Google returns a verified email and requests no scope beyond OpenID/profile/email.
 
 ### Configure GitHub OAuth
@@ -130,7 +115,7 @@ Create browser-flow OAuth Apps—not GitHub Apps or Device Flow applications—u
 2. Create `AstralBeam Local` with homepage `http://localhost:3000` and callback `http://localhost:3000/api/auth/callback/github`.
 3. Create a separate `AstralBeam Production` app with the public HTTPS application homepage and callback `<production-app-origin>/api/auth/callback/github`.
 4. Leave **Enable Device Flow** and callback wildcard matching disabled for both apps.
-5. Generate separate secrets; keep local credentials in `webapp/.env.local`, production credentials in the deployment secret manager, and localhost values out of the production app.
+5. Generate separate secrets and store each environment's credentials at that deployment's `/configure` page, keeping localhost values out of the production app.
 6. Smoke-test signup, sign-in, account linking, and logout with public- and private-email profiles in both environments; confirm the authorization screen requests only `read:user` and `user:email`.
 
 If GitHub returns `email_not_found`, ensure the account has a verified email, reauthorize with `user:email`, and confirm the application authorization was not reduced.
@@ -170,14 +155,14 @@ Open `http://localhost:3000/auth/sign-up`. Confirm signup controls remain disabl
 
 ### Test email safety
 
-Automated tests never send live email. Test mode rejects delivery before loading Resend or SES, so tests must inject or mock provider boundaries and use only deterministic non-secret OAuth placeholders. Never add live Resend, AWS, OAuth, or recipient credentials to test environment files, fixtures, snapshots, CI variables, logs, screenshots, or acceptance output.
+Automated tests never send live email. Test mode rejects delivery before loading Resend or SES, so tests must inject or mock provider boundaries and use only deterministic non-secret OAuth placeholders. Never add live Resend, AWS, OAuth, or recipient credentials to fixtures, snapshots, CI variables, logs, screenshots, or acceptance output.
 
 Provider-console smoke tests are manual and use controlled accounts. Resend's [test addresses](https://resend.com/docs/dashboard/emails/send-test-emails) and the SES mailbox simulator cover non-clickable delivery outcomes; token-bearing verification, reset, and invitation flows require a controlled inbox that can open the link.
 
 ### Troubleshooting
 
-- **Missing environment variable:** compare the running environment with `webapp/.env.example` and restart after changing `.env.local`; public production variables must exist at build time.
-- **Origins do not match:** set `APP_BASE_URL` and `BETTER_AUTH_URL` to the same exact origin with no path, query, or fragment.
+- **Missing configuration:** confirm `DATABASE_URL` resolves, then check `/configure` for unset or invalid registry values; the app returns a setup gate until `setup_completed` is stored.
+- **Origins do not match:** set the application base URL at `/configure` to the exact origin with no path, query, or fragment.
 - **Google redirect, audience, or branding error:** compare the exact origin and callback against the correct Web client, check test-user/audience state, verify the production domain, and keep scopes to `openid`, `email`, and `profile`; see Better Auth's [Google guide](https://better-auth.com/docs/authentication/google).
 - **GitHub callback or email error:** use the exact callback in the correct environment's OAuth App, keep wildcard matching off, and reauthorize a verified address with `user:email`; see Better Auth's [GitHub guide](https://better-auth.com/docs/authentication/github).
 - **OAuth state expired:** restart from AstralBeam instead of reusing a provider callback, keep the same host and port throughout the flow, and allow application cookies.

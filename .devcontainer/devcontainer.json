@@ -8,6 +8,7 @@
   // .env.development defaults to 127.0.0.1 for host workflows, but inside this container that loops back to astralbeam rather than its dependencies.
   // Override only editor subprocesses with Compose service DNS https://code.visualstudio.com/remote/advancedcontainers/environment-variables
   "remoteEnv": {
+    "DATABASE_URL": "postgres://astralbeam:astralbeam@postgres:5432/astralbeam",
     "POSTGRES_HOST": "postgres",
     "VALKEY_HOST": "valkey"
   },
