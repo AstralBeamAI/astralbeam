@@ -107,7 +107,6 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
           {email && (
             <div className="flex flex-col gap-3">
               <OpenEmailButton email={email} />
-              {captchaComponent}
 
               <Button
                 type="button"
@@ -122,13 +121,10 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
               >
                 {isPending && <Spinner />}
 
-                {isCoolingDown
-                  ? localization.auth.resendIn.replace(
-                    "{{seconds}}",
-                    String(cooldown),
-                  )
-                  : localization.auth.resend}
+                {isCoolingDown ? `Resend Email in ${cooldown}s` : "Resend Email"}
               </Button>
+
+              {captchaComponent}
             </div>
           )}
         </div>
