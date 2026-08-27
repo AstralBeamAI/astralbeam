@@ -12,8 +12,8 @@ run_as_root() {
 }
 
 require_postgres() {
-  if ! dpkg-query -W -f='${Status}\n' postgresql-18 2>/dev/null | grep -qx 'install ok installed'; then
-    echo "PostgreSQL 18 was not installed by scripts/setup.sh." >&2
+  if ! /usr/lib/postgresql/18/bin/postgres --version 2>/dev/null | grep -q '^postgres (PostgreSQL) 18\.'; then
+    echo "PostgreSQL 18 binaries were not installed by scripts/setup.sh." >&2
     exit 1
   fi
 }
@@ -38,10 +38,20 @@ install_valkey() {
 }
 
 configure_postgres() {
-  if [ ! -s /etc/postgresql/18/main/postgresql.conf ]; then
-    run_as_root timeout 60 pg_createcluster --start 18 main -- --no-sync
-  else
-    run_as_root service postgresql start
+  local data_dir=/var/lib/postgresql/18/main log_file=/var/log/postgresql-18.log
+  if ! id postgres >/dev/null 2>&1; then
+    run_as_root useradd --system --home-dir /var/lib/postgresql --shell /usr/sbin/nologin postgres
+  fi
+  if [ ! -s "$data_dir/PG_VERSION" ]; then
+    run_as_root install -d -o postgres -g postgres "$data_dir"
+    run_as_root timeout 60 runuser -u postgres -- /usr/lib/postgresql/18/bin/initdb \
+      --pgdata="$data_dir" --auth-local=peer --auth-host=scram-sha-256 --no-instructions --no-sync
+  fi
+  if ! pg_isready -q; then
+    run_as_root touch "$log_file"
+    run_as_root chown postgres:postgres "$log_file"
+    run_as_root runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_ctl \
+      --pgdata="$data_dir" --log="$log_file" --options='-h 127.0.0.1 -p 5432' --wait start
   fi
   for _ in {1..30}; do pg_isready -q && break; sleep 1; done
   pg_isready -q || { echo "PostgreSQL did not become ready." >&2; exit 1; }

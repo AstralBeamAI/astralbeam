@@ -45,14 +45,20 @@ install_ubuntu_packages() {
 
   if [ "$CODEX_DB_SETUP" = true ]; then
     run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
-if ! dpkg-query -W ca-certificates curl gnupg postgresql-18 unzip >/dev/null 2>&1; then
-install -d /usr/share/postgresql-common/pgdg
-curl --connect-timeout 10 --max-time 30 -fsSLo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
-printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main\n' >/etc/apt/sources.list.d/pgdg.list
-install -d /etc/postgresql-common
-printf 'create_main_cluster = false\n' >/etc/postgresql-common/createcluster.conf
+if [ ! -x /usr/lib/postgresql/18/bin/postgres ]; then
+install -d /usr/share/keyrings
+curl --connect-timeout 10 --max-time 30 -fsSLo /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+printf 'deb [signed-by=/usr/share/keyrings/postgresql.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main\n' >/etc/apt/sources.list.d/pgdg.list
 timeout 60 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -yq
-timeout --kill-after=10s 240 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Options::=--force-confold -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends ca-certificates curl gnupg postgresql-18 unzip
+download_dir=$(mktemp -d)
+trap 'rm -rf "$download_dir"' EXIT
+(
+  cd "$download_dir"
+  timeout 60 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 download postgresql-18 postgresql-client-18 libpq5 liburing2
+  for archive in ./*.deb; do dpkg-deb --extract "$archive" /; done
+)
+ldconfig
+for command in pg_isready psql; do ln -sf "/usr/lib/postgresql/18/bin/$command" "/usr/local/bin/$command"; done
 fi
 
 if ! git config --system --get-all safe.directory | grep -qxF '*'; then
