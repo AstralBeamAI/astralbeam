@@ -11,17 +11,11 @@ run_as_root() {
   if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
 }
 
-install_postgres() {
-  if [ ! -s /etc/apt/sources.list.d/pgdg.sources ]; then
-    run_as_root timeout 45 /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+require_postgres() {
+  if ! dpkg-query -W -f='${Status}\n' postgresql-18 2>/dev/null | grep -qx 'install ok installed'; then
+    echo "PostgreSQL 18 was not installed by scripts/setup.sh." >&2
+    exit 1
   fi
-  run_as_root env DEBIAN_FRONTEND=noninteractive timeout --kill-after=10s 180 apt-get \
-    -o Acquire::Retries=0 \
-    -o Acquire::http::Timeout=30 \
-    -o Acquire::https::Timeout=30 \
-    -o Dpkg::Use-Pty=0 \
-    -o DPkg::Lock::Timeout=60 \
-    install -yq --no-install-recommends postgresql-18
 }
 
 install_valkey() {
@@ -68,7 +62,7 @@ migrate_webapp_database() {
 }
 
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
-install_postgres
+require_postgres
 install_valkey
 configure_postgres
 start_valkey

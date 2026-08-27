@@ -45,9 +45,12 @@ install_ubuntu_packages() {
 
   if [ "$CODEX_DB_SETUP" = true ]; then
     run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
-if ! dpkg-query -W ca-certificates curl gnupg postgresql-common unzip >/dev/null 2>&1; then
-apt-get update -yq
-apt-get -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends ca-certificates curl gnupg postgresql-common unzip
+if ! dpkg-query -W ca-certificates curl gnupg postgresql-18 unzip >/dev/null 2>&1; then
+install -d /usr/share/postgresql-common/pgdg
+curl --connect-timeout 10 --max-time 30 -fsSLo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main\n' >/etc/apt/sources.list.d/pgdg.list
+timeout 60 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -yq
+timeout --kill-after=10s 240 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends ca-certificates curl gnupg postgresql-18 unzip
 fi
 
 if ! git config --system --get-all safe.directory | grep -qxF '*'; then
