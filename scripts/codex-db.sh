@@ -57,7 +57,6 @@ configure_postgres() {
       exit 1
     fi
   fi
-  for _ in {1..30}; do pg_isready -q && break; sleep 1; done
   pg_isready -q || { echo "PostgreSQL did not become ready." >&2; exit 1; }
   run_as_root runuser -u postgres -- psql --dbname=postgres --set=ON_ERROR_STOP=1 --set=user="$POSTGRES_USER" --set=password="$POSTGRES_PASSWORD" --set=database="$POSTGRES_DB" <<'SQL'
 SELECT format('CREATE ROLE %I LOGIN', :'user') WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'user') \gexec
@@ -73,6 +72,7 @@ start_valkey() {
     mkdir -p "$data_dir"
     valkey-server --daemonize yes --bind 127.0.0.1 --dir "$data_dir" --logfile "$data_dir/valkey.log"
   fi
+  [ "$(valkey-cli ping)" = PONG ] || { echo "Valkey did not become ready." >&2; exit 1; }
 }
 
 migrate_webapp_database() {
