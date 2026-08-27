@@ -34,6 +34,9 @@ export PATH="$DENO_INSTALL/bin:$PATH"
 
 # Each application is an independent Deno project with its own package.json, deno.lock, and node_modules.
 WORKSPACE_APPS=(webapp www sdk examples/todos)
+if [[ " ${INSTALL_EXTRA:-} " == *" codex-db "* ]]; then
+  WORKSPACE_APPS=(webapp)
+fi
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
@@ -81,7 +84,8 @@ install_workspace_packages() {
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
       # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
       cd "$WORKSPACE_PATH/$app"
-      SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen
+      echo "Installing $app dependencies..."
+      SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen
     fi
   done
 }
