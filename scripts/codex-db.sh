@@ -13,7 +13,7 @@ run_as_root() {
 
 install_postgres() {
   grep -Rqs apt.postgresql.org /etc/apt/sources.list.d || run_as_root /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-18
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends postgresql-18
 }
 
 install_valkey() {

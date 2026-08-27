@@ -41,7 +41,7 @@ install_ubuntu_packages() {
   run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
 if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev postgresql-common libsystemd0 libssl3t64 >/dev/null 2>&1; then
 apt-get update -yq
-apt-get install -y --no-install-recommends \
+apt-get -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends \
   build-essential libatomic1 ca-certificates locales lsb-release tzdata \
   curl wget file unzip \
   git \
@@ -135,9 +135,15 @@ start_databases() {
   fi
 }
 
+migrate_webapp_database() {
+  [ "${MIGRATE_WEBAPP:-false}" = true ] || return 0
+  (cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
+}
+
 install_ubuntu_packages
 configure_workspace_git
 install_deno
 install_workspace_packages
 run_install_extras
 start_databases
+migrate_webapp_database
