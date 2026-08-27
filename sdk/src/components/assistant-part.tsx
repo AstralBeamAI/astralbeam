@@ -1,13 +1,15 @@
-import { CheckIcon, WarningCircleIcon, WrenchIcon } from "@phosphor-icons/react"
+import { CaretRightIcon, CheckIcon, WarningCircleIcon, WrenchIcon } from "@phosphor-icons/react"
 import type { MessagePart } from "@tanstack/ai-client"
 import type { ReactNode } from "react"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Spinner } from "@/components/ui/spinner"
 import type { WidgetDefinition } from "../lib/client-types.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../lib/constants.ts"
 import type { QuestionnaireAnswer, RenderWidgetInput } from "../lib/types.ts"
 import {
+  formatToolJson,
   getWidget,
   isSettledToolCall,
   sanitizeQuestionnaireItems,
@@ -21,6 +23,8 @@ type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
 interface AssistantPartProps {
   part: MessagePart
   widgets: Record<string, WidgetDefinition>
+  /** Transcript labels for tools that declared a title, keyed by tool name. */
+  toolTitles: Record<string, string>
   activeSlots: ReadonlySet<string>
   onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
 }
@@ -45,11 +49,77 @@ function ToolCallMarker({ running, children }: { running: boolean; children: Rea
   )
 }
 
+function ToolCallSection({ title, children }: { title: string; children: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-medium text-foreground">{title}</div>
+      <pre className="mt-0.5 max-h-40 overflow-auto font-mono text-xs whitespace-pre-wrap wrap-break-word">{children}</pre>
+    </div>
+  )
+}
+
+// The marker itself is the disclosure trigger, so a tool call reads as one line until the
+// user opens it; the panel is the only place a call's raw input and output are visible.
+function ToolCallDisclosure(
+  { part, title, failed }: { part: ToolCallPart; title: string | undefined; failed: boolean },
+) {
+  const settled = isSettledToolCall(part)
+  const running = !failed && !settled
+  // A declared title is prose and reads as such; a bare registry name stays monospaced.
+  const label = title ? <span>{title}</span> : <span className="font-mono">{part.name}</span>
+  // Failed client executions store the thrown message as `{ error }` in the output.
+  const detail = failed ? (part.output as { error?: string } | null | undefined)?.error : undefined
+  return (
+    <Collapsible>
+      <Marker
+        render={<CollapsibleTrigger />}
+        className="cursor-pointer items-start hover:text-foreground"
+      >
+        <MarkerIcon className="mt-0.5">
+          {failed ? <WarningCircleIcon /> : running ? <Spinner /> : <WrenchIcon />}
+        </MarkerIcon>
+        {
+          /* The trigger is a button, so progress is announced from the label rather than
+            with role="status" on the row itself. */
+        }
+        <MarkerContent
+          aria-live={running ? "polite" : undefined}
+          className={running ? "shimmer" : undefined}
+        >
+          {failed
+            ? (
+              <>
+                {label} failed
+              </>
+            )
+            : (
+              <>
+                {running ? "Running" : "Ran"} {label}
+              </>
+            )}
+          {typeof detail === "string" && detail.length > 0 && (
+            <span className="block text-muted-foreground">{detail}</span>
+          )}
+        </MarkerContent>
+        <CaretRightIcon className="mt-0.5 ms-auto shrink-0 transition-transform group-data-[panel-open]/marker:rotate-90" />
+      </Marker>
+      <CollapsibleContent className="ps-6">
+        <div className="mt-1 flex flex-col gap-2 rounded-md border border-border p-2">
+          <ToolCallSection title="Input">{formatToolJson(part.input) || "\u2014"}</ToolCallSection>
+          <ToolCallSection title="Output">
+            {settled ? formatToolJson(part.output) || "\u2014" : "Waiting for the result\u2026"}
+          </ToolCallSection>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
 function WidgetCallPart(
   { part, widgets, activeSlots }:
     & Omit<
       AssistantPartProps,
-      "onQuestionnaireAnswers" | "part"
+      "onQuestionnaireAnswers" | "part" | "toolTitles"
     >
     & { part: ToolCallPart },
 ) {
@@ -113,7 +183,7 @@ function QuestionnaireCallPart(
 }
 
 export function AssistantPart(
-  { part, widgets, activeSlots, onQuestionnaireAnswers }: AssistantPartProps,
+  { part, widgets, toolTitles, activeSlots, onQuestionnaireAnswers }: AssistantPartProps,
 ) {
   switch (part.type) {
     case "text":
@@ -128,17 +198,9 @@ export function AssistantPart(
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
+      const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       if (part.state === "error") {
-        // Failed client executions store the thrown message as `{ error }` in the output.
-        const detail = (part.output as { error?: string } | null | undefined)?.error
-        return (
-          <FailureMarker>
-            <span className="font-mono">{part.name}</span> failed
-            {typeof detail === "string" && detail.length > 0 && (
-              <span className="block text-muted-foreground">{detail}</span>
-            )}
-          </FailureMarker>
-        )
+        return <ToolCallDisclosure part={part} title={title} failed />
       }
       if (part.name === RENDER_WIDGET_TOOL) {
         return <WidgetCallPart part={part} widgets={widgets} activeSlots={activeSlots} />
@@ -146,12 +208,7 @@ export function AssistantPart(
       if (part.name === ASK_QUESTIONNAIRE_TOOL) {
         return <QuestionnaireCallPart part={part} onQuestionnaireAnswers={onQuestionnaireAnswers} />
       }
-      const running = !isSettledToolCall(part)
-      return (
-        <ToolCallMarker running={running}>
-          {running ? "Running" : "Ran"} <span className="font-mono">{part.name}</span>
-        </ToolCallMarker>
-      )
+      return <ToolCallDisclosure part={part} title={title} failed={false} />
     }
     default:
       // tool-result parts mirror the output already shown on their tool-call part.

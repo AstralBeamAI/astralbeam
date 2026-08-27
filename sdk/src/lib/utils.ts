@@ -95,6 +95,16 @@ export function sanitizeQuestionnaireItems(rawInput: unknown): QuestionnaireItem
   return sanitized
 }
 
+// Tool input and output are agent- or host-supplied and land in an expandable transcript
+// panel, so a value that cannot be serialized (cycles, BigInt) still has to read as text.
+export function formatToolJson(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2) ?? ""
+  } catch {
+    return String(value)
+  }
+}
+
 // A tool may legitimately resolve with a null output, so "settled" checks the state
 // too; an output-only check would read such a call as still running.
 export function isSettledToolCall(part: { state: string; output?: unknown }): boolean {

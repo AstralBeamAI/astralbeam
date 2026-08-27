@@ -21,6 +21,8 @@ import { UserMessageBody } from "./user-message-body.tsx"
 interface ChatTranscriptProps {
   messages: UIMessage[]
   widgets: Record<string, WidgetDefinition>
+  /** Transcript labels for tools that declared a title, keyed by tool name. */
+  toolTitles: Record<string, string>
   activeSlots: ReadonlySet<string>
   isBusy: boolean
   /** The stream is busy but nothing visible has progressed yet; shows the "Thinking…" marker. */
@@ -29,7 +31,7 @@ interface ChatTranscriptProps {
 }
 
 export function ChatTranscript(
-  { messages, widgets, activeSlots, isBusy, awaitingReply, onQuestionnaireAnswers }:
+  { messages, widgets, toolTitles, activeSlots, isBusy, awaitingReply, onQuestionnaireAnswers }:
     ChatTranscriptProps,
 ) {
   if (messages.length === 0) {
@@ -67,6 +69,7 @@ export function ChatTranscript(
                           <AssistantPart
                             part={part}
                             widgets={widgets}
+                            toolTitles={toolTitles}
                             activeSlots={activeSlots}
                             onQuestionnaireAnswers={onQuestionnaireAnswers}
                           />

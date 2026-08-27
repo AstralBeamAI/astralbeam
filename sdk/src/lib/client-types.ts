@@ -41,6 +41,11 @@ export interface ToolDefinition {
   /** Tells the agent what the tool does so it can decide when to call it. */
   description: string
   /**
+   * Forwarded verbatim as the tool definition's metadata. A string `title` labels the tool's
+   * transcript entry instead of its registry name (`refresh_invoices` reads as "Refresh invoices").
+   */
+  metadata?: Record<string, unknown> | undefined
+  /**
    * Forwarded to the agent as JSON Schema. Only a Standard Schema also validates the
    * input before `execute` runs; with a plain JSON Schema, treat the input as untrusted.
    */
