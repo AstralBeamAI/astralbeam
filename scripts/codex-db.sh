@@ -76,7 +76,7 @@ start_valkey() {
 }
 
 migrate_webapp_database() {
-  (cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
+  (cd "$WORKSPACE_PATH/webapp" && timeout 60 deno task db migrate)
 }
 
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"

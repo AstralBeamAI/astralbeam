@@ -106,13 +106,23 @@ install_deno() {
 }
 
 install_workspace_packages() {
-  local app
+  local app install_log
   for app in "${WORKSPACE_APPS[@]}"; do
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
       # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
       cd "$WORKSPACE_PATH/$app"
       echo "Installing $app dependencies..."
-      SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen
+      if [ "$CODEX_DB_SETUP" = true ]; then
+        install_log=$(mktemp)
+        if ! timeout 180 env SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen >"$install_log" 2>&1; then
+          cat "$install_log" >&2
+          rm -f "$install_log"
+          return 1
+        fi
+        rm -f "$install_log"
+      else
+        SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen
+      fi
     fi
   done
 }
