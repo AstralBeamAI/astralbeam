@@ -106,6 +106,10 @@ export interface MountAstralBeamChatOptions {
    * and gives the transcript the full height. Default `true`.
    */
   showHeader?: boolean | undefined
+  /** Headline shown on the empty transcript. Default `"Ask the assistant"`. */
+  emptyTitle?: string | undefined
+  /** Subtitle shown under the empty transcript's headline. Default describes the app's tools and widgets. */
+  emptyDescription?: string | undefined
   /** URL of the AstralBeam chat endpoint the widget streams from. Fixed at mount. Default `"/api/chat"`. */
   chatEndpoint?: string | undefined
   /** Application endpoint that mints a short-lived chat JWT. Fixed at mount; omit for guest chat. */

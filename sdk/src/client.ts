@@ -1,5 +1,7 @@
 import {
   DEFAULT_COLOR_SCHEME,
+  DEFAULT_EMPTY_DESCRIPTION,
+  DEFAULT_EMPTY_TITLE,
   DEFAULT_ENDPOINT,
   DEFAULT_TITLE,
   WIDGET_CONTAINER_CLASS,
@@ -37,6 +39,8 @@ export function mountAstralBeamChat(
   debug?.("mount", "mounting chat widget", {
     title: live.title ?? DEFAULT_TITLE,
     showHeader: live.showHeader ?? true,
+    emptyTitle: live.emptyTitle ?? DEFAULT_EMPTY_TITLE,
+    emptyDescription: live.emptyDescription ?? DEFAULT_EMPTY_DESCRIPTION,
     chatEndpoint: live.chatEndpoint ?? DEFAULT_ENDPOINT,
     authentication: live.authEndpoint ? "configured" : "guest",
     colorScheme: live.colorScheme ?? DEFAULT_COLOR_SCHEME,

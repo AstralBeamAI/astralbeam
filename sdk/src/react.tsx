@@ -34,6 +34,10 @@ export interface AstralBeamChatProps {
    * the transcript the full height. Prop changes apply immediately. Default `true`.
    */
   showHeader?: boolean
+  /** Headline shown on the empty transcript; prop changes apply immediately. Default `"Ask the assistant"`. */
+  emptyTitle?: string
+  /** Subtitle under the empty transcript's headline; prop changes apply immediately. */
+  emptyDescription?: string
   /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
   chatEndpoint?: string
   /** Application endpoint that mints a short-lived chat JWT; omit for guest chat. */
@@ -67,6 +71,8 @@ export function AstralBeamChat(
   {
     title,
     showHeader,
+    emptyTitle,
+    emptyDescription,
     chatEndpoint,
     authEndpoint,
     systemPrompt,
@@ -136,6 +142,8 @@ export function AstralBeamChat(
     () => ({
       title,
       showHeader,
+      emptyTitle,
+      emptyDescription,
       systemPrompt,
       colorScheme,
       theme,
@@ -147,6 +155,8 @@ export function AstralBeamChat(
     [
       title,
       showHeader,
+      emptyTitle,
+      emptyDescription,
       systemPrompt,
       colorScheme,
       theme,
