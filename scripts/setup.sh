@@ -49,8 +49,10 @@ if ! dpkg-query -W ca-certificates curl gnupg postgresql-18 unzip >/dev/null 2>&
 install -d /usr/share/postgresql-common/pgdg
 curl --connect-timeout 10 --max-time 30 -fsSLo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
 printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main\n' >/etc/apt/sources.list.d/pgdg.list
+install -d /etc/postgresql-common
+printf 'create_main_cluster = false\n' >/etc/postgresql-common/createcluster.conf
 timeout 60 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -yq
-timeout --kill-after=10s 240 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends ca-certificates curl gnupg postgresql-18 unzip
+timeout --kill-after=10s 240 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Dpkg::Options::=--force-confold -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends ca-certificates curl gnupg postgresql-18 unzip
 fi
 
 if ! git config --system --get-all safe.directory | grep -qxF '*'; then

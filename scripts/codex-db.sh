@@ -38,7 +38,11 @@ install_valkey() {
 }
 
 configure_postgres() {
-  run_as_root service postgresql start
+  if [ ! -s /etc/postgresql/18/main/postgresql.conf ]; then
+    run_as_root timeout 60 pg_createcluster --start 18 main -- --no-sync
+  else
+    run_as_root service postgresql start
+  fi
   for _ in {1..30}; do pg_isready -q && break; sleep 1; done
   pg_isready -q || { echo "PostgreSQL did not become ready." >&2; exit 1; }
   run_as_root runuser -u postgres -- psql --dbname=postgres --set=ON_ERROR_STOP=1 --set=user="$POSTGRES_USER" --set=password="$POSTGRES_PASSWORD" --set=database="$POSTGRES_DB" <<'SQL'
