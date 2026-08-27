@@ -34,12 +34,28 @@ export PATH="$DENO_INSTALL/bin:$PATH"
 
 # Each application is an independent Deno project with its own package.json, deno.lock, and node_modules.
 WORKSPACE_APPS=(webapp www sdk examples/todos)
+CODEX_DB_SETUP=false
 if [[ " ${INSTALL_EXTRA:-} " == *" codex-db "* ]]; then
+  CODEX_DB_SETUP=true
   WORKSPACE_APPS=(webapp)
 fi
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
+
+  if [ "$CODEX_DB_SETUP" = true ]; then
+    run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
+if ! dpkg-query -W ca-certificates curl gnupg postgresql-common unzip >/dev/null 2>&1; then
+apt-get update -yq
+apt-get -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends ca-certificates curl gnupg postgresql-common unzip
+fi
+
+if ! git config --system --get-all safe.directory | grep -qxF '*'; then
+  git config --system --add safe.directory '*'
+fi
+EOF
+    return
+  fi
 
   run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
 if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev postgresql-common libsystemd0 libssl3t64 >/dev/null 2>&1; then
