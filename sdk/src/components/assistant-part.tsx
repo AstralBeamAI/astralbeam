@@ -66,7 +66,9 @@ function ToolCallDisclosure(
   const settled = isSettledToolCall(part)
   const running = !failed && !settled
   // A declared title is prose and reads as such; a bare registry name stays monospaced.
-  const label = title ? <span>{title}</span> : <span className="font-mono">{part.name}</span>
+  const label = title
+    ? <span>&ldquo;{title}&rdquo;</span>
+    : <span className="font-mono">{part.name}</span>
   // Failed client executions store the thrown message as `{ error }` in the output.
   const detail = failed ? (part.output as { error?: string } | null | undefined)?.error : undefined
   return (
@@ -97,14 +99,15 @@ function ToolCallDisclosure(
                 {running ? "Running" : "Ran"} {label}
               </>
             )}
+          {/* Inline, so the affordance sits with the label instead of drifting to the row's edge. */}
+          <CaretRightIcon className="ms-1 inline shrink-0 align-middle transition-transform group-data-[panel-open]/marker:rotate-90" />
           {typeof detail === "string" && detail.length > 0 && (
             <span className="block text-muted-foreground">{detail}</span>
           )}
         </MarkerContent>
-        <CaretRightIcon className="mt-0.5 ms-auto shrink-0 transition-transform group-data-[panel-open]/marker:rotate-90" />
       </Marker>
       <CollapsibleContent className="ps-6">
-        <div className="mt-1 flex flex-col gap-2 rounded-md border border-border p-2">
+        <div className="mt-1 flex flex-col gap-2 rounded-md border border-border bg-muted p-2">
           <ToolCallSection title="Input">{formatToolJson(part.input) || "\u2014"}</ToolCallSection>
           <ToolCallSection title="Output">
             {settled ? formatToolJson(part.output) || "\u2014" : "Waiting for the result\u2026"}
