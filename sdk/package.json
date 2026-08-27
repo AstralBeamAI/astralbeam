@@ -1,6 +1,6 @@
 {
   "name": "@astralbeam/sdk",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Frontend SDK for AstralBeam: drop-in agent UI, chat streaming, and server helpers",
   "license": "MIT",
   "type": "module",
@@ -74,6 +74,7 @@
     "@tanstack/ai": "^0.49.1",
     "@tanstack/ai-client": "^0.28.0",
     "@tanstack/ai-react": "^0.22.1",
+    "@tanstack/markdown": "^0.0.13",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "class-variance-authority": "^0.7.1",

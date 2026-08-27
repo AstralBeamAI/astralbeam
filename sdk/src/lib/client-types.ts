@@ -96,6 +96,11 @@ export interface AstralBeamChatTheme {
 export interface MountAstralBeamChatOptions {
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
   title?: string | undefined
+  /**
+   * Shows the widget's header, which carries the title and the reset button. `false` hides both
+   * and gives the transcript the full height. Default `true`.
+   */
+  showHeader?: boolean | undefined
   /** URL of the AstralBeam chat endpoint the widget streams from. Fixed at mount. Default `"/api/chat"`. */
   chatEndpoint?: string | undefined
   /** Application endpoint that mints a short-lived chat JWT. Fixed at mount; omit for guest chat. */

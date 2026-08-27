@@ -24,7 +24,7 @@ import { createDebugLogger } from "../lib/client-utils.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../lib/constants.ts"
 import { createDebugCallbacks } from "../lib/debug.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "../lib/types.ts"
-import { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../lib/utils.ts"
+import { cn, hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../lib/utils.ts"
 import { buildAgentTools } from "./agent.ts"
 import {
   type ChatAuthenticationOptions,
@@ -264,22 +264,32 @@ export function ChatWidget(
   // The Card frame with a bordered header, an unpadded content area, and a footer composer is
   // shadcn's canonical chat assembly (docs/changelog/2026-06-chat-components). The host sizes and
   // frames the widget, so the card's own radius and ring are stripped for a full-bleed fit.
+  const showHeader = options.showHeader !== false
   return (
-    <Card className="h-full w-full gap-0 rounded-none ring-0">
-      <CardHeader className="gap-1 border-b">
-        <CardTitle>{options.title ?? DEFAULT_TITLE}</CardTitle>
-        <CardAction>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            aria-label="Reset conversation"
-            disabled={streamBusy || messages.length === 0}
-            onClick={resetConversation}
-          >
-            <ArrowCounterClockwiseIcon />
-          </Button>
-        </CardAction>
-      </CardHeader>
+    // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
+    // host page's own surface; with no header its top padding goes too, as the transcript pads.
+    <Card
+      className={cn(
+        "h-full w-full gap-0 rounded-none bg-background text-foreground ring-0",
+        !showHeader && "pt-0",
+      )}
+    >
+      {showHeader && (
+        <CardHeader className="gap-1 border-b">
+          <CardTitle>{options.title ?? DEFAULT_TITLE}</CardTitle>
+          <CardAction>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label="Reset conversation"
+              disabled={streamBusy || messages.length === 0}
+              onClick={resetConversation}
+            >
+              <ArrowCounterClockwiseIcon />
+            </Button>
+          </CardAction>
+        </CardHeader>
+      )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
           messages={messages}
