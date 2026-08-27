@@ -79,6 +79,16 @@ export function ChatWidget(
     [widgets, options.tools, debug, renderWidget],
   )
   const toolNames = useMemo(() => new Set(tools.map((tool) => tool.name)), [tools])
+  // Read off the built tools rather than `options.tools` so any tool that gains a metadata
+  // title, including the widget's own, labels its transcript entry the same way.
+  const toolTitles = useMemo(() => {
+    const titles: Record<string, string> = {}
+    for (const tool of tools) {
+      const title = tool.metadata?.["title"]
+      if (typeof title === "string" && title.length > 0) titles[tool.name] = title
+    }
+    return titles
+  }, [tools])
   useEffect(() => {
     debug?.("mount", "tool set declared to the agent", {
       tools: [...toolNames],
@@ -294,6 +304,7 @@ export function ChatWidget(
         <ChatTranscript
           messages={messages}
           widgets={widgets}
+          toolTitles={toolTitles}
           activeSlots={activeSlots}
           isBusy={isBusy}
           awaitingReply={awaitingReply}

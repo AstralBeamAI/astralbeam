@@ -25,9 +25,11 @@ export const INITIAL_TODOS: Todo[] = [
 
 export const TODO_TOOL_METADATA = {
   get_todos: {
+    metadata: { title: "List the todos" },
     description: "List every todo with its id, text, and completed flag.",
   },
   create_todo: {
+    metadata: { title: "Create a todo" },
     description: "Create a new todo and append it to the list.",
     parameters: {
       type: "object",
@@ -42,6 +44,7 @@ export const TODO_TOOL_METADATA = {
     },
   },
   update_todo: {
+    metadata: { title: "Update a todo" },
     description: "Update a todo's text, its completed flag, or both, by its id.",
     parameters: {
       type: "object",
@@ -57,6 +60,7 @@ export const TODO_TOOL_METADATA = {
     },
   },
   delete_todo: {
+    metadata: { title: "Delete a todo" },
     description: "Delete a todo from the list by its id.",
     parameters: {
       type: "object",
