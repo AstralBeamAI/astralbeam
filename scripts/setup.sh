@@ -95,28 +95,13 @@ install_deno() {
 }
 
 install_workspace_packages() {
-  local app attempt status
+  local app
   for app in "${WORKSPACE_APPS[@]}"; do
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
       # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
       cd "$WORKSPACE_PATH/$app"
       echo "Installing $app dependencies..."
-      if [ "$CODEX_DB_SETUP" = false ]; then
-        SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen
-        continue
-      fi
-      for attempt in 1 2 3; do
-        if timeout 300 env SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen; then
-          status=0
-          break
-        else
-          status=$?
-        fi
-        if [ "$status" -ne 124 ] || [ "$attempt" -eq 3 ]; then
-          return "$status"
-        fi
-        echo "Deno install stalled; retrying with the populated cache ($attempt/3)..."
-      done
+      SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen
     fi
   done
 }
