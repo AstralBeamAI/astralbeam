@@ -12,6 +12,7 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
 import { Spinner } from "@/components/ui/spinner"
+import { DEFAULT_EMPTY_DESCRIPTION, DEFAULT_EMPTY_TITLE } from "../lib/client-constants.ts"
 import type { WidgetDefinition } from "../lib/client-types.ts"
 import type { QuestionnaireAnswer } from "../lib/types.ts"
 import { AssistantPart } from "./assistant-part.tsx"
@@ -20,6 +21,10 @@ import { UserMessageBody } from "./user-message-body.tsx"
 
 interface ChatTranscriptProps {
   messages: UIMessage[]
+  /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_TITLE`. */
+  emptyTitle?: string | undefined
+  /** Subtitle of the empty transcript; defaults to `DEFAULT_EMPTY_DESCRIPTION`. */
+  emptyDescription?: string | undefined
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
@@ -31,8 +36,17 @@ interface ChatTranscriptProps {
 }
 
 export function ChatTranscript(
-  { messages, widgets, toolTitles, activeSlots, isBusy, awaitingReply, onQuestionnaireAnswers }:
-    ChatTranscriptProps,
+  {
+    messages,
+    emptyTitle,
+    emptyDescription,
+    widgets,
+    toolTitles,
+    activeSlots,
+    isBusy,
+    awaitingReply,
+    onQuestionnaireAnswers,
+  }: ChatTranscriptProps,
 ) {
   if (messages.length === 0) {
     return (
@@ -41,10 +55,8 @@ export function ChatTranscript(
           <EmptyMedia variant="icon">
             <ChatCircleDotsIcon />
           </EmptyMedia>
-          <EmptyTitle>Ask the assistant</EmptyTitle>
-          <EmptyDescription>
-            It can answer questions and act through this app's own tools and widgets.
-          </EmptyDescription>
+          <EmptyTitle>{emptyTitle ?? DEFAULT_EMPTY_TITLE}</EmptyTitle>
+          <EmptyDescription>{emptyDescription ?? DEFAULT_EMPTY_DESCRIPTION}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )

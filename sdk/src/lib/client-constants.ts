@@ -4,6 +4,13 @@
 /** Name shown in the widget's header when the mount options give none. */
 export const DEFAULT_TITLE = "AstralBeam"
 
+/** Headline of the empty transcript when the mount options give none. */
+export const DEFAULT_EMPTY_TITLE = "Ask the assistant"
+
+/** Subtitle of the empty transcript when the mount options give none. */
+export const DEFAULT_EMPTY_DESCRIPTION =
+  "It can answer questions and act through this app's own tools and widgets."
+
 /** Endpoint the chat widget streams from when the mount options give none. */
 export const DEFAULT_ENDPOINT = "/api/chat"
 

@@ -303,6 +303,8 @@ export function ChatWidget(
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
           messages={messages}
+          emptyTitle={options.emptyTitle}
+          emptyDescription={options.emptyDescription}
           widgets={widgets}
           toolTitles={toolTitles}
           activeSlots={activeSlots}
