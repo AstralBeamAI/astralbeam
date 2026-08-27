@@ -15,7 +15,7 @@ install_postgres() {
   if [ ! -s /etc/apt/sources.list.d/pgdg.sources ]; then
     run_as_root timeout 45 /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
   fi
-  run_as_root env DEBIAN_FRONTEND=noninteractive timeout 90 apt-get \
+  run_as_root env DEBIAN_FRONTEND=noninteractive timeout --kill-after=10s 180 apt-get \
     -o Acquire::Retries=0 \
     -o Acquire::http::Timeout=30 \
     -o Acquire::https::Timeout=30 \
