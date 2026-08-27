@@ -4,7 +4,6 @@ import {
   CHAT_RATE_LIMIT_WINDOW_MS,
   CHAT_TOKEN_AUDIENCE,
 } from "./constants.server"
-import type { ChatMessages } from "./types"
 
 // The SDK chat widget embeds on host origins the webapp does not serve, so the endpoint must
 // answer cross-origin requests. Bearer auth uses no cookies, so "*" remains valid; the allowed
@@ -53,27 +52,4 @@ export function isRateLimited(request: Request): boolean {
   }
   window.count += 1
   return window.count > CHAT_RATE_LIMIT_MAX_REQUESTS
-}
-
-// The OpenAI adapter replays a completed tool call's Responses item id (metadata.itemId)
-// on follow-up requests but not the reasoning item it was paired with, which reasoning
-// models reject with a 400. Dropping the metadata replays the call by call_id alone.
-export function stripToolCallMetadata(messages: ChatMessages): ChatMessages {
-  return messages.map((message) => {
-    if ("parts" in message && Array.isArray(message.parts)) {
-      return {
-        ...message,
-        parts: message.parts.map((part) =>
-          part.type === "tool-call" ? { ...part, metadata: undefined } : part
-        ),
-      }
-    }
-    if ("toolCalls" in message && Array.isArray(message.toolCalls)) {
-      return {
-        ...message,
-        toolCalls: message.toolCalls.map((toolCall) => ({ ...toolCall, metadata: undefined })),
-      }
-    }
-    return message
-  })
 }

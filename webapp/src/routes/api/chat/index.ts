@@ -4,10 +4,10 @@ import {
   mergeAgentTools,
   toServerSentEventsResponse,
 } from "@tanstack/ai"
-import { createOpenaiChat } from "@tanstack/ai-openai"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { getConfig, setupGateResponse } from "@/lib/config.server"
+import { createChatAdapter } from "./-lib/adapter.server"
 import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
 import {
   authenticateChatRequest,
@@ -22,7 +22,6 @@ import {
   errorResponse,
   isChatRequestTooLarge,
   isRateLimited,
-  stripToolCallMetadata,
   unauthorizedChatResponse,
 } from "./-lib/utils.server"
 
@@ -94,15 +93,13 @@ export const Route = createFileRoute("/api/chat/")({
           // Attachments are rewritten into what the model reads before the run starts: the
           // provider adapter throws on a content part it cannot map, which would fail the whole
           // run over one unsupported file.
-          const { messages, attachments } = normalizeChatAttachments(
-            stripToolCallMetadata(params.messages),
-          )
+          const { messages, attachments } = normalizeChatAttachments(params.messages)
           if (log && attachments.length > 0) {
             log("attachment", `${attachments.length} attachment(s) normalized`, attachments)
           }
           const abortController = new AbortController()
           const stream = chat({
-            adapter: createOpenaiChat("gpt-5.6-terra", openaiApiKey),
+            adapter: createChatAdapter(openaiApiKey),
             messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
