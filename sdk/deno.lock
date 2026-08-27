@@ -8,6 +8,7 @@
     "npm:@tanstack/ai-client@0.28": "0.28.0",
     "npm:@tanstack/ai-react@~0.22.1": "0.22.1_@tanstack+ai@0.49.1_@types+react@19.2.18_react@19.2.8",
     "npm:@tanstack/ai@~0.49.1": "0.49.1",
+    "npm:@tanstack/markdown@^0.0.13": "0.0.13_react@19.2.8",
     "npm:@types/react-dom@^19.2.3": "19.2.4_@types+react@19.2.18",
     "npm:@types/react@^19.2.13": "19.2.18",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
@@ -1098,6 +1099,15 @@
     "@tanstack/devtools-event-client@0.4.4": {
       "integrity": "sha512-6T5Yop/793YI+H+5J8Hsyj4kCih9sl4t3ElLgKioW5hk3ocn+ZdSJ94tT7vL7uabxSugWYBZlOTMPzEw2puvQw==",
       "bin": true
+    },
+    "@tanstack/markdown@0.0.13_react@19.2.8": {
+      "integrity": "sha512-ZSQP2ulBvlPzdpZeRheBJnaELo7e4ET/D/XrfgweHyqhhLMN5vUJJAUl7ufSRd7GlfO/vwdzjKPh0E0JwqJkDA==",
+      "dependencies": [
+        "react"
+      ],
+      "optionalPeers": [
+        "react"
+      ]
     },
     "@ts-morph/common@0.27.0": {
       "integrity": "sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==",
@@ -3170,6 +3180,7 @@
         "npm:@tanstack/ai-client@0.28",
         "npm:@tanstack/ai-react@~0.22.1",
         "npm:@tanstack/ai@~0.49.1",
+        "npm:@tanstack/markdown@^0.0.13",
         "npm:@types/react-dom@^19.2.3",
         "npm:@types/react@^19.2.13",
         "npm:class-variance-authority@~0.7.1",

@@ -29,6 +29,11 @@ export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render">
 export interface AstralBeamChatProps {
   /** Name shown in the widget's header; prop changes apply immediately. Default `"AstralBeam"`. */
   title?: string
+  /**
+   * Shows the widget's header with the title and the reset button; `false` hides both and gives
+   * the transcript the full height. Prop changes apply immediately. Default `true`.
+   */
+  showHeader?: boolean
   /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
   chatEndpoint?: string
   /** Application endpoint that mints a short-lived chat JWT; omit for guest chat. */
@@ -61,6 +66,7 @@ interface ActiveRender {
 export function AstralBeamChat(
   {
     title,
+    showHeader,
     chatEndpoint,
     authEndpoint,
     systemPrompt,
@@ -129,6 +135,7 @@ export function AstralBeamChat(
   const live = useMemo(
     () => ({
       title,
+      showHeader,
       systemPrompt,
       colorScheme,
       theme,
@@ -137,7 +144,17 @@ export function AstralBeamChat(
       tools: hostTools,
       widgets: hostWidgets,
     }),
-    [title, systemPrompt, colorScheme, theme, attachments, debug, hostTools, hostWidgets],
+    [
+      title,
+      showHeader,
+      systemPrompt,
+      colorScheme,
+      theme,
+      attachments,
+      debug,
+      hostTools,
+      hostWidgets,
+    ],
   )
   const liveRef = useRef(live)
   liveRef.current = live

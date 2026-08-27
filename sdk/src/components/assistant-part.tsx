@@ -14,6 +14,7 @@ import {
   slotNameForToolCall,
 } from "../lib/utils.ts"
 import { InlineQuestionnaire } from "./inline-questionnaire.tsx"
+import { MarkdownMessage } from "./markdown-message.tsx"
 
 type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
 
@@ -120,7 +121,7 @@ export function AssistantPart(
       return (
         <Bubble variant="ghost">
           <BubbleContent>
-            <span className="whitespace-pre-wrap">{part.content}</span>
+            <MarkdownMessage>{part.content}</MarkdownMessage>
           </BubbleContent>
         </Bubble>
       )
