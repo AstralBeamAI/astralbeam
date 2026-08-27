@@ -48,10 +48,14 @@ configure_postgres() {
       --pgdata="$data_dir" --auth-local=peer --auth-host=scram-sha-256 --no-instructions --no-sync
   fi
   if ! pg_isready -q; then
+    run_as_root install -d -o postgres -g postgres /var/run/postgresql
     run_as_root touch "$log_file"
     run_as_root chown postgres:postgres "$log_file"
-    run_as_root runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_ctl \
-      --pgdata="$data_dir" --log="$log_file" --options='-h 127.0.0.1 -p 5432' --wait start
+    if ! run_as_root runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_ctl \
+      --pgdata="$data_dir" --log="$log_file" --options='-h 127.0.0.1 -p 5432' --wait start; then
+      run_as_root cat "$log_file" >&2
+      exit 1
+    fi
   fi
   for _ in {1..30}; do pg_isready -q && break; sleep 1; done
   pg_isready -q || { echo "PostgreSQL did not become ready." >&2; exit 1; }
