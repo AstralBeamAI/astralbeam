@@ -12,8 +12,16 @@ run_as_root() {
 }
 
 install_postgres() {
-  grep -Rqs apt.postgresql.org /etc/apt/sources.list.d || run_as_root /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends postgresql-18
+  if [ ! -s /etc/apt/sources.list.d/pgdg.sources ]; then
+    run_as_root timeout 45 /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+  fi
+  run_as_root env DEBIAN_FRONTEND=noninteractive timeout 90 apt-get \
+    -o Acquire::Retries=0 \
+    -o Acquire::http::Timeout=30 \
+    -o Acquire::https::Timeout=30 \
+    -o Dpkg::Use-Pty=0 \
+    -o DPkg::Lock::Timeout=60 \
+    install -yq --no-install-recommends postgresql-18
 }
 
 install_valkey() {
@@ -28,7 +36,7 @@ install_valkey() {
   if ! valkey-server --version 2>/dev/null | grep -q "v=9.1.1 "; then
     download_dir=$(mktemp -d)
     trap 'rm -rf "$download_dir"' RETURN
-    curl -fsSLo "$download_dir/$archive" "https://download.valkey.io/releases/$archive"
+    curl --connect-timeout 10 --max-time 30 -fsSLo "$download_dir/$archive" "https://download.valkey.io/releases/$archive"
     echo "$checksum  $download_dir/$archive" | sha256sum --check -
     tar -xzf "$download_dir/$archive" -C "$download_dir"
     run_as_root install -m 0755 "$download_dir/${archive%.tar.gz}/bin/valkey-server" "$download_dir/${archive%.tar.gz}/bin/valkey-cli" /usr/local/bin/
@@ -60,8 +68,26 @@ migrate_webapp_database() {
 }
 
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
-install_postgres
-install_valkey
-configure_postgres
-start_valkey
-migrate_webapp_database
+
+case "${1:-all}" in
+  provision)
+    install_postgres
+    install_valkey
+    configure_postgres
+    start_valkey
+    ;;
+  migrate)
+    migrate_webapp_database
+    ;;
+  all)
+    install_postgres
+    install_valkey
+    configure_postgres
+    start_valkey
+    migrate_webapp_database
+    ;;
+  *)
+    echo "Usage: $0 [all|provision|migrate]" >&2
+    exit 1
+    ;;
+esac

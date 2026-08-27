@@ -112,23 +112,31 @@ configure_workspace_git() {
   git -C "$WORKSPACE_PATH" config push.default current
 }
 
+run_install_extra() {
+  local install_extra=$1
+  shift
+  local install_extra_script
+  if [[ ! "$install_extra" =~ ^[[:alnum:]_-]+$ ]]; then
+    echo "Invalid INSTALL_EXTRA script name: $install_extra" >&2
+    exit 1
+  fi
+  install_extra_script="$SETUP_SCRIPT_DIR/$install_extra.sh"
+  if [ ! -r "$install_extra_script" ]; then
+    echo "Could not find INSTALL_EXTRA script: $install_extra_script" >&2
+    exit 1
+  fi
+  /bin/bash "$install_extra_script" "$@"
+}
+
 run_install_extras() {
+  local skipped_extra=${1:-}
   [ "$platform_name" = Linux ] || return 0
   [ -n "${INSTALL_EXTRA:-}" ] || return 0
-  local install_extra install_extra_script
+  local install_extra
   local install_extras=()
   read -r -a install_extras <<<"$INSTALL_EXTRA"
   for install_extra in "${install_extras[@]}"; do
-    if [[ ! "$install_extra" =~ ^[[:alnum:]_-]+$ ]]; then
-      echo "Invalid INSTALL_EXTRA script name: $install_extra" >&2
-      exit 1
-    fi
-    install_extra_script="$SETUP_SCRIPT_DIR/$install_extra.sh"
-    if [ ! -r "$install_extra_script" ]; then
-      echo "Could not find INSTALL_EXTRA script: $install_extra_script" >&2
-      exit 1
-    fi
-    /bin/bash "$install_extra_script"
+    [ "$install_extra" = "$skipped_extra" ] || run_install_extra "$install_extra"
   done
 }
 
@@ -157,7 +165,27 @@ start_databases() {
 
 install_ubuntu_packages
 configure_workspace_git
-install_deno
-install_workspace_packages
-run_install_extras
+if [ "$CODEX_DB_SETUP" = true ] && [ "$platform_name" = Linux ]; then
+  codex_db_pid=
+  stop_codex_db_provisioning() {
+    if [ -n "$codex_db_pid" ] && kill -0 "$codex_db_pid" 2>/dev/null; then
+      kill "$codex_db_pid"
+      wait "$codex_db_pid" || true
+    fi
+  }
+  trap stop_codex_db_provisioning EXIT
+  run_install_extra codex-db provision &
+  codex_db_pid=$!
+  install_deno
+  install_workspace_packages
+  wait "$codex_db_pid"
+  codex_db_pid=
+  trap - EXIT
+  run_install_extra codex-db migrate
+  run_install_extras codex-db
+else
+  install_deno
+  install_workspace_packages
+  run_install_extras
+fi
 start_databases
