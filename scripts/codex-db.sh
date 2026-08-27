@@ -68,26 +68,8 @@ migrate_webapp_database() {
 }
 
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
-
-case "${1:-all}" in
-  provision)
-    install_postgres
-    install_valkey
-    configure_postgres
-    start_valkey
-    ;;
-  migrate)
-    migrate_webapp_database
-    ;;
-  all)
-    install_postgres
-    install_valkey
-    configure_postgres
-    start_valkey
-    migrate_webapp_database
-    ;;
-  *)
-    echo "Usage: $0 [all|provision|migrate]" >&2
-    exit 1
-    ;;
-esac
+install_postgres
+install_valkey
+configure_postgres
+start_valkey
+migrate_webapp_database
