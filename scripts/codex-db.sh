@@ -55,8 +55,13 @@ start_valkey() {
   fi
 }
 
+migrate_webapp_database() {
+  (cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
+}
+
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
 install_postgres
 install_valkey
 configure_postgres
 start_valkey
+migrate_webapp_database

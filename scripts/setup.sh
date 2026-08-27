@@ -135,15 +135,9 @@ start_databases() {
   fi
 }
 
-migrate_webapp_database() {
-  [ "${MIGRATE_WEBAPP:-false}" = true ] || return 0
-  (cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
-}
-
 install_ubuntu_packages
 configure_workspace_git
 install_deno
 install_workspace_packages
 run_install_extras
 start_databases
-migrate_webapp_database
