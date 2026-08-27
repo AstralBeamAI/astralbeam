@@ -96,6 +96,15 @@ OAuth callbacks are always derived from the environment origin:
 
 Separate local and production OAuth applications keep localhost callbacks, branding, access, logs, revocation, and credential rotation isolated.
 
+### Configure Cloudflare Turnstile (optional)
+
+To enable CAPTCHA protection, follow Cloudflare's [Turnstile setup guide](https://developers.cloudflare.com/turnstile/get-started/) to create a widget and obtain its public site key and private secret key.
+
+1. Create separate Turnstile widgets for each environment so their hostnames, analytics, and key rotation remain isolated.
+2. Restrict each non-test widget to the exact hostnames that serve that environment; production widgets should not allow localhost domains.
+3. Store both matching keys in that deployment's `/configure` page, or leave both unset to disable CAPTCHA. A partial pair is rejected. The site key is sent to browsers, while the secret key remains server-only and is used by Better Auth to validate tokens with Cloudflare.
+4. For local and automated browser testing, use Cloudflare's [documented test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) instead of production keys.
+
 ### Configure Google OAuth
 
 Follow Google's current [client](https://support.google.com/cloud/answer/15549257), [branding](https://support.google.com/cloud/answer/15549049), [audience](https://support.google.com/cloud/answer/15549945), and [OAuth policy](https://developers.google.com/identity/protocols/oauth2/policies) instructions. Request only the standard `openid`, `email`, and `profile` scopes documented for [OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect).

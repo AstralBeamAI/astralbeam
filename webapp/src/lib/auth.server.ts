@@ -61,21 +61,20 @@ function buildAuth(snapshot: ConfigSnapshot) {
   if (!snapshot.appBaseUrl) {
     throw new Error("Required authentication configuration is unavailable")
   }
-  if (!snapshot.turnstile) {
-    throw new Error("Cloudflare Turnstile configuration is required")
-  }
 
   // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
-  const turnstileAuthPlugin = captcha({
-    provider: "cloudflare-turnstile",
-    secretKey: snapshot.turnstile.secretKey,
-    endpoints: [
-      "/sign-in/email",
-      "/sign-up/email",
-      "/request-password-reset",
-      "/send-verification-email",
-    ],
-  }) as BetterAuthPlugin
+  const turnstileAuthPlugin: BetterAuthPlugin = snapshot.turnstile
+    ? captcha({
+      provider: "cloudflare-turnstile",
+      secretKey: snapshot.turnstile.secretKey,
+      endpoints: [
+        "/sign-in/email",
+        "/sign-up/email",
+        "/request-password-reset",
+        "/send-verification-email",
+      ],
+    })
+    : { id: "captcha-disabled" }
 
   const enabledOAuthProviders = new Set<string>()
   if (snapshot.google) enabledOAuthProviders.add("google")

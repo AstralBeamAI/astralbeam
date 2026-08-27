@@ -44,7 +44,7 @@ export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {
   })
   const captchaComponent = auth.plugins?.find((plugin) => plugin.id === "captcha")
     ?.captchaComponent
-  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
+  const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
