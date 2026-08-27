@@ -2,9 +2,9 @@ import { defineRelations, defineRelationsPart } from "drizzle-orm"
 
 import * as schema from "./tables.server.ts"
 
-export const baseRelations = defineRelations(schema)
+const baseRelations = defineRelations(schema)
 
-export const authRelations = defineRelationsPart(schema, (relations) => ({
+const authRelations = defineRelationsPart(schema, (relations) => ({
   user: {
     sessions: relations.many.session({
       from: relations.user.id,
@@ -43,6 +43,16 @@ export const authRelations = defineRelationsPart(schema, (relations) => ({
     invitations: relations.many.invitation({
       from: relations.organization.id,
       to: relations.invitation.organizationId,
+    }),
+    configuration: relations.one.organizationConfiguration({
+      from: relations.organization.id,
+      to: relations.organizationConfiguration.organizationId,
+    }),
+  },
+  organizationConfiguration: {
+    organization: relations.one.organization({
+      from: relations.organizationConfiguration.organizationId,
+      to: relations.organization.id,
     }),
   },
   member: {

@@ -1,9 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { getAuth } from "@/lib/auth.server"
-import { setupGateResponse } from "@/lib/config.server"
-
 async function handleAuthRequest(request: Request): Promise<Response> {
+  const { getDatabaseBootstrapIssues } = await import(
+    "@/db/lib/database-credentials.server"
+  )
+  if (getDatabaseBootstrapIssues().length > 0) {
+    return new Response("Server configuration required", { status: 503 })
+  }
+  const [{ getAuth }, { setupGateResponse }] = await Promise.all([
+    import("@/lib/auth.server"),
+    import("@/lib/config/state.server"),
+  ])
   const gate = await setupGateResponse()
   if (gate) return gate
   return (await getAuth()).handler(request)

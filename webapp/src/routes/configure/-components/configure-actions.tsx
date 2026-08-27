@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowSquareOutIcon, CheckIcon, FloppyDiskIcon, SignOutIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, FloppyDiskIcon, SignOutIcon } from "@phosphor-icons/react"
 import { useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 
@@ -16,13 +16,11 @@ export function ConfigureActions({
   busy = false,
   onSave,
   saveDisabled = false,
-  onFinishSetup,
 }: {
   setupComplete: boolean
   busy?: boolean
   onSave?: () => void
   saveDisabled?: boolean
-  onFinishSetup?: () => void
 }) {
   const router = useRouter()
   const [leaving, setLeaving] = useState(false)
@@ -56,14 +54,7 @@ export function ConfigureActions({
           Save
         </Button>
       )}
-      {onFinishSetup && (
-        <Button type="button" variant="secondary" onClick={onFinishSetup} disabled={disabled}>
-          <CheckIcon aria-hidden="true" />
-          Finish setup
-        </Button>
-      )}
       <div className="grow" />
-      {/* Before setup completes every other page redirects back here, so leaving is pointless. */}
       {setupComplete && (
         <Button
           type="button"

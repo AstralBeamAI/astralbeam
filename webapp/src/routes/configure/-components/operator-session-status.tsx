@@ -11,10 +11,8 @@ function formatRemaining(milliseconds: number): string {
 }
 
 export function OperatorSessionStatus({
-  dbUsername,
   sessionExpiresAt,
 }: {
-  dbUsername: string
   sessionExpiresAt: string
 }) {
   const router = useRouter()
@@ -36,7 +34,7 @@ export function OperatorSessionStatus({
 
   return (
     <p className="text-sm text-muted-foreground">
-      Signed in as <strong>{dbUsername}</strong> · This session ends in{" "}
+      Operator session ends in{" "}
       {/* The server render uses the server clock, so the first client tick may differ by a tick. */}
       <span suppressHydrationWarning className="font-mono tabular-nums">
         {formatRemaining(remaining)}

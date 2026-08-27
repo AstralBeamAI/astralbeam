@@ -1,8 +1,8 @@
 import process from "node:process"
 
 import { createElement } from "react"
-import { getConfig } from "../lib/config.server.ts"
 import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/constants.ts"
+import { getGlobalConfig } from "@/lib/config"
 import type { SendEmailOptions, SendEmailResult } from "./types.ts"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
 import OrganizationInvitationEmail from "./templates/organization-invitation.tsx"
@@ -22,7 +22,7 @@ interface AuthEmailContext {
 
 // Templates cannot resolve relative paths, so links and logos need the configured absolute origin.
 async function authEmailContext(): Promise<AuthEmailContext> {
-  const { appBaseUrl } = await getConfig()
+  const appBaseUrl = await getGlobalConfig("app_base_url")
   if (!appBaseUrl) throw new Error("Application base URL is not configured")
   return {
     appBaseUrl,
@@ -33,17 +33,17 @@ async function authEmailContext(): Promise<AuthEmailContext> {
   }
 }
 
-export interface BetterAuthLinkEmailData {
+interface BetterAuthLinkEmailData {
   user: { email: string }
   url: string
 }
 
-export interface BetterAuthPasswordChangedEmailData {
+interface BetterAuthPasswordChangedEmailData {
   user: { email: string }
   changedAt?: Date | undefined
 }
 
-export interface BetterAuthOrganizationInvitationEmailData {
+interface BetterAuthOrganizationInvitationEmailData {
   id: string
   email: string
   role: string
@@ -63,9 +63,13 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   if (process.env.VITEST === "true" || process.env.NODE_ENV === "test") {
     throw new Error("Email delivery is disabled during tests")
   }
-  const { emailProvider, emailFromAddress } = await getConfig()
-  const provider = resolveProvider(options.provider, emailProvider)
-  const input = await buildProviderEmailInput(options, emailFromAddress)
+  // TODO: Provide a local mail transport when no third-party provider is configured so Better Auth's required email flows remain usable. https://better-auth.com/docs/concepts/email
+  const [emailProvider, emailFromAddress] = await Promise.all([
+    getGlobalConfig("email_provider"),
+    getGlobalConfig("email_from_address"),
+  ])
+  const provider = resolveProvider(options.provider, emailProvider ?? null)
+  const input = await buildProviderEmailInput(options, emailFromAddress ?? null)
   const sendProviderEmail = await providerLoaders[provider]()
   const result = await sendProviderEmail(input)
   return { ...result, provider }

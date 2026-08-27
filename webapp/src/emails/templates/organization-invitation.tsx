@@ -48,12 +48,12 @@ const organizationInvitationEmailLocalization = {
  *
  * Contains all text content used in the organization invitation email template.
  */
-export type OrganizationInvitationEmailLocalization = typeof organizationInvitationEmailLocalization
+type OrganizationInvitationEmailLocalization = typeof organizationInvitationEmailLocalization
 
 /**
  * Props for the OrganizationInvitationEmail component.
  */
-export interface OrganizationInvitationEmailProps {
+interface OrganizationInvitationEmailProps {
   /**
    * URL where the invitee can review and accept the invitation.
    *

@@ -37,7 +37,7 @@ export function ProviderButton({
   provider,
   display = "full",
   disabled,
-  termsAccepted = false,
+  termsAccepted,
   view = "signIn",
   variant = "outline",
   className,
@@ -67,7 +67,7 @@ export function ProviderButton({
   const isDisabled = Boolean(disabled || isPending)
 
   const handleSignIn = () => {
-    if (isDisabled || (view === "signUp" && !termsAccepted)) return
+    if (isDisabled || (view === "signUp" && termsAccepted === false)) return
 
     const safeRedirectTo = getSafeRedirectTo(
       redirectTo,
@@ -76,7 +76,7 @@ export function ProviderButton({
 
     const signUpOptions = view === "signUp"
       ? {
-        additionalData: { termsAccepted: true },
+        ...(termsAccepted && { additionalData: { termsAccepted: true } }),
         requestSignUp: true,
       }
       : {}

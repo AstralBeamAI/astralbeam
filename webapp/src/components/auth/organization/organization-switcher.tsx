@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Replace Lucide with Phosphor icons and add a stable accessible trigger name and hover title.
+// Local changes: Replace Lucide with Phosphor icons, add a stable accessible trigger name and hover title, and expose successful organization creation to the organization layout.
 
 "use client"
 
@@ -44,6 +44,7 @@ export type OrganizationSwitcherProps = {
   hideSettings?: boolean
   hideSlug?: boolean
   setActive?: (organization: Organization | null) => void
+  onOrganizationCreated?: () => unknown | Promise<unknown>
 }
 
 /**
@@ -60,6 +61,7 @@ export function OrganizationSwitcher({
   hideSettings,
   hideSlug = true,
   setActive,
+  onOrganizationCreated,
   trigger,
 }: OrganizationSwitcherProps) {
   const { authClient, navigate, basePaths, localization, viewPaths, Link } = useAuth<
@@ -236,6 +238,7 @@ export function OrganizationSwitcher({
       <CreateOrganizationDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        onOrganizationCreated={onOrganizationCreated}
       />
     </>
   )

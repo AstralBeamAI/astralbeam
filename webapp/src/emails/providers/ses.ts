@@ -1,13 +1,26 @@
 import { Buffer } from "node:buffer"
+import process from "node:process"
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2"
-import { requireSesConfig } from "../../lib/config.server.ts"
+import { getGlobalConfig } from "@/lib/config"
 import type { ProviderEmailInput, ResolvedEmailAttachment, SendProviderEmail } from "../types.ts"
 
 // Keyed on the configured values so changing them at /configure rebuilds the client.
 let cachedClient: { cacheKey: string; client: SESv2Client } | undefined
 
 async function getClient(): Promise<SESv2Client> {
-  const { region, credentials } = await requireSesConfig()
+  const [region, accessKeyId, secretAccessKey] = await Promise.all([
+    getGlobalConfig("aws_region"),
+    getGlobalConfig("aws_access_key_id"),
+    getGlobalConfig("aws_secret_access_key"),
+  ])
+  if (!region) {
+    throw new Error("SES is the selected email provider but no AWS region is configured")
+  }
+  // Standard AWS environment credentials belong to the SDK chain so temporary credentials retain
+  // AWS_SESSION_TOKEN. Only database-backed static credentials are passed explicitly.
+  const credentials = !process.env.AWS_ACCESS_KEY_ID && accessKeyId && secretAccessKey
+    ? { accessKeyId, secretAccessKey }
+    : null
   const cacheKey = `${region}:${credentials?.accessKeyId ?? ""}:${
     credentials?.secretAccessKey ?? ""
   }`

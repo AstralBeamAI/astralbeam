@@ -1,11 +1,14 @@
 import { Buffer } from "node:buffer"
 import { Resend } from "resend"
-import { requireResendConfig } from "../../lib/config.server.ts"
+import { getGlobalConfig } from "@/lib/config"
 import type { SendProviderEmail } from "../types.ts"
 
 export const sendResendEmail: SendProviderEmail = async (input) => {
   // The constructor only stores the key and sends over global fetch, so there is nothing to reuse.
-  const { apiKey } = await requireResendConfig()
+  const apiKey = await getGlobalConfig("resend_api_key")
+  if (!apiKey) {
+    throw new Error("Resend is the selected email provider but no Resend API key is configured")
+  }
   const { data, error } = await new Resend(apiKey).emails.send({
     from: input.from,
     to: input.to,

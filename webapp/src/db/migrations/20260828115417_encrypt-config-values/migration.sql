@@ -1,0 +1,1 @@
+ALTER TABLE "config" ALTER COLUMN "value" SET DATA TYPE text USING "value"::text;

@@ -1,126 +1,75 @@
-import { createHash, randomBytes } from "node:crypto"
+import { createHmac } from "node:crypto"
 
-import { and, eq, gt, lte } from "drizzle-orm"
+import { jwtVerify, SignJWT } from "jose"
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server"
 
-import { isMissingTableError } from "@/lib/config.server"
-import { OPERATOR_SESSION_COOKIE, OPERATOR_SESSION_TTL_SECONDS } from "./constants.server"
+import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
+import { generateSecret } from "@/lib/generate-secret.server"
 
-export interface OperatorSession {
-  dbUsername: string
+const OPERATOR_SESSION_COOKIE = "operator_session"
+const OPERATOR_SESSION_TTL_SECONDS = 15 * 60
+const OPERATOR_SESSION_MAX_TOKEN_LENGTH = 2_048
+const OPERATOR_SESSION_ISSUER = "configure"
+const OPERATOR_SESSION_AUDIENCE = "configure"
+const OPERATOR_SESSION_SUBJECT = "operator"
+const OPERATOR_SESSION_TYPE = "operator-session+jwt"
+
+interface OperatorSession {
   expiresAt: Date
 }
 
-// Bootstrap fallback: on a fresh database the config_session table does not exist until the first
-// migration run, so sessions created before it are held in this instance's memory and promoted to
-// the database as soon as the table appears.
-const memorySessions = new Map<string, { dbUsername: string; expiresAt: number }>()
-
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex")
+function operatorSessionSigningKey(encryptionRoot: Uint8Array): Uint8Array {
+  return createHmac("sha256", encryptionRoot)
+    .update("configure-operator-session-signing-key:v1\0")
+    .digest()
 }
 
-// Expired sessions can never be revived, so drop them instead of letting them accumulate.
-async function pruneExpiredSessions(): Promise<void> {
-  const now = Date.now()
-  for (const [tokenHash, session] of memorySessions) {
-    if (session.expiresAt <= now) memorySessions.delete(tokenHash)
-  }
-  try {
-    const { db } = await import("@/db/index.server")
-    const { configSession } = await import("@/db/schema.server")
-    await db.delete(configSession).where(lte(configSession.expiresAt, new Date(now)))
-  } catch (error) {
-    if (!isMissingTableError(error)) throw error
-  }
-}
-
-export async function createOperatorSession(dbUsername: string): Promise<string> {
-  await pruneExpiredSessions()
-  const token = randomBytes(32).toString("base64url")
-  const tokenHash = hashToken(token)
-  const expiresAt = new Date(Date.now() + OPERATOR_SESSION_TTL_SECONDS * 1000)
-  try {
-    const { db } = await import("@/db/index.server")
-    const { configSession } = await import("@/db/schema.server")
-    await db.insert(configSession).values({ tokenHash, dbUsername, expiresAt })
-  } catch (error) {
-    if (!isMissingTableError(error)) throw error
-    memorySessions.set(tokenHash, { dbUsername, expiresAt: expiresAt.getTime() })
-  }
-  return token
+export async function createOperatorSession(
+  encryptionRoot = getActiveDatabaseEncryptionRoot(),
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1_000)
+  return await new SignJWT()
+    .setProtectedHeader({ alg: "HS256", typ: OPERATOR_SESSION_TYPE })
+    .setIssuer(OPERATOR_SESSION_ISSUER)
+    .setAudience(OPERATOR_SESSION_AUDIENCE)
+    .setSubject(OPERATOR_SESSION_SUBJECT)
+    .setJti(generateSecret())
+    .setIssuedAt(now)
+    .setExpirationTime(now + OPERATOR_SESSION_TTL_SECONDS)
+    .sign(operatorSessionSigningKey(encryptionRoot))
 }
 
 export async function verifyOperatorSession(
   token: string | undefined,
+  encryptionRoot = getActiveDatabaseEncryptionRoot(),
 ): Promise<OperatorSession | null> {
-  if (!token) return null
-  const tokenHash = hashToken(token)
-  const memory = memorySessions.get(tokenHash)
-  if (memory) {
-    if (memory.expiresAt <= Date.now()) {
-      memorySessions.delete(tokenHash)
-      return null
-    }
-    await promoteMemorySessions()
-    return { dbUsername: memory.dbUsername, expiresAt: new Date(memory.expiresAt) }
-  }
+  if (!token || token.length > OPERATOR_SESSION_MAX_TOKEN_LENGTH) return null
   try {
-    const { db } = await import("@/db/index.server")
-    const { configSession } = await import("@/db/schema.server")
-    const rows = await db
-      .select({ dbUsername: configSession.dbUsername, expiresAt: configSession.expiresAt })
-      .from(configSession)
-      .where(and(
-        eq(configSession.tokenHash, tokenHash),
-        gt(configSession.expiresAt, new Date()),
-      ))
-    return rows[0] ?? null
-  } catch (error) {
-    if (isMissingTableError(error)) return null
-    throw error
+    const result = await jwtVerify(token, operatorSessionSigningKey(encryptionRoot), {
+      algorithms: ["HS256"],
+      issuer: OPERATOR_SESSION_ISSUER,
+      audience: OPERATOR_SESSION_AUDIENCE,
+      requiredClaims: ["iat", "exp", "sub", "jti"],
+      maxTokenAge: OPERATOR_SESSION_TTL_SECONDS,
+    })
+    const { payload, protectedHeader } = result
+    if (
+      protectedHeader.typ !== OPERATOR_SESSION_TYPE ||
+      payload.sub !== OPERATOR_SESSION_SUBJECT ||
+      typeof payload.iat !== "number" ||
+      typeof payload.exp !== "number" ||
+      !Number.isInteger(payload.iat) ||
+      !Number.isInteger(payload.exp) ||
+      payload.exp <= payload.iat ||
+      payload.exp - payload.iat !== OPERATOR_SESSION_TTL_SECONDS
+    ) return null
+    return { expiresAt: new Date(payload.exp * 1_000) }
+  } catch {
+    return null
   }
 }
 
-// Once migrations create config_session, move bootstrap sessions into the database so any
-// instance can verify them.
-export async function promoteMemorySessions(): Promise<void> {
-  if (memorySessions.size === 0) return
-  try {
-    const { db } = await import("@/db/index.server")
-    const { configSession } = await import("@/db/schema.server")
-    for (const [tokenHash, session] of memorySessions) {
-      if (session.expiresAt > Date.now()) {
-        await db
-          .insert(configSession)
-          .values({
-            tokenHash,
-            dbUsername: session.dbUsername,
-            expiresAt: new Date(session.expiresAt),
-          })
-          .onConflictDoNothing()
-      }
-      memorySessions.delete(tokenHash)
-    }
-  } catch (error) {
-    if (!isMissingTableError(error)) throw error
-  }
-}
-
-export async function destroyOperatorSession(token: string | undefined): Promise<void> {
-  if (!token) return
-  const tokenHash = hashToken(token)
-  memorySessions.delete(tokenHash)
-  try {
-    const { db } = await import("@/db/index.server")
-    const { configSession } = await import("@/db/schema.server")
-    await db.delete(configSession).where(eq(configSession.tokenHash, tokenHash))
-  } catch (error) {
-    if (!isMissingTableError(error)) throw error
-  }
-}
-
-export function operatorSessionToken(): string | undefined {
+function operatorSessionToken(): string | undefined {
   return getCookie(OPERATOR_SESSION_COOKIE)
 }
 
@@ -130,17 +79,17 @@ export function setOperatorSessionCookie(token: string): void {
     sameSite: "strict",
     path: "/",
     maxAge: OPERATOR_SESSION_TTL_SECONDS,
-    // Always require HTTPS outside the Vite dev server; the request protocol is attacker-influenced
-    // behind proxies and the base URL may not be configured yet. https://vite.dev/guide/env-and-mode
-    secure: !import.meta.env.DEV,
+    secure: import.meta.env.PROD,
   })
 }
 
 export function clearOperatorSessionCookie(): void {
-  deleteCookie(OPERATOR_SESSION_COOKIE, { path: "/" })
+  deleteCookie(OPERATOR_SESSION_COOKIE, {
+    path: "/",
+    secure: import.meta.env.PROD,
+  })
 }
 
-// Every /configure server function calls this first and refuses to act without a session.
 export async function getOperatorSession(): Promise<OperatorSession | null> {
   return await verifyOperatorSession(operatorSessionToken())
 }

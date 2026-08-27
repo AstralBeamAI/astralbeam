@@ -79,12 +79,18 @@ export function SignUp({
     Link,
   } = useAuth()
   const { privacyPolicyUrl, termsOfServiceUrl } = usePublicConfig()
+  const legalLinks = [
+    termsOfServiceUrl ? { href: termsOfServiceUrl, label: "Terms of Service" } : null,
+    privacyPolicyUrl ? { href: privacyPolicyUrl, label: "Privacy Policy" } : null,
+  ].filter((link) => link !== null)
+  const legalAcceptanceRequired = legalLinks.length > 0
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const legalAccepted = !legalAcceptanceRequired || termsAccepted
 
   const { mutate: signUpEmail, isPending: signUpEmailPending } = useSignUpEmail(
     authClient,
@@ -146,7 +152,7 @@ export function SignUp({
   const submitSignUp = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    if (!termsAccepted) {
+    if (!legalAccepted) {
       globalThis.document.querySelector<HTMLElement>("#accept-legal")?.focus()
       return
     }
@@ -170,9 +176,9 @@ export function SignUp({
         password,
         callbackURL: redirectTo,
         fetchOptions,
-        termsAccepted: true,
+        ...(legalAcceptanceRequired && { termsAccepted: true as const }),
       } as Parameters<typeof authClient.signUp.email>[0] & {
-        termsAccepted: true
+        termsAccepted?: true
       },
     )
   }
@@ -180,6 +186,16 @@ export function SignUp({
   const showSeparator = emailAndPassword?.enabled && socialProviders && socialProviders.length > 0
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
   const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
+  const providerButtons = socialProviders?.length
+    ? (
+      <ProviderButtons
+        disabled={!legalAccepted}
+        {...(socialLayout === undefined ? {} : { socialLayout })}
+        {...(legalAcceptanceRequired ? { termsAccepted } : {})}
+        view="signUp"
+      />
+    )
+    : null
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -194,14 +210,7 @@ export function SignUp({
         <div className="flex flex-col gap-6">
           {socialPosition === "top" && (
             <>
-              {socialProviders && socialProviders.length > 0 && (
-                <ProviderButtons
-                  disabled={!termsAccepted}
-                  {...(socialLayout === undefined ? {} : { socialLayout })}
-                  termsAccepted={termsAccepted}
-                  view="signUp"
-                />
-              )}
+              {providerButtons}
 
               {showSeparator && (
                 <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card text-xs flex items-center">
@@ -430,44 +439,42 @@ export function SignUp({
                   </Field>
                 )}
 
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="accept-legal"
-                    checked={termsAccepted}
-                    onCheckedChange={(checked) => setTermsAccepted(checked)}
-                    aria-labelledby="accept-legal-copy"
-                    required
-                    disabled={isPending}
-                  />
-                  <p id="accept-legal-copy" className="text-sm text-muted-foreground">
-                    <label htmlFor="accept-legal" className="cursor-pointer">
-                      I accept the{" "}
-                    </label>
-                    <a
-                      href={termsOfServiceUrl}
-                      className="font-medium text-foreground underline underline-offset-4"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Terms of Service
-                    </a>{" "}
-                    and{" "}
-                    <a
-                      href={privacyPolicyUrl}
-                      className="font-medium text-foreground underline underline-offset-4"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Privacy Policy
-                    </a>
-                    .
-                  </p>
-                </Field>
+                {legalAcceptanceRequired && (
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id="accept-legal"
+                      checked={termsAccepted}
+                      onCheckedChange={(checked) => setTermsAccepted(checked)}
+                      aria-labelledby="accept-legal-copy"
+                      required
+                      disabled={isPending}
+                    />
+                    <p id="accept-legal-copy" className="text-sm text-muted-foreground">
+                      <label htmlFor="accept-legal" className="cursor-pointer">
+                        I accept the{" "}
+                      </label>
+                      {legalLinks.map((link, index) => (
+                        <span key={link.label}>
+                          {index > 0 && " and "}
+                          <a
+                            href={link.href}
+                            className="font-medium text-foreground underline underline-offset-4"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {link.label}
+                          </a>
+                        </span>
+                      ))}
+                      .
+                    </p>
+                  </Field>
+                )}
 
                 {captchaComponent}
 
                 <div className="flex flex-col gap-3">
-                  <Button type="submit" disabled={isPending || !termsAccepted || !captchaReady}>
+                  <Button type="submit" disabled={isPending || !legalAccepted || !captchaReady}>
                     {signUpEmailPending && <Spinner />}
 
                     {localization.auth.signUp}
@@ -485,14 +492,7 @@ export function SignUp({
                 </FieldSeparator>
               )}
 
-              {socialProviders && socialProviders.length > 0 && (
-                <ProviderButtons
-                  disabled={!termsAccepted}
-                  {...(socialLayout === undefined ? {} : { socialLayout })}
-                  termsAccepted={termsAccepted}
-                  view="signUp"
-                />
-              )}
+              {providerButtons}
             </>
           )}
         </div>

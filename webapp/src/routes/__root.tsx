@@ -29,7 +29,6 @@ import {
   APP_LOGO_LIGHT_SVG_URL,
   APP_NAME,
   AUTH_ALLOWED_RETURN_PATHS,
-  DEFAULT_PUBLIC_CONFIG,
   INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
 import appCss from "@/styles.css?url"
@@ -48,23 +47,29 @@ const devtoolsPlugins = [
 
 const getRedirectOrigin = createIsomorphicFn()
   .server(async () => {
-    const [{ getConfig }, { getRequest }] = await Promise.all([
-      import("@/lib/config.server"),
+    const [{ getGlobalConfig }, { getRequest }] = await Promise.all([
+      import("@/lib/config"),
       import("@tanstack/react-start/server"),
     ])
-    const { appBaseUrl } = await getConfig()
+    const appBaseUrl = await getGlobalConfig("app_base_url")
     // Requests can carry redirectTo before setup configures the base URL; fall back to the request origin.
     return appBaseUrl ?? new URL(getRequest().url).origin
   })
   .client(() => globalThis.location.origin)
 
-const getSetupComplete = createIsomorphicFn()
+const getSetupState = createIsomorphicFn()
   .server(async () => {
-    const { getConfig } = await import("@/lib/config.server")
-    return (await getConfig()).setupComplete
+    const { getDatabaseBootstrapIssues } = await import(
+      "@/db/lib/database-credentials.server"
+    )
+    if (getDatabaseBootstrapIssues().length > 0) return { setupComplete: false }
+    const { isSetupComplete } = await import("@/lib/config/state.server")
+    return {
+      setupComplete: await isSetupComplete(),
+    }
   })
   // The server gates every document request; client-side navigation within a served app is safe.
-  .client(() => true)
+  .client(() => ({ setupComplete: true }))
 
 function isAppTheme(theme: string): theme is AppTheme {
   return APP_THEMES.some((appTheme) => appTheme === theme)
@@ -74,11 +79,11 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   beforeLoad: async ({ location }) => {
-    // Until the operator completes setup at /configure, every other page redirects there.
-    if (
-      !location.pathname.startsWith("/configure") &&
-      !(await getSetupComplete())
-    ) {
+    const state = await getSetupState()
+    const isConfigurePath = location.pathname === "/configure" ||
+      location.pathname.startsWith("/configure/")
+    if (!state.setupComplete) {
+      if (isConfigurePath) return
       throw redirect({ to: "/configure", replace: true })
     }
 
@@ -162,7 +167,7 @@ export const Route = createRootRouteWithContext<{
 
 function AppProviders({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
-  const publicConfig = Route.useLoaderData() ?? DEFAULT_PUBLIC_CONFIG
+  const publicConfig = Route.useLoaderData()
   const { setTheme, theme } = useTheme()
   const setAppTheme = useCallback(
     (nextTheme: string) => {
@@ -180,6 +185,8 @@ function AppProviders({ children }: { children: ReactNode }) {
     origin,
     AUTH_ALLOWED_RETURN_PATHS,
   )
+
+  if (!publicConfig) return children
 
   return (
     <PublicConfigProvider value={publicConfig}>
@@ -206,7 +213,7 @@ function AppProviders({ children }: { children: ReactNode }) {
         multipleAccountsPerProvider={false}
         navigate={navigate}
         plugins={[
-          ...(publicConfig.turnstileSiteKey ? [captchaPlugin({ render: TurnstileCaptcha })] : []),
+          captchaPlugin({ render: TurnstileCaptcha }),
           themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
           organizationPlugin({
             roles: {

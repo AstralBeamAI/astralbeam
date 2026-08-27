@@ -4,11 +4,7 @@ import { GlobeIcon } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  APP_BASE_URL_CONFIG_KEY,
-  CONFIG_FIELD_GROUPS,
-  ROTATABLE_CONFIG_KEYS,
-} from "../-lib/constants"
+import type { ConfigKey } from "@/lib/types"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
 
@@ -18,27 +14,22 @@ export function ConfigFieldGroups({
   fieldErrors,
   disabled,
   onDraftChange,
-  onRotate,
+  onGenerate,
 }: {
   fields: ConfigureField[]
   drafts: Record<string, FieldDraft>
   fieldErrors: Record<string, string>
   disabled: boolean
   onDraftChange: (key: string, draft: FieldDraft) => void
-  onRotate: (key: string) => void
+  onGenerate: (key: ConfigKey) => void
 }) {
-  const fieldsByKey = new Map(fields.map((field) => [field.key, field]))
+  const fieldsByGroup = Map.groupBy(fields, (field) => field.group)
 
-  return CONFIG_FIELD_GROUPS.map((group) => {
-    const groupFields = group.keys
-      .map((key) => fieldsByKey.get(key))
-      .filter((field): field is ConfigureField => field !== undefined)
-    if (groupFields.length === 0) return null
-
+  return [...fieldsByGroup].map(([group, groupFields]) => {
     return (
-      <Card key={group.title}>
+      <Card key={group}>
         <CardHeader>
-          <CardTitle>{group.title}</CardTitle>
+          <CardTitle>{group}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {groupFields.map((field) => (
@@ -49,10 +40,8 @@ export function ConfigFieldGroups({
               error={fieldErrors[field.key]}
               disabled={disabled}
               onDraftChange={(draft) => onDraftChange(field.key, draft)}
-              onRotate={ROTATABLE_CONFIG_KEYS.has(field.key)
-                ? () => onRotate(field.key)
-                : undefined}
-              footer={field.key === APP_BASE_URL_CONFIG_KEY
+              onGenerate={field.canGenerate ? () => onGenerate(field.key) : undefined}
+              footer={field.source === "database" && field.key === "app_base_url"
                 ? (
                   <Button
                     type="button"

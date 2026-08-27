@@ -1,9 +1,8 @@
 import { createContext, type ReactNode, useContext } from "react"
 
-import { DEFAULT_PUBLIC_CONFIG } from "@/lib/constants"
 import type { PublicConfig } from "@/lib/types"
 
-const PublicConfigContext = createContext<PublicConfig>(DEFAULT_PUBLIC_CONFIG)
+const PublicConfigContext = createContext<PublicConfig | null>(null)
 
 export function PublicConfigProvider(
   { value, children }: { value: PublicConfig; children: ReactNode },
@@ -12,5 +11,7 @@ export function PublicConfigProvider(
 }
 
 export function usePublicConfig(): PublicConfig {
-  return useContext(PublicConfigContext)
+  const value = useContext(PublicConfigContext)
+  if (!value) throw new Error("PublicConfigProvider is missing")
+  return value
 }

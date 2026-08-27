@@ -5,7 +5,7 @@ import {
   timestamps,
   timestampWithTimeZone,
   uuidV7PrimaryKey,
-} from "../postgresql-types.server.ts"
+} from "../lib/postgresql-types.server.ts"
 
 export const user = snakeCase.table(
   "user",

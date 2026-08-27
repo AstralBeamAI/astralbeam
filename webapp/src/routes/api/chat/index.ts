@@ -6,7 +6,6 @@ import {
 } from "@tanstack/ai"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { getConfig, setupGateResponse } from "@/lib/config.server"
 import { createChatAdapter } from "./-lib/adapter.server"
 import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
 import {
@@ -30,6 +29,16 @@ export const Route = createFileRoute("/api/chat/")({
     handlers: {
       OPTIONS: ({ request }) => new Response(null, { status: 204, headers: corsHeaders(request) }),
       POST: async ({ request }) => {
+        const { getDatabaseBootstrapIssues } = await import(
+          "@/db/lib/database-credentials.server"
+        )
+        if (getDatabaseBootstrapIssues().length > 0) {
+          return errorResponse(request, 503, "Server configuration required.")
+        }
+        const [{ getGlobalConfig }, { setupGateResponse }] = await Promise.all([
+          import("@/lib/config"),
+          import("@/lib/config/state.server"),
+        ])
         const gate = await setupGateResponse()
         if (gate) return gate
         if (isRateLimited(request)) {
@@ -40,7 +49,10 @@ export const Route = createFileRoute("/api/chat/")({
         if (isChatRequestTooLarge(request)) {
           return errorResponse(request, 413, "The message and its attachments are too large.")
         }
-        const { chatAuthSecret, openaiApiKey } = await getConfig()
+        const [chatAuthSecret, openaiApiKey] = await Promise.all([
+          getGlobalConfig("chat_auth_secret"),
+          getGlobalConfig("openai_api_key"),
+        ])
         let principal
         try {
           principal = await authenticateChatRequest(request, chatAuthSecret ?? undefined)

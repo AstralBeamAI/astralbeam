@@ -3,10 +3,10 @@
 import { useState } from "react"
 
 import { toast } from "@/components/ui/toast"
-import { completeSetup } from "../-functions/complete-setup"
-import { rotateAuthSecret } from "../-functions/rotate-auth-secret"
+import type { ConfigIssue, ConfigKey } from "@/lib/types"
+import { generateConfigValue } from "../-functions/generate-config-value"
 import { saveConfigValues } from "../-functions/save-config-values"
-import type { ConfigureField, ConfigureIssue, FieldDraft } from "../-lib/types"
+import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldGroups } from "./config-field-groups"
 import { ConfigureActions } from "./configure-actions"
 import { SetupStatusAlert } from "./setup-status-alert"
@@ -15,21 +15,36 @@ export function ConfigEditor({
   fields,
   issues,
   setupComplete,
+  fallbackEncryptionKeyCount,
   onChanged,
 }: {
   fields: ConfigureField[]
-  issues: ConfigureIssue[]
+  issues: ConfigIssue[]
   setupComplete: boolean
+  fallbackEncryptionKeyCount: number
   onChanged: () => void
 }) {
   const [drafts, setDrafts] = useState<Record<string, FieldDraft>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const hasMissingGeneratedValue = fields.some((field) =>
+    field.source === "database" && field.required && field.canGenerate && !field.isSet
+  )
 
-  const pendingUpdates = fields.flatMap((field) => {
+  const pendingUpdates = fields.flatMap<{ key: string; value: string | null }>((field) => {
     const draft = drafts[field.key] ?? { kind: "unchanged" }
-    if (draft.kind !== "set" || draft.value === (field.value ?? "")) return []
-    return [{ key: field.key, value: draft.value === "" ? null : draft.value }]
+    if (field.source === "environment") return []
+    if (draft.kind === "unchanged") {
+      return field.storageStatus === "fallback-key" && field.value !== null
+        ? [{ key: field.key, value: field.value }]
+        : []
+    }
+    if (draft.kind === "clear") return [{ key: field.key, value: null }]
+    if (draft.value === (field.value ?? "")) return []
+    if (!field.required && draft.value === "") {
+      return [{ key: field.key, value: null }]
+    }
+    return [{ key: field.key, value: draft.value }]
   })
 
   const setDraft = (key: string, draft: FieldDraft) =>
@@ -46,53 +61,40 @@ export function ConfigEditor({
     }
   }
 
+  const savePendingUpdates = async () => {
+    const result = await saveConfigValues({ data: { updates: pendingUpdates } })
+    if (result.ok) {
+      setFieldErrors({})
+      setDrafts({})
+      return true
+    }
+    setFieldErrors(Object.fromEntries(
+      result.fieldErrors.map((issue) => [issue.key, issue.message]),
+    ))
+    toast.add({
+      title: result.error ?? "Some values could not be saved",
+      type: "error",
+    })
+    if (result.error) onChanged()
+    return false
+  }
+
   const handleSave = () =>
     run(async () => {
-      const result = await saveConfigValues({ data: { updates: pendingUpdates } })
-      setFieldErrors(Object.fromEntries(
-        result.fieldErrors.map((issue) => [issue.key, issue.message]),
-      ))
-      if (result.ok) {
-        setDrafts({})
-        toast.add({ title: "Configuration saved", type: "success" })
-        onChanged()
-        return
-      }
-      // An empty key marks a request-level failure such as an expired operator session, which the
-      // per-field errors cannot show; reloading then swaps the editor for the login form.
-      const requestError = result.fieldErrors.find((issue) => issue.key === "")
-      toast.add({
-        title: requestError?.message ?? "Some values could not be saved",
-        type: "error",
-      })
-      if (requestError) onChanged()
+      if (!await savePendingUpdates()) return
+      toast.add({ title: "Configuration saved", type: "success" })
+      onChanged()
     })
 
-  const handleRotate = (key: string) =>
+  const handleGenerate = (key: ConfigKey) =>
     run(async () => {
-      const result = await rotateAuthSecret(
-        { data: { key: key as "better_auth_secret" | "chat_auth_secret" } },
-      )
+      const result = await generateConfigValue({ data: { key } })
       if (result.ok) {
         toast.add({ title: "New secret generated", type: "success" })
         onChanged()
       } else {
-        toast.add({ title: result.error ?? "The secret could not be rotated", type: "error" })
+        toast.add({ title: result.error ?? "The secret could not be generated", type: "error" })
       }
-    })
-
-  const handleCompleteSetup = () =>
-    run(async () => {
-      const result = await completeSetup()
-      if (result.ok) {
-        toast.add({ title: "Setup complete", type: "success" })
-      } else {
-        toast.add({
-          title: result.error ?? result.issues?.[0]?.message ?? "Setup is not complete yet",
-          type: "error",
-        })
-      }
-      onChanged()
     })
 
   const actions = (
@@ -100,8 +102,7 @@ export function ConfigEditor({
       setupComplete={setupComplete}
       busy={busy}
       onSave={() => void handleSave()}
-      saveDisabled={pendingUpdates.length === 0}
-      {...(setupComplete ? {} : { onFinishSetup: () => void handleCompleteSetup() })}
+      saveDisabled={pendingUpdates.length === 0 && !hasMissingGeneratedValue}
     />
   )
 
@@ -109,7 +110,11 @@ export function ConfigEditor({
     <div className="flex flex-col gap-6">
       {actions}
 
-      <SetupStatusAlert setupComplete={setupComplete} issues={issues} />
+      <SetupStatusAlert
+        setupComplete={setupComplete}
+        issues={issues}
+        fallbackEncryptionKeyCount={fallbackEncryptionKeyCount}
+      />
 
       <ConfigFieldGroups
         fields={fields}
@@ -117,7 +122,7 @@ export function ConfigEditor({
         fieldErrors={fieldErrors}
         disabled={busy}
         onDraftChange={setDraft}
-        onRotate={(key) => void handleRotate(key)}
+        onGenerate={(key) => void handleGenerate(key)}
       />
 
       {actions}

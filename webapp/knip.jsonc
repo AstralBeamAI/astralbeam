@@ -3,6 +3,8 @@
   // Use `/** @knipignore */` only for exports whose external use cannot be represented in the entry graph.
   // https://knip.dev/reference/jsdoc-tsdoc-tags
   "tags": ["-knipignore"],
+  // Entry files are execution roots, not permission to expose every symbol they contain.
+  "includeEntryExports": true,
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,
   // Let Knip delete unreachable registry files without rewriting generated symbols inside retained files.
@@ -16,11 +18,9 @@
       "namespaceMembers"
     ]
   },
-  // Keep Deno-run generators and the TanStack Router entry explicit. Email templates are entries too:
-  // `scripts/preview-emails.ts` discovers them by reading the directory, not by importing them.
+  // Keep Deno-run generators and the TanStack Router entry explicit.
   "entry": [
     "scripts/*.ts",
-    "src/router.tsx",
-    "src/emails/templates/*.tsx"
+    "src/router.tsx"
   ]
 }

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { customType, timestamp, uuid } from "drizzle-orm/pg-core"
+import { customType, integer, timestamp, uuid } from "drizzle-orm/pg-core"
 
 // The migration installs PostgreSQL's trusted citext extension before creating these columns. https://www.postgresql.org/docs/current/citext.html
 export const caseInsensitiveText = customType<{ data: string }>({
@@ -19,6 +19,10 @@ export function timestamps() {
       .notNull()
       .$onUpdateFn(() => sql`now()`),
   }
+}
+
+export function lockVersion() {
+  return integer().default(0).notNull()
 }
 
 export function uuidV7PrimaryKey() {

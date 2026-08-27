@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and domain-specific function names, accept an onboarding name suggestion, and omit unsupported organization model fields while retaining the official create flow.
+// Local changes: use Phosphor and domain-specific function names, accept an onboarding name suggestion, notify callers after creation, and omit unsupported organization model fields while retaining the official create flow.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -26,12 +26,14 @@ import { sanitizeSlug, SlugField } from "./slug-field"
 export type CreateOrganizationDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onOrganizationCreated?: (() => unknown | Promise<unknown>) | undefined
   initialName?: string
 }
 
 export function CreateOrganizationDialog({
   open,
   onOpenChange,
+  onOrganizationCreated,
   initialName,
 }: CreateOrganizationDialogProps) {
   const { authClient, localization } = useAuth<OrganizationAuthClient>()
@@ -44,7 +46,10 @@ export function CreateOrganizationDialog({
   const submissionLocked = useRef(false)
 
   const { mutate: createOrganization, isPending: isCreating } = useCreateOrganization(authClient, {
-    onSuccess: () => onOpenChange(false),
+    onSuccess: () => {
+      onOpenChange(false)
+      return onOrganizationCreated?.()
+    },
     onSettled: () => {
       submissionLocked.current = false
     },

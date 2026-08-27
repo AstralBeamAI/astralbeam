@@ -16,8 +16,7 @@ import {
   sendResetPasswordEmail,
   sendVerificationEmail,
 } from "@/emails/index"
-import { getRequiredConfig } from "@/lib/config.server"
-import type { ConfigSnapshot } from "@/lib/types"
+import { getGlobalConfig } from "@/lib/config"
 import { APP_NAME } from "@/lib/constants"
 import {
   acceptedAtForUserCreation,
@@ -55,35 +54,36 @@ async function notifyPasswordChanged(user: { email: string }): Promise<void> {
   )
 }
 
-// The instance is built from the database-backed config snapshot; `getAuth` rebuilds it whenever
-// the snapshot version changes so credential and secret updates apply without a restart.
-function buildAuth(snapshot: ConfigSnapshot) {
-  if (!snapshot.appBaseUrl) {
-    throw new Error("Required authentication configuration is unavailable")
-  }
+interface AuthConfig {
+  appBaseUrl: string
+  betterAuthSecret: string
+  google: { clientId: string; clientSecret: string } | null
+  github: { clientId: string; clientSecret: string } | null
+  legalAcceptanceRequired: boolean
+  turnstileSecretKey: string
+}
 
+function buildAuth(config: AuthConfig) {
   // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
-  const turnstileAuthPlugin: BetterAuthPlugin = snapshot.turnstile
-    ? captcha({
-      provider: "cloudflare-turnstile",
-      secretKey: snapshot.turnstile.secretKey,
-      endpoints: [
-        "/sign-in/email",
-        "/sign-up/email",
-        "/request-password-reset",
-        "/send-verification-email",
-      ],
-    })
-    : { id: "captcha-disabled" }
+  const turnstileAuthPlugin = captcha({
+    provider: "cloudflare-turnstile",
+    secretKey: config.turnstileSecretKey,
+    endpoints: [
+      "/sign-in/email",
+      "/sign-up/email",
+      "/request-password-reset",
+      "/send-verification-email",
+    ],
+  }) as BetterAuthPlugin
 
   const enabledOAuthProviders = new Set<string>()
-  if (snapshot.google) enabledOAuthProviders.add("google")
-  if (snapshot.github) enabledOAuthProviders.add("github")
+  if (config.google) enabledOAuthProviders.add("google")
+  if (config.github) enabledOAuthProviders.add("github")
 
   return betterAuth({
     appName: APP_NAME,
-    baseURL: snapshot.appBaseUrl ?? undefined,
-    secret: snapshot.betterAuthSecret ?? undefined,
+    baseURL: config.appBaseUrl,
+    secret: config.betterAuthSecret,
     database: drizzleAdapter(db, {
       provider: "pg",
       schema: tables,
@@ -114,18 +114,18 @@ function buildAuth(snapshot: ConfigSnapshot) {
       },
     },
     socialProviders: {
-      ...(snapshot.google && {
+      ...(config.google && {
         google: {
-          clientId: snapshot.google.clientId,
-          clientSecret: snapshot.google.clientSecret,
+          clientId: config.google.clientId,
+          clientSecret: config.google.clientSecret,
           disableImplicitSignUp: true,
           requireEmailVerification: true,
         },
       }),
-      ...(snapshot.github && {
+      ...(config.github && {
         github: {
-          clientId: snapshot.github.clientId,
-          clientSecret: snapshot.github.clientSecret,
+          clientId: config.github.clientId,
+          clientSecret: config.github.clientSecret,
           disableImplicitSignUp: true,
           requireEmailVerification: true,
         },
@@ -203,13 +203,15 @@ function buildAuth(snapshot: ConfigSnapshot) {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
         if (context.path === "/sign-up/email") {
-          assertLegalAcceptance(body?.termsAccepted)
+          if (config.legalAcceptanceRequired) assertLegalAcceptance(body?.termsAccepted)
           return
         }
         if (context.path !== "/sign-in/social" || body?.requestSignUp !== true) return
 
-        assertLegalAcceptance(recordValue(body.additionalData)?.termsAccepted)
-        await addOAuthServerContext({ termsAccepted: true })
+        if (config.legalAcceptanceRequired) {
+          assertLegalAcceptance(recordValue(body.additionalData)?.termsAccepted)
+          await addOAuthServerContext({ termsAccepted: true })
+        }
       }),
       after: createAuthMiddleware(async (context) => {
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
@@ -221,7 +223,9 @@ function buildAuth(snapshot: ConfigSnapshot) {
       user: {
         create: {
           before: async (user, context) => {
-            const termsAcceptedAt = await acceptedAtForUserCreation(context)
+            const termsAcceptedAt = config.legalAcceptanceRequired
+              ? await acceptedAtForUserCreation(context)
+              : null
 
             return {
               data: {
@@ -256,12 +260,48 @@ function buildAuth(snapshot: ConfigSnapshot) {
 
 type AppAuth = ReturnType<typeof buildAuth>
 
-let cachedAuth: { version: string; auth: AppAuth } | null = null
+let cachedAuth: { cacheKey: string; auth: AppAuth } | null = null
 
 export async function getAuth(): Promise<AppAuth> {
-  const snapshot = await getRequiredConfig()
-  if (cachedAuth?.version !== snapshot.version) {
-    cachedAuth = { version: snapshot.version, auth: buildAuth(snapshot) }
+  const [
+    appBaseUrl,
+    betterAuthSecret,
+    googleClientId,
+    googleClientSecret,
+    githubClientId,
+    githubClientSecret,
+    privacyPolicyUrl,
+    termsOfServiceUrl,
+    turnstileSecretKey,
+  ] = await Promise.all([
+    getGlobalConfig("app_base_url"),
+    getGlobalConfig("better_auth_secret"),
+    getGlobalConfig("google_client_id"),
+    getGlobalConfig("google_client_secret"),
+    getGlobalConfig("github_client_id"),
+    getGlobalConfig("github_client_secret"),
+    getGlobalConfig("privacy_policy_url"),
+    getGlobalConfig("terms_of_service_url"),
+    getGlobalConfig("turnstile_secret_key"),
+  ])
+  if (!appBaseUrl || !betterAuthSecret || !turnstileSecretKey) {
+    throw new Error("Required authentication configuration is unavailable")
+  }
+  const config: AuthConfig = {
+    appBaseUrl,
+    betterAuthSecret,
+    google: googleClientId && googleClientSecret
+      ? { clientId: googleClientId, clientSecret: googleClientSecret }
+      : null,
+    github: githubClientId && githubClientSecret
+      ? { clientId: githubClientId, clientSecret: githubClientSecret }
+      : null,
+    legalAcceptanceRequired: Boolean(privacyPolicyUrl || termsOfServiceUrl),
+    turnstileSecretKey,
+  }
+  const cacheKey = JSON.stringify(config)
+  if (cachedAuth?.cacheKey !== cacheKey) {
+    cachedAuth = { cacheKey, auth: buildAuth(config) }
   }
   return cachedAuth.auth
 }
