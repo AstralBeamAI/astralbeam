@@ -141,4 +141,6 @@ install_deno
 install_workspace_packages
 run_install_extras
 start_databases
-(cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
+if [ -d "$WORKSPACE_PATH/webapp" ]; then
+  (cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
+fi
