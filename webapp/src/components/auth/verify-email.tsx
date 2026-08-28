@@ -88,7 +88,7 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
 
   const isCoolingDown = cooldown > 0
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
-  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
+  const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -121,7 +121,12 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
               >
                 {isPending && <Spinner />}
 
-                {isCoolingDown ? `Resend Email in ${cooldown}s` : "Resend Email"}
+                {isCoolingDown
+                  ? localization.auth.resendIn.replace(
+                    "{{seconds}}",
+                    String(cooldown),
+                  )
+                  : localization.auth.resend}
               </Button>
 
               {captchaComponent}

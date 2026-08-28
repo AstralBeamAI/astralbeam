@@ -81,7 +81,14 @@ describe("config snapshot boundary", () => {
     expect(paired.google).toEqual({ clientId: "id", clientSecret: "secret" })
   })
 
-  test("setup requires both turnstile keys", () => {
+  test("turnstile is optional but its keys must be paired", () => {
+    const disabled = buildConfigSnapshot(
+      completeRows.filter((configRow) => !configRow.key.startsWith("turnstile_")),
+    )
+    expect(disabled.turnstile).toBeNull()
+    expect(disabled.setupComplete).toBe(true)
+    expect(publicConfigFromSnapshot(disabled).turnstileSiteKey).toBeNull()
+
     for (const missingKey of ["turnstile_site_key", "turnstile_secret_key"]) {
       const partial = buildConfigSnapshot(
         completeRows.filter((configRow) => configRow.key !== missingKey),

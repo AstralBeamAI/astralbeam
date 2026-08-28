@@ -72,7 +72,7 @@ function SetPassword({ className }: { className?: string }) {
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
   const [sentEmail, setSentEmail] = useState("")
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
-  const captchaReady = Boolean(fetchOptions?.headers?.["x-captcha-response"])
+  const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
   const { mutate: requestPasswordReset, isPending } = useRequestPasswordReset(
     authClient,
