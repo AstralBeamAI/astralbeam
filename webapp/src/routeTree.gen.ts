@@ -10,20 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as DevRouteRouteImport } from './routes/dev/route'
 import { Route as AuthenticatedOrganizationRouteRouteImport } from './routes/_authenticated/_organization/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
-import { Route as DevIndexRouteImport } from './routes/dev/index'
 import { Route as DevSplatRouteImport } from './routes/dev/$'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
 import { Route as AuthenticatedOrganizationIndexRouteImport } from './routes/_authenticated/_organization/index'
 import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
-import { Route as DevEmailsIndexRouteImport } from './routes/dev/emails/index'
-import { Route as DevEmailsNameRouteImport } from './routes/dev/emails/$name'
 import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
 import { Route as AuthenticatedSettingsOrganizationsIndexRouteImport } from './routes/_authenticated/settings/organizations/index'
 import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
@@ -31,11 +27,6 @@ import { Route as AuthenticatedOrganizationOrganizationMembersIndexRouteImport }
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevRouteRoute = DevRouteRouteImport.update({
-  id: '/dev',
-  path: '/dev',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedOrganizationRouteRoute =
@@ -59,15 +50,10 @@ const ConfigureIndexRoute = ConfigureIndexRouteImport.update({
   path: '/configure/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DevIndexRoute = DevIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => DevRouteRoute,
-} as any)
 const DevSplatRoute = DevSplatRouteImport.update({
-  id: '/$',
-  path: '/$',
-  getParentRoute: () => DevRouteRoute,
+  id: '/dev/$',
+  path: '/dev/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const authenticationAuthPathRoute = authenticationAuthPathRouteImport.update({
   id: '/(authentication)/auth/$path',
@@ -96,16 +82,6 @@ const ApiChatIndexRoute = ApiChatIndexRouteImport.update({
   path: '/api/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DevEmailsIndexRoute = DevEmailsIndexRouteImport.update({
-  id: '/emails/',
-  path: '/emails/',
-  getParentRoute: () => DevRouteRoute,
-} as any)
-const DevEmailsNameRoute = DevEmailsNameRouteImport.update({
-  id: '/emails/$name',
-  path: '/emails/$name',
-  getParentRoute: () => DevRouteRoute,
-} as any)
 const AuthenticatedSettingsAccountIndexRoute =
   AuthenticatedSettingsAccountIndexRouteImport.update({
     id: '/account/',
@@ -133,18 +109,14 @@ const AuthenticatedOrganizationOrganizationMembersIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedOrganizationIndexRoute
-  '/dev': typeof DevRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/configure/': typeof ConfigureIndexRoute
-  '/dev/': typeof DevIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/dev/emails/$name': typeof DevEmailsNameRoute
   '/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
-  '/dev/emails/': typeof DevEmailsIndexRoute
   '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
@@ -156,13 +128,10 @@ export interface FileRoutesByTo {
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/configure': typeof ConfigureIndexRoute
-  '/dev': typeof DevIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/dev/emails/$name': typeof DevEmailsNameRoute
   '/onboarding': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat': typeof ApiChatIndexRoute
-  '/dev/emails': typeof DevEmailsIndexRoute
   '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/organizations': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
@@ -171,20 +140,16 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/dev': typeof DevRouteRouteWithChildren
   '/_authenticated/_organization': typeof AuthenticatedOrganizationRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/configure/': typeof ConfigureIndexRoute
-  '/dev/': typeof DevIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/dev/emails/$name': typeof DevEmailsNameRoute
   '/_authenticated/_organization/': typeof AuthenticatedOrganizationIndexRoute
   '/_authenticated/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
-  '/dev/emails/': typeof DevEmailsIndexRoute
   '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/_authenticated/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
@@ -194,18 +159,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/dev'
     | '/settings'
     | '/api/status'
     | '/dev/$'
     | '/configure/'
-    | '/dev/'
     | '/auth/$path'
     | '/api/auth/$'
-    | '/dev/emails/$name'
     | '/onboarding/'
     | '/api/chat/'
-    | '/dev/emails/'
     | '/settings/account/'
     | '/settings/organizations/'
     | '/settings/security/'
@@ -217,13 +178,10 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/dev/$'
     | '/configure'
-    | '/dev'
     | '/auth/$path'
     | '/api/auth/$'
-    | '/dev/emails/$name'
     | '/onboarding'
     | '/api/chat'
-    | '/dev/emails'
     | '/settings/account'
     | '/settings/organizations'
     | '/settings/security'
@@ -231,20 +189,16 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
-    | '/dev'
     | '/_authenticated/_organization'
     | '/_authenticated/settings'
     | '/api/status'
     | '/dev/$'
     | '/configure/'
-    | '/dev/'
     | '/(authentication)/auth/$path'
     | '/api/auth/$'
-    | '/dev/emails/$name'
     | '/_authenticated/_organization/'
     | '/_authenticated/onboarding/'
     | '/api/chat/'
-    | '/dev/emails/'
     | '/_authenticated/settings/account/'
     | '/_authenticated/settings/organizations/'
     | '/_authenticated/settings/security/'
@@ -253,8 +207,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  DevRouteRoute: typeof DevRouteRouteWithChildren
   ApiStatusRoute: typeof ApiStatusRoute
+  DevSplatRoute: typeof DevSplatRoute
   ConfigureIndexRoute: typeof ConfigureIndexRoute
   authenticationAuthPathRoute: typeof authenticationAuthPathRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -268,13 +222,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dev': {
-      id: '/dev'
-      path: '/dev'
-      fullPath: '/dev'
-      preLoaderRoute: typeof DevRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/_organization': {
@@ -305,19 +252,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigureIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dev/': {
-      id: '/dev/'
-      path: '/'
-      fullPath: '/dev/'
-      preLoaderRoute: typeof DevIndexRouteImport
-      parentRoute: typeof DevRouteRoute
-    }
     '/dev/$': {
       id: '/dev/$'
-      path: '/$'
+      path: '/dev/$'
       fullPath: '/dev/$'
       preLoaderRoute: typeof DevSplatRouteImport
-      parentRoute: typeof DevRouteRoute
+      parentRoute: typeof rootRouteImport
     }
     '/(authentication)/auth/$path': {
       id: '/(authentication)/auth/$path'
@@ -353,20 +293,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/chat/'
       preLoaderRoute: typeof ApiChatIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/dev/emails/': {
-      id: '/dev/emails/'
-      path: '/emails'
-      fullPath: '/dev/emails/'
-      preLoaderRoute: typeof DevEmailsIndexRouteImport
-      parentRoute: typeof DevRouteRoute
-    }
-    '/dev/emails/$name': {
-      id: '/dev/emails/$name'
-      path: '/emails/$name'
-      fullPath: '/dev/emails/$name'
-      preLoaderRoute: typeof DevEmailsNameRouteImport
-      parentRoute: typeof DevRouteRoute
     }
     '/_authenticated/settings/account/': {
       id: '/_authenticated/settings/account/'
@@ -453,28 +379,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
-interface DevRouteRouteChildren {
-  DevSplatRoute: typeof DevSplatRoute
-  DevIndexRoute: typeof DevIndexRoute
-  DevEmailsNameRoute: typeof DevEmailsNameRoute
-  DevEmailsIndexRoute: typeof DevEmailsIndexRoute
-}
-
-const DevRouteRouteChildren: DevRouteRouteChildren = {
-  DevSplatRoute: DevSplatRoute,
-  DevIndexRoute: DevIndexRoute,
-  DevEmailsNameRoute: DevEmailsNameRoute,
-  DevEmailsIndexRoute: DevEmailsIndexRoute,
-}
-
-const DevRouteRouteWithChildren = DevRouteRoute._addFileChildren(
-  DevRouteRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  DevRouteRoute: DevRouteRouteWithChildren,
   ApiStatusRoute: ApiStatusRoute,
+  DevSplatRoute: DevSplatRoute,
   ConfigureIndexRoute: ConfigureIndexRoute,
   authenticationAuthPathRoute: authenticationAuthPathRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

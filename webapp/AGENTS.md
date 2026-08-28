@@ -11,8 +11,7 @@
 
 - `src/components/ui` contains registry-generated shadcn UI components and remains excluded from formatting; make only intentional integration edits and record every divergence in the file's provenance header.
   - Add new components only with `deno task ui add <component>`.
-  - Better Auth UI output under `src/components/auth` and `src/lib/auth`, and Emailcn output under `src/emails`, follow the same provenance rule: retain the top-level `deno task ui add` command, immutable source revision and path, and every intentional local change; preserve the earlier provenance when one registry source replaces another.
-  - Keep Emailcn-derived templates close to their registry source: put reusable branding and email-client compatibility in app-owned shared modules instead of repeating those edits across templates.
+  - Better Auth UI output under `src/components/auth` and `src/lib/auth`, and Emailcn output under `src/emails`, follow the same provenance rule: retain the registry command, source, and local changes; preserve earlier provenance when replacing a source and centralize shared email changes outside imported templates.
   - Let Knip delete unreachable registry files, while suppressing only generated export-level noise.
 - `src/components` contains other common components used throught the application
   - build components using the proper shadcn-ui primitives, instead of raw HTML elements
@@ -53,7 +52,7 @@
     - Key the organization layout outlet by the active organization ID so a successful switch resets organization-scoped UI; do not reset it while a switch is pending.
   - Routes that do not render pages might be server routes (`createFileRoute({ server ... }))`
     - The are typically place in the `routes/api` folder unless there's a strong reason to have them outside.
-  - Keep fixed-fixture development utilities as raw `/dev` server routes linked from its hub. Guard leaf implementations with `__DEV_SERVER__` before dynamic imports so builds return `404` and exclude preview-only code; never load providers, configuration, the database, authentication, or user data.
+  - Keep `/dev` utilities synthetic and development-only; they must return `404` in production.
   - Related routes can sometimes be grouped together using a route group folder e.g. `(auth)` if it better structures the codebase
 
 - `src/db` contains the database schema and migrations
@@ -83,12 +82,10 @@
 
 - `src/emails` contains emails powered by react-email
   - `index.ts` exports `sendEmail` plus one `send<Template>Email` wrapper per template, each owning its own subject and props
-  - Preserve imported templates' native prop contracts where practical; map Better Auth callback data, URLs, and app defaults to those props in `index.ts` instead of reshaping templates around vendor callbacks
+  - Preserve imported templates' native prop contracts where practical; map Better Auth data in `index.ts`, co-locate each typed preview-props factory at the bottom of its template, and preview with synthetic props at `/dev/emails`
   - `sendEmail` loads only the selected `providers/*.ts` module, through a static map of dynamic imports
   - `provider`, `from`, and `replyTo` default to the `email_provider` and `email_from_address` config values and the resolved `from`
   - Templates cannot resolve relative paths, so build absolute URLs from the configured `app_base_url`; attachment `path` is a URL, a `data:` URI, or bare base64
-  - Keep templates pure and require their production props; co-locate a typed preview-props factory at the bottom of each template, and have `/dev/emails` pass those props to the production component and shared renderer for HTML and plain text
-  - Design for conservative email-client support: use a light baseline, inline critical styles, table-compatible React Email primitives, absolute image URLs with dimensions, and visible fallback links; do not rely on JavaScript, remote fonts, flexbox, grid, breakpoints, or dark-mode media queries
 
 - `/configure` (`src/routes/configure`) is the operator surface for database-backed config. Authenticate short, stateless sessions only with the first active `DATABASE_ENCRYPTION_KEY` value; never use database credentials. Require production HTTPS and same-origin mutations, and trust forwarded host/protocol only when ingress overwrites them and blocks direct origin access. Mask values until the operator explicitly reveals them, approve migrations by exact name and digest, and derive the app gate from process-cached configuration validity and migration state rather than a persisted completion marker.
 

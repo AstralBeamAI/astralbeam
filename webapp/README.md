@@ -26,17 +26,7 @@ Authenticated layouts provide first-render and reactive navigation protection, b
 
 ## Development tools
 
-Start the application development server from this directory:
-
-```sh
-deno task dev
-```
-
-Open http://localhost:3000/dev for development-only utilities. These routes return `404` from production builds; add future local utilities to this hub.
-
-### Email previews
-
-Templates and their typed preview-props factories live together under `src/emails/templates`. Open http://localhost:3000/dev/emails to pass those synthetic props through the production components as HTML or plain text. Preview actions use inert URLs; client-specific testing still requires controlled sends or a rendering service.
+Run `deno task dev`, then open http://localhost:3000/dev. Email previews at http://localhost:3000/dev/emails use synthetic props and do not send email. Development routes return `404` in production.
 
 ## Theme
 
