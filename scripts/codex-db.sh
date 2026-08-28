@@ -14,21 +14,16 @@ run_as_root() {
 install_postgres() {
   if [ ! -x /usr/lib/postgresql/18/bin/postgres ]; then
     run_as_root /bin/bash -eu <<'EOF'
-install -d /usr/share/keyrings
-curl --max-time 30 -fsSLo /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+curl -fsSLo /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
 printf 'deb [signed-by=/usr/share/keyrings/postgresql.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main\n' >/etc/apt/sources.list.d/pgdg.list
-timeout 60 apt-get -o Acquire::Retries=0 update -q
+apt-get -o Acquire::Retries=0 update -q
 download_dir=$(mktemp -d)
 trap 'rm -rf "$download_dir"' EXIT
 cd "$download_dir"
-timeout 60 apt-get -o Acquire::Retries=0 download postgresql-18 postgresql-client-18 libpq5 liburing2
+apt-get -o Acquire::Retries=0 download postgresql-18 postgresql-client-18 libpq5
 for archive in ./*.deb; do dpkg-deb --extract "$archive" /; done
 ldconfig
 EOF
-  fi
-  if ! /usr/lib/postgresql/18/bin/postgres --version 2>/dev/null | grep -q '^postgres (PostgreSQL) 18\.'; then
-    echo "PostgreSQL 18 is unavailable." >&2
-    exit 1
   fi
 }
 
@@ -44,7 +39,7 @@ install_valkey() {
   if ! valkey-server --version 2>/dev/null | grep -q "v=9.1.1 "; then
     download_dir=$(mktemp -d)
     trap 'rm -rf "$download_dir"' RETURN
-    curl --max-time 30 -fsSLo "$download_dir/$archive" "https://download.valkey.io/releases/$archive"
+    curl -fsSLo "$download_dir/$archive" "https://download.valkey.io/releases/$archive"
     echo "$checksum  $download_dir/$archive" | sha256sum --check -
     tar -xzf "$download_dir/$archive" -C "$download_dir"
     run_as_root install -m 0755 "$download_dir/${archive%.tar.gz}/bin/valkey-server" "$download_dir/${archive%.tar.gz}/bin/valkey-cli" /usr/local/bin/
@@ -53,23 +48,17 @@ install_valkey() {
 
 configure_postgres() {
   local data_dir=/var/lib/postgresql/18/main log_file=/var/lib/postgresql/18/main/postgresql.log
-  if ! id postgres >/dev/null 2>&1; then
-    run_as_root useradd --system --home-dir /var/lib/postgresql --shell /usr/sbin/nologin postgres
-  fi
+  id postgres >/dev/null 2>&1 || run_as_root useradd --system --home-dir /var/lib/postgresql --shell /usr/sbin/nologin postgres
   if [ ! -s "$data_dir/PG_VERSION" ]; then
     run_as_root install -d -o postgres -g postgres "$data_dir"
-    run_as_root timeout 60 runuser -u postgres -- /usr/lib/postgresql/18/bin/initdb \
+    run_as_root runuser -u postgres -- /usr/lib/postgresql/18/bin/initdb \
       --pgdata="$data_dir" --auth-local=peer --auth-host=scram-sha-256 --no-instructions
   fi
   if ! /usr/lib/postgresql/18/bin/pg_isready -q; then
     run_as_root install -d -o postgres -g postgres /var/run/postgresql
-    if ! run_as_root runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_ctl \
-      --pgdata="$data_dir" --log="$log_file" --options='-h 127.0.0.1' start; then
-      run_as_root cat "$log_file" >&2
-      exit 1
-    fi
+    run_as_root runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_ctl \
+      --pgdata="$data_dir" --log="$log_file" --options='-h 127.0.0.1' start || { run_as_root cat "$log_file" >&2; exit 1; }
   fi
-  /usr/lib/postgresql/18/bin/pg_isready -q || { echo "PostgreSQL did not become ready." >&2; exit 1; }
   run_as_root runuser -u postgres -- /usr/lib/postgresql/18/bin/psql --dbname=postgres --set=ON_ERROR_STOP=1 --set=user="$POSTGRES_USER" --set=password="$POSTGRES_PASSWORD" --set=database="$POSTGRES_DB" <<'SQL'
 SELECT format('CREATE ROLE %I LOGIN', :'user') WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'user') \gexec
 SELECT format('ALTER ROLE %I PASSWORD %L', :'user', :'password') \gexec
@@ -88,11 +77,7 @@ start_valkey() {
 }
 
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
-echo "Installing PostgreSQL..."
 install_postgres
-echo "Installing Valkey..."
 install_valkey
-echo "Starting PostgreSQL..."
 configure_postgres
-echo "Starting Valkey..."
 start_valkey
