@@ -10,23 +10,10 @@ fi
 run_as_root() {
   if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
 }
-as_postgres() {
-  run_as_root runuser -u postgres -- "$@"
-}
 
 install_postgres() {
-  [ -x /usr/lib/postgresql/18/bin/postgres ] && return
-  run_as_root /bin/bash -eu <<'EOF'
-curl -fsSLo /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
-printf 'deb [signed-by=/usr/share/keyrings/postgresql.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main\n' >/etc/apt/sources.list.d/pgdg.list
-apt-get -o Acquire::Retries=0 update -q
-download_dir=$(mktemp -d)
-trap 'rm -rf "$download_dir"' EXIT
-cd "$download_dir"
-apt-get -o Acquire::Retries=0 download postgresql-18 postgresql-client-18 libpq5
-for archive in ./*.deb; do dpkg-deb --extract "$archive" /; done
-ldconfig
-EOF
+  grep -Rqs apt.postgresql.org /etc/apt/sources.list.d || run_as_root /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-18
 }
 
 install_valkey() {
@@ -49,14 +36,10 @@ install_valkey() {
 }
 
 configure_postgres() {
-  local postgres_bin=/usr/lib/postgresql/18/bin data_dir=/var/lib/postgresql/18/main
-  id postgres >/dev/null 2>&1 || run_as_root useradd --system --home-dir /var/lib/postgresql --shell /usr/sbin/nologin postgres
-  run_as_root install -d -o postgres -g postgres "$data_dir" /var/run/postgresql
-  [ -s "$data_dir/PG_VERSION" ] || as_postgres "$postgres_bin/initdb" --pgdata="$data_dir" --auth-local=peer --auth-host=scram-sha-256 --no-instructions
-  if ! "$postgres_bin/pg_isready" -q; then
-    as_postgres "$postgres_bin/pg_ctl" --pgdata="$data_dir" --log="$data_dir/postgresql.log" --options='-h 127.0.0.1' start || { run_as_root cat "$data_dir/postgresql.log" >&2; exit 1; }
-  fi
-  as_postgres "$postgres_bin/psql" --dbname=postgres --set=ON_ERROR_STOP=1 --set=user="$POSTGRES_USER" --set=password="$POSTGRES_PASSWORD" --set=database="$POSTGRES_DB" <<'SQL'
+  run_as_root service postgresql start
+  for _ in {1..30}; do pg_isready -q && break; sleep 1; done
+  pg_isready -q || { echo "PostgreSQL did not become ready." >&2; exit 1; }
+  run_as_root runuser -u postgres -- psql --dbname=postgres --set=ON_ERROR_STOP=1 --set=user="$POSTGRES_USER" --set=password="$POSTGRES_PASSWORD" --set=database="$POSTGRES_DB" <<'SQL'
 SELECT format('CREATE ROLE %I LOGIN', :'user') WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'user') \gexec
 SELECT format('ALTER ROLE %I PASSWORD %L', :'user', :'password') \gexec
 SELECT format('CREATE DATABASE %I OWNER %I', :'database', :'user') WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database') \gexec
@@ -70,7 +53,6 @@ start_valkey() {
     mkdir -p "$data_dir"
     valkey-server --daemonize yes --bind 127.0.0.1 --dir "$data_dir" --logfile "$data_dir/valkey.log"
   fi
-  [ "$(valkey-cli ping)" = PONG ] || { echo "Valkey did not become ready." >&2; exit 1; }
 }
 
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"

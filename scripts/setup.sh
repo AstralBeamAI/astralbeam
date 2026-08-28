@@ -39,7 +39,7 @@ install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
 
   run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
-if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev libsystemd0 libssl3t64 >/dev/null 2>&1; then
+if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev postgresql-common libsystemd0 libssl3t64 >/dev/null 2>&1; then
 apt-get update -yq
 apt-get install -y --no-install-recommends \
   build-essential libatomic1 ca-certificates locales lsb-release tzdata \
@@ -50,7 +50,7 @@ apt-get install -y --no-install-recommends \
   iputils-ping net-tools procps openssh-client \
   fontconfig pkg-config python3 python3-yaml \
   xdg-utils \
-  liburing-dev libsystemd0 libssl3t64
+  liburing-dev postgresql-common libsystemd0 libssl3t64
 
 # Install GitHub CLI from its supported signed Debian repository: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian
 mkdir -p -m 755 /etc/apt/keyrings /etc/apt/sources.list.d; curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null; chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg; printf 'deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n' "$(dpkg --print-architecture)" | tee /etc/apt/sources.list.d/github-cli.list >/dev/null
