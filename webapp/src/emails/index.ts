@@ -3,10 +3,6 @@ import process from "node:process"
 import { createElement } from "react"
 import { APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/constants.ts"
 import { getGlobalConfig } from "@/lib/config"
-import {
-  AUTH_EMAIL_LINK_EXPIRY_MINUTES,
-  ORGANIZATION_INVITATION_EXPIRY_HOURS,
-} from "./constants.ts"
 import { truncateEmailGraphemes } from "./email-text.ts"
 import type { SendEmailOptions, SendEmailResult } from "./types.ts"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
@@ -34,6 +30,7 @@ async function authEmailContext(): Promise<AuthEmailContext> {
 }
 
 interface BetterAuthLinkEmailData {
+  expiresInSeconds: number
   user: { email: string }
   url: string
 }
@@ -44,6 +41,7 @@ interface BetterAuthPasswordChangedEmailData {
 }
 
 interface BetterAuthOrganizationInvitationEmailData {
+  expiresInSeconds: number
   id: string
   email: string
   role: string
@@ -83,7 +81,7 @@ export async function sendVerificationEmail(data: BetterAuthLinkEmailData): Prom
       appName: APP_NAME,
       verificationUrl: data.url,
       email: data.user.email,
-      expiryMinutes: AUTH_EMAIL_LINK_EXPIRY_MINUTES,
+      expiryMinutes: data.expiresInSeconds / 60,
       logoURL,
     }),
   }))
@@ -97,7 +95,7 @@ export async function sendResetPasswordEmail(data: BetterAuthLinkEmailData): Pro
       url: data.url,
       email: data.user.email,
       appName: APP_NAME,
-      expirationMinutes: AUTH_EMAIL_LINK_EXPIRY_MINUTES,
+      expirationMinutes: data.expiresInSeconds / 60,
       logoURL,
     }),
   }))
@@ -140,7 +138,7 @@ export async function sendOrganizationInvitationEmail(
         organizationName: data.organization.name,
         role: invitationRoles,
         appName: APP_NAME,
-        expirationHours: ORGANIZATION_INVITATION_EXPIRY_HOURS,
+        expirationHours: data.expiresInSeconds / (60 * 60),
         logoURL,
       }),
     }

@@ -16,10 +16,6 @@ import {
   sendResetPasswordEmail,
   sendVerificationEmail,
 } from "@/emails/index"
-import {
-  AUTH_EMAIL_LINK_EXPIRY_SECONDS,
-  ORGANIZATION_INVITATION_EXPIRY_SECONDS,
-} from "@/emails/constants"
 import { getGlobalConfig } from "@/lib/config"
 import { APP_NAME } from "@/lib/constants"
 import {
@@ -30,6 +26,20 @@ import {
 import { organizationRoles } from "@/lib/auth/organization-access"
 import { organizationRoleHooks } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
+
+// Better Auth 1.7.1 keeps these defaults inline rather than exporting them. Pass each value to
+// both its auth option and email callback so the real expiry and rendered copy stay in sync.
+// Verification:
+// https://github.com/better-auth/better-auth/blob/2344536054f9164ca5d1670c270d299049ee233e/packages/better-auth/src/api/routes/email-verification.ts#L16-L40
+const EMAIL_VERIFICATION_EXPIRY_SECONDS = 60 * 60
+
+// Password reset:
+// https://github.com/better-auth/better-auth/blob/2344536054f9164ca5d1670c270d299049ee233e/packages/better-auth/src/api/routes/password.ts#L121-L143
+const PASSWORD_RESET_EXPIRY_SECONDS = 60 * 60
+
+// Organization invitation:
+// https://github.com/better-auth/better-auth/blob/2344536054f9164ca5d1670c270d299049ee233e/packages/better-auth/src/plugins/organization/adapter.ts#L1185-L1211
+const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 
 type RequestWithWaitUntil = Request & {
   waitUntil?: (promise: Promise<unknown>) => void
@@ -97,22 +107,33 @@ function buildAuth(config: AuthConfig) {
       minPasswordLength: 12,
       maxPasswordLength: 128,
       autoSignIn: false,
-      resetPasswordTokenExpiresIn: AUTH_EMAIL_LINK_EXPIRY_SECONDS,
+      resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRY_SECONDS,
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
       // Better Auth schedules the returned promise through advanced.backgroundTasks. https://better-auth.com/docs/concepts/email
-      sendResetPassword: ({ user, url }) => sendResetPasswordEmail({ user, url }),
+      sendResetPassword: ({ user, url }) =>
+        sendResetPasswordEmail({
+          user,
+          url,
+          expiresInSeconds: PASSWORD_RESET_EXPIRY_SECONDS,
+        }),
       onPasswordReset: async ({ user }) => {
         await notifyPasswordChanged(user)
       },
     },
     emailVerification: {
-      expiresIn: AUTH_EMAIL_LINK_EXPIRY_SECONDS,
+      expiresIn: EMAIL_VERIFICATION_EXPIRY_SECONDS,
       sendOnSignUp: true,
       sendOnSignIn: false,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
-        await runAfterResponse(sendVerificationEmail({ user, url }))
+        await runAfterResponse(
+          sendVerificationEmail({
+            user,
+            url,
+            expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
+          }),
+        )
       },
     },
     socialProviders: {
@@ -252,7 +273,10 @@ function buildAuth(config: AuthConfig) {
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
         sendInvitationEmail: async (data) => {
-          await sendOrganizationInvitationEmail(data)
+          await sendOrganizationInvitationEmail({
+            ...data,
+            expiresInSeconds: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
+          })
         },
       }),
       tanstackStartCookies(),

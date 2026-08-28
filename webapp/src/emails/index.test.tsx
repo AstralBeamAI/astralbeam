@@ -40,25 +40,33 @@ describe("authentication email wrappers", () => {
     const verificationURL =
       "https://app.example.test/api/auth/verify-email?token=verify-secret&callbackURL=%2F"
     await runAuthEmailWithMockDelivery(() =>
-      sendVerificationEmail({ user: { email: "member@example.test" }, url: verificationURL })
+      sendVerificationEmail({
+        user: { email: "member@example.test" },
+        url: verificationURL,
+        expiresInSeconds: 45 * 60,
+      })
     )
 
     const verificationInput = latestAuthEmailProviderInput()
     expect(verificationInput.subject).toBe(`Verify your email on ${APP_NAME}`)
     expect(verificationInput.text).toContain(verificationURL)
-    expect(verificationInput.text).toContain("60 minutes")
+    expect(verificationInput.text).toContain("45 minutes")
 
     authEmailIndexTestState.sendProviderEmail.mockClear()
     const resetURL =
       "https://app.example.test/api/auth/reset-password/reset-secret?callbackURL=%2Fauth%2Freset-password"
     await runAuthEmailWithMockDelivery(() =>
-      sendResetPasswordEmail({ user: { email: "member@example.test" }, url: resetURL })
+      sendResetPasswordEmail({
+        user: { email: "member@example.test" },
+        url: resetURL,
+        expiresInSeconds: 75 * 60,
+      })
     )
 
     const resetInput = latestAuthEmailProviderInput()
     expect(resetInput.subject).toBe(`Reset your ${APP_NAME} password`)
     expect(resetInput.text).toContain(resetURL)
-    expect(resetInput.text).toContain("60 minutes")
+    expect(resetInput.text).toContain("75 minutes")
   })
 
   test("links invitations directly by their encoded Better Auth ID", async () => {
@@ -72,6 +80,7 @@ describe("authentication email wrappers", () => {
 
     await runAuthEmailWithMockDelivery(() =>
       sendOrganizationInvitationEmail({
+        expiresInSeconds: 72 * 60 * 60,
         id: invitationId,
         email: "new-member@example.test",
         role: "owner,developer,owner",
@@ -92,7 +101,7 @@ describe("authentication email wrappers", () => {
     expect(invitationInput.text).toContain("owner@example.test")
     expect(invitationInput.text).toContain("Alex Morgan (owner@example.test)")
     expect(invitationInput.text).toContain("with owner and developer access")
-    expect(invitationInput.text).toContain("48 hours")
+    expect(invitationInput.text).toContain("72 hours")
     expect(invitationInput.html).not.toContain("tracking.example.test")
     expect(invitationInput.subject).toContain("😀")
     expect(invitationInput.subject).not.toContain("�")

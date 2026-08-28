@@ -5,7 +5,6 @@
 import { Heading, Text } from "react-email"
 
 import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
-import { AUTH_EMAIL_LINK_EXPIRY_MINUTES } from "../constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
 export interface EmailVerificationEmailProps {
@@ -50,7 +49,7 @@ export function createEmailVerificationPreviewProps(
   return {
     appName: APP_NAME,
     email: "member@example.com",
-    expiryMinutes: AUTH_EMAIL_LINK_EXPIRY_MINUTES,
+    expiryMinutes: 60,
     logoURL: new URL(APP_LOGO_LIGHT_PNG_URL, origin).href,
     verificationUrl: new URL(
       "/api/auth/verify-email?token=preview-verification-token&callbackURL=%2F",

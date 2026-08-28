@@ -6,7 +6,6 @@
 import { Heading, Text } from "react-email"
 
 import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
-import { ORGANIZATION_INVITATION_EXPIRY_HOURS } from "../constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
 export interface OrganizationInvitationEmailProps {
@@ -64,7 +63,7 @@ export function createOrganizationInvitationPreviewProps(
 ): OrganizationInvitationEmailProps {
   return {
     appName: APP_NAME,
-    expirationHours: ORGANIZATION_INVITATION_EXPIRY_HOURS,
+    expirationHours: 48,
     inviterEmail: "owner@example.com",
     inviterName: "Alex Morgan",
     logoURL: new URL(APP_LOGO_LIGHT_PNG_URL, origin).href,
