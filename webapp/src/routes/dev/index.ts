@@ -1,25 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import {
-  developmentRouteNotFoundResponse,
-  handleDevelopmentRouteRequest,
+  developmentNotFound,
+  developmentPage,
+  developmentResponse,
+  handleDevelopmentRequest,
 } from "./-lib/http.server.ts"
 
-async function handleDevelopmentIndexRouteRequest(request: Request): Promise<Response> {
-  if (!__DEV_UTILITIES__) {
-    return handleDevelopmentRouteRequest(request, developmentRouteNotFoundResponse)
-  }
+function handleDevelopmentIndex(request: Request): Promise<Response> {
+  if (!__DEV_SERVER__) return developmentNotFound(request)
 
-  const { handleDevelopmentIndexRequest } = await import("./-lib/index.server.ts")
-  return handleDevelopmentIndexRequest(request)
+  return handleDevelopmentRequest(request, () =>
+    developmentResponse(
+      developmentPage(
+        "Development tools",
+        '<p>Local utilities mounted during development.</p><ul><li><a href="/dev/emails">Email previews</a></li></ul>',
+      ),
+    ))
 }
 
 export const Route = createFileRoute("/dev/")({
   server: {
     handlers: {
-      GET: ({ request }) => handleDevelopmentIndexRouteRequest(request),
-      HEAD: ({ request }) => handleDevelopmentIndexRouteRequest(request),
-      ANY: ({ request }) => handleDevelopmentIndexRouteRequest(request),
+      ANY: ({ request }) => handleDevelopmentIndex(request),
     },
   },
 })

@@ -32,13 +32,11 @@ Start the application development server from this directory:
 deno task dev
 ```
 
-Open http://localhost:3000/dev for the development-tools hub. Utilities under `/dev` are available only in Vite development mode and return `404` from production builds. Add future local utilities to this namespace rather than starting a separate server.
+Open http://localhost:3000/dev for development-only utilities. These routes return `404` from production builds; add future local utilities to this hub.
 
 ### Email previews
 
-Transactional email templates are pure React Email components under `src/emails/templates`. Preview-only sample data lives separately under `src/emails/previews`, with one typed fixture for each same-named template so production components never contain sample recipients or action URLs.
-
-Open http://localhost:3000/dev/emails to inspect the exact production components rendered with fixed, synthetic fixture props. Each template also has a `?text=1` alternative for the derived plain-text payload. Preview assets use the current development-server origin, while action links use the reserved `.invalid` domain so an accidental click cannot touch local application data. Vite reloads template, fixture, shared email, and brand edits without a second process. The preview is intentionally static and script-free; use controlled sends to real clients or a dedicated rendering service when client-specific screenshots are required.
+Templates live under `src/emails/templates`; same-named typed fixtures live under `src/emails/previews`. Open http://localhost:3000/dev/emails to render those props through the production components as HTML or plain text. The fixtures use synthetic data and inert action URLs; client-specific testing still requires controlled sends or a rendering service.
 
 ## Theme
 

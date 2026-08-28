@@ -13,115 +13,73 @@ import OrganizationInvitationEmail from "@/emails/templates/organization-invitat
 import PasswordChangedEmail from "@/emails/templates/password-changed.tsx"
 import ResetPasswordEmail from "@/emails/templates/reset-password.tsx"
 import {
-  developmentRouteResponseHeaders,
-  escapeDevelopmentRouteHtml,
-  handleDevelopmentRouteRequest,
-  renderDevelopmentRouteDocument,
+  developmentPage,
+  developmentResponse,
+  handleDevelopmentRequest,
 } from "../../-lib/http.server.ts"
 
-interface EmailPreviewDefinition {
-  createElement: (origin: string) => ReactElement
-  description: string
-  label: string
-}
-
-const EMAIL_PREVIEW_DEFINITIONS = {
+const EMAIL_PREVIEWS = {
   "email-verification": {
-    createElement: (origin) =>
-      createElement(EmailVerificationEmail, createEmailVerificationPreviewProps(origin)),
-    description: "Sent after credential signup or when a user requests verification again.",
     label: "Email verification",
+    element: (origin) =>
+      createElement(EmailVerificationEmail, createEmailVerificationPreviewProps(origin)),
   },
   "organization-invitation": {
-    createElement: (origin) =>
+    label: "Organization invitation",
+    element: (origin) =>
       createElement(
         OrganizationInvitationEmail,
         createOrganizationInvitationPreviewProps(origin),
       ),
-    description: "Invites a recipient to join an organization with a specific role.",
-    label: "Organization invitation",
   },
   "password-changed": {
-    createElement: (origin) =>
-      createElement(PasswordChangedEmail, createPasswordChangedPreviewProps(origin)),
-    description: "Confirms a completed password change and provides a recovery path.",
     label: "Password changed",
+    element: (origin) =>
+      createElement(PasswordChangedEmail, createPasswordChangedPreviewProps(origin)),
   },
   "reset-password": {
-    createElement: (origin) =>
-      createElement(ResetPasswordEmail, createResetPasswordPreviewProps(origin)),
-    description: "Provides a time-limited password reset link.",
     label: "Reset password",
+    element: (origin) => createElement(ResetPasswordEmail, createResetPasswordPreviewProps(origin)),
   },
-} as const satisfies Record<string, EmailPreviewDefinition>
+} as const satisfies Record<string, { element: (origin: string) => ReactElement; label: string }>
 
-type EmailPreviewName = keyof typeof EMAIL_PREVIEW_DEFINITIONS
+type EmailPreviewName = keyof typeof EMAIL_PREVIEWS
 
-export const EMAIL_PREVIEW_NAMES = Object.keys(EMAIL_PREVIEW_DEFINITIONS)
-  .toSorted() as EmailPreviewName[]
+const EMAIL_PREVIEW_NAMES = Object.keys(EMAIL_PREVIEWS).toSorted() as EmailPreviewName[]
 
 function isEmailPreviewName(name: string): name is EmailPreviewName {
-  return Object.hasOwn(EMAIL_PREVIEW_DEFINITIONS, name)
+  return Object.hasOwn(EMAIL_PREVIEWS, name)
 }
 
-function renderEmailPreviewIndexHtml(): string {
-  const templateItems = EMAIL_PREVIEW_NAMES.map((name) => {
-    const definition = EMAIL_PREVIEW_DEFINITIONS[name]
-    const encodedName = encodeURIComponent(name)
-    return `<li class="tool">
-      <a href="/dev/emails/${encodedName}"><strong>${
-      escapeDevelopmentRouteHtml(definition.label)
-    }</strong></a>
-      <p>${escapeDevelopmentRouteHtml(definition.description)}</p>
-      <div class="actions"><a class="secondary" href="/dev/emails/${encodedName}?text=1">Plain text</a></div>
-    </li>`
-  }).join("")
-
-  return renderDevelopmentRouteDocument({
-    bodyHtml: `<ul class="tools">${templateItems}</ul>`,
-    description:
-      "Development only. Production email components rendered with fixed, synthetic fixture props; no email is sent.",
-    heading: "Email previews",
-    navigationHtml: '<nav><a href="/dev">Development tools</a></nav>',
-    title: "Email previews",
-  })
+function emailPreviewIndex(): Response {
+  const links = EMAIL_PREVIEW_NAMES.map((name) =>
+    `<li><a href="/dev/emails/${name}">${
+      EMAIL_PREVIEWS[name].label
+    }</a> · <a href="/dev/emails/${name}?text=1">Text</a></li>`
+  ).join("")
+  return developmentResponse(
+    developmentPage(
+      "Email previews",
+      `<p><a href="/dev">Development tools</a></p><p>Synthetic props; no email is sent.</p><ul>${links}</ul>`,
+    ),
+  )
 }
 
-async function emailPreviewGetResponse(request: Request, name?: string): Promise<Response> {
-  const url = new URL(request.url)
-
-  if (name === undefined) {
-    return new Response(renderEmailPreviewIndexHtml(), {
-      headers: developmentRouteResponseHeaders("text/html; charset=utf-8"),
-    })
-  }
-
+async function emailPreview(request: Request, name?: string): Promise<Response> {
+  if (name === undefined) return emailPreviewIndex()
   if (!isEmailPreviewName(name)) {
-    return new Response("Unknown email preview", {
-      status: 404,
-      headers: developmentRouteResponseHeaders("text/plain; charset=utf-8"),
-    })
+    return developmentResponse("Not Found", "text/plain; charset=utf-8", 404)
   }
 
-  try {
-    const content = await renderEmailElement(
-      EMAIL_PREVIEW_DEFINITIONS[name].createElement(url.origin),
-    )
-    const plainText = url.searchParams.get("text") === "1"
-    return new Response(plainText ? content.text : content.html, {
-      headers: developmentRouteResponseHeaders(
-        plainText ? "text/plain; charset=utf-8" : "text/html; charset=utf-8",
-      ),
-    })
-  } catch (error) {
-    console.error(`Failed to render email preview '${name}'`, error)
-    return new Response("Failed to render email preview", {
-      status: 500,
-      headers: developmentRouteResponseHeaders("text/plain; charset=utf-8"),
-    })
-  }
+  const url = new URL(request.url)
+  const { html, text } = await renderEmailElement(EMAIL_PREVIEWS[name].element(url.origin))
+  const plainText = url.searchParams.get("text") === "1"
+  return developmentResponse(
+    plainText ? text : html,
+    plainText ? "text/plain; charset=utf-8" : "text/html; charset=utf-8",
+  )
 }
 
 export function handleEmailPreviewRequest(request: Request, name?: string): Promise<Response> {
-  return handleDevelopmentRouteRequest(request, () => emailPreviewGetResponse(request, name))
+  return handleDevelopmentRequest(request, () => emailPreview(request, name))
 }

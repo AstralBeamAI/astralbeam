@@ -1,1 +1,1 @@
-declare const __DEV_UTILITIES__: boolean
+declare const __DEV_SERVER__: boolean
