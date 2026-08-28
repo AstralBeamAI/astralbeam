@@ -19,6 +19,7 @@ vi.mock("@/db/index.server", () => ({
 
 import {
   buildConfigSnapshot,
+  CONFIG_DEFINITIONS,
   invalidateConfigCache,
   publicConfigFromSnapshot,
   setupGateResponse,
@@ -81,13 +82,26 @@ describe("config snapshot boundary", () => {
     expect(paired.google).toEqual({ clientId: "id", clientSecret: "secret" })
   })
 
-  test("turnstile is optional but its keys must be paired", () => {
-    const disabled = buildConfigSnapshot(
+  test("turnstile requires both keys", () => {
+    expect(
+      CONFIG_DEFINITIONS.filter((definition) => definition.required).map(({ key }) => key),
+    ).toEqual(expect.arrayContaining(["turnstile_site_key", "turnstile_secret_key"]))
+
+    const missingBoth = buildConfigSnapshot(
       completeRows.filter((configRow) => !configRow.key.startsWith("turnstile_")),
     )
-    expect(disabled.turnstile).toBeNull()
-    expect(disabled.setupComplete).toBe(true)
-    expect(publicConfigFromSnapshot(disabled).turnstileSiteKey).toBeNull()
+    expect(missingBoth.turnstile).toBeNull()
+    expect(missingBoth.setupComplete).toBe(false)
+    expect(publicConfigFromSnapshot(missingBoth).turnstileSiteKey).toBeNull()
+    expect(
+      validateConfigCompleteness({
+        app_base_url: "http://localhost:3000",
+        better_auth_secret: SECRET,
+      }),
+    ).toEqual(expect.arrayContaining([
+      { key: "turnstile_site_key", message: "Turnstile Site Key is required" },
+      { key: "turnstile_secret_key", message: "Turnstile Secret Key is required" },
+    ]))
 
     for (const missingKey of ["turnstile_site_key", "turnstile_secret_key"]) {
       const partial = buildConfigSnapshot(
