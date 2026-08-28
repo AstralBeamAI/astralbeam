@@ -81,7 +81,7 @@ install_workspace_packages() {
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
       # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
       cd "$WORKSPACE_PATH/$app"
-      SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen
+      SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen --quiet
     fi
   done
 }
@@ -141,3 +141,4 @@ install_deno
 install_workspace_packages
 run_install_extras
 start_databases
+if [ -d "$WORKSPACE_PATH/webapp" ]; then (cd "$WORKSPACE_PATH/webapp" && deno task db migrate); fi
