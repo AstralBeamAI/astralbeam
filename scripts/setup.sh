@@ -34,18 +34,12 @@ export PATH="$DENO_INSTALL/bin:$PATH"
 
 # Each application is an independent Deno project with its own package.json, deno.lock, and node_modules.
 WORKSPACE_APPS=(webapp www sdk examples/todos)
-CODEX_DB_SETUP=false
-if [ "$platform_name" = Linux ] && [[ " ${INSTALL_EXTRA:-} " == *" codex-db "* ]]; then
-  CODEX_DB_SETUP=true
-  WORKSPACE_APPS=(webapp)
-fi
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
-  [ "$CODEX_DB_SETUP" = true ] && return 0
 
   run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
-if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev postgresql-common libsystemd0 libssl3t64 >/dev/null 2>&1; then
+if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev >/dev/null 2>&1; then
 apt-get update -yq
 apt-get install -y --no-install-recommends \
   build-essential libatomic1 ca-certificates locales lsb-release tzdata \
@@ -56,7 +50,7 @@ apt-get install -y --no-install-recommends \
   iputils-ping net-tools procps openssh-client \
   fontconfig pkg-config python3 python3-yaml \
   xdg-utils \
-  liburing-dev postgresql-common libsystemd0 libssl3t64
+  liburing-dev
 
 # Install GitHub CLI from its supported signed Debian repository: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian
 mkdir -p -m 755 /etc/apt/keyrings /etc/apt/sources.list.d; curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null; chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg; printf 'deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n' "$(dpkg --print-architecture)" | tee /etc/apt/sources.list.d/github-cli.list >/dev/null
@@ -83,21 +77,21 @@ install_deno() {
 
 install_workspace_packages() {
   local app install_log
+  local install_command=(env SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen)
+  if command -v timeout >/dev/null 2>&1; then
+    install_command=(timeout 180 "${install_command[@]}")
+  fi
   for app in "${WORKSPACE_APPS[@]}"; do
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
       # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
       cd "$WORKSPACE_PATH/$app"
-      if [ "$CODEX_DB_SETUP" = true ]; then
-        install_log=$(mktemp)
-        if ! timeout 180 env SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen >"$install_log" 2>&1; then
-          cat "$install_log" >&2
-          rm -f "$install_log"
-          return 1
-        fi
+      install_log=$(mktemp)
+      if ! "${install_command[@]}" >"$install_log" 2>&1; then
+        cat "$install_log" >&2
         rm -f "$install_log"
-      else
-        SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen
+        return 1
       fi
+      rm -f "$install_log"
     fi
   done
 }
@@ -125,6 +119,9 @@ run_install_extras() {
       exit 1
     fi
     /bin/bash "$install_extra_script"
+    if [ "$install_extra" = codex-db ]; then
+      (cd "$WORKSPACE_PATH/webapp" && timeout 60 deno task db migrate)
+    fi
   done
 }
 
@@ -156,5 +153,4 @@ configure_workspace_git
 install_deno
 install_workspace_packages
 run_install_extras
-if [ "$CODEX_DB_SETUP" = true ]; then (cd "$WORKSPACE_PATH/webapp" && timeout 60 deno task db migrate); fi
 start_databases
