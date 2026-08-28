@@ -11,9 +11,26 @@ run_as_root() {
   if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
 }
 
-require_postgres() {
+install_postgres() {
+  if [ ! -x /usr/lib/postgresql/18/bin/postgres ]; then
+    run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
+install -d /usr/share/keyrings
+curl --connect-timeout 10 --max-time 30 -fsSLo /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+printf 'deb [signed-by=/usr/share/keyrings/postgresql.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main\n' >/etc/apt/sources.list.d/pgdg.list
+timeout 60 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -yq
+download_dir=$(mktemp -d)
+trap 'rm -rf "$download_dir"' EXIT
+(
+  cd "$download_dir"
+  timeout 60 apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 download postgresql-18 postgresql-client-18 libpq5 liburing2
+  for archive in ./*.deb; do dpkg-deb --extract "$archive" /; done
+)
+ldconfig
+for command in pg_isready psql; do ln -sf "/usr/lib/postgresql/18/bin/$command" "/usr/local/bin/$command"; done
+EOF
+  fi
   if ! /usr/lib/postgresql/18/bin/postgres --version 2>/dev/null | grep -q '^postgres (PostgreSQL) 18\.'; then
-    echo "PostgreSQL 18 binaries were not installed by scripts/setup.sh." >&2
+    echo "PostgreSQL 18 binaries could not be installed." >&2
     exit 1
   fi
 }
@@ -80,7 +97,7 @@ migrate_webapp_database() {
 }
 
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
-require_postgres
+install_postgres
 install_valkey
 configure_postgres
 start_valkey
