@@ -76,8 +76,8 @@ install_deno() {
 }
 
 install_workspace_packages() {
-  local app install_log
-  local install_command=(env SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen)
+  local app
+  local install_command=(env SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen --quiet)
   if command -v timeout >/dev/null 2>&1; then
     install_command=(timeout 180 "${install_command[@]}")
   fi
@@ -85,13 +85,7 @@ install_workspace_packages() {
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
       # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
       cd "$WORKSPACE_PATH/$app"
-      install_log=$(mktemp)
-      if ! "${install_command[@]}" >"$install_log" 2>&1; then
-        cat "$install_log" >&2
-        rm -f "$install_log"
-        return 1
-      fi
-      rm -f "$install_log"
+      "${install_command[@]}"
     fi
   done
 }
