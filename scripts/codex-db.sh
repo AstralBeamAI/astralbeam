@@ -36,7 +36,7 @@ install_valkey() {
 }
 
 configure_postgres() {
-  run_as_root python3 -c 'import os; os.closerange(3, 1 << 20); os.execvp("service", ("service", "postgresql", "start"))' </dev/null >/dev/null 2>&1
+  run_as_root python3 -c 'import os, sys; os.closerange(3, 1 << 20); os.execvp(sys.argv[1], sys.argv[1:])' service postgresql start </dev/null >/dev/null 2>&1
   for _ in {1..30}; do pg_isready -q && break; sleep 1; done
   pg_isready -q || { echo "PostgreSQL did not become ready." >&2; exit 1; }
   run_as_root runuser -u postgres -- psql --dbname=postgres --set=ON_ERROR_STOP=1 --set=user="$POSTGRES_USER" --set=password="$POSTGRES_PASSWORD" --set=database="$POSTGRES_DB" <<'SQL'
@@ -51,7 +51,7 @@ start_valkey() {
   if ! valkey-cli ping >/dev/null 2>&1; then
     local data_dir=${XDG_DATA_HOME:-$HOME/.local/share}/valkey
     mkdir -p "$data_dir"
-    valkey-server --daemonize yes --bind 127.0.0.1 --dir "$data_dir" --logfile "$data_dir/valkey.log"
+    python3 -c 'import os, sys; os.closerange(3, 1 << 20); os.execvp(sys.argv[1], sys.argv[1:])' valkey-server --daemonize yes --bind 127.0.0.1 --dir "$data_dir" --logfile "$data_dir/valkey.log" </dev/null >/dev/null 2>&1
   fi
 }
 
