@@ -22,6 +22,7 @@
   "menuColor": "default",
   "menuAccent": "subtle",
   "registries": {
-    "@better-auth-ui": "https://better-auth-ui.com/r/{style}/{name}.json"
+    "@better-auth-ui": "https://better-auth-ui.com/r/{style}/{name}.json",
+    "@emailcn": "https://emailcn.run/r/{name}.json"
   }
 }

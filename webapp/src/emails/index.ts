@@ -1,8 +1,13 @@
 import process from "node:process"
 
 import { createElement } from "react"
-import { APP_LOGO_DARK_PNG_URL, APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/constants.ts"
+import { APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/constants.ts"
 import { getGlobalConfig } from "@/lib/config"
+import {
+  AUTH_EMAIL_LINK_EXPIRY_MINUTES,
+  ORGANIZATION_INVITATION_EXPIRY_HOURS,
+} from "./constants.ts"
+import { truncateEmailGraphemes } from "./email-text.ts"
 import type { SendEmailOptions, SendEmailResult } from "./types.ts"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
 import OrganizationInvitationEmail from "./templates/organization-invitation.tsx"
@@ -12,12 +17,10 @@ import { buildProviderEmailInput, providerLoaders, resolveProvider } from "./uti
 import "@tanstack/react-start/server-only"
 
 const AUTH_EMAIL_DELIVERY_ERROR = "Unable to deliver authentication email"
-const EMAIL_LINK_EXPIRY_MINUTES = 60
-const ORGANIZATION_INVITATION_EXPIRY_HOURS = 48
 
 interface AuthEmailContext {
   appBaseUrl: string
-  logoURL: { light: string; dark: string }
+  logoURL: string
 }
 
 // Templates cannot resolve relative paths, so links and logos need the configured absolute origin.
@@ -26,10 +29,7 @@ async function authEmailContext(): Promise<AuthEmailContext> {
   if (!appBaseUrl) throw new Error("Application base URL is not configured")
   return {
     appBaseUrl,
-    logoURL: {
-      light: new URL(APP_LOGO_LIGHT_PNG_URL, appBaseUrl).href,
-      dark: new URL(APP_LOGO_DARK_PNG_URL, appBaseUrl).href,
-    },
+    logoURL: new URL(APP_LOGO_LIGHT_PNG_URL, appBaseUrl).href,
   }
 }
 
@@ -83,7 +83,7 @@ export async function sendVerificationEmail(data: BetterAuthLinkEmailData): Prom
       appName: APP_NAME,
       verificationUrl: data.url,
       email: data.user.email,
-      expiryMinutes: EMAIL_LINK_EXPIRY_MINUTES,
+      expiryMinutes: AUTH_EMAIL_LINK_EXPIRY_MINUTES,
       logoURL,
     }),
   }))
@@ -97,7 +97,7 @@ export async function sendResetPasswordEmail(data: BetterAuthLinkEmailData): Pro
       url: data.url,
       email: data.user.email,
       appName: APP_NAME,
-      expirationMinutes: EMAIL_LINK_EXPIRY_MINUTES,
+      expirationMinutes: AUTH_EMAIL_LINK_EXPIRY_MINUTES,
       logoURL,
     }),
   }))
@@ -107,14 +107,14 @@ export async function sendPasswordChangedEmail(
   data: BetterAuthPasswordChangedEmailData,
 ): Promise<void> {
   await deliverAuthEmail(({ appBaseUrl, logoURL }) => {
-    const secureAccountURL = new URL("/settings/security", appBaseUrl).toString()
+    const recoverAccountURL = new URL("/auth/forgot-password", appBaseUrl).toString()
     return {
       to: data.user.email,
       subject: `Your ${APP_NAME} password was changed`,
       react: createElement(PasswordChangedEmail, {
         email: data.user.email,
         timestamp: formatTimestamp(data.changedAt ?? new Date()),
-        secureAccountURL,
+        recoverAccountURL,
         appName: APP_NAME,
         logoURL,
       }),
@@ -127,16 +127,18 @@ export async function sendOrganizationInvitationEmail(
 ): Promise<void> {
   await deliverAuthEmail(({ appBaseUrl, logoURL }) => {
     const organizationName = sanitizeSubjectPart(data.organization.name)
+    const invitationRoles = formatInvitationRoles(data.role)
+    const invitationURL = new URL("/auth/accept-invitation", appBaseUrl)
+    invitationURL.searchParams.set("invitationId", data.id)
     return {
       to: data.email,
       subject: `You're invited to ${organizationName} on ${APP_NAME}`,
       react: createElement(OrganizationInvitationEmail, {
-        url: new URL("/settings/organizations", appBaseUrl).toString(),
-        email: data.email,
+        url: invitationURL.toString(),
         inviterName: data.inviter.user.name,
         inviterEmail: data.inviter.user.email,
         organizationName: data.organization.name,
-        role: data.role,
+        role: invitationRoles,
         appName: APP_NAME,
         expirationHours: ORGANIZATION_INVITATION_EXPIRY_HOURS,
         logoURL,
@@ -174,6 +176,13 @@ function formatTimestamp(date: Date): string {
 }
 
 function sanitizeSubjectPart(value: string): string {
-  const normalized = value.replaceAll(/\s+/g, " ").trim().slice(0, 120)
+  const normalized = truncateEmailGraphemes(value.replaceAll(/\s+/g, " ").trim(), 120)
   return normalized || "your organization"
+}
+
+function formatInvitationRoles(value: string): string {
+  const roles = [...new Set(value.split(",").map((role) => role.trim()).filter(Boolean))]
+  return new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(
+    roles.length > 0 ? roles : ["member"],
+  )
 }

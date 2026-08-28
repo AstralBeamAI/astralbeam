@@ -12,6 +12,7 @@ Common license text: [MIT License](LICENSES/MIT.txt).
 
 - [Create TanStack App / TanStack CLI](https://github.com/TanStack/cli)-derived portions of `webapp`, including its router, routes, generated route tree, and build configuration — Copyright (c) 2021-present Tanner Linsley
 - [shadcn/ui](https://github.com/shadcn-ui/ui)-generated or adapted source, configuration, and styles under `webapp`, including the imported `shadcn/tailwind.css` — Copyright (c) 2023 shadcn
+- [Emailcn](https://github.com/shadcn-labs/emailcn)-derived React Email layouts under `webapp/src/emails`, adapted from commit `7979f3be5fb0e7f689b810a24d48c2c75c40ed06` — Copyright (c) 2026 Shadcn Labs
 - [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) output included in `webapp` — Copyright (c) Tailwind Labs, Inc.
 - [`tw-animate-css`](https://github.com/Wombosvideo/tw-animate-css) styles imported by `webapp/src/styles.css` — Copyright (c) 2025 Wombosvideo
 

@@ -7,6 +7,11 @@ import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
+import {
+  DEVELOPMENT_DEVTOOLS_OPTIONS,
+  enableDevelopmentUtilities,
+} from "./src/routes/dev/-lib/vite-mode.ts"
+
 const licensesDirectory = new URL("../docs/legal/LICENSES/", import.meta.url)
 const legalAssets = [
   {
@@ -27,8 +32,15 @@ const legalAssets = [
     })),
 ]
 
-const viteConfig = defineConfig(({ mode }) => {
+const viteConfig = defineConfig(({ command, isPreview, mode }) => {
+  // `import.meta.env.DEV` can stay true for a build when NODE_ENV=development, so key utilities to
+  // Vite's serve command instead. https://vite.dev/guide/env-and-mode.html#node-env-and-modes
+  const developmentUtilitiesEnabled = enableDevelopmentUtilities(command, isPreview)
+
   return {
+    define: {
+      __DEV_UTILITIES__: JSON.stringify(developmentUtilitiesEnabled),
+    },
     resolve: { tsconfigPaths: true },
     build: {
       target: "es2025",
@@ -50,7 +62,7 @@ const viteConfig = defineConfig(({ mode }) => {
           for (const asset of legalAssets) this.emitFile({ type: "asset", ...asset })
         },
       },
-      devtools(),
+      devtools(DEVELOPMENT_DEVTOOLS_OPTIONS),
       ...(mode === "test" ? [] : nitro()),
       tailwindcss(),
       tanstackStart(),

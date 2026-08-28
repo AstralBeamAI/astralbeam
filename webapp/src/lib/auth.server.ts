@@ -16,6 +16,10 @@ import {
   sendResetPasswordEmail,
   sendVerificationEmail,
 } from "@/emails/index"
+import {
+  AUTH_EMAIL_LINK_EXPIRY_SECONDS,
+  ORGANIZATION_INVITATION_EXPIRY_SECONDS,
+} from "@/emails/constants"
 import { getGlobalConfig } from "@/lib/config"
 import { APP_NAME } from "@/lib/constants"
 import {
@@ -27,8 +31,6 @@ import { organizationRoles } from "@/lib/auth/organization-access"
 import { organizationRoleHooks } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 
-const AUTH_EMAIL_EXPIRY_SECONDS = 60 * 60
-const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 type RequestWithWaitUntil = Request & {
   waitUntil?: (promise: Promise<unknown>) => void
 }
@@ -95,7 +97,7 @@ function buildAuth(config: AuthConfig) {
       minPasswordLength: 12,
       maxPasswordLength: 128,
       autoSignIn: false,
-      resetPasswordTokenExpiresIn: AUTH_EMAIL_EXPIRY_SECONDS,
+      resetPasswordTokenExpiresIn: AUTH_EMAIL_LINK_EXPIRY_SECONDS,
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
       // Better Auth schedules the returned promise through advanced.backgroundTasks. https://better-auth.com/docs/concepts/email
@@ -105,7 +107,7 @@ function buildAuth(config: AuthConfig) {
       },
     },
     emailVerification: {
-      expiresIn: AUTH_EMAIL_EXPIRY_SECONDS,
+      expiresIn: AUTH_EMAIL_LINK_EXPIRY_SECONDS,
       sendOnSignUp: true,
       sendOnSignIn: false,
       autoSignInAfterVerification: true,

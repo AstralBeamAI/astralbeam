@@ -15,7 +15,6 @@
     "drizzle-studio": "drizzle-kit studio",
     "format": "deno fmt",
     "format:check": "deno fmt --check",
-    "email": "deno run -P=tooling scripts/preview-emails.ts",
     "generate:png": "deno run -P=tooling scripts/export-png.ts",
     "knip": "knip",
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install",

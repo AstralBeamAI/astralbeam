@@ -24,6 +24,22 @@ The enabled methods are email/password, Google, and GitHub. Credential signup re
 
 Authenticated layouts provide first-render and reactive navigation protection, but they are not authorization boundaries. Better Auth APIs and server-only functions independently enforce sessions, organization membership, and configured organization permissions. Follow the repository [authentication setup](../SETUP.md#authentication-and-transactional-email) before testing these flows.
 
+## Development tools
+
+Start the application development server from this directory:
+
+```sh
+deno task dev
+```
+
+Open http://localhost:3000/dev for the development-tools hub. Utilities under `/dev` are available only in Vite development mode and return `404` from production builds. Add future local utilities to this namespace rather than starting a separate server.
+
+### Email previews
+
+Transactional email templates are pure React Email components under `src/emails/templates`. Preview-only sample data lives separately under `src/emails/previews`, with one typed fixture for each same-named template so production components never contain sample recipients or action URLs.
+
+Open http://localhost:3000/dev/emails to inspect the exact production components rendered with fixed, synthetic fixture props. Each template also has a `?text=1` alternative for the derived plain-text payload. Preview assets use the current development-server origin, while action links use the reserved `.invalid` domain so an accidental click cannot touch local application data. Vite reloads template, fixture, shared email, and brand edits without a second process. The preview is intentionally static and script-free; use controlled sends to real clients or a dedicated rendering service when client-specific screenshots are required.
+
 ## Theme
 
 The root route links the checked-in `src/styles.css` stylesheet. Its marked generated section supplies the light and dark semantic tokens, while the app theme controller applies system, light, or dark mode and persists the user's selection locally.

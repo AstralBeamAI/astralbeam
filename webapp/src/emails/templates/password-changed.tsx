@@ -1,391 +1,55 @@
-// Added with: deno task ui add @better-auth-ui/password-changed-email
-// Local changes: Move into the email delivery domain, rewire local imports, apply the shared semantic shadcn email theme, and keep one default component export for directory-driven previews.
+// Adapted with: deno task ui add @emailcn/react-email/block-notification-default
+// Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06
+// Local changes: Preserve password-change security copy, require production props, use the shared light brand shell, and expose the public recovery URL as text.
 
-import type { ReactNode } from "react"
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Section,
-  Tailwind,
-  Text,
-} from "react-email"
+import { Heading, Section, Text } from "react-email"
 
-import { cn } from "../../lib/utils"
-import {
-  type EmailClassNames,
-  type EmailColors,
-  EmailStyles,
-  emailTailwindConfig,
-} from "../email-styles"
+import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
-const passwordChangedEmailLocalization = {
-  YOUR_PASSWORD_HAS_BEEN_CHANGED: "Your password has been changed",
-  LOGO: "Logo",
-  PASSWORD_CHANGED_SUCCESSFULLY: "Password changed successfully",
-  PASSWORD_FOR_YOUR_ACCOUNT_CHANGED:
-    "The password for your {appName} account {userEmail} has been changed successfully.",
-  CHANGED_AT: "Changed at",
-  IF_YOU_MADE_THIS_CHANGE:
-    "If you made this change, you can safely ignore this email. Your account is secure.",
-  I_DIDNT_MAKE_THIS_CHANGE: "I didn't make this change",
-  EMAIL_SENT_BY: "Email sent by {appName}.",
-  IF_YOU_DIDNT_AUTHORIZE_THIS_CHANGE:
-    "If you didn't authorize this change, please contact support immediately {supportEmail} to secure your account.",
-  POWERED_BY_BETTER_AUTH: "Powered by {betterAuth}",
+export interface PasswordChangedEmailProps {
+  appName: string
+  email: string
+  logoURL: string
+  recoverAccountURL: string
+  timestamp: string
 }
 
-/**
- * Localization strings for the PasswordChangedEmail component.
- *
- * Contains all text content used in the password changed notification email template.
- */
-type PasswordChangedEmailLocalization = typeof passwordChangedEmailLocalization
-
-/**
- * Props for the PasswordChangedEmail component.
- */
-interface PasswordChangedEmailProps {
-  /** Email address of the user account */
-  email?: string
-  /** Timestamp when the password was changed */
-  timestamp?: string
-  /** URL to secure the account if unauthorized change occurred */
-  secureAccountURL?: string
-  /** Name of the application sending the email */
-  appName?: string
-  /** Support email address for security concerns */
-  supportEmail?: string
-  /** Logo URL(s) - a single string or light/dark variants. If omitted, no logo is shown. */
-  logoURL?: string | { light: string; dark: string }
-  /** Custom CSS class names for styling specific parts of the email */
-  classNames?: EmailClassNames
-  /** Custom color scheme for light and dark modes */
-  colors?: EmailColors
-  /** Whether to show the "Powered by better-auth" footer */
-  poweredBy?: boolean
-  /** Whether to enable dark mode support */
-  darkMode?: boolean
-  /** Additional React nodes to inject into the email head */
-  head?: ReactNode
-  /**
-   * Localization overrides for customizing email text
-   * @remarks `PasswordChangedEmailLocalization`
-   */
-  localization?: Partial<PasswordChangedEmailLocalization>
-}
-
-/**
- * Email template component that notifies users when their password has been changed.
- *
- * This email includes:
- * - Password change confirmation message
- * - Timestamp of the change
- * - Secure account action button if unauthorized change occurred
- * - Security warnings and support contact information
- * - Customizable branding and styling
- * - Support for light/dark mode themes
- *
- * @example
- * ```tsx
- * <PasswordChangedEmail
- *   email="user@example.com"
- *   timestamp="February 10, 2025 at 4:20 PM UTC"
- *   secureAccountURL="https://example.com/settings/security"
- *   appName="My App"
- *   supportEmail="support@example.com"
- *   logoURL="https://example.com/logo.png"
- *   darkMode={true}
- * />
- * ```
- */
-const PasswordChangedEmail = ({
-  email,
-  timestamp,
-  secureAccountURL,
+export default function PasswordChangedEmail({
   appName,
-  supportEmail,
+  email,
   logoURL,
-  colors,
-  classNames,
-  darkMode = true,
-  poweredBy,
-  head,
-  ...props
-}: PasswordChangedEmailProps) => {
-  const localization = {
-    ...PasswordChangedEmail.localization,
-    ...props.localization,
-  }
-
-  const previewText = localization.YOUR_PASSWORD_HAS_BEEN_CHANGED
-
+  recoverAccountURL,
+  timestamp,
+}: PasswordChangedEmailProps) {
   return (
-    <Html>
-      <Head>
-        <meta content="light dark" name="color-scheme" />
-        <meta content="light dark" name="supported-color-schemes" />
+    <EmailShell appName={appName} logoURL={logoURL} preview="Your password has been changed">
+      <Heading className="m-0 mb-6 text-xl font-medium leading-6 text-foreground">
+        Password changed successfully
+      </Heading>
+      <Text className="m-0 text-base leading-6 text-foreground">
+        The password for your {appName} account <EmailAddressLink email={email} />{" "}
+        has been changed successfully.
+      </Text>
 
-        <EmailStyles colors={colors} darkMode={darkMode} />
+      <Section className="my-8 rounded-brand border border-solid border-border bg-muted px-5 py-4">
+        <Text className="m-0 mb-2 text-xs leading-5 text-foreground">Changed at:</Text>
+        <Text className="m-0 text-sm font-medium leading-5 text-foreground">{timestamp}</Text>
+      </Section>
 
-        {head}
-      </Head>
+      <Text className="m-0 text-base leading-6 text-foreground">
+        If you made this change, you can safely ignore this email. Your account is secure.
+      </Text>
 
-      <Preview>{previewText}</Preview>
+      <EmailAction href={recoverAccountURL} label="Reset password" />
 
-      <Tailwind config={emailTailwindConfig}>
-        <Body
-          className={cn(
-            "email-bg-background email-text-foreground bg-background font-sans text-foreground",
-            classNames?.body,
-          )}
-        >
-          <Container
-            className={cn(
-              "mx-auto my-auto max-w-xl px-2 py-10",
-              classNames?.container,
-            )}
-          >
-            <Section
-              className={cn(
-                "email-bg-card email-border-border email-text-card-foreground bg-card text-card-foreground rounded-none border border-border p-8",
-                classNames?.card,
-              )}
-            >
-              {logoURL &&
-                (typeof logoURL === "string"
-                  ? (
-                    <Img
-                      src={logoURL}
-                      width={48}
-                      height={48}
-                      alt={appName || localization.LOGO}
-                      className={cn("mx-auto mb-8", classNames?.logo)}
-                    />
-                  )
-                  : (
-                    <>
-                      <Img
-                        src={logoURL.light}
-                        width={48}
-                        height={48}
-                        alt={appName || localization.LOGO}
-                        className={cn(
-                          "mx-auto mb-8 logo-light",
-                          classNames?.logo,
-                        )}
-                      />
-                      <Img
-                        src={logoURL.dark}
-                        width={48}
-                        height={48}
-                        alt={appName || localization.LOGO}
-                        className={cn(
-                          "hidden mx-auto mb-8 logo-dark",
-                          classNames?.logo,
-                        )}
-                      />
-                    </>
-                  ))}
-
-              <Heading
-                className={cn(
-                  "m-0 mb-5 font-heading text-2xl font-semibold",
-                  classNames?.title,
-                )}
-              >
-                {localization.PASSWORD_CHANGED_SUCCESSFULLY}
-              </Heading>
-
-              <Text className={cn("text-sm font-normal", classNames?.content)}>
-                {(() => {
-                  const textWithAppName = localization.PASSWORD_FOR_YOUR_ACCOUNT_CHANGED.replace(
-                    "{appName}",
-                    appName || "",
-                  )
-                    .replace(/\s{2,}/g, " ")
-                    .replace(" .", ".")
-
-                  const [beforeUserEmail, afterUserEmail] = textWithAppName.split("{userEmail}")
-
-                  return email
-                    ? (
-                      <>
-                        {beforeUserEmail}
-
-                        <Link
-                          href={`mailto:${email}`}
-                          className="email-text-primary text-primary font-medium"
-                        >
-                          {email}
-                        </Link>
-
-                        {afterUserEmail}
-                      </>
-                    )
-                    : (
-                      textWithAppName
-                        .replace("{userEmail}", "")
-                        .replace(/\s{2,}/g, " ")
-                        .replace(" .", ".")
-                    )
-                })()}
-              </Text>
-
-              {timestamp && (
-                <Section
-                  className={cn(
-                    "email-bg-muted email-border-border my-6 border border-border bg-muted p-4",
-                    classNames?.codeBlock,
-                  )}
-                >
-                  <Text
-                    className={cn(
-                      "email-text-muted-foreground m-0 mb-2 text-xs text-muted-foreground",
-                      classNames?.description,
-                    )}
-                  >
-                    {localization.CHANGED_AT}:
-                  </Text>
-                  <Text
-                    className={cn(
-                      "m-0 text-sm font-semibold",
-                      classNames?.content,
-                    )}
-                  >
-                    {timestamp}
-                  </Text>
-                </Section>
-              )}
-
-              <Text className={cn("text-sm font-normal", classNames?.content)}>
-                {localization.IF_YOU_MADE_THIS_CHANGE}
-              </Text>
-
-              {secureAccountURL && (
-                <Section className="mt-6">
-                  <Button
-                    href={secureAccountURL}
-                    className={cn(
-                      "email-bg-primary email-text-primary-foreground inline-block whitespace-nowrap rounded-none text-sm font-medium py-2.5 px-6 bg-primary text-primary-foreground no-underline",
-                      classNames?.button,
-                    )}
-                  >
-                    {localization.I_DIDNT_MAKE_THIS_CHANGE}
-                  </Button>
-                </Section>
-              )}
-
-              <Hr
-                className={cn(
-                  "email-border-border my-6 w-full border border-solid border-border",
-                  classNames?.separator,
-                )}
-              />
-
-              {appName && (
-                <Text
-                  className={cn(
-                    "email-text-muted-foreground mb-3 text-xs text-muted-foreground",
-                    classNames?.description,
-                  )}
-                >
-                  {localization.EMAIL_SENT_BY.replace("{appName}", appName)}
-                </Text>
-              )}
-
-              <Text
-                className={cn(
-                  "email-text-muted-foreground mt-3 text-xs text-muted-foreground",
-                  classNames?.description,
-                )}
-              >
-                {(() => {
-                  const [beforeSupportEmail, afterSupportEmail] = localization
-                    .IF_YOU_DIDNT_AUTHORIZE_THIS_CHANGE.split(
-                      "{supportEmail}",
-                    )
-
-                  return supportEmail
-                    ? (
-                      <>
-                        {beforeSupportEmail}
-                        <Link
-                          href={`mailto:${supportEmail}`}
-                          className={cn(
-                            "email-text-primary text-primary underline",
-                            classNames?.link,
-                          )}
-                        >
-                          {supportEmail}
-                        </Link>
-                        {afterSupportEmail}
-                      </>
-                    )
-                    : (
-                      localization.IF_YOU_DIDNT_AUTHORIZE_THIS_CHANGE.replace(
-                        "{supportEmail}",
-                        "",
-                      )
-                        .replace(/\s{2,}/g, " ")
-                        .replace(" .", ".")
-                    )
-                })()}
-              </Text>
-
-              {poweredBy && (
-                <Text
-                  className={cn(
-                    "email-text-muted-foreground mt-4 mb-0 text-center text-[11px] text-muted-foreground",
-                    classNames?.poweredBy,
-                  )}
-                >
-                  {(() => {
-                    const [beforeBetterAuth, afterBetterAuth] = localization.POWERED_BY_BETTER_AUTH
-                      .split("{betterAuth}")
-
-                    return (
-                      <>
-                        {beforeBetterAuth}
-                        <Link
-                          href="https://better-auth.com"
-                          className={cn(
-                            "email-text-primary text-primary underline",
-                            classNames?.link,
-                          )}
-                        >
-                          better-auth
-                        </Link>
-                        {afterBetterAuth}
-                      </>
-                    )
-                  })()}
-                </Text>
-              )}
-            </Section>
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+      <EmailDivider />
+      <Text className="m-0 mb-3 text-sm leading-6 text-muted-foreground">
+        Email sent by {appName}.
+      </Text>
+      <Text className="m-0 text-sm leading-6 text-muted-foreground">
+        If you didn&apos;t authorize this change, use the button above to reset your password
+        immediately.
+      </Text>
+    </EmailShell>
   )
 }
-
-PasswordChangedEmail.localization = passwordChangedEmailLocalization
-
-PasswordChangedEmail.PreviewProps = {
-  email: "m@example.com",
-  timestamp: "February 10, 2025 at 4:20 PM UTC",
-  secureAccountURL: "https://better-auth-ui.com/settings/security",
-  appName: "Better Auth",
-  supportEmail: "support@example.com",
-  darkMode: true,
-} as PasswordChangedEmailProps
-
-export default PasswordChangedEmail

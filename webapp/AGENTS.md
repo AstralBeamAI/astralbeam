@@ -52,6 +52,7 @@
     - Key the organization layout outlet by the active organization ID so a successful switch resets organization-scoped UI; do not reset it while a switch is pending.
   - Routes that do not render pages might be server routes (`createFileRoute({ server ... }))`
     - The are typically place in the `routes/api` folder unless there's a strong reason to have them outside.
+  - Keep local development utilities under `/dev` as raw server routes, register them on the `/dev` hub, inherit the namespace's production-`404` middleware, and retain its catch-all route so unknown descendants cannot fall through to application loaders. Gate every utility leaf with the Vite-defined `__DEV_UTILITIES__` constant before dynamically importing its implementation, and add an `ANY` handler so unsupported methods cannot fall through to the application renderer. `__DEV_UTILITIES__` must be derived from Vite's non-preview `serve` command rather than `NODE_ENV` or `import.meta.env.DEV`, which can remain development-valued during a production build. Use only fixed synthetic fixtures: development utilities must not load providers, runtime configuration, the database, authentication state, or real user data.
   - Related routes can sometimes be grouped together using a route group folder e.g. `(auth)` if it better structures the codebase
 
 - `src/db` contains the database schema and migrations
@@ -84,7 +85,9 @@
   - `sendEmail` loads only the selected `providers/*.ts` module, through a static map of dynamic imports
   - `provider`, `from`, and `replyTo` default to the `email_provider` and `email_from_address` config values and the resolved `from`
   - Templates cannot resolve relative paths, so build absolute URLs from the configured `app_base_url`; attachment `path` is a URL, a `data:` URI, or bare base64
-  - Preview with `deno task email`, which runs a server as configured in `scripts/preview-emails.ts`
+  - Keep templates pure and require their production props; put preview-only values in a same-named typed fixture under `src/emails/previews`, never on a template as static `PreviewProps`
+  - Preview from `/dev/emails` on the application development server, which renders fixture props through the production component and shared renderer as script-free HTML and plain text; keep preview registries and handlers out of production by following the `/dev` route guidance above
+  - Design for conservative email-client support: use a light baseline, inline critical styles, table-compatible React Email primitives, absolute image URLs with dimensions, and visible fallback links; do not rely on JavaScript, remote fonts, flexbox, grid, breakpoints, or dark-mode media queries
 
 - `/configure` (`src/routes/configure`) is the operator surface for database-backed config. Authenticate short, stateless sessions only with the first active `DATABASE_ENCRYPTION_KEY` value; never use database credentials. Require production HTTPS and same-origin mutations, and trust forwarded host/protocol only when ingress overwrites them and blocks direct origin access. Mask values until the operator explicitly reveals them, approve migrations by exact name and digest, and derive the app gate from process-cached configuration validity and migration state rather than a persisted completion marker.
 
