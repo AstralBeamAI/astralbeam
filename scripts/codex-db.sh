@@ -88,7 +88,11 @@ start_valkey() {
 }
 
 : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
+echo "Installing PostgreSQL..."
 install_postgres
+echo "Installing Valkey..."
 install_valkey
+echo "Starting PostgreSQL..."
 configure_postgres
+echo "Starting Valkey..."
 start_valkey

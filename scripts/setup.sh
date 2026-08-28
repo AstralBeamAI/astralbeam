@@ -112,7 +112,7 @@ run_install_extras() {
       echo "Could not find INSTALL_EXTRA script: $install_extra_script" >&2
       exit 1
     fi
-    /bin/bash "$install_extra_script"
+    timeout --kill-after=5s 180 /bin/bash "$install_extra_script"
   done
 }
 
