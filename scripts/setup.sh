@@ -35,27 +35,19 @@ export PATH="$DENO_INSTALL/bin:$PATH"
 # Each application is an independent Deno project with its own package.json, deno.lock, and node_modules.
 WORKSPACE_APPS=(webapp www sdk examples/todos)
 CODEX_DB_SETUP=false
-if [[ " ${INSTALL_EXTRA:-} " == *" codex-db "* ]]; then
+if [ "$platform_name" = Linux ] && [[ " ${INSTALL_EXTRA:-} " == *" codex-db "* ]]; then
   CODEX_DB_SETUP=true
   WORKSPACE_APPS=(webapp)
 fi
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
-
-  if [ "$CODEX_DB_SETUP" = true ]; then
-    run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
-if ! git config --system --get-all safe.directory | grep -qxF '*'; then
-  git config --system --add safe.directory '*'
-fi
-EOF
-    return
-  fi
+  [ "$CODEX_DB_SETUP" = true ] && return 0
 
   run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
 if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev postgresql-common libsystemd0 libssl3t64 >/dev/null 2>&1; then
 apt-get update -yq
-apt-get -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=60 install -yq --no-install-recommends \
+apt-get install -y --no-install-recommends \
   build-essential libatomic1 ca-certificates locales lsb-release tzdata \
   curl wget file unzip \
   git \
@@ -95,17 +87,16 @@ install_workspace_packages() {
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
       # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
       cd "$WORKSPACE_PATH/$app"
-      echo "Installing $app dependencies..."
       if [ "$CODEX_DB_SETUP" = true ]; then
         install_log=$(mktemp)
-        if ! timeout 180 env SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen >"$install_log" 2>&1; then
+        if ! timeout 180 env SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen >"$install_log" 2>&1; then
           cat "$install_log" >&2
           rm -f "$install_log"
           return 1
         fi
         rm -f "$install_log"
       else
-        SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --quiet --frozen
+        SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen
       fi
     fi
   done
@@ -165,4 +156,5 @@ configure_workspace_git
 install_deno
 install_workspace_packages
 run_install_extras
+if [ "$CODEX_DB_SETUP" = true ]; then (cd "$WORKSPACE_PATH/webapp" && timeout 60 deno task db migrate); fi
 start_databases
