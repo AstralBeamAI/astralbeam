@@ -119,9 +119,6 @@ run_install_extras() {
       exit 1
     fi
     /bin/bash "$install_extra_script"
-    if [ "$install_extra" = codex-db ]; then
-      (cd "$WORKSPACE_PATH/webapp" && timeout 60 deno task db migrate)
-    fi
   done
 }
 
@@ -154,3 +151,4 @@ install_deno
 install_workspace_packages
 run_install_extras
 start_databases
+(cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
