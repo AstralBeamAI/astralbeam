@@ -1,21 +1,19 @@
-import { readdir } from "node:fs/promises"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
-
 import { createElement } from "react"
 import { describe, expect, test } from "vitest"
 
 import { APP_NAME } from "../lib/constants.ts"
 import { emailTheme, resolveEmailRadius } from "./email-theme.ts"
-import createEmailVerificationPreviewProps from "./previews/email-verification.ts"
-import createOrganizationInvitationPreviewProps from "./previews/organization-invitation.ts"
-import createPasswordChangedPreviewProps from "./previews/password-changed.ts"
-import createResetPasswordPreviewProps from "./previews/reset-password.ts"
 import { renderEmailElement } from "./render.ts"
-import EmailVerificationEmail from "./templates/email-verification.tsx"
-import OrganizationInvitationEmail from "./templates/organization-invitation.tsx"
-import PasswordChangedEmail from "./templates/password-changed.tsx"
-import ResetPasswordEmail from "./templates/reset-password.tsx"
+import EmailVerificationEmail, {
+  createEmailVerificationPreviewProps,
+} from "./templates/email-verification.tsx"
+import OrganizationInvitationEmail, {
+  createOrganizationInvitationPreviewProps,
+} from "./templates/organization-invitation.tsx"
+import PasswordChangedEmail, {
+  createPasswordChangedPreviewProps,
+} from "./templates/password-changed.tsx"
+import ResetPasswordEmail, { createResetPasswordPreviewProps } from "./templates/reset-password.tsx"
 
 const EMAIL_TEMPLATE_TEST_ORIGIN = "https://preview.example.test"
 const emailVerificationPreviewProps = createEmailVerificationPreviewProps(
@@ -32,26 +30,22 @@ const authenticationEmailRenderCases = [
     actionURL: emailVerificationPreviewProps.verificationUrl,
     createElement: () => createElement(EmailVerificationEmail, emailVerificationPreviewProps),
     name: "email verification",
-    template: EmailVerificationEmail,
   },
   {
     actionURL: organizationInvitationPreviewProps.url,
     createElement: () =>
       createElement(OrganizationInvitationEmail, organizationInvitationPreviewProps),
     name: "organization invitation",
-    template: OrganizationInvitationEmail,
   },
   {
     actionURL: passwordChangedPreviewProps.recoverAccountURL,
     createElement: () => createElement(PasswordChangedEmail, passwordChangedPreviewProps),
     name: "password changed",
-    template: PasswordChangedEmail,
   },
   {
     actionURL: resetPasswordPreviewProps.url,
     createElement: () => createElement(ResetPasswordEmail, resetPasswordPreviewProps),
     name: "reset password",
-    template: ResetPasswordEmail,
   },
 ] as const
 
@@ -83,7 +77,6 @@ describe.each(authenticationEmailRenderCases)("$name email", (emailCase) => {
     expect(html).toContain(logoMarker)
     expect(html.indexOf(previewMarker)).toBeLessThan(html.indexOf(logoMarker))
 
-    expect(emailCase.template).not.toHaveProperty("PreviewProps")
     expect(html).not.toMatch(/<script\b|\son[a-z]+\s*=/i)
     expect(html).not.toMatch(/@media|display:\s*(?:flex|grid)/i)
     expect(html).not.toMatch(/\b\d+(?:\.\d+)?(?:rem|em)\b/i)
@@ -139,24 +132,6 @@ test.each(emailTextColorPairings)(
     expect(emailContrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5)
   },
 )
-
-test("preview fixtures pair one-to-one with production templates", async () => {
-  const emailsDirectory = dirname(fileURLToPath(import.meta.url))
-  const [templateEntries, previewEntries] = await Promise.all([
-    readdir(join(emailsDirectory, "templates")),
-    readdir(join(emailsDirectory, "previews")),
-  ])
-  const templateNames = templateEntries
-    .filter((name) => name.endsWith(".tsx"))
-    .map((name) => name.slice(0, -".tsx".length))
-    .toSorted()
-  const previewNames = previewEntries
-    .filter((name) => name.endsWith(".ts"))
-    .map((name) => name.slice(0, -".ts".length))
-    .toSorted()
-
-  expect(previewNames).toEqual(templateNames)
-})
 
 test("preserves percentage radii allowed by the shared brand schema", () => {
   expect(resolveEmailRadius("50%")).toBe("50%")

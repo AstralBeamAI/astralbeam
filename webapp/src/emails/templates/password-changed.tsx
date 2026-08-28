@@ -1,9 +1,11 @@
+// Previously added with: deno task ui add @better-auth-ui/password-changed-email
 // Adapted with: deno task ui add @emailcn/react-email/block-notification-default
-// Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06
-// Local changes: Preserve password-change security copy, require production props, use the shared light brand shell, and expose the public recovery URL as text.
+// Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/notification-default.tsx
+// Local changes: Repurpose the notification block as a password security notice, retain the prior production copy and required props, use the shared shell and recovery URL, and co-locate typed preview props.
 
 import { Heading, Section, Text } from "react-email"
 
+import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
 export interface PasswordChangedEmailProps {
@@ -52,4 +54,14 @@ export default function PasswordChangedEmail({
       </Text>
     </EmailShell>
   )
+}
+
+export function createPasswordChangedPreviewProps(origin: string): PasswordChangedEmailProps {
+  return {
+    appName: APP_NAME,
+    email: "member@example.com",
+    logoURL: new URL(APP_LOGO_LIGHT_PNG_URL, origin).href,
+    recoverAccountURL: new URL("/auth/forgot-password", INERT_REDIRECT_ORIGIN).href,
+    timestamp: "August 27, 2026 at 10:00:00 AM UTC",
+  } satisfies PasswordChangedEmailProps
 }

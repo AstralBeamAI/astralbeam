@@ -1,9 +1,12 @@
+// Previously added with: deno task ui add @better-auth-ui/reset-password-email
 // Adapted with: deno task ui add @emailcn/react-email/block-auth-password-reset-default
-// Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06
-// Local changes: Preserve reset flow copy and props, use the shared light brand shell, and retain the raw reset URL.
+// Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/auth-password-reset-default.tsx
+// Local changes: Retain the prior reset copy and required production props, use the shared shell and fallback URL, and co-locate typed preview props.
 
 import { Heading, Text } from "react-email"
 
+import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
+import { AUTH_EMAIL_LINK_EXPIRY_MINUTES } from "../constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
 export interface ResetPasswordEmailProps {
@@ -43,4 +46,17 @@ export default function ResetPasswordEmail({
       </Text>
     </EmailShell>
   )
+}
+
+export function createResetPasswordPreviewProps(origin: string): ResetPasswordEmailProps {
+  return {
+    appName: APP_NAME,
+    email: "member@example.com",
+    expirationMinutes: AUTH_EMAIL_LINK_EXPIRY_MINUTES,
+    logoURL: new URL(APP_LOGO_LIGHT_PNG_URL, origin).href,
+    url: new URL(
+      "/api/auth/reset-password/preview-reset-token?callbackURL=%2Fauth%2Freset-password",
+      INERT_REDIRECT_ORIGIN,
+    ).href,
+  } satisfies ResetPasswordEmailProps
 }

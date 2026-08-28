@@ -1,9 +1,11 @@
 // Adapted with: deno task ui add @emailcn/react-email/block-auth-magic-link-default
-// Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06
-// Local changes: Preserve verification copy and props, use the shared light brand shell, and add an email-safe fallback action URL.
+// Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/auth-magic-link-default.tsx
+// Local changes: Repurpose the magic-link block for verification, retain the prior production copy and required props, use the shared shell and fallback URL, and co-locate typed preview props.
 
 import { Heading, Text } from "react-email"
 
+import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
+import { AUTH_EMAIL_LINK_EXPIRY_MINUTES } from "../constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
 export interface EmailVerificationEmailProps {
@@ -40,4 +42,19 @@ export default function EmailVerificationEmail({
       </Text>
     </EmailShell>
   )
+}
+
+export function createEmailVerificationPreviewProps(
+  origin: string,
+): EmailVerificationEmailProps {
+  return {
+    appName: APP_NAME,
+    email: "member@example.com",
+    expiryMinutes: AUTH_EMAIL_LINK_EXPIRY_MINUTES,
+    logoURL: new URL(APP_LOGO_LIGHT_PNG_URL, origin).href,
+    verificationUrl: new URL(
+      "/api/auth/verify-email?token=preview-verification-token&callbackURL=%2F",
+      INERT_REDIRECT_ORIGIN,
+    ).href,
+  } satisfies EmailVerificationEmailProps
 }

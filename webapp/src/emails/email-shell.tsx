@@ -1,4 +1,4 @@
-// Adapted from shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06.
+// App-owned composition based on shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06 React Email blocks.
 // Local changes: Compose one branded, light-only shell and fallback action for all auth emails.
 
 import type { ReactNode } from "react"

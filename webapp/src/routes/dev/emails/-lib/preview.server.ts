@@ -3,15 +3,19 @@ import "@tanstack/react-start/server-only"
 import { createElement } from "react"
 import type { ReactElement } from "react"
 
-import createEmailVerificationPreviewProps from "@/emails/previews/email-verification.ts"
-import createOrganizationInvitationPreviewProps from "@/emails/previews/organization-invitation.ts"
-import createPasswordChangedPreviewProps from "@/emails/previews/password-changed.ts"
-import createResetPasswordPreviewProps from "@/emails/previews/reset-password.ts"
 import { renderEmailElement } from "@/emails/render.ts"
-import EmailVerificationEmail from "@/emails/templates/email-verification.tsx"
-import OrganizationInvitationEmail from "@/emails/templates/organization-invitation.tsx"
-import PasswordChangedEmail from "@/emails/templates/password-changed.tsx"
-import ResetPasswordEmail from "@/emails/templates/reset-password.tsx"
+import EmailVerificationEmail, {
+  createEmailVerificationPreviewProps,
+} from "@/emails/templates/email-verification.tsx"
+import OrganizationInvitationEmail, {
+  createOrganizationInvitationPreviewProps,
+} from "@/emails/templates/organization-invitation.tsx"
+import PasswordChangedEmail, {
+  createPasswordChangedPreviewProps,
+} from "@/emails/templates/password-changed.tsx"
+import ResetPasswordEmail, {
+  createResetPasswordPreviewProps,
+} from "@/emails/templates/reset-password.tsx"
 import {
   developmentPage,
   developmentResponse,

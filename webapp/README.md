@@ -36,7 +36,7 @@ Open http://localhost:3000/dev for development-only utilities. These routes retu
 
 ### Email previews
 
-Templates live under `src/emails/templates`; same-named typed fixtures live under `src/emails/previews`. Open http://localhost:3000/dev/emails to render those props through the production components as HTML or plain text. The fixtures use synthetic data and inert action URLs; client-specific testing still requires controlled sends or a rendering service.
+Templates and their typed preview-props factories live together under `src/emails/templates`. Open http://localhost:3000/dev/emails to pass those synthetic props through the production components as HTML or plain text. Preview actions use inert URLs; client-specific testing still requires controlled sends or a rendering service.
 
 ## Theme
 
