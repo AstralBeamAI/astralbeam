@@ -2,10 +2,11 @@ import { index, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
 
 import {
   caseInsensitiveText,
+  lockVersion,
   timestamps,
   timestampWithTimeZone,
   uuidV7PrimaryKey,
-} from "../postgresql-types.server.ts"
+} from "../lib/postgresql-types.server.ts"
 import { user } from "./authentication.server.ts"
 
 export const organization = snakeCase.table(
@@ -19,6 +20,21 @@ export const organization = snakeCase.table(
     ...timestamps(),
   },
   (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)],
+)
+
+export const organizationConfiguration = snakeCase.table(
+  "organization_configuration",
+  {
+    id: uuidV7PrimaryKey(),
+    organizationId: uuid().notNull().references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    lockVersion: lockVersion(),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex("organization_configuration_organization_id_uidx").on(table.organizationId),
+  ],
 )
 
 export const member = snakeCase.table(

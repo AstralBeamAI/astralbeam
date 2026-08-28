@@ -1,172 +1,215 @@
-import { beforeEach, describe, expect, test, vi } from "vitest"
-
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 const configTestState = vi.hoisted(() => ({
-  rows: null as { key: string; value: unknown; updatedAt: Date }[] | null,
+  rows: null as { key: string; value: string }[] | null,
+  selectCount: 0,
 }))
+const migrationTestState = vi.hoisted(() => ({ pending: false }))
 
 vi.mock("@/db/index.server", () => ({
   db: {
-    select: () => ({
-      from: () => {
-        if (configTestState.rows === null) {
-          return Promise.reject(Object.assign(new Error("missing table"), { code: "42P01" }))
-        }
-        return Promise.resolve(configTestState.rows)
-      },
-    }),
+    select: (selection: Record<string, unknown>) => {
+      configTestState.selectCount += 1
+      return {
+        from: () => {
+          if (configTestState.rows === null) {
+            return Promise.reject(Object.assign(new Error("missing table"), { code: "42P01" }))
+          }
+          const rows = Promise.resolve().then(() =>
+            configTestState.rows!.map((row) => ({
+              key: row.key,
+              ...(selection.value && typeof selection.value === "object" &&
+                  "mapFromDriverValue" in selection.value
+                ? {
+                  value: (selection.value as {
+                    mapFromDriverValue: (value: string) => unknown
+                  }).mapFromDriverValue(row.value),
+                }
+                : {}),
+              ...(selection.storedValue ? { storedValue: row.value } : {}),
+            }))
+          )
+          return Object.assign(rows, { where: () => rows })
+        },
+      }
+    },
   },
 }))
 
+vi.mock("@/db/migration-runner.server", () => ({
+  getDatabaseMigrationState: () =>
+    Promise.resolve({
+      pending: migrationTestState.pending ? [{ name: "pending" }] : [],
+      appliedCount: 0,
+    }),
+}))
+
 import {
-  buildConfigSnapshot,
   CONFIG_DEFINITIONS,
-  invalidateConfigCache,
-  publicConfigFromSnapshot,
-  setupGateResponse,
+  configEnvironmentVariable,
   validateConfigCompleteness,
-} from "@/lib/config.server"
+} from "@/lib/config/registry.server"
+import { getGlobalConfigState, invalidateGlobalConfig } from "@/lib/config/runtime.server"
+import {
+  isSetupComplete,
+  publicConfigFromValues,
+  setupGateResponse,
+} from "@/lib/config/state.server"
+import { configTable } from "@/db/schema/config.server"
+import { getGlobalConfig } from "@/lib/config"
 
-const SECRET = "a".repeat(64)
-const NOW = new Date("2026-08-25T00:00:00Z")
-
-function row(key: string, value: unknown) {
-  return { key, value, updatedAt: NOW }
+const CONFIG_TEST_SECRET = "a".repeat(64)
+function configTestRow(key: string, value: string) {
+  const storedValue = configTable.value.mapToDriverValue({ key, value })
+  if (typeof storedValue !== "string") throw new Error("Expected a stored config string")
+  return { key, value: storedValue }
 }
 
-const completeRows = [
-  row("app_base_url", "http://localhost:3000"),
-  row("better_auth_secret", SECRET),
-  row("turnstile_site_key", "turnstile-site-key"),
-  row("turnstile_secret_key", "turnstile-secret-key"),
-  row("setup_completed", true),
-]
+function rawConfigTestRow(key: string, value: string) {
+  return { key, value }
+}
 
-describe("config snapshot boundary", () => {
-  test("setup stays incomplete until every required key is valid", () => {
-    const withoutBaseUrl = buildConfigSnapshot([
-      row("better_auth_secret", SECRET),
-      row("setup_completed", true),
-    ])
-    expect(withoutBaseUrl.setupComplete).toBe(false)
+function completeConfigTestRows() {
+  return [
+    configTestRow("app_base_url", "http://localhost:3000"),
+    configTestRow("better_auth_secret", CONFIG_TEST_SECRET),
+    configTestRow("turnstile_site_key", "turnstile-site-key"),
+    configTestRow("turnstile_secret_key", "turnstile-secret-key"),
+  ]
+}
 
-    expect(buildConfigSnapshot(completeRows).setupComplete).toBe(true)
+async function loadGlobalConfig(rows: { key: string; value: string }[]) {
+  configTestState.rows = rows
+  invalidateGlobalConfig()
+  return await getGlobalConfigState()
+}
+
+beforeEach(() => {
+  configTestState.selectCount = 0
+  migrationTestState.pending = false
+  invalidateGlobalConfig()
+  for (const definition of CONFIG_DEFINITIONS) {
+    vi.stubEnv(configEnvironmentVariable(definition.key), "")
+  }
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
+describe("config value boundary", () => {
+  test("environment values override stored values without changing the database", async () => {
+    vi.stubEnv("APP_BASE_URL", JSON.stringify("https://environment.example"))
+    vi.stubEnv("BETTER_AUTH_SECRET", JSON.stringify("b".repeat(64)))
+    const { values } = await loadGlobalConfig(completeConfigTestRows())
+    expect(values.app_base_url).toBe("https://environment.example")
+    expect(values.better_auth_secret).toBe("b".repeat(64))
   })
 
-  test("setup requires the explicit completion marker", () => {
-    const withoutMarker = buildConfigSnapshot([
-      row("app_base_url", "http://localhost:3000"),
-      row("better_auth_secret", SECRET),
-    ])
-    expect(withoutMarker.setupComplete).toBe(false)
-  })
-
-  test("invalid stored values are treated as unset instead of surfacing", () => {
-    const snapshot = buildConfigSnapshot([
-      ...completeRows,
-      row("privacy_policy_url", "not a url"),
-    ])
-    expect(snapshot.privacyPolicyUrl).not.toContain("not a url")
-    expect(snapshot.setupComplete).toBe(true)
-  })
-
-  test("an oauth provider is enabled only when both credentials are set", () => {
-    const partial = buildConfigSnapshot([...completeRows, row("google_client_id", "id")])
-    expect(partial.google).toBeNull()
-    expect(partial.setupComplete).toBe(false)
-
-    const paired = buildConfigSnapshot([
-      ...completeRows,
-      row("google_client_id", "id"),
-      row("google_client_secret", "secret"),
-    ])
-    expect(paired.google).toEqual({ clientId: "id", clientSecret: "secret" })
-  })
-
-  test("turnstile requires both keys", () => {
-    expect(
-      CONFIG_DEFINITIONS.filter((definition) => definition.required).map(({ key }) => key),
-    ).toEqual(expect.arrayContaining(["turnstile_site_key", "turnstile_secret_key"]))
-
-    const missingBoth = buildConfigSnapshot(
-      completeRows.filter((configRow) => !configRow.key.startsWith("turnstile_")),
+  test("malformed encrypted values fail closed and remain replaceable", async () => {
+    const completeRows = completeConfigTestRows()
+    expect((await loadGlobalConfig(completeRows)).values.better_auth_secret).toBe(
+      CONFIG_TEST_SECRET,
     )
-    expect(missingBoth.turnstile).toBeNull()
-    expect(missingBoth.setupComplete).toBe(false)
-    expect(publicConfigFromSnapshot(missingBoth).turnstileSiteKey).toBeNull()
-    expect(
-      validateConfigCompleteness({
-        app_base_url: "http://localhost:3000",
-        better_auth_secret: SECRET,
-      }),
-    ).toEqual(expect.arrayContaining([
-      { key: "turnstile_site_key", message: "Turnstile Site Key is required" },
-      { key: "turnstile_secret_key", message: "Turnstile Secret Key is required" },
-    ]))
+    const malformedRows = completeRows.map((row) =>
+      row.key === "better_auth_secret" ? rawConfigTestRow(row.key, CONFIG_TEST_SECRET) : row
+    )
+    const malformed = await loadGlobalConfig(malformedRows)
+    expect(malformed.values.better_auth_secret).toBeUndefined()
+    expect(validateConfigCompleteness(malformed.values)).not.toEqual([])
 
-    for (const missingKey of ["turnstile_site_key", "turnstile_secret_key"]) {
-      const partial = buildConfigSnapshot(
-        completeRows.filter((configRow) => configRow.key !== missingKey),
-      )
-      expect(partial.turnstile).toBeNull()
-      expect(partial.setupComplete).toBe(false)
-    }
-
-    expect(buildConfigSnapshot(completeRows).turnstile).toEqual({
-      siteKey: "turnstile-site-key",
-      secretKey: "turnstile-secret-key",
-    })
-  })
-
-  test("a selected email provider requires its credential", () => {
-    const issues = validateConfigCompleteness({
-      app_base_url: "http://localhost:3000",
-      better_auth_secret: SECRET,
-      email_provider: "resend",
-    })
-    expect(issues.some((issue) => issue.key === "resend_api_key")).toBe(true)
-  })
-
-  test("static aws credentials must be set as a pair", () => {
-    const issues = validateConfigCompleteness({
-      app_base_url: "http://localhost:3000",
-      better_auth_secret: SECRET,
-      aws_access_key_id: "AKIA123",
-    })
-    expect(issues.some((issue) => issue.key === "aws_secret_access_key")).toBe(true)
-  })
-
-  test("the public config projection never contains secret values", () => {
-    const snapshot = buildConfigSnapshot([
-      ...completeRows,
-      row("google_client_id", "google-id"),
-      row("google_client_secret", "google-secret-value"),
-      row("openai_api_key", "openai-secret-value"),
-      row("chat_auth_secret", SECRET),
+    const substituted = configTestRow("openai_api_key", CONFIG_TEST_SECRET)
+    const mismatched = await loadGlobalConfig([
+      ...completeRows.filter((row) => row.key !== "better_auth_secret"),
+      rawConfigTestRow("better_auth_secret", substituted.value),
     ])
-    const serialized = JSON.stringify(publicConfigFromSnapshot(snapshot))
-    expect(serialized).not.toContain("google-secret-value")
-    expect(serialized).not.toContain("openai-secret-value")
-    expect(serialized).not.toContain(SECRET)
+    expect(mismatched.values.better_auth_secret).toBeUndefined()
+  })
+
+  test("an unreadable optional secret disables only its dependent feature", async () => {
+    const selectedProvider = await loadGlobalConfig([
+      ...completeConfigTestRows(),
+      configTestRow("email_provider", "resend"),
+      configTestRow("email_from_address", "hello@example.com"),
+      rawConfigTestRow("resend_api_key", "malformed stored value"),
+    ])
+    expect(validateConfigCompleteness(selectedProvider.values)).not.toEqual([])
+    expect(selectedProvider.values.email_provider).toBe("resend")
+    expect(selectedProvider.values.resend_api_key).toBeUndefined()
+
+    const unrelated = await loadGlobalConfig([
+      ...completeConfigTestRows(),
+      rawConfigTestRow("openai_api_key", "malformed stored value"),
+    ])
+    expect(validateConfigCompleteness(unrelated.values)).toEqual([])
+    expect(unrelated.values.openai_api_key).toBeUndefined()
+  })
+
+  test("a selected email provider requires a from address", async () => {
+    const selectedProvider = await loadGlobalConfig([
+      ...completeConfigTestRows(),
+      configTestRow("email_provider", "resend"),
+      configTestRow("resend_api_key", "resend-key"),
+    ])
+    expect(validateConfigCompleteness(selectedProvider.values)).toContainEqual({
+      key: "email_from_address",
+      message: "An email from address is required when an email provider is selected",
+    })
+  })
+
+  test("public output stays secret-free", async () => {
+    const completeRows = completeConfigTestRows()
+    const { values } = await loadGlobalConfig([
+      ...completeRows,
+      configTestRow("google_client_id", "google-id"),
+      configTestRow("google_client_secret", "google-secret"),
+      configTestRow("openai_api_key", "openai-secret"),
+    ])
+    expect(values.google_client_secret).toBe("google-secret")
+    const serialized = JSON.stringify(publicConfigFromValues(values))
+    expect(serialized).toContain("google")
+    expect(serialized).not.toContain("google-secret")
+    expect(serialized).not.toContain("openai-secret")
+    expect(serialized).not.toContain(CONFIG_TEST_SECRET)
     expect(serialized).not.toContain("turnstile-secret-key")
     expect(serialized).toContain("turnstile-site-key")
-    expect(serialized).toContain("google")
   })
 })
 
-describe("setup gate boundary", () => {
-  beforeEach(() => {
-    invalidateConfigCache()
-  })
-
-  test("returns 503 with retry-after while the config table is missing", async () => {
+describe("setup gate and cache boundary", () => {
+  test("returns 503 until configuration is complete and migrations are applied", async () => {
     configTestState.rows = null
     const response = await setupGateResponse()
     expect(response?.status).toBe(503)
     expect(response?.headers.get("retry-after")).toBe("10")
+
+    configTestState.rows = completeConfigTestRows()
+    invalidateGlobalConfig()
+    await expect(setupGateResponse()).resolves.toBeNull()
+
+    migrationTestState.pending = true
+    invalidateGlobalConfig()
+    await expect(setupGateResponse()).resolves.toMatchObject({ status: 503 })
   })
 
-  test("returns null once setup is complete", async () => {
-    configTestState.rows = completeRows
-    await expect(setupGateResponse()).resolves.toBeNull()
+  test("reads configuration once per process and once after invalidation", async () => {
+    configTestState.rows = completeConfigTestRows()
+    const [, state, secret] = await Promise.all([
+      isSetupComplete(),
+      getGlobalConfigState(),
+      getGlobalConfig("better_auth_secret"),
+    ])
+    await isSetupComplete()
+    expect(configTestState.selectCount).toBe(1)
+    expect(state.rows?.map((row) => row.key)).toEqual(
+      configTestState.rows.map((row) => row.key),
+    )
+    expect(state.values.better_auth_secret).toBe(CONFIG_TEST_SECRET)
+    expect(state.rows?.find((row) => row.key === "better_auth_secret")?.storageStatus)
+      .toBeUndefined()
+    expect(secret).toBe(CONFIG_TEST_SECRET)
+
+    invalidateGlobalConfig()
+    await Promise.all([isSetupComplete(), isSetupComplete()])
+    expect(configTestState.selectCount).toBe(2)
   })
 })

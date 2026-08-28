@@ -69,25 +69,31 @@ See the setup guides for [Codex](.codex/README.md) and [Cursor Cloud Agents](.cu
 
 ## Authentication and transactional email
 
-AstralBeam uses Better Auth for email/password, Google, and GitHub authentication. Every signup requires legal acceptance; email/password signup also requires email verification, and OAuth providers must return a verified email. New OAuth identities must start from signup rather than being created implicitly from sign-in.
+AstralBeam uses Better Auth for email/password, Google, and GitHub authentication. Signup requires legal acceptance when a privacy policy or terms URL is configured; email/password signup also requires email verification, and OAuth providers must return a verified email. New OAuth identities must start from signup rather than being created implicitly from sign-in.
 
 Passwords are 12–128 characters and are screened for known compromise outside tests. Verification and reset links expire after one hour, verification signs the user in, password reset revokes other sessions, password changes send a notification, and organization invitations expire after 48 hours. Username, passwordless, OTP, magic-link, change-email, and account-deletion flows are disabled. See Better Auth's [email/password](https://better-auth.com/docs/authentication/email-password), [email](https://better-auth.com/docs/concepts/email), and [organization invitation](https://better-auth.com/docs/plugins/organization#invitations) documentation.
 
 ### Configure the environment
 
-`DATABASE_URL` is the only environment variable the webapp reads. `webapp/.env.development` supplies the local default and is loaded automatically; an existing shell, CI, or deployment value always wins, and `webapp/.env.development.local` holds ignored local overrides. See the [Vite](https://vite.dev/guide/env-and-mode) environment guide.
+`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are the required bootstrap variables. `webapp/.env.development` supplies local defaults and is loaded automatically; an existing shell, CI, or deployment value always wins, and `webapp/.env.development.local` holds ignored local overrides. See the [Vite](https://vite.dev/guide/env-and-mode) environment guide.
 
-Every other runtime setting — application base URL, Better Auth secret, Google and GitHub OAuth credentials, email provider and sender, provider API keys, and legal links — is stored in the database `config` table and managed in the browser at `/configure`. Sign in there with the username and password from the deployment's `DATABASE_URL`, approve the pending migrations, then fill in the values. The application gates itself until setup is completed.
-
-The base URL must be a pathless HTTP(S) origin, and production must use HTTPS. Generate a unique Better Auth secret per environment as described in the [installation guide](https://better-auth.com/docs/installation):
+Set `DATABASE_ENCRYPTION_KEY` to one or more comma-separated raw secrets, with the active encryption secret first and older decryption-only secrets after it. Every trimmed entry must be unique and contain at least 32 characters, and a secret cannot contain a comma. Each entry is hashed with SHA-256 into 32-byte root material; hashing and a length check do not strengthen a weak passphrase, so generate high-entropy values with OpenSSL and keep them in the deployment's secret manager:
 
 ```sh
 openssl rand -base64 32
 ```
 
+To rotate an encryption secret, restart with `DATABASE_ENCRYPTION_KEY=new,old`, normally save each value that should move to `new`, then remove `old` only after every dependent value has been saved again. Every write uses the active key. An unknown key ID, malformed JWE, or invalid payload makes that value unreadable; `/configure` permits blind replacement without revealing stored data. Environment changes require a restart, and changing the active key invalidates existing operator sessions.
+
+Sign in to `/configure` with the first active value in `DATABASE_ENCRYPTION_KEY`. Database credentials are never used for configuration access. Sessions expire after 15 minutes and are signed with a key derived from the active encryption key.
+
+The encryption key grants access to every encrypted database value, so require HTTPS and restrict `/configure` with an ingress allowlist, VPN, or identity-aware proxy. Because `/configure` trusts `X-Forwarded-Host` and `X-Forwarded-Proto`, the ingress must overwrite both and prevent direct origin access. Its login limit is shared across callers, so also rate-limit at the ingress.
+
+Other runtime settings live in the database `config` table and are managed at `/configure`. Every stored value uses authenticated encryption, while an uppercase environment variable for any registry key takes precedence and makes that field read-only. Sign in to view or edit values; the editor masks them until explicitly revealed. The base URL must be a pathless HTTP(S) origin, production must use HTTPS, and `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings.
+
 For SES, select the `ses` email provider with a verified sender address and a region; leave the access-key fields empty to use the deployment's AWS credential chain (role, SSO, or profile). Never reuse local Better Auth secrets, OAuth clients, or email credentials in production.
 
-OAuth callbacks are always derived from the environment origin:
+OAuth callbacks are always derived from the configured application base URL:
 
 ```text
 <app-base-url>/api/auth/callback/google
@@ -114,7 +120,7 @@ Follow Google's current [client](https://support.google.com/cloud/answer/1554925
 3. For local use, select an External/Testing audience unless access is intentionally organization-restricted, add test users when Google or Workspace policy requires them, add `http://localhost:3000` as the exact JavaScript origin, and add `http://localhost:3000/api/auth/callback/google` as the exact redirect URI.
 4. For production, [verify the production domain](https://support.google.com/webmasters/answer/9008080), keep the homepage and legal links public and consistent, select the intended audience and publishing status, add the exact HTTPS application origin, and add `<production-app-origin>/api/auth/callback/google` as the exact redirect URI.
 5. Store each environment's client credentials at that deployment's `/configure` page; confirm the production project has no localhost origin, callback, or development credential.
-6. Smoke-test signup with legal acceptance, existing-account sign-in, account linking, and logout in both environments; confirm Google returns a verified email and requests no scope beyond OpenID/profile/email.
+6. Smoke-test signup, configured legal acceptance, existing-account sign-in, account linking, and logout in both environments; confirm Google returns a verified email and requests no scope beyond OpenID/profile/email.
 
 ### Configure GitHub OAuth
 
@@ -160,7 +166,7 @@ deno task db migrate
 deno task dev
 ```
 
-Open `http://localhost:3000/auth/sign-up`. Confirm signup controls remain disabled until legal acceptance, email/password signup requires verification, new social identities cannot be created from sign-in, and invitation acceptance requires the matching verified email.
+Open `http://localhost:3000/auth/sign-up`. When legal URLs are configured, confirm signup controls remain disabled until acceptance. Confirm email/password signup requires verification, new social identities cannot be created from sign-in, and invitation acceptance requires the matching verified email.
 
 ### Test email safety
 
@@ -170,7 +176,10 @@ Provider-console smoke tests are manual and use controlled accounts. Resend's [t
 
 ### Troubleshooting
 
-- **Missing configuration:** confirm `DATABASE_URL` resolves, then check `/configure` for unset or invalid registry values; the app returns a setup gate until `setup_completed` is stored.
+- **Configuration cannot be loaded:** confirm `DATABASE_URL` resolves and every unique `DATABASE_ENCRYPTION_KEY` entry contains at least 32 characters.
+- **Cannot sign in to `/configure`:** enter the first active value from `DATABASE_ENCRYPTION_KEY`; database credentials and fallback keys are not accepted.
+- **Stored value is unreadable:** restore the key that encrypted it or enter a replacement at `/configure`; malformed JWE and unknown key IDs never fall back to unverified data.
+- **Missing configuration:** check `/configure` for unset or invalid required values; each server process gates the app using its cached configuration snapshot.
 - **Origins do not match:** set the application base URL at `/configure` to the exact origin with no path, query, or fragment.
 - **Google redirect, audience, or branding error:** compare the exact origin and callback against the correct Web client, check test-user/audience state, verify the production domain, and keep scopes to `openid`, `email`, and `profile`; see Better Auth's [Google guide](https://better-auth.com/docs/authentication/google).
 - **GitHub callback or email error:** use the exact callback in the correct environment's OAuth App, keep wildcard matching off, and reauthorize a verified address with `user:email`; see Better Auth's [GitHub guide](https://better-auth.com/docs/authentication/github).

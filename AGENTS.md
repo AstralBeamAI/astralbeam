@@ -4,7 +4,7 @@
 
 - Use Deno from the affected project directory (`webapp`, `www`, `sdk`, or `examples/todos`) with `deno task <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
 - Before running `deno task knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete project diff before running `deno task check:fix`.
-- Protect intentionally reusable, unreferenced modules with explicit Knip entries rather than broad directory exclusions; verify `knip:fix` preserves them.
+- Reserve Knip entries for actual execution or externally discovered roots, keep `includeEntryExports` enabled, and add reusable modules only when code uses them; do not hide speculative modules or accidental exports with entries.
 - Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
 - Always write and run JavaScript and TypeScript tests with Vitest through the project's Deno task; never use `Deno.test` or `deno test`.
@@ -21,8 +21,8 @@
 
 ## Environment
 
-- Keep Webapp environment files under `webapp`. `.env.development` is the single committed env file and holds only the local `DATABASE_URL` default; TanStack Start loads it without overriding an existing shell, CI, or deployment value. Ignore `*.local` files and never commit credentials or deployment-specific values.
-- The webapp reads only `DATABASE_URL` from the environment; every other runtime setting lives in its database `config` table and is managed at `/configure` (see `webapp/AGENTS.md`). Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
+- Keep Webapp environment files under `webapp`. Commit reviewed non-secret environment files such as `.env`, `.env.development`, `.env.test`, and `.env.example`; ignore `*.local` files and never commit credentials or deployment-specific values.
+- Keep the webapp's bootstrap environment variables and optional deployment overrides documented in `webapp/AGENTS.md`; other runtime settings live in its database `config` table and are managed at `/configure`. Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
 - Never install PostgreSQL or Valkey from `scripts/setup.sh` on macOS; start its Podman services through the Docker-compatible `docker compose` command when available unless `SKIP_DOCKER_COMPOSE=true` is set. Invoke `scripts/codex-db.sh` only through `INSTALL_EXTRA=codex-db` in Codex Cloud's Ubuntu environment, paired with `SKIP_DOCKER_COMPOSE=true` to prevent a Compose start.
 
 ## Webapp and SDK UI

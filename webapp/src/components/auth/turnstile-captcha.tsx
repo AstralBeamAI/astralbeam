@@ -19,15 +19,6 @@ export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRend
     return () => setReset(null)
   }, [setReset])
 
-  if (!turnstileSiteKey) {
-    return (
-      <Field data-invalid>
-        <FieldLabel>Human verification</FieldLabel>
-        <FieldError>Cloudflare Turnstile is not configured.</FieldError>
-      </Field>
-    )
-  }
-
   const clearTurnstile = (message: string) => {
     clearToken()
     setError(message)

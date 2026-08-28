@@ -52,8 +52,7 @@ export type AppSidebarProps =
     "children"
   >
   & {
-    /** Runs after Better Auth successfully changes the active organization. */
-    onOrganizationChange?: () => unknown | Promise<unknown>
+    onOrganizationChange?: (phase: "error" | "start" | "success") => unknown | Promise<unknown>
   }
 
 export function AppSidebar({
@@ -75,12 +74,14 @@ export function AppSidebar({
     {
       onSuccess: () => {
         setOpenMobile(false)
-        return onOrganizationChange?.()
+        return onOrganizationChange?.("success")
       },
+      onError: () => onOrganizationChange?.("error"),
     },
   )
 
   const handleOrganizationChange = (organization: Organization | null) => {
+    onOrganizationChange?.("start")
     setActiveOrganization({ organizationId: organization?.id ?? null })
   }
 
@@ -93,6 +94,10 @@ export function AppSidebar({
           hidePersonal
           hideSettings
           setActive={handleOrganizationChange}
+          onOrganizationCreated={() => {
+            onOrganizationChange?.("start")
+            return onOrganizationChange?.("success")
+          }}
           className="w-full justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
         />
       </SidebarHeader>

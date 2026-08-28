@@ -5,6 +5,9 @@ The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated
 ## Structure
 
 - `index.server.ts` creates and exports the Drizzle client.
+- `config.server.ts` validates decrypted values from the global `config` table and recovers unreadable rows for `/configure`; the Drizzle column codec owns encryption, while `src/lib/config` adds environment precedence and process-local caching through `getGlobalConfig`.
+- `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`.
+- `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
 - `schema/` contains responsibility-named domain table and relation modules.
 - `migrations/` contains generated migration SQL and Drizzle snapshots.
@@ -22,7 +25,7 @@ import { projects } from "@/db/schema.server"
 export const listProjects = () => db.select().from(projects)
 ```
 
-Both imports belong in server-only code and require `DATABASE_URL`.
+Both imports belong in server-only code and require `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration use the cached, environment-aware `getGlobalConfig` entry point. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
 
 ## Local services
 

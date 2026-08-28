@@ -4,11 +4,13 @@ import { sql } from "drizzle-orm"
 import postgres from "postgres"
 
 import { db } from "@/db/index.server"
-import { DATABASE_URL, hasPostgresErrorCode, invalidateConfigCache } from "@/lib/config.server"
-import { CONFIG_MIGRATION_LOCK_KEY } from "./constants.server"
-import { promoteMemorySessions } from "./operator-session.server"
+import { getDatabaseUrl } from "@/db/lib/database-credentials.server"
+import { hasPostgresErrorCode } from "@/db/lib/postgres-errors.server"
+import { approvedMigrationsMatch } from "@/db/migration-approval.server"
 
-export interface BundledMigration {
+const CONFIG_MIGRATION_LOCK_KEY = "config_migrations"
+
+interface BundledMigration {
   name: string
   sql: string
   hash: string
@@ -53,17 +55,12 @@ function bundledMigrations(): BundledMigration[] {
 
 // `appliedNames === null` means the bookkeeping table (or its schema) does not exist yet, so every
 // bundled migration is pending; drizzle-orm matches applied migrations by name.
-export function pendingMigrations(
+function pendingMigrations(
   bundled: BundledMigration[],
   appliedNames: Set<string> | null,
 ): BundledMigration[] {
   if (appliedNames === null) return bundled
   return bundled.filter((migration) => !appliedNames.has(migration.name))
-}
-
-export function approvedNamesMatch(pendingNames: string[], approvedNames: string[]): boolean {
-  return pendingNames.length === approvedNames.length &&
-    pendingNames.every((name, index) => name === approvedNames[index])
 }
 
 function isMissingBookkeepingError(error: unknown): boolean {
@@ -95,12 +92,21 @@ interface MigrationState {
   appliedCount: number
 }
 
-export async function getMigrationState(): Promise<MigrationState> {
+let cachedMigrationState: Promise<MigrationState> | undefined
+
+async function loadMigrationState(): Promise<MigrationState> {
   const appliedNames = await listAppliedMigrationNames()
   return {
     pending: pendingMigrations(bundledMigrations(), appliedNames),
     appliedCount: appliedNames?.size ?? 0,
   }
+}
+
+export function getDatabaseMigrationState(): Promise<MigrationState> {
+  return cachedMigrationState ??= loadMigrationState().catch((error) => {
+    cachedMigrationState = undefined
+    throw error
+  })
 }
 
 type ApplyMigrationsResult =
@@ -116,12 +122,12 @@ function migrationErrorDetail(error: unknown): string {
   return "unexpected error"
 }
 
-export async function applyPendingMigrations(
-  approvedNames: string[],
+export async function applyApprovedMigrations(
+  approvedMigrations: { name: string; hash: string }[],
 ): Promise<ApplyMigrationsResult> {
   // Advisory locks are session-scoped, so the runner needs its own single connection instead of
   // the shared pool.
-  const client = postgres(DATABASE_URL, { max: 1 })
+  const client = postgres(getDatabaseUrl(), { max: 1 })
   try {
     const [lock] = await client`
       select pg_try_advisory_lock(hashtext(${CONFIG_MIGRATION_LOCK_KEY})) as locked
@@ -138,8 +144,8 @@ export async function applyPendingMigrations(
         appliedNames = null
       }
       const pending = pendingMigrations(bundledMigrations(), appliedNames)
-      // The operator approves exactly the list they reviewed; abort if it changed meanwhile.
-      if (!approvedNamesMatch(pending.map((migration) => migration.name), approvedNames)) {
+      // The operator approves exactly the SQL digests they reviewed; abort if anything changed.
+      if (!approvedMigrationsMatch(pending, approvedMigrations)) {
         return { ok: false, error: "The pending migrations changed; review them again" }
       }
       if (appliedNames === null) {
@@ -182,7 +188,6 @@ export async function applyPendingMigrations(
     }
   } finally {
     await client.end()
-    invalidateConfigCache()
-    await promoteMemorySessions()
+    cachedMigrationState = undefined
   }
 }

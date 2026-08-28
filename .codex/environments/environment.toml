@@ -4,7 +4,7 @@ version = 1
 name = "AstralBeam"
 
 [setup]
-script = "bash scripts/setup.sh"
+script = "bash scripts/copy-worktree-env.sh && bash scripts/setup.sh"
 
 [[actions]]
 name = "Product application"

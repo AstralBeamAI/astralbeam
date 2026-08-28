@@ -45,12 +45,12 @@ const resetPasswordEmailLocalization = {
  *
  * Contains all text content used in the password reset email template.
  */
-export type ResetPasswordEmailLocalization = typeof resetPasswordEmailLocalization
+type ResetPasswordEmailLocalization = typeof resetPasswordEmailLocalization
 
 /**
  * Props for the ResetPasswordEmail component.
  */
-export interface ResetPasswordEmailProps {
+interface ResetPasswordEmailProps {
   /** Password reset URL that users must click to reset their password */
   url: string
   /** Email address of the user requesting password reset */

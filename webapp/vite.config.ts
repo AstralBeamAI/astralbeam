@@ -31,6 +31,7 @@ const viteConfig = defineConfig(({ mode }) => {
   return {
     resolve: { tsconfigPaths: true },
     build: {
+      target: "es2025",
       // Generate exact client and server dependency license reports from each bundle graph.
       // https://vite.dev/config/build-options.html#build-license
       license: { fileName: "THIRD_PARTY_LICENSES.md" },

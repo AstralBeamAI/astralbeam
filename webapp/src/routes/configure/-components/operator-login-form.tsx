@@ -1,6 +1,6 @@
 "use client"
 
-import { DatabaseIcon } from "@phosphor-icons/react"
+import { ShieldCheckIcon } from "@phosphor-icons/react"
 import { type FormEvent, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -12,8 +12,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { loginOperator } from "../-functions/login-operator"
 
 export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
+  const [key, setKey] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -22,7 +21,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
     setPending(true)
     setError(null)
     try {
-      const result = await loginOperator({ data: { username, password } })
+      const result = await loginOperator({ data: { key } })
       if (result.ok) {
         onLoggedIn()
         return
@@ -31,6 +30,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
     } catch {
       setError("Login failed")
     } finally {
+      setKey("")
       setPending(false)
     }
   }
@@ -39,14 +39,14 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <DatabaseIcon aria-hidden="true" />
+          <ShieldCheckIcon aria-hidden="true" />
           Operator Sign-In
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={submitOperatorLogin} className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            Enter your database credentials for this deployment to manage the configuration.
+            Enter the first active value from <code>DATABASE_ENCRYPTION_KEY</code>.
           </p>
           {error && (
             <Alert variant="destructive">
@@ -55,31 +55,20 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
             </Alert>
           )}
           <Field>
-            <FieldLabel htmlFor="operator-username">Database Username</FieldLabel>
+            <FieldLabel htmlFor="database-encryption-key">Encryption key</FieldLabel>
             <Input
-              id="operator-username"
-              name="username"
-              autoComplete="username"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              required
-              disabled={pending}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="operator-password">Database Password</FieldLabel>
-            <Input
-              id="operator-password"
-              name="password"
+              id="database-encryption-key"
+              name="key"
               type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="off"
+              maxLength={1024}
+              value={key}
+              onChange={(event) => setKey(event.target.value)}
               required
               disabled={pending}
             />
             <FieldDescription>
-              Credentials are transmitted securely for verification and never stored.
+              The key is verified against the environment and is never stored in the database.
             </FieldDescription>
           </Field>
           <Button type="submit" disabled={pending}>

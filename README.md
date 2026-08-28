@@ -49,7 +49,7 @@ deno install
 deno task dev
 ```
 
-`DATABASE_URL` is the only environment variable; `webapp/.env.development` supplies the local default and any shell value overrides it. Every other setting (base URL, auth secret, OAuth credentials, email delivery, API keys, legal links) is stored in the database and managed at http://localhost:3000/configure .
+`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are required. Use the first encryption key to sign in at http://localhost:3000/configure and manage other runtime settings; deployment guidance is in [Setup](SETUP.md#configure-the-environment).
 
 ### 3. Build the SDK
 

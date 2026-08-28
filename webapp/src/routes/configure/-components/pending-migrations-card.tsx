@@ -21,14 +21,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 import { applyMigrations } from "../-functions/apply-migrations"
-import type { PendingMigrationInfo } from "../-lib/types"
+import type { PendingMigration } from "../-lib/types"
 
 export function PendingMigrationsCard({
   pending,
   appliedCount,
   onApplied,
 }: {
-  pending: PendingMigrationInfo[]
+  pending: PendingMigration[]
   appliedCount: number
   onApplied: () => void
 }) {
@@ -41,7 +41,9 @@ export function PendingMigrationsCard({
     setError(null)
     try {
       const result = await applyMigrations({
-        data: { approvedNames: pending.map((migration) => migration.name) },
+        data: {
+          approvedMigrations: pending.map(({ name, hash }) => ({ name, hash })),
+        },
       })
       if (result.ok) {
         onApplied()

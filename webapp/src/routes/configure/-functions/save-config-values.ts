@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Schema } from "effect"
 
-import type { ConfigureIssue } from "../-lib/types"
+import type { ConfigureFieldError } from "../-lib/types"
 
 const SaveConfigValuesInput = Schema.Struct({
   updates: Schema.Array(Schema.Struct({
@@ -11,63 +11,29 @@ const SaveConfigValuesInput = Schema.Struct({
   })),
 })
 
-export interface SaveConfigValuesResult {
-  ok: boolean
-  fieldErrors: ConfigureIssue[]
-  warnings: ConfigureIssue[]
-}
+type SaveConfigValuesResult =
+  | { ok: true }
+  | { ok: false; error?: string; fieldErrors: ConfigureFieldError[] }
 
 export const saveConfigValues = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(SaveConfigValuesInput))
   .handler(async ({ data }): Promise<SaveConfigValuesResult> => {
+    const { requireConfigureRequest } = await import("../-lib/configure-request.server")
     const { getOperatorSession } = await import("../-lib/operator-session.server")
-    const {
-      configDefinition,
-      decodeStoredConfigValues,
-      invalidateConfigCache,
-      validateConfigCompleteness,
-    } = await import("@/lib/config.server")
-    const { deleteConfigValue, listConfigRows, upsertConfigValue } = await import(
-      "../-lib/db.server"
-    )
-    const session = await getOperatorSession()
-    if (!session) {
+    const { updateGlobalConfig } = await import("@/lib/config/update.server")
+    const { withConfigureError } = await import("../-lib/configure-error.server")
+    requireConfigureRequest()
+    if (!await getOperatorSession()) {
       return {
         ok: false,
-        fieldErrors: [{ key: "", message: "Operator authentication required" }],
-        warnings: [],
+        error: "Operator authentication required",
+        fieldErrors: [],
       }
     }
 
-    const fieldErrors: ConfigureIssue[] = []
-    for (const update of data.updates) {
-      const definition = configDefinition(update.key)
-      if (!definition) {
-        fieldErrors.push({ key: update.key, message: "Unknown configuration key" })
-        continue
-      }
-      if (update.value === null) {
-        await deleteConfigValue(definition.key)
-        continue
-      }
-      let decoded: string
-      try {
-        decoded = definition.decode(update.value)
-      } catch (error) {
-        fieldErrors.push({
-          key: definition.key,
-          message: error instanceof Error ? error.message : "Invalid value",
-        })
-        continue
-      }
-      await upsertConfigValue({
-        key: definition.key,
-        value: decoded,
-        updatedBy: session.dbUsername,
-      })
-    }
-    invalidateConfigCache()
-    const rows = await listConfigRows()
-    const warnings = validateConfigCompleteness(decodeStoredConfigValues(rows ?? []))
-    return { ok: fieldErrors.length === 0, fieldErrors, warnings }
+    const result = await withConfigureError(
+      "Configuration could not be saved",
+      () => updateGlobalConfig(data.updates),
+    )
+    return result
   })

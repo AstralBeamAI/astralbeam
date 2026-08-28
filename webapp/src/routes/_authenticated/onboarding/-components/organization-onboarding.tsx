@@ -22,11 +22,6 @@ export function OrganizationOnboarding({
   const [createOpen, setCreateOpen] = useState(false)
   const suggestedName = suggestOrganizationNameFromEmail(email)
 
-  const handleOpenChange = (open: boolean) => {
-    setCreateOpen(open)
-    if (!open) void onOrganizationAccessChange?.()
-  }
-
   return (
     <section
       aria-labelledby="organization-onboarding-title"
@@ -69,7 +64,8 @@ export function OrganizationOnboarding({
 
       <CreateOrganizationDialog
         open={createOpen}
-        onOpenChange={handleOpenChange}
+        onOpenChange={setCreateOpen}
+        {...onOrganizationAccessChange ? { onOrganizationCreated: onOrganizationAccessChange } : {}}
         {...(suggestedName ? { initialName: suggestedName } : {})}
       />
     </section>
