@@ -162,7 +162,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description:
       "Public Cloudflare Turnstile site key used to protect sign-in, sign-up, and password-reset requests.",
     kind: "text",
-    required: false,
+    required: true,
     secret: false,
     isPublic: true,
     decode: nonEmptyDecoder("Turnstile site key"),
@@ -172,7 +172,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     label: "Turnstile Secret Key",
     description: "Server-only Cloudflare Turnstile secret paired with the site key.",
     kind: "secret",
-    required: false,
+    required: true,
     secret: true,
     decode: nonEmptyDecoder("Turnstile secret key"),
   },
@@ -316,13 +316,6 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
         message: `${configDefinition(missing)?.label} is required to enable this sign-in provider`,
       })
     }
-  }
-  if (Boolean(values.turnstile_site_key) !== Boolean(values.turnstile_secret_key)) {
-    const missing = values.turnstile_site_key ? "turnstile_secret_key" : "turnstile_site_key"
-    issues.push({
-      key: missing,
-      message: `${configDefinition(missing)?.label} is required to enable Cloudflare Turnstile`,
-    })
   }
   if (values.email_provider === "resend" && !values.resend_api_key) {
     issues.push({
