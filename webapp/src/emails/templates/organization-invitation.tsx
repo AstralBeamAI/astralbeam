@@ -1,462 +1,77 @@
-// Added with: deno task ui add @better-auth-ui/organization-invitation-email
-// Local changes: Move into the email delivery domain, rewire imports, apply the shared semantic shadcn email theme, omit an unused optional prop binding, and keep one default component export for directory-driven previews.
+// Previously added with: deno task ui add @better-auth-ui/organization-invitation-email
+// Adapted with: deno task ui add @emailcn/react-email/block-invite-default
+// Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/invite-default.tsx
+// Local changes: Map the team invite to Better Auth organization, role, and inviter details; retain required production props; use the shared shell and fallback URL; and co-locate typed preview props.
 
-import type { ReactNode } from "react"
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Section,
-  Tailwind,
-  Text,
-} from "react-email"
+import { Heading, Text } from "react-email"
 
-import { cn } from "../../lib/utils"
-import {
-  type EmailClassNames,
-  type EmailColors,
-  EmailStyles,
-  emailTailwindConfig,
-} from "../email-styles"
+import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
+import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
-const organizationInvitationEmailLocalization = {
-  YOU_RE_INVITED_TO_ORGANIZATION: "You're invited to {organizationName}",
-  YOU_RE_INVITED: "You're invited",
-  LOGO: "Logo",
-  ORGANIZATION_LOGO: "Organization logo",
-  INVITED_TO_JOIN_ORGANIZATION:
-    "{inviterName} ({inviterEmail}) has invited you to join {organizationName} on {appName} as a {role}.",
-  ACCEPT_INVITATION: "Accept invitation",
-  VIEW_INVITATION: "View invitation",
-  OR_COPY_AND_PASTE_URL: "Or copy and paste this URL into your browser:",
-  THIS_INVITATION_EXPIRES_IN_HOURS: "This invitation expires in {expirationHours} hours.",
-  EMAIL_SENT_BY: "Email sent by {appName}.",
-  IF_YOU_DIDNT_EXPECT_THIS_INVITATION:
-    "If you didn't expect this invitation, you can safely ignore this email.",
-  POWERED_BY_BETTER_AUTH: "Powered by {betterAuth}",
-}
-
-/**
- * Localization strings for the OrganizationInvitationEmail component.
- *
- * Contains all text content used in the organization invitation email template.
- */
-type OrganizationInvitationEmailLocalization = typeof organizationInvitationEmailLocalization
-
-/**
- * Props for the OrganizationInvitationEmail component.
- */
 interface OrganizationInvitationEmailProps {
-  /**
-   * URL where the invitee can review and accept the invitation.
-   *
-   * @remarks Pass `{baseUrl}/settings/organizations` — this is where pending
-   * organization invitations are listed in the settings UI.
-   */
+  appName: string
+  expirationHours: number
+  inviterEmail: string
+  inviterName: string
+  logoURL: string
+  organizationName: string
+  role: string
   url: string
-  /** Email address of the user being invited */
-  email?: string
-  /** Name of the person who sent the invitation */
-  inviterName?: string
-  /** Email address of the person who sent the invitation */
-  inviterEmail?: string
-  /** Name of the organization the user is being invited to */
-  organizationName?: string
-  /** Organization logo URL(s) - a single string or light/dark variants. */
-  organizationLogoURL?: string | { light: string; dark: string }
-  /** Comma-joined configured roles offered to the invitee. */
-  role?: string
-  /** Name of the application sending the email */
-  appName?: string
-  /** Number of hours until the invitation expires */
-  expirationHours?: number
-  /** Logo URL(s) - a single string or light/dark variants. If omitted, no logo is shown. */
-  logoURL?: string | { light: string; dark: string }
-  /** Custom CSS class names for styling specific parts of the email */
-  classNames?: EmailClassNames
-  /** Custom color scheme for light and dark modes */
-  colors?: EmailColors
-  /** Whether to show the "Powered by better-auth" footer */
-  poweredBy?: boolean
-  /** Whether to enable dark mode support */
-  darkMode?: boolean
-  /** Additional React nodes to inject into the email head */
-  head?: ReactNode
-  /**
-   * Localization overrides for customizing email text
-   * @remarks `OrganizationInvitationEmailLocalization`
-   */
-  localization?: Partial<OrganizationInvitationEmailLocalization>
 }
 
-/**
- * Email template component that invites a user to join an organization.
- *
- * This email includes:
- * - Inviter and organization details
- * - Role being offered
- * - Accept invitation button linking to `{baseUrl}/settings/organizations`
- * - Fallback URL for manual copy/paste
- * - Optional expiration time information
- * - Security notice for unexpected invitations
- * - Customizable branding and styling
- * - Support for light/dark mode themes
- *
- * @example
- * ```tsx
- * <OrganizationInvitationEmail
- *   url="https://example.com/settings/organizations"
- *   email="invitee@example.com"
- *   inviterName="Jane Doe"
- *   inviterEmail="jane@example.com"
- *   organizationName="Acme Inc."
- *   organizationLogoURL="https://example.com/acme-logo.png"
- *   role="viewer"
- *   appName="My App"
- *   expirationHours={48}
- *   darkMode={true}
- * />
- * ```
- */
-const OrganizationInvitationEmail = ({
-  url,
-  inviterName,
-  inviterEmail,
-  organizationName,
-  organizationLogoURL,
-  role,
+export default function OrganizationInvitationEmail({
   appName,
-  expirationHours = 48,
+  expirationHours,
+  inviterEmail,
+  inviterName,
   logoURL,
-  colors,
-  classNames,
-  darkMode = true,
-  poweredBy,
-  head,
-  ...props
-}: OrganizationInvitationEmailProps) => {
-  const localization = {
-    ...OrganizationInvitationEmail.localization,
-    ...props.localization,
-  }
-
-  const previewText = organizationName
-    ? localization.YOU_RE_INVITED_TO_ORGANIZATION.replace(
-      "{organizationName}",
-      organizationName,
-    )
-    : localization.YOU_RE_INVITED
-
+  organizationName,
+  role,
+  url,
+}: OrganizationInvitationEmailProps) {
   return (
-    <Html>
-      <Head>
-        <meta content="light dark" name="color-scheme" />
-        <meta content="light dark" name="supported-color-schemes" />
+    <EmailShell
+      appName={appName}
+      logoURL={logoURL}
+      preview={`You're invited to ${organizationName}`}
+    >
+      <Heading className="m-0 mb-6 break-words text-xl font-medium leading-6 text-foreground">
+        You&apos;re invited to {organizationName}
+      </Heading>
+      <Text className="m-0 break-words text-base leading-6 text-foreground">
+        <strong>{inviterName}</strong>{" "}
+        (<EmailAddressLink email={inviterEmail} />) has invited you to join {organizationName} on
+        {" "}
+        {appName} with {role} access.
+      </Text>
 
-        <EmailStyles colors={colors} darkMode={darkMode} />
+      <EmailAction href={url} label="Accept invitation" />
 
-        {head}
-      </Head>
-
-      <Preview>{previewText}</Preview>
-
-      <Tailwind config={emailTailwindConfig}>
-        <Body
-          className={cn(
-            "email-bg-background email-text-foreground bg-background font-sans text-foreground",
-            classNames?.body,
-          )}
-        >
-          <Container
-            className={cn(
-              "mx-auto my-auto max-w-xl px-2 py-10",
-              classNames?.container,
-            )}
-          >
-            <Section
-              className={cn(
-                "email-bg-card email-border-border email-text-card-foreground bg-card text-card-foreground rounded-none border border-border p-8",
-                classNames?.card,
-              )}
-            >
-              {logoURL &&
-                (typeof logoURL === "string"
-                  ? (
-                    <Img
-                      src={logoURL}
-                      width={48}
-                      height={48}
-                      alt={appName || localization.LOGO}
-                      className={cn("mx-auto mb-8", classNames?.logo)}
-                    />
-                  )
-                  : (
-                    <>
-                      <Img
-                        src={logoURL.light}
-                        width={48}
-                        height={48}
-                        alt={appName || localization.LOGO}
-                        className={cn(
-                          "mx-auto mb-8 logo-light",
-                          classNames?.logo,
-                        )}
-                      />
-                      <Img
-                        src={logoURL.dark}
-                        width={48}
-                        height={48}
-                        alt={appName || localization.LOGO}
-                        className={cn(
-                          "hidden mx-auto mb-8 logo-dark",
-                          classNames?.logo,
-                        )}
-                      />
-                    </>
-                  ))}
-
-              <Heading
-                className={cn(
-                  "m-0 mb-5 font-heading text-2xl font-semibold",
-                  classNames?.title,
-                )}
-              >
-                {organizationName
-                  ? localization.YOU_RE_INVITED_TO_ORGANIZATION.replace(
-                    "{organizationName}",
-                    organizationName,
-                  )
-                  : localization.YOU_RE_INVITED}
-              </Heading>
-
-              {organizationLogoURL &&
-                (typeof organizationLogoURL === "string"
-                  ? (
-                    <Img
-                      src={organizationLogoURL}
-                      width={56}
-                      height={56}
-                      alt={organizationName || localization.ORGANIZATION_LOGO}
-                      className={cn("mb-5 rounded-md", classNames?.logo)}
-                    />
-                  )
-                  : (
-                    <>
-                      <Img
-                        src={organizationLogoURL.light}
-                        width={56}
-                        height={56}
-                        alt={organizationName || localization.ORGANIZATION_LOGO}
-                        className={cn(
-                          "mb-5 rounded-md logo-light",
-                          classNames?.logo,
-                        )}
-                      />
-                      <Img
-                        src={organizationLogoURL.dark}
-                        width={56}
-                        height={56}
-                        alt={organizationName || localization.ORGANIZATION_LOGO}
-                        className={cn(
-                          "hidden mb-5 rounded-md logo-dark",
-                          classNames?.logo,
-                        )}
-                      />
-                    </>
-                  ))}
-
-              <Text
-                className={cn("m-0 text-sm font-normal", classNames?.content)}
-              >
-                {(() => {
-                  let text = localization.INVITED_TO_JOIN_ORGANIZATION.replace(
-                    "{appName}",
-                    appName || "",
-                  )
-                    .replace("{organizationName}", organizationName || "")
-                    .replace("{role}", role || "")
-
-                  // If we have no inviter info, drop the parenthetical and name placeholders cleanly.
-                  if (!inviterName && !inviterEmail) {
-                    text = text
-                      .replace("{inviterName} ({inviterEmail})", "Someone")
-                      .replace("{inviterName}", "Someone")
-                      .replace("({inviterEmail})", "")
-                  }
-
-                  const [beforeInviterName, afterInviterName] = text.split("{inviterName}")
-
-                  const renderInviterEmail = (segment: string) => {
-                    const [beforeInviterEmail, afterInviterEmail] = segment.split("{inviterEmail}")
-
-                    if (!inviterEmail) {
-                      return segment
-                        .replace("({inviterEmail})", "")
-                        .replace("{inviterEmail}", "")
-                        .replace(/\s{2,}/g, " ")
-                        .replace(" .", ".")
-                    }
-
-                    return (
-                      <>
-                        {beforeInviterEmail}
-                        <Link
-                          href={`mailto:${inviterEmail}`}
-                          className="email-text-primary text-primary font-medium"
-                        >
-                          {inviterEmail}
-                        </Link>
-                        {afterInviterEmail}
-                      </>
-                    )
-                  }
-
-                  if (!inviterName) {
-                    return renderInviterEmail(
-                      text
-                        .replace("{inviterName}", "")
-                        .replace(/\s{2,}/g, " ")
-                        .replace(" .", "."),
-                    )
-                  }
-
-                  return (
-                    <>
-                      {beforeInviterName}
-                      <span className="font-medium">{inviterName}</span>
-                      {renderInviterEmail(afterInviterName ?? "")}
-                    </>
-                  )
-                })()}
-              </Text>
-
-              <Section className="my-6">
-                <Button
-                  href={url}
-                  className={cn(
-                    "email-bg-primary email-text-primary-foreground inline-block whitespace-nowrap rounded-none text-sm font-medium py-2.5 px-6 bg-primary text-primary-foreground no-underline",
-                    classNames?.button,
-                  )}
-                >
-                  {localization.ACCEPT_INVITATION}
-                </Button>
-              </Section>
-
-              <Text
-                className={cn(
-                  "email-text-muted-foreground m-0 mb-3 text-xs text-muted-foreground",
-                  classNames?.description,
-                )}
-              >
-                {localization.OR_COPY_AND_PASTE_URL}
-              </Text>
-
-              <Link
-                className={cn(
-                  "email-text-primary break-all text-xs text-primary",
-                  classNames?.link,
-                )}
-                href={url}
-              >
-                {url}
-              </Link>
-
-              <Hr
-                className={cn(
-                  "email-border-border my-6 w-full border border-solid border-border",
-                  classNames?.separator,
-                )}
-              />
-
-              {expirationHours || appName
-                ? (
-                  <Text
-                    className={cn(
-                      "email-text-muted-foreground m-0 mb-3 text-xs text-muted-foreground",
-                      classNames?.description,
-                    )}
-                  >
-                    {expirationHours
-                      ? localization.THIS_INVITATION_EXPIRES_IN_HOURS.replace(
-                        "{expirationHours}",
-                        expirationHours.toString(),
-                      )
-                      : null}
-                    {appName && (
-                      <>
-                        {expirationHours ? " " : ""}
-                        {localization.EMAIL_SENT_BY.replace("{appName}", appName)}
-                      </>
-                    )}
-                  </Text>
-                )
-                : null}
-
-              <Text
-                className={cn(
-                  "email-text-muted-foreground m-0 text-xs text-muted-foreground",
-                  classNames?.description,
-                )}
-              >
-                {localization.IF_YOU_DIDNT_EXPECT_THIS_INVITATION}
-              </Text>
-
-              {poweredBy && (
-                <Text
-                  className={cn(
-                    "email-text-muted-foreground m-0 mt-4 text-center text-[11px] text-muted-foreground",
-                    classNames?.poweredBy,
-                  )}
-                >
-                  {(() => {
-                    const [beforeBetterAuth, afterBetterAuth] = localization.POWERED_BY_BETTER_AUTH
-                      .split("{betterAuth}")
-
-                    return (
-                      <>
-                        {beforeBetterAuth}
-                        <Link
-                          href="https://better-auth.com"
-                          className={cn(
-                            "email-text-primary text-primary underline",
-                            classNames?.link,
-                          )}
-                        >
-                          better-auth
-                        </Link>
-                        {afterBetterAuth}
-                      </>
-                    )
-                  })()}
-                </Text>
-              )}
-            </Section>
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+      <EmailDivider />
+      <Text className="m-0 mb-3 text-sm leading-6 text-muted-foreground">
+        This invitation expires in {expirationHours} hours. Email sent by {appName}.
+      </Text>
+      <Text className="m-0 text-sm leading-6 text-muted-foreground">
+        If you didn&apos;t expect this invitation, you can safely ignore this email.
+      </Text>
+    </EmailShell>
   )
 }
 
-OrganizationInvitationEmail.localization = organizationInvitationEmailLocalization
-
-OrganizationInvitationEmail.PreviewProps = {
-  url: "https://better-auth-ui.com/settings/organizations",
-  email: "m@example.com",
-  inviterName: "Jane Doe",
-  inviterEmail: "jane@example.com",
-  organizationName: "Acme Inc.",
-  role: "viewer",
-  appName: "Better Auth",
-  expirationHours: 48,
-  darkMode: true,
-} as OrganizationInvitationEmailProps
-
-export default OrganizationInvitationEmail
+export function createOrganizationInvitationPreviewProps(
+  origin: string,
+): OrganizationInvitationEmailProps {
+  return {
+    appName: APP_NAME,
+    expirationHours: 48,
+    inviterEmail: "owner@example.com",
+    inviterName: "Alex Morgan",
+    logoURL: new URL(APP_LOGO_LIGHT_PNG_URL, origin).href,
+    organizationName: "Example Organization",
+    role: "viewer",
+    url: new URL(
+      "/auth/accept-invitation?invitationId=preview-invitation-id",
+      INERT_REDIRECT_ORIGIN,
+    ).href,
+  } satisfies OrganizationInvitationEmailProps
+}

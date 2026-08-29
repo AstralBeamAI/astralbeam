@@ -24,6 +24,10 @@ The enabled methods are email/password, Google, and GitHub. Credential signup re
 
 Authenticated layouts provide first-render and reactive navigation protection, but they are not authorization boundaries. Better Auth APIs and server-only functions independently enforce sessions, organization membership, and configured organization permissions. Follow the repository [authentication setup](../SETUP.md#authentication-and-transactional-email) before testing these flows.
 
+## Development tools
+
+Run `deno task dev`, then open http://localhost:3000/dev. Email previews at http://localhost:3000/dev/emails use synthetic props and do not send email. Development routes return `404` in production.
+
 ## Theme
 
 The root route links the checked-in `src/styles.css` stylesheet. Its marked generated section supplies the light and dark semantic tokens, while the app theme controller applies system, light, or dark mode and persists the user's selection locally.

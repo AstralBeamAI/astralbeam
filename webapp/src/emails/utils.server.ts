@@ -1,5 +1,4 @@
 import { Buffer } from "node:buffer"
-import { render, toPlainText } from "@react-email/render"
 import type {
   EmailAttachment,
   EmailProvider,
@@ -8,6 +7,7 @@ import type {
   SendEmailOptions,
   SendProviderEmail,
 } from "./types.ts"
+import { renderEmailElement, renderEmailPlainText } from "./render.server.ts"
 
 /**
  * Static map of dynamic imports: the selected provider's SDK is the only one ever loaded, while
@@ -56,7 +56,8 @@ export async function buildProviderEmailInput(
   defaultFrom: string | null,
 ): Promise<ProviderEmailInput> {
   const { react } = options
-  const html = options.html ?? (react ? await render(react) : undefined)
+  const rendered = !options.html && react ? await renderEmailElement(react) : undefined
+  const html = options.html ?? rendered?.html
   if (!html) {
     throw new Error("An email needs either a 'react' template or 'html' content")
   }
@@ -66,7 +67,7 @@ export async function buildProviderEmailInput(
     throw new Error("No 'from' address given and no default from address is configured")
   }
 
-  const text = options.text ?? (react ? toPlainText(html) : undefined)
+  const text = options.text ?? (react ? rendered?.text ?? renderEmailPlainText(html) : undefined)
   const replyTo = toArray(options.replyTo)
 
   return {

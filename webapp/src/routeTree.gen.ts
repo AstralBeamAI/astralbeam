@@ -14,6 +14,7 @@ import { Route as AuthenticatedOrganizationRouteRouteImport } from './routes/_au
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
+import { Route as DevSplatRouteImport } from './routes/dev/$'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
 import { Route as AuthenticatedOrganizationIndexRouteImport } from './routes/_authenticated/_organization/index'
 import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
@@ -47,6 +48,11 @@ const ApiStatusRoute = ApiStatusRouteImport.update({
 const ConfigureIndexRoute = ConfigureIndexRouteImport.update({
   id: '/configure/',
   path: '/configure/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevSplatRoute = DevSplatRouteImport.update({
+  id: '/dev/$',
+  path: '/dev/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authenticationAuthPathRoute = authenticationAuthPathRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedOrganizationIndexRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/dev/$': typeof DevSplatRoute
   '/configure/': typeof ConfigureIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedOrganizationIndexRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/dev/$': typeof DevSplatRoute
   '/configure': typeof ConfigureIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/_authenticated/_organization': typeof AuthenticatedOrganizationRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
+  '/dev/$': typeof DevSplatRoute
   '/configure/': typeof ConfigureIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/'
     | '/settings'
     | '/api/status'
+    | '/dev/$'
     | '/configure/'
     | '/auth/$path'
     | '/api/auth/$'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/'
     | '/settings'
     | '/api/status'
+    | '/dev/$'
     | '/configure'
     | '/auth/$path'
     | '/api/auth/$'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_organization'
     | '/_authenticated/settings'
     | '/api/status'
+    | '/dev/$'
     | '/configure/'
     | '/(authentication)/auth/$path'
     | '/api/auth/$'
@@ -196,6 +208,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   ApiStatusRoute: typeof ApiStatusRoute
+  DevSplatRoute: typeof DevSplatRoute
   ConfigureIndexRoute: typeof ConfigureIndexRoute
   authenticationAuthPathRoute: typeof authenticationAuthPathRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       path: '/configure'
       fullPath: '/configure/'
       preLoaderRoute: typeof ConfigureIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev/$': {
+      id: '/dev/$'
+      path: '/dev/$'
+      fullPath: '/dev/$'
+      preLoaderRoute: typeof DevSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(authentication)/auth/$path': {
@@ -362,6 +382,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   ApiStatusRoute: ApiStatusRoute,
+  DevSplatRoute: DevSplatRoute,
   ConfigureIndexRoute: ConfigureIndexRoute,
   authenticationAuthPathRoute: authenticationAuthPathRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

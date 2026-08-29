@@ -14,7 +14,9 @@ const AUTHENTICATED_AUTH_VIEWS = new Set([
   "accept-invitation",
   "callback",
   "error",
+  "forgot-password",
   "redirect",
+  "reset-link-sent",
   "reset-password",
   "sign-out",
 ])

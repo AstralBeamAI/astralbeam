@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
-    "build": "vite build",
+    "build": "NODE_ENV=production vite build",
     "start": "deno run --config deno.jsonc -P=runtime .output/server/index.mjs",
     "compile": "deno compile -A --output .output/astralbeam .",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
@@ -15,7 +15,6 @@
     "drizzle-studio": "drizzle-kit studio",
     "format": "deno fmt",
     "format:check": "deno fmt --check",
-    "email": "deno run -P=tooling scripts/preview-emails.ts",
     "generate:png": "deno run -P=tooling scripts/export-png.ts",
     "knip": "knip",
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install",

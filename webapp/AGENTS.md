@@ -11,7 +11,7 @@
 
 - `src/components/ui` contains registry-generated shadcn UI components and remains excluded from formatting; make only intentional integration edits and record every divergence in the file's provenance header.
   - Add new components only with `deno task ui add <component>`.
-  - Better Auth UI registry output under `src/components/auth`, `src/lib/auth`, and `src/emails` follows the same provenance rule: record the top-level `deno task ui add` command and every intentional local change.
+  - Better Auth UI output under `src/components/auth` and `src/lib/auth`, and Emailcn output under `src/emails`, follow the same provenance rule: retain the registry command, source, and local changes; preserve earlier provenance when replacing a source and centralize shared email changes outside imported templates.
   - Let Knip delete unreachable registry files, while suppressing only generated export-level noise.
 - `src/components` contains other common components used throught the application
   - build components using the proper shadcn-ui primitives, instead of raw HTML elements
@@ -52,6 +52,7 @@
     - Key the organization layout outlet by the active organization ID so a successful switch resets organization-scoped UI; do not reset it while a switch is pending.
   - Routes that do not render pages might be server routes (`createFileRoute({ server ... }))`
     - The are typically place in the `routes/api` folder unless there's a strong reason to have them outside.
+  - Keep `/dev` utilities synthetic and development-only; they must return `404` in production.
   - Related routes can sometimes be grouped together using a route group folder e.g. `(auth)` if it better structures the codebase
 
 - `src/db` contains the database schema and migrations
@@ -81,10 +82,10 @@
 
 - `src/emails` contains emails powered by react-email
   - `index.ts` exports `sendEmail` plus one `send<Template>Email` wrapper per template, each owning its own subject and props
+  - Preserve imported templates' native prop contracts where practical; map Better Auth data in `index.ts`, co-locate each typed preview-props factory at the bottom of its template, and preview with synthetic props at `/dev/emails`
   - `sendEmail` loads only the selected `providers/*.ts` module, through a static map of dynamic imports
   - `provider`, `from`, and `replyTo` default to the `email_provider` and `email_from_address` config values and the resolved `from`
   - Templates cannot resolve relative paths, so build absolute URLs from the configured `app_base_url`; attachment `path` is a URL, a `data:` URI, or bare base64
-  - Preview with `deno task email`, which runs a server as configured in `scripts/preview-emails.ts`
 
 - `/configure` (`src/routes/configure`) is the operator surface for database-backed config. Authenticate short, stateless sessions only with the first active `DATABASE_ENCRYPTION_KEY` value; never use database credentials. Require production HTTPS and same-origin mutations, and trust forwarded host/protocol only when ingress overwrites them and blocks direct origin access. Mask values until the operator explicitly reveals them, approve migrations by exact name and digest, and derive the app gate from process-cached configuration validity and migration state rather than a persisted completion marker.
 
@@ -122,6 +123,6 @@
   - In every server function, you might need to check if the current user is authorized to access & update the data
   - In every databsae query, you might need to ensures that the right filters are applied to avoid leaking data accidentally
   - Errors in the backend must be handled, logged and gracefully shown to a user to convey why something didn't work without leaking critical info that might compromise the application security.
-  - Server-only code should typically go into `*.server.ts` files (except `index.ts` files where you can use a "server-only" import from TanStack Start as the guard). be careful not to leak server environment vars into the client.
+  - Put server-only code in `*.server.ts` files and rely on that suffix as the guard; use `import "@tanstack/react-start/server-only"` only when an unsuffixed entry point such as `index.ts` must remain server-only. Never expose server environment variables to the client.
 
 TODO: add common commands
