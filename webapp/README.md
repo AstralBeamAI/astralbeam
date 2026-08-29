@@ -10,7 +10,7 @@ The application owns its complete product stack, dependency lockfile, and projec
 - `src/components/auth` — ejected Better Auth UI feature components
 - `src/components/ui` — shadcn-generated components
 - `src/db` — server-only Drizzle client, schema, and migrations
-- `src/emails` — React Email templates and Resend/SES delivery adapters
+- `src/emails` — React Email templates with SMTP, Resend API, and Amazon SES API delivery; local SMTP can be captured by Mailpit
 - `src/lib` — application utilities and server-only Better Auth configuration
 - `src/routes` — public auth routes and protected application layouts
 - `src/styles.css` — Tailwind, fonts, semantic theme mappings, and generated brand variables

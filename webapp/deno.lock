@@ -30,6 +30,7 @@
     "npm:@tanstack/react-start@^1.168.32": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4",
     "npm:@tanstack/router-cli@*": "1.167.30",
     "npm:@tanstack/router-cli@^1.167.21": "1.167.30",
+    "npm:@types/nodemailer@^8.0.1": "8.0.1",
     "npm:@types/react-dom@19": "19.2.4_@types+react@19.2.18",
     "npm:@types/react@19": "19.2.18",
     "npm:@vitejs/plugin-react@6": "6.0.5_@rolldown+plugin-babel@0.2.3__@babel+core@7.29.7__rolldown@1.2.4__vite@8.2.1_babel-plugin-react-compiler@1.0.0_vite@8.2.1_@babel+core@7.29.7_rolldown@1.2.4",
@@ -43,6 +44,7 @@
     "npm:jose@^6.2.10": "6.2.10",
     "npm:knip@^6.32.0": "6.32.2",
     "npm:nitro@3.0.260610-beta": "3.0.260610-beta_vite@8.2.1_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.112",
+    "npm:nodemailer@^9.0.5": "9.0.5",
     "npm:postgres@^3.4.9": "3.4.9",
     "npm:react-dom@^19.2.6": "19.2.8_react@19.2.8",
     "npm:react-email@6.9.2": "6.9.2_react@19.2.8_react-dom@19.2.8__react@19.2.8",
@@ -2593,6 +2595,12 @@
         "undici-types"
       ]
     },
+    "@types/nodemailer@8.0.1": {
+      "integrity": "sha512-PxpaInm8V1JQDd4j0ds5HfvWQk8JupS1C0Picb96QJsrrRDjBH+DlK7L4ZdNSqNULhiZRQHc40nLVShaGxXAMw==",
+      "dependencies": [
+        "@types/node"
+      ]
+    },
     "@types/react-dom@19.2.4_@types+react@19.2.18": {
       "integrity": "sha512-Bsc+QHgp+P/F02XDzNCY9jnZNCUuLki36KT7VKrTXXLdHf+vHMNZnW1rVu5DNW/rCK+fya3DATySbLM4yhtKUw==",
       "dependencies": [
@@ -4306,6 +4314,9 @@
     "node-releases@2.0.53": {
       "integrity": "sha512-D9UOmYG3UH1V+ENW56t5QXBwJw1YEY18ruVeus89Rw+SyIgjPkCO84bRzO3uNIYosJbNwiabWVn48o3uJLjxFQ=="
     },
+    "nodemailer@9.0.5": {
+      "integrity": "sha512-wvjiKvjczmsN7U/8006JOdXubgBk2XFAbioDMbT+sM7cPs0QrhJTa6KBRX7P5REGGkDcLUz/EarWidb8G8C1jQ=="
+    },
     "normalize-path@3.0.0": {
       "integrity": "sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA=="
     },
@@ -5538,6 +5549,7 @@
         "npm:@tanstack/react-router@^1.170.18",
         "npm:@tanstack/react-start@^1.168.32",
         "npm:@tanstack/router-cli@^1.167.21",
+        "npm:@types/nodemailer@^8.0.1",
         "npm:@types/react-dom@19",
         "npm:@types/react@19",
         "npm:@vitejs/plugin-react@6",
@@ -5551,6 +5563,7 @@
         "npm:jose@^6.2.10",
         "npm:knip@^6.32.0",
         "npm:nitro@3.0.260610-beta",
+        "npm:nodemailer@^9.0.5",
         "npm:postgres@^3.4.9",
         "npm:react-dom@^19.2.6",
         "npm:react-email@^6.9.2",

@@ -2,7 +2,7 @@ import process from "node:process"
 
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
-import type { ProviderEmailInput } from "./types.ts"
+import type { ProviderEmailInput } from "./utils.server.ts"
 
 const authEmailIndexTestState = vi.hoisted(() => ({
   config: {

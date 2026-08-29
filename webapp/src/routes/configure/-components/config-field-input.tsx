@@ -17,11 +17,11 @@ import { ConfigValueInput } from "./config-value-input"
 
 const UNSET_OPTION = "__unset__"
 
-// The unset choice leads so both the trigger label and the popup list come from one source.
+// Enum settings currently have runtime defaults, so clearing one restores that default.
 function enumItems(
   options: ConfigDefinition["options"],
 ): NonNullable<ConfigDefinition["options"]>[number][] {
-  return [{ value: UNSET_OPTION, label: "Not set" }, ...(options ?? [])]
+  return [{ value: UNSET_OPTION, label: "Use default" }, ...(options ?? [])]
 }
 
 export function ConfigFieldInput({

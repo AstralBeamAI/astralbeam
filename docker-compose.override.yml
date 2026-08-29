@@ -8,3 +8,7 @@ services:
   valkey:
     ports:
       - "127.0.0.1:${VALKEY_HOST_PORT:-6379}:6379"
+  mailpit:
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_HOST_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_WEB_HOST_PORT:-8025}:8025"

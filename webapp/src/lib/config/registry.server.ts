@@ -2,6 +2,12 @@ import process from "node:process"
 
 import { Schema } from "effect"
 
+import {
+  EmailProviderSchema,
+  SMTP_DEFAULTS,
+  SmtpPortSchema,
+  SmtpSecuritySchema,
+} from "@/emails/schema"
 import { generateSecret } from "@/lib/generate-secret.server"
 import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "@/lib/types"
 
@@ -28,7 +34,8 @@ const decodeSecretValue = Schema.decodeUnknownSync(
   Schema.String.pipe(Schema.check(Schema.isMinLength(32))),
 )
 const decodeNonEmptyText = Schema.decodeUnknownSync(Schema.NonEmptyString)
-const decodeEmailProvider = Schema.decodeUnknownSync(Schema.Literals(["resend", "ses"]))
+const decodeEmailProvider = Schema.decodeUnknownSync(EmailProviderSchema)
+const decodeSmtpSecurity = Schema.decodeUnknownSync(SmtpSecuritySchema)
 const decodePublicHttpUrl = Schema.decodeUnknownSync(
   Schema.URLFromString.pipe(
     Schema.check(
@@ -54,6 +61,11 @@ function sanitizedDecoder(
 
 const nonEmptyDecoder = (label: string) =>
   sanitizedDecoder(decodeNonEmptyText, `${label} must not be empty`)
+
+const decodeSmtpPort = sanitizedDecoder(
+  (value) => String(Schema.decodeUnknownSync(SmtpPortSchema)(value)),
+  "SMTP port must be between 1 and 65535",
+)
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
@@ -148,17 +160,18 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     key: "email_provider",
     group: "Email Delivery",
     label: "Email Provider",
-    description:
-      "Delivery provider for authentication and notification emails. Leave unset to disable email delivery.",
+    description: "Delivery protocol for authentication and notification emails. Defaults to SMTP.",
     kind: "enum",
     required: false,
+    defaultValue: "smtp",
     options: [
-      { value: "resend", label: "Resend" },
-      { value: "ses", label: "Amazon SES" },
+      { value: "smtp", label: "SMTP — Local, self-hosted, or hosted SMTP server" },
+      { value: "resend", label: "Resend API" },
+      { value: "ses", label: "Amazon SES API" },
     ],
     decode: sanitizedDecoder(
       (value) => decodeEmailProvider(value),
-      "Email provider must be 'resend' or 'ses'",
+      "Email provider must be 'smtp', 'resend', or 'ses'",
     ),
   },
   {
@@ -169,6 +182,68 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "text",
     required: false,
     decode: nonEmptyDecoder("Email from address"),
+  },
+  {
+    key: "smtp_host",
+    group: "Email Delivery",
+    label: "SMTP Host",
+    description: "Mail server hostname. Defaults to 127.0.0.1.",
+    kind: "text",
+    required: false,
+    defaultValue: SMTP_DEFAULTS.host,
+    decode: nonEmptyDecoder("SMTP host"),
+  },
+  {
+    key: "smtp_port",
+    group: "Email Delivery",
+    label: "SMTP Port",
+    description: "Mail server port. Defaults to 1025.",
+    kind: "text",
+    required: false,
+    defaultValue: String(SMTP_DEFAULTS.port),
+    decode: decodeSmtpPort,
+  },
+  {
+    key: "smtp_security",
+    group: "Email Delivery",
+    label: "SMTP Security",
+    description:
+      "Defaults to an unencrypted local connection. Hosted servers normally require STARTTLS or TLS.",
+    kind: "enum",
+    required: false,
+    defaultValue: SMTP_DEFAULTS.security,
+    options: [
+      { value: "none", label: "None — Local or trusted relay" },
+      {
+        value: "auto",
+        label: "STARTTLS when available — May remain unencrypted",
+      },
+      { value: "starttls", label: "Require STARTTLS — Usually port 587" },
+      { value: "tls", label: "TLS from connection start — Usually port 465" },
+    ],
+    decode: sanitizedDecoder(
+      (value) => decodeSmtpSecurity(value),
+      "SMTP security must be 'none', 'auto', 'starttls', or 'tls'",
+    ),
+  },
+  {
+    key: "smtp_username",
+    group: "Email Delivery",
+    label: "SMTP Username",
+    description:
+      "Optional username. Set it together with an SMTP password to enable authentication.",
+    kind: "text",
+    required: false,
+    decode: nonEmptyDecoder("SMTP username"),
+  },
+  {
+    key: "smtp_password",
+    group: "Email Delivery",
+    label: "SMTP Password",
+    description: "Optional password paired with the SMTP username.",
+    kind: "secret",
+    required: false,
+    decode: nonEmptyDecoder("SMTP password"),
   },
   {
     key: "resend_api_key",
@@ -288,6 +363,12 @@ export function findConfigDefinition(key: string): ConfigDefinition | undefined 
   return definitionByKey.get(key)
 }
 
+export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
+  CONFIG_DEFINITIONS.flatMap((definition) =>
+    definition.defaultValue === undefined ? [] : [[definition.key, definition.defaultValue]]
+  ),
+) as ConfigValues
+
 // Environment values may use JSON syntax so they behave like equivalent JSONB values; ordinary
 // unquoted strings remain valid for shell ergonomics.
 export function environmentConfigValues(): ConfigValues {
@@ -326,7 +407,7 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
       })
     }
   }
-  if (values.email_provider && !values.email_from_address) {
+  if (values.email_provider && values.email_provider !== "smtp" && !values.email_from_address) {
     issues.push({
       key: "email_from_address",
       message: "An email from address is required when an email provider is selected",
@@ -336,6 +417,16 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
     issues.push({
       key: "resend_api_key",
       message: "Resend is the selected email provider but no Resend API key is configured",
+    })
+  }
+  if (
+    values.email_provider === "smtp" &&
+    Boolean(values.smtp_username) !== Boolean(values.smtp_password)
+  ) {
+    const missing = values.smtp_username ? "smtp_password" : "smtp_username"
+    issues.push({
+      key: missing,
+      message: `${findConfigDefinition(missing)?.label} is required when its pair is configured`,
     })
   }
   const hasAwsAccessKeyEnvironmentOverride = hasEnvironmentConfigOverride("aws_access_key_id")

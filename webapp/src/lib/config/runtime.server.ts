@@ -1,5 +1,6 @@
 import { getDatabaseConfig } from "@/db/config.server"
 import {
+  DEFAULT_CONFIG_VALUES,
   environmentConfigOverrideKeys,
   environmentConfigValues,
   validateConfigCompleteness,
@@ -18,7 +19,7 @@ let generation = 0
 
 async function refreshState(currentGeneration: number): Promise<GlobalConfigState> {
   const stored = await getDatabaseConfig(environmentConfigOverrideKeys())
-  const values = { ...stored.values, ...environmentConfigValues() }
+  const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environmentConfigValues() }
   const issues = validateConfigCompleteness(values)
   const state = {
     rows: stored.rows,

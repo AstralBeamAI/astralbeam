@@ -1,13 +1,32 @@
 import { Buffer } from "node:buffer"
-import type {
-  EmailAttachment,
-  EmailProvider,
-  ProviderEmailInput,
-  ResolvedEmailAttachment,
-  SendEmailOptions,
-  SendProviderEmail,
-} from "./types.ts"
+import { Schema } from "effect"
+import type { SendMailOptions } from "nodemailer"
+import type { EmailAttachment, SendEmailOptions } from "./index.ts"
 import { renderEmailElement, renderEmailPlainText } from "./render.server.ts"
+import { EmailProviderSchema } from "./schema.ts"
+import type { EmailProvider } from "./schema.ts"
+
+/** An attachment resolved to bytes, so every provider receives the same shape. */
+export interface ResolvedEmailAttachment {
+  filename: string
+  contentType: string
+  content: Uint8Array
+}
+
+/** The normalized, fully rendered payload every provider sender receives. */
+export interface ProviderEmailInput {
+  to: string[]
+  from: string
+  subject: string
+  html: string
+  text?: string | undefined
+  replyTo: string[]
+  attachments: ResolvedEmailAttachment[]
+}
+
+export type SendProviderEmail = (
+  input: ProviderEmailInput,
+) => Promise<{ messageId?: string | undefined }>
 
 /**
  * Static map of dynamic imports: the selected provider's SDK is the only one ever loaded, while
@@ -18,6 +37,7 @@ export const providerLoaders: Record<
   EmailProvider,
   () => Promise<SendProviderEmail>
 > = {
+  smtp: async () => (await import("./providers/smtp.ts")).sendSmtpEmail,
   resend: async () => (await import("./providers/resend.ts")).sendResendEmail,
   ses: async () => (await import("./providers/ses.ts")).sendSesEmail,
 }
@@ -41,14 +61,33 @@ export function resolveProvider(
   provider: SendEmailOptions["provider"],
   defaultProvider: string | null,
 ): EmailProvider {
-  const resolved = provider ?? defaultProvider
-  if (!resolved) {
-    throw new Error("No email provider given and no default email provider is configured")
+  const resolved = provider ?? defaultProvider ?? "smtp"
+  return Schema.decodeUnknownSync(EmailProviderSchema)(resolved)
+}
+
+export function resolveDefaultFrom(
+  provider: EmailProvider,
+  configuredFrom: string | null,
+  appBaseUrl: string | null,
+): string | null {
+  if (configuredFrom || provider !== "smtp") return configuredFrom
+  return appBaseUrl ? `no-reply@${new URL(appBaseUrl).hostname}` : null
+}
+
+export function nodemailerMessage(input: ProviderEmailInput): SendMailOptions {
+  return {
+    from: input.from,
+    to: input.to,
+    subject: input.subject,
+    html: input.html,
+    ...input.text ? { text: input.text } : {},
+    replyTo: input.replyTo,
+    attachments: input.attachments.map(({ filename, contentType, content }) => ({
+      filename,
+      contentType,
+      content: Buffer.from(content),
+    })),
   }
-  if (!(resolved in providerLoaders)) {
-    throw new Error(`Unknown email provider '${resolved}'`)
-  }
-  return resolved as EmailProvider
 }
 
 export async function buildProviderEmailInput(

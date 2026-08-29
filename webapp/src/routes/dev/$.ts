@@ -1,12 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 const DEVELOPMENT_INDEX = `<!doctype html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Development tools</title>
-<h1>Development tools</h1>
-<p>Local utilities mounted during development.</p>
-<ul><li><a href="/dev/emails">Email previews</a></li></ul>`
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Development tools</title>
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body class="min-h-svh bg-background text-foreground antialiased">
+  <main class="mx-auto flex min-h-svh max-w-3xl items-center px-6 py-16">
+    <section class="w-full space-y-8">
+      <header class="space-y-2">
+        <p class="text-sm font-medium text-primary">AstralBeam development</p>
+        <h1 class="font-heading text-3xl font-semibold tracking-tight">Development tools</h1>
+        <p class="text-muted-foreground">Local utilities available only while the development server is running.</p>
+      </header>
+      <a class="group flex items-center justify-between rounded-lg border bg-card p-5 shadow-sm transition-colors hover:bg-accent" href="/dev/emails">
+        <span>
+          <span class="block font-medium">Email previews</span>
+          <span class="mt-1 block text-sm text-muted-foreground">Review application emails with synthetic data.</span>
+        </span>
+        <span class="text-xl text-muted-foreground transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
+      </a>
+    </section>
+  </main>
+</body>
+</html>`
 
 export const Route = createFileRoute("/dev/$")({
   server: {
