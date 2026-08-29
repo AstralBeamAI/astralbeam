@@ -27,12 +27,8 @@ const legalAssets = [
     })),
 ]
 
-const viteConfig = defineConfig(({ command, isPreview, mode }) => {
+const viteConfig = defineConfig(({ mode }) => {
   return {
-    define: {
-      // `import.meta.env.DEV` can be true for `NODE_ENV=development vite build`. https://vite.dev/guide/env-and-mode.html#node-env-and-modes
-      __DEV_UTILITIES__: JSON.stringify(command === "serve" && !isPreview),
-    },
     resolve: { tsconfigPaths: true },
     build: {
       target: "es2025",
