@@ -9,6 +9,7 @@
     "dev": "astro dev --host 0.0.0.0 --port 3001",
     "build": "astro build",
     "preview": "astro preview --host 0.0.0.0 --port 4001",
+    "install:frozen": "deno install --frozen",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno fmt && deno lint --fix",
     "format": "deno fmt",

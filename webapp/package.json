@@ -9,6 +9,7 @@
     "build": "NODE_ENV=production vite build",
     "start": "deno run --config deno.jsonc -P=runtime .output/server/index.mjs",
     "compile": "deno compile -A --output .output/astralbeam .",
+    "install:frozen": "deno install --frozen",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno task generate:png && deno fmt && deno lint --fix",
     "db": "drizzle-kit",

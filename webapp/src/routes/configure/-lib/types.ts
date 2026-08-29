@@ -23,12 +23,6 @@ export type FieldDraft =
   | { kind: "set"; value: string }
   | { kind: "clear" }
 
-export interface PendingMigration {
-  name: string
-  sql: string
-  hash: string
-}
-
 export interface ConfigureFieldError {
   key: string
   message: string
@@ -39,6 +33,7 @@ export type ConfigurePageState =
     status: "unavailable"
     bootstrapIssues: readonly ("DATABASE_URL" | "DATABASE_ENCRYPTION_KEY")[]
   }
+  | { status: "migrations-required" }
   | { status: "signed-out" }
   | {
     status: "ready"
@@ -46,7 +41,6 @@ export type ConfigurePageState =
     sessionExpiresAt: string
     fallbackEncryptionKeyCount: number
     setupComplete: boolean
-    migrations: { pending: PendingMigration[]; appliedCount: number }
     fields: ConfigureField[]
     issues: ConfigIssue[]
   }
