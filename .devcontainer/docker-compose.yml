@@ -20,7 +20,7 @@ services:
     command: sleep infinity
     init: true
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       valkey:
         condition: service_healthy

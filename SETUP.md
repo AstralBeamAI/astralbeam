@@ -57,9 +57,9 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
 - Open a new terminal so the project-managed Deno LTS is on `PATH` before running `deno task` commands.
 
-- The setup script does not install PostgreSQL or Valkey on macOS. When Docker Compose is available, it starts both services unless `SKIP_DOCKER_COMPOSE=true` is set.
+- The setup script does not install PostgreSQL or Valkey on macOS. When Docker Compose is available, it starts PostgreSQL, PgBouncer, and Valkey unless `SKIP_DOCKER_COMPOSE=true` is set. PgBouncer is the only database service published to the host, so the default `DATABASE_URL` sends local application, Drizzle, and migration traffic through its transaction pool. Set `PGBOUNCER_HOST_PORT` and update `DATABASE_URL` together only when port 5432 is unavailable; set `POSTGRES_HOST` and `POSTGRES_PORT` to route PgBouncer to a different backend.
 
-- From the repository root, stop services with `docker compose down`. Add `--volumes` to permanently delete the local PostgreSQL and Valkey data.
+- From the repository root, stop services with `docker compose down`. Add `--volumes` to permanently delete the local PostgreSQL and Valkey data. Use `docker compose exec postgres` only when a documented administrative workflow requires a direct PostgreSQL connection.
 
 ## Cloud agent setup
 
