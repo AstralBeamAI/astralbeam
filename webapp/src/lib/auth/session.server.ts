@@ -5,7 +5,6 @@ import { getRequest, setResponseHeader } from "@tanstack/react-start/server"
 
 import { getAuth } from "@/lib/auth.server"
 import { reconcileSessionAccess, type SessionAccessDecision } from "@/lib/auth/session-access"
-import "@tanstack/react-start/server-only"
 
 const SESSION_ACCESS_ERROR = "Unable to determine organization access"
 

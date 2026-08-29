@@ -8,7 +8,7 @@ import { palette, theme } from "../theme/brand.ts"
 
 const EMAIL_ROOT_FONT_SIZE_PX = 16
 
-export const emailTheme = {
+const emailTheme = {
   colors: {
     background: palette.light.background.srgbHex,
     border: palette.light.border.srgbHex,
@@ -57,7 +57,7 @@ export const emailTailwindConfig = {
   },
 } satisfies TailwindConfig
 
-export function resolveEmailRadius(radius: string): string {
+function resolveEmailRadius(radius: string): string {
   if (radius === "0") return "0px"
 
   const match = /^(\d+(?:\.\d+)?)(px|rem|em|%)$/.exec(radius)

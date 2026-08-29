@@ -1,5 +1,4 @@
 import { APIError, getOAuthState } from "better-auth/api"
-import "@tanstack/react-start/server-only"
 
 type RecordValue = Record<string, unknown>
 

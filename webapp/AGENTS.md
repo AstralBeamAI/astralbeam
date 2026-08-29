@@ -123,6 +123,6 @@
   - In every server function, you might need to check if the current user is authorized to access & update the data
   - In every databsae query, you might need to ensures that the right filters are applied to avoid leaking data accidentally
   - Errors in the backend must be handled, logged and gracefully shown to a user to convey why something didn't work without leaking critical info that might compromise the application security.
-  - Server-only code should typically go into `*.server.ts` files (except `index.ts` files where you can use a "server-only" import from TanStack Start as the guard). be careful not to leak server environment vars into the client.
+  - Put server-only code in `*.server.ts` files and rely on that suffix as the guard; use `import "@tanstack/react-start/server-only"` only when an unsuffixed entry point such as `index.ts` must remain server-only. Never expose server environment variables to the client.
 
 TODO: add common commands

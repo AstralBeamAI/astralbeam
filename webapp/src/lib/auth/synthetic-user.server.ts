@@ -1,5 +1,3 @@
-import "@tanstack/react-start/server-only"
-
 export interface SyntheticUserFields {
   name: string
   email: string
