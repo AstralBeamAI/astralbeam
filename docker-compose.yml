@@ -2,8 +2,19 @@ x-postgres-env: &postgres-env
   POSTGRES_USER: ${POSTGRES_USER:-astralbeam}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-astralbeam123}
   POSTGRES_DB: ${POSTGRES_DB:-astralbeam}
-  POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
-  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+
+# Leave DB_NAME unset so the generated PgBouncer config accepts development and test database names: https://github.com/edoburu/docker-pgbouncer/blob/master/entrypoint.sh
+x-pgbouncer-env: &pgbouncer-env
+  DB_USER: ${POSTGRES_USER:-astralbeam}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-astralbeam123}
+  DB_HOST: ${POSTGRES_HOST:-postgres}
+  DB_PORT: ${POSTGRES_PORT:-5432}
+  HEALTHCHECK_DB: ${POSTGRES_DB:-astralbeam}
+  AUTH_TYPE: scram-sha-256
+  POOL_MODE: transaction
+  # Direct Postgres.js queries and explicit Drizzle prepared queries require transaction-pool tracking: https://www.pgbouncer.org/config.html#max_prepared_statements
+  MAX_PREPARED_STATEMENTS: 200
+  ADMIN_USERS: ${POSTGRES_USER:-astralbeam}
 
 x-valkey-env: &valkey-env
   VALKEY_HOST: ${VALKEY_HOST:-valkey}
@@ -19,6 +30,19 @@ services:
       - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.25.2-p0
+    restart: unless-stopped
+    environment:
+      <<: *pgbouncer-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - PGPASSWORD="$${DB_PASSWORD}" psql --host 127.0.0.1 --username "$${DB_USER}" --dbname "$${HEALTHCHECK_DB}" --tuples-only --no-align --command "select 1" | grep -qx 1
 
   valkey:
     image: valkey/valkey:9

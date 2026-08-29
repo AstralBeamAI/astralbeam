@@ -29,11 +29,13 @@ Both imports belong in server-only code and require `DATABASE_URL` and `DATABASE
 
 ## Local services
 
-Start PostgreSQL and Valkey from the repository root before commands that connect to PostgreSQL. Podman supplies the Docker-compatible command used here:
+Start PostgreSQL, PgBouncer, and Valkey from the repository root before commands that connect to PostgreSQL. Podman supplies the Docker-compatible command used here:
 
 ```sh
 docker compose up --detach --wait
 ```
+
+PgBouncer owns the loopback database port and uses transaction pooling, so the checked-in development and test `DATABASE_URL` values route Webapp and Drizzle traffic through it. PostgreSQL is not published to the host; use `docker compose exec postgres` only for the direct administrative reset workflows below. If port 5432 is unavailable, set `PGBOUNCER_HOST_PORT` and change the local `DATABASE_URL` port to match.
 
 ## Database commands
 

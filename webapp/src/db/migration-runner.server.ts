@@ -113,6 +113,23 @@ type ApplyMigrationsResult =
   | { ok: true; applied: string[] }
   | { ok: false; error: string }
 
+function createSingleConnectionClient(databaseUrl: string): postgres.Sql {
+  return postgres(databaseUrl, { max: 1 })
+}
+
+export async function runWithMigrationAdvisoryLock(
+  lockClient: postgres.Sql,
+  applyMigrations: () => Promise<ApplyMigrationsResult>,
+): Promise<ApplyMigrationsResult> {
+  return await lockClient.begin(async (lockTransaction) => {
+    const [lock] = await lockTransaction`
+      select pg_try_advisory_xact_lock(hashtext(${CONFIG_MIGRATION_LOCK_KEY})) as locked
+    `
+    if (!lock?.locked) return { ok: false, error: "A migration run is already in progress" }
+    return await applyMigrations()
+  })
+}
+
 function migrationErrorDetail(error: unknown): string {
   if (error instanceof Error) {
     const code = (error as { code?: unknown }).code
@@ -125,19 +142,18 @@ function migrationErrorDetail(error: unknown): string {
 export async function applyApprovedMigrations(
   approvedMigrations: { name: string; hash: string }[],
 ): Promise<ApplyMigrationsResult> {
-  // Advisory locks are session-scoped, so the runner needs its own single connection instead of
-  // the shared pool.
-  const client = postgres(getDatabaseUrl(), { max: 1 })
+  // Transaction pooling can change the backing PostgreSQL session between transactions. Keep a
+  // transaction open on a dedicated client so its advisory lock remains pinned while a second
+  // client preserves the existing one-transaction-per-migration behavior.
+  const databaseUrl = getDatabaseUrl()
+  const lockClient = createSingleConnectionClient(databaseUrl)
+  const migrationClient = createSingleConnectionClient(databaseUrl)
   try {
-    const [lock] = await client`
-      select pg_try_advisory_lock(hashtext(${CONFIG_MIGRATION_LOCK_KEY})) as locked
-    `
-    if (!lock?.locked) return { ok: false, error: "A migration run is already in progress" }
-    try {
+    return await runWithMigrationAdvisoryLock(lockClient, async () => {
       let appliedNames: Set<string> | null
       try {
         appliedNames = appliedNameSet(
-          await client`select name from drizzle.__drizzle_migrations`,
+          await migrationClient`select name from drizzle.__drizzle_migrations`,
         )
       } catch (error) {
         if (!isMissingBookkeepingError(error)) throw error
@@ -150,8 +166,8 @@ export async function applyApprovedMigrations(
       }
       if (appliedNames === null) {
         // Same bookkeeping DDL as drizzle-orm's migrator, so the drizzle-kit CLI remains usable.
-        await client`CREATE SCHEMA IF NOT EXISTS drizzle`
-        await client.unsafe(
+        await migrationClient`CREATE SCHEMA IF NOT EXISTS drizzle`
+        await migrationClient.unsafe(
           `CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
             id SERIAL PRIMARY KEY,
             hash text NOT NULL,
@@ -164,7 +180,7 @@ export async function applyApprovedMigrations(
       const applied: string[] = []
       for (const migration of pending) {
         try {
-          await client.begin(async (transaction) => {
+          await migrationClient.begin(async (transaction) => {
             for (const statement of migration.sql.split("--> statement-breakpoint")) {
               await transaction.unsafe(statement)
             }
@@ -183,11 +199,9 @@ export async function applyApprovedMigrations(
         applied.push(migration.name)
       }
       return { ok: true, applied }
-    } finally {
-      await client`select pg_advisory_unlock(hashtext(${CONFIG_MIGRATION_LOCK_KEY}))`
-    }
+    })
   } finally {
-    await client.end()
+    await Promise.all([lockClient.end(), migrationClient.end()])
     cachedMigrationState = undefined
   }
 }

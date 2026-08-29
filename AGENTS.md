@@ -23,7 +23,7 @@
 
 - Keep Webapp environment files under `webapp`. Commit reviewed non-secret environment files such as `.env`, `.env.development`, `.env.test`, and `.env.example`; ignore `*.local` files and never commit credentials or deployment-specific values.
 - Keep the webapp's bootstrap environment variables and optional deployment overrides documented in `webapp/AGENTS.md`; other runtime settings live in its database `config` table and are managed at `/configure`. Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
-- Never install PostgreSQL or Valkey from `scripts/setup.sh` on macOS; start its Podman services through the Docker-compatible `docker compose` command when available unless `SKIP_DOCKER_COMPOSE=true` is set. Invoke `scripts/codex-db.sh` only through `INSTALL_EXTRA=codex-db` in Codex Cloud's Ubuntu environment, paired with `SKIP_DOCKER_COMPOSE=true` to prevent a Compose start.
+- Never install PostgreSQL or Valkey from `scripts/setup.sh` on macOS; start PostgreSQL, PgBouncer, and Valkey through the Docker-compatible `docker compose` command when available unless `SKIP_DOCKER_COMPOSE=true` is set. Keep PgBouncer as the only loopback-published PostgreSQL endpoint so local application and CLI traffic exercise transaction pooling; preserve `POSTGRES_HOST` and `POSTGRES_PORT` as its backend overrides and `PGBOUNCER_HOST_PORT` as its host-published port override. Use `docker compose exec postgres` only for explicit direct database administration. Invoke `scripts/codex-db.sh` only through `INSTALL_EXTRA=codex-db` in Codex Cloud's Ubuntu environment, paired with `SKIP_DOCKER_COMPOSE=true` to prevent a Compose start.
 
 ## Webapp and SDK UI
 
