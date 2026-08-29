@@ -12,7 +12,7 @@ x-pgbouncer-env: &pgbouncer-env
   HEALTHCHECK_DB: ${POSTGRES_DB:-astralbeam}
   AUTH_TYPE: scram-sha-256
   POOL_MODE: transaction
-  # Postgres.js prepares statements by default, so transaction pooling must track them: https://www.pgbouncer.org/config.html#max_prepared_statements
+  # Direct Postgres.js queries and explicit Drizzle prepared queries require transaction-pool tracking: https://www.pgbouncer.org/config.html#max_prepared_statements
   MAX_PREPARED_STATEMENTS: 200
   ADMIN_USERS: ${POSTGRES_USER:-astralbeam}
 
