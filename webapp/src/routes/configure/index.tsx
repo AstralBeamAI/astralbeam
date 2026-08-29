@@ -5,8 +5,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
 import { ConfigEditor } from "./-components/config-editor"
+import { ConfigureActions } from "./-components/configure-actions"
 import { OperatorLoginForm } from "./-components/operator-login-form"
 import { OperatorSessionStatus } from "./-components/operator-session-status"
+import { PendingMigrationsCard } from "./-components/pending-migrations-card"
 import { getConfigurePageState } from "./-functions/get-configure-page-state"
 
 export const Route = createFileRoute("/configure/")({
@@ -42,10 +44,22 @@ function ConfigurePage() {
 
       {state.status === "unavailable"
         ? <BootstrapErrorAlert issues={state.bootstrapIssues} />
-        : state.status === "migrations-required"
-        ? <MigrationRequiredAlert />
+        : state.status === "database-setup-required"
+        ? <DatabaseSetupRequiredAlert />
         : state.status === "signed-out"
         ? <OperatorLoginForm onLoggedIn={refresh} />
+        : state.migrations.pending.length > 0
+        ? (
+          <>
+            <ConfigureActions setupComplete={state.setupComplete} />
+            <PendingMigrationsCard
+              pending={state.migrations.pending}
+              appliedCount={state.migrations.appliedCount}
+              onApplied={refresh}
+            />
+            <ConfigureActions setupComplete={state.setupComplete} />
+          </>
+        )
         : (
           <ConfigEditor
             fields={state.fields}
@@ -103,13 +117,13 @@ function BootstrapErrorAlert({
   )
 }
 
-function MigrationRequiredAlert() {
+function DatabaseSetupRequiredAlert() {
   return (
     <Alert variant="destructive">
       <WarningCircleIcon aria-hidden="true" />
-      <AlertTitle>Database migrations required</AlertTitle>
+      <AlertTitle>Database setup required</AlertTitle>
       <AlertDescription className="space-y-3">
-        <p>The database schema must be up to date before {APP_NAME} can be configured.</p>
+        <p>Critical database tables are missing, so configuration cannot continue.</p>
         <p>From the repository root, run:</p>
         <pre className="overflow-x-auto rounded-md bg-muted p-3 text-foreground">
           <code>deno task --cwd webapp db migrate</code>

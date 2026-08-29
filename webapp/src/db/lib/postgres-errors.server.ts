@@ -9,6 +9,11 @@ export function getPostgresErrorCode(error: unknown): string | undefined {
   return undefined
 }
 
+export function hasPostgresErrorCode(error: unknown, codes: readonly string[]): boolean {
+  const code = getPostgresErrorCode(error)
+  return code !== undefined && codes.includes(code)
+}
+
 export function isMissingTableError(error: unknown): boolean {
-  return getPostgresErrorCode(error) === "42P01"
+  return hasPostgresErrorCode(error, ["42P01"])
 }

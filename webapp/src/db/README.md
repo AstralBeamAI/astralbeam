@@ -6,7 +6,7 @@ The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated
 
 - `index.server.ts` creates and exports the Drizzle client.
 - `config.server.ts` validates decrypted values from the global `config` table and recovers unreadable rows for `/configure`; the Drizzle column codec owns encryption, while `src/lib/config` adds environment precedence and process-local caching through `getGlobalConfig`.
-- `/configure` verifies its database-backed login limiter before operator sign-in; apply migrations externally with `deno task db migrate`.
+- `/configure` verifies only its database-backed login limiter before operator sign-in; create that table externally with `deno task --cwd webapp db migrate` from the repository root, then review and apply other pending migrations on the page.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
 - `schema/` contains responsibility-named domain table and relation modules.

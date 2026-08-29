@@ -3,6 +3,7 @@ const configTestState = vi.hoisted(() => ({
   rows: null as { key: string; value: string }[] | null,
   selectCount: 0,
 }))
+const migrationTestState = vi.hoisted(() => ({ pending: false }))
 
 vi.mock("@/db/index.server", () => ({
   db: {
@@ -32,6 +33,14 @@ vi.mock("@/db/index.server", () => ({
       }
     },
   },
+}))
+
+vi.mock("@/db/migration-runner.server", () => ({
+  getDatabaseMigrationState: () =>
+    Promise.resolve({
+      pending: migrationTestState.pending ? [{ name: "pending" }] : [],
+      appliedCount: 0,
+    }),
 }))
 
 import {
@@ -76,6 +85,7 @@ async function loadGlobalConfig(rows: { key: string; value: string }[]) {
 
 beforeEach(() => {
   configTestState.selectCount = 0
+  migrationTestState.pending = false
   invalidateGlobalConfig()
   for (const definition of CONFIG_DEFINITIONS) {
     vi.stubEnv(configEnvironmentVariable(definition.key), "")
@@ -181,7 +191,7 @@ describe("config value boundary", () => {
 })
 
 describe("setup gate and cache boundary", () => {
-  test("returns 503 until configuration is complete", async () => {
+  test("returns 503 until configuration is complete and migrations are applied", async () => {
     configTestState.rows = null
     const response = await setupGateResponse()
     expect(response?.status).toBe(503)
@@ -190,6 +200,10 @@ describe("setup gate and cache boundary", () => {
     configTestState.rows = completeConfigTestRows()
     invalidateGlobalConfig()
     await expect(setupGateResponse()).resolves.toBeNull()
+
+    migrationTestState.pending = true
+    invalidateGlobalConfig()
+    await expect(setupGateResponse()).resolves.toMatchObject({ status: 503 })
   })
 
   test("reads configuration once per process and once after invalidation", async () => {

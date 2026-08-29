@@ -49,7 +49,7 @@ deno install
 deno task dev
 ```
 
-`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are required, and every database migration must be applied before http://localhost:3000/configure opens operator sign-in. Use the first encryption key to manage other runtime settings; deployment guidance is in [Setup](SETUP.md#configure-the-environment).
+`DATABASE_URL`, `DATABASE_ENCRYPTION_KEY`, and the database-backed rate-limit table are required before http://localhost:3000/configure opens operator sign-in. Use the first encryption key to manage other runtime settings; deployment guidance is in [Setup](SETUP.md#configure-the-environment).
 
 ### 3. Build the SDK
 

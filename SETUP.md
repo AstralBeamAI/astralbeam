@@ -85,13 +85,15 @@ openssl rand -base64 32
 
 To rotate an encryption secret, restart with `DATABASE_ENCRYPTION_KEY=new,old`, normally save each value that should move to `new`, then remove `old` only after every dependent value has been saved again. Every write uses the active key. An unknown key ID, malformed JWE, or invalid payload makes that value unreadable; `/configure` permits blind replacement without revealing stored data. Environment changes require a restart, and changing the active key invalidates existing operator sessions.
 
-Apply every checked-in database migration before opening `/configure`. From the repository root, run:
+Create the database-backed rate-limit table before opening `/configure`. The supported setup command applies the checked-in migrations that create it; from the repository root, run:
 
 ```sh
 deno task --cwd webapp db migrate
 ```
 
-Until the migrations and database-backed rate limiter are ready, `/configure` shows this command instead of operator sign-in. Reload the page after it completes.
+Until the rate-limit table is ready, `/configure` shows this command instead of operator sign-in. Reload the page after it completes.
+
+After operator sign-in, `/configure` lists any other pending migrations for review and application.
 
 Sign in to `/configure` with the first active value in `DATABASE_ENCRYPTION_KEY`. Database credentials are never used for configuration access. Sessions expire after 15 minutes and are signed with a key derived from the active encryption key.
 
@@ -194,7 +196,7 @@ Provider-console smoke tests are manual and use controlled accounts. Resend's [t
 ### Troubleshooting
 
 - **Configuration cannot be loaded:** confirm `DATABASE_URL` resolves and every unique `DATABASE_ENCRYPTION_KEY` entry contains at least 32 characters.
-- **Database migrations required:** run `deno task --cwd webapp db migrate` from the repository root, then reload `/configure`.
+- **Rate-limit table missing:** run `deno task --cwd webapp db migrate` from the repository root, then reload `/configure`.
 - **Cannot sign in to `/configure`:** enter the first active value from `DATABASE_ENCRYPTION_KEY`; database credentials and fallback keys are not accepted.
 - **Stored value is unreadable:** restore the key that encrypted it or enter a replacement at `/configure`; malformed JWE and unknown key IDs never fall back to unverified data.
 - **Missing configuration:** check `/configure` for unset or invalid required values; each server process gates the app using its cached configuration snapshot.

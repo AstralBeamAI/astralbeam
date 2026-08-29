@@ -1,8 +1,20 @@
+import { getDatabaseMigrationState } from "@/db/migration-runner.server"
 import { getGlobalConfigState } from "@/lib/config/runtime.server"
 import type { ConfigValues, PublicConfig } from "@/lib/types"
 
+async function loadSetupState() {
+  const [config, migrations] = await Promise.all([
+    getGlobalConfigState(),
+    getDatabaseMigrationState(),
+  ])
+  return {
+    config,
+    setupComplete: config.issues.length === 0 && migrations.pending.length === 0,
+  }
+}
+
 export async function isSetupComplete(): Promise<boolean> {
-  return (await getGlobalConfigState()).issues.length === 0
+  return (await loadSetupState()).setupComplete
 }
 
 // API-route gate; page routes redirect to /configure from the root route instead.
@@ -15,8 +27,8 @@ export async function setupGateResponse(): Promise<Response | null> {
 }
 
 export async function loadPublicConfig(): Promise<PublicConfig | null> {
-  const config = await getGlobalConfigState()
-  return config.issues.length === 0 ? publicConfigFromValues(config.values) : null
+  const { config, setupComplete } = await loadSetupState()
+  return setupComplete ? publicConfigFromValues(config.values) : null
 }
 
 // Derived only from provider-presence booleans and non-secret URLs; structurally secret-free.
