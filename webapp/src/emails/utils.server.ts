@@ -7,7 +7,7 @@ import type {
   SendEmailOptions,
   SendProviderEmail,
 } from "./types.ts"
-import { renderEmailElement, renderEmailPlainText } from "./render.ts"
+import { renderEmailElement, renderEmailPlainText } from "./render.server.ts"
 
 /**
  * Static map of dynamic imports: the selected provider's SDK is the only one ever loaded, while

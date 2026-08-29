@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest"
 
 import { APP_NAME } from "../lib/constants.ts"
 import { emailTheme, resolveEmailRadius } from "./email-theme.ts"
-import { renderEmailElement } from "./render.ts"
+import { renderEmailElement } from "./render.server.ts"
 import EmailVerificationEmail, {
   createEmailVerificationPreviewProps,
 } from "./templates/email-verification.tsx"

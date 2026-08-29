@@ -5,18 +5,19 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { ProviderEmailInput } from "./types.ts"
 
 const authEmailIndexTestState = vi.hoisted(() => ({
+  config: {
+    app_base_url: "https://app.example.test",
+    email_from_address: "Example App <auth@example.test>",
+    email_provider: "resend",
+  },
   sendProviderEmail: vi.fn<
     (input: ProviderEmailInput) => Promise<{ messageId: string }>
   >(() => Promise.resolve({ messageId: "test-message" })),
 }))
 
-vi.mock("../lib/config.server.ts", () => ({
-  getConfig: () =>
-    Promise.resolve({
-      appBaseUrl: "https://app.example.test",
-      emailFromAddress: "Example App <auth@example.test>",
-      emailProvider: "resend",
-    }),
+vi.mock("@/lib/config", () => ({
+  getGlobalConfig: (key: keyof typeof authEmailIndexTestState.config) =>
+    Promise.resolve(authEmailIndexTestState.config[key]),
 }))
 
 vi.mock("./providers/resend.ts", () => ({

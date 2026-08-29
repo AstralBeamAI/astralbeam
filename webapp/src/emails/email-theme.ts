@@ -1,3 +1,4 @@
+// Adapted with: deno task ui add @emailcn/react-email/theme-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/themes/email-theme.ts
 // Local changes: Resolve the app's light brand palette to static sRGB email tokens, use system fonts, and expose matching class names only.
 

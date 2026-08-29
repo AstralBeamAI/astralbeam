@@ -22,7 +22,7 @@ import { emailTailwindConfig } from "./email-theme.ts"
 
 const EMAIL_PREVIEW_CHARACTER_LIMIT = 90
 
-export interface EmailShellProps {
+interface EmailShellProps {
   appName: string
   children: ReactNode
   /** An absolute URL for the light-baseline brand mark. */
@@ -64,7 +64,7 @@ function truncateEmailPreviewText(value: string): string {
   return `${truncateEmailGraphemes(normalized, EMAIL_PREVIEW_CHARACTER_LIMIT - 1).trimEnd()}…`
 }
 
-export interface EmailAddressLinkProps {
+interface EmailAddressLinkProps {
   email: string
 }
 
@@ -80,7 +80,7 @@ export function EmailDivider() {
   return <Hr className="my-8 w-full border-0 border-t border-solid border-t-border" />
 }
 
-export interface EmailActionProps {
+interface EmailActionProps {
   href: string
   label: string
 }

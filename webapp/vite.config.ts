@@ -27,8 +27,12 @@ const legalAssets = [
     })),
 ]
 
-const viteConfig = defineConfig(({ mode }) => {
+const viteConfig = defineConfig(({ command, isPreview, mode }) => {
   return {
+    define: {
+      // `import.meta.env.DEV` can be true for `NODE_ENV=development vite build`. https://vite.dev/guide/env-and-mode.html#node-env-and-modes
+      __DEV_UTILITIES__: JSON.stringify(command === "serve" && !isPreview),
+    },
     resolve: { tsconfigPaths: true },
     build: {
       target: "es2025",
@@ -50,10 +54,7 @@ const viteConfig = defineConfig(({ mode }) => {
           for (const asset of legalAssets) this.emitFile({ type: "asset", ...asset })
         },
       },
-      devtools({
-        // Keep source-inspection attributes out of rendered emails. https://tanstack.com/devtools/latest/docs/source-inspector#ignoring-files-and-components
-        injectSource: { enabled: true, ignore: { files: [/\/src\/emails\//] } },
-      }),
+      devtools(),
       ...(mode === "test" ? [] : nitro()),
       tailwindcss(),
       tanstackStart(),

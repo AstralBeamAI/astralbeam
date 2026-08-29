@@ -8,7 +8,7 @@ import { Heading, Text } from "react-email"
 import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
-export interface OrganizationInvitationEmailProps {
+interface OrganizationInvitationEmailProps {
   appName: string
   expirationHours: number
   inviterEmail: string

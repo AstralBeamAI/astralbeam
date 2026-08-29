@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+declare const __DEV_UTILITIES__: boolean
+
 const DEVELOPMENT_INDEX = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,7 +14,7 @@ export const Route = createFileRoute("/dev/$")({
   server: {
     handlers: {
       GET: async ({ params, request }) => {
-        if (!import.meta.env.DEV) return new Response("Not Found", { status: 404 })
+        if (!__DEV_UTILITIES__) return new Response("Not Found", { status: 404 })
 
         const path = params._splat?.replace(/\/+$/, "") ?? ""
         if (!path) {
@@ -28,8 +30,8 @@ export const Route = createFileRoute("/dev/$")({
         return handleEmailPreviewRequest(request, emailPath[1])
       },
       ANY: () =>
-        new Response(import.meta.env.DEV ? "Method Not Allowed" : "Not Found", {
-          status: import.meta.env.DEV ? 405 : 404,
+        new Response(__DEV_UTILITIES__ ? "Method Not Allowed" : "Not Found", {
+          status: __DEV_UTILITIES__ ? 405 : 404,
         }),
     },
   },

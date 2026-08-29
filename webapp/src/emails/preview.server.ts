@@ -3,7 +3,7 @@ import "@tanstack/react-start/server-only"
 import { createElement } from "react"
 import type { ReactElement } from "react"
 
-import { renderEmailElement } from "./render.ts"
+import { renderEmailElement } from "./render.server.ts"
 import EmailVerificationEmail, {
   createEmailVerificationPreviewProps,
 } from "./templates/email-verification.tsx"

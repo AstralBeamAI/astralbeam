@@ -1,7 +1,7 @@
 import { render, toPlainText } from "@react-email/render"
 import type { ReactElement } from "react"
 
-export interface RenderedEmailContent {
+interface RenderedEmailContent {
   html: string
   text: string
 }

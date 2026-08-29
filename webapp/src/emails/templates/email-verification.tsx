@@ -7,7 +7,7 @@ import { Heading, Text } from "react-email"
 import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
-export interface EmailVerificationEmailProps {
+interface EmailVerificationEmailProps {
   appName: string
   email: string
   expiryMinutes: number
