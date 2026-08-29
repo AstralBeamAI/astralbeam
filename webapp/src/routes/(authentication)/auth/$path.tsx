@@ -16,6 +16,7 @@ const AUTHENTICATED_AUTH_VIEWS = new Set([
   "error",
   "forgot-password",
   "redirect",
+  "reset-link-sent",
   "reset-password",
   "sign-out",
 ])

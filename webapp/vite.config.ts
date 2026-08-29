@@ -50,7 +50,10 @@ const viteConfig = defineConfig(({ mode }) => {
           for (const asset of legalAssets) this.emitFile({ type: "asset", ...asset })
         },
       },
-      devtools(),
+      devtools({
+        // Prevent source-inspection attributes in email HTML. https://tanstack.com/devtools/latest/docs/source-inspector#ignoring-files-and-components
+        injectSource: { enabled: true, ignore: { files: [/\/src\/emails\//] } },
+      }),
       ...(mode === "test" ? [] : nitro()),
       tailwindcss(),
       tanstackStart(),
