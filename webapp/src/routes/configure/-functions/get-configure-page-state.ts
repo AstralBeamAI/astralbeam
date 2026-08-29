@@ -12,19 +12,6 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
     const bootstrapIssues = getDatabaseBootstrapIssues()
     if (bootstrapIssues.length > 0) return { status: "unavailable", bootstrapIssues }
 
-    const [{ sql }, { db }, { isMissingTableError }, { rateLimit }] = await Promise.all([
-      import("drizzle-orm"),
-      import("@/db/index.server"),
-      import("@/db/lib/postgres-errors.server"),
-      import("@/db/schema.server"),
-    ])
-    try {
-      await db.execute(sql`select 1 from ${rateLimit} limit 0`)
-    } catch (error) {
-      if (isMissingTableError(error)) return { status: "database-setup-required" }
-      throw error
-    }
-
     const { getOperatorSession } = await import("../-lib/operator-session.server")
     const session = await getOperatorSession()
     if (!session) return { status: "signed-out" }

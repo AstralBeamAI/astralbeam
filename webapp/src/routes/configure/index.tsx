@@ -44,8 +44,6 @@ function ConfigurePage() {
 
       {state.status === "unavailable"
         ? <BootstrapErrorAlert issues={state.bootstrapIssues} />
-        : state.status === "database-setup-required"
-        ? <DatabaseSetupRequiredAlert />
         : state.status === "signed-out"
         ? <OperatorLoginForm onLoggedIn={refresh} />
         : state.migrations.pending.length > 0
@@ -112,23 +110,6 @@ function BootstrapErrorAlert({
           Use your deployment secret manager in production or{" "}
           <code>webapp/.env.development.local</code> locally, then restart the server.
         </p>
-      </AlertDescription>
-    </Alert>
-  )
-}
-
-function DatabaseSetupRequiredAlert() {
-  return (
-    <Alert variant="destructive">
-      <WarningCircleIcon aria-hidden="true" />
-      <AlertTitle>Database setup required</AlertTitle>
-      <AlertDescription className="space-y-3">
-        <p>Critical database tables are missing, so configuration cannot continue.</p>
-        <p>From the repository root, run:</p>
-        <pre className="overflow-x-auto rounded-md bg-muted p-3 text-foreground">
-          <code>deno task --cwd webapp db migrate</code>
-        </pre>
-        <p>Reload this page after the command completes.</p>
       </AlertDescription>
     </Alert>
   )

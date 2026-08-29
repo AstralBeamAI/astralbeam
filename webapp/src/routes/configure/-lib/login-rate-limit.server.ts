@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect"
 import { RateLimiter } from "effect/unstable/persistence"
 
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { isMissingTableError } from "@/db/lib/postgres-errors.server"
 
 const OPERATOR_LOGIN_RATE_LIMIT_KEY = "configure:operator-login"
 const OPERATOR_LOGIN_WINDOW = Duration.minutes(1)
@@ -15,6 +16,10 @@ interface OperatorLoginRateLimitDecision {
 
 function isRateLimitExceeded(error: RateLimiter.RateLimiterError): boolean {
   return error.reason._tag === "RateLimitExceeded"
+}
+
+function isMissingRateLimitTable(error: RateLimiter.RateLimiterError): boolean {
+  return error.reason._tag === "RateLimitStoreError" && isMissingTableError(error.reason.cause)
 }
 
 function operatorLoginDecision(
@@ -42,9 +47,15 @@ export function consumeOperatorLoginRateLimit() {
           error.reason._tag === "RateLimitExceeded" ? error.reason.retryAfter : Duration.zero,
         )),
     ),
+    Effect.catchIf(
+      isMissingRateLimitTable,
+      () => Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
+    ),
   )
 }
 
 export function clearOperatorLoginRateLimit() {
-  return databaseRateLimiter.reset(OPERATOR_LOGIN_RATE_LIMIT_KEY)
+  return databaseRateLimiter.reset(OPERATOR_LOGIN_RATE_LIMIT_KEY).pipe(
+    Effect.catchIf(isMissingRateLimitTable, () => Effect.succeed(undefined)),
+  )
 }

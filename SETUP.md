@@ -85,19 +85,11 @@ openssl rand -base64 32
 
 To rotate an encryption secret, restart with `DATABASE_ENCRYPTION_KEY=new,old`, normally save each value that should move to `new`, then remove `old` only after every dependent value has been saved again. Every write uses the active key. An unknown key ID, malformed JWE, or invalid payload makes that value unreadable; `/configure` permits blind replacement without revealing stored data. Environment changes require a restart, and changing the active key invalidates existing operator sessions.
 
-Create the database-backed rate-limit table before opening `/configure`. The supported setup command applies the checked-in migrations that create it; from the repository root, run:
-
-```sh
-deno task --cwd webapp db migrate
-```
-
-Until the rate-limit table is ready, `/configure` shows this command instead of operator sign-in. Reload the page after it completes.
-
-After operator sign-in, `/configure` lists any other pending migrations for review and application.
+Open `/configure` and sign in with the first active encryption key. On a new database, sign-in remains available so you can review and apply the pending migrations shown on the page. Shared login throttling starts automatically once its migration has been applied.
 
 Sign in to `/configure` with the first active value in `DATABASE_ENCRYPTION_KEY`. Database credentials are never used for configuration access. Sessions expire after 15 minutes and are signed with a key derived from the active encryption key.
 
-The encryption key grants access to every encrypted database value, so require HTTPS and restrict `/configure` with an ingress allowlist, VPN, or identity-aware proxy. Because `/configure` trusts `X-Forwarded-Host` and `X-Forwarded-Proto`, the ingress must overwrite both and prevent direct origin access. Its login limit is shared across callers, so also rate-limit at the ingress.
+The encryption key grants access to every encrypted database value, so require HTTPS and restrict `/configure` with an ingress allowlist, VPN, or identity-aware proxy. Because `/configure` trusts `X-Forwarded-Host` and `X-Forwarded-Proto`, the ingress must overwrite both and prevent direct origin access. After migrations, its login limit is shared across callers; also rate-limit at the ingress, including during initial setup.
 
 Other runtime settings live in the database `config` table and are managed at `/configure`. Every stored value uses authenticated encryption, while an uppercase environment variable for any registry key takes precedence and makes that field read-only. Sign in to view or edit values; the editor masks them until explicitly revealed. The base URL must be a pathless HTTP(S) origin, production must use HTTPS, and `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings.
 
@@ -196,7 +188,6 @@ Provider-console smoke tests are manual and use controlled accounts. Resend's [t
 ### Troubleshooting
 
 - **Configuration cannot be loaded:** confirm `DATABASE_URL` resolves and every unique `DATABASE_ENCRYPTION_KEY` entry contains at least 32 characters.
-- **Rate-limit table missing:** run `deno task --cwd webapp db migrate` from the repository root, then reload `/configure`.
 - **Cannot sign in to `/configure`:** enter the first active value from `DATABASE_ENCRYPTION_KEY`; database credentials and fallback keys are not accepted.
 - **Stored value is unreadable:** restore the key that encrypted it or enter a replacement at `/configure`; malformed JWE and unknown key IDs never fall back to unverified data.
 - **Missing configuration:** check `/configure` for unset or invalid required values; each server process gates the app using its cached configuration snapshot.

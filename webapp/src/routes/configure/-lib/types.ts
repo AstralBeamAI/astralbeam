@@ -39,7 +39,6 @@ export type ConfigurePageState =
     status: "unavailable"
     bootstrapIssues: readonly ("DATABASE_URL" | "DATABASE_ENCRYPTION_KEY")[]
   }
-  | { status: "database-setup-required" }
   | { status: "signed-out" }
   | {
     status: "ready"
