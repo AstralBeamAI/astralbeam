@@ -1,18 +1,26 @@
 import { Buffer } from "node:buffer"
 import process from "node:process"
-import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2"
+import { GetAccountCommand, SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2"
 import { getGlobalConfig } from "@/lib/config"
-import type { ProviderEmailInput, ResolvedEmailAttachment, SendProviderEmail } from "../types.ts"
+import { runConnectionTest } from "../schema.ts"
+import type { SesProviderSettings, TestConnection } from "../schema.ts"
+import type {
+  ProviderEmailInput,
+  ResolvedEmailAttachment,
+  SendProviderEmail,
+} from "../utils.server.ts"
 
 // Keyed on the configured values so changing them at /configure rebuilds the client.
 let cachedClient: { cacheKey: string; client: SESv2Client } | undefined
 
-async function getClient(): Promise<SESv2Client> {
-  const [region, accessKeyId, secretAccessKey] = await Promise.all([
-    getGlobalConfig("aws_region"),
-    getGlobalConfig("aws_access_key_id"),
-    getGlobalConfig("aws_secret_access_key"),
-  ])
+async function getClient(settings?: SesProviderSettings): Promise<SESv2Client> {
+  const [region, accessKeyId, secretAccessKey] = settings
+    ? [settings.aws_region, settings.aws_access_key_id, settings.aws_secret_access_key]
+    : await Promise.all([
+      getGlobalConfig("aws_region"),
+      getGlobalConfig("aws_access_key_id"),
+      getGlobalConfig("aws_secret_access_key"),
+    ])
   if (!region) {
     throw new Error("SES is the selected email provider but no AWS region is configured")
   }
@@ -37,6 +45,16 @@ async function getClient(): Promise<SESv2Client> {
   }
   return cachedClient.client
 }
+
+export const testConnection: TestConnection<SesProviderSettings> = (settings) =>
+  runConnectionTest(async () => {
+    const response = await (await getClient(settings)).send(new GetAccountCommand({}))
+    if (response.SendingEnabled === false) {
+      throw new Error(
+        "Amazon SES is reachable, but sending is disabled for this account in the selected region",
+      )
+    }
+  })
 
 export const sendSesEmail: SendProviderEmail = async (input) => {
   const response = await (await getClient()).send(

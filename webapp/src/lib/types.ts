@@ -17,6 +17,11 @@ export type ConfigKey =
   | "turnstile_secret_key"
   | "email_provider"
   | "email_from_address"
+  | "smtp_host"
+  | "smtp_port"
+  | "smtp_security"
+  | "smtp_username"
+  | "smtp_password"
   | "resend_api_key"
   | "aws_region"
   | "aws_access_key_id"
@@ -33,6 +38,8 @@ export interface ConfigDefinition {
   description: string
   kind: "text" | "url" | "secret" | "enum"
   required: boolean
+  /** Effective value used when neither the database nor environment configures the key. */
+  defaultValue?: string
   /** The stored value is visible to end users (public pages or browser-visible URLs). */
   isPublic?: true
   options?: readonly { value: string; label: string }[]

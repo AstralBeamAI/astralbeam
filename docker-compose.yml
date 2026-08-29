@@ -55,6 +55,18 @@ services:
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
 
+  mailpit:
+    image: axllent/mailpit:v1.31
+    restart: unless-stopped
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 500
+    volumes:
+      - mailpit-data:/data
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+
 volumes:
   postgres-data:
   valkey-data:
+  mailpit-data:

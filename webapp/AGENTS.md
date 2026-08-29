@@ -1,7 +1,6 @@
 ## Codebase Structure and Guidelines
 
 - Use plain data and helper functions with explicit options objects for application logic; do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
-- Keep named functions, function-valued variables, and module-level constants globally unique within `webapp`; use concise domain qualifiers when needed, while retaining framework-mandated names such as TanStack Router's `Route` export.
 
 - This is TanStack Start React app
   - Tech stack: TanStack Router, Tailwind, Shadcn UI, Better Auth, Drizzle ORM, React Email
@@ -74,7 +73,7 @@
 - `src/lib` contains application-wide shared code like:
   - `utils.ts`: utility functions
   - `utils.server.ts`: server-only utilities
-  - `src/lib/config/index.ts` is guarded as server-only and exports `getGlobalConfig(key)` with environment precedence and process-local caching. Keep definitions and validation in `src/lib/config`, while the Drizzle `config.value` codec owns JWE encryption and `src/db/config.server.ts` owns validation and unreadable-row recovery. `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are required, uppercase registry environment overrides take precedence and stay out of database reads and `/configure`, same-process writes invalidate the cache, and errors never include configuration values.
+  - `src/lib/config/index.ts` is guarded as server-only and exports `getGlobalConfig(key)` with environment precedence and process-local caching. Keep definitions and validation in `src/lib/config`, while the Drizzle `config.value` codec owns JWE encryption and `src/db/config.server.ts` owns validation and unreadable-row recovery. `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are required; uppercase registry environment overrides take precedence and stay out of database reads and `/configure`, same-process writes invalidate the cache, and errors never include configuration values.
   - `constants.ts`: constant values readable from both server and client
   - `types.ts`: common types used across the application, including the config registry types and `PublicConfig`, the secret-free config slice
   - `auth.server.ts` contains the server-only Better Auth setup for authentication
@@ -85,6 +84,7 @@
   - Preserve imported templates' native prop contracts where practical; map Better Auth data in `index.ts`, co-locate each typed preview-props factory at the bottom of its template, and preview with synthetic props at `/dev/emails`
   - `sendEmail` loads only the selected `providers/*.ts` module, through a static map of dynamic imports
   - `provider`, `from`, and `replyTo` default to the `email_provider` and `email_from_address` config values and the resolved `from`
+  - Keep one SMTP provider and one Nodemailer transport for local, self-hosted, and hosted servers: host, port, and security default to `127.0.0.1`, `1025`, and `none`; `none` disables TLS, `auto` uses STARTTLS when advertised, `starttls` requires STARTTLS, `tls` starts with TLS, and username/password must be supplied together or both omitted. Do not add product-specific SMTP providers, queues, retries, DKIM, OAuth, pooling, bounce handling, certificate controls, cipher controls, or TLS-version controls without explicit product scope
   - Templates cannot resolve relative paths, so build absolute URLs from the configured `app_base_url`; attachment `path` is a URL, a `data:` URI, or bare base64
 
 - `/configure` (`src/routes/configure`) is the operator surface for database-backed config. Authenticate short, stateless sessions only with the first active `DATABASE_ENCRYPTION_KEY` value; never use database credentials. Require production HTTPS and same-origin mutations, and trust forwarded host/protocol only when ingress overwrites them and blocks direct origin access. Mask values until the operator explicitly reveals them, approve migrations by exact name and digest, and derive the app gate from process-cached configuration validity and migration state rather than a persisted completion marker.

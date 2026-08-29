@@ -57,9 +57,9 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
 - Open a new terminal so the project-managed Deno LTS is on `PATH` before running `deno task` commands.
 
-- The setup script does not install PostgreSQL or Valkey on macOS. When Docker Compose is available, it starts PostgreSQL, PgBouncer, and Valkey unless `SKIP_DOCKER_COMPOSE=true` is set. PgBouncer is the only database service published to the host, so the default `DATABASE_URL` sends local application, Drizzle, and migration traffic through its transaction pool. Set `PGBOUNCER_HOST_PORT` and update `DATABASE_URL` together only when port 5432 is unavailable; set `POSTGRES_HOST` and `POSTGRES_PORT` to route PgBouncer to a different backend.
+- The setup script does not install PostgreSQL, Valkey, or Mailpit on macOS. When Docker Compose is available, it starts PostgreSQL, PgBouncer, Valkey, and Mailpit unless `SKIP_DOCKER_COMPOSE=true` is set. PgBouncer is the only database service published to the host, so the default `DATABASE_URL` sends local application, Drizzle, and migration traffic through its transaction pool. Set `PGBOUNCER_HOST_PORT` and update `DATABASE_URL` together only when port 5432 is unavailable; set `POSTGRES_HOST` and `POSTGRES_PORT` to route PgBouncer to a different backend.
 
-- From the repository root, stop services with `docker compose down`. Add `--volumes` to permanently delete the local PostgreSQL and Valkey data. Use `docker compose exec postgres` only when a documented administrative workflow requires a direct PostgreSQL connection.
+- From the repository root, stop services with `docker compose down`. Add `--volumes` to permanently delete the local PostgreSQL, Valkey, and Mailpit data. Use `docker compose exec postgres` only when a documented administrative workflow requires a direct PostgreSQL connection.
 
 ## Cloud agent setup
 
@@ -91,7 +91,7 @@ The encryption key grants access to every encrypted database value, so require H
 
 Other runtime settings live in the database `config` table and are managed at `/configure`. Every stored value uses authenticated encryption, while an uppercase environment variable for any registry key takes precedence and makes that field read-only. Sign in to view or edit values; the editor masks them until explicitly revealed. The base URL must be a pathless HTTP(S) origin, production must use HTTPS, and `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings.
 
-For SES, select the `ses` email provider with a verified sender address and a region; leave the access-key fields empty to use the deployment's AWS credential chain (role, SSO, or profile). Never reuse local Better Auth secrets, OAuth clients, or email credentials in production.
+`EMAIL_PROVIDER` defaults to `smtp`, with `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, and `SMTP_SECURITY=none`. Select Resend API or Amazon SES API only when using those native integrations. Never reuse local Better Auth secrets, OAuth clients, or email credentials in production.
 
 OAuth callbacks are always derived from the configured application base URL:
 
@@ -135,6 +135,16 @@ Create browser-flow OAuth Apps—not GitHub Apps or Device Flow applications—u
 
 If GitHub returns `email_not_found`, ensure the account has a verified email, reauthorize with `user:email`, and confirm the application authorization was not reduced.
 
+### Capture email with Mailpit
+
+The default SMTP settings connect to `127.0.0.1:1025` without TLS or authentication. The Compose Mailpit service captures every message without delivering it externally and exposes its inbox at [http://localhost:8025](http://localhost:8025). The devcontainer sets `SMTP_HOST=mailpit` so the same SMTP provider reaches the Compose service.
+
+When `EMAIL_FROM_ADDRESS` is unset, Mailpit derives `no-reply@<hostname>` from `APP_BASE_URL`. The Mailpit ports are bound only to loopback for host development and the captured inbox persists in the `mailpit-data` Compose volume.
+
+### Configure SMTP
+
+Use the same `smtp` provider for Mailpit, MailHog, smtp4dev, Postfix, internal relays, Gmail, and hosted transactional SMTP. Override `SMTP_HOST` and `SMTP_PORT` as needed. Set `SMTP_SECURITY=none` for a trusted plaintext endpoint, `auto` to use STARTTLS when advertised while allowing an unencrypted fallback, `starttls` to require STARTTLS (commonly port 587), or `tls` for TLS from connection start (commonly port 465). `SMTP_USERNAME` and `SMTP_PASSWORD` are optional, but must be supplied together; omitting both sends without authentication. `EMAIL_FROM_ADDRESS` remains optional and otherwise derives `no-reply@<hostname>` from `APP_BASE_URL`. The Email Delivery section on `/configure` can test unsaved SMTP, Resend, or SES settings without sending an email. The SES test uses `GetAccount`, so its credentials also need `ses:GetAccount` permission.
+
 ### Configure Resend
 
 Use Resend's [API-key](https://resend.com/docs/dashboard/api-keys/introduction), [domain](https://resend.com/docs/dashboard/domains/introduction), and [sender-address](https://resend.com/docs/knowledge-base/how-do-I-create-an-email-address-or-sender-in-resend) guides.
@@ -155,7 +165,7 @@ SES identities, sandbox status, and limits are regional. Follow AWS's [identity]
 5. Set `EMAIL_PROVIDER=ses`, the verified `EMAIL_FROM_ADDRESS`, and matching `AWS_REGION`; set `AWS_PROFILE` locally when needed and let production use role credentials.
 6. Smoke-test verification, reset, password-change notification, and invitation links with controlled inboxes, then monitor bounces, complaints, suppression, and sending health.
 
-Choose exactly one email provider per environment and do not configure credentials or permissions for the unused provider.
+Choose one email provider per environment and do not configure credentials or permissions for unused providers.
 
 ### Apply the database and run locally
 
@@ -170,7 +180,7 @@ Open `http://localhost:3000/auth/sign-up`. When legal URLs are configured, confi
 
 ### Test email safety
 
-Automated tests never send live email. Test mode rejects delivery before loading Resend or SES, so tests must inject or mock provider boundaries and use only deterministic non-secret OAuth placeholders. Never add live Resend, AWS, OAuth, or recipient credentials to fixtures, snapshots, CI variables, logs, screenshots, or acceptance output.
+Automated tests never send live email. Test mode rejects delivery before loading any provider, so tests must inject or mock provider boundaries and use only deterministic non-secret OAuth placeholders. Never add live SMTP, Resend, AWS, OAuth, or recipient credentials to fixtures, snapshots, CI variables, logs, screenshots, or acceptance output.
 
 Provider-console smoke tests are manual and use controlled accounts. Resend's [test addresses](https://resend.com/docs/dashboard/emails/send-test-emails) and the SES mailbox simulator cover non-clickable delivery outcomes; token-bearing verification, reset, and invitation flows require a controlled inbox that can open the link.
 

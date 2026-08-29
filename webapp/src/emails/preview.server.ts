@@ -46,10 +46,34 @@ const EMAIL_PREVIEWS = [
 
 function emailPreviewIndex(): Response {
   const links = EMAIL_PREVIEWS.map(({ label, name }) =>
-    `<li><a href="/dev/emails/${name}">${label}</a> · <a href="/dev/emails/${name}?text=1">Text</a></li>`
+    `<li class="flex flex-col gap-4 rounded-lg border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <span class="font-medium">${label}</span>
+      <span class="flex gap-2">
+        <a class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90" href="/dev/emails/${name}">Preview</a>
+        <a class="inline-flex h-8 items-center rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent" href="/dev/emails/${name}?text=1">Plain text</a>
+      </span>
+    </li>`
   ).join("")
   return new Response(
-    `<!doctype html><meta charset="utf-8"><title>Email previews</title><h1>Email previews</h1><p><a href="/dev">Development tools</a></p><p>Synthetic props; no email is sent.</p><ul>${links}</ul>`,
+    `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email previews</title>
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body class="min-h-svh bg-background text-foreground antialiased">
+  <main class="mx-auto max-w-3xl space-y-8 px-6 py-16">
+    <header class="space-y-3">
+      <a class="text-sm font-medium text-primary hover:underline" href="/dev">← Development tools</a>
+      <h1 class="font-heading text-3xl font-semibold tracking-tight">Email previews</h1>
+      <p class="text-muted-foreground">Rendered with synthetic data. Previewing does not send email.</p>
+    </header>
+    <ul class="grid gap-3">${links}</ul>
+  </main>
+</body>
+</html>`,
     { headers: { "content-type": "text/html; charset=utf-8" } },
   )
 }

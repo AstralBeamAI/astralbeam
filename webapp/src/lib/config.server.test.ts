@@ -100,9 +100,14 @@ describe("config value boundary", () => {
   test("environment values override stored values without changing the database", async () => {
     vi.stubEnv("APP_BASE_URL", JSON.stringify("https://environment.example"))
     vi.stubEnv("BETTER_AUTH_SECRET", JSON.stringify("b".repeat(64)))
+    vi.stubEnv("SMTP_PORT", "587")
     const { values } = await loadGlobalConfig(completeConfigTestRows())
     expect(values.app_base_url).toBe("https://environment.example")
     expect(values.better_auth_secret).toBe("b".repeat(64))
+    expect(values.email_provider).toBe("smtp")
+    expect(values.smtp_host).toBe("127.0.0.1")
+    expect(values.smtp_port).toBe("587")
+    expect(values.smtp_security).toBe("none")
   })
 
   test("malformed encrypted values fail closed and remain replaceable", async () => {
@@ -144,7 +149,7 @@ describe("config value boundary", () => {
     expect(unrelated.values.openai_api_key).toBeUndefined()
   })
 
-  test("a selected email provider requires a from address", async () => {
+  test("selected email providers require their delivery settings", async () => {
     const selectedProvider = await loadGlobalConfig([
       ...completeConfigTestRows(),
       configTestRow("email_provider", "resend"),
@@ -153,6 +158,16 @@ describe("config value boundary", () => {
     expect(validateConfigCompleteness(selectedProvider.values)).toContainEqual({
       key: "email_from_address",
       message: "An email from address is required when an email provider is selected",
+    })
+    expect(validateConfigCompleteness({
+      email_provider: "smtp",
+      smtp_host: "smtp.example.com",
+      smtp_port: "587",
+      smtp_security: "starttls",
+      smtp_username: "mailer",
+    })).toContainEqual({
+      key: "smtp_password",
+      message: "SMTP Password is required when its pair is configured",
     })
   })
 

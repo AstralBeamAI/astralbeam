@@ -1,7 +1,18 @@
 import { Buffer } from "node:buffer"
 import { Resend } from "resend"
 import { getGlobalConfig } from "@/lib/config"
-import type { SendProviderEmail } from "../types.ts"
+import { runConnectionTest } from "../schema.ts"
+import type { ResendProviderSettings, TestConnection } from "../schema.ts"
+import type { SendProviderEmail } from "../utils.server.ts"
+
+export const testConnection: TestConnection<ResendProviderSettings> = (settings) =>
+  runConnectionTest(async () => {
+    const { error } = await new Resend(settings.resend_api_key).domains.list({ limit: 1 })
+    // Sending-only keys are valid but cannot list domains. https://resend.com/docs/api-reference/api-keys/create-api-key
+    if (error && error.name !== "restricted_api_key") {
+      throw new Error(error.message)
+    }
+  })
 
 export const sendResendEmail: SendProviderEmail = async (input) => {
   // The constructor only stores the key and sends over global fetch, so there is nothing to reuse.

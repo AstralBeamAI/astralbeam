@@ -10,7 +10,8 @@
   "remoteEnv": {
     "DATABASE_URL": "postgres://astralbeam:astralbeam123@pgbouncer:5432/astralbeam",
     "POSTGRES_HOST": "postgres",
-    "VALKEY_HOST": "valkey"
+    "VALKEY_HOST": "valkey",
+    "SMTP_HOST": "mailpit"
   },
   "customizations": {
     "vscode": {
