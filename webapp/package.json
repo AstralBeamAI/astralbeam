@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
-    "build": "vite build",
+    "build": "NODE_ENV=production vite build",
     "start": "deno run --config deno.jsonc -P=runtime .output/server/index.mjs",
     "compile": "deno compile -A --output .output/astralbeam .",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
