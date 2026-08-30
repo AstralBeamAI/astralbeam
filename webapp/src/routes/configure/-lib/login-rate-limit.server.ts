@@ -14,26 +14,6 @@ interface OperatorLoginRateLimitDecision {
   retryAfterSeconds: number
 }
 
-let bootstrapAttemptCount = 0
-let bootstrapWindowStartedAt = 0
-
-function consumeBootstrapOperatorLoginRateLimit(
-  now: number,
-): OperatorLoginRateLimitDecision {
-  const windowMilliseconds = Duration.toMillis(OPERATOR_LOGIN_WINDOW)
-  if (bootstrapWindowStartedAt + windowMilliseconds <= now) {
-    bootstrapAttemptCount = 0
-    bootstrapWindowStartedAt = now
-  }
-  bootstrapAttemptCount += 1
-  const resetAfter = Duration.millis(Math.max(
-    0,
-    bootstrapWindowStartedAt + windowMilliseconds - now,
-  ))
-  const remaining = OPERATOR_LOGIN_MAX_ATTEMPTS - bootstrapAttemptCount
-  return operatorLoginDecision(remaining >= 0, resetAfter)
-}
-
 function isMissingRateLimitTable(error: RateLimiter.RateLimiterError): boolean {
   return error.reason._tag === "RateLimitStoreError" &&
     isMissingTableError(error.reason.cause)
@@ -62,7 +42,7 @@ export function consumeOperatorLoginRateLimit() {
     Effect.map((result) => operatorLoginDecision(true, result.resetAfter)),
     Effect.catchIf(
       isMissingRateLimitTable,
-      () => Effect.sync(() => consumeBootstrapOperatorLoginRateLimit(Date.now())),
+      () => Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
     ),
     Effect.catchIf(
       isRateLimitExceeded,
@@ -76,8 +56,6 @@ export function consumeOperatorLoginRateLimit() {
 }
 
 export function clearOperatorLoginRateLimit() {
-  bootstrapAttemptCount = 0
-  bootstrapWindowStartedAt = 0
   return databaseRateLimiter.reset(OPERATOR_LOGIN_RATE_LIMIT_KEY).pipe(
     Effect.catchIf(isMissingRateLimitTable, () => Effect.void),
   )
