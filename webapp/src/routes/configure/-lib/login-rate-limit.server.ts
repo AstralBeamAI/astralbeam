@@ -41,16 +41,16 @@ export function consumeOperatorLoginRateLimit() {
   }).pipe(
     Effect.map((result) => operatorLoginDecision(true, result.resetAfter)),
     Effect.catchIf(
+      isMissingRateLimitTable,
+      () => Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
+    ),
+    Effect.catchIf(
       isRateLimitExceeded,
       (error) =>
         Effect.succeed(operatorLoginDecision(
           false,
           error.reason._tag === "RateLimitExceeded" ? error.reason.retryAfter : Duration.zero,
         )),
-    ),
-    Effect.catchIf(
-      isMissingRateLimitTable,
-      () => Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
     ),
   )
 }
