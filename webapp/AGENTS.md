@@ -8,6 +8,8 @@
   - all the application code lives in `src/`
   - custom scripts are placed in `scripts/`, and invoked using `package.json` commands
 
+- Keep named functions, function-valued variables, and module-level constants globally unique within `webapp`; use concise domain qualifiers when needed, while retaining framework-mandated names such as TanStack Router's `Route` export.
+
 - `src/components/ui` contains registry-generated shadcn UI components and remains excluded from formatting; make only intentional integration edits and record every divergence in the file's provenance header.
   - Add new components only with `deno task ui add <component>`.
   - Better Auth UI output under `src/components/auth` and `src/lib/auth`, and Emailcn output under `src/emails`, follow the same provenance rule: retain the registry command, source, and local changes; preserve earlier provenance when replacing a source and centralize shared email changes outside imported templates.

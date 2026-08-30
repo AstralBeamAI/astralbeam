@@ -7,7 +7,8 @@
 - Reserve Knip entries for actual execution or externally discovered roots, keep `includeEntryExports` enabled, and add reusable modules only when code uses them; do not hide speculative modules or accidental exports with entries.
 - Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
-- Write and run JavaScript and TypeScript tests with Vitest through the project's Deno task; never use `Deno.test` or `deno test`. Keep only tests that protect durable behavior, security boundaries, or regressions, not implementation details, trivial constants, or generated structure.
+- Always write and run JavaScript and TypeScript tests with Vitest through the project's Deno task; never use `Deno.test` or `deno test`.
+- Keep tests that protect durable behavior, security boundaries, or previously observed regressions; avoid tests that only restate implementation details or exercise trivial constants and generated structure.
 - Before final validation, turn durable, non-obvious user corrections into one concise, nonduplicative instruction in the closest `AGENTS.md` or skill; skip one-off decisions and preferences.
 
 ## Documentation

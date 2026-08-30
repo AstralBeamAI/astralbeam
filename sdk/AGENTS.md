@@ -1,6 +1,7 @@
 # SDK development
 
 - Keep comments to at most two lines and explain only non-obvious reasoning.
+- Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
 - Use plain data and helper functions with explicit options objects for application logic; do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
 - Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing entry points, the chat widget, or the build; update it in the same commit for structural changes and keep inline comments line-specific.
 - Keep `tsdown` pinned to `0.22.3` until [denoland/deno#36240](https://github.com/denoland/deno/issues/36240) is fixed; newer versions pull native `yuku` bindings that Deno loads as JavaScript.
