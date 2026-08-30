@@ -1,14 +1,13 @@
 ## Codebase Structure and Guidelines
 
 - Use plain data and helper functions with explicit options objects for application logic; do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
+- Keep named functions, function-valued variables, and module-level constants globally unique within `webapp`; use concise domain qualifiers when needed. Implementations may reuse names prescribed by their shared interface, as may framework-mandated exports such as TanStack Router's `Route`.
 
 - This is TanStack Start React app
   - Tech stack: TanStack Router, Tailwind, Shadcn UI, Better Auth, Drizzle ORM, React Email
   - `deno` is the runtime and package manager, all useful commands are listed in `package.json`
   - all the application code lives in `src/`
   - custom scripts are placed in `scripts/`, and invoked using `package.json` commands
-
-- Keep named functions, function-valued variables, and module-level constants globally unique within `webapp`; use concise domain qualifiers when needed, while retaining framework-mandated names such as TanStack Router's `Route` export.
 
 - `src/components/ui` contains registry-generated shadcn UI components and remains excluded from formatting; make only intentional integration edits and record every divergence in the file's provenance header.
   - Add new components only with `deno task ui add <component>`.
