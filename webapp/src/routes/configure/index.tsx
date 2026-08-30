@@ -22,6 +22,10 @@ function ConfigurePage() {
   const state = Route.useLoaderData()
   const router = useRouter()
 
+  if (state.status === "unavailable") {
+    return <BootstrapErrorPage issues={state.bootstrapIssues} />
+  }
+
   const refresh = () => void router.invalidate()
 
   return (
@@ -32,7 +36,7 @@ function ConfigurePage() {
             Configure {APP_NAME}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Prepare your {APP_NAME} deployment before others can use it.
+            Your {APP_NAME} deployment needs to be configured before others can use it.
           </p>
         </div>
         {state.status === "ready" && (
@@ -42,9 +46,7 @@ function ConfigurePage() {
         )}
       </header>
 
-      {state.status === "unavailable"
-        ? <BootstrapErrorAlert issues={state.bootstrapIssues} />
-        : state.status === "signed-out"
+      {state.status === "signed-out"
         ? <OperatorLoginForm onLoggedIn={refresh} />
         : state.migrations.pending.length > 0
         ? (
@@ -71,47 +73,57 @@ function ConfigurePage() {
   )
 }
 
-function BootstrapErrorAlert({
+function BootstrapErrorPage({
   issues,
 }: {
   issues: readonly ("DATABASE_URL" | "DATABASE_ENCRYPTION_KEY")[]
 }) {
   return (
-    <Alert variant="destructive">
-      <WarningCircleIcon aria-hidden="true" />
-      <AlertTitle>Server restart required</AlertTitle>
-      <AlertDescription className="space-y-3">
-        <p>
-          The following environment {issues.length === 1 ? "variable is" : "variables are"}{" "}
-          missing or invalid:
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Configure {APP_NAME}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Set the required server environment before configuring the application.
         </p>
-        <ul className="list-disc pl-4">
-          {issues.map((issue) => (
-            <li key={issue}>
-              <code>{issue}</code>
-            </li>
-          ))}
-        </ul>
-        {issues.includes("DATABASE_URL") && (
+      </header>
+      <Alert variant="destructive">
+        <WarningCircleIcon aria-hidden="true" />
+        <AlertTitle>Server restart required</AlertTitle>
+        <AlertDescription className="space-y-3">
           <p>
-            Set <code>DATABASE_URL</code>{" "}
-            to the PostgreSQL connection URL supplied by your database provider, such as{" "}
-            <code>postgresql://user:password@host:5432/database</code>.
+            The following environment {issues.length === 1 ? "variable is" : "variables are"}{" "}
+            missing or invalid:
           </p>
-        )}
-        {issues.includes("DATABASE_ENCRYPTION_KEY") && (
+          <ul className="list-disc pl-4">
+            {issues.map((issue) => (
+              <li key={issue}>
+                <code>{issue}</code>
+              </li>
+            ))}
+          </ul>
+          {issues.includes("DATABASE_URL") && (
+            <p>
+              Set <code>DATABASE_URL</code>{" "}
+              to the PostgreSQL connection URL supplied by your database provider, such as{" "}
+              <code>postgresql://user:password@host:5432/database</code>.
+            </p>
+          )}
+          {issues.includes("DATABASE_ENCRYPTION_KEY") && (
+            <p>
+              Generate a high-entropy encryption key with{" "}
+              <code>openssl rand -base64 32</code>, then set its output as{" "}
+              <code>DATABASE_ENCRYPTION_KEY</code>.
+            </p>
+          )}
           <p>
-            Generate a high-entropy encryption key with{" "}
-            <code>openssl rand -base64 32</code>, then set its output as{" "}
-            <code>DATABASE_ENCRYPTION_KEY</code>.
+            Use your deployment secret manager in production or{" "}
+            <code>webapp/.env.development.local</code> locally, then restart the server.
           </p>
-        )}
-        <p>
-          Use your deployment secret manager in production or{" "}
-          <code>webapp/.env.development.local</code> locally, then restart the server.
-        </p>
-      </AlertDescription>
-    </Alert>
+        </AlertDescription>
+      </Alert>
+    </main>
   )
 }
 

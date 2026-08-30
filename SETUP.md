@@ -85,9 +85,7 @@ openssl rand -base64 32
 
 To rotate an encryption secret, restart with `DATABASE_ENCRYPTION_KEY=new,old`, normally save each value that should move to `new`, then remove `old` only after every dependent value has been saved again. Every write uses the active key. An unknown key ID, malformed JWE, or invalid payload makes that value unreadable; `/configure` permits blind replacement without revealing stored data. Environment changes require a restart, and changing the active key invalidates existing operator sessions.
 
-Open `/configure` and sign in with the first active encryption key. On a new database, sign-in remains available so you can review and apply the pending migrations shown on the page. Shared login throttling starts automatically once its migration has been applied.
-
-Sign in to `/configure` with the first active value in `DATABASE_ENCRYPTION_KEY`. Database credentials are never used for configuration access. Sessions expire after 15 minutes and are signed with a key derived from the active encryption key.
+Sign in to `/configure` with the first active value in `DATABASE_ENCRYPTION_KEY`. On a new database, sign-in remains available so you can review and apply pending migrations from the page; shared login throttling starts automatically once its migration has been applied. Database credentials are never used for configuration access. Sessions expire after 15 minutes and are signed with a key derived from the active encryption key.
 
 The encryption key grants access to every encrypted database value, so require HTTPS and restrict `/configure` with an ingress allowlist, VPN, or identity-aware proxy. Because `/configure` trusts `X-Forwarded-Host` and `X-Forwarded-Proto`, the ingress must overwrite both and prevent direct origin access. After migrations, its login limit is shared across callers; also rate-limit at the ingress, including during initial setup.
 

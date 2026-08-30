@@ -57,7 +57,7 @@
 - `src/db` contains the database schema and migrations
   - `index.server.ts` contains the databse connection and drizzle db object
   - `schema.server.ts` contains the drizzle schema
-  - Keep generally reusable database primitives in `src/db/lib`; keep table-specific domain interfaces directly under `src/db`.
+  - Keep generally reusable database primitives in `src/db/lib`; keep table-specific domain interfaces and the migration runner directly under `src/db`.
   - Keep domain schema definitions in responsibility-named `src/db/schema/*.server.ts` files and re-export every table and relation Drizzle Kit must discover from `schema.server.ts`.
   - Keep every organization-owned table in `src/db/schema/organizations.server.ts` and its relations centralized; every table must define its own `id: uuidV7PrimaryKey()`, including one-to-one, join, and third-party-managed tables.
   - Define tables with `snakeCase.table` and camel-case TypeScript keys so Drizzle derives lower snake-case SQL column names.
