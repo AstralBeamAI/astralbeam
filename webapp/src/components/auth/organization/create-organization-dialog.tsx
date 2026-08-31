@@ -26,7 +26,7 @@ import { sanitizeSlug, SlugField } from "./slug-field"
 export type CreateOrganizationDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onOrganizationCreated?: (() => unknown | Promise<unknown>) | undefined
+  onOrganizationCreated?: (() => unknown) | undefined
   initialName?: string
 }
 

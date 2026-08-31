@@ -5,7 +5,7 @@ import type { ConfigStorageEntry, ConfigValues } from "@/lib/types"
 const configRepositoryState = vi.hoisted(() => ({
   result: {
     rows: null as ConfigStorageEntry[] | null,
-    values: {} as ConfigValues,
+    values: {},
   },
 }))
 const migrationTestState = vi.hoisted(() => ({ pending: false }))

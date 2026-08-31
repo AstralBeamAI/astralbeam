@@ -23,7 +23,7 @@ const migrationSqlByPath = import.meta.glob("/src/db/migrations/*/migration.sql"
   query: "?raw",
   import: "default",
   eager: true,
-}) as Record<string, string>
+})
 
 // Timestamp parsing mirrors drizzle-orm's migrator so /configure and `deno task db migrate` stay
 // interchangeable on the same bookkeeping table.

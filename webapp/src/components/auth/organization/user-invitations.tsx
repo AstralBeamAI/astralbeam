@@ -14,7 +14,7 @@ import { UserInvitationsEmpty } from "./user-invitations-empty"
 
 export type UserInvitationsProps = {
   className?: string
-  onInvitationAction?: () => unknown | Promise<unknown>
+  onInvitationAction?: () => unknown
 }
 
 /**

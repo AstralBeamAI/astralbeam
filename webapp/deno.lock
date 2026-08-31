@@ -2,10 +2,10 @@
   "version": "5",
   "specifiers": {
     "npm:@aws-sdk/client-sesv2@^3.1115.0": "3.1115.0",
-    "npm:@base-ui/react@^1.6.0": "1.7.0_@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8",
-    "npm:@better-auth-ui/core@1.7.12": "1.7.12_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1",
-    "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-query@5.102.0__react@19.2.8_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_clsx@2.1.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_react-email@6.9.2__react@19.2.8__react-dom@19.2.8___react@19.2.8_tailwind-merge@3.6.0_tailwindcss@4.3.3_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_vitest@4.1.10__vite@8.2.1",
-    "npm:@better-auth/drizzle-adapter@^1.7.2": "1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+    "npm:@base-ui/react@^1.6.0": "1.7.0_@types+react@19.2.18_date-fns@4.4.0_react@19.2.8_react-dom@19.2.8__react@19.2.8",
+    "npm:@better-auth-ui/core@1.7.12": "1.7.12_@better-auth+api-key@1.7.1__@better-auth+core@1.7.2___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.1___better-call@1.4.0____zod@4.5.4___jose@6.2.10___kysely@0.29.5___nanostores@1.5.2__@better-auth+utils@0.4.2__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1__better-call@1.4.0___zod@4.5.4__@better-fetch+fetch@1.3.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__@types+pg@8.23.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@better-auth+passkey@1.7.1__@better-auth+core@1.7.2___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.1___better-call@1.4.0____zod@4.5.4___jose@6.2.10___kysely@0.29.5___nanostores@1.5.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1__better-call@1.4.0___zod@4.5.4__nanostores@1.5.2__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__@types+pg@8.23.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__jose@6.2.10__kysely@0.29.5__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+query-core@5.102.0_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_@types+pg@8.23.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1",
+    "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12__@better-auth+api-key@1.7.1___@better-auth+core@1.7.2____@better-auth+utils@0.4.2____@better-fetch+fetch@1.3.1____better-call@1.4.0_____zod@4.5.4____jose@6.2.10____kysely@0.29.5____nanostores@1.5.2___@better-auth+utils@0.4.2___better-auth@1.7.2____@tanstack+react-start@1.168.46_____react@19.2.8_____react-dom@19.2.8______react@19.2.8_____vite@8.2.1_____rolldown@1.2.4____drizzle-kit@1.0.0-rc.5-ab785fc____drizzle-orm@1.0.0-rc.5-ab785fc_____@effect+sql-pg@4.0.0-rc.112______effect@4.0.0-rc.112_____@types+pg@8.23.1_____effect@4.0.0-rc.112_____pg@8.23.0_____postgres@3.4.9_____zod@4.5.4____pg@8.23.0____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vitest@4.1.10_____vite@8.2.1____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1___better-call@1.4.0____zod@4.5.4___@better-fetch+fetch@1.3.1___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___@types+pg@8.23.1___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___jose@6.2.10___kysely@0.29.5___nanostores@1.5.2___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1__@better-auth+passkey@1.7.1___@better-auth+core@1.7.2____@better-auth+utils@0.4.2____@better-fetch+fetch@1.3.1____better-call@1.4.0_____zod@4.5.4____jose@6.2.10____kysely@0.29.5____nanostores@1.5.2___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.1___better-auth@1.7.2____@tanstack+react-start@1.168.46_____react@19.2.8_____react-dom@19.2.8______react@19.2.8_____vite@8.2.1_____rolldown@1.2.4____drizzle-kit@1.0.0-rc.5-ab785fc____drizzle-orm@1.0.0-rc.5-ab785fc_____@effect+sql-pg@4.0.0-rc.112______effect@4.0.0-rc.112_____@types+pg@8.23.1_____effect@4.0.0-rc.112_____pg@8.23.0_____postgres@3.4.9_____zod@4.5.4____pg@8.23.0____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vitest@4.1.10_____vite@8.2.1____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1___better-call@1.4.0____zod@4.5.4___nanostores@1.5.2___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___@types+pg@8.23.1___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___jose@6.2.10___kysely@0.29.5___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1__@tanstack+query-core@5.102.0__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1__@better-auth+core@1.7.2___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.1___better-call@1.4.0____zod@4.5.4___jose@6.2.10___kysely@0.29.5___nanostores@1.5.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__@types+pg@8.23.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-query@5.102.0__react@19.2.8_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1_clsx@2.1.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_react-email@6.9.2__react@19.2.8__react-dom@19.2.8___react@19.2.8_tailwind-merge@3.6.0_tailwindcss@4.3.3_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_@types+pg@8.23.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2_pg@8.23.0_vitest@4.1.10__vite@8.2.1",
+    "npm:@better-auth/drizzle-adapter@^1.7.2": "1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_@better-fetch+fetch@1.3.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2_pg@8.23.0",
     "npm:@csstools/color-helpers@6.1.0": "6.1.0",
     "npm:@csstools/css-color-parser@4.1.10": "4.1.10_@csstools+css-parser-algorithms@4.0.0__@csstools+css-tokenizer@4.0.0_@csstools+css-tokenizer@4.0.0",
     "npm:@csstools/css-parser-algorithms@4.0.0": "4.0.0_@csstools+css-tokenizer@4.0.0",
@@ -21,15 +21,21 @@
     "npm:@tanstack/ai-openai@0.22": "0.22.0_@tanstack+ai@0.49.1__zod@4.5.4_zod@4.5.4",
     "npm:@tanstack/ai@~0.49.1": "0.49.1_zod@4.5.4",
     "npm:@tanstack/devtools-vite@~0.8.3": "0.8.3_vite@8.2.1_@emnapi+core@1.11.2_@emnapi+runtime@1.11.2",
-    "npm:@tanstack/react-devtools@~0.10.9": "0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8",
+    "npm:@tanstack/eslint-plugin-query@*": "5.102.8_eslint@10.9.1_typescript@6.0.3",
+    "npm:@tanstack/eslint-plugin-query@^5.102.8": "5.102.8_eslint@10.9.1_typescript@6.0.3",
+    "npm:@tanstack/eslint-plugin-router@*": "1.162.0_eslint@10.9.1_typescript@6.0.3",
+    "npm:@tanstack/eslint-plugin-router@^1.162.0": "1.162.0_eslint@10.9.1_typescript@6.0.3",
+    "npm:@tanstack/eslint-plugin-start@*": "0.1.0_eslint@10.9.1_typescript@6.0.3",
+    "npm:@tanstack/eslint-plugin-start@0.1": "0.1.0_eslint@10.9.1_typescript@6.0.3",
+    "npm:@tanstack/react-devtools@~0.10.9": "0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8_@neodrag+core@3.0.0-next.11_csstype@3.2.3_solid-js@1.9.14",
     "npm:@tanstack/react-pacer@0.23": "0.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-query@5.102.0": "5.102.0_react@19.2.8",
-    "npm:@tanstack/react-router-devtools@^1.167.0": "1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8",
-    "npm:@tanstack/react-router-ssr-query@1.167.1": "1.167.1_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8",
+    "npm:@tanstack/react-router-devtools@^1.167.0": "1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_@tanstack+router-core@1.171.24_react@19.2.8_react-dom@19.2.8__react@19.2.8_csstype@3.2.3",
+    "npm:@tanstack/react-router-ssr-query@1.167.1": "1.167.1_@tanstack+query-core@5.102.0_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8_@tanstack+router-core@1.171.24",
     "npm:@tanstack/react-router@*": "1.170.29_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-router@^1.170.18": "1.170.29_react@19.2.8_react-dom@19.2.8__react@19.2.8",
-    "npm:@tanstack/react-start@*": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1",
-    "npm:@tanstack/react-start@^1.168.32": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1",
+    "npm:@tanstack/react-start@*": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4",
+    "npm:@tanstack/react-start@^1.168.32": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4",
     "npm:@tanstack/router-cli@*": "1.167.30",
     "npm:@tanstack/router-cli@^1.167.21": "1.167.30",
     "npm:@types/nodemailer@^8.0.1": "8.0.1",
@@ -37,26 +43,41 @@
     "npm:@types/react-dom@19": "19.2.4_@types+react@19.2.18",
     "npm:@types/react@19": "19.2.18",
     "npm:@vitejs/plugin-react@6": "6.0.5_@rolldown+plugin-babel@0.2.3__@babel+core@7.29.7__rolldown@1.2.4__vite@8.2.1_babel-plugin-react-compiler@1.0.0_vite@8.2.1_@babel+core@7.29.7_rolldown@1.2.4",
-    "npm:better-auth@^1.7.2": "1.7.2_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1",
+    "npm:@vitest/eslint-plugin@*": "1.6.27_eslint@10.9.1_typescript@6.0.3_vitest@4.1.10__vite@8.2.1",
+    "npm:@vitest/eslint-plugin@^1.6.27": "1.6.27_eslint@10.9.1_typescript@6.0.3_vitest@4.1.10__vite@8.2.1",
+    "npm:better-auth@^1.7.2": "1.7.2_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1",
     "npm:bowser@^2.14.1": "2.14.1",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
     "npm:clsx@^2.1.1": "2.1.1",
     "npm:drizzle-kit@^1.0.0-rc.5": "1.0.0-rc.5-ab785fc",
     "npm:drizzle-orm@^1.0.0-rc.5": "1.0.0-rc.5-ab785fc_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_effect@4.0.0-rc.112_pg@8.23.0_postgres@3.4.9_zod@4.5.4",
     "npm:effect@^4.0.0-rc.112": "4.0.0-rc.112",
+    "npm:eslint-plugin-jsx-a11y-x@*": "0.2.0_eslint@10.9.1",
+    "npm:eslint-plugin-jsx-a11y-x@0.2": "0.2.0_eslint@10.9.1",
+    "npm:eslint-plugin-react-dom@*": "5.18.6_eslint@10.9.1_typescript@6.0.3",
+    "npm:eslint-plugin-react-dom@^5.18.6": "5.18.6_eslint@10.9.1_typescript@6.0.3",
+    "npm:eslint-plugin-react-hooks@*": "7.1.1_eslint@10.9.1",
+    "npm:eslint-plugin-react-hooks@^7.1.1": "7.1.1_eslint@10.9.1",
+    "npm:eslint-plugin-react-jsx@*": "5.18.6_eslint@10.9.1_typescript@6.0.3",
+    "npm:eslint-plugin-react-jsx@^5.18.6": "5.18.6_eslint@10.9.1_typescript@6.0.3",
+    "npm:eslint-plugin-react-web-api@*": "5.18.6_eslint@10.9.1_typescript@6.0.3",
+    "npm:eslint-plugin-react-web-api@^5.18.6": "5.18.6_eslint@10.9.1_typescript@6.0.3",
+    "npm:eslint-plugin-regexp@*": "3.2.0_eslint@10.9.1",
+    "npm:eslint-plugin-regexp@^3.2.0": "3.2.0_eslint@10.9.1",
     "npm:jose@^6.2.10": "6.2.10",
     "npm:knip@^6.32.0": "6.32.2",
-    "npm:nitro@3.0.260610-beta": "3.0.260610-beta_vite@8.2.1_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4",
+    "npm:nitro@3.0.260610-beta": "3.0.260610-beta_vite@8.2.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_pg@8.23.0",
     "npm:nodemailer@^9.0.5": "9.0.5",
+    "npm:oxlint-tsgolint@^7.0.2001": "7.0.2001",
+    "npm:oxlint@1.80.0": "1.80.0_oxlint-tsgolint@7.0.2001",
+    "npm:oxlint@^1.80.0": "1.80.0_oxlint-tsgolint@7.0.2001",
     "npm:pg@^8.23.0": "8.23.0",
     "npm:postgres@^3.4.9": "3.4.9",
-    "npm:react-dom@19.2.8": "19.2.8_react@19.2.8",
     "npm:react-dom@^19.2.6": "19.2.8_react@19.2.8",
     "npm:react-email@6.9.2": "6.9.2_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:react-email@^6.9.2": "6.9.2_react@19.2.8_react-dom@19.2.8__react@19.2.8",
-    "npm:react@19.2.8": "19.2.8",
     "npm:react@^19.2.6": "19.2.8",
-    "npm:resend@^6.21.0": "6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8_react-dom@19.2.8__react@19.2.8",
+    "npm:resend@^6.21.0": "6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8",
     "npm:shadcn@^4.13.0": "4.18.0_typescript@6.0.3",
     "npm:sharp@~0.34.3": "0.34.5",
     "npm:tailwind-merge@^3.6.0": "3.6.0",
@@ -501,7 +522,7 @@
         "@babel/helper-validator-identifier"
       ]
     },
-    "@base-ui/react@1.7.0_@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+    "@base-ui/react@1.7.0_@types+react@19.2.18_date-fns@4.4.0_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-j+8QjX44C32jrXD/qyEAGpFr70FRpGL2CY61mQd9nBPWN737CK0xxD1ceJ055rW4RtdvFDT1e7otzdlfxvsYug==",
       "dependencies": [
         "@babel/runtime",
@@ -534,7 +555,7 @@
         "@types/react"
       ]
     },
-    "@better-auth-ui/core@1.7.12_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
+    "@better-auth-ui/core@1.7.12_@better-auth+api-key@1.7.1__@better-auth+core@1.7.2___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.1___better-call@1.4.0____zod@4.5.4___jose@6.2.10___kysely@0.29.5___nanostores@1.5.2__@better-auth+utils@0.4.2__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1__better-call@1.4.0___zod@4.5.4__@better-fetch+fetch@1.3.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__@types+pg@8.23.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@better-auth+passkey@1.7.1__@better-auth+core@1.7.2___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.1___better-call@1.4.0____zod@4.5.4___jose@6.2.10___kysely@0.29.5___nanostores@1.5.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1__better-call@1.4.0___zod@4.5.4__nanostores@1.5.2__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__@types+pg@8.23.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__jose@6.2.10__kysely@0.29.5__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+query-core@5.102.0_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_@types+pg@8.23.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
       "integrity": "sha512-+qUo2ED4fJ97PvIkk7ZdvdzV20vuSn2jCFeAieAdqyjYOIm9CD8Il3wqN+8uR+jqv5ODxB7Yi8uycZ8ItFhkXw==",
       "dependencies": [
         "@better-auth/agent-auth",
@@ -551,7 +572,7 @@
         "@better-auth/passkey"
       ]
     },
-    "@better-auth-ui/react@1.7.12_@better-auth-ui+core@1.7.12__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-query@5.102.0__react@19.2.8_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_clsx@2.1.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_react-email@6.9.2__react@19.2.8__react-dom@19.2.8___react@19.2.8_tailwind-merge@3.6.0_tailwindcss@4.3.3_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_vitest@4.1.10__vite@8.2.1": {
+    "@better-auth-ui/react@1.7.12_@better-auth-ui+core@1.7.12__@better-auth+api-key@1.7.1___@better-auth+core@1.7.2____@better-auth+utils@0.4.2____@better-fetch+fetch@1.3.1____better-call@1.4.0_____zod@4.5.4____jose@6.2.10____kysely@0.29.5____nanostores@1.5.2___@better-auth+utils@0.4.2___better-auth@1.7.2____@tanstack+react-start@1.168.46_____react@19.2.8_____react-dom@19.2.8______react@19.2.8_____vite@8.2.1_____rolldown@1.2.4____drizzle-kit@1.0.0-rc.5-ab785fc____drizzle-orm@1.0.0-rc.5-ab785fc_____@effect+sql-pg@4.0.0-rc.112______effect@4.0.0-rc.112_____@types+pg@8.23.1_____effect@4.0.0-rc.112_____pg@8.23.0_____postgres@3.4.9_____zod@4.5.4____pg@8.23.0____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vitest@4.1.10_____vite@8.2.1____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1___better-call@1.4.0____zod@4.5.4___@better-fetch+fetch@1.3.1___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___@types+pg@8.23.1___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___jose@6.2.10___kysely@0.29.5___nanostores@1.5.2___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1__@better-auth+passkey@1.7.1___@better-auth+core@1.7.2____@better-auth+utils@0.4.2____@better-fetch+fetch@1.3.1____better-call@1.4.0_____zod@4.5.4____jose@6.2.10____kysely@0.29.5____nanostores@1.5.2___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.1___better-auth@1.7.2____@tanstack+react-start@1.168.46_____react@19.2.8_____react-dom@19.2.8______react@19.2.8_____vite@8.2.1_____rolldown@1.2.4____drizzle-kit@1.0.0-rc.5-ab785fc____drizzle-orm@1.0.0-rc.5-ab785fc_____@effect+sql-pg@4.0.0-rc.112______effect@4.0.0-rc.112_____@types+pg@8.23.1_____effect@4.0.0-rc.112_____pg@8.23.0_____postgres@3.4.9_____zod@4.5.4____pg@8.23.0____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vitest@4.1.10_____vite@8.2.1____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1___better-call@1.4.0____zod@4.5.4___nanostores@1.5.2___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___@types+pg@8.23.1___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___jose@6.2.10___kysely@0.29.5___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1__@tanstack+query-core@5.102.0__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1__@better-auth+core@1.7.2___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.1___better-call@1.4.0____zod@4.5.4___jose@6.2.10___kysely@0.29.5___nanostores@1.5.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__@types+pg@8.23.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-query@5.102.0__react@19.2.8_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1_clsx@2.1.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_react-email@6.9.2__react@19.2.8__react-dom@19.2.8___react@19.2.8_tailwind-merge@3.6.0_tailwindcss@4.3.3_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_@types+pg@8.23.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2_pg@8.23.0_vitest@4.1.10__vite@8.2.1": {
       "integrity": "sha512-4k8g4ygCt7tg0/28CkRVLMKrROoIdiL/yVxw55/TcLHBl44Gxm3RqWvipJWJTz3dty7y5Q4CRkB13o49U9LX1A==",
       "dependencies": [
         "@better-auth-ui/core",
@@ -572,25 +593,23 @@
         "react-email"
       ]
     },
-    "@better-auth/agent-auth@0.6.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.3.2___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
+    "@better-auth/agent-auth@0.6.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.3.2___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_@types+pg@8.23.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_kysely@0.29.5_nanostores@1.5.2_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
       "integrity": "sha512-bXJ31rkZtCd27TuUfaAqNLbeZOMfJih5fO9HGq8mrU/23E9ljxScCkIPA3RJmUJ0SBGtaHA9GKVwIlFce0slvg==",
       "dependencies": [
         "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.3.2__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@simplewebauthn/server",
         "better-auth",
         "better-call@1.3.2_zod@4.5.4",
-        "jose",
-        "zod@4.5.4"
+        "jose"
       ]
     },
-    "@better-auth/api-key@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_better-call@1.4.0__zod@4.5.4_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
-      "integrity": "sha512-jih45wZaQ83lVYdChSnasxb8iax8p7AYetZ/XiImA9Yuag+cqmLBsaLPNvds5aZV18hLpmvzVkuzf7H/k1X88g==",
+    "@better-auth/api-key@1.7.1_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1_better-call@1.4.0__zod@4.5.4_@better-fetch+fetch@1.3.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_@types+pg@8.23.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
+      "integrity": "sha512-lZr5RAiAE7RnPB4QCGK4GhcYJtG3xHtd2vw7DOBPscVTCBOs4vvxR93ACQFoCAAsDxMUbduwDkh92UYaI/MvgQ==",
       "dependencies": [
         "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2",
         "better-auth",
-        "better-call@1.4.0_zod@4.5.4",
-        "zod@4.5.4"
+        "better-call@1.4.0_zod@4.5.4"
       ]
     },
     "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.3.2__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
@@ -600,6 +619,7 @@
         "@better-fetch/fetch",
         "@opentelemetry/semantic-conventions",
         "@standard-schema/spec",
+        "better-call@1.3.2_zod@4.5.4",
         "jose",
         "kysely",
         "nanostores",
@@ -620,7 +640,7 @@
         "zod@4.5.4"
       ]
     },
-    "@better-auth/drizzle-adapter@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
+    "@better-auth/drizzle-adapter@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_@better-fetch+fetch@1.3.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2_pg@8.23.0": {
       "integrity": "sha512-A5wE10PIv3aS5LGePecEHntQylKy6OOF17B4dqlE0DwJeqU/IOBSd7/LZhMop9cNJ3WFjKMpazVSf91yYM/NFg==",
       "dependencies": [
         "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
@@ -656,8 +676,8 @@
         "@better-auth/utils@0.4.2"
       ]
     },
-    "@better-auth/passkey@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_better-call@1.4.0__zod@4.5.4_nanostores@1.5.2_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
-      "integrity": "sha512-KBK852b+HsCdstVPPDHsuRa9Rc+7IEuRMPQboi/OXNOwgKL8GwHpzzWD2WhiT/FXJPrLCPh8vHJQfc1wdl5OZw==",
+    "@better-auth/passkey@1.7.1_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1_better-call@1.4.0__zod@4.5.4_nanostores@1.5.2_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_@types+pg@8.23.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_jose@6.2.10_kysely@0.29.5_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
+      "integrity": "sha512-bGnCBDL2udKniHI4IZpjh4lU8lQWRVk3SG/ZtTtZz6QZLCJ2YpVjjwv2O0VJt/jw9SLuXyccx3IFh4s0PKGTRQ==",
       "dependencies": [
         "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2",
@@ -666,8 +686,7 @@
         "@simplewebauthn/server",
         "better-auth",
         "better-call@1.4.0_zod@4.5.4",
-        "nanostores",
-        "zod@4.5.4"
+        "nanostores"
       ]
     },
     "@better-auth/prisma-adapter@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
@@ -1056,6 +1075,118 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
+    "@eslint-community/eslint-utils@4.10.1_eslint@10.9.1": {
+      "integrity": "sha512-cuadcxVFE8sDK6iWJbs8Sn0av2Nrh2QSGQhVlBW9AaAHqHwjWsZHT8LJ4hFGPh7ASBV2deFdM7H/DPjulmh8rg==",
+      "dependencies": [
+        "eslint",
+        "eslint-visitor-keys@3.4.3"
+      ]
+    },
+    "@eslint-community/regexpp@4.12.2": {
+      "integrity": "sha512-EriSTlt5OC9/7SXkRSCAhfSxxoSUgBm33OH+IkwbdpgoqsSsUg7y3uh+IICI/Qg4BBWr3U2i39RpmycbxMq4ew=="
+    },
+    "@eslint-react/ast@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-okgOez6L9onvcdU0lyLOykKQSaj2hMtVV2ucx2iqmTsfKDGyhVlMuNLnfyOkgQyHdgfROTVtAAYnQ6KPf7PggQ==",
+      "dependencies": [
+        "@typescript-eslint/types",
+        "@typescript-eslint/typescript-estree",
+        "@typescript-eslint/utils",
+        "eslint",
+        "string-ts",
+        "typescript"
+      ]
+    },
+    "@eslint-react/core@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-utvjmfgy/lMSMt4QSU5QK2coHk6tkRChxLmkW6z8sthgmB6138CYzC3cPR9kze5pOgYJouF95xiaPnHKnXx21A==",
+      "dependencies": [
+        "@eslint-react/ast",
+        "@eslint-react/eslint",
+        "@eslint-react/shared",
+        "@eslint-react/var",
+        "@typescript-eslint/scope-manager",
+        "@typescript-eslint/types",
+        "@typescript-eslint/utils",
+        "eslint",
+        "ts-pattern",
+        "typescript"
+      ]
+    },
+    "@eslint-react/eslint@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-8BzLB6mtIDmAIwAt1u4g6Yp+1LSGAnqm8SGNHbyZG1sQikWW9Fskv3fx5Zy6CGMV9D7gafcHTiVTcuBYNE+87w==",
+      "dependencies": [
+        "@typescript-eslint/utils",
+        "eslint",
+        "typescript"
+      ]
+    },
+    "@eslint-react/jsx@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-oAbG2pW6XhiROZotfSjLU19A84/AxYHiiKjim5USHH5xtYfYjO7skFSM6LztuPggqn/wccSxLgmKIFGUKM/95g==",
+      "dependencies": [
+        "@eslint-react/ast",
+        "@eslint-react/eslint",
+        "@eslint-react/shared",
+        "@eslint-react/var",
+        "@typescript-eslint/types",
+        "@typescript-eslint/utils",
+        "eslint",
+        "ts-pattern",
+        "typescript"
+      ]
+    },
+    "@eslint-react/shared@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-zCzb/W1xwG412BWVTjqhDznsJEHdyZVkVJz4jbAebHLpKxygK5XeG+vShdYbIFC7OcJU8hYbvEf3P2UNqXVhBw==",
+      "dependencies": [
+        "@eslint-react/eslint",
+        "@typescript-eslint/utils",
+        "eslint",
+        "ts-pattern",
+        "typescript",
+        "zod@4.5.4"
+      ]
+    },
+    "@eslint-react/var@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-5pxFlOy0Ajx+JUz4I4PwnYtOrqcj/R59Gx9m/WWjukFza/ap3FYnu8vEl2Q0txUQoUPJ7euPnBhkKOE7LhsOWA==",
+      "dependencies": [
+        "@eslint-react/ast",
+        "@eslint-react/eslint",
+        "@typescript-eslint/scope-manager",
+        "@typescript-eslint/types",
+        "@typescript-eslint/utils",
+        "eslint",
+        "ts-pattern",
+        "typescript"
+      ]
+    },
+    "@eslint/config-array@0.23.5": {
+      "integrity": "sha512-Y3kKLvC1dvTOT+oGlqNQ1XLqK6D1HU2YXPc52NmAlJZbMMWDzGYXMiPRJ8TYD39muD/OTjlZmNJ4ib7dvSrMBA==",
+      "dependencies": [
+        "@eslint/object-schema",
+        "debug",
+        "minimatch"
+      ]
+    },
+    "@eslint/config-helpers@0.7.0": {
+      "integrity": "sha512-DObd/KKUsU+FaFv4PLxSRenpXfQWmPXXP3pPZ6/K1PCrMu2vQpMDMuQe/BqYeoLcz8ro0bVDF1RxOJgfVEdhUw==",
+      "dependencies": [
+        "@eslint/core"
+      ]
+    },
+    "@eslint/core@1.2.1": {
+      "integrity": "sha512-MwcE1P+AZ4C6DWlpin/OmOA54mmIZ/+xZuJiQd4SyB29oAJjN30UW9wkKNptW2ctp4cEsvhlLY/CsQ1uoHDloQ==",
+      "dependencies": [
+        "@types/json-schema"
+      ]
+    },
+    "@eslint/object-schema@3.0.5": {
+      "integrity": "sha512-vqTaUEgxzm+YDSdElad6PiRoX4t8VGDjCtt05zn4nU810UIx/uNEV7/lZJ6KwFThKZOzOxzXy48da+No7HZaMw=="
+    },
+    "@eslint/plugin-kit@0.7.2": {
+      "integrity": "sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A==",
+      "dependencies": [
+        "@eslint/core",
+        "levn"
+      ]
+    },
     "@floating-ui/core@1.8.0": {
       "integrity": "sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==",
       "dependencies": [
@@ -1094,6 +1225,29 @@
       "dependencies": [
         "hono"
       ]
+    },
+    "@humanfs/core@0.19.2": {
+      "integrity": "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==",
+      "dependencies": [
+        "@humanfs/types"
+      ]
+    },
+    "@humanfs/node@0.16.8": {
+      "integrity": "sha512-gE1eQNZ3R++kTzFUpdGlpmy8kDZD/MLyHqDwqjkVQI0JMdI1D51sy1H958PNXYkM2rAac7e5/CnIKZrHtPh3BQ==",
+      "dependencies": [
+        "@humanfs/core",
+        "@humanfs/types",
+        "@humanwhocodes/retry"
+      ]
+    },
+    "@humanfs/types@0.15.0": {
+      "integrity": "sha512-ZZ1w0aoQkwuUuC7Yf+7sdeaNfqQiiLcSRbfI08oAxqLtpXQr9AIVX7Ay7HLDuiLYAaFPu8oBYNq/QIi9URHJ3Q=="
+    },
+    "@humanwhocodes/module-importer@1.0.1": {
+      "integrity": "sha512-bxveV4V8v5Yb4ncFTT3rPSgZBOpCkjfK0y4oVVVJwIuDVBRMDXrPyXRL988i5ap9m9bnyEEjWfm5WkBmtffLfA=="
+    },
+    "@humanwhocodes/retry@0.4.3": {
+      "integrity": "sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ=="
     },
     "@img/colour@1.1.0": {
       "integrity": "sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ=="
@@ -1300,7 +1454,7 @@
       "integrity": "sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==",
       "dependencies": [
         "@hono/node-server",
-        "ajv",
+        "ajv@8.20.0",
         "ajv-formats@3.0.1_ajv@8.20.0",
         "content-type@1.0.5",
         "cors",
@@ -1366,11 +1520,11 @@
         "solid-js"
       ]
     },
-    "@noble/ciphers@2.4.0": {
-      "integrity": "sha512-AnjFn0Jv92laAkvMrghlFZq4qQCIN/4DxFV/eooqtC2YTjB7kBeLMS2T9KJX4Dn+ZVXLOwK0lSgqDtx9gvxtiw=="
+    "@noble/ciphers@2.3.0": {
+      "integrity": "sha512-Clu/xdfgVTf9o7ngLOURaxePwR0j8sjclKEtVij10/jGulwFsPWCvvRgG/XjUVf8Nei+jLG6uwyXzUTGY1DQrw=="
     },
-    "@noble/hashes@2.4.0": {
-      "integrity": "sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA=="
+    "@noble/hashes@2.3.0": {
+      "integrity": "sha512-oN+QwyX7VSHotibwubG3kpzbwKrfnyR6OOO+3Nk/53ADL7FmgHHz4TgrbaYKvvOw09u6QTx0oiH1cNCIOuN0CQ=="
     },
     "@nodelib/fs.scandir@2.1.5": {
       "integrity": "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==",
@@ -1721,6 +1875,131 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
+    "@oxlint-tsgolint/darwin-arm64@7.0.2001": {
+      "integrity": "sha512-CUJEdbSZ54+Xy9OXqOhWLTKZKV0BBiV7C2i/ygyVmXtkUNXx5YCzN8DpSSshTAKktoL7S+tnQ/ftFG/i7X896w==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint-tsgolint/darwin-x64@7.0.2001": {
+      "integrity": "sha512-pXfBb5BqONCcgrXQNUZWXgiYmRSWJzd97S8i41VVOh6ut0tyo+cJ5FKFpczDHxiVNfj/3e7c9B4MtztNdpIVCw==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
+    },
+    "@oxlint-tsgolint/linux-arm64@7.0.2001": {
+      "integrity": "sha512-roP7zujb/QDPzDwEKsFFpzNHHy91/Y7oX9vQXk78ekyZtcQj1QXDIMH33gjDdHBfRl4K9pZ36xhRgrP4Zr+R8A==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint-tsgolint/linux-x64@7.0.2001": {
+      "integrity": "sha512-UDezNqdECVmngu2TPnjaS1YoAmcTaBoI5lV9vk3VahBxoi+I5r9k3iJTT7qZoYWOXTD/7T7bNcwRgrocR6BscQ==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "@oxlint-tsgolint/win32-arm64@7.0.2001": {
+      "integrity": "sha512-uJZhqB6pdXLuN+AD1F5082byyQti/NPmJA77GtcFlmT2HzRelqbNls3SaIqxpjdFgvSBF9g0yOKGBkGFg7kX8Q==",
+      "os": ["win32"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint-tsgolint/win32-x64@7.0.2001": {
+      "integrity": "sha512-FkDRm8hx9OwzGQqyWG1tO5QrTLRApff9DzSgpz9QZau37BR8d1VYKOxMLGf6shPZntJFoTwIIJYT68VndYDCog==",
+      "os": ["win32"],
+      "cpu": ["x64"]
+    },
+    "@oxlint/binding-android-arm-eabi@1.80.0": {
+      "integrity": "sha512-RM3Plj+biQpxa5d1GOOX6ciDlcUROmm4OZ/pLTpitkQt2mJv4jhtY4cbgaetOm5UKWZe05/TGQ6o1Vl8EOHkrA==",
+      "os": ["android"],
+      "cpu": ["arm"]
+    },
+    "@oxlint/binding-android-arm64@1.80.0": {
+      "integrity": "sha512-YlO5JEf0Yr2bUUlu8O8daVcUxtcGGbcSmyV7E7nSbJbfAdxTE0PFPwgnIlw7wXJaTYjb+qs5hI5q3jxUkI7cAw==",
+      "os": ["android"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint/binding-darwin-arm64@1.80.0": {
+      "integrity": "sha512-BULDOyO3AhsmdWfQeIUCykDt3dd7XZBGLhp1eIh56skRv01O+cNjNPwXMIbeW1x4+pxcln5if72wcRgViVo7PA==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint/binding-darwin-x64@1.80.0": {
+      "integrity": "sha512-YJ4JzLw7N5TDSQFlA0hAQGHvnDZgyypm1yunObVWcWiF9KM7eGCJKYKLgTC2Fi/57OdnBhbj4OkzPGdFQJ6HyA==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
+    },
+    "@oxlint/binding-freebsd-x64@1.80.0": {
+      "integrity": "sha512-AYUIk5QnL0s8oWAYsREZwkRYy1SupJTXALo93J1TgzHywxQtdM99FecRMQ87MXEdPQ0j1TmEpeeq3fGNkpvMqg==",
+      "os": ["freebsd"],
+      "cpu": ["x64"]
+    },
+    "@oxlint/binding-linux-arm-gnueabihf@1.80.0": {
+      "integrity": "sha512-9hBZVANupQ89W9dXyE0n8doCyaW5pDyGn3y6XlIMPZ+rIKuyqkr3SNUXmVJIhuvUq0NBU3RBiSXXE69l4XI6KA==",
+      "os": ["linux"],
+      "cpu": ["arm"]
+    },
+    "@oxlint/binding-linux-arm-musleabihf@1.80.0": {
+      "integrity": "sha512-SvS2uKqzY+pbfuvAHzH4338R6Zwo805GAwrIMVvK1KxoOWCIjZUdfzTCvilD7z6JK91v011+zYMryabhDo2AsQ==",
+      "os": ["linux"],
+      "cpu": ["arm"]
+    },
+    "@oxlint/binding-linux-arm64-gnu@1.80.0": {
+      "integrity": "sha512-tCLadyqRVL3pQTRPNg7cjXKvcvS4fbyXeQHhKk5BTJ1oftQln5/yIIWbu/Xom/DX41zv2P9QGt6+D/TtQVtY3A==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint/binding-linux-arm64-musl@1.80.0": {
+      "integrity": "sha512-XfpCNRlOPcLlJl4Bn/FUhjqlR6BVavEykERBf/MV7YA9VZDa5g5znVqYhyviMafcxS9Pe/i/kPvHNO0U6svEHQ==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint/binding-linux-ppc64-gnu@1.80.0": {
+      "integrity": "sha512-3I4yMwcFG9NeO8ioY6JBBuKsIm5GL/x7MATt1S4tVWaxPu5HcJ+XnLUbcVBTxG8q2Wu56HSj+NmXQiVYb1lp6A==",
+      "os": ["linux"],
+      "cpu": ["ppc64"]
+    },
+    "@oxlint/binding-linux-riscv64-gnu@1.80.0": {
+      "integrity": "sha512-E1wAKymkpe1/E8helzBKdm81OBOF+ezxRyXRMEuik3ZpWDER5CPOKZwF66RsdwW98uwZv8UTFremUQtC1CzdJA==",
+      "os": ["linux"],
+      "cpu": ["riscv64"]
+    },
+    "@oxlint/binding-linux-riscv64-musl@1.80.0": {
+      "integrity": "sha512-+gLRGD4sIo3+VA++iham5UxD9tKSoJ/VOrROCEXIcknrYtQg6iIQgvjN0cpiRF7N6UYC7pJbvHJlDnMge5LRpQ==",
+      "os": ["linux"],
+      "cpu": ["riscv64"]
+    },
+    "@oxlint/binding-linux-s390x-gnu@1.80.0": {
+      "integrity": "sha512-aR0PrzHj9leW3NmzBAAP4EzdoBNoJcs9sjnIQPIwyRnBGYrRbXUIpEB5Q39AqK3PLY5JK5uEhDQDiUa1QSAstw==",
+      "os": ["linux"],
+      "cpu": ["s390x"]
+    },
+    "@oxlint/binding-linux-x64-gnu@1.80.0": {
+      "integrity": "sha512-vSVh5cSo3Xxs6ghBCcFJlpbkbENzDog1qXtoXLa/HC3aCrR4XO76GZbXmQoCPHnu99nQpdCeC3H9tdNICfDh7A==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "@oxlint/binding-linux-x64-musl@1.80.0": {
+      "integrity": "sha512-FfzBXpNQ8u7/ZI/p8bl73MeZ508Ax3hxWp3SiJpEFiC+BB9XcXy5FAZHTLKDPSzrUpxQZSZJAVdDmuJp/+HDBQ==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "@oxlint/binding-openharmony-arm64@1.80.0": {
+      "integrity": "sha512-zMzbkumtmprCgRwoYNzcB3iC39fXdJIMLMU33KdCjEGLlJGOEt1+LwQ4LF8ndLzAEKVz4BR0y3V6Xrkk3Nm3yA==",
+      "os": ["openharmony"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint/binding-win32-arm64-msvc@1.80.0": {
+      "integrity": "sha512-ib6iRcrXsk4t1fm3iKcwksyWh1ZkZXC/2mEzakl0ai2+6HZunf1WWMZ/xP9EJAvw9g9K4UVTC3NF/+G2qLrbTQ==",
+      "os": ["win32"],
+      "cpu": ["arm64"]
+    },
+    "@oxlint/binding-win32-ia32-msvc@1.80.0": {
+      "integrity": "sha512-xhRWBMpLxZvgKAH6+DJZmpP+W8Y8UdQOSU1JfxSWNXsaBaRGW77j+1hCuNHlzj7OH4SPN8fYd1q0o2qrDtoVyw==",
+      "os": ["win32"],
+      "cpu": ["ia32"]
+    },
+    "@oxlint/binding-win32-x64-msvc@1.80.0": {
+      "integrity": "sha512-yAnO7lwBYQnz2pcfBPIGQQZWIX5zd5R/1aAKIF3oE+TVj7IhoHcROjOkz3sRDngzqhfPKfFaXqug5j5rE5dn6Q==",
+      "os": ["win32"],
+      "cpu": ["x64"]
+    },
     "@peculiar/asn1-android@2.9.4": {
       "integrity": "sha512-SYHm4SoWSI0nRCoos6jpGusIqhPH9bbGBqv7ohlZ+H6BunrDzzQPk2ePgDuEUzV82OdvbLgtW4twUDwhU9P3YQ==",
       "dependencies": [
@@ -1963,8 +2242,8 @@
     "@simplewebauthn/browser@13.3.0": {
       "integrity": "sha512-BE/UWv6FOToAdVk0EokzkqQQDOWtNydYlY6+OrmiZ5SCNmb41VehttboTetUM3T/fr6EAFYVXjz4My2wg230rQ=="
     },
-    "@simplewebauthn/server@13.3.3": {
-      "integrity": "sha512-LelX/lcy5cjc15A86i/aNxHhB5eU7dd20QsbP0VLAf9e38+SLlsnqCCyecx3xqfGofhmX05h1J9fKRYWxw+luA==",
+    "@simplewebauthn/server@13.3.2": {
+      "integrity": "sha512-KEDhfcGP1PAKRVSDjA3npTQFqS2b/srm+ipoNBNHdkzrHAlaRQUTE+a5f4ywsx6thxAw1NU2rYcLEY1949RGbQ==",
       "dependencies": [
         "@hexagon/base64",
         "@levischuck/tiny-cbor",
@@ -2273,6 +2552,33 @@
       ],
       "bin": true
     },
+    "@tanstack/eslint-plugin-query@5.102.8_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-zRjG2PL3zvoqnsSNJFyfX5Mo+OwRwTbLERwZVO3oNQQn82V949INwaLrprzsOW/ivuow7gASeAUUC24xH7kwSQ==",
+      "dependencies": [
+        "@typescript-eslint/utils",
+        "eslint",
+        "typescript"
+      ],
+      "optionalPeers": [
+        "typescript"
+      ]
+    },
+    "@tanstack/eslint-plugin-router@1.162.0_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-0mv+5fOnWXeorh6zd3VyHVfpejIzc7+z68Ts0CQMDzMiwjM5rvea46fyl2m50zx5JFennsu7RO/QJAfnqkKJXw==",
+      "dependencies": [
+        "@typescript-eslint/utils",
+        "eslint"
+      ]
+    },
+    "@tanstack/eslint-plugin-start@0.1.0_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-7Dz5NAO9h9fSw+W5cl2wTd452Owq5J6OHhfmz4hsp+tYM8kMteKX1sZPRL+9ASvGQYgOAQuMub3oBLp8yi2fag==",
+      "dependencies": [
+        "@typescript-eslint/utils",
+        "eslint",
+        "globals",
+        "typescript"
+      ]
+    },
     "@tanstack/history@1.162.1": {
       "integrity": "sha512-DR9t6lfLVdrjgCwpglrR9DR7Ok8/HlXjcOE+goWXF3zyuLUO/ug7vMbSFxTqrQTtbRghJfyhmIZ0S6LhPIy44w=="
     },
@@ -2294,7 +2600,7 @@
     "@tanstack/query-core@5.102.0": {
       "integrity": "sha512-tvBzr11Q7StuMCEsIJdqX8TAWt6WZIzfw/yrSAjObZDerwTTPeCxeLXN2R8ZSn4ZxFpQV819Xn8QmoO+vtnDvw=="
     },
-    "@tanstack/react-devtools@0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+    "@tanstack/react-devtools@0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8_@neodrag+core@3.0.0-next.11_csstype@3.2.3_solid-js@1.9.14": {
       "integrity": "sha512-hYH34MSVbajs1pUc22ftSapyKQp2gOh0w34a7ouYOdIcbXD6YPckSR2YpAWGq1rrs6N0l/rvV6LM/G1pgN5ARg==",
       "dependencies": [
         "@tanstack/devtools",
@@ -2320,7 +2626,7 @@
         "react"
       ]
     },
-    "@tanstack/react-router-devtools@1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+    "@tanstack/react-router-devtools@1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_@tanstack+router-core@1.171.24_react@19.2.8_react-dom@19.2.8__react@19.2.8_csstype@3.2.3": {
       "integrity": "sha512-pjfGrmjj4d7naEPM7oshqFfwBoxDPNo/UxltlHH5ePbHsJ+plBhd+JaAewm1ueYOjZ0js9hckjWWDYXpCrSfKw==",
       "dependencies": [
         "@tanstack/react-router",
@@ -2333,7 +2639,7 @@
         "@tanstack/router-core"
       ]
     },
-    "@tanstack/react-router-ssr-query@1.167.1_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+    "@tanstack/react-router-ssr-query@1.167.1_@tanstack+query-core@5.102.0_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8_@tanstack+router-core@1.171.24": {
       "integrity": "sha512-W9j5JPnBikyafvuUfykFfHIWod58OAbAAa5leNkXBcoDoocghMmu6w9uZOmUZvAWT7CSvgj5tBUtF7CM2OoHXQ==",
       "dependencies": [
         "@tanstack/query-core",
@@ -2365,7 +2671,7 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-start-rsc@0.1.45_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+    "@tanstack/react-start-rsc@0.1.45_react@19.2.8_react-dom@19.2.8__react@19.2.8_rolldown@1.2.4_vite@8.2.1": {
       "integrity": "sha512-n962onqz6wZkra9cHygPQumKaShqZAfO2BRvrRzbtYa8M5ytbOG3Wvg6TUbZJ7gPKmjDvFsyrAPgZZ8ZhkrbwA==",
       "dependencies": [
         "@tanstack/react-router",
@@ -2390,7 +2696,7 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-start@1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1": {
+    "@tanstack/react-start@1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4": {
       "integrity": "sha512-GvjKkZQ4bzuqyDIFvY7Puh7nCDc5Uh7r3puO8EDr1ZSqbZu8LGUaeNRrAHepxEIepr2iYbSDtKVaB7A9fWUMeA==",
       "dependencies": [
         "@tanstack/react-router",
@@ -2442,8 +2748,8 @@
       "dependencies": [
         "@tanstack/history",
         "cookie-es",
-        "seroval@1.6.4",
-        "seroval-plugins@1.6.2_seroval@1.6.4"
+        "seroval@1.6.3",
+        "seroval-plugins@1.6.2_seroval@1.6.3"
       ]
     },
     "@tanstack/router-devtools-core@1.168.1_@tanstack+router-core@1.171.24_csstype@3.2.3": {
@@ -2471,7 +2777,7 @@
         "zod@4.5.4"
       ]
     },
-    "@tanstack/router-plugin@1.168.32_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_vite@8.2.1_react-dom@19.2.8__react@19.2.8": {
+    "@tanstack/router-plugin@1.168.32_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_vite@8.2.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_rolldown@1.2.4": {
       "integrity": "sha512-P+qYIY9b/K+ZGUPNiyLqsd20vN/1abgmSNG0Ch9KTKldag3icR7TlrJgnM2km86yuRdXa4nJ5YT7+JLV5rJRZg==",
       "dependencies": [
         "@babel/core",
@@ -2517,13 +2823,13 @@
         "@tanstack/router-core",
         "@tanstack/start-fn-stubs",
         "@tanstack/start-storage-context",
-        "seroval@1.6.4"
+        "seroval@1.6.3"
       ]
     },
     "@tanstack/start-fn-stubs@1.162.0": {
       "integrity": "sha512-QWfUZ3Yo923tdQn38LyKMU8rcTw69zc+T4dAvgTWV4O56SqFRsGfS0lSWIMhJRwXIx/bvdi7nTUBDdZtTHtpTQ=="
     },
-    "@tanstack/start-plugin-core@1.171.36_vite@8.2.1_react-dom@19.2.8__react@19.2.8": {
+    "@tanstack/start-plugin-core@1.171.36_vite@8.2.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8_rolldown@1.2.4": {
       "integrity": "sha512-wWFd0sSpoW3k5cJJ1EpJuQ1REzMcv4LcOmPKotyhH2PNQPqBIRv9ZCxRtH7QWxXcwAaE0G1YE8PTYh9ZARPYOg==",
       "dependencies": [
         "@babel/code-frame@7.27.1",
@@ -2538,7 +2844,7 @@
         "lightningcss@1.33.0",
         "pathe",
         "picomatch@4.0.5",
-        "seroval@1.6.4",
+        "seroval@1.6.3",
         "source-map@0.7.6",
         "srvx",
         "tinyglobby",
@@ -2561,7 +2867,7 @@
         "@tanstack/start-storage-context",
         "fetchdts",
         "h3-v2@npm:h3@2.0.1-rc.20",
-        "seroval@1.6.4"
+        "seroval@1.6.3"
       ]
     },
     "@tanstack/start-storage-context@1.167.26": {
@@ -2609,11 +2915,17 @@
     "@types/deep-eql@4.0.2": {
       "integrity": "sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw=="
     },
+    "@types/esrecurse@4.3.1": {
+      "integrity": "sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw=="
+    },
     "@types/estree@1.0.9": {
       "integrity": "sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg=="
     },
-    "@types/node@26.2.0": {
-      "integrity": "sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==",
+    "@types/json-schema@7.0.15": {
+      "integrity": "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="
+    },
+    "@types/node@26.4.0": {
+      "integrity": "sha512-faiGnoIrLH/V8cibOMEAZ8pMw6oXqSukl29ra4mN8GdaB2ZewzeaLj+INpV5N+Z1eKWzY+IzaIZH2EIR6YZRNQ==",
       "dependencies": [
         "undici-types"
       ]
@@ -2653,6 +2965,64 @@
         "@types/node"
       ]
     },
+    "@typescript-eslint/project-service@8.68.0_typescript@6.0.3": {
+      "integrity": "sha512-5GQtWZCXFcFYux955pvoS02WLc49pXNlvIxocKjS0clvwo3in1RdlzVKyiqQH9vE5AKWFLTaUgeQkOrTS+0Qxw==",
+      "dependencies": [
+        "@typescript-eslint/tsconfig-utils",
+        "@typescript-eslint/types",
+        "debug",
+        "typescript"
+      ]
+    },
+    "@typescript-eslint/scope-manager@8.68.0": {
+      "integrity": "sha512-T5eXpcaJNg8bhjHJ8Rjp68Vq/QBteYtTKY8TZqVNPaUbuz0f6jI9t6aDkylwvalpAB9XTTFeFOjrjXAZ3YvmVA==",
+      "dependencies": [
+        "@typescript-eslint/types",
+        "@typescript-eslint/visitor-keys"
+      ]
+    },
+    "@typescript-eslint/tsconfig-utils@8.68.0_typescript@6.0.3": {
+      "integrity": "sha512-F7zrGQfiJHojPwi8vhxZQC1tWtJzvL74cK/nqri2lk8YUXvYaYwl263xOJ69jDWPUk1hmcdoayFwk9lX09npVw==",
+      "dependencies": [
+        "typescript"
+      ]
+    },
+    "@typescript-eslint/types@8.68.0": {
+      "integrity": "sha512-9RnpsGJjrAllCMefGVVsImJM24YurhC0Q1h4UbvivtvOqXmR/vEJge2OoE++z9m6hyg8T1Q8t5SNT6tHSbrxcg=="
+    },
+    "@typescript-eslint/typescript-estree@8.68.0_typescript@6.0.3": {
+      "integrity": "sha512-OKKsD0tYmoNiU5PW2zehO1yO56jYOm1ShYlxon/Z0SJNidAkdVg86eg9ruRuoXf8xfnuWZGbwDsStkoXbZtIIA==",
+      "dependencies": [
+        "@typescript-eslint/project-service",
+        "@typescript-eslint/tsconfig-utils",
+        "@typescript-eslint/types",
+        "@typescript-eslint/visitor-keys",
+        "debug",
+        "minimatch",
+        "semver@7.8.5",
+        "tinyglobby",
+        "ts-api-utils",
+        "typescript"
+      ]
+    },
+    "@typescript-eslint/utils@8.68.0_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-PB5gJMMOg0Q5P1tsgWtEAqQacJXq0qEqRHDX/YJ4FaTMLfZPpHB3gjl2EJuiZyPABxmj4ZQYiY9m1bdAJ5y7tQ==",
+      "dependencies": [
+        "@eslint-community/eslint-utils",
+        "@typescript-eslint/scope-manager",
+        "@typescript-eslint/types",
+        "@typescript-eslint/typescript-estree",
+        "eslint",
+        "typescript"
+      ]
+    },
+    "@typescript-eslint/visitor-keys@8.68.0": {
+      "integrity": "sha512-YR65gGdGvTUAWLldC3xLOvOzamdGzB4A5/N8rehEaHs3Zvoe39BhgY+u0SPch1OvrVTfLcc55wsSgK2NcnTS/A==",
+      "dependencies": [
+        "@typescript-eslint/types",
+        "eslint-visitor-keys@5.0.1"
+      ]
+    },
     "@vitejs/plugin-react@6.0.5_@rolldown+plugin-babel@0.2.3__@babel+core@7.29.7__rolldown@1.2.4__vite@8.2.1_babel-plugin-react-compiler@1.0.0_vite@8.2.1_@babel+core@7.29.7_rolldown@1.2.4": {
       "integrity": "sha512-BOVzne/NL162sMdResB25mUv+vWMF5NoAjNf09TeGlE7ZpszZWSD3winycicLJw72yeVsoCn/2kOhEuCvEShMA==",
       "dependencies": [
@@ -2664,6 +3034,20 @@
       "optionalPeers": [
         "@rolldown/plugin-babel",
         "babel-plugin-react-compiler"
+      ]
+    },
+    "@vitest/eslint-plugin@1.6.27_eslint@10.9.1_typescript@6.0.3_vitest@4.1.10__vite@8.2.1": {
+      "integrity": "sha512-X1RCAfwbatG4GFbJ/1PIHP9MSZMt0JJThqbYID+vS4L783k6QGlLPe421wQE8dHXuGCcenVLsydiM4qzsYWxhg==",
+      "dependencies": [
+        "@typescript-eslint/scope-manager",
+        "@typescript-eslint/utils",
+        "eslint",
+        "typescript",
+        "vitest"
+      ],
+      "optionalPeers": [
+        "typescript",
+        "vitest"
       ]
     },
     "@vitest/expect@4.1.10": {
@@ -2736,22 +3120,41 @@
         "negotiator@1.0.0"
       ]
     },
+    "acorn-jsx@5.3.2_acorn@8.18.0": {
+      "integrity": "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==",
+      "dependencies": [
+        "acorn"
+      ]
+    },
+    "acorn@8.18.0": {
+      "integrity": "sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==",
+      "bin": true
+    },
     "ajv-formats@2.1.1_ajv@8.20.0": {
       "integrity": "sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==",
       "dependencies": [
-        "ajv"
+        "ajv@8.20.0"
       ],
       "optionalPeers": [
-        "ajv"
+        "ajv@8.20.0"
       ]
     },
     "ajv-formats@3.0.1_ajv@8.20.0": {
       "integrity": "sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==",
       "dependencies": [
-        "ajv"
+        "ajv@8.20.0"
       ],
       "optionalPeers": [
-        "ajv"
+        "ajv@8.20.0"
+      ]
+    },
+    "ajv@6.15.0": {
+      "integrity": "sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw==",
+      "dependencies": [
+        "fast-deep-equal",
+        "fast-json-stable-stringify",
+        "json-schema-traverse@0.4.1",
+        "uri-js"
       ]
     },
     "ajv@8.20.0": {
@@ -2759,7 +3162,7 @@
       "dependencies": [
         "fast-deep-equal",
         "fast-uri",
-        "json-schema-traverse",
+        "json-schema-traverse@1.0.0",
         "require-from-string"
       ]
     },
@@ -2783,6 +3186,9 @@
     },
     "argparse@2.0.1": {
       "integrity": "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="
+    },
+    "aria-query@5.3.2": {
+      "integrity": "sha512-COROpnaoap1E2F000S62r6A60uHZnmlvomhfyT2DlTcrY1OrBKn2UhH7qn5wTC9zMvD0AY7csdPSNwKP+7WiQw=="
     },
     "asn1js@3.0.10": {
       "integrity": "sha512-S2s3aOytiKdFRdulw2qPE51MzjzVOisppcVv7jVFR+Kw0kxwvFrDcYA0h7Ndqbmj0HkMIXYWaoj7fli8kgx1eg==",
@@ -2811,6 +3217,12 @@
         "when-exit"
       ]
     },
+    "axe-core@4.13.0": {
+      "integrity": "sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A=="
+    },
+    "axobject-query@4.1.0": {
+      "integrity": "sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ=="
+    },
     "babel-dead-code-elimination@1.0.12": {
       "integrity": "sha512-GERT7L2TiYcYDtYk1IpD+ASAYXjKbLTDPhBtYj7X1NuRMDTMtAx9kyBenub1Ev41lo91OHCKdmP+egTDmfQ7Ig==",
       "dependencies": [
@@ -2836,7 +3248,7 @@
       "integrity": "sha512-FwMjJJ7HnyZpWe+oWxegG0fezZyBZUagI5LZEoO3GCbtbKNwRfMH9Ue5d5v01PNePBy1QSfPSDTTeVL0Hb9EzA==",
       "bin": true
     },
-    "better-auth@1.7.2_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
+    "better-auth@1.7.2_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1": {
       "integrity": "sha512-gKapKBEvYIGcMxi74RjQ7EbFLiqyQt58vdoJmL1qAlWSkY1Bc2Vqshl524/3u1NxauiOU03M/Ebh762Brmac9A==",
       "dependencies": [
         "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
@@ -2899,6 +3311,9 @@
       "optionalPeers": [
         "zod@4.5.4"
       ]
+    },
+    "birecord@0.1.2": {
+      "integrity": "sha512-5PAPTTmMpMEb+GuMb5DebfBkipRGyIW9+gtwEBSoDA9xkhHILm04+hZQ702pMksu3d8YAuGkmgTzQWcKqTPScA=="
     },
     "body-parser@2.3.0": {
       "integrity": "sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw==",
@@ -3037,10 +3452,16 @@
     "commander@14.0.3": {
       "integrity": "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="
     },
+    "comment-parser@1.4.8": {
+      "integrity": "sha512-rKZTGo4fzKYna8UcL0isTg5wkBNla7bxTypLwZQXjIdi++IdP1OJ41rI5Mti3/jltkPujbu4i9LIARYA+zpotQ=="
+    },
+    "compare-versions@6.1.1": {
+      "integrity": "sha512-4hm4VPpIecmlg59CHXnRDnqGplJFrbLG4aFEl5vl6cK1u76ws3LLvX7ikFnTDl5vo39sjWD6AaDPYodJp/NNHg=="
+    },
     "conf@10.2.0": {
       "integrity": "sha512-8fLl9F04EJqjSqH+QjITQfJF8BrOVaYr1jewVgSRAEWePfxT0sku4w2hrGQ60BC/TNLGQ2pgxNlTbWQmMPFvXg==",
       "dependencies": [
-        "ajv",
+        "ajv@8.20.0",
         "ajv-formats@2.1.1_ajv@8.20.0",
         "atomically@1.7.0",
         "debounce-fn@4.0.0",
@@ -3055,7 +3476,7 @@
     "conf@15.1.0": {
       "integrity": "sha512-Uy5YN9KEu0WWDaZAVJ5FAmZoaJt9rdK6kH+utItPyGsCqCgaTKkrmZx3zoE0/3q6S3bcp3Ihkk+ZqPxWxFK5og==",
       "dependencies": [
-        "ajv",
+        "ajv@8.20.0",
         "ajv-formats@3.0.1_ajv@8.20.0",
         "atomically@2.1.1",
         "debounce-fn@6.0.0",
@@ -3118,8 +3539,8 @@
         "which@2.0.2"
       ]
     },
-    "crossws@0.4.12_srvx@0.11.22": {
-      "integrity": "sha512-aypfsr6t0uNvkqaZc6zvBfXzC6pLI0/sIulpkV6RwCVtZqG5ebBzv4weImKK0VNCj91Wl9F5j7p5WU4MNrybng==",
+    "crossws@0.4.10_srvx@0.11.22": {
+      "integrity": "sha512-pz3oubH/dt12KjqsUB0IuXW4nwRDQ583iDsP4555Cpdqx0NoU7pGlWBcayyFI8f/l/idRpgjMEfwuOxSWJYlIA==",
       "dependencies": [
         "srvx"
       ],
@@ -3141,13 +3562,16 @@
     "csstype@3.2.3": {
       "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="
     },
+    "damerau-levenshtein@1.0.8": {
+      "integrity": "sha512-sdQSFB7+llfUcQHUQO3+B8ERRj0Oa4w9POWMI/puGtuf7gFywGmkaLCElnudfTiKZV+NvHqL0ifzdrI8Ro7ESA=="
+    },
     "date-fns@4.4.0": {
       "integrity": "sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w=="
     },
     "dayjs@1.11.23": {
       "integrity": "sha512-QDTCU0M0MxR3hQfnlDJfwekQiaanm1ubOD231u73WBckQ/fsamwRLiE2GBz6D3a/xF1NgfiDLJjXBa1hYOYTtQ=="
     },
-    "db0@0.3.4_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4": {
+    "db0@0.3.4_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_pg@8.23.0": {
       "integrity": "sha512-RiXXi4WaNzPTHEOu8UPQKMooIbqOEyqA1t7Z6MsdxSCeb8iUC9ko3LcmsLmeUt2SM5bctfArZKkRQggKZz7JNw==",
       "dependencies": [
         "drizzle-orm"
@@ -3179,6 +3603,9 @@
     },
     "dedent@1.7.2": {
       "integrity": "sha512-WzMx3mW98SN+zn3hgemf4OzdmyNhhhKz5Ay0pUfQiMQ3e1g+xmTJWp/pKdwKVXhdSkAEGIIzqeuWrL3mV/AXbA=="
+    },
+    "deep-is@0.1.4": {
+      "integrity": "sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ=="
     },
     "deepmerge@4.3.1": {
       "integrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A=="
@@ -3455,15 +3882,176 @@
     "escape-html@1.0.3": {
       "integrity": "sha512-NiSupZ4OeuGwr68lGIeym/ksIZMJodUGOSCZ/FSnTxcrekbvqrgdUxlJOMpijaKZVjAJrWrGs/6Jy8OMuyj9ow=="
     },
+    "escape-string-regexp@4.0.0": {
+      "integrity": "sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA=="
+    },
+    "eslint-plugin-jsx-a11y-x@0.2.0_eslint@10.9.1": {
+      "integrity": "sha512-O/VpKt2G38VCMlBgGCH8eJGWXM05z892zGKeuPfPATMPLDZOWeVtKS8SBt98ElaeFRKcJEv2bELub+Llo3m9zw==",
+      "dependencies": [
+        "aria-query",
+        "axe-core",
+        "axobject-query",
+        "damerau-levenshtein",
+        "eslint",
+        "jsx-ast-utils-x",
+        "language-tags",
+        "minimatch"
+      ]
+    },
+    "eslint-plugin-react-dom@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-xco47I0Agu+83QH2ONbgZd1JPLSXJON+gtFGJbOhgfPvetfO7UkcHu8iLpncopwyWekAXfhvomJsDlNLTm26/g==",
+      "dependencies": [
+        "@eslint-react/ast",
+        "@eslint-react/eslint",
+        "@eslint-react/jsx",
+        "@eslint-react/shared",
+        "@typescript-eslint/types",
+        "@typescript-eslint/utils",
+        "compare-versions",
+        "eslint",
+        "typescript"
+      ]
+    },
+    "eslint-plugin-react-hooks@7.1.1_eslint@10.9.1": {
+      "integrity": "sha512-f2I7Gw6JbvCexzIInuSbZpfdQ44D7iqdWX01FKLvrPgqxoE7oMj8clOfto8U6vYiz4yd5oKu39rRSVOe1zRu0g==",
+      "dependencies": [
+        "@babel/core",
+        "@babel/parser@7.29.8",
+        "eslint",
+        "hermes-parser",
+        "zod@4.5.4",
+        "zod-validation-error"
+      ]
+    },
+    "eslint-plugin-react-jsx@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-6EvzS5gZGfQ0byvSxgqV/F0qXTVnNGcCU7wgFZqz8I1IXmcbYyBCyU7gqNlKW1/1ptiZFmuwo57+eW6HyK+wEg==",
+      "dependencies": [
+        "@eslint-react/ast",
+        "@eslint-react/core",
+        "@eslint-react/eslint",
+        "@eslint-react/jsx",
+        "@eslint-react/shared",
+        "@typescript-eslint/types",
+        "@typescript-eslint/utils",
+        "eslint",
+        "typescript"
+      ]
+    },
+    "eslint-plugin-react-web-api@5.18.6_eslint@10.9.1_typescript@6.0.3": {
+      "integrity": "sha512-r8s39AbHZ0071XcgCMoCdNkSARftqI6U/0bBJXPioVUw+hjp0n4EB27fsc69AHzRl/NJWA1oUJb+kcqxoWMR4w==",
+      "dependencies": [
+        "@eslint-react/ast",
+        "@eslint-react/core",
+        "@eslint-react/eslint",
+        "@eslint-react/shared",
+        "@eslint-react/var",
+        "@typescript-eslint/types",
+        "@typescript-eslint/utils",
+        "birecord",
+        "eslint",
+        "ts-pattern",
+        "typescript"
+      ]
+    },
+    "eslint-plugin-regexp@3.2.0_eslint@10.9.1": {
+      "integrity": "sha512-4yq47CnLxyfHFKJEo5kvNaiJ0aDtBxSJWk4M2LiamplUXdWxdlzDYqImb/ZVCp+2BqkQjBAmw4Xc07Q8SXVDZg==",
+      "dependencies": [
+        "@eslint-community/eslint-utils",
+        "@eslint-community/regexpp",
+        "comment-parser",
+        "eslint",
+        "jsdoc-type-pratt-parser",
+        "refa",
+        "regexp-ast-analysis",
+        "scslre"
+      ]
+    },
+    "eslint-scope@9.1.2": {
+      "integrity": "sha512-xS90H51cKw0jltxmvmHy2Iai1LIqrfbw57b79w/J7MfvDfkIkFZ+kj6zC3BjtUwh150HsSSdxXZcsuv72miDFQ==",
+      "dependencies": [
+        "@types/esrecurse",
+        "@types/estree",
+        "esrecurse",
+        "estraverse"
+      ]
+    },
+    "eslint-visitor-keys@3.4.3": {
+      "integrity": "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag=="
+    },
+    "eslint-visitor-keys@5.0.1": {
+      "integrity": "sha512-tD40eHxA35h0PEIZNeIjkHoDR4YjjJp34biM0mDvplBe//mB+IHCqHDGV7pxF+7MklTvighcCPPZC7ynWyjdTA=="
+    },
+    "eslint@10.9.1": {
+      "integrity": "sha512-9VaAkDURekixUQJy0oJYl2DcN6oKMfxay7XzaGYAWQwsb6qfKf+x76R2k1L8kb1boc+FyCAaTA9GmiKaaiaF+A==",
+      "dependencies": [
+        "@eslint-community/eslint-utils",
+        "@eslint-community/regexpp",
+        "@eslint/config-array",
+        "@eslint/config-helpers",
+        "@eslint/core",
+        "@eslint/plugin-kit",
+        "@humanfs/node",
+        "@humanwhocodes/module-importer",
+        "@humanwhocodes/retry",
+        "@types/estree",
+        "ajv@6.15.0",
+        "cross-spawn",
+        "debug",
+        "escape-string-regexp",
+        "eslint-scope",
+        "eslint-visitor-keys@5.0.1",
+        "espree",
+        "esquery",
+        "esutils",
+        "fast-deep-equal",
+        "file-entry-cache",
+        "find-up@5.0.0",
+        "glob-parent@6.0.2",
+        "ignore",
+        "imurmurhash",
+        "is-glob",
+        "json-stable-stringify-without-jsonify",
+        "minimatch",
+        "natural-compare",
+        "optionator"
+      ],
+      "bin": true
+    },
+    "espree@11.2.0": {
+      "integrity": "sha512-7p3DrVEIopW1B1avAGLuCSh1jubc01H2JHc8B4qqGblmg5gI9yumBgACjWo4JlIc04ufug4xJ3SQI8HkS/Rgzw==",
+      "dependencies": [
+        "acorn",
+        "acorn-jsx",
+        "eslint-visitor-keys@5.0.1"
+      ]
+    },
     "esprima@4.0.1": {
       "integrity": "sha512-eGuFFw7Upda+g4p+QHvnW0RyTX/SVeJBDM/gCtMARO0cLuT2HcEKnTPvhjV6aGeqrCB/sbNop0Kszm0jsaWU4A==",
       "bin": true
+    },
+    "esquery@1.7.0": {
+      "integrity": "sha512-Ap6G0WQwcU/LHsvLwON1fAQX9Zp0A2Y6Y/cJBl9r/JbW90Zyg4/zbG6zzKa2OTALELarYHmKu0GhpM5EO+7T0g==",
+      "dependencies": [
+        "estraverse"
+      ]
+    },
+    "esrecurse@4.3.0": {
+      "integrity": "sha512-KmfKL3b6G+RXvP8N1vr3Tq1kL/oCFgn2NYXEtqP8/L3pKapUA4G8cFVaoF3SU323CD4XypR/ffioHmkti6/Tag==",
+      "dependencies": [
+        "estraverse"
+      ]
+    },
+    "estraverse@5.3.0": {
+      "integrity": "sha512-MMdARuVEQziNTeJD8DgMqmhwR11BRQ/cBP+pLtYdSTnf3MIO8fFeiINEbX36ZdNlfU/7A9f3gUw49B3oQsvwBA=="
     },
     "estree-walker@3.0.3": {
       "integrity": "sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==",
       "dependencies": [
         "@types/estree"
       ]
+    },
+    "esutils@2.0.3": {
+      "integrity": "sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g=="
     },
     "etag@1.8.1": {
       "integrity": "sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg=="
@@ -3569,10 +4157,16 @@
       "dependencies": [
         "@nodelib/fs.stat",
         "@nodelib/fs.walk",
-        "glob-parent",
+        "glob-parent@5.1.2",
         "merge2",
         "micromatch"
       ]
+    },
+    "fast-json-stable-stringify@2.1.0": {
+      "integrity": "sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw=="
+    },
+    "fast-levenshtein@2.0.6": {
+      "integrity": "sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw=="
     },
     "fast-sha256@1.3.0": {
       "integrity": "sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ=="
@@ -3610,6 +4204,12 @@
         "is-unicode-supported@2.1.0"
       ]
     },
+    "file-entry-cache@8.0.0": {
+      "integrity": "sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==",
+      "dependencies": [
+        "flat-cache"
+      ]
+    },
     "fill-range@7.1.1": {
       "integrity": "sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==",
       "dependencies": [
@@ -3630,8 +4230,25 @@
     "find-up@3.0.0": {
       "integrity": "sha512-1yD6RmLI1XBfxugvORwlck6f75tYL+iR0jqwsOrOxMZyGYqUuDhJ0l4AXdO1iX/FTs9cBAMEk1gWSEx1kSbylg==",
       "dependencies": [
-        "locate-path"
+        "locate-path@3.0.0"
       ]
+    },
+    "find-up@5.0.0": {
+      "integrity": "sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==",
+      "dependencies": [
+        "locate-path@6.0.0",
+        "path-exists@4.0.0"
+      ]
+    },
+    "flat-cache@4.0.1": {
+      "integrity": "sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==",
+      "dependencies": [
+        "flatted",
+        "keyv"
+      ]
+    },
+    "flatted@3.4.4": {
+      "integrity": "sha512-5+ybhBZANEJxaH3X5evAFatUxLfEHSr7n6kYJ+1Qd0mUqr4eu9gIf6GDbWHf8RJijHrjjO8G+la14SlL2SeS1Q=="
     },
     "formatly@0.3.0": {
       "integrity": "sha512-9XNj/o4wrRFyhSMJOvsuyMwy8aUfBaZ1VrqHVfohyXf0Sw0e+yfKG+xZaY3arGCOMdwFsqObtzVOc1gU9KiT9w==",
@@ -3721,6 +4338,12 @@
         "is-glob"
       ]
     },
+    "glob-parent@6.0.2": {
+      "integrity": "sha512-XxwI8EOhVQgWp6iDL+3b0r86f4d6AX6zSU55HfB4ydCEuXLXc5FcYeOu+nnGftS4TEju/11rt4KJPTMgbfmv4A==",
+      "dependencies": [
+        "is-glob"
+      ]
+    },
     "glob@13.0.6": {
       "integrity": "sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==",
       "dependencies": [
@@ -3728,6 +4351,9 @@
         "minipass",
         "path-scurry"
       ]
+    },
+    "globals@16.5.0": {
+      "integrity": "sha512-c/c15i26VrJ4IRt5Z89DnIzCGDn9EcebibhAOjw5ibqEHsE1wLUgkPn9RDmNcUKyU87GeaL633nyJ+pplFR2ZQ=="
     },
     "goober@2.1.19_csstype@3.2.3": {
       "integrity": "sha512-U7veizMqxyKlM58+Z5j2ngJBH/r9siDmxpvNxSw0PylF6WQvrASJEZrxh1hidRBJc2jqoBVSyOban5u8m+6Rxg==",
@@ -3749,7 +4375,7 @@
       ],
       "bin": true
     },
-    "h3@2.0.1-rc.22_crossws@0.4.12__srvx@0.11.22": {
+    "h3@2.0.1-rc.22_crossws@0.4.10__srvx@0.11.22": {
       "integrity": "sha512-Esv0DMIuPkCTSWCA0vO73vcTqwzH1wjSrAO1TXNu/K3up1sZHa9EKMapbmxCDYBeymC3fVTk4qxp7ogQWQ+KgA==",
       "dependencies": [
         "crossws",
@@ -3768,6 +4394,15 @@
       "integrity": "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==",
       "dependencies": [
         "function-bind"
+      ]
+    },
+    "hermes-estree@0.25.1": {
+      "integrity": "sha512-0wUoCcLp+5Ev5pDW2OriHC2MJCbwLwuRx+gAqMTOkGKJJiBCLjtrvy4PWUGn6MIVefecRpzoOZ/UV6iGdOr+Cw=="
+    },
+    "hermes-parser@0.25.1": {
+      "integrity": "sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==",
+      "dependencies": [
+        "hermes-estree"
       ]
     },
     "hono@4.13.2": {
@@ -3832,6 +4467,9 @@
         "parent-module",
         "resolve-from"
       ]
+    },
+    "imurmurhash@0.1.4": {
+      "integrity": "sha512-JmXMZ6wuvDmLiHEml9ykzqO6lwFbof0GG4IkcGaENdCRDDmMVnny7s5HsIgHCbaq0w2MyPhDqkhTUgS2LU2PHA=="
     },
     "inherits@2.0.4": {
       "integrity": "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ=="
@@ -3953,12 +4591,25 @@
     "jsbi@4.3.2": {
       "integrity": "sha512-9fqMSQbhJykSeii05nxKl4m6Eqn2P6rOlYiS+C5Dr/HPIU/7yZxu5qzbs40tgaFORiw2Amd0mirjxatXYMkIew=="
     },
+    "jsdoc-type-pratt-parser@9.2.1": {
+      "integrity": "sha512-V4Ww4EHnTcTLSOMoB0FsF72JhQvcAsriCm/LWnxJeGWoxIjEL2l9na11abQok5SYShq8m0Gl02el/xAbTCulvQ==",
+      "dependencies": [
+        "@types/estree",
+        "@types/node"
+      ]
+    },
     "jsesc@3.1.0": {
       "integrity": "sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==",
       "bin": true
     },
+    "json-buffer@3.0.1": {
+      "integrity": "sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ=="
+    },
     "json-parse-even-better-errors@2.3.1": {
       "integrity": "sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w=="
+    },
+    "json-schema-traverse@0.4.1": {
+      "integrity": "sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg=="
     },
     "json-schema-traverse@1.0.0": {
       "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="
@@ -3968,6 +4619,9 @@
     },
     "json-schema-typed@8.0.2": {
       "integrity": "sha512-fQhoXdcvc3V28x7C7BMs4P5+kNlgUURe2jmUT1T//oBRMDrqy1QPelJimwZGo7Hg9VPV3EQV5Bnq4hbFy2vetA=="
+    },
+    "json-stable-stringify-without-jsonify@1.0.1": {
+      "integrity": "sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw=="
     },
     "json5@2.2.3": {
       "integrity": "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==",
@@ -3980,6 +4634,15 @@
       ],
       "optionalDependencies": [
         "graceful-fs"
+      ]
+    },
+    "jsx-ast-utils-x@0.1.0": {
+      "integrity": "sha512-eQQBjBnsVtGacsG9uJNB8qOr3yA8rga4wAaGG1qRcBzSIvfhERLrWxMAM1hp5fcS6Abo8M4+bUBTekYR0qTPQw=="
+    },
+    "keyv@4.5.4": {
+      "integrity": "sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==",
+      "dependencies": [
+        "json-buffer"
       ]
     },
     "kleur@3.0.3": {
@@ -4010,6 +4673,15 @@
     "kysely@0.29.5": {
       "integrity": "sha512-ooa+eSbBNPTo3MycPEuW5jdrxQdQwdtB3LC3h43FiXQbIry5tR0C5lDG7eealK0E4D7XjrnOP5DIUg/LyjRMYQ=="
     },
+    "language-subtag-registry@0.3.23": {
+      "integrity": "sha512-0K65Lea881pHotoGEa5gDlMxt3pctLi2RplBb7Ezh4rRdLEOtgi7n4EwK9lamnUCkKBqaeKRVebTq6BAxSkpXQ=="
+    },
+    "language-tags@1.0.9": {
+      "integrity": "sha512-MbjN408fEndfiQXbFQ1vnd+1NoLDsnQW41410oQBXiyXDMYH5z505juWa4KUE1LqxRC7DgOgZDbKLxHIwm27hA==",
+      "dependencies": [
+        "language-subtag-registry"
+      ]
+    },
     "launch-editor@2.14.1": {
       "integrity": "sha512-QWBrQsMpH7gPr965dsKD/3cKWiNoTjpATQf++Xq63N6sKRGMwlVXz41O1IZTMfZQgBctD/K5Zt06+/I6pP6+HA==",
       "dependencies": [
@@ -4020,8 +4692,15 @@
     "leac@0.6.0": {
       "integrity": "sha512-y+SqErxb8h7nE/fiEX07jsbuhrpO9lL8eca7/Y1nuWV2moNlXhyd59iDGcRf6moVyDMbmTNzL40SUyrFU/yDpg=="
     },
-    "libphonenumber-js@1.13.12": {
-      "integrity": "sha512-uLVeV1c9OTk6qkdqnj+mpMD+ZdnZ0szVyWu58HwMmpwkHA1gCEkyjd3veZQXDnuw9KEwSRjcc9B1pS9XKIN1fA=="
+    "levn@0.4.1": {
+      "integrity": "sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==",
+      "dependencies": [
+        "prelude-ls",
+        "type-check"
+      ]
+    },
+    "libphonenumber-js@1.13.11": {
+      "integrity": "sha512-ETER2kMaIFTI/Nh1a8Gk03dUF/SL0VZqtI+CcVHZxp5WIHYwNS7S+uiYZDYCvLy3lOR4/DAD5jf0h5WkePPpqg=="
     },
     "lightningcss-android-arm64@1.32.0": {
       "integrity": "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==",
@@ -4177,8 +4856,14 @@
     "locate-path@3.0.0": {
       "integrity": "sha512-7AO748wWnIhNqAuaty2ZWHkQHRSNfPVIsPIfwEOWO22AmaoVrWavlOcMR5nzTLNYvp36X220/maaRsrec1G65A==",
       "dependencies": [
-        "p-locate",
-        "path-exists"
+        "p-locate@3.0.0",
+        "path-exists@3.0.0"
+      ]
+    },
+    "locate-path@6.0.0": {
+      "integrity": "sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==",
+      "dependencies": [
+        "p-locate@5.0.0"
       ]
     },
     "log-symbols@6.0.0": {
@@ -4310,23 +4995,26 @@
     "nanostores@1.5.2": {
       "integrity": "sha512-B0UbxzK1s0CN8Xht6r+7iT5+xV8PTaRERR1nATeplRv1Rw5YLWfVAid0hkqY3EceqpG4RjTk8GAwIxQY39Rnwg=="
     },
+    "natural-compare@1.4.0": {
+      "integrity": "sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw=="
+    },
     "negotiator@0.6.3": {
       "integrity": "sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg=="
     },
     "negotiator@1.0.0": {
       "integrity": "sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg=="
     },
-    "nf3@0.3.24": {
-      "integrity": "sha512-HxLK4bo+5jNsEETZp4w3tJblHOA9MCBY14IN9nZJJV8JDxt9yNIYxuBuLMjTAR5GFa3HL61+8VQDUrXv3/C8fw=="
+    "nf3@0.3.23": {
+      "integrity": "sha512-RWVLAWozmVD3AaDmaU3qMGB3v+yNlH5d9qqStI4e/WLlNQVnJ4YErGDbYCIrGFyrHdbF6I6Baf0Ae6c7tFYmSg=="
     },
-    "nitro@3.0.260610-beta_vite@8.2.1_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4": {
+    "nitro@3.0.260610-beta_vite@8.2.1_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_pg@8.23.0": {
       "integrity": "sha512-KPb4L5yaF/Rx/xoGMpgHRJvZhbhGiqbRKOwwPLCH9jKTKTsEUHLjnJas85AeCzaswqa8Wi52eQBtRsODC4PS0Q==",
       "dependencies": [
         "consola",
         "crossws",
         "db0",
         "env-runner",
-        "h3@2.0.1-rc.22_crossws@0.4.12__srvx@0.11.22",
+        "h3@2.0.1-rc.22_crossws@0.4.10__srvx@0.11.22",
         "hookable",
         "nf3",
         "ocache",
@@ -4460,6 +5148,17 @@
         "zod@4.5.4"
       ]
     },
+    "optionator@0.9.4": {
+      "integrity": "sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==",
+      "dependencies": [
+        "deep-is",
+        "fast-levenshtein",
+        "levn",
+        "prelude-ls",
+        "type-check",
+        "word-wrap"
+      ]
+    },
     "ora@8.2.0": {
       "integrity": "sha512-weP+BZ8MVNnlCm8c0Qdc1WSWq4Qn7I+9CJGm7Qali6g44e/PUzbjNqJX5NJ9ljlNMosfJvg1fKEGILklK9cwnw==",
       "dependencies": [
@@ -4553,16 +5252,71 @@
         "@oxc-resolver/binding-win32-x64-msvc"
       ]
     },
+    "oxlint-tsgolint@7.0.2001": {
+      "integrity": "sha512-KjK/XLcXr1DSyonKhsuFqJRiuKqcyG9j3LJ8nkOsrLzGvodBPqzHOKauy10asLMDI0sUpvb+1sxlzff3udZvfg==",
+      "optionalDependencies": [
+        "@oxlint-tsgolint/darwin-arm64",
+        "@oxlint-tsgolint/darwin-x64",
+        "@oxlint-tsgolint/linux-arm64",
+        "@oxlint-tsgolint/linux-x64",
+        "@oxlint-tsgolint/win32-arm64",
+        "@oxlint-tsgolint/win32-x64"
+      ],
+      "bin": true
+    },
+    "oxlint@1.80.0_oxlint-tsgolint@7.0.2001": {
+      "integrity": "sha512-5nTiSps4qdbCWLbxzuO00alHkEO2exR9YMN/ig6QXWrLsYSG0KaObOAM+l6oU2LcKPWoSAGYbkZIGEu1ViiWKA==",
+      "dependencies": [
+        "oxlint-tsgolint"
+      ],
+      "optionalDependencies": [
+        "@oxlint/binding-android-arm-eabi",
+        "@oxlint/binding-android-arm64",
+        "@oxlint/binding-darwin-arm64",
+        "@oxlint/binding-darwin-x64",
+        "@oxlint/binding-freebsd-x64",
+        "@oxlint/binding-linux-arm-gnueabihf",
+        "@oxlint/binding-linux-arm-musleabihf",
+        "@oxlint/binding-linux-arm64-gnu",
+        "@oxlint/binding-linux-arm64-musl",
+        "@oxlint/binding-linux-ppc64-gnu",
+        "@oxlint/binding-linux-riscv64-gnu",
+        "@oxlint/binding-linux-riscv64-musl",
+        "@oxlint/binding-linux-s390x-gnu",
+        "@oxlint/binding-linux-x64-gnu",
+        "@oxlint/binding-linux-x64-musl",
+        "@oxlint/binding-openharmony-arm64",
+        "@oxlint/binding-win32-arm64-msvc",
+        "@oxlint/binding-win32-ia32-msvc",
+        "@oxlint/binding-win32-x64-msvc"
+      ],
+      "optionalPeers": [
+        "oxlint-tsgolint"
+      ],
+      "bin": true
+    },
     "p-limit@2.3.0": {
       "integrity": "sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w==",
       "dependencies": [
         "p-try"
       ]
     },
+    "p-limit@3.1.0": {
+      "integrity": "sha512-TYOanM3wGwNGsZN2cVTYPArw454xnXj5qmWF1bEoAc4+cU/ol7GVh7odevjp1FNHduHc3KZMcFduxU5Xc6uJRQ==",
+      "dependencies": [
+        "yocto-queue"
+      ]
+    },
     "p-locate@3.0.0": {
       "integrity": "sha512-x+12w/To+4GFfgJhBEpiDcLozRJGegY+Ei7/z0tSLkMmxGZNybVMSfWj9aJn8Z5Fc7dBUNJOOVgPv2H7IwulSQ==",
       "dependencies": [
-        "p-limit"
+        "p-limit@2.3.0"
+      ]
+    },
+    "p-locate@5.0.0": {
+      "integrity": "sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==",
+      "dependencies": [
+        "p-limit@3.1.0"
       ]
     },
     "p-try@2.2.0": {
@@ -4604,6 +5358,9 @@
     },
     "path-exists@3.0.0": {
       "integrity": "sha512-bpC7GYwiDYQ4wYLe+FA8lhRjhQCMcQGuSgGGqDkg/QerRWw9CmGRT0iSOVRSZJ29NMLZgIzqaljJ63oaL4NIJQ=="
+    },
+    "path-exists@4.0.0": {
+      "integrity": "sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w=="
     },
     "path-key@3.1.1": {
       "integrity": "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q=="
@@ -4713,7 +5470,7 @@
     "pkg-up@3.1.0": {
       "integrity": "sha512-nDywThFk1i4BQK4twPQ6TA4RT8bDY96yeuCVBWL3ePARCiEKDRSrNGbFIgUJpLp+XeIR65v8ra7WuJOFUBtkMA==",
       "dependencies": [
-        "find-up"
+        "find-up@3.0.0"
       ]
     },
     "postal-mime@2.7.5": {
@@ -4776,6 +5533,9 @@
     "powershell-utils@0.2.0": {
       "integrity": "sha512-ZlsFlG7MtSFCoc5xreOvBAozCJ6Pf06opgJjh9ONEv418xpZSAzNjstD36C6+JwOnfSqOW/9uDkqKjezTdxZhw=="
     },
+    "prelude-ls@1.2.1": {
+      "integrity": "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="
+    },
     "prettier@3.9.6": {
       "integrity": "sha512-OpN0zzVdiaiAhxpuuj5efpIS4sY9j7bY6uR5mnj5yPzGkdkjNKSJeUThPb60Jw29QuAZgA4o+/iB49kFiaBX6g==",
       "bin": true
@@ -4802,6 +5562,9 @@
         "forwarded",
         "ipaddr.js"
       ]
+    },
+    "punycode@2.3.1": {
+      "integrity": "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg=="
     },
     "pure-rand@8.4.2": {
       "integrity": "sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng=="
@@ -4893,8 +5656,21 @@
         "tslib@2.8.1"
       ]
     },
+    "refa@0.12.1": {
+      "integrity": "sha512-J8rn6v4DBb2nnFqkqwy6/NnTYMcgLA+sLr0iIO41qpv0n+ngb7ksag2tMRl0inb1bbO/esUwzW1vbJi7K0sI0g==",
+      "dependencies": [
+        "@eslint-community/regexpp"
+      ]
+    },
     "reflect-metadata@0.2.2": {
       "integrity": "sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q=="
+    },
+    "regexp-ast-analysis@0.7.1": {
+      "integrity": "sha512-sZuz1dYW/ZsfG17WSAG7eS85r5a0dDsvg+7BiiYR5o6lKCAtUrEwdmRmaGF6rwVj3LcmAeYkOWKEPlbPzN3Y3A==",
+      "dependencies": [
+        "@eslint-community/regexpp",
+        "refa"
+      ]
     },
     "require-directory@2.1.1": {
       "integrity": "sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q=="
@@ -4905,7 +5681,7 @@
     "reselect@5.2.0": {
       "integrity": "sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw=="
     },
-    "resend@6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+    "resend@6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8": {
       "integrity": "sha512-XT1eP2iA8rZ51NSO2CJlL1ZE2baBoPpOGMgz2p0o2uluz/YU3XfItpGymXDlL0Sp2Mc+y9+Xxsfdccfi4f2FzQ==",
       "dependencies": [
         "@react-email/render",
@@ -4990,6 +5766,14 @@
     "scheduler@0.27.0": {
       "integrity": "sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q=="
     },
+    "scslre@0.3.0": {
+      "integrity": "sha512-3A6sD0WYP7+QrjbfNA2FN3FsOaGGFoekCVgTyypy53gPxhbkCIjtO6YWgdrfM+n/8sI8JeXZOIxsHjMTNxQ4nQ==",
+      "dependencies": [
+        "@eslint-community/regexpp",
+        "refa",
+        "regexp-ast-analysis"
+      ]
+    },
     "selderee@0.11.0": {
       "integrity": "sha512-5TF+l7p4+OsnP8BCCvSyZiSPc4x4//p5uPwK8TCnVPJYRmU2aYKMpOXvw8zM5a5JvuuCGN1jmsMwuU2W02ukfA==",
       "dependencies": [
@@ -5026,17 +5810,17 @@
         "seroval@1.5.6"
       ]
     },
-    "seroval-plugins@1.6.2_seroval@1.6.4": {
+    "seroval-plugins@1.6.2_seroval@1.6.3": {
       "integrity": "sha512-TfxuUjlbBESzUOWdTkTKqvSmav0ABym+itetDXLK6mDz8SmrpdI30aF8RTXE8Bvq+tH/1yIDkvy3W0lfQb1ipQ==",
       "dependencies": [
-        "seroval@1.6.4"
+        "seroval@1.6.3"
       ]
     },
     "seroval@1.5.6": {
       "integrity": "sha512-rVQVWjjSvlINzaQPZH5JFqsqEsIWdTxY3iJZCnTL/5gQbXIRooVZKI60tVCkOVfzcRPejboxO2t0P89dg5mQaA=="
     },
-    "seroval@1.6.4": {
-      "integrity": "sha512-LErWMNS2RRFdu2RMA5u/PA59/IWs0XsikyEXGQ2/36iEWFrdG0ABmg17E17cikrv76891kOAMq3TkTFXpwAHXw=="
+    "seroval@1.6.3": {
+      "integrity": "sha512-5PwLbVPpT4DEki1hYVSSsoxWY6xCNMVucAVLK/CH0mXSDfp/I4KaAex72q80GNt5hpn7CCMGdSpIg4YGqH/wXQ=="
     },
     "serve-static@2.2.1": {
       "integrity": "sha512-xRXBn0pPqQTVQiC8wyQrKs2MOlX24zQ0POGaj0kultvoOCstBQM5yvOhAVSUwOMjQtTvsPWoNCHfPGwaaQJhTw==",
@@ -5269,6 +6053,9 @@
     "stdin-discarder@0.2.2": {
       "integrity": "sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ=="
     },
+    "string-ts@2.3.1": {
+      "integrity": "sha512-xSJq+BS52SaFFAVxuStmx6n5aYZU571uYUnUrPXkPFCfdHyZMMlbP2v2Wx5sNBnAVzq/2+0+mcBLBa3Xa5ubYw=="
+    },
     "string-width@4.2.3": {
       "integrity": "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==",
       "dependencies": [
@@ -5379,12 +6166,21 @@
     "toidentifier@1.0.1": {
       "integrity": "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA=="
     },
+    "ts-api-utils@2.5.0_typescript@6.0.3": {
+      "integrity": "sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA==",
+      "dependencies": [
+        "typescript"
+      ]
+    },
     "ts-morph@26.0.0": {
       "integrity": "sha512-ztMO++owQnz8c/gIENcM9XfCEzgoGphTv+nKpYNM1bgsdOVC/jRZuEBf6N+mLLDNg68Kl+GgUZfOySaRiG1/Ug==",
       "dependencies": [
         "@ts-morph/common",
         "code-block-writer"
       ]
+    },
+    "ts-pattern@5.9.0": {
+      "integrity": "sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg=="
     },
     "tsconfig-paths@4.2.0": {
       "integrity": "sha512-NoZ4roiN7LnbKn9QqE1amc9DJfzvZXxF4xDavcOWt1BPkdx+m+0gJuPM+S0vCe7zTJMYUP0R8pO2XMr+Y8oLIg==",
@@ -5408,6 +6204,12 @@
     },
     "tw-animate-css@1.4.0": {
       "integrity": "sha512-7bziOlRqH0hJx80h/3mbicLW7o8qLsH5+RaLR2t+OHM3D0JlWGODQKQ4cxbK7WlvmUxpcj6Kgu6EKqjrGFe3QQ=="
+    },
+    "type-check@0.4.0": {
+      "integrity": "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==",
+      "dependencies": [
+        "prelude-ls"
+      ]
     },
     "type-fest@5.8.0": {
       "integrity": "sha512-YGYEVz3Fm5iy/AybuA0oyNFq7H4CgQNfRp/qfe8nurE1kuCeNm3/vfm9X4Mtl+qLyaKJUh5xrFZwogr41SMjYA==",
@@ -5471,7 +6273,7 @@
         "vite"
       ]
     },
-    "unstorage@2.0.0-alpha.7_db0@0.3.4__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4_ofetch@2.0.0-alpha.3_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4": {
+    "unstorage@2.0.0-alpha.7_db0@0.3.4__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__pg@8.23.0_ofetch@2.0.0-alpha.3_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_pg@8.23.0": {
       "integrity": "sha512-ELPztchk2zgFJnakyodVY3vJWGW9jy//keJ32IOJVGUMyaPydwcA1FtVvWqT0TNRch9H+cMNEGllfVFfScImog==",
       "dependencies": [
         "db0",
@@ -5493,6 +6295,12 @@
     },
     "uqr@0.1.3": {
       "integrity": "sha512-0rjE8iEJe4YmT9TOhwsZtqCMRLc5DXZUI2UEYUUg63ikBkqqE5EYWaI0etFe/5KUcmcYwLih2RND1kq+hrUJXA=="
+    },
+    "uri-js@4.4.1": {
+      "integrity": "sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==",
+      "dependencies": [
+        "punycode"
+      ]
     },
     "use-sync-external-store@1.6.0_react@19.2.8": {
       "integrity": "sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==",
@@ -5589,6 +6397,9 @@
       ],
       "bin": true
     },
+    "word-wrap@1.2.5": {
+      "integrity": "sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA=="
+    },
     "wrap-ansi@7.0.0": {
       "integrity": "sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==",
       "dependencies": [
@@ -5647,6 +6458,9 @@
         "yargs-parser"
       ]
     },
+    "yocto-queue@0.1.0": {
+      "integrity": "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="
+    },
     "yocto-spinner@1.2.2": {
       "integrity": "sha512-DODGl1wJjA/s5pnJFKau9lIYHT81lnhob1i3e1TjxZRxEhWRKl74nTbWE6H5KlkViQQTo/Z29YFdxzTZAMY3ng==",
       "dependencies": [
@@ -5660,6 +6474,12 @@
       "integrity": "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==",
       "dependencies": [
         "zod@3.25.76"
+      ]
+    },
+    "zod-validation-error@4.0.2_zod@4.5.4": {
+      "integrity": "sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ==",
+      "dependencies": [
+        "zod@4.5.4"
       ]
     },
     "zod@3.25.76": {
@@ -5692,6 +6512,9 @@
         "npm:@tanstack/ai-openai@0.22",
         "npm:@tanstack/ai@~0.49.1",
         "npm:@tanstack/devtools-vite@~0.8.3",
+        "npm:@tanstack/eslint-plugin-query@^5.102.8",
+        "npm:@tanstack/eslint-plugin-router@^1.162.0",
+        "npm:@tanstack/eslint-plugin-start@0.1",
         "npm:@tanstack/react-devtools@~0.10.9",
         "npm:@tanstack/react-pacer@0.23",
         "npm:@tanstack/react-query@5.102.0",
@@ -5705,6 +6528,7 @@
         "npm:@types/react-dom@19",
         "npm:@types/react@19",
         "npm:@vitejs/plugin-react@6",
+        "npm:@vitest/eslint-plugin@^1.6.27",
         "npm:better-auth@^1.7.2",
         "npm:bowser@^2.14.1",
         "npm:class-variance-authority@~0.7.1",
@@ -5712,10 +6536,18 @@
         "npm:drizzle-kit@^1.0.0-rc.5",
         "npm:drizzle-orm@^1.0.0-rc.5",
         "npm:effect@^4.0.0-rc.112",
+        "npm:eslint-plugin-jsx-a11y-x@0.2",
+        "npm:eslint-plugin-react-dom@^5.18.6",
+        "npm:eslint-plugin-react-hooks@^7.1.1",
+        "npm:eslint-plugin-react-jsx@^5.18.6",
+        "npm:eslint-plugin-react-web-api@^5.18.6",
+        "npm:eslint-plugin-regexp@^3.2.0",
         "npm:jose@^6.2.10",
         "npm:knip@^6.32.0",
         "npm:nitro@3.0.260610-beta",
         "npm:nodemailer@^9.0.5",
+        "npm:oxlint-tsgolint@^7.0.2001",
+        "npm:oxlint@^1.80.0",
         "npm:pg@^8.23.0",
         "npm:postgres@^3.4.9",
         "npm:react-dom@^19.2.6",

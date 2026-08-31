@@ -53,12 +53,12 @@ export function updateWithOptimisticLock<
       .set({
         ...options.set,
         lockVersion: sql`${options.table.lockVersion} + 1`,
-      } as PgUpdateSetSource<TTable>)
+      })
       .where(lockedWhere(options))
       .returning().pipe(
         Effect.mapError((cause) => optimisticLockError("database", options, cause)),
       )
-    return yield* mutationResult(rows as InferSelectModel<TTable>[], options)
+    return yield* mutationResult(rows, options)
   })
 }
 
@@ -78,7 +78,7 @@ export function deleteWithOptimisticLock<
       .returning().pipe(
         Effect.mapError((cause) => optimisticLockError("database", options, cause)),
       )
-    return yield* mutationResult(rows as InferSelectModel<TTable>[], options)
+    return yield* mutationResult(rows, options)
   })
 }
 
@@ -119,7 +119,7 @@ function lockedWhere<TTable extends LockedTable>(
 }
 
 function mutationResult<TTable extends LockedTable>(
-  rows: InferSelectModel<TTable>[],
+  rows: readonly unknown[],
   options: {
     expectedLockVersion: number
     table: TTable

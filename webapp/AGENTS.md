@@ -8,8 +8,11 @@
   - `deno` is the runtime and package manager, all useful commands are listed in `package.json`
   - all the application code lives in `src/`
   - custom scripts are placed in `scripts/`, and invoked using `package.json` commands
+- Run Oxlint only through Deno tasks; do not install or invoke Node, npm, or npx, or directly declare, configure, or invoke ESLint. Transitive ESLint peer lock entries are acceptable.
+- Preserve imported lint preset rules, options, and severities with one owner for overlaps; keep legacy findings in file-scoped TODOs with diagnostic and distinct-file counts.
+- When updating Oxlint or plugin lock entries, re-audit imported presets, recheck every linked compatibility issue, and smoke-test all plugin loaders.
 
-- `src/components/ui` contains registry-generated shadcn UI components and remains excluded from formatting; make only intentional integration edits and record every divergence in the file's provenance header.
+- `src/components/ui` contains registry-generated shadcn UI components. Keep it excluded from Oxlint, Deno lint, formatting, and automatic fixes; make only intentional integration edits and record every divergence in the file's provenance header.
   - Add new components only with `deno task ui add <component>`.
   - Better Auth UI output under `src/components/auth` and `src/lib/auth`, and Emailcn output under `src/emails`, follow the same provenance rule: retain the registry command, source, and local changes; preserve earlier provenance when replacing a source and centralize shared email changes outside imported templates.
   - Let Knip delete unreachable registry files, while suppressing only generated export-level noise.

@@ -62,7 +62,7 @@ describe("database configuration", () => {
         Effect.provide(Layer.succeed(effectDatabase, readDatabase(Effect.fail(unavailable)))),
         Effect.flip,
       )
-      assert.strictEqual(error as unknown, unavailable)
+      assert.strictEqual<unknown>(error, unavailable)
     })
   })
 })
@@ -73,7 +73,7 @@ type StoredRow = {
 }
 
 function encryptedRow(key: string, value: string): StoredRow {
-  const storedValue = configTable.value.mapToDriverValue({ key, value })
+  const storedValue: unknown = configTable.value.mapToDriverValue({ key, value })
   if (typeof storedValue !== "string") throw new Error("Expected an encrypted config value")
   return { key, storedValue }
 }

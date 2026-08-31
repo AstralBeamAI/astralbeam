@@ -24,7 +24,7 @@ class ChatAdapter extends OpenAITextAdapter<typeof CHAT_MODEL> {
     return super.convertMessagesToInput(messages).map((item) => {
       if (!("type" in item) || item.type !== "function_call" || !("id" in item)) return item
       const { id: _itemId, ...withoutItemId } = item
-      return withoutItemId as typeof item
+      return withoutItemId
     })
   }
 }
