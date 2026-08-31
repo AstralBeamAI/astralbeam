@@ -59,7 +59,7 @@
   - Related routes can sometimes be grouped together using a route group folder e.g. `(auth)` if it better structures the codebase
 
 - `src/db` contains the database schema and migrations
-  - `index.server.ts` contains the Promise Drizzle handle and the single application `pg.Pool`; share `db.$client` with `drizzle-orm/effect-postgres` through `PgClient.fromPool` and one `ManagedRuntime`, while keeping Better Auth on the Promise handle and native Effect workflows behind the one framework bridge. Do not add a parallel pool, global PostgreSQL type-parser table, or Nitro/signal lifecycle plumbing for this externally owned `allowExitOnIdle` pool; the migration runner's dedicated postgres.js sessions remain the intentional exception.
+  - `index.server.ts` contains the Promise Drizzle handle and the single application `pg.Pool`; share `db.$client` with `drizzle-orm/effect-postgres` through `PgClient.fromPool` and one `ManagedRuntime`, while keeping Better Auth on the Promise handle and native Effect workflows behind the one framework bridge. Keep node-postgres pool lifecycle defaults; do not add `allowExitOnIdle`, a parallel pool, global PostgreSQL type-parser table, or Nitro/signal lifecycle plumbing. The migration runner's dedicated postgres.js sessions remain the intentional exception.
   - `schema.server.ts` contains the drizzle schema
   - Keep generally reusable database primitives in `src/db/lib`; keep table-specific domain interfaces and the migration runner directly under `src/db`.
   - Drizzle Effect query failures store the Effect SQL error inside an `EffectDrizzleQueryError` Cause; inspect it with Effect's `Cause` utilities and then standard JavaScript `cause` links instead of traversing arbitrary fields or parsing error messages.

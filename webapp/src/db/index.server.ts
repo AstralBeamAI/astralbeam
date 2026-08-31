@@ -5,9 +5,6 @@ import { databaseRelations } from "@/db/schema.server"
 
 export const db = drizzle({
   connection: {
-    // Keep process lifetime under the server runtime's control, not idle database sockets.
-    // https://node-postgres.com/apis/pool
-    allowExitOnIdle: true,
     connectionString: getDatabaseUrl(),
   },
   jit: true,
