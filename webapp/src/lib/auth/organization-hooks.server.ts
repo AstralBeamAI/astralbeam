@@ -1,7 +1,21 @@
-import { APIError } from "better-auth/api"
+import type { BetterAuthPlugin } from "better-auth"
+import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
-
 import { organizationRoles } from "./organization-access.ts"
+
+export const organizationApiKeyFreshSessionPlugin = {
+  id: "organization-api-key-fresh-session",
+  hooks: {
+    before: [{
+      matcher: (context) => context.path === "/api-key/create",
+      handler: createAuthMiddleware(async (context) => {
+        await freshSessionMiddleware(
+          context as Parameters<typeof freshSessionMiddleware>[0],
+        )
+      }),
+    }],
+  },
+} satisfies BetterAuthPlugin
 
 function assertConfiguredOrganizationRoles(role: string): void {
   const roles = role.split(",")

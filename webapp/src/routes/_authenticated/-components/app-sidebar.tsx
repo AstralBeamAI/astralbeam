@@ -2,10 +2,14 @@
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth } from "@better-auth-ui/react"
-import { useSetActiveOrganization } from "@better-auth-ui/react/plugins/organization"
+import {
+  useHasPermission,
+  useSetActiveOrganization,
+} from "@better-auth-ui/react/plugins/organization"
 import {
   HouseIcon,
   type Icon,
+  KeyIcon,
   ShieldCheckIcon,
   UserCircleIcon,
   UsersThreeIcon,
@@ -40,10 +44,17 @@ const organizationNavigation = [
     href: "/organization/members",
     icon: UsersThreeIcon,
   },
+  {
+    label: "API keys",
+    href: "/organization/api-keys",
+    icon: KeyIcon,
+    apiKeyReadRequired: true,
+  },
 ] satisfies ReadonlyArray<{
   label: string
   href: string
   icon: Icon
+  apiKeyReadRequired?: boolean
 }>
 
 export type AppSidebarProps =
@@ -64,6 +75,11 @@ export function AppSidebar({
     select: (state) => state.location.pathname,
   })
   const { setOpenMobile } = useSidebar()
+  const apiKeyReadPermission = useHasPermission(authClient, {
+    permissions: { apiKey: ["read"] } as Parameters<
+      OrganizationAuthClient["organization"]["hasPermission"]
+    >[0]["permissions"],
+  })
 
   useEffect(() => {
     setOpenMobile(false)
@@ -109,7 +125,10 @@ export function AppSidebar({
             <nav aria-label="Organization navigation">
               <SidebarMenu>
                 {organizationNavigation.map((item) => {
-                  const isActive = pathname === item.href
+                  if (item.apiKeyReadRequired && !apiKeyReadPermission.data?.success) return null
+                  const isActive = item.href === "/"
+                    ? pathname === item.href
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`)
 
                   return (
                     <SidebarMenuItem key={item.href}>

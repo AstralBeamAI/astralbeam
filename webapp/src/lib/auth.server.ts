@@ -1,5 +1,6 @@
 import process from "node:process"
 
+import { apiKey } from "@better-auth/api-key"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import { getRequest } from "@tanstack/react-start/server"
 import type { BetterAuthPlugin } from "better-auth"
@@ -23,8 +24,17 @@ import {
   assertLegalAcceptance,
   recordValue,
 } from "@/lib/auth/legal.server"
-import { organizationRoles } from "@/lib/auth/organization-access"
-import { organizationRoleHooks } from "@/lib/auth/organization-hooks.server"
+import {
+  ORGANIZATION_API_KEY_PREFIX,
+  ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
+  ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
+  ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
+} from "@/lib/auth/organization-api-key-configuration"
+import { organizationAccessControl, organizationRoles } from "@/lib/auth/organization-access"
+import {
+  organizationApiKeyFreshSessionPlugin,
+  organizationRoleHooks,
+} from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 
 // Better Auth 1.7.2 keeps these defaults inline rather than exporting them. Pass each value to
@@ -225,6 +235,21 @@ function buildAuth(config: AuthConfig) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
+        const isApiKeyCreate = context.path === "/api-key/create"
+        if (isApiKeyCreate || context.path === "/api-key/update") {
+          // Better Auth recommends a before hook for endpoint-specific input adjustments. https://better-auth.com/docs/concepts/hooks#before-hooks
+          const name = typeof body?.name === "string" ? body.name.trim() : undefined
+          return {
+            context: {
+              ...context,
+              body: {
+                ...body,
+                ...(isApiKeyCreate ? { prefix: ORGANIZATION_API_KEY_PREFIX } : {}),
+                ...(name === undefined ? {} : { name }),
+              },
+            },
+          }
+        }
         if (context.path === "/sign-up/email") {
           if (config.legalAcceptanceRequired) assertLegalAcceptance(body?.termsAccepted)
           return
@@ -235,6 +260,7 @@ function buildAuth(config: AuthConfig) {
           assertLegalAcceptance(recordValue(body.additionalData)?.termsAccepted)
           await addOAuthServerContext({ termsAccepted: true })
         }
+        return
       }),
       after: createAuthMiddleware(async (context) => {
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
@@ -267,6 +293,7 @@ function buildAuth(config: AuthConfig) {
         paths: ["/sign-up/email", "/change-password", "/reset-password"],
       }),
       organization({
+        ac: organizationAccessControl,
         roles: organizationRoles,
         organizationHooks: organizationRoleHooks,
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
@@ -277,6 +304,25 @@ function buildAuth(config: AuthConfig) {
             ...data,
             expiresInSeconds: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
           })
+        },
+      }),
+      organizationApiKeyFreshSessionPlugin,
+      apiKey({
+        defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
+        rateLimit: {
+          maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
+          timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
+        },
+        references: "organization",
+        requireName: true,
+        startingCharactersConfig: {
+          charactersLength: ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
+        },
+        schema: {
+          apikey: {
+            modelName: "apiKey",
+            fields: { referenceId: "organizationId" },
+          },
         },
       }),
       tanstackStartCookies(),

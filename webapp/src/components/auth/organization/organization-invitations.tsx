@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor, domain-specific function names, and hover titles for icon-only filter actions; make filters/table responsive and repair strict optional props.
+// Local changes: use Phosphor, domain-specific function names, and hover titles for icon-only filter actions; make filters/table responsive, repair strict optional props, and colocate the private empty state.
 
 import {
   hasMemberRole,
@@ -15,6 +15,7 @@ import {
   CaretUpIcon as ChevronUp,
   FunnelIcon as Filter,
   MagnifyingGlassIcon as Search,
+  PaperPlaneTiltIcon as Send,
   XIcon as X,
 } from "@phosphor-icons/react"
 import { type ComponentProps, type ReactNode, useMemo, useState } from "react"
@@ -22,6 +23,14 @@ import { type ComponentProps, type ReactNode, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,13 +52,43 @@ import { cn } from "@/lib/utils"
 import { InviteMemberDialog } from "./invite-member-dialog"
 import { OrganizationInvitationRow } from "./organization-invitation-row"
 import { OrganizationInvitationRowSkeleton } from "./organization-invitation-row-skeleton"
-import { OrganizationInvitationsEmpty } from "./organization-invitations-empty"
 
 type SortDirection = "ascending" | "descending"
 
 type SortDescriptor = {
   column: string
   direction: SortDirection
+}
+
+function OrganizationInvitationsEmpty({
+  isInvitePending,
+  onInvitePress,
+}: {
+  isInvitePending?: boolean
+  onInvitePress?: () => void
+}) {
+  const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
+
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Send />
+        </EmptyMedia>
+        <EmptyTitle>{organizationLocalization.noInvitations}</EmptyTitle>
+        <EmptyDescription>
+          {organizationLocalization.organizationInvitationsEmptyDescription}
+        </EmptyDescription>
+      </EmptyHeader>
+      {(isInvitePending || onInvitePress) && (
+        <EmptyContent>
+          <Button disabled={isInvitePending} size="sm" onClick={onInvitePress}>
+            {organizationLocalization.inviteMember}
+          </Button>
+        </EmptyContent>
+      )}
+    </Empty>
+  )
 }
 
 /** Props for the `OrganizationInvitations` component. */

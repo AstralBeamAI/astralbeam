@@ -1,4 +1,4 @@
-import { index, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import { boolean, index, integer, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
 
 import {
   caseInsensitiveText,
@@ -7,6 +7,10 @@ import {
   timestampWithTimeZone,
   uuidV7PrimaryKey,
 } from "../lib/columns.server.ts"
+import {
+  ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
+  ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
+} from "../../lib/auth/organization-api-key-configuration.ts"
 import { user } from "./authentication.server.ts"
 
 export const organization = snakeCase.table(
@@ -20,6 +24,42 @@ export const organization = snakeCase.table(
     ...timestamps(),
   },
   (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)],
+)
+
+export const apiKey = snakeCase.table(
+  "api_key",
+  {
+    id: uuidV7PrimaryKey(),
+    configId: text().default("default").notNull(),
+    name: text().notNull(),
+    start: text(),
+    organizationId: uuid().notNull().references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    prefix: text(),
+    // Better Auth stores a SHA-256 digest, not the bearer key. https://better-auth.com/docs/plugins/api-key/reference#schema
+    key: text().notNull(),
+    // Better Auth includes these nullable quota fields in every API-key insert. https://better-auth.com/docs/plugins/api-key/advanced#remaining-refill-and-expiration
+    refillInterval: integer(),
+    refillAmount: integer(),
+    lastRefillAt: timestampWithTimeZone(),
+    enabled: boolean().default(true).notNull(),
+    rateLimitEnabled: boolean().default(true).notNull(),
+    rateLimitTimeWindow: integer().default(ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS).notNull(),
+    rateLimitMax: integer().default(ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS).notNull(),
+    requestCount: integer().default(0).notNull(),
+    remaining: integer(),
+    lastRequest: timestampWithTimeZone(),
+    expiresAt: timestampWithTimeZone(),
+    permissions: text(),
+    metadata: text(),
+    ...timestamps(),
+  },
+  (table) => [
+    index("api_key_config_id_idx").on(table.configId),
+    index("api_key_organization_id_idx").on(table.organizationId),
+    index("api_key_key_idx").on(table.key),
+  ],
 )
 
 export const organizationConfiguration = snakeCase.table(

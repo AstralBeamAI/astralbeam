@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; omit disabled teams and support responsive controls/table and strict optional props.
+// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; omit disabled teams, support responsive controls/table and strict optional props, and colocate the private loading row.
 
 "use client"
 
@@ -34,12 +34,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { cn } from "@/lib/utils"
+import { UserView } from "../user/user-view"
 import { InviteMemberDialog } from "./invite-member-dialog"
 import { OrganizationMemberRow } from "./organization-member-row"
-import { OrganizationMemberRowSkeleton } from "./organization-member-row-skeleton"
 
 type SortDirection = "ascending" | "descending"
 
@@ -72,6 +80,24 @@ function validatePageSize(pageSize?: number) {
   }
 
   return pageSize
+}
+
+function OrganizationMemberRowSkeleton() {
+  return (
+    <TableRow>
+      <TableCell>
+        <UserView isPending />
+      </TableCell>
+
+      <TableCell>
+        <Skeleton className="h-4 w-18 rounded-md" />
+      </TableCell>
+
+      <TableCell className="flex justify-end">
+        <Skeleton className="size-8 rounded-md" />
+      </TableCell>
+    </TableRow>
+  )
 }
 
 /**

@@ -1,16 +1,17 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: expose an invitation-action callback so onboarding can refresh organization access.
+// Local changes: expose an invitation-action callback so onboarding can refresh organization access, replace Lucide with Phosphor icons, and colocate private list states.
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
 import { useListUserInvitations } from "@better-auth-ui/react/plugins/organization"
+import { PaperPlaneTiltIcon as Send, WarningCircleIcon as MailWarning } from "@phosphor-icons/react"
 import { Fragment } from "react"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { ItemGroup, ItemSeparator } from "@/components/ui/item"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator } from "@/components/ui/item"
+import { Skeleton } from "@/components/ui/skeleton"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { UserInvitationRow } from "./user-invitation-row"
-import { UserInvitationRowSkeleton } from "./user-invitation-row-skeleton"
-import { UserInvitationsEmpty } from "./user-invitations-empty"
 
 export type UserInvitationsProps = {
   className?: string
@@ -65,5 +66,47 @@ export function UserInvitations({ className, onInvitationAction }: UserInvitatio
         </Card>
       </div>
     </div>
+  )
+}
+
+function UserInvitationRowSkeleton() {
+  return (
+    <Item>
+      <ItemMedia>
+        <Skeleton className="size-10 shrink-0 rounded-md" />
+      </ItemMedia>
+      <ItemContent>
+        <Skeleton className="h-4 w-40 rounded-md" />
+        <Skeleton className="h-3 w-28 rounded-md" />
+      </ItemContent>
+    </Item>
+  )
+}
+
+function UserInvitationsEmpty({
+  verificationRequired = false,
+}: {
+  verificationRequired?: boolean
+}) {
+  const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
+
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          {verificationRequired ? <MailWarning /> : <Send />}
+        </EmptyMedia>
+        <EmptyTitle>
+          {verificationRequired
+            ? organizationLocalization.verifyEmailToViewInvitations
+            : organizationLocalization.noInvitations}
+        </EmptyTitle>
+        <EmptyDescription>
+          {verificationRequired
+            ? organizationLocalization.verifyEmailToViewInvitationsDescription
+            : organizationLocalization.userInvitationsEmptyDescription}
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }

@@ -20,6 +20,8 @@ import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
 import { PublicConfigProvider } from "@/components/public-config-provider"
 import { Toaster } from "@/components/ui/toast"
 import { authClient } from "@/lib/auth/client"
+import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
+import { ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION } from "@/lib/auth/organization-api-key-configuration"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { normalizeReturnPath, resolveRedirectOrigin } from "@/lib/auth/redirect"
 import { themePlugin } from "@/lib/auth/theme-plugin"
@@ -223,6 +225,14 @@ function AppProviders({ children }: { children: ReactNode }) {
             },
             localization: { people: "Members" },
             viewPaths: { organization: { people: "members" } },
+          }),
+          apiKeyPlugin({
+            organization: true,
+            keyExpiration: { defaultInterval: null },
+            localization: {
+              apiKeysDescription:
+                `Create and manage API keys for this organization. ${ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}`,
+            },
           }),
         ]}
         Link={({ href, ...props }) => <Link {...props} to={href} />}

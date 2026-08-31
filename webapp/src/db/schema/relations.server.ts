@@ -36,6 +36,10 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
     }),
   },
   organization: {
+    apiKeys: relations.many.apiKey({
+      from: relations.organization.id,
+      to: relations.apiKey.organizationId,
+    }),
     members: relations.many.member({
       from: relations.organization.id,
       to: relations.member.organizationId,
@@ -47,6 +51,12 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
     configuration: relations.one.organizationConfiguration({
       from: relations.organization.id,
       to: relations.organizationConfiguration.organizationId,
+    }),
+  },
+  apiKey: {
+    organization: relations.one.organization({
+      from: relations.apiKey.organizationId,
+      to: relations.organization.id,
     }),
   },
   organizationConfiguration: {
