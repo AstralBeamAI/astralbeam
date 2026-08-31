@@ -1,10 +1,8 @@
 import { createHash } from "node:crypto"
 
 import { sql } from "drizzle-orm"
-import postgres from "postgres"
 
 import { db } from "@/db"
-import { getDatabaseUrl } from "@/db/lib/database-credentials.server"
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { approvedMigrationsMatch } from "@/db/migration-approval.server"
 
@@ -114,18 +112,15 @@ type ApplyMigrationsResult =
   | { ok: true; applied: string[] }
   | { ok: false; error: string }
 
-function createSingleConnectionClient(databaseUrl: string): postgres.Sql {
-  return postgres(databaseUrl, { max: 1 })
-}
-
 export async function runWithMigrationAdvisoryLock(
-  lockClient: postgres.Sql,
+  database: Pick<typeof db, "transaction">,
   applyMigrations: () => Promise<ApplyMigrationsResult>,
 ): Promise<ApplyMigrationsResult> {
-  return await lockClient.begin(async (lockTransaction) => {
-    const [lock] = await lockTransaction`
+  return await database.transaction(async (transaction) => {
+    const lockResult = await transaction.execute<{ locked: boolean }>(sql`
       select pg_try_advisory_xact_lock(hashtext(${CONFIG_MIGRATION_LOCK_KEY})) as locked
-    `
+    `)
+    const lock = lockResult.rows[0]
     if (!lock?.locked) return { ok: false, error: "A migration run is already in progress" }
     return await applyMigrations()
   })
@@ -144,18 +139,14 @@ export async function applyApprovedMigrations(
   approvedMigrations: { name: string; hash: string }[],
 ): Promise<ApplyMigrationsResult> {
   // Transaction pooling can change the backing PostgreSQL session between transactions. Keep a
-  // transaction open on a dedicated client so its advisory lock remains pinned while a second
-  // client preserves the existing one-transaction-per-migration behavior.
-  const databaseUrl = getDatabaseUrl()
-  const lockClient = createSingleConnectionClient(databaseUrl)
-  const migrationClient = createSingleConnectionClient(databaseUrl)
+  // transaction open so its advisory lock remains pinned while root database transactions use
+  // other clients from the shared pool to preserve one transaction per migration.
   try {
-    return await runWithMigrationAdvisoryLock(lockClient, async () => {
+    return await runWithMigrationAdvisoryLock(db, async () => {
       let appliedNames: Set<string> | null
       try {
-        appliedNames = appliedNameSet(
-          await migrationClient`select name from drizzle.__drizzle_migrations`,
-        )
+        const result = await db.execute(sql`select name from drizzle.__drizzle_migrations`)
+        appliedNames = appliedNameSet(result.rows)
       } catch (error) {
         if (!isMissingBookkeepingError(error)) throw error
         appliedNames = null
@@ -167,8 +158,8 @@ export async function applyApprovedMigrations(
       }
       if (appliedNames === null) {
         // Same bookkeeping DDL as drizzle-orm's migrator, so the drizzle-kit CLI remains usable.
-        await migrationClient`CREATE SCHEMA IF NOT EXISTS drizzle`
-        await migrationClient.unsafe(
+        await db.execute(sql`CREATE SCHEMA IF NOT EXISTS drizzle`)
+        await db.execute(sql.raw(
           `CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
             id SERIAL PRIMARY KEY,
             hash text NOT NULL,
@@ -176,19 +167,19 @@ export async function applyApprovedMigrations(
             name text,
             applied_at timestamp with time zone DEFAULT now()
           )`,
-        )
+        ))
       }
       const applied: string[] = []
       for (const migration of pending) {
         try {
-          await migrationClient.begin(async (transaction) => {
+          await db.transaction(async (transaction) => {
             for (const statement of migration.sql.split("--> statement-breakpoint")) {
-              await transaction.unsafe(statement)
+              await transaction.execute(sql.raw(statement))
             }
-            await transaction`
+            await transaction.execute(sql`
               insert into drizzle.__drizzle_migrations ("hash", "created_at", "name")
               values (${migration.hash}, ${migration.folderMillis}, ${migration.name})
-            `
+            `)
           })
         } catch (error) {
           console.error(`Migration '${migration.name}' failed`)
@@ -202,7 +193,6 @@ export async function applyApprovedMigrations(
       return { ok: true, applied }
     })
   } finally {
-    await Promise.all([lockClient.end(), migrationClient.end()])
     cachedMigrationState = undefined
   }
 }

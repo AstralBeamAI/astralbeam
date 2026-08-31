@@ -1,19 +1,18 @@
-import type postgres from "postgres"
+import type { SQL } from "drizzle-orm"
+import { PgDialect } from "drizzle-orm/pg-core"
 import { describe, expect, test, vi } from "vitest"
 
 import { runWithMigrationAdvisoryLock } from "./migration-runner.server.ts"
 
 function lockClient(locked: boolean): {
-  client: postgres.Sql
-  transaction: ReturnType<typeof vi.fn>
+  database: Parameters<typeof runWithMigrationAdvisoryLock>[0]
+  execute: ReturnType<typeof vi.fn>
 } {
-  const transaction = vi.fn((_template: TemplateStringsArray) => Promise.resolve([{ locked }]))
-  const client = {
-    begin: vi.fn(async (callback) =>
-      await callback(transaction as unknown as postgres.TransactionSql)
-    ),
-  } as unknown as postgres.Sql
-  return { client, transaction }
+  const execute = vi.fn(() => Promise.resolve({ rows: [{ locked }] }))
+  const database = {
+    transaction: vi.fn(async (callback) => await callback({ execute } as never)),
+  } as unknown as Parameters<typeof runWithMigrationAdvisoryLock>[0]
+  return { database, execute }
 }
 
 describe("migration advisory lock", () => {
@@ -23,13 +22,13 @@ describe("migration advisory lock", () => {
     )
     const locking = lockClient(true)
 
-    await expect(runWithMigrationAdvisoryLock(locking.client, applyMigrations)).resolves.toEqual({
+    await expect(runWithMigrationAdvisoryLock(locking.database, applyMigrations)).resolves.toEqual({
       ok: true,
       applied: ["migration"],
     })
-    const lockQuery = locking.transaction.mock.calls.at(0)?.at(0)
+    const lockQuery = locking.execute.mock.calls.at(0)?.at(0) as SQL | undefined
     if (!lockQuery) throw new Error("Expected an advisory-lock query")
-    expect(lockQuery.join("?")).toContain("pg_try_advisory_xact_lock")
+    expect(new PgDialect().sqlToQuery(lockQuery).sql).toContain("pg_try_advisory_xact_lock")
     expect(applyMigrations).toHaveBeenCalledOnce()
   })
 
@@ -37,7 +36,7 @@ describe("migration advisory lock", () => {
     const applyMigrations = vi.fn(() => Promise.resolve({ ok: true as const, applied: [] }))
 
     await expect(
-      runWithMigrationAdvisoryLock(lockClient(false).client, applyMigrations),
+      runWithMigrationAdvisoryLock(lockClient(false).database, applyMigrations),
     ).resolves.toEqual({
       ok: false,
       error: "A migration run is already in progress",
