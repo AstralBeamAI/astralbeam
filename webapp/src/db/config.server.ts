@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import { effectDatabase, runDatabaseEffect } from "@/db"
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
-import { isMissingTableError } from "@/db/lib/postgres-errors.server"
+import { sqlState } from "@/db/lib/sqlstate.server"
 import { configTable } from "@/db/schema.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
 import { CONFIG_DEFINITIONS, findConfigDefinition } from "@/lib/config/registry.server"
@@ -58,7 +58,7 @@ function readStoredConfigRows(
       }
     })
   }).pipe(
-    Effect.catchIf(isMissingTableError, () => Effect.succeed(null)),
+    Effect.catchIf((error) => sqlState(error) === "42P01", () => Effect.succeed(null)),
   )
 }
 

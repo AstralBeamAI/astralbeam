@@ -5,7 +5,7 @@ import postgres from "postgres"
 
 import { db } from "@/db"
 import { getDatabaseUrl } from "@/db/lib/database-credentials.server"
-import { hasPostgresErrorCode } from "@/db/lib/postgres-errors.server"
+import { sqlState } from "@/db/lib/sqlstate.server"
 import { approvedMigrationsMatch } from "@/db/migration-approval.server"
 
 const CONFIG_MIGRATION_LOCK_KEY = "config_migrations"
@@ -65,7 +65,8 @@ function pendingMigrations(
 
 function isMissingBookkeepingError(error: unknown): boolean {
   // 42P01 = undefined table, 3F000 = the drizzle schema itself is missing.
-  return hasPostgresErrorCode(error, ["42P01", "3F000"])
+  const code = sqlState(error)
+  return code === "42P01" || code === "3F000"
 }
 
 function appliedNameSet(rows: Iterable<object | undefined>): Set<string> {
