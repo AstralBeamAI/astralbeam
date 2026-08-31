@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview; show the product rate limit instead of Better Auth's disabled inactivity counter.
+// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview; show the product rate limit.
 
 import type { ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -26,12 +26,15 @@ export type ApiKeyProps = {
   hideDelete?: boolean | undefined
   /** Hide the row's edit button (e.g., when caller lacks `apiKey:update`). */
   hideUpdate?: boolean | undefined
+  /** Called after this key is deleted. */
+  onDeleted?: (() => void) | undefined
 }
 
 export function ApiKey({
   apiKey,
   hideDelete,
   hideUpdate,
+  onDeleted,
 }: ApiKeyProps) {
   const { localization } = useAuth()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
@@ -71,9 +74,6 @@ export function ApiKey({
         </ItemDescription>
         <ItemDescription>
           {ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}
-          {apiKey.remaining === null
-            ? ""
-            : ` · ${apiKeyLocalization.remaining}: ${apiKey.remaining}`}
         </ItemDescription>
         <ItemDescription>
           {apiKeyLocalization.lastRequest}: {apiKey.lastRequest
@@ -116,6 +116,7 @@ export function ApiKey({
               open={deleteOpen}
               onOpenChange={setDeleteOpen}
               apiKey={apiKey}
+              onDeleted={onDeleted}
             />
           </>
         )}

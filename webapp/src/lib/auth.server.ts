@@ -34,7 +34,6 @@ import { organizationAccessControl, organizationRoles } from "@/lib/auth/organiz
 import {
   organizationApiKeyFreshSessionPlugin,
   organizationRoleHooks,
-  validateOrganizationApiKeyRateLimit,
 } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 
@@ -310,11 +309,7 @@ function buildAuth(config: AuthConfig) {
       organizationApiKeyFreshSessionPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
-        customAPIKeyValidator: validateOrganizationApiKeyRateLimit,
-        // Better Auth 1.7.2 resets its counter after inactivity, not at the end of a
-        // fixed window. The database validator above enforces the advertised window.
         rateLimit: {
-          enabled: false,
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
           timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
         },

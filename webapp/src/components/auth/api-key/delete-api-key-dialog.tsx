@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview.
+// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview; notify the paginated list after deletion.
 
 import type { ApiKeyAuthClient, ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -26,12 +26,14 @@ export type DeleteApiKeyDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   apiKey: ListedApiKey
+  onDeleted?: (() => void) | undefined
 }
 
 export function DeleteApiKeyDialog({
   open,
   onOpenChange,
   apiKey,
+  onDeleted,
 }: DeleteApiKeyDialogProps) {
   const { authClient, localization } = useAuth<ApiKeyAuthClient>()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
@@ -40,7 +42,10 @@ export function DeleteApiKeyDialog({
   const { mutate: deleteApiKey, isPending: isDeleting } = useDeleteApiKey(
     authClient,
     {
-      onSuccess: () => onOpenChange(false),
+      onSuccess: () => {
+        onOpenChange(false)
+        onDeleted?.()
+      },
     },
   )
 

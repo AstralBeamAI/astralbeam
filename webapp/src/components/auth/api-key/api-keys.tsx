@@ -210,6 +210,9 @@ export function ApiKeys({
                       apiKey={key}
                       hideDelete={hideDelete}
                       hideUpdate={hideUpdate}
+                      onDeleted={() => {
+                        if (page > 0 && listData.apiKeys.length === 1) setPage(page - 1)
+                      }}
                     />
                   </Fragment>
                 ))}

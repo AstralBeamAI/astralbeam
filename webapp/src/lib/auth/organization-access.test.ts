@@ -24,7 +24,6 @@ async function createAuthorizationFixture() {
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
         rateLimit: {
-          enabled: false,
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
           timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
         },
@@ -101,7 +100,7 @@ describe("organization API key authorization", () => {
 
       expect(created.referenceId).toBe(fixture.organizationId)
       expect(created).toMatchObject({
-        rateLimitEnabled: false,
+        rateLimitEnabled: true,
         rateLimitMax: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
         rateLimitTimeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
       })
@@ -194,16 +193,22 @@ describe("organization API key authorization", () => {
       },
       headers: fixture.headers.owner,
     })
-    const stored = await fixture.db.findOne<{ id: string; key: string }>({
+    const stored = await fixture.db.findOne<{ id: string; key: string; lastRequest: Date | null }>({
       model: "apikey",
       where: [{ field: "id", value: created.id }],
     })
 
     expect(created.key).toMatch(/^abo_/)
     expect(stored?.key).toBe(createHash("sha256").update(created.key).digest("base64url"))
+    expect(stored?.lastRequest).toBeNull()
     await expect(fixture.auth.api.verifyApiKey({
       body: { key: created.key },
     })).resolves.toMatchObject({ valid: true, key: { id: created.id } })
+    const listed = await fixture.auth.api.listApiKeys({
+      query: { organizationId: fixture.organizationId },
+      headers: fixture.headers.owner,
+    })
+    expect(listed.apiKeys.find((key) => key.id === created.id)?.lastRequest).toBeInstanceOf(Date)
     await expect(fixture.auth.api.verifyApiKey({
       body: { key: stored!.key },
     })).resolves.toMatchObject({ valid: false, key: null })

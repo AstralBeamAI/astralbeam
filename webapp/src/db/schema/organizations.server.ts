@@ -39,6 +39,7 @@ export const apiKey = snakeCase.table(
     prefix: text(),
     // Better Auth stores a SHA-256 digest, not the bearer key. https://better-auth.com/docs/plugins/api-key/reference#schema
     key: text().notNull(),
+    // Better Auth includes these nullable quota fields in every API-key insert. https://better-auth.com/docs/plugins/api-key/advanced#remaining-refill-and-expiration
     refillInterval: integer(),
     refillAmount: integer(),
     lastRefillAt: timestampWithTimeZone(),

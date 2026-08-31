@@ -231,7 +231,7 @@ function AppProviders({ children }: { children: ReactNode }) {
             keyExpiration: { defaultInterval: null },
             localization: {
               apiKeysDescription:
-                `Create API keys for programmatic access to this organization. ${ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}`,
+                `Create and manage API keys for this organization. ${ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}`,
             },
           }),
         ]}
