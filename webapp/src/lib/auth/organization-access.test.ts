@@ -203,6 +203,7 @@ describe("organization API key authorization", () => {
       where: [{ field: "id", value: created.id }],
     })
 
+    expect(created.key).toMatch(/^abo_/)
     expect(stored?.key).toBe(createHash("sha256").update(created.key).digest("base64url"))
     await expect(fixture.auth.api.verifyApiKey({
       body: { key: created.key },

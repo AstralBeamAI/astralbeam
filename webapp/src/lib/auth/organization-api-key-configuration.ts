@@ -1,4 +1,4 @@
-export const ORGANIZATION_API_KEY_PREFIX = "org_api_key_"
+export const ORGANIZATION_API_KEY_PREFIX = "abo_"
 // Better Auth counts the prefix inside this preview length. https://better-auth.com/docs/plugins/api-key/reference#startingcharactersconfig-options
 export const ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH = ORGANIZATION_API_KEY_PREFIX.length +
   6
