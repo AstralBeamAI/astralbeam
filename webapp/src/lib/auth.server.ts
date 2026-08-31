@@ -31,7 +31,11 @@ import {
   ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
 } from "@/lib/auth/organization-api-key-configuration"
 import { organizationAccessControl, organizationRoles } from "@/lib/auth/organization-access"
-import { organizationRoleHooks } from "@/lib/auth/organization-hooks.server"
+import {
+  organizationApiKeyFreshSessionPlugin,
+  organizationRoleHooks,
+  validateOrganizationApiKeyRateLimit,
+} from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 
 // Better Auth 1.7.2 keeps these defaults inline rather than exporting them. Pass each value to
@@ -303,9 +307,14 @@ function buildAuth(config: AuthConfig) {
           })
         },
       }),
+      organizationApiKeyFreshSessionPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
+        customAPIKeyValidator: validateOrganizationApiKeyRateLimit,
+        // Better Auth 1.7.1 resets its counter after inactivity, not at the end of a
+        // fixed window. The database validator above enforces the advertised window.
         rateLimit: {
+          enabled: false,
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
           timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
         },

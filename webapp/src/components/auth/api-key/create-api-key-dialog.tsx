@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; promptly evict the one-time secret from the mutation cache.
+// Local changes: Use Phosphor icons; support exact optional property types; require a fresh session; promptly evict the one-time secret from the mutation cache.
 
 "use client"
 
@@ -7,6 +7,7 @@ import {
   type ApiKeyAuthClient,
   apiKeyExpirationDaysToSeconds,
 } from "@better-auth-ui/core/plugins/api-key"
+import { getAuthLinkURL, getSafeRedirectTo, isSessionNotFreshError } from "@better-auth-ui/core"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useCreateApiKey } from "@better-auth-ui/react/plugins/api-key"
 import { KeyIcon } from "@phosphor-icons/react"
@@ -47,7 +48,7 @@ export function CreateApiKeyDialog({
   onOpenChange,
   organizationId,
 }: CreateApiKeyDialogProps) {
-  const { authClient, localization } = useAuth<ApiKeyAuthClient>()
+  const { authClient, basePaths, localization, navigate, viewPaths } = useAuth<ApiKeyAuthClient>()
   const {
     configurations,
     keyExpiration,
@@ -56,6 +57,7 @@ export function CreateApiKeyDialog({
 
   const {
     mutate: createApiKey,
+    error: createApiKeyError,
     isPending: isCreating,
     reset: resetCreateApiKey,
   } = useCreateApiKey(authClient, { gcTime: 0 })
@@ -78,9 +80,11 @@ export function CreateApiKeyDialog({
       ...(keyExpiration.allowNever ? [{ label: apiKeyLocalization.never, value: "never" }] : []),
     ]
     : []
+  const needsFreshSession = isSessionNotFreshError(createApiKeyError)
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
+      resetCreateApiKey()
       setKeyName(null)
       setNameError(undefined)
       setSecretKey(null)
@@ -124,22 +128,55 @@ export function CreateApiKeyDialog({
       ...(organizationId ? { organizationId } : {}),
     }
 
-    createApiKey(Object.keys(payload).length > 0 ? payload : undefined, {
+    createApiKey(payload, {
       onSuccess: (result) => {
         handleOpenChange(false)
         setKeyName(name)
         setSecretKey(result.key)
         setIsNewKeyDialogOpen(true)
-        resetCreateApiKey()
       },
     })
+  }
+
+  function signInAgainForApiKey() {
+    const returnPath = getSafeRedirectTo(
+      `${globalThis.location.pathname}${globalThis.location.search}`,
+      globalThis.location.origin,
+    )
+    const link = new URL(
+      getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, returnPath),
+      globalThis.location.origin,
+    )
+    link.searchParams.set("fresh", "true")
+    navigate({ to: `${link.pathname}${link.search}` })
   }
 
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          {needsFreshSession && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {localization.settings.freshSessionTitle}
+                </DialogTitle>
+                <DialogDescription>
+                  {localization.settings.freshSessionDescription}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" onClick={signInAgainForApiKey}>
+                  {localization.settings.freshSessionSignIn}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col gap-6"
+            hidden={needsFreshSession}
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <KeyIcon aria-hidden="true" />

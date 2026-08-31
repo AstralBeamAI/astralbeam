@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview.
+// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview; show the product rate limit instead of Better Auth's disabled inactivity counter.
 
 import type { ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -16,10 +16,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
-import {
-  ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
-  ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MINUTES,
-} from "@/lib/auth/organization-api-key-configuration"
+import { ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION } from "@/lib/auth/organization-api-key-configuration"
 import { DeleteApiKeyDialog } from "./delete-api-key-dialog"
 import { EditApiKeyDialog } from "./edit-api-key-dialog"
 
@@ -73,7 +70,7 @@ export function ApiKey({
           {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
         </ItemDescription>
         <ItemDescription>
-          {`Rate limit: ${apiKey.requestCount} / ${ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS} requests per ${ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MINUTES} minutes.`}
+          {ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}
           {apiKey.remaining === null
             ? ""
             : ` · ${apiKeyLocalization.remaining}: ${apiKey.remaining}`}

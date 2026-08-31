@@ -9,6 +9,7 @@ import {
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
 } from "./organization-api-key-configuration.ts"
 import { organizationAccessControl, organizationRoles } from "./organization-access.ts"
+import { organizationApiKeyFreshSessionPlugin } from "./organization-hooks.server.ts"
 
 async function createAuthorizationFixture() {
   const instance = await getTestInstance({
@@ -17,9 +18,11 @@ async function createAuthorizationFixture() {
         ac: organizationAccessControl,
         roles: organizationRoles,
       }),
+      organizationApiKeyFreshSessionPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
         rateLimit: {
+          enabled: false,
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
           timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
         },
@@ -29,6 +32,7 @@ async function createAuthorizationFixture() {
     ],
   })
   const owner = await instance.signInWithTestUser()
+  const ownerSession = await instance.auth.api.getSession({ headers: owner.headers })
   const createdOrganization = await instance.auth.api.createOrganization({
     body: {
       name: "Authorization Boundary",
@@ -61,8 +65,10 @@ async function createAuthorizationFixture() {
 
   return {
     auth: instance.auth,
+    db: instance.db,
     headers,
     organizationId: createdOrganization.id,
+    ownerSessionToken: ownerSession!.session.token,
   }
 }
 
@@ -93,7 +99,7 @@ describe("organization API key authorization", () => {
 
       expect(created.referenceId).toBe(fixture.organizationId)
       expect(created).toMatchObject({
-        rateLimitEnabled: true,
+        rateLimitEnabled: false,
         rateLimitMax: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
         rateLimitTimeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
       })
@@ -180,5 +186,24 @@ describe("organization API key authorization", () => {
       },
       headers: fixture.headers.viewer,
     })).rejects.toMatchObject(denied)
+  })
+
+  test("requires a fresh session to create an organization API key", async () => {
+    await fixture.db.update({
+      model: "session",
+      where: [{ field: "token", value: fixture.ownerSessionToken }],
+      update: { createdAt: new Date(0) },
+    })
+
+    await expect(fixture.auth.api.createApiKey({
+      body: {
+        organizationId: fixture.organizationId,
+        name: "Stale session key",
+      },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject({
+      status: "FORBIDDEN",
+      body: expect.objectContaining({ code: "SESSION_NOT_FRESH" }),
+    })
   })
 })

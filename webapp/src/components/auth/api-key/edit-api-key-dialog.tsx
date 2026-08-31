@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Rely on the shared sanitized authentication error toaster.
+// Local changes: Surface a sanitized inline rename error because this mutation intentionally bypasses the shared toaster.
 
 "use client"
 
@@ -36,6 +36,7 @@ export function EditApiKeyDialog({
 
   const updateApiKey = useUpdateApiKey(authClient, {
     onSuccess: () => onOpenChange(false),
+    onError: () => setNameError("The API key could not be renamed. Try again."),
   })
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
