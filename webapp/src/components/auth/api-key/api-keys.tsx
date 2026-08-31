@@ -1,14 +1,23 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Support exact optional property types, explicit load errors, and total-aware pagination.
+// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, and colocated list states.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useListApiKeys } from "@better-auth-ui/react/plugins/api-key"
+import { KeyIcon } from "@phosphor-icons/react"
 import { Fragment, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ItemGroup, ItemSeparator } from "@/components/ui/item"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
+import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator } from "@/components/ui/item"
 import {
   Select,
   SelectContent,
@@ -17,11 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
 import { cn } from "@/lib/utils"
 import { ApiKey } from "./api-key"
-import { ApiKeySkeleton } from "./api-key-skeleton"
-import { ApiKeysEmpty } from "./api-keys-empty"
 import { CreateApiKeyDialog } from "./create-api-key-dialog"
 
 export type ApiKeysProps = {
@@ -36,6 +44,47 @@ export type ApiKeysProps = {
   hideDelete?: boolean | undefined
   /** Hide the per-row edit button on listed keys. */
   hideUpdate?: boolean | undefined
+}
+
+function ApiKeySkeleton() {
+  return (
+    <Item>
+      <ItemMedia>
+        <Skeleton className="size-10 rounded-md" />
+      </ItemMedia>
+      <ItemContent>
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-3 w-36" />
+        <Skeleton className="h-3 w-32" />
+      </ItemContent>
+    </Item>
+  )
+}
+
+function ApiKeysEmpty({ onCreatePress, hideCreate }: {
+  onCreatePress: () => void
+  hideCreate?: boolean | undefined
+}) {
+  const { localization } = useAuthPlugin(apiKeyPlugin)
+
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <KeyIcon aria-hidden="true" />
+        </EmptyMedia>
+        <EmptyTitle>{localization.noApiKeys}</EmptyTitle>
+        <EmptyDescription>{localization.apiKeysDescription}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        {!hideCreate && (
+          <Button size="sm" onClick={onCreatePress}>
+            {localization.createApiKey}
+          </Button>
+        )}
+      </EmptyContent>
+    </Empty>
+  )
 }
 
 export function ApiKeys({
