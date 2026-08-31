@@ -104,7 +104,7 @@ export async function authenticateChatRequest(
 ): Promise<ChatPrincipal> {
   const authorization = request.headers.get("authorization")
   if (!authorization) return { kind: "guest" }
-  const match = /^Bearer ([^\s]+)$/i.exec(authorization)
+  const match = /^Bearer (\S+)$/i.exec(authorization)
   if (!match?.[1] || match[1].length > CHAT_TOKEN_MAX_LENGTH) {
     throw chatAuthenticationError({ message: "Malformed bearer token", code: "invalid_token" })
   }

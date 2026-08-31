@@ -8,7 +8,7 @@ const IV_LENGTH = 12
 const TAG_LENGTH = 16
 const MAX_COMPACT_JWE_LENGTH = 1024 * 1024
 const MAX_PROTECTED_HEADER_LENGTH = 8192
-const BASE64URL_PATTERN = /^[A-Za-z0-9_-]*$/
+const BASE64URL_PATTERN = /^[\w-]*$/i
 
 export type CompactJweProtectedHeader = Readonly<Record<string, unknown>> & {
   readonly alg: "dir"

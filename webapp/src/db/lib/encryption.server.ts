@@ -16,7 +16,7 @@ const DATABASE_ENCRYPTION_SALT = new TextEncoder().encode(
   "database-encryption:hkdf-sha256:v1",
 )
 const DATABASE_ENCRYPTION_INFO = new TextEncoder().encode("database-encryption:a256gcm:v1")
-const DATABASE_ENCRYPTION_KID_PATTERN = /^[A-Za-z0-9_-]{43}$/
+const DATABASE_ENCRYPTION_KID_PATTERN = /^[\w-]{43}$/i
 
 type DecryptedDatabaseValue<Value> = {
   value: Value

@@ -177,8 +177,6 @@ export function SignUp({
         callbackURL: redirectTo,
         fetchOptions,
         ...(legalAcceptanceRequired && { termsAccepted: true as const }),
-      } as Parameters<typeof authClient.signUp.email>[0] & {
-        termsAccepted?: true
       },
     )
   }
