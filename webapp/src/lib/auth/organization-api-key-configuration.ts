@@ -9,4 +9,4 @@ export const ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS =
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_HOURS * 60 * 60 * 1_000
 
 export const ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION =
-  `Each key allows ${ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS} successful validations, then resets after ${ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_HOURS} hours without a successful validation.`
+  `Rate limit: ${ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS} successful validations per key. Once reached, validations resume ${ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_HOURS} hours after the last successful validation.`
