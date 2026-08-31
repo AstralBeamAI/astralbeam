@@ -117,9 +117,7 @@ describe("organization API key authorization", () => {
     }
     const denied = {
       status: "BAD_REQUEST",
-      body: expect.objectContaining({
-        code: API_KEY_ERROR_CODES.SERVER_ONLY_PROPERTY.code,
-      }),
+      body: { code: API_KEY_ERROR_CODES.SERVER_ONLY_PROPERTY.code },
     }
 
     await expect(fixture.auth.api.createApiKey({
@@ -157,9 +155,7 @@ describe("organization API key authorization", () => {
     })
     const denied = {
       status: "FORBIDDEN",
-      body: expect.objectContaining({
-        code: API_KEY_ERROR_CODES.INSUFFICIENT_API_KEY_PERMISSIONS.code,
-      }),
+      body: { code: API_KEY_ERROR_CODES.INSUFFICIENT_API_KEY_PERMISSIONS.code },
     }
 
     await expect(fixture.auth.api.createApiKey({
@@ -228,7 +224,7 @@ describe("organization API key authorization", () => {
       headers: fixture.headers.owner,
     })).rejects.toMatchObject({
       status: "FORBIDDEN",
-      body: expect.objectContaining({ code: "SESSION_NOT_FRESH" }),
+      body: { code: "SESSION_NOT_FRESH" },
     })
   })
 })

@@ -311,7 +311,7 @@ function buildAuth(config: AuthConfig) {
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
         customAPIKeyValidator: validateOrganizationApiKeyRateLimit,
-        // Better Auth 1.7.1 resets its counter after inactivity, not at the end of a
+        // Better Auth 1.7.2 resets its counter after inactivity, not at the end of a
         // fixed window. The database validator above enforces the advertised window.
         rateLimit: {
           enabled: false,

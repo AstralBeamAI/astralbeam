@@ -41,7 +41,8 @@ export function EditApiKeyDialog({
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    const name = String(formData.get("name") ?? "").trim()
+    const nameValue = formData.get("name")
+    const name = typeof nameValue === "string" ? nameValue.trim() : ""
     if (!name) {
       setNameError(localization.auth.fieldRequired)
       return
@@ -71,7 +72,7 @@ export function EditApiKeyDialog({
                 {labels.name}
               </FieldLabel>
               <Input
-                key={`${apiKey.id}-${apiKey.updatedAt}`}
+                key={new Date(apiKey.updatedAt).getTime()}
                 id={`api-key-name-${apiKey.id}`}
                 name="name"
                 defaultValue={apiKey.name ?? ""}

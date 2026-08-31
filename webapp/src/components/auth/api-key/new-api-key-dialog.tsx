@@ -103,7 +103,7 @@ export function NewApiKeyDialog({
                 title={copied
                   ? localization.settings.copiedToClipboard
                   : localization.settings.copyToClipboard}
-                onClick={copySecretKey}
+                onClick={() => void copySecretKey()}
               >
                 {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
               </InputGroupButton>

@@ -6,6 +6,7 @@ import type { OrganizationOptions } from "better-auth/plugins"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 
+import { runDatabaseEffect } from "@/db"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { organizationRoles } from "./organization-access.ts"
 import {
@@ -31,7 +32,7 @@ export const organizationApiKeyFreshSessionPlugin = {
 
 export async function validateOrganizationApiKeyRateLimit({ key }: { key: string }) {
   const keyDigest = createHash("sha256").update(key).digest("base64url")
-  const result = await Effect.runPromise(
+  const result = await runDatabaseEffect(
     databaseRateLimiter.consume({
       key: `${ORGANIZATION_API_KEY_RATE_LIMIT_KEY_PREFIX}${keyDigest}`,
       limit: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,

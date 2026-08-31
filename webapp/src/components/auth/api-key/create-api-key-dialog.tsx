@@ -107,7 +107,8 @@ export function CreateApiKeyDialog({
     e.preventDefault()
 
     const formData = new FormData(e.target as HTMLFormElement)
-    const name = (formData.get("name") as string).trim()
+    const nameValue = formData.get("name")
+    const name = typeof nameValue === "string" ? nameValue.trim() : ""
     if (!name) {
       setNameError(localization.auth.fieldRequired)
       return
@@ -120,7 +121,8 @@ export function CreateApiKeyDialog({
       : undefined
     const expiresIn = expirationDays ? apiKeyExpirationDaysToSeconds(expirationDays) : undefined
 
-    const configId = String(formData.get("configId") ?? "").trim()
+    const configIdValue = formData.get("configId")
+    const configId = typeof configIdValue === "string" ? configIdValue.trim() : ""
     const payload = {
       name,
       ...(expiresIn ? { expiresIn } : {}),
@@ -197,7 +199,6 @@ export function CreateApiKeyDialog({
                 <Input
                   id="api-key-name"
                   name="name"
-                  autoFocus
                   required
                   maxLength={32}
                   placeholder={apiKeyLocalization.name}
