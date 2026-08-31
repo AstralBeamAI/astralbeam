@@ -29,15 +29,12 @@ export type ApiKeyProps = {
   hideDelete?: boolean | undefined
   /** Hide the row's edit button (e.g., when caller lacks `apiKey:update`). */
   hideUpdate?: boolean | undefined
-  /** Scope the delete payload to an organization (sets `configId`). */
-  organizationId?: string | undefined
 }
 
 export function ApiKey({
   apiKey,
   hideDelete,
   hideUpdate,
-  organizationId,
 }: ApiKeyProps) {
   const { localization } = useAuth()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
@@ -122,7 +119,6 @@ export function ApiKey({
               open={deleteOpen}
               onOpenChange={setDeleteOpen}
               apiKey={apiKey}
-              organizationId={organizationId}
             />
           </>
         )}

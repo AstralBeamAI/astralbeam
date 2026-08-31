@@ -48,7 +48,6 @@ export function EditApiKeyDialog({
     setNameError(undefined)
     updateApiKey.mutate({
       keyId: apiKey.id,
-      configId: apiKey.configId,
       name,
     })
   }

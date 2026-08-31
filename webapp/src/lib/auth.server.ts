@@ -232,22 +232,18 @@ function buildAuth(config: AuthConfig) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
-        const normalizedName = typeof body?.name === "string" ? body.name.trim() : undefined
-        if (context.path === "/api-key/create") {
+        const isApiKeyCreate = context.path === "/api-key/create"
+        if (isApiKeyCreate || context.path === "/api-key/update") {
+          // Better Auth recommends a before hook for endpoint-specific input adjustments. https://better-auth.com/docs/concepts/hooks#before-hooks
+          const name = typeof body?.name === "string" ? body.name.trim() : undefined
           return {
             context: {
+              ...context,
               body: {
                 ...body,
-                prefix: ORGANIZATION_API_KEY_PREFIX,
-                ...(normalizedName === undefined ? {} : { name: normalizedName }),
+                ...(isApiKeyCreate ? { prefix: ORGANIZATION_API_KEY_PREFIX } : {}),
+                ...(name === undefined ? {} : { name }),
               },
-            },
-          }
-        }
-        if (context.path === "/api-key/update" && normalizedName !== undefined) {
-          return {
-            context: {
-              body: { ...body, name: normalizedName },
             },
           }
         }
@@ -308,7 +304,6 @@ function buildAuth(config: AuthConfig) {
         },
       }),
       apiKey({
-        configId: "organization",
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
         rateLimit: {
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,

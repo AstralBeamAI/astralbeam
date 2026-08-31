@@ -117,11 +117,10 @@ export function CreateApiKeyDialog({
     const expiresIn = expirationDays ? apiKeyExpirationDaysToSeconds(expirationDays) : undefined
 
     const configId = String(formData.get("configId") ?? "").trim()
-    const resolvedConfigId = configId || (organizationId ? "organization" : undefined)
     const payload = {
       name,
       ...(expiresIn ? { expiresIn } : {}),
-      ...(resolvedConfigId ? { configId: resolvedConfigId } : {}),
+      ...(configId ? { configId } : {}),
       ...(organizationId ? { organizationId } : {}),
     }
 

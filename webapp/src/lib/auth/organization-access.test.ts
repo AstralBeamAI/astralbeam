@@ -18,7 +18,6 @@ async function createAuthorizationFixture() {
         roles: organizationRoles,
       }),
       apiKey({
-        configId: "organization",
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
         rateLimit: {
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
@@ -79,7 +78,6 @@ describe("organization API key authorization", () => {
     async (role) => {
       const created = await fixture.auth.api.createApiKey({
         body: {
-          configId: "organization",
           organizationId: fixture.organizationId,
           name: `${role} key`,
         },
@@ -88,7 +86,6 @@ describe("organization API key authorization", () => {
 
       const listed = await fixture.auth.api.listApiKeys({
         query: {
-          configId: "organization",
           organizationId: fixture.organizationId,
         },
         headers: fixture.headers[role],
@@ -119,7 +116,6 @@ describe("organization API key authorization", () => {
 
     await expect(fixture.auth.api.createApiKey({
       body: {
-        configId: "organization",
         organizationId: fixture.organizationId,
         name: "Custom rate limit",
         ...serverOnlyRateLimit,
@@ -129,7 +125,6 @@ describe("organization API key authorization", () => {
 
     const existing = await fixture.auth.api.createApiKey({
       body: {
-        configId: "organization",
         organizationId: fixture.organizationId,
         name: "Fixed rate limit",
       },
@@ -137,7 +132,6 @@ describe("organization API key authorization", () => {
     })
     await expect(fixture.auth.api.updateApiKey({
       body: {
-        configId: "organization",
         keyId: existing.id,
         ...serverOnlyRateLimit,
       },
@@ -148,7 +142,6 @@ describe("organization API key authorization", () => {
   test("rejects viewer access at every API key management endpoint", async () => {
     const existing = await fixture.auth.api.createApiKey({
       body: {
-        configId: "organization",
         organizationId: fixture.organizationId,
         name: "Owner key",
       },
@@ -163,7 +156,6 @@ describe("organization API key authorization", () => {
 
     await expect(fixture.auth.api.createApiKey({
       body: {
-        configId: "organization",
         organizationId: fixture.organizationId,
         name: "Viewer key",
       },
@@ -171,14 +163,12 @@ describe("organization API key authorization", () => {
     })).rejects.toMatchObject(denied)
     await expect(fixture.auth.api.listApiKeys({
       query: {
-        configId: "organization",
         organizationId: fixture.organizationId,
       },
       headers: fixture.headers.viewer,
     })).rejects.toMatchObject(denied)
     await expect(fixture.auth.api.updateApiKey({
       body: {
-        configId: "organization",
         keyId: existing.id,
         name: "Viewer renamed key",
       },
@@ -186,7 +176,6 @@ describe("organization API key authorization", () => {
     })).rejects.toMatchObject(denied)
     await expect(fixture.auth.api.deleteApiKey({
       body: {
-        configId: "organization",
         keyId: existing.id,
       },
       headers: fixture.headers.viewer,

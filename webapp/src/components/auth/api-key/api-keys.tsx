@@ -122,7 +122,7 @@ export function ApiKeys({
         offset: page * pageSize,
         sortBy,
         sortDirection,
-        ...(organizationId ? { organizationId, configId: "organization" } : {}),
+        ...(organizationId ? { organizationId } : {}),
       },
     },
   )
@@ -210,7 +210,6 @@ export function ApiKeys({
                       apiKey={key}
                       hideDelete={hideDelete}
                       hideUpdate={hideUpdate}
-                      organizationId={organizationId}
                     />
                   </Fragment>
                 ))}

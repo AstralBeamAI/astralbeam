@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "f33e8281-f10a-4e53-9ab2-d5a42714cf8f",
+  "id": "976104cc-12bd-4ca3-a477-0f16d2454d15",
   "prevIds": [
     "0509834a-9d25-472b-960a-4c8caca25a97"
   ],
@@ -272,7 +272,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'organization'",
+      "default": "'default'",
       "generated": null,
       "identity": null,
       "name": "config_id",

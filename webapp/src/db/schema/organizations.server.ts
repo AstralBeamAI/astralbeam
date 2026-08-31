@@ -30,7 +30,7 @@ export const apiKey = snakeCase.table(
   "api_key",
   {
     id: uuidV7PrimaryKey(),
-    configId: text().default("organization").notNull(),
+    configId: text().default("default").notNull(),
     name: text().notNull(),
     start: text(),
     organizationId: uuid().notNull().references(() => organization.id, {

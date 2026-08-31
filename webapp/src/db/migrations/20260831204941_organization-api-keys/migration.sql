@@ -1,6 +1,6 @@
 CREATE TABLE "api_key" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"config_id" text DEFAULT 'organization' NOT NULL,
+	"config_id" text DEFAULT 'default' NOT NULL,
 	"name" text NOT NULL,
 	"start" text,
 	"organization_id" uuid NOT NULL,
