@@ -44,7 +44,7 @@ export type OrganizationSwitcherProps = {
   hideSettings?: boolean
   hideSlug?: boolean
   setActive?: (organization: Organization | null) => void
-  onOrganizationCreated?: () => unknown | Promise<unknown>
+  onOrganizationCreated?: () => unknown
 }
 
 /**

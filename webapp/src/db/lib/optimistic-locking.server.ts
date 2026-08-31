@@ -68,7 +68,7 @@ export function updateWithOptimisticLock<
           .set({
             ...options.set,
             lockVersion: sql`${options.table.lockVersion} + 1`,
-          } as PgUpdateSetSource<TTable>)
+          })
           .where(lockedWhere(options))
           .returning() as Promise<InferSelectModel<TTable>[]>,
       catch: () => optimisticLockError("database", options),

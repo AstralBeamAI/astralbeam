@@ -444,7 +444,7 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
   } else if (Boolean(values.aws_access_key_id) !== Boolean(values.aws_secret_access_key)) {
     const missing = values.aws_access_key_id ? "aws_secret_access_key" : "aws_access_key_id"
     issues.push({
-      key: missing as ConfigKey,
+      key: missing,
       message: `${findConfigDefinition(missing)?.label} is required to use static AWS credentials`,
     })
   }

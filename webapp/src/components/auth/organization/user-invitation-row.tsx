@@ -30,7 +30,7 @@ import { organizationPlugin } from "@/lib/auth/organization-plugin"
 
 export type UserInvitationRowProps = {
   invitation: Invitation & { organizationName?: string }
-  onInvitationAction?: () => unknown | Promise<unknown>
+  onInvitationAction?: () => unknown
 }
 
 /**

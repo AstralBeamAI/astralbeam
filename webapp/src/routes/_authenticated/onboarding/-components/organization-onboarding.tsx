@@ -12,7 +12,7 @@ import { suggestOrganizationNameFromEmail } from "../-lib/utils"
 export type OrganizationOnboardingProps = {
   email: string
   /** Refreshes organization access after creation or an invitation action. */
-  onOrganizationAccessChange?: () => unknown | Promise<unknown>
+  onOrganizationAccessChange?: () => unknown
 }
 
 export function OrganizationOnboarding({
