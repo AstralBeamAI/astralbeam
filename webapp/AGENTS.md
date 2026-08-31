@@ -20,6 +20,7 @@
   - build components using the proper shadcn-ui primitives, instead of raw HTML elements
   - always use icons from the configured icon library in `components.json`
   - Every icon-only interactive control needs an accessible name and a hover explanation; pair `aria-label` with `title` unless the interaction specifically needs richer shadcn Tooltip content.
+  - Keep single-use private UI states, skeletons, and rows in their sole consumer module unless reuse or substantial complexity justifies a separate file.
 
 - `src/routes` contains routes, as expected by TanStack Router:
   - Prefer `routes/my/route/path/index.ts/tsx` to `route/my/route/path.ts/tsx` in general for better code organization
