@@ -10,7 +10,7 @@ function lockClient(locked: boolean): {
 } {
   const execute = vi.fn(() => Promise.resolve({ rows: [{ locked }] }))
   const database = {
-    transaction: vi.fn(async (callback) => await callback({ execute } as never)),
+    transaction: vi.fn(async (callback) => await callback({ execute })),
   } as unknown as Parameters<typeof runWithMigrationAdvisoryLock>[0]
   return { database, execute }
 }
