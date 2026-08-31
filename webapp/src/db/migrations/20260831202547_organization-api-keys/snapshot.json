@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "a11f00f8-d1bf-4f43-b401-c187750ee514",
+  "id": "f33e8281-f10a-4e53-9ab2-d5a42714cf8f",
   "prevIds": [
     "0509834a-9d25-472b-960a-4c8caca25a97"
   ],
@@ -415,7 +415,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "86400000",
+      "default": "300000",
       "generated": null,
       "identity": null,
       "name": "rate_limit_time_window",
@@ -428,7 +428,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "10",
+      "default": "100",
       "generated": null,
       "identity": null,
       "name": "rate_limit_max",

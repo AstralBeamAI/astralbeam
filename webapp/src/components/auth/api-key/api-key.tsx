@@ -18,7 +18,7 @@ import {
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
 import {
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
-  ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_HOURS,
+  ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MINUTES,
 } from "@/lib/auth/organization-api-key-configuration"
 import { DeleteApiKeyDialog } from "./delete-api-key-dialog"
 import { EditApiKeyDialog } from "./edit-api-key-dialog"
@@ -76,7 +76,7 @@ export function ApiKey({
           {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
         </ItemDescription>
         <ItemDescription>
-          {`Rate limit: ${apiKey.requestCount} / ${ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS} successful validations · Resets ${ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_HOURS} hours after the last successful validation.`}
+          {`Rate limit: ${apiKey.requestCount} / ${ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS} successful validations · Resets ${ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MINUTES} minutes after the last successful validation.`}
           {apiKey.remaining === null
             ? ""
             : ` · ${apiKeyLocalization.remaining}: ${apiKey.remaining}`}
