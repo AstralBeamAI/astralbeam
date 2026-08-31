@@ -130,5 +130,5 @@ async function runAuthEmailWithMockDelivery(action: () => Promise<void>): Promis
 function latestAuthEmailProviderInput(): ProviderEmailInput {
   const call = authEmailIndexTestState.sendProviderEmail.mock.calls.at(-1)
   if (!call) throw new Error("Expected the mocked email provider to receive a message")
-  return call[0] as ProviderEmailInput
+  return call[0]
 }

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 
 export interface FreshSessionPromptProps {
-  onFresh: () => unknown | Promise<unknown>
+  onFresh: () => unknown
 }
 
 export function FreshSessionPrompt({ onFresh }: FreshSessionPromptProps) {

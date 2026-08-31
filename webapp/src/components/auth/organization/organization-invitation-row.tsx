@@ -117,9 +117,7 @@ export function OrganizationInvitationRow({
                 resendInvitation({
                   email: invitation.email,
                   organizationId: invitation.organizationId,
-                  role: invitation.role as Parameters<
-                    typeof resendInvitation
-                  >[0]["role"],
+                  role: invitation.role,
                   resend: true,
                 })}
               aria-label={organizationLocalization.resendInvitation}

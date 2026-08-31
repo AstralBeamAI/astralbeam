@@ -52,7 +52,7 @@ export type AppSidebarProps =
     "children"
   >
   & {
-    onOrganizationChange?: (phase: "error" | "start" | "success") => unknown | Promise<unknown>
+    onOrganizationChange?: (phase: "error" | "start" | "success") => unknown
   }
 
 export function AppSidebar({

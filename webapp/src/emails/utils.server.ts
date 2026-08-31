@@ -158,7 +158,7 @@ async function fetchAttachment(url: string): Promise<ResolvedAttachmentContent> 
 
 /** Accepts either a bare base64 payload or a full `data:` URI. */
 function decodeBase64(path: string): ResolvedAttachmentContent {
-  const dataUri = /^data:([^;,]*)?(?:;[^,]*)*,/i.exec(path)
+  const dataUri = /^data:([^;,]*)(?:;[^;,]*)*,/i.exec(path)
   const base64 = dataUri ? path.slice(dataUri[0].length) : path
   return {
     content: new Uint8Array(Buffer.from(base64, "base64")),

@@ -124,7 +124,7 @@ test("keeps attachment payloads out of the debug log", () => {
       source: { type: "data", value: base64("x".repeat(4096)), mimeType: "image/png" },
     },
   ]))
-  expect((contentOf(redacted)[0]?.source as { value: string }).value).toBe("<4 KB base64>")
+  expect(contentOf(redacted)[0]).toMatchObject({ source: { value: "<4 KB base64>" } })
 })
 
 // The provider adapter rejects a document part that is not a PDF, so a mislabeled file would
