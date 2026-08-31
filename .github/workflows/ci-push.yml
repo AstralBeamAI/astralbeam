@@ -12,7 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ready:
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
