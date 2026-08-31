@@ -32,6 +32,7 @@
         "mechatroner.rainbow-csv",
         "ms-playwright.playwright",
         "openai.chatgpt",
+        "oxc.oxc-vscode",
         "redhat.vscode-yaml",
         "shd101wyy.markdown-preview-enhanced",
         "sst-dev.opencode",
