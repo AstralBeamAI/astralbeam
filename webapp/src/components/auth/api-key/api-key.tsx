@@ -76,7 +76,7 @@ export function ApiKey({
           {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
         </ItemDescription>
         <ItemDescription>
-          {`Rate limit: ${apiKey.requestCount} / ${ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS} successful validations · Resets ${ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MINUTES} minutes after the last successful validation.`}
+          {`Rate limit: ${apiKey.requestCount} / ${ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS} requests · Resets after ${ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MINUTES} minutes of inactivity.`}
           {apiKey.remaining === null
             ? ""
             : ` · ${apiKeyLocalization.remaining}: ${apiKey.remaining}`}
