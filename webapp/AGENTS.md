@@ -6,6 +6,7 @@
 - This is TanStack Start React app
   - Tech stack: TanStack Router, Tailwind, Shadcn UI, Better Auth, Drizzle ORM, React Email
   - `deno` is the runtime and package manager, all useful commands are listed in `package.json`
+  - Keep Deno lint authoritative for its baseline and use type-aware Oxlint for the expanded recommended React, TanStack, Vitest, accessibility, and RegExp presets. Preserve upstream preset severities and options, use only safe automatic fixes, keep generated `src/components/ui` outside Oxlint, and document every temporary file-scoped bypass with its diagnostic and distinct-file counts. Keep ESLint only as the plugins' package peer dependency, with no ESLint task or config and no Node.js runtime requirement. https://docs.deno.com/runtime/lint_and_format/#oxlint https://oxc.rs/docs/guide/usage/linter/js-plugins.html
   - all the application code lives in `src/`
   - custom scripts are placed in `scripts/`, and invoked using `package.json` commands
 

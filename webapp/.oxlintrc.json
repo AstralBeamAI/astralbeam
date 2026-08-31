@@ -1,0 +1,637 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [
+    "src/components/ui/**",
+    "src/routeTree.gen.ts",
+    ".tanstack-start/**"
+  ],
+  "options": {
+    "typeAware": true
+  },
+  "plugins": [
+    "typescript"
+  ],
+  "jsPlugins": [
+    {
+      "name": "tanstack-query",
+      "specifier": "@tanstack/eslint-plugin-query"
+    },
+    {
+      "name": "tanstack-router",
+      "specifier": "@tanstack/eslint-plugin-router"
+    },
+    {
+      "name": "tanstack-start",
+      "specifier": "@tanstack/eslint-plugin-start"
+    },
+    {
+      "name": "vitest-js",
+      "specifier": "@vitest/eslint-plugin"
+    },
+    {
+      "name": "a11y-js",
+      "specifier": "eslint-plugin-jsx-a11y-x"
+    },
+    "eslint-plugin-react-dom",
+    {
+      "name": "hooks-js",
+      "specifier": "eslint-plugin-react-hooks"
+    },
+    "eslint-plugin-react-jsx",
+    "eslint-plugin-react-web-api",
+    "eslint-plugin-regexp"
+  ],
+  "settings": {
+    "react-x": {
+      "version": "detect",
+      "importSource": "react",
+      "polymorphicPropName": "as"
+    }
+  },
+  "rules": {
+    "typescript/await-thenable": "error",
+    "typescript/no-array-delete": "error",
+    "typescript/no-base-to-string": "error",
+    "typescript/no-duplicate-type-constituents": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-for-in-array": "error",
+    "typescript/no-implied-eval": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-redundant-type-constituents": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-enum-comparison": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-unary-minus": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/require-await": "error",
+    "typescript/restrict-plus-operands": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/unbound-method": "error",
+    "complexity": [
+      "error",
+      {
+        "max": 20,
+        "variant": "classic"
+      }
+    ],
+    // TODO: Recheck full type-aware coverage when Oxlint JavaScript plugins expose parser services.
+    // All 7 rules stay enabled, but no-void-query-fn cannot resolve Promise return types and
+    // no-rest-destructuring cannot inspect custom query hooks; neither limitation aborts linting.
+    // https://oxc.rs/docs/guide/usage/linter/js-plugins.html#api-support
+    "tanstack-query/exhaustive-deps": "error",
+    "tanstack-query/no-rest-destructuring": "warn",
+    "tanstack-query/stable-query-client": "error",
+    "tanstack-query/no-unstable-deps": "error",
+    "tanstack-query/infinite-query-property-order": "error",
+    "tanstack-query/no-void-query-fn": "error",
+    "tanstack-query/mutation-property-order": "error",
+    "tanstack-router/create-route-property-order": "warn",
+    "tanstack-router/route-param-names": "error",
+    // TODO: Enable these rules when Oxlint JavaScript plugins expose TypeScript parser services.
+    // Both rules currently abort before producing countable findings in any file.
+    // https://oxc.rs/docs/guide/usage/linter/js-plugins.html#api-support
+    "tanstack-start/no-client-code-in-server-component": "off",
+    "tanstack-start/no-async-client-component": "off",
+    "a11y-js/alt-text": "error",
+    "a11y-js/anchor-ambiguous-text": "off",
+    "a11y-js/anchor-has-content": "error",
+    "a11y-js/anchor-is-valid": "error",
+    "a11y-js/aria-activedescendant-has-tabindex": "error",
+    "a11y-js/aria-props": "error",
+    "a11y-js/aria-proptypes": "error",
+    "a11y-js/aria-role": "error",
+    "a11y-js/aria-unsupported-elements": "error",
+    "a11y-js/autocomplete-valid": "error",
+    "a11y-js/click-events-have-key-events": "error",
+    "a11y-js/control-has-associated-label": [
+      "off",
+      {
+        "ignoreElements": [
+          "audio",
+          "canvas",
+          "embed",
+          "input",
+          "textarea",
+          "tr",
+          "video"
+        ],
+        "ignoreRoles": [
+          "grid",
+          "listbox",
+          "menu",
+          "menubar",
+          "radiogroup",
+          "row",
+          "tablist",
+          "toolbar",
+          "tree",
+          "treegrid"
+        ],
+        "includeRoles": [
+          "alert",
+          "dialog"
+        ]
+      }
+    ],
+    "a11y-js/heading-has-content": "error",
+    "a11y-js/html-has-lang": "error",
+    "a11y-js/iframe-has-title": "error",
+    "a11y-js/img-redundant-alt": "error",
+    "a11y-js/interactive-supports-focus": [
+      "error",
+      {
+        "tabbable": [
+          "button",
+          "checkbox",
+          "link",
+          "searchbox",
+          "spinbutton",
+          "switch",
+          "textbox"
+        ]
+      }
+    ],
+    "a11y-js/label-has-associated-control": "error",
+    // TODO: Restore the already-disabled recommended entry if the plugin exports it again.
+    // It has 0 active findings because the upstream preset sets it to off.
+    // https://github.com/eslint-react/eslint-plugin-jsx-a11y-x
+    "a11y-js/media-has-caption": "error",
+    "a11y-js/mouse-events-have-key-events": "error",
+    "a11y-js/no-access-key": "error",
+    "a11y-js/no-autofocus": "error",
+    "a11y-js/no-distracting-elements": "error",
+    "a11y-js/no-interactive-element-to-noninteractive-role": [
+      "error",
+      {
+        "tr": [
+          "none",
+          "presentation"
+        ],
+        "canvas": [
+          "img"
+        ]
+      }
+    ],
+    "a11y-js/no-noninteractive-element-interactions": [
+      "error",
+      {
+        "handlers": [
+          "onClick",
+          "onError",
+          "onLoad",
+          "onMouseDown",
+          "onMouseUp",
+          "onKeyPress",
+          "onKeyDown",
+          "onKeyUp"
+        ],
+        "alert": [
+          "onKeyUp",
+          "onKeyDown",
+          "onKeyPress"
+        ],
+        "body": [
+          "onError",
+          "onLoad"
+        ],
+        "dialog": [
+          "onKeyUp",
+          "onKeyDown",
+          "onKeyPress"
+        ],
+        "iframe": [
+          "onError",
+          "onLoad"
+        ],
+        "img": [
+          "onError",
+          "onLoad"
+        ]
+      }
+    ],
+    "a11y-js/no-noninteractive-element-to-interactive-role": [
+      "error",
+      {
+        "ul": [
+          "listbox",
+          "menu",
+          "menubar",
+          "radiogroup",
+          "tablist",
+          "tree",
+          "treegrid"
+        ],
+        "ol": [
+          "listbox",
+          "menu",
+          "menubar",
+          "radiogroup",
+          "tablist",
+          "tree",
+          "treegrid"
+        ],
+        "li": [
+          "menuitem",
+          "menuitemradio",
+          "menuitemcheckbox",
+          "option",
+          "row",
+          "tab",
+          "treeitem"
+        ],
+        "table": [
+          "grid"
+        ],
+        "td": [
+          "gridcell"
+        ],
+        "fieldset": [
+          "radiogroup",
+          "presentation"
+        ]
+      }
+    ],
+    "a11y-js/no-noninteractive-tabindex": [
+      "error",
+      {
+        "tags": [],
+        "roles": [
+          "tabpanel"
+        ],
+        "allowExpressionValues": true
+      }
+    ],
+    "a11y-js/no-redundant-roles": "error",
+    "a11y-js/no-static-element-interactions": [
+      "error",
+      {
+        "allowExpressionValues": true,
+        "handlers": [
+          "onClick",
+          "onMouseDown",
+          "onMouseUp",
+          "onKeyPress",
+          "onKeyDown",
+          "onKeyUp"
+        ]
+      }
+    ],
+    "a11y-js/role-has-required-aria-props": "error",
+    "a11y-js/role-supports-aria-props": "error",
+    "a11y-js/scope": "error",
+    "a11y-js/tabindex-no-positive": "error",
+    "react-dom/no-dangerously-set-innerhtml": "warn",
+    "react-dom/no-dangerously-set-innerhtml-with-children": "error",
+    "react-dom/no-find-dom-node": "error",
+    "react-dom/no-flush-sync": "error",
+    "react-dom/no-hydrate": "error",
+    "react-dom/no-render": "error",
+    "react-dom/no-render-return-value": "error",
+    "react-dom/no-script-url": "warn",
+    "react-dom/no-unsafe-iframe-sandbox": "warn",
+    "react-dom/no-use-form-state": "error",
+    "react-dom/no-void-elements-with-children": "error",
+    "hooks-js/rules-of-hooks": "error",
+    "hooks-js/exhaustive-deps": "warn",
+    "hooks-js/static-components": "error",
+    "hooks-js/use-memo": "error",
+    "hooks-js/preserve-manual-memoization": "error",
+    "hooks-js/incompatible-library": "warn",
+    "hooks-js/immutability": "error",
+    "hooks-js/globals": "error",
+    "hooks-js/refs": "error",
+    "hooks-js/set-state-in-effect": "error",
+    "hooks-js/error-boundaries": "error",
+    "hooks-js/purity": "error",
+    "hooks-js/set-state-in-render": "error",
+    "hooks-js/unsupported-syntax": "warn",
+    "hooks-js/config": "error",
+    "hooks-js/gating": "error",
+    "react-jsx/no-children-prop": "warn",
+    "react-jsx/no-children-prop-with-children": "error",
+    "react-jsx/no-comment-textnodes": "warn",
+    "react-jsx/no-key-after-spread": "error",
+    "react-jsx/no-leaked-dollar": "warn",
+    "react-jsx/no-leaked-semicolon": "warn",
+    "react-jsx/no-namespace": "error",
+    "react-web-api/no-leaked-event-listener": "warn",
+    "react-web-api/no-leaked-fetch": "warn",
+    "react-web-api/no-leaked-intersection-observer": "warn",
+    "react-web-api/no-leaked-interval": "warn",
+    "react-web-api/no-leaked-resize-observer": "warn",
+    "react-web-api/no-leaked-timeout": "warn",
+    "no-control-regex": "error",
+    "no-misleading-character-class": "error",
+    "no-regex-spaces": "error",
+    "prefer-regex-literals": "error",
+    "no-invalid-regexp": "off",
+    "no-useless-backreference": "off",
+    "no-empty-character-class": "off",
+    "regexp/confusing-quantifier": "warn",
+    "regexp/control-character-escape": "error",
+    "regexp/match-any": "error",
+    "regexp/negation": "error",
+    "regexp/no-contradiction-with-assertion": "error",
+    "regexp/no-dupe-characters-character-class": "error",
+    "regexp/no-dupe-disjunctions": "error",
+    "regexp/no-empty-alternative": "warn",
+    "regexp/no-empty-capturing-group": "error",
+    "regexp/no-empty-character-class": "error",
+    "regexp/no-empty-group": "error",
+    "regexp/no-empty-lookarounds-assertion": "error",
+    "regexp/no-empty-string-literal": "error",
+    "regexp/no-escape-backspace": "error",
+    "regexp/no-extra-lookaround-assertions": "error",
+    "regexp/no-invalid-regexp": "error",
+    "regexp/no-invisible-character": "error",
+    "regexp/no-lazy-ends": "warn",
+    "regexp/no-legacy-features": "error",
+    "regexp/no-misleading-capturing-group": "error",
+    "regexp/no-misleading-unicode-character": "error",
+    "regexp/no-missing-g-flag": "error",
+    "regexp/no-non-standard-flag": "error",
+    "regexp/no-obscure-range": "error",
+    "regexp/no-optional-assertion": "error",
+    "regexp/no-potentially-useless-backreference": "warn",
+    "regexp/no-super-linear-backtracking": "error",
+    "regexp/no-trivially-nested-assertion": "error",
+    "regexp/no-trivially-nested-quantifier": "error",
+    "regexp/no-unused-capturing-group": "error",
+    "regexp/no-useless-assertions": "error",
+    "regexp/no-useless-backreference": "error",
+    "regexp/no-useless-character-class": "error",
+    "regexp/no-useless-dollar-replacements": "error",
+    "regexp/no-useless-escape": "error",
+    "regexp/no-useless-flag": "warn",
+    "regexp/no-useless-lazy": "error",
+    "regexp/no-useless-non-capturing-group": "error",
+    "regexp/no-useless-quantifier": "error",
+    "regexp/no-useless-range": "error",
+    "regexp/no-useless-set-operand": "error",
+    "regexp/no-useless-string-literal": "error",
+    "regexp/no-useless-two-nums-quantifier": "error",
+    "regexp/no-zero-quantifier": "error",
+    "regexp/optimal-lookaround-quantifier": "warn",
+    "regexp/optimal-quantifier-concatenation": "error",
+    "regexp/prefer-character-class": "error",
+    "regexp/prefer-d": "error",
+    "regexp/prefer-plus-quantifier": "error",
+    "regexp/prefer-predefined-assertion": "error",
+    "regexp/prefer-question-quantifier": "error",
+    "regexp/prefer-range": "error",
+    "regexp/prefer-set-operation": "error",
+    "regexp/prefer-star-quantifier": "error",
+    "regexp/prefer-unicode-codepoint-escapes": "error",
+    "regexp/prefer-w": "error",
+    "regexp/simplify-set-operations": "error",
+    "regexp/sort-flags": "error",
+    "regexp/strict": "error",
+    "regexp/use-ignore-case": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.{ts,tsx}"
+      ],
+      "rules": {
+        "vitest-js/expect-expect": "error",
+        "vitest-js/no-commented-out-tests": "error",
+        "vitest-js/no-conditional-expect": "error",
+        "vitest-js/no-disabled-tests": "warn",
+        "vitest-js/no-focused-tests": "error",
+        "vitest-js/no-identical-title": "error",
+        "vitest-js/no-import-node-test": "error",
+        "vitest-js/no-interpolation-in-snapshots": "error",
+        "vitest-js/no-mocks-import": "error",
+        "vitest-js/no-standalone-expect": "error",
+        "vitest-js/no-unneeded-async-expect-function": "error",
+        "vitest-js/prefer-called-exactly-once-with": "error",
+        "vitest-js/require-local-test-context-for-concurrent-snapshots": "error",
+        "vitest-js/valid-describe-callback": "error",
+        "vitest-js/valid-expect": "error",
+        "vitest-js/valid-expect-in-promise": "error",
+        "vitest-js/valid-title": "error"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/settings/security/linked-account.tsx",
+        "src/db/migration-runner.server.ts",
+        "src/lib/auth/organization-plugin.tsx"
+      ],
+      "rules": {
+        // TODO: Remove these assertions without breaking type checking or leaving imports unused: 4 diagnostics across 3 files.
+        "typescript/no-unnecessary-type-assertion": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/organization/create-organization-dialog.tsx",
+        "src/components/auth/organization/invite-member-dialog.tsx"
+      ],
+      "rules": {
+        // TODO: Remove autofocus without manually changing the imported UI: 2 diagnostics across 2 files.
+        "a11y-js/no-autofocus": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/organization/accept-invitation.tsx",
+        "src/components/auth/organization/organization-invitations.tsx",
+        "src/components/auth/organization/organization-member-row.tsx",
+        "src/components/auth/organization/organization-members.tsx",
+        "src/components/auth/organization/organization-switcher.tsx",
+        "src/components/auth/organization/organization-view.tsx",
+        "src/components/auth/settings/security/linked-account.tsx",
+        "src/components/auth/sign-in.tsx",
+        "src/components/auth/sign-up.tsx",
+        "src/lib/config/registry.server.ts",
+        "src/routes/api/chat/-lib/debug.server.ts",
+        "src/routes/api/chat/index.ts",
+        "src/routes/configure/-components/config-value-input.tsx"
+      ],
+      "rules": {
+        // TODO: Simplify the existing high-complexity functions: 13 diagnostics across 13 files.
+        // Removing a file immediately restores the shared maximum of 20. https://oxc.rs/docs/guide/usage/linter/rules/eslint/complexity.html
+        "complexity": "off"
+      }
+    },
+    {
+      "files": [
+        "src/routes/api/chat/-lib/attachments.server.test.ts"
+      ],
+      "rules": {
+        // TODO: Make the optional-chain assertion structurally safe: 1 diagnostic in 1 file.
+        "no-unsafe-optional-chaining": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/organization/slug-field.tsx",
+        "src/components/auth/sign-out.tsx"
+      ],
+      "rules": {
+        // TODO: Stabilize or include the missing hook dependencies: 2 diagnostics across 2 files.
+        "hooks-js/exhaustive-deps": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/open-email-button.tsx"
+      ],
+      "rules": {
+        // TODO: Rework memoization so React Compiler can preserve it: 1 diagnostic in 1 file.
+        "hooks-js/preserve-manual-memoization": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/auth-result.tsx",
+        "src/components/auth/organization/create-organization-dialog.tsx",
+        "src/components/auth/organization/edit-member-roles-dialog.tsx",
+        "src/components/auth/organization/invite-member-dialog.tsx",
+        "src/components/auth/organization/organization-members.tsx",
+        "src/components/auth/organization/slug-field.tsx",
+        "src/components/auth/reset-link-sent.tsx",
+        "src/components/auth/theme/appearance.tsx",
+        "src/components/auth/user/user-avatar.tsx",
+        "src/components/auth/verify-email.tsx",
+        "src/hooks/use-mobile.ts"
+      ],
+      "rules": {
+        // TODO: Remove synchronous state updates from effects: 13 diagnostics across 11 files.
+        "hooks-js/set-state-in-effect": "off"
+      }
+    },
+    {
+      "files": [
+        "src/emails/utils.server.ts"
+      ],
+      "rules": {
+        // TODO: Replace the vulnerable address-list expression: 1 diagnostic in 1 file.
+        "regexp/no-super-linear-backtracking": "off",
+        // TODO: Simplify the redundant quantified expression: 1 diagnostic in 1 file.
+        "regexp/no-useless-quantifier": "off"
+      }
+    },
+    {
+      "files": [
+        "src/db/lib/compact-jwe.server.ts",
+        "src/db/lib/encryption.server.ts"
+      ],
+      "rules": {
+        // TODO: Remove the now-redundant case-insensitive flags: 2 diagnostics across 2 files.
+        "regexp/no-useless-flag": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/settings/account/change-avatar.tsx",
+        "src/routes/__root.tsx",
+        "src/routes/configure/-components/operator-login-form.tsx"
+      ],
+      "rules": {
+        // TODO: Adapt promise-returning handlers to void callback contracts: 4 diagnostics across 3 files.
+        "typescript/no-misused-promises": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/organization/create-organization-dialog.tsx",
+        "src/components/auth/organization/organization-switcher.tsx",
+        "src/components/auth/organization/user-invitation-row.tsx",
+        "src/components/auth/organization/user-invitations.tsx",
+        "src/components/auth/settings/security/fresh-session-prompt.tsx",
+        "src/components/auth/settings/security/linked-account.tsx",
+        "src/routes/_authenticated/-components/app-sidebar.tsx",
+        "src/routes/_authenticated/onboarding/-components/organization-onboarding.tsx"
+      ],
+      "rules": {
+        // TODO: Remove redundant callback and provider unions: 8 diagnostics across 8 files.
+        "typescript/no-redundant-type-constituents": "off"
+      }
+    },
+    {
+      "files": [
+        "src/db/lib/encryption.server.test.ts"
+      ],
+      "rules": {
+        // TODO: Type the decoded test fixture before passing it onward: 1 diagnostic in 1 file.
+        "typescript/no-unsafe-argument": "off"
+      }
+    },
+    {
+      "files": [
+        "src/db/lib/encryption.server.test.ts",
+        "src/db/migration-runner.server.test.ts",
+        "src/lib/config.server.test.ts",
+        "src/routes/(authentication)/auth/$path.tsx",
+        "src/routes/api/status.ts"
+      ],
+      "rules": {
+        // TODO: Type the external and mocked values before assignment: 5 diagnostics across 5 files.
+        "typescript/no-unsafe-assignment": "off"
+      }
+    },
+    {
+      "files": [
+        "src/db/migration-runner.server.test.ts"
+      ],
+      "rules": {
+        // TODO: Type the migration mock before invoking it: 2 diagnostics in 1 file.
+        "typescript/no-unsafe-call": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/sign-in.tsx",
+        "src/db/migration-runner.server.test.ts",
+        "src/routes/api/status.ts"
+      ],
+      "rules": {
+        // TODO: Narrow unknown values before property access: 3 diagnostics across 3 files.
+        "typescript/no-unsafe-member-access": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/settings/settings.tsx",
+        "src/db/migration-runner.server.test.ts"
+      ],
+      "rules": {
+        // TODO: Type the values returned from library and mock boundaries: 2 diagnostics across 2 files.
+        "typescript/no-unsafe-return": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/auth/theme/appearance.tsx",
+        "src/components/auth/theme/theme-toggle-item.tsx"
+      ],
+      "rules": {
+        // TODO: Remove defaults that the upstream type makes unreachable: 2 diagnostics across 2 files.
+        "typescript/no-useless-default-assignment": "off"
+      }
+    },
+    {
+      "files": [
+        "src/routes/(authentication)/auth/$path.tsx",
+        "src/routes/__root.tsx",
+        "src/routes/_authenticated/_organization/route.tsx",
+        "src/routes/_authenticated/onboarding/index.tsx",
+        "src/routes/_authenticated/route.tsx",
+        "src/routes/_authenticated/settings/route.tsx",
+        "src/routes/configure/-lib/configure-request.server.ts"
+      ],
+      "rules": {
+        // TODO: Reconcile TanStack Router control flow with Error-only throws: 11 diagnostics across 7 files.
+        "typescript/only-throw-error": "off"
+      }
+    }
+  ]
+}
