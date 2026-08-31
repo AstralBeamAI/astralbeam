@@ -95,9 +95,55 @@ describe("organization API key authorization", () => {
       })
 
       expect(created.referenceId).toBe(fixture.organizationId)
+      expect(created).toMatchObject({
+        rateLimitEnabled: true,
+        rateLimitMax: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
+        rateLimitTimeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
+      })
       expect(listed.apiKeys).toContainEqual(expect.objectContaining({ id: created.id }))
     },
   )
+
+  test("keeps rate limits server-owned on create and update", async () => {
+    const serverOnlyRateLimit = {
+      rateLimitEnabled: false,
+      rateLimitMax: 1,
+      rateLimitTimeWindow: 1,
+    }
+    const denied = {
+      status: "BAD_REQUEST",
+      body: expect.objectContaining({
+        code: API_KEY_ERROR_CODES.SERVER_ONLY_PROPERTY.code,
+      }),
+    }
+
+    await expect(fixture.auth.api.createApiKey({
+      body: {
+        configId: "organization",
+        organizationId: fixture.organizationId,
+        name: "Custom rate limit",
+        ...serverOnlyRateLimit,
+      },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject(denied)
+
+    const existing = await fixture.auth.api.createApiKey({
+      body: {
+        configId: "organization",
+        organizationId: fixture.organizationId,
+        name: "Fixed rate limit",
+      },
+      headers: fixture.headers.owner,
+    })
+    await expect(fixture.auth.api.updateApiKey({
+      body: {
+        configId: "organization",
+        keyId: existing.id,
+        ...serverOnlyRateLimit,
+      },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject(denied)
+  })
 
   test("rejects viewer access at every API key management endpoint", async () => {
     const existing = await fixture.auth.api.createApiKey({
