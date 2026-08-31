@@ -12,6 +12,7 @@ export default defineConfig({
   dialect: "postgresql",
   schema: "./src/db/schema.server.ts",
   out: "./src/db/migrations",
+  schemaFilter: ["public"],
   dbCredentials: {
     url: databaseUrl,
   },

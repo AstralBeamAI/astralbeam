@@ -2,55 +2,61 @@
   "version": "5",
   "specifiers": {
     "npm:@aws-sdk/client-sesv2@^3.1115.0": "3.1115.0",
-    "npm:@base-ui/react@^1.6.0": "1.7.0_@types+react@19.2.18_date-fns@4.4.0_react@19.2.8_react-dom@19.2.8__react@19.2.8",
-    "npm:@better-auth-ui/core@1.7.12": "1.7.12_better-auth@1.7.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___effect@4.0.0-rc.112___postgres@3.4.9___zod@4.4.3__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__effect@4.0.0-rc.112_effect@4.0.0-rc.112",
-    "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12__better-auth@1.7.1___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____effect@4.0.0-rc.112____postgres@3.4.9____zod@4.4.3___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1___effect@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-query@5.102.0__react@19.2.8_better-auth@1.7.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___effect@4.0.0-rc.112___postgres@3.4.9___zod@4.4.3__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__effect@4.0.0-rc.112_clsx@2.1.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_react-email@6.9.2__react@19.2.8__react-dom@19.2.8___react@19.2.8_tailwind-merge@3.6.0_tailwindcss@4.3.3_effect@4.0.0-rc.112",
-    "npm:@better-auth/drizzle-adapter@1.7.1": "1.7.1_@better-auth+core@1.7.1__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.4.3__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.112",
+    "npm:@base-ui/react@^1.6.0": "1.7.0_@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8",
+    "npm:@better-auth-ui/core@1.7.12": "1.7.12_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1",
+    "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-query@5.102.0__react@19.2.8_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_clsx@2.1.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_react-email@6.9.2__react@19.2.8__react-dom@19.2.8___react@19.2.8_tailwind-merge@3.6.0_tailwindcss@4.3.3_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_vitest@4.1.10__vite@8.2.1",
+    "npm:@better-auth/drizzle-adapter@^1.7.2": "1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
     "npm:@csstools/color-helpers@6.1.0": "6.1.0",
     "npm:@csstools/css-color-parser@4.1.10": "4.1.10_@csstools+css-parser-algorithms@4.0.0__@csstools+css-tokenizer@4.0.0_@csstools+css-tokenizer@4.0.0",
     "npm:@csstools/css-parser-algorithms@4.0.0": "4.0.0_@csstools+css-tokenizer@4.0.0",
     "npm:@csstools/css-tokenizer@4.0.0": "4.0.0",
+    "npm:@effect/sql-pg@^4.0.0-rc.112": "4.0.0-rc.112_effect@4.0.0-rc.112",
+    "npm:@effect/vitest@^4.0.0-rc.112": "4.0.0-rc.112_effect@4.0.0-rc.112_vitest@4.1.10__vite@8.2.1",
     "npm:@fontsource-variable/inter@^5.2.8": "5.3.0",
     "npm:@fontsource-variable/manrope@^5.2.8": "5.3.0",
     "npm:@marsidev/react-turnstile@^1.6.0": "1.6.0_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@react-email/render@2.1.0": "2.1.0_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tailwindcss/vite@4": "4.3.3_vite@8.2.1",
-    "npm:@tanstack/ai-openai@0.22": "0.22.0_@tanstack+ai@0.49.1__zod@4.4.3_zod@4.4.3",
-    "npm:@tanstack/ai@~0.49.1": "0.49.1_zod@4.4.3",
+    "npm:@tanstack/ai-openai@0.22": "0.22.0_@tanstack+ai@0.49.1__zod@4.5.4_zod@4.5.4",
+    "npm:@tanstack/ai@~0.49.1": "0.49.1_zod@4.5.4",
     "npm:@tanstack/devtools-vite@~0.8.3": "0.8.3_vite@8.2.1_@emnapi+core@1.11.2_@emnapi+runtime@1.11.2",
-    "npm:@tanstack/react-devtools@~0.10.9": "0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8_@neodrag+core@3.0.0-next.11_csstype@3.2.3_solid-js@1.9.14",
+    "npm:@tanstack/react-devtools@~0.10.9": "0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-pacer@0.23": "0.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-query@5.102.0": "5.102.0_react@19.2.8",
-    "npm:@tanstack/react-router-devtools@^1.167.0": "1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_@tanstack+router-core@1.171.24_react@19.2.8_react-dom@19.2.8__react@19.2.8_csstype@3.2.3",
-    "npm:@tanstack/react-router-ssr-query@1.167.1": "1.167.1_@tanstack+query-core@5.102.0_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8_@tanstack+router-core@1.171.24",
+    "npm:@tanstack/react-router-devtools@^1.167.0": "1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8",
+    "npm:@tanstack/react-router-ssr-query@1.167.1": "1.167.1_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-router@*": "1.170.29_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-router@^1.170.18": "1.170.29_react@19.2.8_react-dom@19.2.8__react@19.2.8",
-    "npm:@tanstack/react-start@*": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4",
-    "npm:@tanstack/react-start@^1.168.32": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4",
+    "npm:@tanstack/react-start@*": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1",
+    "npm:@tanstack/react-start@^1.168.32": "1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1",
     "npm:@tanstack/router-cli@*": "1.167.30",
     "npm:@tanstack/router-cli@^1.167.21": "1.167.30",
     "npm:@types/nodemailer@^8.0.1": "8.0.1",
+    "npm:@types/pg@^8.23.1": "8.23.1",
     "npm:@types/react-dom@19": "19.2.4_@types+react@19.2.18",
     "npm:@types/react@19": "19.2.18",
     "npm:@vitejs/plugin-react@6": "6.0.5_@rolldown+plugin-babel@0.2.3__@babel+core@7.29.7__rolldown@1.2.4__vite@8.2.1_babel-plugin-react-compiler@1.0.0_vite@8.2.1_@babel+core@7.29.7_rolldown@1.2.4",
-    "npm:better-auth@1.7.1": "1.7.1_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1_effect@4.0.0-rc.112",
+    "npm:better-auth@^1.7.2": "1.7.2_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1",
     "npm:bowser@^2.14.1": "2.14.1",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
     "npm:clsx@^2.1.1": "2.1.1",
     "npm:drizzle-kit@^1.0.0-rc.5": "1.0.0-rc.5-ab785fc",
-    "npm:drizzle-orm@^1.0.0-rc.5": "1.0.0-rc.5-ab785fc_effect@4.0.0-rc.112_postgres@3.4.9_zod@4.4.3",
+    "npm:drizzle-orm@^1.0.0-rc.5": "1.0.0-rc.5-ab785fc_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_effect@4.0.0-rc.112_pg@8.23.0_postgres@3.4.9_zod@4.5.4",
     "npm:effect@^4.0.0-rc.112": "4.0.0-rc.112",
     "npm:jose@^6.2.10": "6.2.10",
     "npm:knip@^6.32.0": "6.32.2",
-    "npm:nitro@3.0.260610-beta": "3.0.260610-beta_vite@8.2.1_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.112",
+    "npm:nitro@3.0.260610-beta": "3.0.260610-beta_vite@8.2.1_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4",
     "npm:nodemailer@^9.0.5": "9.0.5",
+    "npm:pg@^8.23.0": "8.23.0",
     "npm:postgres@^3.4.9": "3.4.9",
+    "npm:react-dom@19.2.8": "19.2.8_react@19.2.8",
     "npm:react-dom@^19.2.6": "19.2.8_react@19.2.8",
     "npm:react-email@6.9.2": "6.9.2_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:react-email@^6.9.2": "6.9.2_react@19.2.8_react-dom@19.2.8__react@19.2.8",
+    "npm:react@19.2.8": "19.2.8",
     "npm:react@^19.2.6": "19.2.8",
-    "npm:resend@^6.21.0": "6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8",
+    "npm:resend@^6.21.0": "6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:shadcn@^4.13.0": "4.18.0_typescript@6.0.3",
     "npm:sharp@~0.34.3": "0.34.5",
     "npm:tailwind-merge@^3.6.0": "3.6.0",
@@ -64,13 +70,13 @@
     "npm:vitest@^4.1.3": "4.1.10_vite@8.2.1"
   },
   "npm": {
-    "@ag-ui/core@0.1.1-canary.beta.0_zod@4.4.3": {
+    "@ag-ui/core@0.1.1-canary.beta.0_zod@4.5.4": {
       "integrity": "sha512-zcP3RH5p3HJTZ0kyQxNOL1blnVFTDpaShitR7UMS/thwFdl48V6CAG+WQBcYEu/dfa8mKonRez88N0Ok+nEI+w==",
       "dependencies": [
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
     "@aws-sdk/client-sesv2@3.1115.0": {
@@ -495,7 +501,7 @@
         "@babel/helper-validator-identifier"
       ]
     },
-    "@base-ui/react@1.7.0_@types+react@19.2.18_date-fns@4.4.0_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+    "@base-ui/react@1.7.0_@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-j+8QjX44C32jrXD/qyEAGpFr70FRpGL2CY61mQd9nBPWN737CK0xxD1ceJ055rW4RtdvFDT1e7otzdlfxvsYug==",
       "dependencies": [
         "@babel/runtime",
@@ -528,7 +534,7 @@
         "@types/react"
       ]
     },
-    "@better-auth-ui/core@1.7.12_better-auth@1.7.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___effect@4.0.0-rc.112___postgres@3.4.9___zod@4.4.3__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__effect@4.0.0-rc.112_effect@4.0.0-rc.112": {
+    "@better-auth-ui/core@1.7.12_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
       "integrity": "sha512-+qUo2ED4fJ97PvIkk7ZdvdzV20vuSn2jCFeAieAdqyjYOIm9CD8Il3wqN+8uR+jqv5ODxB7Yi8uycZ8ItFhkXw==",
       "dependencies": [
         "@better-auth/agent-auth",
@@ -545,7 +551,7 @@
         "@better-auth/passkey"
       ]
     },
-    "@better-auth-ui/react@1.7.12_@better-auth-ui+core@1.7.12__better-auth@1.7.1___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1____rolldown@1.2.4___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____effect@4.0.0-rc.112____postgres@3.4.9____zod@4.4.3___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1___effect@4.0.0-rc.112__effect@4.0.0-rc.112_@tanstack+react-query@5.102.0__react@19.2.8_better-auth@1.7.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___effect@4.0.0-rc.112___postgres@3.4.9___zod@4.4.3__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__effect@4.0.0-rc.112_clsx@2.1.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_react-email@6.9.2__react@19.2.8__react-dom@19.2.8___react@19.2.8_tailwind-merge@3.6.0_tailwindcss@4.3.3_effect@4.0.0-rc.112": {
+    "@better-auth-ui/react@1.7.12_@better-auth-ui+core@1.7.12__better-auth@1.7.2___@tanstack+react-start@1.168.46____react@19.2.8____react-dom@19.2.8_____react@19.2.8____vite@8.2.1___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc____@effect+sql-pg@4.0.0-rc.112_____effect@4.0.0-rc.112____@types+pg@8.23.1____effect@4.0.0-rc.112____pg@8.23.0____postgres@3.4.9____zod@4.5.4___pg@8.23.0___react@19.2.8___react-dom@19.2.8____react@19.2.8___vitest@4.1.10____vite@8.2.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-query@5.102.0__react@19.2.8_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_clsx@2.1.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_react-email@6.9.2__react@19.2.8__react-dom@19.2.8___react@19.2.8_tailwind-merge@3.6.0_tailwindcss@4.3.3_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_vitest@4.1.10__vite@8.2.1": {
       "integrity": "sha512-4k8g4ygCt7tg0/28CkRVLMKrROoIdiL/yVxw55/TcLHBl44Gxm3RqWvipJWJTz3dty7y5Q4CRkB13o49U9LX1A==",
       "dependencies": [
         "@better-auth-ui/core",
@@ -560,65 +566,64 @@
         "react-email",
         "tailwind-merge",
         "tailwindcss",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
         "react-email"
       ]
     },
-    "@better-auth/agent-auth@0.6.2_better-auth@1.7.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___effect@4.0.0-rc.112___postgres@3.4.9___zod@4.4.3__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__effect@4.0.0-rc.112_effect@4.0.0-rc.112": {
+    "@better-auth/agent-auth@0.6.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.3.2___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
       "integrity": "sha512-bXJ31rkZtCd27TuUfaAqNLbeZOMfJih5fO9HGq8mrU/23E9ljxScCkIPA3RJmUJ0SBGtaHA9GKVwIlFce0slvg==",
       "dependencies": [
-        "@better-auth/core@1.7.1_better-call@1.3.2__zod@4.4.3_jose@6.2.10",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.3.2__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@simplewebauthn/server",
         "better-auth",
-        "better-call@1.3.2_zod@4.4.3",
+        "better-call@1.3.2_zod@4.5.4",
         "jose",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
-    "@better-auth/api-key@1.7.1_better-auth@1.7.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___effect@4.0.0-rc.112___postgres@3.4.9___zod@4.4.3__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__effect@4.0.0-rc.112_effect@4.0.0-rc.112": {
-      "integrity": "sha512-lZr5RAiAE7RnPB4QCGK4GhcYJtG3xHtd2vw7DOBPscVTCBOs4vvxR93ACQFoCAAsDxMUbduwDkh92UYaI/MvgQ==",
+    "@better-auth/api-key@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_better-call@1.4.0__zod@4.5.4_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
+      "integrity": "sha512-jih45wZaQ83lVYdChSnasxb8iax8p7AYetZ/XiImA9Yuag+cqmLBsaLPNvds5aZV18hLpmvzVkuzf7H/k1X88g==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2",
         "better-auth",
-        "better-call@1.4.0_zod@4.4.3",
-        "zod@4.4.3"
+        "better-call@1.4.0_zod@4.5.4",
+        "zod@4.5.4"
       ]
     },
-    "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
-      "integrity": "sha512-eZ9lqcnVLMZ3QtUByRo4VZqkB1ESyRddd9NfWjBdDPgh+jcwLScoIUAqhtHLR8zaSUJZah8OLGlkzObyPdUH7A==",
+    "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.3.2__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
+      "integrity": "sha512-j0nM4ygsWbF/fcYRoKtDn8gn8uLXkmC+075HqSqsJEAV828cJR9bvYBCUQ1zmxNyRBk6Iz/qXsA0Zm2oksiOTg==",
       "dependencies": [
         "@better-auth/utils@0.4.2",
         "@better-fetch/fetch",
         "@opentelemetry/semantic-conventions",
         "@standard-schema/spec",
-        "better-call@1.4.0_zod@4.4.3",
         "jose",
         "kysely",
         "nanostores",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
-    "@better-auth/core@1.7.1_better-call@1.3.2__zod@4.4.3_jose@6.2.10": {
-      "integrity": "sha512-eZ9lqcnVLMZ3QtUByRo4VZqkB1ESyRddd9NfWjBdDPgh+jcwLScoIUAqhtHLR8zaSUJZah8OLGlkzObyPdUH7A==",
+    "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
+      "integrity": "sha512-j0nM4ygsWbF/fcYRoKtDn8gn8uLXkmC+075HqSqsJEAV828cJR9bvYBCUQ1zmxNyRBk6Iz/qXsA0Zm2oksiOTg==",
       "dependencies": [
         "@better-auth/utils@0.4.2",
         "@better-fetch/fetch",
         "@opentelemetry/semantic-conventions",
         "@standard-schema/spec",
-        "better-call@1.3.2_zod@4.4.3",
+        "better-call@1.4.0_zod@4.5.4",
         "jose",
         "kysely",
         "nanostores",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
-    "@better-auth/drizzle-adapter@1.7.1_@better-auth+core@1.7.1__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.4.3__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.112": {
-      "integrity": "sha512-qlqNyg5V9bXHSP68/vtlsiZayhR4hgvEGiS/E3SIj8bCpWWFGmyQkxJbQCqpBmC7vT30wE/kNtJMHIgnV3rkiw==",
+    "@better-auth/drizzle-adapter@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
+      "integrity": "sha512-A5wE10PIv3aS5LGePecEHntQylKy6OOF17B4dqlE0DwJeqU/IOBSd7/LZhMop9cNJ3WFjKMpazVSf91yYM/NFg==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2",
         "drizzle-orm"
       ],
@@ -626,10 +631,10 @@
         "drizzle-orm"
       ]
     },
-    "@better-auth/kysely-adapter@1.7.1_@better-auth+core@1.7.1__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.4.3__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_kysely@0.29.5_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_nanostores@1.5.2": {
-      "integrity": "sha512-yWCpE1cZpMUj37nD6JFDK+GDR8zS37L5WI73il3qbU9TXtWsxUQKc/5c3IHsHizWQsmcQI8uv2pAFKxsRDa+AQ==",
+    "@better-auth/kysely-adapter@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_kysely@0.29.5_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_nanostores@1.5.2": {
+      "integrity": "sha512-LYdSRLOvZiF+6S0UThu+wE/Qxsq9P2jQs7ZKkY6BIBJqUjYyxVDmi8HFcantBvWWW1/BeQCSsD7YVDG4gICMIQ==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2",
         "kysely"
       ],
@@ -637,45 +642,45 @@
         "kysely"
       ]
     },
-    "@better-auth/memory-adapter@1.7.1_@better-auth+core@1.7.1__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.4.3__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
-      "integrity": "sha512-6NX1yv88DeqdoG7owYFqKwlrDGaIPhsC52JUGrUgeGVKyOq8a/6hHlHsqG1C2FwT23SHQiKVYCEAG9N6aH5OvQ==",
+    "@better-auth/memory-adapter@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
+      "integrity": "sha512-0q1SXMzm5esH9L0xVuM6IxCk59E4G+3HySX4My9gvEwqtmUobykn+iuc/si3Y4xwUO7JODqQ5o+/pPcLDDMIrA==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2"
       ]
     },
-    "@better-auth/mongo-adapter@1.7.1_@better-auth+core@1.7.1__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.4.3__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
-      "integrity": "sha512-9ILTcNqhG37QK//qR4UhYLyKzNqq6w6zVTf5KX6xkiTjNcV7Oh1yS31lkIJEVTqRNcy9AoV6FZMW6Bbsm8IMDA==",
+    "@better-auth/mongo-adapter@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
+      "integrity": "sha512-4879SmUWHUs0OYlvHoCFbycZ7i1bqytkcgAUdt9RLQMvZ5H3LRMTgax2YVlGZEXgwNjY/X7xAoXOecWLhlQWeA==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2"
       ]
     },
-    "@better-auth/passkey@1.7.1_better-auth@1.7.1__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1___rolldown@1.2.4__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___effect@4.0.0-rc.112___postgres@3.4.9___zod@4.4.3__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1__effect@4.0.0-rc.112_effect@4.0.0-rc.112": {
-      "integrity": "sha512-bGnCBDL2udKniHI4IZpjh4lU8lQWRVk3SG/ZtTtZz6QZLCJ2YpVjjwv2O0VJt/jw9SLuXyccx3IFh4s0PKGTRQ==",
+    "@better-auth/passkey@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-auth@1.7.2__@tanstack+react-start@1.168.46___react@19.2.8___react-dom@19.2.8____react@19.2.8___vite@8.2.1__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4__pg@8.23.0__react@19.2.8__react-dom@19.2.8___react@19.2.8__vitest@4.1.10___vite@8.2.1_better-call@1.4.0__zod@4.5.4_nanostores@1.5.2_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
+      "integrity": "sha512-KBK852b+HsCdstVPPDHsuRa9Rc+7IEuRMPQboi/OXNOwgKL8GwHpzzWD2WhiT/FXJPrLCPh8vHJQfc1wdl5OZw==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2",
         "@better-fetch/fetch",
         "@simplewebauthn/browser",
         "@simplewebauthn/server",
         "better-auth",
-        "better-call@1.4.0_zod@4.4.3",
+        "better-call@1.4.0_zod@4.5.4",
         "nanostores",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
-    "@better-auth/prisma-adapter@1.7.1_@better-auth+core@1.7.1__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.4.3__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
-      "integrity": "sha512-ZiUcafQ85InAofcUjyGgCPjKLfQjXr9SvDmMjuFUW8oEbreA6C6GaFAEA77VuV2doZUQlzvQQ4gCoTmS28W92A==",
+    "@better-auth/prisma-adapter@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
+      "integrity": "sha512-mXTr/83WrNWLrvzIjtgDgdu9iXhOcSG1+qBQOAKlbGSFiOB+z4IMRneQ2wmMOiB8mKY9qGkClVUjKRFXqtHnFQ==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2"
       ]
     },
-    "@better-auth/telemetry@1.7.1_@better-auth+core@1.7.1__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.4.3__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
-      "integrity": "sha512-kLKjMfFlTbyt49DGeI9okHAsn0MtBZcMoQYKaEdgR0H3BHzqqyzePcQz/hxAmRgjB4p/6inise3zJwhX0sgXrQ==",
+    "@better-auth/telemetry@1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0___zod@4.5.4__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2": {
+      "integrity": "sha512-LcWu+O0zrxYDQj8E36vfkJwGPW4k9ZDA/rCo0zST6ihzL+juR7pBowoZIM9E6tK0Vit52mf6412bGT4XM4eTjQ==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/utils@0.4.2",
         "@better-fetch/fetch"
       ]
@@ -753,6 +758,24 @@
     },
     "@drizzle-team/brocli@0.12.0": {
       "integrity": "sha512-mlUE+rZ8CatQekLhnaiN91Iemdd+e2gFKooGlnRB3oPTL3VghLfX24dx7HrzMNeC1JrIB/0kpsfyty3f5HNfxQ=="
+    },
+    "@effect/sql-pg@4.0.0-rc.112_effect@4.0.0-rc.112": {
+      "integrity": "sha512-UYUA3LAGH1Pg88Yau7eTlTLHRrIb/uTdxdPGxVcRdIjjrTzxtA7iKHR4hcmUeq5lQEcGLCopN7E4ffsAKF8vEQ==",
+      "dependencies": [
+        "effect",
+        "pg",
+        "pg-connection-string",
+        "pg-cursor",
+        "pg-pool",
+        "pg-types@4.1.0"
+      ]
+    },
+    "@effect/vitest@4.0.0-rc.112_effect@4.0.0-rc.112_vitest@4.1.10__vite@8.2.1": {
+      "integrity": "sha512-mEKh/FI64mt8JK1/v9mpOrJYdnp+UFZdRUBMEdZMiKz7klg6NPqVgg/oeAGH6wOOQc2iAPcfc2H9BbAv1KyzMQ==",
+      "dependencies": [
+        "effect",
+        "vitest"
+      ]
     },
     "@emnapi/core@1.11.2": {
       "integrity": "sha512-TC8MkTuZUtcTSiFeuC0ksCh9QIJ5+F21MvZ4Wn4ORfYaFJ/0dsiudv5tVkejgwZlwQ39jL9WWDe2lz8x0WglOA==",
@@ -1343,11 +1366,11 @@
         "solid-js"
       ]
     },
-    "@noble/ciphers@2.3.0": {
-      "integrity": "sha512-Clu/xdfgVTf9o7ngLOURaxePwR0j8sjclKEtVij10/jGulwFsPWCvvRgG/XjUVf8Nei+jLG6uwyXzUTGY1DQrw=="
+    "@noble/ciphers@2.4.0": {
+      "integrity": "sha512-AnjFn0Jv92laAkvMrghlFZq4qQCIN/4DxFV/eooqtC2YTjB7kBeLMS2T9KJX4Dn+ZVXLOwK0lSgqDtx9gvxtiw=="
     },
-    "@noble/hashes@2.3.0": {
-      "integrity": "sha512-oN+QwyX7VSHotibwubG3kpzbwKrfnyR6OOO+3Nk/53ADL7FmgHHz4TgrbaYKvvOw09u6QTx0oiH1cNCIOuN0CQ=="
+    "@noble/hashes@2.4.0": {
+      "integrity": "sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA=="
     },
     "@nodelib/fs.scandir@2.1.5": {
       "integrity": "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==",
@@ -1940,8 +1963,8 @@
     "@simplewebauthn/browser@13.3.0": {
       "integrity": "sha512-BE/UWv6FOToAdVk0EokzkqQQDOWtNydYlY6+OrmiZ5SCNmb41VehttboTetUM3T/fr6EAFYVXjz4My2wg230rQ=="
     },
-    "@simplewebauthn/server@13.3.2": {
-      "integrity": "sha512-KEDhfcGP1PAKRVSDjA3npTQFqS2b/srm+ipoNBNHdkzrHAlaRQUTE+a5f4ywsx6thxAw1NU2rYcLEY1949RGbQ==",
+    "@simplewebauthn/server@13.3.3": {
+      "integrity": "sha512-LelX/lcy5cjc15A86i/aNxHhB5eU7dd20QsbP0VLAf9e38+SLlsnqCCyecx3xqfGofhmX05h1J9fKRYWxw+luA==",
       "dependencies": [
         "@hexagon/base64",
         "@levischuck/tiny-cbor",
@@ -2159,20 +2182,20 @@
         "@tanstack/devtools-event-client@0.4.4"
       ]
     },
-    "@tanstack/ai-openai@0.22.0_@tanstack+ai@0.49.1__zod@4.4.3_zod@4.4.3": {
+    "@tanstack/ai-openai@0.22.0_@tanstack+ai@0.49.1__zod@4.5.4_zod@4.5.4": {
       "integrity": "sha512-6fB6uGi8985HX1oY4mu9R6mYLok1P1Tks7trfIzUe4Ewl9OPhilyMxuBd7Pyg+/DpgMkY2sQFVg0HHVTE1bBTg==",
       "dependencies": [
         "@tanstack/ai",
         "@tanstack/ai-utils",
         "@tanstack/openai-base",
         "openai",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
     "@tanstack/ai-utils@0.4.0": {
       "integrity": "sha512-xqvAgPJkIuGk1m+jZKyb7vBTQIaBmUD9EVzlPkDWWMp80n69uwL0TnBZCVk+OwL9goTQiFy648dnBfLsiJgl6A=="
     },
-    "@tanstack/ai@0.49.1_zod@4.4.3": {
+    "@tanstack/ai@0.49.1_zod@4.5.4": {
       "integrity": "sha512-tOyeMiegTztxLReWpdlzcjAvQ1RutGXwONniixErozeLiErNyNo9fbgTOwdKX9sGM9Gp3HvvXvB5zwGkintxbg==",
       "dependencies": [
         "@ag-ui/core",
@@ -2253,7 +2276,7 @@
     "@tanstack/history@1.162.1": {
       "integrity": "sha512-DR9t6lfLVdrjgCwpglrR9DR7Ok8/HlXjcOE+goWXF3zyuLUO/ug7vMbSFxTqrQTtbRghJfyhmIZ0S6LhPIy44w=="
     },
-    "@tanstack/openai-base@0.10.5_@tanstack+ai@0.49.1__zod@4.4.3_zod@4.4.3": {
+    "@tanstack/openai-base@0.10.5_@tanstack+ai@0.49.1__zod@4.5.4_zod@4.5.4": {
       "integrity": "sha512-csHfrpCF68ZxsiyW+hF9kECRrz6z1fPBa1XNRzP65YROAO5SXx+Bpg1IioXOVR3wVNwS5PWljngATzGJc05O+A==",
       "dependencies": [
         "@tanstack/ai",
@@ -2271,7 +2294,7 @@
     "@tanstack/query-core@5.102.0": {
       "integrity": "sha512-tvBzr11Q7StuMCEsIJdqX8TAWt6WZIzfw/yrSAjObZDerwTTPeCxeLXN2R8ZSn4ZxFpQV819Xn8QmoO+vtnDvw=="
     },
-    "@tanstack/react-devtools@0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8_@neodrag+core@3.0.0-next.11_csstype@3.2.3_solid-js@1.9.14": {
+    "@tanstack/react-devtools@0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-hYH34MSVbajs1pUc22ftSapyKQp2gOh0w34a7ouYOdIcbXD6YPckSR2YpAWGq1rrs6N0l/rvV6LM/G1pgN5ARg==",
       "dependencies": [
         "@tanstack/devtools",
@@ -2297,7 +2320,7 @@
         "react"
       ]
     },
-    "@tanstack/react-router-devtools@1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_@tanstack+router-core@1.171.24_react@19.2.8_react-dom@19.2.8__react@19.2.8_csstype@3.2.3": {
+    "@tanstack/react-router-devtools@1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-pjfGrmjj4d7naEPM7oshqFfwBoxDPNo/UxltlHH5ePbHsJ+plBhd+JaAewm1ueYOjZ0js9hckjWWDYXpCrSfKw==",
       "dependencies": [
         "@tanstack/react-router",
@@ -2310,7 +2333,7 @@
         "@tanstack/router-core"
       ]
     },
-    "@tanstack/react-router-ssr-query@1.167.1_@tanstack+query-core@5.102.0_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8_@tanstack+router-core@1.171.24": {
+    "@tanstack/react-router-ssr-query@1.167.1_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-W9j5JPnBikyafvuUfykFfHIWod58OAbAAa5leNkXBcoDoocghMmu6w9uZOmUZvAWT7CSvgj5tBUtF7CM2OoHXQ==",
       "dependencies": [
         "@tanstack/query-core",
@@ -2342,7 +2365,7 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-start-rsc@0.1.45_react@19.2.8_react-dom@19.2.8__react@19.2.8_rolldown@1.2.4_vite@8.2.1": {
+    "@tanstack/react-start-rsc@0.1.45_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-n962onqz6wZkra9cHygPQumKaShqZAfO2BRvrRzbtYa8M5ytbOG3Wvg6TUbZJ7gPKmjDvFsyrAPgZZ8ZhkrbwA==",
       "dependencies": [
         "@tanstack/react-router",
@@ -2367,7 +2390,7 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-start@1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1_rolldown@1.2.4": {
+    "@tanstack/react-start@1.168.46_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1": {
       "integrity": "sha512-GvjKkZQ4bzuqyDIFvY7Puh7nCDc5Uh7r3puO8EDr1ZSqbZu8LGUaeNRrAHepxEIepr2iYbSDtKVaB7A9fWUMeA==",
       "dependencies": [
         "@tanstack/react-router",
@@ -2419,8 +2442,8 @@
       "dependencies": [
         "@tanstack/history",
         "cookie-es",
-        "seroval@1.6.3",
-        "seroval-plugins@1.6.2_seroval@1.6.3"
+        "seroval@1.6.4",
+        "seroval-plugins@1.6.2_seroval@1.6.4"
       ]
     },
     "@tanstack/router-devtools-core@1.168.1_@tanstack+router-core@1.171.24_csstype@3.2.3": {
@@ -2445,10 +2468,10 @@
         "jiti@2.7.0",
         "magic-string",
         "prettier",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
-    "@tanstack/router-plugin@1.168.32_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_vite@8.2.1_react@19.2.8_react-dom@19.2.8__react@19.2.8_rolldown@1.2.4": {
+    "@tanstack/router-plugin@1.168.32_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_vite@8.2.1_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-P+qYIY9b/K+ZGUPNiyLqsd20vN/1abgmSNG0Ch9KTKldag3icR7TlrJgnM2km86yuRdXa4nJ5YT7+JLV5rJRZg==",
       "dependencies": [
         "@babel/core",
@@ -2461,7 +2484,7 @@
         "chokidar@5.0.0",
         "unplugin",
         "vite",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
         "@tanstack/react-router",
@@ -2494,13 +2517,13 @@
         "@tanstack/router-core",
         "@tanstack/start-fn-stubs",
         "@tanstack/start-storage-context",
-        "seroval@1.6.3"
+        "seroval@1.6.4"
       ]
     },
     "@tanstack/start-fn-stubs@1.162.0": {
       "integrity": "sha512-QWfUZ3Yo923tdQn38LyKMU8rcTw69zc+T4dAvgTWV4O56SqFRsGfS0lSWIMhJRwXIx/bvdi7nTUBDdZtTHtpTQ=="
     },
-    "@tanstack/start-plugin-core@1.171.36_vite@8.2.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8_rolldown@1.2.4": {
+    "@tanstack/start-plugin-core@1.171.36_vite@8.2.1_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-wWFd0sSpoW3k5cJJ1EpJuQ1REzMcv4LcOmPKotyhH2PNQPqBIRv9ZCxRtH7QWxXcwAaE0G1YE8PTYh9ZARPYOg==",
       "dependencies": [
         "@babel/code-frame@7.27.1",
@@ -2515,7 +2538,7 @@
         "lightningcss@1.33.0",
         "pathe",
         "picomatch@4.0.5",
-        "seroval@1.6.3",
+        "seroval@1.6.4",
         "source-map@0.7.6",
         "srvx",
         "tinyglobby",
@@ -2523,7 +2546,7 @@
         "vite",
         "vitefu",
         "xmlbuilder2",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
         "vite"
@@ -2538,7 +2561,7 @@
         "@tanstack/start-storage-context",
         "fetchdts",
         "h3-v2@npm:h3@2.0.1-rc.20",
-        "seroval@1.6.3"
+        "seroval@1.6.4"
       ]
     },
     "@tanstack/start-storage-context@1.167.26": {
@@ -2599,6 +2622,14 @@
       "integrity": "sha512-PxpaInm8V1JQDd4j0ds5HfvWQk8JupS1C0Picb96QJsrrRDjBH+DlK7L4ZdNSqNULhiZRQHc40nLVShaGxXAMw==",
       "dependencies": [
         "@types/node"
+      ]
+    },
+    "@types/pg@8.23.1": {
+      "integrity": "sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==",
+      "dependencies": [
+        "@types/node",
+        "pg-protocol",
+        "pg-types@2.2.0"
       ]
     },
     "@types/react-dom@19.2.4_@types+react@19.2.18": {
@@ -2805,10 +2836,10 @@
       "integrity": "sha512-FwMjJJ7HnyZpWe+oWxegG0fezZyBZUagI5LZEoO3GCbtbKNwRfMH9Ue5d5v01PNePBy1QSfPSDTTeVL0Hb9EzA==",
       "bin": true
     },
-    "better-auth@1.7.1_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1__rolldown@1.2.4_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1_effect@4.0.0-rc.112": {
-      "integrity": "sha512-g8WlTQijxXWJjPVZfFu1+EJg9cwwHrKDmIkcYMzx8CzYA+tDxl6NI7qQbKkbgw5UtHILsT5VH+RMzFzwnVJqAg==",
+    "better-auth@1.7.2_@tanstack+react-start@1.168.46__react@19.2.8__react-dom@19.2.8___react@19.2.8__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4_pg@8.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8_vitest@4.1.10__vite@8.2.1": {
+      "integrity": "sha512-gKapKBEvYIGcMxi74RjQ7EbFLiqyQt58vdoJmL1qAlWSkY1Bc2Vqshl524/3u1NxauiOU03M/Ebh762Brmac9A==",
       "dependencies": [
-        "@better-auth/core@1.7.1_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.4.3_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
+        "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0__zod@4.5.4_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
         "@better-auth/drizzle-adapter",
         "@better-auth/kysely-adapter",
         "@better-auth/memory-adapter",
@@ -2820,51 +2851,53 @@
         "@noble/ciphers",
         "@noble/hashes",
         "@tanstack/react-start",
-        "better-call@1.4.0_zod@4.4.3",
+        "better-call@1.4.0_zod@4.5.4",
         "defu",
         "drizzle-kit",
         "drizzle-orm",
         "jose",
         "kysely",
         "nanostores",
+        "pg",
         "react",
         "react-dom",
         "vitest",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
         "@tanstack/react-start",
         "drizzle-kit",
         "drizzle-orm",
+        "pg",
         "react",
         "react-dom",
         "vitest"
       ]
     },
-    "better-call@1.3.2_zod@4.4.3": {
+    "better-call@1.3.2_zod@4.5.4": {
       "integrity": "sha512-4cZIfrerDsNTn3cm+MhLbUePN0gdwkhSXEuG7r/zuQ8c/H7iU0/jSK5TD3FW7U0MgKHce/8jGpPYNO4Ve+4NBw==",
       "dependencies": [
         "@better-auth/utils@0.3.1",
         "@better-fetch/fetch",
         "rou3@0.7.12",
         "set-cookie-parser",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
-    "better-call@1.4.0_zod@4.4.3": {
+    "better-call@1.4.0_zod@4.5.4": {
       "integrity": "sha512-bBKOT4vv1kZLDgxVePdilk/Jwkn+dtRRsmi3DzHcDP+WnswyVl6dR59l2HEeP/0cB+bDoopASAesWDPIdd/zZA==",
       "dependencies": [
         "@better-auth/utils@0.5.0",
         "@better-fetch/fetch",
         "rou3@0.9.2",
         "set-cookie-parser",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
     "body-parser@2.3.0": {
@@ -3085,8 +3118,8 @@
         "which@2.0.2"
       ]
     },
-    "crossws@0.4.10_srvx@0.11.22": {
-      "integrity": "sha512-pz3oubH/dt12KjqsUB0IuXW4nwRDQ583iDsP4555Cpdqx0NoU7pGlWBcayyFI8f/l/idRpgjMEfwuOxSWJYlIA==",
+    "crossws@0.4.12_srvx@0.11.22": {
+      "integrity": "sha512-aypfsr6t0uNvkqaZc6zvBfXzC6pLI0/sIulpkV6RwCVtZqG5ebBzv4weImKK0VNCj91Wl9F5j7p5WU4MNrybng==",
       "dependencies": [
         "srvx"
       ],
@@ -3114,7 +3147,7 @@
     "dayjs@1.11.23": {
       "integrity": "sha512-QDTCU0M0MxR3hQfnlDJfwekQiaanm1ubOD231u73WBckQ/fsamwRLiE2GBz6D3a/xF1NgfiDLJjXBa1hYOYTtQ=="
     },
-    "db0@0.3.4_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.112": {
+    "db0@0.3.4_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4": {
       "integrity": "sha512-RiXXi4WaNzPTHEOu8UPQKMooIbqOEyqA1t7Z6MsdxSCeb8iUC9ko3LcmsLmeUt2SM5bctfArZKkRQggKZz7JNw==",
       "dependencies": [
         "drizzle-orm"
@@ -3229,17 +3262,23 @@
       ],
       "bin": true
     },
-    "drizzle-orm@1.0.0-rc.5-ab785fc_effect@4.0.0-rc.112_postgres@3.4.9_zod@4.4.3": {
+    "drizzle-orm@1.0.0-rc.5-ab785fc_@effect+sql-pg@4.0.0-rc.112__effect@4.0.0-rc.112_@types+pg@8.23.1_effect@4.0.0-rc.112_pg@8.23.0_postgres@3.4.9_zod@4.5.4": {
       "integrity": "sha512-28PVt0PS/+4kPa8eKr4mqP8y/YcbdOgdVcGUa6LGl2Kd2bykNWuf/WUOFoSCoynagblbcRgMO1zChLvRcWD6Tg==",
       "dependencies": [
+        "@effect/sql-pg",
+        "@types/pg",
         "effect",
+        "pg",
         "postgres",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
+        "@effect/sql-pg",
+        "@types/pg",
         "effect",
+        "pg",
         "postgres",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
     "dunder-proto@1.0.1": {
@@ -3710,7 +3749,7 @@
       ],
       "bin": true
     },
-    "h3@2.0.1-rc.22_crossws@0.4.10__srvx@0.11.22": {
+    "h3@2.0.1-rc.22_crossws@0.4.12__srvx@0.11.22": {
       "integrity": "sha512-Esv0DMIuPkCTSWCA0vO73vcTqwzH1wjSrAO1TXNu/K3up1sZHa9EKMapbmxCDYBeymC3fVTk4qxp7ogQWQ+KgA==",
       "dependencies": [
         "crossws",
@@ -3964,7 +4003,7 @@
         "tinyglobby",
         "unbash",
         "yaml",
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "bin": true
     },
@@ -3981,8 +4020,8 @@
     "leac@0.6.0": {
       "integrity": "sha512-y+SqErxb8h7nE/fiEX07jsbuhrpO9lL8eca7/Y1nuWV2moNlXhyd59iDGcRf6moVyDMbmTNzL40SUyrFU/yDpg=="
     },
-    "libphonenumber-js@1.13.11": {
-      "integrity": "sha512-ETER2kMaIFTI/Nh1a8Gk03dUF/SL0VZqtI+CcVHZxp5WIHYwNS7S+uiYZDYCvLy3lOR4/DAD5jf0h5WkePPpqg=="
+    "libphonenumber-js@1.13.12": {
+      "integrity": "sha512-uLVeV1c9OTk6qkdqnj+mpMD+ZdnZ0szVyWu58HwMmpwkHA1gCEkyjd3veZQXDnuw9KEwSRjcc9B1pS9XKIN1fA=="
     },
     "lightningcss-android-arm64@1.32.0": {
       "integrity": "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==",
@@ -4277,17 +4316,17 @@
     "negotiator@1.0.0": {
       "integrity": "sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg=="
     },
-    "nf3@0.3.23": {
-      "integrity": "sha512-RWVLAWozmVD3AaDmaU3qMGB3v+yNlH5d9qqStI4e/WLlNQVnJ4YErGDbYCIrGFyrHdbF6I6Baf0Ae6c7tFYmSg=="
+    "nf3@0.3.24": {
+      "integrity": "sha512-HxLK4bo+5jNsEETZp4w3tJblHOA9MCBY14IN9nZJJV8JDxt9yNIYxuBuLMjTAR5GFa3HL61+8VQDUrXv3/C8fw=="
     },
-    "nitro@3.0.260610-beta_vite@8.2.1_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.112": {
+    "nitro@3.0.260610-beta_vite@8.2.1_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4": {
       "integrity": "sha512-KPb4L5yaF/Rx/xoGMpgHRJvZhbhGiqbRKOwwPLCH9jKTKTsEUHLjnJas85AeCzaswqa8Wi52eQBtRsODC4PS0Q==",
       "dependencies": [
         "consola",
         "crossws",
         "db0",
         "env-runner",
-        "h3@2.0.1-rc.22_crossws@0.4.10__srvx@0.11.22",
+        "h3@2.0.1-rc.22_crossws@0.4.12__srvx@0.11.22",
         "hookable",
         "nf3",
         "ocache",
@@ -4351,6 +4390,9 @@
     "object-treeify@1.1.33": {
       "integrity": "sha512-EFVjAYfzWqWsBMRHPMAXLCDIJnpMhdWAqR7xG6M6a2cs6PMFpl/+Z20w9zDW4vkxOFfddegBKq9Rehd0bxWE7A=="
     },
+    "obuf@1.1.2": {
+      "integrity": "sha512-PX1wu0AmAdPqOL1mWhqmlOd8kOIZQwGZw6rh7uby9fTc5lhaOWFLX3I6R1hrF9k3zUY40e6igsLGkDXK92LJNg=="
+    },
     "obug@2.1.4": {
       "integrity": "sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA=="
     },
@@ -4409,13 +4451,13 @@
         "is-wsl@2.2.0"
       ]
     },
-    "openai@6.49.0_zod@4.4.3": {
+    "openai@6.49.0_zod@4.5.4": {
       "integrity": "sha512-aYCc0C6L864eR6WSYIwQGyXriw/nIyZx0ObvhzOEVuk0zoBDpynjSbrionWI7q65B5H8jJX0DXR9snEzM6bfPg==",
       "dependencies": [
-        "zod@4.4.3"
+        "zod@4.5.4"
       ],
       "optionalPeers": [
-        "zod@4.4.3"
+        "zod@4.5.4"
       ]
     },
     "ora@8.2.0": {
@@ -4585,6 +4627,74 @@
     "peberminta@0.9.0": {
       "integrity": "sha512-XIxfHpEuSJbITd1H3EeQwpcZbTLHc+VVr8ANI9t5sit565tsI4/xK3KWTUFE2e6QiangUkh3B0jihzmGnNrRsQ=="
     },
+    "pg-cloudflare@1.4.0": {
+      "integrity": "sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A=="
+    },
+    "pg-connection-string@2.14.0": {
+      "integrity": "sha512-XwWDGcLRGCXAR8F/AM5bG7Q+A3Wm2s6QeEjlOKZLlH3UYcguiqCWKyWXVag5TLTIjR7oOJUY8kcADaZgWPyLeg=="
+    },
+    "pg-cursor@2.22.0_pg@8.23.0": {
+      "integrity": "sha512-knzXLKqarTjOvb3qDSW0JiGsazmxwEKXrqHfWRte7XUsOYccQRafn3BLnQobWwInkzFJSyOej8y8cQRh2z3kGw==",
+      "dependencies": [
+        "pg"
+      ]
+    },
+    "pg-int8@1.0.1": {
+      "integrity": "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw=="
+    },
+    "pg-numeric@1.0.2": {
+      "integrity": "sha512-BM/Thnrw5jm2kKLE5uJkXqqExRUY/toLHda65XgFTBTFYZyopbKjBe29Ii3RbkvlsMoFwD+tHeGaCjjv0gHlyw=="
+    },
+    "pg-pool@3.14.0_pg@8.23.0": {
+      "integrity": "sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==",
+      "dependencies": [
+        "pg"
+      ]
+    },
+    "pg-protocol@1.16.0": {
+      "integrity": "sha512-sILXutLVjCLjcDuOmvhX5e2Z4cS5qG/6Bu3VkpFwdf/633ElGLpEh9bgmuI5I4sqKqkifQiGyiCcx1HdtrK7tg=="
+    },
+    "pg-types@2.2.0": {
+      "integrity": "sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==",
+      "dependencies": [
+        "pg-int8",
+        "postgres-array@2.0.0",
+        "postgres-bytea@1.0.1",
+        "postgres-date@1.0.7",
+        "postgres-interval@1.2.0"
+      ]
+    },
+    "pg-types@4.1.0": {
+      "integrity": "sha512-o2XFanIMy/3+mThw69O8d4n1E5zsLhdO+OPqswezu7Z5ekP4hYDqlDjlmOpYMbzY2Br0ufCwJLdDIXeNVwcWFg==",
+      "dependencies": [
+        "pg-int8",
+        "pg-numeric",
+        "postgres-array@3.0.4",
+        "postgres-bytea@3.0.0",
+        "postgres-date@2.1.0",
+        "postgres-interval@3.0.0",
+        "postgres-range"
+      ]
+    },
+    "pg@8.23.0": {
+      "integrity": "sha512-Ip2EQCngowJLGOfCwkFhPXU7/ljlhn6Rxlmy4XYfL2Y+vyRM59+8uR2xqRWKdYmbXmxCFOAmKxBuSUCdF34qLg==",
+      "dependencies": [
+        "pg-connection-string",
+        "pg-pool",
+        "pg-protocol",
+        "pg-types@2.2.0",
+        "pgpass"
+      ],
+      "optionalDependencies": [
+        "pg-cloudflare"
+      ]
+    },
+    "pgpass@1.0.5": {
+      "integrity": "sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug==",
+      "dependencies": [
+        "split2"
+      ]
+    },
     "picocolors@1.1.1": {
       "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
     },
@@ -4623,6 +4733,39 @@
         "picocolors",
         "source-map-js"
       ]
+    },
+    "postgres-array@2.0.0": {
+      "integrity": "sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA=="
+    },
+    "postgres-array@3.0.4": {
+      "integrity": "sha512-nAUSGfSDGOaOAEGwqsRY27GPOea7CNipJPOA7lPbdEpx5Kg3qzdP0AaWC5MlhTWV9s4hFX39nomVZ+C4tnGOJQ=="
+    },
+    "postgres-bytea@1.0.1": {
+      "integrity": "sha512-5+5HqXnsZPE65IJZSMkZtURARZelel2oXUEO8rH83VS/hxH5vv1uHquPg5wZs8yMAfdv971IU+kcPUczi7NVBQ=="
+    },
+    "postgres-bytea@3.0.0": {
+      "integrity": "sha512-CNd4jim9RFPkObHSjVHlVrxoVQXz7quwNFpz7RY1okNNme49+sVyiTvTRobiLV548Hx/hb1BG+iE7h9493WzFw==",
+      "dependencies": [
+        "obuf"
+      ]
+    },
+    "postgres-date@1.0.7": {
+      "integrity": "sha512-suDmjLVQg78nMK2UZ454hAG+OAW+HQPZ6n++TNDUX+L0+uUlLywnoxJKDou51Zm+zTCjrCl0Nq6J9C5hP9vK/Q=="
+    },
+    "postgres-date@2.1.0": {
+      "integrity": "sha512-K7Juri8gtgXVcDfZttFKVmhglp7epKb1K4pgrkLxehjqkrgPhfG6OO8LHLkfaqkbpjNRnra018XwAr1yQFWGcA=="
+    },
+    "postgres-interval@1.2.0": {
+      "integrity": "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==",
+      "dependencies": [
+        "xtend"
+      ]
+    },
+    "postgres-interval@3.0.0": {
+      "integrity": "sha512-BSNDnbyZCXSxgA+1f5UU2GmwhoI0aU5yMxRGO8CdFEcY2BQF9xm/7MqKnYoM1nJDk8nONNWDk9WeSmePFhQdlw=="
+    },
+    "postgres-range@1.1.4": {
+      "integrity": "sha512-i/hbxIE9803Alj/6ytL7UHQxRvZkI9O4Sy+J3HGc4F4oo/2eQAjTSNJ0bfxyse3bH0nuVesCk+3IRLaMtG3H6w=="
     },
     "postgres@3.4.9": {
       "integrity": "sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw=="
@@ -4762,7 +4905,7 @@
     "reselect@5.2.0": {
       "integrity": "sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw=="
     },
-    "resend@6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8": {
+    "resend@6.21.0_@react-email+render@2.1.0__react@19.2.8__react-dom@19.2.8___react@19.2.8_react-dom@19.2.8__react@19.2.8": {
       "integrity": "sha512-XT1eP2iA8rZ51NSO2CJlL1ZE2baBoPpOGMgz2p0o2uluz/YU3XfItpGymXDlL0Sp2Mc+y9+Xxsfdccfi4f2FzQ==",
       "dependencies": [
         "@react-email/render",
@@ -4883,17 +5026,17 @@
         "seroval@1.5.6"
       ]
     },
-    "seroval-plugins@1.6.2_seroval@1.6.3": {
+    "seroval-plugins@1.6.2_seroval@1.6.4": {
       "integrity": "sha512-TfxuUjlbBESzUOWdTkTKqvSmav0ABym+itetDXLK6mDz8SmrpdI30aF8RTXE8Bvq+tH/1yIDkvy3W0lfQb1ipQ==",
       "dependencies": [
-        "seroval@1.6.3"
+        "seroval@1.6.4"
       ]
     },
     "seroval@1.5.6": {
       "integrity": "sha512-rVQVWjjSvlINzaQPZH5JFqsqEsIWdTxY3iJZCnTL/5gQbXIRooVZKI60tVCkOVfzcRPejboxO2t0P89dg5mQaA=="
     },
-    "seroval@1.6.3": {
-      "integrity": "sha512-5PwLbVPpT4DEki1hYVSSsoxWY6xCNMVucAVLK/CH0mXSDfp/I4KaAex72q80GNt5hpn7CCMGdSpIg4YGqH/wXQ=="
+    "seroval@1.6.4": {
+      "integrity": "sha512-LErWMNS2RRFdu2RMA5u/PA59/IWs0XsikyEXGQ2/36iEWFrdG0ABmg17E17cikrv76891kOAMq3TkTFXpwAHXw=="
     },
     "serve-static@2.2.1": {
       "integrity": "sha512-xRXBn0pPqQTVQiC8wyQrKs2MOlX24zQ0POGaj0kultvoOCstBQM5yvOhAVSUwOMjQtTvsPWoNCHfPGwaaQJhTw==",
@@ -5099,6 +5242,9 @@
     },
     "source-map@0.7.6": {
       "integrity": "sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ=="
+    },
+    "split2@4.2.0": {
+      "integrity": "sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg=="
     },
     "srvx@0.11.22": {
       "integrity": "sha512-LqZxxBDMKuMAZzFzJnDCkFOrs9MZQZr0LvHiO/SuSZVdQaXD7xQ5UWTUxheJrQPve1qk9MG2B/yttUvJxw8egQ==",
@@ -5325,7 +5471,7 @@
         "vite"
       ]
     },
-    "unstorage@2.0.0-alpha.7_db0@0.3.4__drizzle-orm@1.0.0-rc.5-ab785fc___effect@4.0.0-rc.112___postgres@3.4.9___zod@4.4.3__effect@4.0.0-rc.112_ofetch@2.0.0-alpha.3_drizzle-orm@1.0.0-rc.5-ab785fc__effect@4.0.0-rc.112__postgres@3.4.9__zod@4.4.3_effect@4.0.0-rc.112": {
+    "unstorage@2.0.0-alpha.7_db0@0.3.4__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0-rc.112____effect@4.0.0-rc.112___@types+pg@8.23.1___effect@4.0.0-rc.112___pg@8.23.0___postgres@3.4.9___zod@4.5.4_ofetch@2.0.0-alpha.3_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0-rc.112___effect@4.0.0-rc.112__@types+pg@8.23.1__effect@4.0.0-rc.112__pg@8.23.0__postgres@3.4.9__zod@4.5.4": {
       "integrity": "sha512-ELPztchk2zgFJnakyodVY3vJWGW9jy//keJ32IOJVGUMyaPydwcA1FtVvWqT0TNRch9H+cMNEGllfVFfScImog==",
       "dependencies": [
         "db0",
@@ -5473,6 +5619,9 @@
         "js-yaml"
       ]
     },
+    "xtend@4.0.2": {
+      "integrity": "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ=="
+    },
     "y18n@5.0.8": {
       "integrity": "sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA=="
     },
@@ -5516,8 +5665,8 @@
     "zod@3.25.76": {
       "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
     },
-    "zod@4.4.3": {
-      "integrity": "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="
+    "zod@4.5.4": {
+      "integrity": "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="
     }
   },
   "workspace": {
@@ -5527,11 +5676,13 @@
         "npm:@base-ui/react@^1.6.0",
         "npm:@better-auth-ui/core@1.7.12",
         "npm:@better-auth-ui/react@1.7.12",
-        "npm:@better-auth/drizzle-adapter@1.7.1",
+        "npm:@better-auth/drizzle-adapter@^1.7.2",
         "npm:@csstools/color-helpers@6.1.0",
         "npm:@csstools/css-color-parser@4.1.10",
         "npm:@csstools/css-parser-algorithms@4.0.0",
         "npm:@csstools/css-tokenizer@4.0.0",
+        "npm:@effect/sql-pg@^4.0.0-rc.112",
+        "npm:@effect/vitest@^4.0.0-rc.112",
         "npm:@fontsource-variable/inter@^5.2.8",
         "npm:@fontsource-variable/manrope@^5.2.8",
         "npm:@marsidev/react-turnstile@^1.6.0",
@@ -5550,10 +5701,11 @@
         "npm:@tanstack/react-start@^1.168.32",
         "npm:@tanstack/router-cli@^1.167.21",
         "npm:@types/nodemailer@^8.0.1",
+        "npm:@types/pg@^8.23.1",
         "npm:@types/react-dom@19",
         "npm:@types/react@19",
         "npm:@vitejs/plugin-react@6",
-        "npm:better-auth@1.7.1",
+        "npm:better-auth@^1.7.2",
         "npm:bowser@^2.14.1",
         "npm:class-variance-authority@~0.7.1",
         "npm:clsx@^2.1.1",
@@ -5564,6 +5716,7 @@
         "npm:knip@^6.32.0",
         "npm:nitro@3.0.260610-beta",
         "npm:nodemailer@^9.0.5",
+        "npm:pg@^8.23.0",
         "npm:postgres@^3.4.9",
         "npm:react-dom@^19.2.6",
         "npm:react-email@^6.9.2",

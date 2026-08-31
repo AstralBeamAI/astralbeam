@@ -1,14 +1,9 @@
 import { eq, type SQL } from "drizzle-orm"
-import {
-  type PgAsyncDatabase,
-  PgDialect,
-  type PgQueryResultHKT,
-  snakeCase,
-  text,
-} from "drizzle-orm/pg-core"
+import { PgDialect, snakeCase, text } from "drizzle-orm/pg-core"
 import * as Effect from "effect/Effect"
 import { describe, expect, test } from "vitest"
 
+import type { EffectDatabase } from "../effect.server.ts"
 import { lockVersion, uuidV7PrimaryKey } from "./postgresql-types.server.ts"
 import {
   deleteWithOptimisticLock,
@@ -65,10 +60,10 @@ describe("optimistic locking", () => {
     })
   })
 
-  test("guards deletes with the expected version", async () => {
+  test("guards deletes at the initial lock version", async () => {
     const deleted: LockedRecord = {
       id: "01992a80-1d71-7f24-a150-f1177e3f6419",
-      lockVersion: 7,
+      lockVersion: 0,
       name: "deleted",
     }
     const { calls, executor } = createExecutor([deleted])
@@ -79,7 +74,7 @@ describe("optimistic locking", () => {
           executor,
           table: lockedRecord,
           id: deleted.id,
-          expectedLockVersion: 7,
+          expectedLockVersion: 0,
         }),
       ),
     ).resolves.toEqual(deleted)
@@ -87,7 +82,7 @@ describe("optimistic locking", () => {
     expect(calls).toHaveLength(1)
     expect(calls[0]?.operation).toBe("delete")
     expect(toQuery(calls[0]?.where)).toEqual({
-      params: [deleted.id, 7],
+      params: [deleted.id, 0],
       sql: '(("locked_record"."id" = $1) and ("locked_record"."lock_version" = $2))',
     })
   })
@@ -115,10 +110,11 @@ describe("optimistic locking", () => {
     )
   })
 
-  test("rejects a mutation row that does not match the Drizzle table schema", async () => {
+  test("rejects a negative persisted lock version", async () => {
     const { executor } = createExecutor([{
       id: "01992a80-1d71-7f24-a150-f1177e3f6419",
-      lockVersion: 3,
+      lockVersion: -1,
+      name: "updated",
     }])
 
     await expect(
@@ -142,6 +138,7 @@ describe("optimistic locking", () => {
 })
 
 function createExecutor(rows: unknown[]) {
+  const result = Effect.succeed(rows)
   const calls: MutationCall[] = []
   const executor = {
     delete: () => {
@@ -150,7 +147,7 @@ function createExecutor(rows: unknown[]) {
       return {
         where: (where: SQL) => {
           call.where = where
-          return { returning: () => Promise.resolve(rows) }
+          return { returning: () => result }
         },
       }
     },
@@ -163,13 +160,13 @@ function createExecutor(rows: unknown[]) {
           return {
             where: (where: SQL) => {
               call.where = where
-              return { returning: () => Promise.resolve(rows) }
+              return { returning: () => result }
             },
           }
         },
       }
     },
-  } as unknown as PgAsyncDatabase<PgQueryResultHKT>
+  } as unknown as Pick<EffectDatabase, "delete" | "update">
 
   return { calls, executor }
 }

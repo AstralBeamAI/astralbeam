@@ -1,8 +1,9 @@
 import { eq, notInArray, sql } from "drizzle-orm"
+import * as Effect from "effect/Effect"
 
+import { effectDatabase, runDatabaseEffect } from "@/db/effect.server"
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
-import { db } from "@/db/index.server"
 import { isMissingTableError } from "@/db/lib/postgres-errors.server"
 import { configTable } from "@/db/schema.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
@@ -30,19 +31,20 @@ type DatabaseConfigState = {
   readonly values: ConfigValues
 }
 
-async function readStoredConfigRows(
+function readStoredConfigRows(
   excludedKeys: readonly ConfigKey[],
-): Promise<StoredConfigRow[] | null> {
-  try {
+) {
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
     const query = db
       .select({
         key: configTable.key,
         storedValue: sql<string>`${configTable.value}::text`,
       })
       .from(configTable)
-    const rows = excludedKeys.length === 0
-      ? await query
-      : await query.where(notInArray(configTable.key, [...excludedKeys]))
+    const rows = yield* excludedKeys.length === 0
+      ? query
+      : query.where(notInArray(configTable.key, [...excludedKeys]))
     return rows.map(({ key, storedValue }) => {
       try {
         const decoded = decodeRawStoredConfigValue(storedValue)
@@ -52,13 +54,12 @@ async function readStoredConfigRows(
           ...(decoded.usedFallbackKey ? { storage: "fallback-key" as const } : {}),
         }
       } catch {
-        return { key, storage: "unreadable" }
+        return { key, storage: "unreadable" as const }
       }
     })
-  } catch (error) {
-    if (isMissingTableError(error)) return null
-    throw error
-  }
+  }).pipe(
+    Effect.catchIf(isMissingTableError, () => Effect.succeed(null)),
+  )
 }
 
 function decodeRawStoredConfigValue(storedValue: string) {
@@ -117,15 +118,23 @@ function decodeStoredConfigRows(
   return values
 }
 
-export async function getDatabaseConfig(
+export function getDatabaseConfigEffect(
+  excludedKeys: readonly ConfigKey[] = [],
+) {
+  return Effect.gen(function* () {
+    const storedRows = yield* readStoredConfigRows(excludedKeys)
+    const values = decodeStoredConfigRows(storedRows ?? [])
+    return {
+      rows: storedRows === null ? null : visibleStoredConfigRows(storedRows, values),
+      values,
+    }
+  })
+}
+
+export function getDatabaseConfig(
   excludedKeys: readonly ConfigKey[] = [],
 ): Promise<DatabaseConfigState> {
-  const storedRows = await readStoredConfigRows(excludedKeys)
-  const values = decodeStoredConfigRows(storedRows ?? [])
-  return {
-    rows: storedRows === null ? null : visibleStoredConfigRows(storedRows, values),
-    values,
-  }
+  return runDatabaseEffect(getDatabaseConfigEffect(excludedKeys))
 }
 
 function databaseConfigValue(value: DatabaseConfigGeneratedValue) {
@@ -137,31 +146,43 @@ function databaseConfigValue(value: DatabaseConfigGeneratedValue) {
   }
 }
 
+function applyDatabaseConfigChangesEffect(
+  changes: readonly DatabaseConfigChange[],
+  generatedValues: readonly DatabaseConfigGeneratedValue[] = [],
+) {
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    yield* db.transaction((transaction) =>
+      Effect.gen(function* () {
+        for (const change of changes) {
+          if (change.value === null) {
+            yield* transaction.delete(configTable).where(eq(configTable.key, change.key))
+            continue
+          }
+          const storedValue = databaseConfigValue({ key: change.key, value: change.value })
+          yield* transaction
+            .insert(configTable)
+            .values(storedValue)
+            .onConflictDoUpdate({
+              target: configTable.key,
+              // Upserts bypass Drizzle's $onUpdateFn hook, so updated_at is set explicitly.
+              set: { value: storedValue.value, updatedAt: sql`now()` },
+            })
+        }
+        for (const generatedValue of generatedValues) {
+          yield* transaction
+            .insert(configTable)
+            .values(databaseConfigValue(generatedValue))
+            .onConflictDoNothing({ target: configTable.key })
+        }
+      })
+    )
+  })
+}
+
 export async function applyDatabaseConfigChanges(
   changes: readonly DatabaseConfigChange[],
   generatedValues: readonly DatabaseConfigGeneratedValue[] = [],
 ): Promise<void> {
-  await db.transaction(async (transaction) => {
-    for (const change of changes) {
-      if (change.value === null) {
-        await transaction.delete(configTable).where(eq(configTable.key, change.key))
-        continue
-      }
-      const storedValue = databaseConfigValue({ key: change.key, value: change.value })
-      await transaction
-        .insert(configTable)
-        .values(storedValue)
-        .onConflictDoUpdate({
-          target: configTable.key,
-          // Upserts bypass Drizzle's $onUpdateFn hook, so updated_at is set explicitly.
-          set: { value: storedValue.value, updatedAt: sql`now()` },
-        })
-    }
-    for (const generatedValue of generatedValues) {
-      await transaction
-        .insert(configTable)
-        .values(databaseConfigValue(generatedValue))
-        .onConflictDoNothing({ target: configTable.key })
-    }
-  })
+  await runDatabaseEffect(applyDatabaseConfigChangesEffect(changes, generatedValues))
 }

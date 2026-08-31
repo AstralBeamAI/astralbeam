@@ -79,8 +79,8 @@ function appliedNameSet(rows: Iterable<object | undefined>): Set<string> {
 
 async function listAppliedMigrationNames(): Promise<Set<string> | null> {
   try {
-    const rows = await db.execute(sql`select name from drizzle.__drizzle_migrations`)
-    return appliedNameSet(rows)
+    const result = await db.execute(sql`select name from drizzle.__drizzle_migrations`)
+    return appliedNameSet(result.rows)
   } catch (error) {
     if (isMissingBookkeepingError(error)) return null
     throw error

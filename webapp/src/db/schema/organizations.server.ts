@@ -49,7 +49,7 @@ export const member = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
-    // Keep Better Auth's generated member shape: organization and user are referenced independently, while its official APIs enforce membership creation. https://github.com/better-auth/better-auth/blob/v1.7.1/packages/better-auth/src/plugins/organization/schema.ts#L140-L166
+    // Keep Better Auth's generated member shape: organization and user are referenced independently, while its official APIs enforce membership creation. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/schema.ts#L140-L166
     index("member_organization_id_idx").on(table.organizationId),
     index("member_user_id_idx").on(table.userId),
   ],

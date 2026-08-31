@@ -1,10 +1,19 @@
-// Drizzle wraps driver failures in DrizzleQueryError, so the PostgreSQL code sits on a cause.
+import * as Cause from "effect/Cause"
+
+// Drizzle stores Effect SQL failures in an Effect Cause; SQL errors then expose their reason as
+// the standard JavaScript `cause`.
 export function getPostgresErrorCode(error: unknown): string | undefined {
   let current = error
-  while (typeof current === "object" && current !== null) {
-    const code = (current as { code?: unknown }).code
+  const visited = new Set<object>()
+  while (typeof current === "object" && current !== null && !visited.has(current)) {
+    visited.add(current)
+    const code = "code" in current ? current.code : undefined
     if (typeof code === "string") return code
-    current = (current as { cause?: unknown }).cause
+    current = Cause.isCause(current)
+      ? Cause.squash(current)
+      : "cause" in current
+      ? current.cause
+      : undefined
   }
   return undefined
 }

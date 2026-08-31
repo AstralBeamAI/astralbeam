@@ -16,6 +16,7 @@
 - Use `README.md` for consumers and `AGENTS.md` for authors. When creating an `AGENTS.md`, add a sibling `CLAUDE.md` symlink to it.
 - Preserve existing `AGENTS.md` and skill instructions unless removal is explicit or resolves a documented conflict.
 - Name planning documents with the `*.plan.md` suffix so they are distinguishable from durable documentation.
+- Make implementation plans self-sufficient by including motivation, authoritative references, affected files and important code or API anchors, validation, and assumptions or boundaries.
 - Keep each Markdown paragraph and list item on one source line.
 - Comment only non-obvious code or configuration decisions, including a link to authoritative documentation or an issue.
 

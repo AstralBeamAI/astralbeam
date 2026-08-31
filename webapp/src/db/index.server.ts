@@ -1,9 +1,20 @@
-import { drizzle } from "drizzle-orm/postgres-js"
-import postgres from "postgres"
+import { drizzle } from "drizzle-orm/node-postgres"
 
-import { databaseRelations } from "@/db/schema.server"
 import { getDatabaseUrl } from "@/db/lib/database-credentials.server"
+import { databaseRelations } from "@/db/schema.server"
 
-const client = postgres(getDatabaseUrl())
+export const db = drizzle({
+  connection: {
+    // Keep process lifetime under the server runtime's control, not idle database sockets.
+    // https://node-postgres.com/apis/pool
+    allowExitOnIdle: true,
+    connectionString: getDatabaseUrl(),
+  },
+  jit: true,
+  relations: databaseRelations,
+})
 
-export const db = drizzle({ client, relations: databaseRelations })
+db.$client.on("error", (error) => {
+  const code = "code" in error && typeof error.code === "string" ? error.code : "UNKNOWN"
+  console.error("Database pool idle client error", { code })
+})

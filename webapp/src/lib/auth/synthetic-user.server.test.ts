@@ -1,4 +1,7 @@
+import * as Schema from "effect/Schema"
 import { describe, expect, test } from "vitest"
+
+import { UuidV7Schema } from "@/lib/schemas"
 
 import { createSyntheticUser } from "./synthetic-user.server.ts"
 
@@ -13,8 +16,6 @@ describe("synthetic duplicate-signup users", () => {
       updatedAt: new Date(),
     })
 
-    expect(user.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    )
+    expect(Schema.is(UuidV7Schema)(user.id)).toBe(true)
   })
 })
