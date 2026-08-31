@@ -1,6 +1,7 @@
 export { account, session, user, verification } from "./authentication.server.ts"
 export { configTable } from "./config.server.ts"
 export {
+  apiKey,
   invitation,
   member,
   organization,

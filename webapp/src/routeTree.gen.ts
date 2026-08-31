@@ -23,6 +23,7 @@ import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
 import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
 import { Route as AuthenticatedSettingsOrganizationsIndexRouteImport } from './routes/_authenticated/settings/organizations/index'
 import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
+import { Route as AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport } from './routes/_authenticated/_organization/organization/api-keys/index'
 import { Route as AuthenticatedOrganizationOrganizationMembersIndexRouteImport } from './routes/_authenticated/_organization/organization/members/index'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -100,6 +101,12 @@ const AuthenticatedSettingsSecurityIndexRoute =
     path: '/security/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedOrganizationOrganizationApiKeysIndexRoute =
+  AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport.update({
+    id: '/organization/api-keys/',
+    path: '/organization/api-keys/',
+    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+  } as any)
 const AuthenticatedOrganizationOrganizationMembersIndexRoute =
   AuthenticatedOrganizationOrganizationMembersIndexRouteImport.update({
     id: '/organization/members/',
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -135,6 +143,7 @@ export interface FileRoutesByTo {
   '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/organizations': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/organization/api-keys': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/organization/members': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
 }
 export interface FileRoutesById {
@@ -153,6 +162,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/_authenticated/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/_authenticated/_organization/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/_authenticated/_organization/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
 }
 export interface FileRouteTypes {
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/settings/account/'
     | '/settings/organizations/'
     | '/settings/security/'
+    | '/organization/api-keys/'
     | '/organization/members/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/organizations'
     | '/settings/security'
+    | '/organization/api-keys'
     | '/organization/members'
   id:
     | '__root__'
@@ -202,6 +214,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/account/'
     | '/_authenticated/settings/organizations/'
     | '/_authenticated/settings/security/'
+    | '/_authenticated/_organization/organization/api-keys/'
     | '/_authenticated/_organization/organization/members/'
   fileRoutesById: FileRoutesById
 }
@@ -315,6 +328,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSecurityIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_organization/organization/api-keys/': {
+      id: '/_authenticated/_organization/organization/api-keys/'
+      path: '/organization/api-keys'
+      fullPath: '/organization/api-keys/'
+      preLoaderRoute: typeof AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport
+      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    }
     '/_authenticated/_organization/organization/members/': {
       id: '/_authenticated/_organization/organization/members/'
       path: '/organization/members'
@@ -327,12 +347,15 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedOrganizationRouteRouteChildren {
   AuthenticatedOrganizationIndexRoute: typeof AuthenticatedOrganizationIndexRoute
+  AuthenticatedOrganizationOrganizationApiKeysIndexRoute: typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   AuthenticatedOrganizationOrganizationMembersIndexRoute: typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
 }
 
 const AuthenticatedOrganizationRouteRouteChildren: AuthenticatedOrganizationRouteRouteChildren =
   {
     AuthenticatedOrganizationIndexRoute: AuthenticatedOrganizationIndexRoute,
+    AuthenticatedOrganizationOrganizationApiKeysIndexRoute:
+      AuthenticatedOrganizationOrganizationApiKeysIndexRoute,
     AuthenticatedOrganizationOrganizationMembersIndexRoute:
       AuthenticatedOrganizationOrganizationMembersIndexRoute,
   }
