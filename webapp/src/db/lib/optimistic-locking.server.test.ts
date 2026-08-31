@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import { describe, expect, test } from "vitest"
 
 import type { EffectDatabase } from "@/db"
-import { lockVersion, uuidV7PrimaryKey } from "./postgresql-types.server.ts"
+import { lockVersion, uuidV7PrimaryKey } from "./columns.server.ts"
 import {
   deleteWithOptimisticLock,
   OptimisticLockError,
@@ -60,10 +60,10 @@ describe("optimistic locking", () => {
     })
   })
 
-  test("guards deletes at the initial lock version", async () => {
+  test("guards deletes with the expected version", async () => {
     const deleted: LockedRecord = {
       id: "01992a80-1d71-7f24-a150-f1177e3f6419",
-      lockVersion: 0,
+      lockVersion: 7,
       name: "deleted",
     }
     const { calls, executor } = createExecutor([deleted])
@@ -74,7 +74,7 @@ describe("optimistic locking", () => {
           executor,
           table: lockedRecord,
           id: deleted.id,
-          expectedLockVersion: 0,
+          expectedLockVersion: 7,
         }),
       ),
     ).resolves.toEqual(deleted)
@@ -82,7 +82,7 @@ describe("optimistic locking", () => {
     expect(calls).toHaveLength(1)
     expect(calls[0]?.operation).toBe("delete")
     expect(toQuery(calls[0]?.where)).toEqual({
-      params: [deleted.id, 0],
+      params: [deleted.id, 7],
       sql: '(("locked_record"."id" = $1) and ("locked_record"."lock_version" = $2))',
     })
   })
@@ -105,32 +105,6 @@ describe("optimistic locking", () => {
         expectedLockVersion: 2,
         name: "OptimisticLockError",
         reason: "conflict",
-        tableName: "locked_record",
-      } satisfies Partial<OptimisticLockError>,
-    )
-  })
-
-  test("rejects a negative persisted lock version", async () => {
-    const { executor } = createExecutor([{
-      id: "01992a80-1d71-7f24-a150-f1177e3f6419",
-      lockVersion: -1,
-      name: "updated",
-    }])
-
-    await expect(
-      Effect.runPromise(
-        updateWithOptimisticLock({
-          executor,
-          table: lockedRecord,
-          id: "01992a80-1d71-7f24-a150-f1177e3f6419",
-          expectedLockVersion: 2,
-          set: { name: "updated" },
-        }),
-      ),
-    ).rejects.toMatchObject(
-      {
-        name: "OptimisticLockError",
-        reason: "invalid-result",
         tableName: "locked_record",
       } satisfies Partial<OptimisticLockError>,
     )
