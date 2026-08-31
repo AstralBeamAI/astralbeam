@@ -1,7 +1,7 @@
 import { eq, notInArray, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
-import { effectDatabase, runDatabaseEffect } from "@/db/effect.server"
+import { effectDatabase, runDatabaseEffect } from "@/db"
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { isMissingTableError } from "@/db/lib/postgres-errors.server"

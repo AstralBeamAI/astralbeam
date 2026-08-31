@@ -3,7 +3,7 @@ import { PgDialect, snakeCase, text } from "drizzle-orm/pg-core"
 import * as Effect from "effect/Effect"
 import { describe, expect, test } from "vitest"
 
-import type { EffectDatabase } from "../effect.server.ts"
+import type { EffectDatabase } from "@/db"
 import { lockVersion, uuidV7PrimaryKey } from "./postgresql-types.server.ts"
 import {
   deleteWithOptimisticLock,

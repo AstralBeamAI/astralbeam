@@ -8,7 +8,7 @@ import { addOAuthServerContext, createAuthMiddleware, isAPIError } from "better-
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 
-import { db } from "@/db/index.server"
+import { db } from "@/db"
 import { tables } from "@/db/schema.server"
 import {
   sendOrganizationInvitationEmail,

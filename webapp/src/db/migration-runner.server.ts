@@ -3,7 +3,7 @@ import { createHash } from "node:crypto"
 import { sql } from "drizzle-orm"
 import postgres from "postgres"
 
-import { db } from "@/db/index.server"
+import { db } from "@/db"
 import { getDatabaseUrl } from "@/db/lib/database-credentials.server"
 import { hasPostgresErrorCode } from "@/db/lib/postgres-errors.server"
 import { approvedMigrationsMatch } from "@/db/migration-approval.server"

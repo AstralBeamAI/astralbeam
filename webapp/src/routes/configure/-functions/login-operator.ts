@@ -19,7 +19,7 @@ export const loginOperator = createServerFn({ method: "POST" })
     const { clearOperatorLoginRateLimit, consumeOperatorLoginRateLimit } = await import(
       "../-lib/login-rate-limit.server"
     )
-    const { runDatabaseEffect } = await import("@/db/effect.server")
+    const { runDatabaseEffect } = await import("@/db")
     const { createOperatorSession, setOperatorSessionCookie } = await import(
       "../-lib/operator-session.server"
     )

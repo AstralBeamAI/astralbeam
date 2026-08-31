@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer"
 import { afterAll, beforeAll, vi } from "vitest"
 
 import { getDatabaseConfigEffect } from "./config.server.ts"
-import { type EffectDatabase, effectDatabase } from "./effect.server.ts"
+import { type EffectDatabase, effectDatabase } from "@/db"
 import { configTable } from "./schema/config.server.ts"
 
 const ACTIVE_KEY = "a".repeat(64)

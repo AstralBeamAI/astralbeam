@@ -7,7 +7,7 @@ import { Schema } from "effect"
 
 import { LockVersionSchema } from "@/lib/schemas"
 
-import type { EffectDatabase } from "../effect.server.ts"
+import type { EffectDatabase } from "@/db"
 
 type LockedTable = AnyPgTable & {
   id: AnyPgColumn<{ notNull: true }>

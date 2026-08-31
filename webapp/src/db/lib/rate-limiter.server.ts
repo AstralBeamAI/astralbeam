@@ -3,7 +3,7 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import { RateLimiter } from "effect/unstable/persistence"
 
-import { type EffectDatabase, effectDatabase } from "@/db/effect.server"
+import { type EffectDatabase, effectDatabase } from "@/db"
 import { rateLimit } from "@/db/schema.server"
 
 const POSTGRES_INTEGER_MAX = 2_147_483_647
