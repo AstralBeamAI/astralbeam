@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto"
+
 import { API_KEY_ERROR_CODES, apiKey } from "@better-auth/api-key"
 import { organization } from "better-auth/plugins"
 import { getTestInstance } from "better-auth/test"
@@ -186,6 +188,28 @@ describe("organization API key authorization", () => {
       },
       headers: fixture.headers.viewer,
     })).rejects.toMatchObject(denied)
+  })
+
+  test("stores only the API key digest", async () => {
+    const created = await fixture.auth.api.createApiKey({
+      body: {
+        organizationId: fixture.organizationId,
+        name: "Hashed key",
+      },
+      headers: fixture.headers.owner,
+    })
+    const stored = await fixture.db.findOne<{ id: string; key: string }>({
+      model: "apikey",
+      where: [{ field: "id", value: created.id }],
+    })
+
+    expect(stored?.key).toBe(createHash("sha256").update(created.key).digest("base64url"))
+    await expect(fixture.auth.api.verifyApiKey({
+      body: { key: created.key },
+    })).resolves.toMatchObject({ valid: true, key: { id: created.id } })
+    await expect(fixture.auth.api.verifyApiKey({
+      body: { key: stored!.key },
+    })).resolves.toMatchObject({ valid: false, key: null })
   })
 
   test("requires a fresh session to create an organization API key", async () => {

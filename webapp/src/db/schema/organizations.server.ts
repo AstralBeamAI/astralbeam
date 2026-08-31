@@ -37,6 +37,7 @@ export const apiKey = snakeCase.table(
       onDelete: "cascade",
     }),
     prefix: text(),
+    // Better Auth stores a SHA-256 digest, not the bearer key. https://better-auth.com/docs/plugins/api-key/reference#schema
     key: text().notNull(),
     refillInterval: integer(),
     refillAmount: integer(),
