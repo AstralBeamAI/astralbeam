@@ -1,8 +1,7 @@
 import { snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core"
 import { Schema } from "effect"
 
-import { encryptedJson } from "../lib/encrypted-column.server.ts"
-import { timestamps, uuidV7PrimaryKey } from "../lib/columns.server.ts"
+import { encryptedJson, timestamps, uuidV7PrimaryKey } from "../lib/columns.server.ts"
 
 const configValuePayloadSchema = Schema.Struct({
   key: Schema.String,
