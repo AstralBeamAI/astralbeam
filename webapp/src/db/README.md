@@ -4,7 +4,7 @@ The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated
 
 ## Structure
 
-- `index.server.ts` creates and exports the Drizzle client.
+- `index.ts` is guarded as server-only and exports the Promise Drizzle client, native Effect database service, and framework bridge.
 - `config.server.ts` validates decrypted values from the global `config` table and recovers unreadable rows for `/configure`; the Drizzle column codec owns encryption, while `src/lib/config` adds environment precedence and process-local caching through `getGlobalConfig`.
 - `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
@@ -19,7 +19,7 @@ The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated
 Once a table is exported from the schema entrypoint, consume it with the Drizzle client:
 
 ```ts
-import { db } from "@/db/index.server"
+import { db } from "@/db"
 import { projects } from "@/db/schema.server"
 
 export const listProjects = () => db.select().from(projects)

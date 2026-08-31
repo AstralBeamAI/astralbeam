@@ -5,7 +5,7 @@ import {
   timestamps,
   timestampWithTimeZone,
   uuidV7PrimaryKey,
-} from "../lib/postgresql-types.server.ts"
+} from "../lib/columns.server.ts"
 
 export const user = snakeCase.table(
   "user",
@@ -30,7 +30,7 @@ export const session = snakeCase.table(
     ipAddress: text(),
     userAgent: text(),
     userId: uuid().notNull().references(() => user.id, { onDelete: "cascade" }),
-    // Better Auth defines the active organization as a nullable session selector without a foreign key; memberships stay authoritative and stale selections are reconciled on access. https://github.com/better-auth/better-auth/blob/v1.7.1/packages/better-auth/src/plugins/organization/schema.ts#L212-L218
+    // Better Auth defines the active organization as a nullable session selector without a foreign key; memberships stay authoritative and stale selections are reconciled on access. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/schema.ts#L212-L218
     activeOrganizationId: uuid(),
     ...timestamps(),
   },

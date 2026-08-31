@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { setResponseHeader } from "@tanstack/react-start/server"
 import { Schema } from "effect"
-import * as Effect from "effect/Effect"
 
 const OperatorLoginInput = Schema.Struct({
   key: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1_024))),
@@ -20,11 +19,12 @@ export const loginOperator = createServerFn({ method: "POST" })
     const { clearOperatorLoginRateLimit, consumeOperatorLoginRateLimit } = await import(
       "../-lib/login-rate-limit.server"
     )
+    const { runDatabaseEffect } = await import("@/db")
     const { createOperatorSession, setOperatorSessionCookie } = await import(
       "../-lib/operator-session.server"
     )
     requireConfigureRequest()
-    const decision = await Effect.runPromise(consumeOperatorLoginRateLimit())
+    const decision = await runDatabaseEffect(consumeOperatorLoginRateLimit())
     if (!decision.allowed) {
       setResponseHeader("Retry-After", String(decision.retryAfterSeconds))
       return {
@@ -33,7 +33,7 @@ export const loginOperator = createServerFn({ method: "POST" })
       }
     }
     if (checkOperatorKey(data.key)) {
-      await Effect.runPromise(clearOperatorLoginRateLimit())
+      await runDatabaseEffect(clearOperatorLoginRateLimit())
       setOperatorSessionCookie(await createOperatorSession())
       return { ok: true }
     }

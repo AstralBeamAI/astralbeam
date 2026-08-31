@@ -2,7 +2,8 @@
   "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
   "nodeModulesDir": "auto",
   // msgpackr-extract is optional native acceleration; installs skip its Node-only probe under Deno. https://github.com/kriszyp/msgpackr#native-acceleration
-  "allowScripts": ["npm:esbuild", "npm:msgpackr-extract"],
+  // Sharp validates its lockfile-pinned prebuilt binary during install. https://sharp.pixelplumbing.com/install
+  "allowScripts": ["npm:esbuild", "npm:msgpackr-extract", "npm:sharp"],
   "unstable": ["no-legacy-abort"],
   "permissions": {
     "tooling": {

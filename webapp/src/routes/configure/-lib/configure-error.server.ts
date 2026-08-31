@@ -1,4 +1,4 @@
-import { getPostgresErrorCode } from "@/db/lib/postgres-errors.server"
+import { sqlState } from "@/db/lib/sqlstate.server"
 
 export async function withConfigureError<Value>(
   message: string,
@@ -11,7 +11,7 @@ export async function withConfigureError<Value>(
     // PostgreSQL codes are enough to correlate failures without retaining sensitive values.
     console.error(message, {
       type: error instanceof Error ? error.name : typeof error,
-      code: getPostgresErrorCode(error),
+      code: sqlState(error),
     })
     throw new Error(message)
   }

@@ -8,7 +8,7 @@ import { addOAuthServerContext, createAuthMiddleware, isAPIError } from "better-
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 
-import { db } from "@/db/index.server"
+import { db } from "@/db"
 import { tables } from "@/db/schema.server"
 import {
   sendOrganizationInvitationEmail,
@@ -27,18 +27,18 @@ import { organizationRoles } from "@/lib/auth/organization-access"
 import { organizationRoleHooks } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 
-// Better Auth 1.7.1 keeps these defaults inline rather than exporting them. Pass each value to
+// Better Auth 1.7.2 keeps these defaults inline rather than exporting them. Pass each value to
 // both its auth option and email callback so the real expiry and rendered copy stay in sync.
 // Verification:
-// https://github.com/better-auth/better-auth/blob/2344536054f9164ca5d1670c270d299049ee233e/packages/better-auth/src/api/routes/email-verification.ts#L16-L40
+// https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/email-verification.ts#L16-L40
 const EMAIL_VERIFICATION_EXPIRY_SECONDS = 60 * 60
 
 // Password reset:
-// https://github.com/better-auth/better-auth/blob/2344536054f9164ca5d1670c270d299049ee233e/packages/better-auth/src/api/routes/password.ts#L121-L143
+// https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/password.ts#L121-L143
 const PASSWORD_RESET_EXPIRY_SECONDS = 60 * 60
 
 // Organization invitation:
-// https://github.com/better-auth/better-auth/blob/2344536054f9164ca5d1670c270d299049ee233e/packages/better-auth/src/plugins/organization/adapter.ts#L1185-L1211
+// https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/adapter.ts#L1185-L1211
 const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 
 type RequestWithWaitUntil = Request & {

@@ -2,7 +2,7 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import { RateLimiter } from "effect/unstable/persistence"
 
-import { isMissingTableError } from "@/db/lib/postgres-errors.server"
+import { sqlState } from "@/db/lib/sqlstate.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 
 const OPERATOR_LOGIN_RATE_LIMIT_KEY = "configure:operator-login"
@@ -16,7 +16,7 @@ interface OperatorLoginRateLimitDecision {
 
 function isMissingRateLimitTable(error: RateLimiter.RateLimiterError): boolean {
   return error.reason._tag === "RateLimitStoreError" &&
-    isMissingTableError(error.reason.cause)
+    sqlState(error.reason.cause) === "42P01"
 }
 
 function isRateLimitExceeded(error: RateLimiter.RateLimiterError): boolean {

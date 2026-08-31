@@ -57,8 +57,8 @@ const viteConfig = defineConfig(({ mode }) => {
       viteReact(),
     ],
     test: {
-      // Vitest workers do not inherit the .env.development values that nitro loads, and every test
-      // mocks the database, so a parseable placeholder is all module-level clients need.
+      // Vitest workers do not inherit Nitro's env; database consumers receive test layers, so the
+      // module-level pool only needs a parseable placeholder.
       env: { DATABASE_URL: "postgres://test:test@127.0.0.1:5432/test" },
     },
   }

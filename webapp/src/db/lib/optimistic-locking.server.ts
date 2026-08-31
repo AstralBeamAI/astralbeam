@@ -1,23 +1,13 @@
-import {
-  and,
-  type AnyRelations,
-  eq,
-  getTableName,
-  type InferSelectModel,
-  type SQL,
-  sql,
-} from "drizzle-orm"
+import { and, eq, getTableName, type InferSelectModel, type SQL, sql } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
-import type {
-  AnyPgColumn,
-  AnyPgTable,
-  PgAsyncDatabase,
-  PgQueryResultHKT,
-  PgUpdateSetSource,
-} from "drizzle-orm/pg-core"
+import type { AnyPgColumn, AnyPgTable, PgUpdateSetSource } from "drizzle-orm/pg-core"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import { Schema } from "effect"
+
+import { LockVersionSchema } from "@/lib/schemas"
+
+import type { EffectDatabase } from "@/db"
 
 type LockedTable = AnyPgTable & {
   id: AnyPgColumn<{ notNull: true }>
@@ -29,12 +19,10 @@ type LockedUpdateSet<TTable extends LockedTable> = Omit<
   "id" | "lockVersion"
 >
 
-type OptimisticLockOptions<
-  TTable extends LockedTable,
-  TQueryResult extends PgQueryResultHKT,
-  TRelations extends AnyRelations,
-> = {
-  executor: PgAsyncDatabase<TQueryResult, TRelations>
+type OptimisticLockExecutor = Pick<EffectDatabase, "delete" | "update">
+
+type OptimisticLockOptions<TTable extends LockedTable> = {
+  executor: OptimisticLockExecutor
   table: TTable
   id: InferSelectModel<TTable>["id"]
   scope?: SQL
@@ -42,6 +30,7 @@ type OptimisticLockOptions<
 }
 
 export class OptimisticLockError extends Data.TaggedError("OptimisticLockError")<{
+  readonly cause?: unknown
   readonly reason: "conflict" | "database" | "invalid-result" | "invalid-version"
   readonly expectedLockVersion: number
   readonly tableName: string
@@ -49,10 +38,8 @@ export class OptimisticLockError extends Data.TaggedError("OptimisticLockError")
 
 export function updateWithOptimisticLock<
   TTable extends LockedTable,
-  TQueryResult extends PgQueryResultHKT,
-  TRelations extends AnyRelations,
 >(
-  options: OptimisticLockOptions<TTable, TQueryResult, TRelations> & {
+  options: OptimisticLockOptions<TTable> & {
     set: LockedUpdateSet<TTable>
   },
 ): Effect.Effect<
@@ -61,42 +48,36 @@ export function updateWithOptimisticLock<
 > {
   return Effect.gen(function* () {
     yield* validateLockVersion(options)
-    const rows = yield* Effect.tryPromise({
-      try: () =>
-        options.executor
-          .update(options.table)
-          .set({
-            ...options.set,
-            lockVersion: sql`${options.table.lockVersion} + 1`,
-          })
-          .where(lockedWhere(options))
-          .returning() as Promise<InferSelectModel<TTable>[]>,
-      catch: () => optimisticLockError("database", options),
-    })
+    const rows = yield* options.executor
+      .update(options.table)
+      .set({
+        ...options.set,
+        lockVersion: sql`${options.table.lockVersion} + 1`,
+      })
+      .where(lockedWhere(options))
+      .returning().pipe(
+        Effect.mapError((cause) => optimisticLockError("database", options, cause)),
+      )
     return yield* mutationResult(rows, options)
   })
 }
 
 export function deleteWithOptimisticLock<
   TTable extends LockedTable,
-  TQueryResult extends PgQueryResultHKT,
-  TRelations extends AnyRelations,
 >(
-  options: OptimisticLockOptions<TTable, TQueryResult, TRelations>,
+  options: OptimisticLockOptions<TTable>,
 ): Effect.Effect<
   InferSelectModel<TTable>,
   OptimisticLockError
 > {
   return Effect.gen(function* () {
     yield* validateLockVersion(options)
-    const rows = yield* Effect.tryPromise({
-      try: () =>
-        options.executor
-          .delete(options.table)
-          .where(lockedWhere(options))
-          .returning() as Promise<InferSelectModel<TTable>[]>,
-      catch: () => optimisticLockError("database", options),
-    })
+    const rows = yield* options.executor
+      .delete(options.table)
+      .where(lockedWhere(options))
+      .returning().pipe(
+        Effect.mapError((cause) => optimisticLockError("database", options, cause)),
+      )
     return yield* mutationResult(rows, options)
   })
 }
@@ -104,18 +85,18 @@ export function deleteWithOptimisticLock<
 function validateLockVersion<TTable extends LockedTable>(
   options: { expectedLockVersion: number; table: TTable },
 ): Effect.Effect<void, OptimisticLockError> {
-  return Number.isSafeInteger(options.expectedLockVersion) && options.expectedLockVersion >= 0
-    ? Effect.void
-    : Effect.fail(
-      optimisticLockError("invalid-version", options),
-    )
+  return Schema.is(LockVersionSchema)(options.expectedLockVersion) ? Effect.void : Effect.fail(
+    optimisticLockError("invalid-version", options),
+  )
 }
 
 function optimisticLockError<TTable extends LockedTable>(
   reason: OptimisticLockError["reason"],
   options: { expectedLockVersion: number; table: TTable },
+  cause?: unknown,
 ): OptimisticLockError {
   return new OptimisticLockError({
+    ...(cause === undefined ? {} : { cause }),
     reason,
     expectedLockVersion: options.expectedLockVersion,
     tableName: getTableName(options.table),
@@ -138,7 +119,7 @@ function lockedWhere<TTable extends LockedTable>(
 }
 
 function mutationResult<TTable extends LockedTable>(
-  rows: InferSelectModel<TTable>[],
+  rows: readonly unknown[],
   options: {
     expectedLockVersion: number
     table: TTable
@@ -150,7 +131,11 @@ function mutationResult<TTable extends LockedTable>(
       optimisticLockError("conflict", options),
     )
   }
-  return Schema.decodeUnknownEffect(createSelectSchema(options.table))(row).pipe(
+  const rowSchema = createSelectSchema(options.table).pipe(
+    Schema.fieldsAssign({ lockVersion: LockVersionSchema }),
+  )
+  return Schema.decodeUnknownEffect(rowSchema)(row).pipe(
+    Effect.map((decoded) => decoded as InferSelectModel<TTable>),
     Effect.mapError(() => optimisticLockError("invalid-result", options)),
   )
 }

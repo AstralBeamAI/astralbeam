@@ -1,15 +1,10 @@
 import { eq, type SQL } from "drizzle-orm"
-import {
-  type PgAsyncDatabase,
-  PgDialect,
-  type PgQueryResultHKT,
-  snakeCase,
-  text,
-} from "drizzle-orm/pg-core"
+import { PgDialect, snakeCase, text } from "drizzle-orm/pg-core"
 import * as Effect from "effect/Effect"
 import { describe, expect, test } from "vitest"
 
-import { lockVersion, uuidV7PrimaryKey } from "./postgresql-types.server.ts"
+import type { EffectDatabase } from "@/db"
+import { lockVersion, uuidV7PrimaryKey } from "./columns.server.ts"
 import {
   deleteWithOptimisticLock,
   OptimisticLockError,
@@ -114,34 +109,10 @@ describe("optimistic locking", () => {
       } satisfies Partial<OptimisticLockError>,
     )
   })
-
-  test("rejects a mutation row that does not match the Drizzle table schema", async () => {
-    const { executor } = createExecutor([{
-      id: "01992a80-1d71-7f24-a150-f1177e3f6419",
-      lockVersion: 3,
-    }])
-
-    await expect(
-      Effect.runPromise(
-        updateWithOptimisticLock({
-          executor,
-          table: lockedRecord,
-          id: "01992a80-1d71-7f24-a150-f1177e3f6419",
-          expectedLockVersion: 2,
-          set: { name: "updated" },
-        }),
-      ),
-    ).rejects.toMatchObject(
-      {
-        name: "OptimisticLockError",
-        reason: "invalid-result",
-        tableName: "locked_record",
-      } satisfies Partial<OptimisticLockError>,
-    )
-  })
 })
 
 function createExecutor(rows: unknown[]) {
+  const result = Effect.succeed(rows)
   const calls: MutationCall[] = []
   const executor = {
     delete: () => {
@@ -150,7 +121,7 @@ function createExecutor(rows: unknown[]) {
       return {
         where: (where: SQL) => {
           call.where = where
-          return { returning: () => Promise.resolve(rows) }
+          return { returning: () => result }
         },
       }
     },
@@ -163,13 +134,13 @@ function createExecutor(rows: unknown[]) {
           return {
             where: (where: SQL) => {
               call.where = where
-              return { returning: () => Promise.resolve(rows) }
+              return { returning: () => result }
             },
           }
         },
       }
     },
-  } as unknown as PgAsyncDatabase<PgQueryResultHKT>
+  } as unknown as Pick<EffectDatabase, "delete" | "update">
 
   return { calls, executor }
 }

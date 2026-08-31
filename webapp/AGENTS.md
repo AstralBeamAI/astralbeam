@@ -59,9 +59,11 @@
   - Related routes can sometimes be grouped together using a route group folder e.g. `(auth)` if it better structures the codebase
 
 - `src/db` contains the database schema and migrations
-  - `index.server.ts` contains the databse connection and drizzle db object
+  - The server-only guarded `src/db/index.ts` entry point exports the Promise Drizzle handle and the native Effect database service; import both through `@/db`. Share its single application `pg.Pool` with `drizzle-orm/effect-postgres` through `PgClient.fromPool` and one `ManagedRuntime`, while keeping Better Auth on the Promise handle and native Effect workflows behind the one framework bridge. Keep node-postgres pool lifecycle defaults; do not add `allowExitOnIdle`, a parallel pool, global PostgreSQL type-parser table, or Nitro/signal lifecycle plumbing. The migration runner holds its advisory lock and per-migration transactions on separate clients from this shared pool.
   - `schema.server.ts` contains the drizzle schema
   - Keep generally reusable database primitives in `src/db/lib`; keep table-specific domain interfaces and the migration runner directly under `src/db`.
+  - Define shared PostgreSQL columns with `caseInsensitiveText()`, `encryptedJson()`, `timestampWithTimeZone()`, `timestamps()`, `lockVersion()`, and `uuidV7PrimaryKey()` from `src/db/lib/columns.server.ts`; do not inline equivalent Drizzle builders.
+  - Drizzle Effect query failures store the Effect SQL error inside an `EffectDrizzleQueryError` Cause; inspect it with Effect's `Cause` utilities and then standard JavaScript `cause` links instead of traversing arbitrary fields or parsing error messages.
   - Keep domain schema definitions in responsibility-named `src/db/schema/*.server.ts` files and re-export every table and relation Drizzle Kit must discover from `schema.server.ts`.
   - Keep every organization-owned table in `src/db/schema/organizations.server.ts` and its relations centralized; every table must define its own `id: uuidV7PrimaryKey()`, including one-to-one, join, and third-party-managed tables.
   - Define tables with `snakeCase.table` and camel-case TypeScript keys so Drizzle derives lower snake-case SQL column names.
@@ -75,6 +77,7 @@
   - `migrations` contains the drizzle migrations
 
 - `src/lib` contains application-wide shared code like:
+  - `schemas.ts`: reusable domain-neutral Effect schemas; reuse its UUIDv7 and lock-version schemas instead of duplicating their predicates.
   - `utils.ts`: utility functions
   - `utils.server.ts`: server-only utilities
   - `src/lib/config/index.ts` is guarded as server-only and exports `getGlobalConfig(key)` with environment precedence and process-local caching. Keep definitions and validation in `src/lib/config`, while the Drizzle `config.value` codec owns JWE encryption and `src/db/config.server.ts` owns validation and unreadable-row recovery. `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are required; uppercase registry environment overrides take precedence and stay out of database reads and `/configure`, same-process writes invalidate the cache, and errors never include configuration values.
@@ -104,7 +107,8 @@
   - Configure organization roles through Better Auth's static server/client role maps and hooks: creators are owners, invitations initially select viewer, owner/developer/viewer roles are composable, viewer and developer share the Better Auth member access statement, and roles outside the configured map are rejected. Keep dynamic roles disabled.
 
 - Server functions and server routes should generally be guarded by middleware e.g. authMiddleware unless there's strong reason not to
-- Write new server-side application logic as Effect programs with typed failures; lift Promise APIs with `Effect.tryPromise` and run Effects only at framework boundaries.
+- Prefer supported framework or library APIs and well-maintained community packages over minor custom abstractions or bespoke integration plumbing.
+- Write new server-side application logic as Effect programs with typed failures; yield native Effect integrations directly, lift unavoidable Promise APIs with `Effect.tryPromise`, and run Effects only at framework boundaries.
 - Generate Effect validation schemas from Drizzle tables with the built-in [`drizzle-orm/effect-schema`](https://orm.drizzle.team/docs/effect-schema) helpers at database and API boundaries instead of duplicating table shapes by hand.
 
 - While writing DB queries, always put in the right authorization checks to avoid leaking one user/org's data to another

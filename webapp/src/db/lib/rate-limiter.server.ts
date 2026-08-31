@@ -3,7 +3,7 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import { RateLimiter } from "effect/unstable/persistence"
 
-import { db } from "@/db/index.server"
+import { type EffectDatabase, effectDatabase } from "@/db"
 import { rateLimit } from "@/db/schema.server"
 
 const POSTGRES_INTEGER_MAX = 2_147_483_647
@@ -19,10 +19,14 @@ interface RateLimitConsumeOptions {
 interface DatabaseRateLimiter {
   readonly consume: (
     options: RateLimitConsumeOptions,
-  ) => Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError>
+  ) => Effect.Effect<
+    RateLimiter.ConsumeResult,
+    RateLimiter.RateLimiterError,
+    EffectDatabase
+  >
   readonly reset: (
     key: string,
-  ) => Effect.Effect<void, RateLimiter.RateLimiterError>
+  ) => Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase>
 }
 
 interface ValidatedOptions {
@@ -95,46 +99,50 @@ function exceededError(
 // https://github.com/Effect-TS/effect-smol/blob/main/packages/effect/src/unstable/persistence/RateLimiter.ts
 function consume(
   options: RateLimitConsumeOptions,
-): Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError> {
+): Effect.Effect<
+  RateLimiter.ConsumeResult,
+  RateLimiter.RateLimiterError,
+  EffectDatabase
+> {
   return Effect.gen(function* () {
     const validated = yield* validateOptions(options)
+    const db = yield* effectDatabase
     const persistedKey = `${DATABASE_RATE_LIMIT_KEY_PREFIX}${validated.key}`
     const maximumCount = validated.limit + 1
     const insertedCount = Math.min(validated.tokens, maximumCount)
     const now = sql<number>`floor(extract(epoch from statement_timestamp()) * 1000)::bigint`
       .mapWith(Number)
     const windowExpiresAt = sql<number>`${now} + ${validated.windowMilliseconds}`
-    const rows = yield* Effect.tryPromise({
-      try: () =>
-        db
-          .insert(rateLimit)
-          .values({
-            key: persistedKey,
-            count: insertedCount,
-            // Better Auth shares and prunes this table using lastRequest. Namespaced keys and an
-            // expiry timestamp prevent collisions and premature deletion of active custom windows.
-            // https://better-auth.com/docs/concepts/rate-limit
-            lastRequest: windowExpiresAt,
-          })
-          .onConflictDoUpdate({
-            target: rateLimit.key,
-            set: {
-              count: sql<
-                number
-              >`case when ${rateLimit.lastRequest} <= ${now} then ${insertedCount} else least(${rateLimit.count}::bigint + ${validated.tokens}, ${maximumCount})::integer end`,
-              lastRequest: sql<
-                number
-              >`case when ${rateLimit.lastRequest} <= ${now} then ${windowExpiresAt} else ${rateLimit.lastRequest} end`,
-              updatedAt: sql`now()`,
-            },
-          })
-          .returning({
-            count: rateLimit.count,
-            currentTime: now,
-            windowExpiresAt: rateLimit.lastRequest,
-          }),
-      catch: (cause) => storeError("Rate-limit database operation failed", cause),
-    })
+    const rows = yield* db
+      .insert(rateLimit)
+      .values({
+        key: persistedKey,
+        count: insertedCount,
+        // Better Auth shares and prunes this table using lastRequest. Namespaced keys and an
+        // expiry timestamp prevent collisions and premature deletion of active custom windows.
+        // https://better-auth.com/docs/concepts/rate-limit
+        lastRequest: windowExpiresAt,
+      })
+      .onConflictDoUpdate({
+        target: rateLimit.key,
+        set: {
+          count: sql<
+            number
+          >`case when ${rateLimit.lastRequest} <= ${now} then ${insertedCount} else least(${rateLimit.count}::bigint + ${validated.tokens}, ${maximumCount})::integer end`,
+          lastRequest: sql<
+            number
+          >`case when ${rateLimit.lastRequest} <= ${now} then ${windowExpiresAt} else ${rateLimit.lastRequest} end`,
+          updatedAt: sql`now()`,
+        },
+      })
+      .returning({
+        count: rateLimit.count,
+        currentTime: now,
+        windowExpiresAt: rateLimit.lastRequest,
+      })
+      .pipe(
+        Effect.mapError((cause) => storeError("Rate-limit database operation failed", cause)),
+      )
     const row = rows[0]
     if (!row) return yield* Effect.fail(storeError("Rate-limit update returned no row"))
 
@@ -155,13 +163,19 @@ function consume(
   })
 }
 
-function reset(key: string): Effect.Effect<void, RateLimiter.RateLimiterError> {
+function reset(
+  key: string,
+): Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase> {
   if (key.length === 0) return Effect.fail(storeError("Rate-limit key must not be empty"))
-  return Effect.tryPromise({
-    try: () =>
-      db.delete(rateLimit).where(eq(rateLimit.key, `${DATABASE_RATE_LIMIT_KEY_PREFIX}${key}`)),
-    catch: (cause) => storeError("Rate-limit database operation failed", cause),
-  }).pipe(Effect.asVoid)
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    yield* db
+      .delete(rateLimit)
+      .where(eq(rateLimit.key, `${DATABASE_RATE_LIMIT_KEY_PREFIX}${key}`))
+      .pipe(
+        Effect.mapError((cause) => storeError("Rate-limit database operation failed", cause)),
+      )
+  })
 }
 
 export const databaseRateLimiter: DatabaseRateLimiter = { consume, reset }
