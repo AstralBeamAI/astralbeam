@@ -71,6 +71,7 @@ export function EditApiKeyDialog({
                 {labels.name}
               </FieldLabel>
               <Input
+                key={`${apiKey.id}-${apiKey.updatedAt}`}
                 id={`api-key-name-${apiKey.id}`}
                 name="name"
                 defaultValue={apiKey.name ?? ""}
