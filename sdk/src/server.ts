@@ -1,4 +1,5 @@
 import { base64url, SignJWT } from "jose"
+import * as Schema from "effect/Schema"
 
 export const ASTRALBEAM_CHAT_TOKEN_AUDIENCE = "astralbeam-chat"
 export const ASTRALBEAM_CHAT_TOKEN_ISSUER = "astralbeam-api-key"
@@ -15,6 +16,39 @@ const TENANT_USER_MAX_BYTES = 8_192
 const TENANT_USER_MAX_DEPTH = 10
 const textEncoder = new TextEncoder()
 
+const TenantUserJsonSchema = Schema.Json.annotate({
+  message: "tenantUser must contain only JSON values",
+})
+const TenantUserSchema = Schema.StructWithRest(
+  Schema.Struct({
+    id: Schema.String.pipe(
+      Schema.check(
+        Schema.makeFilter((value) => value.length >= 1 && value.length <= 255, {
+          message: "tenantUser.id must be a 1-255 character string",
+        }),
+      ),
+    ),
+  }),
+  [Schema.Record(Schema.String, TenantUserJsonSchema)],
+).pipe(
+  Schema.check(
+    Schema.makeFilter((value) => !exceedsJsonDepth(value, TENANT_USER_MAX_DEPTH), {
+      message: `tenantUser must not exceed ${TENANT_USER_MAX_DEPTH} levels`,
+    }),
+  ),
+  Schema.check(
+    Schema.makeFilter(
+      (value) => textEncoder.encode(JSON.stringify(value)).byteLength <= TENANT_USER_MAX_BYTES,
+      { message: `tenantUser must not exceed ${TENANT_USER_MAX_BYTES} bytes` },
+    ),
+  ),
+)
+const decodeTenantUser = Schema.decodeUnknownSync(TenantUserSchema, {
+  errors: "all",
+  onExcessProperty: "error",
+  reportInput: false,
+})
+
 export interface TenantUser {
   /** User of an Organization's Tenant who interacts with the embedded agent sidebar. */
   readonly id: string
@@ -27,9 +61,6 @@ export interface CreateAstralBeamChatTokenOptions<TTenantUser extends TenantUser
   readonly expiresInSeconds?: number | undefined
 }
 
-type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
-type JsonObject = { [key: string]: JsonValue }
-
 function validateApiKey(apiKey: string, keySlug: string): void {
   const slugged = SLUGGED_API_KEY_PATTERN.exec(apiKey)
   if (slugged) {
@@ -41,71 +72,20 @@ function validateApiKey(apiKey: string, keySlug: string): void {
   }
 }
 
-function validateJsonValue(value: unknown, depth: number, seen: Set<object>, path: string): void {
-  if (depth > TENANT_USER_MAX_DEPTH) {
-    throw new Error(`tenantUser must not exceed ${TENANT_USER_MAX_DEPTH} levels`)
+function exceedsJsonDepth(value: Schema.Json, maximumDepth: number): boolean {
+  const stack = [{ value, depth: 1 }]
+  while (stack.length > 0) {
+    const current = stack.pop()!
+    if (current.depth > maximumDepth) return true
+    if (typeof current.value !== "object" || current.value === null) continue
+    const children = Array.isArray(current.value) ? current.value : Object.values(current.value)
+    for (const child of children) stack.push({ value: child, depth: current.depth + 1 })
   }
-  if (value === null || typeof value === "string" || typeof value === "boolean") return
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error(`${path} must contain only JSON values`)
-    return
-  }
-  if (typeof value !== "object") throw new Error(`${path} must contain only JSON values`)
-  if (seen.has(value)) throw new Error("tenantUser must not contain cycles")
-  seen.add(value)
-
-  if (Array.isArray(value)) {
-    const ownKeys = Reflect.ownKeys(value)
-    if (
-      ownKeys.some((key) =>
-        key !== "length" &&
-        (typeof key !== "string" || !/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= value.length)
-      )
-    ) {
-      throw new Error(`${path} must contain only plain JSON arrays`)
-    }
-    for (let index = 0; index < value.length; index += 1) {
-      if (!Object.hasOwn(value, index)) throw new Error(`${path} must not contain sparse arrays`)
-      const descriptor = Object.getOwnPropertyDescriptor(value, index)
-      if (!descriptor?.enumerable || !("value" in descriptor)) {
-        throw new Error(`${path} must contain only plain JSON arrays`)
-      }
-      validateJsonValue(descriptor.value, depth + 1, seen, `${path}[${index}]`)
-    }
-  } else {
-    const prototype = Object.getPrototypeOf(value)
-    if (prototype !== Object.prototype && prototype !== null) {
-      throw new Error(`${path} must contain only plain JSON objects`)
-    }
-    for (const key of Reflect.ownKeys(value)) {
-      if (typeof key !== "string") throw new Error(`${path} must not contain symbol keys`)
-      const descriptor = Object.getOwnPropertyDescriptor(value, key)
-      if (!descriptor?.enumerable || !("value" in descriptor)) {
-        throw new Error(`${path} must contain only plain JSON properties`)
-      }
-      if (key === "toJSON") throw new Error(`${path} must not define toJSON`)
-      validateJsonValue(descriptor.value, depth + 1, seen, `${path}.${key}`)
-    }
-  }
-  seen.delete(value)
+  return false
 }
 
-function validatedTenantUser(value: TenantUser): JsonObject {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error("tenantUser must be a plain JSON object")
-  }
-  validateJsonValue(value, 1, new Set(), "tenantUser")
-  if (
-    !Object.hasOwn(value, "id") || typeof value.id !== "string" || value.id.length < 1 ||
-    value.id.length > 255
-  ) {
-    throw new Error("tenantUser.id must be a 1-255 character string")
-  }
-  const serialized = JSON.stringify(value)
-  if (textEncoder.encode(serialized).byteLength > TENANT_USER_MAX_BYTES) {
-    throw new Error(`tenantUser must not exceed ${TENANT_USER_MAX_BYTES} bytes`)
-  }
-  return JSON.parse(serialized) as JsonObject
+function validatedTenantUser(value: TenantUser): typeof TenantUserSchema.Type {
+  return JSON.parse(JSON.stringify(decodeTenantUser(value))) as typeof TenantUserSchema.Type
 }
 
 async function signingKey(apiKey: string): Promise<Uint8Array> {

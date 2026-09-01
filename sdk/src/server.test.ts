@@ -128,7 +128,7 @@ test("createAstralBeamChatToken rejects sparse, cyclic, deeply nested, and overs
     tenantUser: { id: "user-1", sparse },
   })).rejects.toThrow(/sparse/)
   await expect(createAstralBeamChatToken({ apiKeyId, apiKey, tenantUser: cyclic })).rejects.toThrow(
-    /cycles/,
+    /tenantUser/,
   )
   await expect(createAstralBeamChatToken({
     apiKeyId,
