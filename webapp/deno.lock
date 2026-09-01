@@ -33,6 +33,7 @@
     "npm:@tanstack/eslint-plugin-router@^1.162.0": "1.162.0_eslint@10.9.1_typescript@6.0.3",
     "npm:@tanstack/eslint-plugin-start@*": "0.1.0_eslint@10.9.1_typescript@6.0.3",
     "npm:@tanstack/eslint-plugin-start@0.1": "0.1.0_eslint@10.9.1_typescript@6.0.3",
+    "npm:@tanstack/markdown@^0.0.13": "0.0.13_react@19.2.8",
     "npm:@tanstack/react-devtools@~0.10.9": "0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8_@neodrag+core@3.0.0-next.11_csstype@3.2.3_solid-js@1.9.14",
     "npm:@tanstack/react-pacer@0.23": "0.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-query@5.102.0": "5.102.0_react@19.2.8",
@@ -695,7 +696,6 @@
         "@opentelemetry/api",
         "@opentelemetry/semantic-conventions",
         "@standard-schema/spec",
-        "better-call@1.3.2_zod@4.5.4",
         "jose@6.2.10",
         "kysely",
         "nanostores",
@@ -1612,7 +1612,6 @@
         "json-schema-typed@8.0.2",
         "pkce-challenge",
         "raw-body",
-        "zod@3.25.76",
         "zod-to-json-schema@3.25.2_zod@3.25.76"
       ]
     },
@@ -3119,6 +3118,15 @@
     },
     "@tanstack/history@1.162.1": {
       "integrity": "sha512-DR9t6lfLVdrjgCwpglrR9DR7Ok8/HlXjcOE+goWXF3zyuLUO/ug7vMbSFxTqrQTtbRghJfyhmIZ0S6LhPIy44w=="
+    },
+    "@tanstack/markdown@0.0.13_react@19.2.8": {
+      "integrity": "sha512-ZSQP2ulBvlPzdpZeRheBJnaELo7e4ET/D/XrfgweHyqhhLMN5vUJJAUl7ufSRd7GlfO/vwdzjKPh0E0JwqJkDA==",
+      "dependencies": [
+        "react"
+      ],
+      "optionalPeers": [
+        "react"
+      ]
     },
     "@tanstack/openai-base@0.10.5_@tanstack+ai@0.49.1__@opentelemetry+api@1.9.1_@opentelemetry+api@1.9.1_ws@8.21.3": {
       "integrity": "sha512-csHfrpCF68ZxsiyW+hF9kECRrz6z1fPBa1XNRzP65YROAO5SXx+Bpg1IioXOVR3wVNwS5PWljngATzGJc05O+A==",
@@ -7447,10 +7455,7 @@
       "integrity": "sha512-xYqdZFUK/VYazNl/oCDYN+3WloWQwMfZxBoiNt6qNyk+xfOdi598muWE42rNZFp1kNOiqW936q5RhUdnpqElSg=="
     },
     "zod-to-json-schema@3.25.2_zod@3.25.76": {
-      "integrity": "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==",
-      "dependencies": [
-        "zod@3.25.76"
-      ]
+      "integrity": "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA=="
     },
     "zod-to-json-schema@3.25.2_zod@4.5.4": {
       "integrity": "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==",
@@ -7503,6 +7508,7 @@
         "npm:@tanstack/eslint-plugin-query@^5.102.8",
         "npm:@tanstack/eslint-plugin-router@^1.162.0",
         "npm:@tanstack/eslint-plugin-start@0.1",
+        "npm:@tanstack/markdown@^0.0.13",
         "npm:@tanstack/react-devtools@~0.10.9",
         "npm:@tanstack/react-pacer@0.23",
         "npm:@tanstack/react-query@5.102.0",

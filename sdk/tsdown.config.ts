@@ -10,7 +10,7 @@ const srcAlias = { "@": new URL("src", import.meta.url).pathname }
 export default defineConfig([
   {
     // Pass 1: bundles React into the lazily imported widget chunk.
-    entry: { client: "src/client.ts" },
+    entry: { client: "src/client/index.ts" },
     platform: "neutral",
     dts: true,
     alias: srcAlias,
@@ -22,9 +22,9 @@ export default defineConfig([
   {
     // Pass 2: keeps React and the self-reference to pass 1's client entry external.
     entry: {
-      server: "src/server.ts",
-      react: "src/react.tsx",
-      vue: "src/vue.ts",
+      server: "src/server/index.ts",
+      react: "src/react/index.tsx",
+      vue: "src/vue/index.ts",
     },
     platform: "neutral",
     dts: true,
