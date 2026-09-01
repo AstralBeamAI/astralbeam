@@ -1,4 +1,4 @@
-import type { OrganizationAgent } from "@/db/organization-agent.server"
+import type { OrganizationAgent } from "@/db/agent.server"
 import type { SandboxProviderId } from "@/lib/sandbox/schemas"
 
 export type { OrganizationAgent }

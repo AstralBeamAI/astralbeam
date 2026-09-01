@@ -15,10 +15,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
-import {
-  ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION,
-  type OrganizationApiKey,
-} from "@/lib/auth/organization-api-key-configuration"
+import type { OrganizationApiKey } from "@/lib/auth/organization-api-key-configuration"
 import { toast } from "@/components/ui/toast"
 import { DeleteApiKeyDialog } from "./delete-api-key-dialog"
 import { EditApiKeyDialog } from "./edit-api-key-dialog"
@@ -46,7 +43,6 @@ export function ApiKey({
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
-  const keyPrefix = apiKey.start ? `${apiKey.start}…` : "Unavailable"
   const publicId = `key_${organizationSlug}_${apiKey.slug}`
 
   return (
@@ -58,7 +54,7 @@ export function ApiKey({
         <ItemTitle>{apiKey.name || apiKeyLocalization.apiKey}</ItemTitle>
         <div className="flex min-w-0 items-center gap-2">
           <span className="shrink-0 text-xs font-medium text-muted-foreground">
-            API key ID
+            ID
           </span>
           <ItemDescription className="min-w-0 truncate font-mono">{publicId}</ItemDescription>
           <Button
@@ -72,20 +68,11 @@ export function ApiKey({
             <CopyIcon aria-hidden="true" />
           </Button>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-xs font-medium text-muted-foreground">
-            Key prefix
-          </span>
-          <ItemDescription className="min-w-0 truncate font-mono">{keyPrefix}</ItemDescription>
-        </div>
         <ItemDescription>
           {apiKeyLocalization.created} {new Date(apiKey.createdAt).toLocaleString(undefined, {
             dateStyle: "medium",
             timeStyle: "short",
-          })}
-        </ItemDescription>
-        <ItemDescription>
-          {apiKey.expiresAt
+          })} · {apiKey.expiresAt
             ? `${apiKeyLocalization.expires} ${
               new Date(
                 apiKey.expiresAt,
@@ -94,13 +81,8 @@ export function ApiKey({
                 timeStyle: "short",
               })
             }`
-            : apiKeyLocalization.neverExpires}
-        </ItemDescription>
-        <ItemDescription>
+            : apiKeyLocalization.neverExpires} ·{" "}
           {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
-        </ItemDescription>
-        <ItemDescription>
-          {ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}
         </ItemDescription>
         <ItemDescription>
           {apiKeyLocalization.lastRequest}: {apiKey.lastRequest
@@ -144,6 +126,7 @@ export function ApiKey({
               open={deleteOpen}
               onOpenChange={setDeleteOpen}
               apiKey={apiKey}
+              publicId={publicId}
               onDeleted={onDeleted}
             />
           </>
@@ -156,8 +139,8 @@ export function ApiKey({
 async function copyApiKeyPublicId(publicId: string): Promise<void> {
   try {
     await globalThis.navigator.clipboard.writeText(publicId)
-    toast.add({ title: "API key ID copied", type: "success" })
+    toast.add({ title: "ID copied", type: "success" })
   } catch {
-    toast.add({ title: "The API key ID could not be copied", type: "error" })
+    toast.add({ title: "The ID could not be copied", type: "error" })
   }
 }

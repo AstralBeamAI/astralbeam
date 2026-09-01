@@ -8,8 +8,8 @@ export const ASTRALBEAM_CHAT_TOKEN_VERSION = 2
 export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
 export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 
-const API_KEY_PREFIX_PATTERN = /^(key_[0-9a-z]{1,63}_([0-9a-z]{1,63}))_abo$/
-const API_KEY_SECRET_PATTERN = /^[A-Za-z]{64}$/
+const API_KEY_ID_PATTERN = /^key_[0-9a-z]{1,63}_([0-9a-z]{1,63})$/
+const API_KEY_SECRET_PATTERN = /^abo_([0-9a-z]{1,63})_[A-Za-z]{64}$/
 const CHAT_TOKEN_MAX_BYTES = 16_384
 const TENANT_USER_MAX_BYTES = 8_192
 const TENANT_USER_MAX_DEPTH = 10
@@ -60,13 +60,15 @@ export interface CreateAstralBeamChatTokenOptions<TTenantUser extends TenantUser
 }
 
 function parseApiKey(apiKey: string): { id: string; secret: string } {
-  const separator = apiKey.lastIndexOf("_")
+  const separator = apiKey.lastIndexOf("_abo_")
+  const id = apiKey.slice(0, separator)
   const secret = apiKey.slice(separator + 1)
-  const idMatch = API_KEY_PREFIX_PATTERN.exec(apiKey.slice(0, separator))
-  if (!idMatch?.[1] || !API_KEY_SECRET_PATTERN.test(secret)) {
-    throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
+  const idMatch = API_KEY_ID_PATTERN.exec(id)
+  const secretMatch = API_KEY_SECRET_PATTERN.exec(secret)
+  if (!idMatch || !secretMatch || idMatch[1] !== secretMatch[1]) {
+    throw new Error("apiKey must match key_<organization>_<key>_abo_<key>_<secret>")
   }
-  return { id: idMatch[1], secret: `abo_${idMatch[2]}_${secret}` }
+  return { id, secret }
 }
 
 function exceedsJsonDepth(value: Schema.Json, maximumDepth: number): boolean {

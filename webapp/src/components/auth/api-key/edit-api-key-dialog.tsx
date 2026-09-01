@@ -71,7 +71,7 @@ export function EditApiKeyDialog({
           </DialogHeader>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor={`api-key-public-id-${apiKey.id}`}>API key ID</FieldLabel>
+              <FieldLabel htmlFor={`api-key-public-id-${apiKey.id}`}>ID</FieldLabel>
               <Input
                 id={`api-key-public-id-${apiKey.id}`}
                 value={publicId}

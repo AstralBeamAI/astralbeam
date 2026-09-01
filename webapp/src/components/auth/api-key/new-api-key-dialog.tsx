@@ -43,9 +43,7 @@ export function NewApiKeyDialog({
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
 
   const [copied, setCopied] = useState(false)
-  const apiKey = publicKeyId && secretKey
-    ? `${publicKeyId}_abo_${secretKey.slice(secretKey.lastIndexOf("_") + 1)}`
-    : null
+  const apiKey = publicKeyId && secretKey ? `${publicKeyId}_${secretKey}` : null
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
@@ -103,9 +101,9 @@ export function NewApiKeyDialog({
           />
 
           <p className="text-xs text-muted-foreground">
-            Call <code className="font-mono text-foreground">createAstralBeamChatToken</code>{" "}
-            with this key on your server. Never expose it in browser code; it is shown only once and
-            cannot be recovered.
+            Use this key with{" "}
+            <code className="font-mono text-foreground">createAstralBeamChatToken</code>{" "}
+            on your server. Never expose it to the browser; it won't be shown again.
           </p>
         </div>
 

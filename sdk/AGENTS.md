@@ -1,6 +1,7 @@
 # SDK development
 
 - Keep comments to at most two lines and explain only non-obvious reasoning.
+- Treat a copied API key as its public ID plus the exact Better Auth raw key; hash the complete `abo_<keySlug>_<secret>` value, never only its random suffix.
 - Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
 - Use plain data and helper functions with explicit options objects for application logic; do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
 - Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing entry points, the chat widget, or the build; record structural and build decisions there in the same commit, leaving only line-specific inline comments.

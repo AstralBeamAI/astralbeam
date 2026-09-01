@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema"
 
 import { runDatabaseEffect } from "@/db"
 import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
-import { deleteOrganizationAgent } from "@/db/organization-agent.server"
+import { deleteOrganizationAgent } from "@/db/agent.server"
 import { organizationConfigurationAccessMiddleware } from "@/lib/auth/organization-configuration-middleware"
 import { DeleteOrganizationAgentInputSchema } from "../-lib/schemas.ts"
 

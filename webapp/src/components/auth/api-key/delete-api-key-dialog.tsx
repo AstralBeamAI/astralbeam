@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview; notify the paginated list after deletion.
+// Local changes: Use Phosphor icons; show the public ID; support exact optional property types; notify the paginated list after deletion.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -27,6 +27,7 @@ export type DeleteApiKeyDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   apiKey: OrganizationApiKey
+  publicId: string
   onDeleted?: (() => void) | undefined
 }
 
@@ -34,11 +35,11 @@ export function DeleteApiKeyDialog({
   open,
   onOpenChange,
   apiKey,
+  publicId,
   onDeleted,
 }: DeleteApiKeyDialogProps) {
   const { authClient, localization } = useAuth<ApiKeyAuthClient>()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
-  const keyPrefix = apiKey.start ? `${apiKey.start}…` : "Unavailable"
   const previewId = `delete-api-key-preview-${apiKey.id}`
   const { mutate: deleteApiKey, isPending: isDeleting } = useDeleteApiKey(
     authClient,
@@ -67,12 +68,12 @@ export function DeleteApiKeyDialog({
 
         <Field>
           <FieldLabel htmlFor={previewId}>
-            {apiKey.name || apiKeyLocalization.apiKey} key prefix
+            API key ID
           </FieldLabel>
 
           <Input
             id={previewId}
-            value={keyPrefix}
+            value={publicId}
             readOnly
             className="font-mono text-xs"
           />

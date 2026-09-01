@@ -1,7 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 
 import { OrganizationApiKeys } from "@/components/auth/api-key/organization-api-keys"
-import { ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION } from "@/lib/auth/organization-api-key-configuration"
 import { APP_NAME } from "@/lib/constants"
 
 export const Route = createFileRoute(
@@ -27,12 +26,7 @@ function OrganizationApiKeysRoute() {
             API keys
           </h1>
           <p className="text-sm text-muted-foreground">
-            Owners and developers can manage keys for programmatic organization access.{" "}
-            {ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Generate chat tokens on your server and never expose an API key secret in browser code.
-            Secrets are shown only once and cannot be recovered.
+            Create keys for server-side chat authentication. Each key is shown once.
           </p>
         </div>
       </OrganizationApiKeys>
