@@ -77,6 +77,8 @@ export function GeneratedSlugField({
     },
     { wait: 500 },
   )
+  const { cancel: cancelAvailabilityCheck, maybeExecute: checkAvailabilityLater } =
+    availabilityDebouncer
 
   // Generate browser-only randomness after hydration so the initial trees match.
   // https://react.dev/reference/react-dom/client/hydrateRoot#caveats
@@ -90,16 +92,16 @@ export function GeneratedSlugField({
   useEffect(() => {
     onAvailabilityChange?.(availability)
     if (availability !== "checking" || !checkAvailability) {
-      availabilityDebouncer.cancel()
+      cancelAvailabilityCheck()
       return
     }
 
-    availabilityDebouncer.maybeExecute(value)
-    return availabilityDebouncer.cancel
+    checkAvailabilityLater(value)
+    return cancelAvailabilityCheck
   }, [
     availability,
-    availabilityDebouncer.cancel,
-    availabilityDebouncer.maybeExecute,
+    cancelAvailabilityCheck,
+    checkAvailabilityLater,
     checkAvailability,
     onAvailabilityChange,
     value,
