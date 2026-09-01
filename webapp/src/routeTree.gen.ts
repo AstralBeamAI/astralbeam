@@ -25,6 +25,7 @@ import { Route as AuthenticatedSettingsOrganizationsIndexRouteImport } from './r
 import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
 import { Route as AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport } from './routes/_authenticated/_organization/organization/api-keys/index'
 import { Route as AuthenticatedOrganizationOrganizationMembersIndexRouteImport } from './routes/_authenticated/_organization/organization/members/index'
+import { Route as AuthenticatedOrganizationOrganizationSandboxProvidersIndexRouteImport } from './routes/_authenticated/_organization/organization/sandbox-providers/index'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -113,6 +114,12 @@ const AuthenticatedOrganizationOrganizationMembersIndexRoute =
     path: '/organization/members/',
     getParentRoute: () => AuthenticatedOrganizationRouteRoute,
   } as any)
+const AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute =
+  AuthenticatedOrganizationOrganizationSandboxProvidersIndexRouteImport.update({
+    id: '/organization/sandbox-providers/',
+    path: '/organization/sandbox-providers/',
+    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedOrganizationIndexRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
   '/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
+  '/organization/sandbox-providers/': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedOrganizationIndexRoute
@@ -145,6 +153,7 @@ export interface FileRoutesByTo {
   '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
   '/organization/api-keys': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/organization/members': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
+  '/organization/sandbox-providers': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -164,6 +173,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
   '/_authenticated/_organization/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/_authenticated/_organization/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
+  '/_authenticated/_organization/organization/sandbox-providers/': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/settings/security/'
     | '/organization/api-keys/'
     | '/organization/members/'
+    | '/organization/sandbox-providers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/organization/api-keys'
     | '/organization/members'
+    | '/organization/sandbox-providers'
   id:
     | '__root__'
     | '/_authenticated'
@@ -216,6 +228,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/security/'
     | '/_authenticated/_organization/organization/api-keys/'
     | '/_authenticated/_organization/organization/members/'
+    | '/_authenticated/_organization/organization/sandbox-providers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrganizationOrganizationMembersIndexRouteImport
       parentRoute: typeof AuthenticatedOrganizationRouteRoute
     }
+    '/_authenticated/_organization/organization/sandbox-providers/': {
+      id: '/_authenticated/_organization/organization/sandbox-providers/'
+      path: '/organization/sandbox-providers'
+      fullPath: '/organization/sandbox-providers/'
+      preLoaderRoute: typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRouteImport
+      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    }
   }
 }
 
@@ -349,6 +369,7 @@ interface AuthenticatedOrganizationRouteRouteChildren {
   AuthenticatedOrganizationIndexRoute: typeof AuthenticatedOrganizationIndexRoute
   AuthenticatedOrganizationOrganizationApiKeysIndexRoute: typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   AuthenticatedOrganizationOrganizationMembersIndexRoute: typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
+  AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute: typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
 }
 
 const AuthenticatedOrganizationRouteRouteChildren: AuthenticatedOrganizationRouteRouteChildren =
@@ -358,6 +379,8 @@ const AuthenticatedOrganizationRouteRouteChildren: AuthenticatedOrganizationRout
       AuthenticatedOrganizationOrganizationApiKeysIndexRoute,
     AuthenticatedOrganizationOrganizationMembersIndexRoute:
       AuthenticatedOrganizationOrganizationMembersIndexRoute,
+    AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute:
+      AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute,
   }
 
 const AuthenticatedOrganizationRouteRouteWithChildren =
