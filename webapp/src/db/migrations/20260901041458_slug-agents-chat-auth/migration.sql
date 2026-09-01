@@ -56,47 +56,7 @@ CREATE TABLE "agent" (
 	CONSTRAINT "agent_system_prompt_length_check" CHECK (char_length("system_prompt") between 1 and 32768)
 );
 --> statement-breakpoint
-ALTER TABLE "api_key" ADD COLUMN "slug" text;
---> statement-breakpoint
-DO $$
-DECLARE
-	api_key_row record;
-	base_slug text;
-	candidate_slug text;
-	attempt integer;
-BEGIN
-	FOR api_key_row IN
-		SELECT "id", "organization_id", "name"
-		FROM "api_key"
-		ORDER BY "organization_id", "id"
-	LOOP
-		base_slug := left(regexp_replace(lower(api_key_row."name"), '[^0-9a-z]', '', 'g'), 58);
-		base_slug := COALESCE(NULLIF(base_slug, ''), 'key');
-		attempt := 0;
-
-		LOOP
-			candidate_slug := base_slug || substr(md5(api_key_row."id"::text || ':' || attempt::text), 1, 5);
-			EXIT WHEN NOT EXISTS (
-				SELECT 1
-				FROM "api_key"
-				WHERE "organization_id" = api_key_row."organization_id"
-					AND "slug" = candidate_slug
-					AND "id" <> api_key_row."id"
-			);
-			attempt := attempt + 1;
-			IF attempt > 10000 THEN
-				RAISE EXCEPTION 'Unable to allocate a unique API key slug';
-			END IF;
-		END LOOP;
-
-		UPDATE "api_key"
-		SET "slug" = candidate_slug, "updated_at" = now()
-		WHERE "id" = api_key_row."id";
-	END LOOP;
-END
-$$;
---> statement-breakpoint
-ALTER TABLE "api_key" ALTER COLUMN "slug" SET NOT NULL;
+ALTER TABLE "api_key" ADD COLUMN "slug" text NOT NULL;
 --> statement-breakpoint
 DROP INDEX "api_key_key_idx";--> statement-breakpoint
 CREATE UNIQUE INDEX "api_key_key_idx" ON "api_key" ("key");--> statement-breakpoint
