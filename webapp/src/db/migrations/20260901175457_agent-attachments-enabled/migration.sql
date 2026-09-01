@@ -1,0 +1,1 @@
+ALTER TABLE "agent" ADD COLUMN "attachments_enabled" boolean DEFAULT true NOT NULL;

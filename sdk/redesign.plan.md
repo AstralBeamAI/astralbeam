@@ -45,7 +45,7 @@ Boundaries become structural instead of filename conventions. No behavior change
 - `createAstralBeamTokenRoute()` in `@astralbeam/sdk/server`: fetch-standard handler factory replacing the copy-pasted 503/500/`no-store` endpoint.
 - Fix the `-webkit-text-fill-color` inheritance leak onto widget slots (bmd's documented gotcha).
 
-### Phase 3 — sandbox panel rework (SDK only)
+### Phase 3 — sandbox panel rework (SDK only; shipped together with phases 4–6 per user decision, 2026-09-01)
 
 - Panel hidden by default; `sandboxPanel: true` opts in. Transcript rows stay.
 - Replace the footer collapsible/tabs with a slim provisioning status pill plus a slide-over panel: file list with kind icons and line counts, command timeline.
@@ -65,9 +65,9 @@ Boundaries become structural instead of filename conventions. No behavior change
 
 ### Phase 6 — headless core and React primitives
 
-- `src/core/`: framework-free `createAstralBeamChat()` (auth loop, SSE connection, message store, tool/widget protocol, sandbox derivation) with `subscribe`/`getState`, new `./core` export.
-- `@astralbeam/sdk/react` gains `useAstralBeamChat()` and unstyled primitives (`ChatRoot`, `ChatTranscript`, `ChatComposer`, part renderer overrides) rendered in the host tree — no shadow root, host styling.
-- The drop-in widget is reimplemented on the core; Vue entry becomes a core consumer later.
+- `src/core/`: framework-free `createAstralBeamChat()` (auth loop, SSE connection, message store, tool/widget protocol, sandbox derivation) with `subscribe`/`getState`, new `./core` export. Shipped.
+- `@astralbeam/sdk/react` gains `useAstralBeamChat()`. Revised during implementation: unstyled markup primitives are deferred — the hook plus the exported part helpers cover custom UIs without freezing a component API prematurely.
+- The drop-in widget already shares the core's protocol modules (auth, tools, sandbox parsing); moving its session loop onto `createAstralBeamChat` is the remaining follow-up, as is the Vue entry.
 
 ## Validation
 

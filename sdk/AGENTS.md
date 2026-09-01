@@ -1,12 +1,13 @@
 # SDK development
 
-Author guide for `@astralbeam/sdk`. Consumer documentation lives in `README.md` and `docs/`; neither carries internals. The active redesign roadmap is `redesign.plan.md`.
+Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` quick start plus the webapp-hosted guides; neither carries internals. The active redesign roadmap is `redesign.plan.md`.
 
 ## Layout and entry points
 
 Each folder under `src/` with an `index.ts(x)` named in `tsdown.config.ts` is a public entry point and maps 1:1 to the `exports` field in `package.json`; add new entry points in both places.
 
 - `src/client/` — the vanilla loader entry; no React, tiny by design.
+- `src/core/` — the headless session and chat protocol; framework-free, bundled into `core.js` and into the React entry.
 - `src/react/` — the React wrapper; binds to the host's React.
 - `src/server/` — token minting; no framework imports.
 - `src/vue/` — placeholder.
@@ -20,6 +21,7 @@ The chat widget must stay inside the client entry's lazy chunk so `dist/client.j
 - Never export `src/widget/` from an entry point; the dynamic import in `src/client/index.ts` is its only route.
 - Everything the widget imports must be a devDependency so tsdown inlines it; a `dependencies` entry would force hosts to install it.
 - `src/lib/` must not import React or any `src/widget/` module; the widget may import it (types and small helpers).
+- `src/core/` must not import React or any `src/widget/` module either; the widget and the React entry build on it, never the reverse.
 - Widget-only code, including `cn`, stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
 - `react`, `react-dom`, and `vue` are optional peer dependencies; keep framework imports confined to their entry points.
 

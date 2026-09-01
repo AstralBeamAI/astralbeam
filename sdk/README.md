@@ -1,6 +1,6 @@
 # @astralbeam/sdk
 
-A drop-in agent chat sidebar for your web app, from [AstralBeam](https://astralbeam.ai). The widget renders in a shadow root so its styles never mix with yours, and it streams from an AstralBeam chat endpoint.
+A drop-in agent chat sidebar for your web app, from [AstralBeam](https://astralbeam.ai), with a headless core underneath when you want to own the UI. The widget renders in a shadow root so its styles never mix with yours, and it streams from an AstralBeam chat endpoint.
 
 ```sh
 npm install @astralbeam/sdk
@@ -62,12 +62,12 @@ Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` appl
 | `agentId`                            | organization's default               | `agt_<organization>_<agent>` from the dashboard                 |
 | `chatEndpoint`                       | `https://app.astralbeam.ai/api/chat` | The AstralBeam chat endpoint the widget streams from            |
 | `authEndpoint`                       | `/api/astralbeam/token`              | Your token endpoint                                             |
-| `systemPrompt`                       | the agent's stored prompt            | Overrides the agent's instructions for this integration         |
 | `title`, `showHeader`                | `"AstralBeam"`, `true`               | Header text, and whether the header and reset button show       |
 | `emptyTitle`, `emptyDescription`     | generic copy                         | Headline and subtitle of the empty transcript                   |
 | `colorScheme`, `theme`               | `"system"`, built-in palette         | Light/dark/system, and shadcn token overrides                   |
 | `attachments`                        | `true`                               | `false` hides the feature, or pass limits                       |
 | `tools`, `widgets`                   | none                                 | What the agent can do and draw in your app                      |
+| `sandboxPanel`                       | `false`                              | Collected sandbox panel: files with downloads, command log      |
 | `header`, `empty`, `composerActions` | widget's own chrome                  | Host-rendered replacements (React props; `slots` on the handle) |
 | `debug`                              | `false`                              | Log every SDK action in the browser and on the server           |
 
@@ -111,7 +111,9 @@ Each guide is short and self-contained.
 - [Theming](https://app.astralbeam.ai/docs/sdk/theming) — color schemes, CSS tokens, the shadow-root boundary.
 - [Tools and widgets](https://app.astralbeam.ai/docs/sdk/tools-and-widgets) — schemas, live state, rendering into the transcript.
 - [Attachments](https://app.astralbeam.ai/docs/sdk/attachments) — file kinds, limits, what the endpoint enforces.
-- [Sandbox](https://app.astralbeam.ai/docs/sdk/sandbox) — what agents with a sandbox show in the chat.
+- [Sandbox](https://app.astralbeam.ai/docs/sdk/sandbox) — steps, the opt-in panel, downloads, inline images.
+- [Headless](https://app.astralbeam.ai/docs/sdk/headless) — own the whole chat UI on the same session.
+- [Security model](https://app.astralbeam.ai/docs/sdk/security) — who grants, who enforces, what the client can change.
 
 ## Entry points
 
@@ -120,7 +122,8 @@ There is no root export. Conversation history is not built yet.
 | Entry point              | Contents                                                  | Peer dependency      |
 | ------------------------ | --------------------------------------------------------- | -------------------- |
 | `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader                 | none                 |
-| `@astralbeam/sdk/react`  | `<AstralBeamChat>`                                        | `react`, `react-dom` |
+| `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session              | none                 |
+| `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`                   | `react`, `react-dom` |
 | `@astralbeam/sdk/server` | `createAstralBeamChatToken`, `createAstralBeamTokenRoute` | none                 |
 | `@astralbeam/sdk/vue`    | Vue components (placeholder)                              | `vue`                |
 

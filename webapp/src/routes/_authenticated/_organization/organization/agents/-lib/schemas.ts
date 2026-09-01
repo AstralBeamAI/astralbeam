@@ -12,6 +12,7 @@ export const CreateOrganizationAgentInputSchema = Schema.Struct({
   slug: SlugSchema,
   name: AgentNameSchema,
   systemPrompt: AgentSystemPromptSchema,
+  attachmentsEnabled: Schema.Boolean,
   sandboxProviderId: Schema.NullOr(UuidV7Schema),
 })
 
@@ -20,6 +21,7 @@ export const UpdateOrganizationAgentInputSchema = Schema.Struct({
   lockVersion: LockVersionSchema,
   name: AgentNameSchema,
   systemPrompt: AgentSystemPromptSchema,
+  attachmentsEnabled: Schema.Boolean,
   sandboxProviderId: Schema.NullOr(UuidV7Schema),
 })
 

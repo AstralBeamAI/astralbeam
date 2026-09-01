@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react"
 import { createPortal } from "react-dom"
 // Self-reference rather than a relative path, so this entry shares the client entry's chat
@@ -26,6 +27,13 @@ import {
 } from "@astralbeam/sdk/client"
 // A constant-only module, safe to import relatively: it pulls no React into this entry.
 import { DEFAULT_COLOR_SCHEME } from "../lib/constants.ts"
+// The headless core is bundled into this entry; it binds to no React of its own.
+import {
+  type AstralBeamChatCore,
+  type AstralBeamChatCoreOptions,
+  type AstralBeamChatState,
+  createAstralBeamChat,
+} from "../core/index.ts"
 
 export type {
   AstralBeamChatAttachmentOptions,
@@ -54,6 +62,39 @@ export function defineWidget<const S extends ParametersSchema = JsonSchemaObject
 ): WidgetDefinition {
   // The chat validates a Standard Schema before render runs, so the narrowed type holds.
   return widget as unknown as WidgetDefinition
+}
+
+export type { AstralBeamChatCore, AstralBeamChatCoreOptions, AstralBeamChatState }
+
+/** Everything `useAstralBeamChat` returns: the live state plus the session's actions. */
+export interface UseAstralBeamChatResult extends AstralBeamChatState {
+  sendMessage: AstralBeamChatCore["sendMessage"]
+  addToolResult: AstralBeamChatCore["addToolResult"]
+  stop: () => void
+  reload: () => Promise<void>
+  reset: () => void
+  /** The underlying headless session, for anything the flattened surface does not carry. */
+  core: AstralBeamChatCore
+}
+
+/**
+ * The headless chat session as a React hook: authentication, transport, tools, and transcript
+ * state with no markup, for hosts that own their whole chat UI. Options are fixed for the
+ * component's lifetime; remount (a React `key`) to change them.
+ */
+export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
+  const [core] = useState(() => createAstralBeamChat(options))
+  useEffect(() => () => core.dispose(), [core])
+  const state = useSyncExternalStore(core.subscribe, core.getState, core.getState)
+  return {
+    ...state,
+    sendMessage: core.sendMessage,
+    addToolResult: core.addToolResult,
+    stop: core.stop,
+    reload: core.reload,
+    reset: core.reset,
+    core,
+  }
 }
 
 /** Imperative surface of a mounted `<AstralBeamChat>`, for hosts that draw their own controls. */
@@ -91,8 +132,6 @@ export interface AstralBeamChatProps {
   chatEndpoint?: string
   /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
   authEndpoint?: string
-  /** Host-specific instructions, up to 32,768 characters, that override the stored system prompt. */
-  systemPrompt?: string
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
   tools?: Record<string, ToolDefinition>
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -103,6 +142,8 @@ export interface AstralBeamChatProps {
   theme?: AstralBeamChatTheme | undefined
   /** File attachments in the composer, on by default; `false` turns them off. */
   attachments?: boolean | AstralBeamChatAttachmentOptions
+  /** Shows the collected sandbox panel (files with downloads, command log) above the composer. Default `false`. */
+  sandboxPanel?: boolean
   /**
    * Logs every SDK action to the browser console with UTC timestamps and full payloads,
    * and asks the endpoint to log its side of the run too; prop changes apply immediately.
@@ -132,12 +173,12 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       emptyDescription,
       chatEndpoint,
       authEndpoint,
-      systemPrompt,
       tools,
       widgets = {},
       colorScheme = DEFAULT_COLOR_SCHEME,
       theme,
       attachments,
+      sandboxPanel,
       debug,
     },
     ref,
@@ -234,10 +275,10 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         showHeader,
         emptyTitle,
         emptyDescription,
-        systemPrompt,
         colorScheme,
         theme,
         attachments,
+        sandboxPanel,
         debug,
         tools: hostTools,
         widgets: hostWidgets,
@@ -248,10 +289,10 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         showHeader,
         emptyTitle,
         emptyDescription,
-        systemPrompt,
         colorScheme,
         theme,
         attachments,
+        sandboxPanel,
         debug,
         hostTools,
         hostWidgets,

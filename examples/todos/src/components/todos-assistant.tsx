@@ -5,8 +5,8 @@ import {
 } from "@astralbeam/sdk/react"
 
 import { TodoCard } from "@/components/todo-card.tsx"
-import { CHAT_AGENT_ID, CHAT_AUTH_ENDPOINT, CHAT_ENDPOINT, CHAT_TITLE } from "@/lib/config.ts"
-import { SYSTEM_PROMPT, WIDGET_THEME } from "@/lib/constants.ts"
+import { CHAT_AGENT_ID, CHAT_ENDPOINT, CHAT_TITLE } from "@/lib/config.ts"
+import { WIDGET_THEME } from "@/lib/constants.ts"
 import type { Todo } from "@/lib/types.ts"
 
 interface TodosAssistantProps {
@@ -32,11 +32,10 @@ export function TodosAssistant({
         agentId={CHAT_AGENT_ID}
         title={CHAT_TITLE}
         chatEndpoint={CHAT_ENDPOINT}
-        authEndpoint={CHAT_AUTH_ENDPOINT}
-        systemPrompt={SYSTEM_PROMPT}
         tools={tools}
         colorScheme={colorScheme}
         theme={customTheme ? WIDGET_THEME : undefined}
+        sandboxPanel
         debug={debug}
         widgets={{
           todoCard: {

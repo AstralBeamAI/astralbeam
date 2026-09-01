@@ -54,3 +54,5 @@ The widget fills its container, so the container must have a real height.
 - [Authentication](./authentication.md) — required before the widget will chat.
 - [Configuration](./configuration.md) — every option.
 - [Tools and widgets](./tools-and-widgets.md) — let the agent act on and draw in your app.
+- [Headless](./headless.md) — own the whole chat UI on the same session.
+- [Security model](./security.md) — who grants, who enforces, what the client can change.

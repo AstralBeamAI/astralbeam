@@ -1,26 +1,9 @@
 // Chat-chunk-only constants; anything the eager client entry needs lives in
 // src/lib/constants.ts so this module never enters dist/client.js.
 
-// Client tools every chat mount declares to the agent: the endpoint forwards
-// them verbatim and the chat widget executes them in the host page.
-export const RENDER_WIDGET_TOOL = "render_widget"
-export const ASK_QUESTIONNAIRE_TOOL = "ask_questionnaire"
-
 // Renders are keyed per tool call so several can coexist, but they hold host DOM and host
 // component state for the life of the conversation, so the oldest are evicted past this many.
 export const MAX_ACTIVE_WIDGET_RENDERS = 20
-
-// Server-side tools the chat endpoint adds when the agent has a sandbox provider configured. The
-// widget never declares or executes these — it recognizes their names so a write reads as code and
-// a command reads as a terminal, instead of both landing in the generic JSON disclosure. The names
-// and the event below mirror the endpoint's `-lib/sandbox-tools.server.ts`; keep them in step.
-export const SANDBOX_WRITE_FILE_TOOL = "sandbox_write_file"
-export const SANDBOX_READ_FILE_TOOL = "sandbox_read_file"
-export const SANDBOX_LIST_FILES_TOOL = "sandbox_list_files"
-export const SANDBOX_RUN_COMMAND_TOOL = "sandbox_run_command"
-
-/** CUSTOM stream event carrying sandbox provisioning progress, which no tool result can report. */
-export const SANDBOX_STATUS_EVENT = "astralbeam.sandbox.status"
 
 // Attachment limits and accepted types. The caps are per kind because the cost of a file to a
 // run differs by kind: an image is billed as tokens by area, a PDF page by page, a text file by

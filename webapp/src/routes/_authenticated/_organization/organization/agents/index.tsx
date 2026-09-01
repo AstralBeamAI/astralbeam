@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Card,
   CardContent,
@@ -284,6 +285,7 @@ function OrganizationAgentForm({
   const router = useRouter()
   const [name, setName] = useState(existing?.name ?? "")
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
+  const [attachmentsEnabled, setAttachmentsEnabled] = useState(existing?.attachmentsEnabled ?? true)
   const [sandboxProviderId, setSandboxProviderId] = useState(
     existing?.sandboxProviderId ?? NO_SANDBOX_PROVIDER,
   )
@@ -321,6 +323,7 @@ function OrganizationAgentForm({
             lockVersion: existing.lockVersion,
             name: normalizedName,
             systemPrompt,
+            attachmentsEnabled,
             sandboxProviderId: selectedSandboxProviderId,
           },
         })
@@ -329,6 +332,7 @@ function OrganizationAgentForm({
             slug: slug as string,
             name: normalizedName,
             systemPrompt,
+            attachmentsEnabled,
             sandboxProviderId: selectedSandboxProviderId,
           },
         })
@@ -408,10 +412,24 @@ function OrganizationAgentForm({
                 onChange={(event) => setSystemPrompt(event.target.value)}
               />
               <FieldDescription>
-                Default instructions for this agent. An SDK systemPrompt overrides them when
-                supplied.
+                The agent's instructions. They are owned here; the SDK cannot override them.
               </FieldDescription>
             </Field>
+
+            <Field orientation="horizontal">
+              <Checkbox
+                id="agent-attachments-enabled"
+                checked={attachmentsEnabled}
+                disabled={saving}
+                onCheckedChange={(next) => setAttachmentsEnabled(next === true)}
+              />
+              <FieldLabel htmlFor="agent-attachments-enabled" className="font-normal">
+                Allow file attachments
+              </FieldLabel>
+            </Field>
+            <FieldDescription>
+              Enforced by the chat endpoint; the SDK hides the composer's attach button when off.
+            </FieldDescription>
 
             <Field>
               <FieldLabel htmlFor="agent-sandbox-provider">Sandbox provider</FieldLabel>
@@ -434,7 +452,7 @@ function OrganizationAgentForm({
                 </SelectContent>
               </Select>
               <FieldDescription>
-                Optional, and saved for future sandbox execution; chat doesn't use it yet.
+                Optional. An agent with a provider gets one isolated sandbox per conversation.
               </FieldDescription>
             </Field>
           </FieldGroup>

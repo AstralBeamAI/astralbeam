@@ -5,9 +5,10 @@ import { Bubble, BubbleContent } from "@/widget/components/ui/bubble"
 import { Marker, MarkerContent, MarkerIcon } from "@/widget/components/ui/marker"
 import { Spinner } from "@/widget/components/ui/spinner"
 import type { WidgetDefinition } from "../../lib/types.ts"
-import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../lib/constants.ts"
-import { isSandboxTool } from "../lib/sandbox.ts"
-import type { QuestionnaireAnswer, RenderWidgetInput } from "../lib/types.ts"
+import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../../core/protocol.ts"
+import { isSandboxTool } from "../../core/sandbox.ts"
+import type { RenderWidgetInput } from "../../core/types.ts"
+import type { QuestionnaireAnswer } from "../lib/types.ts"
 import {
   formatToolJson,
   getWidget,
@@ -24,6 +25,8 @@ type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
 
 interface AssistantPartProps {
   part: MessagePart
+  /** URL of the chat endpoint's artifact route, for published sandbox files. */
+  filesEndpoint: string
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
@@ -96,7 +99,7 @@ function WidgetCallPart(
   { part, widgets, activeSlots }:
     & Omit<
       AssistantPartProps,
-      "onQuestionnaireAnswers" | "part" | "toolTitles"
+      "filesEndpoint" | "onQuestionnaireAnswers" | "part" | "toolTitles"
     >
     & { part: ToolCallPart },
 ) {
@@ -160,7 +163,8 @@ function QuestionnaireCallPart(
 }
 
 export function AssistantPart(
-  { part, widgets, toolTitles, activeSlots, onQuestionnaireAnswers }: AssistantPartProps,
+  { part, filesEndpoint, widgets, toolTitles, activeSlots, onQuestionnaireAnswers }:
+    AssistantPartProps,
 ) {
   switch (part.type) {
     case "text":
@@ -178,7 +182,9 @@ export function AssistantPart(
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       // Before the failure branch: a sandbox step that threw still reads better as "could not
       // write app.py" than as a generic tool failure.
-      if (isSandboxTool(part.name)) return <SandboxPart part={part} />
+      if (isSandboxTool(part.name)) {
+        return <SandboxPart part={part} filesEndpoint={filesEndpoint} />
+      }
       if (part.state === "error") {
         return <ToolCallDisclosure part={part} title={title} failed />
       }

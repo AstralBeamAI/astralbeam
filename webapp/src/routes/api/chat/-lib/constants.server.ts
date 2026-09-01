@@ -112,10 +112,22 @@ export const CHAT_SANDBOX_SYSTEM_PROMPT =
   "replies. The sandbox holds no credentials and is not the user's machine: never write a secret " +
   "into it, and say so if you are asked to reach something only the user's own machine can see."
 
+/** Appended to the sandbox prompt so the agent shares generated files instead of describing them. */
+export const CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT =
+  "When you generate a file the user should have — an export, a chart image, a report — call " +
+  "sandbox_publish_artifact with its path after writing it. That gives the user a download, and " +
+  "an image renders inline in the conversation, so publish rather than describing the file."
+
 // Provisioning is the slowest thing in a sandboxed run — a fresh cloud sandbox is tens of
 // seconds — and a command can hang, so every step is bounded and the tool reports the timeout to
 // the agent rather than failing the run.
 export const CHAT_SANDBOX_START_TIMEOUT_MS = 120_000
+// Artifact downloads: bounded separately from the model-context clamps, because a download's
+// budget is transfer size, not tokens. The ticket lives exactly as long as an idle lease can.
+export const CHAT_SANDBOX_MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
+export const CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS = 15 * 60
+export const CHAT_ARTIFACT_TICKET_AUDIENCE = `${APP_HANDLE}-artifact`
+export const CHAT_ARTIFACT_TICKET_TYPE = `${APP_HANDLE}-artifact+jwt`
 export const CHAT_SANDBOX_COMMAND_TIMEOUT_MS = 120_000
 export const CHAT_SANDBOX_FILE_TIMEOUT_MS = 30_000
 

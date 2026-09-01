@@ -1,6 +1,6 @@
 {
   "name": "@astralbeam/sdk",
-  "version": "0.0.7",
+  "version": "0.1.0",
   "description": "Frontend SDK for AstralBeam: drop-in agent UI, chat streaming, and server helpers",
   "license": "MIT",
   "type": "module",
@@ -16,6 +16,10 @@
     "./client": {
       "types": "./dist/client.d.ts",
       "default": "./dist/client.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "default": "./dist/core.js"
     },
     "./server": {
       "types": "./dist/server.d.ts",

@@ -1,5 +1,5 @@
-import { describeSandboxCommandRun } from "../lib/sandbox.ts"
-import type { SandboxCommandRun } from "../lib/types.ts"
+import { describeSandboxCommandRun } from "../../core/sandbox.ts"
+import type { SandboxCommandRun } from "../../core/types.ts"
 import { SandboxCodeBlock } from "./sandbox-code.tsx"
 
 /**

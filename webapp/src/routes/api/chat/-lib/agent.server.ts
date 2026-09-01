@@ -27,6 +27,7 @@ export async function resolveChatAgent(
       db.select({
         id: agent.id,
         systemPrompt: agent.systemPrompt,
+        attachmentsEnabled: agent.attachmentsEnabled,
         sandboxProviderId: agent.sandboxProviderId,
       }).from(organization).innerJoin(
         agent,
@@ -47,6 +48,7 @@ async function resolveDefaultChatAgent(authenticatedOrganizationId: string) {
       db.select({
         id: agent.id,
         systemPrompt: agent.systemPrompt,
+        attachmentsEnabled: agent.attachmentsEnabled,
         sandboxProviderId: agent.sandboxProviderId,
       }).from(organizationConfiguration).innerJoin(
         agent,

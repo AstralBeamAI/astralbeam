@@ -4,7 +4,9 @@ import sdkAttachments from "../-content/sdk/attachments.md?raw"
 import sdkAuthentication from "../-content/sdk/authentication.md?raw"
 import sdkConfiguration from "../-content/sdk/configuration.md?raw"
 import sdkGettingStarted from "../-content/sdk/getting-started.md?raw"
+import sdkHeadless from "../-content/sdk/headless.md?raw"
 import sdkSandbox from "../-content/sdk/sandbox.md?raw"
+import sdkSecurity from "../-content/sdk/security.md?raw"
 import sdkTheming from "../-content/sdk/theming.md?raw"
 import sdkToolsAndWidgets from "../-content/sdk/tools-and-widgets.md?raw"
 
@@ -34,6 +36,8 @@ export const DOCS_SECTIONS: DocsSection[] = [
       { slug: "tools-and-widgets", title: "Tools and widgets", markdown: sdkToolsAndWidgets },
       { slug: "attachments", title: "Attachments", markdown: sdkAttachments },
       { slug: "sandbox", title: "Sandbox", markdown: sdkSandbox },
+      { slug: "headless", title: "Headless", markdown: sdkHeadless },
+      { slug: "security", title: "Security model", markdown: sdkSecurity },
     ],
   },
 ]

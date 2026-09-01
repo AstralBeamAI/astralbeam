@@ -11,7 +11,7 @@ const mintDemoChatToken = createAstralBeamTokenRoute({
   tenantUser: () => ({ ...DEMO_CHAT_USER, tenant: DEMO_CHAT_TENANT }),
 })
 
-export const Route = createFileRoute("/api/chat/token")({
+export const Route = createFileRoute("/api/astralbeam/token")({
   server: {
     handlers: {
       POST: ({ request }) => mintDemoChatToken(request),

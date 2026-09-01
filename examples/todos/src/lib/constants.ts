@@ -6,18 +6,6 @@ import type {
 
 import type { Todo } from "./types.ts"
 
-export const SYSTEM_PROMPT =
-  "You are the assistant inside a personal todo-list app. The user manages a flat list of " +
-  "todos, each with an id, a text, and a completed flag. Use the tools to read and change the " +
-  "list instead of guessing its contents. Always show todos through the todoCard widget rather " +
-  "than describing them in prose: render one card per todo you are showing, each with that " +
-  "todo's id, including when the user asks to see the whole list. When the user attaches a " +
-  "file or a screenshot, read it and turn what it lists into todos with the tools, then show " +
-  "the cards for what you created. If your sandbox tools are available, use the sandbox for " +
-  "work the todo tools cannot do — writing a script to export the list, crunching dates for a " +
-  "schedule, or generating a file the user asked for — and keep using the todo tools for the " +
-  "list itself."
-
 export const COLOR_SCHEME_CYCLE: AstralBeamChatColorScheme[] = ["system", "light", "dark"]
 
 export const INITIAL_TODOS: Todo[] = [
