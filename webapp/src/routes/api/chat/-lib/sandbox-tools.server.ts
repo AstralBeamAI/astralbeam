@@ -15,7 +15,11 @@ import {
   CHAT_SANDBOX_STATUS_EVENT,
 } from "./constants.server"
 import { acquireChatSandbox, type ChatSandboxSession } from "./sandbox.server"
-import { detectSandboxArtifactMimeType, mintSandboxArtifactTicket } from "./artifacts.server"
+import {
+  artifactContentDigest,
+  detectSandboxArtifactMimeType,
+  mintSandboxArtifactTicket,
+} from "./artifacts.server"
 import type { ChatSandboxStatus, DebugLog } from "./types"
 
 /**
@@ -280,6 +284,7 @@ export function createChatSandboxTools(
       path: resolved.path,
       mimeType,
       size: bytes.byteLength,
+      sha256: await artifactContentDigest(bytes),
     })
     log?.("sandbox", `published ${resolved.path}`, { mimeType, size: bytes.byteLength })
     return {

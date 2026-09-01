@@ -1,5 +1,6 @@
-import { jwtVerify, SignJWT } from "jose"
+import { base64url, jwtVerify, SignJWT } from "jose"
 
+import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
 import {
   CHAT_ARTIFACT_TICKET_AUDIENCE,
   CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS,
@@ -8,12 +9,47 @@ import {
 } from "./constants.server"
 
 /**
- * Sandbox artifact tickets: a short-lived signed capability to download one published file. The
- * signing key is process-local random on purpose — the sandbox leases the tickets point at are
- * process-local too, so a ticket that outlives the process could never be served anyway, and a
- * random key means database access alone cannot forge one (unlike the chat JWT's stored digest).
+ * Sandbox artifact tickets: a short-lived signed capability to download exactly the published
+ * bytes of one file. The signing key is HKDF-derived from the deployment's encryption root with
+ * its own info label: deployment-wide, so any replica (and a restarted process) can verify a
+ * ticket another minted against a vendor sandbox that is still alive, while staying
+ * domain-separated from every other use of the root and independent of the stored API-key
+ * digest. Rotating the first DATABASE_ENCRYPTION_KEY entry invalidates live tickets, which at a
+ * fifteen-minute lifetime is acceptable.
  */
-const ARTIFACT_TICKET_KEY = crypto.getRandomValues(new Uint8Array(32))
+let artifactTicketKeyPromise: Promise<Uint8Array> | undefined
+
+function artifactTicketKey(): Promise<Uint8Array> {
+  return artifactTicketKeyPromise ??= deriveArtifactTicketKey()
+}
+
+async function deriveArtifactTicketKey(): Promise<Uint8Array> {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    getActiveDatabaseEncryptionRoot() as BufferSource,
+    "HKDF",
+    false,
+    ["deriveBits"],
+  )
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new Uint8Array(0),
+      info: new TextEncoder().encode("astralbeam sandbox artifact ticket v1"),
+    },
+    material,
+    256,
+  )
+  return new Uint8Array(bits)
+}
+
+/** Digest binding a ticket to the exact published bytes, so a same-type overwrite is refused. */
+export async function artifactContentDigest(bytes: Uint8Array): Promise<string> {
+  return base64url.encode(
+    new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource)),
+  )
+}
 
 export interface SandboxArtifactTicket {
   /** Organization and tenant user the publishing run was authenticated as, for auditability. */
@@ -26,6 +62,8 @@ export interface SandboxArtifactTicket {
   readonly path: string
   readonly mimeType: string
   readonly size: number
+  /** Unpadded base64url SHA-256 of the published bytes; the capability covers these bytes only. */
+  readonly sha256: string
 }
 
 export async function mintSandboxArtifactTicket(
@@ -36,7 +74,7 @@ export async function mintSandboxArtifactTicket(
     .setAudience(CHAT_ARTIFACT_TICKET_AUDIENCE)
     .setIssuedAt()
     .setExpirationTime(`${CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS}s`)
-    .sign(ARTIFACT_TICKET_KEY)
+    .sign(await artifactTicketKey())
 }
 
 /** Returns the ticket's claims, or undefined for anything invalid, expired, or malformed. */
@@ -44,17 +82,25 @@ export async function verifySandboxArtifactTicket(
   token: string,
 ): Promise<SandboxArtifactTicket | undefined> {
   try {
-    const { payload } = await jwtVerify(token, ARTIFACT_TICKET_KEY, {
+    const { payload } = await jwtVerify(token, await artifactTicketKey(), {
       audience: CHAT_ARTIFACT_TICKET_AUDIENCE,
       typ: CHAT_ARTIFACT_TICKET_TYPE,
     })
-    const { organizationId, tenantUserId, sandboxProviderId, providerSandboxId, path, mimeType } =
-      payload as Partial<SandboxArtifactTicket>
+    const {
+      organizationId,
+      tenantUserId,
+      sandboxProviderId,
+      providerSandboxId,
+      path,
+      mimeType,
+      sha256,
+    } = payload as Partial<SandboxArtifactTicket>
     const size = payload["size"]
     if (
       typeof organizationId !== "string" || typeof tenantUserId !== "string" ||
       typeof sandboxProviderId !== "string" || typeof providerSandboxId !== "string" ||
-      typeof path !== "string" || typeof mimeType !== "string" || typeof size !== "number"
+      typeof path !== "string" || typeof mimeType !== "string" || typeof size !== "number" ||
+      typeof sha256 !== "string"
     ) {
       return undefined
     }
@@ -66,6 +112,7 @@ export async function verifySandboxArtifactTicket(
       path,
       mimeType,
       size,
+      sha256,
     }
   } catch {
     return undefined
@@ -112,15 +159,25 @@ function isPlainText(bytes: Uint8Array): boolean {
   }
 }
 
-/** A filename safe for a `content-disposition` header: basename only, control and quote free. */
-export function artifactDispositionFilename(path: string): string {
+/**
+ * The whole `content-disposition` value. Header values are ByteStrings, so the quoted filename
+ * carries an ASCII fallback (non-ASCII, controls, quotes, and backslashes become `_`) and the
+ * real name travels RFC 5987-encoded in `filename*`, which browsers prefer when present.
+ */
+export function artifactContentDisposition(disposition: string, path: string): string {
   const base = path.slice(path.lastIndexOf("/") + 1)
-  // Built per UTF-16 unit rather than with a regex: control characters in a pattern trip lint
-  // rules, and surrogate halves pass through unchanged so emoji filenames survive.
-  let cleaned = ""
+  let ascii = ""
   for (let index = 0; index < base.length; index += 1) {
     const code = base.charCodeAt(index)
-    cleaned += code < 0x20 || base[index] === '"' || base[index] === "\\" ? "_" : base[index]
+    ascii += code < 0x20 || code > 0x7e || base[index] === '"' || base[index] === "\\"
+      ? "_"
+      : base[index]
   }
-  return cleaned.length > 0 ? cleaned : "artifact"
+  const fallback = ascii.length > 0 ? ascii : "artifact"
+  // encodeURIComponent leaves RFC 5987 attr-char specials like * ' ( ) unescaped; fix them up.
+  const encoded = encodeURIComponent(base).replace(
+    /[*'()]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  )
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encoded}`
 }

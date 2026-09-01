@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 
 import {
-  artifactDispositionFilename,
+  artifactContentDigest,
+  artifactContentDisposition,
   detectSandboxArtifactMimeType,
   isInlineArtifactMimeType,
   mintSandboxArtifactTicket,
@@ -17,7 +18,13 @@ const ticket: SandboxArtifactTicket = {
   path: "/workspace/report.png",
   mimeType: "image/png",
   size: 1024,
+  sha256: "0000000000000000000000000000000000000000000",
 }
+
+beforeAll(() => {
+  // The ticket key derives from the deployment encryption root; give the tests one.
+  vi.stubEnv("DATABASE_ENCRYPTION_KEY", "artifact-ticket-test-key-32-characters!!")
+})
 
 describe("sandbox artifact tickets", () => {
   it("round-trips a minted ticket", async () => {
@@ -38,8 +45,20 @@ describe("sandbox artifact tickets", () => {
       .resolves.toBeUndefined()
   })
 
-  it("rejects garbage", async () => {
+  it("rejects garbage and tickets missing the content digest", async () => {
     await expect(verifySandboxArtifactTicket("not-a-ticket")).resolves.toBeUndefined()
+    const { sha256: _sha256, ...withoutDigest } = ticket
+    const token = await mintSandboxArtifactTicket(withoutDigest as SandboxArtifactTicket)
+    await expect(verifySandboxArtifactTicket(token)).resolves.toBeUndefined()
+  })
+})
+
+describe("artifactContentDigest", () => {
+  it("binds to exact bytes", async () => {
+    const published = await artifactContentDigest(new Uint8Array([1, 2, 3]))
+    const replaced = await artifactContentDigest(new Uint8Array([1, 2, 4]))
+    expect(published).not.toBe(replaced)
+    await expect(artifactContentDigest(new Uint8Array([1, 2, 3]))).resolves.toBe(published)
   })
 })
 
@@ -67,10 +86,23 @@ describe("detectSandboxArtifactMimeType", () => {
   })
 })
 
-describe("artifactDispositionFilename", () => {
-  it("keeps the basename and strips header-breaking characters", () => {
-    expect(artifactDispositionFilename("/workspace/out/report v2.pdf")).toBe("report v2.pdf")
-    expect(artifactDispositionFilename('/workspace/a"b\r\n.txt')).toBe("a_b__.txt")
-    expect(artifactDispositionFilename("/workspace/")).toBe("artifact")
+describe("artifactContentDisposition", () => {
+  it("keeps ASCII names in both parameters", () => {
+    expect(artifactContentDisposition("attachment", "/workspace/out/report v2.pdf"))
+      .toBe(`attachment; filename="report v2.pdf"; filename*=UTF-8''report%20v2.pdf`)
+  })
+
+  it("keeps header values ByteString-safe for non-ASCII names", () => {
+    const value = artifactContentDisposition("inline", "/workspace/😀 chart.png")
+    expect(value).toBe(`inline; filename="__ chart.png"; filename*=UTF-8''%F0%9F%98%80%20chart.png`)
+    // The proof that matters: the Headers constructor accepts it.
+    expect(() => new Headers({ "content-disposition": value })).not.toThrow()
+  })
+
+  it("strips header-breaking characters and never emits an empty filename", () => {
+    expect(artifactContentDisposition("attachment", '/workspace/a"b\r\n.txt'))
+      .toContain('filename="a_b__.txt"')
+    expect(artifactContentDisposition("attachment", "/workspace/"))
+      .toContain('filename="artifact"')
   })
 })

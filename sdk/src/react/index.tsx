@@ -79,11 +79,30 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
 
 /**
  * The headless chat session as a React hook: authentication, transport, tools, and transcript
- * state with no markup, for hosts that own their whole chat UI. Options are fixed for the
- * component's lifetime; remount (a React `key`) to change them.
+ * state with no markup, for hosts that own their whole chat UI. Transport identity (endpoints,
+ * agent) and the declared tool/widget set are fixed for the component's lifetime — remount with
+ * a React `key` to change them — but `execute` and `onRenderWidget` always read the latest
+ * render, so ordinary closures over props and state stay live.
  */
 export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
-  const [core] = useState(() => createAstralBeamChat(options))
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+  const [core] = useState(() =>
+    createAstralBeamChat({
+      ...options,
+      tools: Object.fromEntries(
+        Object.entries(options.tools ?? {}).map(([name, definition]) => [name, {
+          ...definition,
+          execute: (input: Record<string, unknown>) => {
+            const current = optionsRef.current.tools?.[name]
+            if (!current) throw new Error(`Tool "${name}" is no longer registered`)
+            return current.execute(input)
+          },
+        }]),
+      ),
+      onRenderWidget: (request) => optionsRef.current.onRenderWidget?.(request),
+    })
+  )
   useEffect(() => () => core.dispose(), [core])
   const state = useSyncExternalStore(core.subscribe, core.getState, core.getState)
   return {

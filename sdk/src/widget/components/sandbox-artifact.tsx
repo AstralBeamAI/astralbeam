@@ -40,6 +40,12 @@ function ArtifactImage(
 ) {
   const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
   const [failed, setFailed] = useState(false)
+  // A failed download click means the ticket died after the preview loaded; same recovery.
+  const download = () => {
+    void downloadArtifact(artifact, filesEndpoint).then((ok) => {
+      if (!ok) setFailed(true)
+    })
+  }
   const ticket = artifact.ticket
   useEffect(() => {
     if (!ticket) return
@@ -95,7 +101,7 @@ function ArtifactImage(
           size="icon-sm"
           aria-label={`Download ${artifact.label}`}
           title="Download"
-          onClick={() => void downloadArtifact(artifact, filesEndpoint)}
+          onClick={download}
         >
           <DownloadSimpleIcon />
         </Button>
@@ -126,6 +132,8 @@ function ArtifactExpired({ label }: { label: string }) {
 export function SandboxArtifactPart(
   { part, filesEndpoint }: { part: ToolCallPart; filesEndpoint: string },
 ) {
+  // Tickets expire; a download that comes back empty-handed swaps the row for the recovery note.
+  const [downloadFailed, setDownloadFailed] = useState(false)
   const artifact = readSandboxArtifact(part)
   const refusal = sandboxRefusal(part)
   const failed = part.state === "error" || refusal !== undefined
@@ -154,6 +162,9 @@ export function SandboxArtifactPart(
       </Marker>
     )
   }
+  if (downloadFailed) {
+    return <ArtifactExpired label={artifact.label} />
+  }
   if (artifact.mimeType?.startsWith("image/")) {
     return <ArtifactImage artifact={artifact} filesEndpoint={filesEndpoint} />
   }
@@ -171,7 +182,11 @@ export function SandboxArtifactPart(
         size="icon-sm"
         aria-label={`Download ${artifact.label}`}
         title="Download"
-        onClick={() => void downloadArtifact(artifact, filesEndpoint)}
+        onClick={() => {
+          void downloadArtifact(artifact, filesEndpoint).then((ok) => {
+            if (!ok) setDownloadFailed(true)
+          })
+        }}
       >
         <DownloadSimpleIcon />
       </Button>

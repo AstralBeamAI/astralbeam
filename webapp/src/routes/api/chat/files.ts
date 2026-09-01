@@ -6,7 +6,8 @@ import { runDatabaseEffect } from "@/db"
 import { resolveOrganizationSandboxProviderConfiguration } from "@/db/organization-sandbox-provider.server"
 import { createSandboxProvider } from "@/lib/sandbox/factory.server"
 import {
-  artifactDispositionFilename,
+  artifactContentDigest,
+  artifactContentDisposition,
   detectSandboxArtifactMimeType,
   isInlineArtifactMimeType,
   verifySandboxArtifactTicket,
@@ -73,6 +74,11 @@ export const Route = createFileRoute("/api/chat/files")({
           if (bytes.byteLength > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) {
             return errorResponse(request, 404, "The file has grown past the artifact size limit.")
           }
+          // The capability covers exactly the published bytes: a same-type overwrite must be
+          // republished, so the digest decides and the sniff is re-run for the response header.
+          if (await artifactContentDigest(bytes) !== ticket.sha256) {
+            return errorResponse(request, 404, "The file changed since it was published.")
+          }
           const mimeType = detectSandboxArtifactMimeType(bytes)
           if (mimeType !== ticket.mimeType) {
             return errorResponse(request, 404, "The file changed since it was published.")
@@ -82,9 +88,7 @@ export const Route = createFileRoute("/api/chat/files")({
             headers: {
               ...corsHeaders(request),
               "content-type": mimeType,
-              "content-disposition": `${disposition}; filename="${
-                artifactDispositionFilename(resolved.path)
-              }"`,
+              "content-disposition": artifactContentDisposition(disposition, resolved.path),
               "content-length": String(bytes.byteLength),
               "cache-control": "private, no-store",
               "x-content-type-options": "nosniff",
