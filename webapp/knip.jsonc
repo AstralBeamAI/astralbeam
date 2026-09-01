@@ -18,6 +18,9 @@
       "namespaceMembers"
     ]
   },
+  // @daytona/sdk ships `importHelpers` output that imports tslib without declaring it, so webapp
+  // declares tslib only to make that specifier resolvable. https://www.typescriptlang.org/tsconfig/#importHelpers
+  "ignoreDependencies": ["tslib"],
   // Keep Deno-run generators and the TanStack Router entry explicit.
   "entry": [
     "scripts/*.ts",
