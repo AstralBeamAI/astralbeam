@@ -35,6 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
+import type { OrganizationAgent } from "@/db/agent.server"
 import { APP_NAME } from "@/lib/constants"
 import { isValidSlug } from "@/lib/slug"
 import { checkOrganizationAgentSlugAvailability } from "./-functions/check-organization-agent-slug-availability.ts"
@@ -42,11 +43,9 @@ import { createOrganizationAgentState } from "./-functions/create-organization-a
 import { deleteOrganizationAgentState } from "./-functions/delete-organization-agent.ts"
 import { getOrganizationAgentState } from "./-functions/get-organization-agent-state.ts"
 import { updateOrganizationAgentState } from "./-functions/update-organization-agent.ts"
-import type {
-  AgentSandboxProviderSummary,
-  OrganizationAgent,
-  OrganizationAgentState,
-} from "./-lib/types.ts"
+
+type OrganizationAgentState = NonNullable<Awaited<ReturnType<typeof getOrganizationAgentState>>>
+type AgentSandboxProviderSummary = OrganizationAgentState["sandboxProviders"][number]
 
 function checkAgentSlug(value: string) {
   return checkOrganizationAgentSlugAvailability({ data: value })

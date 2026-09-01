@@ -28,22 +28,19 @@ export type NewApiKeyDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   name: string | null
-  secretKey: string | null
-  publicKeyId: string | null
+  apiKey: string | null
 }
 
 export function NewApiKeyDialog({
   open,
   onOpenChange,
   name,
-  secretKey,
-  publicKeyId,
+  apiKey,
 }: NewApiKeyDialogProps) {
   const { localization } = useAuth()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
 
   const [copied, setCopied] = useState(false)
-  const apiKey = publicKeyId && secretKey ? `${publicKeyId}_${secretKey}` : null
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {

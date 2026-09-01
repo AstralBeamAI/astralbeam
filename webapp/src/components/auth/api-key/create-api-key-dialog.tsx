@@ -78,8 +78,7 @@ export function CreateApiKeyDialog({
     "available" | "checking" | "idle" | "invalid" | "unavailable"
   >("idle")
   const [nameError, setNameError] = useState<string>()
-  const [secretKey, setSecretKey] = useState<string | null>(null)
-  const [publicKeyId, setPublicKeyId] = useState<string | null>(null)
+  const [newApiKey, setNewApiKey] = useState<string | null>(null)
   const availableConfigurations = configurations.filter(
     (configuration) => configuration.organization === Boolean(organizationId),
   )
@@ -103,8 +102,7 @@ export function CreateApiKeyDialog({
       setName("")
       setSlugAvailability("idle")
       setNameError(undefined)
-      setSecretKey(null)
-      setPublicKeyId(null)
+      setNewApiKey(null)
     }
 
     onOpenChange(nextOpen)
@@ -116,8 +114,7 @@ export function CreateApiKeyDialog({
     if (!nextOpen) {
       setKeyName(null)
       setNameError(undefined)
-      setSecretKey(null)
-      setPublicKeyId(null)
+      setNewApiKey(null)
     }
   }
 
@@ -154,8 +151,7 @@ export function CreateApiKeyDialog({
       onSuccess: (result) => {
         handleOpenChange(false)
         setKeyName(normalizedName)
-        setSecretKey(result.key)
-        setPublicKeyId(`key_${organizationSlug}_${slug}`)
+        setNewApiKey(`key_${organizationSlug}_${slug}_${result.key}`)
         setIsNewKeyDialogOpen(true)
       },
     })
@@ -347,8 +343,7 @@ export function CreateApiKeyDialog({
       <NewApiKeyDialog
         open={isNewKeyDialogOpen}
         onOpenChange={handleNewKeyDialogOpenChange}
-        secretKey={secretKey}
-        publicKeyId={publicKeyId}
+        apiKey={newApiKey}
         name={keyName}
       />
     </>

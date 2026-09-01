@@ -4,10 +4,7 @@ import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-a
 import type { OrganizationOptions } from "better-auth/plugins"
 import { isValidSlug } from "@/lib/slug"
 import { organizationRoles } from "./organization-access.ts"
-import {
-  ORGANIZATION_API_KEY_PREFIX,
-  organizationApiKeySlugFromMetadata,
-} from "./organization-api-key-configuration.ts"
+import { ORGANIZATION_API_KEY_PREFIX } from "./organization-api-key-configuration.ts"
 
 export const organizationApiKeyPlugin = {
   id: "organization-api-key",
@@ -59,8 +56,15 @@ export function withOrganizationApiKeySlug(adapterFactory: DBAdapterInstance): D
 }
 
 export function prepareOrganizationApiKeyInsert<T extends Record<string, unknown>>(data: T) {
-  const slug = organizationApiKeySlugFromMetadata(data.metadata)
-  if (data.prefix !== ORGANIZATION_API_KEY_PREFIX || slug === null) {
+  const metadata = data.metadata
+  const slug = typeof metadata === "object" && metadata !== null && !Array.isArray(metadata) &&
+      Object.keys(metadata).length === 1
+    ? (metadata as { slug?: unknown }).slug
+    : undefined
+  if (
+    data.prefix !== ORGANIZATION_API_KEY_PREFIX || typeof slug !== "string" ||
+    !isValidSlug(slug)
+  ) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_API_KEY_SLUG",
       message: "API key identifier is invalid",
