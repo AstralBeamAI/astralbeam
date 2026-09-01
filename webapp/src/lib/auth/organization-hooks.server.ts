@@ -1,10 +1,13 @@
-import type { BetterAuthPlugin } from "better-auth"
+import { API_KEY_TABLE_NAME } from "@better-auth/api-key"
+import type { BetterAuthPlugin, DBAdapterInstance } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
+import { isValidSlug } from "@/lib/slug"
 import { organizationRoles } from "./organization-access.ts"
+import { ORGANIZATION_API_KEY_PREFIX } from "./organization-api-key-configuration.ts"
 
-export const organizationApiKeyFreshSessionPlugin = {
-  id: "organization-api-key-fresh-session",
+export const organizationApiKeyPlugin = {
+  id: "organization-api-key",
   hooks: {
     before: [{
       matcher: (context) => context.path === "/api-key/create",
@@ -15,7 +18,60 @@ export const organizationApiKeyFreshSessionPlugin = {
       }),
     }],
   },
+  schema: {
+    apikey: {
+      modelName: "apiKey",
+      fields: {
+        slug: {
+          type: "string",
+          required: false,
+          input: false,
+          returned: true,
+        },
+      },
+    },
+  },
 } satisfies BetterAuthPlugin
+
+// Better Auth's API-key create route writes through the raw adapter, bypassing database hooks.
+// https://github.com/better-auth/better-auth/blob/v1.7.2/packages/api-key/src/routes/create-api-key.ts
+export function withOrganizationApiKeySlug(adapterFactory: DBAdapterInstance): DBAdapterInstance {
+  return (options) => {
+    const adapter = adapterFactory(options)
+    return {
+      ...adapter,
+      create: <T extends Record<string, unknown>>(input: {
+        model: string
+        data: T
+        select?: string[] | undefined
+      }) =>
+        adapter.create({
+          ...input,
+          data: input.model === API_KEY_TABLE_NAME
+            ? prepareOrganizationApiKeyInsert(input.data)
+            : input.data,
+        }),
+    }
+  }
+}
+
+export function prepareOrganizationApiKeyInsert<T extends Record<string, unknown>>(data: T) {
+  const metadata = data.metadata
+  const slug = typeof metadata === "object" && metadata !== null && !Array.isArray(metadata) &&
+      Object.keys(metadata).length === 1
+    ? (metadata as { slug?: unknown }).slug
+    : undefined
+  if (
+    data.prefix !== ORGANIZATION_API_KEY_PREFIX || typeof slug !== "string" ||
+    !isValidSlug(slug)
+  ) {
+    throw new APIError("BAD_REQUEST", {
+      code: "INVALID_API_KEY_SLUG",
+      message: "API key identifier is invalid",
+    })
+  }
+  return { ...data, slug, metadata: null }
+}
 
 function assertConfiguredOrganizationRoles(role: string): void {
   const roles = role.split(",")
@@ -32,6 +88,19 @@ function assertConfiguredOrganizationRoles(role: string): void {
 }
 
 export const organizationRoleHooks = {
+  beforeCreateOrganization: ({ organization }) => {
+    assertOrganizationSlug(organization.slug)
+    return Promise.resolve()
+  },
+  beforeUpdateOrganization: ({ organization }) => {
+    if (Object.hasOwn(organization, "slug")) {
+      throw new APIError("BAD_REQUEST", {
+        code: "ORGANIZATION_SLUG_IMMUTABLE",
+        message: "Organization slug cannot be changed",
+      })
+    }
+    return Promise.resolve()
+  },
   beforeAddMember: ({ member }) => {
     assertConfiguredOrganizationRoles(member.role)
     return Promise.resolve()
@@ -49,3 +118,12 @@ export const organizationRoleHooks = {
     return Promise.resolve()
   },
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>
+
+function assertOrganizationSlug(value: unknown): asserts value is string {
+  if (typeof value !== "string" || !isValidSlug(value)) {
+    throw new APIError("BAD_REQUEST", {
+      code: "INVALID_ORGANIZATION_SLUG",
+      message: "Organization slug must contain only lowercase letters and numbers",
+    })
+  }
+}

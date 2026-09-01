@@ -1,28 +1,32 @@
 import {
   chat,
-  chatParamsFromRequest,
+  chatParamsFromRequestBody,
   mergeAgentTools,
   toServerSentEventsResponse,
 } from "@tanstack/ai"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Schema from "effect/Schema"
 
+import { runDatabaseEffect } from "@/db"
+import { AgentSystemPromptSchema } from "@/lib/schemas"
 import { createChatAdapter } from "./-lib/adapter.server"
+import { resolveChatAgent } from "./-lib/agent.server"
 import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
-import {
-  authenticateChatRequest,
-  isChatAuthenticationConfigurationError,
-  isChatAuthenticationError,
-} from "./-lib/auth.server"
+import { authenticateChatRequest, isChatAuthenticationError } from "./-lib/auth.server"
 import { CHAT_SYSTEM_PROMPT } from "./-lib/constants.server"
 import { createDebugLog, withDebugLog } from "./-lib/debug.server"
+import { consumeChatRateLimit } from "./-lib/rate-limit.server"
 import type { ChatParams } from "./-lib/types"
 import {
+  ChatRequestTooLargeError,
   corsHeaders,
   errorResponse,
   isChatRequestTooLarge,
-  isRateLimited,
+  readChatRequestJson,
   unauthorizedChatResponse,
 } from "./-lib/utils.server"
+
+const isAgentSystemPrompt = Schema.is(AgentSystemPromptSchema)
 
 export const Route = createFileRoute("/api/chat/")({
   server: {
@@ -41,48 +45,52 @@ export const Route = createFileRoute("/api/chat/")({
         ])
         const gate = await setupGateResponse()
         if (gate) return gate
-        if (isRateLimited(request)) {
-          return errorResponse(request, 429, "Too many chat requests; try again in a minute.")
-        }
         // Attachments ride inline in the run input, so a run can be tens of megabytes. Refused
         // from the header, before the body is read; a request without one is not pre-checked.
         if (isChatRequestTooLarge(request)) {
           return errorResponse(request, 413, "The message and its attachments are too large.")
         }
-        const [chatAuthSecret, openaiApiKey] = await Promise.all([
-          getGlobalConfig("chat_auth_secret"),
-          getGlobalConfig("openai_api_key"),
-        ])
+        const openaiApiKey = await getGlobalConfig("openai_api_key")
         let principal
         try {
-          principal = await authenticateChatRequest(request, chatAuthSecret ?? undefined)
+          principal = await authenticateChatRequest(request)
         } catch (error) {
-          if (isChatAuthenticationConfigurationError(error)) {
-            console.error("Authenticated /api/chat request rejected: verifier is not configured")
-            return errorResponse(request, 503, "Chat authentication is temporarily unavailable.")
-          }
           if (isChatAuthenticationError(error)) {
             return unauthorizedChatResponse(request, "The chat authentication token is invalid.")
           }
           console.error("Failed to authenticate /api/chat request:", error)
           return errorResponse(request, 500, "The chat request could not be authenticated.")
         }
-        // Guest chat is off for now: a run costs provider tokens, attachments especially, so
-        // every request must carry a token minted by a host application for a signed-in user.
-        if (principal.kind !== "authenticated") {
-          return unauthorizedChatResponse(request, "This chat endpoint requires a signed-in user.")
+        try {
+          if (await runDatabaseEffect(consumeChatRateLimit(principal))) {
+            return errorResponse(request, 429, "Too many chat requests; try again in a minute.")
+          }
+        } catch (error) {
+          console.error("Failed to enforce /api/chat rate limit:", error)
+          return errorResponse(request, 500, "The chat request could not be rate limited.")
         }
         // Parses the AG-UI run input the SDK's connection sends: messages, the host-declared
         // client tools (widgets and host tools, schemas included), and forwarded props.
         let params: ChatParams
         try {
-          params = await chatParamsFromRequest(request)
+          params = await chatParamsFromRequestBody(await readChatRequestJson(request))
         } catch (error) {
-          console.error("Rejected malformed /api/chat request:", error)
+          if (error instanceof ChatRequestTooLargeError) {
+            return errorResponse(request, 413, "The message and its attachments are too large.")
+          }
+          console.error("Rejected malformed /api/chat request")
           return errorResponse(request, 400, "The request body is not a valid chat run input.")
         }
         try {
-          const { systemPrompt, debug } = params.forwardedProps
+          const { agentId, systemPrompt, debug } = params.forwardedProps
+          const selectedAgent = await resolveChatAgent(agentId, principal.organization.id)
+          if (!selectedAgent) return errorResponse(request, 404, "Agent not found.")
+          if (systemPrompt !== undefined && !isAgentSystemPrompt(systemPrompt)) {
+            return errorResponse(request, 400, "The system prompt override is invalid.")
+          }
+          // Preserve the existing host integration override while agents establish the
+          // organization-owned default used when the SDK does not supply instructions.
+          const effectiveSystemPrompt = systemPrompt ?? selectedAgent.systemPrompt
           // The SDK's `debug` mount option rides along in the forwarded props, so client
           // and server log the same conversation and it can be followed from both sides.
           const log = debug === true ? createDebugLog(params.runId) : undefined
@@ -92,9 +100,8 @@ export const Route = createFileRoute("/api/chat/")({
               runId: params.runId,
               parentRunId: params.parentRunId,
               resume: params.resume,
-              user: principal.user.id,
-              tenant: principal.tenant.id,
-              forwardedProps: params.forwardedProps,
+              agentId,
+              debug,
             })
             log("request", "conversation messages", redactChatAttachmentData(params.messages))
             log("request", `client-declared tools (${params.tools.length})`, params.tools)
@@ -115,9 +122,7 @@ export const Route = createFileRoute("/api/chat/")({
             messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
-              ...(typeof systemPrompt === "string" && systemPrompt.length > 0
-                ? [systemPrompt]
-                : []),
+              effectiveSystemPrompt,
             ],
             // No server-side tools yet: every tool executes in the host page and arrives declared
             // in the request body.
@@ -138,14 +143,8 @@ export const Route = createFileRoute("/api/chat/")({
           }
           return response
         } catch (error) {
-          // The message is deliberately forwarded while the endpoint is a development tool, so
-          // integrators can diagnose setup from the widget side.
           console.error("Failed to start /api/chat run:", error)
-          return errorResponse(
-            request,
-            500,
-            error instanceof Error ? error.message : "The chat run could not be started.",
-          )
+          return errorResponse(request, 500, "The chat run could not be started.")
         }
       },
     },

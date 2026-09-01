@@ -32,8 +32,9 @@ import {
 } from "@/lib/auth/organization-api-key-configuration"
 import { organizationAccessControl, organizationRoles } from "@/lib/auth/organization-access"
 import {
-  organizationApiKeyFreshSessionPlugin,
+  organizationApiKeyPlugin,
   organizationRoleHooks,
+  withOrganizationApiKeySlug,
 } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 
@@ -106,11 +107,13 @@ function buildAuth(config: AuthConfig) {
     appName: APP_NAME,
     baseURL: config.appBaseUrl,
     secret: config.betterAuthSecret,
-    database: drizzleAdapter(db, {
-      provider: "pg",
-      schema: tables,
-      transaction: true,
-    }),
+    database: withOrganizationApiKeySlug(
+      drizzleAdapter(db, {
+        provider: "pg",
+        schema: tables,
+        transaction: true,
+      }),
+    ),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
@@ -244,7 +247,6 @@ function buildAuth(config: AuthConfig) {
               ...context,
               body: {
                 ...body,
-                ...(isApiKeyCreate ? { prefix: ORGANIZATION_API_KEY_PREFIX } : {}),
                 ...(name === undefined ? {} : { name }),
               },
             },
@@ -306,9 +308,10 @@ function buildAuth(config: AuthConfig) {
           })
         },
       }),
-      organizationApiKeyFreshSessionPlugin,
+      organizationApiKeyPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
+        enableMetadata: true,
         rateLimit: {
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
           timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,

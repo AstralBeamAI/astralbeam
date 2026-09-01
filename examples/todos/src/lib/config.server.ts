@@ -1,4 +1,4 @@
 import process from "node:process"
 
-export const CHAT_AUTH_SECRET_ENV = "ASTRALBEAM_CHAT_AUTH_SECRET"
-export const CHAT_AUTH_SECRET = process.env[CHAT_AUTH_SECRET_ENV]
+export const API_KEY_ENV = "ASTRALBEAM_API_KEY"
+export const API_KEY = process.env[API_KEY_ENV]

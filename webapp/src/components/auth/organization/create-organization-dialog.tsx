@@ -1,11 +1,12 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and domain-specific function names, accept an onboarding name suggestion, notify callers after creation, and omit unsupported organization model fields while retaining the official create flow.
+// Local changes: use Phosphor and domain-specific function names, generate an immutable organization slug from the display name, accept an onboarding name suggestion, notify callers after creation, and omit unsupported organization model fields while retaining the official create flow.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
-import { useCreateOrganization } from "@better-auth-ui/react/plugins/organization"
+import { useCheckSlug, useCreateOrganization } from "@better-auth-ui/react/plugins/organization"
 import { BriefcaseIcon as Briefcase } from "@phosphor-icons/react"
-import { type SyntheticEvent, useEffect, useRef, useState } from "react"
+import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from "react"
+import { GeneratedSlugField } from "@/components/generated-slug-field"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
@@ -20,7 +21,6 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
-import { sanitizeSlug, SlugField } from "./slug-field"
 
 /** Props for the `CreateOrganizationDialog` component. */
 export type CreateOrganizationDialogProps = {
@@ -40,8 +40,9 @@ export function CreateOrganizationDialog({
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
 
   const [name, setName] = useState(() => initialName?.trim() ?? "")
-  const [slug, setSlug] = useState("")
-  const [slugEdited, setSlugEdited] = useState(false)
+  const [slugAvailability, setSlugAvailability] = useState<
+    "available" | "checking" | "idle" | "invalid" | "unavailable"
+  >("idle")
   const [nameError, setNameError] = useState<string>()
   const submissionLocked = useRef(false)
 
@@ -54,10 +55,17 @@ export function CreateOrganizationDialog({
       submissionLocked.current = false
     },
   })
+  const { mutateAsync: checkSlug } = useCheckSlug(authClient)
+  const checkOrganizationSlug = useCallback(
+    async (value: string) => (await checkSlug({ slug: value })).status,
+    [checkSlug],
+  )
 
   const submitOrganizationCreation = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (submissionLocked.current) return
+    const slug = new FormData(e.currentTarget).get("slug")
+    if (typeof slug !== "string") return
 
     submissionLocked.current = true
     createOrganization({ name, slug })
@@ -67,17 +75,11 @@ export function CreateOrganizationDialog({
 
   useEffect(() => {
     if (!open) {
-      setSlug("")
       setName(initialName?.trim() ?? "")
-      setSlugEdited(false)
+      setSlugAvailability("idle")
       setNameError(undefined)
     }
   }, [initialName, open])
-
-  useEffect(() => {
-    if (slugEdited) return
-    setSlug(sanitizeSlug(name))
-  }, [name, slugEdited])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,13 +124,14 @@ export function CreateOrganizationDialog({
               <FieldError>{nameError}</FieldError>
             </Field>
 
-            <SlugField
+            <GeneratedSlugField
+              key={String(open)}
               id="create-organization-slug"
-              value={slug}
-              onChange={(value) => {
-                setSlug(value)
-                setSlugEdited(true)
-              }}
+              label="Slug"
+              sourceValue={name}
+              fallback="org"
+              checkAvailability={checkOrganizationSlug}
+              onAvailabilityChange={setSlugAvailability}
               disabled={isPending}
             />
           </div>
@@ -142,7 +145,11 @@ export function CreateOrganizationDialog({
               {localization.settings.cancel}
             </DialogClose>
 
-            <Button type="submit" disabled={isPending}>
+            <Button
+              type="submit"
+              disabled={isPending || slugAvailability === "checking" ||
+                slugAvailability === "invalid" || slugAvailability === "unavailable"}
+            >
               {isPending && <Spinner />}
 
               {organizationLocalization.createOrganization}

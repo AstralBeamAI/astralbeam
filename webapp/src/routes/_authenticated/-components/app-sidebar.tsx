@@ -11,6 +11,7 @@ import {
   HouseIcon,
   type Icon,
   KeyIcon,
+  RobotIcon,
   ShieldCheckIcon,
   UserCircleIcon,
   UsersThreeIcon,
@@ -53,6 +54,12 @@ const organizationNavigation = [
     label: "Sandbox providers",
     href: "/organization/sandbox-providers",
     icon: CubeIcon,
+    permission: "organizationConfiguration",
+  },
+  {
+    label: "Agents",
+    href: "/organization/agents",
+    icon: RobotIcon,
     permission: "organizationConfiguration",
   },
   {

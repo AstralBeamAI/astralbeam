@@ -1,31 +1,74 @@
+import { createHash } from "node:crypto"
+
+import type { SQL } from "drizzle-orm"
+import { PgDialect } from "drizzle-orm/pg-core"
+import * as Effect from "effect/Effect"
 import { SignJWT } from "jose"
-import { describe, expect, test } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 
-import {
-  authenticateChatRequest,
-  isChatAuthenticationConfigurationError,
-  isChatAuthenticationError,
-} from "./auth.server"
-import {
-  CHAT_TOKEN_AUDIENCE,
-  CHAT_TOKEN_ISSUER,
-  CHAT_TOKEN_KEY_ID,
-  CHAT_TOKEN_TYPE,
-} from "./constants.server"
+const databaseState = vi.hoisted(() => ({
+  joinPredicates: [] as SQL[],
+  mutationCalls: 0,
+  rows: [] as unknown[][],
+  selectCalls: 0,
+  wherePredicates: [] as SQL[],
+}))
 
-const secret = "test-secret-with-at-least-thirty-two-bytes"
-const key = new TextEncoder().encode(secret)
+vi.mock("@/db", () => {
+  const db = {
+    select: () => {
+      const rows = databaseState.rows[databaseState.selectCalls++] ?? []
+      const query = {
+        from: () => query,
+        innerJoin: (_table: unknown, predicate: SQL) => {
+          databaseState.joinPredicates.push(predicate)
+          return query
+        },
+        where: (predicate: SQL) => {
+          databaseState.wherePredicates.push(predicate)
+          return query
+        },
+        limit: () => Effect.succeed(rows),
+      }
+      return query
+    },
+    update: () => {
+      databaseState.mutationCalls += 1
+      throw new Error("Chat authentication must not update API-key usage")
+    },
+  }
+  return {
+    effectDatabase: Effect.succeed(db),
+    runDatabaseEffect: Effect.runPromise,
+  }
+})
 
-interface TokenOverrides {
+import { authenticateChatRequest, isChatAuthenticationError, verifyChatToken } from "./auth.server"
+import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_ISSUER, CHAT_TOKEN_TYPE } from "./constants.server"
+
+const apiKeyId = "key_acme_production"
+const rawApiKey = `abo_${"A".repeat(64)}`
+let deeplyNestedTenantUser: unknown = { id: "tenant-user-1" }
+for (let depth = 0; depth < 10; depth += 1) {
+  deeplyNestedTenantUser = { id: "tenant-user-1", child: deeplyNestedTenantUser }
+}
+
+function signingKey(secret = rawApiKey) {
+  return new TextEncoder().encode(createHash("sha256").update(secret).digest("base64url"))
+}
+
+type TokenOverrides = {
   algorithm?: "HS256" | "HS384"
+  apiKeyId?: string
   audience?: string
-  expiresInSeconds?: number
   expiresAt?: number
+  expiresInSeconds?: number
   issuedAt?: number
-  keyId?: string
+  issuer?: string
+  signingSecret?: string
   subject?: string
+  tenantUser?: unknown
   type?: string
-  userId?: string
   version?: number
 }
 
@@ -34,65 +77,129 @@ async function token(overrides: TokenOverrides = {}) {
   const issuedAt = overrides.issuedAt ?? now
   const algorithm = overrides.algorithm ?? "HS256"
   return await new SignJWT({
-    ver: overrides.version ?? 1,
-    user: { id: overrides.userId ?? "user-1", name: "Ada" },
-    tenant: { id: "tenant-1", name: "Analytical Engines" },
+    ver: overrides.version ?? 2,
+    tenantUser: overrides.tenantUser ?? { id: "tenant-user-1", role: "admin" },
   })
     .setProtectedHeader({
       alg: algorithm,
       typ: overrides.type ?? CHAT_TOKEN_TYPE,
-      kid: overrides.keyId ?? CHAT_TOKEN_KEY_ID,
+      kid: overrides.apiKeyId ?? apiKeyId,
     })
-    .setIssuer(CHAT_TOKEN_ISSUER)
+    .setIssuer(overrides.issuer ?? CHAT_TOKEN_ISSUER)
     .setAudience(overrides.audience ?? CHAT_TOKEN_AUDIENCE)
-    .setSubject(overrides.subject ?? "user-1")
+    .setSubject(overrides.subject ?? "tenant-user-1")
     .setIssuedAt(issuedAt)
-    .setExpirationTime(overrides.expiresAt ?? issuedAt + (overrides.expiresInSeconds ?? 300))
-    .sign(key)
+    .setExpirationTime(
+      overrides.expiresAt ?? issuedAt + (overrides.expiresInSeconds ?? 300),
+    )
+    .sign(signingKey(overrides.signingSecret))
 }
 
-function request(bearer?: string) {
-  return new Request("https://chat.example/api/chat", {
-    method: "POST",
-    ...(bearer ? { headers: { authorization: `Bearer ${bearer}` } } : {}),
+describe("organization API-key chat JWTs", () => {
+  beforeEach(() => {
+    databaseState.joinPredicates = []
+    databaseState.mutationCalls = 0
+    databaseState.rows = []
+    databaseState.selectCalls = 0
+    databaseState.wherePredicates = []
   })
-}
 
-describe("chat bearer authentication", () => {
-  test("preserves guest requests and verifies a complete identity", async () => {
-    await expect(authenticateChatRequest(request(), undefined)).resolves.toEqual({ kind: "guest" })
-    await expect(authenticateChatRequest(request(await token()), secret)).resolves.toEqual({
-      kind: "authenticated",
-      user: { id: "user-1", name: "Ada", email: undefined, avatarUrl: undefined },
-      tenant: {
-        id: "tenant-1",
-        name: "Analytical Engines",
-        logoUrl: undefined,
-      },
+  test("authenticates through a lifecycle reread without consuming API-key usage", async () => {
+    databaseState.rows = [
+      [{
+        id: "01990a5d-ac96-774b-b942-6b13c85384c9",
+        digest: createHash("sha256").update(rawApiKey).digest("base64url"),
+        organizationId: "01990a5d-ac96-774b-b942-6b13c85384ca",
+      }],
+      [{ enabled: true, expiresAt: null }],
+    ]
+
+    await expect(
+      authenticateChatRequest(
+        new Request("https://example.test/api/chat", {
+          headers: { authorization: `Bearer ${await token()}` },
+        }),
+      ),
+    ).resolves.toEqual({
+      organization: { id: "01990a5d-ac96-774b-b942-6b13c85384ca" },
+      tenantUser: { id: "tenant-user-1", role: "admin" },
     })
+    expect(databaseState.selectCalls).toBe(2)
+    expect(databaseState.mutationCalls).toBe(0)
+    const [joinPredicate] = databaseState.joinPredicates.map(query)
+    const [lookupPredicate, lifecyclePredicate] = databaseState.wherePredicates.map(query)
+    expect(joinPredicate?.sql).toContain('"api_key"."organization_id" = "organization"."id"')
+    expect(joinPredicate?.sql).toContain('"api_key"."slug" = $1')
+    expect(joinPredicate?.sql).toContain('"api_key"."config_id" = $2')
+    expect(joinPredicate?.params).toEqual(["production", "default"])
+    expect(lookupPredicate?.sql).toContain('"organization"."slug" = $1')
+    expect(lookupPredicate?.params).toEqual(["acme"])
+    expect(lifecyclePredicate?.sql).toContain('"api_key"."id" = $1')
+    expect(lifecyclePredicate?.sql).toContain('"api_key"."organization_id" = $2')
+    expect(lifecyclePredicate?.params).toEqual([
+      "01990a5d-ac96-774b-b942-6b13c85384c9",
+      "01990a5d-ac96-774b-b942-6b13c85384ca",
+    ])
   })
 
-  test("fails closed when authenticated requests cannot be verified", async () => {
-    await expect(authenticateChatRequest(request(await token()), undefined)).rejects.toSatisfy(
-      isChatAuthenticationConfigurationError,
-    )
-    await expect(authenticateChatRequest(request("malformed"), secret)).rejects.toSatisfy(
-      isChatAuthenticationError,
-    )
+  test.each([
+    ["missing", undefined],
+    ["disabled", { enabled: false, expiresAt: null }],
+    ["expired", { enabled: true, expiresAt: new Date(0) }],
+  ])("rejects a %s API key during the lifecycle reread", async (_name, current) => {
+    databaseState.rows = [
+      [{
+        id: "01990a5d-ac96-774b-b942-6b13c85384c9",
+        digest: createHash("sha256").update(rawApiKey).digest("base64url"),
+        organizationId: "01990a5d-ac96-774b-b942-6b13c85384ca",
+      }],
+      current ? [current] : [],
+    ]
+
+    await expect(
+      authenticateChatRequest(
+        new Request("https://example.test/api/chat", {
+          headers: { authorization: `Bearer ${await token()}` },
+        }),
+      ),
+    ).rejects.toSatisfy(isChatAuthenticationError)
+    expect(databaseState.mutationCalls).toBe(0)
+  })
+
+  test("uses Better Auth's stored digest as the verifier and accepts v2 claims", async () => {
+    await expect(verifyChatToken(await token(), signingKey(), apiKeyId)).resolves.toEqual({
+      id: "tenant-user-1",
+      role: "admin",
+    })
   })
 
   test.each([
     ["expired", { issuedAt: 1, expiresAt: 2 }],
     ["future dated", { issuedAt: Math.floor(Date.now() / 1_000) + 120 }],
-    ["wrong audience", { audience: "another-service" }],
-    ["wrong type", { type: "another+jwt" }],
-    ["wrong key id", { keyId: "another-key" }],
     ["wrong algorithm", { algorithm: "HS384" as const }],
+    ["wrong audience", { audience: "another-service" }],
+    ["wrong issuer", { issuer: "another-issuer" }],
+    ["wrong type", { type: "another+jwt" }],
+    ["wrong kid", { apiKeyId: "key_acme_another" }],
+    ["wrong signature", { signingSecret: `abo_${"B".repeat(64)}` }],
     ["subject mismatch", { subject: "another-user" }],
-    ["wrong version", { version: 2 }],
-    ["excessive lifetime", { expiresInSeconds: 601 }],
-  ])("rejects %s tokens", async (_name, overrides) => {
-    await expect(authenticateChatRequest(request(await token(overrides)), secret)).rejects
+    ["wrong version", { version: 1 }],
+    ["too short", { expiresInSeconds: 59 }],
+    ["too long", { expiresInSeconds: 601 }],
+    ["missing tenant-user ID", { tenantUser: { role: "admin" } }],
+    ["deeply nested tenant user", { tenantUser: deeplyNestedTenantUser }],
+  ])("rejects %s", async (_name, overrides) => {
+    await expect(verifyChatToken(await token(overrides), signingKey(), apiKeyId)).rejects
       .toSatisfy(isChatAuthenticationError)
   })
+
+  test("rejects malformed tokens", async () => {
+    await expect(verifyChatToken("not-a-jwt", signingKey(), apiKeyId)).rejects.toSatisfy(
+      isChatAuthenticationError,
+    )
+  })
 })
+
+function query(expression: SQL) {
+  return new PgDialect().sqlToQuery(expression)
+}

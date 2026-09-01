@@ -1,7 +1,7 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview; notify the paginated list after deletion.
+// Local changes: Use Phosphor icons; show the public ID; support exact optional property types; notify the paginated list after deletion.
 
-import type { ApiKeyAuthClient, ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
+import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useDeleteApiKey } from "@better-auth-ui/react/plugins/api-key"
 import { KeyIcon } from "@phosphor-icons/react"
@@ -21,11 +21,13 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
+import type { OrganizationApiKey } from "@/lib/auth/organization-api-key-configuration"
 
 export type DeleteApiKeyDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  apiKey: ListedApiKey
+  apiKey: OrganizationApiKey
+  publicId: string
   onDeleted?: (() => void) | undefined
 }
 
@@ -33,11 +35,11 @@ export function DeleteApiKeyDialog({
   open,
   onOpenChange,
   apiKey,
+  publicId,
   onDeleted,
 }: DeleteApiKeyDialogProps) {
   const { authClient, localization } = useAuth<ApiKeyAuthClient>()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
-  const preview = `${apiKey.start ?? ""}${"*".repeat(16)}`
   const previewId = `delete-api-key-preview-${apiKey.id}`
   const { mutate: deleteApiKey, isPending: isDeleting } = useDeleteApiKey(
     authClient,
@@ -66,15 +68,14 @@ export function DeleteApiKeyDialog({
 
         <Field>
           <FieldLabel htmlFor={previewId}>
-            {apiKey.name || apiKeyLocalization.apiKey}
+            API key ID
           </FieldLabel>
 
           <Input
             id={previewId}
-            value={preview}
+            value={publicId}
             readOnly
             className="font-mono text-xs"
-            disabled
           />
         </Field>
 

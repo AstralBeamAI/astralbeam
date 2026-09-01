@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
     (): Promise<TestSession> => Promise.resolve(null),
   ),
   listOrganizations: vi.fn(
-    (): Promise<Array<{ id: string }>> => Promise.resolve([]),
+    (): Promise<Array<{ id: string; slug: string }>> => Promise.resolve([]),
   ),
   setActiveOrganization: vi.fn(),
   setResponseHeader: vi.fn(),
@@ -70,7 +70,9 @@ describe("session access response boundary", () => {
       session: { activeOrganizationId: "organization-a" },
       user: { id: "user-a" },
     })
-    mocks.listOrganizations.mockResolvedValueOnce([{ id: "organization-a" }])
+    mocks.listOrganizations.mockResolvedValueOnce([
+      { id: "organization-a", slug: "organizationa" },
+    ])
 
     await expect(
       getSessionAccessDecisionForRequest(queryClient),
@@ -78,6 +80,7 @@ describe("session access response boundary", () => {
       status: "ready",
       userId: "user-a",
       organizationId: "organization-a",
+      organizationSlug: "organizationa",
     })
 
     expect(mocks.ensureSessionServer).toHaveBeenCalledOnce()
@@ -90,7 +93,9 @@ describe("session access response boundary", () => {
       session: { activeOrganizationId: null },
       user: { id: "user-a" },
     })
-    mocks.listOrganizations.mockResolvedValueOnce([{ id: "organization-a" }])
+    mocks.listOrganizations.mockResolvedValueOnce([
+      { id: "organization-a", slug: "organizationa" },
+    ])
     mocks.setActiveOrganization.mockResolvedValueOnce({ id: "organization-a" })
 
     await expect(
@@ -99,6 +104,7 @@ describe("session access response boundary", () => {
       status: "ready",
       userId: "user-a",
       organizationId: "organization-a",
+      organizationSlug: "organizationa",
     })
 
     expect(queryClient.getQueryData(authQueryKeys.session)).toEqual({

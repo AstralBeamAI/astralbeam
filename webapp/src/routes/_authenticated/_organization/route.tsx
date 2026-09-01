@@ -10,7 +10,10 @@ export const Route = createFileRoute("/_authenticated/_organization")({
     if (access.status !== "ready") {
       throw redirect({ href: "/onboarding", replace: true })
     }
-    return { organizationId: access.organizationId }
+    return {
+      organizationId: access.organizationId,
+      organizationSlug: access.organizationSlug,
+    }
   },
   component: OrganizationLayout,
 })

@@ -1,9 +1,9 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Surface a sanitized inline rename error because this mutation intentionally bypasses the shared toaster.
+// Local changes: Show the immutable public API key ID and surface a sanitized inline rename error because this mutation intentionally bypasses the shared toaster.
 
 "use client"
 
-import type { ApiKeyAuthClient, ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
+import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useUpdateApiKey } from "@better-auth-ui/react/plugins/api-key"
 import { type FormEvent, useState } from "react"
@@ -20,15 +20,18 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
+import type { OrganizationApiKey } from "@/lib/auth/organization-api-key-configuration"
 
 export function EditApiKeyDialog({
   apiKey,
   open,
   onOpenChange,
+  publicId,
 }: {
-  apiKey: ListedApiKey
+  apiKey: OrganizationApiKey
   open: boolean
   onOpenChange: (open: boolean) => void
+  publicId: string
 }) {
   const { authClient, localization } = useAuth<ApiKeyAuthClient>()
   const { localization: labels } = useAuthPlugin(apiKeyPlugin)
@@ -67,6 +70,15 @@ export function EditApiKeyDialog({
             <DialogTitle>{labels.editApiKey}</DialogTitle>
           </DialogHeader>
           <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor={`api-key-public-id-${apiKey.id}`}>ID</FieldLabel>
+              <Input
+                id={`api-key-public-id-${apiKey.id}`}
+                value={publicId}
+                readOnly
+                className="font-mono text-xs"
+              />
+            </Field>
             <Field data-invalid={!!nameError}>
               <FieldLabel htmlFor={`api-key-name-${apiKey.id}`}>
                 {labels.name}

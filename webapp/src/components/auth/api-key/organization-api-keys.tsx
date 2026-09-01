@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Allow direct route use without the plugin-only organization slug prop; support exact optional property types.
+// Local changes: Allow direct route use; show public key IDs; support exact optional property types.
 
 "use client"
 
@@ -17,7 +17,7 @@ export type OrganizationApiKeysProps = {
   children?: ReactNode
   className?: string | undefined
   organizationId: string
-  organizationSlug?: string | undefined
+  organizationSlug: string
   unauthorized?: ReactNode
 }
 
@@ -31,6 +31,7 @@ export function OrganizationApiKeys({
   children,
   className,
   organizationId,
+  organizationSlug,
   unauthorized,
 }: OrganizationApiKeysProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
@@ -87,6 +88,7 @@ export function OrganizationApiKeys({
           hideUpdate
           isPending
           organizationId={organizationId}
+          organizationSlug={organizationSlug}
         />
       </>
     )
@@ -102,6 +104,7 @@ export function OrganizationApiKeys({
         hideDelete={!isCreator && !canDelete.data?.success}
         hideUpdate={!isCreator && !canUpdate.data?.success}
         organizationId={organizationId}
+        organizationSlug={organizationSlug}
       />
     </>
   )

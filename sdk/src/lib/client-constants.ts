@@ -14,6 +14,9 @@ export const DEFAULT_EMPTY_DESCRIPTION =
 /** Endpoint the chat widget streams from when the mount options give none. */
 export const DEFAULT_ENDPOINT = "/api/chat"
 
+/** Host endpoint that mints chat JWTs when the mount options give none. */
+export const DEFAULT_AUTH_ENDPOINT = "/api/astralbeam/token"
+
 /** Color scheme used when the mount options and the React prop give none. */
 export const DEFAULT_COLOR_SCHEME = "system"
 

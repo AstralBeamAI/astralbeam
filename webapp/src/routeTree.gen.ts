@@ -23,6 +23,7 @@ import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
 import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
 import { Route as AuthenticatedSettingsOrganizationsIndexRouteImport } from './routes/_authenticated/settings/organizations/index'
 import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
+import { Route as AuthenticatedOrganizationOrganizationAgentsIndexRouteImport } from './routes/_authenticated/_organization/organization/agents/index'
 import { Route as AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport } from './routes/_authenticated/_organization/organization/api-keys/index'
 import { Route as AuthenticatedOrganizationOrganizationMembersIndexRouteImport } from './routes/_authenticated/_organization/organization/members/index'
 import { Route as AuthenticatedOrganizationOrganizationSandboxProvidersIndexRouteImport } from './routes/_authenticated/_organization/organization/sandbox-providers/index'
@@ -102,6 +103,12 @@ const AuthenticatedSettingsSecurityIndexRoute =
     path: '/security/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedOrganizationOrganizationAgentsIndexRoute =
+  AuthenticatedOrganizationOrganizationAgentsIndexRouteImport.update({
+    id: '/organization/agents/',
+    path: '/organization/agents/',
+    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+  } as any)
 const AuthenticatedOrganizationOrganizationApiKeysIndexRoute =
   AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport.update({
     id: '/organization/api-keys/',
@@ -134,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/organization/agents/': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
   '/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
   '/organization/sandbox-providers/': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
@@ -151,6 +159,7 @@ export interface FileRoutesByTo {
   '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/organizations': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/organization/agents': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
   '/organization/api-keys': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/organization/members': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
   '/organization/sandbox-providers': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
@@ -171,6 +180,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/_authenticated/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/_authenticated/_organization/organization/agents/': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
   '/_authenticated/_organization/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/_authenticated/_organization/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
   '/_authenticated/_organization/organization/sandbox-providers/': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/settings/account/'
     | '/settings/organizations/'
     | '/settings/security/'
+    | '/organization/agents/'
     | '/organization/api-keys/'
     | '/organization/members/'
     | '/organization/sandbox-providers/'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/organizations'
     | '/settings/security'
+    | '/organization/agents'
     | '/organization/api-keys'
     | '/organization/members'
     | '/organization/sandbox-providers'
@@ -226,6 +238,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/account/'
     | '/_authenticated/settings/organizations/'
     | '/_authenticated/settings/security/'
+    | '/_authenticated/_organization/organization/agents/'
     | '/_authenticated/_organization/organization/api-keys/'
     | '/_authenticated/_organization/organization/members/'
     | '/_authenticated/_organization/organization/sandbox-providers/'
@@ -341,6 +354,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSecurityIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_organization/organization/agents/': {
+      id: '/_authenticated/_organization/organization/agents/'
+      path: '/organization/agents'
+      fullPath: '/organization/agents/'
+      preLoaderRoute: typeof AuthenticatedOrganizationOrganizationAgentsIndexRouteImport
+      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    }
     '/_authenticated/_organization/organization/api-keys/': {
       id: '/_authenticated/_organization/organization/api-keys/'
       path: '/organization/api-keys'
@@ -367,6 +387,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedOrganizationRouteRouteChildren {
   AuthenticatedOrganizationIndexRoute: typeof AuthenticatedOrganizationIndexRoute
+  AuthenticatedOrganizationOrganizationAgentsIndexRoute: typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
   AuthenticatedOrganizationOrganizationApiKeysIndexRoute: typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   AuthenticatedOrganizationOrganizationMembersIndexRoute: typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
   AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute: typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
@@ -375,6 +396,8 @@ interface AuthenticatedOrganizationRouteRouteChildren {
 const AuthenticatedOrganizationRouteRouteChildren: AuthenticatedOrganizationRouteRouteChildren =
   {
     AuthenticatedOrganizationIndexRoute: AuthenticatedOrganizationIndexRoute,
+    AuthenticatedOrganizationOrganizationAgentsIndexRoute:
+      AuthenticatedOrganizationOrganizationAgentsIndexRoute,
     AuthenticatedOrganizationOrganizationApiKeysIndexRoute:
       AuthenticatedOrganizationOrganizationApiKeysIndexRoute,
     AuthenticatedOrganizationOrganizationMembersIndexRoute:

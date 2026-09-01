@@ -1,7 +1,7 @@
 export type SessionAccessDecision =
   | { status: "signed-out" }
   | { status: "onboarding"; userId: string }
-  | { status: "ready"; userId: string; organizationId: string }
+  | { status: "ready"; userId: string; organizationId: string; organizationSlug: string }
 
 export interface SessionAccessIdentity {
   userId: string
@@ -10,6 +10,7 @@ export interface SessionAccessIdentity {
 
 export interface OrganizationMembershipIdentity {
   id: string
+  slug: string
 }
 
 export interface SessionAccessDependencies {
@@ -44,19 +45,24 @@ export async function reconcileSessionAccess(
       status: "ready",
       userId: session.userId,
       organizationId: activeOrganization.id,
+      organizationSlug: activeOrganization.slug,
     }
   }
 
-  const organizationId = organizations
-    .map(({ id }) => id)
-    .toSorted(compareOrganizationIds)[0]
+  const organization =
+    organizations.toSorted((left, right) => compareOrganizationIds(left.id, right.id))[0]
 
-  if (!organizationId) {
+  if (!organization) {
     return { status: "onboarding", userId: session.userId }
   }
 
-  await dependencies.setActiveOrganization(organizationId)
-  return { status: "ready", userId: session.userId, organizationId }
+  await dependencies.setActiveOrganization(organization.id)
+  return {
+    status: "ready",
+    userId: session.userId,
+    organizationId: organization.id,
+    organizationSlug: organization.slug,
+  }
 }
 
 function compareOrganizationIds(left: string, right: string): number {

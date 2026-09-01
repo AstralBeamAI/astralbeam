@@ -1,8 +1,9 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons and the contextual Base UI toast manager; require explicit dismissal of the one-time secret.
+// Local changes: Use Phosphor icons and the contextual Base UI toast manager; show one copyable API key; require explicit dismissal of the secret.
 
-import { useAuth, useAuthPlugin, useCopyToClipboard } from "@better-auth-ui/react"
+import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { CheckIcon, CopyIcon, KeyIcon } from "@phosphor-icons/react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -27,34 +28,36 @@ export type NewApiKeyDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   name: string | null
-  secretKey: string | null
+  apiKey: string | null
 }
 
 export function NewApiKeyDialog({
   open,
   onOpenChange,
   name,
-  secretKey,
+  apiKey,
 }: NewApiKeyDialogProps) {
   const { localization } = useAuth()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
 
-  const { copied, copy, reset } = useCopyToClipboard({
-    onError: () => toast.add({ title: "The API key could not be copied", type: "error" }),
-  })
+  const [copied, setCopied] = useState(false)
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
-      reset()
+      setCopied(false)
     }
 
     onOpenChange(nextOpen)
   }
 
-  const copySecretKey = async () => {
-    if (!secretKey) return
-
-    await copy(secretKey)
+  const copyApiKey = async () => {
+    if (!apiKey) return
+    try {
+      await globalThis.navigator.clipboard.writeText(apiKey)
+      setCopied(true)
+    } catch {
+      toast.add({ title: "Couldn't copy the API key", type: "error" })
+    }
   }
 
   return (
@@ -81,34 +84,24 @@ export function NewApiKeyDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="new-api-key-secret">
-            {name || apiKeyLocalization.apiKey}
-          </Label>
+        <div className="flex flex-col gap-4">
+          <p className="text-sm font-medium">{name || apiKeyLocalization.apiKey}</p>
 
-          <InputGroup>
-            <InputGroupInput
-              id="new-api-key-secret"
-              value={secretKey ?? ""}
-              readOnly
-              className="font-mono text-xs"
-            />
+          <ApiKeyCopyField
+            id="new-api-key"
+            label="API key"
+            value={apiKey}
+            copied={copied}
+            copiedLabel={localization.settings.copiedToClipboard}
+            copyLabel={localization.settings.copyToClipboard}
+            onCopy={() => void copyApiKey()}
+          />
 
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                size="icon-xs"
-                aria-label={copied
-                  ? localization.settings.copiedToClipboard
-                  : localization.settings.copyToClipboard}
-                title={copied
-                  ? localization.settings.copiedToClipboard
-                  : localization.settings.copyToClipboard}
-                onClick={() => void copySecretKey()}
-              >
-                {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
+          <p className="text-xs text-muted-foreground">
+            Use this key only with{" "}
+            <code className="font-mono text-foreground">createAstralBeamChatToken</code>{" "}
+            on your server. Never expose it in browser code.
+          </p>
         </div>
 
         <DialogFooter>
@@ -118,5 +111,47 @@ export function NewApiKeyDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ApiKeyCopyField({
+  id,
+  label,
+  value,
+  copied,
+  copiedLabel,
+  copyLabel,
+  onCopy,
+}: {
+  id: string
+  label: string
+  value: string | null
+  copied: boolean
+  copiedLabel: string
+  copyLabel: string
+  onCopy: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <InputGroup>
+        <InputGroupInput
+          id={id}
+          value={value ?? ""}
+          readOnly
+          className="font-mono text-xs"
+        />
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            aria-label={copied ? copiedLabel : copyLabel}
+            title={copied ? copiedLabel : copyLabel}
+            onClick={onCopy}
+          >
+            {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
+          </InputGroupButton>
+        </InputGroupAddon>
+      </InputGroup>
+    </div>
   )
 }

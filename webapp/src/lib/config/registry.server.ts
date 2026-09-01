@@ -292,19 +292,6 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     decode: nonEmptyDecoder("OpenAI API key"),
   },
   {
-    key: "chat_auth_secret",
-    group: "General",
-    label: "Chat Authentication Secret",
-    description: "Verifies signed-in SDK chat requests. Chat is unavailable while it is unset.",
-    kind: "secret",
-    required: false,
-    decode: sanitizedDecoder(
-      decodeSecretValue,
-      "Chat authentication secret must be at least 32 characters",
-    ),
-    generate: generateSecret,
-  },
-  {
     key: "privacy_policy_url",
     group: "General",
     label: "Privacy Policy URL",

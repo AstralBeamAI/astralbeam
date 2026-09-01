@@ -1,9 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored preview; show the product rate limit.
+// Local changes: Use Phosphor icons; support exact optional property types; show the public key ID.
 
-import type { ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
-import { KeyIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react"
+import { CopyIcon, KeyIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -16,12 +15,14 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
-import { ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION } from "@/lib/auth/organization-api-key-configuration"
+import type { OrganizationApiKey } from "@/lib/auth/organization-api-key-configuration"
+import { toast } from "@/components/ui/toast"
 import { DeleteApiKeyDialog } from "./delete-api-key-dialog"
 import { EditApiKeyDialog } from "./edit-api-key-dialog"
 
 export type ApiKeyProps = {
-  apiKey: ListedApiKey
+  apiKey: OrganizationApiKey
+  organizationSlug: string
   /** Hide the row's delete button (e.g., when caller lacks `apiKey:delete`). */
   hideDelete?: boolean | undefined
   /** Hide the row's edit button (e.g., when caller lacks `apiKey:update`). */
@@ -32,6 +33,7 @@ export type ApiKeyProps = {
 
 export function ApiKey({
   apiKey,
+  organizationSlug,
   hideDelete,
   hideUpdate,
   onDeleted,
@@ -41,7 +43,7 @@ export function ApiKey({
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
-  const preview = `${apiKey.start ?? ""}${"*".repeat(16)}`
+  const publicId = `key_${organizationSlug}_${apiKey.slug}`
 
   return (
     <Item>
@@ -50,15 +52,27 @@ export function ApiKey({
       </ItemMedia>
       <ItemContent>
         <ItemTitle>{apiKey.name || apiKeyLocalization.apiKey}</ItemTitle>
-        <ItemDescription className="font-mono">{preview}</ItemDescription>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+            ID
+          </span>
+          <ItemDescription className="min-w-0 truncate font-mono">{publicId}</ItemDescription>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            aria-label={`Copy ${apiKey.name || "API key"} ID`}
+            title={`Copy ${apiKey.name || "API key"} ID`}
+            onClick={() => void copyApiKeyPublicId(publicId)}
+          >
+            <CopyIcon aria-hidden="true" />
+          </Button>
+        </div>
         <ItemDescription>
           {apiKeyLocalization.created} {new Date(apiKey.createdAt).toLocaleString(undefined, {
             dateStyle: "medium",
             timeStyle: "short",
-          })}
-        </ItemDescription>
-        <ItemDescription>
-          {apiKey.expiresAt
+          })} · {apiKey.expiresAt
             ? `${apiKeyLocalization.expires} ${
               new Date(
                 apiKey.expiresAt,
@@ -67,18 +81,8 @@ export function ApiKey({
                 timeStyle: "short",
               })
             }`
-            : apiKeyLocalization.neverExpires}
-        </ItemDescription>
-        <ItemDescription>
+            : apiKeyLocalization.neverExpires} ·{" "}
           {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
-        </ItemDescription>
-        <ItemDescription>
-          {ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}
-        </ItemDescription>
-        <ItemDescription>
-          {apiKeyLocalization.lastRequest}: {apiKey.lastRequest
-            ? new Date(apiKey.lastRequest).toLocaleString()
-            : apiKeyLocalization.neverRequested}
         </ItemDescription>
       </ItemContent>
       <ItemActions>
@@ -94,6 +98,7 @@ export function ApiKey({
             </Button>
             <EditApiKeyDialog
               apiKey={apiKey}
+              publicId={publicId}
               open={editOpen}
               onOpenChange={setEditOpen}
             />
@@ -116,6 +121,7 @@ export function ApiKey({
               open={deleteOpen}
               onOpenChange={setDeleteOpen}
               apiKey={apiKey}
+              publicId={publicId}
               onDeleted={onDeleted}
             />
           </>
@@ -123,4 +129,13 @@ export function ApiKey({
       </ItemActions>
     </Item>
   )
+}
+
+async function copyApiKeyPublicId(publicId: string): Promise<void> {
+  try {
+    await globalThis.navigator.clipboard.writeText(publicId)
+    toast.add({ title: "ID copied", type: "success" })
+  } catch {
+    toast.add({ title: "The ID could not be copied", type: "error" })
+  }
 }

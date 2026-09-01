@@ -1,5 +1,7 @@
 import type { chatParamsFromRequest } from "@tanstack/ai"
 
+import type { ChatTenantUserSchema } from "@/lib/schemas"
+
 export type ChatParams = Awaited<ReturnType<typeof chatParamsFromRequest>>
 export type ChatMessages = ChatParams["messages"]
 
@@ -18,25 +20,13 @@ export interface ChatAttachmentOutcome {
 
 export type DebugLog = (category: string, summary: string, data?: unknown) => void
 
-export type ChatAuthenticationErrorCode = "invalid_token" | "verifier_not_configured"
-
 export interface ChatAuthenticationError extends Error {
-  code: ChatAuthenticationErrorCode
+  code: "invalid_token"
 }
 
-export interface ChatUserPrincipal {
-  id: string
-  name?: string | undefined
-  email?: string | undefined
-  avatarUrl?: string | undefined
-}
+export type ChatTenantUser = typeof ChatTenantUserSchema.Type
 
-export interface ChatTenantPrincipal {
-  id: string
-  name?: string | undefined
-  logoUrl?: string | undefined
+export interface ChatPrincipal {
+  readonly organization: { readonly id: string }
+  readonly tenantUser: ChatTenantUser
 }
-
-export type ChatPrincipal =
-  | { kind: "guest" }
-  | { kind: "authenticated"; user: ChatUserPrincipal; tenant: ChatTenantPrincipal }

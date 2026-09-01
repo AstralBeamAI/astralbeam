@@ -30,19 +30,20 @@ export type {
 // its styles. The React chat loads lazily, keeping this entry a tiny loader.
 export function mountAstralBeamChat(
   target: HTMLElement,
-  options: MountAstralBeamChatOptions = {},
+  options: MountAstralBeamChatOptions,
 ): AstralBeamChatHandle {
   // The loader owns the live options, so an update that lands before the lazy chunk resolves is
   // already part of the options the widget first renders with.
   let live: MountAstralBeamChatOptions = { ...options }
   let debug = createDebugLogger(live.debug)
   debug?.("mount", "mounting chat widget", {
+    agentId: live.agentId,
     title: live.title ?? DEFAULT_TITLE,
     showHeader: live.showHeader ?? true,
     emptyTitle: live.emptyTitle ?? DEFAULT_EMPTY_TITLE,
     emptyDescription: live.emptyDescription ?? DEFAULT_EMPTY_DESCRIPTION,
     chatEndpoint: live.chatEndpoint ?? DEFAULT_ENDPOINT,
-    authentication: live.authEndpoint ? "configured" : "guest",
+    authentication: "configured",
     colorScheme: live.colorScheme ?? DEFAULT_COLOR_SCHEME,
     theme: live.theme,
     systemPrompt: live.systemPrompt,
@@ -95,6 +96,12 @@ export function mountAstralBeamChat(
   })
   return {
     update: (next) => {
+      if (
+        Object.hasOwn(next, "agentId") || Object.hasOwn(next, "chatEndpoint") ||
+        Object.hasOwn(next, "authEndpoint")
+      ) {
+        throw new Error("agentId, chatEndpoint, and authEndpoint are fixed at mount")
+      }
       // A fresh object rather than a mutation, so the widget's memoized derivations compare the
       // new option values by identity instead of seeing the same object twice.
       live = { ...live, ...next }

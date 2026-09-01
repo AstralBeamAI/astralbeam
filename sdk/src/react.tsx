@@ -27,6 +27,8 @@ export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render">
 }
 
 export interface AstralBeamChatProps {
+  /** Public ID of the organization-owned agent. Fixed for this mounted chat. */
+  agentId: string
   /** Name shown in the widget's header; prop changes apply immediately. Default `"AstralBeam"`. */
   title?: string
   /**
@@ -40,9 +42,9 @@ export interface AstralBeamChatProps {
   emptyDescription?: string
   /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
   chatEndpoint?: string
-  /** Application endpoint that mints a short-lived chat JWT; omit for guest chat. */
+  /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
   authEndpoint?: string
-  /** Host-specific instructions the endpoint appends to the agent's system prompt. */
+  /** Host-specific instructions, up to 32,768 characters, that override the stored system prompt. */
   systemPrompt?: string
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
   tools?: Record<string, ToolDefinition>
@@ -69,6 +71,7 @@ interface ActiveRender {
 
 export function AstralBeamChat(
   {
+    agentId,
     title,
     showHeader,
     emptyTitle,
@@ -173,6 +176,7 @@ export function AstralBeamChat(
     // Mounted once; transport endpoints cannot be updated afterwards.
     const handle = mountAstralBeamChat(targetRef.current, {
       ...liveRef.current,
+      agentId,
       chatEndpoint,
       authEndpoint,
     })

@@ -1,9 +1,4 @@
-import {
-  CHAT_MAX_REQUEST_BYTES,
-  CHAT_RATE_LIMIT_MAX_REQUESTS,
-  CHAT_RATE_LIMIT_WINDOW_MS,
-  CHAT_TOKEN_AUDIENCE,
-} from "./constants.server"
+import { CHAT_MAX_REQUEST_BYTES, CHAT_TOKEN_AUDIENCE } from "./constants.server"
 
 // The SDK chat widget embeds on host origins the webapp does not serve, so the endpoint must
 // answer cross-origin requests. Bearer auth uses no cookies, so "*" remains valid; the allowed
@@ -30,26 +25,45 @@ export function isChatRequestTooLarge(request: Request): boolean {
   return Number.isFinite(declared) && declared > CHAT_MAX_REQUEST_BYTES
 }
 
+export class ChatRequestTooLargeError extends Error {}
+
+export async function readChatRequestJson(
+  request: Request,
+  maximumBytes = CHAT_MAX_REQUEST_BYTES,
+): Promise<unknown> {
+  if (isChatRequestTooLarge(request)) throw new ChatRequestTooLargeError()
+  const reader = request.body?.getReader()
+  if (!reader) return JSON.parse("") as unknown
+
+  const chunks: Uint8Array[] = []
+  let byteLength = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      byteLength += value.byteLength
+      if (byteLength > maximumBytes) {
+        await reader.cancel().catch(() => undefined)
+        throw new ChatRequestTooLargeError()
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const body = new Uint8Array(byteLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    body.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return JSON.parse(new TextDecoder().decode(body)) as unknown
+}
+
 // A 401 must advertise the scheme it wants, or a client cannot tell "no token" from "wrong token".
 export function unauthorizedChatResponse(request: Request, message: string) {
   const response = errorResponse(request, 401, message)
   response.headers.set("www-authenticate", `Bearer realm="${CHAT_TOKEN_AUDIENCE}"`)
   return response
-}
-
-const requestWindows = new Map<string, { windowStart: number; count: number }>()
-
-export function isRateLimited(request: Request): boolean {
-  const client = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local"
-  const now = Date.now()
-  const window = requestWindows.get(client)
-  if (!window || now - window.windowStart >= CHAT_RATE_LIMIT_WINDOW_MS) {
-    for (const [key, value] of requestWindows) {
-      if (now - value.windowStart >= CHAT_RATE_LIMIT_WINDOW_MS) requestWindows.delete(key)
-    }
-    requestWindows.set(client, { windowStart: now, count: 1 })
-    return false
-  }
-  window.count += 1
-  return window.count > CHAT_RATE_LIMIT_MAX_REQUESTS
 }
