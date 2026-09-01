@@ -15,10 +15,14 @@
       "sys": true,
       "write": true
     },
+    // The AWS SDK reads uid/gid and the home directory to locate shared config files, and its
+    // user-agent middleware reads the OS release; nodemailer's SMTP client falls back to the
+    // hostname for EHLO. https://docs.deno.com/runtime/fundamentals/security/#system-information
     "runtime": {
       "env": true,
       "net": true,
-      "read": true
+      "read": true,
+      "sys": ["gid", "homedir", "hostname", "osRelease", "uid"]
     }
   },
   "fmt": {
