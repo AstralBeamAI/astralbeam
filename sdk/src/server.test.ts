@@ -13,7 +13,7 @@ import {
 
 const apiKeyId = "key_analyticalengines_production"
 const apiKeySecret = `abo_production_${"aB".repeat(32)}`
-const apiKey = `${apiKeyId}_${"aB".repeat(32)}`
+const apiKey = `${apiKeyId}_abo_${"aB".repeat(32)}`
 const textEncoder = new TextEncoder()
 
 function signingKey(secret: string): Uint8Array {
@@ -50,13 +50,13 @@ test("createAstralBeamChatToken mints the documented short-lived tenant identity
 
 test("createAstralBeamChatToken validates the combined API key", async () => {
   await expect(createAstralBeamChatToken({
-    apiKey: `key_bad-org_production_${"aB".repeat(32)}`,
+    apiKey: `key_bad-org_production_abo_${"aB".repeat(32)}`,
     tenantUser: { id: "user-1" },
-  })).rejects.toThrow(/key_<organization>_<key>_<secret>/)
+  })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
   await expect(createAstralBeamChatToken({
-    apiKey: `${apiKeyId}_${"a0".repeat(32)}`,
+    apiKey: `${apiKeyId}_abo_${"a0".repeat(32)}`,
     tenantUser: { id: "user-1" },
-  })).rejects.toThrow(/key_<organization>_<key>_<secret>/)
+  })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
 })
 
 test("createAstralBeamChatToken preserves opaque tenant user IDs exactly", async () => {

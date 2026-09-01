@@ -44,7 +44,7 @@ export function NewApiKeyDialog({
 
   const [copied, setCopied] = useState(false)
   const apiKey = publicKeyId && secretKey
-    ? `${publicKeyId}_${secretKey.slice(secretKey.lastIndexOf("_") + 1)}`
+    ? `${publicKeyId}_abo_${secretKey.slice(secretKey.lastIndexOf("_") + 1)}`
     : null
 
   const handleOpenChange = (nextOpen: boolean) => {

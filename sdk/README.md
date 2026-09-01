@@ -95,7 +95,7 @@ Widget renders pick up the host page's typography and custom properties automati
 
 The SDK authenticates chat through the host application's token endpoint, defaulting to `/api/astralbeam/token`. The host endpoint must authenticate the application's existing session, construct `tenantUser` from trusted server-side state, and return `{ "token": "..." }`. The SDK calls it with `POST`, `credentials: "include"`, and `cache: "no-store"`, keeps the token only in memory, refreshes it within one minute of expiry, and retries one rejected chat request with a fresh token. Authentication failures disable the composer instead of falling back to unauthenticated chat.
 
-Use the server entry with the one-time `key_<organization>_<key>_<secret>` value from the dashboard to mint the token without exposing the API key to browser code:
+Use the server entry with the one-time `key_<organization>_<key>_abo_<secret>` value from the dashboard to mint the token without exposing the API key to browser code:
 
 ```ts
 import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
