@@ -25,23 +25,4 @@ ALTER TABLE "agent" ADD CONSTRAINT "agent_organization_id_sandbox_provider_id_fk
 ALTER TABLE "api_key" ADD CONSTRAINT "api_key_slug_check" CHECK ("slug" ~ '^[0-9a-z]{1,63}$');--> statement-breakpoint
 ALTER TABLE "organization" ADD CONSTRAINT "organization_slug_check" CHECK ("slug" ~ '^[0-9a-z]{1,63}$');
 --> statement-breakpoint
-CREATE FUNCTION "set_api_key_slug_from_prefix"() RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-BEGIN
-	IF NEW."prefix" IS NULL OR NEW."prefix" !~ '^abo_[0-9a-z]{1,63}_$' THEN
-		RAISE EXCEPTION 'API key creation requires a valid slug-bearing prefix'
-			USING ERRCODE = '23514';
-	END IF;
-
-	NEW."slug" := substring(NEW."prefix" FROM '^abo_([0-9a-z]{1,63})_$');
-	RETURN NEW;
-END
-$$;
---> statement-breakpoint
-CREATE TRIGGER "api_key_slug_from_prefix"
-	BEFORE INSERT ON "api_key"
-	FOR EACH ROW
-	EXECUTE FUNCTION "set_api_key_slug_from_prefix"();
---> statement-breakpoint
 DELETE FROM "config" WHERE "key" = 'chat_auth_secret';

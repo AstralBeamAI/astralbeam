@@ -12,7 +12,7 @@ import {
 } from "./server.ts"
 
 const apiKeyId = "key_analyticalengines_production"
-const apiKeySecret = `abo_production_${"aB".repeat(32)}`
+const apiKeySecret = `abo_${"aB".repeat(32)}`
 const apiKey = `${apiKeyId}_${apiKeySecret}`
 const textEncoder = new TextEncoder()
 
@@ -52,11 +52,11 @@ test("createAstralBeamChatToken validates the combined API key", async () => {
   await expect(createAstralBeamChatToken({
     apiKey: `key_bad-org_production_abo_${"aB".repeat(32)}`,
     tenantUser: { id: "user-1" },
-  })).rejects.toThrow(/key_<organization>_<key>_abo_<key>_<secret>/)
+  })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
   await expect(createAstralBeamChatToken({
-    apiKey: `${apiKeyId}_abo_staging_${"aB".repeat(32)}`,
+    apiKey: `${apiKeyId}_notabo_${"aB".repeat(32)}`,
     tenantUser: { id: "user-1" },
-  })).rejects.toThrow(/key_<organization>_<key>_abo_<key>_<secret>/)
+  })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
 })
 
 test("createAstralBeamChatToken preserves opaque tenant user IDs exactly", async () => {

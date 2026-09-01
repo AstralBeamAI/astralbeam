@@ -6,6 +6,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import type { BetterAuthPlugin } from "better-auth"
 import { betterAuth } from "better-auth/minimal"
 import { addOAuthServerContext, createAuthMiddleware, isAPIError } from "better-auth/api"
+import { generateRandomString } from "better-auth/crypto"
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 
@@ -35,6 +36,7 @@ import { organizationAccessControl, organizationRoles } from "@/lib/auth/organiz
 import {
   organizationApiKeyPlugin,
   organizationRoleHooks,
+  withOrganizationApiKeySlug,
 } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 
@@ -107,11 +109,13 @@ function buildAuth(config: AuthConfig) {
     appName: APP_NAME,
     baseURL: config.appBaseUrl,
     secret: config.betterAuthSecret,
-    database: drizzleAdapter(db, {
-      provider: "pg",
-      schema: tables,
-      transaction: true,
-    }),
+    database: withOrganizationApiKeySlug(
+      drizzleAdapter(db, {
+        provider: "pg",
+        schema: tables,
+        transaction: true,
+      }),
+    ),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
@@ -309,6 +313,8 @@ function buildAuth(config: AuthConfig) {
       organizationApiKeyPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
+        customKeyGenerator: ({ length }) =>
+          `${ORGANIZATION_API_KEY_PREFIX}${generateRandomString(length, "a-z", "A-Z")}`,
         rateLimit: {
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
           timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,

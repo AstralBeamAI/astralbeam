@@ -9,7 +9,7 @@ export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
 export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 
 const API_KEY_ID_PATTERN = /^key_[0-9a-z]{1,63}_([0-9a-z]{1,63})$/
-const API_KEY_SECRET_PATTERN = /^abo_([0-9a-z]{1,63})_[A-Za-z]{64}$/
+const API_KEY_SECRET_PATTERN = /^abo_[A-Za-z]{64}$/
 const CHAT_TOKEN_MAX_BYTES = 16_384
 const TENANT_USER_MAX_BYTES = 8_192
 const TENANT_USER_MAX_DEPTH = 10
@@ -63,10 +63,8 @@ function parseApiKey(apiKey: string): { id: string; secret: string } {
   const separator = apiKey.lastIndexOf("_abo_")
   const id = apiKey.slice(0, separator)
   const secret = apiKey.slice(separator + 1)
-  const idMatch = API_KEY_ID_PATTERN.exec(id)
-  const secretMatch = API_KEY_SECRET_PATTERN.exec(secret)
-  if (!idMatch || !secretMatch || idMatch[1] !== secretMatch[1]) {
-    throw new Error("apiKey must match key_<organization>_<key>_abo_<key>_<secret>")
+  if (!API_KEY_ID_PATTERN.test(id) || !API_KEY_SECRET_PATTERN.test(secret)) {
+    throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
   }
   return { id, secret }
 }

@@ -47,7 +47,7 @@ import { authenticateChatRequest, isChatAuthenticationError, verifyChatToken } f
 import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_ISSUER, CHAT_TOKEN_TYPE } from "./constants.server"
 
 const apiKeyId = "key_acme_production"
-const rawApiKey = `abo_production_${"A".repeat(64)}`
+const rawApiKey = `abo_${"A".repeat(64)}`
 let deeplyNestedTenantUser: unknown = { id: "tenant-user-1" }
 for (let depth = 0; depth < 10; depth += 1) {
   deeplyNestedTenantUser = { id: "tenant-user-1", child: deeplyNestedTenantUser }
@@ -181,7 +181,7 @@ describe("organization API-key chat JWTs", () => {
     ["wrong issuer", { issuer: "another-issuer" }],
     ["wrong type", { type: "another+jwt" }],
     ["wrong kid", { apiKeyId: "key_acme_another" }],
-    ["wrong signature", { signingSecret: `abo_production_${"B".repeat(64)}` }],
+    ["wrong signature", { signingSecret: `abo_${"B".repeat(64)}` }],
     ["subject mismatch", { subject: "another-user" }],
     ["wrong version", { version: 1 }],
     ["too short", { expiresInSeconds: 59 }],

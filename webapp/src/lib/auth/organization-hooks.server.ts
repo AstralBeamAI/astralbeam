@@ -1,4 +1,5 @@
-import type { BetterAuthPlugin } from "better-auth"
+import { API_KEY_TABLE_NAME } from "@better-auth/api-key"
+import type { BetterAuthPlugin, DBAdapterInstance } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
 import { isValidSlug } from "@/lib/slug"
@@ -15,12 +16,7 @@ export const organizationApiKeyPlugin = {
         const prefix = body && typeof body === "object" && "prefix" in body
           ? body.prefix
           : undefined
-        if (parseOrganizationApiKeyPrefix(prefix) === null) {
-          throw new APIError("BAD_REQUEST", {
-            code: "INVALID_API_KEY_SLUG",
-            message: "API key identifier is invalid",
-          })
-        }
+        requireOrganizationApiKeySlug(prefix)
         await freshSessionMiddleware(
           context as Parameters<typeof freshSessionMiddleware>[0],
         )
@@ -33,8 +29,6 @@ export const organizationApiKeyPlugin = {
       fields: {
         slug: {
           type: "string",
-          // PostgreSQL's insert trigger supplies this value atomically; keeping the companion
-          // field optional lets non-PostgreSQL Better Auth test adapters exercise the route.
           required: false,
           input: false,
           returned: true,
@@ -43,6 +37,39 @@ export const organizationApiKeyPlugin = {
     },
   },
 } satisfies BetterAuthPlugin
+
+// Better Auth's API-key create route writes through the raw adapter, bypassing database hooks.
+// https://github.com/better-auth/better-auth/blob/v1.7.2/packages/api-key/src/routes/create-api-key.ts
+export function withOrganizationApiKeySlug(adapterFactory: DBAdapterInstance): DBAdapterInstance {
+  return (options) => {
+    const adapter = adapterFactory(options)
+    return {
+      ...adapter,
+      create: <T extends Record<string, unknown>>(input: {
+        model: string
+        data: T
+        select?: string[] | undefined
+      }) =>
+        adapter.create({
+          ...input,
+          data: input.model === API_KEY_TABLE_NAME
+            ? { ...input.data, slug: requireOrganizationApiKeySlug(input.data.prefix) }
+            : input.data,
+        }),
+    }
+  }
+}
+
+function requireOrganizationApiKeySlug(prefix: unknown): string {
+  const slug = parseOrganizationApiKeyPrefix(prefix)
+  if (slug === null) {
+    throw new APIError("BAD_REQUEST", {
+      code: "INVALID_API_KEY_SLUG",
+      message: "API key identifier is invalid",
+    })
+  }
+  return slug
+}
 
 function assertConfiguredOrganizationRoles(role: string): void {
   const roles = role.split(",")
