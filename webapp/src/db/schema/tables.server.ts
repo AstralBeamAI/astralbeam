@@ -6,5 +6,6 @@ export {
   member,
   organization,
   organizationConfiguration,
+  sandboxProvider,
 } from "./organizations.server.ts"
 export { rateLimit } from "./rate-limit.server.ts"

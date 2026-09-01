@@ -30,6 +30,8 @@ const legalAssets = [
 const viteConfig = defineConfig(({ mode }) => {
   return {
     resolve: { tsconfigPaths: true },
+    // @tanstack/ai-sandbox-docker uses dockerode, whose optional SSH transport includes a native module that Vite cannot prebundle. https://github.com/apocas/dockerode#connecting-to-docker
+    optimizeDeps: { exclude: ["dockerode"] },
     build: {
       target: "es2025",
       // Generate exact client and server dependency license reports from each bundle graph.

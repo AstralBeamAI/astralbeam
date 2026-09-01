@@ -233,3 +233,19 @@ describe("organization API key authorization", () => {
     })
   })
 })
+
+describe("organization configuration authorization", () => {
+  test.each(["owner", "developer"] as const)("allows %s members", (role) => {
+    expect(
+      organizationRoles[role].authorize({
+        organizationConfiguration: ["read", "update", "test", "delete"],
+      }),
+    ).toEqual({ success: true })
+  })
+
+  test("denies viewers", () => {
+    expect(
+      organizationRoles.viewer.authorize({ organizationConfiguration: ["read"] }).success,
+    ).toBe(false)
+  })
+})

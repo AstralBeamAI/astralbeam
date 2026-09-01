@@ -1,7 +1,28 @@
-import { boolean, index, integer, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  snakeCase,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core"
+import * as Schema from "effect/Schema"
+
+import {
+  isProviderCredentials,
+  SandboxProviderCredentialsSchema,
+  type SandboxProviderId,
+  SandboxProviderIdSchema,
+  type SandboxProviderOptions,
+  type SandboxTestMetadata,
+} from "../../lib/sandbox/schemas.ts"
+import { UuidV7Schema } from "../../lib/schemas.ts"
 
 import {
   caseInsensitiveText,
+  encryptedJson,
   lockVersion,
   timestamps,
   timestampWithTimeZone,
@@ -12,6 +33,24 @@ import {
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
 } from "../../lib/auth/organization-api-key-configuration.ts"
 import { user } from "./authentication.server.ts"
+
+export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
+  sandboxProviderId: UuidV7Schema,
+  organizationId: UuidV7Schema,
+  providerType: SandboxProviderIdSchema,
+  credentials: SandboxProviderCredentialsSchema,
+}).pipe(
+  Schema.check(
+    Schema.makeFilter((payload) =>
+      isProviderCredentials(payload.providerType, payload.credentials)
+    ),
+  ),
+)
+
+const decodeSandboxProviderCredentialsPayload = Schema.decodeUnknownSync(
+  SandboxProviderCredentialsPayloadSchema,
+  { onExcessProperty: "error" },
+)
 
 export const organization = snakeCase.table(
   "organization",
@@ -74,6 +113,29 @@ export const organizationConfiguration = snakeCase.table(
   },
   (table) => [
     uniqueIndex("organization_configuration_organization_id_uidx").on(table.organizationId),
+  ],
+)
+
+export const sandboxProvider = snakeCase.table(
+  "sandbox_provider",
+  {
+    id: uuidV7PrimaryKey(),
+    organizationId: uuid().notNull().references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    name: caseInsensitiveText().notNull(),
+    providerType: text().$type<SandboxProviderId>().notNull(),
+    options: jsonb().$type<SandboxProviderOptions[SandboxProviderId]>().notNull(),
+    credentials: encryptedJson({ decode: decodeSandboxProviderCredentialsPayload }),
+    lastTest: jsonb().$type<SandboxTestMetadata>(),
+    lockVersion: lockVersion(),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex("sandbox_provider_organization_id_name_uidx").on(
+      table.organizationId,
+      table.name,
+    ),
   ],
 )
 

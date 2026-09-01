@@ -7,6 +7,7 @@ import {
   useSetActiveOrganization,
 } from "@better-auth-ui/react/plugins/organization"
 import {
+  CubeIcon,
   HouseIcon,
   type Icon,
   KeyIcon,
@@ -37,6 +38,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
+type OrganizationPermissions = Parameters<
+  OrganizationAuthClient["organization"]["hasPermission"]
+>[0]["permissions"]
+
 const organizationNavigation = [
   { label: "Dashboard", href: "/", icon: HouseIcon },
   {
@@ -45,16 +50,22 @@ const organizationNavigation = [
     icon: UsersThreeIcon,
   },
   {
+    label: "Sandbox providers",
+    href: "/organization/sandbox-providers",
+    icon: CubeIcon,
+    permission: "organizationConfiguration",
+  },
+  {
     label: "API keys",
     href: "/organization/api-keys",
     icon: KeyIcon,
-    apiKeyReadRequired: true,
+    permission: "apiKey",
   },
 ] satisfies ReadonlyArray<{
   label: string
   href: string
   icon: Icon
-  apiKeyReadRequired?: boolean
+  permission?: "apiKey" | "organizationConfiguration"
 }>
 
 export type AppSidebarProps =
@@ -76,10 +87,15 @@ export function AppSidebar({
   })
   const { setOpenMobile } = useSidebar()
   const apiKeyReadPermission = useHasPermission(authClient, {
-    permissions: { apiKey: ["read"] } as Parameters<
-      OrganizationAuthClient["organization"]["hasPermission"]
-    >[0]["permissions"],
+    permissions: { apiKey: ["read"] } as OrganizationPermissions,
   })
+  const organizationConfigurationReadPermission = useHasPermission(authClient, {
+    permissions: { organizationConfiguration: ["read"] } as OrganizationPermissions,
+  })
+  const canRead = {
+    apiKey: apiKeyReadPermission.data?.success,
+    organizationConfiguration: organizationConfigurationReadPermission.data?.success,
+  }
 
   useEffect(() => {
     setOpenMobile(false)
@@ -125,7 +141,7 @@ export function AppSidebar({
             <nav aria-label="Organization navigation">
               <SidebarMenu>
                 {organizationNavigation.map((item) => {
-                  if (item.apiKeyReadRequired && !apiKeyReadPermission.data?.success) return null
+                  if (item.permission && !canRead[item.permission]) return null
                   const isActive = item.href === "/"
                     ? pathname === item.href
                     : pathname === item.href || pathname.startsWith(`${item.href}/`)

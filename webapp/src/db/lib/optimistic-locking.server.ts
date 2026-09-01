@@ -1,3 +1,4 @@
+import { setResponseStatus } from "@tanstack/react-start/server"
 import { and, eq, getTableName, type InferSelectModel, type SQL, sql } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import type { AnyPgColumn, AnyPgTable, PgUpdateSetSource } from "drizzle-orm/pg-core"
@@ -36,6 +37,25 @@ export class OptimisticLockError extends Data.TaggedError("OptimisticLockError")
   readonly tableName: string
 }> {}
 
+export function optimisticLockConflict(message: string) {
+  return Effect.sync(() => {
+    setResponseStatus(409)
+    return { ok: false as const, code: "stale" as const, message }
+  })
+}
+
+export function catchOptimisticLockConflict(message: string) {
+  return <Success, Failure, Requirements>(
+    effect: Effect.Effect<Success, Failure, Requirements>,
+  ) =>
+    Effect.catchIf(
+      effect,
+      (error): error is Failure & OptimisticLockError =>
+        error instanceof OptimisticLockError && error.reason === "conflict",
+      () => optimisticLockConflict(message),
+    )
+}
+
 export function updateWithOptimisticLock<
   TTable extends LockedTable,
 >(
@@ -46,20 +66,21 @@ export function updateWithOptimisticLock<
   InferSelectModel<TTable>,
   OptimisticLockError
 > {
-  return Effect.gen(function* () {
-    yield* validateLockVersion(options)
-    const rows = yield* options.executor
-      .update(options.table)
-      .set({
-        ...options.set,
-        lockVersion: sql`${options.table.lockVersion} + 1`,
-      })
-      .where(lockedWhere(options))
-      .returning().pipe(
-        Effect.mapError((cause) => optimisticLockError("database", options, cause)),
-      )
-    return yield* mutationResult(rows, options)
-  })
+  return validateLockVersion(options).pipe(
+    Effect.andThen(
+      options.executor
+        .update(options.table)
+        .set({
+          ...options.set,
+          lockVersion: sql`${options.table.lockVersion} + 1`,
+        })
+        .where(lockedWhere(options))
+        .returning().pipe(
+          Effect.mapError((cause) => optimisticLockError("database", options, cause)),
+        ),
+    ),
+    Effect.flatMap((rows) => mutationResult(rows, options)),
+  )
 }
 
 export function deleteWithOptimisticLock<
@@ -70,16 +91,17 @@ export function deleteWithOptimisticLock<
   InferSelectModel<TTable>,
   OptimisticLockError
 > {
-  return Effect.gen(function* () {
-    yield* validateLockVersion(options)
-    const rows = yield* options.executor
-      .delete(options.table)
-      .where(lockedWhere(options))
-      .returning().pipe(
-        Effect.mapError((cause) => optimisticLockError("database", options, cause)),
-      )
-    return yield* mutationResult(rows, options)
-  })
+  return validateLockVersion(options).pipe(
+    Effect.andThen(
+      options.executor
+        .delete(options.table)
+        .where(lockedWhere(options))
+        .returning().pipe(
+          Effect.mapError((cause) => optimisticLockError("database", options, cause)),
+        ),
+    ),
+    Effect.flatMap((rows) => mutationResult(rows, options)),
+  )
 }
 
 function validateLockVersion<TTable extends LockedTable>(
