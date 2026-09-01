@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "astro dev --host 0.0.0.0 --port 3001",
+    "dev": "astro dev --host 0.0.0.0 --port 4600",
     "build": "astro build",
     "preview": "astro preview --host 0.0.0.0 --port 4001",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",

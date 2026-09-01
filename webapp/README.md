@@ -26,7 +26,7 @@ Authenticated layouts provide first-render and reactive navigation protection, b
 
 ## Development tools
 
-Run `deno task dev`, then open http://localhost:3000/dev. Email previews at http://localhost:3000/dev/emails use synthetic props and do not send email. Development routes return `404` in production.
+Run `deno task dev`, then open http://localhost:4500/dev. Email previews at http://localhost:4500/dev/emails use synthetic props and do not send email. Development routes return `404` in production.
 
 ## Theme
 

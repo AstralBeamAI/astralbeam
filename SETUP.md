@@ -117,7 +117,7 @@ Follow Google's current [client](https://support.google.com/cloud/answer/1554925
 
 1. Create separate Google Cloud projects and **Web application** clients named `AstralBeam Local` and `AstralBeam Production`.
 2. Configure Branding with AstralBeam's public homepage, privacy policy, terms, monitored support email, and developer contacts; add the owned domain under **Authorized domains**.
-3. For local use, select an External/Testing audience unless access is intentionally organization-restricted, add test users when Google or Workspace policy requires them, add `http://localhost:3000` as the exact JavaScript origin, and add `http://localhost:3000/api/auth/callback/google` as the exact redirect URI.
+3. For local use, select an External/Testing audience unless access is intentionally organization-restricted, add test users when Google or Workspace policy requires them, add `http://localhost:4500` as the exact JavaScript origin, and add `http://localhost:4500/api/auth/callback/google` as the exact redirect URI.
 4. For production, [verify the production domain](https://support.google.com/webmasters/answer/9008080), keep the homepage and legal links public and consistent, select the intended audience and publishing status, add the exact HTTPS application origin, and add `<production-app-origin>/api/auth/callback/google` as the exact redirect URI.
 5. Store each environment's client credentials at that deployment's `/configure` page; confirm the production project has no localhost origin, callback, or development credential.
 6. Smoke-test signup, configured legal acceptance, existing-account sign-in, account linking, and logout in both environments; confirm Google returns a verified email and requests no scope beyond OpenID/profile/email.
@@ -127,7 +127,7 @@ Follow Google's current [client](https://support.google.com/cloud/answer/1554925
 Create browser-flow OAuth Apps—not GitHub Apps or Device Flow applications—using GitHub's [OAuth App creation](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app), [authorization](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps), and [scope](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps) guides. Better Auth requests `read:user` and `user:email`; the latter is required to retrieve private verified addresses.
 
 1. Open **Settings → Developer settings → OAuth Apps → New OAuth App**, or create the app under the owning AstralBeam organization.
-2. Create `AstralBeam Local` with homepage `http://localhost:3000` and callback `http://localhost:3000/api/auth/callback/github`.
+2. Create `AstralBeam Local` with homepage `http://localhost:4500` and callback `http://localhost:4500/api/auth/callback/github`.
 3. Create a separate `AstralBeam Production` app with the public HTTPS application homepage and callback `<production-app-origin>/api/auth/callback/github`.
 4. Leave **Enable Device Flow** and callback wildcard matching disabled for both apps.
 5. Generate separate secrets and store each environment's credentials at that deployment's `/configure` page, keeping localhost values out of the production app.
@@ -175,7 +175,7 @@ After configuration, run from `webapp`:
 deno task dev
 ```
 
-Open `http://localhost:3000/auth/sign-up`. When legal URLs are configured, confirm signup controls remain disabled until acceptance. Confirm email/password signup requires verification, new social identities cannot be created from sign-in, and invitation acceptance requires the matching verified email.
+Open `http://localhost:4500/auth/sign-up`. When legal URLs are configured, confirm signup controls remain disabled until acceptance. Confirm email/password signup requires verification, new social identities cannot be created from sign-in, and invitation acceptance requires the matching verified email.
 
 ### Test email safety
 

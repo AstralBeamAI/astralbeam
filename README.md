@@ -41,7 +41,7 @@ Follow [`SETUP.md`](SETUP.md) for prerequisites and the PostgreSQL and Valkey se
 
 ### 2. Run the webapp
 
-Serve the product application and the `/api/chat` agent endpoint on http://localhost:3000 :
+Serve the product application and the `/api/chat` agent endpoint on http://localhost:4500 :
 
 ```sh
 cd webapp
@@ -49,7 +49,7 @@ deno install
 deno task dev
 ```
 
-`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are required before http://localhost:3000/configure opens operator sign-in. Use the first encryption key to apply pending migrations and manage other runtime settings; deployment guidance is in [Setup](SETUP.md#configure-the-environment).
+`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are required before http://localhost:4500/configure opens operator sign-in. Use the first encryption key to apply pending migrations and manage other runtime settings; deployment guidance is in [Setup](SETUP.md#configure-the-environment).
 
 ### 3. Build the SDK
 
@@ -63,7 +63,7 @@ deno task build
 
 ### 4. Run the todos example
 
-A barebones TanStack Start app that embeds the widget from `sdk/dist`, mints demo chat tokens on the server, and points the widget at the webapp's `/api/chat`, on http://localhost:3100. See [`examples/todos/README.md`](examples/todos/README.md) for what to try.
+A barebones TanStack Start app that embeds the widget from `sdk/dist`, mints demo chat tokens on the server, and points the widget at the webapp's `/api/chat`, on http://localhost:4700. See [`examples/todos/README.md`](examples/todos/README.md) for what to try.
 
 ```sh
 cd examples/todos
@@ -71,7 +71,7 @@ deno install
 deno task dev
 ```
 
-Rebuild the SDK and reload the page after changing SDK sources. The public website is separate: `cd www && deno task dev` starts it on http://localhost:3001.
+Rebuild the SDK and reload the page after changing SDK sources. The public website is separate: `cd www && deno task dev` starts it on http://localhost:4600.
 
 ## Authentication
 

@@ -9,23 +9,23 @@
   "ports": [
     {
       "name": "Product application",
-      "port": 3000
+      "port": 4500
     },
     {
       "name": "Public website",
-      "port": 3001
+      "port": 4600
     }
   ],
   "terminals": [
     {
       "name": "Product application",
       "command": "cd webapp && deno task dev",
-      "description": "Runs the TanStack Start application on port 3000."
+      "description": "Runs the TanStack Start application on port 4500."
     },
     {
       "name": "Public website",
       "command": "cd www && deno task dev",
-      "description": "Runs the Astro website on port 3001."
+      "description": "Runs the Astro website on port 4600."
     }
   ]
 }
