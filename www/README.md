@@ -4,7 +4,7 @@ Cinematic "mission console" landing page for astralbeam.ai, translated into Astr
 
 Plain Astro + hand-rolled CSS + vanilla TypeScript, managed and run by Deno. No React, no Tailwind, no client framework runtime, and no dependency on another AstralBeam project.
 
-- `deno task dev` — development server on port 3001
+- `deno task dev` — development server on port 4600
 - `deno task build` — static build to `dist/`
 - `deno task preview` — production preview on port 4001
 - `deno task check` — formatting, linting, type diagnostics, and Knip

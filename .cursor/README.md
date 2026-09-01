@@ -1,6 +1,6 @@
 # Cursor Cloud Agents
 
-The checked-in [environment](environment.json) installs dependencies, starts Docker and the root Compose stack, exposes ports `3000` and `3001`, and opens both application terminals.
+The checked-in [environment](environment.json) installs dependencies, starts Docker and the root Compose stack, exposes ports `4500` and `4600`, and opens both application terminals.
 
 In the Cursor dashboard:
 
