@@ -5,13 +5,19 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import { getRequest } from "@tanstack/react-start/server"
 import type { BetterAuthPlugin } from "better-auth"
 import { betterAuth } from "better-auth/minimal"
-import { addOAuthServerContext, createAuthMiddleware, isAPIError } from "better-auth/api"
+import {
+  addOAuthServerContext,
+  createAuthMiddleware,
+  createEmailVerificationToken,
+  isAPIError,
+} from "better-auth/api"
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 
 import { db } from "@/db"
 import { tables } from "@/db/schema.server"
 import {
+  sendAccountExistsEmail,
   sendOrganizationInvitationEmail,
   sendPasswordChangedEmail,
   sendResetPasswordEmail,
@@ -19,6 +25,10 @@ import {
 } from "@/emails/index"
 import { getGlobalConfig } from "@/lib/config"
 import { APP_NAME } from "@/lib/constants"
+import {
+  assertAuthEmailDelivered,
+  deliverBlockingAuthEmail,
+} from "@/lib/auth/email-delivery.server"
 import {
   acceptedAtForUserCreation,
   assertLegalAcceptance,
@@ -53,8 +63,32 @@ const PASSWORD_RESET_EXPIRY_SECONDS = 60 * 60
 // https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/adapter.ts#L1185-L1211
 const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 
+// Better Auth mounts its routes under this default basePath, which the verification link has to
+// repeat because a resend outside an endpoint context cannot read `context.baseURL`.
+// https://better-auth.com/docs/reference/options#basepath
+const AUTH_BASE_PATH = "/api/auth"
+
 type RequestWithWaitUntil = Request & {
   waitUntil?: (promise: Promise<unknown>) => void
+}
+
+/**
+ * Rebuilds the link `/sign-up/email` would have mailed, for a resend that happens outside an
+ * endpoint context. The token is the same signed JWT `/verify-email` accepts, so an unverified
+ * account can be recovered by signing up again.
+ * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/sign-up.ts
+ */
+async function buildVerificationURL(config: AuthConfig, email: string): Promise<string> {
+  const token = await createEmailVerificationToken(
+    config.betterAuthSecret,
+    email,
+    undefined,
+    EMAIL_VERIFICATION_EXPIRY_SECONDS,
+  )
+  const url = new URL(`${AUTH_BASE_PATH}/verify-email`, config.appBaseUrl)
+  url.searchParams.set("token", token)
+  url.searchParams.set("callbackURL", "/")
+  return url.toString()
 }
 
 async function runAfterResponse(promise: Promise<unknown>): Promise<void> {
@@ -70,6 +104,8 @@ async function runAfterResponse(promise: Promise<unknown>): Promise<void> {
   await promise
 }
 
+// A password-change notice is informational and its recipient is not waiting on it, so it stays
+// deferred past the response instead of blocking like the emails deliverBlockingAuthEmail guards.
 async function notifyPasswordChanged(user: { email: string }): Promise<void> {
   await runAfterResponse(
     sendPasswordChangedEmail({ user }).catch(() => {
@@ -124,12 +160,29 @@ function buildAuth(config: AuthConfig) {
       resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRY_SECONDS,
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
-      // Better Auth schedules the returned promise through advanced.backgroundTasks. https://better-auth.com/docs/concepts/email
       sendResetPassword: ({ user, url }) =>
-        sendResetPasswordEmail({
-          user,
-          url,
-          expiresInSeconds: PASSWORD_RESET_EXPIRY_SECONDS,
+        deliverBlockingAuthEmail(() =>
+          sendResetPasswordEmail({
+            user,
+            url,
+            expiresInSeconds: PASSWORD_RESET_EXPIRY_SECONDS,
+          })
+        ),
+      // Better Auth answers a duplicate sign-up with a synthetic user so the response cannot
+      // confirm the address exists, which otherwise leaves the address's real owner on a "check
+      // your inbox" screen forever. Both branches send exactly one email, so a provider outage
+      // fails a duplicate sign-up and a new one identically. https://better-auth.com/docs/concepts/email
+      onExistingUserSignUp: ({ user }) =>
+        deliverBlockingAuthEmail(async () => {
+          if (user.emailVerified) {
+            await sendAccountExistsEmail({ user })
+            return
+          }
+          await sendVerificationEmail({
+            user,
+            url: await buildVerificationURL(config, user.email),
+            expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
+          })
         }),
       onPasswordReset: async ({ user }) => {
         await notifyPasswordChanged(user)
@@ -140,15 +193,14 @@ function buildAuth(config: AuthConfig) {
       sendOnSignUp: true,
       sendOnSignIn: false,
       autoSignInAfterVerification: true,
-      sendVerificationEmail: async ({ user, url }) => {
-        await runAfterResponse(
+      sendVerificationEmail: ({ user, url }) =>
+        deliverBlockingAuthEmail(() =>
           sendVerificationEmail({
             user,
             url,
             expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
-          }),
-        )
-      },
+          })
+        ),
     },
     socialProviders: {
       ...(config.google && {
@@ -192,8 +244,12 @@ function buildAuth(config: AuthConfig) {
       enabled: true,
       storage: "database",
       customRules: {
-        // Limit invitation-triggered email independently of the general API bucket. https://better-auth.com/docs/concepts/rate-limit
+        // Every path here sends one email to a caller-supplied address, so each is limited apart
+        // from the general API bucket. https://better-auth.com/docs/concepts/rate-limit
         "/organization/invite-member": { window: 60, max: 5 },
+        "/request-password-reset": { window: 60, max: 5 },
+        "/send-verification-email": { window: 60, max: 5 },
+        "/sign-up/email": { window: 60, max: 5 },
       },
     },
     disabledPaths: ["/change-email", "/delete-user", "/delete-user/callback"],
@@ -221,19 +277,14 @@ function buildAuth(config: AuthConfig) {
         },
       },
     },
+    // backgroundTasks stays unset so Better Auth awaits each email send inside the request. A
+    // handler would defer the send past the response and swallow its rejection, which is what let
+    // a failed send complete behind a "check your inbox" screen. https://better-auth.com/docs/concepts/email
     advanced: {
       database: {
         // Let PostgreSQL apply the schema's UUIDv7 defaults. https://better-auth.com/docs/concepts/database#id-generation
         generateId: false,
         joins: true,
-      },
-      backgroundTasks: {
-        // Nitro exposes request.waitUntil in its Deno adapter. https://better-auth.com/docs/concepts/email
-        handler: (promise) => {
-          void runAfterResponse(promise).catch(() => {
-            console.error("Authentication background task failed")
-          })
-        },
       },
     },
     hooks: {
@@ -266,6 +317,7 @@ function buildAuth(config: AuthConfig) {
         return
       }),
       after: createAuthMiddleware(async (context) => {
+        assertAuthEmailDelivered()
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
         const user = context.context.session?.user
         if (user) await notifyPasswordChanged(user)
@@ -302,12 +354,13 @@ function buildAuth(config: AuthConfig) {
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
-        sendInvitationEmail: async (data) => {
-          await sendOrganizationInvitationEmail({
-            ...data,
-            expiresInSeconds: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
-          })
-        },
+        sendInvitationEmail: (data) =>
+          deliverBlockingAuthEmail(() =>
+            sendOrganizationInvitationEmail({
+              ...data,
+              expiresInSeconds: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
+            })
+          ),
       }),
       organizationApiKeyPlugin,
       apiKey({
