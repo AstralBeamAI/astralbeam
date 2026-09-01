@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons and the contextual Base UI toast manager; show separate public ID and one-time secret fields with paired environment-variable copy; require explicit dismissal of the secret.
+// Local changes: Use Phosphor icons and the contextual Base UI toast manager; show one copyable API key; require explicit dismissal of the secret.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { CheckIcon, CopyIcon, KeyIcon } from "@phosphor-icons/react"
@@ -42,24 +42,24 @@ export function NewApiKeyDialog({
   const { localization } = useAuth()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
 
-  const [copiedValue, setCopiedValue] = useState<"environment" | "id" | "secret" | null>(null)
+  const [copied, setCopied] = useState(false)
+  const apiKey = publicKeyId && secretKey
+    ? `${publicKeyId}_${secretKey.slice(secretKey.lastIndexOf("_") + 1)}`
+    : null
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
-      setCopiedValue(null)
+      setCopied(false)
     }
 
     onOpenChange(nextOpen)
   }
 
-  const copyApiKeyValue = async (
-    kind: "environment" | "id" | "secret",
-    value: string | null,
-  ) => {
-    if (!value) return
+  const copyApiKey = async () => {
+    if (!apiKey) return
     try {
-      await globalThis.navigator.clipboard.writeText(value)
-      setCopiedValue(kind)
+      await globalThis.navigator.clipboard.writeText(apiKey)
+      setCopied(true)
     } catch {
       toast.add({ title: "The API key value could not be copied", type: "error" })
     }
@@ -93,48 +93,20 @@ export function NewApiKeyDialog({
           <p className="text-sm font-medium">{name || apiKeyLocalization.apiKey}</p>
 
           <ApiKeyCopyField
-            id="new-api-key-id"
-            label="API key ID"
-            value={publicKeyId}
-            copied={copiedValue === "id"}
+            id="new-api-key"
+            label="API key"
+            value={apiKey}
+            copied={copied}
             copiedLabel={localization.settings.copiedToClipboard}
             copyLabel={localization.settings.copyToClipboard}
-            onCopy={() => void copyApiKeyValue("id", publicKeyId)}
-          />
-
-          <ApiKeyCopyField
-            id="new-api-key-secret"
-            label="API key secret"
-            value={secretKey}
-            copied={copiedValue === "secret"}
-            copiedLabel={localization.settings.copiedToClipboard}
-            copyLabel={localization.settings.copyToClipboard}
-            onCopy={() => void copyApiKeyValue("secret", secretKey)}
+            onCopy={() => void copyApiKey()}
           />
 
           <p className="text-xs text-muted-foreground">
             Call <code className="font-mono text-foreground">createAstralBeamChatToken</code>{" "}
-            with this ID and secret on your server. Never expose the secret in browser code; it is
-            shown only once and cannot be recovered.
+            with this key on your server. Never expose it in browser code; it is shown only once and
+            cannot be recovered.
           </p>
-
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!publicKeyId || !secretKey}
-            onClick={() =>
-              void copyApiKeyValue(
-                "environment",
-                publicKeyId && secretKey
-                  ? `ASTRALBEAM_API_KEY_ID=${publicKeyId}\nASTRALBEAM_API_KEY=${secretKey}`
-                  : null,
-              )}
-          >
-            {copiedValue === "environment"
-              ? <CheckIcon aria-hidden="true" />
-              : <CopyIcon aria-hidden="true" />}
-            Copy environment variables
-          </Button>
         </div>
 
         <DialogFooter>

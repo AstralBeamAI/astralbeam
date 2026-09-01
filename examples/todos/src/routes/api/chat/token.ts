@@ -1,23 +1,22 @@
 import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { API_KEY, API_KEY_ENV, API_KEY_ID, API_KEY_ID_ENV } from "@/lib/config.server.ts"
+import { API_KEY, API_KEY_ENV } from "@/lib/config.server.ts"
 import { DEMO_CHAT_TENANT, DEMO_CHAT_USER } from "@/lib/constants.server.ts"
 
 export const Route = createFileRoute("/api/chat/token")({
   server: {
     handlers: {
       POST: async () => {
-        if (!API_KEY_ID || !API_KEY) {
+        if (!API_KEY) {
           return Response.json(
-            { error: `${API_KEY_ID_ENV} and ${API_KEY_ENV} must be configured` },
+            { error: `${API_KEY_ENV} must be configured` },
             { status: 503, headers: { "cache-control": "no-store" } },
           )
         }
 
         try {
           const token = await createAstralBeamChatToken({
-            apiKeyId: API_KEY_ID,
             apiKey: API_KEY,
             tenantUser: { ...DEMO_CHAT_USER, tenant: DEMO_CHAT_TENANT },
           })

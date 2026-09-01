@@ -95,7 +95,7 @@ Widget renders pick up the host page's typography and custom properties automati
 
 The SDK authenticates chat through the host application's token endpoint, defaulting to `/api/astralbeam/token`. The host endpoint must authenticate the application's existing session, construct `tenantUser` from trusted server-side state, and return `{ "token": "..." }`. The SDK calls it with `POST`, `credentials: "include"`, and `cache: "no-store"`, keeps the token only in memory, refreshes it within one minute of expiry, and retries one rejected chat request with a fresh token. Authentication failures disable the composer instead of falling back to unauthenticated chat.
 
-Use the server entry to mint the token without exposing the API key to browser code:
+Use the server entry with the one-time `key_<organization>_<key>_<secret>` value from the dashboard to mint the token without exposing the API key to browser code:
 
 ```ts
 import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
@@ -103,7 +103,6 @@ import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
 export async function POST(request: Request) {
   const session = await requireApplicationSession(request)
   const token = await createAstralBeamChatToken({
-    apiKeyId: process.env.ASTRALBEAM_API_KEY_ID!,
     apiKey: process.env.ASTRALBEAM_API_KEY!,
     tenantUser: {
       id: session.user.id,
@@ -116,7 +115,7 @@ export async function POST(request: Request) {
 }
 ```
 
-The default lifetime is five minutes and the helper rejects lifetimes outside 60–600 seconds, invalid API-key identifiers or secrets, and invalid `tenantUser` JSON. `tenantUser.id` is required; the host may add any plain JSON fields its integration needs. Tokens are signed rather than encrypted, so do not put secrets in `tenantUser`.
+The default lifetime is five minutes and the helper rejects lifetimes outside 60–600 seconds, invalid API keys, and invalid `tenantUser` JSON. `tenantUser.id` is required; the host may add any plain JSON fields its integration needs. Tokens are signed rather than encrypted, so do not put secrets in `tenantUser`.
 
 ### React
 

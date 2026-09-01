@@ -8,9 +8,8 @@ export const ASTRALBEAM_CHAT_TOKEN_VERSION = 2
 export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
 export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 
-const API_KEY_PATTERN = /^abo_[A-Za-z]{64}$/
 const API_KEY_ID_PATTERN = /^key_[0-9a-z]{1,63}_([0-9a-z]{1,63})$/
-const SLUGGED_API_KEY_PATTERN = /^abo_([0-9a-z]{1,63})_[A-Za-z]{64}$/
+const API_KEY_SECRET_PATTERN = /^[A-Za-z]{64}$/
 const CHAT_TOKEN_MAX_BYTES = 16_384
 const TENANT_USER_MAX_BYTES = 8_192
 const TENANT_USER_MAX_DEPTH = 10
@@ -55,21 +54,20 @@ export interface TenantUser {
 }
 
 export interface CreateAstralBeamChatTokenOptions<TTenantUser extends TenantUser = TenantUser> {
-  readonly apiKeyId: string
   readonly apiKey: string
   readonly tenantUser: TTenantUser
   readonly expiresInSeconds?: number | undefined
 }
 
-function validateApiKey(apiKey: string, keySlug: string): void {
-  const slugged = SLUGGED_API_KEY_PATTERN.exec(apiKey)
-  if (slugged) {
-    if (slugged[1] !== keySlug) throw new Error("apiKey does not match apiKeyId")
-    return
+function parseApiKey(apiKey: string): { id: string; secret: string } {
+  const separator = apiKey.lastIndexOf("_")
+  const id = apiKey.slice(0, separator)
+  const secret = apiKey.slice(separator + 1)
+  const idMatch = API_KEY_ID_PATTERN.exec(id)
+  if (!idMatch?.[1] || !API_KEY_SECRET_PATTERN.test(secret)) {
+    throw new Error("apiKey must match key_<organization>_<key>_<secret>")
   }
-  if (!API_KEY_PATTERN.test(apiKey)) {
-    throw new Error("apiKey must be an AstralBeam organization API key")
-  }
+  return { id, secret: `abo_${idMatch[1]}_${secret}` }
 }
 
 function exceedsJsonDepth(value: Schema.Json, maximumDepth: number): boolean {
@@ -88,18 +86,15 @@ function validatedTenantUser(value: TenantUser): typeof TenantUserSchema.Type {
   return JSON.parse(JSON.stringify(decodeTenantUser(value))) as typeof TenantUserSchema.Type
 }
 
-async function signingKey(apiKey: string): Promise<Uint8Array> {
-  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(apiKey))
+async function signingKey(secret: string) {
   // Matches Better Auth's defaultKeyHasher: SHA-256 encoded as unpadded base64url.
   // https://github.com/better-auth/better-auth/blob/v1.7.2/packages/api-key/src/index.ts
-  // The encoded digest bytes are intentionally the HMAC key, making database read access a
-  // chat-token signing boundary.
+  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(secret))
   return textEncoder.encode(base64url.encode(new Uint8Array(digest)))
 }
 
 /** Creates the short-lived bearer token returned by an application's server auth endpoint. */
 export async function createAstralBeamChatToken<TTenantUser extends TenantUser = TenantUser>({
-  apiKeyId,
   apiKey,
   tenantUser,
   expiresInSeconds = ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS,
@@ -110,11 +105,7 @@ export async function createAstralBeamChatToken<TTenantUser extends TenantUser =
   ) {
     throw new Error("AstralBeam chat tokens must live for 60-600 seconds")
   }
-  const apiKeyIdMatch = API_KEY_ID_PATTERN.exec(apiKeyId)
-  if (!apiKeyIdMatch?.[1]) {
-    throw new Error("apiKeyId must match key_<organization>_<key>")
-  }
-  validateApiKey(apiKey, apiKeyIdMatch[1])
+  const { id: apiKeyId, secret } = parseApiKey(apiKey)
   const identity = validatedTenantUser(tenantUser)
   const now = Math.floor(Date.now() / 1_000)
   const token = await new SignJWT({
@@ -127,7 +118,7 @@ export async function createAstralBeamChatToken<TTenantUser extends TenantUser =
     .setSubject(tenantUser.id)
     .setIssuedAt(now)
     .setExpirationTime(now + expiresInSeconds)
-    .sign(await signingKey(apiKey))
+    .sign(await signingKey(secret))
   if (textEncoder.encode(token).byteLength > CHAT_TOKEN_MAX_BYTES) {
     throw new Error(`AstralBeam chat tokens must not exceed ${CHAT_TOKEN_MAX_BYTES} bytes`)
   }
