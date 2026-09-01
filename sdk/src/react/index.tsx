@@ -18,6 +18,7 @@ import {
   type AstralBeamChatTheme,
   defineTool,
   type InferParameters,
+  type JsonSchemaObject,
   mountAstralBeamChat,
   type ParametersSchema,
   type ToolDefinition,
@@ -41,14 +42,14 @@ export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render">
   render: (props: Record<string, unknown>) => ReactNode
 }
 
-export interface TypedReactWidgetDefinition<S extends ParametersSchema> {
+export interface TypedReactWidgetDefinition<S extends ParametersSchema = JsonSchemaObject> {
   description: string
   parameters?: S
   render: (props: InferParameters<S>) => ReactNode
 }
 
 /** Declares a host widget; a Standard Schema `parameters` types (and validates) `render`'s props. */
-export function defineWidget<const S extends ParametersSchema>(
+export function defineWidget<const S extends ParametersSchema = JsonSchemaObject>(
   widget: TypedReactWidgetDefinition<S>,
 ): WidgetDefinition {
   // The chat validates a Standard Schema before render runs, so the narrowed type holds.

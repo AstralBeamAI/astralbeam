@@ -126,27 +126,26 @@ export function ChatWidget(
   // the endpoint reports it as a CUSTOM event. Everything else about the sandbox is read back out
   // of the transcript by `collectSandboxActivity`.
   const [sandboxStatus, setSandboxStatus] = useState<SandboxStatus | undefined>(undefined)
-  const { messages, sendMessage, setMessages, status, error, addToolResult, stop, reload } =
-    useChat({
-      initialMessages: [],
-      connection,
-      tools,
-      forwardedProps,
-      ...(debugCallbacks || {}),
-      onCustomEvent: (eventType, data) => {
-        const state = (data as { state?: unknown } | undefined)?.state
-        const sandboxState = eventType === SANDBOX_STATUS_EVENT &&
-            (state === "starting" || state === "ready" || state === "error")
-          ? state
-          : undefined
-        if (sandboxState === undefined) {
-          debug?.("stream", `custom event "${eventType}"`, data)
-          return
-        }
-        debug?.("sandbox", `sandbox ${sandboxState}`)
-        setSandboxStatus(sandboxState)
-      },
-    })
+  const { messages, sendMessage, clear, status, error, addToolResult, stop, reload } = useChat({
+    initialMessages: [],
+    connection,
+    tools,
+    forwardedProps,
+    ...(debugCallbacks || {}),
+    onCustomEvent: (eventType, data) => {
+      const state = (data as { state?: unknown } | undefined)?.state
+      const sandboxState = eventType === SANDBOX_STATUS_EVENT &&
+          (state === "starting" || state === "ready" || state === "error")
+        ? state
+        : undefined
+      if (sandboxState === undefined) {
+        debug?.("stream", `custom event "${eventType}"`, data)
+        return
+      }
+      debug?.("sandbox", `sandbox ${sandboxState}`)
+      setSandboxStatus(sandboxState)
+    },
+  })
   const sandboxActivity = useMemo(() => collectSandboxActivity(messages), [messages])
   const showSandboxTray = hasSandboxActivity(sandboxActivity, sandboxStatus)
   useEffect(() => {
@@ -289,7 +288,9 @@ export function ChatWidget(
 
   const resetConversation = () => {
     debug?.("status", "conversation reset")
-    setMessages([])
+    // clear() is the client's own reset: it aborts an active stream, drops queued sends, and
+    // resets resume state, where replacing the message array would let late chunks repopulate.
+    clear()
     setDraft("")
     setAttachments([])
     setSandboxStatus(undefined)
