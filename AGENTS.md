@@ -4,7 +4,8 @@
 
 ## Tooling and validation
 
-- Use Deno from the affected project directory (`webapp`, `www`, `sdk`, or `examples/todos`) with `deno task <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
+- Use Deno from the affected project directory (`webapp`, `www`, `sdk`, or `examples/todos`) with `deno task <script>`, or from the repository root with `deno task --cwd <project> <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
+- Keep the root `deno.jsonc` a launcher that only forwards `install`, `dev`, and `build` to the four projects; do not add a `workspace` field, project-specific configuration such as `fmt` or `lint`, or root copies of per-project tasks such as `check`, `test`, and `ready`.
 - Before non-trivial changes, inspect the current code, instructions, Git base and diff, generated artifacts, and installed APIs; prefer supported upstream contracts, narrow diffs, and removing one-use helpers over custom plumbing or speculative abstraction.
 - Before running `deno task knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete project diff before running `deno task check:fix`.
 - Reserve Knip entries for actual execution or externally discovered roots, keep `includeEntryExports` enabled, and add reusable modules only when code uses them; do not hide speculative modules or accidental exports with entries.

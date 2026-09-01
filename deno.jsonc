@@ -1,0 +1,30 @@
+{
+  "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
+  // Root launcher only, so the projects keep their own toolchains: there is deliberately no
+  // `workspace` member list, and each task delegates to the owning project's `deno.jsonc` the same
+  // way CI does. Tasks use `--cwd` where the project defines the task, and `cd` for the built-in
+  // `deno install` command. https://docs.deno.com/runtime/reference/cli/task/
+  "tasks": {
+    "install:webapp": "cd webapp && deno install",
+    "install:www": "cd www && deno install",
+    "install:sdk": "cd sdk && deno install",
+    "install:todos": "cd examples/todos && deno install",
+    "install": "deno task install:sdk && deno task install:webapp && deno task install:www && deno task install:todos",
+
+    "dev:webapp": "deno task --cwd webapp dev",
+    "dev:www": "deno task --cwd www dev",
+    "dev:todos": "deno task --cwd examples/todos dev",
+    // The SDK has no dev server; the todos example loads its built `dist` output.
+    "dev": {
+      "description": "Run the webapp, website, and todos dev servers concurrently",
+      "dependencies": ["dev:webapp", "dev:www", "dev:todos"]
+    },
+
+    "build:sdk": "deno task --cwd sdk build",
+    "build:webapp": "deno task --cwd webapp build",
+    "build:www": "deno task --cwd www build",
+    "build:todos": "deno task --cwd examples/todos build",
+    // The SDK builds first because the todos example consumes its `dist` output through `file:../../sdk`.
+    "build": "deno task build:sdk && deno task build:webapp && deno task build:www && deno task build:todos"
+  }
+}
