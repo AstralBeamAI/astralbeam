@@ -5,6 +5,7 @@ import * as Schema from "effect/Schema"
 import {
   CHAT_SANDBOX_COMMAND_TIMEOUT_MS,
   CHAT_SANDBOX_FILE_TIMEOUT_MS,
+  CHAT_SANDBOX_MAX_ARTIFACT_BYTES,
   CHAT_SANDBOX_MAX_FILE_CHARACTERS,
   CHAT_SANDBOX_MAX_LISTED_ENTRIES,
   CHAT_SANDBOX_MAX_OUTPUT_CHARACTERS,
@@ -14,6 +15,11 @@ import {
   CHAT_SANDBOX_STATUS_EVENT,
 } from "./constants.server"
 import { acquireChatSandbox, type ChatSandboxSession } from "./sandbox.server"
+import {
+  artifactContentDigest,
+  detectSandboxArtifactMimeType,
+  mintSandboxArtifactTicket,
+} from "./artifacts.server"
 import type { ChatSandboxStatus, DebugLog } from "./types"
 
 /**
@@ -70,6 +76,14 @@ const ListSandboxFilesInputSchema = Schema.toStandardJSONSchemaV1(
   })),
 )
 
+const PublishSandboxArtifactInputSchema = Schema.toStandardJSONSchemaV1(
+  Schema.toStandardSchemaV1(Schema.Struct({
+    path: sandboxPath.annotate({
+      description: "File to share with the user, inside the workspace.",
+    }),
+  })),
+)
+
 const RunSandboxCommandInputSchema = Schema.toStandardJSONSchemaV1(
   Schema.toStandardSchemaV1(Schema.Struct({
     command: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
@@ -90,9 +104,18 @@ interface SandboxToolContext {
 }
 
 export function createChatSandboxTools(
-  input: { readonly session: ChatSandboxSession; readonly log?: DebugLog | undefined },
+  input: {
+    readonly session: ChatSandboxSession
+    readonly log?: DebugLog | undefined
+    /** Verified identifiers minted into artifact tickets; never client-supplied. */
+    readonly artifactScope: {
+      readonly organizationId: string
+      readonly tenantUserId: string
+      readonly sandboxProviderId: string
+    }
+  },
 ): AnyServerTool[] {
-  const { session, log } = input
+  const { session, log, artifactScope } = input
   /**
    * Every tool starts the sandbox the same way, reporting provisioning progress as it goes. The
    * execution context is optional upstream, so the stream event is best effort while the log line
@@ -228,7 +251,58 @@ export function createChatSandboxTools(
     }
   })
 
-  return [writeSandboxFile, readSandboxFile, listSandboxFiles, runSandboxCommand]
+  const publishSandboxArtifact = toolDefinition({
+    name: "sandbox_publish_artifact",
+    description:
+      "Share a file from the sandbox with the user. They get a download, and an image (PNG, " +
+      "JPEG, GIF, WebP) also renders inline in the conversation. Publish anything you generated " +
+      "for the user instead of describing it.",
+    inputSchema: PublishSandboxArtifactInputSchema,
+  }).server<SandboxToolContext>(async ({ path }, context) => {
+    const handle = await sandbox(context)
+    const resolved = resolveSandboxPath(resolveHarnessCwd(handle), path)
+    if ("refusal" in resolved) return resolved
+    const bytes = await requireSandboxOperation(
+      handle.fs.readBytes(resolved.path),
+      CHAT_SANDBOX_FILE_TIMEOUT_MS,
+    ).catch(() => undefined)
+    if (bytes === undefined) {
+      return { refusal: "The file could not be read. Check the path with sandbox_list_files." }
+    }
+    if (bytes.byteLength > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) {
+      return {
+        refusal:
+          `Artifacts are limited to ${CHAT_SANDBOX_MAX_ARTIFACT_BYTES} bytes. Compress or split the file.`,
+      }
+    }
+    // Sniffed from content, never from the extension, so a renamed file cannot change how the
+    // download route will serve it.
+    const mimeType = detectSandboxArtifactMimeType(bytes)
+    const ticket = await mintSandboxArtifactTicket({
+      ...artifactScope,
+      providerSandboxId: handle.id,
+      path: resolved.path,
+      mimeType,
+      size: bytes.byteLength,
+      sha256: await artifactContentDigest(bytes),
+    })
+    log?.("sandbox", `published ${resolved.path}`, { mimeType, size: bytes.byteLength })
+    return {
+      path: resolved.path,
+      relativePath: resolved.relativePath,
+      mimeType,
+      size: bytes.byteLength,
+      ticket,
+    }
+  })
+
+  return [
+    writeSandboxFile,
+    readSandboxFile,
+    listSandboxFiles,
+    runSandboxCommand,
+    publishSandboxArtifact,
+  ]
 }
 
 /**

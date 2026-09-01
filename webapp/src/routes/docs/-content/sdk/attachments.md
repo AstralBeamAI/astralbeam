@@ -21,3 +21,4 @@ Pass `attachments: false` to turn the feature off, or an object to narrow it.
 - Files are sent ahead of the text so the agent reads the question with them in context.
 - A file still being read blocks the send rather than being left behind.
 - The endpoint enforces the same limits independently, so narrowing them here is an affordance, not a boundary.
+- Attachments are agent policy: when the dashboard disables them, the endpoint refuses files and the widget hides the attach button; see [Security model](./security.md).

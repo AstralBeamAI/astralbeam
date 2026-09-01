@@ -6,15 +6,17 @@ import {
   toServerSentEventsResponse,
 } from "@tanstack/ai"
 import { createFileRoute } from "@tanstack/react-router"
-import * as Schema from "effect/Schema"
 
 import { runDatabaseEffect } from "@/db"
-import { AgentSystemPromptSchema } from "@/lib/schemas"
 import { createChatAdapter } from "./-lib/adapter.server"
 import { resolveChatAgent } from "./-lib/agent.server"
 import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
 import { authenticateChatRequest, isChatAuthenticationError } from "./-lib/auth.server"
-import { CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT } from "./-lib/constants.server"
+import {
+  CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT,
+  CHAT_SANDBOX_SYSTEM_PROMPT,
+  CHAT_SYSTEM_PROMPT,
+} from "./-lib/constants.server"
 import { createDebugLog, withDebugLog } from "./-lib/debug.server"
 import { consumeChatRateLimit } from "./-lib/rate-limit.server"
 import { resolveChatSandboxSession } from "./-lib/sandbox.server"
@@ -28,8 +30,6 @@ import {
   readChatRequestJson,
   unauthorizedChatResponse,
 } from "./-lib/utils.server"
-
-const isAgentSystemPrompt = Schema.is(AgentSystemPromptSchema)
 
 export const Route = createFileRoute("/api/chat/")({
   server: {
@@ -96,12 +96,16 @@ export const Route = createFileRoute("/api/chat/")({
                 : "Agent not found.",
             )
           }
-          if (systemPrompt !== undefined && !isAgentSystemPrompt(systemPrompt)) {
-            return errorResponse(request, 400, "The system prompt override is invalid.")
+          // Instructions are agent configuration: a browser-supplied prompt would let any tenant
+          // user rewrite them from devtools, so the endpoint refuses rather than ignores it.
+          if (systemPrompt !== undefined && systemPrompt !== null) {
+            return errorResponse(
+              request,
+              400,
+              "The system prompt is agent configuration; set it in the dashboard.",
+            )
           }
-          // Preserve the existing host integration override while agents establish the
-          // organization-owned default used when the SDK does not supply instructions.
-          const effectiveSystemPrompt = systemPrompt ?? selectedAgent.systemPrompt
+          const effectiveSystemPrompt = selectedAgent.systemPrompt
           // The SDK's `debug` mount option rides along in the forwarded props, so client
           // and server log the same conversation and it can be followed from both sides.
           const log = debug === true ? createDebugLog(params.runId) : undefined
@@ -124,6 +128,10 @@ export const Route = createFileRoute("/api/chat/")({
           // provider adapter throws on a content part it cannot map, which would fail the whole
           // run over one unsupported file.
           const { messages, attachments } = normalizeChatAttachments(params.messages)
+          // Agent capability policy, enforced here regardless of what the client narrowed.
+          if (!selectedAgent.attachmentsEnabled && attachments.length > 0) {
+            return errorResponse(request, 400, "This agent does not accept file attachments.")
+          }
           if (log && attachments.length > 0) {
             log("attachment", `${attachments.length} attachment(s) normalized`, attachments)
           }
@@ -139,7 +147,15 @@ export const Route = createFileRoute("/api/chat/")({
                 threadId: params.threadId,
                 runId: params.runId,
               }))
-              sandboxTools = createChatSandboxTools({ session, log })
+              sandboxTools = createChatSandboxTools({
+                session,
+                log,
+                artifactScope: {
+                  organizationId: principal.organization.id,
+                  tenantUserId: principal.tenantUser.id,
+                  sandboxProviderId: selectedAgent.sandboxProviderId,
+                },
+              })
               log?.("sandbox", `${sandboxTools.length} sandbox tools declared`)
             } catch (error) {
               // Degrade rather than refuse the reply: an unreadable provider configuration is the
@@ -154,7 +170,9 @@ export const Route = createFileRoute("/api/chat/")({
             messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
-              ...(sandboxTools.length > 0 ? [CHAT_SANDBOX_SYSTEM_PROMPT] : []),
+              ...(sandboxTools.length > 0
+                ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT]
+                : []),
               effectiveSystemPrompt,
             ],
             // Every other tool executes in the host page and arrives declared in the request body;

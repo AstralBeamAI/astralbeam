@@ -150,6 +150,8 @@ export const agent = snakeCase.table(
     slug: text().notNull(),
     name: text().notNull(),
     systemPrompt: text().notNull(),
+    // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
+    attachmentsEnabled: boolean().notNull().default(true),
     // Optional so a new organization has a usable agent before anyone configures a provider,
     // which cannot be saved until its connection test passes.
     sandboxProviderId: uuid(),

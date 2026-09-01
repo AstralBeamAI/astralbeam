@@ -51,7 +51,6 @@ export function mountAstralBeamChat(
     authentication: "configured",
     colorScheme: live.colorScheme ?? DEFAULT_COLOR_SCHEME,
     theme: live.theme,
-    systemPrompt: live.systemPrompt,
     tools: Object.keys(live.tools ?? {}),
     widgets: Object.keys(live.widgets ?? {}),
     attachments: live.attachments ?? true,

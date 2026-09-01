@@ -1,7 +1,7 @@
 import type { UIMessage } from "@tanstack/ai-client"
 import { describe, expect, it } from "vitest"
 
-import { SANDBOX_RUN_COMMAND_TOOL, SANDBOX_WRITE_FILE_TOOL } from "./constants.ts"
+import { SANDBOX_RUN_COMMAND_TOOL, SANDBOX_WRITE_FILE_TOOL } from "./protocol.ts"
 import { collectSandboxActivity, describeSandboxCommandRun } from "./sandbox.ts"
 
 function toolCall(

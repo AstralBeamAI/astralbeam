@@ -150,14 +150,18 @@ export interface MountAstralBeamChatOptions {
   chatEndpoint?: string | undefined
   /** Application endpoint that mints a short-lived chat JWT. Fixed at mount. Default `"/api/astralbeam/token"`. */
   authEndpoint?: string | undefined
-  /** Host-specific instructions, up to 32,768 characters, that override the stored system prompt. */
-  systemPrompt?: string | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
   /** Host-rendered replacements for parts of the widget's chrome; see `AstralBeamChatSlots`. */
   slots?: AstralBeamChatSlots | undefined
+  /**
+   * Shows the collected sandbox panel (every file the agent wrote, with downloads, and the full
+   * command log) above the composer once the sandbox has done work. Off by default: the
+   * transcript already shows each step where it happened. Default `false`.
+   */
+  sandboxPanel?: boolean | undefined
   /**
    * File attachments in the composer, on by default. `false` turns them off; an options object
    * narrows the limits and accepted types.

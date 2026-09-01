@@ -18,17 +18,17 @@ These select the agent and build the transport, so changing them requires a fres
 
 Prop or `update` changes apply immediately.
 
-| Option                           | Default                   | Meaning                                                                         |
-| -------------------------------- | ------------------------- | ------------------------------------------------------------------------------- |
-| `title`                          | `"AstralBeam"`            | Name in the widget's header                                                     |
-| `showHeader`                     | `true`                    | `false` hides the header and its reset button                                   |
-| `emptyTitle`, `emptyDescription` | generic copy              | Headline and subtitle of the empty transcript                                   |
-| `systemPrompt`                   | the agent's stored prompt | Host instructions, up to 32,768 characters                                      |
-| `colorScheme`                    | `"system"`                | `"light"`, `"dark"`, or follow the OS setting live                              |
-| `theme`                          | built-in palette          | `{ light, dark }` CSS token overrides; see [Theming](./theming.md)              |
-| `attachments`                    | `true`                    | `false` disables; an object narrows limits; see [Attachments](./attachments.md) |
-| `tools`, `widgets`               | none                      | See [Tools and widgets](./tools-and-widgets.md)                                 |
-| `debug`                          | `false`                   | Log every SDK action in the browser, and the run on the server                  |
+| Option                           | Default          | Meaning                                                                         |
+| -------------------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| `title`                          | `"AstralBeam"`   | Name in the widget's header                                                     |
+| `showHeader`                     | `true`           | `false` hides the header and its reset button                                   |
+| `emptyTitle`, `emptyDescription` | generic copy     | Headline and subtitle of the empty transcript                                   |
+| `colorScheme`                    | `"system"`       | `"light"`, `"dark"`, or follow the OS setting live                              |
+| `theme`                          | built-in palette | `{ light, dark }` CSS token overrides; see [Theming](./theming.md)              |
+| `attachments`                    | `true`           | `false` disables; an object narrows limits; see [Attachments](./attachments.md) |
+| `sandboxPanel`                   | `false`          | Shows the collected sandbox panel; see [Sandbox](./sandbox.md)                  |
+| `tools`, `widgets`               | none             | See [Tools and widgets](./tools-and-widgets.md)                                 |
+| `debug`                          | `false`          | Log every SDK action in the browser, and the run on the server                  |
 
 ## Chrome slots
 

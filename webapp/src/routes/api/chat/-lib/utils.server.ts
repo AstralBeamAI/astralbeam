@@ -6,8 +6,11 @@ import { CHAT_MAX_REQUEST_BYTES, CHAT_TOKEN_AUDIENCE } from "./constants.server"
 export function corsHeaders(_request: Request) {
   return {
     "access-control-allow-origin": "*",
-    "access-control-allow-methods": "POST, OPTIONS",
+    // GET serves the capability handshake and sandbox artifact downloads.
+    "access-control-allow-methods": "GET, POST, OPTIONS",
     "access-control-allow-headers": "authorization, content-type, last-event-id, x-run-id",
+    // The SDK reads the artifact filename off a download response.
+    "access-control-expose-headers": "content-disposition",
     "access-control-max-age": "86400",
   }
 }

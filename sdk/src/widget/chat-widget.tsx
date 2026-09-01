@@ -12,7 +12,8 @@ import {
 } from "@/widget/components/ui/card"
 import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
-import { SandboxTray } from "./components/sandbox-tray.tsx"
+import { SandboxPanel } from "./components/sandbox-panel.tsx"
+import { SandboxStatusPill } from "./components/sandbox-status.tsx"
 import {
   acceptAttachmentFiles,
   attachmentContentParts,
@@ -22,12 +23,13 @@ import {
 import { DEFAULT_AUTH_ENDPOINT, DEFAULT_ENDPOINT, DEFAULT_TITLE } from "../lib/constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
-import { ASK_QUESTIONNAIRE_TOOL, SANDBOX_STATUS_EVENT } from "./lib/constants.ts"
+import { ASK_QUESTIONNAIRE_TOOL, SANDBOX_STATUS_EVENT } from "../core/protocol.ts"
 import { createDebugCallbacks } from "./lib/stream-debug.ts"
-import { collectSandboxActivity, hasSandboxActivity } from "./lib/sandbox.ts"
-import type { DraftAttachment, QuestionnaireAnswer, SandboxStatus } from "./lib/types.ts"
+import { collectSandboxActivity } from "../core/sandbox.ts"
+import type { SandboxStatus } from "../core/types.ts"
+import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { cn, hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "./lib/utils.ts"
-import { buildAgentTools } from "./agent.ts"
+import { buildAgentTools } from "../core/agent-tools.ts"
 import {
   type ChatAuthenticationOptions,
   type ChatAuthenticationState,
@@ -35,7 +37,7 @@ import {
   fetchAuthenticatedChat,
   getValidChatToken,
   initializeChatAuthentication,
-} from "./auth.ts"
+} from "../core/auth.ts"
 import type { ChatController } from "./index.tsx"
 import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
@@ -119,9 +121,8 @@ export function ChatWidget(
     // Left out entirely when the host has no agent ID, which asks the endpoint for the
     // organization's default agent.
     ...(options.agentId ? { agentId: options.agentId } : {}),
-    ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     ...(options.debug ? { debug: true } : {}),
-  }), [options.agentId, options.systemPrompt, options.debug])
+  }), [options.agentId, options.debug])
   // Provisioning a sandbox takes tens of seconds, and no tool result exists while it happens, so
   // the endpoint reports it as a CUSTOM event. Everything else about the sandbox is read back out
   // of the transcript by `collectSandboxActivity`.
@@ -146,16 +147,50 @@ export function ChatWidget(
       setSandboxStatus(sandboxState)
     },
   })
+  // Agent capability handshake: what the endpoint's resolved agent grants. Fails open for the
+  // UI (the endpoint still enforces the policy on every run), and re-resolves per mount only —
+  // capabilities are dashboard configuration, not conversation state.
+  const [grantedAttachments, setGrantedAttachments] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    const endpoint = (options.chatEndpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, "")
+    const url = new URL(`${endpoint}/config`, globalThis.location.href)
+    if (options.agentId) url.searchParams.set("agentId", options.agentId)
+    void (async () => {
+      try {
+        const token = await getValidChatToken(authentication)
+        const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
+        if (!response.ok) throw new Error(`The config request answered ${response.status}`)
+        const body = await response.json() as { capabilities?: { attachments?: unknown } }
+        if (cancelled) return
+        const attachments = body.capabilities?.attachments !== false
+        setGrantedAttachments(attachments)
+        debug?.("mount", "agent capabilities resolved", { attachments })
+      } catch (error) {
+        debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // The endpoint and agent are fixed at mount, so this runs once per mounted chat.
+  }, [authentication, debug, options.agentId, options.chatEndpoint])
+  // Artifact downloads live beside the chat endpoint; tickets in tool outputs authorize them.
+  const filesEndpoint = useMemo(
+    () => `${(options.chatEndpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, "")}/files`,
+    [options.chatEndpoint],
+  )
   const sandboxActivity = useMemo(() => collectSandboxActivity(messages), [messages])
-  const showSandboxTray = hasSandboxActivity(sandboxActivity, sandboxStatus)
+  const sandboxHasWork = sandboxActivity.files.length > 0 || sandboxActivity.commands.length > 0
   useEffect(() => {
     debug?.("status", `chat status is "${status}"`)
   }, [debug, status])
   const [draft, setDraft] = useState("")
   const [attachments, setAttachments] = useState<DraftAttachment[]>([])
+  // The agent's grant wins over the host option: the client may narrow, never widen.
   const attachmentLimits = useMemo(
-    () => resolveAttachmentOptions(options.attachments),
-    [options.attachments],
+    () => resolveAttachmentOptions(grantedAttachments ? options.attachments : false),
+    [options.attachments, grantedAttachments],
   )
   // Ids only have to be unique within this composer, and `crypto.randomUUID` is undefined on a
   // host page served over plain HTTP. https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
@@ -346,6 +381,7 @@ export function ChatWidget(
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
           messages={messages}
+          filesEndpoint={filesEndpoint}
           emptySlot={hostSlots.has("empty") ? hostSlotName("empty") : undefined}
           emptyTitle={options.emptyTitle}
           emptyDescription={options.emptyDescription}
@@ -362,7 +398,10 @@ export function ChatWidget(
           fades messages at the edge, so the footer needs no separation of its own. */
       }
       <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
-        {showSandboxTray && <SandboxTray activity={sandboxActivity} status={sandboxStatus} />}
+        {sandboxStatus !== undefined && <SandboxStatusPill status={sandboxStatus} />}
+        {options.sandboxPanel === true && sandboxHasWork && (
+          <SandboxPanel activity={sandboxActivity} />
+        )}
         <ChatComposer
           title={options.title ?? DEFAULT_TITLE}
           actionsSlot={hostSlots.has("composerActions")

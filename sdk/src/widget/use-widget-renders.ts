@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { WidgetDefinition } from "../lib/types.ts"
 import type { DebugLogger } from "../lib/debug.ts"
+import { validateParameters } from "../core/schema.ts"
+import type { RenderWidgetInput } from "../core/types.ts"
 import { MAX_ACTIVE_WIDGET_RENDERS } from "./lib/constants.ts"
-import type { RenderWidgetInput } from "./lib/types.ts"
-import { getWidget, slotNameForToolCall, validateParameters } from "./lib/utils.ts"
+import { getWidget, slotNameForToolCall } from "./lib/utils.ts"
 
 interface ActiveWidgetRender {
   /** Kept so an update that drops the widget can dispose renders it can no longer resolve. */

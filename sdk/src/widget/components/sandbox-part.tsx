@@ -10,18 +10,20 @@ import type { ReactNode } from "react"
 import { Spinner } from "@/widget/components/ui/spinner"
 import {
   SANDBOX_LIST_FILES_TOOL,
+  SANDBOX_PUBLISH_ARTIFACT_TOOL,
   SANDBOX_READ_FILE_TOOL,
   SANDBOX_RUN_COMMAND_TOOL,
   SANDBOX_WRITE_FILE_TOOL,
-} from "../lib/constants.ts"
+} from "../../core/protocol.ts"
 import {
   describeSandboxCommandRun,
   readSandboxCommandRun,
   readSandboxFileWrite,
   sandboxPathLabel,
   sandboxRefusal,
-} from "../lib/sandbox.ts"
+} from "../../core/sandbox.ts"
 import { formatToolJson, isSettledToolCall } from "../lib/utils.ts"
+import { SandboxArtifactPart } from "./sandbox-artifact.tsx"
 import { SandboxCodeBlock } from "./sandbox-code.tsx"
 import { SandboxCommandLog } from "./sandbox-command-log.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
@@ -33,7 +35,13 @@ type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
  * a host tool the widget knows exactly what their input and output mean and can show the file it
  * wrote as a file and the command it ran as a terminal, instead of both as pretty-printed JSON.
  */
-export function SandboxPart({ part }: { part: ToolCallPart }) {
+export function SandboxPart(
+  { part, filesEndpoint }: { part: ToolCallPart; filesEndpoint: string },
+) {
+  // Published artifacts have their own rendering: inline image or download row.
+  if (part.name === SANDBOX_PUBLISH_ARTIFACT_TOOL) {
+    return <SandboxArtifactPart part={part} filesEndpoint={filesEndpoint} />
+  }
   const failed = part.state === "error"
   const refusal = sandboxRefusal(part)
   const running = !failed && !isSettledToolCall(part)

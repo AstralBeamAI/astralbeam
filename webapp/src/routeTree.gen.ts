@@ -22,6 +22,8 @@ import { Route as AuthenticatedOrganizationIndexRouteImport } from './routes/_au
 import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
+import { Route as ApiChatConfigRouteImport } from './routes/api/chat/config'
+import { Route as ApiChatFilesRouteImport } from './routes/api/chat/files'
 import { Route as DocsSectionIndexRouteImport } from './routes/docs/$section/index'
 import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
 import { Route as AuthenticatedSettingsOrganizationsIndexRouteImport } from './routes/_authenticated/settings/organizations/index'
@@ -99,6 +101,16 @@ const ApiChatIndexRoute = ApiChatIndexRouteImport.update({
   path: '/api/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatConfigRoute = ApiChatConfigRouteImport.update({
+  id: '/api/chat/config',
+  path: '/api/chat/config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatFilesRoute = ApiChatFilesRouteImport.update({
+  id: '/api/chat/files',
+  path: '/api/chat/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSectionIndexRoute = DocsSectionIndexRouteImport.update({
   id: '/$section/',
   path: '/$section/',
@@ -162,6 +174,8 @@ export interface FileRoutesByFullPath {
   '/docs/': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/config': typeof ApiChatConfigRoute
+  '/api/chat/files': typeof ApiChatFilesRoute
   '/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
@@ -183,6 +197,8 @@ export interface FileRoutesByTo {
   '/docs': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/config': typeof ApiChatConfigRoute
+  '/api/chat/files': typeof ApiChatFilesRoute
   '/onboarding': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat': typeof ApiChatIndexRoute
   '/docs/$section': typeof DocsSectionIndexRoute
@@ -207,6 +223,8 @@ export interface FileRoutesById {
   '/docs/': typeof DocsIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/config': typeof ApiChatConfigRoute
+  '/api/chat/files': typeof ApiChatFilesRoute
   '/_authenticated/_organization/': typeof AuthenticatedOrganizationIndexRoute
   '/_authenticated/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
@@ -232,6 +250,8 @@ export interface FileRouteTypes {
     | '/docs/'
     | '/auth/$path'
     | '/api/auth/$'
+    | '/api/chat/config'
+    | '/api/chat/files'
     | '/onboarding/'
     | '/api/chat/'
     | '/docs/$section/'
@@ -253,6 +273,8 @@ export interface FileRouteTypes {
     | '/docs'
     | '/auth/$path'
     | '/api/auth/$'
+    | '/api/chat/config'
+    | '/api/chat/files'
     | '/onboarding'
     | '/api/chat'
     | '/docs/$section'
@@ -276,6 +298,8 @@ export interface FileRouteTypes {
     | '/docs/'
     | '/(authentication)/auth/$path'
     | '/api/auth/$'
+    | '/api/chat/config'
+    | '/api/chat/files'
     | '/_authenticated/_organization/'
     | '/_authenticated/onboarding/'
     | '/api/chat/'
@@ -298,6 +322,8 @@ export interface RootRouteChildren {
   ConfigureIndexRoute: typeof ConfigureIndexRoute
   authenticationAuthPathRoute: typeof authenticationAuthPathRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiChatConfigRoute: typeof ApiChatConfigRoute
+  ApiChatFilesRoute: typeof ApiChatFilesRoute
   ApiChatIndexRoute: typeof ApiChatIndexRoute
 }
 
@@ -392,6 +418,20 @@ declare module '@tanstack/react-router' {
       path: '/api/chat'
       fullPath: '/api/chat/'
       preLoaderRoute: typeof ApiChatIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat/config': {
+      id: '/api/chat/config'
+      path: '/api/chat/config'
+      fullPath: '/api/chat/config'
+      preLoaderRoute: typeof ApiChatConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat/files': {
+      id: '/api/chat/files'
+      path: '/api/chat/files'
+      fullPath: '/api/chat/files'
+      preLoaderRoute: typeof ApiChatFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/$section/': {
@@ -547,6 +587,8 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigureIndexRoute: ConfigureIndexRoute,
   authenticationAuthPathRoute: authenticationAuthPathRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiChatConfigRoute: ApiChatConfigRoute,
+  ApiChatFilesRoute: ApiChatFilesRoute,
   ApiChatIndexRoute: ApiChatIndexRoute,
 }
 export const routeTree = rootRouteImport

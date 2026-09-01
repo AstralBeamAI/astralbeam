@@ -5,18 +5,21 @@ import type {
   WidgetDefinition,
 } from "../lib/types.ts"
 import type { DebugLogger } from "../lib/debug.ts"
-import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "./lib/constants.ts"
-import type { RenderWidgetInput } from "./lib/types.ts"
-import { toJsonSchema, validateParameters } from "./lib/utils.ts"
+import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "./protocol.ts"
+import type { RenderWidgetInput } from "./types.ts"
+import { toJsonSchema, validateParameters } from "./schema.ts"
 
 type RenderWidget = (
   input: RenderWidgetInput,
   toolCallId: string,
 ) => Promise<{ widget: string; rendered: boolean }>
 
+/** What declaring a widget to the agent needs; `render` stays with whoever draws it. */
+export type WidgetDeclaration = Pick<WidgetDefinition, "description" | "parameters">
+
 /** The full tool set declared to the agent; `render_widget` only when widgets are registered. */
 export function buildAgentTools(
-  widgets: Record<string, WidgetDefinition>,
+  widgets: Record<string, WidgetDeclaration>,
   hostTools: Record<string, HostToolDefinition>,
   renderWidget: RenderWidget,
   debug?: DebugLogger,
@@ -31,7 +34,7 @@ export function buildAgentTools(
 // Declares the registered widgets to the agent as one `render_widget` tool whose
 // description carries the per-widget catalog; `render` is the chat widget's DOM side.
 function buildRenderWidgetTool(
-  widgets: Record<string, WidgetDefinition>,
+  widgets: Record<string, WidgetDeclaration>,
   render: RenderWidget,
 ) {
   const catalog = Object.entries(widgets).map(([name, { description, parameters }]) =>

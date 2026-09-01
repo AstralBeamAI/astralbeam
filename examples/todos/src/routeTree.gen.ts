@@ -10,43 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiChatTokenRouteImport } from './routes/api/chat/token'
+import { Route as ApiAstralbeamTokenRouteImport } from './routes/api/astralbeam/token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiChatTokenRoute = ApiChatTokenRouteImport.update({
-  id: '/api/chat/token',
-  path: '/api/chat/token',
+const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
+  id: '/api/astralbeam/token',
+  path: '/api/astralbeam/token',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/api/chat/token': typeof ApiChatTokenRoute
+  '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/api/chat/token': typeof ApiChatTokenRoute
+  '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/api/chat/token': typeof ApiChatTokenRoute
+  '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/chat/token'
+  fullPaths: '/' | '/api/astralbeam/token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/chat/token'
-  id: '__root__' | '/' | '/api/chat/token'
+  to: '/' | '/api/astralbeam/token'
+  id: '__root__' | '/' | '/api/astralbeam/token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ApiChatTokenRoute: typeof ApiChatTokenRoute
+  ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +58,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/chat/token': {
-      id: '/api/chat/token'
-      path: '/api/chat/token'
-      fullPath: '/api/chat/token'
-      preLoaderRoute: typeof ApiChatTokenRouteImport
+    '/api/astralbeam/token': {
+      id: '/api/astralbeam/token'
+      path: '/api/astralbeam/token'
+      fullPath: '/api/astralbeam/token'
+      preLoaderRoute: typeof ApiAstralbeamTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -70,7 +70,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ApiChatTokenRoute: ApiChatTokenRoute,
+  ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

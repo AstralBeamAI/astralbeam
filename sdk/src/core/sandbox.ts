@@ -1,15 +1,16 @@
 import type { MessagePart, UIMessage } from "@tanstack/ai-client"
 import {
   SANDBOX_LIST_FILES_TOOL,
+  SANDBOX_PUBLISH_ARTIFACT_TOOL,
   SANDBOX_READ_FILE_TOOL,
   SANDBOX_RUN_COMMAND_TOOL,
   SANDBOX_WRITE_FILE_TOOL,
-} from "./constants.ts"
+} from "./protocol.ts"
 import type {
   SandboxActivity,
+  SandboxArtifact,
   SandboxCommandRun,
   SandboxFileWrite,
-  SandboxStatus,
 } from "./types.ts"
 
 /**
@@ -26,6 +27,7 @@ const SANDBOX_TOOLS: readonly string[] = [
   SANDBOX_READ_FILE_TOOL,
   SANDBOX_LIST_FILES_TOOL,
   SANDBOX_RUN_COMMAND_TOOL,
+  SANDBOX_PUBLISH_ARTIFACT_TOOL,
 ]
 
 export function isSandboxTool(name: string): boolean {
@@ -81,6 +83,22 @@ export function sandboxPathLabel(part: ToolCallPart): string | undefined {
   return text(part.output, "path") ?? text(part.input, "path")
 }
 
+/** A `sandbox_publish_artifact` call whose output carries the download ticket. */
+export function readSandboxArtifact(part: ToolCallPart): SandboxArtifact | undefined {
+  if (part.name !== SANDBOX_PUBLISH_ARTIFACT_TOOL) return undefined
+  const path = text(part.output, "path") ?? text(part.input, "path")
+  const ticket = text(part.output, "ticket")
+  return {
+    toolCallId: part.id,
+    path: path ?? "",
+    label: sandboxPathLabel(part) ?? path ?? "",
+    mimeType: text(part.output, "mimeType"),
+    size: count(part.output, "size"),
+    ticket,
+    published: ticket !== undefined && sandboxRefusal(part) === undefined,
+  }
+}
+
 /** A `sandbox_run_command` call. `stdout` holds combined output on providers with no stderr. */
 export function readSandboxCommandRun(part: ToolCallPart): SandboxCommandRun | undefined {
   if (part.name !== SANDBOX_RUN_COMMAND_TOOL) return undefined
@@ -133,13 +151,4 @@ export function describeSandboxCommandRun(run: SandboxCommandRun): string {
   }
   if (run.truncated) parts.push("output truncated")
   return parts.join(" · ")
-}
-
-/** Nothing to disclose until the sandbox has done something or is on its way to doing it. */
-export function hasSandboxActivity(
-  activity: SandboxActivity,
-  status: SandboxStatus | undefined,
-): boolean {
-  return activity.files.length > 0 || activity.commands.length > 0 || status === "starting" ||
-    status === "error"
 }

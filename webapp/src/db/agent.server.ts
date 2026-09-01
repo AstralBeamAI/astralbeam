@@ -168,6 +168,7 @@ export function createOrganizationAgent(input: {
   slug: string
   name: string
   systemPrompt: string
+  attachmentsEnabled: boolean
   sandboxProviderId: string | null
 }) {
   return Effect.flatMap(effectDatabase, (db) => db.insert(agent).values(input)).pipe(
@@ -193,6 +194,7 @@ export function updateOrganizationAgent(input: {
   lockVersion: number
   name: string
   systemPrompt: string
+  attachmentsEnabled: boolean
   sandboxProviderId: string | null
 }) {
   return Effect.flatMap(effectDatabase, (db) =>
@@ -205,6 +207,7 @@ export function updateOrganizationAgent(input: {
       set: {
         name: input.name,
         systemPrompt: input.systemPrompt,
+        attachmentsEnabled: input.attachmentsEnabled,
         sandboxProviderId: input.sandboxProviderId,
       },
     })).pipe(

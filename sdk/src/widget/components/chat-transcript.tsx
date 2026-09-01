@@ -27,6 +27,8 @@ import { UserMessageBody } from "./user-message-body.tsx"
 
 interface ChatTranscriptProps {
   messages: UIMessage[]
+  /** URL of the chat endpoint's artifact route, for published sandbox files. */
+  filesEndpoint: string
   /** Name of the host's empty-state slot; when set, it replaces the default empty state. */
   emptySlot?: string | undefined
   /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_TITLE`. */
@@ -46,6 +48,7 @@ interface ChatTranscriptProps {
 export function ChatTranscript(
   {
     messages,
+    filesEndpoint,
     emptySlot,
     emptyTitle,
     emptyDescription,
@@ -97,6 +100,7 @@ export function ChatTranscript(
                         <PartErrorBoundary key={partIndex}>
                           <AssistantPart
                             part={part}
+                            filesEndpoint={filesEndpoint}
                             widgets={widgets}
                             toolTitles={toolTitles}
                             activeSlots={activeSlots}
