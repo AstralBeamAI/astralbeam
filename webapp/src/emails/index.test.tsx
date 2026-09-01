@@ -31,6 +31,60 @@ import {
   sendVerificationEmail,
 } from "./index.ts"
 
+describe("authentication email delivery logging", () => {
+  beforeEach(() => {
+    authEmailIndexTestState.sendProviderEmail.mockClear()
+  })
+
+  test("a delivered send is logged with a masked recipient and no token URL", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {})
+
+    try {
+      await runAuthEmailWithMockDelivery(() =>
+        sendVerificationEmail({
+          user: { email: "member@example.test" },
+          url: "https://app.example.test/api/auth/verify-email?token=secret-token",
+          expiresInSeconds: 3600,
+        })
+      )
+
+      const logged = info.mock.calls.flat().join(" ")
+      expect(logged).toContain("m***r@example.test")
+      expect(logged).not.toContain("member@example.test")
+      expect(logged).not.toContain("secret-token")
+    } finally {
+      info.mockRestore()
+    }
+  })
+
+  test("a failed send logs the provider reason against the masked recipient and rejects", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    authEmailIndexTestState.sendProviderEmail.mockRejectedValueOnce(
+      new Error("provider rejected the sender"),
+    )
+
+    try {
+      await expect(
+        runAuthEmailWithMockDelivery(() =>
+          sendResetPasswordEmail({
+            user: { email: "member@example.test" },
+            url: "https://app.example.test/api/auth/reset-password/secret-token",
+            expiresInSeconds: 3600,
+          })
+        ),
+      ).rejects.toThrow("Unable to deliver authentication email")
+
+      const logged = error.mock.calls.flat().join(" ")
+      expect(logged).toContain("provider rejected the sender")
+      expect(logged).toContain("m***r@example.test")
+      expect(logged).not.toContain("member@example.test")
+      expect(logged).not.toContain("secret-token")
+    } finally {
+      error.mockRestore()
+    }
+  })
+})
+
 describe("authentication email wrappers", () => {
   beforeEach(() => {
     authEmailIndexTestState.sendProviderEmail.mockClear()

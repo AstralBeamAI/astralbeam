@@ -22,7 +22,12 @@ vi.mock("@/db/migration-runner.server", () => ({
     }),
 }))
 
-import { CONFIG_DEFINITIONS, configEnvironmentVariable } from "@/lib/config/registry.server"
+import {
+  CONFIG_DEFINITIONS,
+  configEnvironmentVariable,
+  findConfigDefinition,
+  validateConfigCompleteness,
+} from "@/lib/config/registry.server"
 import { getGlobalConfigState, invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { publicConfigFromValues, setupGateResponse } from "@/lib/config/state.server"
 
@@ -125,6 +130,30 @@ describe("global configuration", () => {
       ],
     })
     expect((await getGlobalConfigState()).issues).toEqual([])
+  })
+
+  test("a malformed from address is rejected instead of reaching the provider", () => {
+    const definition = findConfigDefinition("email_from_address")
+    if (!definition) throw new Error("Expected an email_from_address definition")
+
+    expect(() => definition.decode("onboarding.resend.dev")).toThrow(
+      /must be 'email@example.com' or 'Name <email@example.com>'/,
+    )
+    // The error must not repeat the rejected value, which the operator may have mistyped a secret into.
+    expect(() => definition.decode("secret@@value")).not.toThrow(/secret/)
+    expect(definition.decode("onboarding@resend.dev")).toBe("onboarding@resend.dev")
+    expect(definition.decode("App <onboarding@resend.dev>")).toBe("App <onboarding@resend.dev>")
+
+    expect(
+      validateConfigCompleteness({
+        app_base_url: "http://localhost:3000",
+        better_auth_secret: CONFIG_TEST_SECRET,
+        turnstile_site_key: "turnstile-site-key",
+        turnstile_secret_key: "turnstile-secret-key",
+        email_provider: "resend",
+        resend_api_key: "resend-api-key",
+      }).map((issue) => issue.key),
+    ).toContain("email_from_address")
   })
 })
 

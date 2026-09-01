@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; omit disabled teams, dynamic roles, and invitation model fields.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields.
 
 "use client"
 
@@ -37,6 +37,7 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { isAuthEmailDeliveryError } from "@/lib/auth/email-delivery"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { cn } from "@/lib/utils"
 
@@ -108,6 +109,12 @@ export function InviteMemberDialog({
   const { mutate: inviteMember, isPending: isInviting } = useInviteMember(
     authClient,
     {
+      // Better Auth creates the invitation before it sends the email, so a delivery failure leaves
+      // a pending invitation the list has not seen yet. Refetching surfaces its row, whose resend
+      // control is the recovery path; ErrorToaster reports the failure itself.
+      onError: (error) => {
+        if (isAuthEmailDeliveryError(error)) void invitations.refetch()
+      },
       onSuccess: () => {
         onOpenChange(false)
         toast.add({ title: organizationLocalization.inviteMemberSuccess, type: "success" })

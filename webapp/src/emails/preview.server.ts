@@ -2,6 +2,7 @@ import { createElement } from "react"
 import type { ReactElement } from "react"
 
 import { renderEmailElement } from "./render.server.ts"
+import AccountExistsEmail, { createAccountExistsPreviewProps } from "./templates/account-exists.tsx"
 import EmailVerificationEmail, {
   createEmailVerificationPreviewProps,
 } from "./templates/email-verification.tsx"
@@ -14,6 +15,12 @@ import PasswordChangedEmail, {
 import ResetPasswordEmail, { createResetPasswordPreviewProps } from "./templates/reset-password.tsx"
 
 const EMAIL_PREVIEWS = [
+  {
+    name: "account-exists",
+    label: "Account already exists",
+    element: (origin: string) =>
+      createElement(AccountExistsEmail, createAccountExistsPreviewProps(origin)),
+  },
   {
     name: "email-verification",
     label: "Email verification",

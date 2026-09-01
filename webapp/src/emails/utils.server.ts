@@ -170,3 +170,17 @@ function guessContentType(filename: string): string {
   const extension = filename.split(".").pop()?.toLowerCase() ?? ""
   return CONTENT_TYPES_BY_EXTENSION[extension] ?? "application/octet-stream"
 }
+
+/**
+ * Renders a recipient for a server log: the domain stays readable so an operator can spot a
+ * provider or domain-specific outage, while the local part is reduced to a fixed-width mask that
+ * leaks neither its characters nor its length.
+ */
+export function maskEmailAddressForLog(value: string): string {
+  const separator = value.lastIndexOf("@")
+  if (separator < 1) return "***"
+  const local = value.slice(0, separator)
+  const domain = value.slice(separator + 1)
+  const masked = local.length >= 4 ? `${local[0]}***${local.at(-1)}` : `${local[0]}***`
+  return `${masked}@${domain}`
+}

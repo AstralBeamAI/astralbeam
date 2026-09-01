@@ -6,12 +6,14 @@ import { APP_LOGO_LIGHT_PNG_URL, APP_NAME } from "../lib/constants.ts"
 import { getGlobalConfig } from "@/lib/config"
 import { truncateEmailGraphemes } from "./email-text.ts"
 import type { EmailProvider } from "./schema.ts"
+import AccountExistsEmail from "./templates/account-exists.tsx"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
 import OrganizationInvitationEmail from "./templates/organization-invitation.tsx"
 import PasswordChangedEmail from "./templates/password-changed.tsx"
 import ResetPasswordEmail from "./templates/reset-password.tsx"
 import {
   buildProviderEmailInput,
+  maskEmailAddressForLog,
   providerLoaders,
   resolveDefaultFrom,
   resolveProvider,
@@ -55,6 +57,14 @@ interface AuthEmailContext {
   logoURL: string
 }
 
+/** Log label identifying which authentication email a send outcome belongs to. */
+type AuthEmailKind =
+  | "account-exists"
+  | "email-verification"
+  | "organization-invitation"
+  | "password-changed"
+  | "reset-password"
+
 // Templates cannot resolve relative paths, so links and logos need the configured absolute origin.
 async function authEmailContext(): Promise<AuthEmailContext> {
   const appBaseUrl = await getGlobalConfig("app_base_url")
@@ -69,6 +79,10 @@ interface BetterAuthLinkEmailData {
   expiresInSeconds: number
   user: { email: string }
   url: string
+}
+
+interface AccountExistsEmailData {
+  user: { email: string }
 }
 
 interface BetterAuthPasswordChangedEmailData {
@@ -113,7 +127,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 }
 
 export async function sendVerificationEmail(data: BetterAuthLinkEmailData): Promise<void> {
-  await deliverAuthEmail(({ logoURL }) => ({
+  await deliverAuthEmail("email-verification", ({ logoURL }) => ({
     to: data.user.email,
     subject: `Verify your email on ${APP_NAME}`,
     react: createElement(EmailVerificationEmail, {
@@ -127,7 +141,7 @@ export async function sendVerificationEmail(data: BetterAuthLinkEmailData): Prom
 }
 
 export async function sendResetPasswordEmail(data: BetterAuthLinkEmailData): Promise<void> {
-  await deliverAuthEmail(({ logoURL }) => ({
+  await deliverAuthEmail("reset-password", ({ logoURL }) => ({
     to: data.user.email,
     subject: `Reset your ${APP_NAME} password`,
     react: createElement(ResetPasswordEmail, {
@@ -143,7 +157,7 @@ export async function sendResetPasswordEmail(data: BetterAuthLinkEmailData): Pro
 export async function sendPasswordChangedEmail(
   data: BetterAuthPasswordChangedEmailData,
 ): Promise<void> {
-  await deliverAuthEmail(({ appBaseUrl, logoURL }) => {
+  await deliverAuthEmail("password-changed", ({ appBaseUrl, logoURL }) => {
     const recoverAccountURL = new URL("/auth/forgot-password", appBaseUrl).toString()
     return {
       to: data.user.email,
@@ -159,10 +173,29 @@ export async function sendPasswordChangedEmail(
   })
 }
 
+/**
+ * Sent when a sign-up names an address that already has a verified account. Better Auth answers
+ * that sign-up with its synthetic-user response to avoid confirming the address exists, so this
+ * email is the only thing that tells the account's real owner why their sign-up went nowhere.
+ */
+export async function sendAccountExistsEmail(data: AccountExistsEmailData): Promise<void> {
+  await deliverAuthEmail("account-exists", ({ appBaseUrl, logoURL }) => ({
+    to: data.user.email,
+    subject: `Your ${APP_NAME} account already exists`,
+    react: createElement(AccountExistsEmail, {
+      appName: APP_NAME,
+      email: data.user.email,
+      logoURL,
+      recoverAccountURL: new URL("/auth/forgot-password", appBaseUrl).toString(),
+      signInURL: new URL("/auth/sign-in", appBaseUrl).toString(),
+    }),
+  }))
+}
+
 export async function sendOrganizationInvitationEmail(
   data: BetterAuthOrganizationInvitationEmailData,
 ): Promise<void> {
-  await deliverAuthEmail(({ appBaseUrl, logoURL }) => {
+  await deliverAuthEmail("organization-invitation", ({ appBaseUrl, logoURL }) => {
     const organizationName = sanitizeSubjectPart(data.organization.name)
     const invitationRoles = formatInvitationRoles(data.role)
     const invitationURL = new URL("/auth/accept-invitation", appBaseUrl)
@@ -184,24 +217,48 @@ export async function sendOrganizationInvitationEmail(
   })
 }
 
+/**
+ * Every authentication email funnels through here, so this is the one place that reports the
+ * outcome of a send. Both outcomes are logged with a partially masked recipient: an operator needs
+ * to correlate a user's report with a specific send, and a failure additionally needs the
+ * provider's own reason to fix a rejected sender or key. The rendered email and the token URL are
+ * never logged.
+ */
 async function deliverAuthEmail(
+  kind: AuthEmailKind,
   createOptions: (context: AuthEmailContext) => SendEmailOptions,
 ): Promise<void> {
   let options: SendEmailOptions
   try {
     options = createOptions(await authEmailContext())
   } catch {
-    console.error("Authentication email preparation failed")
+    console.error(`Authentication email preparation failed: ${kind}`)
     throw new Error(AUTH_EMAIL_DELIVERY_ERROR)
   }
 
+  const recipients = maskedRecipients(options.to)
   try {
-    await sendEmail(options)
-  } catch {
-    // Record the failure category without retaining provider responses, recipients, or token URLs.
-    console.error("Authentication email provider delivery failed")
+    const { messageId, provider } = await sendEmail(options)
+    console.info(
+      `Authentication email sent: ${kind} to ${recipients} via ${provider}${
+        messageId ? ` (${messageId})` : ""
+      }`,
+    )
+  } catch (error) {
+    console.error(
+      `Authentication email delivery failed: ${kind} to ${recipients}:`,
+      providerFailureReason(error),
+    )
     throw new Error(AUTH_EMAIL_DELIVERY_ERROR)
   }
+}
+
+function maskedRecipients(to: SendEmailOptions["to"]): string {
+  return (Array.isArray(to) ? to : [to]).map(maskEmailAddressForLog).join(", ")
+}
+
+function providerFailureReason(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : "unknown provider failure"
 }
 
 function formatTimestamp(date: Date): string {

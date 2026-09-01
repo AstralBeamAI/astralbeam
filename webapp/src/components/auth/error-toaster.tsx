@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use the contextual Base UI Toast manager, suppress field-handled errors, guard unknown rejection values, sanitize backend details, and repair strict cache-handler cleanup.
+// Local changes: Use the contextual Base UI Toast manager, suppress field-handled errors, guard unknown rejection values, sanitize backend details, surface the email delivery failure code, and repair strict cache-handler cleanup.
 
 import {
   authMutationKeys,
@@ -11,6 +11,10 @@ import {
 import { matchMutation, matchQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { useToastManager } from "@/components/ui/toast"
+import {
+  AUTH_EMAIL_DELIVERY_FAILED_MESSAGE,
+  isAuthEmailDeliveryError,
+} from "@/lib/auth/email-delivery"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
@@ -22,6 +26,9 @@ function authErrorCode(error: unknown): string | undefined {
 }
 
 function safeAuthError(error: unknown): string {
+  // The only backend detail allowed through: the server sets this code with no provider reason
+  // attached, and a caller waiting on an email needs to know delivery is what failed.
+  if (isAuthEmailDeliveryError(error)) return AUTH_EMAIL_DELIVERY_FAILED_MESSAGE
   const status = isRecord(error) && typeof error.status === "number" ? error.status : undefined
   if (status === 429) {
     return "Too many attempts. Please wait a moment and try again."
