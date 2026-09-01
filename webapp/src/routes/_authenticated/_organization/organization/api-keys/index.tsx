@@ -29,6 +29,10 @@ function OrganizationApiKeysRoute() {
             Owners and developers can manage keys for programmatic organization access.{" "}
             {ORGANIZATION_API_KEY_RATE_LIMIT_DESCRIPTION}
           </p>
+          <p className="text-sm text-muted-foreground">
+            Generate chat tokens on your server and never expose an API key secret in browser code.
+            Secrets are shown only once and cannot be recovered.
+          </p>
         </div>
       </OrganizationApiKeys>
     </div>

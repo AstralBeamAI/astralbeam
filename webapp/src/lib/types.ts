@@ -27,7 +27,6 @@ export type ConfigKey =
   | "aws_access_key_id"
   | "aws_secret_access_key"
   | "openai_api_key"
-  | "chat_auth_secret"
   | "privacy_policy_url"
   | "terms_of_service_url"
 

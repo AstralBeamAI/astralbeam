@@ -5,6 +5,10 @@ import * as Effect from "effect/Effect"
 import { getAuth } from "@/lib/auth.server"
 
 export type OrganizationConfigurationAction = "read" | "update" | "test" | "delete"
+export type OrganizationApiKeyAction = "create" | "read" | "update" | "delete"
+type OrganizationAccessPermission =
+  | { readonly apiKey: [OrganizationApiKeyAction] }
+  | { readonly organizationConfiguration: [OrganizationConfigurationAction] }
 
 export class OrganizationConfigurationAccessError extends Data.TaggedError(
   "OrganizationConfigurationAccessError",
@@ -19,6 +23,19 @@ export class OrganizationConfigurationAuthorizationError extends Data.TaggedErro
 
 export function requireOrganizationConfigurationAccess(
   action: OrganizationConfigurationAction,
+): Effect.Effect<
+  { organizationId: string },
+  OrganizationConfigurationAccessError | OrganizationConfigurationAuthorizationError
+> {
+  return requireOrganizationAccess({ organizationConfiguration: [action] })
+}
+
+export function requireOrganizationApiKeyAccess(action: OrganizationApiKeyAction) {
+  return requireOrganizationAccess({ apiKey: [action] })
+}
+
+function requireOrganizationAccess(
+  permissions: OrganizationAccessPermission,
 ): Effect.Effect<
   { organizationId: string },
   OrganizationConfigurationAccessError | OrganizationConfigurationAuthorizationError
@@ -38,7 +55,7 @@ export function requireOrganizationConfigurationAccess(
         if (!organizationId) return { denied: 403 as const }
         const permission = await auth.api.hasPermission({
           headers,
-          body: { organizationId, permissions: { organizationConfiguration: [action] } },
+          body: { organizationId, permissions },
         })
         return permission.success ? { organizationId } : { denied: 403 as const }
       },

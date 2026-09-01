@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, and colocated list states.
+// Local changes: Support exact optional property types, public key IDs, explicit load errors, total-aware pagination, and colocated list states.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
+import type { OrganizationApiKey } from "@/lib/auth/organization-api-key-configuration"
+import { isValidSlug } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { ApiKey } from "./api-key"
 import { CreateApiKeyDialog } from "./create-api-key-dialog"
@@ -36,6 +38,7 @@ export type ApiKeysProps = {
   className?: string | undefined
   /** Scope the list and create payload to an organization. */
   organizationId?: string | undefined
+  organizationSlug?: string | undefined
   /** Force the loading skeleton and disable the list query. */
   isPending?: boolean | undefined
   /** Hide the "Create API key" button (header + empty state). */
@@ -90,6 +93,7 @@ function ApiKeysEmpty({ onCreatePress, hideCreate }: {
 export function ApiKeys({
   className,
   organizationId,
+  organizationSlug,
   isPending: isPendingProp,
   hideCreate,
   hideDelete,
@@ -128,6 +132,13 @@ export function ApiKeys({
   )
 
   const isPending = isPendingProp || isListPending
+  const hasInvalidSlug = listData?.apiKeys.some((key) => {
+    const slug = (key as { slug?: unknown }).slug
+    return typeof slug !== "string" || !isValidSlug(slug)
+  }) ?? false
+  const organizationApiKeys = hasInvalidSlug
+    ? undefined
+    : listData?.apiKeys as OrganizationApiKey[] | undefined
   const total = listData?.total ?? 0
   const hasNextPage = (page + 1) * pageSize < total
 
@@ -177,7 +188,7 @@ export function ApiKeys({
         <CardContent className="p-0">
           {isPending
             ? <ApiKeySkeleton />
-            : isListError
+            : isListError || hasInvalidSlug
             ? (
               <div className="flex flex-col items-center gap-3 p-6 text-center" role="alert">
                 <p className="text-sm text-muted-foreground">
@@ -194,7 +205,7 @@ export function ApiKeys({
                 </Button>
               </div>
             )
-            : !listData?.apiKeys.length
+            : !organizationApiKeys?.length
             ? (
               <ApiKeysEmpty
                 onCreatePress={() => setCreateOpen(true)}
@@ -203,15 +214,16 @@ export function ApiKeys({
             )
             : (
               <ItemGroup className="gap-0">
-                {listData.apiKeys.map((key, index) => (
+                {organizationApiKeys.map((key, index) => (
                   <Fragment key={key.id}>
                     {index > 0 && <ItemSeparator />}
                     <ApiKey
                       apiKey={key}
+                      organizationSlug={organizationSlug}
                       hideDelete={hideDelete}
                       hideUpdate={hideUpdate}
                       onDeleted={() => {
-                        if (page > 0 && listData.apiKeys.length === 1) setPage(page - 1)
+                        if (page > 0 && organizationApiKeys.length === 1) setPage(page - 1)
                       }}
                     />
                   </Fragment>
@@ -246,6 +258,7 @@ export function ApiKeys({
           open={createOpen}
           onOpenChange={setCreateOpen}
           organizationId={organizationId}
+          organizationSlug={organizationSlug}
         />
       )}
     </div>

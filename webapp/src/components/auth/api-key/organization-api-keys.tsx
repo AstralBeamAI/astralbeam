@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Allow direct route use without the plugin-only organization slug prop; support exact optional property types.
+// Local changes: Allow direct route use without the plugin-only organization slug prop; load organization slugs for public key IDs; support exact optional property types.
 
 "use client"
 
@@ -8,7 +8,11 @@ import {
   type OrganizationAuthClient,
 } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
-import { useActiveMemberRole, useHasPermission } from "@better-auth-ui/react/plugins/organization"
+import {
+  useActiveMemberRole,
+  useActiveOrganization,
+  useHasPermission,
+} from "@better-auth-ui/react/plugins/organization"
 import type { ReactNode } from "react"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { ApiKeys } from "./api-keys"
@@ -17,7 +21,6 @@ export type OrganizationApiKeysProps = {
   children?: ReactNode
   className?: string | undefined
   organizationId: string
-  organizationSlug?: string | undefined
   unauthorized?: ReactNode
 }
 
@@ -35,6 +38,10 @@ export function OrganizationApiKeys({
 }: OrganizationApiKeysProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
   const { creatorRole } = useAuthPlugin(organizationPlugin)
+  const activeOrganization = useActiveOrganization(authClient)
+  const organizationSlug = activeOrganization.data?.id === organizationId
+    ? activeOrganization.data.slug
+    : undefined
   const memberRole = useActiveMemberRole(authClient, {
     query: { organizationId },
   })
@@ -73,7 +80,8 @@ export function OrganizationApiKeys({
       canCreate.isPending ||
       canUpdate.isPending ||
       canDelete.isPending)
-  const isPending = memberRole.isPending || permissionPending
+  const isPending = memberRole.isPending || permissionPending ||
+    activeOrganization.isPending
   const canReadKeys = isCreator || canRead.data?.success
 
   if (isPending) {
@@ -87,11 +95,12 @@ export function OrganizationApiKeys({
           hideUpdate
           isPending
           organizationId={organizationId}
+          organizationSlug={organizationSlug}
         />
       </>
     )
   }
-  if (!canReadKeys) return unauthorized ?? null
+  if (!canReadKeys || !organizationSlug) return unauthorized ?? null
 
   return (
     <>
@@ -102,6 +111,7 @@ export function OrganizationApiKeys({
         hideDelete={!isCreator && !canDelete.data?.success}
         hideUpdate={!isCreator && !canUpdate.data?.success}
         organizationId={organizationId}
+        organizationSlug={organizationSlug}
       />
     </>
   )

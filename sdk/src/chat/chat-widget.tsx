@@ -114,9 +114,10 @@ export function ChatWidget(
   // passed, even when empty: useChat skips an undefined value, so omitting it would leave a
   // previously forwarded `debug` in place after the host turns it back off.
   const forwardedProps = useMemo(() => ({
+    agentId: options.agentId,
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     ...(options.debug ? { debug: true } : {}),
-  }), [options.systemPrompt, options.debug])
+  }), [options.agentId, options.systemPrompt, options.debug])
   const { messages, sendMessage, setMessages, status, error, addToolResult, stop, reload } =
     useChat({
       initialMessages: [],

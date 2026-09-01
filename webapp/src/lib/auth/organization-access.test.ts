@@ -6,12 +6,14 @@ import { getTestInstance } from "better-auth/test"
 import { beforeAll, describe, expect, test } from "vitest"
 
 import {
+  formatOrganizationApiKeyPrefix,
+  ORGANIZATION_API_KEY_MAXIMUM_PREFIX_LENGTH,
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
 } from "./organization-api-key-configuration.ts"
 import { organizationAccessControl, organizationRoles } from "./organization-access.ts"
-import { organizationApiKeyFreshSessionPlugin } from "./organization-hooks.server.ts"
+import { organizationApiKeyPlugin, organizationRoleHooks } from "./organization-hooks.server.ts"
 
 async function createAuthorizationFixture() {
   const instance = await getTestInstance({
@@ -19,8 +21,9 @@ async function createAuthorizationFixture() {
       organization({
         ac: organizationAccessControl,
         roles: organizationRoles,
+        organizationHooks: organizationRoleHooks,
       }),
-      organizationApiKeyFreshSessionPlugin,
+      organizationApiKeyPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
         rateLimit: {
@@ -29,6 +32,7 @@ async function createAuthorizationFixture() {
         },
         references: "organization",
         requireName: true,
+        maximumPrefixLength: ORGANIZATION_API_KEY_MAXIMUM_PREFIX_LENGTH,
       }),
     ],
   })
@@ -37,7 +41,7 @@ async function createAuthorizationFixture() {
   const createdOrganization = await instance.auth.api.createOrganization({
     body: {
       name: "Authorization Boundary",
-      slug: "authorization-boundary",
+      slug: "authorizationboundary",
     },
     headers: owner.headers,
   })
@@ -80,6 +84,41 @@ describe("organization API key authorization", () => {
     fixture = await createAuthorizationFixture()
   })
 
+  test("enforces strict immutable organization slugs", async () => {
+    await expect(fixture.auth.api.createOrganization({
+      body: {
+        name: "Invalid Slug",
+        slug: "invalid-slug",
+      },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject({
+      status: "BAD_REQUEST",
+      body: { code: "INVALID_ORGANIZATION_SLUG" },
+    })
+
+    await expect(fixture.auth.api.updateOrganization({
+      body: {
+        organizationId: fixture.organizationId,
+        data: { slug: "renamedorganization" },
+      },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject({
+      status: "BAD_REQUEST",
+      body: { code: "ORGANIZATION_SLUG_IMMUTABLE" },
+    })
+
+    await expect(fixture.auth.api.updateOrganization({
+      body: {
+        organizationId: fixture.organizationId,
+        data: { name: "Renamed organization" },
+      },
+      headers: fixture.headers.owner,
+    })).resolves.toMatchObject({
+      name: "Renamed organization",
+      slug: "authorizationboundary",
+    })
+  })
+
   test.each(["owner", "developer"] as const)(
     "allows %s members through the API key management endpoints",
     async (role) => {
@@ -87,6 +126,7 @@ describe("organization API key authorization", () => {
         body: {
           organizationId: fixture.organizationId,
           name: `${role} key`,
+          prefix: formatOrganizationApiKeyPrefix(`${role}key`),
         },
         headers: fixture.headers[role],
       })
@@ -123,6 +163,7 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Custom rate limit",
+        prefix: formatOrganizationApiKeyPrefix("customratelimit"),
         ...serverOnlyRateLimit,
       },
       headers: fixture.headers.owner,
@@ -132,6 +173,7 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Fixed rate limit",
+        prefix: formatOrganizationApiKeyPrefix("fixedratelimit"),
       },
       headers: fixture.headers.owner,
     })
@@ -144,11 +186,34 @@ describe("organization API key authorization", () => {
     })).rejects.toMatchObject(denied)
   })
 
+  test("requires a valid slug-bearing prefix", async () => {
+    const invalid = {
+      status: "BAD_REQUEST",
+      body: { code: "INVALID_API_KEY_SLUG" },
+    }
+    await expect(fixture.auth.api.createApiKey({
+      body: {
+        organizationId: fixture.organizationId,
+        name: "Missing identifier",
+      },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject(invalid)
+    await expect(fixture.auth.api.createApiKey({
+      body: {
+        organizationId: fixture.organizationId,
+        name: "Invalid identifier",
+        prefix: "abo_invalid-slug_",
+      },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject(invalid)
+  })
+
   test("rejects viewer access at every API key management endpoint", async () => {
     const existing = await fixture.auth.api.createApiKey({
       body: {
         organizationId: fixture.organizationId,
         name: "Owner key",
+        prefix: formatOrganizationApiKeyPrefix("ownerkey"),
       },
       headers: fixture.headers.owner,
     })
@@ -161,6 +226,7 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Viewer key",
+        prefix: formatOrganizationApiKeyPrefix("viewerkey"),
       },
       headers: fixture.headers.viewer,
     })).rejects.toMatchObject(denied)
@@ -190,6 +256,7 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Hashed key",
+        prefix: formatOrganizationApiKeyPrefix("hashedkey"),
       },
       headers: fixture.headers.owner,
     })
@@ -225,6 +292,7 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Stale session key",
+        prefix: formatOrganizationApiKeyPrefix("stalesessionkey"),
       },
       headers: fixture.headers.owner,
     })).rejects.toMatchObject({

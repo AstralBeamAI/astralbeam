@@ -1,157 +1,162 @@
-import { jwtVerify } from "jose"
+import { and, eq } from "drizzle-orm"
+import { decodeProtectedHeader, jwtVerify } from "jose"
+import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 
+import { effectDatabase, runDatabaseEffect } from "@/db"
+import { apiKey, organization } from "@/db/schema.server"
+import { ChatTokenPayloadSchema } from "@/lib/schemas"
 import {
   CHAT_TOKEN_AUDIENCE,
   CHAT_TOKEN_ISSUER,
-  CHAT_TOKEN_KEY_ID,
   CHAT_TOKEN_MAX_LENGTH,
   CHAT_TOKEN_MAX_LIFETIME_SECONDS,
+  CHAT_TOKEN_MIN_LIFETIME_SECONDS,
   CHAT_TOKEN_TYPE,
+  CHAT_TOKEN_USER_MAX_BYTES,
+  CHAT_TOKEN_USER_MAX_DEPTH,
 } from "./constants.server"
-import type {
-  ChatAuthenticationError,
-  ChatAuthenticationErrorCode,
-  ChatPrincipal,
-  ChatTenantPrincipal,
-  ChatUserPrincipal,
-} from "./types"
+import type { ChatAuthenticationError, ChatPrincipal, ChatTenantUser } from "./types"
 
-function chatAuthenticationError(
-  { message, code, cause }: {
-    message: string
-    code: ChatAuthenticationErrorCode
-    cause?: unknown
-  },
-): ChatAuthenticationError {
-  const error = cause === undefined ? new Error(message) : new Error(message, { cause })
-  return Object.assign(error, { code })
-}
+const textEncoder = new TextEncoder()
+const API_KEY_CONFIG_ID = "default"
+const API_KEY_ID_PATTERN = /^key_([0-9a-z]{1,63})_([0-9a-z]{1,63})$/
+const CLOCK_TOLERANCE_SECONDS = 30
+const decodeChatTokenPayload = Schema.decodeUnknownSync(ChatTokenPayloadSchema, {
+  onExcessProperty: "error",
+})
 
 export function isChatAuthenticationError(error: unknown): error is ChatAuthenticationError {
   return error instanceof Error &&
     (error as Partial<ChatAuthenticationError>).code === "invalid_token"
 }
 
-export function isChatAuthenticationConfigurationError(
-  error: unknown,
-): error is ChatAuthenticationError {
-  return error instanceof Error &&
-    (error as Partial<ChatAuthenticationError>).code === "verifier_not_configured"
-}
-
-const textEncoder = new TextEncoder()
-
-function recordClaim(value: unknown, label: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw chatAuthenticationError({ message: `${label} must be an object`, code: "invalid_token" })
-  }
-  return value as Record<string, unknown>
-}
-
-function textClaim(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-  maxLength: number,
-  optional = false,
-): string | undefined {
-  const value = record[key]
-  if (value === undefined && optional) return undefined
-  if (typeof value !== "string" || value.length === 0 || value.length > maxLength) {
-    throw chatAuthenticationError({ message: `${label} is invalid`, code: "invalid_token" })
-  }
-  return value
-}
-
-function urlClaim(record: Record<string, unknown>, key: string, label: string) {
-  const value = textClaim(record, key, label, 2_048, true)
-  if (value === undefined) return undefined
-  let url: URL
+/**
+ * Authenticate a chat JWT without the raw API key.
+ *
+ * This is the deliberate exception to Better Auth's `verifyApiKey`: the host signs offline and
+ * `/api/chat` receives only the JWT, so it uses Better Auth's stored SHA-256 digest as the
+ * verifier. Database read access is therefore sufficient to forge chat JWTs. Verification is
+ * read-only and does not consume Better Auth API-key usage.
+ */
+export async function authenticateChatRequest(request: Request): Promise<ChatPrincipal> {
+  const token = readBearerToken(request)
+  let protectedHeader
   try {
-    url = new URL(value)
-  } catch {
-    throw chatAuthenticationError({ message: `${label} is invalid`, code: "invalid_token" })
+    protectedHeader = decodeProtectedHeader(token)
+  } catch (cause) {
+    throw invalidToken("Malformed chat token header", cause)
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw chatAuthenticationError({ message: `${label} is invalid`, code: "invalid_token" })
-  }
-  return value
-}
+  const apiKeyId = protectedHeader.kid
+  if (typeof apiKeyId !== "string") throw invalidToken("Wrong chat token header")
+  const publicId = API_KEY_ID_PATTERN.exec(apiKeyId)
+  const organizationSlug = publicId?.[1]
+  const keySlug = publicId?.[2]
+  if (!organizationSlug || !keySlug) throw invalidToken("Malformed API key identifier")
 
-function userPrincipal(value: unknown): ChatUserPrincipal {
-  const user = recordClaim(value, "user")
+  const [initial] = await runDatabaseEffect(
+    Effect.flatMap(effectDatabase, (db) =>
+      db.select({
+        id: apiKey.id,
+        digest: apiKey.key,
+        organizationId: organization.id,
+      }).from(organization).innerJoin(
+        apiKey,
+        and(
+          eq(apiKey.organizationId, organization.id),
+          eq(apiKey.slug, keySlug),
+          eq(apiKey.configId, API_KEY_CONFIG_ID),
+        ),
+      ).where(eq(organization.slug, organizationSlug)).limit(1)),
+  )
+  if (!initial) throw invalidToken("API key not found")
+
+  const verifier = textEncoder.encode(initial.digest)
+  const tenantUser = await verifyChatToken(token, verifier, apiKeyId)
+  const [current] = await runDatabaseEffect(
+    Effect.flatMap(
+      effectDatabase,
+      (db) =>
+        db.select({ enabled: apiKey.enabled, expiresAt: apiKey.expiresAt }).from(apiKey).where(
+          and(
+            eq(apiKey.id, initial.id),
+            eq(apiKey.organizationId, initial.organizationId),
+          ),
+        ).limit(1),
+    ),
+  )
+  if (!current?.enabled || (current.expiresAt?.getTime() ?? Infinity) <= Date.now()) {
+    throw invalidToken("API key is unavailable")
+  }
+
   return {
-    id: textClaim(user, "id", "user.id", 255)!,
-    name: textClaim(user, "name", "user.name", 200, true),
-    email: textClaim(user, "email", "user.email", 320, true),
-    avatarUrl: urlClaim(user, "avatarUrl", "user.avatarUrl"),
+    organization: { id: initial.organizationId },
+    tenantUser,
   }
 }
 
-function tenantPrincipal(value: unknown): ChatTenantPrincipal {
-  const tenant = recordClaim(value, "tenant")
-  return {
-    id: textClaim(tenant, "id", "tenant.id", 255)!,
-    name: textClaim(tenant, "name", "tenant.name", 200, true),
-    logoUrl: urlClaim(tenant, "logoUrl", "tenant.logoUrl"),
-  }
-}
-
-/** Verifies an optional bearer token; a supplied but invalid token never degrades to guest. */
-export async function authenticateChatRequest(
-  request: Request,
-  secret: string | undefined,
-): Promise<ChatPrincipal> {
-  const authorization = request.headers.get("authorization")
-  if (!authorization) return { kind: "guest" }
-  const match = /^Bearer (\S+)$/i.exec(authorization)
-  if (!match?.[1] || match[1].length > CHAT_TOKEN_MAX_LENGTH) {
-    throw chatAuthenticationError({ message: "Malformed bearer token", code: "invalid_token" })
-  }
-  if (!secret || textEncoder.encode(secret).byteLength < 32) {
-    throw chatAuthenticationError({
-      message: "Chat token verification is not configured",
-      code: "verifier_not_configured",
-    })
-  }
+export async function verifyChatToken(
+  token: string,
+  verifier: Uint8Array,
+  apiKeyId: string,
+): Promise<ChatTenantUser> {
   try {
-    const { payload, protectedHeader } = await jwtVerify(match[1], textEncoder.encode(secret), {
+    const { payload, protectedHeader } = await jwtVerify(token, verifier, {
       algorithms: ["HS256"],
+      typ: CHAT_TOKEN_TYPE,
       issuer: CHAT_TOKEN_ISSUER,
       audience: CHAT_TOKEN_AUDIENCE,
       requiredClaims: ["iat", "exp", "sub"],
-      clockTolerance: 30,
+      clockTolerance: CLOCK_TOLERANCE_SECONDS,
       maxTokenAge: CHAT_TOKEN_MAX_LIFETIME_SECONDS,
     })
-    if (protectedHeader.typ !== CHAT_TOKEN_TYPE || protectedHeader.kid !== CHAT_TOKEN_KEY_ID) {
-      throw chatAuthenticationError({ message: "Wrong chat token type", code: "invalid_token" })
-    }
+    if (protectedHeader.kid !== apiKeyId) throw invalidToken("Wrong API key identifier")
     if (
-      payload.ver !== 1 || typeof payload.iat !== "number" || typeof payload.exp !== "number" ||
-      !Number.isInteger(payload.iat) || !Number.isInteger(payload.exp) ||
-      payload.exp <= payload.iat || payload.exp - payload.iat > CHAT_TOKEN_MAX_LIFETIME_SECONDS ||
-      typeof payload.sub !== "string"
+      exceedsJsonDepth(payload.tenantUser, CHAT_TOKEN_USER_MAX_DEPTH) ||
+      textEncoder.encode(JSON.stringify(payload.tenantUser)).byteLength > CHAT_TOKEN_USER_MAX_BYTES
     ) {
-      throw chatAuthenticationError({ message: "Invalid chat token claims", code: "invalid_token" })
+      throw invalidToken("Invalid tenantUser claims")
     }
-    const user = userPrincipal(payload.user)
-    if (user.id !== payload.sub) {
-      throw chatAuthenticationError({
-        message: "Chat token subject mismatch",
-        code: "invalid_token",
-      })
+    const claims = decodeChatTokenPayload(payload)
+    if (
+      claims.exp <= claims.iat ||
+      claims.exp - claims.iat < CHAT_TOKEN_MIN_LIFETIME_SECONDS ||
+      claims.exp - claims.iat > CHAT_TOKEN_MAX_LIFETIME_SECONDS
+    ) {
+      throw invalidToken("Invalid chat token claims")
     }
-    return {
-      kind: "authenticated",
-      user,
-      tenant: tenantPrincipal(payload.tenant),
-    }
-  } catch (error) {
-    if (isChatAuthenticationError(error)) throw error
-    throw chatAuthenticationError({
-      message: "Invalid chat bearer token",
-      code: "invalid_token",
-      cause: error,
-    })
+    if (claims.tenantUser.id !== claims.sub) throw invalidToken("Chat token subject mismatch")
+    return claims.tenantUser
+  } catch (cause) {
+    if (isChatAuthenticationError(cause)) throw cause
+    throw invalidToken("Invalid chat bearer token", cause)
   }
+}
+
+function exceedsJsonDepth(value: unknown, maximumDepth: number): boolean {
+  const stack = [{ value, depth: 1 }]
+  while (stack.length > 0) {
+    const current = stack.pop()!
+    if (typeof current.value !== "object" || current.value === null) continue
+    if (current.depth > maximumDepth) return true
+    const children = Array.isArray(current.value)
+      ? current.value
+      : Object.values(current.value as Record<string, unknown>)
+    for (const child of children) stack.push({ value: child, depth: current.depth + 1 })
+  }
+  return false
+}
+
+function readBearerToken(request: Request): string {
+  const authorization = request.headers.get("authorization")
+  const match = authorization && /^Bearer (\S+)$/i.exec(authorization)
+  if (!match?.[1] || match[1].length > CHAT_TOKEN_MAX_LENGTH) {
+    throw invalidToken("Malformed bearer token")
+  }
+  return match[1]
+}
+
+function invalidToken(message: string, cause?: unknown): ChatAuthenticationError {
+  const error = cause === undefined ? new Error(message) : new Error(message, { cause })
+  return Object.assign(error, { code: "invalid_token" as const })
 }

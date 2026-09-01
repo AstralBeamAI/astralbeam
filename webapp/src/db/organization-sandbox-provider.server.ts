@@ -10,6 +10,7 @@ import {
   OptimisticLockError,
   updateWithOptimisticLock,
 } from "./lib/optimistic-locking.server.ts"
+import { sqlConstraint } from "./lib/sqlstate.server.ts"
 import {
   sandboxProvider,
   SandboxProviderCredentialsPayloadSchema,
@@ -67,6 +68,10 @@ class OrganizationSandboxProviderRepositoryError extends Data.TaggedError(
 
 class SandboxProviderNameConflictError extends Data.TaggedError(
   "SandboxProviderNameConflictError",
+)<{ readonly message: string }> {}
+
+class SandboxProviderInUseError extends Data.TaggedError(
+  "SandboxProviderInUseError",
 )<{ readonly message: string }> {}
 
 export function listOrganizationSandboxProviders(
@@ -251,7 +256,17 @@ export function deleteOrganizationSandboxProvider(input: {
       scope: eq(sandboxProvider.organizationId, input.organizationId),
       expectedLockVersion: input.lockVersion,
     })
-  })
+  }).pipe(
+    Effect.catchIf(
+      (error) => sqlConstraint(error) === "agent_organization_id_sandbox_provider_id_fk",
+      () =>
+        Effect.fail(
+          new SandboxProviderInUseError({
+            message: "Reassign or delete agents using this provider before deleting it",
+          }),
+        ),
+    ),
+  )
 }
 
 type SandboxProviderMutationInput<Provider extends SandboxProviderId> = {

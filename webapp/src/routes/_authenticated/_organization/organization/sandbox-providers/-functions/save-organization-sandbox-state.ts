@@ -8,16 +8,17 @@ import {
   prepareOrganizationSandboxProviderCandidate,
   saveOrganizationSandboxProvider,
 } from "@/db/organization-sandbox-provider.server"
-import { requireOrganizationConfigurationAccess } from "@/lib/auth/organization-configuration-access.server"
+import { organizationConfigurationAccessMiddleware } from "@/lib/auth/organization-configuration-middleware"
 import { OrganizationSandboxSaveInputSchema } from "../-lib/schemas.ts"
 import { runOrganizationSandboxConnectionTest } from "../-lib/connection-test.server.ts"
 
 export const saveOrganizationSandboxState = createServerFn({ method: "POST" })
+  .middleware([organizationConfigurationAccessMiddleware("update")])
   .validator(Schema.toStandardSchemaV1(OrganizationSandboxSaveInputSchema))
-  .handler(({ data }) =>
+  .handler(({ context, data }) =>
     runDatabaseEffect(
       Effect.gen(function* () {
-        const { organizationId } = yield* requireOrganizationConfigurationAccess("update")
+        const { organizationId } = context
         const prepared = yield* prepareOrganizationSandboxProviderCandidate({
           organizationId,
           name: data.name,

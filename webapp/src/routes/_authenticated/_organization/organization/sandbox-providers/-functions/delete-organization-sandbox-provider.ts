@@ -5,17 +5,23 @@ import * as Schema from "effect/Schema"
 import { runDatabaseEffect } from "@/db"
 import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
 import { deleteOrganizationSandboxProvider as deleteSandboxProvider } from "@/db/organization-sandbox-provider.server"
-import { requireOrganizationConfigurationAccess } from "@/lib/auth/organization-configuration-access.server"
+import { organizationConfigurationAccessMiddleware } from "@/lib/auth/organization-configuration-middleware"
 import { OrganizationSandboxExistingInputSchema } from "../-lib/schemas.ts"
 
 export const deleteOrganizationSandboxProvider = createServerFn({ method: "POST" })
+  .middleware([organizationConfigurationAccessMiddleware("delete")])
   .validator(Schema.toStandardSchemaV1(OrganizationSandboxExistingInputSchema))
-  .handler(({ data }) =>
+  .handler(({ context, data }) =>
     runDatabaseEffect(
-      Effect.gen(function* () {
-        const { organizationId } = yield* requireOrganizationConfigurationAccess("delete")
-        yield* deleteSandboxProvider({ organizationId, ...data })
-        return { ok: true as const }
-      }).pipe(catchOptimisticLockConflict("Reload before deleting this sandbox provider")),
+      deleteSandboxProvider({ organizationId: context.organizationId, ...data }).pipe(
+        Effect.as({ ok: true as const }),
+        catchOptimisticLockConflict("Reload before deleting this sandbox provider"),
+        Effect.catchTag("SandboxProviderInUseError", (error) =>
+          Effect.succeed({
+            ok: false as const,
+            code: "in_use" as const,
+            message: error.message,
+          })),
+      ),
     )
   )

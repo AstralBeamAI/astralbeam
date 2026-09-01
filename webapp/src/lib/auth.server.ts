@@ -25,6 +25,7 @@ import {
   recordValue,
 } from "@/lib/auth/legal.server"
 import {
+  ORGANIZATION_API_KEY_MAXIMUM_PREFIX_LENGTH,
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
@@ -32,7 +33,7 @@ import {
 } from "@/lib/auth/organization-api-key-configuration"
 import { organizationAccessControl, organizationRoles } from "@/lib/auth/organization-access"
 import {
-  organizationApiKeyFreshSessionPlugin,
+  organizationApiKeyPlugin,
   organizationRoleHooks,
 } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
@@ -244,7 +245,6 @@ function buildAuth(config: AuthConfig) {
               ...context,
               body: {
                 ...body,
-                ...(isApiKeyCreate ? { prefix: ORGANIZATION_API_KEY_PREFIX } : {}),
                 ...(name === undefined ? {} : { name }),
               },
             },
@@ -306,7 +306,7 @@ function buildAuth(config: AuthConfig) {
           })
         },
       }),
-      organizationApiKeyFreshSessionPlugin,
+      organizationApiKeyPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
         rateLimit: {
@@ -315,6 +315,7 @@ function buildAuth(config: AuthConfig) {
         },
         references: "organization",
         requireName: true,
+        maximumPrefixLength: ORGANIZATION_API_KEY_MAXIMUM_PREFIX_LENGTH,
         startingCharactersConfig: {
           charactersLength: ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
         },
