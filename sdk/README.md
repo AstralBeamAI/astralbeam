@@ -117,12 +117,12 @@ Each guide is short and self-contained.
 
 There is no root export. Conversation history is not built yet.
 
-| Entry point              | Contents                                  | Peer dependency      |
-| ------------------------ | ----------------------------------------- | -------------------- |
-| `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader | none                 |
-| `@astralbeam/sdk/react`  | `<AstralBeamChat>`                        | `react`, `react-dom` |
-| `@astralbeam/sdk/server` | `createAstralBeamChatToken`, `createAstralBeamTokenRoute` | none |
-| `@astralbeam/sdk/vue`    | Vue components (placeholder)              | `vue`                |
+| Entry point              | Contents                                                  | Peer dependency      |
+| ------------------------ | --------------------------------------------------------- | -------------------- |
+| `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader                 | none                 |
+| `@astralbeam/sdk/react`  | `<AstralBeamChat>`                                        | `react`, `react-dom` |
+| `@astralbeam/sdk/server` | `createAstralBeamChatToken`, `createAstralBeamTokenRoute` | none                 |
+| `@astralbeam/sdk/vue`    | Vue components (placeholder)                              | `vue`                |
 
 ## Example
 
