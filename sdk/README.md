@@ -65,7 +65,7 @@ const handle = mountAstralBeamChat(sidebar, {
 // later: handle.update({ colorScheme: "dark", widgets: nextWidgets }), handle.unmount()
 ```
 
-The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. It streams the conversation from the `chatEndpoint` (an AstralBeam webapp's `/api/chat`) and sends the required `agentId`, whose organization-owned agent supplies the stored system prompt. The optional host `systemPrompt` overrides that stored prompt for the integration and may contain up to 32,768 characters. The widget always obtains a short-lived bearer token before enabling its composer and renews it in memory as needed, using `authEndpoint` or its `/api/astralbeam/token` default. The `title` option names the assistant in the widget's header, and `showHeader: false` hides that header — title and reset button both — giving the transcript the widget's full height. The `emptyTitle` and `emptyDescription` options replace the headline and subtitle the empty transcript shows before the first message. Assistant replies are rendered as Markdown (headings, lists, tables, links, and fenced code) with [TanStack Markdown](https://tanstack.com/markdown), using its streaming profile so a partial reply stays stable as it arrives; raw HTML in a reply is escaped and executable link protocols are dropped. The `colorScheme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live. The `theme` option overrides the widget's theming CSS variables — the [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) such as `--background`, `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` font stacks — per color scheme: mirroring shadcn's `:root`/`.dark` split, `theme.light` is the base applied in both schemes and `theme.dark` overrides it when the resolved scheme is dark.
+The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. It streams the conversation from the `chatEndpoint` (an AstralBeam webapp's `/api/chat`), sending the required `agentId` and optional `systemPrompt`. It obtains a short-lived bearer token before enabling its composer and renews it in memory as needed, using `authEndpoint` or its `/api/astralbeam/token` default. The `title` option names the assistant in the widget's header, and `showHeader: false` hides that header — title and reset button both — giving the transcript the widget's full height. The `emptyTitle` and `emptyDescription` options replace the headline and subtitle the empty transcript shows before the first message. Assistant replies are rendered as Markdown (headings, lists, tables, links, and fenced code) with [TanStack Markdown](https://tanstack.com/markdown), using its streaming profile so a partial reply stays stable as it arrives; raw HTML in a reply is escaped and executable link protocols are dropped. The `colorScheme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live. The `theme` option overrides the widget's theming CSS variables — the [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) such as `--background`, `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` font stacks — per color scheme: mirroring shadcn's `:root`/`.dark` split, `theme.light` is the base applied in both schemes and `theme.dark` overrides it when the resolved scheme is dark.
 
 ### Attachments
 
@@ -83,7 +83,7 @@ Set `attachments: false` to hide the feature entirely, or pass an options object
 
 The endpoint enforces the same size and type limits independently, so narrowing them in the widget is a UI affordance rather than a security boundary.
 
-`handle.update(options)` replaces any updatable mount options in place, keeping the transcript, the chat session, and live widget renders: rename the assistant, revise the host `systemPrompt`, retheme it alongside the host app, retune or disable `attachments`, register or drop `tools` and `widgets`, or turn `debug` on mid-conversation. Newly declared instructions, tools, and widgets reach the agent on its next run. `agentId`, `chatEndpoint`, and `authEndpoint` are fixed at mount because they select the agent and construct the transport. Dropping a widget disposes any render of it still in the transcript, which falls back to a summary marker.
+`handle.update(options)` replaces any subset of the mount options in place, keeping the transcript, the chat session, and live widget renders: rename the assistant, retheme it alongside the host app, revise the `systemPrompt`, retune or disable `attachments`, register or drop `tools` and `widgets`, or turn `debug` on mid-conversation. Newly declared tools and widgets reach the agent on its next run. `agentId`, `chatEndpoint`, and `authEndpoint` are fixed at mount because they select the agent and construct the transport. Dropping a widget disposes any render of it still in the transcript, which falls back to a summary marker.
 
 With `debug: true` (also available as a prop on `<AstralBeamChat>`), every SDK action — mounting, theming, sends, streamed messages and reasoning, tool calls and their host-side executions, widget renders, questionnaire answers, errors — is logged to the browser console with UTC timestamps and full payloads, and the endpoint is asked to log its side of the same run to the server console, so a conversation can be followed end to end.
 
@@ -93,17 +93,9 @@ Widget renders pick up the host page's typography and custom properties automati
 
 ### Authentication
 
-The SDK always authenticates chat through the host application's token endpoint, defaulting to `/api/astralbeam/token`; set `authEndpoint` only when the host uses another route. An Organization is an AstralBeam customer, typically a SaaS app; organization users are its employees using the AstralBeam dashboard, Tenants are its customers, and tenant users are those Tenants' users who interact with the embedded agent sidebar. The host endpoint must authenticate the application's existing tenant-user session, construct `tenantUser` from trusted server-side state, and return `{ "token": "..." }`. The SDK calls it with `POST`, `credentials: "include"`, and `cache: "no-store"`, keeps the token only in memory, refreshes it within one minute of expiry, and retries one rejected chat request with a fresh token. The AstralBeam server authoritatively checks that the token and agent belong to the same organization. Authentication fails closed: a loading or error state disables the composer instead of sending an unauthenticated chat request.
+The SDK authenticates chat through the host application's token endpoint, defaulting to `/api/astralbeam/token`. The host endpoint must authenticate the application's existing session, construct `tenantUser` from trusted server-side state, and return `{ "token": "..." }`. The SDK calls it with `POST`, `credentials: "include"`, and `cache: "no-store"`, keeps the token only in memory, refreshes it within one minute of expiry, and retries one rejected chat request with a fresh token. Authentication failures disable the composer instead of falling back to unauthenticated chat.
 
-Configure the API-key ID and secret on the host server. The API-key ID is public metadata and appears in the JWT header; only the API-key secret is confidential. The agent ID is browser-safe:
-
-```dotenv
-ASTRALBEAM_API_KEY_ID=key_acmeops_productionk7m2q
-ASTRALBEAM_API_KEY=abo_productionk7m2q_<secret>
-VITE_ASTRALBEAM_AGENT_ID=agt_acmeops_infrastructurek7m2q
-```
-
-Use the server entry from a session-protected `POST /api/astralbeam/token` route to mint the token without exposing the API key to browser code:
+Use the server entry to mint the token without exposing the API key to browser code:
 
 ```ts
 import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
@@ -124,7 +116,7 @@ export async function POST(request: Request) {
 }
 ```
 
-`apiKeyId` is the copyable `key_<organizationSlug>_<keySlug>` identifier and `apiKey` is the one-time `abo_...` secret. New slug-bearing and retained legacy API-key secrets are accepted, and a new key's embedded slug must match its public ID. `tenantUser.id` is required, preserved exactly, and must be stable and unique across the Organization; namespace tenant-local user IDs with the Tenant ID. The host may add any plain JSON fields its integration needs. The helper rejects missing or oversized IDs, non-JSON values, cycles, nesting beyond ten levels, tenant data above 8 KiB, tokens above 16 KiB, and lifetimes outside 60–600 seconds; the default is five minutes. JWT payloads are signed, not encrypted, so do not put secrets in `tenantUser`. The browser-supplied `systemPrompt` overrides the stored agent prompt, so both are behavioral defaults rather than authorization or security-policy boundaries.
+The default lifetime is five minutes and the helper rejects lifetimes outside 60–600 seconds, invalid API-key identifiers or secrets, and invalid `tenantUser` JSON. `tenantUser.id` is required; the host may add any plain JSON fields its integration needs. Tokens are signed rather than encrypted, so do not put secrets in `tenantUser`.
 
 ### React
 
@@ -143,7 +135,6 @@ export function Sidebar() {
   return (
     <AstralBeamChat
       agentId="agt_acmeops_infrastructurek7m2q"
-      systemPrompt="Help operators inspect infrastructure safely."
       widgets={{
         systemStatus: {
           description: "Shows the current status of the host app's systems",
@@ -170,7 +161,7 @@ The chat widget itself loads as a separate lazy chunk with its own bundled React
 
 ## Examples
 
-[`examples/todos`](../examples/todos) is a minimal TanStack Start todos app that embeds the chat sidebar from the built package, mints an API-key-signed JWT for a fixed demo identity through `/api/chat/token`, selects a configured agent, and supplies a todo-specific `systemPrompt`, `get_todos`/`create_todo`/`update_todo`/`delete_todo` tools, plus a `todoCard` widget the agent renders into the conversation once per todo it shows — with no Tailwind or shadcn/ui of its own, to demonstrate the shadow-root style boundary.
+[`examples/todos`](../examples/todos) is a minimal TanStack Start todos app that embeds the chat sidebar from the built package, authenticates a fixed demo identity through a server route, points the chat at a locally running webapp's `/api/chat`, and registers a todo-specific system prompt, `get_todos`/`create_todo`/`update_todo`/`delete_todo` tools, and a `todoCard` widget the agent renders into the conversation once per todo it shows — with no Tailwind or shadcn/ui of its own, to demonstrate the shadow-root style boundary.
 
 ## Architecture
 
