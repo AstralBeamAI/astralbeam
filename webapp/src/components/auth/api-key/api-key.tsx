@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; handle keys without a stored prefix; show the public key ID and product rate limit.
+// Local changes: Use Phosphor icons; support exact optional property types; show the public key ID.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { CopyIcon, KeyIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react"
@@ -83,11 +83,6 @@ export function ApiKey({
             }`
             : apiKeyLocalization.neverExpires} ·{" "}
           {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
-        </ItemDescription>
-        <ItemDescription>
-          {apiKeyLocalization.lastRequest}: {apiKey.lastRequest
-            ? new Date(apiKey.lastRequest).toLocaleString()
-            : apiKeyLocalization.neverRequested}
         </ItemDescription>
       </ItemContent>
       <ItemActions>

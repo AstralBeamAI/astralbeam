@@ -160,11 +160,12 @@ export function GeneratedSlugField({
         {formatPreview && valid
           ? (
             <>
-              Public ID: <span className="font-mono">{formatPreview(value)}</span>
+              Public ID:{" "}
+              <span className="font-mono">{formatPreview(value)}</span>. It can't be changed later.
             </>
           )
           : (
-            `Generated suggestions use lowercase letters and numbers followed by a random ${SLUG_RANDOM_SUFFIX_LENGTH}-character suffix.`
+            "Use lowercase letters and numbers only. It can't be changed later."
           )}
       </FieldDescription>
       <FieldError>{error}</FieldError>

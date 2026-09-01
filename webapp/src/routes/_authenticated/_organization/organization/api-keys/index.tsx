@@ -26,7 +26,7 @@ function OrganizationApiKeysRoute() {
             API keys
           </h1>
           <p className="text-sm text-muted-foreground">
-            Create keys for server-side chat authentication. Each key is shown once.
+            Manage API keys. New keys are shown only once.
           </p>
         </div>
       </OrganizationApiKeys>

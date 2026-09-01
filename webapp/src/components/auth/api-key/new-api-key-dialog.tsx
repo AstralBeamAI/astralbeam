@@ -56,7 +56,7 @@ export function NewApiKeyDialog({
       await globalThis.navigator.clipboard.writeText(apiKey)
       setCopied(true)
     } catch {
-      toast.add({ title: "The API key value could not be copied", type: "error" })
+      toast.add({ title: "Couldn't copy the API key", type: "error" })
     }
   }
 
@@ -98,9 +98,9 @@ export function NewApiKeyDialog({
           />
 
           <p className="text-xs text-muted-foreground">
-            Use this key with{" "}
+            Use this key only with{" "}
             <code className="font-mono text-foreground">createAstralBeamChatToken</code>{" "}
-            on your server. Never expose it to the browser; it won't be shown again.
+            on your server. Never expose it in browser code.
           </p>
         </div>
 

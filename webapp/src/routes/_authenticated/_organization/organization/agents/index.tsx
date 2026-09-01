@@ -115,11 +115,11 @@ function OrganizationAgents({ state }: { state: OrganizationAgentState }) {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Agents</h1>
           <p className="text-sm text-muted-foreground">
-            Give each chat experience its own default instructions and preferred sandbox provider.
+            Set the default instructions for each chat experience.
           </p>
           <p className="text-sm text-muted-foreground">
-            Agent IDs are browser-safe; pass the copied ID as the SDK{" "}
-            <code className="font-mono text-foreground">agentId</code>.
+            Copy its browser-safe ID into the SDK's{" "}
+            <code className="font-mono text-foreground">agentId</code> option.
           </p>
         </div>
         <Button
@@ -134,14 +134,14 @@ function OrganizationAgents({ state }: { state: OrganizationAgentState }) {
       {state.sandboxProviders.length === 0 && (
         <Card className="max-w-2xl">
           <CardHeader>
-            <CardTitle>Configure a sandbox provider first</CardTitle>
+            <CardTitle>Add a sandbox provider first</CardTitle>
             <CardDescription>
-              Every agent records an organization provider preference for future sandbox execution.
+              Agents save a provider for future sandbox execution.
             </CardDescription>
           </CardHeader>
           <CardFooter>
             <Button render={<Link to="/organization/sandbox-providers" />}>
-              Configure sandbox providers
+              Add sandbox provider
             </Button>
           </CardFooter>
         </Card>
@@ -317,8 +317,8 @@ function OrganizationAgentForm({
           <CardTitle>{existing ? `Edit ${existing.name}` : "Add agent"}</CardTitle>
           <CardDescription>
             {existing
-              ? "The agent ID is permanent; update its name, instructions, or provider."
-              : "The identifier becomes the permanent public agent ID after creation."}
+              ? "The agent ID can't change. You can update the other settings."
+              : "Choose a permanent public agent ID."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -397,6 +397,9 @@ function OrganizationAgentForm({
                   ))}
                 </SelectContent>
               </Select>
+              <FieldDescription>
+                Saved for future sandbox execution; chat doesn't use it yet.
+              </FieldDescription>
             </Field>
           </FieldGroup>
         </CardContent>

@@ -229,7 +229,7 @@ function AppProviders({ children }: { children: ReactNode }) {
             organization: true,
             keyExpiration: { defaultInterval: null },
             localization: {
-              apiKeysDescription: "Manage server-side chat credentials.",
+              apiKeysDescription: "Manage API keys.",
             },
           }),
         ]}
