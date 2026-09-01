@@ -40,7 +40,8 @@ Boundaries become structural instead of filename conventions. No behavior change
 
 - `defineTool` / `defineWidget` helpers inferring `execute`/`render` input types from Standard Schema; document `z.coerce` for model-sent stringified scalars.
 - Imperative handle on `<AstralBeamChat>` via `ref`: `reset`, `stop`, `update`.
-- `header`, `empty`, and `composerActions` slots on the drop-in, projected through the existing light-DOM `<slot>` mechanism; `preload={false}` to defer the lazy chunk.
+- `header`, `empty`, and `composerActions` slots on the drop-in, projected through the existing light-DOM `<slot>` mechanism.
+- No `preload` option (revised during implementation): deferring is the host conditionally rendering on first open, now documented in the configuration guide, since an API flag would duplicate what JSX already expresses.
 - `createAstralBeamTokenRoute()` in `@astralbeam/sdk/server`: fetch-standard handler factory replacing the copy-pasted 503/500/`no-store` endpoint.
 - Fix the `-webkit-text-fill-color` inheritance leak onto widget slots (bmd's documented gotcha).
 

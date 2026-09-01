@@ -197,5 +197,8 @@ export function hostStyleRule(source: Element, customProperties: readonly string
     if (!value || value.includes("{") || value.includes("}")) continue
     declarations.push(`${property}:${value}`)
   }
+  // Restores the default relationship where `color` drives text paint: bridging the computed
+  // fill color froze slotted text to the page's body ink even where a render set its own color.
+  declarations.push("-webkit-text-fill-color:currentColor")
   return `${WIDGET_SLOT_SELECTOR}{${declarations.join(";")}}`
 }

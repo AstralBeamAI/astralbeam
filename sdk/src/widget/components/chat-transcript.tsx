@@ -27,6 +27,8 @@ import { UserMessageBody } from "./user-message-body.tsx"
 
 interface ChatTranscriptProps {
   messages: UIMessage[]
+  /** Name of the host's empty-state slot; when set, it replaces the default empty state. */
+  emptySlot?: string | undefined
   /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_TITLE`. */
   emptyTitle?: string | undefined
   /** Subtitle of the empty transcript; defaults to `DEFAULT_EMPTY_DESCRIPTION`. */
@@ -44,6 +46,7 @@ interface ChatTranscriptProps {
 export function ChatTranscript(
   {
     messages,
+    emptySlot,
     emptyTitle,
     emptyDescription,
     widgets,
@@ -55,6 +58,14 @@ export function ChatTranscript(
   }: ChatTranscriptProps,
 ) {
   if (messages.length === 0) {
+    if (emptySlot) {
+      // The host's own empty state; the wrapper gives the projected content the full height.
+      return (
+        <div className="h-full overflow-y-auto">
+          <slot name={emptySlot} />
+        </div>
+      )
+    }
     return (
       <Empty className="h-full">
         <EmptyHeader>
