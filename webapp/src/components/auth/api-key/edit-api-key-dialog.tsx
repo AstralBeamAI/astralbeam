@@ -31,7 +31,7 @@ export function EditApiKeyDialog({
   apiKey: OrganizationApiKey
   open: boolean
   onOpenChange: (open: boolean) => void
-  publicId: string | null
+  publicId: string
 }) {
   const { authClient, localization } = useAuth<ApiKeyAuthClient>()
   const { localization: labels } = useAuthPlugin(apiKeyPlugin)
@@ -70,17 +70,15 @@ export function EditApiKeyDialog({
             <DialogTitle>{labels.editApiKey}</DialogTitle>
           </DialogHeader>
           <FieldGroup>
-            {publicId && (
-              <Field>
-                <FieldLabel htmlFor={`api-key-public-id-${apiKey.id}`}>API key ID</FieldLabel>
-                <Input
-                  id={`api-key-public-id-${apiKey.id}`}
-                  value={publicId}
-                  readOnly
-                  className="font-mono text-xs"
-                />
-              </Field>
-            )}
+            <Field>
+              <FieldLabel htmlFor={`api-key-public-id-${apiKey.id}`}>API key ID</FieldLabel>
+              <Input
+                id={`api-key-public-id-${apiKey.id}`}
+                value={publicId}
+                readOnly
+                className="font-mono text-xs"
+              />
+            </Field>
             <Field data-invalid={!!nameError}>
               <FieldLabel htmlFor={`api-key-name-${apiKey.id}`}>
                 {labels.name}

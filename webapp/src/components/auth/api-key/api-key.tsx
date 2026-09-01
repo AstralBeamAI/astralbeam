@@ -25,7 +25,7 @@ import { EditApiKeyDialog } from "./edit-api-key-dialog"
 
 export type ApiKeyProps = {
   apiKey: OrganizationApiKey
-  organizationSlug?: string | undefined
+  organizationSlug: string
   /** Hide the row's delete button (e.g., when caller lacks `apiKey:delete`). */
   hideDelete?: boolean | undefined
   /** Hide the row's edit button (e.g., when caller lacks `apiKey:update`). */
@@ -47,7 +47,7 @@ export function ApiKey({
   const [editOpen, setEditOpen] = useState(false)
 
   const keyPrefix = apiKey.start ? `${apiKey.start}…` : "Unavailable"
-  const publicId = organizationSlug ? `key_${organizationSlug}_${apiKey.slug}` : null
+  const publicId = `key_${organizationSlug}_${apiKey.slug}`
 
   return (
     <Item>
@@ -56,24 +56,22 @@ export function ApiKey({
       </ItemMedia>
       <ItemContent>
         <ItemTitle>{apiKey.name || apiKeyLocalization.apiKey}</ItemTitle>
-        {publicId && (
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              API key ID
-            </span>
-            <ItemDescription className="min-w-0 truncate font-mono">{publicId}</ItemDescription>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              aria-label={`Copy ${apiKey.name || "API key"} ID`}
-              title={`Copy ${apiKey.name || "API key"} ID`}
-              onClick={() => void copyApiKeyPublicId(publicId)}
-            >
-              <CopyIcon aria-hidden="true" />
-            </Button>
-          </div>
-        )}
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+            API key ID
+          </span>
+          <ItemDescription className="min-w-0 truncate font-mono">{publicId}</ItemDescription>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            aria-label={`Copy ${apiKey.name || "API key"} ID`}
+            title={`Copy ${apiKey.name || "API key"} ID`}
+            onClick={() => void copyApiKeyPublicId(publicId)}
+          >
+            <CopyIcon aria-hidden="true" />
+          </Button>
+        </div>
         <div className="flex min-w-0 items-center gap-2">
           <span className="shrink-0 text-xs font-medium text-muted-foreground">
             Key prefix

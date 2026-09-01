@@ -45,7 +45,7 @@ export type CreateApiKeyDialogProps = {
   onOpenChange: (open: boolean) => void
   /** Create an organization-owned key by passing the organization id. */
   organizationId?: string | undefined
-  organizationSlug?: string | undefined
+  organizationSlug: string
 }
 
 function checkApiKeySlug(value: string) {
@@ -132,7 +132,7 @@ export function CreateApiKeyDialog({
       return
     }
     const slug = formData.get("slug")
-    if (!organizationSlug || typeof slug !== "string" || !isValidSlug(slug)) return
+    if (typeof slug !== "string" || !isValidSlug(slug)) return
     setNameError(undefined)
 
     const expiration = formData.get("expiration")
@@ -240,19 +240,17 @@ export function CreateApiKeyDialog({
                 <FieldError>{nameError}</FieldError>
               </Field>
 
-              {organizationSlug && (
-                <GeneratedSlugField
-                  key={String(open)}
-                  id="api-key-identifier"
-                  label="Identifier"
-                  sourceValue={name}
-                  fallback="key"
-                  checkAvailability={checkApiKeySlug}
-                  onAvailabilityChange={setSlugAvailability}
-                  formatPreview={(resourceSlug) => `key_${organizationSlug}_${resourceSlug}`}
-                  disabled={isCreating}
-                />
-              )}
+              <GeneratedSlugField
+                key={String(open)}
+                id="api-key-identifier"
+                label="Identifier"
+                sourceValue={name}
+                fallback="key"
+                checkAvailability={checkApiKeySlug}
+                onAvailabilityChange={setSlugAvailability}
+                formatPreview={(resourceSlug) => `key_${organizationSlug}_${resourceSlug}`}
+                disabled={isCreating}
+              />
 
               {availableConfigurations.length > 0 && (
                 <Field>
@@ -335,7 +333,7 @@ export function CreateApiKeyDialog({
 
               <Button
                 type="submit"
-                disabled={isCreating || !organizationSlug || slugAvailability === "checking" ||
+                disabled={isCreating || slugAvailability === "checking" ||
                   slugAvailability === "invalid" || slugAvailability === "unavailable"}
               >
                 {isCreating && <Spinner />}

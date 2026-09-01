@@ -14,7 +14,7 @@ function dependencies(organizations: readonly OrganizationMembershipIdentity[]) 
 
 describe("session organization access", () => {
   test("does not query memberships for a signed-out request", async () => {
-    const api = dependencies([{ id: "organization-a" }])
+    const api = dependencies([{ id: "organization-a", slug: "organizationa" }])
 
     await expect(reconcileSessionAccess(null, api)).resolves.toEqual({
       status: "signed-out",
@@ -38,8 +38,8 @@ describe("session organization access", () => {
 
   test("retains an active organization that is still a membership", async () => {
     const api = dependencies([
-      { id: "organization-b" },
-      { id: "organization-a" },
+      { id: "organization-b", slug: "organizationb" },
+      { id: "organization-a", slug: "organizationa" },
     ])
 
     await expect(
@@ -51,6 +51,7 @@ describe("session organization access", () => {
       status: "ready",
       userId: "user-a",
       organizationId: "organization-b",
+      organizationSlug: "organizationb",
     })
     expect(api.setActiveOrganization).not.toHaveBeenCalled()
   })
@@ -59,9 +60,9 @@ describe("session organization access", () => {
     "selects the deterministic first membership for active organization %j",
     async (activeOrganizationId) => {
       const api = dependencies([
-        { id: "organization-c" },
-        { id: "organization-a" },
-        { id: "organization-b" },
+        { id: "organization-c", slug: "organizationc" },
+        { id: "organization-a", slug: "organizationa" },
+        { id: "organization-b", slug: "organizationb" },
       ])
 
       await expect(
@@ -73,6 +74,7 @@ describe("session organization access", () => {
         status: "ready",
         userId: "user-a",
         organizationId: "organization-a",
+        organizationSlug: "organizationa",
       })
       expect(api.listOrganizations).toHaveBeenCalledOnce()
       expect(api.setActiveOrganization).toHaveBeenCalledExactlyOnceWith(
@@ -82,7 +84,7 @@ describe("session organization access", () => {
   )
 
   test("does not report ready until active-organization persistence succeeds", async () => {
-    const api = dependencies([{ id: "organization-a" }])
+    const api = dependencies([{ id: "organization-a", slug: "organizationa" }])
     api.setActiveOrganization.mockRejectedValueOnce(new Error("concurrent removal"))
 
     await expect(

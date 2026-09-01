@@ -38,7 +38,7 @@ export type ApiKeysProps = {
   className?: string | undefined
   /** Scope the list and create payload to an organization. */
   organizationId?: string | undefined
-  organizationSlug?: string | undefined
+  organizationSlug: string
   /** Force the loading skeleton and disable the list query. */
   isPending?: boolean | undefined
   /** Hide the "Create API key" button (header + empty state). */
