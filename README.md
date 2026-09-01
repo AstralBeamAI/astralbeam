@@ -73,6 +73,18 @@ deno task dev
 
 Rebuild the SDK and reload the page after changing SDK sources. The public website is separate: `cd www && deno task dev` starts it on http://localhost:4600.
 
+### 5. Run the projects from the repository root
+
+The four projects keep their own toolchains and are not a package-manager workspace, but the root [`deno.jsonc`](deno.jsonc) forwards the common commands so you do not have to change directories:
+
+```sh
+deno task install          # install every project's dependencies
+deno task dev              # run the webapp, website, and todos dev servers together
+deno task build            # build the SDK first, then the webapp, website, and todos
+```
+
+Every task also has a per-project form: `deno task dev:webapp`, `deno task build:sdk`, `deno task install:todos`, and so on. Run `deno task` from the root to list them. Anything else still runs from the owning project, either by changing into it or with `deno task --cwd <project> <task>`.
+
 ## Authentication
 
 The product application uses Better Auth for verified email/password accounts and Google or GitHub OAuth, requires legal acceptance before signup, and uses organizations as its SaaS membership boundary. Follow the [authentication and transactional-email setup](SETUP.md#authentication-and-transactional-email) before testing account creation locally.
