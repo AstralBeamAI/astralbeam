@@ -10,10 +10,10 @@ Attachments need no wiring — the composer takes them by default — so the app
 
 ## Run
 
-1. In the webapp, configure and test an organization sandbox provider. The agent records this preference for the later sandbox-execution PR; this example does not execute a sandbox.
-2. Create an agent using that provider. Its stored prompt is a default, and this example overrides it with the SDK's browser-supplied `systemPrompt`; neither prompt is a security-policy boundary.
+1. In the webapp, use the organization's starter agent, which it already has as its default, or create another one on the agents page. A stored prompt is a default, and this example overrides it with the SDK's browser-supplied `systemPrompt`; neither prompt is a security-policy boundary.
+2. Optionally configure and test an organization sandbox provider and select it on the agent. The agent records this preference for the later sandbox-execution PR; this example does not execute a sandbox.
 3. Create an organization API key and copy the one-time `key_<organizationSlug>_<keySlug>_abo_<secret>` value.
-4. Copy `.env.example` to `.env`. Configure the API key on the server and set the browser-safe `VITE_ASTRALBEAM_AGENT_ID` shown on the agent page. The API key is confidential. The organization slug in the key and agent IDs must match.
+4. Copy `.env.example` to `.env` and configure the confidential API key on the server. Leave `VITE_ASTRALBEAM_AGENT_ID` empty to use the organization's default agent, or set the browser-safe agent ID shown on the agents page. The organization slug in the key and agent IDs must match.
 5. Start the webapp on port 3000 (`deno task dev` from `webapp`) with `OPENAI_API_KEY` configured; it verifies authenticated requests at `/api/chat`.
 6. Build the SDK with `deno task build` from `sdk`.
 7. From this directory, run `deno install` and `deno task dev`, then open http://localhost:3100. Toggle the sidebar with "Hide assistant", cycle "Theme" through system/light/dark to retheme the app (plain CSS variables) and the widget (`colorScheme` prop) from one preference — each side resolves "system" against the OS setting live — and flip "Custom theme" to compare the widget's stock palette with the `theme` prop retuning its shadcn tokens to the app's parchment palette. Ask the assistant about your todos: it lists and edits them through the registered tools, and renders a `TodoCard` widget inline for every todo it shows, one per id. Toggle the todo inside the chat to see host state update. Then attach something — paste a screenshot of a list, or drop a `.md` or `.csv` file of tasks on the composer — and ask the assistant to add them: the file rides inline with the message, and the todos it creates come back as `TodoCard` widgets.

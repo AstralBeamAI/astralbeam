@@ -37,7 +37,7 @@ export function mountAstralBeamChat(
   let live: MountAstralBeamChatOptions = { ...options }
   let debug = createDebugLogger(live.debug)
   debug?.("mount", "mounting chat widget", {
-    agentId: live.agentId,
+    agentId: live.agentId ?? "(organization default)",
     title: live.title ?? DEFAULT_TITLE,
     showHeader: live.showHeader ?? true,
     emptyTitle: live.emptyTitle ?? DEFAULT_EMPTY_TITLE,

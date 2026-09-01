@@ -33,6 +33,7 @@ import {
 import { organizationAccessControl, organizationRoles } from "@/lib/auth/organization-access"
 import {
   organizationApiKeyPlugin,
+  organizationProvisioningHooks,
   organizationRoleHooks,
   withOrganizationApiKeySlug,
 } from "@/lib/auth/organization-hooks.server"
@@ -297,7 +298,7 @@ function buildAuth(config: AuthConfig) {
       organization({
         ac: organizationAccessControl,
         roles: organizationRoles,
-        organizationHooks: organizationRoleHooks,
+        organizationHooks: { ...organizationRoleHooks, ...organizationProvisioningHooks },
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
