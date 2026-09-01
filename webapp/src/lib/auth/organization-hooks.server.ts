@@ -2,6 +2,8 @@ import { API_KEY_TABLE_NAME } from "@better-auth/api-key"
 import type { BetterAuthPlugin, DBAdapterInstance } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
+import { runDatabaseEffect } from "@/db"
+import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
 import { isValidSlug } from "@/lib/slug"
 import { organizationRoles } from "./organization-access.ts"
 import { ORGANIZATION_API_KEY_PREFIX } from "./organization-api-key-configuration.ts"
@@ -116,6 +118,25 @@ export const organizationRoleHooks = {
   beforeAcceptInvitation: ({ invitation }) => {
     assertConfiguredOrganizationRoles(invitation.role)
     return Promise.resolve()
+  },
+} satisfies NonNullable<OrganizationOptions["organizationHooks"]>
+
+/**
+ * Kept apart from the validation hooks above, which stay usable without a database, so a new
+ * organization can be chatted with before anyone opens the dashboard.
+ */
+export const organizationProvisioningHooks = {
+  afterCreateOrganization: async ({ organization }) => {
+    try {
+      await runDatabaseEffect(provisionOrganizationDefaultAgent({
+        organizationId: organization.id,
+        organizationName: organization.name,
+      }))
+    } catch (error) {
+      // The organization is already created and its owner can add an agent by hand, so a failure
+      // here must not fail the request that created it.
+      console.error("Failed to create the default agent for a new organization:", error)
+    }
   },
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>
 

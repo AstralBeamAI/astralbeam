@@ -113,21 +113,6 @@ export const apiKey = snakeCase.table(
   ],
 )
 
-export const organizationConfiguration = snakeCase.table(
-  "organization_configuration",
-  {
-    id: uuidV7PrimaryKey(),
-    organizationId: uuid().notNull().references(() => organization.id, {
-      onDelete: "cascade",
-    }),
-    lockVersion: lockVersion(),
-    ...timestamps(),
-  },
-  (table) => [
-    uniqueIndex("organization_configuration_organization_id_uidx").on(table.organizationId),
-  ],
-)
-
 export const sandboxProvider = snakeCase.table(
   "sandbox_provider",
   {
@@ -165,7 +150,9 @@ export const agent = snakeCase.table(
     slug: text().notNull(),
     name: text().notNull(),
     systemPrompt: text().notNull(),
-    sandboxProviderId: uuid().notNull(),
+    // Optional so a new organization has a usable agent before anyone configures a provider,
+    // which cannot be saved until its connection test passes.
+    sandboxProviderId: uuid(),
     lockVersion: lockVersion(),
     ...timestamps(),
   },
@@ -174,6 +161,7 @@ export const agent = snakeCase.table(
       table.organizationId,
       table.sandboxProviderId,
     ),
+    uniqueIndex("agent_organization_id_id_uidx").on(table.organizationId, table.id),
     uniqueIndex("agent_organization_id_slug_uidx").on(table.organizationId, table.slug),
     check("agent_slug_check", sql`${table.slug} ~ '^[0-9a-z]{1,63}$'`),
     check(
@@ -184,6 +172,30 @@ export const agent = snakeCase.table(
       name: "agent_organization_id_sandbox_provider_id_fk",
       columns: [table.organizationId, table.sandboxProviderId],
       foreignColumns: [sandboxProvider.organizationId, sandboxProvider.id],
+    }).onDelete("restrict"),
+  ],
+)
+
+export const organizationConfiguration = snakeCase.table(
+  "organization_configuration",
+  {
+    id: uuidV7PrimaryKey(),
+    organizationId: uuid().notNull().references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    defaultAgentId: uuid(),
+    lockVersion: lockVersion(),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex("organization_configuration_organization_id_uidx").on(table.organizationId),
+    // The composite reference keeps the default agent inside its own organization. MATCH SIMPLE
+    // leaves the row unchecked while the default is null, and the restricted delete makes an
+    // agent removal clear the default first. https://www.postgresql.org/docs/18/ddl-constraints.html#DDL-CONSTRAINTS-FK
+    foreignKey({
+      name: "organization_configuration_default_agent_id_fk",
+      columns: [table.organizationId, table.defaultAgentId],
+      foreignColumns: [agent.organizationId, agent.id],
     }).onDelete("restrict"),
   ],
 )
