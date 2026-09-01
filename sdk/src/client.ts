@@ -43,7 +43,7 @@ export function mountAstralBeamChat(
     emptyTitle: live.emptyTitle ?? DEFAULT_EMPTY_TITLE,
     emptyDescription: live.emptyDescription ?? DEFAULT_EMPTY_DESCRIPTION,
     chatEndpoint: live.chatEndpoint ?? DEFAULT_ENDPOINT,
-    authentication: live.authEndpoint ? "configured" : "tokenless",
+    authentication: "configured",
     colorScheme: live.colorScheme ?? DEFAULT_COLOR_SCHEME,
     theme: live.theme,
     systemPrompt: live.systemPrompt,

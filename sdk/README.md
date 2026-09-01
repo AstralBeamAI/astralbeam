@@ -27,7 +27,7 @@ const handle = mountAstralBeamChat(sidebar, {
   emptyTitle: "Ask the dashboard assistant", // headline on the empty transcript
   emptyDescription: "It can restart services and open dashboards for you.", // subtitle under it
   chatEndpoint: "https://myapp.example/api/chat", // AstralBeam chat endpoint (default "/api/chat")
-  authEndpoint: "/api/chat/token", // host endpoint minting the chat token (required today)
+  authEndpoint: "/api/custom/token", // optional override; default "/api/astralbeam/token"
   systemPrompt: "You are the assistant of an infrastructure dashboard.",
   colorScheme: "system", // "light" | "dark" | "system" (default)
   theme: {
@@ -65,7 +65,7 @@ const handle = mountAstralBeamChat(sidebar, {
 // later: handle.update({ colorScheme: "dark", widgets: nextWidgets }), handle.unmount()
 ```
 
-The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. It streams the conversation from the `chatEndpoint` (an AstralBeam webapp's `/api/chat`) and sends the required `agentId`, whose organization-owned agent supplies the stored system prompt. The optional host `systemPrompt` overrides that stored prompt for the integration and may contain up to 32,768 characters. When `authEndpoint` is present, the widget obtains a short-lived bearer token before enabling its composer and renews it in memory as needed. The AstralBeam endpoint currently answers unauthenticated runs with `401`, so `authEndpoint` is required in practice. The `title` option names the assistant in the widget's header, and `showHeader: false` hides that header — title and reset button both — giving the transcript the widget's full height. The `emptyTitle` and `emptyDescription` options replace the headline and subtitle the empty transcript shows before the first message. Assistant replies are rendered as Markdown (headings, lists, tables, links, and fenced code) with [TanStack Markdown](https://tanstack.com/markdown), using its streaming profile so a partial reply stays stable as it arrives; raw HTML in a reply is escaped and executable link protocols are dropped. The `colorScheme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live. The `theme` option overrides the widget's theming CSS variables — the [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) such as `--background`, `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` font stacks — per color scheme: mirroring shadcn's `:root`/`.dark` split, `theme.light` is the base applied in both schemes and `theme.dark` overrides it when the resolved scheme is dark.
+The chat widget renders inside a shadow root on the mount target, so its styles never leak into (or absorb from) the host page. It streams the conversation from the `chatEndpoint` (an AstralBeam webapp's `/api/chat`) and sends the required `agentId`, whose organization-owned agent supplies the stored system prompt. The optional host `systemPrompt` overrides that stored prompt for the integration and may contain up to 32,768 characters. The widget always obtains a short-lived bearer token before enabling its composer and renews it in memory as needed, using `authEndpoint` or its `/api/astralbeam/token` default. The `title` option names the assistant in the widget's header, and `showHeader: false` hides that header — title and reset button both — giving the transcript the widget's full height. The `emptyTitle` and `emptyDescription` options replace the headline and subtitle the empty transcript shows before the first message. Assistant replies are rendered as Markdown (headings, lists, tables, links, and fenced code) with [TanStack Markdown](https://tanstack.com/markdown), using its streaming profile so a partial reply stays stable as it arrives; raw HTML in a reply is escaped and executable link protocols are dropped. The `colorScheme` option picks the widget's color scheme — `"system"` (the default) follows the OS `prefers-color-scheme` setting live. The `theme` option overrides the widget's theming CSS variables — the [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) such as `--background`, `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` font stacks — per color scheme: mirroring shadcn's `:root`/`.dark` split, `theme.light` is the base applied in both schemes and `theme.dark` overrides it when the resolved scheme is dark.
 
 ### Attachments
 
@@ -93,7 +93,7 @@ Widget renders pick up the host page's typography and custom properties automati
 
 ### Authentication
 
-Supply `authEndpoint`; the AstralBeam endpoint serves authenticated tenant users only for now and rejects a run with no token, so a widget without it can stream nothing. An Organization is an AstralBeam customer, typically a SaaS app; organization users are its employees using the AstralBeam dashboard, Tenants are its customers, and tenant users are those Tenants' users who interact with the embedded agent sidebar. The host endpoint must authenticate the application's existing tenant-user session, construct `tenantUser` from trusted server-side state, and return `{ "token": "..." }`. The SDK calls it with `POST`, `credentials: "include"`, and `cache: "no-store"`, keeps the token only in memory, refreshes it within one minute of expiry, and retries one rejected chat request with a fresh token. The AstralBeam server authoritatively checks that the token and agent belong to the same organization. A configured endpoint fails closed: its loading or error state disables the composer instead of falling back to a tokenless request.
+The SDK always authenticates chat through the host application's token endpoint, defaulting to `/api/astralbeam/token`; set `authEndpoint` only when the host uses another route. An Organization is an AstralBeam customer, typically a SaaS app; organization users are its employees using the AstralBeam dashboard, Tenants are its customers, and tenant users are those Tenants' users who interact with the embedded agent sidebar. The host endpoint must authenticate the application's existing tenant-user session, construct `tenantUser` from trusted server-side state, and return `{ "token": "..." }`. The SDK calls it with `POST`, `credentials: "include"`, and `cache: "no-store"`, keeps the token only in memory, refreshes it within one minute of expiry, and retries one rejected chat request with a fresh token. The AstralBeam server authoritatively checks that the token and agent belong to the same organization. Authentication fails closed: a loading or error state disables the composer instead of sending an unauthenticated chat request.
 
 Configure the API-key ID and secret on the host server. The API-key ID is public metadata and appears in the JWT header; only the API-key secret is confidential. The agent ID is browser-safe:
 
@@ -103,7 +103,7 @@ ASTRALBEAM_API_KEY=abo_productionk7m2q_<secret>
 VITE_ASTRALBEAM_AGENT_ID=agt_acmeops_infrastructurek7m2q
 ```
 
-Use the server entry from a session-protected `POST /api/chat/token` route to mint the token without exposing the API key to browser code:
+Use the server entry from a session-protected `POST /api/astralbeam/token` route to mint the token without exposing the API key to browser code:
 
 ```ts
 import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
@@ -143,7 +143,6 @@ export function Sidebar() {
   return (
     <AstralBeamChat
       agentId="agt_acmeops_infrastructurek7m2q"
-      authEndpoint="/api/chat/token"
       systemPrompt="Help operators inspect infrastructure safely."
       widgets={{
         systemStatus: {

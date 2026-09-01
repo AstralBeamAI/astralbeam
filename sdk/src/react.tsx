@@ -42,7 +42,7 @@ export interface AstralBeamChatProps {
   emptyDescription?: string
   /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
   chatEndpoint?: string
-  /** Application endpoint that mints a short-lived chat JWT; required by AstralBeam's authenticated endpoint. */
+  /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
   authEndpoint?: string
   /** Host-specific instructions, up to 32,768 characters, that override the stored system prompt. */
   systemPrompt?: string

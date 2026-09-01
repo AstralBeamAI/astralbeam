@@ -114,7 +114,7 @@ export interface MountAstralBeamChatOptions {
   emptyDescription?: string | undefined
   /** URL of the AstralBeam chat endpoint the widget streams from. Fixed at mount. Default `"/api/chat"`. */
   chatEndpoint?: string | undefined
-  /** Application endpoint that mints a short-lived chat JWT. Fixed at mount; required by AstralBeam's authenticated endpoint. */
+  /** Application endpoint that mints a short-lived chat JWT. Fixed at mount. Default `"/api/astralbeam/token"`. */
   authEndpoint?: string | undefined
   /** Host-specific instructions, up to 32,768 characters, that override the stored system prompt. */
   systemPrompt?: string | undefined

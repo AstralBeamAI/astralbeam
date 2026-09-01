@@ -18,7 +18,7 @@ import {
   readAttachmentData,
   resolveAttachmentOptions,
 } from "../lib/attachments.ts"
-import { DEFAULT_ENDPOINT, DEFAULT_TITLE } from "../lib/client-constants.ts"
+import { DEFAULT_AUTH_ENDPOINT, DEFAULT_ENDPOINT, DEFAULT_TITLE } from "../lib/client-constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/client-types.ts"
 import { createDebugLogger } from "../lib/client-utils.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../lib/constants.ts"
@@ -46,27 +46,22 @@ export function ChatWidget(
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
   const { activeSlots, renderWidget, discardAllRenders } = useWidgetRenders(widgets, host, debug)
-  const [authenticationState, setAuthenticationState] = useState<ChatAuthenticationState>(() =>
-    options.authEndpoint ? { status: "loading" } : { status: "ready" }
-  )
-  const [authentication] = useState<ChatAuthenticationOptions | undefined>(() =>
-    options.authEndpoint
-      ? {
-        authEndpoint: options.authEndpoint,
-        session: {
-          cached: undefined,
-          refreshPromise: undefined,
-          abortController: new AbortController(),
-        },
-        onStateChange: setAuthenticationState,
-        fetchClient: globalThis.fetch.bind(globalThis),
-        debug,
-      }
-      : undefined
-  )
-  if (authentication) authentication.debug = debug
+  const [authenticationState, setAuthenticationState] = useState<ChatAuthenticationState>({
+    status: "loading",
+  })
+  const [authentication] = useState<ChatAuthenticationOptions>(() => ({
+    authEndpoint: options.authEndpoint ?? DEFAULT_AUTH_ENDPOINT,
+    session: {
+      cached: undefined,
+      refreshPromise: undefined,
+      abortController: new AbortController(),
+    },
+    onStateChange: setAuthenticationState,
+    fetchClient: globalThis.fetch.bind(globalThis),
+    debug,
+  }))
+  authentication.debug = debug
   useEffect(() => {
-    if (!authentication) return
     void initializeChatAuthentication(authentication).catch(() => undefined)
     return () => disposeChatAuthentication(authentication)
   }, [authentication])
@@ -101,12 +96,10 @@ export function ChatWidget(
   const [connection] = useState(() =>
     fetchServerSentEvents(
       options.chatEndpoint ?? DEFAULT_ENDPOINT,
-      authentication
-        ? async () => ({
-          headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
-          fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
-        })
-        : undefined,
+      async () => ({
+        headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
+        fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
+      }),
     )
   )
   const debugCallbacks = useMemo(() => createDebugCallbacks(debug), [debug])
