@@ -265,7 +265,12 @@ export function createChatSandboxTools(
     const bytes = await requireSandboxOperation(
       handle.fs.readBytes(resolved.path),
       CHAT_SANDBOX_FILE_TIMEOUT_MS,
-    ).catch(() => undefined)
+    ).catch((error: unknown) => {
+      // The agent only learns the path did not work; the vendor's message can carry hostnames or
+      // tokens, so the reason stays in the log — without it a provider-side failure is invisible.
+      console.error("A /api/chat sandbox artifact could not be read:", error)
+      return undefined
+    })
     if (bytes === undefined) {
       return { refusal: "The file could not be read. Check the path with sandbox_list_files." }
     }

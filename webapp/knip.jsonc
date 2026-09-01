@@ -20,7 +20,9 @@
   },
   // @daytona/sdk ships `importHelpers` output that imports tslib without declaring it, so webapp
   // declares tslib only to make that specifier resolvable. https://www.typescriptlang.org/tsconfig/#importHelpers
-  "ignoreDependencies": ["tslib"],
+  // @daytona/sdk also `createRequire`s busboy at download time, which the built server bundle keeps
+  // as a runtime specifier; webapp declares busboy only so that require resolves.
+  "ignoreDependencies": ["busboy", "tslib"],
   // Keep Deno-run generators and the TanStack Router entry explicit.
   "entry": [
     "scripts/*.ts",
