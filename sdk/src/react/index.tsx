@@ -81,8 +81,9 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
  * The headless chat session as a React hook: authentication, transport, tools, and transcript
  * state with no markup, for hosts that own their whole chat UI. Transport identity (endpoints,
  * agent) and the declared tool/widget set are fixed for the component's lifetime — remount with
- * a React `key` to change them — but `execute` and `onRenderWidget` always read the latest
- * render, so ordinary closures over props and state stay live.
+ * a React `key` to change them — but `execute` and `onRenderWidget` read the latest render, so
+ * ordinary closures over props and state stay live. Whether a widget renderer exists at all is
+ * part of the declared surface and is read at mount.
  */
 export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
   const optionsRef = useRef(options)
@@ -100,7 +101,11 @@ export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstral
           },
         }]),
       ),
-      onRenderWidget: (request) => optionsRef.current.onRenderWidget?.(request),
+      // Wrapped only when a renderer exists at mount: an unconditional wrapper would make the
+      // core report rendered: true for hosts that declared widgets without rendering them.
+      onRenderWidget: options.onRenderWidget === undefined
+        ? undefined
+        : (request) => optionsRef.current.onRenderWidget?.(request),
     })
   )
   useEffect(() => () => core.dispose(), [core])
