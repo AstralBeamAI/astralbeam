@@ -5,21 +5,17 @@ import { isValidSlug } from "../slug.ts"
 export type OrganizationApiKey = ListedApiKey & { readonly slug: string }
 
 export const ORGANIZATION_API_KEY_PREFIX = "abo_"
-export const ORGANIZATION_API_KEY_MAXIMUM_PREFIX_LENGTH = ORGANIZATION_API_KEY_PREFIX.length + 63 +
-  1
 // Better Auth counts the prefix inside this preview length. https://better-auth.com/docs/plugins/api-key/reference#startingcharactersconfig-options
 export const ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH = ORGANIZATION_API_KEY_PREFIX.length +
   6
 
-export function formatOrganizationApiKeyPrefix(slug: string): string {
-  if (!isValidSlug(slug)) throw new TypeError("API key identifier is invalid")
-  return `${ORGANIZATION_API_KEY_PREFIX}${slug}_`
-}
-
-export function parseOrganizationApiKeyPrefix(prefix: unknown): string | null {
-  if (typeof prefix !== "string" || !prefix.endsWith("_")) return null
-  const slug = prefix.slice(ORGANIZATION_API_KEY_PREFIX.length, -1)
-  return prefix === `${ORGANIZATION_API_KEY_PREFIX}${slug}_` && isValidSlug(slug) ? slug : null
+export function organizationApiKeySlugFromMetadata(metadata: unknown): string | null {
+  if (
+    typeof metadata !== "object" || metadata === null || Array.isArray(metadata) ||
+    Object.keys(metadata).length !== 1
+  ) return null
+  const slug = (metadata as { slug?: unknown }).slug
+  return typeof slug === "string" && isValidSlug(slug) ? slug : null
 }
 
 export const ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS = 100

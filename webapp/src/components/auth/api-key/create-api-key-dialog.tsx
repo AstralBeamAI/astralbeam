@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
-import { formatOrganizationApiKeyPrefix } from "@/lib/auth/organization-api-key-configuration"
 import { isValidSlug } from "@/lib/slug"
 import { checkOrganizationApiKeySlugAvailability } from "@/routes/_authenticated/_organization/organization/api-keys/-functions/check-organization-api-key-slug-availability"
 import { NewApiKeyDialog } from "./new-api-key-dialog"
@@ -145,7 +144,7 @@ export function CreateApiKeyDialog({
     const configId = typeof configIdValue === "string" ? configIdValue.trim() : ""
     const payload = {
       name: normalizedName,
-      prefix: formatOrganizationApiKeyPrefix(slug),
+      metadata: { slug },
       ...(expiresIn ? { expiresIn } : {}),
       ...(configId ? { configId } : {}),
       ...(organizationId ? { organizationId } : {}),

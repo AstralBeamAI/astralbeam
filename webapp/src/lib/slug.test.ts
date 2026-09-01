@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest"
 
 import { SlugSchema } from "./schemas.ts"
 import { generateSlugSuggestion, isValidSlug } from "./slug.ts"
-import {
-  formatOrganizationApiKeyPrefix,
-  parseOrganizationApiKeyPrefix,
-} from "./auth/organization-api-key-configuration.ts"
 
 describe("public slugs", () => {
   it("generates a stable lowercase suggestion from injected random bytes", () => {
@@ -28,13 +24,5 @@ describe("public slugs", () => {
     expect(Schema.is(SlugSchema)("ABC")).toBe(false)
     expect(Schema.is(SlugSchema)("with-hyphen")).toBe(false)
     expect(Schema.is(SlugSchema)("with_underscore")).toBe(false)
-  })
-
-  it("round-trips only slug-bearing API-key prefixes", () => {
-    expect(formatOrganizationApiKeyPrefix("serverkey01")).toBe("abo_serverkey01_")
-    expect(parseOrganizationApiKeyPrefix("abo_serverkey01_")).toBe("serverkey01")
-    expect(parseOrganizationApiKeyPrefix("abo_server-key_")).toBeNull()
-    expect(parseOrganizationApiKeyPrefix("abo_serverkey01")).toBeNull()
-    expect(parseOrganizationApiKeyPrefix("abo__")).toBeNull()
   })
 })

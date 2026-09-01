@@ -4,7 +4,10 @@ import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-a
 import type { OrganizationOptions } from "better-auth/plugins"
 import { isValidSlug } from "@/lib/slug"
 import { organizationRoles } from "./organization-access.ts"
-import { parseOrganizationApiKeyPrefix } from "./organization-api-key-configuration.ts"
+import {
+  ORGANIZATION_API_KEY_PREFIX,
+  organizationApiKeySlugFromMetadata,
+} from "./organization-api-key-configuration.ts"
 
 export const organizationApiKeyPlugin = {
   id: "organization-api-key",
@@ -12,11 +15,6 @@ export const organizationApiKeyPlugin = {
     before: [{
       matcher: (context) => context.path === "/api-key/create",
       handler: createAuthMiddleware(async (context) => {
-        const body: unknown = context.body
-        const prefix = body && typeof body === "object" && "prefix" in body
-          ? body.prefix
-          : undefined
-        requireOrganizationApiKeySlug(prefix)
         await freshSessionMiddleware(
           context as Parameters<typeof freshSessionMiddleware>[0],
         )
@@ -53,22 +51,22 @@ export function withOrganizationApiKeySlug(adapterFactory: DBAdapterInstance): D
         adapter.create({
           ...input,
           data: input.model === API_KEY_TABLE_NAME
-            ? { ...input.data, slug: requireOrganizationApiKeySlug(input.data.prefix) }
+            ? prepareOrganizationApiKeyInsert(input.data)
             : input.data,
         }),
     }
   }
 }
 
-function requireOrganizationApiKeySlug(prefix: unknown): string {
-  const slug = parseOrganizationApiKeyPrefix(prefix)
-  if (slug === null) {
+export function prepareOrganizationApiKeyInsert<T extends Record<string, unknown>>(data: T) {
+  const slug = organizationApiKeySlugFromMetadata(data.metadata)
+  if (data.prefix !== ORGANIZATION_API_KEY_PREFIX || slug === null) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_API_KEY_SLUG",
       message: "API key identifier is invalid",
     })
   }
-  return slug
+  return { ...data, slug, metadata: null }
 }
 
 function assertConfiguredOrganizationRoles(role: string): void {

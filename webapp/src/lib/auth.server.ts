@@ -6,7 +6,6 @@ import { getRequest } from "@tanstack/react-start/server"
 import type { BetterAuthPlugin } from "better-auth"
 import { betterAuth } from "better-auth/minimal"
 import { addOAuthServerContext, createAuthMiddleware, isAPIError } from "better-auth/api"
-import { generateRandomString } from "better-auth/crypto"
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 
@@ -26,7 +25,6 @@ import {
   recordValue,
 } from "@/lib/auth/legal.server"
 import {
-  ORGANIZATION_API_KEY_MAXIMUM_PREFIX_LENGTH,
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
@@ -313,15 +311,13 @@ function buildAuth(config: AuthConfig) {
       organizationApiKeyPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
-        customKeyGenerator: ({ length }) =>
-          `${ORGANIZATION_API_KEY_PREFIX}${generateRandomString(length, "a-z", "A-Z")}`,
+        enableMetadata: true,
         rateLimit: {
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
           timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
         },
         references: "organization",
         requireName: true,
-        maximumPrefixLength: ORGANIZATION_API_KEY_MAXIMUM_PREFIX_LENGTH,
         startingCharactersConfig: {
           charactersLength: ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
         },
