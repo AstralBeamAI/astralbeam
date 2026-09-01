@@ -1,12 +1,12 @@
-import { CaretRightIcon, CheckIcon, WarningCircleIcon, WrenchIcon } from "@phosphor-icons/react"
+import { CheckIcon, WarningCircleIcon, WrenchIcon } from "@phosphor-icons/react"
 import type { MessagePart } from "@tanstack/ai-client"
 import type { ReactNode } from "react"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Spinner } from "@/components/ui/spinner"
 import type { WidgetDefinition } from "../lib/client-types.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../lib/constants.ts"
+import { isSandboxTool } from "../lib/sandbox.ts"
 import type { QuestionnaireAnswer, RenderWidgetInput } from "../lib/types.ts"
 import {
   formatToolJson,
@@ -17,6 +17,8 @@ import {
 } from "../lib/utils.ts"
 import { InlineQuestionnaire } from "./inline-questionnaire.tsx"
 import { MarkdownMessage } from "./markdown-message.tsx"
+import { SandboxPart } from "./sandbox-part.tsx"
+import { ToolDisclosure } from "./tool-disclosure.tsx"
 
 type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
 
@@ -58,8 +60,8 @@ function ToolCallSection({ title, children }: { title: string; children: string 
   )
 }
 
-// The marker itself is the disclosure trigger, so a tool call reads as one line until the
-// user opens it; the panel is the only place a call's raw input and output are visible.
+// The panel is the only place a call's raw input and output are visible; sandbox tools are the
+// exception, because the widget knows what theirs mean (see `sandbox-part.tsx`).
 function ToolCallDisclosure(
   { part, title, failed }: { part: ToolCallPart; title: string | undefined; failed: boolean },
 ) {
@@ -72,49 +74,21 @@ function ToolCallDisclosure(
   // Failed client executions store the thrown message as `{ error }` in the output.
   const detail = failed ? (part.output as { error?: string } | null | undefined)?.error : undefined
   return (
-    <Collapsible>
-      <Marker
-        render={<CollapsibleTrigger />}
-        className="cursor-pointer items-start hover:text-foreground"
-      >
-        <MarkerIcon className="mt-0.5">
-          {failed ? <WarningCircleIcon /> : running ? <Spinner /> : <WrenchIcon />}
-        </MarkerIcon>
-        {
-          /* The trigger is a button, so progress is announced from the label rather than
-            with role="status" on the row itself. */
-        }
-        <MarkerContent
-          aria-live={running ? "polite" : undefined}
-          className={running ? "shimmer" : undefined}
-        >
-          {failed
-            ? (
-              <>
-                {label} failed
-              </>
-            )
-            : (
-              <>
-                {running ? "Running" : "Ran"} {label}
-              </>
-            )}
-          {/* Inline, so the affordance sits with the label instead of drifting to the row's edge. */}
-          <CaretRightIcon className="ms-1 inline shrink-0 align-middle transition-transform group-data-[panel-open]/marker:rotate-90" />
-          {typeof detail === "string" && detail.length > 0 && (
-            <span className="block text-muted-foreground">{detail}</span>
-          )}
-        </MarkerContent>
-      </Marker>
-      <CollapsibleContent className="ps-6">
-        <div className="mt-1 flex flex-col gap-2 rounded-md border border-border bg-muted p-2">
-          <ToolCallSection title="Input">{formatToolJson(part.input) || "\u2014"}</ToolCallSection>
-          <ToolCallSection title="Output">
-            {settled ? formatToolJson(part.output) || "\u2014" : "Waiting for the result\u2026"}
-          </ToolCallSection>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+    <ToolDisclosure
+      icon={failed ? <WarningCircleIcon /> : running ? <Spinner /> : <WrenchIcon />}
+      running={running}
+      label={failed ? <>{label} failed</> : <>{running ? "Running" : "Ran"} {label}</>}
+      detail={typeof detail === "string" && detail.length > 0
+        ? <span className="block text-muted-foreground">{detail}</span>
+        : undefined}
+    >
+      <div className="mt-1 flex flex-col gap-2 rounded-md border border-border bg-muted p-2">
+        <ToolCallSection title="Input">{formatToolJson(part.input) || "\u2014"}</ToolCallSection>
+        <ToolCallSection title="Output">
+          {settled ? formatToolJson(part.output) || "\u2014" : "Waiting for the result\u2026"}
+        </ToolCallSection>
+      </div>
+    </ToolDisclosure>
   )
 }
 
@@ -202,6 +176,9 @@ export function AssistantPart(
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
+      // Before the failure branch: a sandbox step that threw still reads better as "could not
+      // write app.py" than as a generic tool failure.
+      if (isSandboxTool(part.name)) return <SandboxPart part={part} />
       if (part.state === "error") {
         return <ToolCallDisclosure part={part} title={title} failed />
       }

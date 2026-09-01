@@ -17,7 +17,7 @@ Defaults only populate a new organization form. Once saved, the database values 
 
 1. In the intended [Daytona](https://www.daytona.io/) organization, [create an API key](https://www.daytona.io/docs/api-keys/) with an expiration and the `write:sandboxes` and `delete:sandboxes` permissions. Copy it when shown and store it in a password manager.
 2. Choose the `us` or `eu` target and one of the organization's [available snapshots](https://www.daytona.io/docs/snapshots/). `daytona-medium` is the default shown in TanStack's [Daytona example](https://tanstack.com/ai/latest/docs/sandbox/providers#daytona).
-3. In the app, open **Sandbox providers** from the organization sidebar, add a provider, give it a unique name, choose **Daytona**, enter the target, snapshot, and API key, then select **Test and save**.
+3. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Daytona**, enter the target, snapshot, and API key, then select **Test and save**.
 4. To rotate the key, test and save its replacement before revoking the previous key.
 
 The factory calls `daytonaSandbox({ ...storedOptions, apiKey })`. TanStack owns sandbox creation, resume, snapshots, cleanup, capabilities, and SDK defaults.
@@ -26,7 +26,7 @@ The factory calls `daytonaSandbox({ ...storedOptions, apiKey })`. TanStack owns 
 
 1. Install and start [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/).
 2. Run the webapp directly on that host. As the same operating-system user, run [`docker info`](https://docs.docker.com/reference/cli/docker/system/info/) and resolve any daemon or socket permission error.
-3. In the app, open **Sandbox providers** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, enter a trusted image, and select **Test and save**. The default is the TanStack-documented `node:22`; Docker pulls it when absent.
+3. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, enter a trusted image, and select **Test and save**. The default is the TanStack-documented `node:22`; Docker pulls it when absent.
 
 The factory calls `dockerSandbox(storedOptions)` and otherwise leaves the provider defaults unchanged. Do not expose an unauthenticated Docker API or use untrusted images.
 
@@ -34,7 +34,7 @@ The factory calls `dockerSandbox(storedOptions)` and otherwise leaves the provid
 
 1. For the Fly.io organization that should own the sandboxes, create an API token at [sprites.dev/account](https://sprites.dev/account) or authenticate with [`sprite org auth`](https://docs.sprites.dev/cli/authentication/).
 2. Copy the complete token exactly as issued and store it in a password manager.
-3. In the app, open **Sandbox providers** from the organization sidebar, add a provider, give it a unique name, choose **Sprites**, enter the token, and select **Test and save**. Test a replacement before revoking an old token.
+3. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Sprites**, enter the token, and select **Test and save**. Test a replacement before revoking an old token.
 
 The factory calls `spritesSandbox({ apiKey })` and leaves the provider's control-plane URL, working directory, public URL authentication, and port defaults unchanged.
 
@@ -43,9 +43,24 @@ The factory calls `spritesSandbox({ apiKey })` and leaves the provider's control
 1. Create or choose the Vercel team and project that should own the sandboxes, and confirm that the project can use [Vercel Sandbox](https://vercel.com/docs/sandbox).
 2. Create a [Vercel access token](https://vercel.com/account/tokens) scoped to that team. The app accepts a stable access token, not a short-lived Vercel OIDC token.
 3. Copy the Team ID from **Team Settings → General** and the Project ID from **Project Settings → General**. A linked project's `.vercel/project.json` contains the same values as `orgId` and `projectId`; Vercel also documents [finding the Team ID](https://vercel.com/docs/accounts#find-your-team-id).
-4. In the app, open **Sandbox providers** from the organization sidebar, add a provider, give it a unique name, choose **Vercel**, enter those IDs, select `node24`, `node22`, or `python3.13`, enter the access token, and select **Test and save**. Test a replacement before revoking an old token.
+4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Vercel**, enter those IDs, select `node24`, `node22`, or `python3.13`, enter the access token, and select **Test and save**. Test a replacement before revoking an old token.
 
 The factory calls `vercelSandbox({ teamId, projectId, runtime, token })` with the stored values. Keep token scope narrow and set an expiration appropriate for your deployment.
+
+## What the chat endpoint does with a provider
+
+A provider on its own runs nothing. Selecting one on an agent is what gives that agent sandbox tools.
+
+`/api/chat` then declares `sandbox_write_file`, `sandbox_read_file`, `sandbox_list_files`, and `sandbox_run_command` from `src/routes/api/chat/-lib/sandbox-tools.server.ts`.
+
+- Nothing is provisioned when a run starts. The first tool the agent reaches for creates or resumes the sandbox.
+- One sandbox serves a conversation, so its later turns build on the files already in it.
+- Its identity folds in the agent, the provider, and the authenticated organization and tenant user.
+- A sandbox untouched for fifteen minutes is destroyed, as is the least recently used past twenty-five.
+- That bookkeeping is process-local: a replica that restarts leaves its sandboxes to the vendor's own idle policy, and resuming across replicas needs a durable `SandboxInstanceStore`.
+- `/workspace` is the working directory and the only path the tools accept; anything else is refused back to the agent.
+- Command output and file reads are capped with the middle elided, and a command that outlives its timeout is reported.
+- An unreadable provider configuration drops the tools and their prompt together, logs the reason, and lets the agent answer without a sandbox.
 
 ## Persistence and access
 

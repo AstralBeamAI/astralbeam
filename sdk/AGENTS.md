@@ -4,7 +4,7 @@
 - Treat a copied API key as its public ID plus the exact Better Auth raw key; hash the complete `abo_<secret>` value, never only its random suffix.
 - Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
 - Use plain data and helper functions with explicit options objects for application logic; do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
-- Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing entry points, the chat widget, or the build; record structural and build decisions there in the same commit, leaving only line-specific inline comments.
+- Record structural and build reasoning as comments beside the code that depends on it; `README.md` is the integrator's guide and carries no internals.
 - Keep `tsdown` pinned exactly to `0.22.3`; newer versions pull `rolldown-plugin-dts@^0.27`, whose `yuku` native bindings Deno loads as JavaScript ([denoland/deno#36240](https://github.com/denoland/deno/issues/36240)). Re-test after that issue is fixed.
 - Each file in `src/` named in `tsdown.config.ts` is a public entry point and maps 1:1 to the `exports` field in `package.json`; add new entry points in both places.
 - `react`, `react-dom`, and `vue` are optional peer dependencies; keep framework imports confined to their respective entry points so consumers of the other entry points never load them.

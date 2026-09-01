@@ -1,5 +1,5 @@
 // Wraps the Tailwind CLI output into a TypeScript module, because the chat widget must carry its
-// compiled stylesheet as a string to inject into its shadow root (see ARCHITECTURE.md).
+// compiled stylesheet as a string to inject into its own shadow root.
 let css = await Deno.readTextFile(".generated/styles.css")
 
 // Unwrap the @supports gate around Tailwind's default custom properties (`@layer properties`):

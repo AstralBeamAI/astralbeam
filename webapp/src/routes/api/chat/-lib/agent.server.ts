@@ -25,7 +25,9 @@ export async function resolveChatAgent(
   const rows = await runDatabaseEffect(
     Effect.flatMap(effectDatabase, (db) =>
       db.select({
+        id: agent.id,
         systemPrompt: agent.systemPrompt,
+        sandboxProviderId: agent.sandboxProviderId,
       }).from(organization).innerJoin(
         agent,
         and(eq(agent.organizationId, organization.id), eq(agent.slug, agentSlug)),
@@ -43,7 +45,9 @@ async function resolveDefaultChatAgent(authenticatedOrganizationId: string) {
   const rows = await runDatabaseEffect(
     Effect.flatMap(effectDatabase, (db) =>
       db.select({
+        id: agent.id,
         systemPrompt: agent.systemPrompt,
+        sandboxProviderId: agent.sandboxProviderId,
       }).from(organizationConfiguration).innerJoin(
         agent,
         and(

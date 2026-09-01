@@ -1,6 +1,7 @@
 import { defineConfig } from "tsdown"
 
-// Two ordered passes handle React in opposite ways; see ARCHITECTURE.md for the rationale.
+// Two ordered passes handle React in opposite ways: pass 1 bundles it into the widget chunk so
+// the widget owns its copy, pass 2 leaves it external so the wrapper's hooks bind to the host's.
 const reactPackages = /^react(-dom)?(\/|$)/
 const selfPackage = /^@astralbeam\/sdk(\/|$)/
 // Mirrors the tsconfig `@/*` path shadcn-generated components import through.

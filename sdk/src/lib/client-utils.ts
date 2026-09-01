@@ -17,6 +17,7 @@ const CATEGORY_COLORS = {
   tool: "#d97706",
   widget: "#db2777",
   attachment: "#0d9488",
+  sandbox: "#0369a1",
   questionnaire: "#9333ea",
   status: "#475569",
   error: "#dc2626",

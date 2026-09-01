@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { ChatComposer } from "../components/chat-composer.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
+import { SandboxTray } from "../components/sandbox-tray.tsx"
 import {
   acceptAttachmentFiles,
   attachmentContentParts,
@@ -21,9 +22,10 @@ import {
 import { DEFAULT_AUTH_ENDPOINT, DEFAULT_ENDPOINT, DEFAULT_TITLE } from "../lib/client-constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/client-types.ts"
 import { createDebugLogger } from "../lib/client-utils.ts"
-import { ASK_QUESTIONNAIRE_TOOL } from "../lib/constants.ts"
+import { ASK_QUESTIONNAIRE_TOOL, SANDBOX_STATUS_EVENT } from "../lib/constants.ts"
 import { createDebugCallbacks } from "../lib/debug.ts"
-import type { DraftAttachment, QuestionnaireAnswer } from "../lib/types.ts"
+import { collectSandboxActivity, hasSandboxActivity } from "../lib/sandbox.ts"
+import type { DraftAttachment, QuestionnaireAnswer, SandboxStatus } from "../lib/types.ts"
 import { cn, hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../lib/utils.ts"
 import { buildAgentTools } from "./agent.ts"
 import {
@@ -113,6 +115,10 @@ export function ChatWidget(
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     ...(options.debug ? { debug: true } : {}),
   }), [options.agentId, options.systemPrompt, options.debug])
+  // Provisioning a sandbox takes tens of seconds, and no tool result exists while it happens, so
+  // the endpoint reports it as a CUSTOM event. Everything else about the sandbox is read back out
+  // of the transcript by `collectSandboxActivity`.
+  const [sandboxStatus, setSandboxStatus] = useState<SandboxStatus | undefined>(undefined)
   const { messages, sendMessage, setMessages, status, error, addToolResult, stop, reload } =
     useChat({
       initialMessages: [],
@@ -120,7 +126,22 @@ export function ChatWidget(
       tools,
       forwardedProps,
       ...(debugCallbacks || {}),
+      onCustomEvent: (eventType, data) => {
+        const state = (data as { state?: unknown } | undefined)?.state
+        const sandboxState = eventType === SANDBOX_STATUS_EVENT &&
+            (state === "starting" || state === "ready" || state === "error")
+          ? state
+          : undefined
+        if (sandboxState === undefined) {
+          debug?.("stream", `custom event "${eventType}"`, data)
+          return
+        }
+        debug?.("sandbox", `sandbox ${sandboxState}`)
+        setSandboxStatus(sandboxState)
+      },
     })
+  const sandboxActivity = useMemo(() => collectSandboxActivity(messages), [messages])
+  const showSandboxTray = hasSandboxActivity(sandboxActivity, sandboxStatus)
   useEffect(() => {
     debug?.("status", `chat status is "${status}"`)
   }, [debug, status])
@@ -264,6 +285,7 @@ export function ChatWidget(
     setMessages([])
     setDraft("")
     setAttachments([])
+    setSandboxStatus(undefined)
     discardAllRenders()
   }
 
@@ -314,6 +336,7 @@ export function ChatWidget(
           fades messages at the edge, so the footer needs no separation of its own. */
       }
       <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
+        {showSandboxTray && <SandboxTray activity={sandboxActivity} status={sandboxStatus} />}
         <ChatComposer
           draft={draft}
           onDraftChange={setDraft}

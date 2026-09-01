@@ -51,7 +51,7 @@ const organizationNavigation = [
     icon: UsersThreeIcon,
   },
   {
-    label: "Sandbox providers",
+    label: "Sandboxes",
     href: "/organization/sandbox-providers",
     icon: CubeIcon,
     permission: "organizationConfiguration",
