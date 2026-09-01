@@ -171,9 +171,6 @@ function OrganizationAgents({ state }: { state: OrganizationAgentState }) {
         <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
           {state.agents.map((agent) => {
             const publicId = `agt_${state.organizationSlug}_${agent.slug}`
-            const provider = state.sandboxProviders.find((item) =>
-              item.id === agent.sandboxProviderId
-            )
             const isDefault = agent.id === state.defaultAgentId
             return (
               <Card key={agent.id}>
@@ -188,11 +185,6 @@ function OrganizationAgents({ state }: { state: OrganizationAgentState }) {
                       </Badge>
                     )}
                   </CardTitle>
-                  <CardDescription>
-                    {agent.sandboxProviderId === null
-                      ? "No sandbox provider"
-                      : provider?.name ?? "Provider unavailable"}
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1.5">
