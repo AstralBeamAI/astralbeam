@@ -84,7 +84,15 @@ export const Route = createFileRoute("/api/chat/")({
         try {
           const { agentId, systemPrompt, debug } = params.forwardedProps
           const selectedAgent = await resolveChatAgent(agentId, principal.organization.id)
-          if (!selectedAgent) return errorResponse(request, 404, "Agent not found.")
+          if (!selectedAgent) {
+            return errorResponse(
+              request,
+              404,
+              agentId === undefined || agentId === null
+                ? "This organization has no default agent; pass an agentId or set a default."
+                : "Agent not found.",
+            )
+          }
           if (systemPrompt !== undefined && !isAgentSystemPrompt(systemPrompt)) {
             return errorResponse(request, 400, "The system prompt override is invalid.")
           }

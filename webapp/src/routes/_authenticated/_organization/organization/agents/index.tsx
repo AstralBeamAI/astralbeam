@@ -1,5 +1,12 @@
-import { CopyIcon, PencilSimpleIcon, PlusIcon, RobotIcon, TrashIcon } from "@phosphor-icons/react"
-import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router"
+import {
+  CopyIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  RobotIcon,
+  StarIcon,
+  TrashIcon,
+} from "@phosphor-icons/react"
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 
 import { GeneratedSlugField } from "@/components/generated-slug-field"
@@ -14,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -42,10 +50,14 @@ import { checkOrganizationAgentSlugAvailability } from "./-functions/check-organ
 import { createOrganizationAgentState } from "./-functions/create-organization-agent.ts"
 import { deleteOrganizationAgentState } from "./-functions/delete-organization-agent.ts"
 import { getOrganizationAgentState } from "./-functions/get-organization-agent-state.ts"
+import { setOrganizationDefaultAgentState } from "./-functions/set-organization-default-agent.ts"
 import { updateOrganizationAgentState } from "./-functions/update-organization-agent.ts"
 
 type OrganizationAgentState = NonNullable<Awaited<ReturnType<typeof getOrganizationAgentState>>>
 type AgentSandboxProviderSummary = OrganizationAgentState["sandboxProviders"][number]
+
+/** Stands in for a null provider, which the Select cannot represent with an empty value. */
+const NO_SANDBOX_PROVIDER = "none"
 
 function checkAgentSlug(value: string) {
   return checkOrganizationAgentSlugAvailability({ data: value })
@@ -83,13 +95,29 @@ function OrganizationAgentsPage() {
 function OrganizationAgents({ state }: { state: OrganizationAgentState }) {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(
-    state.agents.length === 0 && state.sandboxProviders.length > 0 ? "new" : null,
+    state.agents.length === 0 ? "new" : null,
   )
   const [busyId, setBusyId] = useState<string | null>(null)
   const controlsDisabled = editingId !== null || busyId !== null
   const editing = editingId === "new"
     ? null
     : state.agents.find((agent) => agent.id === editingId) ?? null
+
+  const makeAgentDefault = async (agent: OrganizationAgent) => {
+    setBusyId(agent.id)
+    try {
+      const result = await setOrganizationDefaultAgentState({ data: { id: agent.id } })
+      toast.add({
+        title: result.ok ? `${agent.name} is now the default agent` : result.message,
+        type: result.ok ? "success" : "error",
+      })
+      await router.invalidate()
+    } catch {
+      agentRequestFailedToast()
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   const removeAgent = async (agent: OrganizationAgent) => {
     setBusyId(agent.id)
@@ -118,34 +146,16 @@ function OrganizationAgents({ state }: { state: OrganizationAgentState }) {
             Set the default instructions for each chat experience.
           </p>
           <p className="text-sm text-muted-foreground">
-            Copy its browser-safe ID into the SDK's{" "}
-            <code className="font-mono text-foreground">agentId</code> option.
+            Copy an agent's browser-safe ID into the SDK's{" "}
+            <code className="font-mono text-foreground">agentId</code>{" "}
+            option, or omit that option to use the default agent.
           </p>
         </div>
-        <Button
-          disabled={controlsDisabled || state.sandboxProviders.length === 0}
-          onClick={() => setEditingId("new")}
-        >
+        <Button disabled={controlsDisabled} onClick={() => setEditingId("new")}>
           <PlusIcon aria-hidden="true" />
           Add agent
         </Button>
       </div>
-
-      {state.sandboxProviders.length === 0 && (
-        <Card className="max-w-2xl">
-          <CardHeader>
-            <CardTitle>Add a sandbox provider first</CardTitle>
-            <CardDescription>
-              Agents save a provider for future sandbox execution.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button render={<Link to="/organization/sandbox-providers" />}>
-              Add sandbox provider
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
 
       {editingId !== null && (
         <OrganizationAgentForm
@@ -161,17 +171,20 @@ function OrganizationAgents({ state }: { state: OrganizationAgentState }) {
         <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
           {state.agents.map((agent) => {
             const publicId = `agt_${state.organizationSlug}_${agent.slug}`
-            const provider = state.sandboxProviders.find((item) =>
-              item.id === agent.sandboxProviderId
-            )
+            const isDefault = agent.id === state.defaultAgentId
             return (
               <Card key={agent.id}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <RobotIcon aria-hidden="true" />
-                    {agent.name}
+                    <span className="min-w-0 flex-1 truncate">{agent.name}</span>
+                    {isDefault && (
+                      <Badge variant="secondary" className="gap-1">
+                        <StarIcon aria-hidden="true" />
+                        Default
+                      </Badge>
+                    )}
                   </CardTitle>
-                  <CardDescription>{provider?.name ?? "Provider unavailable"}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1.5">
@@ -204,6 +217,17 @@ function OrganizationAgents({ state }: { state: OrganizationAgentState }) {
                     <PencilSimpleIcon aria-hidden="true" />
                     Edit
                   </Button>
+                  {!isDefault && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={controlsDisabled}
+                      onClick={() => void makeAgentDefault(agent)}
+                    >
+                      <StarIcon aria-hidden="true" />
+                      Set as default
+                    </Button>
+                  )}
                   <AlertDialog>
                     <AlertDialogTrigger
                       render={
@@ -261,20 +285,26 @@ function OrganizationAgentForm({
   const [name, setName] = useState(existing?.name ?? "")
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
   const [sandboxProviderId, setSandboxProviderId] = useState(
-    existing?.sandboxProviderId ?? sandboxProviders[0]?.id ?? "",
+    existing?.sandboxProviderId ?? NO_SANDBOX_PROVIDER,
   )
   const [availability, setAvailability] = useState<
     "available" | "checking" | "idle" | "invalid" | "unavailable"
   >("idle")
   const [saving, setSaving] = useState(false)
-  const sandboxProviderItems = sandboxProviders.map((provider) => ({
-    label: `${provider.name} (${provider.providerType})`,
-    value: provider.id,
-  }))
+  const sandboxProviderItems = [
+    { label: "None", value: NO_SANDBOX_PROVIDER },
+    ...sandboxProviders.map((provider) => ({
+      label: `${provider.name} (${provider.providerType})`,
+      value: provider.id,
+    })),
+  ]
+  const selectedSandboxProviderId = sandboxProviderId === NO_SANDBOX_PROVIDER
+    ? null
+    : sandboxProviderId
   const publicId = existing ? `agt_${organizationSlug}_${existing.slug}` : null
   const normalizedName = name.trim()
   const valid = normalizedName.length > 0 && normalizedName.length <= 100 &&
-    systemPrompt.length > 0 && systemPrompt.length <= 32_768 && sandboxProviderId.length > 0 &&
+    systemPrompt.length > 0 && systemPrompt.length <= 32_768 &&
     (existing !== null || (availability !== "invalid" && availability !== "unavailable"))
 
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
@@ -291,11 +321,16 @@ function OrganizationAgentForm({
             lockVersion: existing.lockVersion,
             name: normalizedName,
             systemPrompt,
-            sandboxProviderId,
+            sandboxProviderId: selectedSandboxProviderId,
           },
         })
         : await createOrganizationAgentState({
-          data: { slug: slug as string, name: normalizedName, systemPrompt, sandboxProviderId },
+          data: {
+            slug: slug as string,
+            name: normalizedName,
+            systemPrompt,
+            sandboxProviderId: selectedSandboxProviderId,
+          },
         })
       toast.add({
         title: result.ok ? (existing ? "Agent saved" : "Agent created") : result.message,
@@ -383,13 +418,14 @@ function OrganizationAgentForm({
               <Select
                 items={sandboxProviderItems}
                 value={sandboxProviderId}
-                onValueChange={(value) => setSandboxProviderId(value ?? "")}
+                onValueChange={(value) => setSandboxProviderId(value ?? NO_SANDBOX_PROVIDER)}
                 disabled={saving}
               >
                 <SelectTrigger id="agent-sandbox-provider" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_SANDBOX_PROVIDER}>None</SelectItem>
                   {sandboxProviders.map((provider) => (
                     <SelectItem key={provider.id} value={provider.id}>
                       {provider.name} ({provider.providerType})
@@ -398,7 +434,7 @@ function OrganizationAgentForm({
                 </SelectContent>
               </Select>
               <FieldDescription>
-                Saved for future sandbox execution; chat doesn't use it yet.
+                Optional, and saved for future sandbox execution; chat doesn't use it yet.
               </FieldDescription>
             </Field>
           </FieldGroup>

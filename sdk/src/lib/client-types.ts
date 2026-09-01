@@ -99,8 +99,11 @@ export interface AstralBeamChatTheme {
 }
 
 export interface MountAstralBeamChatOptions {
-  /** Public ID of the organization-owned agent. Fixed for this mounted chat. */
-  agentId: string
+  /**
+   * Public ID of the organization-owned agent, fixed for this mounted chat. Omit it to use the
+   * organization's default agent, which the dashboard's agents page selects.
+   */
+  agentId?: string | undefined
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
   title?: string | undefined
   /**
