@@ -34,6 +34,7 @@
     "npm:@tanstack/eslint-plugin-start@*": "0.1.0_eslint@10.9.1_typescript@6.0.3",
     "npm:@tanstack/eslint-plugin-start@0.1": "0.1.0_eslint@10.9.1_typescript@6.0.3",
     "npm:@tanstack/react-devtools@~0.10.9": "0.10.10_@types+react@19.2.18_@types+react-dom@19.2.4__@types+react@19.2.18_react@19.2.8_react-dom@19.2.8__react@19.2.8_@neodrag+core@3.0.0-next.11_csstype@3.2.3_solid-js@1.9.14",
+    "npm:@tanstack/react-pacer@0.23": "0.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-query@5.102.0": "5.102.0_react@19.2.8",
     "npm:@tanstack/react-router-devtools@^1.167.0": "1.167.1_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_@tanstack+router-core@1.171.24_react@19.2.8_react-dom@19.2.8__react@19.2.8_csstype@3.2.3",
     "npm:@tanstack/react-router-ssr-query@1.167.1": "1.167.1_@tanstack+query-core@5.102.0_@tanstack+react-query@5.102.0__react@19.2.8_@tanstack+react-router@1.170.29__react@19.2.8__react-dom@19.2.8___react@19.2.8_react@19.2.8_react-dom@19.2.8__react@19.2.8_@tanstack+router-core@1.171.24",
@@ -3127,6 +3128,13 @@
         "openai"
       ]
     },
+    "@tanstack/pacer@0.22.0": {
+      "integrity": "sha512-Zq23KOn30tFiA6ZYWihs5x++ttHkOIcnIIjRrJq05tGrYx9+iHsmVaj8jb7UJVemEI+JRWGzJ9C+50YV4nRz0w==",
+      "dependencies": [
+        "@tanstack/devtools-event-client@0.5.0",
+        "@tanstack/store@0.11.1"
+      ]
+    },
     "@tanstack/query-core@5.102.0": {
       "integrity": "sha512-tvBzr11Q7StuMCEsIJdqX8TAWt6WZIzfw/yrSAjObZDerwTTPeCxeLXN2R8ZSn4ZxFpQV819Xn8QmoO+vtnDvw=="
     },
@@ -3136,6 +3144,15 @@
         "@tanstack/devtools",
         "@types/react",
         "@types/react-dom",
+        "react",
+        "react-dom"
+      ]
+    },
+    "@tanstack/react-pacer@0.23.0_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+      "integrity": "sha512-Ec3h+kT8kYlpGb1M8F7836q+udE/M2RmE8KLr1rhs+UDBgvxjfmyR2bIUeaDEe9Zn1YXNI986RbErXyr5fEJIg==",
+      "dependencies": [
+        "@tanstack/pacer",
+        "@tanstack/react-store@0.11.1_react@19.2.8_react-dom@19.2.8__react@19.2.8",
         "react",
         "react-dom"
       ]
@@ -3235,6 +3252,15 @@
       ],
       "optionalPeers": [
         "vite"
+      ]
+    },
+    "@tanstack/react-store@0.11.1_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
+      "integrity": "sha512-HaIGKI3YLmjBYIvy5DFDY23oNaYZIsTZfngey07Uh5iLVJgM3bIGCnZeOFOqzjFld9JHWcaHJnasD/bKoGKwJQ==",
+      "dependencies": [
+        "@tanstack/store@0.11.1",
+        "react",
+        "react-dom",
+        "use-sync-external-store"
       ]
     },
     "@tanstack/react-store@0.9.3_react@19.2.8_react-dom@19.2.8__react@19.2.8": {
@@ -3387,6 +3413,9 @@
       "dependencies": [
         "@tanstack/router-core"
       ]
+    },
+    "@tanstack/store@0.11.1": {
+      "integrity": "sha512-mzTOBhypOuDJAy/D8n2MfUZ1HFkXnmSETviRyhqEC8LUE7/IZQExOTxMANj3KjTofYTkFNpBY67qaVrT41YccA=="
     },
     "@tanstack/store@0.9.3": {
       "integrity": "sha512-8reSzl/qGWGGVKhBoxXPMWzATSbZLZFWhwBAFO9NAyp0TxzfBP0mIrGb8CP8KrQTmvzXlR/vFPPUrHTLBGyFyw=="
@@ -7475,6 +7504,7 @@
         "npm:@tanstack/eslint-plugin-router@^1.162.0",
         "npm:@tanstack/eslint-plugin-start@0.1",
         "npm:@tanstack/react-devtools@~0.10.9",
+        "npm:@tanstack/react-pacer@0.23",
         "npm:@tanstack/react-query@5.102.0",
         "npm:@tanstack/react-router-devtools@^1.167.0",
         "npm:@tanstack/react-router-ssr-query@1.167.1",

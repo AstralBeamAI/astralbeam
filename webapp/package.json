@@ -53,6 +53,7 @@
     "@tanstack/ai-sandbox-sprites": "^0.2.4",
     "@tanstack/ai-sandbox-vercel": "^0.2.4",
     "@tanstack/react-devtools": "^0.10.9",
+    "@tanstack/react-pacer": "^0.23.0",
     "@tanstack/react-query": "5.102.0",
     "@tanstack/react-router": "^1.170.18",
     "@tanstack/react-router-devtools": "^1.167.0",

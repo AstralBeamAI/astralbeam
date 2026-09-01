@@ -1,6 +1,7 @@
 "use client"
 
 import { ArrowsClockwiseIcon, CheckIcon, XIcon } from "@phosphor-icons/react"
+import { useDebouncer } from "@tanstack/react-pacer"
 import { useEffect, useState } from "react"
 
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
@@ -63,6 +64,20 @@ export function GeneratedSlugField({
     ? availabilityResult.availability
     : "checking"
 
+  const availabilityDebouncer = useDebouncer(
+    async (nextValue: string) => {
+      if (!checkAvailability) return
+
+      try {
+        const next = await checkAvailability(nextValue) ? "available" : "unavailable"
+        setAvailabilityResult({ value: nextValue, availability: next })
+      } catch {
+        setAvailabilityResult({ value: nextValue, availability: "idle" })
+      }
+    },
+    { wait: 500 },
+  )
+
   // Generate browser-only randomness after hydration so the initial trees match.
   // https://react.dev/reference/react-dom/client/hydrateRoot#caveats
   useEffect(() => {
@@ -73,38 +88,22 @@ export function GeneratedSlugField({
   }, [createSuffixBytes])
 
   useEffect(() => {
-    let current = true
-    if (!valid) {
-      onAvailabilityChange?.("invalid")
-      return
-    }
-    if (!checkAvailability) {
-      onAvailabilityChange?.("available")
+    onAvailabilityChange?.(availability)
+    if (availability !== "checking" || !checkAvailability) {
+      availabilityDebouncer.cancel()
       return
     }
 
-    onAvailabilityChange?.("checking")
-    const timeout = globalThis.setTimeout(() => {
-      void checkAvailability(value).then(
-        (available) => {
-          if (!current) return
-          const next = available ? "available" : "unavailable"
-          setAvailabilityResult({ value, availability: next })
-          onAvailabilityChange?.(next)
-        },
-        () => {
-          if (!current) return
-          setAvailabilityResult({ value, availability: "idle" })
-          onAvailabilityChange?.("idle")
-        },
-      )
-    }, 500)
-
-    return () => {
-      current = false
-      globalThis.clearTimeout(timeout)
-    }
-  }, [checkAvailability, onAvailabilityChange, valid, value])
+    availabilityDebouncer.maybeExecute(value)
+    return availabilityDebouncer.cancel
+  }, [
+    availability,
+    availabilityDebouncer.cancel,
+    availabilityDebouncer.maybeExecute,
+    checkAvailability,
+    onAvailabilityChange,
+    value,
+  ])
 
   const regenerate = () => {
     setSuffixBytes(createSuffixBytes())
