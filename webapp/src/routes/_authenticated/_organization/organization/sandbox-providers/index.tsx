@@ -84,7 +84,7 @@ export const Route = createFileRoute(
   },
   component: OrganizationSandboxProvidersPage,
   pendingComponent: OrganizationSandboxProvidersPageSkeleton,
-  head: () => ({ meta: [{ title: `Sandbox providers · ${APP_NAME}` }] }),
+  head: () => ({ meta: [{ title: `Sandboxes · ${APP_NAME}` }] }),
 })
 
 function OrganizationSandboxProvidersPage() {
@@ -147,7 +147,7 @@ function OrganizationSandboxProviders({ state }: { state: OrganizationSandboxSta
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Sandbox providers
+            Sandboxes
           </h1>
           <p className="text-sm text-muted-foreground">
             Configure named sandbox providers for this organization. Credentials are encrypted and

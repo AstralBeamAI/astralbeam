@@ -20,6 +20,12 @@ export interface ChatAttachmentOutcome {
 
 export type DebugLog = (category: string, summary: string, data?: unknown) => void
 
+/**
+ * Sandbox provisioning progress. Streamed as a CUSTOM event because it is the one thing a tool
+ * result cannot report in time: the widget needs it while the sandbox is still starting.
+ */
+export type ChatSandboxStatus = { readonly state: "starting" | "ready" | "error" }
+
 export interface ChatAuthenticationError extends Error {
   code: "invalid_token"
 }

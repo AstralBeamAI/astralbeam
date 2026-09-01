@@ -10,6 +10,18 @@ export const ASK_QUESTIONNAIRE_TOOL = "ask_questionnaire"
 // component state for the life of the conversation, so the oldest are evicted past this many.
 export const MAX_ACTIVE_WIDGET_RENDERS = 20
 
+// Server-side tools the chat endpoint adds when the agent has a sandbox provider configured. The
+// widget never declares or executes these — it recognizes their names so a write reads as code and
+// a command reads as a terminal, instead of both landing in the generic JSON disclosure. The names
+// and the event below mirror the endpoint's `-lib/sandbox-tools.server.ts`; keep them in step.
+export const SANDBOX_WRITE_FILE_TOOL = "sandbox_write_file"
+export const SANDBOX_READ_FILE_TOOL = "sandbox_read_file"
+export const SANDBOX_LIST_FILES_TOOL = "sandbox_list_files"
+export const SANDBOX_RUN_COMMAND_TOOL = "sandbox_run_command"
+
+/** CUSTOM stream event carrying sandbox provisioning progress, which no tool result can report. */
+export const SANDBOX_STATUS_EVENT = "astralbeam.sandbox.status"
+
 // Attachment limits and accepted types. The caps are per kind because the cost of a file to a
 // run differs by kind: an image is billed as tokens by area, a PDF page by page, a text file by
 // its characters. The endpoint enforces the same numbers, so a patched client gains nothing.

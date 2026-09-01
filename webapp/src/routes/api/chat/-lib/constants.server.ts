@@ -91,6 +91,52 @@ export const CHAT_ATTACHMENT_TEXT_MIME_TYPES = [
   "image/svg+xml",
 ]
 
+// Sandbox execution. An agent with a configured sandbox provider gets the tools in
+// `-lib/sandbox-tools.server.ts`; one sandbox is reused for a conversation and torn down when it
+// goes idle. Prompt text stays here beside CHAT_SYSTEM_PROMPT rather than in the tool module.
+/** Virtual workspace root TanStack providers map onto their own working directory. */
+export const CHAT_SANDBOX_ROOT = "/workspace"
+
+export const CHAT_SANDBOX_SYSTEM_PROMPT =
+  "You also have a private Linux sandbox for this conversation. Write files with " +
+  "sandbox_write_file, read them with sandbox_read_file, list a directory with " +
+  "sandbox_list_files, and run shell commands with sandbox_run_command. " +
+  "Paths may be relative to the sandbox's workspace directory, and every result reports the " +
+  "absolute path it used: reuse those exact paths when a command needs one, because the shell " +
+  "resolves a path literally and will not find a file under a directory that does not exist. " +
+  "The sandbox and everything in it persist for the rest of this conversation, so build on the " +
+  "files you already wrote instead of starting over. Prefer writing a file and running it over " +
+  "one long shell line, and install what you need with the sandbox's own package managers. " +
+  "The user can expand any sandbox step in the conversation to read the file you wrote or the " +
+  "full command output, so summarize results instead of pasting long files or logs into your " +
+  "replies. The sandbox holds no credentials and is not the user's machine: never write a secret " +
+  "into it, and say so if you are asked to reach something only the user's own machine can see."
+
+// Provisioning is the slowest thing in a sandboxed run — a fresh cloud sandbox is tens of
+// seconds — and a command can hang, so every step is bounded and the tool reports the timeout to
+// the agent rather than failing the run.
+export const CHAT_SANDBOX_START_TIMEOUT_MS = 120_000
+export const CHAT_SANDBOX_COMMAND_TIMEOUT_MS = 120_000
+export const CHAT_SANDBOX_FILE_TIMEOUT_MS = 30_000
+
+// Command output and file reads are model context and stream to the widget, so both are capped
+// with the middle elided; a build log or a minified bundle would otherwise blow up the run.
+export const CHAT_SANDBOX_MAX_OUTPUT_CHARACTERS = 20_000
+export const CHAT_SANDBOX_MAX_FILE_CHARACTERS = 40_000
+export const CHAT_SANDBOX_MAX_WRITE_CHARACTERS = 200_000
+export const CHAT_SANDBOX_MAX_LISTED_ENTRIES = 200
+export const CHAT_SANDBOX_MAX_PATH_LENGTH = 512
+
+// Sandboxes are billed by the vendor, so an abandoned conversation must not keep one alive: a
+// sandbox untouched for this long is destroyed, and the least recently used one is destroyed when
+// the process is already holding the cap.
+export const CHAT_SANDBOX_IDLE_TTL_MS = 15 * 60_000
+export const CHAT_SANDBOX_SWEEP_INTERVAL_MS = 60_000
+export const CHAT_SANDBOX_MAX_LIVE = 25
+
+/** CUSTOM stream event carrying provisioning progress, which no tool result can report in time. */
+export const CHAT_SANDBOX_STATUS_EVENT = `${APP_HANDLE}.sandbox.status`
+
 export const DEBUG_ANSI_RESET = "\x1b[0m"
 export const DEBUG_ANSI_BADGE = "\x1b[45;97m" // magenta background, white text
 export const DEBUG_ANSI_DIM = "\x1b[2m"
@@ -101,6 +147,7 @@ export const DEBUG_ANSI_BY_CATEGORY: Record<string, string> = {
   text: "\x1b[32m",
   reasoning: "\x1b[90m",
   tool: "\x1b[33m",
+  sandbox: "\x1b[96m",
   attachment: "\x1b[36m",
   error: "\x1b[31m",
 }

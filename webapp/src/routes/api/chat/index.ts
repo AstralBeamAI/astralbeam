@@ -1,4 +1,5 @@
 import {
+  type AnyServerTool,
   chat,
   chatParamsFromRequestBody,
   mergeAgentTools,
@@ -13,9 +14,11 @@ import { createChatAdapter } from "./-lib/adapter.server"
 import { resolveChatAgent } from "./-lib/agent.server"
 import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
 import { authenticateChatRequest, isChatAuthenticationError } from "./-lib/auth.server"
-import { CHAT_SYSTEM_PROMPT } from "./-lib/constants.server"
+import { CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT } from "./-lib/constants.server"
 import { createDebugLog, withDebugLog } from "./-lib/debug.server"
 import { consumeChatRateLimit } from "./-lib/rate-limit.server"
+import { resolveChatSandboxSession } from "./-lib/sandbox.server"
+import { createChatSandboxTools } from "./-lib/sandbox-tools.server"
 import type { ChatParams } from "./-lib/types"
 import {
   ChatRequestTooLargeError,
@@ -124,17 +127,39 @@ export const Route = createFileRoute("/api/chat/")({
           if (log && attachments.length > 0) {
             log("attachment", `${attachments.length} attachment(s) normalized`, attachments)
           }
+          // The agent's sandbox, when it has one. Resolving it is one database read and builds no
+          // sandbox: the tools provision one only if the agent actually reaches for them.
+          let sandboxTools: AnyServerTool[] = []
+          if (selectedAgent.sandboxProviderId) {
+            try {
+              const session = await runDatabaseEffect(resolveChatSandboxSession({
+                sandboxProviderId: selectedAgent.sandboxProviderId,
+                agentId: selectedAgent.id,
+                principal,
+                threadId: params.threadId,
+                runId: params.runId,
+              }))
+              sandboxTools = createChatSandboxTools({ session, log })
+              log?.("sandbox", `${sandboxTools.length} sandbox tools declared`)
+            } catch (error) {
+              // Degrade rather than refuse the reply: an unreadable provider configuration is the
+              // organization's problem and the agent is still useful without a sandbox. Its tools
+              // and its prompt drop together, so it never offers a capability it does not have.
+              console.error("Failed to prepare the /api/chat sandbox:", error)
+            }
+          }
           const abortController = new AbortController()
           const stream = chat({
             adapter: createChatAdapter(openaiApiKey),
             messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
+              ...(sandboxTools.length > 0 ? [CHAT_SANDBOX_SYSTEM_PROMPT] : []),
               effectiveSystemPrompt,
             ],
-            // No server-side tools yet: every tool executes in the host page and arrives declared
-            // in the request body.
-            tools: mergeAgentTools([], params.tools),
+            // Every other tool executes in the host page and arrives declared in the request body;
+            // a client tool reusing a sandbox tool's name is dropped by `mergeAgentTools`.
+            tools: mergeAgentTools(sandboxTools, params.tools),
             threadId: params.threadId,
             runId: params.runId,
             parentRunId: params.parentRunId,
