@@ -13,6 +13,10 @@ import { cn, describeError } from "../lib/utils.ts"
 import { ComposerAttachments } from "./composer-attachments.tsx"
 
 interface ChatComposerProps {
+  /** Widget title, used in the input's placeholder ("Message <title>…"). */
+  title: string
+  /** Name of the host's composer-actions slot; when set, extra host controls project into the row. */
+  actionsSlot?: string | undefined
   draft: string
   onDraftChange: (draft: string) => void
   onSend: () => void
@@ -39,6 +43,8 @@ interface ChatComposerProps {
 
 export function ChatComposer(
   {
+    title,
+    actionsSlot,
     draft,
     onDraftChange,
     onSend,
@@ -165,7 +171,7 @@ export function ChatComposer(
             ? "Verifying your session…"
             : dropTarget
             ? "Drop files to attach…"
-            : "Message AstralBeam…"}
+            : `Message ${title}…`}
           disabled={blocked}
           value={draft}
           onChange={(event) => onDraftChange(event.currentTarget.value)}
@@ -197,6 +203,11 @@ export function ChatComposer(
               <PaperclipIcon />
             </InputGroupButton>
           )}
+          {
+            /* Host controls project here in the host page's own style; the slot lays out as
+            display: contents, so each projected child is a flex item of this row. */
+          }
+          {actionsSlot && <slot name={actionsSlot} />}
           {streamBusy
             ? (
               <InputGroupButton

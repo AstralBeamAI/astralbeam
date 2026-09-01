@@ -36,6 +36,8 @@ import {
   getValidChatToken,
   initializeChatAuthentication,
 } from "./auth.ts"
+import type { ChatController } from "./index.tsx"
+import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
 
 // Shared fallback so `widgets` keeps its identity across renders when the host registers none;
@@ -43,11 +45,16 @@ import { useWidgetRenders } from "./use-widget-renders.ts"
 const NO_WIDGETS: Record<string, WidgetDefinition> = {}
 
 export function ChatWidget(
-  { options, host }: { options: MountAstralBeamChatOptions; host: HTMLElement },
+  { options, host, controller }: {
+    options: MountAstralBeamChatOptions
+    host: HTMLElement
+    controller: ChatController
+  },
 ) {
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
   const { activeSlots, renderWidget, discardAllRenders } = useWidgetRenders(widgets, host, debug)
+  const hostSlots = useHostSlots(options.slots, host, debug)
   const [authenticationState, setAuthenticationState] = useState<ChatAuthenticationState>({
     status: "loading",
   })
@@ -289,6 +296,16 @@ export function ChatWidget(
     discardAllRenders()
   }
 
+  // Re-registered every render so the loader's handle always calls the latest closures.
+  useEffect(() => {
+    controller.reset = resetConversation
+    controller.stop = stop
+    return () => {
+      controller.reset = undefined
+      controller.stop = undefined
+    }
+  })
+
   // The Card frame with a bordered header, an unpadded content area, and a footer composer is
   // shadcn's canonical chat assembly (docs/changelog/2026-06-chat-components). The host sizes and
   // frames the widget, so the card's own radius and ring are stripped for a full-bleed fit.
@@ -304,23 +321,31 @@ export function ChatWidget(
     >
       {showHeader && (
         <CardHeader className="gap-1 border-b">
-          <CardTitle>{options.title ?? DEFAULT_TITLE}</CardTitle>
-          <CardAction>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Reset conversation"
-              disabled={streamBusy || messages.length === 0}
-              onClick={resetConversation}
-            >
-              <ArrowCounterClockwiseIcon />
-            </Button>
-          </CardAction>
+          {hostSlots.has("header")
+            // The host's own header content, projected in the host page's style.
+            ? <slot name={hostSlotName("header")} />
+            : (
+              <>
+                <CardTitle>{options.title ?? DEFAULT_TITLE}</CardTitle>
+                <CardAction>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label="Reset conversation"
+                    disabled={streamBusy || messages.length === 0}
+                    onClick={resetConversation}
+                  >
+                    <ArrowCounterClockwiseIcon />
+                  </Button>
+                </CardAction>
+              </>
+            )}
         </CardHeader>
       )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
           messages={messages}
+          emptySlot={hostSlots.has("empty") ? hostSlotName("empty") : undefined}
           emptyTitle={options.emptyTitle}
           emptyDescription={options.emptyDescription}
           widgets={widgets}
@@ -338,6 +363,10 @@ export function ChatWidget(
       <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
         {showSandboxTray && <SandboxTray activity={sandboxActivity} status={sandboxStatus} />}
         <ChatComposer
+          title={options.title ?? DEFAULT_TITLE}
+          actionsSlot={hostSlots.has("composerActions")
+            ? hostSlotName("composerActions")
+            : undefined}
           draft={draft}
           onDraftChange={setDraft}
           onSend={sendDraft}

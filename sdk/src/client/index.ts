@@ -15,9 +15,12 @@ export type {
   AstralBeamChatAttachmentOptions,
   AstralBeamChatColorScheme,
   AstralBeamChatHandle,
+  AstralBeamChatSlotRenderer,
+  AstralBeamChatSlots,
   AstralBeamChatTheme,
   AstralBeamChatThemeVariables,
   AstralBeamChatUpdate,
+  InferParameters,
   JsonSchemaObject,
   MountAstralBeamChatOptions,
   ParametersSchema,
@@ -25,6 +28,8 @@ export type {
   ToolDefinition,
   WidgetDefinition,
 } from "../lib/types.ts"
+export { defineTool, defineWidget } from "../lib/define.ts"
+export type { TypedToolDefinition, TypedWidgetDefinition } from "../lib/define.ts"
 
 // Mounts the AstralBeam chat widget into `target`, inside a shadow root that isolates
 // its styles. The React chat loads lazily, keeping this entry a tiny loader.
@@ -110,6 +115,9 @@ export function mountAstralBeamChat(
       applyTheme()
       chat?.update(live)
     },
+    // No-ops until the lazy chunk resolves: with no chat there is nothing to reset or stop.
+    reset: () => chat?.reset(),
+    stop: () => chat?.stop(),
     unmount: () => {
       debug?.("mount", "unmounting chat widget")
       unmounted = true

@@ -92,6 +92,64 @@ async function signingKey(secret: string) {
   return textEncoder.encode(base64url.encode(new Uint8Array(digest)))
 }
 
+export interface CreateAstralBeamTokenRouteOptions<TTenantUser extends TenantUser = TenantUser> {
+  /** The full API key, or a thunk read per request; missing or empty answers 503. */
+  readonly apiKey: string | undefined | (() => string | undefined)
+  /**
+   * Authenticates the request against the application's own session and returns the tenant
+   * user minted into the token. Returning nothing, or throwing, answers 401.
+   */
+  readonly tenantUser: (
+    request: Request,
+  ) => TTenantUser | null | undefined | Promise<TTenantUser | null | undefined>
+  readonly expiresInSeconds?: number | undefined
+}
+
+// Every response carries no-store: a cached token would outlive its short expiry.
+function tokenRouteResponse(body: Record<string, string>, status: number): Response {
+  return Response.json(body, { status, headers: { "cache-control": "no-store" } })
+}
+
+/**
+ * Builds the fetch-standard `POST` handler for an application's token endpoint, owning the
+ * method check, the unconfigured-key 503, the unauthenticated 401, and the `no-store` header.
+ */
+export function createAstralBeamTokenRoute<TTenantUser extends TenantUser = TenantUser>(
+  options: CreateAstralBeamTokenRouteOptions<TTenantUser>,
+): (request: Request) => Promise<Response> {
+  return async (request) => {
+    if (request.method !== "POST") {
+      return tokenRouteResponse({ error: "Use POST" }, 405)
+    }
+    const apiKey = typeof options.apiKey === "function" ? options.apiKey() : options.apiKey
+    if (!apiKey) {
+      return tokenRouteResponse({ error: "The AstralBeam API key is not configured" }, 503)
+    }
+    let tenantUser: TTenantUser | null | undefined
+    try {
+      tenantUser = await options.tenantUser(request)
+    } catch {
+      tenantUser = undefined
+    }
+    if (!tenantUser) {
+      return tokenRouteResponse({ error: "The session could not be verified" }, 401)
+    }
+    try {
+      const token = await createAstralBeamChatToken({
+        apiKey,
+        tenantUser,
+        ...(options.expiresInSeconds === undefined
+          ? {}
+          : { expiresInSeconds: options.expiresInSeconds }),
+      })
+      return tokenRouteResponse({ token }, 200)
+    } catch {
+      // The thrown message can describe the API key's expected shape; never send it to a client.
+      return tokenRouteResponse({ error: "The chat token could not be created" }, 500)
+    }
+  }
+}
+
 /** Creates the short-lived bearer token returned by an application's server auth endpoint. */
 export async function createAstralBeamChatToken<TTenantUser extends TenantUser = TenantUser>({
   apiKey,

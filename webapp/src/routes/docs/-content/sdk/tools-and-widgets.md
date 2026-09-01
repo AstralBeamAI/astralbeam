@@ -44,6 +44,30 @@ widgets: {
 - With plain JSON Schema, nothing validates in the browser: treat the agent's input as untrusted.
 - Models sometimes send numbers as strings; with Zod, prefer `z.coerce.number()` over `z.number()`.
 
+## Typed definitions
+
+`defineTool` and `defineWidget` are identity helpers that exist for their generics: with a Standard Schema in `parameters`, the `execute` or `render` input is the schema's own output type.
+
+```tsx
+import { defineTool, defineWidget } from "@astralbeam/sdk/react"
+import { z } from "zod"
+
+const todoCard = defineWidget({
+  description: "A single todo from the host app, addressed by its id",
+  parameters: z.object({ id: z.coerce.number(), highlight: z.boolean().optional() }),
+  render: ({ id, highlight }) => <TodoCard id={id} highlight={highlight ?? false} />,
+})
+
+const createTodo = defineTool({
+  description: "Create a new todo and append it to the list",
+  parameters: z.object({ text: z.string().min(1) }),
+  execute: ({ text }) => addTodo(text), // text: string, validated before this runs
+})
+```
+
+- Import them from `@astralbeam/sdk/react` (JSX widgets) or `@astralbeam/sdk/client` (container widgets).
+- With a plain JSON Schema, the input stays `Record<string, unknown>`, which is the honest type.
+
 ## Live state
 
 Definitions are declared once but called many turns later, so make sure they read current state.

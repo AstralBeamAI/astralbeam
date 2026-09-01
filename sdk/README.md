@@ -36,19 +36,19 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 The widget will not chat until your app mints it a short-lived token; it never sees your API key. See [Authentication](https://app.astralbeam.ai/docs/sdk/authentication).
 
 ```ts
-import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
+import { createAstralBeamTokenRoute } from "@astralbeam/sdk/server"
 
-export async function POST(request: Request) {
-  const session = await requireApplicationSession(request)
-  const token = await createAstralBeamChatToken({
-    apiKey: process.env.ASTRALBEAM_API_KEY!, // key_<organization>_<key>_abo_<secret>
-    tenantUser: { id: session.user.id, name: session.user.name },
-  })
-  return Response.json({ token }, { headers: { "cache-control": "no-store" } })
-}
+export const POST = createAstralBeamTokenRoute({
+  apiKey: () => process.env.ASTRALBEAM_API_KEY, // key_<organization>_<key>_abo_<secret>
+  tenantUser: async (request) => {
+    const session = await getApplicationSession(request)
+    return session && { id: session.user.id, name: session.user.name }
+  },
+})
 ```
 
 - Add one endpoint, `/api/astralbeam/token` by default, that authenticates your own session first.
+- The factory owns the method check, the unconfigured 503, the unauthenticated 401, and `no-store`.
 - Derive `tenantUser` from trusted server-side state, never from anything the browser sent.
 - Tokens are signed, not encrypted: never put a secret in them.
 - Lifetimes are 60–600 seconds; the SDK renews in memory before expiry.
@@ -57,18 +57,21 @@ export async function POST(request: Request) {
 
 Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` applies any subset in place. `agentId`, `chatEndpoint`, and `authEndpoint` are fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
 
-| Option                           | Default                              | Meaning                                                   |
-| -------------------------------- | ------------------------------------ | --------------------------------------------------------- |
-| `agentId`                        | organization's default               | `agt_<organization>_<agent>` from the dashboard           |
-| `chatEndpoint`                   | `https://app.astralbeam.ai/api/chat` | The AstralBeam chat endpoint the widget streams from      |
-| `authEndpoint`                   | `/api/astralbeam/token`              | Your token endpoint                                       |
-| `systemPrompt`                   | the agent's stored prompt            | Overrides the agent's instructions for this integration   |
-| `title`, `showHeader`            | `"AstralBeam"`, `true`               | Header text, and whether the header and reset button show |
-| `emptyTitle`, `emptyDescription` | generic copy                         | Headline and subtitle of the empty transcript             |
-| `colorScheme`, `theme`           | `"system"`, built-in palette         | Light/dark/system, and shadcn token overrides             |
-| `attachments`                    | `true`                               | `false` hides the feature, or pass limits                 |
-| `tools`, `widgets`               | none                                 | What the agent can do and draw in your app                |
-| `debug`                          | `false`                              | Log every SDK action in the browser and on the server     |
+| Option                               | Default                              | Meaning                                                         |
+| ------------------------------------ | ------------------------------------ | --------------------------------------------------------------- |
+| `agentId`                            | organization's default               | `agt_<organization>_<agent>` from the dashboard                 |
+| `chatEndpoint`                       | `https://app.astralbeam.ai/api/chat` | The AstralBeam chat endpoint the widget streams from            |
+| `authEndpoint`                       | `/api/astralbeam/token`              | Your token endpoint                                             |
+| `systemPrompt`                       | the agent's stored prompt            | Overrides the agent's instructions for this integration         |
+| `title`, `showHeader`                | `"AstralBeam"`, `true`               | Header text, and whether the header and reset button show       |
+| `emptyTitle`, `emptyDescription`     | generic copy                         | Headline and subtitle of the empty transcript                   |
+| `colorScheme`, `theme`               | `"system"`, built-in palette         | Light/dark/system, and shadcn token overrides                   |
+| `attachments`                        | `true`                               | `false` hides the feature, or pass limits                       |
+| `tools`, `widgets`                   | none                                 | What the agent can do and draw in your app                      |
+| `header`, `empty`, `composerActions` | widget's own chrome                  | Host-rendered replacements (React props; `slots` on the handle) |
+| `debug`                              | `false`                              | Log every SDK action in the browser and on the server           |
+
+A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
 
 ## Tools and widgets
 
@@ -94,6 +97,7 @@ widgets: {
 
 - Schemas are plain JSON Schema, or any [Standard Schema](https://standardschema.dev) validator (Zod, Valibot, ArkType).
 - Only a Standard Schema validates input in the browser; with plain JSON Schema, treat input as untrusted.
+- `defineTool` and `defineWidget` type `execute`/`render` input from a Standard Schema's output.
 - In React, `render` returns JSX in your own tree, so state, context, and handlers keep working.
 - New tools and widgets reach the agent on its next run.
 
@@ -117,7 +121,7 @@ There is no root export. Conversation history is not built yet.
 | ------------------------ | ----------------------------------------- | -------------------- |
 | `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader | none                 |
 | `@astralbeam/sdk/react`  | `<AstralBeamChat>`                        | `react`, `react-dom` |
-| `@astralbeam/sdk/server` | `createAstralBeamChatToken`               | none                 |
+| `@astralbeam/sdk/server` | `createAstralBeamChatToken`, `createAstralBeamTokenRoute` | none |
 | `@astralbeam/sdk/vue`    | Vue components (placeholder)              | `vue`                |
 
 ## Example

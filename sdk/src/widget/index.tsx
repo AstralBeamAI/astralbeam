@@ -7,7 +7,18 @@ import { chatStyles } from "./styles.generated.ts"
 
 export interface ChatHandle {
   update: (options: MountAstralBeamChatOptions) => void
+  reset: () => void
+  stop: () => void
   dispose: () => void
+}
+
+/**
+ * The widget's imperative surface, registered by ChatWidget from an effect. Plain mutable data
+ * rather than a React ref so the loader can hold it before the first render commits.
+ */
+export interface ChatController {
+  reset?: (() => void) | undefined
+  stop?: (() => void) | undefined
 }
 
 export function renderChat(
@@ -26,16 +37,25 @@ export function renderChat(
   let live = options
   const disposeHostStyle = bridgeHostStyle(shadowRoot, () => createDebugLogger(live.debug))
   const root = createRoot(container)
+  const controller: ChatController = {}
   // The mount target (an HTMLElement per mountAstralBeamChat) hosts the slotted widget renders.
   const render = (nextOptions: MountAstralBeamChatOptions) => {
     live = nextOptions
-    root.render(<ChatWidget options={nextOptions} host={shadowRoot.host as HTMLElement} />)
+    root.render(
+      <ChatWidget
+        options={nextOptions}
+        host={shadowRoot.host as HTMLElement}
+        controller={controller}
+      />,
+    )
   }
   render(options)
   return {
     // Rendering the same element type into the same root updates it in place, so the transcript,
     // the chat session, and live widget renders all survive an update.
     update: render,
+    reset: () => controller.reset?.(),
+    stop: () => controller.stop?.(),
     dispose: () => {
       root.unmount()
       disposeHostStyle()

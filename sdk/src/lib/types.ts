@@ -3,13 +3,24 @@
 
 // Minimal Standard Schema interface, vendored as the spec suggests: just enough to
 // accept any spec-compliant validator (Zod, Valibot, ArkType, ...) without a dependency.
-export interface StandardSchemaV1 {
+export interface StandardSchemaV1<Input = unknown, Output = Input> {
   readonly "~standard": {
     readonly version: 1
     readonly vendor: string
     readonly validate: (value: unknown) => unknown
+    /** Type-level only; the spec keeps it undefined at runtime. */
+    readonly types?: { readonly input: Input; readonly output: Output } | undefined
   }
 }
+
+/**
+ * Input type `defineTool`/`defineWidget` derive from a `parameters` schema: a Standard Schema's
+ * validated output, or untyped props for a plain JSON Schema, which nothing validates in the browser.
+ */
+// deno-lint-ignore no-explicit-any -- `any` matches any schema input variance-free; `unknown` would not.
+export type InferParameters<S extends ParametersSchema> = S extends StandardSchemaV1<any, infer O>
+  ? O
+  : Record<string, unknown>
 
 /** A plain JSON Schema object, the same shape tool definitions use for their parameters. */
 export interface JsonSchemaObject {
@@ -81,6 +92,22 @@ export interface AstralBeamChatAttachmentOptions {
   accept?: readonly string[] | undefined
 }
 
+/**
+ * Draws host content into `container`, a light-DOM element the widget projects into the
+ * named area. May return a cleanup, called when the slot is replaced and on unmount.
+ */
+export type AstralBeamChatSlotRenderer = (container: HTMLElement) => (() => void) | void
+
+/** Host-rendered replacements for the widget's own chrome; each renders in the host page's style. */
+export interface AstralBeamChatSlots {
+  /** Replaces the header's content (title and reset button); `showHeader: false` still hides the row. */
+  header?: AstralBeamChatSlotRenderer | undefined
+  /** Replaces the empty-transcript state (icon, headline, and subtitle). */
+  empty?: AstralBeamChatSlotRenderer | undefined
+  /** Extra controls at the end of the composer's button row, next to send. */
+  composerActions?: AstralBeamChatSlotRenderer | undefined
+}
+
 /** Color scheme of the chat widget; `"system"` follows the OS `prefers-color-scheme` setting. */
 export type AstralBeamChatColorScheme = "light" | "dark" | "system"
 
@@ -129,6 +156,8 @@ export interface MountAstralBeamChatOptions {
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
+  /** Host-rendered replacements for parts of the widget's chrome; see `AstralBeamChatSlots`. */
+  slots?: AstralBeamChatSlots | undefined
   /**
    * File attachments in the composer, on by default. `false` turns them off; an options object
    * narrows the limits and accepted types.
@@ -160,4 +189,8 @@ export interface AstralBeamChatHandle {
    * transcript, the chat session, and live widget renders. Only the keys given are replaced.
    */
   update: (options: AstralBeamChatUpdate) => void
+  /** Clears the conversation: transcript, drafts, attachments, and live widget renders. */
+  reset: () => void
+  /** Stops the in-flight generation, if any; the transcript keeps what already streamed. */
+  stop: () => void
 }

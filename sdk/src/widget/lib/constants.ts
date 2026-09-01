@@ -147,7 +147,11 @@ export const ATTACHMENT_TEXT_FILENAMES = [
 
 /** Slot name prefix for widget renders; the bridged style rule keys off it. */
 export const WIDGET_SLOT_PREFIX = "astralbeam-widget-"
-export const WIDGET_SLOT_SELECTOR = `slot[name^="${WIDGET_SLOT_PREFIX}"]`
+export const HOST_SLOT_PREFIX = "astralbeam-slot-"
+// One selector covers widget renders and chrome slots: both project host content that
+// should read in the host page's own style.
+export const WIDGET_SLOT_SELECTOR =
+  `slot[name^="${WIDGET_SLOT_PREFIX}"], slot[name^="${HOST_SLOT_PREFIX}"]`
 
 /**
  * Every inherited CSS property, bridged from the host page onto the widget slots. Longhands are
@@ -265,8 +269,9 @@ export const INHERITED_PROPERTIES = [
   "marker-end",
   "dominant-baseline",
   "text-anchor",
-  // Non-standard but inherited
-  "-webkit-text-fill-color",
+  // Non-standard but inherited. -webkit-text-fill-color is deliberately absent: its computed
+  // value is a concrete color that would beat `color` on every projected element, so
+  // hostStyleRule pins it back to currentColor instead of bridging it.
   "-webkit-text-stroke-color",
   "-webkit-text-stroke-width",
   "-webkit-font-smoothing",

@@ -35,4 +35,4 @@ Your own widgets (see [Tools and widgets](./tools-and-widgets.md)) render in the
 - Your own selectors match a render like any other element; target `[slot^="astralbeam-widget-"]` for all of them.
 - Inherited properties are read from the mount target's parent, so rules on the target itself are missed.
 - Tokens declared only in a cross-origin stylesheet cannot be read.
-- The style bridge mirrors inherited text properties; if projected text ignores your `color`, set `-webkit-text-fill-color: currentColor` on the render.
+- The bridge pins `-webkit-text-fill-color` to `currentColor` on projected content, so your `color` rules always drive text paint.

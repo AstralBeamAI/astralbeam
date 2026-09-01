@@ -30,8 +30,36 @@ Prop or `update` changes apply immediately.
 | `tools`, `widgets`               | none                      | See [Tools and widgets](./tools-and-widgets.md)                                 |
 | `debug`                          | `false`                   | Log every SDK action in the browser, and the run on the server                  |
 
+## Chrome slots
+
+Replace parts of the widget's own chrome with host-rendered content, styled by the host page. In React they are plain props; on the vanilla handle they are `slots` renderers.
+
+```tsx
+<AstralBeamChat
+  header={<MyChatHeader onReset={() => chatRef.current?.reset()} />}
+  empty={<MyWelcome />}
+  composerActions={<MyVoiceButton />}
+/>
+```
+
+- `header` replaces the title and reset button; `showHeader={false}` still hides the whole row.
+- `empty` replaces the empty-transcript state; `composerActions` adds controls next to send.
+- Vanilla: `slots: { header: (container) => { ...; return cleanup } }`, updatable through `update`.
+
+## Imperative control
+
+The React component exposes a ref; the vanilla handle has the same methods.
+
+```tsx
+const chatRef = useRef<AstralBeamChatRef>(null)
+// <AstralBeamChat ref={chatRef} /> — then:
+chatRef.current?.reset() // clears transcript, drafts, attachments, widget renders
+chatRef.current?.stop() // stops the in-flight generation
+```
+
 ## Behavior notes
 
 - Assistant replies render as Markdown; raw HTML is escaped and executable link protocols are dropped.
 - An update that turns attachments off also drops files already picked into the composer.
 - Dropping a widget from `widgets` disposes any render of it still in the transcript.
+- To defer the chat chunk, render the component only on first open; hide with CSS afterwards, since unmounting discards the transcript.

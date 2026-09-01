@@ -1,4 +1,12 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import {
+  forwardRef,
+  type ReactNode,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { createPortal } from "react-dom"
 // Self-reference rather than a relative path, so this entry shares the client entry's chat
 // chunk and its bundled React instead of bundling a second copy.
@@ -6,8 +14,12 @@ import {
   type AstralBeamChatAttachmentOptions,
   type AstralBeamChatColorScheme,
   type AstralBeamChatHandle,
+  type AstralBeamChatSlotRenderer,
   type AstralBeamChatTheme,
+  defineTool,
+  type InferParameters,
   mountAstralBeamChat,
+  type ParametersSchema,
   type ToolDefinition,
   type WidgetDefinition as ClientWidgetDefinition,
 } from "@astralbeam/sdk/client"
@@ -18,12 +30,37 @@ export type {
   AstralBeamChatAttachmentOptions,
   AstralBeamChatColorScheme,
   AstralBeamChatTheme,
+  InferParameters,
+  ParametersSchema,
   ToolDefinition,
 }
+export { defineTool }
 
 export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render"> {
   /** Draws the widget with the agent-chosen props, in the host's own React tree. */
   render: (props: Record<string, unknown>) => ReactNode
+}
+
+export interface TypedReactWidgetDefinition<S extends ParametersSchema> {
+  description: string
+  parameters?: S
+  render: (props: InferParameters<S>) => ReactNode
+}
+
+/** Declares a host widget; a Standard Schema `parameters` types (and validates) `render`'s props. */
+export function defineWidget<const S extends ParametersSchema>(
+  widget: TypedReactWidgetDefinition<S>,
+): WidgetDefinition {
+  // The chat validates a Standard Schema before render runs, so the narrowed type holds.
+  return widget as unknown as WidgetDefinition
+}
+
+/** Imperative surface of a mounted `<AstralBeamChat>`, for hosts that draw their own controls. */
+export interface AstralBeamChatRef {
+  /** Clears the conversation: transcript, drafts, attachments, and live widget renders. */
+  reset: () => void
+  /** Stops the in-flight generation, if any; the transcript keeps what already streamed. */
+  stop: () => void
 }
 
 export interface AstralBeamChatProps {
@@ -39,11 +76,17 @@ export interface AstralBeamChatProps {
    * the transcript the full height. Prop changes apply immediately. Default `true`.
    */
   showHeader?: boolean
+  /** Replaces the header's content with the host's own React content; `showHeader` still applies. */
+  header?: ReactNode
+  /** Replaces the empty-transcript state with the host's own React content. */
+  empty?: ReactNode
+  /** Extra host controls at the end of the composer's button row, next to send. */
+  composerActions?: ReactNode
   /** Headline shown on the empty transcript; prop changes apply immediately. Default `"Ask the assistant"`. */
   emptyTitle?: string
   /** Subtitle under the empty transcript's headline; prop changes apply immediately. */
   emptyDescription?: string
-  /** URL of the AstralBeam chat endpoint the widget streams from. Default `"/api/chat"`. */
+  /** URL of the AstralBeam chat endpoint the widget streams from. Default the hosted cloud endpoint. */
   chatEndpoint?: string
   /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
   authEndpoint?: string
@@ -72,134 +115,186 @@ interface ActiveRender {
   props: Record<string, unknown>
 }
 
-export function AstralBeamChat(
-  {
-    agentId,
-    title,
-    showHeader,
-    emptyTitle,
-    emptyDescription,
-    chatEndpoint,
-    authEndpoint,
-    systemPrompt,
-    tools,
-    widgets = {},
-    colorScheme = DEFAULT_COLOR_SCHEME,
-    theme,
-    attachments,
-    debug,
-  }: AstralBeamChatProps,
-) {
-  const targetRef = useRef<HTMLDivElement>(null)
-  const handleRef = useRef<AstralBeamChatHandle | null>(null)
-  const [activeRenders, setActiveRenders] = useState<ReadonlyMap<string, ActiveRender>>(new Map())
-  // The chat calls tools long after mount, so route execution through the latest prop value —
-  // otherwise every execute would close over the first render's host state.
-  const toolsRef = useRef(tools)
-  useEffect(() => {
-    toolsRef.current = tools
-  })
-  // The chat keeps one render per tool call, so several renders of the same widget can be live
-  // at once (a listing that renders a card per item); each needs its own portal and React key.
-  const nextRenderKey = useRef(0)
-  // Memoized on the props they adapt: the update effect below ships them to the chat, and a fresh
-  // object every render would rebuild the declared tool set on every render along with it.
-  const hostTools = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(tools ?? {}).map(([name, definition]) => [name, {
-          ...definition,
-          execute: (input: Record<string, unknown>) => {
-            const current = toolsRef.current?.[name]
-            if (!current) throw new Error(`Tool "${name}" is no longer registered`)
-            return current.execute(input)
-          },
-        }]),
-      ),
-    [tools],
-  )
-  const hostWidgets = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(widgets).map(([name, definition]) => [name, {
-          ...definition,
-          // The chat provides a slotted container; record it and portal the JSX into it below,
-          // so the widget renders in the host's React tree with working state and context.
-          render: (props: Record<string, unknown>, container: HTMLElement) => {
-            const key = `astralbeam-render-${nextRenderKey.current++}`
-            setActiveRenders((previous) =>
-              new Map(previous).set(key, { widget: name, container, props })
-            )
-            return () => {
-              setActiveRenders((previous) => {
-                const next = new Map(previous)
-                next.delete(key)
-                return next
-              })
-            }
-          },
-        }]),
-      ),
-    [widgets],
-  )
-  // The one set of updatable options, so mounting and updating cannot drift apart as options are
-  // added. Memoized because the update effect keys off it.
-  const live = useMemo(
-    () => ({
-      title,
-      showHeader,
-      emptyTitle,
-      emptyDescription,
-      systemPrompt,
-      colorScheme,
-      theme,
-      attachments,
-      debug,
-      tools: hostTools,
-      widgets: hostWidgets,
-    }),
-    [
-      title,
-      showHeader,
-      emptyTitle,
-      emptyDescription,
-      systemPrompt,
-      colorScheme,
-      theme,
-      attachments,
-      debug,
-      hostTools,
-      hostWidgets,
-    ],
-  )
-  const liveRef = useRef(live)
-  liveRef.current = live
-  useEffect(() => {
-    if (!targetRef.current) return
-    // Mounted once; transport endpoints cannot be updated afterwards.
-    const handle = mountAstralBeamChat(targetRef.current, {
-      ...liveRef.current,
+const CHROME_SLOT_NAMES = ["header", "empty", "composerActions"] as const
+type ChromeSlotName = (typeof CHROME_SLOT_NAMES)[number]
+
+export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>(
+  function AstralBeamChat(
+    {
       agentId,
+      title,
+      showHeader,
+      header,
+      empty,
+      composerActions,
+      emptyTitle,
+      emptyDescription,
       chatEndpoint,
       authEndpoint,
+      systemPrompt,
+      tools,
+      widgets = {},
+      colorScheme = DEFAULT_COLOR_SCHEME,
+      theme,
+      attachments,
+      debug,
+    },
+    ref,
+  ) {
+    const targetRef = useRef<HTMLDivElement>(null)
+    const handleRef = useRef<AstralBeamChatHandle | null>(null)
+    const [activeRenders, setActiveRenders] = useState<ReadonlyMap<string, ActiveRender>>(
+      new Map(),
+    )
+    useImperativeHandle(ref, () => ({
+      reset: () => handleRef.current?.reset(),
+      stop: () => handleRef.current?.stop(),
+    }), [])
+    // The chat calls tools long after mount, so route execution through the latest prop value —
+    // otherwise every execute would close over the first render's host state.
+    const toolsRef = useRef(tools)
+    useEffect(() => {
+      toolsRef.current = tools
     })
-    handleRef.current = handle
-    return () => {
-      handleRef.current = null
-      handle.unmount()
+    // The chat keeps one render per tool call, so several renders of the same widget can be live
+    // at once (a listing that renders a card per item); each needs its own portal and React key.
+    const nextRenderKey = useRef(0)
+    // Memoized on the props they adapt: the update effect below ships them to the chat, and a fresh
+    // object every render would rebuild the declared tool set on every render along with it.
+    const hostTools = useMemo(
+      () =>
+        Object.fromEntries(
+          Object.entries(tools ?? {}).map(([name, definition]) => [name, {
+            ...definition,
+            execute: (input: Record<string, unknown>) => {
+              const current = toolsRef.current?.[name]
+              if (!current) throw new Error(`Tool "${name}" is no longer registered`)
+              return current.execute(input)
+            },
+          }]),
+        ),
+      [tools],
+    )
+    const hostWidgets = useMemo(
+      () =>
+        Object.fromEntries(
+          Object.entries(widgets).map(([name, definition]) => [name, {
+            ...definition,
+            // The chat provides a slotted container; record it and portal the JSX into it below,
+            // so the widget renders in the host's React tree with working state and context.
+            render: (props: Record<string, unknown>, container: HTMLElement) => {
+              const key = `astralbeam-render-${nextRenderKey.current++}`
+              setActiveRenders((previous) =>
+                new Map(previous).set(key, { widget: name, container, props })
+              )
+              return () => {
+                setActiveRenders((previous) => {
+                  const next = new Map(previous)
+                  next.delete(key)
+                  return next
+                })
+              }
+            },
+          }]),
+        ),
+      [widgets],
+    )
+    // Chrome slot content lives in the host tree through the same portal mechanism as widget
+    // renders. The renderers key on presence only, so content updates flow through the portal
+    // without re-running the renderer (which would tear down and rebuild the projected DOM).
+    const [chromeContainers, setChromeContainers] = useState<
+      ReadonlyMap<ChromeSlotName, HTMLElement>
+    >(new Map())
+    const hasHeader = header !== undefined
+    const hasEmpty = empty !== undefined
+    const hasComposerActions = composerActions !== undefined
+    const chromeSlots = useMemo(() => {
+      const build = (name: ChromeSlotName): AstralBeamChatSlotRenderer => (container) => {
+        setChromeContainers((previous) => new Map(previous).set(name, container))
+        return () => {
+          setChromeContainers((previous) => {
+            const next = new Map(previous)
+            next.delete(name)
+            return next
+          })
+        }
+      }
+      return {
+        ...(hasHeader ? { header: build("header") } : {}),
+        ...(hasEmpty ? { empty: build("empty") } : {}),
+        ...(hasComposerActions ? { composerActions: build("composerActions") } : {}),
+      }
+    }, [hasHeader, hasEmpty, hasComposerActions])
+    // The one set of updatable options, so mounting and updating cannot drift apart as options are
+    // added. Memoized because the update effect keys off it.
+    const live = useMemo(
+      () => ({
+        title,
+        showHeader,
+        emptyTitle,
+        emptyDescription,
+        systemPrompt,
+        colorScheme,
+        theme,
+        attachments,
+        debug,
+        tools: hostTools,
+        widgets: hostWidgets,
+        slots: chromeSlots,
+      }),
+      [
+        title,
+        showHeader,
+        emptyTitle,
+        emptyDescription,
+        systemPrompt,
+        colorScheme,
+        theme,
+        attachments,
+        debug,
+        hostTools,
+        hostWidgets,
+        chromeSlots,
+      ],
+    )
+    const liveRef = useRef(live)
+    liveRef.current = live
+    useEffect(() => {
+      if (!targetRef.current) return
+      // Mounted once; transport endpoints cannot be updated afterwards.
+      const handle = mountAstralBeamChat(targetRef.current, {
+        ...liveRef.current,
+        agentId,
+        chatEndpoint,
+        authEndpoint,
+      })
+      handleRef.current = handle
+      return () => {
+        handleRef.current = null
+        handle.unmount()
+      }
+    }, [])
+    // Re-applies the initial values harmlessly; afterwards, every prop change retunes the widget.
+    useEffect(() => {
+      handleRef.current?.update(live)
+    }, [live])
+    // Read current props at render time so live host state flows into every projected slot.
+    const chromeContent: Record<ChromeSlotName, ReactNode> = {
+      header,
+      empty,
+      composerActions,
     }
-  }, [])
-  // Re-applies the initial values harmlessly; afterwards, every prop change retunes the widget.
-  useEffect(() => {
-    handleRef.current?.update(live)
-  }, [live])
-  return (
-    <div style={{ height: "100%" }} ref={targetRef}>
-      {[...activeRenders].map(([key, { widget, container, props }]) => {
-        // Read the current prop on every render, so live host state flows into the widget.
-        const definition = widgets[widget]
-        return definition ? createPortal(definition.render(props), container, key) : null
-      })}
-    </div>
-  )
-}
+    return (
+      <div style={{ height: "100%" }} ref={targetRef}>
+        {[...activeRenders].map(([key, { widget, container, props }]) => {
+          // Read the current prop on every render, so live host state flows into the widget.
+          const definition = widgets[widget]
+          return definition ? createPortal(definition.render(props), container, key) : null
+        })}
+        {[...chromeContainers].map(([name, container]) =>
+          createPortal(chromeContent[name], container, `astralbeam-chrome-${name}`)
+        )}
+      </div>
+    )
+  },
+)
