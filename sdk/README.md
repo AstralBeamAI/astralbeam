@@ -26,6 +26,7 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 ```
 
 - The widget fills its container, so give it a parent with a definite height (`min-h-0` in a flex column).
+- Two origins by design: chat streams to the hosted cloud by default, while the token comes from your own app's endpoint. Self-hosted deployments set `chatEndpoint` to their own origin.
 - `@astralbeam/sdk/client` ships no React; the chat loads as a lazy chunk with its own bundled copy.
 - `react` and `react-dom` are optional peer dependencies used only by `@astralbeam/sdk/react`.
 - Mount it above your router if the transcript should survive page navigation.

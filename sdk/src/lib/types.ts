@@ -115,7 +115,11 @@ export interface MountAstralBeamChatOptions {
   emptyTitle?: string | undefined
   /** Subtitle shown under the empty transcript's headline. Default describes the app's tools and widgets. */
   emptyDescription?: string | undefined
-  /** URL of the AstralBeam chat endpoint the widget streams from. Fixed at mount. Default `"/api/chat"`. */
+  /**
+   * URL of the AstralBeam chat endpoint the widget streams from. Fixed at mount. Default
+   * `"https://app.astralbeam.ai/api/chat"`, the hosted cloud; self-hosted deployments must set
+   * their own origin.
+   */
   chatEndpoint?: string | undefined
   /** Application endpoint that mints a short-lived chat JWT. Fixed at mount. Default `"/api/astralbeam/token"`. */
   authEndpoint?: string | undefined
