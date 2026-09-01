@@ -1,3 +1,3 @@
 .generated/
 # Built from src/styles.css by `deno task generate:styles` (run by `build` and `check`).
-src/chat/styles.generated.ts
+src/widget/styles.generated.ts

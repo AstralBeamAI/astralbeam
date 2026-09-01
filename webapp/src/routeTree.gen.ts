@@ -10,19 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as DocsRouteRouteImport } from './routes/docs/route'
 import { Route as AuthenticatedOrganizationRouteRouteImport } from './routes/_authenticated/_organization/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
 import { Route as DevSplatRouteImport } from './routes/dev/$'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
 import { Route as AuthenticatedOrganizationIndexRouteImport } from './routes/_authenticated/_organization/index'
 import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
+import { Route as DocsSectionIndexRouteImport } from './routes/docs/$section/index'
 import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
 import { Route as AuthenticatedSettingsOrganizationsIndexRouteImport } from './routes/_authenticated/settings/organizations/index'
 import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
+import { Route as DocsSectionPageIndexRouteImport } from './routes/docs/$section/$page/index'
 import { Route as AuthenticatedOrganizationOrganizationAgentsIndexRouteImport } from './routes/_authenticated/_organization/organization/agents/index'
 import { Route as AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport } from './routes/_authenticated/_organization/organization/api-keys/index'
 import { Route as AuthenticatedOrganizationOrganizationMembersIndexRouteImport } from './routes/_authenticated/_organization/organization/members/index'
@@ -30,6 +34,11 @@ import { Route as AuthenticatedOrganizationOrganizationSandboxProvidersIndexRout
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRouteRoute = DocsRouteRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedOrganizationRouteRoute =
@@ -58,6 +67,11 @@ const DevSplatRoute = DevSplatRouteImport.update({
   path: '/dev/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DocsRouteRoute,
+} as any)
 const authenticationAuthPathRoute = authenticationAuthPathRouteImport.update({
   id: '/(authentication)/auth/$path',
   path: '/auth/$path',
@@ -85,6 +99,11 @@ const ApiChatIndexRoute = ApiChatIndexRouteImport.update({
   path: '/api/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsSectionIndexRoute = DocsSectionIndexRouteImport.update({
+  id: '/$section/',
+  path: '/$section/',
+  getParentRoute: () => DocsRouteRoute,
+} as any)
 const AuthenticatedSettingsAccountIndexRoute =
   AuthenticatedSettingsAccountIndexRouteImport.update({
     id: '/account/',
@@ -103,6 +122,11 @@ const AuthenticatedSettingsSecurityIndexRoute =
     path: '/security/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const DocsSectionPageIndexRoute = DocsSectionPageIndexRouteImport.update({
+  id: '/$section/$page/',
+  path: '/$section/$page/',
+  getParentRoute: () => DocsRouteRoute,
+} as any)
 const AuthenticatedOrganizationOrganizationAgentsIndexRoute =
   AuthenticatedOrganizationOrganizationAgentsIndexRouteImport.update({
     id: '/organization/agents/',
@@ -130,17 +154,21 @@ const AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedOrganizationIndexRoute
+  '/docs': typeof DocsRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/configure/': typeof ConfigureIndexRoute
+  '/docs/': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
+  '/docs/$section/': typeof DocsSectionIndexRoute
   '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
   '/organization/agents/': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
   '/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
@@ -152,13 +180,16 @@ export interface FileRoutesByTo {
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/configure': typeof ConfigureIndexRoute
+  '/docs': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/onboarding': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat': typeof ApiChatIndexRoute
+  '/docs/$section': typeof DocsSectionIndexRoute
   '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/organizations': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/docs/$section/$page': typeof DocsSectionPageIndexRoute
   '/organization/agents': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
   '/organization/api-keys': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/organization/members': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
@@ -167,19 +198,23 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/docs': typeof DocsRouteRouteWithChildren
   '/_authenticated/_organization': typeof AuthenticatedOrganizationRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/configure/': typeof ConfigureIndexRoute
+  '/docs/': typeof DocsIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authenticated/_organization/': typeof AuthenticatedOrganizationIndexRoute
   '/_authenticated/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
+  '/docs/$section/': typeof DocsSectionIndexRoute
   '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/_authenticated/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
   '/_authenticated/_organization/organization/agents/': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
   '/_authenticated/_organization/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
   '/_authenticated/_organization/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
@@ -189,17 +224,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/docs'
     | '/settings'
     | '/api/status'
     | '/dev/$'
     | '/configure/'
+    | '/docs/'
     | '/auth/$path'
     | '/api/auth/$'
     | '/onboarding/'
     | '/api/chat/'
+    | '/docs/$section/'
     | '/settings/account/'
     | '/settings/organizations/'
     | '/settings/security/'
+    | '/docs/$section/$page/'
     | '/organization/agents/'
     | '/organization/api-keys/'
     | '/organization/members/'
@@ -211,13 +250,16 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/dev/$'
     | '/configure'
+    | '/docs'
     | '/auth/$path'
     | '/api/auth/$'
     | '/onboarding'
     | '/api/chat'
+    | '/docs/$section'
     | '/settings/account'
     | '/settings/organizations'
     | '/settings/security'
+    | '/docs/$section/$page'
     | '/organization/agents'
     | '/organization/api-keys'
     | '/organization/members'
@@ -225,19 +267,23 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/docs'
     | '/_authenticated/_organization'
     | '/_authenticated/settings'
     | '/api/status'
     | '/dev/$'
     | '/configure/'
+    | '/docs/'
     | '/(authentication)/auth/$path'
     | '/api/auth/$'
     | '/_authenticated/_organization/'
     | '/_authenticated/onboarding/'
     | '/api/chat/'
+    | '/docs/$section/'
     | '/_authenticated/settings/account/'
     | '/_authenticated/settings/organizations/'
     | '/_authenticated/settings/security/'
+    | '/docs/$section/$page/'
     | '/_authenticated/_organization/organization/agents/'
     | '/_authenticated/_organization/organization/api-keys/'
     | '/_authenticated/_organization/organization/members/'
@@ -246,6 +292,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  DocsRouteRoute: typeof DocsRouteRouteWithChildren
   ApiStatusRoute: typeof ApiStatusRoute
   DevSplatRoute: typeof DevSplatRoute
   ConfigureIndexRoute: typeof ConfigureIndexRoute
@@ -261,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/_organization': {
@@ -298,6 +352,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/': {
+      id: '/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof DocsRouteRoute
+    }
     '/(authentication)/auth/$path': {
       id: '/(authentication)/auth/$path'
       path: '/auth/$path'
@@ -333,6 +394,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/$section/': {
+      id: '/docs/$section/'
+      path: '/$section'
+      fullPath: '/docs/$section/'
+      preLoaderRoute: typeof DocsSectionIndexRouteImport
+      parentRoute: typeof DocsRouteRoute
+    }
     '/_authenticated/settings/account/': {
       id: '/_authenticated/settings/account/'
       path: '/account'
@@ -353,6 +421,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/security/'
       preLoaderRoute: typeof AuthenticatedSettingsSecurityIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/docs/$section/$page/': {
+      id: '/docs/$section/$page/'
+      path: '/$section/$page'
+      fullPath: '/docs/$section/$page/'
+      preLoaderRoute: typeof DocsSectionPageIndexRouteImport
+      parentRoute: typeof DocsRouteRoute
     }
     '/_authenticated/_organization/organization/agents/': {
       id: '/_authenticated/_organization/organization/agents/'
@@ -448,8 +523,25 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface DocsRouteRouteChildren {
+  DocsIndexRoute: typeof DocsIndexRoute
+  DocsSectionIndexRoute: typeof DocsSectionIndexRoute
+  DocsSectionPageIndexRoute: typeof DocsSectionPageIndexRoute
+}
+
+const DocsRouteRouteChildren: DocsRouteRouteChildren = {
+  DocsIndexRoute: DocsIndexRoute,
+  DocsSectionIndexRoute: DocsSectionIndexRoute,
+  DocsSectionPageIndexRoute: DocsSectionPageIndexRoute,
+}
+
+const DocsRouteRouteWithChildren = DocsRouteRoute._addFileChildren(
+  DocsRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  DocsRouteRoute: DocsRouteRouteWithChildren,
   ApiStatusRoute: ApiStatusRoute,
   DevSplatRoute: DevSplatRoute,
   ConfigureIndexRoute: ConfigureIndexRoute,

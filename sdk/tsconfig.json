@@ -20,7 +20,7 @@
     "strict": true,
     "verbatimModuleSyntax": true,
     "paths": {
-      "@astralbeam/sdk/client": ["./src/client.ts"],
+      "@astralbeam/sdk/client": ["./src/client/index.ts"],
       "@/*": ["./src/*"]
     }
   }
