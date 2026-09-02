@@ -143,13 +143,13 @@ export interface MountAstralBeamChatOptions {
   /** Subtitle shown under the empty transcript's headline. Default describes the app's tools and widgets. */
   emptyDescription?: string | undefined
   /**
-   * URL of the AstralBeam chat endpoint the widget streams from. Fixed at mount. Default
-   * `"https://app.astralbeam.ai/api/chat"`, the hosted cloud; self-hosted deployments must set
-   * their own origin.
+   * Base URL of the AstralBeam API; the widget calls `/chat` and its subroutes under it. Fixed at
+   * mount. Default `"https://app.astralbeam.ai/api"`, the hosted cloud; self-hosted deployments
+   * must set their own origin.
    */
-  chatEndpoint?: string | undefined
+  apiUrl?: string | undefined
   /** Application endpoint that mints a short-lived chat JWT. Fixed at mount. Default `"/api/astralbeam/token"`. */
-  authEndpoint?: string | undefined
+  authTokenUrl?: string | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -179,11 +179,11 @@ export interface MountAstralBeamChatOptions {
 }
 
 /**
- * Mount options the handle can change afterwards. The agent and transport endpoints are fixed:
+ * Mount options the handle can change afterwards. The agent and the transport URLs are fixed:
  * changing any of them would mean a new client and a discarded transcript.
  */
 export type AstralBeamChatUpdate = Partial<
-  Omit<MountAstralBeamChatOptions, "agentId" | "chatEndpoint" | "authEndpoint">
+  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "authTokenUrl">
 >
 
 export interface AstralBeamChatHandle {

@@ -5,7 +5,7 @@ import {
   type MultimodalContent,
   type UIMessage,
 } from "@tanstack/ai-client"
-import { DEFAULT_AUTH_ENDPOINT, DEFAULT_ENDPOINT } from "../lib/constants.ts"
+import { chatApiUrls, DEFAULT_AUTH_TOKEN_URL } from "../lib/constants.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import type { ToolDefinition } from "../lib/types.ts"
 import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
@@ -34,10 +34,10 @@ export interface WidgetRenderRequest {
 export interface AstralBeamChatCoreOptions {
   /** Public ID of the organization-owned agent; omitted, the organization's default answers. */
   agentId?: string | undefined
-  /** The AstralBeam chat endpoint. Default the hosted cloud endpoint. */
-  chatEndpoint?: string | undefined
+  /** Base URL of the AstralBeam API; `/chat` hangs off it. Default the hosted cloud. */
+  apiUrl?: string | undefined
   /** The application endpoint that mints short-lived chat JWTs. Default `/api/astralbeam/token`. */
-  authEndpoint?: string | undefined
+  authTokenUrl?: string | undefined
   /** Host tools the agent can call; `execute` runs wherever this session lives. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Widgets declared to the agent; `onRenderWidget` is asked to draw them. */
@@ -85,7 +85,7 @@ export interface AstralBeamChatCore {
  */
 export function createAstralBeamChat(options: AstralBeamChatCoreOptions): AstralBeamChatCore {
   const debug = createDebugLogger(options.debug)
-  const endpoint = (options.chatEndpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, "")
+  const urls = chatApiUrls(options.apiUrl)
   const widgets = options.widgets ?? {}
   const listeners = new Set<() => void>()
   let state: AstralBeamChatState = {
@@ -103,7 +103,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   }
 
   const authentication: ChatAuthenticationOptions = {
-    authEndpoint: options.authEndpoint ?? DEFAULT_AUTH_ENDPOINT,
+    authTokenUrl: options.authTokenUrl ?? DEFAULT_AUTH_TOKEN_URL,
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -118,7 +118,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   // Agent capability handshake; fails open for state (the endpoint still enforces its policy).
   void (async () => {
     try {
-      const url = new URL(`${endpoint}/config`, globalThis.location?.href)
+      const url = new URL(urls.config, globalThis.location?.href)
       if (options.agentId) url.searchParams.set("agentId", options.agentId)
       const token = await getValidChatToken(authentication)
       const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
@@ -154,7 +154,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   }
 
   const client = new ChatClient({
-    connection: fetchServerSentEvents(endpoint, async () => ({
+    connection: fetchServerSentEvents(urls.chat, async () => ({
       headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
       fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
     })),

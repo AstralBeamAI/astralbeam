@@ -20,7 +20,7 @@ import {
   readAttachmentData,
   resolveAttachmentOptions,
 } from "./lib/attachments.ts"
-import { DEFAULT_AUTH_ENDPOINT, DEFAULT_ENDPOINT, DEFAULT_TITLE } from "../lib/constants.ts"
+import { chatApiUrls, DEFAULT_AUTH_TOKEN_URL, DEFAULT_TITLE } from "../lib/constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL, SANDBOX_STATUS_EVENT } from "../core/protocol.ts"
@@ -61,7 +61,7 @@ export function ChatWidget(
     status: "loading",
   })
   const [authentication] = useState<ChatAuthenticationOptions>(() => ({
-    authEndpoint: options.authEndpoint ?? DEFAULT_AUTH_ENDPOINT,
+    authTokenUrl: options.authTokenUrl ?? DEFAULT_AUTH_TOKEN_URL,
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -102,11 +102,11 @@ export function ChatWidget(
     })
   }, [debug, toolNames, widgets])
 
-  // Fixed for the mount, which is why `chatEndpoint` is not part of an update: useChat reads the
+  // Fixed for the mount, which is why `apiUrl` is not part of an update: useChat reads the
   // connection only when it constructs its client, so a new one would cost the transcript.
   const [connection] = useState(() =>
     fetchServerSentEvents(
-      options.chatEndpoint ?? DEFAULT_ENDPOINT,
+      chatApiUrls(options.apiUrl).chat,
       async () => ({
         headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
         fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
@@ -153,8 +153,7 @@ export function ChatWidget(
   const [grantedAttachments, setGrantedAttachments] = useState(true)
   useEffect(() => {
     let cancelled = false
-    const endpoint = (options.chatEndpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, "")
-    const url = new URL(`${endpoint}/config`, globalThis.location.href)
+    const url = new URL(chatApiUrls(options.apiUrl).config, globalThis.location.href)
     if (options.agentId) url.searchParams.set("agentId", options.agentId)
     void (async () => {
       try {
@@ -173,13 +172,10 @@ export function ChatWidget(
     return () => {
       cancelled = true
     }
-    // The endpoint and agent are fixed at mount, so this runs once per mounted chat.
-  }, [authentication, debug, options.agentId, options.chatEndpoint])
+    // The API base and agent are fixed at mount, so this runs once per mounted chat.
+  }, [authentication, debug, options.agentId, options.apiUrl])
   // Artifact downloads live beside the chat endpoint; tickets in tool outputs authorize them.
-  const filesEndpoint = useMemo(
-    () => `${(options.chatEndpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, "")}/files`,
-    [options.chatEndpoint],
-  )
+  const filesEndpoint = useMemo(() => chatApiUrls(options.apiUrl).files, [options.apiUrl])
   const sandboxActivity = useMemo(() => collectSandboxActivity(messages), [messages])
   const sandboxHasWork = sandboxActivity.files.length > 0 || sandboxActivity.commands.length > 0
   useEffect(() => {

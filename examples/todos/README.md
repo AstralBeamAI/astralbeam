@@ -4,7 +4,7 @@ A deliberately barebones TanStack Start todos app that embeds the AstralBeam cha
 
 The app uses plain CSS with no Tailwind or shadcn/ui. That is the point: the chat widget's Tailwind-based UI lives entirely inside its shadow root, and the only host UI in the conversation is the app's own `TodoCard`, registered as the `todoCard` widget so the agent can render it inline with props it chooses, while live app state and handlers keep working.
 
-The chat talks to a real organization-owned agent: the app points `chatEndpoint` at the webapp's `/api/chat`, serves the SDK's default `/api/astralbeam/token` token route (built with `createAstralBeamTokenRoute`), mints a short-lived JWT from an organization API key for a fixed demo tenant user, and registers `get_todos`, `create_todo`, `update_todo`, and `delete_todo` tools that execute against the app's own React state.
+The chat talks to a real organization-owned agent: the app points `apiUrl` at the webapp's `/api`, serves the SDK's default `/api/astralbeam/token` token route (built with `createAstralBeamTokenRoute`), mints a short-lived JWT from an organization API key for a fixed demo tenant user, and registers `get_todos`, `create_todo`, `update_todo`, and `delete_todo` tools that execute against the app's own React state.
 
 The agent's instructions are owned by the dashboard: the SDK cannot send a system prompt, so paste the prompt below into the demo agent on the agents page.
 

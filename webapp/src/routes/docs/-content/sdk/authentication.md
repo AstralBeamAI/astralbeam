@@ -4,7 +4,7 @@ The widget will not chat until it has a token, and it never sees your API key. Y
 
 ## The token endpoint
 
-`/api/astralbeam/token` by default; change it with the `authEndpoint` option. `createAstralBeamTokenRoute` builds the whole fetch-standard handler: the method check, the unconfigured-key 503, the unauthenticated 401, and the `no-store` header.
+`/api/astralbeam/token` by default; change it with the `authTokenUrl` option. `createAstralBeamTokenRoute` builds the whole fetch-standard handler: the method check, the unconfigured-key 503, the unauthenticated 401, and the `no-store` header.
 
 ```ts
 import { createAstralBeamTokenRoute } from "@astralbeam/sdk/server"

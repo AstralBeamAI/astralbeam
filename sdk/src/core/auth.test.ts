@@ -25,7 +25,7 @@ test("chat authentication loads once and caches a token away from expiry", async
     return Promise.resolve(Response.json({ token }))
   }) as typeof fetch
   const authentication = {
-    authEndpoint: "/auth",
+    authTokenUrl: "/auth",
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -54,7 +54,7 @@ test("chat authentication deduplicates concurrent refreshes", async () => {
     return await new Promise<Response>((resolve) => finish = resolve)
   }) as typeof fetch
   const authentication = {
-    authEndpoint: "/auth",
+    authTokenUrl: "/auth",
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -78,7 +78,7 @@ test("chat authentication refreshes tokens near expiry", async () => {
   const fetchClient =
     (() => Promise.resolve(Response.json({ token: tokens[requestCount++] }))) as typeof fetch
   const authentication = {
-    authEndpoint: "/auth",
+    authTokenUrl: "/auth",
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -115,7 +115,7 @@ test("chat authentication refreshes and retries a rejected chat request once", a
     return Promise.resolve(new Response("ok"))
   }) as typeof fetch
   const authentication = {
-    authEndpoint: "/auth",
+    authTokenUrl: "/auth",
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -154,7 +154,7 @@ test("a stale rejected request reuses a token another request already refreshed"
     return Promise.resolve(new Response("ok"))
   }) as typeof fetch
   const authentication = {
-    authEndpoint: "/auth",
+    authTokenUrl: "/auth",
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -180,7 +180,7 @@ test("chat authentication fails closed for malformed endpoint responses", async 
   let lastState: ChatAuthenticationState | undefined
   const fetchClient = (() => Promise.resolve(Response.json({ token: "not-a-jwt" }))) as typeof fetch
   const authentication = {
-    authEndpoint: "/auth",
+    authTokenUrl: "/auth",
     session: {
       cached: undefined,
       refreshPromise: undefined,
