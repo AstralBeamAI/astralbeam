@@ -1,8 +1,8 @@
 import {
+  DEFAULT_API_URL,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_EMPTY_DESCRIPTION,
   DEFAULT_EMPTY_TITLE,
-  DEFAULT_ENDPOINT,
   DEFAULT_TITLE,
   WIDGET_CONTAINER_CLASS,
 } from "../lib/constants.ts"
@@ -47,7 +47,7 @@ export function mountAstralBeamChat(
     showHeader: live.showHeader ?? true,
     emptyTitle: live.emptyTitle ?? DEFAULT_EMPTY_TITLE,
     emptyDescription: live.emptyDescription ?? DEFAULT_EMPTY_DESCRIPTION,
-    chatEndpoint: live.chatEndpoint ?? DEFAULT_ENDPOINT,
+    apiUrl: live.apiUrl ?? DEFAULT_API_URL,
     authentication: "configured",
     colorScheme: live.colorScheme ?? DEFAULT_COLOR_SCHEME,
     theme: live.theme,
@@ -101,10 +101,10 @@ export function mountAstralBeamChat(
   return {
     update: (next) => {
       if (
-        Object.hasOwn(next, "agentId") || Object.hasOwn(next, "chatEndpoint") ||
-        Object.hasOwn(next, "authEndpoint")
+        Object.hasOwn(next, "agentId") || Object.hasOwn(next, "apiUrl") ||
+        Object.hasOwn(next, "authTokenUrl")
       ) {
-        throw new Error("agentId, chatEndpoint, and authEndpoint are fixed at mount")
+        throw new Error("agentId, apiUrl, and authTokenUrl are fixed at mount")
       }
       // A fresh object rather than a mutation, so the widget's memoized derivations compare the
       // new option values by identity instead of seeing the same object twice.

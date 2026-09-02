@@ -20,7 +20,7 @@ interface ChatAuthenticationSession {
 }
 
 export interface ChatAuthenticationOptions {
-  authEndpoint: string
+  authTokenUrl: string
   session: ChatAuthenticationSession
   onStateChange: (state: ChatAuthenticationState) => void
   fetchClient: typeof globalThis.fetch
@@ -61,10 +61,10 @@ function bearerToken(headers: Headers): string | undefined {
 }
 
 async function fetchChatToken(options: ChatAuthenticationOptions): Promise<string> {
-  const { authEndpoint, session, onStateChange, fetchClient, debug } = options
+  const { authTokenUrl, session, onStateChange, fetchClient, debug } = options
   const { signal } = session.abortController
   try {
-    const response = await fetchClient(authEndpoint, {
+    const response = await fetchClient(authTokenUrl, {
       method: "POST",
       headers: { accept: "application/json" },
       credentials: "include",

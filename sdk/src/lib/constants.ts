@@ -11,11 +11,24 @@ export const DEFAULT_EMPTY_TITLE = "Ask the assistant"
 export const DEFAULT_EMPTY_DESCRIPTION =
   "It can answer questions and act through this app's own tools and widgets."
 
-/** Endpoint the chat widget streams from when the mount options give none. */
-export const DEFAULT_ENDPOINT = "https://app.astralbeam.ai/api/chat"
+/** Base URL of the AstralBeam API when the mount options give none; `/chat` and its subroutes hang off it. */
+export const DEFAULT_API_URL = "https://app.astralbeam.ai/api"
 
 /** Host endpoint that mints chat JWTs when the mount options give none. */
-export const DEFAULT_AUTH_ENDPOINT = "/api/astralbeam/token"
+export const DEFAULT_AUTH_TOKEN_URL = "/api/astralbeam/token"
+
+/**
+ * The chat API's URLs under an API base: the stream itself, the agent capability handshake,
+ * and artifact downloads. Chat is one API under the base; others will sit beside it.
+ */
+export function chatApiUrls(apiUrl: string | undefined): {
+  chat: string
+  config: string
+  files: string
+} {
+  const chat = `${(apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, "")}/chat`
+  return { chat, config: `${chat}/config`, files: `${chat}/files` }
+}
 
 /** Color scheme used when the mount options and the React prop give none. */
 export const DEFAULT_COLOR_SCHEME = "system"

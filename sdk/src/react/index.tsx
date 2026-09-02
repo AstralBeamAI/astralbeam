@@ -152,10 +152,10 @@ export interface AstralBeamChatProps {
   emptyTitle?: string
   /** Subtitle under the empty transcript's headline; prop changes apply immediately. */
   emptyDescription?: string
-  /** URL of the AstralBeam chat endpoint the widget streams from. Default the hosted cloud endpoint. */
-  chatEndpoint?: string
+  /** Base URL of the AstralBeam API; the widget calls `/chat` under it. Default the hosted cloud. */
+  apiUrl?: string
   /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
-  authEndpoint?: string
+  authTokenUrl?: string
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
   tools?: Record<string, ToolDefinition>
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -195,8 +195,8 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       composerActions,
       emptyTitle,
       emptyDescription,
-      chatEndpoint,
-      authEndpoint,
+      apiUrl,
+      authTokenUrl,
       tools,
       widgets = {},
       colorScheme = DEFAULT_COLOR_SCHEME,
@@ -331,8 +331,8 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       const handle = mountAstralBeamChat(targetRef.current, {
         ...liveRef.current,
         agentId,
-        chatEndpoint,
-        authEndpoint,
+        apiUrl,
+        authTokenUrl,
       })
       handleRef.current = handle
       return () => {

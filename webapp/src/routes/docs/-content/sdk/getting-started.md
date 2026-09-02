@@ -24,7 +24,7 @@ export function Sidebar() {
 
 - `react` and `react-dom` are optional peer dependencies; other entry points never load them.
 - Prop changes apply in place; the transcript and session survive them.
-- `agentId`, `chatEndpoint`, and `authEndpoint` are fixed at mount.
+- `agentId`, `apiUrl`, and `authTokenUrl` are fixed at mount.
 
 ## Mount anywhere else
 

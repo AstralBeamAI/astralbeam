@@ -26,7 +26,7 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 ```
 
 - The widget fills its container, so give it a parent with a definite height (`min-h-0` in a flex column).
-- Two origins by design: chat streams to the hosted cloud by default, while the token comes from your own app's endpoint. Self-hosted deployments set `chatEndpoint` to their own origin.
+- Two origins by design: chat streams to the hosted cloud by default, while the token comes from your own app's endpoint. Self-hosted deployments set `apiUrl` to their own origin.
 - `@astralbeam/sdk/client` ships no React; the chat loads as a lazy chunk with its own bundled copy.
 - `react` and `react-dom` are optional peer dependencies used only by `@astralbeam/sdk/react`.
 - Mount it above your router if the transcript should survive page navigation.
@@ -55,21 +55,21 @@ export const POST = createAstralBeamTokenRoute({
 
 ## Options
 
-Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` applies any subset in place. `agentId`, `chatEndpoint`, and `authEndpoint` are fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
+Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` applies any subset in place. `agentId`, `apiUrl`, and `authTokenUrl` are fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
 
-| Option                               | Default                              | Meaning                                                         |
-| ------------------------------------ | ------------------------------------ | --------------------------------------------------------------- |
-| `agentId`                            | organization's default               | `agt_<organization>_<agent>` from the dashboard                 |
-| `chatEndpoint`                       | `https://app.astralbeam.ai/api/chat` | The AstralBeam chat endpoint the widget streams from            |
-| `authEndpoint`                       | `/api/astralbeam/token`              | Your token endpoint                                             |
-| `title`, `showHeader`                | `"AstralBeam"`, `true`               | Header text, and whether the header and reset button show       |
-| `emptyTitle`, `emptyDescription`     | generic copy                         | Headline and subtitle of the empty transcript                   |
-| `colorScheme`, `theme`               | `"system"`, built-in palette         | Light/dark/system, and shadcn token overrides                   |
-| `attachments`                        | `true`                               | `false` hides the feature, or pass limits                       |
-| `tools`, `widgets`                   | none                                 | What the agent can do and draw in your app                      |
-| `sandboxPanel`                       | `false`                              | Collected sandbox panel: files with downloads, command log      |
-| `header`, `empty`, `composerActions` | widget's own chrome                  | Host-rendered replacements (React props; `slots` on the handle) |
-| `debug`                              | `false`                              | Log every SDK action in the browser and on the server           |
+| Option                               | Default                         | Meaning                                                         |
+| ------------------------------------ | ------------------------------- | --------------------------------------------------------------- |
+| `agentId`                            | organization's default          | `agt_<organization>_<agent>` from the dashboard                 |
+| `apiUrl`                             | `https://app.astralbeam.ai/api` | Base URL of the AstralBeam API; the widget calls `/chat` there  |
+| `authTokenUrl`                       | `/api/astralbeam/token`         | Your token endpoint                                             |
+| `title`, `showHeader`                | `"AstralBeam"`, `true`          | Header text, and whether the header and reset button show       |
+| `emptyTitle`, `emptyDescription`     | generic copy                    | Headline and subtitle of the empty transcript                   |
+| `colorScheme`, `theme`               | `"system"`, built-in palette    | Light/dark/system, and shadcn token overrides                   |
+| `attachments`                        | `true`                          | `false` hides the feature, or pass limits                       |
+| `tools`, `widgets`                   | none                            | What the agent can do and draw in your app                      |
+| `sandboxPanel`                       | `false`                         | Collected sandbox panel: files with downloads, command log      |
+| `header`, `empty`, `composerActions` | widget's own chrome             | Host-rendered replacements (React props; `slots` on the handle) |
+| `debug`                              | `false`                         | Log every SDK action in the browser and on the server           |
 
 A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
 

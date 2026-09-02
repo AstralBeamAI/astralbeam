@@ -63,7 +63,7 @@ deno task build
 
 ### 4. Run the todos example
 
-A barebones TanStack Start app that embeds the widget from `sdk/dist`, mints demo chat tokens on the server, and points the widget at the webapp's `/api/chat`, on http://localhost:4700. See [`examples/todos/README.md`](examples/todos/README.md) for what to try.
+A barebones TanStack Start app that embeds the widget from `sdk/dist`, mints demo chat tokens on the server, and points the widget at the webapp's `/api`, on http://localhost:4700. See [`examples/todos/README.md`](examples/todos/README.md) for what to try.
 
 ```sh
 cd examples/todos
