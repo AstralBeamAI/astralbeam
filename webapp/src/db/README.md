@@ -35,7 +35,9 @@ Start PostgreSQL, PgBouncer, and Valkey from the repository root before commands
 docker compose up --detach --wait
 ```
 
-PgBouncer owns the loopback database port and uses transaction pooling, so the checked-in development and test `DATABASE_URL` values route Webapp and Drizzle traffic through it. PostgreSQL is not published to the host; use `docker compose exec postgres` only for the direct administrative reset workflows below. If port 5432 is unavailable, set `PGBOUNCER_HOST_PORT` and change the local `DATABASE_URL` port to match.
+PgBouncer owns the loopback database port and uses transaction pooling, so the checked-in development and test `DATABASE_URL` values route Webapp and Drizzle traffic through it. PostgreSQL is not published to the host; use `docker compose exec postgres` only for explicit direct database administration. If port 5432 is unavailable, set `PGBOUNCER_HOST_PORT` and change the local `DATABASE_URL` port to match.
+
+Worktree setup copies the primary checkout's ignored `webapp/.env.development.local`, or creates it when absent, and appends a `DATABASE_URL` for that worktree. The database name is the unique worktree folder: for example, Codex worktree `.../worktrees/a3f4/astralbeam` uses database `a3f4`. An exported shell `DATABASE_URL` remains authoritative.
 
 ## Database commands
 
@@ -53,24 +55,21 @@ deno task db check
 deno task db migrate
 ```
 
-Reset only the disposable local PostgreSQL database from the repository root without installing PostgreSQL tools on the host, then reapply all checked-in migrations:
+From the repository root, drop and recreate only the confirmed-disposable database selected by Drizzle for the current worktree, then reapply all checked-in migrations:
 
 ```sh
-docker compose exec postgres sh -ceu 'dropdb --if-exists --force --username "$POSTGRES_USER" "$POSTGRES_DB"; createdb --username "$POSTGRES_USER" "$POSTGRES_DB"'
-cd webapp
-deno task db migrate
+deno task --cwd webapp db-reset
 ```
 
-To remove all local PostgreSQL and Valkey data instead, recreate both named volumes from the repository root:
+To delete every local database managed by Docker Compose, recreate its volumes from the repository root, then migrate the current worktree database:
 
 ```sh
 docker compose down --volumes
 docker compose up --detach --wait
-cd webapp
-deno task db migrate
+deno task --cwd webapp db-reset
 ```
 
-Both reset workflows are destructive and must only be used for disposable local data. `migrate` applies pending checked-in migrations; `check` validates migration-history consistency and does not inspect which migrations a live database has applied.
+Both resets are destructive and must only be used for disposable local data. The Compose reset also deletes the shared Valkey and Mailpit data. `migrate` applies pending checked-in migrations; `check` validates migration-history consistency and does not inspect which migrations a live database has applied.
 
 ## Drizzle migration workflow
 
