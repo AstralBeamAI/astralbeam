@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Allow direct route use; show public key IDs; support exact optional property types.
+// Local changes: Allow direct route use and support exact optional property types.
 
 "use client"
 

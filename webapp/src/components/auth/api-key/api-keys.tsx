@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Support exact optional property types, public key IDs, explicit load errors, total-aware pagination, and colocated list states.
+// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, and colocated list states.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -58,7 +58,6 @@ function ApiKeySkeleton() {
       <ItemContent>
         <Skeleton className="h-4 w-28" />
         <Skeleton className="h-3 w-36" />
-        <Skeleton className="h-3 w-32" />
       </ItemContent>
     </Item>
   )
@@ -219,7 +218,6 @@ export function ApiKeys({
                     {index > 0 && <ItemSeparator />}
                     <ApiKey
                       apiKey={key}
-                      organizationSlug={organizationSlug}
                       hideDelete={hideDelete}
                       hideUpdate={hideUpdate}
                       onDeleted={() => {

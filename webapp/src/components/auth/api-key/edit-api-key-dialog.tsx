@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Show the immutable public API key ID and surface a sanitized inline rename error because this mutation intentionally bypasses the shared toaster.
+// Local changes: Surface a sanitized inline rename error because this mutation intentionally bypasses the shared toaster.
 
 "use client"
 
@@ -26,12 +26,10 @@ export function EditApiKeyDialog({
   apiKey,
   open,
   onOpenChange,
-  publicId,
 }: {
   apiKey: OrganizationApiKey
   open: boolean
   onOpenChange: (open: boolean) => void
-  publicId: string
 }) {
   const { authClient, localization } = useAuth<ApiKeyAuthClient>()
   const { localization: labels } = useAuthPlugin(apiKeyPlugin)
@@ -70,15 +68,6 @@ export function EditApiKeyDialog({
             <DialogTitle>{labels.editApiKey}</DialogTitle>
           </DialogHeader>
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor={`api-key-public-id-${apiKey.id}`}>ID</FieldLabel>
-              <Input
-                id={`api-key-public-id-${apiKey.id}`}
-                value={publicId}
-                readOnly
-                className="font-mono text-xs"
-              />
-            </Field>
             <Field data-invalid={!!nameError}>
               <FieldLabel htmlFor={`api-key-name-${apiKey.id}`}>
                 {labels.name}
