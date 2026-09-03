@@ -7,7 +7,6 @@ export const ASTRALBEAM_CHAT_TOKEN_VERSION = 3
 export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
 export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 
-const API_KEY_SECRET_PATTERN = /^abo_[A-Za-z]{64}$/
 const CHAT_TOKEN_MAX_BYTES = 16_384
 const TENANT_USER_MAX_BYTES = 8_192
 const TENANT_USER_MAX_DEPTH = 10
@@ -17,7 +16,11 @@ const SlugSchema = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[0-9a-z-]{1,63}$/)),
 )
 const ApiKeyIdSchema = Schema.TemplateLiteral(["key_", SlugSchema, "_", SlugSchema])
+const ApiKeySecretSchema = Schema.String.pipe(
+  Schema.check(Schema.isPattern(/^abo_[A-Za-z]{64}$/)),
+)
 const isApiKeyId = Schema.is(ApiKeyIdSchema)
+const isApiKeySecret = Schema.is(ApiKeySecretSchema)
 const MetadataSchema = Schema.JsonObject.annotate({
   message: "metadata must be a JSON object",
 })
@@ -90,7 +93,7 @@ function parseApiKey(apiKey: string): {
   const separator = apiKey.lastIndexOf("_abo_")
   const keyId = apiKey.slice(0, separator)
   const keySecret = apiKey.slice(separator + 1)
-  if (!isApiKeyId(keyId) || !API_KEY_SECRET_PATTERN.test(keySecret)) {
+  if (!isApiKeyId(keyId) || !isApiKeySecret(keySecret)) {
     throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
   }
   const organizationSlug = keyId.slice("key_".length, keyId.indexOf("_", "key_".length))
