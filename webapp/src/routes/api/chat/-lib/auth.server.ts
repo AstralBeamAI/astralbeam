@@ -8,10 +8,10 @@ import { apiKey, organization } from "@/db/schema.server"
 import { ChatTokenPayloadSchema } from "@/lib/schemas"
 import {
   CHAT_TOKEN_AUDIENCE,
-  CHAT_TOKEN_ISSUER,
   CHAT_TOKEN_MAX_LENGTH,
   CHAT_TOKEN_MAX_LIFETIME_SECONDS,
   CHAT_TOKEN_MIN_LIFETIME_SECONDS,
+  CHAT_TOKEN_SCOPE,
   CHAT_TOKEN_TYPE,
   CHAT_TOKEN_USER_MAX_BYTES,
   CHAT_TOKEN_USER_MAX_DEPTH,
@@ -101,12 +101,14 @@ export async function verifyChatToken(
   apiKeyId: string,
 ): Promise<ChatTenantUser> {
   try {
+    const organizationSlug = API_KEY_ID_PATTERN.exec(apiKeyId)?.[1]
+    if (!organizationSlug) throw invalidToken("Malformed API key identifier")
     const { payload, protectedHeader } = await jwtVerify(token, verifier, {
       algorithms: ["HS256"],
       typ: CHAT_TOKEN_TYPE,
-      issuer: CHAT_TOKEN_ISSUER,
+      issuer: organizationSlug,
       audience: CHAT_TOKEN_AUDIENCE,
-      requiredClaims: ["iat", "exp", "sub"],
+      requiredClaims: ["iat", "exp", "iss", "aud"],
       clockTolerance: CLOCK_TOLERANCE_SECONDS,
       maxTokenAge: CHAT_TOKEN_MAX_LIFETIME_SECONDS,
     })
@@ -125,7 +127,9 @@ export async function verifyChatToken(
     ) {
       throw invalidToken("Invalid chat token claims")
     }
-    if (claims.tenantUser.id !== claims.sub) throw invalidToken("Chat token subject mismatch")
+    if (!claims.scope.includes(CHAT_TOKEN_SCOPE)) {
+      throw invalidToken("Chat token scope is missing")
+    }
     return claims.tenantUser
   } catch (cause) {
     if (isChatAuthenticationError(cause)) throw cause

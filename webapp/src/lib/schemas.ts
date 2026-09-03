@@ -27,22 +27,37 @@ export const LockVersionSchema = Schema.Number.pipe(
   Schema.check(Schema.makeFilter((value) => Number.isSafeInteger(value) && value >= 0)),
 )
 
+const ChatExternalIdSchema = Schema.String.pipe(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.check(Schema.isMaxLength(255)),
+)
+
+export const ChatTenantSchema = Schema.StructWithRest(
+  Schema.Struct({
+    id: ChatExternalIdSchema,
+    name: Schema.optional(Schema.String),
+  }),
+  [Schema.JsonObject],
+)
+
 export const ChatTenantUserSchema = Schema.StructWithRest(
   Schema.Struct({
-    id: Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.check(Schema.isMaxLength(255)),
-    ),
+    id: ChatExternalIdSchema,
+    tenant: ChatTenantSchema,
+    name: Schema.optional(Schema.String),
+    admin: Schema.optional(Schema.Boolean),
   }),
   [Schema.JsonObject],
 )
 
 export const ChatTokenPayloadSchema = Schema.StructWithRest(
   Schema.Struct({
-    ver: Schema.Literal(2),
+    ver: Schema.Literal(3),
     iat: Schema.Int,
     exp: Schema.Int,
-    sub: Schema.String,
+    iss: SlugSchema,
+    aud: Schema.Literal("astralbeam"),
+    scope: Schema.Array(Schema.String),
     tenantUser: ChatTenantUserSchema,
   }),
   [Schema.JsonObject],

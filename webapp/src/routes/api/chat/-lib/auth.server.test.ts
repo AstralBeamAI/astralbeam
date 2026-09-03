@@ -44,13 +44,18 @@ vi.mock("@/db", () => {
 })
 
 import { authenticateChatRequest, isChatAuthenticationError, verifyChatToken } from "./auth.server"
-import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_ISSUER, CHAT_TOKEN_TYPE } from "./constants.server"
+import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_SCOPE, CHAT_TOKEN_TYPE } from "./constants.server"
 
 const apiKeyId = "key_acme_production"
 const rawApiKey = `abo_${"A".repeat(64)}`
-let deeplyNestedTenantUser: unknown = { id: "tenant-user-1" }
+const defaultTenantUser = {
+  id: "tenant-user-1",
+  tenant: { id: "tenant-1", name: "Acme customer", plan: "enterprise" },
+  role: "admin",
+}
+let deeplyNestedTenantUser: unknown = { ...defaultTenantUser }
 for (let depth = 0; depth < 10; depth += 1) {
-  deeplyNestedTenantUser = { id: "tenant-user-1", child: deeplyNestedTenantUser }
+  deeplyNestedTenantUser = { ...defaultTenantUser, child: deeplyNestedTenantUser }
 }
 
 function signingKey(secret = rawApiKey) {
@@ -65,6 +70,7 @@ type TokenOverrides = {
   expiresInSeconds?: number
   issuedAt?: number
   issuer?: string
+  scope?: readonly string[] | null
   signingSecret?: string
   subject?: string
   tenantUser?: unknown
@@ -76,23 +82,24 @@ async function token(overrides: TokenOverrides = {}) {
   const now = Math.floor(Date.now() / 1_000)
   const issuedAt = overrides.issuedAt ?? now
   const algorithm = overrides.algorithm ?? "HS256"
-  return await new SignJWT({
-    ver: overrides.version ?? 2,
-    tenantUser: overrides.tenantUser ?? { id: "tenant-user-1", role: "admin" },
+  let jwt = new SignJWT({
+    ver: overrides.version ?? 3,
+    ...(overrides.scope === null ? {} : { scope: overrides.scope ?? [CHAT_TOKEN_SCOPE] }),
+    tenantUser: overrides.tenantUser ?? defaultTenantUser,
   })
     .setProtectedHeader({
       alg: algorithm,
       typ: overrides.type ?? CHAT_TOKEN_TYPE,
       kid: overrides.apiKeyId ?? apiKeyId,
     })
-    .setIssuer(overrides.issuer ?? CHAT_TOKEN_ISSUER)
+    .setIssuer(overrides.issuer ?? "acme")
     .setAudience(overrides.audience ?? CHAT_TOKEN_AUDIENCE)
-    .setSubject(overrides.subject ?? "tenant-user-1")
     .setIssuedAt(issuedAt)
     .setExpirationTime(
       overrides.expiresAt ?? issuedAt + (overrides.expiresInSeconds ?? 300),
     )
-    .sign(signingKey(overrides.signingSecret))
+  if (overrides.subject !== undefined) jwt = jwt.setSubject(overrides.subject)
+  return await jwt.sign(signingKey(overrides.signingSecret))
 }
 
 describe("organization API-key chat JWTs", () => {
@@ -122,7 +129,7 @@ describe("organization API-key chat JWTs", () => {
       ),
     ).resolves.toEqual({
       organization: { id: "01990a5d-ac96-774b-b942-6b13c85384ca" },
-      tenantUser: { id: "tenant-user-1", role: "admin" },
+      tenantUser: defaultTenantUser,
     })
     expect(databaseState.selectCalls).toBe(2)
     expect(databaseState.mutationCalls).toBe(0)
@@ -166,11 +173,16 @@ describe("organization API-key chat JWTs", () => {
     expect(databaseState.mutationCalls).toBe(0)
   })
 
-  test("uses Better Auth's stored digest as the verifier and accepts v2 claims", async () => {
-    await expect(verifyChatToken(await token(), signingKey(), apiKeyId)).resolves.toEqual({
-      id: "tenant-user-1",
-      role: "admin",
-    })
+  test("uses Better Auth's stored digest as the verifier and accepts chat-scoped v3 claims", async () => {
+    await expect(verifyChatToken(await token(), signingKey(), apiKeyId)).resolves.toEqual(
+      defaultTenantUser,
+    )
+  })
+
+  test("does not require or interpret the optional JWT subject", async () => {
+    await expect(
+      verifyChatToken(await token({ subject: "host-defined-subject" }), signingKey(), apiKeyId),
+    ).resolves.toEqual(defaultTenantUser)
   })
 
   test.each([
@@ -182,11 +194,13 @@ describe("organization API-key chat JWTs", () => {
     ["wrong type", { type: "another+jwt" }],
     ["wrong kid", { apiKeyId: "key_acme_another" }],
     ["wrong signature", { signingSecret: `abo_${"B".repeat(64)}` }],
-    ["subject mismatch", { subject: "another-user" }],
-    ["wrong version", { version: 1 }],
+    ["missing scope", { scope: null }],
+    ["wrong scope", { scope: ["tenants:read"] }],
+    ["old version", { version: 2 }],
     ["too short", { expiresInSeconds: 59 }],
     ["too long", { expiresInSeconds: 601 }],
-    ["missing tenant-user ID", { tenantUser: { role: "admin" } }],
+    ["missing tenant-user ID", { tenantUser: { tenant: { id: "tenant-1" } } }],
+    ["missing tenant", { tenantUser: { id: "tenant-user-1" } }],
     ["deeply nested tenant user", { tenantUser: deeplyNestedTenantUser }],
   ])("rejects %s", async (_name, overrides) => {
     await expect(verifyChatToken(await token(overrides), signingKey(), apiKeyId)).rejects

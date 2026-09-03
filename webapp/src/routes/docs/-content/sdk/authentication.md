@@ -15,10 +15,10 @@ export const POST = createAstralBeamTokenRoute({
     const session = await getApplicationSession(request)
     if (!session) return undefined // answered as 401
     return {
-      id: session.user.id, // required; stable and unique per organization
+      id: session.user.id, // required; stable and unique within this tenant
       name: session.user.name,
       email: session.user.email,
-      tenant: { id: session.tenant.id, name: session.tenant.name },
+      tenant: { id: session.tenant.id, name: session.tenant.name, plan: session.tenant.plan },
     }
   },
 })
@@ -33,7 +33,10 @@ The token identifies the tenant user to AstralBeam, so treat it like a session c
 - Authenticate your own session before minting; anyone who can call this endpoint can drive the chat.
 - Derive `tenantUser` from server-side state only, never from anything the browser sent.
 - Tokens are signed, not encrypted: never put a secret in `tenantUser`.
-- `tenantUser.id` must be a stable 1–255 character string; extra fields must be plain JSON.
+- `tenantUser.id` and `tenantUser.tenant.id` must be stable 1–255 character strings; tenant and user names are optional.
+- `tenantUser.admin` is optional; omit it unless trusted application state explicitly grants or revokes admin access.
+- Extra tenant and tenant-user fields are preserved as JSON metadata; never include secrets.
+- The JWT issuer is the organization slug from the API key, its audience is `astralbeam`, and this helper grants the `chat` scope. AstralBeam does not require or interpret `sub`.
 - Lifetimes are 60–600 seconds (`expiresInSeconds`), five minutes by default.
 - The SDK keeps the token in memory only and renews it before it expires.
 

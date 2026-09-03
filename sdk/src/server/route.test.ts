@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { createAstralBeamTokenRoute } from "./index.ts"
 
 const apiKey = `key_analyticalengines_production_abo_${"aB".repeat(32)}`
-const tenantUser = { id: "tenant-user-1" }
+const tenantUser = { id: "tenant-user-1", tenant: { id: "tenant-1" } }
 
 function post(): Request {
   return new Request("https://app.example/api/astralbeam/token", { method: "POST" })
