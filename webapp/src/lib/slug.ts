@@ -1,6 +1,6 @@
 export const SLUG_MAX_LENGTH = 63
 export const SLUG_RANDOM_SUFFIX_LENGTH = 5
-export const SLUG_PATTERN = /^[0-9a-z]{1,63}$/
+export const SLUG_PATTERN = /^[0-9a-z-]{1,63}$/
 
 export function isValidSlug(value: string): boolean {
   return SLUG_PATTERN.test(value)

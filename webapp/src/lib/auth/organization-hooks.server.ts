@@ -144,7 +144,7 @@ function assertOrganizationSlug(value: unknown): asserts value is string {
   if (typeof value !== "string" || !isValidSlug(value)) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_ORGANIZATION_SLUG",
-      message: "Organization slug must contain only lowercase letters and numbers",
+      message: "Organization slug must contain only lowercase letters, numbers, and hyphens",
     })
   }
 }

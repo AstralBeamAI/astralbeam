@@ -25,6 +25,10 @@ type SlugAvailabilityResult = {
   availability: "available" | "idle" | "unavailable"
 }
 
+// HTML patterns use RegExp v-mode, which requires escaping hyphens in character classes.
+// https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/pattern
+const SLUG_INPUT_PATTERN = String.raw`[0-9a-z\-]{1,63}`
+
 export type GeneratedSlugFieldProps = {
   id: string
   label: string
@@ -117,7 +121,7 @@ export function GeneratedSlugField({
     : value.length === 0
     ? "Identifier is required"
     : !valid
-    ? "Use 1–63 lowercase letters and numbers"
+    ? "Use 1–63 lowercase letters, numbers, and hyphens"
     : availability === "unavailable"
     ? "This identifier is already in use"
     : undefined
@@ -131,7 +135,7 @@ export function GeneratedSlugField({
           name="slug"
           value={value}
           maxLength={SLUG_MAX_LENGTH}
-          pattern="[0-9a-z]{1,63}"
+          pattern={SLUG_INPUT_PATTERN}
           required
           disabled={disabled}
           aria-invalid={!!error}
@@ -165,7 +169,7 @@ export function GeneratedSlugField({
             </>
           )
           : (
-            "Use lowercase letters and numbers only. It can't be changed later."
+            "Use lowercase letters, numbers, and hyphens only. It can't be changed later."
           )}
       </FieldDescription>
       <FieldError>{error}</FieldError>

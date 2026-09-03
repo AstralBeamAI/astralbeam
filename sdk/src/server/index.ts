@@ -7,7 +7,7 @@ export const ASTRALBEAM_CHAT_TOKEN_VERSION = 3
 export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
 export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 
-const API_KEY_ID_PATTERN = /^key_([0-9a-z]{1,63})_([0-9a-z]{1,63})$/
+const API_KEY_ID_PATTERN = /^key_([0-9a-z-]{1,63})_([0-9a-z-]{1,63})$/
 const API_KEY_SECRET_PATTERN = /^abo_[A-Za-z]{64}$/
 const CHAT_TOKEN_MAX_BYTES = 16_384
 const TENANT_USER_MAX_BYTES = 8_192

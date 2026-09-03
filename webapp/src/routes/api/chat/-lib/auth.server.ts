@@ -19,7 +19,7 @@ import type { ChatAuthenticationError, ChatPrincipal, ChatTenantUser } from "./t
 
 const textEncoder = new TextEncoder()
 const API_KEY_CONFIG_ID = "default"
-const API_KEY_ID_PATTERN = /^key_([0-9a-z]{1,63})_([0-9a-z]{1,63})$/
+const API_KEY_ID_PATTERN = /^key_([0-9a-z-]{1,63})_([0-9a-z-]{1,63})$/
 const CLOCK_TOLERANCE_SECONDS = 30
 const decodeChatTokenPayload = Schema.decodeUnknownSync(ChatTokenPayloadSchema, {
   onExcessProperty: "error",

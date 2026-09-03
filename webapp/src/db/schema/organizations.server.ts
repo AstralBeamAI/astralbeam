@@ -69,7 +69,7 @@ export const organization = snakeCase.table(
   },
   (table) => [
     uniqueIndex("organization_slug_uidx").on(table.slug),
-    check("organization_slug_check", sql`${table.slug} ~ '^[0-9a-z]{1,63}$'`),
+    check("organization_slug_check", sql`${table.slug} ~ '^[0-9a-z-]{1,63}$'`),
   ],
 )
 
@@ -111,7 +111,7 @@ export const apiKey = snakeCase.table(
       table.organizationId,
       table.slug,
     ),
-    check("api_key_slug_check", sql`${table.slug} ~ '^[0-9a-z]{1,63}$'`),
+    check("api_key_slug_check", sql`${table.slug} ~ '^[0-9a-z-]{1,63}$'`),
   ],
 )
 
@@ -167,7 +167,7 @@ export const agent = snakeCase.table(
       table.sandboxProviderId,
     ),
     uniqueIndex("agent_organization_id_slug_uidx").on(table.organizationId, table.slug),
-    check("agent_slug_check", sql`${table.slug} ~ '^[0-9a-z]{1,63}$'`),
+    check("agent_slug_check", sql`${table.slug} ~ '^[0-9a-z-]{1,63}$'`),
     check(
       "agent_system_prompt_length_check",
       sql`char_length(${table.systemPrompt}) between 1 and 32768`,

@@ -1,0 +1,3 @@
+ALTER TABLE "agent" DROP CONSTRAINT "agent_slug_check", ADD CONSTRAINT "agent_slug_check" CHECK ("slug" ~ '^[0-9a-z-]{1,63}$');--> statement-breakpoint
+ALTER TABLE "api_key" DROP CONSTRAINT "api_key_slug_check", ADD CONSTRAINT "api_key_slug_check" CHECK ("slug" ~ '^[0-9a-z-]{1,63}$');--> statement-breakpoint
+ALTER TABLE "organization" DROP CONSTRAINT "organization_slug_check", ADD CONSTRAINT "organization_slug_check" CHECK ("slug" ~ '^[0-9a-z-]{1,63}$');

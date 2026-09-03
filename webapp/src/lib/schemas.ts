@@ -7,7 +7,7 @@ export const UuidV7Schema = Schema.String.pipe(Schema.check(Schema.isUUID(7)))
 export const SlugSchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value) => SLUG_PATTERN.test(value), {
-      message: "Only lowercase letters and numbers are allowed",
+      message: "Only lowercase letters, numbers, and hyphens are allowed",
     }),
   ),
 )

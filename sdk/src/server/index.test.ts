@@ -10,7 +10,7 @@ import {
   createAstralBeamChatToken,
 } from "./index.ts"
 
-const apiKeyId = "key_analyticalengines_production"
+const apiKeyId = "key_analytical-engines_production-key"
 const apiKeySecret = `abo_${"aB".repeat(32)}`
 const apiKey = `${apiKeyId}_${apiKeySecret}`
 const textEncoder = new TextEncoder()
@@ -57,7 +57,7 @@ test("createAstralBeamChatToken mints the documented short-lived tenant identity
 
 test("createAstralBeamChatToken validates the combined API key", async () => {
   await expect(createAstralBeamChatToken({
-    apiKey: `key_bad-org_production_abo_${"aB".repeat(32)}`,
+    apiKey: `key_bad_org_production_abo_${"aB".repeat(32)}`,
     tenantUser: { id: "user-1", tenant },
   })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
   await expect(createAstralBeamChatToken({

@@ -51,7 +51,7 @@ describe("organization agent chat lookup", () => {
 
     await expect(
       resolveChatAgent(
-        "agt_acme_todos",
+        "agt_acme-corp_todo-agent",
         "01990a5d-ac96-774b-b942-6b13c85384ca",
       ),
     ).resolves.toEqual({ systemPrompt: "Organization default" })
@@ -60,11 +60,11 @@ describe("organization agent chat lookup", () => {
     const [wherePredicate] = databaseState.wherePredicates.map(query)
     expect(joinPredicate?.sql).toContain('"agent"."organization_id" = "organization"."id"')
     expect(joinPredicate?.sql).toContain('"agent"."slug" = $1')
-    expect(joinPredicate?.params).toEqual(["todos"])
+    expect(joinPredicate?.params).toEqual(["todo-agent"])
     expect(wherePredicate?.sql).toContain('"organization"."slug" = $1')
     expect(wherePredicate?.sql).toContain('"agent"."organization_id" = $2')
     expect(wherePredicate?.params).toEqual([
-      "acme",
+      "acme-corp",
       "01990a5d-ac96-774b-b942-6b13c85384ca",
     ])
   })

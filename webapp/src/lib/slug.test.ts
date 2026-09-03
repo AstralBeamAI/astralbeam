@@ -5,9 +5,9 @@ import { SlugSchema } from "./schemas.ts"
 import { generateSlugSuggestion, isValidSlug } from "./slug.ts"
 
 describe("public slugs", () => {
-  it("generates a stable lowercase suggestion from injected random bytes", () => {
+  it("generates a stable lowercase alphanumeric suggestion from injected random bytes", () => {
     expect(generateSlugSuggestion(
-      "Production Agent!",
+      "Production-Agent!",
       "agent",
       new Uint8Array([10, 11, 12, 13, 14]),
     )).toBe("productionagentabcde")
@@ -17,12 +17,12 @@ describe("public slugs", () => {
       .toHaveLength(63)
   })
 
-  it("uses one strict lowercase-alphanumeric contract", () => {
+  it("uses one strict lowercase alphanumeric and hyphen contract", () => {
     expect(isValidSlug("abc019")).toBe(true)
+    expect(isValidSlug("with-hyphen")).toBe(true)
     expect(Schema.is(SlugSchema)("a".repeat(63))).toBe(true)
     expect(Schema.is(SlugSchema)("a".repeat(64))).toBe(false)
     expect(Schema.is(SlugSchema)("ABC")).toBe(false)
-    expect(Schema.is(SlugSchema)("with-hyphen")).toBe(false)
     expect(Schema.is(SlugSchema)("with_underscore")).toBe(false)
   })
 })

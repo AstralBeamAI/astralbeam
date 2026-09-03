@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import { effectDatabase, runDatabaseEffect } from "@/db"
 import { agent, organization, organizationConfiguration } from "@/db/schema.server"
 
-const AGENT_ID_PATTERN = /^agt_([0-9a-z]{1,63})_([0-9a-z]{1,63})$/
+const AGENT_ID_PATTERN = /^agt_([0-9a-z-]{1,63})_([0-9a-z-]{1,63})$/
 
 /**
  * Resolve malformed and cross-organization public IDs identically. A host that sends no public ID
