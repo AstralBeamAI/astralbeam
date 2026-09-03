@@ -47,6 +47,8 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Record structural and build reasoning as comments beside the code that depends on it.
 - Address AstralBeam through the single `apiUrl` base option and derive every route from it with `chatApiUrls`; a new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `authTokenUrl`.
 - Treat a copied API key as its public ID plus the exact Better Auth raw key; hash the complete `abo_<secret>` value, never only its random suffix.
+- Model token identities with a required stable Tenant ID plus a stable tenant-local TenantUser ID; preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
+- Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject.
 
 ## Testing
 

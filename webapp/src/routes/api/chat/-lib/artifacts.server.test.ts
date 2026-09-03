@@ -12,6 +12,7 @@ import {
 
 const ticket: SandboxArtifactTicket = {
   organizationId: "0192aaaa-aaaa-7aaa-aaaa-aaaaaaaaaaaa",
+  tenantId: "tenant-1",
   tenantUserId: "tenant-user-1",
   sandboxProviderId: "0192bbbb-bbbb-7bbb-bbbb-bbbbbbbbbbbb",
   providerSandboxId: "sbx_12345",
@@ -45,11 +46,14 @@ describe("sandbox artifact tickets", () => {
       .resolves.toBeUndefined()
   })
 
-  it("rejects garbage and tickets missing the content digest", async () => {
+  it("rejects garbage and tickets missing required identity or content claims", async () => {
     await expect(verifySandboxArtifactTicket("not-a-ticket")).resolves.toBeUndefined()
     const { sha256: _sha256, ...withoutDigest } = ticket
     const token = await mintSandboxArtifactTicket(withoutDigest as SandboxArtifactTicket)
     await expect(verifySandboxArtifactTicket(token)).resolves.toBeUndefined()
+    const { tenantId: _tenantId, ...withoutTenant } = ticket
+    const tenantless = await mintSandboxArtifactTicket(withoutTenant as SandboxArtifactTicket)
+    await expect(verifySandboxArtifactTicket(tenantless)).resolves.toBeUndefined()
   })
 })
 

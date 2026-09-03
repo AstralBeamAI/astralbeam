@@ -152,6 +152,7 @@ export const Route = createFileRoute("/api/chat/")({
                 log,
                 artifactScope: {
                   organizationId: principal.organization.id,
+                  tenantId: principal.tenantUser.tenant.id,
                   tenantUserId: principal.tenantUser.id,
                   sandboxProviderId: selectedAgent.sandboxProviderId,
                 },

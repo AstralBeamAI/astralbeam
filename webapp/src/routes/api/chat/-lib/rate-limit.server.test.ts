@@ -21,20 +21,21 @@ beforeEach(() => {
   }))
 })
 
-test("isolates opaque rate-limit buckets by organization and tenant user", async () => {
+test("isolates opaque rate-limit buckets by organization, tenant, and tenant user", async () => {
   const principals = [
-    principal("organization-1", "tenant-user-1"),
-    principal("organization-1", "tenant-user-2"),
-    principal("organization-2", "tenant-user-1"),
-    principal("organization-1", "tenant-user-1"),
+    principal("organization-1", "tenant-1", "tenant-user-1"),
+    principal("organization-1", "tenant-1", "tenant-user-2"),
+    principal("organization-1", "tenant-2", "tenant-user-1"),
+    principal("organization-2", "tenant-1", "tenant-user-1"),
+    principal("organization-1", "tenant-1", "tenant-user-1"),
   ]
   for (const value of principals) {
     await expect(runMockedRateLimit(consumeChatRateLimit(value))).resolves.toBe(false)
   }
 
   const keys = consume.mock.calls.map((call) => rateLimitKey(call[0] as unknown))
-  expect(new Set(keys.slice(0, 3)).size).toBe(3)
-  expect(keys[3]).toBe(keys[0])
+  expect(new Set(keys.slice(0, 4)).size).toBe(4)
+  expect(keys[4]).toBe(keys[0])
   expect(keys.every((key) => key.startsWith("chat:") && !key.includes("tenant-user"))).toBe(true)
 })
 
@@ -46,7 +47,9 @@ test("propagates rate-limit store failures", async () => {
   ))
 
   const error = await runMockedRateLimit(
-    consumeChatRateLimit(principal("organization-1", "tenant-user-1")).pipe(Effect.flip),
+    consumeChatRateLimit(principal("organization-1", "tenant-1", "tenant-user-1")).pipe(
+      Effect.flip,
+    ),
   )
   expect(error.reason._tag).toBe("RateLimitStoreError")
 })
@@ -64,14 +67,16 @@ test("reports an exceeded bucket to the chat route", async () => {
   ))
 
   await expect(
-    runMockedRateLimit(consumeChatRateLimit(principal("organization-1", "tenant-user-1"))),
+    runMockedRateLimit(
+      consumeChatRateLimit(principal("organization-1", "tenant-1", "tenant-user-1")),
+    ),
   ).resolves.toBe(true)
 })
 
-function principal(organizationId: string, tenantUserId: string) {
+function principal(organizationId: string, tenantId: string, tenantUserId: string) {
   return {
     organization: { id: organizationId },
-    tenantUser: { id: tenantUserId },
+    tenantUser: { id: tenantUserId, tenant: { id: tenantId } },
   }
 }
 

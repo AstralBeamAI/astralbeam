@@ -30,6 +30,6 @@ Paste this as the demo agent's system prompt in the dashboard:
 8. With a sandbox provider on the agent, ask it for something that needs code: "write a script that exports my todos as CSV and run it".
 9. Each sandbox step appears as an expandable row. While the sandbox provisions, a slim status pill sits above the composer; the **Sandbox** panel (opt-in via `sandboxPanel`) collects every file it wrote — each downloadable — and the whole command log.
 
-The token route is local-demo-only: it grants every caller the fixed demo identity, so do not deploy it unchanged. Real hosts must derive a stable, Organization-unique `tenantUser.id` from their authenticated application session, never trust a browser-supplied identity, and avoid secrets because JWT payloads are signed but not encrypted.
+The token route is local-demo-only: it grants every caller the fixed demo identity, so do not deploy it unchanged. Real hosts must derive stable `tenantUser.tenant.id` and tenant-local `tenantUser.id` values from their authenticated application session, never trust a browser-supplied identity, and avoid secrets because JWT payloads are signed but not encrypted.
 
 After changing SDK sources, rebuild from `sdk` and reload the page.

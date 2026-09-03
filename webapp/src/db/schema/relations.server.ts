@@ -60,6 +60,10 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
       from: relations.organization.id,
       to: relations.sandboxProvider.organizationId,
     }),
+    tenants: relations.many.tenant({
+      from: relations.organization.id,
+      to: relations.tenant.organizationId,
+    }),
   },
   apiKey: {
     organization: relations.one.organization({
@@ -77,6 +81,22 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
     organization: relations.one.organization({
       from: relations.sandboxProvider.organizationId,
       to: relations.organization.id,
+    }),
+  },
+  tenant: {
+    organization: relations.one.organization({
+      from: relations.tenant.organizationId,
+      to: relations.organization.id,
+    }),
+    tenantUsers: relations.many.tenantUser({
+      from: [relations.tenant.organizationId, relations.tenant.id],
+      to: [relations.tenantUser.organizationId, relations.tenantUser.tenantId],
+    }),
+  },
+  tenantUser: {
+    tenant: relations.one.tenant({
+      from: [relations.tenantUser.organizationId, relations.tenantUser.tenantId],
+      to: [relations.tenant.organizationId, relations.tenant.id],
     }),
   },
   member: {
