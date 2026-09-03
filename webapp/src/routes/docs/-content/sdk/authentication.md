@@ -27,6 +27,27 @@ export const POST = createAstralBeamTokenRoute({
 
 For full control, mint the token with `createAstralBeamChatToken({ apiKey, user, tenant })` and answer with `Response.json({ token })` plus `cache-control: no-store`.
 
+## A backend on another origin
+
+By default the widget POSTs `authTokenUrl` with the page's cookies, which needs a session cookie the browser will send. When your API lives on another origin and authenticates with a bearer token or a custom header, point `authTokenUrl` at it and pass `authTokenHeaders`.
+
+```tsx
+<AstralBeamChat
+  agentId="agt_acme_support"
+  authTokenUrl="https://api.acme.com/astralbeam/token"
+  authTokenHeaders={{ authorization: `Bearer ${accessToken}` }}
+/>
+```
+
+- Pass an object for a fixed credential, or a function, which may be async, for one you must read or await per request: `authTokenHeaders={async () => ({ authorization: "Bearer " + await getAccessToken() })}`.
+- Headers are resolved on every token request, near expiry and after a token is rejected, so a rotating credential stays current instead of being captured once.
+- The React prop is read from the latest render, so an inline object or callback over current auth state is fine, needs no memoization, and may start out undefined while your own credential loads.
+- Throwing from the callback fails closed before any request; the composer shows the error and its retry link resolves the headers again.
+- The endpoint keeps its contract: the SDK still sends `POST` with `accept: application/json` and expects `{ token }`, and still checks the response status for you.
+- Like `authTokenUrl`, it is fixed at mount: `handle.update` rejects it.
+- A custom header makes the cross-origin request preflighted, so the endpoint must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
+- With header auth you need no cookies at all. Cookies do work cross-origin instead if the endpoint returns `Access-Control-Allow-Credentials: true` and its cookie is `SameSite=None; Secure`, but browser cookie policies make that the more fragile route.
+
 ## Rules
 
 The token identifies the tenant user to AstralBeam, so treat it like a session credential.

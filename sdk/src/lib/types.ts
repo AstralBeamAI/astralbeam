@@ -115,6 +115,14 @@ export type AstralBeamChatColorScheme = "light" | "dark" | "system"
 export type AstralBeamChatThemeVariables = Record<`--${string}`, string>
 
 /**
+ * Headers added to the token request: an object for a fixed credential, or a function for one the
+ * host must read or await per request, such as a rotating access token.
+ */
+export type AstralBeamChatAuthTokenHeaders =
+  | Record<string, string>
+  | (() => Record<string, string> | Promise<Record<string, string>>)
+
+/**
  * Custom values for the CSS variables the widget's shadcn theme exposes (`--background`,
  * `--primary`, `--radius`, and the `--font-sans`/`--font-heading`/`--font-mono` stacks, ...),
  * mirroring shadcn's `:root`/`.dark` split: `light` is the base applied in both color schemes,
@@ -150,6 +158,13 @@ export interface MountAstralBeamChatOptions {
   apiUrl?: string | undefined
   /** Application endpoint that mints a short-lived chat JWT. Fixed at mount. Default `"/api/astralbeam/token"`. */
   authTokenUrl?: string | undefined
+  /**
+   * Extra request headers for `authTokenUrl`, for hosts whose backend sits on another origin and
+   * authenticates with a bearer token or a custom header rather than the page's cookies. Resolved
+   * again on every token request, so pass the function form for a credential that rotates.
+   * Fixed at mount.
+   */
+  authTokenHeaders?: AstralBeamChatAuthTokenHeaders | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -183,7 +198,7 @@ export interface MountAstralBeamChatOptions {
  * changing any of them would mean a new client and a discarded transcript.
  */
 export type AstralBeamChatUpdate = Partial<
-  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "authTokenUrl">
+  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "authTokenUrl" | "authTokenHeaders">
 >
 
 export interface AstralBeamChatHandle {

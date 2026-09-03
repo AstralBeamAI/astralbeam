@@ -13,6 +13,7 @@ import { createPortal } from "react-dom"
 // chunk and its bundled React instead of bundling a second copy.
 import {
   type AstralBeamChatAttachmentOptions,
+  type AstralBeamChatAuthTokenHeaders,
   type AstralBeamChatColorScheme,
   type AstralBeamChatHandle,
   type AstralBeamChatSlotRenderer,
@@ -37,6 +38,7 @@ import {
 
 export type {
   AstralBeamChatAttachmentOptions,
+  AstralBeamChatAuthTokenHeaders,
   AstralBeamChatColorScheme,
   AstralBeamChatTheme,
   InferParameters,
@@ -156,6 +158,13 @@ export interface AstralBeamChatProps {
   apiUrl?: string
   /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
   authTokenUrl?: string
+  /**
+   * Extra headers for the token request, for a backend on another origin that authenticates with a
+   * bearer token or custom header instead of cookies. Always read from the latest render, so an
+   * inline object or callback over current auth state is fine, needs no memoization, and may
+   * start out undefined while the host's own credential loads.
+   */
+  authTokenHeaders?: AstralBeamChatAuthTokenHeaders
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
   tools?: Record<string, ToolDefinition>
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -197,6 +206,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       emptyDescription,
       apiUrl,
       authTokenUrl,
+      authTokenHeaders,
       tools,
       widgets = {},
       colorScheme = DEFAULT_COLOR_SCHEME,
@@ -221,6 +231,12 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     const toolsRef = useRef(tools)
     useEffect(() => {
       toolsRef.current = tools
+    })
+    // Same reason, and the widget mints tokens for as long as it lives: headers frozen at mount
+    // would keep sending the first render's credential once the host's session rotates.
+    const authTokenHeadersRef = useRef(authTokenHeaders)
+    useEffect(() => {
+      authTokenHeadersRef.current = authTokenHeaders
     })
     // The chat keeps one render per tool call, so several renders of the same widget can be live
     // at once (a listing that renders a card per item); each needs its own portal and React key.
@@ -333,6 +349,12 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         agentId,
         apiUrl,
         authTokenUrl,
+        // Always a function over the latest render, so an inline object is neither a changed
+        // mount-fixed option nor a stale credential, and one that resolves after mount still lands.
+        authTokenHeaders: () => {
+          const current = authTokenHeadersRef.current
+          return typeof current === "function" ? current() : current ?? {}
+        },
       })
       handleRef.current = handle
       return () => {

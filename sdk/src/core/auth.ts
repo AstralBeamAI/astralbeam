@@ -1,4 +1,5 @@
 import type { DebugLogger } from "../lib/debug.ts"
+import type { AstralBeamChatAuthTokenHeaders } from "../lib/types.ts"
 
 const REFRESH_SKEW_MS = 60_000
 const MAX_TOKEN_LENGTH = 16_384
@@ -21,6 +22,7 @@ interface ChatAuthenticationSession {
 
 export interface ChatAuthenticationOptions {
   authTokenUrl: string
+  authTokenHeaders: AstralBeamChatAuthTokenHeaders | undefined
   session: ChatAuthenticationSession
   onStateChange: (state: ChatAuthenticationState) => void
   fetchClient: typeof globalThis.fetch
@@ -60,20 +62,37 @@ function bearerToken(headers: Headers): string | undefined {
   return authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined
 }
 
+async function postChatToken(
+  options: ChatAuthenticationOptions,
+  signal: AbortSignal,
+): Promise<unknown> {
+  const { authTokenUrl, authTokenHeaders, fetchClient } = options
+  const headers = new Headers({ accept: "application/json" })
+  // Resolved per request, so a rotating credential is never captured once, and only awaited when
+  // the host configured headers, so the default cookie request still starts in the caller's tick.
+  if (authTokenHeaders) {
+    const extra = typeof authTokenHeaders === "function"
+      ? await authTokenHeaders()
+      : authTokenHeaders
+    for (const [name, value] of Object.entries(extra)) headers.set(name, value)
+  }
+  const response = await fetchClient(authTokenUrl, {
+    method: "POST",
+    headers,
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  })
+  if (!response.ok) throw new Error(`Authentication endpoint returned HTTP ${response.status}`)
+  const body: unknown = await response.json()
+  return (body as { token?: unknown } | null)?.token
+}
+
 async function fetchChatToken(options: ChatAuthenticationOptions): Promise<string> {
-  const { authTokenUrl, session, onStateChange, fetchClient, debug } = options
+  const { session, onStateChange, debug } = options
   const { signal } = session.abortController
   try {
-    const response = await fetchClient(authTokenUrl, {
-      method: "POST",
-      headers: { accept: "application/json" },
-      credentials: "include",
-      cache: "no-store",
-      signal,
-    })
-    if (!response.ok) throw new Error(`Authentication endpoint returned HTTP ${response.status}`)
-    const body: unknown = await response.json()
-    const token = (body as { token?: unknown } | null)?.token
+    const token = await postChatToken(options, signal)
     if (typeof token !== "string" || !token) {
       throw new Error("Authentication endpoint did not return a token")
     }
