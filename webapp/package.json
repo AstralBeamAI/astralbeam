@@ -12,7 +12,7 @@
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno task generate:png && deno fmt && deno task lint:fix",
     "db": "drizzle-kit",
-    "db-reset": "deno run -P=tooling scripts/reset-database.ts && deno task db migrate",
+    "db-reset": "deno run -P=tooling scripts/reset-database.ts",
     "drizzle-studio": "drizzle-kit studio",
     "format": "deno fmt",
     "format:check": "deno fmt --check",
