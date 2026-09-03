@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; generate immutable key slugs; require a fresh session; surface the public key ID; promptly evict the one-time secret from the mutation cache.
+// Local changes: Use Phosphor icons; generate immutable hidden key slugs; require a fresh session; promptly evict the one-time secret from the mutation cache.
 
 "use client"
 
@@ -235,17 +235,19 @@ export function CreateApiKeyDialog({
                 <FieldError>{nameError}</FieldError>
               </Field>
 
-              <GeneratedSlugField
-                key={String(open)}
-                id="api-key-identifier"
-                label="Identifier"
-                sourceValue={name}
-                fallback="key"
-                checkAvailability={checkApiKeySlug}
-                onAvailabilityChange={setSlugAvailability}
-                formatPreview={(resourceSlug) => `key_${organizationSlug}_${resourceSlug}`}
-                disabled={isCreating}
-              />
+              <div hidden>
+                <GeneratedSlugField
+                  key={String(open)}
+                  id="api-key-identifier"
+                  label="Identifier"
+                  sourceValue={name}
+                  fallback="key"
+                  checkAvailability={checkApiKeySlug}
+                  onAvailabilityChange={setSlugAvailability}
+                  formatPreview={(resourceSlug) => `key_${organizationSlug}_${resourceSlug}`}
+                  disabled={isCreating}
+                />
+              </div>
 
               {availableConfigurations.length > 0 && (
                 <Field>

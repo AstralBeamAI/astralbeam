@@ -46,7 +46,7 @@ vi.mock("@/db", () => {
 import { authenticateChatRequest, isChatAuthenticationError, verifyChatToken } from "./auth.server"
 import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_TYPE } from "./constants.server"
 
-const apiKeyId = "key_acme_production"
+const apiKeyId = "key_acme-corp_production-key"
 const rawApiKey = `abo_${"A".repeat(64)}`
 const defaultTenantUser = {
   id: "tenant-user-1",
@@ -97,7 +97,7 @@ async function token(overrides: TokenOverrides = {}) {
       typ: overrides.type ?? CHAT_TOKEN_TYPE,
       kid: overrides.apiKeyId ?? apiKeyId,
     })
-    .setIssuer(overrides.issuer ?? "acme")
+    .setIssuer(overrides.issuer ?? "acme-corp")
     .setAudience(overrides.audience ?? CHAT_TOKEN_AUDIENCE)
     .setIssuedAt(issuedAt)
     .setExpirationTime(
@@ -143,9 +143,9 @@ describe("organization API-key chat JWTs", () => {
     expect(joinPredicate?.sql).toContain('"api_key"."organization_id" = "organization"."id"')
     expect(joinPredicate?.sql).toContain('"api_key"."slug" = $1')
     expect(joinPredicate?.sql).toContain('"api_key"."config_id" = $2')
-    expect(joinPredicate?.params).toEqual(["production", "default"])
+    expect(joinPredicate?.params).toEqual(["production-key", "default"])
     expect(lookupPredicate?.sql).toContain('"organization"."slug" = $1')
-    expect(lookupPredicate?.params).toEqual(["acme"])
+    expect(lookupPredicate?.params).toEqual(["acme-corp"])
     expect(lifecyclePredicate?.sql).toContain('"api_key"."id" = $1')
     expect(lifecyclePredicate?.sql).toContain('"api_key"."organization_id" = $2')
     expect(lifecyclePredicate?.params).toEqual([

@@ -39,7 +39,7 @@ async function createAuthorizationFixture() {
   const createdOrganization = await instance.auth.api.createOrganization({
     body: {
       name: "Authorization Boundary",
-      slug: "authorizationboundary",
+      slug: "authorization-boundary",
     },
     headers: owner.headers,
   })
@@ -86,7 +86,7 @@ describe("organization API key authorization", () => {
     await expect(fixture.auth.api.createOrganization({
       body: {
         name: "Invalid Slug",
-        slug: "invalid-slug",
+        slug: "invalid_slug",
       },
       headers: fixture.headers.owner,
     })).rejects.toMatchObject({
@@ -113,7 +113,7 @@ describe("organization API key authorization", () => {
       headers: fixture.headers.owner,
     })).resolves.toMatchObject({
       name: "Renamed organization",
-      slug: "authorizationboundary",
+      slug: "authorization-boundary",
     })
   })
 

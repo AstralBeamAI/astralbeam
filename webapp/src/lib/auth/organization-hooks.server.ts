@@ -2,11 +2,21 @@ import { API_KEY_TABLE_NAME } from "@better-auth/api-key"
 import type { BetterAuthPlugin, DBAdapterInstance } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import { runDatabaseEffect } from "@/db"
 import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
-import { isValidSlug } from "@/lib/slug"
+import { SlugSchema } from "@/lib/schemas"
+import { SLUG_VALIDATION_MESSAGE } from "@/lib/slug"
 import { organizationRoles } from "./organization-access.ts"
 import { ORGANIZATION_API_KEY_PREFIX } from "./organization-api-key-configuration.ts"
+
+const OrganizationApiKeySlugMetadataSchema = Schema.Struct({ slug: SlugSchema })
+const decodeOrganizationApiKeySlugMetadata = Schema.decodeUnknownOption(
+  OrganizationApiKeySlugMetadataSchema,
+  { onExcessProperty: "error" },
+)
+const isOrganizationSlug = Schema.is(SlugSchema)
 
 export const organizationApiKeyPlugin = {
   id: "organization-api-key",
@@ -58,21 +68,14 @@ export function withOrganizationApiKeySlug(adapterFactory: DBAdapterInstance): D
 }
 
 export function prepareOrganizationApiKeyInsert<T extends Record<string, unknown>>(data: T) {
-  const metadata = data.metadata
-  const slug = typeof metadata === "object" && metadata !== null && !Array.isArray(metadata) &&
-      Object.keys(metadata).length === 1
-    ? (metadata as { slug?: unknown }).slug
-    : undefined
-  if (
-    data.prefix !== ORGANIZATION_API_KEY_PREFIX || typeof slug !== "string" ||
-    !isValidSlug(slug)
-  ) {
+  const metadata = decodeOrganizationApiKeySlugMetadata(data.metadata)
+  if (data.prefix !== ORGANIZATION_API_KEY_PREFIX || Option.isNone(metadata)) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_API_KEY_SLUG",
       message: "API key identifier is invalid",
     })
   }
-  return { ...data, slug, metadata: null }
+  return { ...data, slug: metadata.value.slug, metadata: null }
 }
 
 function assertConfiguredOrganizationRoles(role: string): void {
@@ -141,10 +144,10 @@ export const organizationProvisioningHooks = {
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>
 
 function assertOrganizationSlug(value: unknown): asserts value is string {
-  if (typeof value !== "string" || !isValidSlug(value)) {
+  if (!isOrganizationSlug(value)) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_ORGANIZATION_SLUG",
-      message: "Organization slug must contain only lowercase letters and numbers",
+      message: SLUG_VALIDATION_MESSAGE,
     })
   }
 }

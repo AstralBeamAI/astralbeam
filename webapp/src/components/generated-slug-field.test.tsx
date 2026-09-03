@@ -15,7 +15,9 @@ describe("GeneratedSlugField", () => {
       createSuffixBytes,
     })
 
-    expect(renderToString(field)).toBe(renderToString(field))
+    const markup = renderToString(field)
+    expect(markup).toBe(renderToString(field))
+    expect(markup).toContain(String.raw`pattern="[0-9a-z\-]{1,63}"`)
     expect(createSuffixBytes).not.toHaveBeenCalled()
   })
 })

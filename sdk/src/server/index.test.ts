@@ -10,7 +10,7 @@ import {
   createAstralBeamChatToken,
 } from "./index.ts"
 
-const apiKeyId = "key_analyticalengines_production"
+const apiKeyId = "key_analytical-engines_production-key"
 const apiKeySecret = `abo_${"aB".repeat(32)}`
 const apiKey = `${apiKeyId}_${apiKeySecret}`
 const textEncoder = new TextEncoder()
@@ -36,7 +36,7 @@ test("createAstralBeamChatToken mints the documented short-lived tenant identity
     token,
     signingKey(apiKeySecret),
     {
-      issuer: "analyticalengines",
+      issuer: "analytical-engines",
       audience: ASTRALBEAM_TOKEN_AUDIENCE,
       algorithms: ["HS256"],
     },
@@ -47,7 +47,7 @@ test("createAstralBeamChatToken mints the documented short-lived tenant identity
     kid: apiKeyId,
   })
   expect(payload.sub).toBeUndefined()
-  expect(payload.iss).toBe("analyticalengines")
+  expect(payload.iss).toBe("analytical-engines")
   expect(payload.aud).toBe(ASTRALBEAM_TOKEN_AUDIENCE)
   expect(payload.scope).toBeUndefined()
   expect(payload.ver).toBe(ASTRALBEAM_CHAT_TOKEN_VERSION)
@@ -57,7 +57,7 @@ test("createAstralBeamChatToken mints the documented short-lived tenant identity
 
 test("createAstralBeamChatToken validates the combined API key", async () => {
   await expect(createAstralBeamChatToken({
-    apiKey: `key_bad-org_production_abo_${"aB".repeat(32)}`,
+    apiKey: `key_bad_org_production_abo_${"aB".repeat(32)}`,
     tenantUser: { id: "user-1", tenant },
   })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
   await expect(createAstralBeamChatToken({

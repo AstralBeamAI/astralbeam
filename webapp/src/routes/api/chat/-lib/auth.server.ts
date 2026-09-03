@@ -1,11 +1,12 @@
 import { and, eq } from "drizzle-orm"
 import { decodeProtectedHeader, jwtVerify } from "jose"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { effectDatabase, runDatabaseEffect } from "@/db"
 import { apiKey, organization } from "@/db/schema.server"
-import { ChatTokenPayloadSchema } from "@/lib/schemas"
+import { ChatTokenPayloadSchema, SlugSchema } from "@/lib/schemas"
 import {
   CHAT_TOKEN_AUDIENCE,
   CHAT_TOKEN_MAX_LENGTH,
@@ -19,7 +20,8 @@ import type { ChatAuthenticationError, ChatPrincipal, ChatTenantUser } from "./t
 
 const textEncoder = new TextEncoder()
 const API_KEY_CONFIG_ID = "default"
-const API_KEY_ID_PATTERN = /^key_([0-9a-z]{1,63})_([0-9a-z]{1,63})$/
+const ApiKeyIdSchema = Schema.TemplateLiteralParser(["key_", SlugSchema, "_", SlugSchema])
+const decodeApiKeyId = Schema.decodeUnknownOption(ApiKeyIdSchema)
 const CLOCK_TOLERANCE_SECONDS = 30
 const decodeChatTokenPayload = Schema.decodeUnknownSync(ChatTokenPayloadSchema, {
   onExcessProperty: "error",
@@ -48,10 +50,7 @@ export async function authenticateChatRequest(request: Request): Promise<ChatPri
   }
   const apiKeyId = protectedHeader.kid
   if (typeof apiKeyId !== "string") throw invalidToken("Wrong chat token header")
-  const publicId = API_KEY_ID_PATTERN.exec(apiKeyId)
-  const organizationSlug = publicId?.[1]
-  const keySlug = publicId?.[2]
-  if (!organizationSlug || !keySlug) throw invalidToken("Malformed API key identifier")
+  const { organizationSlug, keySlug } = parseApiKeyId(apiKeyId)
 
   const [initial] = await runDatabaseEffect(
     Effect.flatMap(effectDatabase, (db) =>
@@ -100,8 +99,7 @@ export async function verifyChatToken(
   apiKeyId: string,
 ): Promise<ChatTenantUser> {
   try {
-    const organizationSlug = API_KEY_ID_PATTERN.exec(apiKeyId)?.[1]
-    if (!organizationSlug) throw invalidToken("Malformed API key identifier")
+    const { organizationSlug } = parseApiKeyId(apiKeyId)
     const { payload, protectedHeader } = await jwtVerify(token, verifier, {
       algorithms: ["HS256"],
       typ: CHAT_TOKEN_TYPE,
@@ -131,6 +129,13 @@ export async function verifyChatToken(
     if (isChatAuthenticationError(cause)) throw cause
     throw invalidToken("Invalid chat bearer token", cause)
   }
+}
+
+function parseApiKeyId(apiKeyId: string): { organizationSlug: string; keySlug: string } {
+  const publicId = decodeApiKeyId(apiKeyId)
+  if (Option.isNone(publicId)) throw invalidToken("Malformed API key identifier")
+  const [, organizationSlug, , keySlug] = publicId.value
+  return { organizationSlug, keySlug }
 }
 
 function exceedsJsonDepth(value: unknown, maximumDepth: number): boolean {

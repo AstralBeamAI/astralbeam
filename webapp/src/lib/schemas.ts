@@ -1,15 +1,11 @@
 import * as Schema from "effect/Schema"
 
-import { SLUG_PATTERN } from "./slug.ts"
+import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./slug.ts"
 
 export const UuidV7Schema = Schema.String.pipe(Schema.check(Schema.isUUID(7)))
 
 export const SlugSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.makeFilter((value) => SLUG_PATTERN.test(value), {
-      message: "Only lowercase letters and numbers are allowed",
-    }),
-  ),
+  Schema.check(Schema.isPattern(SLUG_PATTERN, { message: SLUG_VALIDATION_MESSAGE })),
 )
 
 export const AgentNameSchema = Schema.String.pipe(
