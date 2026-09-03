@@ -310,7 +310,12 @@ function createOrganizationSandboxProvider<Provider extends SandboxProviderId>(i
             providerType: input.candidate.provider,
             credentials: input.candidate.credentials,
           },
-        }).where(eq(sandboxProvider.id, created.id)).returning()
+        }).where(
+          and(
+            eq(sandboxProvider.organizationId, created.organizationId),
+            eq(sandboxProvider.id, created.id),
+          ),
+        ).returning()
         const row = rows[0]
         if (!row) {
           return yield* Effect.fail(

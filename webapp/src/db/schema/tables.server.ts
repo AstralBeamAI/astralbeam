@@ -8,5 +8,7 @@ export {
   organization,
   organizationConfiguration,
   sandboxProvider,
+  tenant,
+  tenantUser,
 } from "./organizations.server.ts"
 export { rateLimit } from "./rate-limit.server.ts"

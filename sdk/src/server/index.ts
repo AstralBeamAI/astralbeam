@@ -1,35 +1,48 @@
 import { base64url, SignJWT } from "jose"
 import * as Schema from "effect/Schema"
 
-export const ASTRALBEAM_CHAT_TOKEN_AUDIENCE = "astralbeam-chat"
-export const ASTRALBEAM_CHAT_TOKEN_ISSUER = "astralbeam-api-key"
-export const ASTRALBEAM_CHAT_TOKEN_TYPE = "astralbeam-chat+jwt"
-export const ASTRALBEAM_CHAT_TOKEN_VERSION = 2
+export const ASTRALBEAM_TOKEN_AUDIENCE = "astralbeam"
+export const ASTRALBEAM_CHAT_TOKEN_TYPE = "astralbeam+jwt"
+export const ASTRALBEAM_CHAT_TOKEN_VERSION = 3
 export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
 export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 
-const API_KEY_ID_PATTERN = /^key_[0-9a-z]{1,63}_([0-9a-z]{1,63})$/
+const API_KEY_ID_PATTERN = /^key_([0-9a-z]{1,63})_([0-9a-z]{1,63})$/
 const API_KEY_SECRET_PATTERN = /^abo_[A-Za-z]{64}$/
 const CHAT_TOKEN_MAX_BYTES = 16_384
 const TENANT_USER_MAX_BYTES = 8_192
 const TENANT_USER_MAX_DEPTH = 10
 const textEncoder = new TextEncoder()
 
-const TenantUserJsonSchema = Schema.Json.annotate({
-  message: "tenantUser must contain only JSON values",
+const MetadataSchema = Schema.JsonObject.annotate({
+  message: "metadata must be a JSON object",
 })
-const TenantUserSchema = Schema.StructWithRest(
-  Schema.Struct({
-    id: Schema.String.pipe(
-      Schema.check(
-        Schema.makeFilter((value) => value.length >= 1 && value.length <= 255, {
-          message: "tenantUser.id must be a 1-255 character string",
-        }),
-      ),
-    ),
-  }),
-  [Schema.Record(Schema.String, TenantUserJsonSchema)],
-).pipe(
+const TenantExternalIdSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((value) => value.length >= 1 && value.length <= 255, {
+      message: "tenantUser.tenant.id must be a 1-255 character string",
+    }),
+  ),
+)
+const TenantUserExternalIdSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((value) => value.length >= 1 && value.length <= 255, {
+      message: "tenantUser.id must be a 1-255 character string",
+    }),
+  ),
+)
+export const TenantSchema = Schema.Struct({
+  id: TenantExternalIdSchema,
+  name: Schema.optional(Schema.String),
+  metadata: Schema.optional(MetadataSchema),
+})
+export const TenantUserSchema = Schema.Struct({
+  id: TenantUserExternalIdSchema,
+  tenant: TenantSchema,
+  name: Schema.optional(Schema.String),
+  admin: Schema.optional(Schema.Boolean),
+  metadata: Schema.optional(MetadataSchema),
+}).pipe(
   Schema.check(
     Schema.makeFilter((value) => !exceedsJsonDepth(value, TENANT_USER_MAX_DEPTH), {
       message: `tenantUser must not exceed ${TENANT_USER_MAX_DEPTH} levels`,
@@ -48,9 +61,15 @@ const decodeTenantUser = Schema.decodeUnknownSync(TenantUserSchema, {
   reportInput: false,
 })
 
-export interface TenantUser {
-  /** User of an Organization's Tenant who interacts with the embedded agent sidebar. */
-  readonly id: string
+/** Tenant identity from the Organization's application, including JSON metadata. */
+export type Tenant = Pick<typeof TenantSchema.Type, "id" | "name"> & {
+  readonly metadata?: object | undefined
+}
+
+/** User of an Organization's Tenant who interacts with AstralBeam. */
+export type TenantUser = Pick<typeof TenantUserSchema.Type, "id" | "name" | "admin"> & {
+  readonly tenant: Tenant
+  readonly metadata?: object | undefined
 }
 
 export interface CreateAstralBeamChatTokenOptions<TTenantUser extends TenantUser = TenantUser> {
@@ -59,17 +78,23 @@ export interface CreateAstralBeamChatTokenOptions<TTenantUser extends TenantUser
   readonly expiresInSeconds?: number | undefined
 }
 
-function parseApiKey(apiKey: string): { id: string; secret: string } {
+function parseApiKey(apiKey: string): {
+  keyId: string
+  organizationSlug: string
+  keySecret: string
+} {
   const separator = apiKey.lastIndexOf("_abo_")
-  const id = apiKey.slice(0, separator)
-  const secret = apiKey.slice(separator + 1)
-  if (!API_KEY_ID_PATTERN.test(id) || !API_KEY_SECRET_PATTERN.test(secret)) {
+  const keyId = apiKey.slice(0, separator)
+  const keySecret = apiKey.slice(separator + 1)
+  const publicId = API_KEY_ID_PATTERN.exec(keyId)
+  const organizationSlug = publicId?.[1]
+  if (!organizationSlug || !API_KEY_SECRET_PATTERN.test(keySecret)) {
     throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
   }
-  return { id, secret }
+  return { keyId, organizationSlug, keySecret }
 }
 
-function exceedsJsonDepth(value: Schema.Json, maximumDepth: number): boolean {
+function exceedsJsonDepth(value: unknown, maximumDepth: number): boolean {
   const stack = [{ value, depth: 1 }]
   while (stack.length > 0) {
     const current = stack.pop()!
@@ -162,20 +187,19 @@ export async function createAstralBeamChatToken<TTenantUser extends TenantUser =
   ) {
     throw new Error("AstralBeam chat tokens must live for 60-600 seconds")
   }
-  const { id: apiKeyId, secret } = parseApiKey(apiKey)
+  const { keyId, organizationSlug, keySecret } = parseApiKey(apiKey)
   const identity = validatedTenantUser(tenantUser)
   const now = Math.floor(Date.now() / 1_000)
   const token = await new SignJWT({
     ver: ASTRALBEAM_CHAT_TOKEN_VERSION,
     tenantUser: identity,
   })
-    .setProtectedHeader({ alg: "HS256", typ: ASTRALBEAM_CHAT_TOKEN_TYPE, kid: apiKeyId })
-    .setIssuer(ASTRALBEAM_CHAT_TOKEN_ISSUER)
-    .setAudience(ASTRALBEAM_CHAT_TOKEN_AUDIENCE)
-    .setSubject(tenantUser.id)
+    .setProtectedHeader({ alg: "HS256", typ: ASTRALBEAM_CHAT_TOKEN_TYPE, kid: keyId })
+    .setIssuer(organizationSlug)
+    .setAudience(ASTRALBEAM_TOKEN_AUDIENCE)
     .setIssuedAt(now)
     .setExpirationTime(now + expiresInSeconds)
-    .sign(await signingKey(secret))
+    .sign(await signingKey(keySecret))
   if (textEncoder.encode(token).byteLength > CHAT_TOKEN_MAX_BYTES) {
     throw new Error(`AstralBeam chat tokens must not exceed ${CHAT_TOKEN_MAX_BYTES} bytes`)
   }

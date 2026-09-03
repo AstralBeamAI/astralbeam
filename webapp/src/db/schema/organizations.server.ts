@@ -6,6 +6,7 @@ import {
   index,
   integer,
   jsonb,
+  primaryKey,
   snakeCase,
   text,
   uniqueIndex,
@@ -29,6 +30,7 @@ import {
   lockVersion,
   timestamps,
   timestampWithTimeZone,
+  uuidV7,
   uuidV7PrimaryKey,
 } from "../lib/columns.server.ts"
 import {
@@ -116,7 +118,7 @@ export const apiKey = snakeCase.table(
 export const sandboxProvider = snakeCase.table(
   "sandbox_provider",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     organizationId: uuid().notNull().references(() => organization.id, {
       onDelete: "cascade",
     }),
@@ -129,10 +131,10 @@ export const sandboxProvider = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
-    uniqueIndex("sandbox_provider_organization_id_id_uidx").on(
-      table.organizationId,
-      table.id,
-    ),
+    primaryKey({
+      name: "sandbox_provider_pkey",
+      columns: [table.organizationId, table.id],
+    }),
     uniqueIndex("sandbox_provider_organization_id_name_uidx").on(
       table.organizationId,
       table.name,
@@ -143,7 +145,7 @@ export const sandboxProvider = snakeCase.table(
 export const agent = snakeCase.table(
   "agent",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     organizationId: uuid().notNull().references(() => organization.id, {
       onDelete: "cascade",
     }),
@@ -159,11 +161,11 @@ export const agent = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
+    primaryKey({ name: "agent_pkey", columns: [table.organizationId, table.id] }),
     index("agent_organization_id_sandbox_provider_id_idx").on(
       table.organizationId,
       table.sandboxProviderId,
     ),
-    uniqueIndex("agent_organization_id_id_uidx").on(table.organizationId, table.id),
     uniqueIndex("agent_organization_id_slug_uidx").on(table.organizationId, table.slug),
     check("agent_slug_check", sql`${table.slug} ~ '^[0-9a-z]{1,63}$'`),
     check(
@@ -181,7 +183,7 @@ export const agent = snakeCase.table(
 export const organizationConfiguration = snakeCase.table(
   "organization_configuration",
   {
-    id: uuidV7PrimaryKey(),
+    id: uuidV7(),
     organizationId: uuid().notNull().references(() => organization.id, {
       onDelete: "cascade",
     }),
@@ -190,6 +192,10 @@ export const organizationConfiguration = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
+    primaryKey({
+      name: "organization_configuration_pkey",
+      columns: [table.organizationId, table.id],
+    }),
     uniqueIndex("organization_configuration_organization_id_uidx").on(table.organizationId),
     // The composite reference keeps the default agent inside its own organization. MATCH SIMPLE
     // leaves the row unchecked while the default is null, and the restricted delete makes an
@@ -199,6 +205,62 @@ export const organizationConfiguration = snakeCase.table(
       columns: [table.organizationId, table.defaultAgentId],
       foreignColumns: [agent.organizationId, agent.id],
     }).onDelete("restrict"),
+  ],
+)
+
+export const tenant = snakeCase.table(
+  "tenant",
+  {
+    organizationId: uuid().notNull().references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    id: uuidV7(),
+    externalId: text().notNull(),
+    name: text(),
+    metadata: jsonb().$type<Schema.JsonObject>().default({}).notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ name: "tenant_pkey", columns: [table.organizationId, table.id] }),
+    uniqueIndex("tenant_organization_id_external_id_uidx").on(
+      table.organizationId,
+      table.externalId,
+    ),
+    check("tenant_metadata_object_check", sql`jsonb_typeof(${table.metadata}) = 'object'`),
+  ],
+)
+
+export const tenantUser = snakeCase.table(
+  "tenant_user",
+  {
+    organizationId: uuid().notNull(),
+    tenantId: uuid().notNull(),
+    id: uuidV7(),
+    externalId: text().notNull(),
+    name: text(),
+    admin: boolean().default(false).notNull(),
+    metadata: jsonb().$type<Schema.JsonObject>().default({}).notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({
+      name: "tenant_user_pkey",
+      columns: [table.organizationId, table.tenantId, table.id],
+    }),
+    uniqueIndex("tenant_user_organization_id_tenant_id_external_id_uidx").on(
+      table.organizationId,
+      table.tenantId,
+      table.externalId,
+    ),
+    check(
+      "tenant_user_metadata_object_check",
+      sql`jsonb_typeof(${table.metadata}) = 'object'`,
+    ),
+    foreignKey({
+      name: "tenant_user_organization_id_tenant_id_fk",
+      columns: [table.organizationId, table.tenantId],
+      foreignColumns: [tenant.organizationId, tenant.id],
+    }).onDelete("cascade"),
   ],
 )
 

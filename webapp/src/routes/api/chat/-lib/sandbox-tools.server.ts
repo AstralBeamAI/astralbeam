@@ -110,6 +110,7 @@ export function createChatSandboxTools(
     /** Verified identifiers minted into artifact tickets; never client-supplied. */
     readonly artifactScope: {
       readonly organizationId: string
+      readonly tenantId: string
       readonly tenantUserId: string
       readonly sandboxProviderId: string
     }

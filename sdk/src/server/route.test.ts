@@ -2,13 +2,46 @@ import { describe, expect, it } from "vitest"
 import { createAstralBeamTokenRoute } from "./index.ts"
 
 const apiKey = `key_analyticalengines_production_abo_${"aB".repeat(32)}`
-const tenantUser = { id: "tenant-user-1" }
+const tenantUser = { id: "tenant-user-1", tenant: { id: "tenant-1" } }
+
+interface ApplicationTenantMetadata {
+  plan: string
+}
+
+interface ApplicationTenant {
+  id: string
+  metadata: ApplicationTenantMetadata
+}
+
+interface ApplicationTenantUserMetadata {
+  roles: string[]
+}
+
+interface ApplicationTenantUser {
+  id: string
+  tenant: ApplicationTenant
+  metadata: ApplicationTenantUserMetadata
+}
 
 function post(): Request {
   return new Request("https://app.example/api/astralbeam/token", { method: "POST" })
 }
 
 describe("createAstralBeamTokenRoute", () => {
+  it("accepts named application interfaces with JSON metadata", async () => {
+    const applicationTenantUser: ApplicationTenantUser = {
+      id: "tenant-user-1",
+      tenant: { id: "tenant-1", metadata: { plan: "enterprise" } },
+      metadata: { roles: ["owner"] },
+    }
+    const route = createAstralBeamTokenRoute({
+      apiKey,
+      tenantUser: () => applicationTenantUser,
+    })
+
+    expect((await route(post())).status).toBe(200)
+  })
+
   it("mints a token with no-store for an authenticated request", async () => {
     const route = createAstralBeamTokenRoute({ apiKey, tenantUser: () => tenantUser })
     const response = await route(post())

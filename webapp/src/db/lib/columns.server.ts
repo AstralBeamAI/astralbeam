@@ -61,7 +61,11 @@ export function lockVersion() {
   return integer().default(0).notNull()
 }
 
-export function uuidV7PrimaryKey() {
+export function uuidV7() {
   // PostgreSQL 18 provides the database default until Drizzle adds a UUIDv7 helper. https://github.com/drizzle-team/drizzle-orm/issues/5721
-  return uuid().default(sql`uuidv7()`).primaryKey()
+  return uuid().default(sql`uuidv7()`).notNull()
+}
+
+export function uuidV7PrimaryKey() {
+  return uuidV7().primaryKey()
 }

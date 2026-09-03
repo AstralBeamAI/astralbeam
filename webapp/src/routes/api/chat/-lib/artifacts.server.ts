@@ -52,8 +52,9 @@ export async function artifactContentDigest(bytes: Uint8Array): Promise<string> 
 }
 
 export interface SandboxArtifactTicket {
-  /** Organization and tenant user the publishing run was authenticated as, for auditability. */
+  /** Full tenant-user scope the publishing run was authenticated as, for auditability. */
   readonly organizationId: string
+  readonly tenantId: string
   readonly tenantUserId: string
   /** Enough to reconnect: the stored provider configuration and the vendor's sandbox id. */
   readonly sandboxProviderId: string
@@ -88,6 +89,7 @@ export async function verifySandboxArtifactTicket(
     })
     const {
       organizationId,
+      tenantId,
       tenantUserId,
       sandboxProviderId,
       providerSandboxId,
@@ -97,7 +99,8 @@ export async function verifySandboxArtifactTicket(
     } = payload as Partial<SandboxArtifactTicket>
     const size = payload["size"]
     if (
-      typeof organizationId !== "string" || typeof tenantUserId !== "string" ||
+      typeof organizationId !== "string" || typeof tenantId !== "string" ||
+      typeof tenantUserId !== "string" ||
       typeof sandboxProviderId !== "string" || typeof providerSandboxId !== "string" ||
       typeof path !== "string" || typeof mimeType !== "string" || typeof size !== "number" ||
       typeof sha256 !== "string"
@@ -106,6 +109,7 @@ export async function verifySandboxArtifactTicket(
     }
     return {
       organizationId,
+      tenantId,
       tenantUserId,
       sandboxProviderId,
       providerSandboxId,
