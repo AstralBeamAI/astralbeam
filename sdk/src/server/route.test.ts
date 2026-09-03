@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest"
 import { createAstralBeamTokenRoute } from "./index.ts"
 
 const apiKey = `key_analyticalengines_production_abo_${"aB".repeat(32)}`
-const tenantUser = { id: "tenant-user-1", tenant: { id: "tenant-1" } }
+const user = { id: "tenant-user-1" }
+const tenant = { id: "tenant-1" }
 
 interface ApplicationTenantMetadata {
   plan: string
@@ -19,8 +20,20 @@ interface ApplicationTenantUserMetadata {
 
 interface ApplicationTenantUser {
   id: string
-  tenant: ApplicationTenant
   metadata: ApplicationTenantUserMetadata
+}
+
+interface ApplicationSession {
+  user: ApplicationTenantUser
+  tenant: ApplicationTenant
+}
+
+const session = { user, tenant }
+const routeOptions = {
+  apiKey,
+  authenticate: () => session,
+  user: (authenticated: typeof session) => authenticated.user,
+  tenant: (authenticated: typeof session) => authenticated.tenant,
 }
 
 function post(): Request {
@@ -29,21 +42,30 @@ function post(): Request {
 
 describe("createAstralBeamTokenRoute", () => {
   it("accepts named application interfaces with JSON metadata", async () => {
-    const applicationTenantUser: ApplicationTenantUser = {
+    const applicationUser: ApplicationTenantUser = {
       id: "tenant-user-1",
-      tenant: { id: "tenant-1", metadata: { plan: "enterprise" } },
       metadata: { roles: ["owner"] },
+    }
+    const applicationTenant: ApplicationTenant = {
+      id: "tenant-1",
+      metadata: { plan: "enterprise" },
+    }
+    const applicationSession: ApplicationSession = {
+      user: applicationUser,
+      tenant: applicationTenant,
     }
     const route = createAstralBeamTokenRoute({
       apiKey,
-      tenantUser: () => applicationTenantUser,
+      authenticate: () => applicationSession,
+      user: (authenticated) => authenticated.user,
+      tenant: (authenticated) => authenticated.tenant,
     })
 
     expect((await route(post())).status).toBe(200)
   })
 
   it("mints a token with no-store for an authenticated request", async () => {
-    const route = createAstralBeamTokenRoute({ apiKey, tenantUser: () => tenantUser })
+    const route = createAstralBeamTokenRoute(routeOptions)
     const response = await route(post())
     expect(response.status).toBe(200)
     expect(response.headers.get("cache-control")).toBe("no-store")
@@ -53,27 +75,30 @@ describe("createAstralBeamTokenRoute", () => {
   })
 
   it("rejects non-POST methods", async () => {
-    const route = createAstralBeamTokenRoute({ apiKey, tenantUser: () => tenantUser })
+    const route = createAstralBeamTokenRoute(routeOptions)
     const response = await route(new Request("https://app.example/token", { method: "GET" }))
     expect(response.status).toBe(405)
   })
 
   it("answers 503 when the API key is not configured", async () => {
     const route = createAstralBeamTokenRoute({
+      ...routeOptions,
       apiKey: () => undefined,
-      tenantUser: () => tenantUser,
     })
     const response = await route(post())
     expect(response.status).toBe(503)
     expect(response.headers.get("cache-control")).toBe("no-store")
   })
 
-  it("answers 401 when the session callback returns nothing or throws", async () => {
-    const returning = createAstralBeamTokenRoute({ apiKey, tenantUser: () => undefined })
+  it("answers 401 when session authentication returns nothing or throws", async () => {
+    const returning = createAstralBeamTokenRoute({
+      ...routeOptions,
+      authenticate: () => undefined,
+    })
     expect((await returning(post())).status).toBe(401)
     const throwing = createAstralBeamTokenRoute({
-      apiKey,
-      tenantUser: () => {
+      ...routeOptions,
+      authenticate: () => {
         throw new Error("no session")
       },
     })
@@ -82,8 +107,8 @@ describe("createAstralBeamTokenRoute", () => {
 
   it("answers 500 without leaking the reason when minting fails", async () => {
     const route = createAstralBeamTokenRoute({
+      ...routeOptions,
       apiKey: "not-a-real-key",
-      tenantUser: () => tenantUser,
     })
     const response = await route(post())
     expect(response.status).toBe(500)
