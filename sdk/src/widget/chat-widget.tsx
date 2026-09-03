@@ -62,7 +62,7 @@ export function ChatWidget(
   })
   const [authentication] = useState<ChatAuthenticationOptions>(() => ({
     authTokenUrl: options.authTokenUrl ?? DEFAULT_AUTH_TOKEN_URL,
-    getAuthToken: options.getAuthToken,
+    authTokenHeaders: options.authTokenHeaders,
     session: {
       cached: undefined,
       refreshPromise: undefined,

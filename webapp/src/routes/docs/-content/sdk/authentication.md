@@ -29,28 +29,24 @@ For full control, mint the token with `createAstralBeamChatToken({ apiKey, user,
 
 ## A backend on another origin
 
-By default the widget POSTs `authTokenUrl` with the page's cookies, which needs a session cookie the browser will send. When your API lives on another origin behind bearer or custom-header auth, pass `getAuthToken` and fetch the token yourself.
+By default the widget POSTs `authTokenUrl` with the page's cookies, which needs a session cookie the browser will send. When your API lives on another origin and authenticates with a bearer token or a custom header, point `authTokenUrl` at it and pass `authTokenHeaders`.
 
 ```tsx
 <AstralBeamChat
   agentId="agt_acme_support"
-  getAuthToken={async () => {
-    const response = await fetch("https://api.acme.com/astralbeam/token", {
-      method: "POST",
-      headers: { authorization: `Bearer ${accessToken}` },
-    })
-    if (!response.ok) throw new Error(`The token endpoint answered ${response.status}`)
-    return (await response.json()).token
-  }}
+  authTokenUrl="https://api.acme.com/astralbeam/token"
+  authTokenHeaders={{ authorization: `Bearer ${accessToken}` }}
 />
 ```
 
-- `getAuthToken` replaces the widget's own request entirely: you choose the method, headers, body, and response shape, and it never reads `authTokenUrl`.
-- It is called whenever the widget needs a token, near expiry and after one is rejected, so mint a fresh token instead of returning a memoized one.
-- Throw to fail closed; the composer shows the error and its retry link calls `getAuthToken` again.
-- The React prop always reads the latest render's callback, so an inline arrow over current auth state is fine and needs no memoization.
+- Pass an object for a fixed credential, or a function, which may be async, for one you must read or await per request: `authTokenHeaders={async () => ({ authorization: "Bearer " + await getAccessToken() })}`.
+- Headers are resolved on every token request, near expiry and after a token is rejected, so a rotating credential stays current instead of being captured once.
+- The React prop is read from the latest render, so an inline object or callback over current auth state is fine and needs no memoization.
+- Throwing from the callback fails closed before any request; the composer shows the error and its retry link resolves the headers again.
+- The endpoint keeps its contract: the SDK still sends `POST` with `accept: application/json` and expects `{ token }`, and still checks the response status for you.
 - Like `authTokenUrl`, it is fixed at mount: `handle.update` rejects it.
-- Cookies do work cross-origin without it if your endpoint returns `Access-Control-Allow-Credentials: true` with an exact origin, its cookie is `SameSite=None; Secure`, and it answers the preflight; browser cookie policies make this the more fragile route.
+- A custom header makes the cross-origin request preflighted, so the endpoint must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
+- With header auth you need no cookies at all. Cookies do work cross-origin instead if the endpoint returns `Access-Control-Allow-Credentials: true` and its cookie is `SameSite=None; Secure`, but browser cookie policies make that the more fragile route.
 
 ## Rules
 

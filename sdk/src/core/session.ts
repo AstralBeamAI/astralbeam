@@ -7,7 +7,7 @@ import {
 } from "@tanstack/ai-client"
 import { chatApiUrls, DEFAULT_AUTH_TOKEN_URL } from "../lib/constants.ts"
 import { createDebugLogger } from "../lib/debug.ts"
-import type { ToolDefinition } from "../lib/types.ts"
+import type { AstralBeamChatAuthTokenHeaders, ToolDefinition } from "../lib/types.ts"
 import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
 import {
   type ChatAuthenticationOptions,
@@ -39,11 +39,11 @@ export interface AstralBeamChatCoreOptions {
   /** The application endpoint that mints short-lived chat JWTs. Default `/api/astralbeam/token`. */
   authTokenUrl?: string | undefined
   /**
-   * Mints the chat JWT in host code instead of POSTing `authTokenUrl` with the page's cookies, for
-   * hosts whose backend sits on another origin behind bearer or custom-header auth. Called again
-   * whenever a token is needed, so it must mint a fresh one rather than return a memoized token.
+   * Extra headers for the token request, for a backend on another origin that authenticates with a
+   * bearer token or custom header instead of cookies. Resolved on every token request, so pass the
+   * function form for a credential that rotates.
    */
-  getAuthToken?: (() => string | Promise<string>) | undefined
+  authTokenHeaders?: AstralBeamChatAuthTokenHeaders | undefined
   /** Host tools the agent can call; `execute` runs wherever this session lives. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Widgets declared to the agent; `onRenderWidget` is asked to draw them. */
@@ -110,7 +110,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
 
   const authentication: ChatAuthenticationOptions = {
     authTokenUrl: options.authTokenUrl ?? DEFAULT_AUTH_TOKEN_URL,
-    getAuthToken: options.getAuthToken,
+    authTokenHeaders: options.authTokenHeaders,
     session: {
       cached: undefined,
       refreshPromise: undefined,

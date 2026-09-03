@@ -1,4 +1,5 @@
 import type { DebugLogger } from "../lib/debug.ts"
+import type { AstralBeamChatAuthTokenHeaders } from "../lib/types.ts"
 
 const REFRESH_SKEW_MS = 60_000
 const MAX_TOKEN_LENGTH = 16_384
@@ -21,7 +22,7 @@ interface ChatAuthenticationSession {
 
 export interface ChatAuthenticationOptions {
   authTokenUrl: string
-  getAuthToken: (() => string | Promise<string>) | undefined
+  authTokenHeaders: AstralBeamChatAuthTokenHeaders | undefined
   session: ChatAuthenticationSession
   onStateChange: (state: ChatAuthenticationState) => void
   fetchClient: typeof globalThis.fetch
@@ -62,13 +63,22 @@ function bearerToken(headers: Headers): string | undefined {
 }
 
 async function postChatToken(
-  authTokenUrl: string,
-  fetchClient: typeof globalThis.fetch,
+  options: ChatAuthenticationOptions,
   signal: AbortSignal,
 ): Promise<unknown> {
+  const { authTokenUrl, authTokenHeaders, fetchClient } = options
+  const headers = new Headers({ accept: "application/json" })
+  // Resolved per request, so a rotating credential is never captured once, and only awaited when
+  // the host configured headers, so the default cookie request still starts in the caller's tick.
+  if (authTokenHeaders) {
+    const extra = typeof authTokenHeaders === "function"
+      ? await authTokenHeaders()
+      : authTokenHeaders
+    for (const [name, value] of Object.entries(extra)) headers.set(name, value)
+  }
   const response = await fetchClient(authTokenUrl, {
     method: "POST",
-    headers: { accept: "application/json" },
+    headers,
     credentials: "include",
     cache: "no-store",
     signal,
@@ -79,22 +89,16 @@ async function postChatToken(
 }
 
 async function fetchChatToken(options: ChatAuthenticationOptions): Promise<string> {
-  const { authTokenUrl, getAuthToken, session, onStateChange, fetchClient, debug } = options
+  const { session, onStateChange, debug } = options
   const { signal } = session.abortController
-  const source = getAuthToken ? "getAuthToken" : "Authentication endpoint"
   try {
-    const token = getAuthToken
-      ? await getAuthToken()
-      : await postChatToken(authTokenUrl, fetchClient, signal)
-    // `getAuthToken` cannot observe the signal, so a token that arrives after disposal is dropped
-    // here rather than reported as a ready state on a session the host already tore down.
-    if (signal.aborted) throw new Error("Chat authentication was disposed")
+    const token = await postChatToken(options, signal)
     if (typeof token !== "string" || !token) {
-      throw new Error(`${source} did not return a token`)
+      throw new Error("Authentication endpoint did not return a token")
     }
     const expiresAt = tokenExpiry(token)
     if (expiresAt <= Date.now()) {
-      throw new Error(`${source} returned an expired token`)
+      throw new Error("Authentication endpoint returned an expired token")
     }
     session.cached = { value: token, expiresAt }
     onStateChange({ status: "ready" })
