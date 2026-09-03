@@ -15,12 +15,18 @@ const textEncoder = new TextEncoder()
 const SlugSchema = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[0-9a-z-]{1,63}$/)),
 )
-const ApiKeyIdSchema = Schema.TemplateLiteral(["key_", SlugSchema, "_", SlugSchema])
 const ApiKeySecretSchema = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^abo_[A-Za-z]{64}$/)),
 )
-const isApiKeyId = Schema.is(ApiKeyIdSchema)
-const isApiKeySecret = Schema.is(ApiKeySecretSchema)
+const ApiKeySchema = Schema.TemplateLiteral([
+  "key_",
+  SlugSchema,
+  "_",
+  SlugSchema,
+  "_",
+  ApiKeySecretSchema,
+])
+const isApiKey = Schema.is(ApiKeySchema)
 const MetadataSchema = Schema.JsonObject.annotate({
   message: "metadata must be a JSON object",
 })
@@ -69,15 +75,10 @@ const decodeTenantUser = Schema.decodeUnknownSync(TenantUserSchema, {
 })
 
 /** Tenant identity from the Organization's application, including JSON metadata. */
-export type Tenant = Pick<typeof TenantSchema.Type, "id" | "name"> & {
-  readonly metadata?: object | undefined
-}
+export type Tenant = typeof TenantSchema.Type
 
 /** User of an Organization's Tenant who interacts with AstralBeam. */
-export type TenantUser = Pick<typeof TenantUserSchema.Type, "id" | "name" | "admin"> & {
-  readonly tenant: Tenant
-  readonly metadata?: object | undefined
-}
+export type TenantUser = typeof TenantUserSchema.Type
 
 export interface CreateAstralBeamChatTokenOptions<TTenantUser extends TenantUser = TenantUser> {
   readonly apiKey: string
@@ -90,12 +91,12 @@ function parseApiKey(apiKey: string): {
   organizationSlug: string
   keySecret: string
 } {
+  if (!isApiKey(apiKey)) {
+    throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
+  }
   const separator = apiKey.lastIndexOf("_abo_")
   const keyId = apiKey.slice(0, separator)
   const keySecret = apiKey.slice(separator + 1)
-  if (!isApiKeyId(keyId) || !isApiKeySecret(keySecret)) {
-    throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
-  }
   const organizationSlug = keyId.slice("key_".length, keyId.indexOf("_", "key_".length))
   return { keyId, organizationSlug, keySecret }
 }
