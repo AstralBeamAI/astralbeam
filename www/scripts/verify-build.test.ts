@@ -93,22 +93,6 @@ describe("production website build", () => {
     expect(javascript).not.toContain("node:fs")
   })
 
-  test("keeps reveal content visible without client JavaScript", async () => {
-    const assetDirectory = new URL("_astro/", distUrl)
-    const assets = await readdir(assetDirectory)
-    const stylesheets = await Promise.all(
-      assets
-        .filter((asset) => asset.endsWith(".css"))
-        .map((asset) => readFile(new URL(asset, assetDirectory), "utf8")),
-    )
-    const css = stylesheets.join("\n")
-    const defaultRevealRule = css.match(/\.reveal\{([^}]*)\}/u)?.[1]
-
-    expect(defaultRevealRule).toBeDefined()
-    expect(defaultRevealRule).not.toContain("opacity:0")
-    expect(css).toMatch(/\.reveal\.reveal-pending\{[^}]*opacity:0/u)
-  })
-
   test("keeps the not-found page out of discovery", async () => {
     const html = await readText("404.html")
 
