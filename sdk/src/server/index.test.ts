@@ -25,13 +25,12 @@ function signingKey(secret: string): Uint8Array {
 }
 
 test("createAstralBeamChatToken mints the documented short-lived tenant identity", async () => {
-  const tenantUser = {
+  const user = {
     id: "user-1",
     name: "Ada",
-    tenant,
     metadata: { roles: ["owner"] },
   }
-  const token = await createAstralBeamChatToken({ apiKey, tenantUser })
+  const token = await createAstralBeamChatToken({ apiKey, user, tenant })
   const { payload, protectedHeader } = await jwtVerify(
     token,
     signingKey(apiKeySecret),
@@ -51,18 +50,22 @@ test("createAstralBeamChatToken mints the documented short-lived tenant identity
   expect(payload.aud).toBe(ASTRALBEAM_TOKEN_AUDIENCE)
   expect(payload.scope).toBeUndefined()
   expect(payload.ver).toBe(ASTRALBEAM_CHAT_TOKEN_VERSION)
-  expect(payload.tenantUser).toEqual(tenantUser)
+  expect(payload.user).toEqual(user)
+  expect(payload.tenant).toEqual(tenant)
+  expect(payload.tenantUser).toBeUndefined()
   expect(payload.exp! - payload.iat!).toBe(300)
 })
 
 test("createAstralBeamChatToken validates the combined API key", async () => {
   await expect(createAstralBeamChatToken({
     apiKey: `key_bad_org_production_abo_${"aB".repeat(32)}`,
-    tenantUser: { id: "user-1", tenant },
+    user: { id: "user-1" },
+    tenant,
   })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
   await expect(createAstralBeamChatToken({
     apiKey: `${apiKeyId}_notabo_${"aB".repeat(32)}`,
-    tenantUser: { id: "user-1", tenant },
+    user: { id: "user-1" },
+    tenant,
   })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
 })
 
@@ -70,70 +73,80 @@ test("createAstralBeamChatToken preserves opaque tenant user IDs exactly", async
   const id = " user-1 "
   const token = await createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id, tenant: { id: " tenant-1 " } },
+    user: { id },
+    tenant: { id: " tenant-1 " },
   })
   const { payload } = await jwtVerify(token, signingKey(apiKeySecret))
 
-  expect(payload.sub).toBeUndefined()
-  expect(payload.tenantUser).toEqual({ id, tenant: { id: " tenant-1 " } })
+  expect(payload.user).toEqual({ id })
+  expect(payload.tenant).toEqual({ id: " tenant-1 " })
 })
 
 test("createAstralBeamChatToken rejects out-of-range lifetimes and tenant user IDs", async () => {
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "", tenant },
+    user: { id: "" },
+    tenant,
   })).rejects.toThrow(/1-255 character string/)
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "user-1", tenant },
+    user: { id: "user-1" },
+    tenant,
     expiresInSeconds: 601,
   })).rejects.toThrow(/60-600 seconds/)
 })
 
 test.each([
-  ["class instances", { id: "user-1", tenant, metadata: { value: new Date() } }],
-  ["toJSON hooks", { id: "user-1", tenant, toJSON: () => ({ id: "other" }) }],
-])("createAstralBeamChatToken rejects tenantUser %s", async (_label, tenantUser) => {
-  await expect(createAstralBeamChatToken({ apiKey, tenantUser })).rejects.toThrow()
+  ["class instances", { id: "user-1", metadata: { value: new Date() } }],
+  ["toJSON hooks", { id: "user-1", toJSON: () => ({ id: "other" }) }],
+])("createAstralBeamChatToken rejects user %s", async (_label, user) => {
+  await expect(createAstralBeamChatToken({ apiKey, user, tenant })).rejects.toThrow()
 })
 
-test("createAstralBeamChatToken rejects deeply nested and oversized tenant data", async () => {
+test("createAstralBeamChatToken accepts deeply nested metadata and rejects oversized identity data", async () => {
   let deep: unknown = true
-  for (let level = 0; level < 9; level += 1) deep = { child: deep }
+  for (let level = 0; level < 50; level += 1) deep = { child: deep }
 
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "user-1", tenant, metadata: { deep } },
-  })).rejects.toThrow(/10 levels/)
+    user: { id: "user-1", metadata: { deep } },
+    tenant,
+  })).resolves.toBeTypeOf("string")
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "user-1", tenant, metadata: { data: "x".repeat(8_192) } },
+    user: { id: "user-1" },
+    tenant: { id: "tenant-1", metadata: { data: "x".repeat(8_192) } },
   })).rejects.toThrow(/8192 bytes/)
 })
 
 test("createAstralBeamChatToken rejects fields outside the metadata objects", async () => {
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "user-1", tenant, roles: ["owner"] } as never,
+    user: { id: "user-1", roles: ["owner"] } as never,
+    tenant,
   })).rejects.toThrow(/roles/)
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "user-1", tenant: { id: "tenant-1", plan: "enterprise" } } as never,
+    user: { id: "user-1" },
+    tenant: { id: "tenant-1", plan: "enterprise" } as never,
   })).rejects.toThrow(/plan/)
 })
 
-test("createAstralBeamChatToken requires a tenant and validates predefined fields", async () => {
+test("createAstralBeamChatToken requires user and tenant and validates predefined fields", async () => {
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "user-1" } as never,
+    user: { id: "user-1" },
+    tenant: undefined as never,
   })).rejects.toThrow(/tenant/)
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "user-1", tenant: { id: "" } },
-  })).rejects.toThrow(/tenantUser\.tenant\.id/)
+    user: { id: "user-1" },
+    tenant: { id: "" },
+  })).rejects.toThrow(/tenant\.id/)
   await expect(createAstralBeamChatToken({
     apiKey,
-    tenantUser: { id: "user-1", tenant, admin: "yes" } as never,
+    user: { id: "user-1", admin: "yes" } as never,
+    tenant,
   })).rejects.toThrow(/admin/)
 })
 
@@ -142,10 +155,11 @@ test.each([true, false])(
   async (admin) => {
     const token = await createAstralBeamChatToken({
       apiKey,
-      tenantUser: { id: "user-1", tenant, admin },
+      user: { id: "user-1", admin },
+      tenant,
     })
     const { payload } = await jwtVerify(token, signingKey(apiKeySecret))
 
-    expect(payload.tenantUser).toEqual({ id: "user-1", tenant, admin })
+    expect(payload.user).toEqual({ id: "user-1", admin })
   },
 )

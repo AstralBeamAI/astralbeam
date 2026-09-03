@@ -8,7 +8,9 @@ import { DEMO_CHAT_TENANT, DEMO_CHAT_USER } from "@/lib/constants.server.ts"
 const mintDemoChatToken = createAstralBeamTokenRoute({
   apiKey: () => API_KEY,
   // A real application authenticates its own session here; the demo has one fixed user.
-  tenantUser: () => ({ ...DEMO_CHAT_USER, tenant: DEMO_CHAT_TENANT }),
+  authenticate: () => ({ user: DEMO_CHAT_USER, tenant: DEMO_CHAT_TENANT }),
+  user: (session) => session.user,
+  tenant: (session) => session.tenant,
 })
 
 export const Route = createFileRoute("/api/astralbeam/token")({

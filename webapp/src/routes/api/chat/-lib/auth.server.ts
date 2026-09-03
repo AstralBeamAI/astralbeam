@@ -9,12 +9,11 @@ import { apiKey, organization } from "@/db/schema.server"
 import { ChatTokenPayloadSchema, SlugSchema } from "@/lib/schemas"
 import {
   CHAT_TOKEN_AUDIENCE,
+  CHAT_TOKEN_IDENTITY_MAX_BYTES,
   CHAT_TOKEN_MAX_LENGTH,
   CHAT_TOKEN_MAX_LIFETIME_SECONDS,
   CHAT_TOKEN_MIN_LIFETIME_SECONDS,
   CHAT_TOKEN_TYPE,
-  CHAT_TOKEN_USER_MAX_BYTES,
-  CHAT_TOKEN_USER_MAX_DEPTH,
 } from "./constants.server"
 import type { ChatAuthenticationError, ChatPrincipal, ChatTenantUser } from "./types"
 
@@ -110,11 +109,9 @@ export async function verifyChatToken(
       maxTokenAge: CHAT_TOKEN_MAX_LIFETIME_SECONDS,
     })
     if (protectedHeader.kid !== apiKeyId) throw invalidToken("Wrong API key identifier")
-    if (
-      exceedsJsonDepth(payload.tenantUser, CHAT_TOKEN_USER_MAX_DEPTH) ||
-      textEncoder.encode(JSON.stringify(payload.tenantUser)).byteLength > CHAT_TOKEN_USER_MAX_BYTES
-    ) {
-      throw invalidToken("Invalid tenantUser claims")
+    const identity = { user: payload.user, tenant: payload.tenant }
+    if (textEncoder.encode(JSON.stringify(identity)).byteLength > CHAT_TOKEN_IDENTITY_MAX_BYTES) {
+      throw invalidToken("Invalid user or tenant claims")
     }
     const claims = decodeChatTokenPayload(payload)
     if (
@@ -124,7 +121,7 @@ export async function verifyChatToken(
     ) {
       throw invalidToken("Invalid chat token claims")
     }
-    return claims.tenantUser
+    return { ...claims.user, tenant: claims.tenant }
   } catch (cause) {
     if (isChatAuthenticationError(cause)) throw cause
     throw invalidToken("Invalid chat bearer token", cause)
@@ -136,20 +133,6 @@ function parseApiKeyId(apiKeyId: string): { organizationSlug: string; keySlug: s
   if (Option.isNone(publicId)) throw invalidToken("Malformed API key identifier")
   const [, organizationSlug, , keySlug] = publicId.value
   return { organizationSlug, keySlug }
-}
-
-function exceedsJsonDepth(value: unknown, maximumDepth: number): boolean {
-  const stack = [{ value, depth: 1 }]
-  while (stack.length > 0) {
-    const current = stack.pop()!
-    if (typeof current.value !== "object" || current.value === null) continue
-    if (current.depth > maximumDepth) return true
-    const children = Array.isArray(current.value)
-      ? current.value
-      : Object.values(current.value as Record<string, unknown>)
-    for (const child of children) stack.push({ value: child, depth: current.depth + 1 })
-  }
-  return false
 }
 
 function readBearerToken(request: Request): string {

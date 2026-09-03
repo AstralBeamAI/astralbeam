@@ -3,13 +3,12 @@ import * as Schema from "effect/Schema"
 
 export const ASTRALBEAM_TOKEN_AUDIENCE = "astralbeam"
 export const ASTRALBEAM_CHAT_TOKEN_TYPE = "astralbeam+jwt"
-export const ASTRALBEAM_CHAT_TOKEN_VERSION = 3
+export const ASTRALBEAM_CHAT_TOKEN_VERSION = 4
 export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
 export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 
 const CHAT_TOKEN_MAX_BYTES = 16_384
-const TENANT_USER_MAX_BYTES = 8_192
-const TENANT_USER_MAX_DEPTH = 10
+const IDENTITY_MAX_BYTES = 8_192
 const textEncoder = new TextEncoder()
 
 const SlugSchema = Schema.String.pipe(
@@ -33,14 +32,14 @@ const MetadataSchema = Schema.JsonObject.annotate({
 const TenantExternalIdSchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value) => value.length >= 1 && value.length <= 255, {
-      message: "tenantUser.tenant.id must be a 1-255 character string",
+      message: "tenant.id must be a 1-255 character string",
     }),
   ),
 )
 const TenantUserExternalIdSchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value) => value.length >= 1 && value.length <= 255, {
-      message: "tenantUser.id must be a 1-255 character string",
+      message: "user.id must be a 1-255 character string",
     }),
   ),
 )
@@ -51,24 +50,22 @@ export const TenantSchema = Schema.Struct({
 })
 export const TenantUserSchema = Schema.Struct({
   id: TenantUserExternalIdSchema,
-  tenant: TenantSchema,
   name: Schema.optional(Schema.String),
   admin: Schema.optional(Schema.Boolean),
   metadata: Schema.optional(MetadataSchema),
+})
+const IdentitySchema = Schema.Struct({
+  user: TenantUserSchema,
+  tenant: TenantSchema,
 }).pipe(
   Schema.check(
-    Schema.makeFilter((value) => !exceedsJsonDepth(value, TENANT_USER_MAX_DEPTH), {
-      message: `tenantUser must not exceed ${TENANT_USER_MAX_DEPTH} levels`,
-    }),
-  ),
-  Schema.check(
     Schema.makeFilter(
-      (value) => textEncoder.encode(JSON.stringify(value)).byteLength <= TENANT_USER_MAX_BYTES,
-      { message: `tenantUser must not exceed ${TENANT_USER_MAX_BYTES} bytes` },
+      (value) => textEncoder.encode(JSON.stringify(value)).byteLength <= IDENTITY_MAX_BYTES,
+      { message: `user and tenant must not exceed ${IDENTITY_MAX_BYTES} bytes` },
     ),
   ),
 )
-const decodeTenantUser = Schema.decodeUnknownSync(TenantUserSchema, {
+const decodeIdentity = Schema.decodeUnknownSync(IdentitySchema, {
   errors: "all",
   onExcessProperty: "error",
   reportInput: false,
@@ -80,9 +77,13 @@ export type Tenant = typeof TenantSchema.Type
 /** User of an Organization's Tenant who interacts with AstralBeam. */
 export type TenantUser = typeof TenantUserSchema.Type
 
-export interface CreateAstralBeamChatTokenOptions<TTenantUser extends TenantUser = TenantUser> {
+export interface CreateAstralBeamChatTokenOptions<
+  TTenantUser extends TenantUser = TenantUser,
+  TTenant extends Tenant = Tenant,
+> {
   readonly apiKey: string
-  readonly tenantUser: TTenantUser
+  readonly user: TTenantUser
+  readonly tenant: TTenant
   readonly expiresInSeconds?: number | undefined
 }
 
@@ -101,20 +102,8 @@ function parseApiKey(apiKey: string): {
   return { keyId, organizationSlug, keySecret }
 }
 
-function exceedsJsonDepth(value: unknown, maximumDepth: number): boolean {
-  const stack = [{ value, depth: 1 }]
-  while (stack.length > 0) {
-    const current = stack.pop()!
-    if (current.depth > maximumDepth) return true
-    if (typeof current.value !== "object" || current.value === null) continue
-    const children = Array.isArray(current.value) ? current.value : Object.values(current.value)
-    for (const child of children) stack.push({ value: child, depth: current.depth + 1 })
-  }
-  return false
-}
-
-function validatedTenantUser(value: TenantUser): typeof TenantUserSchema.Type {
-  return JSON.parse(JSON.stringify(decodeTenantUser(value))) as typeof TenantUserSchema.Type
+function validatedIdentity(user: TenantUser, tenant: Tenant): typeof IdentitySchema.Type {
+  return JSON.parse(JSON.stringify(decodeIdentity({ user, tenant }))) as typeof IdentitySchema.Type
 }
 
 async function signingKey(secret: string) {
@@ -124,16 +113,24 @@ async function signingKey(secret: string) {
   return textEncoder.encode(base64url.encode(new Uint8Array(digest)))
 }
 
-export interface CreateAstralBeamTokenRouteOptions<TTenantUser extends TenantUser = TenantUser> {
+export interface CreateAstralBeamTokenRouteOptions<
+  TSession extends object = object,
+  TTenantUser extends TenantUser = TenantUser,
+  TTenant extends Tenant = Tenant,
+> {
   /** The full API key, or a thunk read per request; missing or empty answers 503. */
   readonly apiKey: string | undefined | (() => string | undefined)
   /**
-   * Authenticates the request against the application's own session and returns the tenant
-   * user minted into the token. Returning nothing, or throwing, answers 401.
+   * Authenticates the request against the application's own session. Returning nothing, or
+   * throwing, answers 401.
    */
-  readonly tenantUser: (
+  readonly authenticate: (
     request: Request,
-  ) => TTenantUser | null | undefined | Promise<TTenantUser | null | undefined>
+  ) => TSession | null | undefined | Promise<TSession | null | undefined>
+  /** Maps the authenticated session to the tenant user minted into the token. */
+  readonly user: (session: TSession) => TTenantUser
+  /** Maps the same authenticated session to the tenant minted into the token. */
+  readonly tenant: (session: TSession) => TTenant
   readonly expiresInSeconds?: number | undefined
 }
 
@@ -146,8 +143,12 @@ function tokenRouteResponse(body: Record<string, string>, status: number): Respo
  * Builds the fetch-standard `POST` handler for an application's token endpoint, owning the
  * method check, the unconfigured-key 503, the unauthenticated 401, and the `no-store` header.
  */
-export function createAstralBeamTokenRoute<TTenantUser extends TenantUser = TenantUser>(
-  options: CreateAstralBeamTokenRouteOptions<TTenantUser>,
+export function createAstralBeamTokenRoute<
+  TSession extends object,
+  TTenantUser extends TenantUser = TenantUser,
+  TTenant extends Tenant = Tenant,
+>(
+  options: CreateAstralBeamTokenRouteOptions<TSession, TTenantUser, TTenant>,
 ): (request: Request) => Promise<Response> {
   return async (request) => {
     if (request.method !== "POST") {
@@ -157,19 +158,20 @@ export function createAstralBeamTokenRoute<TTenantUser extends TenantUser = Tena
     if (!apiKey) {
       return tokenRouteResponse({ error: "The AstralBeam API key is not configured" }, 503)
     }
-    let tenantUser: TTenantUser | null | undefined
+    let session: TSession | null | undefined
     try {
-      tenantUser = await options.tenantUser(request)
+      session = await options.authenticate(request)
     } catch {
-      tenantUser = undefined
+      session = undefined
     }
-    if (!tenantUser) {
+    if (!session) {
       return tokenRouteResponse({ error: "The session could not be verified" }, 401)
     }
     try {
       const token = await createAstralBeamChatToken({
         apiKey,
-        tenantUser,
+        user: options.user(session),
+        tenant: options.tenant(session),
         ...(options.expiresInSeconds === undefined
           ? {}
           : { expiresInSeconds: options.expiresInSeconds }),
@@ -183,11 +185,15 @@ export function createAstralBeamTokenRoute<TTenantUser extends TenantUser = Tena
 }
 
 /** Creates the short-lived bearer token returned by an application's server auth endpoint. */
-export async function createAstralBeamChatToken<TTenantUser extends TenantUser = TenantUser>({
+export async function createAstralBeamChatToken<
+  TTenantUser extends TenantUser = TenantUser,
+  TTenant extends Tenant = Tenant,
+>({
   apiKey,
-  tenantUser,
+  user,
+  tenant,
   expiresInSeconds = ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS,
-}: CreateAstralBeamChatTokenOptions<TTenantUser>): Promise<string> {
+}: CreateAstralBeamChatTokenOptions<TTenantUser, TTenant>): Promise<string> {
   if (
     !Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 ||
     expiresInSeconds > ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS
@@ -195,11 +201,12 @@ export async function createAstralBeamChatToken<TTenantUser extends TenantUser =
     throw new Error("AstralBeam chat tokens must live for 60-600 seconds")
   }
   const { keyId, organizationSlug, keySecret } = parseApiKey(apiKey)
-  const identity = validatedTenantUser(tenantUser)
+  const identity = validatedIdentity(user, tenant)
   const now = Math.floor(Date.now() / 1_000)
   const token = await new SignJWT({
     ver: ASTRALBEAM_CHAT_TOKEN_VERSION,
-    tenantUser: identity,
+    user: identity.user,
+    tenant: identity.tenant,
   })
     .setProtectedHeader({ alg: "HS256", typ: ASTRALBEAM_CHAT_TOKEN_TYPE, kid: keyId })
     .setIssuer(organizationSlug)

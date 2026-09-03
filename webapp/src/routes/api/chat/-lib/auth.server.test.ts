@@ -48,20 +48,21 @@ import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_TYPE } from "./constants.server"
 
 const apiKeyId = "key_acme-corp_production-key"
 const rawApiKey = `abo_${"A".repeat(64)}`
-const defaultTenantUser = {
+const defaultUser = {
   id: "tenant-user-1",
-  tenant: {
-    id: "tenant-1",
-    name: "Acme customer",
-    metadata: { plan: "enterprise" },
-  },
   metadata: { role: "admin" },
 }
-let deeplyNestedTenantUser: unknown = { ...defaultTenantUser }
-for (let depth = 0; depth < 10; depth += 1) {
-  deeplyNestedTenantUser = {
-    ...defaultTenantUser,
-    metadata: { child: deeplyNestedTenantUser },
+const defaultTenant = {
+  id: "tenant-1",
+  name: "Acme customer",
+  metadata: { plan: "enterprise" },
+}
+const defaultTenantUser = { ...defaultUser, tenant: defaultTenant }
+let deeplyNestedUser: unknown = { ...defaultUser }
+for (let depth = 0; depth < 50; depth += 1) {
+  deeplyNestedUser = {
+    ...defaultUser,
+    metadata: { child: deeplyNestedUser },
   }
 }
 
@@ -73,14 +74,16 @@ type TokenOverrides = {
   algorithm?: "HS256" | "HS384"
   apiKeyId?: string
   audience?: string
+  claims?: Record<string, unknown>
   expiresAt?: number
   expiresInSeconds?: number
   issuedAt?: number
   issuer?: string
   signingSecret?: string
   subject?: string
-  tenantUser?: unknown
+  tenant?: unknown
   type?: string
+  user?: unknown
   version?: number
 }
 
@@ -88,9 +91,13 @@ async function token(overrides: TokenOverrides = {}) {
   const now = Math.floor(Date.now() / 1_000)
   const issuedAt = overrides.issuedAt ?? now
   const algorithm = overrides.algorithm ?? "HS256"
+  const claims = overrides.claims ?? {
+    user: overrides.user ?? defaultUser,
+    tenant: overrides.tenant ?? defaultTenant,
+  }
   let jwt = new SignJWT({
-    ver: overrides.version ?? 3,
-    tenantUser: overrides.tenantUser ?? defaultTenantUser,
+    ver: overrides.version ?? 4,
+    ...claims,
   })
     .setProtectedHeader({
       alg: algorithm,
@@ -178,7 +185,7 @@ describe("organization API-key chat JWTs", () => {
     expect(databaseState.mutationCalls).toBe(0)
   })
 
-  test("uses Better Auth's stored digest as the verifier and accepts v3 claims", async () => {
+  test("uses Better Auth's stored digest as the verifier and accepts v4 claims", async () => {
     await expect(verifyChatToken(await token(), signingKey(), apiKeyId)).resolves.toEqual(
       defaultTenantUser,
     )
@@ -190,6 +197,12 @@ describe("organization API-key chat JWTs", () => {
     ).resolves.toEqual(defaultTenantUser)
   })
 
+  test("accepts deeply nested metadata", async () => {
+    await expect(
+      verifyChatToken(await token({ user: deeplyNestedUser }), signingKey(), apiKeyId),
+    ).resolves.toEqual({ ...(deeplyNestedUser as object), tenant: defaultTenant })
+  })
+
   test.each([
     ["expired", { issuedAt: 1, expiresAt: 2 }],
     ["future dated", { issuedAt: Math.floor(Date.now() / 1_000) + 120 }],
@@ -199,20 +212,20 @@ describe("organization API-key chat JWTs", () => {
     ["wrong type", { type: "another+jwt" }],
     ["wrong kid", { apiKeyId: "key_acme_another" }],
     ["wrong signature", { signingSecret: `abo_${"B".repeat(64)}` }],
-    ["old version", { version: 2 }],
+    ["old version", { version: 3 }],
     ["too short", { expiresInSeconds: 59 }],
     ["too long", { expiresInSeconds: 601 }],
-    ["missing tenant-user ID", { tenantUser: { tenant: { id: "tenant-1" } } }],
-    ["missing tenant", { tenantUser: { id: "tenant-user-1" } }],
+    ["missing user ID", { user: {} }],
+    ["missing tenant ID", { tenant: {} }],
     [
-      "tenant-user fields outside metadata",
-      { tenantUser: { ...defaultTenantUser, role: "admin" } },
+      "user fields outside metadata",
+      { user: { ...defaultUser, role: "admin" } },
     ],
     [
       "tenant fields outside metadata",
-      { tenantUser: { ...defaultTenantUser, tenant: { id: "tenant-1", plan: "enterprise" } } },
+      { tenant: { ...defaultTenant, plan: "enterprise" } },
     ],
-    ["deeply nested tenant user", { tenantUser: deeplyNestedTenantUser }],
+    ["legacy nested tenant user", { claims: { tenantUser: defaultTenantUser } }],
   ])("rejects %s", async (_name, overrides) => {
     await expect(verifyChatToken(await token(overrides), signingKey(), apiKeyId)).rejects
       .toSatisfy(isChatAuthenticationError)

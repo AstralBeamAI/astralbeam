@@ -21,8 +21,7 @@ export const CHAT_TOKEN_TYPE = `${APP_HANDLE}+jwt`
 export const CHAT_TOKEN_MIN_LIFETIME_SECONDS = 60
 export const CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 export const CHAT_TOKEN_MAX_LENGTH = 16_384
-export const CHAT_TOKEN_USER_MAX_BYTES = 8 * 1024
-export const CHAT_TOKEN_USER_MAX_DEPTH = 10
+export const CHAT_TOKEN_IDENTITY_MAX_BYTES = 8 * 1024
 
 // Attachment handling. The caps mirror the SDK composer's, which enforces them first; a client
 // that skips them (or is not the SDK) is held to the same numbers here.
