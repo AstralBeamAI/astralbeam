@@ -1,6 +1,6 @@
 {
   "name": "@astralbeam/sdk",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Frontend SDK for AstralBeam: drop-in agent UI, chat streaming, and server helpers",
   "license": "MIT",
   "type": "module",
@@ -34,6 +34,15 @@
       "default": "./dist/vue.js"
     },
     "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "client": ["./dist/client.d.ts"],
+      "core": ["./dist/core.d.ts"],
+      "server": ["./dist/server.d.ts"],
+      "react": ["./dist/react.d.ts"],
+      "vue": ["./dist/vue.d.ts"]
+    }
   },
   "publishConfig": {
     "access": "public"
