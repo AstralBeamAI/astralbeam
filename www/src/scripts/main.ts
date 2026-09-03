@@ -172,25 +172,43 @@ function initReveals() {
   }
 
   const scrambled = new WeakSet<HTMLElement>()
+  function reveal(el: HTMLElement) {
+    el.classList.remove("reveal-pending")
+    el.classList.add("in-view")
+    if (el.classList.contains("scramble") && !scrambled.has(el)) {
+      scrambled.add(el)
+      const delay = parseFloat(getComputedStyle(el).getPropertyValue("--reveal-delay")) || 0
+      setTimeout(() => scramble(el), delay * 1000)
+    }
+  }
+
   const io = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue
         const el = entry.target
         if (!(el instanceof HTMLElement)) continue
-        el.classList.add("in-view")
-        if (el.classList.contains("scramble") && !scrambled.has(el)) {
-          scrambled.add(el)
-          const delay = parseFloat(getComputedStyle(el).getPropertyValue("--reveal-delay")) || 0
-          setTimeout(() => scramble(el), delay * 1000)
-        }
+        reveal(el)
         io.unobserve(el)
       }
     },
     { threshold: 0.25, rootMargin: "0px 0px -8% 0px" },
   )
 
-  revealEls.forEach((el) => io.observe(el))
+  const initialRootBottom = window.innerHeight * 0.92
+  revealEls.forEach((el) => {
+    const rect = el.getBoundingClientRect()
+    const visibleHeight = Math.min(rect.bottom, initialRootBottom) - Math.max(rect.top, 0)
+    if (visibleHeight >= rect.height * 0.25) {
+      reveal(el)
+      return
+    }
+
+    // Keep content visible unless observation was installed successfully. This
+    // makes the animation a progressive enhancement instead of a JS dependency.
+    io.observe(el)
+    el.classList.add("reveal-pending")
+  })
 }
 
 /* ============ terminal typing ============ */
@@ -527,6 +545,6 @@ function initAgentDemo(codeReady: Promise<void>) {
   io.observe(panel)
 }
 
-initStarfield()
 initReveals()
+initStarfield()
 initAgentDemo(initTerminal())
