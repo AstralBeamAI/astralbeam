@@ -4,7 +4,7 @@ import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-a
 import type { OrganizationOptions } from "better-auth/plugins"
 import { runDatabaseEffect } from "@/db"
 import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
-import { isValidSlug } from "@/lib/slug"
+import { isValidSlug, SLUG_VALIDATION_MESSAGE } from "@/lib/slug"
 import { organizationRoles } from "./organization-access.ts"
 import { ORGANIZATION_API_KEY_PREFIX } from "./organization-api-key-configuration.ts"
 
@@ -144,7 +144,7 @@ function assertOrganizationSlug(value: unknown): asserts value is string {
   if (typeof value !== "string" || !isValidSlug(value)) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_ORGANIZATION_SLUG",
-      message: "Organization slug must contain only lowercase letters, numbers, and hyphens",
+      message: SLUG_VALIDATION_MESSAGE,
     })
   }
 }

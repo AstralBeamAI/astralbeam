@@ -17,6 +17,7 @@ import {
   isValidSlug,
   SLUG_MAX_LENGTH,
   SLUG_RANDOM_SUFFIX_LENGTH,
+  SLUG_VALIDATION_MESSAGE,
 } from "@/lib/slug"
 
 type SlugAvailability = "available" | "checking" | "idle" | "invalid" | "unavailable"
@@ -121,7 +122,7 @@ export function GeneratedSlugField({
     : value.length === 0
     ? "Identifier is required"
     : !valid
-    ? "Use 1–63 lowercase letters, numbers, and hyphens"
+    ? SLUG_VALIDATION_MESSAGE
     : availability === "unavailable"
     ? "This identifier is already in use"
     : undefined
