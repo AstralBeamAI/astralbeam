@@ -172,43 +172,25 @@ function initReveals() {
   }
 
   const scrambled = new WeakSet<HTMLElement>()
-  function reveal(el: HTMLElement) {
-    el.classList.remove("reveal-pending")
-    el.classList.add("in-view")
-    if (el.classList.contains("scramble") && !scrambled.has(el)) {
-      scrambled.add(el)
-      const delay = parseFloat(getComputedStyle(el).getPropertyValue("--reveal-delay")) || 0
-      setTimeout(() => scramble(el), delay * 1000)
-    }
-  }
-
   const io = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue
         const el = entry.target
         if (!(el instanceof HTMLElement)) continue
-        reveal(el)
+        el.classList.add("in-view")
+        if (el.classList.contains("scramble") && !scrambled.has(el)) {
+          scrambled.add(el)
+          const delay = parseFloat(getComputedStyle(el).getPropertyValue("--reveal-delay")) || 0
+          setTimeout(() => scramble(el), delay * 1000)
+        }
         io.unobserve(el)
       }
     },
     { threshold: 0.25, rootMargin: "0px 0px -8% 0px" },
   )
 
-  const initialRootBottom = window.innerHeight * 0.92
-  revealEls.forEach((el) => {
-    const rect = el.getBoundingClientRect()
-    const visibleHeight = Math.min(rect.bottom, initialRootBottom) - Math.max(rect.top, 0)
-    if (visibleHeight >= rect.height * 0.25) {
-      reveal(el)
-      return
-    }
-
-    // Keep content visible unless observation was installed successfully. This
-    // makes the animation a progressive enhancement instead of a JS dependency.
-    io.observe(el)
-    el.classList.add("reveal-pending")
-  })
+  revealEls.forEach((el) => io.observe(el))
 }
 
 /* ============ terminal typing ============ */
@@ -545,6 +527,19 @@ function initAgentDemo(codeReady: Promise<void>) {
   io.observe(panel)
 }
 
-initReveals()
-initStarfield()
-initAgentDemo(initTerminal())
+function init() {
+  initStarfield()
+  initReveals()
+  initAgentDemo(initTerminal())
+}
+
+// WebKit runs module scripts before pending stylesheets finish loading, unlike Chromium and
+// Firefox, so on a cold Safari load the brand colors read from computed styles can still be
+// empty. That throws in initStarfield() before the reveals are wired up and leaves the page
+// blank. https://github.com/whatwg/html/issues/3890
+const stylesheet = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"]')
+if (stylesheet && !stylesheet.sheet) {
+  stylesheet.addEventListener("load", init, { once: true })
+} else {
+  init()
+}

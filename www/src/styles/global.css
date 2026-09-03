@@ -397,16 +397,16 @@ a[href] {
 /* ---------- reveal / scramble ---------- */
 
 .reveal {
-  opacity: 1;
-  transform: none;
+  opacity: 0;
+  transform: translateY(26px);
   transition:
     opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s),
     transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s);
 }
 
-.reveal.reveal-pending {
-  opacity: 0;
-  transform: translateY(26px);
+.reveal.in-view {
+  opacity: 1;
+  transform: none;
 }
 
 /* ---------- hero ---------- */
@@ -1491,8 +1491,7 @@ main {
     scroll-behavior: auto;
   }
 
-  .reveal,
-  .reveal.reveal-pending {
+  .reveal {
     opacity: 1;
     transform: none;
     transition: none;
