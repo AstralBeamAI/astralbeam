@@ -3,6 +3,7 @@
 set -euo pipefail
 
 worktree_root=$(git rev-parse --show-toplevel)
+cd "$worktree_root"
 source_root=${ROOT_WORKTREE_PATH:-}
 
 if [ -z "$source_root" ]; then
@@ -29,3 +30,5 @@ fi
 database_url=$(sed -n 's/^DATABASE_URL=//p' "$source_database_env_file")
 worktree_database=$(basename "${worktree_root%/$(basename "$source_root")}")
 printf 'DATABASE_URL=%s/%s\n' "${database_url%/*}" "$worktree_database" >>"$database_env_file"
+
+deno task --cwd webapp db-reset

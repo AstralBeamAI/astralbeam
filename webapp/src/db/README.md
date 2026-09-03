@@ -55,10 +55,11 @@ deno task db check
 deno task db migrate
 ```
 
-From the repository root, drop and recreate only the confirmed-disposable database selected by Drizzle for the current worktree, then reapply all checked-in migrations:
+From the repository root, drop and recreate only the confirmed-disposable database selected by Drizzle for the current worktree:
 
 ```sh
 deno task --cwd webapp db-reset
+deno task --cwd webapp db migrate
 ```
 
 To delete every local database managed by Docker Compose, recreate its volumes from the repository root, then migrate the current worktree database:
@@ -67,9 +68,10 @@ To delete every local database managed by Docker Compose, recreate its volumes f
 docker compose down --volumes
 docker compose up --detach --wait
 deno task --cwd webapp db-reset
+deno task --cwd webapp db migrate
 ```
 
-Both resets are destructive and must only be used for disposable local data. The Compose reset also deletes the shared Valkey and Mailpit data. `migrate` applies pending checked-in migrations; `check` validates migration-history consistency and does not inspect which migrations a live database has applied.
+Both resets are destructive and must only be used for disposable local data. The Compose reset also deletes the shared Valkey and Mailpit data. `db-reset` only recreates the selected database; run `migrate` separately to apply pending checked-in migrations. `check` validates migration-history consistency and does not inspect which migrations a live database has applied.
 
 ## Drizzle migration workflow
 
