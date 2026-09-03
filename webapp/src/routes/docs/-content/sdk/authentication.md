@@ -27,6 +27,31 @@ export const POST = createAstralBeamTokenRoute({
 
 For full control, mint the token with `createAstralBeamChatToken({ apiKey, user, tenant })` and answer with `Response.json({ token })` plus `cache-control: no-store`.
 
+## A backend on another origin
+
+By default the widget POSTs `authTokenUrl` with the page's cookies, which needs a session cookie the browser will send. When your API lives on another origin behind bearer or custom-header auth, pass `getAuthToken` and fetch the token yourself.
+
+```tsx
+<AstralBeamChat
+  agentId="agt_acme_support"
+  getAuthToken={async () => {
+    const response = await fetch("https://api.acme.com/astralbeam/token", {
+      method: "POST",
+      headers: { authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) throw new Error(`The token endpoint answered ${response.status}`)
+    return (await response.json()).token
+  }}
+/>
+```
+
+- `getAuthToken` replaces the widget's own request entirely: you choose the method, headers, body, and response shape, and it never reads `authTokenUrl`.
+- It is called whenever the widget needs a token, near expiry and after one is rejected, so mint a fresh token instead of returning a memoized one.
+- Throw to fail closed; the composer shows the error and its retry link calls `getAuthToken` again.
+- The React prop always reads the latest render's callback, so an inline arrow over current auth state is fine and needs no memoization.
+- Like `authTokenUrl`, it is fixed at mount: `handle.update` rejects it.
+- Cookies do work cross-origin without it if your endpoint returns `Access-Control-Allow-Credentials: true` with an exact origin, its cookie is `SameSite=None; Secure`, and it answers the preflight; browser cookie policies make this the more fragile route.
+
 ## Rules
 
 The token identifies the tenant user to AstralBeam, so treat it like a session credential.

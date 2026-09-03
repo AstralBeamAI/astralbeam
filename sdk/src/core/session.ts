@@ -38,6 +38,12 @@ export interface AstralBeamChatCoreOptions {
   apiUrl?: string | undefined
   /** The application endpoint that mints short-lived chat JWTs. Default `/api/astralbeam/token`. */
   authTokenUrl?: string | undefined
+  /**
+   * Mints the chat JWT in host code instead of POSTing `authTokenUrl` with the page's cookies, for
+   * hosts whose backend sits on another origin behind bearer or custom-header auth. Called again
+   * whenever a token is needed, so it must mint a fresh one rather than return a memoized token.
+   */
+  getAuthToken?: (() => string | Promise<string>) | undefined
   /** Host tools the agent can call; `execute` runs wherever this session lives. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Widgets declared to the agent; `onRenderWidget` is asked to draw them. */
@@ -104,6 +110,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
 
   const authentication: ChatAuthenticationOptions = {
     authTokenUrl: options.authTokenUrl ?? DEFAULT_AUTH_TOKEN_URL,
+    getAuthToken: options.getAuthToken,
     session: {
       cached: undefined,
       refreshPromise: undefined,

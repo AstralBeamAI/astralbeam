@@ -21,6 +21,7 @@ interface ChatAuthenticationSession {
 
 export interface ChatAuthenticationOptions {
   authTokenUrl: string
+  getAuthToken: (() => string | Promise<string>) | undefined
   session: ChatAuthenticationSession
   onStateChange: (state: ChatAuthenticationState) => void
   fetchClient: typeof globalThis.fetch
@@ -60,26 +61,40 @@ function bearerToken(headers: Headers): string | undefined {
   return authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined
 }
 
+async function postChatToken(
+  authTokenUrl: string,
+  fetchClient: typeof globalThis.fetch,
+  signal: AbortSignal,
+): Promise<unknown> {
+  const response = await fetchClient(authTokenUrl, {
+    method: "POST",
+    headers: { accept: "application/json" },
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  })
+  if (!response.ok) throw new Error(`Authentication endpoint returned HTTP ${response.status}`)
+  const body: unknown = await response.json()
+  return (body as { token?: unknown } | null)?.token
+}
+
 async function fetchChatToken(options: ChatAuthenticationOptions): Promise<string> {
-  const { authTokenUrl, session, onStateChange, fetchClient, debug } = options
+  const { authTokenUrl, getAuthToken, session, onStateChange, fetchClient, debug } = options
   const { signal } = session.abortController
+  const source = getAuthToken ? "getAuthToken" : "Authentication endpoint"
   try {
-    const response = await fetchClient(authTokenUrl, {
-      method: "POST",
-      headers: { accept: "application/json" },
-      credentials: "include",
-      cache: "no-store",
-      signal,
-    })
-    if (!response.ok) throw new Error(`Authentication endpoint returned HTTP ${response.status}`)
-    const body: unknown = await response.json()
-    const token = (body as { token?: unknown } | null)?.token
+    const token = getAuthToken
+      ? await getAuthToken()
+      : await postChatToken(authTokenUrl, fetchClient, signal)
+    // `getAuthToken` cannot observe the signal, so a token that arrives after disposal is dropped
+    // here rather than reported as a ready state on a session the host already tore down.
+    if (signal.aborted) throw new Error("Chat authentication was disposed")
     if (typeof token !== "string" || !token) {
-      throw new Error("Authentication endpoint did not return a token")
+      throw new Error(`${source} did not return a token`)
     }
     const expiresAt = tokenExpiry(token)
     if (expiresAt <= Date.now()) {
-      throw new Error("Authentication endpoint returned an expired token")
+      throw new Error(`${source} returned an expired token`)
     }
     session.cached = { value: token, expiresAt }
     onStateChange({ status: "ready" })

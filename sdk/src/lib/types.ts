@@ -150,6 +150,13 @@ export interface MountAstralBeamChatOptions {
   apiUrl?: string | undefined
   /** Application endpoint that mints a short-lived chat JWT. Fixed at mount. Default `"/api/astralbeam/token"`. */
   authTokenUrl?: string | undefined
+  /**
+   * Mints the chat JWT in host code instead of letting the widget POST `authTokenUrl` with the
+   * page's cookies, for hosts whose backend sits on another origin behind bearer or custom-header
+   * auth. Called again whenever the widget needs a token (near expiry, or after one is rejected),
+   * so it must mint a fresh token rather than return a memoized one. Fixed at mount.
+   */
+  getAuthToken?: (() => string | Promise<string>) | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -183,7 +190,7 @@ export interface MountAstralBeamChatOptions {
  * changing any of them would mean a new client and a discarded transcript.
  */
 export type AstralBeamChatUpdate = Partial<
-  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "authTokenUrl">
+  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "authTokenUrl" | "getAuthToken">
 >
 
 export interface AstralBeamChatHandle {

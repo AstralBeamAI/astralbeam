@@ -156,6 +156,13 @@ export interface AstralBeamChatProps {
   apiUrl?: string
   /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
   authTokenUrl?: string
+  /**
+   * Mints the chat JWT in host code instead of letting the widget POST `authTokenUrl` with the
+   * page's cookies, for hosts whose backend sits on another origin behind bearer or custom-header
+   * auth. Always reads the latest prop, so an inline callback over current auth state is fine; it
+   * must mint a fresh token on every call, because the widget calls it only when it needs one.
+   */
+  getAuthToken?: () => string | Promise<string>
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
   tools?: Record<string, ToolDefinition>
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -197,6 +204,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       emptyDescription,
       apiUrl,
       authTokenUrl,
+      getAuthToken,
       tools,
       widgets = {},
       colorScheme = DEFAULT_COLOR_SCHEME,
@@ -221,6 +229,12 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     const toolsRef = useRef(tools)
     useEffect(() => {
       toolsRef.current = tools
+    })
+    // Same reason, and the widget mints tokens for as long as it lives: a callback frozen at mount
+    // would keep sending the first render's credentials once the host's session rotates.
+    const getAuthTokenRef = useRef(getAuthToken)
+    useEffect(() => {
+      getAuthTokenRef.current = getAuthToken
     })
     // The chat keeps one render per tool call, so several renders of the same widget can be live
     // at once (a listing that renders a card per item); each needs its own portal and React key.
@@ -333,6 +347,8 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         agentId,
         apiUrl,
         authTokenUrl,
+        // Stable wrapper so a new inline callback each render is not a changed mount-fixed option.
+        ...(getAuthTokenRef.current ? { getAuthToken: () => getAuthTokenRef.current!() } : {}),
       })
       handleRef.current = handle
       return () => {

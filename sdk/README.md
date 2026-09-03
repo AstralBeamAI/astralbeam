@@ -64,16 +64,18 @@ export const POST = createAstralBeamTokenRoute({
 - Tokens use the API key's organization slug as issuer and the platform audience `astralbeam`; AstralBeam does not require or interpret `sub`.
 - Tokens are signed, not encrypted: never put a secret in them.
 - Lifetimes are 60–600 seconds; the SDK renews in memory before expiry.
+- The widget POSTs `authTokenUrl` with the page's cookies; pass `getAuthToken` to fetch the token yourself when your backend is on another origin behind header auth.
 
 ## Options
 
-Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` applies any subset in place. `agentId`, `apiUrl`, and `authTokenUrl` are fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
+Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` applies any subset in place. `agentId`, `apiUrl`, `authTokenUrl`, and `getAuthToken` are fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
 
 | Option                               | Default                         | Meaning                                                         |
 | ------------------------------------ | ------------------------------- | --------------------------------------------------------------- |
 | `agentId`                            | organization's default          | `agt_<organization>_<agent>` from the dashboard                 |
 | `apiUrl`                             | `https://app.astralbeam.ai/api` | Base URL of the AstralBeam API; the widget calls `/chat` there  |
 | `authTokenUrl`                       | `/api/astralbeam/token`         | Your token endpoint                                             |
+| `getAuthToken`                       | none                            | Mint the token in host code, for a backend on another origin    |
 | `title`, `showHeader`                | `"AstralBeam"`, `true`          | Header text, and whether the header and reset button show       |
 | `emptyTitle`, `emptyDescription`     | generic copy                    | Headline and subtitle of the empty transcript                   |
 | `colorScheme`, `theme`               | `"system"`, built-in palette    | Light/dark/system, and shadcn token overrides                   |
