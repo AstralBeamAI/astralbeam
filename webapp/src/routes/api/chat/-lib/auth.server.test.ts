@@ -44,18 +44,25 @@ vi.mock("@/db", () => {
 })
 
 import { authenticateChatRequest, isChatAuthenticationError, verifyChatToken } from "./auth.server"
-import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_SCOPE, CHAT_TOKEN_TYPE } from "./constants.server"
+import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_TYPE } from "./constants.server"
 
 const apiKeyId = "key_acme_production"
 const rawApiKey = `abo_${"A".repeat(64)}`
 const defaultTenantUser = {
   id: "tenant-user-1",
-  tenant: { id: "tenant-1", name: "Acme customer", plan: "enterprise" },
-  role: "admin",
+  tenant: {
+    id: "tenant-1",
+    name: "Acme customer",
+    metadata: { plan: "enterprise" },
+  },
+  metadata: { role: "admin" },
 }
 let deeplyNestedTenantUser: unknown = { ...defaultTenantUser }
 for (let depth = 0; depth < 10; depth += 1) {
-  deeplyNestedTenantUser = { ...defaultTenantUser, child: deeplyNestedTenantUser }
+  deeplyNestedTenantUser = {
+    ...defaultTenantUser,
+    metadata: { child: deeplyNestedTenantUser },
+  }
 }
 
 function signingKey(secret = rawApiKey) {
@@ -70,7 +77,6 @@ type TokenOverrides = {
   expiresInSeconds?: number
   issuedAt?: number
   issuer?: string
-  scope?: readonly string[] | null
   signingSecret?: string
   subject?: string
   tenantUser?: unknown
@@ -84,7 +90,6 @@ async function token(overrides: TokenOverrides = {}) {
   const algorithm = overrides.algorithm ?? "HS256"
   let jwt = new SignJWT({
     ver: overrides.version ?? 3,
-    ...(overrides.scope === null ? {} : { scope: overrides.scope ?? [CHAT_TOKEN_SCOPE] }),
     tenantUser: overrides.tenantUser ?? defaultTenantUser,
   })
     .setProtectedHeader({
@@ -173,7 +178,7 @@ describe("organization API-key chat JWTs", () => {
     expect(databaseState.mutationCalls).toBe(0)
   })
 
-  test("uses Better Auth's stored digest as the verifier and accepts chat-scoped v3 claims", async () => {
+  test("uses Better Auth's stored digest as the verifier and accepts v3 claims", async () => {
     await expect(verifyChatToken(await token(), signingKey(), apiKeyId)).resolves.toEqual(
       defaultTenantUser,
     )
@@ -194,13 +199,19 @@ describe("organization API-key chat JWTs", () => {
     ["wrong type", { type: "another+jwt" }],
     ["wrong kid", { apiKeyId: "key_acme_another" }],
     ["wrong signature", { signingSecret: `abo_${"B".repeat(64)}` }],
-    ["missing scope", { scope: null }],
-    ["wrong scope", { scope: ["tenants:read"] }],
     ["old version", { version: 2 }],
     ["too short", { expiresInSeconds: 59 }],
     ["too long", { expiresInSeconds: 601 }],
     ["missing tenant-user ID", { tenantUser: { tenant: { id: "tenant-1" } } }],
     ["missing tenant", { tenantUser: { id: "tenant-user-1" } }],
+    [
+      "tenant-user fields outside metadata",
+      { tenantUser: { ...defaultTenantUser, role: "admin" } },
+    ],
+    [
+      "tenant fields outside metadata",
+      { tenantUser: { ...defaultTenantUser, tenant: { id: "tenant-1", plan: "enterprise" } } },
+    ],
     ["deeply nested tenant user", { tenantUser: deeplyNestedTenantUser }],
   ])("rejects %s", async (_name, overrides) => {
     await expect(verifyChatToken(await token(overrides), signingKey(), apiKeyId)).rejects

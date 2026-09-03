@@ -17,8 +17,7 @@ export const CHAT_RATE_LIMIT_WINDOW_MS = 60_000
 export const CHAT_RATE_LIMIT_MAX_REQUESTS = 20
 
 export const CHAT_TOKEN_AUDIENCE = APP_HANDLE
-export const CHAT_TOKEN_SCOPE = "chat"
-export const CHAT_TOKEN_TYPE = `${APP_HANDLE}-chat+jwt`
+export const CHAT_TOKEN_TYPE = `${APP_HANDLE}+jwt`
 export const CHAT_TOKEN_MIN_LIFETIME_SECONDS = 60
 export const CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
 export const CHAT_TOKEN_MAX_LENGTH = 16_384

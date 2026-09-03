@@ -32,23 +32,19 @@ const ChatExternalIdSchema = Schema.String.pipe(
   Schema.check(Schema.isMaxLength(255)),
 )
 
-export const ChatTenantSchema = Schema.StructWithRest(
-  Schema.Struct({
-    id: ChatExternalIdSchema,
-    name: Schema.optional(Schema.String),
-  }),
-  [Schema.JsonObject],
-)
+const ChatTenantSchema = Schema.Struct({
+  id: ChatExternalIdSchema,
+  name: Schema.optional(Schema.String),
+  metadata: Schema.optional(Schema.JsonObject),
+})
 
-export const ChatTenantUserSchema = Schema.StructWithRest(
-  Schema.Struct({
-    id: ChatExternalIdSchema,
-    tenant: ChatTenantSchema,
-    name: Schema.optional(Schema.String),
-    admin: Schema.optional(Schema.Boolean),
-  }),
-  [Schema.JsonObject],
-)
+export const ChatTenantUserSchema = Schema.Struct({
+  id: ChatExternalIdSchema,
+  tenant: ChatTenantSchema,
+  name: Schema.optional(Schema.String),
+  admin: Schema.optional(Schema.Boolean),
+  metadata: Schema.optional(Schema.JsonObject),
+})
 
 export const ChatTokenPayloadSchema = Schema.StructWithRest(
   Schema.Struct({
@@ -57,7 +53,6 @@ export const ChatTokenPayloadSchema = Schema.StructWithRest(
     exp: Schema.Int,
     iss: SlugSchema,
     aud: Schema.Literal("astralbeam"),
-    scope: Schema.Array(Schema.String),
     tenantUser: ChatTenantUserSchema,
   }),
   [Schema.JsonObject],

@@ -11,7 +11,6 @@ import {
   CHAT_TOKEN_MAX_LENGTH,
   CHAT_TOKEN_MAX_LIFETIME_SECONDS,
   CHAT_TOKEN_MIN_LIFETIME_SECONDS,
-  CHAT_TOKEN_SCOPE,
   CHAT_TOKEN_TYPE,
   CHAT_TOKEN_USER_MAX_BYTES,
   CHAT_TOKEN_USER_MAX_DEPTH,
@@ -126,9 +125,6 @@ export async function verifyChatToken(
       claims.exp - claims.iat > CHAT_TOKEN_MAX_LIFETIME_SECONDS
     ) {
       throw invalidToken("Invalid chat token claims")
-    }
-    if (!claims.scope.includes(CHAT_TOKEN_SCOPE)) {
-      throw invalidToken("Chat token scope is missing")
     }
     return claims.tenantUser
   } catch (cause) {

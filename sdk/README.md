@@ -45,7 +45,12 @@ export const POST = createAstralBeamTokenRoute({
     return session && {
       id: session.user.id,
       name: session.user.name,
-      tenant: { id: session.tenant.id, name: session.tenant.name, plan: session.tenant.plan },
+      metadata: { email: session.user.email },
+      tenant: {
+        id: session.tenant.id,
+        name: session.tenant.name,
+        metadata: { plan: session.tenant.plan },
+      },
     }
   },
 })
@@ -55,8 +60,8 @@ export const POST = createAstralBeamTokenRoute({
 - The factory owns the method check, the unconfigured 503, the unauthenticated 401, and `no-store`.
 - Derive `tenantUser` from trusted server-side state, never from anything the browser sent.
 - Provide stable tenant-local `tenantUser.id` and `tenantUser.tenant.id` values; names are optional, and set `admin` only from trusted state.
-- Extra tenant and tenant-user fields are preserved as JSON metadata; never include secrets.
-- Chat tokens use the API key's organization slug as issuer, the platform audience `astralbeam`, and the `chat` scope; AstralBeam does not require or interpret `sub`.
+- Put custom tenant and tenant-user fields in their respective `metadata` JSON objects; never include secrets.
+- Tokens use the API key's organization slug as issuer and the platform audience `astralbeam`; AstralBeam does not require or interpret `sub`.
 - Tokens are signed, not encrypted: never put a secret in them.
 - Lifetimes are 60–600 seconds; the SDK renews in memory before expiry.
 

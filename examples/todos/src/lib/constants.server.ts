@@ -1,7 +1,7 @@
 export const DEMO_CHAT_USER = {
   id: "todos-user-1",
   name: "Ada Lovelace",
-  email: "ada@example.com",
+  metadata: { email: "ada@example.com" },
 }
 
 export const DEMO_CHAT_TENANT = {
