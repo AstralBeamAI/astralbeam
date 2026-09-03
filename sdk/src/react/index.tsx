@@ -161,7 +161,8 @@ export interface AstralBeamChatProps {
   /**
    * Extra headers for the token request, for a backend on another origin that authenticates with a
    * bearer token or custom header instead of cookies. Always read from the latest render, so an
-   * inline object or callback over current auth state is fine and needs no memoization.
+   * inline object or callback over current auth state is fine, needs no memoization, and may
+   * start out undefined while the host's own credential loads.
    */
   authTokenHeaders?: AstralBeamChatAuthTokenHeaders
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
@@ -348,16 +349,12 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         agentId,
         apiUrl,
         authTokenUrl,
-        // Always a function, so a new inline object or callback each render is neither a changed
-        // mount-fixed option nor a stale credential.
-        ...(authTokenHeadersRef.current
-          ? {
-            authTokenHeaders: () => {
-              const current = authTokenHeadersRef.current
-              return typeof current === "function" ? current() : current ?? {}
-            },
-          }
-          : {}),
+        // Always a function over the latest render, so an inline object is neither a changed
+        // mount-fixed option nor a stale credential, and one that resolves after mount still lands.
+        authTokenHeaders: () => {
+          const current = authTokenHeadersRef.current
+          return typeof current === "function" ? current() : current ?? {}
+        },
       })
       handleRef.current = handle
       return () => {

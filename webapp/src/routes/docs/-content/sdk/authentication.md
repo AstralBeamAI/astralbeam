@@ -41,7 +41,7 @@ By default the widget POSTs `authTokenUrl` with the page's cookies, which needs 
 
 - Pass an object for a fixed credential, or a function, which may be async, for one you must read or await per request: `authTokenHeaders={async () => ({ authorization: "Bearer " + await getAccessToken() })}`.
 - Headers are resolved on every token request, near expiry and after a token is rejected, so a rotating credential stays current instead of being captured once.
-- The React prop is read from the latest render, so an inline object or callback over current auth state is fine and needs no memoization.
+- The React prop is read from the latest render, so an inline object or callback over current auth state is fine, needs no memoization, and may start out undefined while your own credential loads.
 - Throwing from the callback fails closed before any request; the composer shows the error and its retry link resolves the headers again.
 - The endpoint keeps its contract: the SDK still sends `POST` with `accept: application/json` and expects `{ token }`, and still checks the response status for you.
 - Like `authTokenUrl`, it is fixed at mount: `handle.update` rejects it.
