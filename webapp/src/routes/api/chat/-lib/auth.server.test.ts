@@ -97,7 +97,7 @@ async function token(overrides: TokenOverrides = {}) {
       typ: overrides.type ?? CHAT_TOKEN_TYPE,
       kid: overrides.apiKeyId ?? apiKeyId,
     })
-    .setIssuer(overrides.issuer ?? "acme")
+    .setIssuer(overrides.issuer ?? "acme-corp")
     .setAudience(overrides.audience ?? CHAT_TOKEN_AUDIENCE)
     .setIssuedAt(issuedAt)
     .setExpirationTime(

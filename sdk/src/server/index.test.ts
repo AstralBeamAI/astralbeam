@@ -36,7 +36,7 @@ test("createAstralBeamChatToken mints the documented short-lived tenant identity
     token,
     signingKey(apiKeySecret),
     {
-      issuer: "analyticalengines",
+      issuer: "analytical-engines",
       audience: ASTRALBEAM_TOKEN_AUDIENCE,
       algorithms: ["HS256"],
     },
@@ -47,7 +47,7 @@ test("createAstralBeamChatToken mints the documented short-lived tenant identity
     kid: apiKeyId,
   })
   expect(payload.sub).toBeUndefined()
-  expect(payload.iss).toBe("analyticalengines")
+  expect(payload.iss).toBe("analytical-engines")
   expect(payload.aud).toBe(ASTRALBEAM_TOKEN_AUDIENCE)
   expect(payload.scope).toBeUndefined()
   expect(payload.ver).toBe(ASTRALBEAM_CHAT_TOKEN_VERSION)

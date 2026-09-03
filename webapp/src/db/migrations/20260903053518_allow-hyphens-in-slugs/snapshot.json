@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "d33c0ecb-0939-4680-a1c1-59cafc717e3a",
+  "id": "010a7c9a-37f2-4872-bdb1-194fbf38501c",
   "prevIds": [
-    "e973a415-6504-47bd-8db0-297eac4a0ad8"
+    "aa83f594-941c-47f6-b04d-f5f0bc9309b7"
   ],
   "ddl": [
     {
@@ -69,6 +69,18 @@
     {
       "isRlsEnabled": false,
       "name": "session",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "tenant",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "tenant_user",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1454,6 +1466,214 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "external_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "metadata",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tenant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "external_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "admin",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "metadata",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
       "default": "uuidv7()",
       "generated": null,
       "identity": null,
@@ -1704,34 +1924,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "agent_organization_id_sandbox_provider_id_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "agent"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "agent_organization_id_id_uidx",
       "entityType": "indexes",
       "schema": "public",
       "table": "agent"
@@ -2034,34 +2226,6 @@
           "opclass": null
         },
         {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "sandbox_provider_organization_id_id_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "sandbox_provider"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "name",
           "isExpression": false,
           "asc": true,
@@ -2120,6 +2284,69 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "session"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "external_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "tenant_organization_id_external_id_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "external_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "tenant_user_organization_id_tenant_id_external_id_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "tenant_user"
     },
     {
       "nameExplicit": true,
@@ -2372,6 +2599,98 @@
       "table": "session"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organization",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "tenant_organization_id_organization_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenant",
+      "columnsTo": [
+        "organization_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "tenant_user_organization_id_tenant_id_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
+      "columns": [
+        "organization_id",
+        "id"
+      ],
+      "nameExplicit": true,
+      "name": "agent_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "agent"
+    },
+    {
+      "columns": [
+        "organization_id",
+        "id"
+      ],
+      "nameExplicit": true,
+      "name": "organization_configuration_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "organization_configuration"
+    },
+    {
+      "columns": [
+        "organization_id",
+        "id"
+      ],
+      "nameExplicit": true,
+      "name": "sandbox_provider_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "sandbox_provider"
+    },
+    {
+      "columns": [
+        "organization_id",
+        "id"
+      ],
+      "nameExplicit": true,
+      "name": "tenant_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "columns": [
+        "organization_id",
+        "tenant_id",
+        "id"
+      ],
+      "nameExplicit": true,
+      "name": "tenant_user_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "tenant_user"
+    },
+    {
       "columns": [
         "id"
       ],
@@ -2379,16 +2698,6 @@
       "name": "account_pkey",
       "schema": "public",
       "table": "account",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "agent_pkey",
-      "schema": "public",
-      "table": "agent",
       "entityType": "pks"
     },
     {
@@ -2446,29 +2755,9 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "organization_configuration_pkey",
-      "schema": "public",
-      "table": "organization_configuration",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "rate_limit_pkey",
       "schema": "public",
       "table": "rate_limit",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "sandbox_provider_pkey",
-      "schema": "public",
-      "table": "sandbox_provider",
       "entityType": "pks"
     },
     {
@@ -2528,6 +2817,20 @@
       "entityType": "checks",
       "schema": "public",
       "table": "organization"
+    },
+    {
+      "value": "jsonb_typeof(\"metadata\") = 'object'",
+      "name": "tenant_metadata_object_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tenant"
+    },
+    {
+      "value": "jsonb_typeof(\"metadata\") = 'object'",
+      "name": "tenant_user_metadata_object_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tenant_user"
     }
   ],
   "renames": []

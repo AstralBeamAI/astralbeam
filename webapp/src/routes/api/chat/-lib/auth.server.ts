@@ -50,9 +50,7 @@ export async function authenticateChatRequest(request: Request): Promise<ChatPri
   }
   const apiKeyId = protectedHeader.kid
   if (typeof apiKeyId !== "string") throw invalidToken("Wrong chat token header")
-  const publicId = decodeApiKeyId(apiKeyId)
-  if (Option.isNone(publicId)) throw invalidToken("Malformed API key identifier")
-  const [, organizationSlug, , keySlug] = publicId.value
+  const { organizationSlug, keySlug } = parseApiKeyId(apiKeyId)
 
   const [initial] = await runDatabaseEffect(
     Effect.flatMap(effectDatabase, (db) =>
@@ -101,8 +99,7 @@ export async function verifyChatToken(
   apiKeyId: string,
 ): Promise<ChatTenantUser> {
   try {
-    const organizationSlug = API_KEY_ID_PATTERN.exec(apiKeyId)?.[1]
-    if (!organizationSlug) throw invalidToken("Malformed API key identifier")
+    const { organizationSlug } = parseApiKeyId(apiKeyId)
     const { payload, protectedHeader } = await jwtVerify(token, verifier, {
       algorithms: ["HS256"],
       typ: CHAT_TOKEN_TYPE,
@@ -132,6 +129,13 @@ export async function verifyChatToken(
     if (isChatAuthenticationError(cause)) throw cause
     throw invalidToken("Invalid chat bearer token", cause)
   }
+}
+
+function parseApiKeyId(apiKeyId: string): { organizationSlug: string; keySlug: string } {
+  const publicId = decodeApiKeyId(apiKeyId)
+  if (Option.isNone(publicId)) throw invalidToken("Malformed API key identifier")
+  const [, organizationSlug, , keySlug] = publicId.value
+  return { organizationSlug, keySlug }
 }
 
 function exceedsJsonDepth(value: unknown, maximumDepth: number): boolean {
