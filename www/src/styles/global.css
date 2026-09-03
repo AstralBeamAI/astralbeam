@@ -443,7 +443,6 @@ main {
     transparent 100%
   );
   filter: blur(0.5px);
-  animation: beam-pulse 5s ease-in-out infinite;
   pointer-events: none;
 }
 
@@ -460,16 +459,6 @@ main {
     transparent
   );
   filter: blur(14px);
-}
-
-@keyframes beam-pulse {
-  0%,
-  100% {
-    opacity: 0.75;
-  }
-  50% {
-    opacity: 1;
-  }
 }
 
 .hero-inner {
@@ -541,11 +530,8 @@ main {
   border-bottom: 2px solid var(--primary);
   filter: drop-shadow(0 0 8px var(--beam-soft));
   transform: rotate(45deg);
-  animation: cue-drop 1.8s ease-in-out infinite;
 }
 
-/* Only the glow changes on hover: the cue-drop keyframes own `transform`, and an
-   animated property beats a normal declaration in the cascade. */
 .scroll-cue:hover .scroll-chevron {
   border-color: var(--primary);
   filter: drop-shadow(0 0 14px var(--primary));
@@ -554,18 +540,6 @@ main {
 .scroll-cue:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
-}
-
-@keyframes cue-drop {
-  0%,
-  100% {
-    transform: rotate(45deg) translate(0, 0);
-    opacity: 1;
-  }
-  50% {
-    transform: rotate(45deg) translate(5px, 5px);
-    opacity: 0.3;
-  }
 }
 
 /* ---------- sections ---------- */
@@ -1499,8 +1473,6 @@ main {
   }
 
   .fx-scanlines::after,
-  .hero-beam,
-  .scroll-chevron,
   .blink-dot,
   .t-caret,
   .beam-line,

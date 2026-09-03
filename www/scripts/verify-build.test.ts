@@ -109,6 +109,27 @@ describe("production website build", () => {
     expect(css).toMatch(/\.reveal\.reveal-pending\{[^}]*opacity:0/u)
   })
 
+  test("renders the hero without load animations", async () => {
+    const assetDirectory = new URL("_astro/", distUrl)
+    const [html, assets] = await Promise.all([readText("index.html"), readdir(assetDirectory)])
+    const stylesheets = await Promise.all(
+      assets
+        .filter((asset) => asset.endsWith(".css"))
+        .map((asset) => readFile(new URL(asset, assetDirectory), "utf8")),
+    )
+    const hero = html.match(/<section class="hero"[^>]*>(.*?)<\/section>/u)?.[1]
+    const css = stylesheets.join("\n")
+    const heroBeamRule = css.match(/\.hero-beam\{([^}]*)\}/u)?.[1]
+    const scrollChevronRule = css.match(/\.scroll-chevron\{([^}]*)\}/u)?.[1]
+
+    expect(hero).toBeDefined()
+    expect(hero).not.toMatch(/\b(?:reveal|scramble)\b|data-text|--reveal-delay/u)
+    expect(heroBeamRule).toBeDefined()
+    expect(heroBeamRule).not.toContain("animation")
+    expect(scrollChevronRule).toBeDefined()
+    expect(scrollChevronRule).not.toContain("animation")
+  })
+
   test("keeps the not-found page out of discovery", async () => {
     const html = await readText("404.html")
 
