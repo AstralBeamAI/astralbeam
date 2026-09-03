@@ -6,6 +6,8 @@ Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` qu
 
 Each folder under `src/` with an `index.ts(x)` named in `tsdown.config.ts` is a public entry point and maps 1:1 to the `exports` field in `package.json`; add new entry points in both places.
 
+Mirror every entry point in `typesVersions` as well. `exports` is invisible to TypeScript's classic `"moduleResolution": "node"`, which Ionic, Capacitor, and Create React App templates still ship, and without the [`typesVersions`](https://www.typescriptlang.org/docs/handbook/declaration-files/publishing.html#version-selection-with-typesversions) fallback those hosts get `Cannot find module "@astralbeam/sdk/react"`. The declarations themselves need TypeScript 5.0 for `const` type parameters, so 4.x hosts must upgrade; the fallback cannot help them.
+
 - `src/client/` — the vanilla loader entry; no React, tiny by design.
 - `src/core/` — the headless session and chat protocol; framework-free, bundled into `core.js` and into the React entry.
 - `src/react/` — the React wrapper; binds to the host's React.

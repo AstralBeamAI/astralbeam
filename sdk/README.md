@@ -141,6 +141,8 @@ There is no root export. Conversation history is not built yet.
 | `@astralbeam/sdk/server` | `createAstralBeamChatToken`, `createAstralBeamTokenRoute` | none                 |
 | `@astralbeam/sdk/vue`    | Vue components (placeholder)                              | `vue`                |
 
+Types resolve under every TypeScript module resolution mode, including the classic `"moduleResolution": "node"` that Ionic, Capacitor, and Create React App templates still ship. TypeScript 5.0 or later is required, because the declarations use `const` type parameters; on TypeScript 4.x the `.d.ts` files fail to parse.
+
 ## Example
 
 [`examples/todos`](../examples/todos) embeds the sidebar in a minimal TanStack Start app: a demo token route, host tools over live React state, and a `todoCard` widget. It uses no Tailwind or shadcn/ui of its own, to show the shadow-root boundary.
