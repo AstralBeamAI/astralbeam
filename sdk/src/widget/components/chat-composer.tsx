@@ -197,7 +197,7 @@ export function ChatComposer(
               aria-label="Attach files"
               title={attachmentsFull
                 ? `Up to ${attachmentLimits.maxFiles} files per message`
-                : "Attach images, PDFs, or text files"}
+                : "Attach images, PDFs, documents, spreadsheets, data, or text files"}
               disabled={blocked || attachmentsFull}
               onClick={() => fileInput.current?.click()}
             >
