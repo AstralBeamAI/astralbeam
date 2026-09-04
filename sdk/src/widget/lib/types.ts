@@ -24,8 +24,12 @@ export interface QuestionnaireAnswer {
   answers: string[]
 }
 
-/** How an attachment reaches the agent: natively as an image or PDF, or read as text. */
-export type AttachmentKind = "image" | "pdf" | "text"
+/**
+ * What an attachment is. An `image` or a `pdf` the agent's model reads directly; a `text`, `data`,
+ * or `office` file is described to the agent, which then reads or analyzes it as a file. The kind
+ * also picks the size cap and the icon, which is why the office formats are not simply `data`.
+ */
+export type AttachmentKind = "image" | "pdf" | "text" | "data" | "office"
 
 /** Mount attachment options with every default filled in, as the composer reads them. */
 export interface ResolvedAttachmentOptions {

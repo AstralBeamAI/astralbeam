@@ -24,7 +24,8 @@ The chat widget must stay inside the client entry's lazy chunk so `dist/client.j
 - Everything the widget imports must be a devDependency so tsdown inlines it; a `dependencies` entry would force hosts to install it.
 - `src/lib/` must not import React or any `src/widget/` module; the widget may import it (types and small helpers).
 - `src/core/` must not import React or any `src/widget/` module either; the widget and the React entry build on it, never the reverse.
-- Widget-only code, including `cn`, stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
+- Widget-only code, including stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
+- `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn) — import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
 - `react`, `react-dom`, and `vue` are optional peer dependencies; keep framework imports confined to their entry points.
 
 ## Styles

@@ -14,7 +14,13 @@ import {
   CHAT_SANDBOX_ROOT,
   CHAT_SANDBOX_STATUS_EVENT,
 } from "./constants.server"
-import { acquireChatSandbox, type ChatSandboxSession } from "./sandbox.server"
+import {
+  acquireChatSandbox,
+  type ChatSandboxSession,
+  isSandboxTimeout,
+  requireSandboxOperation,
+  withSandboxTimeout,
+} from "./sandbox.server"
 import {
   artifactContentDigest,
   detectSandboxArtifactMimeType,
@@ -41,8 +47,6 @@ interface SandboxResolvedPath {
   path: string
   relativePath: string
 }
-
-const SANDBOX_TIMEOUT = Symbol("sandbox-timeout")
 
 const sandboxPath = Schema.String.pipe(
   Schema.check(Schema.isMinLength(1)),
@@ -234,7 +238,7 @@ export function createChatSandboxTools(
       CHAT_SANDBOX_COMMAND_TIMEOUT_MS,
     )
     const durationMs = Date.now() - startedAt
-    if (result === SANDBOX_TIMEOUT) {
+    if (isSandboxTimeout(result)) {
       log?.("sandbox", `command timed out: ${command}`, { durationMs })
       return { command, cwd: resolved.path, timedOut: true, durationMs }
     }
@@ -377,31 +381,4 @@ export function clampSandboxText(
 /** Single-quote for POSIX `sh`, which every provider's `exec` runs the command through. */
 function quoteSandboxArgument(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`
-}
-
-async function withSandboxTimeout<Value>(
-  operation: Promise<Value>,
-  ms: number,
-): Promise<Value | typeof SANDBOX_TIMEOUT> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<typeof SANDBOX_TIMEOUT>((resolve) => {
-        timer = setTimeout(() => resolve(SANDBOX_TIMEOUT), ms)
-      }),
-    ])
-  } finally {
-    if (timer !== undefined) clearTimeout(timer)
-  }
-}
-
-/** For the filesystem calls, where a timeout means the sandbox itself stopped answering. */
-async function requireSandboxOperation<Value>(
-  operation: Promise<Value>,
-  ms: number,
-): Promise<Value> {
-  const result = await withSandboxTimeout(operation, ms)
-  if (result === SANDBOX_TIMEOUT) throw new Error("The sandbox did not respond in time")
-  return result
 }

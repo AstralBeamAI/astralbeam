@@ -9,7 +9,8 @@ import {
 } from "@/widget/components/ui/input-group"
 import { attachmentAcceptAttribute } from "../lib/attachments.ts"
 import type { DraftAttachment, ResolvedAttachmentOptions } from "../lib/types.ts"
-import { cn, describeError } from "../lib/utils.ts"
+import { cn } from "cn"
+import { describeError } from "../lib/utils.ts"
 import { ComposerAttachments } from "./composer-attachments.tsx"
 
 interface ChatComposerProps {

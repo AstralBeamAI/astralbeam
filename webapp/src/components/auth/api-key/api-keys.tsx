@@ -30,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
 import type { OrganizationApiKey } from "@/lib/auth/organization-api-key-configuration"
 import { isValidSlug } from "@/lib/slug"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { ApiKey } from "./api-key"
 import { CreateApiKeyDialog } from "./create-api-key-dialog"
 

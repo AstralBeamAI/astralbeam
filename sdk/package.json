@@ -10,7 +10,9 @@
     "url": "git+https://github.com/astralbeamai/astralbeam.git",
     "directory": "sdk"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "exports": {
     "./client": {
@@ -37,11 +39,21 @@
   },
   "typesVersions": {
     "*": {
-      "client": ["./dist/client.d.ts"],
-      "core": ["./dist/core.d.ts"],
-      "server": ["./dist/server.d.ts"],
-      "react": ["./dist/react.d.ts"],
-      "vue": ["./dist/vue.d.ts"]
+      "client": [
+        "./dist/client.d.ts"
+      ],
+      "core": [
+        "./dist/core.d.ts"
+      ],
+      "server": [
+        "./dist/server.d.ts"
+      ],
+      "react": [
+        "./dist/react.d.ts"
+      ],
+      "vue": [
+        "./dist/vue.d.ts"
+      ]
     }
   },
   "publishConfig": {
@@ -94,13 +106,12 @@
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
+    "cn": "^0.2.4",
     "jose": "^6.2.9",
     "knip": "^6.32.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "shadcn": "^4.18.0",
-    "tailwind-merge": "^3.6.0",
+    "shadcn": "^4.20.1",
     "tailwindcss": "^4.3.3",
     "tsdown": "0.22.3",
     "tw-animate-css": "^1.4.0",

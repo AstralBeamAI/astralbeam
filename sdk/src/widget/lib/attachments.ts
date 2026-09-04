@@ -4,7 +4,10 @@
 import type { ContentPart } from "@tanstack/ai/client"
 import type { AstralBeamChatAttachmentOptions } from "../../lib/types.ts"
 import {
+  ATTACHMENT_DATA_MIME_TYPES,
   ATTACHMENT_IMAGE_MIME_TYPES,
+  ATTACHMENT_MIME_TYPE_BY_EXTENSION,
+  ATTACHMENT_OFFICE_MIME_TYPES,
   ATTACHMENT_PDF_MIME_TYPE,
   ATTACHMENT_TEXT_EXTENSIONS,
   ATTACHMENT_TEXT_FILENAMES,
@@ -64,9 +67,19 @@ function matchesAcceptEntry(mimeType: string, entry: string): boolean {
   return pattern === mimeType
 }
 
+/** The kind a MIME type belongs to, for a file whose name says nothing useful. */
+function mimeTypeKind(mimeType: string): AttachmentKind | undefined {
+  if (ATTACHMENT_IMAGE_MIME_TYPES.includes(mimeType)) return "image"
+  if (mimeType === ATTACHMENT_PDF_MIME_TYPE) return "pdf"
+  if (ATTACHMENT_OFFICE_MIME_TYPES.includes(mimeType)) return "office"
+  if (ATTACHMENT_DATA_MIME_TYPES.includes(mimeType)) return "data"
+  if (isTextualMimeType(mimeType)) return "text"
+  return undefined
+}
+
 /**
- * Decides how a file reaches the agent, correcting the browser's MIME guess where it is
- * unusable. Returns the kind and the type to send, or the reason the file cannot be sent.
+ * Decides what a file is and what type to send it as, correcting the browser's MIME guess where it
+ * is unusable. Returns the kind and the type, or the reason the file cannot be sent.
  */
 export function classifyAttachmentFile(
   file: AttachmentFileInfo,
@@ -75,23 +88,25 @@ export function classifyAttachmentFile(
   const reported = normalizeMimeType(file.type)
   const extension = fileExtension(file.name)
   const name = file.name.toLowerCase()
+  const canonical = ATTACHMENT_MIME_TYPE_BY_EXTENSION[extension]
   let kind: AttachmentKind | undefined
   let mimeType = reported
-  // `.env.production` and friends are the one family worth a prefix; the rest are exact names.
-  if (ATTACHMENT_TEXT_FILENAMES.includes(name) || name === ".env" || name.startsWith(".env.")) {
-    kind = "text"
-    mimeType = isTextualMimeType(reported) ? reported : "text/plain"
-  } else if (ATTACHMENT_TEXT_EXTENSIONS.includes(extension)) {
+  if (canonical !== undefined) {
+    // These formats are identified by extension: browsers report nothing for `.parquet` and
+    // `application/octet-stream` for the `.csv` some tools write.
+    kind = ATTACHMENT_OFFICE_MIME_TYPES.includes(canonical) ? "office" : "data"
+    mimeType = canonical
+    // `.env.production` and friends are the one family worth a prefix; the rest are exact names.
+  } else if (
+    ATTACHMENT_TEXT_FILENAMES.includes(name) || name === ".env" || name.startsWith(".env.") ||
+    ATTACHMENT_TEXT_EXTENSIONS.includes(extension)
+  ) {
     kind = "text"
     // Sent as the browser's type only when that type is itself textual; `.ts` arrives as
     // `video/mp2t`, which the endpoint would refuse to read.
     mimeType = isTextualMimeType(reported) ? reported : "text/plain"
-  } else if (ATTACHMENT_IMAGE_MIME_TYPES.includes(reported)) {
-    kind = "image"
-  } else if (reported === ATTACHMENT_PDF_MIME_TYPE) {
-    kind = "pdf"
-  } else if (isTextualMimeType(reported)) {
-    kind = "text"
+  } else {
+    kind = mimeTypeKind(reported)
   }
   if (!kind) return { error: "Unsupported file type" }
   if (
@@ -133,9 +148,12 @@ export function attachmentAcceptAttribute(limits: ResolvedAttachmentOptions): st
     ATTACHMENT_PDF_MIME_TYPE,
     "text/*",
     ...ATTACHMENT_TEXT_MIME_TYPES,
+    ...ATTACHMENT_DATA_MIME_TYPES,
+    ...ATTACHMENT_OFFICE_MIME_TYPES,
     // Extensions as well as types: the picker matches either, and a browser that reports no
-    // type for `.tsx` would otherwise grey the file out.
+    // type for `.tsx` or `.parquet` would otherwise grey the file out.
     ...ATTACHMENT_TEXT_EXTENSIONS.map((extension) => `.${extension}`),
+    ...Object.keys(ATTACHMENT_MIME_TYPE_BY_EXTENSION).map((extension) => `.${extension}`),
   ].join(",")
 }
 
@@ -250,11 +268,10 @@ export function describeSentAttachment(
   const size = typeof metadata.size === "number" && metadata.size > 0
     ? formatAttachmentSize(metadata.size)
     : undefined
+  // A restored or host-built part may carry no type at all, so an unrecognized one reads as text.
   const kind: AttachmentKind = part.type === "image"
     ? "image"
-    : normalizeMimeType(part.source.mimeType ?? "") === ATTACHMENT_PDF_MIME_TYPE
-    ? "pdf"
-    : "text"
+    : mimeTypeKind(normalizeMimeType(part.source.mimeType ?? "")) ?? "text"
   // The part already carries the bytes, so one reference serves both the thumbnail and the
   // download; a `data` source becomes the data URI a download anchor can point at.
   const href = url ??

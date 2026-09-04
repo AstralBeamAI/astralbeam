@@ -26,6 +26,48 @@ test("classifies the file types the chat endpoint can read", () => {
     .toEqual({ error: "Unsupported file type" })
 })
 
+// A data or office file's kind decides its size cap and its icon, and the endpoint keys its whole
+// delivery on the type sent here, so a `.csv` arriving as `text/plain` would be read as prose.
+test("classifies data and office files by extension, whatever the browser reported", () => {
+  const expected: Array<[string, string, string]> = [
+    ["sales.csv", "application/octet-stream", "text/csv"],
+    ["sales.tsv", "", "text/tab-separated-values"],
+    ["events.parquet", "", "application/vnd.apache.parquet"],
+    ["app.sqlite", "", "application/vnd.sqlite3"],
+  ]
+  for (const [name, type, mimeType] of expected) {
+    expect(classifyAttachmentFile({ name, type, size: 10 }, limits))
+      .toEqual({ kind: "data", mimeType })
+  }
+  const office: Array<[string, string]> = [
+    ["brief.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    ["deck.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+    ["q3.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+  ]
+  for (const [name, mimeType] of office) {
+    expect(classifyAttachmentFile({ name, type: mimeType, size: 10 }, limits))
+      .toEqual({ kind: "office", mimeType })
+    // Some browsers report nothing for an office file dropped rather than picked.
+    expect(classifyAttachmentFile({ name, type: "", size: 10 }, limits))
+      .toEqual({ kind: "office", mimeType })
+  }
+})
+
+test("holds a data file to its own size cap, not a text file's", () => {
+  const twoMegabytes = 2 * 1024 * 1024
+  const [csv, markdown] = acceptAttachmentFiles({
+    files: [
+      { name: "big.csv", type: "text/csv", size: twoMegabytes },
+      { name: "big.md", type: "text/markdown", size: twoMegabytes },
+    ],
+    existing: [],
+    limits,
+    createId: ids(),
+  })
+  expect(csv?.draft.status).toBe("reading")
+  expect(markdown?.draft.error).toBe("Too large (max 1.0 MB)")
+})
+
 // Chrome reports `.ts` as `video/mp2t` and leaves `.tsx` empty, which would send a source file
 // as an unreadable video part or reject it outright.
 test("corrects the browser's MIME guess for source files", () => {

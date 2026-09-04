@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 import { usePublicConfig } from "@/components/public-config-provider"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
 

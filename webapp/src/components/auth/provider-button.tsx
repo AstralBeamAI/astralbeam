@@ -18,7 +18,7 @@ import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 
 export type ProviderButtonProps = {
   provider: AuthSocialProvider

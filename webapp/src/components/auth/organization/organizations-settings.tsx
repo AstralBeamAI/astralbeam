@@ -2,7 +2,7 @@
 // Local changes: none.
 import type { ComponentProps } from "react"
 
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { Organizations } from "./organizations"
 import { UserInvitations } from "./user-invitations"
 

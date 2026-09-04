@@ -28,7 +28,8 @@ import { createDebugCallbacks } from "./lib/stream-debug.ts"
 import { collectSandboxActivity } from "../core/sandbox.ts"
 import type { SandboxStatus } from "../core/types.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
-import { cn, hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "./lib/utils.ts"
+import { cn } from "cn"
+import { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "./lib/utils.ts"
 import { buildAgentTools } from "../core/agent-tools.ts"
 import {
   type ChatAuthenticationOptions,

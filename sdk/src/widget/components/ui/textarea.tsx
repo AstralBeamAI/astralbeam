@@ -1,7 +1,7 @@
 // Added with: deno task ui add textarea
 import * as React from "react"
 
-import { cn } from "@/widget/lib/utils"
+import { cn } from "cn"
 
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (

@@ -1,5 +1,6 @@
 import {
   defineSandbox,
+  resolveHarnessCwd,
   type SandboxDefinition,
   type SandboxEnsureContext,
   type SandboxHandle,
@@ -13,13 +14,15 @@ import { resolveOrganizationSandboxProviderConfiguration } from "@/db/organizati
 import { APP_HANDLE } from "@/lib/constants"
 import { createSandboxProvider } from "@/lib/sandbox/factory.server"
 import {
+  CHAT_ATTACHMENT_UPLOAD_DIRECTORY,
+  CHAT_SANDBOX_FILE_TIMEOUT_MS,
   CHAT_SANDBOX_IDLE_TTL_MS,
   CHAT_SANDBOX_MAX_LIVE,
   CHAT_SANDBOX_START_TIMEOUT_MS,
   CHAT_SANDBOX_SWEEP_INTERVAL_MS,
 } from "./constants.server"
 import { chatPrincipalScope } from "./identity.server"
-import type { ChatPrincipal, ChatSandboxStatus } from "./types"
+import type { ChatAttachmentFile, ChatPrincipal, ChatSandboxStatus } from "./types"
 
 /**
  * Sandbox lifecycle for one chat run.
@@ -39,6 +42,8 @@ import type { ChatPrincipal, ChatSandboxStatus } from "./types"
 export interface ChatSandboxSession {
   readonly definition: SandboxDefinition
   readonly ensureContext: SandboxEnsureContext
+  /** Files the user attached, written into the workspace as part of starting the sandbox. */
+  readonly uploads: readonly ChatAttachmentFile[]
   handle?: Promise<SandboxHandle>
 }
 
@@ -69,6 +74,7 @@ export function resolveChatSandboxSession(input: {
   readonly principal: ChatPrincipal
   readonly threadId: string
   readonly runId: string
+  readonly uploads: readonly ChatAttachmentFile[]
 }) {
   return Effect.gen(function* () {
     const configuration = yield* resolveOrganizationSandboxProviderConfiguration(
@@ -92,6 +98,7 @@ export function resolveChatSandboxSession(input: {
     }
     return {
       definition,
+      uploads: input.uploads,
       ensureContext: {
         threadId: input.threadId,
         runId: input.runId,
@@ -128,6 +135,7 @@ async function startChatSandbox(
       ...session.ensureContext,
       signal: AbortSignal.timeout(CHAT_SANDBOX_START_TIMEOUT_MS),
     })
+    await writeChatSandboxUploads(handle, session.uploads)
     onStatus({ state: "ready" })
     return handle
   } catch (error) {
@@ -135,6 +143,63 @@ async function startChatSandbox(
     onStatus({ state: "error" })
     throw new ChatSandboxUnavailableError("The sandbox could not be started")
   }
+}
+
+/**
+ * Writes the run's attached files into the workspace, as part of starting the sandbox rather than
+ * as a step the agent has to take. Provisioning is lazy, so a conversation that only reads its
+ * file cards never pays for this; by the time any sandbox tool runs, the files are already there.
+ *
+ * A rejection propagates and fails the start: an agent told a file is at `uploads/sales.csv` must
+ * not find it missing, and a refusal it can relay is better than a silent absence it cannot.
+ */
+async function writeChatSandboxUploads(
+  handle: SandboxHandle,
+  uploads: readonly ChatAttachmentFile[],
+): Promise<void> {
+  if (uploads.length === 0) return
+  const directory = `${resolveHarnessCwd(handle)}/${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}`
+  // One level below a workspace that already exists, so this needs no recursive `mkdir`.
+  await requireSandboxOperation(handle.fs.mkdir(directory), CHAT_SANDBOX_FILE_TIMEOUT_MS)
+  await Promise.all(uploads.map((upload) =>
+    requireSandboxOperation(
+      handle.fs.write(`${directory}/${upload.handle}`, upload.bytes),
+      CHAT_SANDBOX_FILE_TIMEOUT_MS,
+    )
+  ))
+}
+
+const SANDBOX_TIMEOUT = Symbol("sandbox-timeout")
+
+export async function withSandboxTimeout<Value>(
+  operation: Promise<Value>,
+  ms: number,
+): Promise<Value | typeof SANDBOX_TIMEOUT> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<typeof SANDBOX_TIMEOUT>((resolve) => {
+        timer = setTimeout(() => resolve(SANDBOX_TIMEOUT), ms)
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+export function isSandboxTimeout(value: unknown): value is typeof SANDBOX_TIMEOUT {
+  return value === SANDBOX_TIMEOUT
+}
+
+/** For the filesystem calls, where a timeout means the sandbox itself stopped answering. */
+export async function requireSandboxOperation<Value>(
+  operation: Promise<Value>,
+  ms: number,
+): Promise<Value> {
+  const result = await withSandboxTimeout(operation, ms)
+  if (isSandboxTimeout(result)) throw new Error("The sandbox did not respond in time")
+  return result
 }
 
 /**

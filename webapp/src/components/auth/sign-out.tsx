@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 
 export type SignOutProps = {
   className?: string

@@ -13,7 +13,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { ChangeAvatar } from "./change-avatar"
 
 export type UserProfileProps = {

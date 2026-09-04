@@ -39,7 +39,7 @@ import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { isAuthEmailDeliveryError } from "@/lib/auth/email-delivery"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 
 /** Props for the `InviteMemberDialog` component. */
 export type InviteMemberDialogProps = {

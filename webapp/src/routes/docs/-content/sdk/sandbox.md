@@ -4,6 +4,7 @@ An agent with a sandbox provider configured in the dashboard can write files, ru
 
 ## In the chat
 
+- Files the user attaches are written to `uploads/` in the sandbox, so the agent can analyze a spreadsheet with real code; see [Attachments](./attachments.md).
 - Each sandbox step is a transcript row: a file write expands to the file, a command to its output.
 - While the sandbox provisions (tens of seconds), a slim status pill sits above the composer.
 - Generated images (PNG, JPEG, GIF, WebP) the agent publishes render inline, with a download button.

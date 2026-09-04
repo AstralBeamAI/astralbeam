@@ -1,6 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/settings
 // Local changes: none.
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (

@@ -1,0 +1,8 @@
+task,priority,due_date,estimate_hours
+Draft the Q3 launch brief,high,2026-09-08,4
+Review analytics dashboard copy,medium,2026-09-09,1.5
+Migrate the staging database,high,2026-09-11,6
+Renew the design tool licenses,low,2026-09-15,0.5
+Write onboarding email sequence,medium,2026-09-16,3
+Audit third-party scripts,low,2026-09-22,2
+Prepare the board update deck,high,2026-09-25,5

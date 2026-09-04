@@ -1,7 +1,7 @@
 // Added with: deno task ui add message
 import * as React from "react"
 
-import { cn } from "@/widget/lib/utils"
+import { cn } from "cn"
 
 function MessageGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (

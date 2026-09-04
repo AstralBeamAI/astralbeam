@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type {} from "@/lib/auth/auth-plugin"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { UserAvatar } from "./user-avatar"
 import { UserView } from "./user-view"
 
