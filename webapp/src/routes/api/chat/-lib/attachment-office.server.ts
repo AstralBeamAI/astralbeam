@@ -156,8 +156,12 @@ function extractPptx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
 /** Shared strings are one `<si>` per string, itself possibly split across formatting runs. */
 function sharedStrings(xml: string | undefined): string[] {
   if (xml === undefined) return []
-  return [...xml.matchAll(/<si>([\s\S]*?)<\/si>/g)].map(([, item]) =>
-    [...(item ?? "").matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
+  return [...xml.matchAll(
+    /<(?:[A-Za-z_][\w.-]*:)?si(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?si>/g,
+  )].map(([, item]) =>
+    [...(item ?? "").matchAll(
+      /<(?:[A-Za-z_][\w.-]*:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?t>/g,
+    )]
       .map(([, text]) => decodeXml(text ?? "")).join("")
   )
 }
@@ -185,16 +189,18 @@ const BUILTIN_DATE_FORMATS = new Set([
 function dateStyles(xml: string | undefined): Set<number> {
   if (xml === undefined) return new Set()
   const custom = new Set<number>()
-  for (const [, tag] of (xml.matchAll(/<numFmt\b([^>]*)\/>/g))) {
+  for (const [, tag] of (xml.matchAll(/<(?:[A-Za-z_][\w.-]*:)?numFmt\b([^>]*)\/>/g))) {
     const id = Number(attribute(tag ?? "", "numFmtId"))
     const code = attribute(tag ?? "", "formatCode") ?? ""
     // A date format is built from y/m/d/h tokens; strip quoted literals so a label cannot match.
     if (Number.isFinite(id) && /[ymdh]/i.test(code.replace(/"[^"]*"/g, ""))) custom.add(id)
   }
-  const cellXfs = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(xml)?.[1] ?? ""
+  const cellXfs =
+    /<(?:[A-Za-z_][\w.-]*:)?cellXfs\b[^>]*>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?cellXfs>/.exec(xml)
+      ?.[1] ?? ""
   const styles = new Set<number>()
   let index = 0
-  for (const [, tag] of cellXfs.matchAll(/<xf\b([^>]*?)\/?>/g)) {
+  for (const [, tag] of cellXfs.matchAll(/<(?:[A-Za-z_][\w.-]*:)?xf\b([^>]*?)\/?>/g)) {
     const id = Number(attribute(tag ?? "", "numFmtId"))
     if (BUILTIN_DATE_FORMATS.has(id) || custom.has(id)) styles.add(index)
     index += 1
@@ -226,7 +232,8 @@ function columnIndex(reference: string): number {
 
 // The lookahead is what keeps `<col .../>`, which a worksheet also has, from parsing as a cell and
 // landing in the grid at row 0.
-const XLSX_CELL = /<c(?=[\s/>])([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g
+const XLSX_CELL =
+  /<(?:[A-Za-z_][\w.-]*:)?c(?=[\s/>])([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?c>)/g
 
 function sheetRows(
   xml: string,
@@ -246,11 +253,16 @@ function sheetRows(
     const column = columnIndex(letters)
     highest = Math.max(highest, row + 1)
     const type = attribute(attributes, "t")
-    const raw = decodeXml(/<v>([\s\S]*?)<\/v>/.exec(inner)?.[1] ?? "")
+    const raw = decodeXml(
+      /<(?:[A-Za-z_][\w.-]*:)?v>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?v>/.exec(inner)?.[1] ??
+        "",
+    )
     let value: string
     if (type === "s") value = strings[Number(raw)] ?? ""
     else if (type === "inlineStr") {
-      value = [...inner.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
+      value = [...inner.matchAll(
+        /<(?:[A-Za-z_][\w.-]*:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?t>/g,
+      )]
         .map(([, text]) => decodeXml(text ?? "")).join("")
     } else if (type === "b") value = raw === "1" ? "TRUE" : "FALSE"
     else if (raw.length > 0 && dates.has(Number(attribute(attributes, "s") ?? -1))) {
@@ -262,7 +274,8 @@ function sheetRows(
   }
   // A `dimension` covers rows whose cells were all empty, so it beats the highest cell seen.
   const declared = Number(
-    /<dimension\s[^>]*?ref="[A-Z]+\d+:[A-Z]+(\d+)"/.exec(xml)?.[1] ?? 0,
+    /<(?:[A-Za-z_][\w.-]*:)?dimension\s[^>]*?ref="[A-Z]+\d+:[A-Z]+(\d+)"/.exec(xml)
+      ?.[1] ?? 0,
   )
   const filled = Array.from({ length: highest }, (_, index) => rows[index] ?? [])
   const width = filled.reduce((widest, row) => Math.max(widest, row.length), 0)
@@ -291,7 +304,9 @@ function extractXlsx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
   // Sheet order and names live in the workbook, but the part each one points at is a relationship,
   // so a workbook whose sheets are not `sheet1..N` in order still resolves correctly.
   const targets = new Map(
-    [...(parts["xl/_rels/workbook.xml.rels"] ?? "").matchAll(/<Relationship\b([^>]*)\/>/g)].map((
+    [...(parts["xl/_rels/workbook.xml.rels"] ?? "").matchAll(
+      /<(?:[A-Za-z_][\w.-]*:)?Relationship\b([^>]*)\/>/g,
+    )].map((
       [, tag],
     ) => [
       attribute(tag ?? "", "Id") ?? "",
@@ -303,7 +318,7 @@ function extractXlsx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
   )
   const tables: AttachmentTable[] = []
   const rendered: string[] = []
-  for (const [, tag] of workbook.matchAll(/<sheet\b([^>]*?)\/?>/g)) {
+  for (const [, tag] of workbook.matchAll(/<(?:[A-Za-z_][\w.-]*:)?sheet\b([^>]*?)\/?>/g)) {
     const name = decodeXml(attribute(tag ?? "", "name") ?? `Sheet${tables.length + 1}`)
     const target = targets.get(attribute(tag ?? "", "r:id") ?? "")
     const xml = target === undefined ? undefined : parts[`xl/${target}`]

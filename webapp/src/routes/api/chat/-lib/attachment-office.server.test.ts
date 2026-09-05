@@ -119,6 +119,38 @@ test("renders date-formatted cells as dates and booleans as words", () => {
   expect(text).toMatch(/Jan,343,\d{4}-\d{2}-\d{2},TRUE/)
 })
 
+// Some standards-compliant writers prefix every SpreadsheetML element instead of using a default
+// namespace. The prefix must not make an otherwise valid workbook look empty.
+test("reads a workbook whose SpreadsheetML elements use namespace prefixes", () => {
+  const bytes = container({
+    "xl/workbook.xml": `<x:workbook><x:sheets>
+      <x:sheet name="Budget" sheetId="1" r:id="rId1"/>
+    </x:sheets></x:workbook>`,
+    "xl/_rels/workbook.xml.rels": `<r:Relationships>
+      <r:Relationship Id="rId1" Target="worksheets/sheet1.xml"/>
+    </r:Relationships>`,
+    "xl/sharedStrings.xml": `<x:sst>
+      <x:si><x:t>item</x:t></x:si><x:si><x:t>amount_usd</x:t></x:si>
+      <x:si><x:t>Launch campaign</x:t></x:si>
+    </x:sst>`,
+    "xl/styles.xml": `<x:styleSheet>
+      <x:cellXfs count="1"><x:xf numFmtId="0"/></x:cellXfs>
+    </x:styleSheet>`,
+    "xl/worksheets/sheet1.xml": `<x:worksheet><x:dimension ref="A1:B2"/><x:sheetData>
+      <x:row r="1"><x:c r="A1" t="s"><x:v>0</x:v></x:c><x:c r="B1" t="s"><x:v>1</x:v></x:c></x:row>
+      <x:row r="2"><x:c r="A2" t="s"><x:v>2</x:v></x:c><x:c r="B2"><x:v>12500</x:v></x:c></x:row>
+    </x:sheetData></x:worksheet>`,
+  })
+
+  const { text, tables } = extract(bytes, XLSX)
+  expect(text).toBe("# Sheet: Budget\nitem,amount_usd\nLaunch campaign,12500")
+  expect(tables?.[0]).toMatchObject({
+    name: "Budget",
+    rows: 1,
+    columns: [{ name: "item", type: "string" }, { name: "amount_usd", type: "integer" }],
+  })
+})
+
 test("explains a container that is not the office file it claims to be", () => {
   const notADocx = extractOfficeDocument(container({ "hello.txt": "hi" }), DOCX)
   expect(notADocx).toEqual({ reason: "it holds no Word document part." })
