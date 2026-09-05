@@ -2,6 +2,10 @@ import { strToU8, zipSync } from "fflate"
 import { expect, test } from "vitest"
 
 import { extractOfficeDocument, isOfficeMimeType } from "./attachment-office.server"
+import {
+  CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES,
+  CHAT_ATTACHMENT_MAX_TABLE_COLUMNS,
+} from "./constants.server"
 
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 const PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -95,7 +99,7 @@ const WORKBOOK_PARTS = {
 }
 
 test("profiles a workbook's sheets by name, resolving each through its relationship", () => {
-  const { tables } = extract(container(WORKBOOK_PARTS), XLSX)
+  const { tables, text } = extract(container(WORKBOOK_PARTS), XLSX)
   expect(tables?.map((table) => table.name)).toEqual(["Revenue", "Notes & more"])
   const revenue = tables?.[0]
   expect(revenue?.rows).toBe(2)
@@ -106,14 +110,13 @@ test("profiles a workbook's sheets by name, resolving each through its relations
     { name: "ok", type: "boolean" },
   ])
   // Shared strings split across formatting runs are one value, not two.
-  expect(revenue?.sample[0]?.[0]).toBe("Jan")
+  expect(text).toContain("Jan,343")
 })
 
 // A date is stored as a serial number, so without reading the cell's format the card would show
 // the agent five-digit integers where the user sees dates.
 test("renders date-formatted cells as dates and booleans as words", () => {
-  const { text, tables } = extract(container(WORKBOOK_PARTS), XLSX)
-  expect(tables?.[0]?.sample[0]?.[2]).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  const { text } = extract(container(WORKBOOK_PARTS), XLSX)
   expect(text).toContain("# Sheet: Revenue")
   expect(text).toContain("month,sales,when,ok")
   expect(text).toMatch(/Jan,343,\d{4}-\d{2}-\d{2},TRUE/)
@@ -148,6 +151,60 @@ test("reads a workbook whose SpreadsheetML elements use namespace prefixes", () 
     name: "Budget",
     rows: 1,
     columns: [{ name: "item", type: "string" }, { name: "amount_usd", type: "integer" }],
+  })
+})
+
+/** A workbook of one sheet, so a test only has to supply the cells it cares about. */
+function workbook(cells: string, dimension = "A1:B2"): Uint8Array {
+  return container({
+    "xl/workbook.xml":
+      `<workbook><sheets><sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    "xl/_rels/workbook.xml.rels":
+      `<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>`,
+    "xl/worksheets/sheet1.xml":
+      `<worksheet><dimension ref="${dimension}"/><sheetData>${cells}</sheetData></worksheet>`,
+  })
+}
+
+// `XFD1048576` is a valid Excel coordinate, so one value out there describes a 17-billion-cell
+// grid. Densifying to the sheet's logical corner would allocate it despite the parsed-cell cap.
+test("does not size a grid from a lone cell at the far corner of a sheet", () => {
+  const { text, tables } = extract(
+    workbook(
+      `<row r="1"><c r="A1" t="inlineStr"><is><t>near</t></is></c></row>` +
+        `<row r="1048576"><c r="XFD1048576" t="inlineStr"><is><t>far</t></is></c></row>`,
+      "A1:XFD1048576",
+    ),
+    XLSX,
+  )
+  // The reachable cell survives, the unreachable one is dropped, and the shape says so.
+  expect(text).toBe("# Sheet: S\nnear")
+  expect(tables?.[0]?.columns).toHaveLength(1)
+  expect(tables?.[0]?.columnsTruncated).toBe(true)
+})
+
+test("keeps a sheet's column count inside the bound", () => {
+  const cells = Array.from(
+    { length: 40 },
+    (_, index) => `<c r="A${index + 1}" t="inlineStr"><is><t>v</t></is></c>`,
+  ).join("")
+  const { tables } = extract(workbook(`<row r="1">${cells}</row>`), XLSX)
+  expect((tables?.[0]?.columns.length ?? 0) <= CHAT_ATTACHMENT_MAX_TABLE_COLUMNS).toBe(true)
+})
+
+// Per-entry size is not enough: `unzipSync` inflates every selected entry before it returns, so
+// many individually modest parts still add up to gigabytes of allocation.
+test("refuses an archive whose declared parts exceed the whole-archive budget", () => {
+  // Highly compressible parts, each far below the per-entry cap, together past the archive cap.
+  const part = "<p:sld><a:p><a:t>x</a:t></a:p></p:sld>".padEnd(4 * 1024 * 1024, " ")
+  const slides = Object.fromEntries(
+    Array.from({ length: 40 }, (_, index) => [`ppt/slides/slide${index + 1}.xml`, part]),
+  )
+  const bytes = container(slides)
+  // The archive itself is small; only its declared contents are not.
+  expect(bytes.byteLength).toBeLessThan(CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES)
+  expect(extractOfficeDocument(bytes, PPTX)).toEqual({
+    reason: "it declares more content than this assistant will unpack.",
   })
 })
 

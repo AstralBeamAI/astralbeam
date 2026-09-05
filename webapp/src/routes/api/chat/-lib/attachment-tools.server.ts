@@ -83,11 +83,19 @@ export function createChatAttachmentTools(
       file: handle,
       filename: file.filename,
       mimeType: file.mimeType,
+      bytes: file.bytes.length,
       content,
       offset: start,
       totalCharacters: file.text.length,
       end: end >= file.text.length,
       ...(end >= file.text.length ? {} : { nextOffset: end }),
+      ...(file.truncated ? { readableTextTruncated: true } : {}),
+      // The file's shape rides along with its contents, so the agent learns the columns and the
+      // row count from the same tool result rather than from prompt text a file could have
+      // written. Values here come from the file, which is why they arrive at tool level.
+      ...(file.tables ? { tables: file.tables } : {}),
+      ...(file.sections ? { sections: file.sections } : {}),
+      ...(file.sandboxPath === undefined ? {} : { sandboxPath: file.sandboxPath }),
     })
   })
 

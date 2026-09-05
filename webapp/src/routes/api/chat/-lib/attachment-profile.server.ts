@@ -1,14 +1,16 @@
 import {
-  CHAT_ATTACHMENT_PROFILE_SAMPLE_ROWS,
-  CHAT_ATTACHMENT_PROFILE_VALUE_CHARACTERS,
+  CHAT_ATTACHMENT_MAX_TABLE_COLUMNS,
+  CHAT_ATTACHMENT_PROFILE_TYPED_ROWS,
 } from "./constants.server"
 
 /**
- * Deterministic descriptions of an attachment's shape, for the card the model reads instead of the
- * file's bytes. Pure — no I/O, no globals — so every shape here is unit-testable.
+ * Deterministic descriptions of an attachment's shape, for the agent to plan against before it
+ * reads a file. Pure — no I/O, no globals — so every shape here is unit-testable.
  *
- * A profile is metadata with examples, never the content: a table reports its columns and a few
- * sample rows, and the agent reaches the rest with `read_attachment` or with code in the sandbox.
+ * A profile is metadata, never content: it reports how many rows a table has and what its columns
+ * look like, and the agent gets the rows themselves from `read_attachment` or from code in the
+ * sandbox. Every dimension is bounded before it is allocated from, because both a worksheet's
+ * coordinates and a delimited file's separators are chosen by whoever made the file.
  */
 
 type AttachmentColumnType =
@@ -21,7 +23,7 @@ type AttachmentColumnType =
 
 interface AttachmentColumn {
   name: string
-  /** Inferred from the sampled rows only, so it is a hint the agent should verify in code. */
+  /** Inferred from the leading rows only, so it is a hint the agent should verify in code. */
   type: AttachmentColumnType
 }
 
@@ -33,8 +35,8 @@ export interface AttachmentTable {
   columns: AttachmentColumn[]
   /** Data rows excluding the header, counted across the whole file. */
   rows: number
-  /** Leading data rows, for the card. */
-  sample: string[][]
+  /** The table is wider than {@link CHAT_ATTACHMENT_MAX_TABLE_COLUMNS}, so columns stop short. */
+  columnsTruncated?: boolean
 }
 
 /** Candidates in preference order; the first one that splits the header wins a tie. */
@@ -44,31 +46,39 @@ const DELIMITERS = [",", "\t", ";", "|"]
  * Reads delimited text in one pass, keeping only the first `keep` rows and counting the rest.
  * Quote-aware, so a value containing the delimiter or a newline neither splits a field nor
  * inflates the row count. A 10 MB CSV therefore costs one scan and a handful of retained rows.
+ *
+ * Fields past the column bound are counted but not retained: a file that is one long run of
+ * separators would otherwise turn every one of them into a retained string.
  */
 export function readDelimitedRows(
   text: string,
   delimiter: string,
   keep: number,
-): { rows: string[][]; total: number } {
+): { rows: string[][]; total: number; columnsTruncated: boolean } {
   const rows: string[][] = []
   let total = 0
   let row: string[] = []
+  let fields = 0
   let value = ""
   let quoted = false
   let started = false
+  let columnsTruncated = false
 
   const endValue = () => {
-    row.push(value)
+    fields += 1
+    if (row.length < CHAT_ATTACHMENT_MAX_TABLE_COLUMNS) row.push(value)
+    else columnsTruncated = true
     value = ""
   }
   const endRow = () => {
     endValue()
     // A trailing newline at the end of the file is a terminator, not an empty final record.
-    if (!(row.length === 1 && row[0] === "")) {
+    if (!(fields === 1 && row[0] === "")) {
       total += 1
       if (rows.length < keep) rows.push(row)
     }
     row = []
+    fields = 0
     started = false
   }
 
@@ -107,8 +117,8 @@ export function readDelimitedRows(
     value += character
     started = true
   }
-  if (value.length > 0 || row.length > 0) endRow()
-  return { rows, total }
+  if (value.length > 0 || fields > 0) endRow()
+  return { rows, total, columnsTruncated }
 }
 
 /**
@@ -180,24 +190,25 @@ function isHeaderRow(row: readonly string[]): boolean {
   return new Set(named).size === named.length
 }
 
-function clampValue(value: string): string {
-  const collapsed = value.replace(/\s+/g, " ").trim()
-  return collapsed.length > CHAT_ATTACHMENT_PROFILE_VALUE_CHARACTERS
-    ? `${collapsed.slice(0, CHAT_ATTACHMENT_PROFILE_VALUE_CHARACTERS)}…`
-    : collapsed
-}
-
 /**
- * Profiles rows already in memory — a parsed sheet, or the rows kept from a delimited scan.
- * `total` is the row count of the whole file, which may exceed what was kept.
+ * Profiles rows already in memory — a parsed sheet, or the rows kept from a delimited scan. Rows
+ * may be ragged; `total` is the row count of the whole file, which may exceed what was kept.
  */
 export function profileRows(
-  input: { rows: readonly string[][]; total: number; name?: string; delimiter?: string },
+  input: {
+    rows: readonly string[][]
+    total: number
+    name?: string
+    delimiter?: string
+    columnsTruncated?: boolean
+  },
 ): AttachmentTable {
   const [first, ...rest] = input.rows
   const header = first !== undefined && isHeaderRow(first)
-  const dataRows = header ? rest : input.rows
-  const width = input.rows.reduce((widest, row) => Math.max(widest, row.length), 0)
+  const dataRows = (header ? rest : input.rows).slice(0, CHAT_ATTACHMENT_PROFILE_TYPED_ROWS)
+  const widest = input.rows.reduce((widest, row) => Math.max(widest, row.length), 0)
+  const width = Math.min(widest, CHAT_ATTACHMENT_MAX_TABLE_COLUMNS)
+  const truncated = input.columnsTruncated === true || widest > width
   const names = Array.from(
     { length: width },
     (_, index) => (header ? first?.[index]?.trim() : "") || `column_${index + 1}`,
@@ -210,9 +221,7 @@ export function profileRows(
       type: columnType(dataRows.map((row) => row[index] ?? "")),
     })),
     rows: Math.max(0, header ? input.total - 1 : input.total),
-    sample: dataRows.slice(0, CHAT_ATTACHMENT_PROFILE_SAMPLE_ROWS).map((row) =>
-      Array.from({ length: width }, (_, index) => clampValue(row[index] ?? ""))
-    ),
+    ...(truncated ? { columnsTruncated: true } : {}),
   }
 }
 
@@ -220,6 +229,10 @@ export function profileRows(
 export function profileDelimitedText(text: string): AttachmentTable {
   const delimiter = sniffDelimiter(text)
   // Enough rows for type inference to see past a leading block of blanks, still bounded.
-  const { rows, total } = readDelimitedRows(text, delimiter, 50)
-  return profileRows({ rows, total, delimiter })
+  const { rows, total, columnsTruncated } = readDelimitedRows(
+    text,
+    delimiter,
+    CHAT_ATTACHMENT_PROFILE_TYPED_ROWS,
+  )
+  return profileRows({ rows, total, delimiter, columnsTruncated })
 }

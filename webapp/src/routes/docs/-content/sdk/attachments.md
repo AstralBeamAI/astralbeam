@@ -16,20 +16,21 @@ Pass `attachments: false` to turn the feature off, or an object to narrow it.
 
 ## Supported files
 
-| Kind     | Formats                                                  | How the agent reads it                             |
-| -------- | -------------------------------------------------------- | -------------------------------------------------- |
-| `image`  | PNG, JPEG, WebP, GIF                                     | Directly — it is one of the model's own modalities |
-| `pdf`    | PDF                                                      | Directly, as a document input                      |
-| `text`   | Markdown, JSON, YAML, CSS, HTML, SVG, source files, logs | `read_attachment`, a page at a time                |
-| `data`   | CSV, TSV, Parquet, SQLite                                | Column profile up front, then code in the sandbox  |
-| `office` | Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`)    | Extracted text and sheet profiles, then the file   |
+| Kind     | Formats                                                  | How the agent reads it                                 |
+| -------- | -------------------------------------------------------- | ------------------------------------------------------ |
+| `image`  | PNG, JPEG, WebP, GIF                                     | Directly — it is one of the model's own modalities     |
+| `pdf`    | PDF                                                      | Directly, as a document input                          |
+| `text`   | Markdown, JSON, YAML, CSS, HTML, SVG, source files, logs | `read_attachment`, a page at a time                    |
+| `data`   | CSV, TSV, Parquet, SQLite                                | Column profile with the text, then code in the sandbox |
+| `office` | Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`)    | Extracted text and sheet profiles, then the file       |
 
 ## How a file reaches the agent
 
-A file's bytes are never pasted into the conversation. The agent is given a card describing each file, and reaches the contents deliberately.
+A file's bytes are never pasted into the conversation. The user's message carries only the file's name, and the agent reaches the contents deliberately.
 
-- The card lists the file's name, type, size, and shape: a table's columns with inferred types and a few sample rows, a deck's slide count.
 - `read_attachment` returns the file's text a page at a time, so a long file is fully readable rather than truncated at a cap.
+- The same result reports the file's type and size and, for a table, its columns with inferred types and its row count — so the agent learns the shape from the file itself, not from prompt text.
+- Nothing read out of a file is ever written into a system prompt: a filename, a sheet name and a column name are all chosen by whoever made the file, so they stay at the privilege of the user's message and of tool results.
 - Agents with a sandbox also get the original file written to `uploads/<name>`, so a spreadsheet can be analyzed with real code rather than read as prose.
 - Excel sheets are profiled per sheet and read as CSV, with dates rendered as dates rather than serial numbers.
 - Parquet files and SQLite databases have no text view, so they need an agent with a sandbox; without one the file is refused with an explanation.

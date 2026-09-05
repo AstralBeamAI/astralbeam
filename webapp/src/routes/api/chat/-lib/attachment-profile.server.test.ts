@@ -6,6 +6,7 @@ import {
   readDelimitedRows,
   sniffDelimiter,
 } from "./attachment-profile.server"
+import { CHAT_ATTACHMENT_MAX_TABLE_COLUMNS } from "./constants.server"
 
 // A quoted field is the difference between a correct row count and a wrong one, and the agent
 // plans its code against these numbers.
@@ -71,14 +72,31 @@ test("treats a repeated or empty first cell as data rather than a header", () =>
   expect(profileDelimitedText("a,\n1,2\n").rows).toBe(2)
 })
 
-test("pads a ragged row to the widest one so no column is missed", () => {
+test("profiles every column of a ragged table, reading a short row as empty", () => {
   const table = profileRows({ rows: [["a", "b", "c"], ["1"], ["2", "3", "4"]], total: 3 })
-  expect(table.columns).toHaveLength(3)
-  expect(table.sample[0]).toEqual(["1", "", ""])
+  expect(table.columns).toEqual([
+    { name: "a", type: "integer" },
+    { name: "b", type: "integer" },
+    { name: "c", type: "integer" },
+  ])
 })
 
-test("clamps a long sample value instead of pasting it into the card", () => {
-  const table = profileRows({ rows: [["note"], ["x".repeat(200)]], total: 2 })
-  expect(table.sample[0]?.[0]).toHaveLength(49)
-  expect(table.sample[0]?.[0]?.endsWith("…")).toBe(true)
+// One 10 MB row of separators would otherwise become millions of retained strings, column names,
+// and column objects — the parse has to stop widening, not just the profile.
+test("bounds the columns of an absurdly wide row", () => {
+  const wide = `${",".repeat(CHAT_ATTACHMENT_MAX_TABLE_COLUMNS * 20)}\n`
+  const { rows, columnsTruncated } = readDelimitedRows(wide, ",", 5)
+  expect(rows[0]).toHaveLength(CHAT_ATTACHMENT_MAX_TABLE_COLUMNS)
+  expect(columnsTruncated).toBe(true)
+
+  const table = profileDelimitedText(wide)
+  expect(table.columns).toHaveLength(CHAT_ATTACHMENT_MAX_TABLE_COLUMNS)
+  expect(table.columnsTruncated).toBe(true)
+  // The row itself is still counted, so the reported shape stays honest.
+  expect(table.rows).toBe(1)
+})
+
+test("counts rows past the column bound without retaining their fields", () => {
+  const rows = `a,b\n${",".repeat(CHAT_ATTACHMENT_MAX_TABLE_COLUMNS * 4)}\n1,2\n`
+  expect(readDelimitedRows(rows, ",", 10).total).toBe(3)
 })

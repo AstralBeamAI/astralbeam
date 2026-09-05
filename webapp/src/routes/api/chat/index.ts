@@ -11,11 +11,7 @@ import { runDatabaseEffect } from "@/db"
 import { createChatAdapter } from "./-lib/adapter.server"
 import { resolveChatAgent } from "./-lib/agent.server"
 import { createChatAttachmentTools } from "./-lib/attachment-tools.server"
-import {
-  describeChatAttachments,
-  normalizeChatAttachments,
-  redactChatAttachmentData,
-} from "./-lib/attachments.server"
+import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
 import { authenticateChatRequest, isChatAuthenticationError } from "./-lib/auth.server"
 import {
   CHAT_ATTACHMENT_SYSTEM_PROMPT,
@@ -184,11 +180,9 @@ export const Route = createFileRoute("/api/chat/")({
             messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
-              // The file cards are a system prompt rather than an injected message: they are the
-              // deployment's own words, and nothing echoes them back to the client as a turn.
-              ...(files.length > 0
-                ? [CHAT_ATTACHMENT_SYSTEM_PROMPT, describeChatAttachments(files)]
-                : []),
+              // Only the generic policy: what each attached file is reaches the model through
+              // `read_attachment`, so nothing a file chose to say lands at deployment authority.
+              ...(files.length > 0 ? [CHAT_ATTACHMENT_SYSTEM_PROMPT] : []),
               ...(sandboxTools.length > 0
                 ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT]
                 : []),

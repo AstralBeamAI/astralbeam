@@ -15,7 +15,6 @@ function file(text = "hello", handle = "notes.md"): ChatAttachmentFile {
     bytes: new Uint8Array(),
     text,
     sandboxPath: `uploads/${handle}`,
-    card: "card",
   }
 }
 
@@ -26,7 +25,6 @@ function opaqueFile(options: { sandbox: boolean }): ChatAttachmentFile {
     filename: "events.parquet",
     mimeType: "application/vnd.apache.parquet",
     bytes: new Uint8Array(),
-    card: "card",
     ...(options.sandbox ? { sandboxPath: "uploads/events.parquet" } : {}),
   }
 }
@@ -56,6 +54,26 @@ test("reads a file's text by handle", async () => {
     end: true,
   })
   expect(result.nextOffset).toBeUndefined()
+})
+
+// The shape has to arrive with the contents, because it is the only place it arrives at all: a
+// column name comes from the file, so it is never written into a prompt.
+test("reports a table's shape and the sandbox path alongside the text", async () => {
+  const sheet: ChatAttachmentFile = {
+    ...file("month,sales\nJan,343\n", "sales.csv"),
+    mimeType: "text/csv",
+    tables: [{
+      delimiter: ",",
+      rows: 1,
+      columns: [{ name: "month", type: "string" }, { name: "sales", type: "integer" }],
+    }],
+  }
+  const result = await read([sheet], { file: "sales.csv" })
+  expect(result).toMatchObject({
+    mimeType: "text/csv",
+    sandboxPath: "uploads/sales.csv",
+    tables: [{ rows: 1, columns: [{ name: "month" }, { name: "sales" }] }],
+  })
 })
 
 // Paging is what replaces truncation: a long file is fully readable rather than cut off, which is

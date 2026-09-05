@@ -1,8 +1,12 @@
 import { unzipSync } from "fflate"
 
 import {
+  CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES,
+  CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES,
   CHAT_ATTACHMENT_MAX_OFFICE_ENTRY_BYTES,
   CHAT_ATTACHMENT_MAX_SHEET_CELLS,
+  CHAT_ATTACHMENT_MAX_TABLE_COLUMNS,
+  CHAT_ATTACHMENT_MAX_TABLE_ROWS,
   CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS,
 } from "./constants.server"
 import { type AttachmentTable, profileRows } from "./attachment-profile.server"
@@ -38,18 +42,42 @@ export interface OfficeExtractionFailure {
 
 const decoder = new TextDecoder("utf-8")
 
+/** An archive whose declared contents are too large to inflate, refused before they are. */
+class OfficeArchiveTooLargeError extends Error {
+  override readonly name = "OfficeArchiveTooLargeError"
+}
+
 /**
  * Reads the named parts out of the container. `filter` runs before anything is inflated and
  * `originalSize` is the entry's declared uncompressed size, so a compression bomb is refused
  * without allocating it — the reason this uses fflate's filter rather than unzipping everything.
+ *
+ * Per-entry size alone is not enough: `unzipSync` inflates every selected entry before it returns,
+ * so a deck of thousands of individually modest parts still adds up to gigabytes. The running
+ * totals bound the archive, and throwing from the filter stops the unpack rather than silently
+ * dropping the parts that would have overflowed it.
  */
 function readParts(
   bytes: Uint8Array,
   wanted: (name: string) => boolean,
 ): Record<string, string> {
+  let selected = 0
+  let declared = 0
   const files = unzipSync(bytes, {
-    filter: (file) =>
-      wanted(file.name) && file.originalSize <= CHAT_ATTACHMENT_MAX_OFFICE_ENTRY_BYTES,
+    filter: (file) => {
+      if (!wanted(file.name) || file.originalSize > CHAT_ATTACHMENT_MAX_OFFICE_ENTRY_BYTES) {
+        return false
+      }
+      selected += 1
+      declared += file.originalSize
+      if (
+        selected > CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES ||
+        declared > CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES
+      ) {
+        throw new OfficeArchiveTooLargeError()
+      }
+      return true
+    },
   })
   return Object.fromEntries(
     Object.entries(files).map(([name, content]) => [name, decoder.decode(content)]),
@@ -239,10 +267,11 @@ function sheetRows(
   xml: string,
   strings: readonly string[],
   dates: ReadonlySet<number>,
-): { rows: string[][]; total: number } {
+): { rows: string[][]; total: number; truncated: boolean } {
   const rows: string[][] = []
   let cells = 0
   let highest = 0
+  let truncated = false
   for (const match of xml.matchAll(XLSX_CELL)) {
     if (cells >= CHAT_ATTACHMENT_MAX_SHEET_CELLS) break
     cells += 1
@@ -251,6 +280,15 @@ function sheetRows(
     const [, letters = "A", digits = "1"] = /^([A-Z]+)(\d+)$/.exec(reference) ?? []
     const row = Number(digits) - 1
     const column = columnIndex(letters)
+    // A cell's coordinate is whatever the file says, and `XFD1048576` is a valid one, so a lone
+    // value out there must not decide how big the grid is.
+    if (
+      !Number.isInteger(row) || row < 0 || row >= CHAT_ATTACHMENT_MAX_TABLE_ROWS ||
+      column < 0 || column >= CHAT_ATTACHMENT_MAX_TABLE_COLUMNS
+    ) {
+      truncated = true
+      continue
+    }
     highest = Math.max(highest, row + 1)
     const type = attribute(attributes, "t")
     const raw = decodeXml(
@@ -272,16 +310,22 @@ function sheetRows(
     const target = rows[row] ??= []
     target[column] = value
   }
-  // A `dimension` covers rows whose cells were all empty, so it beats the highest cell seen.
+  // A `dimension` covers rows whose cells were all empty, so it beats the highest cell seen. It is
+  // only ever reported as a count, never allocated from, but it is clamped for the same reason.
   const declared = Number(
     /<(?:[A-Za-z_][\w.-]*:)?dimension\s[^>]*?ref="[A-Z]+\d+:[A-Z]+(\d+)"/.exec(xml)
       ?.[1] ?? 0,
   )
-  const filled = Array.from({ length: highest }, (_, index) => rows[index] ?? [])
-  const width = filled.reduce((widest, row) => Math.max(widest, row.length), 0)
+  const total = Math.min(
+    Math.max(highest, Number.isFinite(declared) ? declared : 0),
+    CHAT_ATTACHMENT_MAX_TABLE_ROWS,
+  )
+  // Left ragged on purpose: the rows a sparse sheet never mentioned stay empty arrays rather than
+  // becoming `highest × width` filled slots, and both consumers read past the end of a short row.
   return {
-    rows: filled.map((row) => Array.from({ length: width }, (_, index) => row[index] ?? "")),
-    total: Math.max(highest, Number.isFinite(declared) ? declared : 0),
+    rows: Array.from({ length: highest }, (_, index) => rows[index] ?? []),
+    total,
+    truncated,
   }
 }
 
@@ -323,11 +367,14 @@ function extractXlsx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
     const target = targets.get(attribute(tag ?? "", "r:id") ?? "")
     const xml = target === undefined ? undefined : parts[`xl/${target}`]
     if (xml === undefined) continue
-    const { rows, total } = sheetRows(xml, strings, dates)
-    tables.push(profileRows({ rows, total, name, delimiter: "," }))
-    rendered.push(
-      `# Sheet: ${name}\n${rows.map((row) => row.map(csvValue).join(",")).join("\n")}`,
+    const { rows, total, truncated } = sheetRows(xml, strings, dates)
+    tables.push(profileRows({ rows, total, name, delimiter: ",", columnsTruncated: truncated }))
+    // The rows are ragged, so each one is padded to the sheet's width only while it is rendered.
+    const width = rows.reduce((widest, row) => Math.max(widest, row.length), 0)
+    const lines = rows.map((row) =>
+      Array.from({ length: width }, (_, index) => csvValue(row[index] ?? "")).join(",")
     )
+    rendered.push(`# Sheet: ${name}\n${lines.join("\n")}`)
   }
   if (tables.length === 0) return { reason: "it holds no readable worksheets." }
   const { text, truncated } = clampText(rendered.join("\n\n"))
@@ -357,7 +404,10 @@ export function extractOfficeDocument(
   if (!extractor) return { reason: "this assistant cannot read that office format." }
   try {
     return extractor(bytes)
-  } catch {
+  } catch (error) {
+    if (error instanceof OfficeArchiveTooLargeError) {
+      return { reason: "it declares more content than this assistant will unpack." }
+    }
     return { reason: "its contents could not be unpacked." }
   }
 }

@@ -1,6 +1,7 @@
 import type { chatParamsFromRequest } from "@tanstack/ai"
 
 import type { ChatTokenPayloadSchema } from "@/lib/schemas"
+import type { AttachmentTable } from "./attachment-profile.server"
 
 export type ChatParams = Awaited<ReturnType<typeof chatParamsFromRequest>>
 export type ChatMessages = ChatParams["messages"]
@@ -36,10 +37,14 @@ export interface ChatAttachmentFile {
   readonly bytes: Uint8Array
   /** The text view of the file; absent when it has none, such as a Parquet file. */
   readonly text?: string
+  /** {@link text} stops short of the whole file. */
+  readonly truncated?: boolean
+  /** Tables the file holds: one for a delimited file, one per sheet for a workbook. */
+  readonly tables?: readonly AttachmentTable[]
+  /** Countable divisions the agent can cite, such as a deck's slides. */
+  readonly sections?: { readonly label: string; readonly count: number }
   /** Where the file is written in the sandbox; absent when the agent has no sandbox. */
   readonly sandboxPath?: string
-  /** What the file is and what shape it has, as the agent's system prompt describes it. */
-  readonly card: string
 }
 
 export type DebugLog = (category: string, summary: string, data?: unknown) => void
