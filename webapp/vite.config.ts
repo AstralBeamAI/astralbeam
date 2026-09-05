@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs"
+import process from "node:process"
 
 import tailwindcss from "@tailwindcss/vite"
 import { devtools } from "@tanstack/devtools-vite"
@@ -30,6 +31,9 @@ const legalAssets = [
 const viteConfig = defineConfig(({ mode }) => {
   return {
     resolve: { tsconfigPaths: true },
+    // `strictPort` keeps a busy port an error instead of a silent move to the next one, which
+    // would leave APP_BASE_URL, auth cookies, and email links pointing at another server.
+    server: { port: Number(process.env.PORT ?? 4500), strictPort: true },
     // @tanstack/ai-sandbox-docker uses dockerode, whose optional SSH transport includes a native module that Vite cannot prebundle. https://github.com/apocas/dockerode#connecting-to-docker
     optimizeDeps: { exclude: ["dockerode"] },
     build: {

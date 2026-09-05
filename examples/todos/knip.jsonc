@@ -2,5 +2,11 @@
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   "tags": ["-knipignore"],
   "treatConfigHintsAsErrors": true,
-  "treatTagHintsAsErrors": true
+  "treatTagHintsAsErrors": true,
+  // The suite's config lives under `e2e/`, so Knip's Playwright plugin is pointed at it
+  // explicitly; its spec files and setup are the execution roots. https://knip.dev/reference/plugins/playwright
+  "playwright": {
+    "config": ["e2e/playwright.config.ts"],
+    "entry": ["e2e/preflight.setup.ts", "e2e/specs/**/*.spec.ts"]
+  }
 }

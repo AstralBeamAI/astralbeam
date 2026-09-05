@@ -146,3 +146,8 @@
   - Put server-only code in `*.server.ts` files and rely on that suffix as the guard; use `import "@tanstack/react-start/server-only"` only when an unsuffixed entry point such as `index.ts` must remain server-only. Never expose server environment variables to the client.
 
 TODO: add common commands
+
+- `deno task db-seed` fills the current worktree's database with sample configuration, verified accounts, organizations, agents, API keys, tenants, and a Docker sandbox provider, so a browser or end-to-end check can skip `/configure`, signup, and API-key creation. It is idempotent, runs in one transaction, and refuses any `DATABASE_URL` whose host is not loopback. Keep it separate from `db-reset` and `db migrate`.
+  - `scripts/seed/fixtures.ts` is the only source of seeded identities and is imported by `examples/todos/e2e` across the project boundary, so keep it free of imports and runtime dependencies.
+  - Seed modules run under a plain `deno run`, which cannot resolve the `@/` alias; import tables through the relative `src/db/schema.server.ts` path and never from `src/db/index.ts`, `agent.server.ts`, or `config.server.ts`.
+  - The seed never writes `openai_api_key`, and skips any config key whose uppercase environment variable is set, because the environment takes precedence and `/configure` renders those fields read-only. Put the OpenAI key in `webapp/.env.local`.

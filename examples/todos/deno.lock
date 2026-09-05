@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "npm:@playwright/test@^1.58.0": "1.62.1",
     "npm:@tanstack/react-router@^1.170.18": "1.170.32_react@19.2.8_react-dom@19.2.8__react@19.2.8",
     "npm:@tanstack/react-start@^1.168.32": "1.168.49_react@19.2.8_react-dom@19.2.8__react@19.2.8_vite@8.2.1__@types+node@26.2.0",
     "npm:@types/node@^26.2.0": "26.2.0",
@@ -421,6 +422,13 @@
       "integrity": "sha512-UqGPmo56KDfLlfXFAFIrNflHT8tFxWGEivWg3Zeyp4Uy2NlKN1FGPr6/BxcLGG3+kZ6Wp14g5Uj+n71boqZfiw==",
       "os": ["win32"],
       "cpu": ["x64"]
+    },
+    "@playwright/test@1.62.1": {
+      "integrity": "sha512-DTcUc8qii+cpHvtOwggMtBRMjKZHXYWdw8syRYu2vtzuq4Wxphqq4NfCs5Zt44L6mA8rfDfj+PHnxFc/FeK6mQ==",
+      "dependencies": [
+        "playwright"
+      ],
+      "bin": true
     },
     "@rolldown/binding-android-arm64@1.2.4": {
       "integrity": "sha512-jHC2cnyKz5xU2fhECtFl8OZ83cYNt13GZQD+0uMJ/X3o+ijmd56okHhTUwxVSHPx1IRVIJEZ1/1pPzeLCU6XKA==",
@@ -843,6 +851,11 @@
       ],
       "bin": true
     },
+    "fsevents@2.3.2": {
+      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+      "os": ["darwin"],
+      "scripts": true
+    },
     "fsevents@2.3.3": {
       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
       "os": ["darwin"],
@@ -1122,6 +1135,20 @@
     "picomatch@4.0.5": {
       "integrity": "sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A=="
     },
+    "playwright-core@1.62.1": {
+      "integrity": "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==",
+      "bin": true
+    },
+    "playwright@1.62.1": {
+      "integrity": "sha512-0M+L3LAD8/nm554LOla9Ayx0j0tmFZ0FBcoQ7F1VuVHpM/XpiC8RcDzBQB8W5+hA8L22THxELzeF+2WcUzvcLg==",
+      "dependencies": [
+        "playwright-core"
+      ],
+      "optionalDependencies": [
+        "fsevents@2.3.2"
+      ],
+      "bin": true
+    },
     "postcss@8.5.26": {
       "integrity": "sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==",
       "dependencies": [
@@ -1287,7 +1314,7 @@
         "tinyglobby"
       ],
       "optionalDependencies": [
-        "fsevents"
+        "fsevents@2.3.3"
       ],
       "optionalPeers": [
         "@types/node"
@@ -1332,6 +1359,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@playwright/test@^1.58.0",
         "npm:@tanstack/react-router@^1.170.18",
         "npm:@tanstack/react-start@^1.168.32",
         "npm:@types/node@^26.2.0",

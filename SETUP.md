@@ -59,6 +59,8 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
 - The setup script does not install PostgreSQL, Valkey, or Mailpit on macOS. When Docker Compose is available, it starts PostgreSQL, PgBouncer, Valkey, and Mailpit unless `SKIP_DOCKER_COMPOSE=true` is set. PgBouncer is the only database service published to the host, so the default `DATABASE_URL` sends local application, Drizzle, and migration traffic through its transaction pool. Set `PGBOUNCER_HOST_PORT` and update `DATABASE_URL` together only when port 5432 is unavailable; set `POSTGRES_HOST` and `POSTGRES_PORT` to route PgBouncer to a different backend.
 
+- After migrations, fill the database with sample data using `deno task --cwd webapp db-seed`. It creates verified accounts, organizations, agents, and organization API keys, so local testing skips `/configure`, signup, and email verification; see the [database guide](webapp/src/db/README.md#seed-sample-data). Put `OPENAI_API_KEY` in `webapp/.env.local` for chat, because the seed never writes it.
+
 - From the repository root, stop services with `docker compose down`. Reset a worktree database by dropping and recreating only that database as documented in [`webapp/src/db/README.md`](webapp/src/db/README.md); do not recreate the shared Compose volumes. Use `docker compose exec postgres` only when that documented workflow requires a direct PostgreSQL connection.
 
 ## Cloud agent setup
