@@ -61,7 +61,7 @@ export function ComposerAttachments(
                 ? <img src={thumbnail} alt="" />
                 : attachment.status === "reading"
                 ? <Spinner />
-                : <AttachmentKindIcon kind={attachment.kind} />}
+                : <AttachmentKindIcon kind={attachment.kind} mimeType={attachment.mimeType} />}
             </AttachmentMedia>
             <AttachmentContent>
               <AttachmentTitle>{attachment.name}</AttachmentTitle>

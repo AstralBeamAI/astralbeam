@@ -44,7 +44,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { UserView } from "../user/user-view"
 import { InviteMemberDialog } from "./invite-member-dialog"
 import { OrganizationMemberRow } from "./organization-member-row"

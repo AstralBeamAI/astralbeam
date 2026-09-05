@@ -10,9 +10,11 @@ import { createFileRoute } from "@tanstack/react-router"
 import { runDatabaseEffect } from "@/db"
 import { createChatAdapter } from "./-lib/adapter.server"
 import { resolveChatAgent } from "./-lib/agent.server"
+import { createChatAttachmentTools } from "./-lib/attachment-tools.server"
 import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
 import { authenticateChatRequest, isChatAuthenticationError } from "./-lib/auth.server"
 import {
+  CHAT_ATTACHMENT_SYSTEM_PROMPT,
   CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT,
   CHAT_SANDBOX_SYSTEM_PROMPT,
   CHAT_SYSTEM_PROMPT,
@@ -126,8 +128,11 @@ export const Route = createFileRoute("/api/chat/")({
           }
           // Attachments are rewritten into what the model reads before the run starts: the
           // provider adapter throws on a content part it cannot map, which would fail the whole
-          // run over one unsupported file.
-          const { messages, attachments } = normalizeChatAttachments(params.messages)
+          // run over one unsupported file. Whether the agent has a sandbox changes the delivery,
+          // so it is resolved first: a file with no text view has nowhere to go without one.
+          const { messages, attachments, files } = normalizeChatAttachments(params.messages, {
+            sandbox: selectedAgent.sandboxProviderId !== null,
+          })
           // Agent capability policy, enforced here regardless of what the client narrowed.
           if (!selectedAgent.attachmentsEnabled && attachments.length > 0) {
             return errorResponse(request, 400, "This agent does not accept file attachments.")
@@ -146,6 +151,7 @@ export const Route = createFileRoute("/api/chat/")({
                 principal,
                 threadId: params.threadId,
                 runId: params.runId,
+                uploads: files,
               }))
               sandboxTools = createChatSandboxTools({
                 session,
@@ -165,20 +171,26 @@ export const Route = createFileRoute("/api/chat/")({
               console.error("Failed to prepare the /api/chat sandbox:", error)
             }
           }
+          // Declared only when the run carries files, so an agent is never offered a reader with
+          // nothing to read; the tool serves the bytes already decoded in `files`.
+          const attachmentTools = createChatAttachmentTools({ files, log })
           const abortController = new AbortController()
           const stream = chat({
             adapter: createChatAdapter(openaiApiKey),
             messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
+              // Only the generic policy: what each attached file is reaches the model through
+              // `read_attachment`, so nothing a file chose to say lands at deployment authority.
+              ...(files.length > 0 ? [CHAT_ATTACHMENT_SYSTEM_PROMPT] : []),
               ...(sandboxTools.length > 0
                 ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT]
                 : []),
               effectiveSystemPrompt,
             ],
             // Every other tool executes in the host page and arrives declared in the request body;
-            // a client tool reusing a sandbox tool's name is dropped by `mergeAgentTools`.
-            tools: mergeAgentTools(sandboxTools, params.tools),
+            // a client tool reusing a server tool's name is dropped by `mergeAgentTools`.
+            tools: mergeAgentTools([...sandboxTools, ...attachmentTools], params.tools),
             threadId: params.threadId,
             runId: params.runId,
             parentRunId: params.parentRunId,

@@ -2,7 +2,7 @@
 // Local changes: omit unconfigured plugin-contributed security cards.
 
 import { useAuth } from "@better-auth-ui/react"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { ActiveSessions } from "./active-sessions"
 import { ChangePassword } from "./change-password"
 import { LinkedAccounts } from "./linked-accounts"

@@ -1,7 +1,7 @@
 // Added with: deno task ui add empty
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@/widget/lib/utils"
+import { cn } from "cn"
 
 function Empty({ className, ...props }: React.ComponentProps<"div">) {
   return (

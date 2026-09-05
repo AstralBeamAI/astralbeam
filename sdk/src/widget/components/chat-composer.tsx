@@ -9,7 +9,8 @@ import {
 } from "@/widget/components/ui/input-group"
 import { attachmentAcceptAttribute } from "../lib/attachments.ts"
 import type { DraftAttachment, ResolvedAttachmentOptions } from "../lib/types.ts"
-import { cn, describeError } from "../lib/utils.ts"
+import { cn } from "cn"
+import { describeError } from "../lib/utils.ts"
 import { ComposerAttachments } from "./composer-attachments.tsx"
 
 interface ChatComposerProps {
@@ -196,7 +197,7 @@ export function ChatComposer(
               aria-label="Attach files"
               title={attachmentsFull
                 ? `Up to ${attachmentLimits.maxFiles} files per message`
-                : "Attach images, PDFs, or text files"}
+                : "Attach images, PDFs, documents, spreadsheets, data, or text files"}
               disabled={blocked || attachmentsFull}
               onClick={() => fileInput.current?.click()}
             >

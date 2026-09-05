@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/item"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { FreshSessionPrompt } from "./fresh-session-prompt"
 
 export type LinkedAccountProps = {

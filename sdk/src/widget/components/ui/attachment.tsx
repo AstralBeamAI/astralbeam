@@ -4,7 +4,7 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@/widget/lib/utils"
+import { cn } from "cn"
 import { Button } from "@/widget/components/ui/button"
 
 const attachmentVariants = cva(

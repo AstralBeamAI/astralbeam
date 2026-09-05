@@ -14,6 +14,8 @@ export const MAX_ATTACHMENT_BYTES_BY_KIND = {
   image: 5 * 1024 * 1024,
   pdf: 10 * 1024 * 1024,
   text: 1024 * 1024,
+  data: 10 * 1024 * 1024,
+  office: 10 * 1024 * 1024,
 } as const
 
 /** Image types the chat endpoint's model reads natively; SVG is text, so it is not one of them. */
@@ -27,8 +29,8 @@ export const ATTACHMENT_IMAGE_MIME_TYPES = [
 /** The one document type the model reads natively; every other document is read as text. */
 export const ATTACHMENT_PDF_MIME_TYPE = "application/pdf"
 
-// Types the endpoint decodes into text for the agent. `text/*` is covered by prefix, so this
-// lists only the textual formats browsers label as `application/*` (plus SVG, which is markup).
+// Types the endpoint reads as text for the agent. `text/*` is covered by prefix, so this lists
+// only the textual formats browsers label as `application/*` (plus SVG, which is markup).
 export const ATTACHMENT_TEXT_MIME_TYPES = [
   "application/json",
   "application/xml",
@@ -36,13 +38,56 @@ export const ATTACHMENT_TEXT_MIME_TYPES = [
   "application/x-yaml",
   "application/toml",
   "application/x-ndjson",
-  "application/csv",
   "application/sql",
   "application/x-sh",
   "application/javascript",
   "application/typescript",
   "image/svg+xml",
 ]
+
+// Data files: the endpoint profiles the delimited ones as tables and leaves the binary ones to the
+// agent's sandbox. They are their own kind because the agent works with them as files rather than
+// reading them start to finish, and because a spreadsheet's cap has nothing to do with a README's.
+export const ATTACHMENT_DATA_MIME_TYPES = [
+  "text/csv",
+  "text/tab-separated-values",
+  "application/csv",
+  "application/vnd.apache.parquet",
+  "application/x-parquet",
+  "application/vnd.sqlite3",
+  "application/x-sqlite3",
+]
+
+// Named individually because the composer picks an icon per format; reading them out of the list
+// by position would let a reordering swap the Word and PowerPoint icons with no type error.
+export const ATTACHMENT_DOCX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+export const ATTACHMENT_PPTX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+export const ATTACHMENT_XLSX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+/** The OOXML office formats, which the endpoint unpacks into text and tables. */
+export const ATTACHMENT_OFFICE_MIME_TYPES = [
+  ATTACHMENT_DOCX_MIME_TYPE,
+  ATTACHMENT_PPTX_MIME_TYPE,
+  ATTACHMENT_XLSX_MIME_TYPE,
+]
+
+// Browsers report no type at all for `.parquet` and a handful of different ones for `.csv`, and
+// which delivery a file gets depends on this being right, so the extension decides for the data
+// and office formats. Kept in step with the endpoint's own map.
+export const ATTACHMENT_MIME_TYPE_BY_EXTENSION: Record<string, string> = {
+  csv: "text/csv",
+  tsv: "text/tab-separated-values",
+  parquet: "application/vnd.apache.parquet",
+  sqlite: "application/vnd.sqlite3",
+  sqlite3: "application/vnd.sqlite3",
+  db: "application/vnd.sqlite3",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
 
 // Browsers derive a file's type from its extension and get source files wrong: Chrome reports
 // `.ts` as `video/mp2t` and leaves `.tsx`, `.rs`, and `.toml` empty. Extensions are therefore
@@ -55,7 +100,6 @@ export const ATTACHMENT_TEXT_EXTENSIONS = [
   "cpp",
   "cs",
   "css",
-  "csv",
   "go",
   "h",
   "hpp",
@@ -86,7 +130,6 @@ export const ATTACHMENT_TEXT_EXTENSIONS = [
   "swift",
   "toml",
   "ts",
-  "tsv",
   "tsx",
   "txt",
   "vue",

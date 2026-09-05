@@ -1,14 +1,8 @@
 import type { UIMessage } from "@tanstack/ai-client"
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
 import type { WidgetDefinition } from "../../lib/types.ts"
 export { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../../core/messages.ts"
 import { INHERITED_PROPERTIES, WIDGET_SLOT_PREFIX, WIDGET_SLOT_SELECTOR } from "./constants.ts"
 import type { QuestionnaireItemSpec } from "./types.ts"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
 
 /** Saves a blob as a file download through a transient anchor. */
 export function saveBlob(filename: string, blob: Blob): void {

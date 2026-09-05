@@ -20,7 +20,9 @@ function SentAttachment({ part }: { part: MediaPart }) {
   return (
     <Attachment size="sm">
       <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
-        {thumbnail ? <img src={thumbnail} alt="" /> : <AttachmentKindIcon kind={kind} />}
+        {thumbnail
+          ? <img src={thumbnail} alt="" />
+          : <AttachmentKindIcon kind={kind} mimeType={part.source.mimeType} />}
       </AttachmentMedia>
       <AttachmentContent>
         <AttachmentTitle>{title}</AttachmentTitle>

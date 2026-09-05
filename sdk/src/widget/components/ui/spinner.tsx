@@ -1,5 +1,5 @@
 // Added with: deno task ui add spinner
-import { cn } from "@/widget/lib/utils"
+import { cn } from "cn"
 import { SpinnerIcon } from "@phosphor-icons/react"
 
 // Typed from the icon rather than "svg" so the spread satisfies exactOptionalPropertyTypes.
