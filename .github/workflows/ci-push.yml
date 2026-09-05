@@ -40,11 +40,16 @@ jobs:
         run: docker compose up --detach --wait
 
       - name: Auto-fix project issues
+        # Every project is formatted and lint-fixed here, so a config file that a Deno command
+        # rewrites unformatted (such as `allowScripts`) is corrected rather than failing the
+        # `format:check` in the step below.
         run: |
           deno task --cwd webapp knip:fix
           deno task --cwd webapp check:fix
           deno task --cwd www knip:fix
           deno task --cwd www check:fix
+          deno task --cwd sdk check:fix
+          deno task --cwd examples/todos check:fix
 
       - name: Check, test, and build projects
         run: |

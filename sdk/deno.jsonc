@@ -1,7 +1,12 @@
 {
   "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
   "nodeModulesDir": "auto",
-  "allowScripts": ["npm:@parcel/watcher@2.5.1", "npm:esbuild", "npm:fsevents@2.3.3", "npm:msgpackr-extract@3.0.4"],
+  "allowScripts": [
+    "npm:@parcel/watcher@2.5.1",
+    "npm:esbuild",
+    "npm:fsevents@2.3.3",
+    "npm:msgpackr-extract@3.0.4"
+  ],
   "fmt": {
     "lineWidth": 100,
     "semiColons": false,
