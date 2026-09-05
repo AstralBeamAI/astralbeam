@@ -122,6 +122,25 @@ test("renders date-formatted cells as dates and booleans as words", () => {
   expect(text).toMatch(/Jan,343,\d{4}-\d{2}-\d{2},TRUE/)
 })
 
+// A namespace prefix is the producer's choice, and the xlsx path already had to learn that. Word
+// and PowerPoint read the same arbitrary prefixes, so they are covered by the same rule.
+test("reads Word and PowerPoint parts whose elements use unexpected namespace prefixes", () => {
+  const docx = container({
+    "word/document.xml": `<document><body>
+      <p><r><t>Bare</t></r><tab/><r><t>prefixless</t></r></p>
+      <ns0:p><ns0:r><ns0:t>Odd prefix</ns0:t></ns0:r></ns0:p>
+    </body></document>`,
+  })
+  expect(extract(docx, DOCX).text).toBe("Bare\tprefixless\nOdd prefix")
+
+  const pptx = container({
+    "ppt/slides/slide1.xml": `<ns0:sld><ns0:txBody>
+      <ns0:p><ns0:r><ns0:t>Prefixed slide</ns0:t></ns0:r></ns0:p>
+    </ns0:txBody></ns0:sld>`,
+  })
+  expect(extract(pptx, PPTX).text).toBe("## Slide 1\nPrefixed slide")
+})
+
 // Some standards-compliant writers prefix every SpreadsheetML element instead of using a default
 // namespace. The prefix must not make an otherwise valid workbook look empty.
 test("reads a workbook whose SpreadsheetML elements use namespace prefixes", () => {

@@ -28,6 +28,29 @@ test("counts every row while keeping only the ones asked for", () => {
   expect(rows).toHaveLength(3)
 })
 
+// Past the rows it keeps, the scan stops assembling fields and only counts records — but it still
+// has to track quoting, or a newline inside a late quoted field would invent rows.
+test("counts the tail of a file correctly without retaining it", () => {
+  const head = "name,note\n"
+  const quoted = '"Doe, Jane","line one\nline two"\n'
+  const plain = "Bob,plain\n"
+  const { rows, total } = readDelimitedRows(`${head}${quoted.repeat(20)}${plain}`, ",", 2)
+  expect(rows).toHaveLength(2)
+  expect(total).toBe(22)
+  // The second kept row is still whole, which is what type inference reads.
+  expect(rows[1]).toEqual(["Doe, Jane", "line one\nline two"])
+})
+
+test("counts a final row that has no trailing newline", () => {
+  expect(readDelimitedRows("a,b\n1,2\n3,4", ",", 1).total).toBe(3)
+})
+
+test("reads a blank line as a terminator rather than a record", () => {
+  expect(readDelimitedRows("a,b\n\n1,2\n\n", ",", 10).total).toBe(2)
+  // Also past the point where rows stop being retained.
+  expect(readDelimitedRows("a,b\n\n1,2\n\n3,4\n", ",", 1).total).toBe(3)
+})
+
 test("handles CRLF endings and a byte-order mark's leading row", () => {
   const { rows, total } = readDelimitedRows("a,b\r\n1,2\r\n", ",", 10)
   expect(total).toBe(2)

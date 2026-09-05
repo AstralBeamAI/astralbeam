@@ -1,4 +1,4 @@
-import { type AttachmentTable, profileDelimitedText } from "./attachment-profile.server"
+import { profileDelimitedText } from "./attachment-profile.server"
 import { extractOfficeDocument, isOfficeMimeType } from "./attachment-office.server"
 import {
   CHAT_ATTACHMENT_DELIMITED_MIME_TYPES,
@@ -15,6 +15,7 @@ import {
   CHAT_ATTACHMENT_UPLOAD_DIRECTORY,
 } from "./constants.server"
 import type {
+  ChatAttachmentContent,
   ChatAttachmentFile,
   ChatAttachmentKind,
   ChatAttachmentOutcome,
@@ -134,10 +135,21 @@ function base64ByteLength(value: string): number {
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding)
 }
 
+/**
+ * Decodes a payload into bytes, filling a preallocated array rather than mapping the string.
+ * `Uint8Array.from(binary, callback)` runs a JS callback per byte: 513 ms for a 10 MB attachment
+ * against 18 ms for this loop, and it is synchronous, so it blocked the event loop for every
+ * concurrent request on the replica. `Uint8Array.fromBase64` would be faster still, but it is a
+ * Stage 3 proposal that this TypeScript's lib does not declare.
+ */
 function decodeAttachmentBytes(value: string): Uint8Array | undefined {
   try {
     const binary = atob(base64Payload(value).replace(/\s/g, ""))
-    return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index)
+    }
+    return bytes
   } catch {
     return undefined
   }
@@ -179,44 +191,26 @@ function decodeUtf8(bytes: Uint8Array): string | undefined {
 }
 
 /**
- * What the run learns about one file by reading it: the text `read_attachment` serves, and the
- * shape it reports alongside the first page.
- */
-interface AttachmentContent {
-  text?: string
-  truncated?: boolean
-  tables?: AttachmentTable[]
-  sections?: { label: string; count: number }
-}
-
-/**
  * Reads a file into its text view and its shape. Delimited text is profiled as the table it is;
  * an office file is unpacked; a Parquet file or a database has no text view at all and is left to
  * the sandbox. Returns the reason instead when the bytes are not the format they claim to be.
+ *
+ * Dispatches on the MIME type rather than the kind, which is derived from it: `office` and the
+ * opaque data types each answer the question directly, so passing the kind in as well would be one
+ * more argument to keep consistent with the first.
  */
 function readAttachmentContent(
   bytes: Uint8Array,
   mimeType: string,
-  kind: ChatAttachmentKind,
-): AttachmentContent | { reason: string } {
-  if (kind === "office") {
-    const extracted = extractOfficeDocument(bytes, mimeType)
-    if ("reason" in extracted) return extracted
-    return {
-      text: extracted.text,
-      ...(extracted.truncated ? { truncated: true } : {}),
-      ...(extracted.tables ? { tables: extracted.tables } : {}),
-      ...(extracted.sections ? { sections: extracted.sections } : {}),
-    }
-  }
-  if (kind === "data" && CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(mimeType)) return {}
+): ChatAttachmentContent | { reason: string } {
+  if (isOfficeMimeType(mimeType)) return extractOfficeDocument(bytes, mimeType)
+  if (CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(mimeType)) return {}
   const decoded = decodeUtf8(bytes)
   if (decoded === undefined) return { reason: "it is not valid UTF-8 text." }
-  const truncated = decoded.length > CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS
-  const text = truncated ? decoded.slice(0, CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS) : decoded
   return {
-    text,
-    ...(truncated ? { truncated: true } : {}),
+    ...(decoded.length > CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS
+      ? { text: decoded.slice(0, CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS), truncated: true }
+      : { text: decoded }),
     // The whole text is profiled, not the clamped view, so the row count is the file's own.
     ...(CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(mimeType)
       ? { tables: [profileDelimitedText(decoded)] }
@@ -332,7 +326,7 @@ export function normalizeChatAttachments(
     }
     const bytes = decodeAttachmentBytes(entry.source.value)
     if (bytes === undefined) return refuse("its contents could not be decoded.")
-    const content = readAttachmentContent(bytes, mimeType, kind)
+    const content = readAttachmentContent(bytes, mimeType)
     if ("reason" in content) return refuse(content.reason)
     if (content.text === undefined && !options.sandbox) {
       return refuse("this agent has no sandbox to open a file of that type in.")
@@ -344,10 +338,7 @@ export function normalizeChatAttachments(
       filename,
       mimeType,
       bytes,
-      ...(content.text === undefined ? {} : { text: content.text }),
-      ...(content.truncated ? { truncated: true } : {}),
-      ...(content.tables ? { tables: content.tables } : {}),
-      ...(content.sections ? { sections: content.sections } : {}),
+      ...content,
       ...(options.sandbox ? { sandboxPath: `${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}/${handle}` } : {}),
     }
     files.push(file)
@@ -359,34 +350,32 @@ export function normalizeChatAttachments(
    * Rewrites one user message: media parts become provider parts, refusals, or one line naming
    * the files that arrived with it. The user's own text is never touched.
    *
-   * That line is all a file leaves in the conversation — it ties the file to its turn, while the
-   * card describing it lives in a system prompt. A transcript that echoes this message therefore
-   * reads as the user attaching a file, not as a wall of quoted bytes.
+   * That line is all a file leaves in the conversation, and it ties the file to its turn. A
+   * transcript that echoes this message therefore reads as the user attaching a file rather than
+   * as a wall of quoted bytes.
    */
   const normalizeUserEntries = (entries: unknown[], shape: ContentShape): unknown[] => {
-    const converted = entries.map((entry) =>
-      isMediaEntry(entry) ? convert(entry, shape) : { entry }
-    )
-    const attached = converted.flatMap((result) => "file" in result ? [result.file] : [])
-    if (attached.length === 0) {
-      return converted.map((result) => (result as { entry: unknown }).entry)
-    }
-    let announced = false
     const next: unknown[] = []
-    for (const result of converted) {
+    const attached: string[] = []
+    // Where the announcement goes, so it keeps the position of the first file it replaces.
+    let slot = -1
+    for (const entry of entries) {
+      if (!isMediaEntry(entry)) {
+        next.push(entry)
+        continue
+      }
+      const result = convert(entry, shape)
       if (!("file" in result)) {
         next.push(result.entry)
         continue
       }
-      if (announced) continue
-      announced = true
-      next.push(textEntry(
-        shape,
-        // The handle rather than the raw filename: it is what `read_attachment` answers to, and
-        // it is the sanitized form, so a name like `../../etc/passwd` reads as `etc_passwd`.
-        `[Attached: ${attached.map((file) => file.handle).join(", ")}]`,
-      ))
+      attached.push(result.file.handle)
+      if (slot < 0) {
+        slot = next.length
+        next.push(undefined)
+      }
     }
+    if (slot >= 0) next[slot] = textEntry(shape, `[Attached: ${attached.join(", ")}]`)
     return next
   }
 

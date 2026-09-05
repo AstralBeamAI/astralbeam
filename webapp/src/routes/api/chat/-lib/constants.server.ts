@@ -66,9 +66,8 @@ export const CHAT_ATTACHMENT_READ_MAX_CHARACTERS = 40_000
 export const CHAT_ATTACHMENT_PROFILE_TYPED_ROWS = 50
 
 // Office containers are ZIPs, so every declared uncompressed size is attacker-chosen: a few
-// megabytes can claim gigabytes. Both bounds are needed, because many individually compliant
-// entries still add up — `unzipSync` inflates every selected entry before returning.
-export const CHAT_ATTACHMENT_MAX_OFFICE_ENTRY_BYTES = 32 * 1024 * 1024
+// megabytes can claim gigabytes, and many individually modest entries still add up because
+// `unzipSync` inflates every selected entry before returning. One archive-wide budget bounds both.
 export const CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES = 96 * 1024 * 1024
 export const CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES = 2_048
 
@@ -116,13 +115,21 @@ export const CHAT_ATTACHMENT_DELIMITED_MIME_TYPES = [
   "application/csv",
 ]
 
-/** Data files with no text view at all; the card names them and the sandbox opens them. */
+/** Data files with no text view at all, so only the sandbox can open them. */
 export const CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES = [
   "application/vnd.apache.parquet",
   "application/x-parquet",
   "application/vnd.sqlite3",
   "application/x-sqlite3",
 ]
+
+/** The OOXML office formats, which `-lib/attachment-office.server.ts` unpacks. */
+export const CHAT_ATTACHMENT_DOCX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+export const CHAT_ATTACHMENT_PPTX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+export const CHAT_ATTACHMENT_XLSX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 /**
  * Types a browser labels badly or not at all, repaired from the filename extension. Only the data
@@ -136,13 +143,16 @@ export const CHAT_ATTACHMENT_MIME_TYPE_BY_EXTENSION: Record<string, string> = {
   sqlite: "application/vnd.sqlite3",
   sqlite3: "application/vnd.sqlite3",
   db: "application/vnd.sqlite3",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  docx: CHAT_ATTACHMENT_DOCX_MIME_TYPE,
+  pptx: CHAT_ATTACHMENT_PPTX_MIME_TYPE,
+  xlsx: CHAT_ATTACHMENT_XLSX_MIME_TYPE,
 }
 
 /** ZIP local file header; the OOXML office formats are all ZIP containers. */
 const ZIP_SIGNATURE = [{ offset: 0, bytes: [0x50, 0x4b, 0x03, 0x04] }]
+const PARQUET_SIGNATURE = [{ offset: 0, bytes: [0x50, 0x41, 0x52, 0x31] }]
+/** "SQLite format 3\0". */
+const SQLITE_SIGNATURE = [{ offset: 0, bytes: [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65] }]
 
 /**
  * Leading bytes each type must actually start with, so a renamed or truncated file is refused with
@@ -163,14 +173,13 @@ export const CHAT_ATTACHMENT_MAGIC_BYTES: Record<
     { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
   ],
   "application/pdf": [{ offset: 0, bytes: [0x25, 0x50, 0x44, 0x46] }],
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ZIP_SIGNATURE,
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ZIP_SIGNATURE,
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ZIP_SIGNATURE,
-  "application/vnd.apache.parquet": [{ offset: 0, bytes: [0x50, 0x41, 0x52, 0x31] }],
-  "application/x-parquet": [{ offset: 0, bytes: [0x50, 0x41, 0x52, 0x31] }],
-  // "SQLite format 3\0".
-  "application/vnd.sqlite3": [{ offset: 0, bytes: [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65] }],
-  "application/x-sqlite3": [{ offset: 0, bytes: [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65] }],
+  [CHAT_ATTACHMENT_DOCX_MIME_TYPE]: ZIP_SIGNATURE,
+  [CHAT_ATTACHMENT_PPTX_MIME_TYPE]: ZIP_SIGNATURE,
+  [CHAT_ATTACHMENT_XLSX_MIME_TYPE]: ZIP_SIGNATURE,
+  "application/vnd.apache.parquet": PARQUET_SIGNATURE,
+  "application/x-parquet": PARQUET_SIGNATURE,
+  "application/vnd.sqlite3": SQLITE_SIGNATURE,
+  "application/x-sqlite3": SQLITE_SIGNATURE,
 }
 
 // Sandbox execution. An agent with a configured sandbox provider gets the tools in

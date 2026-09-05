@@ -58,11 +58,20 @@ export const ATTACHMENT_DATA_MIME_TYPES = [
   "application/x-sqlite3",
 ]
 
+// Named individually because the composer picks an icon per format; reading them out of the list
+// by position would let a reordering swap the Word and PowerPoint icons with no type error.
+export const ATTACHMENT_DOCX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+export const ATTACHMENT_PPTX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+export const ATTACHMENT_XLSX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
 /** The OOXML office formats, which the endpoint unpacks into text and tables. */
 export const ATTACHMENT_OFFICE_MIME_TYPES = [
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ATTACHMENT_DOCX_MIME_TYPE,
+  ATTACHMENT_PPTX_MIME_TYPE,
+  ATTACHMENT_XLSX_MIME_TYPE,
 ]
 
 // Browsers report no type at all for `.parquet` and a handful of different ones for `.csv`, and

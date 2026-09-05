@@ -19,7 +19,7 @@ import type { ChatAttachmentFile, DebugLog } from "./types"
 const ReadAttachmentInputSchema = Schema.toStandardJSONSchemaV1(
   Schema.toStandardSchemaV1(Schema.Struct({
     file: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
-      description: "Handle of the attached file, exactly as its card gives it.",
+      description: "Name of the attached file, exactly as the user's message gives it.",
     }),
     offset: Schema.optionalKey(
       Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
@@ -49,8 +49,10 @@ export function createChatAttachmentTools(
   const readAttachment = toolDefinition({
     name: "read_attachment",
     description:
-      "Read the text of a file the user attached, by the handle its card gives. Long files come " +
-      "back a page at a time: read on from `nextOffset` until `end` is true.",
+      "Read the text of a file the user attached, by the name shown in their message. Answers " +
+      "with the file's type and size, its columns and row count when it is a table, and where " +
+      "it lives in your sandbox. Long files come back a page at a time: read on from " +
+      "`nextOffset` until `end` is true.",
     inputSchema: ReadAttachmentInputSchema,
   }).server(({ file: handle, offset = 0, limit }) => {
     const file = byHandle.get(handle)
@@ -77,8 +79,9 @@ export function createChatAttachmentTools(
       CHAT_ATTACHMENT_READ_MAX_CHARACTERS,
     )
     const content = file.text.slice(start, start + size)
-    const end = start + content.length
-    log?.("attachment", `read ${handle} [${start}, ${end})`, { characters: content.length })
+    const stop = start + content.length
+    const done = stop >= file.text.length
+    log?.("attachment", `read ${handle} [${start}, ${stop})`, { characters: content.length })
     return Promise.resolve({
       file: handle,
       filename: file.filename,
@@ -87,8 +90,8 @@ export function createChatAttachmentTools(
       content,
       offset: start,
       totalCharacters: file.text.length,
-      end: end >= file.text.length,
-      ...(end >= file.text.length ? {} : { nextOffset: end }),
+      end: done,
+      ...(done ? {} : { nextOffset: stop }),
       ...(file.truncated ? { readableTextTruncated: true } : {}),
       // The file's shape rides along with its contents, so the agent learns the columns and the
       // row count from the same tool result rather than from prompt text a file could have

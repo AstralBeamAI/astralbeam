@@ -1,15 +1,18 @@
 import { unzipSync } from "fflate"
 
 import {
+  CHAT_ATTACHMENT_DOCX_MIME_TYPE,
   CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES,
   CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES,
-  CHAT_ATTACHMENT_MAX_OFFICE_ENTRY_BYTES,
   CHAT_ATTACHMENT_MAX_SHEET_CELLS,
   CHAT_ATTACHMENT_MAX_TABLE_COLUMNS,
   CHAT_ATTACHMENT_MAX_TABLE_ROWS,
   CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS,
+  CHAT_ATTACHMENT_PPTX_MIME_TYPE,
+  CHAT_ATTACHMENT_XLSX_MIME_TYPE,
 } from "./constants.server"
 import { type AttachmentTable, profileRows } from "./attachment-profile.server"
+import type { ChatAttachmentContent } from "./types"
 
 /**
  * Text and structure extraction for the OOXML office formats: `.docx`, `.pptx`, and `.xlsx`.
@@ -24,19 +27,11 @@ import { type AttachmentTable, profileRows } from "./attachment-profile.server"
  * - SpreadsheetML cell and shared-string parts: https://learn.microsoft.com/en-us/office/open-xml/spreadsheet/working-with-sheets
  */
 
-export interface OfficeExtraction {
-  /** The plain-text view of the file, which is what `read_attachment` serves. */
-  text: string
-  /** Sheets of a workbook, profiled like any other table. */
-  tables?: AttachmentTable[]
-  /** Countable divisions the agent can cite, such as slides. */
-  sections?: { label: string; count: number }
-  /** The text view stopped at a cap; the whole file is still in the sandbox. */
-  truncated?: boolean
-}
+/** An office file always has a text view, so `text` is required where the shared shape has it optional. */
+type OfficeExtraction = ChatAttachmentContent & { text: string }
 
 /** Why a file that claims to be an office document could not be read as one. */
-export interface OfficeExtractionFailure {
+interface OfficeExtractionFailure {
   reason: string
 }
 
@@ -52,10 +47,10 @@ class OfficeArchiveTooLargeError extends Error {
  * `originalSize` is the entry's declared uncompressed size, so a compression bomb is refused
  * without allocating it — the reason this uses fflate's filter rather than unzipping everything.
  *
- * Per-entry size alone is not enough: `unzipSync` inflates every selected entry before it returns,
- * so a deck of thousands of individually modest parts still adds up to gigabytes. The running
- * totals bound the archive, and throwing from the filter stops the unpack rather than silently
- * dropping the parts that would have overflowed it.
+ * The budget is archive-wide rather than per entry: `unzipSync` inflates every selected entry
+ * before it returns, so thousands of individually modest parts still add up to gigabytes, and a
+ * per-entry cap below the archive's could only ever skip a part — which surfaced to the agent as
+ * "it holds no document part" rather than the truth. Throwing stops the unpack and says why.
  */
 function readParts(
   bytes: Uint8Array,
@@ -65,9 +60,7 @@ function readParts(
   let declared = 0
   const files = unzipSync(bytes, {
     filter: (file) => {
-      if (!wanted(file.name) || file.originalSize > CHAT_ATTACHMENT_MAX_OFFICE_ENTRY_BYTES) {
-        return false
-      }
+      if (!wanted(file.name)) return false
       selected += 1
       declared += file.originalSize
       if (
@@ -107,40 +100,93 @@ function decodeXml(value: string): string {
   })
 }
 
-function attribute(tag: string, name: string): string | undefined {
-  return new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1]
+/**
+ * An element name with any namespace prefix, since a prefix is the producer's choice and not part
+ * of the format: one writer emits `<sheetData>`, another `<x:sheetData>`, and a pattern that
+ * hardcodes either one reads a valid file as empty.
+ */
+const NAME = "(?:[A-Za-z_][\\w.-]*:)?"
+
+/** `<name …>text</name>`, capturing the text. */
+function element(name: string): string {
+  return `<${NAME}${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${NAME}${name}>`
 }
+
+/** `<name …>` or `<name …/>`, capturing the attributes. */
+function tag(name: string): string {
+  return `<${NAME}${name}(?=[\\s/>])([^>]*?)/?>`
+}
+
+// Compiled once per attribute name: `attribute` is called two or three times for every cell, so a
+// 200,000-cell sheet was building half a million `RegExp` objects.
+const ATTRIBUTE_PATTERNS = new Map<string, RegExp>()
+
+function attribute(source: string, name: string): string | undefined {
+  let pattern = ATTRIBUTE_PATTERNS.get(name)
+  if (pattern === undefined) {
+    pattern = new RegExp(`\\b${name}="([^"]*)"`)
+    ATTRIBUTE_PATTERNS.set(name, pattern)
+  }
+  return pattern.exec(source)?.[1]
+}
+
+const TEXT_NODES = new RegExp(element("t"), "g")
+
+/** Every text node under an element, joined: one string may be split across formatting runs. */
+function textNodes(xml: string): string {
+  let text = ""
+  for (const [, content] of xml.matchAll(TEXT_NODES)) text += decodeXml(content ?? "")
+  return text
+}
+
+/** One `<si>` per shared string. */
+const SHARED_STRING_ITEMS = new RegExp(element("si"), "g")
+
+/** The Word tokens that mean "next cell" rather than "next line". */
+const TAB_TOKEN = new RegExp(`^<${NAME}tab|^</${NAME}tc>`)
 
 /** Collapses the runs of whitespace paragraph-per-line extraction leaves behind. */
 function tidy(text: string): string {
   return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()
 }
 
-function clampText(text: string): { text: string; truncated: boolean } {
+// `truncated?: true` rather than `truncated: boolean`, so a caller can relay the result whole
+// instead of translating a `false` back into an absent key.
+function clampText(text: string): { text: string; truncated?: true } {
   return text.length > CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS
     ? { text: text.slice(0, CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS), truncated: true }
-    : { text, truncated: false }
+    : { text }
 }
 
 // Word runs: a text node, or one of the breaks that carry position rather than characters. A cell
 // closing right after its only paragraph loses the paragraph break, so single-paragraph cells (the
 // common case) come out tab-separated on one line instead of one line each.
-const DOCX_TOKENS =
-  /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*?\/?>|<w:(?:br|cr)\b[^>]*?\/?>|<\/w:tc>|<\/w:tr>|<\/w:p>/g
+const DOCX_TOKENS = new RegExp(
+  [
+    element("t"),
+    tag("tab"),
+    tag("br"),
+    tag("cr"),
+    `</${NAME}tc>`,
+    `</${NAME}tr>`,
+    `</${NAME}p>`,
+  ].join("|"),
+  "g",
+)
 
 function docxText(xml: string): string {
-  const collapsed = xml.replace(/<\/w:p>(\s*<\/w:tc>)/g, "$1")
+  const collapsed = xml.replace(new RegExp(`</${NAME}p>(\\s*</${NAME}tc>)`, "g"), "$1")
   let text = ""
   for (const match of collapsed.matchAll(DOCX_TOKENS)) {
     const [token, content] = match
     if (content !== undefined) text += decodeXml(content)
-    else if (token.startsWith("<w:tab") || token === "</w:tc>") text += "\t"
+    else if (TAB_TOKEN.test(token)) text += "\t"
     else text += "\n"
   }
   return tidy(text)
 }
 
-const PPTX_TOKENS = /<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>|<a:br\b[^>]*?\/?>|<\/a:p>/g
+const PPTX_TOKENS = new RegExp([element("t"), tag("br"), `</${NAME}p>`].join("|"), "g")
 
 function pptxSlideText(xml: string): string {
   let text = ""
@@ -160,8 +206,7 @@ function extractDocx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
   const parts = readParts(bytes, (name) => name === "word/document.xml")
   const document = parts["word/document.xml"]
   if (document === undefined) return { reason: "it holds no Word document part." }
-  const { text, truncated } = clampText(docxText(document))
-  return { text, ...(truncated ? { truncated } : {}) }
+  return clampText(docxText(document))
 }
 
 function extractPptx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFailure {
@@ -170,28 +215,21 @@ function extractPptx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
     slideNumber(first) - slideNumber(second)
   )
   if (slides.length === 0) return { reason: "it holds no PowerPoint slides." }
-  const { text, truncated } = clampText(
-    slides.map((name, index) => `## Slide ${index + 1}\n${pptxSlideText(parts[name] ?? "")}`)
-      .join("\n\n"),
-  )
   return {
-    text,
+    ...clampText(
+      slides.map((name, index) => `## Slide ${index + 1}\n${pptxSlideText(parts[name] ?? "")}`)
+        .join("\n\n"),
+    ),
     sections: { label: "slide", count: slides.length },
-    ...(truncated ? { truncated } : {}),
   }
 }
 
 /** Shared strings are one `<si>` per string, itself possibly split across formatting runs. */
 function sharedStrings(xml: string | undefined): string[] {
   if (xml === undefined) return []
-  return [...xml.matchAll(
-    /<(?:[A-Za-z_][\w.-]*:)?si(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?si>/g,
-  )].map(([, item]) =>
-    [...(item ?? "").matchAll(
-      /<(?:[A-Za-z_][\w.-]*:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?t>/g,
-    )]
-      .map(([, text]) => decodeXml(text ?? "")).join("")
-  )
+  const strings: string[] = []
+  for (const [, item] of xml.matchAll(SHARED_STRING_ITEMS)) strings.push(textNodes(item ?? ""))
+  return strings
 }
 
 // Built-in number formats that mean "date" or "time", per ECMA-376 Part 1 §18.8.30.
@@ -212,7 +250,7 @@ const BUILTIN_DATE_FORMATS = new Set([
 
 /**
  * Which cell styles render as dates. Without this a date column reads as five-digit serial
- * numbers, which is worse than useless in a card the agent plans from.
+ * numbers, which is worse than useless in a profile the agent plans from.
  */
 function dateStyles(xml: string | undefined): Set<number> {
   if (xml === undefined) return new Set()
@@ -298,10 +336,7 @@ function sheetRows(
     let value: string
     if (type === "s") value = strings[Number(raw)] ?? ""
     else if (type === "inlineStr") {
-      value = [...inner.matchAll(
-        /<(?:[A-Za-z_][\w.-]*:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?t>/g,
-      )]
-        .map(([, text]) => decodeXml(text ?? "")).join("")
+      value = textNodes(inner)
     } else if (type === "b") value = raw === "1" ? "TRUE" : "FALSE"
     else if (raw.length > 0 && dates.has(Number(attribute(attributes, "s") ?? -1))) {
       value = excelSerialToIso(Number(raw))
@@ -377,18 +412,17 @@ function extractXlsx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
     rendered.push(`# Sheet: ${name}\n${lines.join("\n")}`)
   }
   if (tables.length === 0) return { reason: "it holds no readable worksheets." }
-  const { text, truncated } = clampText(rendered.join("\n\n"))
   // Sheets render as CSV so a workbook reads the same way a CSV attachment does.
-  return { text, tables, ...(truncated ? { truncated } : {}) }
+  return { ...clampText(rendered.join("\n\n")), tables }
 }
 
 const EXTRACTORS: Record<
   string,
   (bytes: Uint8Array) => OfficeExtraction | OfficeExtractionFailure
 > = {
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": extractDocx,
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": extractPptx,
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": extractXlsx,
+  [CHAT_ATTACHMENT_DOCX_MIME_TYPE]: extractDocx,
+  [CHAT_ATTACHMENT_PPTX_MIME_TYPE]: extractPptx,
+  [CHAT_ATTACHMENT_XLSX_MIME_TYPE]: extractXlsx,
 }
 
 /**

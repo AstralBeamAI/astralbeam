@@ -7,16 +7,18 @@ import {
   ImageIcon,
   TableIcon,
 } from "@phosphor-icons/react"
-import { ATTACHMENT_OFFICE_MIME_TYPES } from "../lib/constants.ts"
+import {
+  ATTACHMENT_DOCX_MIME_TYPE,
+  ATTACHMENT_PPTX_MIME_TYPE,
+  ATTACHMENT_XLSX_MIME_TYPE,
+} from "../lib/constants.ts"
 import type { AttachmentKind } from "../lib/types.ts"
-
-const [DOCX, PPTX, XLSX] = ATTACHMENT_OFFICE_MIME_TYPES
 
 /** Office files share one kind but not one icon: a chip should look like the file it holds. */
 function OfficeIcon({ mimeType }: { mimeType: string | undefined }) {
-  if (mimeType === DOCX) return <FileDocIcon />
-  if (mimeType === PPTX) return <FilePptIcon />
-  if (mimeType === XLSX) return <FileXlsIcon />
+  if (mimeType === ATTACHMENT_DOCX_MIME_TYPE) return <FileDocIcon />
+  if (mimeType === ATTACHMENT_PPTX_MIME_TYPE) return <FilePptIcon />
+  if (mimeType === ATTACHMENT_XLSX_MIME_TYPE) return <FileXlsIcon />
   return <FileTextIcon />
 }
 

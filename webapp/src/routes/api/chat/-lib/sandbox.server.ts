@@ -148,7 +148,7 @@ async function startChatSandbox(
 /**
  * Writes the run's attached files into the workspace, as part of starting the sandbox rather than
  * as a step the agent has to take. Provisioning is lazy, so a conversation that only reads its
- * file cards never pays for this; by the time any sandbox tool runs, the files are already there.
+ * file profiles never pays for this; by the time any sandbox tool runs, the files are there.
  *
  * A rejection propagates and fails the start: an agent told a file is at `uploads/sales.csv` must
  * not find it missing, and a refusal it can relay is better than a silent absence it cannot.
@@ -169,7 +169,7 @@ async function writeChatSandboxUploads(
   ))
 }
 
-const SANDBOX_TIMEOUT = Symbol("sandbox-timeout")
+export const SANDBOX_TIMEOUT = Symbol("sandbox-timeout")
 
 export async function withSandboxTimeout<Value>(
   operation: Promise<Value>,
@@ -188,17 +188,13 @@ export async function withSandboxTimeout<Value>(
   }
 }
 
-export function isSandboxTimeout(value: unknown): value is typeof SANDBOX_TIMEOUT {
-  return value === SANDBOX_TIMEOUT
-}
-
 /** For the filesystem calls, where a timeout means the sandbox itself stopped answering. */
 export async function requireSandboxOperation<Value>(
   operation: Promise<Value>,
   ms: number,
 ): Promise<Value> {
   const result = await withSandboxTimeout(operation, ms)
-  if (isSandboxTimeout(result)) throw new Error("The sandbox did not respond in time")
+  if (result === SANDBOX_TIMEOUT) throw new Error("The sandbox did not respond in time")
   return result
 }
 

@@ -94,7 +94,7 @@ export function classifyAttachmentFile(
   if (canonical !== undefined) {
     // These formats are identified by extension: browsers report nothing for `.parquet` and
     // `application/octet-stream` for the `.csv` some tools write.
-    kind = ATTACHMENT_OFFICE_MIME_TYPES.includes(canonical) ? "office" : "data"
+    kind = mimeTypeKind(canonical)
     mimeType = canonical
     // `.env.production` and friends are the one family worth a prefix; the rest are exact names.
   } else if (

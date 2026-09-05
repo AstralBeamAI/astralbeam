@@ -40,14 +40,19 @@ export interface AttachmentTable {
 }
 
 /** Candidates in preference order; the first one that splits the header wins a tie. */
-const DELIMITERS = [",", "\t", ";", "|"]
+const DELIMITERS = [",", "\t", ";", "|"] as const
 
 /**
  * Reads delimited text in one pass, keeping only the first `keep` rows and counting the rest.
  * Quote-aware, so a value containing the delimiter or a newline neither splits a field nor
- * inflates the row count. A 10 MB CSV therefore costs one scan and a handful of retained rows.
+ * inflates the row count.
  *
- * Fields past the column bound are counted but not retained: a file that is one long run of
+ * Past `keep` rows nothing is retained, so the scan stops assembling field strings and only
+ * tracks records. That is what keeps the cost proportional to the answer rather than to the file:
+ * building a string per field for all of a 10 MB CSV took 100 ms, and 438 ms when the file was one
+ * enormous unbroken field, against ~24 ms and ~10 ms for counting the tail.
+ *
+ * Fields past the column bound are counted but not retained either: a file that is one long run of
  * separators would otherwise turn every one of them into a retained string.
  */
 export function readDelimitedRows(
@@ -63,35 +68,44 @@ export function readDelimitedRows(
   let quoted = false
   let started = false
   let columnsTruncated = false
+  /** Any character in the current record, so a bare newline is a terminator and not a record. */
+  let filled = false
+  /** Once the kept rows are in hand, only the record count still matters. */
+  let counting = false
 
   const endValue = () => {
     fields += 1
-    if (row.length < CHAT_ATTACHMENT_MAX_TABLE_COLUMNS) row.push(value)
-    else columnsTruncated = true
+    if (!counting) {
+      if (row.length < CHAT_ATTACHMENT_MAX_TABLE_COLUMNS) row.push(value)
+      else columnsTruncated = true
+    }
     value = ""
   }
   const endRow = () => {
     endValue()
-    // A trailing newline at the end of the file is a terminator, not an empty final record.
-    if (!(fields === 1 && row[0] === "")) {
+    if (filled || fields > 1) {
       total += 1
       if (rows.length < keep) rows.push(row)
     }
     row = []
     fields = 0
     started = false
+    filled = false
+    counting = rows.length >= keep
   }
 
   for (let index = 0; index < text.length; index += 1) {
     const character = text[index]
     if (quoted) {
       if (character !== '"') {
-        value += character
+        if (!counting) value += character
+        filled = true
         continue
       }
       // A doubled quote inside a quoted field is one literal quote (RFC 4180 §2.7).
       if (text[index + 1] === '"') {
-        value += '"'
+        if (!counting) value += '"'
+        filled = true
         index += 1
         continue
       }
@@ -101,6 +115,7 @@ export function readDelimitedRows(
     if (character === '"' && !started) {
       quoted = true
       started = true
+      filled = true
       continue
     }
     if (character === delimiter) {
@@ -114,10 +129,11 @@ export function readDelimitedRows(
     }
     // A lone CR before the LF is line ending, not content; a CR anywhere else is.
     if (character === "\r" && text[index + 1] === "\n") continue
-    value += character
+    if (!counting) value += character
     started = true
+    filled = true
   }
-  if (value.length > 0 || fields > 0) endRow()
+  if (filled || fields > 0) endRow()
   return { rows, total, columnsTruncated }
 }
 

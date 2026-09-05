@@ -17,8 +17,8 @@ import {
 import {
   acquireChatSandbox,
   type ChatSandboxSession,
-  isSandboxTimeout,
   requireSandboxOperation,
+  SANDBOX_TIMEOUT,
   withSandboxTimeout,
 } from "./sandbox.server"
 import {
@@ -238,7 +238,7 @@ export function createChatSandboxTools(
       CHAT_SANDBOX_COMMAND_TIMEOUT_MS,
     )
     const durationMs = Date.now() - startedAt
-    if (isSandboxTimeout(result)) {
+    if (result === SANDBOX_TIMEOUT) {
       log?.("sandbox", `command timed out: ${command}`, { durationMs })
       return { command, cwd: resolved.path, timedOut: true, durationMs }
     }
