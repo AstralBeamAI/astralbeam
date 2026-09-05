@@ -1,3 +1,5 @@
+import { type ChatMiddleware, EventType } from "@tanstack/ai"
+
 import { profileDelimitedText } from "./attachment-profile.server"
 import { extractOfficeDocument, isOfficeMimeType } from "./attachment-office.server"
 import {
@@ -452,4 +454,44 @@ export function redactChatAttachmentData(messages: ChatMessages): ChatMessages {
     if (Array.isArray(next.parts)) next.parts = redactEntries(next.parts)
     return next
   })
+}
+
+/**
+ * Puts a user's own attachments back into the `MESSAGES_SNAPSHOT` the client reads.
+ *
+ * {@link normalizeChatAttachments} rewrites a user message for the *model*, and the snapshot an
+ * interrupt boundary emits is built from those same rewritten messages. The client replaces its
+ * transcript with that snapshot, so without this pass a sent file's chip becomes the
+ * `[Attached: …]` line as text mid-conversation, and the bytes leave the client's copy of the
+ * turn: the next request no longer carries the file and its handle stops resolving.
+ *
+ * A user message that arrived with a media entry is restored exactly as it arrived, so the
+ * transcript the client keeps is the one it sent.
+ */
+export function createChatAttachmentSnapshotMiddleware(messages: ChatMessages): ChatMiddleware {
+  const sent = new Map<string, ChatMessages[number]>()
+  for (const message of messages) {
+    if (message.role !== "user") continue
+    const source = message as { id?: unknown; content?: unknown; parts?: unknown }
+    if (typeof source.id !== "string" || source.id.length === 0) continue
+    const entries = Array.isArray(source.parts) ? source.parts : source.content
+    if (Array.isArray(entries) && entries.some(isMediaEntry)) sent.set(source.id, message)
+  }
+  return {
+    name: "astralbeam-chat-attachment-snapshot",
+    onChunk: (_context, chunk) => {
+      if (sent.size === 0 || chunk.type !== EventType.MESSAGES_SNAPSHOT) return
+      let restored = false
+      const snapshot = chunk.messages.map((message) => {
+        const original = message.role === "user" ? sent.get(message.id) : undefined
+        if (original === undefined) return message
+        restored = true
+        // The original is a validated user message off the same request, so it is already the
+        // wire shape this event carries.
+        return original as typeof message
+      })
+      // Returning nothing leaves the chunk alone, which is what a run with no restored turn wants.
+      return restored ? { ...chunk, messages: snapshot } : undefined
+    },
+  }
 }

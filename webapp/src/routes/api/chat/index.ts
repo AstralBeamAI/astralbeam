@@ -11,7 +11,11 @@ import { runDatabaseEffect } from "@/db"
 import { createChatAdapter } from "./-lib/adapter.server"
 import { resolveChatAgent } from "./-lib/agent.server"
 import { createChatAttachmentTools } from "./-lib/attachment-tools.server"
-import { normalizeChatAttachments, redactChatAttachmentData } from "./-lib/attachments.server"
+import {
+  createChatAttachmentSnapshotMiddleware,
+  normalizeChatAttachments,
+  redactChatAttachmentData,
+} from "./-lib/attachments.server"
 import { authenticateChatRequest, isChatAuthenticationError } from "./-lib/auth.server"
 import {
   CHAT_ATTACHMENT_SYSTEM_PROMPT,
@@ -191,6 +195,9 @@ export const Route = createFileRoute("/api/chat/")({
             // Every other tool executes in the host page and arrives declared in the request body;
             // a client tool reusing a server tool's name is dropped by `mergeAgentTools`.
             tools: mergeAgentTools([...sandboxTools, ...attachmentTools], params.tools),
+            // The client rebuilds its transcript from the snapshot an interrupt boundary emits,
+            // so the turns it sent have to survive the rewrite above.
+            middleware: [createChatAttachmentSnapshotMiddleware(params.messages)],
             threadId: params.threadId,
             runId: params.runId,
             parentRunId: params.parentRunId,

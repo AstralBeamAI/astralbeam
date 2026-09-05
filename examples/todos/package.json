@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vite build",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
+    "check:fix": "deno fmt && deno lint --fix",
     "dev": "vite --port 4700",
     "format": "deno fmt",
     "format:check": "deno fmt --check",

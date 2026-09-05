@@ -1,6 +1,11 @@
+import type { ChatMiddleware, ChatMiddlewareContext, StreamChunk } from "@tanstack/ai"
 import { expect, test } from "vitest"
 
-import { normalizeChatAttachments, redactChatAttachmentData } from "./attachments.server"
+import {
+  createChatAttachmentSnapshotMiddleware,
+  normalizeChatAttachments,
+  redactChatAttachmentData,
+} from "./attachments.server"
 import type { ChatMessages } from "./types"
 
 const base64 = (text: string) => btoa(text)
@@ -345,4 +350,49 @@ test("leaves a non-user message without media untouched", () => {
     { id: "a1", role: "assistant", parts: [{ type: "text", content: "hi" }] },
   ] as unknown as ChatMessages
   expect(normalizeChatAttachments(messages, withSandbox).messages).toEqual(messages)
+})
+
+function onChunk(middleware: ChatMiddleware, chunk: unknown) {
+  const hook = middleware.onChunk
+  if (!hook) throw new Error("The middleware declares no onChunk hook.")
+  return hook({} as ChatMiddlewareContext, chunk as StreamChunk)
+}
+
+// The client rebuilds its whole transcript from the snapshot an interrupt boundary emits. A turn
+// that arrived with a file therefore has to come back carrying that file: otherwise its chip
+// becomes the announcement line as text mid-conversation, and the next request no longer carries
+// the bytes the handle resolves against.
+test("restores the user's own attachments in a messages snapshot", () => {
+  const sent = [
+    {
+      id: "user-1",
+      role: "user",
+      content: [documentEntry("config.csv", "text/csv", base64("a\n1\n"))],
+    },
+    { id: "assistant-1", role: "assistant", content: "on it" },
+    { id: "user-2", role: "user", content: "and this one has no file" },
+  ] as unknown as ChatMessages
+  const snapshot = {
+    type: "MESSAGES_SNAPSHOT",
+    timestamp: 0,
+    messages: [
+      { id: "user-1", role: "user", content: "[Attached: config.csv]" },
+      { id: "assistant-1", role: "assistant", content: "on it" },
+      { id: "user-2", role: "user", content: "and this one has no file" },
+    ],
+  }
+  expect(onChunk(createChatAttachmentSnapshotMiddleware(sent), snapshot)).toMatchObject({
+    type: "MESSAGES_SNAPSHOT",
+    messages: [sent[0], snapshot.messages[1], snapshot.messages[2]],
+  })
+})
+
+test("leaves every other chunk, and a conversation with no attachment, untouched", () => {
+  const middleware = createChatAttachmentSnapshotMiddleware(
+    [{ id: "user-1", role: "user", content: "hello" }] as unknown as ChatMessages,
+  )
+  expect(onChunk(middleware, { type: "MESSAGES_SNAPSHOT", timestamp: 0, messages: [] }))
+    .toBeUndefined()
+  expect(onChunk(middleware, { type: "TEXT_MESSAGE_CONTENT", timestamp: 0, delta: "hi" }))
+    .toBeUndefined()
 })
