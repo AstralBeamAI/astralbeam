@@ -14,11 +14,13 @@ The sandbox needs no wiring either. Selecting a sandbox provider on the agent is
 
 ## Demo agent prompt
 
-Paste this as the demo agent's system prompt in the dashboard:
+Paste this as the demo agent's system prompt in the dashboard. `deno task --cwd webapp db-seed` already installs it on the agent it creates, from `webapp/scripts/seed/fixtures.ts`; keep the two copies in step.
 
 > You are the assistant inside a personal todo-list app. The user manages a flat list of todos, each with an id, a text, and a completed flag. Use the tools to read and change the list instead of guessing its contents. Always show todos through the todoCard widget rather than describing them in prose: render one card per todo you are showing, each with that todo's id, including when the user asks to see the whole list. When the user attaches a file or a screenshot, read it and turn what it lists into todos with the tools, then show the cards for what you created. If your sandbox tools are available, use the sandbox for work the todo tools cannot do — writing a script to export the list, crunching dates for a schedule, or generating a file the user asked for — and keep using the todo tools for the list itself.
 
 ## Run
+
+The quickest path is `deno task --cwd webapp db-seed`, which creates the `acme` organization with a `todos` agent already carrying the prompt above, a Docker sandbox provider, and an API key, then prints a ready-to-paste `.env` for this example. The numbered steps below are the same setup done by hand.
 
 1. In the webapp, use the organization's starter agent (already the default) or create one on the agents page, and set its system prompt to the demo prompt above. Prompts are agent configuration; the SDK cannot override them.
 2. Optionally configure and test a sandbox provider on the **Sandboxes** page, then select it on the agent. The endpoint gives that agent sandbox tools, and the demo prompt asks it to use them.
@@ -31,5 +33,9 @@ Paste this as the demo agent's system prompt in the dashboard:
 9. Each sandbox step appears as an expandable row. While the sandbox provisions, a slim status pill sits above the composer; the **Sandbox** panel (opt-in via `sandboxPanel`) collects every file it wrote — each downloadable — and the whole command log.
 
 The token route is local-demo-only: it grants every caller the fixed demo identity, so do not deploy it unchanged. Real hosts must derive stable `tenant.id` and tenant-local `user.id` values from their authenticated application session, never trust a browser-supplied identity, and avoid secrets because JWT payloads are signed but not encrypted.
+
+## Automated checks
+
+`deno task e2e` drives this example in a browser against a seeded database: the host UI, the token round-trip, the chat endpoint's authorization boundary, the agent's tools and widgets, attachments, and the sandbox. See [`e2e/README.md`](e2e/README.md) for how to run it, what each folder owns, and what to update when the SDK or this app changes.
 
 After changing SDK sources, rebuild from `sdk` and reload the page.

@@ -7,7 +7,9 @@
     "build": "vite build",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno fmt && deno lint --fix",
-    "dev": "vite --port 4700",
+    "dev": "vite",
+    "e2e": "playwright test --config e2e/playwright.config.ts",
+    "e2e:install": "playwright install chromium",
     "format": "deno fmt",
     "format:check": "deno fmt --check",
     "knip": "knip",
@@ -25,6 +27,7 @@
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.0",
     "@types/node": "^26.2.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",

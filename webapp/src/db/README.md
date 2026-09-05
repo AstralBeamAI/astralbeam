@@ -73,6 +73,22 @@ deno task --cwd webapp db migrate
 
 Both resets are destructive and must only be used for disposable local data. The Compose reset also deletes the shared Valkey and Mailpit data. `db-reset` only recreates the selected database; run `migrate` separately to apply pending checked-in migrations. `check` validates migration-history consistency and does not inspect which migrations a live database has applied.
 
+## Seed sample data
+
+`deno task db-seed` fills the current worktree's database with everything a browser or end-to-end check would otherwise create by hand: global configuration, verified accounts, two organizations with members and a pending invitation, agents, organization API keys, Tenants and tenant users, and a Docker sandbox provider. It skips `/configure`, signup, email verification, and API-key creation entirely.
+
+```sh
+deno task db-reset
+deno task db migrate
+deno task db-seed
+```
+
+The seed is idempotent, so running it twice changes nothing but `updated_at`. It runs in one transaction, so a failure leaves no half-seeded database. It refuses any `DATABASE_URL` whose host is not loopback, because it writes fixed development credentials.
+
+It prints every account with its password, each agent's public ID, each API key's full value, and a ready-to-paste block for `examples/todos/.env`. `scripts/seed/fixtures.ts` is the single source of those values, and `examples/todos/e2e` imports it directly.
+
+Two things the seed deliberately leaves alone. It never writes `openai_api_key`, and it skips any configuration key whose uppercase environment variable is already set, because the environment takes precedence and `/configure` renders those fields read-only. Put the OpenAI key in `webapp/.env.local`, which `scripts/copy-worktree-env.sh` copies into every worktree.
+
 ## Drizzle migration workflow
 
 Drizzle is schema-first: `src/db/schema.server.ts` is the hand-authored schema entrypoint, and `generate` compares it with the latest existing Drizzle snapshot rather than the live database. Out-of-band database changes are therefore invisible to generation.
