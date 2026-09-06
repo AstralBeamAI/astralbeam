@@ -102,12 +102,6 @@ export function mountAstralBeamChat(
   })
   return {
     update: (next) => {
-      if (
-        Object.hasOwn(next, "agentId") || Object.hasOwn(next, "apiUrl") ||
-        Object.hasOwn(next, "generateAuthToken")
-      ) {
-        throw new Error("agentId, apiUrl, and generateAuthToken are fixed at mount")
-      }
       // A fresh object rather than a mutation, so the widget's memoized derivations compare the
       // new option values by identity instead of seeing the same object twice.
       live = { ...live, ...next }

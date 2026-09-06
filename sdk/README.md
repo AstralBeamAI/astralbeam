@@ -69,7 +69,7 @@ export const POST = createAstralBeamTokenRoute({
 
 ## Options
 
-Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` applies any subset in place. `agentId`, `apiUrl`, and `generateAuthToken` are fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
+Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` applies any subset in place, and no option is fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
 
 | Option                               | Default                            | Meaning                                                            |
 | ------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |

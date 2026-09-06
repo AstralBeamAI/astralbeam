@@ -50,7 +50,7 @@ For full control, mint the token with `createAstralBeamChatToken({ apiKey, user,
 - Either form runs again for every token — near expiry and after a token is rejected — so a rotating credential stays current instead of being captured once.
 - The React prop's function form is read from the latest render, so an inline closure over current auth state is fine and needs no memoization.
 - Returning `undefined` or throwing fails closed; the composer shows the error and its retry link asks you again.
-- It is fixed at mount: `handle.update` rejects it, so change it with a fresh mount (in React, a new `key`).
+- Read per token, so changing it applies to the next one; switching to another end user means a fresh mount, since the transcript belongs to the previous one.
 - A cross-origin endpoint with a custom header is preflighted, so it must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
 
 ## Rules

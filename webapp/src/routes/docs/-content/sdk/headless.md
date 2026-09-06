@@ -25,7 +25,7 @@ function MyChat() {
 
 - State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`.
 - Actions: `sendMessage`, `addToolResult`, `stop`, `reload`, `reset`; `core` exposes the raw session.
-- Options are fixed for the component's lifetime; remount with a React `key` to change them.
+- Options follow the props you pass, including `agentId`, `apiUrl`, and `generateAuthToken`; nothing needs a remount.
 - No shadow root and no bundled styles: your markup, your CSS.
 
 ## Any framework
@@ -42,6 +42,7 @@ chat.dispose()
 ```
 
 - `widgets` declares what the agent may draw; your `onRenderWidget` draws it and may return a cleanup.
+- `chat.updateOptions({ agentId })` merges option changes into the running session, keeping the transcript.
 - Sending settles dangling tool calls first (questionnaires as skipped), the same as the widget.
 - `capabilities` reflects the agent's dashboard policy; render only what it grants.
 

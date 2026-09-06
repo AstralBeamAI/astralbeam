@@ -149,8 +149,9 @@ export interface AstralBeamChatTheme {
 
 export interface MountAstralBeamChatOptions {
   /**
-   * Public ID of the organization-owned agent, fixed for this mounted chat. Omit it to use the
-   * organization's default agent, which the dashboard's agents page selects.
+   * Public ID of the organization-owned agent. Omit it to use the organization's default agent,
+   * which the dashboard's agents page selects. A change answers the next run with the new agent
+   * and keeps the transcript, which that agent then sees as history.
    */
   agentId?: string | undefined
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
@@ -165,14 +166,15 @@ export interface MountAstralBeamChatOptions {
   /** Subtitle shown under the empty transcript's headline. Default describes the app's tools and widgets. */
   emptyDescription?: string | undefined
   /**
-   * Base URL of the AstralBeam API; the widget calls `/chat` and its subroutes under it. Fixed at
-   * mount. Default `"https://app.astralbeam.ai/api"`, the hosted cloud; self-hosted deployments
-   * must set their own origin.
+   * Base URL of the AstralBeam API; the widget calls `/chat` and its subroutes under it. Read for
+   * every request, so a change moves the next one. Default `"https://app.astralbeam.ai/api"`, the
+   * hosted cloud; self-hosted deployments must set their own origin.
    */
   apiUrl?: string | undefined
   /**
    * Where the short-lived chat JWT comes from: `{ url, ...RequestInit }` for a token endpoint, or
-   * a function that mints `{ token }` in the host page. Fixed at mount. Default
+   * a function that mints `{ token }` in the host page. Read for every token, so a change applies
+   * to the next one, which is minted when the cached token nears expiry. Default
    * `{ url: "/api/astralbeam/token" }`, posted with the page's cookies.
    */
   generateAuthToken?: AstralBeamChatGenerateAuthToken | undefined
@@ -205,12 +207,11 @@ export interface MountAstralBeamChatOptions {
 }
 
 /**
- * Mount options the handle can change afterwards. The agent and the transport URLs are fixed:
- * changing any of them would mean a new client and a discarded transcript.
+ * What the handle's `update` takes: every mount option, none of them fixed. The transport options
+ * are re-read per request rather than captured, so changing them keeps the transcript and the
+ * chat session instead of forcing a fresh mount.
  */
-export type AstralBeamChatUpdate = Partial<
-  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "generateAuthToken">
->
+export type AstralBeamChatUpdate = Partial<MountAstralBeamChatOptions>
 
 export interface AstralBeamChatHandle {
   unmount: () => void

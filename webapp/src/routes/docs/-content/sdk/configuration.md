@@ -1,36 +1,29 @@
 # Configuration
 
-Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, `update(options)` applies any subset in place, keeping the transcript, the session, and live widget renders.
+Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, `update(options)` applies any subset in place, keeping the transcript, the session, and live widget renders. Nothing is fixed at mount.
 
-## Fixed at mount
+## Options
 
-These select the agent and build the transport, so changing them requires a fresh mount.
-
-| Option              | Default                            | Meaning                                                                             |
-| ------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
-| `agentId`           | organization's default agent       | `agt_<organization>_<agent>` from the dashboard                                     |
-| `apiUrl`            | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API; the widget streams from `/chat`                     |
-| `generateAuthToken` | `{ url: "/api/astralbeam/token" }` | Your token endpoint as `{ url, ...RequestInit }`, or a function minting `{ token }` |
+| Option                           | Default                            | Meaning                                                                             |
+| -------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `agentId`                        | organization's default agent       | `agt_<organization>_<agent>` from the dashboard                                     |
+| `apiUrl`                         | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API; the widget streams from `/chat`                     |
+| `generateAuthToken`              | `{ url: "/api/astralbeam/token" }` | Your token endpoint as `{ url, ...RequestInit }`, or a function minting `{ token }` |
+| `title`                          | `"AstralBeam"`                     | Name in the widget's header                                                         |
+| `showHeader`                     | `true`                             | `false` hides the header and its reset button                                       |
+| `emptyTitle`, `emptyDescription` | generic copy                       | Headline and subtitle of the empty transcript                                       |
+| `colorScheme`                    | `"system"`                         | `"light"`, `"dark"`, or follow the OS setting live                                   |
+| `theme`                          | built-in palette                   | `{ light, dark }` CSS token overrides; see [Theming](./theming.md)                  |
+| `attachments`                    | `true`                             | `false` disables; an object narrows limits; see [Attachments](./attachments.md)     |
+| `sandboxPanel`                   | `false`                            | Shows the collected sandbox panel; see [Sandbox](./sandbox.md)                      |
+| `tools`, `widgets`               | none                               | See [Tools and widgets](./tools-and-widgets.md)                                     |
+| `debug`                          | `false`                            | Log every SDK action in the browser, and the run on the server                      |
 
 - Self-hosted deployments must set `apiUrl` to their own origin; the default points at the hosted cloud, and chat tokens are bearer credentials that should only reach the deployment that issued the API key.
 - `apiUrl` is a base, not a route: the widget appends `/chat` for the stream and its subroutes for the agent handshake and artifact downloads.
 - `generateAuthToken` is the only token option; the request form's init reaches `fetch` as given. See [Authentication](./authentication.md).
-
-## Updatable
-
-Prop or `update` changes apply immediately.
-
-| Option                           | Default          | Meaning                                                                         |
-| -------------------------------- | ---------------- | ------------------------------------------------------------------------------- |
-| `title`                          | `"AstralBeam"`   | Name in the widget's header                                                     |
-| `showHeader`                     | `true`           | `false` hides the header and its reset button                                   |
-| `emptyTitle`, `emptyDescription` | generic copy     | Headline and subtitle of the empty transcript                                   |
-| `colorScheme`                    | `"system"`       | `"light"`, `"dark"`, or follow the OS setting live                              |
-| `theme`                          | built-in palette | `{ light, dark }` CSS token overrides; see [Theming](./theming.md)              |
-| `attachments`                    | `true`           | `false` disables; an object narrows limits; see [Attachments](./attachments.md) |
-| `sandboxPanel`                   | `false`          | Shows the collected sandbox panel; see [Sandbox](./sandbox.md)                  |
-| `tools`, `widgets`               | none             | See [Tools and widgets](./tools-and-widgets.md)                                 |
-| `debug`                          | `false`          | Log every SDK action in the browser, and the run on the server                  |
+- The transport options are read per request, not captured: a new `apiUrl` or `generateAuthToken` applies to the next request, and a new `agentId` answers the next run.
+- Changing `agentId` keeps the transcript, which the new agent then sees as history; call `reset()` first for a clean conversation.
 
 ## Chrome slots
 

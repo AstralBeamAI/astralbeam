@@ -68,6 +68,11 @@ export interface AstralBeamChatCore {
   getState: () => AstralBeamChatState
   /** Notifies on every state change; returns the unsubscribe. */
   subscribe: (listener: () => void) => () => void
+  /**
+   * Merges option changes into the session and applies them in place, keeping the transcript and
+   * the chat session. Only the keys given are replaced.
+   */
+  updateOptions: (options: Partial<AstralBeamChatCoreOptions>) => void
   /** Sends a message, first settling any dangling tool calls so the run can proceed. */
   sendMessage: (content: string | MultimodalContent) => Promise<void>
   /** Resolves a client tool call the host executed itself (a questionnaire, an approval). */
@@ -88,9 +93,8 @@ export interface AstralBeamChatCore {
  * whole UI is another.
  */
 export function createAstralBeamChat(options: AstralBeamChatCoreOptions): AstralBeamChatCore {
-  const debug = createDebugLogger(options.debug)
-  const urls = chatApiUrls(options.apiUrl)
-  const widgets = options.widgets ?? {}
+  let live: AstralBeamChatCoreOptions = { ...options }
+  let debug = createDebugLogger(live.debug)
   const listeners = new Set<() => void>()
   let state: AstralBeamChatState = {
     messages: [],
@@ -107,7 +111,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   }
 
   const authentication: ChatAuthenticationOptions = {
-    generateAuthToken: options.generateAuthToken ?? { url: DEFAULT_AUTH_TOKEN_URL },
+    generateAuthToken: live.generateAuthToken ?? { url: DEFAULT_AUTH_TOKEN_URL },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -120,10 +124,10 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   void initializeChatAuthentication(authentication).catch(() => undefined)
 
   // Agent capability handshake; fails open for state (the endpoint still enforces its policy).
-  void (async () => {
+  const resolveCapabilities = async () => {
     try {
-      const url = new URL(urls.config, globalThis.location?.href)
-      if (options.agentId) url.searchParams.set("agentId", options.agentId)
+      const url = new URL(chatApiUrls(live.apiUrl).config, globalThis.location?.href)
+      if (live.agentId) url.searchParams.set("agentId", live.agentId)
       const token = await getValidChatToken(authentication)
       const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
       if (!response.ok) throw new Error(`The config request answered ${response.status}`)
@@ -132,7 +136,8 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     } catch (error) {
       debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
     }
-  })()
+  }
+  void resolveCapabilities()
 
   // Live widget renders, keyed per tool call like the styled widget's, so a repeated call
   // replaces its own render and a reset disposes them all.
@@ -142,6 +147,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     renderCleanups.clear()
   }
   const renderWidget = async (input: RenderWidgetInput, toolCallId: string) => {
+    const widgets = live.widgets ?? {}
     if (!Object.hasOwn(widgets, input.widget)) {
       throw new Error(`Unknown widget "${input.widget}"`)
     }
@@ -152,21 +158,27 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     }
     renderCleanups.get(toolCallId)?.()
     renderCleanups.delete(toolCallId)
-    const cleanup = options.onRenderWidget?.({ widget: input.widget, props: validated, toolCallId })
+    const cleanup = live.onRenderWidget?.({ widget: input.widget, props: validated, toolCallId })
     if (cleanup) renderCleanups.set(toolCallId, cleanup)
-    return { widget: input.widget, rendered: options.onRenderWidget !== undefined }
+    return { widget: input.widget, rendered: live.onRenderWidget !== undefined }
   }
 
+  const agentTools = () =>
+    buildAgentTools(live.widgets ?? {}, live.tools ?? {}, renderWidget, debug)
+  const forwardedProps = () => ({
+    ...(live.agentId ? { agentId: live.agentId } : {}),
+    ...(live.debug ? { debug: true } : {}),
+  })
+
   const client = new ChatClient({
-    connection: fetchServerSentEvents(urls.chat, async () => ({
+    // A URL getter, because the client reads its connection once and a second client would cost
+    // the transcript.
+    connection: fetchServerSentEvents(() => chatApiUrls(live.apiUrl).chat, async () => ({
       headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
       fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
     })),
-    tools: buildAgentTools(widgets, options.tools ?? {}, renderWidget, debug),
-    forwardedProps: {
-      ...(options.agentId ? { agentId: options.agentId } : {}),
-      ...(options.debug ? { debug: true } : {}),
-    },
+    tools: agentTools(),
+    forwardedProps: forwardedProps(),
     onMessagesChange: (messages) => {
       update({ messages, sandbox: collectSandboxActivity(messages), error: client.getError() })
     },
@@ -214,6 +226,16 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     subscribe: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
+    },
+    updateOptions: (next) => {
+      const agent = live.agentId
+      const apiUrl = live.apiUrl
+      live = { ...live, ...next }
+      debug = createDebugLogger(live.debug)
+      authentication.generateAuthToken = live.generateAuthToken ?? { url: DEFAULT_AUTH_TOKEN_URL }
+      authentication.debug = debug
+      client.updateOptions({ tools: agentTools(), forwardedProps: forwardedProps() })
+      if (live.agentId !== agent || live.apiUrl !== apiUrl) void resolveCapabilities()
     },
     sendMessage: (content) => {
       settleDanglingToolCalls()

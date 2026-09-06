@@ -67,8 +67,7 @@ async function requestChatToken(
   signal: AbortSignal,
 ): Promise<unknown> {
   const { generateAuthToken, fetchClient } = options
-  // Called per request, so a host that mints its own token is asked again on every renewal
-  // instead of handing one over once; no result at all fails closed below.
+  // No result at all means the host could not mint a token, which fails closed below.
   if (typeof generateAuthToken === "function") {
     const generated: { token?: unknown } | null | undefined = await generateAuthToken()
     return generated?.token

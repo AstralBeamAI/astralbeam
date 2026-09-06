@@ -61,6 +61,9 @@ export function ChatWidget(
   const [authenticationState, setAuthenticationState] = useState<ChatAuthenticationState>({
     status: "loading",
   })
+  // Read by the connection's URL getter below, which runs long after the client was constructed.
+  const optionsRef = useRef(options)
+  optionsRef.current = options
   const [authentication] = useState<ChatAuthenticationOptions>(() => ({
     generateAuthToken: options.generateAuthToken ?? { url: DEFAULT_AUTH_TOKEN_URL },
     session: {
@@ -73,6 +76,7 @@ export function ChatWidget(
     debug,
   }))
   authentication.debug = debug
+  authentication.generateAuthToken = options.generateAuthToken ?? { url: DEFAULT_AUTH_TOKEN_URL }
   useEffect(() => {
     void initializeChatAuthentication(authentication).catch(() => undefined)
     return () => disposeChatAuthentication(authentication)
@@ -103,11 +107,11 @@ export function ChatWidget(
     })
   }, [debug, toolNames, widgets])
 
-  // Fixed for the mount, which is why `apiUrl` is not part of an update: useChat reads the
-  // connection only when it constructs its client, so a new one would cost the transcript.
+  // A URL getter, because useChat reads the connection only when it constructs its client and a
+  // second client would cost the transcript.
   const [connection] = useState(() =>
     fetchServerSentEvents(
-      chatApiUrls(options.apiUrl).chat,
+      () => chatApiUrls(optionsRef.current.apiUrl).chat,
       async () => ({
         headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
         fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
@@ -148,9 +152,9 @@ export function ChatWidget(
       setSandboxStatus(sandboxState)
     },
   })
-  // Agent capability handshake: what the endpoint's resolved agent grants. Fails open for the
-  // UI (the endpoint still enforces the policy on every run), and re-resolves per mount only —
-  // capabilities are dashboard configuration, not conversation state.
+  // Agent capability handshake: what the endpoint's resolved agent grants. Fails open for the UI
+  // (the endpoint still enforces the policy on every run), and re-resolves whenever the host
+  // points the chat at another agent or API base.
   const [grantedAttachments, setGrantedAttachments] = useState(true)
   useEffect(() => {
     let cancelled = false
@@ -173,7 +177,6 @@ export function ChatWidget(
     return () => {
       cancelled = true
     }
-    // The API base and agent are fixed at mount, so this runs once per mounted chat.
   }, [authentication, debug, options.agentId, options.apiUrl])
   // Artifact downloads live beside the chat endpoint; tickets in tool outputs authorize them.
   const filesEndpoint = useMemo(() => chatApiUrls(options.apiUrl).files, [options.apiUrl])

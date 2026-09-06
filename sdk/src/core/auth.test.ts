@@ -230,6 +230,32 @@ test("the request form reaches fetch as its own RequestInit, over the widget's d
   expect(sent?.credentials).toBe("omit")
 })
 
+test("a swapped token source is used for the next token, not the mounted one", async () => {
+  const tokens = [jwt(Date.now() + 30_000, "short"), jwt(Date.now() + 300_000, "swapped")]
+  const requested: Array<RequestInfo | URL> = []
+  const fetchClient = ((input: RequestInfo | URL) => {
+    requested.push(input)
+    return Promise.resolve(Response.json({ token: tokens[requested.length - 1] }))
+  }) as typeof fetch
+  const authentication = {
+    generateAuthToken: { url: "/auth" },
+    session: {
+      cached: undefined,
+      refreshPromise: undefined,
+      abortController: new AbortController(),
+    },
+    onStateChange: () => undefined,
+    fetchClient,
+    debug: undefined,
+  } satisfies ChatAuthenticationOptions
+
+  await initializeChatAuthentication(authentication)
+  authentication.generateAuthToken = { url: "/other-auth" }
+  // The first token sits inside the refresh skew, so the next read mints from the new source.
+  expect(await getValidChatToken(authentication)).toBe(tokens[1])
+  expect(requested).toEqual(["/auth", "/other-auth"])
+})
+
 test("a host-supplied signal does not detach the token request from the session", async () => {
   let sentSignal: AbortSignal | undefined
   const fetchClient = ((_input: RequestInfo | URL, init?: RequestInit) => {
