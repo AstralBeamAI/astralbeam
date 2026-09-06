@@ -4,7 +4,7 @@ The widget will not chat until it has a token, and it never sees your API key. Y
 
 ## The token endpoint
 
-`/api/astralbeam/token` by default; change it with the `authTokenUrl` option. `createAstralBeamTokenRoute` builds the whole fetch-standard handler: the method check, the unconfigured-key 503, the unauthenticated 401, and the `no-store` header.
+`/api/astralbeam/token` by default; point the widget elsewhere with `generateAuthToken`. `createAstralBeamTokenRoute` builds the whole fetch-standard handler: the method check, the unconfigured-key 503, the unauthenticated 401, and the `no-store` header.
 
 ```ts
 import { createAstralBeamTokenRoute } from "@astralbeam/sdk/server"
@@ -27,26 +27,31 @@ export const POST = createAstralBeamTokenRoute({
 
 For full control, mint the token with `createAstralBeamChatToken({ apiKey, user, tenant })` and answer with `Response.json({ token })` plus `cache-control: no-store`.
 
-## A backend on another origin
+## Where the token comes from
 
-By default the widget POSTs `authTokenUrl` with the page's cookies, which needs a session cookie the browser will send. When your API lives on another origin and authenticates with a bearer token or a custom header, point `authTokenUrl` at it and pass `authTokenHeaders`.
+`generateAuthToken` is the one option for this. Pass `{ url, ...init }` to point at an endpoint, which the widget calls as `fetch(url, init)` with a standard `RequestInit`, or pass a function to mint the token in the page yourself.
 
 ```tsx
+// A token endpoint on another origin, behind header auth.
 <AstralBeamChat
   agentId="agt_acme_support"
-  authTokenUrl="https://api.acme.com/astralbeam/token"
-  authTokenHeaders={{ authorization: `Bearer ${accessToken}` }}
+  generateAuthToken={{
+    url: "https://api.acme.com/astralbeam/token",
+    headers: { authorization: `Bearer ${accessToken}` },
+  }}
 />
+
+// Or mint it yourself: return { token }, or undefined when you cannot.
+<AstralBeamChat generateAuthToken={async () => await mintChatToken()} />
 ```
 
-- Pass an object for a fixed credential, or a function, which may be async, for one you must read or await per request: `authTokenHeaders={async () => ({ authorization: "Bearer " + await getAccessToken() })}`.
-- Headers are resolved on every token request, near expiry and after a token is rejected, so a rotating credential stays current instead of being captured once.
-- The React prop is read from the latest render, so an inline object or callback over current auth state is fine, needs no memoization, and may start out undefined while your own credential loads.
-- Throwing from the callback fails closed before any request; the composer shows the error and its retry link resolves the headers again.
-- The endpoint keeps its contract: the SDK still sends `POST` with `accept: application/json` and expects `{ token }`, and still checks the response status for you.
-- Like `authTokenUrl`, it is fixed at mount: `handle.update` rejects it.
-- A custom header makes the cross-origin request preflighted, so the endpoint must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
-- With header auth you need no cookies at all. Cookies do work cross-origin instead if the endpoint returns `Access-Control-Allow-Credentials: true` and its cookie is `SameSite=None; Secure`, but browser cookie policies make that the more fragile route.
+- Default `{ url: "/api/astralbeam/token" }`, posted with the page's cookies, which needs a session cookie the browser will send.
+- The request form defaults to `POST`, `credentials: "include"`, `cache: "no-store"`, and `accept: application/json`; anything you set in the object wins, and the widget still expects `{ token }` in the JSON response.
+- Either form runs again for every token — near expiry and after a token is rejected — so a rotating credential stays current instead of being captured once.
+- The React prop's function form is read from the latest render, so an inline closure over current auth state is fine and needs no memoization.
+- Returning `undefined` or throwing fails closed; the composer shows the error and its retry link asks you again.
+- It is fixed at mount: `handle.update` rejects it, so change it with a fresh mount (in React, a new `key`).
+- A cross-origin endpoint with a custom header is preflighted, so it must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
 
 ## Rules
 

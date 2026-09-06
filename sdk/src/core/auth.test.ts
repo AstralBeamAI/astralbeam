@@ -25,8 +25,7 @@ test("chat authentication loads once and caches a token away from expiry", async
     return Promise.resolve(Response.json({ token }))
   }) as typeof fetch
   const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: undefined,
+    generateAuthToken: { url: "/auth" },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -55,8 +54,7 @@ test("chat authentication deduplicates concurrent refreshes", async () => {
     return await new Promise<Response>((resolve) => finish = resolve)
   }) as typeof fetch
   const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: undefined,
+    generateAuthToken: { url: "/auth" },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -80,8 +78,7 @@ test("chat authentication refreshes tokens near expiry", async () => {
   const fetchClient =
     (() => Promise.resolve(Response.json({ token: tokens[requestCount++] }))) as typeof fetch
   const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: undefined,
+    generateAuthToken: { url: "/auth" },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -118,8 +115,7 @@ test("chat authentication refreshes and retries a rejected chat request once", a
     return Promise.resolve(new Response("ok"))
   }) as typeof fetch
   const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: undefined,
+    generateAuthToken: { url: "/auth" },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -158,8 +154,7 @@ test("a stale rejected request reuses a token another request already refreshed"
     return Promise.resolve(new Response("ok"))
   }) as typeof fetch
   const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: undefined,
+    generateAuthToken: { url: "/auth" },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -185,8 +180,7 @@ test("chat authentication fails closed for malformed endpoint responses", async 
   let lastState: ChatAuthenticationState | undefined
   const fetchClient = (() => Promise.resolve(Response.json({ token: "not-a-jwt" }))) as typeof fetch
   const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: undefined,
+    generateAuthToken: { url: "/auth" },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -201,47 +195,21 @@ test("chat authentication fails closed for malformed endpoint responses", async 
   expect(lastState?.status).toBe("error")
 })
 
-test("authTokenHeaders are sent on the token request and resolved per request", async () => {
-  const tokens = [jwt(Date.now() + 30_000, "short"), jwt(Date.now() + 300_000, "rotated")]
-  const sent: Array<string | null> = []
-  let credential = "first"
-  const fetchClient = ((_input: RequestInfo | URL, init?: RequestInit) => {
-    const headers = new Headers(init?.headers)
-    sent.push(headers.get("authorization"))
-    expect(headers.get("accept")).toBe("application/json")
-    return Promise.resolve(Response.json({ token: tokens[sent.length - 1] }))
-  }) as typeof fetch
-  const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: () => ({ authorization: `Bearer ${credential}` }),
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await initializeChatAuthentication(authentication)
-  // The first token sits inside the refresh skew, so the next read refetches with the credential
-  // the host holds by then rather than the one captured at mount.
-  credential = "rotated"
-  expect(await getValidChatToken(authentication)).toBe(tokens[1])
-  expect(sent).toEqual(["Bearer first", "Bearer rotated"])
-})
-
-test("static authTokenHeaders are sent as given", async () => {
-  const token = jwt(Date.now() + 300_000, "static")
-  let sent: Headers | undefined
-  const fetchClient = ((_input: RequestInfo | URL, init?: RequestInit) => {
-    sent = new Headers(init?.headers)
+test("the request form reaches fetch as its own RequestInit, over the widget's defaults", async () => {
+  const token = jwt(Date.now() + 300_000, "request-form")
+  let sentUrl: RequestInfo | URL | undefined
+  let sent: RequestInit | undefined
+  const fetchClient = ((input: RequestInfo | URL, init?: RequestInit) => {
+    sentUrl = input
+    sent = init
     return Promise.resolve(Response.json({ token }))
   }) as typeof fetch
   const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: { "x-tenant-key": "acme" },
+    generateAuthToken: {
+      url: "https://api.acme.com/astralbeam/token",
+      credentials: "omit",
+      headers: { authorization: "Bearer host-credential" },
+    },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -253,10 +221,86 @@ test("static authTokenHeaders are sent as given", async () => {
   } satisfies ChatAuthenticationOptions
 
   await initializeChatAuthentication(authentication)
-  expect(sent?.get("x-tenant-key")).toBe("acme")
+  expect(sentUrl).toBe("https://api.acme.com/astralbeam/token")
+  const headers = new Headers(sent?.headers)
+  expect(headers.get("authorization")).toBe("Bearer host-credential")
+  expect(headers.get("accept")).toBe("application/json")
+  expect(sent?.method).toBe("POST")
+  expect(sent?.cache).toBe("no-store")
+  expect(sent?.credentials).toBe("omit")
 })
 
-test("a failing authTokenHeaders callback fails closed without a request", async () => {
+test("a host-supplied signal does not detach the token request from the session", async () => {
+  let sentSignal: AbortSignal | undefined
+  const fetchClient = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    sentSignal = init?.signal ?? undefined
+    return Promise.resolve(Response.json({ token: jwt(Date.now() + 300_000, "signal") }))
+  }) as typeof fetch
+  const authentication = {
+    generateAuthToken: { url: "/auth", signal: new AbortController().signal },
+    session: {
+      cached: undefined,
+      refreshPromise: undefined,
+      abortController: new AbortController(),
+    },
+    onStateChange: () => undefined,
+    fetchClient,
+    debug: undefined,
+  } satisfies ChatAuthenticationOptions
+
+  await initializeChatAuthentication(authentication)
+  expect(sentSignal?.aborted).toBe(false)
+  authentication.session.abortController.abort()
+  expect(sentSignal?.aborted).toBe(true)
+})
+
+test("generateAuthToken mints tokens in the host page instead of at the token endpoint", async () => {
+  const tokens = [jwt(Date.now() + 30_000, "short"), jwt(Date.now() + 300_000, "renewed")]
+  let generated = 0
+  const fetchClient = (() => {
+    throw new Error("the token endpoint must not be called")
+  }) as typeof fetch
+  const authentication = {
+    generateAuthToken: () => Promise.resolve({ token: tokens[generated++] as string }),
+    session: {
+      cached: undefined,
+      refreshPromise: undefined,
+      abortController: new AbortController(),
+    },
+    onStateChange: () => undefined,
+    fetchClient,
+    debug: undefined,
+  } satisfies ChatAuthenticationOptions
+
+  await initializeChatAuthentication(authentication)
+  // The first token sits inside the refresh skew, so the next read asks the host again.
+  expect(await getValidChatToken(authentication)).toBe(tokens[1])
+  expect(generated).toBe(2)
+})
+
+test("a generateAuthToken that mints no token fails closed", async () => {
+  let lastState: ChatAuthenticationState | undefined
+  const authentication = {
+    generateAuthToken: () => undefined,
+    session: {
+      cached: undefined,
+      refreshPromise: undefined,
+      abortController: new AbortController(),
+    },
+    onStateChange: (state: ChatAuthenticationState) => lastState = state,
+    fetchClient: (() => {
+      throw new Error("the token endpoint must not be called")
+    }) as typeof fetch,
+    debug: undefined,
+  } satisfies ChatAuthenticationOptions
+
+  await expect(initializeChatAuthentication(authentication)).rejects.toThrow(
+    /generateAuthToken did not return a token/,
+  )
+  expect(lastState?.status).toBe("error")
+})
+
+test("a throwing generateAuthToken fails closed without a request", async () => {
   let lastState: ChatAuthenticationState | undefined
   let requests = 0
   const fetchClient = (() => {
@@ -264,8 +308,7 @@ test("a failing authTokenHeaders callback fails closed without a request", async
     return Promise.resolve(Response.json({ token: jwt(Date.now() + 300_000, "unreachable") }))
   }) as typeof fetch
   const authentication = {
-    authTokenUrl: "/auth",
-    authTokenHeaders: () => Promise.reject(new Error("the host session expired")),
+    generateAuthToken: () => Promise.reject(new Error("the host session expired")),
     session: {
       cached: undefined,
       refreshPromise: undefined,

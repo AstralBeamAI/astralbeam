@@ -13,8 +13,9 @@ import { createPortal } from "react-dom"
 // chunk and its bundled React instead of bundling a second copy.
 import {
   type AstralBeamChatAttachmentOptions,
-  type AstralBeamChatAuthTokenHeaders,
+  type AstralBeamChatAuthTokenRequest,
   type AstralBeamChatColorScheme,
+  type AstralBeamChatGenerateAuthToken,
   type AstralBeamChatHandle,
   type AstralBeamChatSlotRenderer,
   type AstralBeamChatTheme,
@@ -38,8 +39,9 @@ import {
 
 export type {
   AstralBeamChatAttachmentOptions,
-  AstralBeamChatAuthTokenHeaders,
+  AstralBeamChatAuthTokenRequest,
   AstralBeamChatColorScheme,
+  AstralBeamChatGenerateAuthToken,
   AstralBeamChatTheme,
   InferParameters,
   ParametersSchema,
@@ -103,6 +105,17 @@ export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstral
           },
         }]),
       ),
+      // A minting function reads the latest render like `execute`, so a closure over the host's
+      // own auth state stays current; a request object needs no wrapper.
+      generateAuthToken: typeof options.generateAuthToken === "function"
+        ? () => {
+          const current = optionsRef.current.generateAuthToken
+          if (typeof current !== "function") {
+            throw new Error("generateAuthToken is no longer a function")
+          }
+          return current()
+        }
+        : options.generateAuthToken,
       // Wrapped only when a renderer exists at mount: an unconditional wrapper would make the
       // core report rendered: true for hosts that declared widgets without rendering them.
       onRenderWidget: options.onRenderWidget === undefined
@@ -156,15 +169,13 @@ export interface AstralBeamChatProps {
   emptyDescription?: string
   /** Base URL of the AstralBeam API; the widget calls `/chat` under it. Default the hosted cloud. */
   apiUrl?: string
-  /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
-  authTokenUrl?: string
   /**
-   * Extra headers for the token request, for a backend on another origin that authenticates with a
-   * bearer token or custom header instead of cookies. Always read from the latest render, so an
-   * inline object or callback over current auth state is fine, needs no memoization, and may
-   * start out undefined while the host's own credential loads.
+   * Where the short-lived chat JWT comes from: `{ url, ...RequestInit }` for a token endpoint, or
+   * a function minting `{ token }`, optionally a promise, in the host app. Default
+   * `{ url: "/api/astralbeam/token" }`. Fixed at mount, but the function form is called from the
+   * latest render, so an inline closure over current auth state is fine and needs no memoization.
    */
-  authTokenHeaders?: AstralBeamChatAuthTokenHeaders
+  generateAuthToken?: AstralBeamChatGenerateAuthToken
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
   tools?: Record<string, ToolDefinition>
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -205,8 +216,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       emptyTitle,
       emptyDescription,
       apiUrl,
-      authTokenUrl,
-      authTokenHeaders,
+      generateAuthToken,
       tools,
       widgets = {},
       colorScheme = DEFAULT_COLOR_SCHEME,
@@ -232,11 +242,11 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     useEffect(() => {
       toolsRef.current = tools
     })
-    // Same reason, and the widget mints tokens for as long as it lives: headers frozen at mount
-    // would keep sending the first render's credential once the host's session rotates.
-    const authTokenHeadersRef = useRef(authTokenHeaders)
+    // Same reason, and the widget mints tokens for as long as it lives: a minter frozen at mount
+    // would keep using the first render's credential once the host's session rotates.
+    const generateAuthTokenRef = useRef(generateAuthToken)
     useEffect(() => {
-      authTokenHeadersRef.current = authTokenHeaders
+      generateAuthTokenRef.current = generateAuthToken
     })
     // The chat keeps one render per tool call, so several renders of the same widget can be live
     // at once (a listing that renders a card per item); each needs its own portal and React key.
@@ -348,13 +358,17 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         ...liveRef.current,
         agentId,
         apiUrl,
-        authTokenUrl,
-        // Always a function over the latest render, so an inline object is neither a changed
-        // mount-fixed option nor a stale credential, and one that resolves after mount still lands.
-        authTokenHeaders: () => {
-          const current = authTokenHeadersRef.current
-          return typeof current === "function" ? current() : current ?? {}
-        },
+        // A minting function is wrapped so it reads the latest render, which keeps an inline
+        // closure from freezing the first render's credential; a request object is passed as is.
+        generateAuthToken: typeof generateAuthToken === "function"
+          ? () => {
+            const current = generateAuthTokenRef.current
+            if (typeof current !== "function") {
+              throw new Error("generateAuthToken is no longer a function")
+            }
+            return current()
+          }
+          : generateAuthToken,
       })
       handleRef.current = handle
       return () => {

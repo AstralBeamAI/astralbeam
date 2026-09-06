@@ -13,8 +13,9 @@ import type { ChatHandle } from "../widget/index.tsx"
 
 export type {
   AstralBeamChatAttachmentOptions,
-  AstralBeamChatAuthTokenHeaders,
+  AstralBeamChatAuthTokenRequest,
   AstralBeamChatColorScheme,
+  AstralBeamChatGenerateAuthToken,
   AstralBeamChatHandle,
   AstralBeamChatSlotRenderer,
   AstralBeamChatSlots,
@@ -103,9 +104,9 @@ export function mountAstralBeamChat(
     update: (next) => {
       if (
         Object.hasOwn(next, "agentId") || Object.hasOwn(next, "apiUrl") ||
-        Object.hasOwn(next, "authTokenUrl") || Object.hasOwn(next, "authTokenHeaders")
+        Object.hasOwn(next, "generateAuthToken")
       ) {
-        throw new Error("agentId, apiUrl, authTokenUrl, and authTokenHeaders are fixed at mount")
+        throw new Error("agentId, apiUrl, and generateAuthToken are fixed at mount")
       }
       // A fresh object rather than a mutation, so the widget's memoized derivations compare the
       // new option values by identity instead of seeing the same object twice.

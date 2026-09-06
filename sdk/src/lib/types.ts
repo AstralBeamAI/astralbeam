@@ -115,12 +115,26 @@ export type AstralBeamChatColorScheme = "light" | "dark" | "system"
 export type AstralBeamChatThemeVariables = Record<`--${string}`, string>
 
 /**
- * Headers added to the token request: an object for a fixed credential, or a function for one the
- * host must read or await per request, such as a rotating access token.
+ * A token endpoint to call: `{ url, ...init }`, which the widget calls as `fetch(url, init)` with
+ * this object's remaining, standard `RequestInit` fields. The init defaults to `POST`,
+ * `credentials: "include"`, `cache: "no-store"`, and an `accept: application/json` header, each
+ * overridable here, and the response is expected to carry `{ token }` as JSON.
  */
-export type AstralBeamChatAuthTokenHeaders =
-  | Record<string, string>
-  | (() => Record<string, string> | Promise<Record<string, string>>)
+export interface AstralBeamChatAuthTokenRequest extends RequestInit {
+  url: string
+}
+
+/**
+ * Where the widget's short-lived chat JWT comes from: an endpoint to POST, or a function that
+ * mints the token in the host page and returns `{ token }`, optionally as a promise.
+ *
+ * Either form runs again on every renewal — near expiry and after a token is rejected — so a
+ * rotating credential stays current rather than being captured once. A function that returns
+ * `undefined`, or throws, fails authentication closed; the composer's retry link asks again.
+ */
+export type AstralBeamChatGenerateAuthToken =
+  | AstralBeamChatAuthTokenRequest
+  | (() => { token: string } | undefined | Promise<{ token: string } | undefined>)
 
 /**
  * Custom values for the CSS variables the widget's shadcn theme exposes (`--background`,
@@ -156,15 +170,12 @@ export interface MountAstralBeamChatOptions {
    * must set their own origin.
    */
   apiUrl?: string | undefined
-  /** Application endpoint that mints a short-lived chat JWT. Fixed at mount. Default `"/api/astralbeam/token"`. */
-  authTokenUrl?: string | undefined
   /**
-   * Extra request headers for `authTokenUrl`, for hosts whose backend sits on another origin and
-   * authenticates with a bearer token or a custom header rather than the page's cookies. Resolved
-   * again on every token request, so pass the function form for a credential that rotates.
-   * Fixed at mount.
+   * Where the short-lived chat JWT comes from: `{ url, ...RequestInit }` for a token endpoint, or
+   * a function that mints `{ token }` in the host page. Fixed at mount. Default
+   * `{ url: "/api/astralbeam/token" }`, posted with the page's cookies.
    */
-  authTokenHeaders?: AstralBeamChatAuthTokenHeaders | undefined
+  generateAuthToken?: AstralBeamChatGenerateAuthToken | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -198,7 +209,7 @@ export interface MountAstralBeamChatOptions {
  * changing any of them would mean a new client and a discarded transcript.
  */
 export type AstralBeamChatUpdate = Partial<
-  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "authTokenUrl" | "authTokenHeaders">
+  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "generateAuthToken">
 >
 
 export interface AstralBeamChatHandle {

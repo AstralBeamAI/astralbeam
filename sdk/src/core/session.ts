@@ -7,7 +7,7 @@ import {
 } from "@tanstack/ai-client"
 import { chatApiUrls, DEFAULT_AUTH_TOKEN_URL } from "../lib/constants.ts"
 import { createDebugLogger } from "../lib/debug.ts"
-import type { AstralBeamChatAuthTokenHeaders, ToolDefinition } from "../lib/types.ts"
+import type { AstralBeamChatGenerateAuthToken, ToolDefinition } from "../lib/types.ts"
 import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
 import {
   type ChatAuthenticationOptions,
@@ -36,14 +36,12 @@ export interface AstralBeamChatCoreOptions {
   agentId?: string | undefined
   /** Base URL of the AstralBeam API; `/chat` hangs off it. Default the hosted cloud. */
   apiUrl?: string | undefined
-  /** The application endpoint that mints short-lived chat JWTs. Default `/api/astralbeam/token`. */
-  authTokenUrl?: string | undefined
   /**
-   * Extra headers for the token request, for a backend on another origin that authenticates with a
-   * bearer token or custom header instead of cookies. Resolved on every token request, so pass the
-   * function form for a credential that rotates.
+   * Where short-lived chat JWTs come from: `{ url, ...RequestInit }` for a token endpoint, or a
+   * function minting `{ token }` in the host page. Either runs again on every renewal.
+   * Default `{ url: "/api/astralbeam/token" }`.
    */
-  authTokenHeaders?: AstralBeamChatAuthTokenHeaders | undefined
+  generateAuthToken?: AstralBeamChatGenerateAuthToken | undefined
   /** Host tools the agent can call; `execute` runs wherever this session lives. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Widgets declared to the agent; `onRenderWidget` is asked to draw them. */
@@ -109,8 +107,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   }
 
   const authentication: ChatAuthenticationOptions = {
-    authTokenUrl: options.authTokenUrl ?? DEFAULT_AUTH_TOKEN_URL,
-    authTokenHeaders: options.authTokenHeaders,
+    generateAuthToken: options.generateAuthToken ?? { url: DEFAULT_AUTH_TOKEN_URL },
     session: {
       cached: undefined,
       refreshPromise: undefined,

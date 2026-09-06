@@ -6,14 +6,15 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 
 These select the agent and build the transport, so changing them requires a fresh mount.
 
-| Option         | Default                         | Meaning                                                         |
-| -------------- | ------------------------------- | --------------------------------------------------------------- |
-| `agentId`      | organization's default agent    | `agt_<organization>_<agent>` from the dashboard                 |
-| `apiUrl`       | `https://app.astralbeam.ai/api` | Base URL of the AstralBeam API; the widget streams from `/chat` |
-| `authTokenUrl` | `/api/astralbeam/token`         | Your app's token endpoint                                       |
+| Option              | Default                            | Meaning                                                                             |
+| ------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `agentId`           | organization's default agent       | `agt_<organization>_<agent>` from the dashboard                                     |
+| `apiUrl`            | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API; the widget streams from `/chat`                     |
+| `generateAuthToken` | `{ url: "/api/astralbeam/token" }` | Your token endpoint as `{ url, ...RequestInit }`, or a function minting `{ token }` |
 
 - Self-hosted deployments must set `apiUrl` to their own origin; the default points at the hosted cloud, and chat tokens are bearer credentials that should only reach the deployment that issued the API key.
 - `apiUrl` is a base, not a route: the widget appends `/chat` for the stream and its subroutes for the agent handshake and artifact downloads.
+- `generateAuthToken` is the only token option; the request form's init reaches `fetch` as given. See [Authentication](./authentication.md).
 
 ## Updatable
 
