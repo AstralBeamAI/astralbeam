@@ -69,8 +69,12 @@ const getSetupState = createIsomorphicFn()
       setupComplete: await isSetupComplete(),
     }
   })
-  // The server gates every document request; client-side navigation within a served app is safe.
+  // The server gates application documents. Public docs leave through a full document navigation.
   .client(() => ({ setupComplete: true }))
+
+function isDocsPath(pathname: string): boolean {
+  return pathname === "/docs" || pathname.startsWith("/docs/")
+}
 
 function isAppTheme(theme: string): theme is AppTheme {
   return APP_THEMES.some((appTheme) => appTheme === theme)
@@ -80,6 +84,7 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   beforeLoad: async ({ location }) => {
+    if (isDocsPath(location.pathname)) return
     const state = await getSetupState()
     const isConfigurePath = location.pathname === "/configure" ||
       location.pathname.startsWith("/configure/")
@@ -114,7 +119,7 @@ export const Route = createRootRouteWithContext<{
       replace: true,
     })
   },
-  loader: () => getPublicConfig(),
+  loader: ({ location }) => isDocsPath(location.pathname) ? null : getPublicConfig(),
   head: () => ({
     meta: [
       {

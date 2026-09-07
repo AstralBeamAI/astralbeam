@@ -12,7 +12,11 @@ function DocsLayout() {
     <div className="min-h-svh bg-background text-foreground">
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
         <div className="container mx-auto flex h-14 items-center gap-3 px-4">
-          <Link to="/" className="flex items-center gap-2 font-heading font-semibold">
+          <Link
+            to="/"
+            reloadDocument
+            className="flex items-center gap-2 font-heading font-semibold"
+          >
             <img src={APP_LOGO_LIGHT_SVG_URL} alt="" className="size-6" />
             {APP_NAME}
           </Link>

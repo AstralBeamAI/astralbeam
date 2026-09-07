@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { applyResponseSecurityHeaders } from "./start"
+import { applyResponseSecurityHeaders } from "./response-headers.server"
 
 function securityHeaders(url: string, pathname: string, requestHeaders: HeadersInit = {}): Headers {
   const headers = new Headers()
@@ -9,6 +9,12 @@ function securityHeaders(url: string, pathname: string, requestHeaders: HeadersI
 }
 
 describe("response security headers", () => {
+  test("preserves private cache policy for personalized docs responses", () => {
+    const headers = new Headers({ "Cache-Control": "private, no-store" })
+    applyResponseSecurityHeaders(headers, new Request("https://app.example/docs/sdk"), "/docs/sdk")
+    expect(headers.get("cache-control")).toBe("private, no-store")
+  })
+
   test("frames and referrers are restricted on application responses", () => {
     const headers = securityHeaders("https://app.example/organization", "/organization")
     expect(headers.get("x-frame-options")).toBe("DENY")

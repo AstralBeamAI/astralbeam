@@ -136,6 +136,21 @@ async function runBinaryCheck() {
     if (!(await stylesheetResponse.text())) {
       throw new Error("Binary served an empty stylesheet")
     }
+
+    const docsUrl = new URL("/docs/sdk/getting-started", baseUrl)
+    const docs = await fetchBinaryCheckResponse(docsUrl)
+    const etag = docs.headers.get("etag")
+    await docs.body?.cancel()
+    if (
+      !etag || docs.headers.get("cache-control") !== "public, no-cache" ||
+      docs.headers.get("content-security-policy") !== "frame-ancestors 'none'"
+    ) {
+      throw new Error("Binary did not serve docs with cache and security headers")
+    }
+    const cached = await fetch(docsUrl, { headers: { "If-None-Match": etag } })
+    if (cached.status !== 304) {
+      throw new Error("Binary did not revalidate unchanged docs")
+    }
   } finally {
     try {
       await stopBinaryCheckProcess(binaryProcess, status)

@@ -58,6 +58,7 @@
   - Routes that do not render pages might be server routes (`createFileRoute({ server ... }))`
     - The are typically place in the `routes/api` folder unless there's a strong reason to have them outside.
   - Keep `/dev` utilities synthetic and development-only; they must return `404` in production.
+  - Keep prerendered docs generic. Load user-specific tokens and snippets client-side from authenticated responses marked `private, no-store`, and never serialize them into generated HTML or override their explicit cache policy.
   - Related routes can sometimes be grouped together using a route group folder e.g. `(auth)` if it better structures the codebase
 
 - `src/db` contains the database schema and migrations
