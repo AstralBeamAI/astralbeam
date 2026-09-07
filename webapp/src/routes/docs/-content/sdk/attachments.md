@@ -35,5 +35,5 @@ A file's bytes are never pasted into the conversation. The user's message carrie
 - Excel sheets are profiled per sheet and read as CSV, with dates rendered as dates rather than serial numbers.
 - Parquet files and SQLite databases have no text view, so they need an agent with a sandbox; without one the file is refused with an explanation.
 - A file that cannot be sent keeps its chip in the composer and says why, instead of vanishing.
-- The endpoint enforces the same limits independently, so narrowing them here is an affordance, not a boundary.
+- The endpoint enforces the same limits independently, so narrowing them here is an affordance, not a boundary; see [Limits](./limits.md) for the exact values.
 - Attachments are agent policy: when the dashboard disables them, the endpoint refuses files and the widget hides the attach button; see [Security model](./security.md).
