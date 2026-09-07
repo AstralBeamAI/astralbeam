@@ -14,6 +14,8 @@ services:
       # Keep Linux-native dependencies and Deno's cache isolated from the macOS checkout. https://docs.deno.com/runtime/reference/deno_json/#node-modules-directory
       - webapp-node-modules:/workspaces/astralbeam/webapp/node_modules
       - www-node-modules:/workspaces/astralbeam/www/node_modules
+      - sdk-node-modules:/workspaces/astralbeam/sdk/node_modules
+      - todos-node-modules:/workspaces/astralbeam/examples/todos/node_modules
       - deno-cache:/root/.cache/deno
       # Persist Cursor/VS Code server + extensions across rebuilds
       - ./tmp/.cursor-server:/root/.cursor-server:cached
@@ -35,4 +37,6 @@ services:
 volumes:
   webapp-node-modules:
   www-node-modules:
+  sdk-node-modules:
+  todos-node-modules:
   deno-cache:

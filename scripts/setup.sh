@@ -184,7 +184,7 @@ bootstrap_workspace() {
   # Checked on every platform: a caller can reach here before its database is up — Cursor Cloud
   # installs before it starts Compose — and a named skip is more use than a `set -e` failure.
   if ! database_is_reachable "$url"; then
-    echo "Skipped the migrate, seed, and SDK build steps: nothing is listening at ${url##*@}. Start PostgreSQL, then run './scripts/setup.sh' again." >&2
+    echo "Skipped the migrate, seed, and SDK build steps: nothing is listening at ${url##*@}. Start PostgreSQL, then rerun './scripts/setup.sh' to migrate, seed, and build the SDK." >&2
     set -x
     return 0
   fi

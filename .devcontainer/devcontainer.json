@@ -4,7 +4,8 @@
   "dockerComposeFile": ["../docker-compose.yml", "docker-compose.yml"],
   "service": "astralbeam",
   "workspaceFolder": "/workspaces/astralbeam",
-  "postCreateCommand": "deno task --cwd webapp --eval 'deno install --frozen' && deno task --cwd www --eval 'deno install --frozen'",
+  // Compose is healthy by now, so the shared setup script can install every project and then migrate, seed, and build the SDK.
+  "postCreateCommand": "./scripts/setup.sh",
   // .env.development defaults to 127.0.0.1 for host workflows, but inside this container that loops back to astralbeam rather than its dependencies.
   // Override only editor subprocesses with Compose service DNS https://code.visualstudio.com/remote/advancedcontainers/environment-variables
   "remoteEnv": {

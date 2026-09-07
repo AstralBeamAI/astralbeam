@@ -5,7 +5,7 @@
     "context": ".."
   },
   "install": "./scripts/setup.sh",
-  "start": "service docker start && docker compose up -d --wait",
+  "start": "service docker start && docker compose up -d --wait && ./scripts/setup.sh",
   "ports": [
     {
       "name": "Product application",
