@@ -38,6 +38,9 @@ vi.mock("@/db", () => {
 
 import { resolveChatAgent } from "./agent.server"
 
+const AGENT_ID = "agent_01990a5d-ac96-774b-b942-6b13c85384ca"
+const ORGANIZATION_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
+
 describe("organization agent chat lookup", () => {
   beforeEach(() => {
     databaseState.joinPredicates = []
@@ -46,35 +49,31 @@ describe("organization agent chat lookup", () => {
     databaseState.wherePredicates = []
   })
 
-  test("scopes the public agent slug to the authenticated organization", async () => {
+  test("scopes the public agent ID to the authenticated organization", async () => {
     databaseState.rows = [[{ systemPrompt: "Organization default" }]]
 
-    await expect(
-      resolveChatAgent(
-        "agt_acme-corp_todo-agent",
-        "01990a5d-ac96-774b-b942-6b13c85384ca",
-      ),
-    ).resolves.toEqual({ systemPrompt: "Organization default" })
+    await expect(resolveChatAgent(AGENT_ID, ORGANIZATION_ID)).resolves.toEqual({
+      systemPrompt: "Organization default",
+    })
 
-    const [joinPredicate] = databaseState.joinPredicates.map(query)
     const [wherePredicate] = databaseState.wherePredicates.map(query)
-    expect(joinPredicate?.sql).toContain('"agent"."organization_id" = "organization"."id"')
-    expect(joinPredicate?.sql).toContain('"agent"."slug" = $1')
-    expect(joinPredicate?.params).toEqual(["todo-agent"])
-    expect(wherePredicate?.sql).toContain('"organization"."slug" = $1')
+    expect(wherePredicate?.sql).toContain('"agent"."id" = $1')
     expect(wherePredicate?.sql).toContain('"agent"."organization_id" = $2')
-    expect(wherePredicate?.params).toEqual([
-      "acme-corp",
-      "01990a5d-ac96-774b-b942-6b13c85384ca",
-    ])
+    expect(wherePredicate?.params).toEqual([AGENT_ID, ORGANIZATION_ID])
   })
 
-  test.each([undefined, "agt_acme_other", "agt_acme_bad-slug", "agt_acme_other_extra"])(
+  test.each([
+    undefined,
+    ORGANIZATION_ID,
+    "agt_acme_todo-agent",
+    `${AGENT_ID} `,
+    "agent_not-a-uuid",
+    // UUIDv4, so the version nibble the schema pins to 7 rejects it.
+    "agent_01990a5d-ac96-474b-b942-6b13c85384ca",
+  ])(
     "returns the same missing result for a non-resolving public ID",
     async (publicId) => {
-      await expect(
-        resolveChatAgent(publicId, "01990a5d-ac96-774b-b942-6b13c85384ca"),
-      ).resolves.toBeNull()
+      await expect(resolveChatAgent(publicId, ORGANIZATION_ID)).resolves.toBeNull()
     },
   )
 })

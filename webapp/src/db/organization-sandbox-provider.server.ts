@@ -50,6 +50,15 @@ const SandboxProviderRowSchema = createSelectSchema(sandboxProvider, {
 })
 type SandboxProviderRow = typeof SandboxProviderRowSchema.Type
 
+const SandboxProviderSummarySchema = Schema.Struct({
+  id: UuidV7Schema,
+  name: SandboxProviderNameSchema,
+  providerType: SandboxProviderIdSchema,
+  lastTest: Schema.NullOr(SandboxTestMetadataSchema),
+})
+
+export type OrganizationSandboxProviderSummary = typeof SandboxProviderSummarySchema.Type
+
 export type OrganizationSandboxProvider = Omit<SandboxProviderRow, "credentials"> & {
   credentials: SandboxProviderCredentials[SandboxProviderId]
 }
@@ -74,22 +83,32 @@ class SandboxProviderInUseError extends Data.TaggedError(
   "SandboxProviderInUseError",
 )<{ readonly message: string }> {}
 
-export function listOrganizationSandboxProviders(
-  organizationId: string,
-) {
+/** The list page's read: no credentials leave the server, so nothing to decrypt or reveal. */
+export function readOrganizationSandboxProviderSummaries(organizationId: string) {
   return sandboxProviderDatabaseEffect((db) =>
-    db.select().from(sandboxProvider).where(eq(sandboxProvider.organizationId, organizationId))
-      .orderBy(
-        asc(sandboxProvider.name),
-        asc(sandboxProvider.id),
-      )
+    db.select({
+      id: sandboxProvider.id,
+      name: sandboxProvider.name,
+      providerType: sandboxProvider.providerType,
+      lastTest: sandboxProvider.lastTest,
+    }).from(sandboxProvider).where(eq(sandboxProvider.organizationId, organizationId))
+      .orderBy(asc(sandboxProvider.name), asc(sandboxProvider.id))
   ).pipe(
     Effect.flatMap((rows) =>
-      Effect.forEach(
-        rows,
-        (row) => decodeSandboxProviderRow(row).pipe(Effect.flatMap(revealSandboxProviderRow)),
-      )
+      Effect.forEach(rows, (row) =>
+        Schema.decodeUnknownEffect(SandboxProviderSummarySchema, {
+          onExcessProperty: "error",
+        })(row).pipe(
+          Effect.mapError((cause) => new OrganizationSandboxProviderRepositoryError({ cause })),
+        ))
     ),
+  )
+}
+
+/** The detail page's read, which reveals credentials for masked editing. */
+export function readOrganizationSandboxProvider(organizationId: string, id: string) {
+  return readSandboxProviderRow(organizationId, id).pipe(
+    Effect.flatMap((row) => row ? revealSandboxProviderRow(row) : Effect.succeed(null)),
   )
 }
 
@@ -190,6 +209,7 @@ export function saveOrganizationSandboxProvider<Provider extends SandboxProvider
         ...credentialUpdate,
       },
     })
+    return existing.id
   })
 }
 
@@ -325,7 +345,7 @@ function createOrganizationSandboxProvider<Provider extends SandboxProviderId>(i
         return row
       })
     )
-  ).pipe(Effect.asVoid)
+  ).pipe(Effect.map((row) => row.id))
 }
 
 function readSandboxProviderCredentials(

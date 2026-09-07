@@ -18,8 +18,6 @@ export const SEED_PASSWORD = "astralbeam-seed-password"
 const SEED_NAMES = {
   acme: "acme",
   globex: "globex",
-  starterAgent: "assistant",
-  todosAgent: "todos",
   todosApiKey: "todos",
   revokedApiKey: "revoked",
   globexApiKey: "demo",
@@ -29,8 +27,18 @@ const SEED_NAMES = {
 } as const
 
 /**
+ * Fixed agent IDs. Agents carry no slug, so the seed writes these explicit values rather than
+ * letting the database generate them, which keeps `SEED_TODOS_TARGET` composable without a query.
+ */
+const SEED_AGENT_IDS = {
+  acmeStarter: "agent_01990a5d-0000-7000-8000-000000000001",
+  acmeTodos: "agent_01990a5d-0000-7000-8000-000000000002",
+  globexStarter: "agent_01990a5d-0000-7000-8000-000000000003",
+} as const
+
+/**
  * API key secrets, in Better Auth's `abo_` + 64 letters shape. The seed stores only their SHA-256
- * digests, exactly as the `/organization/api-keys` dialog does; these raw values exist so the
+ * digests, exactly as the `/:organizationSlug/api-keys` dialog does; these raw values exist so the
  * todos example and its tests can sign chat auth tokens without a browser round-trip.
  */
 const SEED_API_KEY_SECRETS = {
@@ -102,14 +110,14 @@ export const SEED_ORGANIZATIONS = [
     sandboxProviders: [SEED_DOCKER_SANDBOX_PROVIDER],
     agents: [
       {
-        slug: SEED_NAMES.starterAgent,
+        id: SEED_AGENT_IDS.acmeStarter,
         name: "Acme Inc Assistant",
         systemPrompt: SEED_STARTER_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
         sandboxProviderName: null,
       },
       {
-        slug: SEED_NAMES.todosAgent,
+        id: SEED_AGENT_IDS.acmeTodos,
         name: "Todos Assistant",
         systemPrompt: SEED_TODOS_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
@@ -117,7 +125,7 @@ export const SEED_ORGANIZATIONS = [
       },
     ],
     // The todos agent is the default so the example works with VITE_ASTRALBEAM_AGENT_ID unset.
-    defaultAgentSlug: SEED_NAMES.todosAgent,
+    defaultAgentId: SEED_AGENT_IDS.acmeTodos,
     apiKeys: [
       {
         slug: SEED_NAMES.todosApiKey,
@@ -174,14 +182,14 @@ export const SEED_ORGANIZATIONS = [
     sandboxProviders: [],
     agents: [
       {
-        slug: SEED_NAMES.starterAgent,
+        id: SEED_AGENT_IDS.globexStarter,
         name: "Globex Corporation Assistant",
         systemPrompt: SEED_STARTER_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
         sandboxProviderName: null,
       },
     ],
-    defaultAgentSlug: SEED_NAMES.starterAgent,
+    defaultAgentId: SEED_AGENT_IDS.globexStarter,
     apiKeys: [
       {
         slug: SEED_NAMES.globexApiKey,
@@ -200,8 +208,8 @@ export const SEED_ORGANIZATIONS = [
  */
 export const SEED_TODOS_TARGET = {
   organizationSlug: SEED_NAMES.acme,
-  agentId: `agt_${SEED_NAMES.acme}_${SEED_NAMES.todosAgent}`,
-  starterAgentId: `agt_${SEED_NAMES.acme}_${SEED_NAMES.starterAgent}`,
+  agentId: SEED_AGENT_IDS.acmeTodos,
+  starterAgentId: SEED_AGENT_IDS.acmeStarter,
   apiKey: `key_${SEED_NAMES.acme}_${SEED_NAMES.todosApiKey}_${SEED_API_KEY_SECRETS.todos}`,
   /** Disabled key: `/api/chat` must reject a token signed with it. */
   revokedApiKey:

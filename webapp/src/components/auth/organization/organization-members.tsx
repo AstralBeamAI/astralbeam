@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; omit disabled teams, support responsive controls/table and strict optional props, and colocate the private loading row.
+// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; take the organization and its permissions as props from the page loader and scope every member query to its ID; omit disabled teams, support responsive controls/table and strict optional props, and colocate the private loading row.
 
 "use client"
 
@@ -8,13 +8,8 @@ import {
   type OrganizationAuthClient,
 } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
-import {
-  useActiveMemberRole,
-  useActiveOrganization,
-  useHasPermission,
-  useListOrganizationMembers,
-} from "@better-auth-ui/react/plugins/organization"
-import type { Member } from "better-auth/client"
+import { useListOrganizationMembers } from "@better-auth-ui/react/plugins/organization"
+import type { Member, Organization } from "better-auth/client"
 import {
   CaretUpIcon as ChevronUp,
   FunnelIcon as Filter,
@@ -59,6 +54,12 @@ type SortDescriptor = {
 /** Props for the `OrganizationMembers` component. */
 export type OrganizationMembersProps = {
   className?: string
+  organization: Pick<Organization, "id" | "name" | "slug">
+  /** The signed-in user's role and permissions, resolved by the page's loader. */
+  memberRole: string
+  canInvite: boolean
+  canUpdateMember: boolean
+  canRemoveMember: boolean
   /**
    * Number of rows per page. This value must be a positive integer. Setting it
    * moves paging, role filtering, and role sorting
@@ -106,6 +107,11 @@ function OrganizationMemberRowSkeleton() {
 export function OrganizationMembers({
   className,
   pageSize,
+  organization,
+  memberRole,
+  canInvite,
+  canUpdateMember,
+  canRemoveMember,
   ...props
 }: OrganizationMembersProps & ComponentProps<"div">) {
   const validatedPageSize = validatePageSize(pageSize)
@@ -117,10 +123,6 @@ export function OrganizationMembers({
     creatorRole,
   } = useAuthPlugin(organizationPlugin)
 
-  const { data: activeOrganization, isPending: activeOrganizationPending } = useActiveOrganization(
-    authClient,
-  )
-
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>()
   const [roleFilter, setRoleFilter] = useState("all")
   const [search, setSearch] = useState("")
@@ -129,48 +131,45 @@ export function OrganizationMembers({
   const paged = validatedPageSize !== undefined
 
   const { data: membersData, isPending: membersPending } = useListOrganizationMembers(authClient, {
-    query: paged
-      ? {
-        limit: validatedPageSize,
-        offset: page * validatedPageSize,
-        ...(roleFilter === "all" ? {} : {
-          filterField: "role",
-          filterValue: roleFilter,
-          // Roles are stored comma-joined, so an exact match would
-          // drop anyone holding more than one.
-          filterOperator: "contains" as const,
-        }),
-        ...(sortDescriptor?.column === "role"
-          ? {
-            sortBy: "role",
-            sortDirection: sortDescriptor.direction === "descending"
-              ? ("desc" as const)
-              : ("asc" as const),
-          }
-          : {}),
-      }
-      : undefined,
+    // Without an explicit ID the hook substitutes the mutable active organization, so a switch in
+    // this tab or another can pair another organization's rows with this page's permissions.
+    query: {
+      organizationId: organization.id,
+      ...(paged
+        ? {
+          limit: validatedPageSize,
+          offset: page * validatedPageSize,
+          ...(roleFilter === "all" ? {} : {
+            filterField: "role",
+            filterValue: roleFilter,
+            // Roles are stored comma-joined, so an exact match would
+            // drop anyone holding more than one.
+            filterOperator: "contains" as const,
+          }),
+          ...(sortDescriptor?.column === "role"
+            ? {
+              sortBy: "role",
+              sortDirection: sortDescriptor.direction === "descending"
+                ? ("desc" as const)
+                : ("asc" as const),
+            }
+            : {}),
+        }
+        : {}),
+    },
   })
 
-  // The signed-in user need not be on the loaded page, so their own role comes
-  // from a dedicated endpoint rather than from the member list.
-  const { data: activeMemberRole } = useActiveMemberRole(authClient)
   const owners = useListOrganizationMembers(authClient, {
     query: {
-      organizationId: activeOrganization?.id,
+      organizationId: organization.id,
       filterField: "role",
       filterValue: creatorRole,
       filterOperator: "contains",
       limit: 1,
     },
-    enabled: Boolean(activeOrganization?.id),
   })
 
-  const canInvite = useHasPermission(authClient, {
-    permissions: { invitation: ["create"] },
-  })
-
-  const isPending = activeOrganizationPending || membersPending || owners.isPending
+  const isPending = membersPending || owners.isPending
 
   const filteredMembers = useMemo(() => {
     // The server already applied the role filter when paging, and it has no
@@ -207,7 +206,7 @@ export function OrganizationMembers({
 
   const [inviteOpen, setInviteOpen] = useState(false)
 
-  const isOwner = hasMemberRole(activeMemberRole?.role, creatorRole)
+  const isOwner = hasMemberRole(memberRole, creatorRole)
   const ownerCount = owners.data?.total ?? owners.data?.members.length
 
   const total = membersData?.total ?? membersData?.members.length ?? 0
@@ -218,7 +217,7 @@ export function OrganizationMembers({
   // biome-ignore lint/correctness/useExhaustiveDependencies: resets on query change
   useEffect(() => {
     setPage(0)
-  }, [roleFilter, sortDescriptor, activeOrganization?.id])
+  }, [roleFilter, sortDescriptor, organization.id])
 
   const pageStart = page * (validatedPageSize ?? 0)
   const pageEnd = pageStart + (sortedMembers?.length ?? 0)
@@ -243,11 +242,11 @@ export function OrganizationMembers({
           {organizationLocalization.members}
         </h3>
 
-        {(canInvite.isPending || canInvite.data?.success) && (
+        {canInvite && (
           <Button
             className="shrink-0"
             size="sm"
-            disabled={canInvite.isPending || atMembershipLimit}
+            disabled={atMembershipLimit}
             onClick={() => setInviteOpen(true)}
           >
             {organizationLocalization.inviteMember}
@@ -368,14 +367,15 @@ export function OrganizationMembers({
 
             <TableBody>
               {isPending ? <OrganizationMemberRowSkeleton /> : (
-                !!activeOrganization &&
                 sortedMembers?.map((member) => (
                   <OrganizationMemberRow
                     key={member.id}
                     member={member}
                     isOwner={isOwner}
                     ownerCount={ownerCount}
-                    organization={activeOrganization}
+                    organization={organization}
+                    canUpdateMember={canUpdateMember}
+                    canRemoveMember={canRemoveMember}
                   />
                 ))
               )}
@@ -417,8 +417,13 @@ export function OrganizationMembers({
         )}
       </div>
 
-      {canInvite.data?.success && (
-        <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} />
+      {canInvite && (
+        <InviteMemberDialog
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          organizationId={organization.id}
+          isOwner={isOwner}
+        />
       )}
     </div>
   )

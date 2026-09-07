@@ -26,3 +26,55 @@ export const organizationRoles = {
     ...memberAc.statements,
   }),
 } as const
+
+export type OrganizationPermissionRequest = Parameters<
+  typeof organizationRoles.owner.authorize
+>[0]
+
+/** Every organization permission a page or its navigation entry depends on. */
+export interface OrganizationPermissions {
+  readonly updateOrganization: boolean
+  readonly createInvitation: boolean
+  readonly cancelInvitation: boolean
+  readonly updateMember: boolean
+  readonly deleteMember: boolean
+  readonly createApiKey: boolean
+  readonly readApiKey: boolean
+  readonly updateApiKey: boolean
+  readonly deleteApiKey: boolean
+  readonly readConfiguration: boolean
+  readonly updateConfiguration: boolean
+  readonly testConfiguration: boolean
+  readonly deleteConfiguration: boolean
+}
+
+/** Mirrors Better Auth's own `hasPermission`, which authorizes each comma-separated role in turn. */
+export function authorizeOrganizationRole(
+  role: string,
+  permissions: OrganizationPermissionRequest,
+): boolean {
+  return role.split(",").some((value) =>
+    Object.hasOwn(organizationRoles, value) &&
+    organizationRoles[value as keyof typeof organizationRoles].authorize(permissions).success
+  )
+}
+
+export function deriveOrganizationPermissions(role: string): OrganizationPermissions {
+  const allows = (permissions: OrganizationPermissionRequest) =>
+    authorizeOrganizationRole(role, permissions)
+  return {
+    updateOrganization: allows({ organization: ["update"] }),
+    createInvitation: allows({ invitation: ["create"] }),
+    cancelInvitation: allows({ invitation: ["cancel"] }),
+    updateMember: allows({ member: ["update"] }),
+    deleteMember: allows({ member: ["delete"] }),
+    createApiKey: allows({ apiKey: ["create"] }),
+    readApiKey: allows({ apiKey: ["read"] }),
+    updateApiKey: allows({ apiKey: ["update"] }),
+    deleteApiKey: allows({ apiKey: ["delete"] }),
+    readConfiguration: allows({ organizationConfiguration: ["read"] }),
+    updateConfiguration: allows({ organizationConfiguration: ["update"] }),
+    testConfiguration: allows({ organizationConfiguration: ["test"] }),
+    deleteConfiguration: allows({ organizationConfiguration: ["delete"] }),
+  }
+}

@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, semantic shadcn status colors, and hover titles for icon-only actions; retain resend/cancel with static roles and omit invitation model fields.
+// Local changes: use Phosphor/Base Toast, semantic shadcn status colors, and hover titles for icon-only actions; take invitation permissions as props from the page loader; retain resend/cancel with static roles and omit invitation model fields.
 
 "use client"
 
@@ -8,11 +8,7 @@ import {
   type OrganizationAuthClient,
 } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
-import {
-  useCancelInvitation,
-  useHasPermission,
-  useInviteMember,
-} from "@better-auth-ui/react/plugins/organization"
+import { useCancelInvitation, useInviteMember } from "@better-auth-ui/react/plugins/organization"
 import type { Invitation } from "better-auth/client"
 import { PaperPlaneTiltIcon as Send, XIcon as X } from "@phosphor-icons/react"
 import { toast } from "@/components/ui/toast"
@@ -23,10 +19,11 @@ import { Spinner } from "@/components/ui/spinner"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { cn } from "cn"
-import { OrganizationInvitationRowSkeleton } from "./organization-invitation-row-skeleton"
 
 export type OrganizationInvitationRowProps = {
   invitation: Invitation
+  canInvite: boolean
+  canCancelInvitation: boolean
 }
 
 const statusBadgeClasses: Record<string, string> = {
@@ -38,6 +35,8 @@ const statusBadgeClasses: Record<string, string> = {
 
 export function OrganizationInvitationRow({
   invitation,
+  canInvite,
+  canCancelInvitation,
 }: OrganizationInvitationRowProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
   const {
@@ -45,21 +44,7 @@ export function OrganizationInvitationRow({
     roles,
   } = useAuthPlugin(organizationPlugin)
 
-  const {
-    data: cancelInvitationPermission,
-    isPending: cancelPermissionPending,
-  } = useHasPermission(authClient, {
-    permissions: { invitation: ["cancel"] },
-  })
-
   const { mutate: cancelInvitation, isPending: cancelPending } = useCancelInvitation(authClient)
-
-  const { data: inviteMemberPermission, isPending: invitePermissionPending } = useHasPermission(
-    authClient,
-    {
-      permissions: { invitation: ["create"] },
-    },
-  )
 
   // Better Auth treats a re-invite as a resend: it extends the existing
   // invitation's expiry and sends the email again rather than creating a
@@ -74,10 +59,6 @@ export function OrganizationInvitationRow({
   const statusLabel = organizationLocalization[
     invitation.status as keyof typeof organizationLocalization
   ] ?? invitation.status
-
-  if (cancelPermissionPending || invitePermissionPending) {
-    return <OrganizationInvitationRowSkeleton />
-  }
 
   const isPending = invitation.status === "pending"
 
@@ -107,7 +88,7 @@ export function OrganizationInvitationRow({
 
       <TableCell className="text-end">
         <div className="flex justify-end gap-2">
-          {inviteMemberPermission?.success && isPending && (
+          {canInvite && isPending && (
             <Button
               size="icon"
               variant="outline"
@@ -127,7 +108,7 @@ export function OrganizationInvitationRow({
             </Button>
           )}
 
-          {cancelInvitationPermission?.success && isPending && (
+          {canCancelInvitation && isPending && (
             <Button
               size="icon"
               variant="outline"

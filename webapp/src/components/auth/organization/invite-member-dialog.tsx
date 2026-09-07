@@ -1,17 +1,11 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; take the organization and creator role as props from the page loader and scope the invitation query to its ID; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields.
 
 "use client"
 
-import {
-  hasMemberRole,
-  type OrganizationAuthClient,
-} from "@better-auth-ui/core/plugins/organization"
+import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import {
-  useActiveMemberRole,
-  useActiveOrganization,
-  useHasPermission,
   useInviteMember,
   useListOrganizationInvitations,
 } from "@better-auth-ui/react/plugins/organization"
@@ -45,6 +39,8 @@ import { cn } from "cn"
 export type InviteMemberDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  organizationId: string
+  isOwner: boolean
 }
 
 const pickDefaultRole = (keys: string[]) => keys.includes("viewer") ? "viewer" : (keys.at(-1) ?? "")
@@ -55,6 +51,8 @@ const pickDefaultRole = (keys: string[]) => keys.includes("viewer") ? "viewer" :
 export function InviteMemberDialog({
   open,
   onOpenChange,
+  organizationId,
+  isOwner,
 }: InviteMemberDialogProps) {
   const { authClient, localization } = useAuth<OrganizationAuthClient>()
   const {
@@ -63,14 +61,9 @@ export function InviteMemberDialog({
     localization: organizationLocalization,
     roles,
   } = useAuthPlugin(organizationPlugin)
-  const { data: activeOrganization } = useActiveOrganization(authClient)
-  const { data: activeMemberRole } = useActiveMemberRole(authClient)
-  const invitations = useListOrganizationInvitations(authClient)
-  const canInvite = useHasPermission(authClient, {
-    organizationId: activeOrganization?.id,
-    permissions: { invitation: ["create"] },
-  })
-  const isOwner = hasMemberRole(activeMemberRole?.role, creatorRole)
+  // Scoped to the prop, not the active organization, so the limit and the delivery-error refetch
+  // both describe the organization this dialog is inviting into.
+  const invitations = useListOrganizationInvitations(authClient, { query: { organizationId } })
   const assignableRoles = useMemo(
     () =>
       Object.fromEntries(
@@ -84,7 +77,6 @@ export function InviteMemberDialog({
     return fallback ? [fallback] : []
   })
   const [emailError, setEmailError] = useState<string>()
-  const activeOrganizationId = activeOrganization?.id
   const roleItems = Object.entries(assignableRoles).map(([value, label]) => ({
     label,
     value,
@@ -137,14 +129,7 @@ export function InviteMemberDialog({
   const submitMemberInvitation = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    if (
-      !activeOrganizationId ||
-      !canInvite.data?.success ||
-      !isRoleValid ||
-      atInvitationLimit
-    ) {
-      return
-    }
+    if (!isRoleValid || atInvitationLimit) return
 
     const formData = new FormData(e.currentTarget)
     const invitationEmail = (formData.get("email") as string).trim()
@@ -155,7 +140,7 @@ export function InviteMemberDialog({
     inviteMember(
       {
         email: invitationEmail,
-        organizationId: activeOrganizationId,
+        organizationId,
         role: invitationRoles,
       },
     )
@@ -262,11 +247,7 @@ export function InviteMemberDialog({
 
             <Button
               type="submit"
-              disabled={isInviting ||
-                !isRoleValid ||
-                atInvitationLimit ||
-                canInvite.isPending ||
-                !canInvite.data?.success}
+              disabled={isInviting || !isRoleValid || atInvitationLimit}
             >
               {isInviting && <Spinner />}
 

@@ -1,14 +1,12 @@
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { effectDatabase, runDatabaseEffect } from "@/db"
-import { agent, organization, organizationConfiguration } from "@/db/schema.server"
-import { SlugSchema } from "@/lib/schemas"
+import { agent, organizationConfiguration } from "@/db/schema.server"
+import { AgentIdSchema } from "@/lib/schemas"
 
-const AgentIdSchema = Schema.TemplateLiteralParser(["agt_", SlugSchema, "_", SlugSchema])
-const decodeAgentId = Schema.decodeUnknownOption(AgentIdSchema)
+const isAgentId = Schema.is(AgentIdSchema)
 
 /**
  * Resolve malformed and cross-organization public IDs identically. A host that sends no public ID
@@ -21,10 +19,7 @@ export async function resolveChatAgent(
   if (publicId === undefined || publicId === null) {
     return await resolveDefaultChatAgent(authenticatedOrganizationId)
   }
-  if (typeof publicId !== "string") return null
-  const parsed = decodeAgentId(publicId)
-  if (Option.isNone(parsed)) return null
-  const [, organizationSlug, , agentSlug] = parsed.value
+  if (!isAgentId(publicId)) return null
   const rows = await runDatabaseEffect(
     Effect.flatMap(effectDatabase, (db) =>
       db.select({
@@ -32,12 +27,9 @@ export async function resolveChatAgent(
         systemPrompt: agent.systemPrompt,
         attachmentsEnabled: agent.attachmentsEnabled,
         sandboxProviderId: agent.sandboxProviderId,
-      }).from(organization).innerJoin(
-        agent,
-        and(eq(agent.organizationId, organization.id), eq(agent.slug, agentSlug)),
-      ).where(
+      }).from(agent).where(
         and(
-          eq(organization.slug, organizationSlug),
+          eq(agent.id, publicId),
           eq(agent.organizationId, authenticatedOrganizationId),
         ),
       ).limit(1)),

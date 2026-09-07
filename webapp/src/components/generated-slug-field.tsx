@@ -124,7 +124,7 @@ export function GeneratedSlugField({
     : !valid
     ? SLUG_VALIDATION_MESSAGE
     : availability === "unavailable"
-    ? "This identifier is already in use"
+    ? "This identifier is not available"
     : undefined
 
   return (

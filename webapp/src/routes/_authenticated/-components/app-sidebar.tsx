@@ -1,22 +1,19 @@
 "use client"
 
-import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth } from "@better-auth-ui/react"
 import {
-  useHasPermission,
-  useSetActiveOrganization,
-} from "@better-auth-ui/react/plugins/organization"
-import {
+  BriefcaseIcon,
   CubeIcon,
   HouseIcon,
   type Icon,
   KeyIcon,
   RobotIcon,
   ShieldCheckIcon,
+  SlidersHorizontalIcon,
   UserCircleIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react"
-import { useRouterState } from "@tanstack/react-router"
+import { useNavigate, useRouterState } from "@tanstack/react-router"
 import type { Organization } from "better-auth/client"
 import { type ComponentProps, useEffect } from "react"
 
@@ -38,90 +35,75 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
+import type { OrganizationAccess } from "@/lib/auth/organization-membership.server"
+import type { OrganizationPermissions } from "@/lib/auth/organization-access"
 
-type OrganizationPermissions = Parameters<
-  OrganizationAuthClient["organization"]["hasPermission"]
->[0]["permissions"]
-
-const organizationNavigation = [
-  { label: "Dashboard", href: "/", icon: HouseIcon },
-  {
-    label: "Members",
-    href: "/organization/members",
-    icon: UsersThreeIcon,
-  },
-  {
-    label: "Sandboxes",
-    href: "/organization/sandbox-providers",
-    icon: CubeIcon,
-    permission: "organizationConfiguration",
-  },
-  {
-    label: "Agents",
-    href: "/organization/agents",
-    icon: RobotIcon,
-    permission: "organizationConfiguration",
-  },
-  {
-    label: "API keys",
-    href: "/organization/api-keys",
-    icon: KeyIcon,
-    permission: "apiKey",
-  },
-] satisfies ReadonlyArray<{
+type OrganizationNavigationEntry = {
   label: string
-  href: string
+  segment: string
   icon: Icon
-  permission?: "apiKey" | "organizationConfiguration"
-}>
+  permission?: keyof OrganizationPermissions
+}
 
-export type AppSidebarProps =
-  & Omit<
-    ComponentProps<typeof Sidebar>,
-    "children"
-  >
-  & {
-    onOrganizationChange?: (phase: "error" | "start" | "success") => unknown
-  }
+/** The sub-paths a switch carries over to the organization being switched to. */
+const organizationNavigation = [
+  { label: "Home", segment: "", icon: HouseIcon },
+  { label: "Agents", segment: "agents", icon: RobotIcon, permission: "readConfiguration" },
+  { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
+  { label: "API keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
+  { label: "Members", segment: "members", icon: UsersThreeIcon },
+  {
+    label: "Settings",
+    segment: "settings",
+    icon: SlidersHorizontalIcon,
+    permission: "updateOrganization",
+  },
+] satisfies readonly OrganizationNavigationEntry[]
 
-export function AppSidebar({
-  onOrganizationChange,
-  ...props
-}: AppSidebarProps) {
-  const { authClient, Link, localization } = useAuth<OrganizationAuthClient>()
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  })
+const carriedSegments = new Set(
+  organizationNavigation.map((entry) => entry.segment).filter(Boolean),
+)
+
+export type AppSidebarProps = Omit<ComponentProps<typeof Sidebar>, "children"> & {
+  /** Null on the user-level settings pages of a user who has no organization yet. */
+  organization: OrganizationAccess | null
+}
+
+function organizationPath(slug: string, segment: string): string {
+  return segment ? `/${slug}/${segment}` : `/${slug}`
+}
+
+/** Keeps the visited section when its path exists under the organization being switched to. */
+function organizationSwitchPath(
+  pathname: string,
+  currentSlug: string,
+  nextSlug: string,
+): string {
+  const relative = pathname.startsWith(`/${currentSlug}/`)
+    ? pathname.slice(currentSlug.length + 2)
+    : ""
+  const segment = relative.split("/")[0] ?? ""
+  return carriedSegments.has(segment) ? `/${nextSlug}/${segment}` : `/${nextSlug}`
+}
+
+export function AppSidebar({ organization, ...props }: AppSidebarProps) {
+  const { Link, localization } = useAuth()
+  const navigate = useNavigate()
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { setOpenMobile } = useSidebar()
-  const apiKeyReadPermission = useHasPermission(authClient, {
-    permissions: { apiKey: ["read"] } as OrganizationPermissions,
-  })
-  const organizationConfigurationReadPermission = useHasPermission(authClient, {
-    permissions: { organizationConfiguration: ["read"] } as OrganizationPermissions,
-  })
-  const canRead = {
-    apiKey: apiKeyReadPermission.data?.success,
-    organizationConfiguration: organizationConfigurationReadPermission.data?.success,
-  }
 
   useEffect(() => {
     setOpenMobile(false)
   }, [pathname, setOpenMobile])
 
-  const { mutate: setActiveOrganization } = useSetActiveOrganization(
-    authClient,
-    {
-      onSuccess: () => {
-        setOpenMobile(false)
-        return onOrganizationChange?.("success")
-      },
-      onError: () => onOrganizationChange?.("error"),
-    },
-  )
-
-  const handleOrganizationChange = (organization: Organization | null) => {
-    onOrganizationChange?.("start")
-    setActiveOrganization({ organizationId: organization?.id ?? null })
+  const switchOrganization = (next: Organization | null) => {
+    setOpenMobile(false)
+    if (!next?.slug) return
+    void navigate({
+      href: organization
+        ? organizationSwitchPath(pathname, organization.organizationSlug, next.slug)
+        : `/${next.slug}`,
+    })
   }
 
   return (
@@ -132,50 +114,54 @@ export function AppSidebar({
           side="right"
           hidePersonal
           hideSettings
-          setActive={handleOrganizationChange}
-          onOrganizationCreated={() => {
-            onOrganizationChange?.("start")
-            return onOrganizationChange?.("success")
-          }}
+          {...organization
+            ? {
+              organization: {
+                id: organization.organizationId,
+                name: organization.organizationName,
+                slug: organization.organizationSlug,
+              },
+            }
+            : {}}
+          setActive={switchOrganization}
+          onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}` })}
           className="w-full justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
         />
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Organization</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <nav aria-label="Organization navigation">
-              <SidebarMenu>
-                {organizationNavigation.map((item) => {
-                  if (item.permission && !canRead[item.permission]) return null
-                  const isActive = item.href === "/"
-                    ? pathname === item.href
-                    : pathname === item.href || pathname.startsWith(`${item.href}/`)
+        {organization && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Organization</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <nav aria-label="Organization navigation">
+                <SidebarMenu>
+                  {organizationNavigation.map((item) => {
+                    if (item.permission && !organization.permissions[item.permission]) return null
+                    const href = organizationPath(organization.organizationSlug, item.segment)
+                    const isActive = item.segment === ""
+                      ? pathname === href
+                      : pathname === href || pathname.startsWith(`${href}/`)
 
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        render={
-                          <Link
-                            href={item.href}
-                            onClick={() => setOpenMobile(false)}
-                          />
-                        }
-                        isActive={isActive}
-                        tooltip={item.label}
-                        {...(isActive ? { "aria-current": "page" } : {})}
-                      >
-                        <item.icon aria-hidden="true" />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
-            </nav>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                    return (
+                      <SidebarMenuItem key={item.segment}>
+                        <SidebarMenuButton
+                          render={<Link href={href} onClick={() => setOpenMobile(false)} />}
+                          isActive={isActive}
+                          tooltip={item.label}
+                          {...(isActive ? { "aria-current": "page" } : {})}
+                        >
+                          <item.icon aria-hidden="true" />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </nav>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
@@ -193,6 +179,12 @@ export function AppSidebar({
               href: "/settings/security",
               icon: <ShieldCheckIcon className="text-muted-foreground" />,
               label: localization.settings.security,
+              visibility: "authenticated",
+            },
+            {
+              href: "/organizations",
+              icon: <BriefcaseIcon className="text-muted-foreground" />,
+              label: "Organizations",
               visibility: "authenticated",
             },
           ]}

@@ -4,6 +4,19 @@ import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./slug.ts"
 
 export const UuidV7Schema = Schema.String.pipe(Schema.check(Schema.isUUID(7)))
 
+/**
+ * Agents are addressed by an opaque prefixed ID in URLs, props, and the SDK's `agentId`, so the
+ * prefix is generated into the stored value rather than added at each boundary.
+ */
+export const AGENT_ID_PREFIX = "agent_"
+
+export const AGENT_ID_PATTERN =
+  /^agent_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+export const AgentIdSchema = Schema.String.pipe(
+  Schema.check(Schema.isPattern(AGENT_ID_PATTERN, { message: "Enter a valid agent ID" })),
+)
+
 export const SlugSchema = Schema.String.pipe(
   Schema.check(Schema.isPattern(SLUG_PATTERN, { message: SLUG_VALIDATION_MESSAGE })),
 )

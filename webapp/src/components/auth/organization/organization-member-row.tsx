@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor icons, hover titles for icon-only actions, and static roles; omit dynamic roles, teams, and member model fields.
+// Local changes: Use Phosphor icons, hover titles for icon-only actions, and static roles; take member permissions as props from the page loader; omit dynamic roles, teams, and member model fields.
 
 import {
   hasMemberRole,
@@ -7,7 +7,6 @@ import {
   type OrganizationAuthClient,
 } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
-import { useHasPermission } from "@better-auth-ui/react/plugins/organization"
 import type { Member, Organization, User } from "better-auth/client"
 import {
   PencilSimpleIcon as Pencil,
@@ -28,7 +27,9 @@ export type OrganizationMemberRowProps = {
   member: Member & { user: Partial<User> }
   isOwner?: boolean
   ownerCount?: number | undefined
-  organization: Organization
+  organization: Pick<Organization, "id" | "name" | "slug">
+  canUpdateMember: boolean
+  canRemoveMember: boolean
 }
 
 export function OrganizationMemberRow({
@@ -36,6 +37,8 @@ export function OrganizationMemberRow({
   isOwner,
   ownerCount,
   organization,
+  canUpdateMember,
+  canRemoveMember,
 }: OrganizationMemberRowProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
   const {
@@ -45,22 +48,6 @@ export function OrganizationMemberRow({
   } = useAuthPlugin(organizationPlugin)
 
   const { data: session } = useSession(authClient)
-
-  const { data: hasUpdatePermission, isPending: updatePermissionPending } = useHasPermission(
-    authClient,
-    {
-      organizationId: organization.id,
-      permissions: { member: ["update"] },
-    },
-  )
-
-  const { data: hasDeletePermission, isPending: deletePermissionPending } = useHasPermission(
-    authClient,
-    {
-      organizationId: organization.id,
-      permissions: { member: ["delete"] },
-    },
-  )
 
   const roleLabel = memberRoleLabels(member.role, roles).join(", ")
 
@@ -88,19 +75,7 @@ export function OrganizationMemberRow({
 
       <TableCell>
         <div className="flex items-center justify-end gap-1">
-          {canManageTarget && updatePermissionPending && (
-            <Button
-              aria-label={organizationLocalization.changeMemberRole}
-              title={organizationLocalization.changeMemberRole}
-              className="size-8"
-              disabled
-              size="icon"
-              variant="ghost"
-            >
-              <Pencil />
-            </Button>
-          )}
-          {canManageTarget && hasUpdatePermission?.success && (
+          {canManageTarget && canUpdateMember && (
             <Button
               aria-label={organizationLocalization.changeMemberRole}
               title={organizationLocalization.changeMemberRole}
@@ -113,7 +88,7 @@ export function OrganizationMemberRow({
             </Button>
           )}
 
-          {canManageTarget && hasUpdatePermission?.success && (
+          {canManageTarget && canUpdateMember && (
             <EditMemberRolesDialog
               member={member}
               onOpenChange={setRoleEditorOpen}
@@ -141,20 +116,7 @@ export function OrganizationMemberRow({
                 <LogOut />
               </Button>
             )
-            : canManageTarget && deletePermissionPending
-            ? (
-              <Button
-                aria-label={organizationLocalization.removeMember}
-                title={organizationLocalization.removeMember}
-                className="size-8 text-destructive"
-                disabled
-                size="icon"
-                variant="outline"
-              >
-                <Trash2 />
-              </Button>
-            )
-            : canManageTarget && hasDeletePermission?.success
+            : canManageTarget && canRemoveMember
             ? (
               <Button
                 size="icon"
@@ -183,7 +145,7 @@ export function OrganizationMemberRow({
           )
           : (
             canManageTarget &&
-            hasDeletePermission?.success &&
+            canRemoveMember &&
             !onlyOwnerActionDisabled && (
               <RemoveMemberDialog
                 open={removeOpen}

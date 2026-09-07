@@ -34,7 +34,7 @@ describe("normalizeReturnPath", () => {
   test.each([
     ["/", "/"],
     ["/settings/account?tab=profile#name", "/settings/account?tab=profile#name"],
-    [`${ORIGIN}/organization/members`, "/organization/members"],
+    [`${ORIGIN}/acme/members`, "/acme/members"],
   ])("keeps a same-origin application path", (value, expected) => {
     expect(normalizeReturnPath(value, ORIGIN)).toBe(expected)
   })

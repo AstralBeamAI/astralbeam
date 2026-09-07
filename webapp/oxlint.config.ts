@@ -263,12 +263,21 @@ export default defineConfig({
         "src/components/auth/theme/theme-toggle-item.tsx",
       ],
       // TanStack Router intentionally throws redirect() and notFound() control-flow values.
-      // TODO: Reconcile 14 control-flow throws across these 9 files with Error-only throws.
+      // TODO: Reconcile 27 control-flow throws across these 18 files with Error-only throws.
       // https://github.com/TanStack/router/discussions/2168
       "typescript/only-throw-error": [
         "src/routes/(authentication)/auth/$path.tsx",
         "src/routes/__root.tsx",
-        "src/routes/_authenticated/_organization/route.tsx",
+        "src/routes/_authenticated/$orgSlug/agents/$agentId/index.tsx",
+        "src/routes/_authenticated/$orgSlug/agents/index.tsx",
+        "src/routes/_authenticated/$orgSlug/agents/new/index.tsx",
+        "src/routes/_authenticated/$orgSlug/api-keys/index.tsx",
+        "src/routes/_authenticated/$orgSlug/route.tsx",
+        "src/routes/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/index.tsx",
+        "src/routes/_authenticated/$orgSlug/sandboxes/index.tsx",
+        "src/routes/_authenticated/$orgSlug/sandboxes/new/index.tsx",
+        "src/routes/_authenticated/$orgSlug/settings/index.tsx",
+        "src/routes/_authenticated/index.tsx",
         "src/routes/_authenticated/onboarding/index.tsx",
         "src/routes/_authenticated/route.tsx",
         "src/routes/_authenticated/settings/route.tsx",

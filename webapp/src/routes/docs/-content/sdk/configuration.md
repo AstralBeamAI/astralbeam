@@ -6,7 +6,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 
 | Option                           | Default                            | Meaning                                                                           |
 | -------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- |
-| `agentId`                        | organization's default agent       | `agt_<organization>_<agent>` from the dashboard                                   |
+| `agentId`                        | organization's default agent       | `agent_<uuid>`, copied from the dashboard                                         |
 | `apiUrl`                         | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API; the widget streams from `/chat`                   |
 | `fetchChatAuthToken`             | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
 | `title`                          | `"AstralBeam"`                     | Name in the widget's header                                                       |
