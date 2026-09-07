@@ -114,7 +114,12 @@ export const Route = createFileRoute("/api/chat/")({
           const effectiveSystemPrompt = selectedAgent.systemPrompt
           // The SDK's `debug` mount option rides along in the forwarded props, so client
           // and server log the same conversation and it can be followed from both sides.
-          const log = debug === true ? createDebugLog(params.runId) : undefined
+          // It is client-supplied and the log prints whole conversations, so — like the
+          // `systemPrompt` refused above — it is honoured only on a development server and
+          // ignored in production. `import.meta.env.DEV` is the same signal `/dev` routes use.
+          const log = debug === true && import.meta.env.DEV
+            ? createDebugLog(params.runId)
+            : undefined
           if (log) {
             log("request", `POST /api/chat, ${params.messages.length} messages`, {
               threadId: params.threadId,
