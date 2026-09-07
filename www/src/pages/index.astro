@@ -3,7 +3,9 @@ import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url
 import SiteLayout from "@/layouts/SiteLayout.astro"
 import { siteMetadata } from "@/lib/site"
 
-const waitlistUrl = "https://airtable.com/app5bJZxFB5NoPBUX/paghAGYUoz5JoIQDs/form"
+const signUpUrl = "https://app.astralbeam.ai/auth/sign-up"
+const logInUrl = "https://app.astralbeam.ai/auth/sign-in"
+const discordUrl = "https://discord.gg/S7j384JvSa"
 
 const features = [
   {
@@ -79,20 +81,26 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
         height="136" />
     </a>
     <nav class="hud-nav" aria-label="Primary">
-      <a href="#quickstart">QUICKSTART</a>
-      <a href="#features">FEATURES</a>
-      <a href="#open-source">OPEN&nbsp;SOURCE</a>
-      <a class="hud-nav-github" href={githubUrl} target="_blank" rel="noopener noreferrer"
+      <a class="hud-nav-social" href={githubUrl} target="_blank" rel="noopener noreferrer"
         aria-label="AstralBeam on GitHub">
-        <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true">
+        <svg class="icon-social" viewBox="0 0 16 16" aria-hidden="true">
           <path
             d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path>
         </svg>
         <span class="hud-nav-label">GITHUB</span>
       </a>
+      <a class="hud-nav-social" href={discordUrl} target="_blank" rel="noopener noreferrer"
+        aria-label="AstralBeam on Discord">
+        <svg class="icon-social" viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            d="M13.545 2.907A13.2 13.2 0 0 0 10.29 1.9a.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8 8 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.007a.04.04 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032q.003.022.021.033a13.3 13.3 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019q.463-.63.818-1.329a.05.05 0 0 0-.01-.059l-.018-.011a8.9 8.9 0 0 1-1.248-.595.05.05 0 0 1-.02-.066l.015-.019q.127-.095.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.007q.121.1.248.195a.05.05 0 0 1-.004.085 8.3 8.3 0 0 1-1.249.594.05.05 0 0 0-.03.03.05.05 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.2 13.2 0 0 0 4.001-2.02.05.05 0 0 0 .021-.037c.334-3.451-.559-6.449-2.365-9.108a.04.04 0 0 0-.02-.018m-8.198 7.307c-.789 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612m5.316 0c-.788 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.451.73 1.438 1.613 0 .888-.63 1.612-1.438 1.612"></path>
+        </svg>
+        <span class="hud-nav-label">DISCORD</span>
+      </a>
+      <a href={logInUrl}>LOG IN</a>
     </nav>
-    <a class="btn btn-primary hud-cta" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
-        JOIN WAITLIST
+    <a class="btn btn-primary hud-cta" href={signUpUrl}>
+        GET STARTED
       </a>
   </header>
 
@@ -112,13 +120,12 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
             Add agentic chat to your web app in five minutes or less. AstralBeam handles streaming, history, tools, billing and more...
           </p>
         <div class="hero-ctas reveal" style="--reveal-delay:.48s">
-          <a class="btn btn-primary btn-lg" href={waitlistUrl} target="_blank"
-            rel="noopener noreferrer">
-              JOIN WAITLIST
+          <a class="btn btn-primary btn-lg" href={signUpUrl}>
+              GET STARTED
             </a>
           <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank"
             rel="noopener noreferrer">
-              <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
+              <svg class="icon-social" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
               STAR ON GITHUB
             </a>
         </div>
@@ -432,7 +439,7 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
 
       <div class="os-repo reveal" style="--reveal-delay:.35s">
         <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank" rel="noopener noreferrer">
-            <svg class="icon-github" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
+            <svg class="icon-social" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.14.46.55.38A8 8 0 0 0 8 0z"></path></svg>
             BROWSE THE SOURCE
           </a>
       </div>
@@ -444,12 +451,15 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
       <h2 class="display launch-title reveal scramble"
         data-text="READY FOR LAUNCH">READY FOR LAUNCH</h2>
       <p class="section-sub launch-sub reveal">
-          Get started with a few lines of code. Join the waitlist for early access.
+          Get started with a few lines of code, or come talk to us on Discord.
         </p>
-      <div class="reveal" style="--reveal-delay:.2s">
-        <a class="btn btn-primary btn-xl" href={waitlistUrl} target="_blank"
-          rel="noopener noreferrer">
-            JOIN WAITLIST
+      <div class="launch-ctas reveal" style="--reveal-delay:.2s">
+        <a class="btn btn-primary btn-xl" href={signUpUrl}>
+            GET STARTED
+          </a>
+        <a class="btn btn-ghost btn-xl" href={discordUrl} target="_blank" rel="noopener noreferrer">
+            <svg class="icon-social" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.545 2.907A13.2 13.2 0 0 0 10.29 1.9a.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8 8 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.007a.04.04 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032q.003.022.021.033a13.3 13.3 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019q.463-.63.818-1.329a.05.05 0 0 0-.01-.059l-.018-.011a8.9 8.9 0 0 1-1.248-.595.05.05 0 0 1-.02-.066l.015-.019q.127-.095.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.007q.121.1.248.195a.05.05 0 0 1-.004.085 8.3 8.3 0 0 1-1.249.594.05.05 0 0 0-.03.03.05.05 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.2 13.2 0 0 0 4.001-2.02.05.05 0 0 0 .021-.037c.334-3.451-.559-6.449-2.365-9.108a.04.04 0 0 0-.02-.018m-8.198 7.307c-.789 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612m5.316 0c-.788 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.451.73 1.438 1.613 0 .888-.63 1.612-1.438 1.612"></path></svg>
+            JOIN THE DISCORD
           </a>
       </div>
     </section>
@@ -458,6 +468,7 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
   <footer class="site-footer mono">
     <span>© 2026 ASTRALBEAM</span>
     <a href={githubUrl} target="_blank" rel="noopener noreferrer">GITHUB</a>
+    <a href={discordUrl} target="_blank" rel="noopener noreferrer">DISCORD</a>
     <a href="mailto:hello@astralbeam.ai">HELLO@ASTRALBEAM.AI</a>
     <a href="/terms">TERMS</a>
     <a href="/privacy">PRIVACY</a>

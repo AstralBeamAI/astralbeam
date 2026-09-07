@@ -295,6 +295,7 @@ a[href] {
 
 .hud-nav a {
   cursor: pointer;
+  white-space: nowrap;
   color: var(--text-chrome);
   transition:
     color 0.2s,
@@ -306,13 +307,13 @@ a[href] {
   text-shadow: 0 0 12px var(--beam-soft);
 }
 
-.hud-nav-github {
+.hud-nav-social {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
 }
 
-.icon-github {
+.icon-social {
   width: 1.05em;
   height: 1.05em;
   fill: currentColor;
@@ -1374,6 +1375,13 @@ main {
   margin: 1.6rem auto 2.6rem;
 }
 
+.launch-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+}
+
 /* ---------- footer ---------- */
 
 .site-footer {
@@ -1416,8 +1424,8 @@ main {
   }
 }
 
-/* The wordmark, four nav links, and the CTA stop fitting on one line before
-   the nav is dropped entirely at 640px, so tighten them first. */
+/* The wordmark, the nav, and the CTA stop fitting on one line well before the
+   narrowest phones, so tighten them in two steps. */
 @media (max-width: 820px) {
   .hud-top {
     gap: 1.25rem;
@@ -1444,16 +1452,22 @@ main {
     padding: 0.8rem 1rem;
   }
   .hud-nav {
+    gap: 0.7rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+  }
+  /* Only the log-in link fits beside the wordmark and the CTA on a phone;
+     GitHub and Discord stay one tap away in the footer. */
+  .hud-nav-social {
     display: none;
   }
   .hud-cta {
-    margin-left: auto;
     font-size: 0.62rem;
     padding: 0.6rem 0.9rem;
     letter-spacing: 0.1em;
   }
   .hud-brand-wordmark {
-    height: clamp(16px, 4.6vw, 18px);
+    height: clamp(14px, 4vw, 16px);
   }
   .features-grid,
   .os-grid {
