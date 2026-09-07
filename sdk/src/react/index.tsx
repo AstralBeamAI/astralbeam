@@ -13,8 +13,9 @@ import { createPortal } from "react-dom"
 // chunk and its bundled React instead of bundling a second copy.
 import {
   type AstralBeamChatAttachmentOptions,
-  type AstralBeamChatAuthTokenHeaders,
+  type AstralBeamChatAuthTokenRequest,
   type AstralBeamChatColorScheme,
+  type AstralBeamChatGenerateAuthToken,
   type AstralBeamChatHandle,
   type AstralBeamChatSlotRenderer,
   type AstralBeamChatTheme,
@@ -38,8 +39,9 @@ import {
 
 export type {
   AstralBeamChatAttachmentOptions,
-  AstralBeamChatAuthTokenHeaders,
+  AstralBeamChatAuthTokenRequest,
   AstralBeamChatColorScheme,
+  AstralBeamChatGenerateAuthToken,
   AstralBeamChatTheme,
   InferParameters,
   ParametersSchema,
@@ -81,35 +83,24 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
 
 /**
  * The headless chat session as a React hook: authentication, transport, tools, and transcript
- * state with no markup, for hosts that own their whole chat UI. Transport identity (endpoints,
- * agent) and the declared tool/widget set are fixed for the component's lifetime — remount with
- * a React `key` to change them — but `execute` and `onRenderWidget` read the latest render, so
- * ordinary closures over props and state stay live. Whether a widget renderer exists at all is
- * part of the declared surface and is read at mount.
+ * state with no markup, for hosts that own their whole chat UI. Every option follows the props it
+ * is given, keeping the transcript and the chat session, so ordinary closures over props and
+ * state stay live and nothing needs a remount.
  */
 export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
-  const optionsRef = useRef(options)
-  optionsRef.current = options
-  const [core] = useState(() =>
-    createAstralBeamChat({
-      ...options,
-      tools: Object.fromEntries(
-        Object.entries(options.tools ?? {}).map(([name, definition]) => [name, {
-          ...definition,
-          execute: (input: Record<string, unknown>) => {
-            const current = optionsRef.current.tools?.[name]
-            if (!current) throw new Error(`Tool "${name}" is no longer registered`)
-            return current.execute(input)
-          },
-        }]),
-      ),
-      // Wrapped only when a renderer exists at mount: an unconditional wrapper would make the
-      // core report rendered: true for hosts that declared widgets without rendering them.
-      onRenderWidget: options.onRenderWidget === undefined
-        ? undefined
-        : (request) => optionsRef.current.onRenderWidget?.(request),
-    })
-  )
+  const [core] = useState(() => createAstralBeamChat(options))
+  useEffect(() => {
+    core.updateOptions(options)
+  }, [
+    core,
+    options.agentId,
+    options.apiUrl,
+    options.generateAuthToken,
+    options.tools,
+    options.widgets,
+    options.onRenderWidget,
+    options.debug,
+  ])
   useEffect(() => () => core.dispose(), [core])
   const state = useSyncExternalStore(core.subscribe, core.getState, core.getState)
   return {
@@ -133,15 +124,16 @@ export interface AstralBeamChatRef {
 
 export interface AstralBeamChatProps {
   /**
-   * Public ID of the organization-owned agent, fixed for this mounted chat. Omit it to use the
-   * organization's default agent, which the dashboard's agents page selects.
+   * Public ID of the organization-owned agent. Omit it to use the organization's default agent,
+   * which the dashboard's agents page selects. A change answers the next run with the new agent
+   * and keeps the transcript, which that agent then sees as history.
    */
   agentId?: string
-  /** Name shown in the widget's header; prop changes apply immediately. Default `"AstralBeam"`. */
+  /** Name shown in the widget's header. Default `"AstralBeam"`. */
   title?: string
   /**
    * Shows the widget's header with the title and the reset button; `false` hides both and gives
-   * the transcript the full height. Prop changes apply immediately. Default `true`.
+   * the transcript the full height. Default `true`.
    */
   showHeader?: boolean
   /** Replaces the header's content with the host's own React content; `showHeader` still applies. */
@@ -150,28 +142,29 @@ export interface AstralBeamChatProps {
   empty?: ReactNode
   /** Extra host controls at the end of the composer's button row, next to send. */
   composerActions?: ReactNode
-  /** Headline shown on the empty transcript; prop changes apply immediately. Default `"Ask the assistant"`. */
+  /** Headline shown on the empty transcript. Default `"Ask the assistant"`. */
   emptyTitle?: string
-  /** Subtitle under the empty transcript's headline; prop changes apply immediately. */
+  /** Subtitle under the empty transcript's headline. */
   emptyDescription?: string
-  /** Base URL of the AstralBeam API; the widget calls `/chat` under it. Default the hosted cloud. */
-  apiUrl?: string
-  /** Application endpoint that mints a short-lived chat JWT. Default `"/api/astralbeam/token"`. */
-  authTokenUrl?: string
   /**
-   * Extra headers for the token request, for a backend on another origin that authenticates with a
-   * bearer token or custom header instead of cookies. Always read from the latest render, so an
-   * inline object or callback over current auth state is fine, needs no memoization, and may
-   * start out undefined while the host's own credential loads.
+   * Base URL of the AstralBeam API; the widget calls `/chat` under it. Read per request, so a
+   * change moves the next one. Default the hosted cloud.
    */
-  authTokenHeaders?: AstralBeamChatAuthTokenHeaders
+  apiUrl?: string
+  /**
+   * Where the short-lived chat JWT comes from: `{ url, ...RequestInit }` for a token endpoint, or
+   * a function minting `{ token }`, optionally a promise, in the host app. Read per token, and
+   * the function form runs in the host's React tree, so an inline closure over current auth state
+   * is fine and needs no memoization. Default `{ url: "/api/astralbeam/token" }`.
+   */
+  generateAuthToken?: AstralBeamChatGenerateAuthToken
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
   tools?: Record<string, ToolDefinition>
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition>
-  /** Color scheme of the chat widget; prop changes apply immediately. Default `"system"`. */
+  /** Color scheme of the chat widget. Default `"system"`. */
   colorScheme?: AstralBeamChatColorScheme
-  /** Custom values for the widget's theming CSS variables, per color scheme; changes apply immediately. */
+  /** Custom values for the widget's theming CSS variables, per color scheme. */
   theme?: AstralBeamChatTheme | undefined
   /** File attachments in the composer, on by default; `false` turns them off. */
   attachments?: boolean | AstralBeamChatAttachmentOptions
@@ -179,7 +172,7 @@ export interface AstralBeamChatProps {
   sandboxPanel?: boolean
   /**
    * Logs every SDK action to the browser console with UTC timestamps and full payloads,
-   * and asks the endpoint to log its side of the run too; prop changes apply immediately.
+   * and asks the endpoint to log its side of the run too.
    */
   debug?: boolean
 }
@@ -205,8 +198,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       emptyTitle,
       emptyDescription,
       apiUrl,
-      authTokenUrl,
-      authTokenHeaders,
+      generateAuthToken,
       tools,
       widgets = {},
       colorScheme = DEFAULT_COLOR_SCHEME,
@@ -231,12 +223,6 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     const toolsRef = useRef(tools)
     useEffect(() => {
       toolsRef.current = tools
-    })
-    // Same reason, and the widget mints tokens for as long as it lives: headers frozen at mount
-    // would keep sending the first render's credential once the host's session rotates.
-    const authTokenHeadersRef = useRef(authTokenHeaders)
-    useEffect(() => {
-      authTokenHeadersRef.current = authTokenHeaders
     })
     // The chat keeps one render per tool call, so several renders of the same widget can be live
     // at once (a listing that renders a card per item); each needs its own portal and React key.
@@ -311,6 +297,9 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     // added. Memoized because the update effect keys off it.
     const live = useMemo(
       () => ({
+        agentId,
+        apiUrl,
+        generateAuthToken,
         title,
         showHeader,
         emptyTitle,
@@ -325,6 +314,9 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         slots: chromeSlots,
       }),
       [
+        agentId,
+        apiUrl,
+        generateAuthToken,
         title,
         showHeader,
         emptyTitle,
@@ -343,19 +335,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     liveRef.current = live
     useEffect(() => {
       if (!targetRef.current) return
-      // Mounted once; transport endpoints cannot be updated afterwards.
-      const handle = mountAstralBeamChat(targetRef.current, {
-        ...liveRef.current,
-        agentId,
-        apiUrl,
-        authTokenUrl,
-        // Always a function over the latest render, so an inline object is neither a changed
-        // mount-fixed option nor a stale credential, and one that resolves after mount still lands.
-        authTokenHeaders: () => {
-          const current = authTokenHeadersRef.current
-          return typeof current === "function" ? current() : current ?? {}
-        },
-      })
+      const handle = mountAstralBeamChat(targetRef.current, liveRef.current)
       handleRef.current = handle
       return () => {
         handleRef.current = null

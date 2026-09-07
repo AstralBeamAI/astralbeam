@@ -1,12 +1,5 @@
-import { ChatCircleDotsIcon } from "@phosphor-icons/react"
 import type { UIMessage } from "@tanstack/ai-client"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/widget/components/ui/empty"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/widget/components/ui/empty"
 import { Marker, MarkerContent, MarkerIcon } from "@/widget/components/ui/marker"
 import { Message, MessageContent } from "@/widget/components/ui/message"
 import {
@@ -72,9 +65,6 @@ export function ChatTranscript(
     return (
       <Empty className="h-full">
         <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <ChatCircleDotsIcon />
-          </EmptyMedia>
           <EmptyTitle>{emptyTitle ?? DEFAULT_EMPTY_TITLE}</EmptyTitle>
           <EmptyDescription>{emptyDescription ?? DEFAULT_EMPTY_DESCRIPTION}</EmptyDescription>
         </EmptyHeader>

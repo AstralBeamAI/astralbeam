@@ -115,12 +115,26 @@ export type AstralBeamChatColorScheme = "light" | "dark" | "system"
 export type AstralBeamChatThemeVariables = Record<`--${string}`, string>
 
 /**
- * Headers added to the token request: an object for a fixed credential, or a function for one the
- * host must read or await per request, such as a rotating access token.
+ * A token endpoint to call: `{ url, ...init }`, which the widget calls as `fetch(url, init)` with
+ * this object's remaining, standard `RequestInit` fields. The init defaults to `POST`,
+ * `credentials: "include"`, `cache: "no-store"`, and an `accept: application/json` header, each
+ * overridable here, and the response is expected to carry `{ token }` as JSON.
  */
-export type AstralBeamChatAuthTokenHeaders =
-  | Record<string, string>
-  | (() => Record<string, string> | Promise<Record<string, string>>)
+export interface AstralBeamChatAuthTokenRequest extends RequestInit {
+  url: string
+}
+
+/**
+ * Where the widget's short-lived chat JWT comes from: an endpoint to POST, or a function that
+ * mints the token in the host page and returns `{ token }`, optionally as a promise.
+ *
+ * Either form runs again on every renewal — near expiry and after a token is rejected — so a
+ * rotating credential stays current rather than being captured once. A function that returns
+ * `undefined`, or throws, fails authentication closed; the composer's retry link asks again.
+ */
+export type AstralBeamChatGenerateAuthToken =
+  | AstralBeamChatAuthTokenRequest
+  | (() => { token: string } | undefined | Promise<{ token: string } | undefined>)
 
 /**
  * Custom values for the CSS variables the widget's shadcn theme exposes (`--background`,
@@ -135,8 +149,9 @@ export interface AstralBeamChatTheme {
 
 export interface MountAstralBeamChatOptions {
   /**
-   * Public ID of the organization-owned agent, fixed for this mounted chat. Omit it to use the
-   * organization's default agent, which the dashboard's agents page selects.
+   * Public ID of the organization-owned agent. Omit it to use the organization's default agent,
+   * which the dashboard's agents page selects. A change answers the next run with the new agent
+   * and keeps the transcript, which that agent then sees as history.
    */
   agentId?: string | undefined
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
@@ -151,20 +166,18 @@ export interface MountAstralBeamChatOptions {
   /** Subtitle shown under the empty transcript's headline. Default describes the app's tools and widgets. */
   emptyDescription?: string | undefined
   /**
-   * Base URL of the AstralBeam API; the widget calls `/chat` and its subroutes under it. Fixed at
-   * mount. Default `"https://app.astralbeam.ai/api"`, the hosted cloud; self-hosted deployments
-   * must set their own origin.
+   * Base URL of the AstralBeam API; the widget calls `/chat` and its subroutes under it. Read for
+   * every request, so a change moves the next one. Default `"https://app.astralbeam.ai/api"`, the
+   * hosted cloud; self-hosted deployments must set their own origin.
    */
   apiUrl?: string | undefined
-  /** Application endpoint that mints a short-lived chat JWT. Fixed at mount. Default `"/api/astralbeam/token"`. */
-  authTokenUrl?: string | undefined
   /**
-   * Extra request headers for `authTokenUrl`, for hosts whose backend sits on another origin and
-   * authenticates with a bearer token or a custom header rather than the page's cookies. Resolved
-   * again on every token request, so pass the function form for a credential that rotates.
-   * Fixed at mount.
+   * Where the short-lived chat JWT comes from: `{ url, ...RequestInit }` for a token endpoint, or
+   * a function that mints `{ token }` in the host page. Read for every token, so a change applies
+   * to the next one, which is minted when the cached token nears expiry. Default
+   * `{ url: "/api/astralbeam/token" }`, posted with the page's cookies.
    */
-  authTokenHeaders?: AstralBeamChatAuthTokenHeaders | undefined
+  generateAuthToken?: AstralBeamChatGenerateAuthToken | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -194,12 +207,11 @@ export interface MountAstralBeamChatOptions {
 }
 
 /**
- * Mount options the handle can change afterwards. The agent and the transport URLs are fixed:
- * changing any of them would mean a new client and a discarded transcript.
+ * What the handle's `update` takes: every mount option, none of them fixed. The transport options
+ * are re-read per request rather than captured, so changing them keeps the transcript and the
+ * chat session instead of forcing a fresh mount.
  */
-export type AstralBeamChatUpdate = Partial<
-  Omit<MountAstralBeamChatOptions, "agentId" | "apiUrl" | "authTokenUrl" | "authTokenHeaders">
->
+export type AstralBeamChatUpdate = Partial<MountAstralBeamChatOptions>
 
 export interface AstralBeamChatHandle {
   unmount: () => void

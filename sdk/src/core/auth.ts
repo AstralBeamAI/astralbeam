@@ -1,5 +1,5 @@
 import type { DebugLogger } from "../lib/debug.ts"
-import type { AstralBeamChatAuthTokenHeaders } from "../lib/types.ts"
+import type { AstralBeamChatGenerateAuthToken } from "../lib/types.ts"
 
 const REFRESH_SKEW_MS = 60_000
 const MAX_TOKEN_LENGTH = 16_384
@@ -21,8 +21,8 @@ interface ChatAuthenticationSession {
 }
 
 export interface ChatAuthenticationOptions {
-  authTokenUrl: string
-  authTokenHeaders: AstralBeamChatAuthTokenHeaders | undefined
+  /** The token endpoint to call or the host function to ask; callers resolve the default. */
+  generateAuthToken: AstralBeamChatGenerateAuthToken
   session: ChatAuthenticationSession
   onStateChange: (state: ChatAuthenticationState) => void
   fetchClient: typeof globalThis.fetch
@@ -62,26 +62,28 @@ function bearerToken(headers: Headers): string | undefined {
   return authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined
 }
 
-async function postChatToken(
+async function requestChatToken(
   options: ChatAuthenticationOptions,
   signal: AbortSignal,
 ): Promise<unknown> {
-  const { authTokenUrl, authTokenHeaders, fetchClient } = options
-  const headers = new Headers({ accept: "application/json" })
-  // Resolved per request, so a rotating credential is never captured once, and only awaited when
-  // the host configured headers, so the default cookie request still starts in the caller's tick.
-  if (authTokenHeaders) {
-    const extra = typeof authTokenHeaders === "function"
-      ? await authTokenHeaders()
-      : authTokenHeaders
-    for (const [name, value] of Object.entries(extra)) headers.set(name, value)
+  const { generateAuthToken, fetchClient } = options
+  // No result at all means the host could not mint a token, which fails closed below.
+  if (typeof generateAuthToken === "function") {
+    const generated: { token?: unknown } | null | undefined = await generateAuthToken()
+    return generated?.token
   }
-  const response = await fetchClient(authTokenUrl, {
+  const { url, ...init } = generateAuthToken
+  const headers = new Headers(init.headers)
+  if (!headers.has("accept")) headers.set("accept", "application/json")
+  const response = await fetchClient(url, {
     method: "POST",
-    headers,
     credentials: "include",
     cache: "no-store",
-    signal,
+    // The host's own init wins, except that a token request must still abort with the session;
+    // `AbortSignal.any` keeps a host-supplied signal working alongside it.
+    ...init,
+    headers,
+    signal: init.signal ? AbortSignal.any([signal, init.signal]) : signal,
   })
   if (!response.ok) throw new Error(`Authentication endpoint returned HTTP ${response.status}`)
   const body: unknown = await response.json()
@@ -91,14 +93,17 @@ async function postChatToken(
 async function fetchChatToken(options: ChatAuthenticationOptions): Promise<string> {
   const { session, onStateChange, debug } = options
   const { signal } = session.abortController
+  const source = typeof options.generateAuthToken === "function"
+    ? "generateAuthToken"
+    : "Authentication endpoint"
   try {
-    const token = await postChatToken(options, signal)
+    const token = await requestChatToken(options, signal)
     if (typeof token !== "string" || !token) {
-      throw new Error("Authentication endpoint did not return a token")
+      throw new Error(`${source} did not return a token`)
     }
     const expiresAt = tokenExpiry(token)
     if (expiresAt <= Date.now()) {
-      throw new Error("Authentication endpoint returned an expired token")
+      throw new Error(`${source} returned an expired token`)
     }
     session.cached = { value: token, expiresAt }
     onStateChange({ status: "ready" })
