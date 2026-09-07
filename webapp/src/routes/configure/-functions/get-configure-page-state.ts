@@ -58,7 +58,9 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
           ? effectiveValues[definition.key] !== undefined
           : row !== undefined,
         ...(row?.storageStatus ? { storageStatus: row.storageStatus } : {}),
-        value: effectiveValues[definition.key] ?? null,
+        // A secret never leaves with the page; `isSet` drives the masked state and
+        // `revealConfigValue` fetches the one value an operator asks to see.
+        value: definition.kind === "secret" ? null : effectiveValues[definition.key] ?? null,
       }
     })
     return {

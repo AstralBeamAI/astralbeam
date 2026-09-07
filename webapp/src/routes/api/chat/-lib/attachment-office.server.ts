@@ -53,10 +53,8 @@ class OfficeArchiveTooLargeError extends Error {
  * per-entry cap below the archive's could only ever skip a part — which surfaced to the agent as
  * "it holds no document part" rather than the truth. Throwing stops the unpack and says why.
  *
- * Every entry is counted before `wanted` runs, because the selected-entry and declared-byte caps
- * describe only the parts that are kept: an archive whose central directory declares entries that
- * never match `wanted` selects nothing, so neither cap can fire and the whole directory is walked.
- * The visited count bounds that walk.
+ * Every entry is counted before `wanted` runs: those two caps describe only the parts that are
+ * kept, so an archive declaring entries that match nothing would be walked with neither firing.
  */
 function readParts(
   bytes: Uint8Array,

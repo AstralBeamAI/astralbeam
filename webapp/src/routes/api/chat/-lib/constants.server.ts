@@ -73,10 +73,8 @@ export const CHAT_ATTACHMENT_PROFILE_TYPED_ROWS = 50
 // `unzipSync` inflates every selected entry before returning. One archive-wide budget bounds both.
 export const CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES = 96 * 1024 * 1024
 export const CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES = 2_048
-// The entry count is declared by the archive too, and `filter` runs for every entry the central
-// directory declares whether or not the part is wanted, so the two caps above bound only the
-// entries that are kept. This one bounds the walk itself; it sits well above the few hundred
-// parts a real deck or workbook holds.
+// `filter` runs for every declared entry, so the caps above bound only the entries that are kept.
+// This bounds the walk itself, well above the few hundred parts a real deck or workbook holds.
 export const CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES = 4_096
 
 // Table shape bounds. A worksheet's coordinates are attacker-chosen too — one value at the valid

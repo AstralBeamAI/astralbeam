@@ -14,7 +14,7 @@ export interface ConfigureField {
   options?: ConfigDefinition["options"]
   isSet: boolean
   storageStatus?: ConfigStorageEntry["storageStatus"]
-  /** Effective value; the authenticated editor masks text, URL, and secret fields by default. */
+  /** Effective value, or `null` for a secret kind, which only `revealConfigValue` returns. */
   value: string | null
 }
 
