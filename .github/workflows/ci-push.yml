@@ -58,6 +58,9 @@ jobs:
           deno task --cwd sdk ready
           deno task --cwd examples/todos ready
 
+      - name: Compile and smoke-test Webapp binary
+        run: deno task --cwd webapp binary:check
+
       - name: Commit and push auto-fixes
         uses: ./.github/actions/commit-and-push
         with:

@@ -2,7 +2,7 @@
 
 - Use plain data and helper functions with explicit options objects for application logic; do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
 - Keep named functions, function-valued variables, and module-level constants globally unique within `webapp`; use concise domain qualifiers when needed. Implementations may reuse names prescribed by their shared interface, as may framework-mandated exports such as TanStack Router's `Route`.
-- Remember that the webapp is also distributed as a deno binary. So don't implement anything in a way that breaks the binary-distribution flow.
+- Keep the webapp distributable as a Deno binary, keep compiled npm payloads limited to reachable packages, and explicitly include any runtime-computed import or require that Deno cannot trace. Run `deno task binary:check` for dependency, build, and server changes; CI runs the same out-of-tree smoke check and enforces its 200 MiB ceiling.
 
 - This is TanStack Start React app
   - Tech stack: TanStack Router, Tailwind, Shadcn UI, Better Auth, Drizzle ORM, React Email
