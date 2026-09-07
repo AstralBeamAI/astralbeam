@@ -1,6 +1,7 @@
 "use client"
 
 import { InfoIcon } from "@phosphor-icons/react"
+import type { Organization } from "better-auth/client"
 import { useState } from "react"
 
 import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog"
@@ -11,13 +12,15 @@ import { suggestOrganizationNameFromEmail } from "../-lib/utils"
 
 export type OrganizationOnboardingProps = {
   email: string
-  /** Refreshes organization access after creation or an invitation action. */
-  onOrganizationAccessChange?: () => unknown
+  /** Refreshes organization access after an invitation is accepted or rejected. */
+  onInvitationAction: () => unknown
+  onOrganizationCreated: (organization: Organization) => unknown
 }
 
 export function OrganizationOnboarding({
   email,
-  onOrganizationAccessChange,
+  onInvitationAction,
+  onOrganizationCreated,
 }: OrganizationOnboardingProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const suggestedName = suggestOrganizationNameFromEmail(email)
@@ -39,9 +42,7 @@ export function OrganizationOnboarding({
         </p>
       </div>
 
-      <UserInvitations
-        {...onOrganizationAccessChange ? { onInvitationAction: onOrganizationAccessChange } : {}}
-      />
+      <UserInvitations onInvitationAction={onInvitationAction} />
 
       <Alert>
         <InfoIcon aria-hidden="true" />
@@ -65,7 +66,7 @@ export function OrganizationOnboarding({
       <CreateOrganizationDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        {...onOrganizationAccessChange ? { onOrganizationCreated: onOrganizationAccessChange } : {}}
+        onOrganizationCreated={onOrganizationCreated}
         {...(suggestedName ? { initialName: suggestedName } : {})}
       />
     </section>

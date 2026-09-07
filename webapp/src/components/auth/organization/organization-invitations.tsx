@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor, domain-specific function names, and hover titles for icon-only filter actions; make filters/table responsive, repair strict optional props, and colocate the private empty state.
+// Local changes: use Phosphor, domain-specific function names, and hover titles for icon-only filter actions; take the organization and its invitation permissions as props from the page loader; make filters/table responsive, repair strict optional props, and colocate the private empty state.
 
 import {
   hasMemberRole,
@@ -7,10 +7,7 @@ import {
   type OrganizationLocalization,
 } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
-import {
-  useHasPermission,
-  useListOrganizationInvitations,
-} from "@better-auth-ui/react/plugins/organization"
+import { useListOrganizationInvitations } from "@better-auth-ui/react/plugins/organization"
 import {
   CaretUpIcon as ChevronUp,
   FunnelIcon as Filter,
@@ -60,13 +57,7 @@ type SortDescriptor = {
   direction: SortDirection
 }
 
-function OrganizationInvitationsEmpty({
-  isInvitePending,
-  onInvitePress,
-}: {
-  isInvitePending?: boolean
-  onInvitePress?: () => void
-}) {
+function OrganizationInvitationsEmpty({ onInvitePress }: { onInvitePress?: () => void }) {
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
 
   return (
@@ -80,9 +71,9 @@ function OrganizationInvitationsEmpty({
           {organizationLocalization.organizationInvitationsEmptyDescription}
         </EmptyDescription>
       </EmptyHeader>
-      {(isInvitePending || onInvitePress) && (
+      {onInvitePress && (
         <EmptyContent>
-          <Button disabled={isInvitePending} size="sm" onClick={onInvitePress}>
+          <Button size="sm" onClick={onInvitePress}>
             {organizationLocalization.inviteMember}
           </Button>
         </EmptyContent>
@@ -94,6 +85,11 @@ function OrganizationInvitationsEmpty({
 /** Props for the `OrganizationInvitations` component. */
 export type OrganizationInvitationsProps = {
   className?: string
+  organizationId: string
+  /** Resolved by the page's loader, so no row asks the server what this member may do. */
+  isOwner: boolean
+  canInvite: boolean
+  canCancelInvitation: boolean
 }
 
 /**
@@ -101,6 +97,10 @@ export type OrganizationInvitationsProps = {
  */
 export function OrganizationInvitations({
   className,
+  organizationId,
+  isOwner,
+  canInvite,
+  canCancelInvitation,
   ...props
 }: OrganizationInvitationsProps & ComponentProps<"div">) {
   const { authClient, localization } = useAuth<OrganizationAuthClient>()
@@ -108,10 +108,6 @@ export function OrganizationInvitations({
   const { data: invitations, isPending: invitationsPending } = useListOrganizationInvitations(
     authClient,
   )
-
-  const canInvite = useHasPermission(authClient, {
-    permissions: { invitation: ["create"] },
-  })
 
   const isPending = invitationsPending
 
@@ -352,10 +348,7 @@ export function OrganizationInvitations({
                   <TableRow>
                     <TableCell colSpan={5}>
                       <OrganizationInvitationsEmpty
-                        isInvitePending={canInvite.isPending}
-                        {...(canInvite.data?.success
-                          ? { onInvitePress: () => setInviteOpen(true) }
-                          : {})}
+                        {...(canInvite ? { onInvitePress: () => setInviteOpen(true) } : {})}
                       />
                     </TableCell>
                   </TableRow>
@@ -365,6 +358,8 @@ export function OrganizationInvitations({
                     <OrganizationInvitationRow
                       key={invitation.id}
                       invitation={invitation}
+                      canInvite={canInvite}
+                      canCancelInvitation={canCancelInvitation}
                     />
                   ))
                 )}
@@ -373,8 +368,13 @@ export function OrganizationInvitations({
         </Card>
       </div>
 
-      {canInvite.data?.success && (
-        <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} />
+      {canInvite && (
+        <InviteMemberDialog
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          organizationId={organizationId}
+          isOwner={isOwner}
+        />
       )}
     </div>
   )

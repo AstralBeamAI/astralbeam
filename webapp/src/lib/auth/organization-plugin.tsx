@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and preserve the literal settings view for strict plugin inference.
+// Local changes: use Phosphor and drop the organizations settings tab, which lives at /organizations.
 
 import { createAuthPlugin } from "@better-auth-ui/core"
 import {
@@ -7,10 +7,8 @@ import {
   organizationPlugin as coreOrganizationPlugin,
   type OrganizationPluginOptions,
 } from "@better-auth-ui/core/plugins/organization"
-import { BriefcaseIcon as Briefcase } from "@phosphor-icons/react"
 
 import { AcceptInvitation } from "@/components/auth/organization/accept-invitation"
-import { OrganizationsSettings } from "@/components/auth/organization/organizations-settings"
 
 export const organizationPlugin = createAuthPlugin(
   coreOrganizationPlugin.id,
@@ -23,18 +21,6 @@ export const organizationPlugin = createAuthPlugin(
       views: {
         auth: { acceptInvitation: AcceptInvitation },
       },
-      settingsTabs: [
-        {
-          view: "organizations" as const,
-          label: (
-            <>
-              <Briefcase className="text-muted-foreground" />
-              {core.localization.organizations}
-            </>
-          ),
-          component: OrganizationsSettings,
-        },
-      ],
     }
   },
 )

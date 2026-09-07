@@ -1,18 +1,15 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Replace Lucide with Phosphor icons, activate organizations before managing them, and colocate private row and empty states.
+// Local changes: Replace Lucide with Phosphor icons, link each row to that organization's slug-scoped dashboard, and colocate private row and empty states.
 "use client"
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
-import {
-  useListOrganizations,
-  useSetActiveOrganization,
-} from "@better-auth-ui/react/plugins/organization"
+import { useListOrganizations } from "@better-auth-ui/react/plugins/organization"
 import { BriefcaseIcon as Briefcase, GearIcon as SettingsIcon } from "@phosphor-icons/react"
 import type { Organization } from "better-auth/client"
 import { Fragment, useState } from "react"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Empty,
@@ -23,7 +20,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Item, ItemActions, ItemGroup, ItemSeparator } from "@/components/ui/item"
-import { Spinner } from "@/components/ui/spinner"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { CreateOrganizationDialog } from "./create-organization-dialog"
 import { OrganizationViewSkeleton } from "./organization-view-skeleton"
@@ -146,42 +142,22 @@ function OrganizationsEmpty({
 }
 
 function OrganizationRow({ organization }: { organization: Organization }) {
-  const { authClient, basePaths, navigate } = useAuth<OrganizationAuthClient>()
-  const {
-    localization: organizationLocalization,
-    viewPaths: organizationViewPaths,
-  } = useAuthPlugin(organizationPlugin)
-
-  const { mutate: setActiveOrganization, isPending: setActivePending } = useSetActiveOrganization(
-    authClient,
-    {
-      onSuccess: () => {
-        navigate({
-          to: `${basePaths.organization}/${organizationViewPaths.organization.people}`,
-        })
-      },
-    },
-  )
-
-  function manageOrganization() {
-    setActiveOrganization({ organizationId: organization.id })
-  }
+  const { Link } = useAuth<OrganizationAuthClient>()
+  const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
 
   return (
     <Item>
       <OrganizationView className="flex-1" organization={organization} />
       <ItemActions>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={setActivePending}
-          onClick={manageOrganization}
-          aria-label={organizationLocalization.manage}
+        <Link
+          href={`/${organization.slug}`}
+          aria-label={`${organizationLocalization.manage} ${organization.name}`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
         >
-          {setActivePending ? <Spinner /> : <SettingsIcon />}
+          <SettingsIcon />
 
           {organizationLocalization.manage}
-        </Button>
+        </Link>
       </ItemActions>
     </Item>
   )

@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Replace Lucide with Phosphor icons, add a stable accessible trigger name and hover title, and expose successful organization creation to the organization layout.
+// Local changes: Replace Lucide with Phosphor icons, add a stable accessible trigger name and hover title, address organizations by their root-level slug path, and let a URL-scoped page supply the active organization.
 
 "use client"
 
@@ -8,7 +8,6 @@ import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
 import {
   useActiveOrganization,
   useListOrganizations,
-  useSetActiveOrganization,
 } from "@better-auth-ui/react/plugins/organization"
 import type { Organization } from "better-auth/client"
 import {
@@ -44,7 +43,9 @@ export type OrganizationSwitcherProps = {
   hideSettings?: boolean
   hideSlug?: boolean
   setActive?: (organization: Organization | null) => void
-  onOrganizationCreated?: () => unknown
+  onOrganizationCreated?: (organization: Organization) => unknown
+  /** The organization the URL addresses, which the session's own active organization follows. */
+  organization?: Pick<Organization, "id" | "name" | "slug"> | undefined
 }
 
 /**
@@ -62,29 +63,23 @@ export function OrganizationSwitcher({
   hideSlug = true,
   setActive,
   onOrganizationCreated,
+  organization: routeOrganization,
   trigger,
 }: OrganizationSwitcherProps) {
   const { authClient, navigate, basePaths, localization, viewPaths, Link } = useAuth<
     OrganizationAuthClient
   >()
   const { data: session, isPending: sessionPending } = useSession(authClient)
-  const {
-    localization: organizationLocalization,
-    viewPaths: organizationViewPaths,
-    slug,
-    slugPrefix,
-  } = useAuthPlugin(organizationPlugin)
+  const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
 
-  const { data: activeOrganization, isPending: activeOrganizationPending } = useActiveOrganization(
-    authClient,
-  )
+  const { data: sessionOrganization, isPending: sessionOrganizationPending } =
+    useActiveOrganization(authClient, { enabled: !routeOrganization })
+  const activeOrganization = routeOrganization ?? sessionOrganization
 
   const { data: organizations, isPending: organizationsPending } = useListOrganizations(authClient)
 
-  const { mutate: setActiveOrganization } = useSetActiveOrganization(authClient)
-
   const isPending = sessionPending ||
-    (!!session && (organizationsPending || activeOrganizationPending))
+    (!!session && (organizationsPending || (!routeOrganization && sessionOrganizationPending)))
 
   const [createOpen, setCreateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -100,14 +95,10 @@ export function OrganizationSwitcher({
 
     if (setActive) {
       setActive(organization)
-    } else if (slug !== undefined) {
-      navigate({
-        to: organization
-          ? `${basePaths.organization}/${slugPrefix}${organization.slug}/${organizationViewPaths.organization.settings}`
-          : `${basePaths.settings}/${viewPaths.settings.account}`,
-      })
+    } else if (organization) {
+      navigate({ to: `/${organization.slug}` })
     } else {
-      setActiveOrganization({ organizationId: organization?.id ?? null })
+      navigate({ to: `${basePaths.settings}/${viewPaths.settings.account}` })
     }
   }
 
@@ -128,7 +119,13 @@ export function OrganizationSwitcher({
             {isPending
               ? <OrganizationView isPending hideRole hideSlug={hideSlug} />
               : activeOrganization
-              ? <OrganizationView hideRole hideSlug={hideSlug} />
+              ? (
+                <OrganizationView
+                  hideRole
+                  hideSlug={hideSlug}
+                  organization={activeOrganization}
+                />
+              )
               : session && !hidePersonal
               ? <UserView hideSubtitle={hideSlug} />
               : (
@@ -160,9 +157,7 @@ export function OrganizationSwitcher({
 
                 {!hideSettings && (
                   <Link
-                    href={slug
-                      ? `${basePaths.organization}/${slugPrefix}${slug}/${organizationViewPaths.organization.settings}`
-                      : `${basePaths.organization}/${organizationViewPaths.organization.settings}`}
+                    href={`/${activeOrganization.slug}/settings`}
                     className={cn(
                       buttonVariants({ variant: "outline", size: "sm" }),
                     )}

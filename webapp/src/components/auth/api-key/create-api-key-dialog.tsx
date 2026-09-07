@@ -36,7 +36,7 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
 import { isValidSlug } from "@/lib/slug"
-import { checkOrganizationApiKeySlugAvailability } from "@/routes/_authenticated/_organization/organization/api-keys/-functions/check-organization-api-key-slug-availability"
+import { checkApiKeySlugAvailability } from "@/routes/_authenticated/$orgSlug/api-keys/-functions/check-api-key-slug-availability"
 import { NewApiKeyDialog } from "./new-api-key-dialog"
 
 export type CreateApiKeyDialogProps = {
@@ -45,10 +45,6 @@ export type CreateApiKeyDialogProps = {
   /** Create an organization-owned key by passing the organization id. */
   organizationId?: string | undefined
   organizationSlug: string
-}
-
-function checkApiKeySlug(value: string) {
-  return checkOrganizationApiKeySlugAvailability({ data: value })
 }
 
 export function CreateApiKeyDialog({
@@ -242,7 +238,8 @@ export function CreateApiKeyDialog({
                   label="Identifier"
                   sourceValue={name}
                   fallback="key"
-                  checkAvailability={checkApiKeySlug}
+                  checkAvailability={(slug) =>
+                    checkApiKeySlugAvailability({ data: { organizationSlug, slug } })}
                   onAvailabilityChange={setSlugAvailability}
                   formatPreview={(resourceSlug) => `key_${organizationSlug}_${resourceSlug}`}
                   disabled={isCreating}

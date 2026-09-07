@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Replace Lucide with Phosphor icons and Sonner with Base UI Toast.
+// Local changes: Replace Lucide with Phosphor icons and Sonner with Base UI Toast, and return to /organizations after leaving.
 
 "use client"
 
@@ -29,7 +29,7 @@ import { OrganizationView } from "./organization-view"
 export type LeaveOrganizationDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  organization: Organization
+  organization: Pick<Organization, "id" | "name" | "slug">
 }
 
 export function LeaveOrganizationDialog({
@@ -37,11 +37,8 @@ export function LeaveOrganizationDialog({
   onOpenChange,
   organization,
 }: LeaveOrganizationDialogProps) {
-  const { authClient, basePaths, localization, navigate } = useAuth<OrganizationAuthClient>()
-  const {
-    localization: organizationLocalization,
-    viewPaths: organizationPluginViewPaths,
-  } = useAuthPlugin(organizationPlugin)
+  const { authClient, localization, navigate } = useAuth<OrganizationAuthClient>()
+  const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
 
   const { mutate: leaveOrganization, isPending } = useLeaveOrganization(
     authClient,
@@ -50,10 +47,7 @@ export function LeaveOrganizationDialog({
         onOpenChange(false)
         toast.add({ title: organizationLocalization.leftOrganization, type: "success" })
 
-        navigate({
-          to: `${basePaths.settings}/${organizationPluginViewPaths.settings.organizations}`,
-          replace: true,
-        })
+        navigate({ to: "/organizations", replace: true })
       },
     },
   )

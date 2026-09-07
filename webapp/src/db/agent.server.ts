@@ -36,10 +36,14 @@ const AgentSandboxProviderSummarySchema = Schema.Struct({
   name: SandboxProviderNameSchema,
   providerType: SandboxProviderIdSchema,
 })
+export type AgentSandboxProviderSummary = typeof AgentSandboxProviderSummarySchema.Type
 
-const OrganizationAgentStateSchema = Schema.Struct({
-  slug: SlugSchema,
+const OrganizationAgentListSchema = Schema.Struct({
   agents: Schema.Array(OrganizationAgentSchema),
+  configuration: Schema.NullOr(Schema.Struct({ defaultAgentId: Schema.NullOr(UuidV7Schema) })),
+})
+
+const OrganizationAgentFormOptionsSchema = Schema.Struct({
   sandboxProviders: Schema.Array(AgentSandboxProviderSummarySchema),
   configuration: Schema.NullOr(Schema.Struct({ defaultAgentId: Schema.NullOr(UuidV7Schema) })),
 })
@@ -79,14 +83,35 @@ function defaultAgentSystemPrompt(organizationName: string): string {
     "is ambiguous, and say plainly when something is outside what you can do."
 }
 
-export function readOrganizationAgentState(organizationId: string) {
+/** The agents list, with the organization's default agent so the list can mark it. */
+export function readOrganizationAgents(organizationId: string) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const value = yield* db.query.organization.findFirst({
-      columns: { slug: true },
+      columns: {},
       where: { id: organizationId },
       with: {
         agents: { orderBy: { name: "asc", id: "asc" } },
+        configuration: { columns: { defaultAgentId: true } },
+      },
+    })
+    if (value === undefined) return yield* Effect.die(new Error("Organization not found"))
+    const { configuration, agents } = yield* Schema.decodeUnknownEffect(
+      OrganizationAgentListSchema,
+      { onExcessProperty: "error" },
+    )(value).pipe(Effect.orDie)
+    return { agents, defaultAgentId: configuration?.defaultAgentId ?? null }
+  })
+}
+
+/** The sandbox providers an agent form can select, plus the current default agent. */
+export function readOrganizationAgentFormOptions(organizationId: string) {
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    const value = yield* db.query.organization.findFirst({
+      columns: {},
+      where: { id: organizationId },
+      with: {
         configuration: { columns: { defaultAgentId: true } },
         sandboxProviders: {
           columns: { id: true, name: true, providerType: true },
@@ -95,11 +120,26 @@ export function readOrganizationAgentState(organizationId: string) {
       },
     })
     if (value === undefined) return yield* Effect.die(new Error("Organization not found"))
-    const { slug: organizationSlug, configuration, ...state } = yield* Schema.decodeUnknownEffect(
-      OrganizationAgentStateSchema,
+    const { configuration, sandboxProviders } = yield* Schema.decodeUnknownEffect(
+      OrganizationAgentFormOptionsSchema,
       { onExcessProperty: "error" },
     )(value).pipe(Effect.orDie)
-    return { organizationSlug, defaultAgentId: configuration?.defaultAgentId ?? null, ...state }
+    return { sandboxProviders, defaultAgentId: configuration?.defaultAgentId ?? null }
+  })
+}
+
+/** One agent addressed by the slug in its URL, or `null` when this organization has no such agent. */
+export function readOrganizationAgentBySlug(input: { organizationId: string; slug: string }) {
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    const rows = yield* db.select().from(agent).where(
+      and(eq(agent.organizationId, input.organizationId), eq(agent.slug, input.slug)),
+    ).limit(1).pipe(Effect.orDie)
+    const row = rows[0]
+    if (!row) return null
+    return yield* Schema.decodeUnknownEffect(OrganizationAgentSchema, {
+      onExcessProperty: "error",
+    })(row).pipe(Effect.orDie)
   })
 }
 

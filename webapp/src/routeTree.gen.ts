@@ -11,28 +11,34 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as DocsRouteRouteImport } from './routes/docs/route'
-import { Route as AuthenticatedOrganizationRouteRouteImport } from './routes/_authenticated/_organization/route'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedOrgSlugRouteRouteImport } from './routes/_authenticated/$orgSlug/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
 import { Route as DevSplatRouteImport } from './routes/dev/$'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
-import { Route as AuthenticatedOrganizationIndexRouteImport } from './routes/_authenticated/_organization/index'
+import { Route as AuthenticatedOrgSlugIndexRouteImport } from './routes/_authenticated/$orgSlug/index'
 import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
+import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
 import { Route as ApiChatConfigRouteImport } from './routes/api/chat/config'
 import { Route as ApiChatFilesRouteImport } from './routes/api/chat/files'
 import { Route as DocsSectionIndexRouteImport } from './routes/docs/$section/index'
+import { Route as AuthenticatedOrgSlugAgentsIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/index'
+import { Route as AuthenticatedOrgSlugApiKeysIndexRouteImport } from './routes/_authenticated/$orgSlug/api-keys/index'
+import { Route as AuthenticatedOrgSlugMembersIndexRouteImport } from './routes/_authenticated/$orgSlug/members/index'
+import { Route as AuthenticatedOrgSlugSandboxesIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/index'
+import { Route as AuthenticatedOrgSlugSettingsIndexRouteImport } from './routes/_authenticated/$orgSlug/settings/index'
 import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
-import { Route as AuthenticatedSettingsOrganizationsIndexRouteImport } from './routes/_authenticated/settings/organizations/index'
 import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
 import { Route as DocsSectionPageIndexRouteImport } from './routes/docs/$section/$page/index'
-import { Route as AuthenticatedOrganizationOrganizationAgentsIndexRouteImport } from './routes/_authenticated/_organization/organization/agents/index'
-import { Route as AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport } from './routes/_authenticated/_organization/organization/api-keys/index'
-import { Route as AuthenticatedOrganizationOrganizationMembersIndexRouteImport } from './routes/_authenticated/_organization/organization/members/index'
-import { Route as AuthenticatedOrganizationOrganizationSandboxProvidersIndexRouteImport } from './routes/_authenticated/_organization/organization/sandbox-providers/index'
+import { Route as AuthenticatedOrgSlugAgentsAgentSlugIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/$agentSlug/index'
+import { Route as AuthenticatedOrgSlugAgentsNewIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/new/index'
+import { Route as AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/index'
+import { Route as AuthenticatedOrgSlugSandboxesNewIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/new/index'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -43,9 +49,15 @@ const DocsRouteRoute = DocsRouteRouteImport.update({
   path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedOrganizationRouteRoute =
-  AuthenticatedOrganizationRouteRouteImport.update({
-    id: '/_organization',
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOrgSlugRouteRoute =
+  AuthenticatedOrgSlugRouteRouteImport.update({
+    id: '/$orgSlug',
+    path: '/$orgSlug',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedSettingsRouteRoute =
@@ -79,16 +91,22 @@ const authenticationAuthPathRoute = authenticationAuthPathRouteImport.update({
   path: '/auth/$path',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedOrganizationIndexRoute =
-  AuthenticatedOrganizationIndexRouteImport.update({
+const AuthenticatedOrgSlugIndexRoute =
+  AuthenticatedOrgSlugIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
 const AuthenticatedOnboardingIndexRoute =
   AuthenticatedOnboardingIndexRouteImport.update({
     id: '/onboarding/',
     path: '/onboarding/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedOrganizationsIndexRoute =
+  AuthenticatedOrganizationsIndexRouteImport.update({
+    id: '/organizations/',
+    path: '/organizations/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -116,16 +134,40 @@ const DocsSectionIndexRoute = DocsSectionIndexRouteImport.update({
   path: '/$section/',
   getParentRoute: () => DocsRouteRoute,
 } as any)
+const AuthenticatedOrgSlugAgentsIndexRoute =
+  AuthenticatedOrgSlugAgentsIndexRouteImport.update({
+    id: '/agents/',
+    path: '/agents/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedOrgSlugApiKeysIndexRoute =
+  AuthenticatedOrgSlugApiKeysIndexRouteImport.update({
+    id: '/api-keys/',
+    path: '/api-keys/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedOrgSlugMembersIndexRoute =
+  AuthenticatedOrgSlugMembersIndexRouteImport.update({
+    id: '/members/',
+    path: '/members/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedOrgSlugSandboxesIndexRoute =
+  AuthenticatedOrgSlugSandboxesIndexRouteImport.update({
+    id: '/sandboxes/',
+    path: '/sandboxes/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedOrgSlugSettingsIndexRoute =
+  AuthenticatedOrgSlugSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
 const AuthenticatedSettingsAccountIndexRoute =
   AuthenticatedSettingsAccountIndexRouteImport.update({
     id: '/account/',
     path: '/account/',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
-const AuthenticatedSettingsOrganizationsIndexRoute =
-  AuthenticatedSettingsOrganizationsIndexRouteImport.update({
-    id: '/organizations/',
-    path: '/organizations/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsSecurityIndexRoute =
@@ -139,34 +181,35 @@ const DocsSectionPageIndexRoute = DocsSectionPageIndexRouteImport.update({
   path: '/$section/$page/',
   getParentRoute: () => DocsRouteRoute,
 } as any)
-const AuthenticatedOrganizationOrganizationAgentsIndexRoute =
-  AuthenticatedOrganizationOrganizationAgentsIndexRouteImport.update({
-    id: '/organization/agents/',
-    path: '/organization/agents/',
-    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+const AuthenticatedOrgSlugAgentsAgentSlugIndexRoute =
+  AuthenticatedOrgSlugAgentsAgentSlugIndexRouteImport.update({
+    id: '/agents/$agentSlug/',
+    path: '/agents/$agentSlug/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
-const AuthenticatedOrganizationOrganizationApiKeysIndexRoute =
-  AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport.update({
-    id: '/organization/api-keys/',
-    path: '/organization/api-keys/',
-    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+const AuthenticatedOrgSlugAgentsNewIndexRoute =
+  AuthenticatedOrgSlugAgentsNewIndexRouteImport.update({
+    id: '/agents/new/',
+    path: '/agents/new/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
-const AuthenticatedOrganizationOrganizationMembersIndexRoute =
-  AuthenticatedOrganizationOrganizationMembersIndexRouteImport.update({
-    id: '/organization/members/',
-    path: '/organization/members/',
-    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+const AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute =
+  AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport.update({
+    id: '/sandboxes/$sandboxProviderId/',
+    path: '/sandboxes/$sandboxProviderId/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
-const AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute =
-  AuthenticatedOrganizationOrganizationSandboxProvidersIndexRouteImport.update({
-    id: '/organization/sandbox-providers/',
-    path: '/organization/sandbox-providers/',
-    getParentRoute: () => AuthenticatedOrganizationRouteRoute,
+const AuthenticatedOrgSlugSandboxesNewIndexRoute =
+  AuthenticatedOrgSlugSandboxesNewIndexRouteImport.update({
+    id: '/sandboxes/new/',
+    path: '/sandboxes/new/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedOrganizationIndexRoute
+  '/': typeof AuthenticatedIndexRoute
   '/docs': typeof DocsRouteRouteWithChildren
+  '/$orgSlug': typeof AuthenticatedOrgSlugRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
@@ -176,73 +219,92 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/config': typeof ApiChatConfigRoute
   '/api/chat/files': typeof ApiChatFilesRoute
+  '/$orgSlug/': typeof AuthenticatedOrgSlugIndexRoute
   '/onboarding/': typeof AuthenticatedOnboardingIndexRoute
+  '/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
+  '/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
+  '/$orgSlug/api-keys/': typeof AuthenticatedOrgSlugApiKeysIndexRoute
+  '/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
+  '/$orgSlug/sandboxes/': typeof AuthenticatedOrgSlugSandboxesIndexRoute
+  '/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
-  '/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
-  '/organization/agents/': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
-  '/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
-  '/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
-  '/organization/sandbox-providers/': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
+  '/$orgSlug/agents/$agentSlug/': typeof AuthenticatedOrgSlugAgentsAgentSlugIndexRoute
+  '/$orgSlug/agents/new/': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
+  '/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
+  '/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AuthenticatedOrganizationIndexRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
+  '/': typeof AuthenticatedIndexRoute
   '/configure': typeof ConfigureIndexRoute
   '/docs': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/config': typeof ApiChatConfigRoute
   '/api/chat/files': typeof ApiChatFilesRoute
+  '/$orgSlug': typeof AuthenticatedOrgSlugIndexRoute
   '/onboarding': typeof AuthenticatedOnboardingIndexRoute
+  '/organizations': typeof AuthenticatedOrganizationsIndexRoute
   '/api/chat': typeof ApiChatIndexRoute
   '/docs/$section': typeof DocsSectionIndexRoute
+  '/$orgSlug/agents': typeof AuthenticatedOrgSlugAgentsIndexRoute
+  '/$orgSlug/api-keys': typeof AuthenticatedOrgSlugApiKeysIndexRoute
+  '/$orgSlug/members': typeof AuthenticatedOrgSlugMembersIndexRoute
+  '/$orgSlug/sandboxes': typeof AuthenticatedOrgSlugSandboxesIndexRoute
+  '/$orgSlug/settings': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
-  '/settings/organizations': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page': typeof DocsSectionPageIndexRoute
-  '/organization/agents': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
-  '/organization/api-keys': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
-  '/organization/members': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
-  '/organization/sandbox-providers': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
+  '/$orgSlug/agents/$agentSlug': typeof AuthenticatedOrgSlugAgentsAgentSlugIndexRoute
+  '/$orgSlug/agents/new': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
+  '/$orgSlug/sandboxes/$sandboxProviderId': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
+  '/$orgSlug/sandboxes/new': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/docs': typeof DocsRouteRouteWithChildren
-  '/_authenticated/_organization': typeof AuthenticatedOrganizationRouteRouteWithChildren
+  '/_authenticated/$orgSlug': typeof AuthenticatedOrgSlugRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/config': typeof ApiChatConfigRoute
   '/api/chat/files': typeof ApiChatFilesRoute
-  '/_authenticated/_organization/': typeof AuthenticatedOrganizationIndexRoute
+  '/_authenticated/$orgSlug/': typeof AuthenticatedOrgSlugIndexRoute
   '/_authenticated/onboarding/': typeof AuthenticatedOnboardingIndexRoute
+  '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
+  '/_authenticated/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
+  '/_authenticated/$orgSlug/api-keys/': typeof AuthenticatedOrgSlugApiKeysIndexRoute
+  '/_authenticated/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
+  '/_authenticated/$orgSlug/sandboxes/': typeof AuthenticatedOrgSlugSandboxesIndexRoute
+  '/_authenticated/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
-  '/_authenticated/settings/organizations/': typeof AuthenticatedSettingsOrganizationsIndexRoute
   '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
-  '/_authenticated/_organization/organization/agents/': typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
-  '/_authenticated/_organization/organization/api-keys/': typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
-  '/_authenticated/_organization/organization/members/': typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
-  '/_authenticated/_organization/organization/sandbox-providers/': typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
+  '/_authenticated/$orgSlug/agents/$agentSlug/': typeof AuthenticatedOrgSlugAgentsAgentSlugIndexRoute
+  '/_authenticated/$orgSlug/agents/new/': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
+  '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
+  '/_authenticated/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/docs'
+    | '/$orgSlug'
     | '/settings'
     | '/api/status'
     | '/dev/$'
@@ -252,66 +314,84 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/config'
     | '/api/chat/files'
+    | '/$orgSlug/'
     | '/onboarding/'
+    | '/organizations/'
     | '/api/chat/'
     | '/docs/$section/'
+    | '/$orgSlug/agents/'
+    | '/$orgSlug/api-keys/'
+    | '/$orgSlug/members/'
+    | '/$orgSlug/sandboxes/'
+    | '/$orgSlug/settings/'
     | '/settings/account/'
-    | '/settings/organizations/'
     | '/settings/security/'
     | '/docs/$section/$page/'
-    | '/organization/agents/'
-    | '/organization/api-keys/'
-    | '/organization/members/'
-    | '/organization/sandbox-providers/'
+    | '/$orgSlug/agents/$agentSlug/'
+    | '/$orgSlug/agents/new/'
+    | '/$orgSlug/sandboxes/$sandboxProviderId/'
+    | '/$orgSlug/sandboxes/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/settings'
     | '/api/status'
     | '/dev/$'
+    | '/'
     | '/configure'
     | '/docs'
     | '/auth/$path'
     | '/api/auth/$'
     | '/api/chat/config'
     | '/api/chat/files'
+    | '/$orgSlug'
     | '/onboarding'
+    | '/organizations'
     | '/api/chat'
     | '/docs/$section'
+    | '/$orgSlug/agents'
+    | '/$orgSlug/api-keys'
+    | '/$orgSlug/members'
+    | '/$orgSlug/sandboxes'
+    | '/$orgSlug/settings'
     | '/settings/account'
-    | '/settings/organizations'
     | '/settings/security'
     | '/docs/$section/$page'
-    | '/organization/agents'
-    | '/organization/api-keys'
-    | '/organization/members'
-    | '/organization/sandbox-providers'
+    | '/$orgSlug/agents/$agentSlug'
+    | '/$orgSlug/agents/new'
+    | '/$orgSlug/sandboxes/$sandboxProviderId'
+    | '/$orgSlug/sandboxes/new'
   id:
     | '__root__'
     | '/_authenticated'
     | '/docs'
-    | '/_authenticated/_organization'
+    | '/_authenticated/$orgSlug'
     | '/_authenticated/settings'
     | '/api/status'
     | '/dev/$'
+    | '/_authenticated/'
     | '/configure/'
     | '/docs/'
     | '/(authentication)/auth/$path'
     | '/api/auth/$'
     | '/api/chat/config'
     | '/api/chat/files'
-    | '/_authenticated/_organization/'
+    | '/_authenticated/$orgSlug/'
     | '/_authenticated/onboarding/'
+    | '/_authenticated/organizations/'
     | '/api/chat/'
     | '/docs/$section/'
+    | '/_authenticated/$orgSlug/agents/'
+    | '/_authenticated/$orgSlug/api-keys/'
+    | '/_authenticated/$orgSlug/members/'
+    | '/_authenticated/$orgSlug/sandboxes/'
+    | '/_authenticated/$orgSlug/settings/'
     | '/_authenticated/settings/account/'
-    | '/_authenticated/settings/organizations/'
     | '/_authenticated/settings/security/'
     | '/docs/$section/$page/'
-    | '/_authenticated/_organization/organization/agents/'
-    | '/_authenticated/_organization/organization/api-keys/'
-    | '/_authenticated/_organization/organization/members/'
-    | '/_authenticated/_organization/organization/sandbox-providers/'
+    | '/_authenticated/$orgSlug/agents/$agentSlug/'
+    | '/_authenticated/$orgSlug/agents/new/'
+    | '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/'
+    | '/_authenticated/$orgSlug/sandboxes/new/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -343,11 +423,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/_organization': {
-      id: '/_authenticated/_organization'
-      path: ''
+    '/_authenticated/': {
+      id: '/_authenticated/'
+      path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedOrganizationRouteRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$orgSlug': {
+      id: '/_authenticated/$orgSlug'
+      path: '/$orgSlug'
+      fullPath: '/$orgSlug'
+      preLoaderRoute: typeof AuthenticatedOrgSlugRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -392,18 +479,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authenticationAuthPathRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/_organization/': {
-      id: '/_authenticated/_organization/'
+    '/_authenticated/$orgSlug/': {
+      id: '/_authenticated/$orgSlug/'
       path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedOrganizationIndexRouteImport
-      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+      fullPath: '/$orgSlug/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
     '/_authenticated/onboarding/': {
       id: '/_authenticated/onboarding/'
       path: '/onboarding'
       fullPath: '/onboarding/'
       preLoaderRoute: typeof AuthenticatedOnboardingIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/organizations/': {
+      id: '/_authenticated/organizations/'
+      path: '/organizations'
+      fullPath: '/organizations/'
+      preLoaderRoute: typeof AuthenticatedOrganizationsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/auth/$': {
@@ -441,18 +535,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSectionIndexRouteImport
       parentRoute: typeof DocsRouteRoute
     }
+    '/_authenticated/$orgSlug/agents/': {
+      id: '/_authenticated/$orgSlug/agents/'
+      path: '/agents'
+      fullPath: '/$orgSlug/agents/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugAgentsIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/$orgSlug/api-keys/': {
+      id: '/_authenticated/$orgSlug/api-keys/'
+      path: '/api-keys'
+      fullPath: '/$orgSlug/api-keys/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugApiKeysIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/$orgSlug/members/': {
+      id: '/_authenticated/$orgSlug/members/'
+      path: '/members'
+      fullPath: '/$orgSlug/members/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugMembersIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/$orgSlug/sandboxes/': {
+      id: '/_authenticated/$orgSlug/sandboxes/'
+      path: '/sandboxes'
+      fullPath: '/$orgSlug/sandboxes/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugSandboxesIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/$orgSlug/settings/': {
+      id: '/_authenticated/$orgSlug/settings/'
+      path: '/settings'
+      fullPath: '/$orgSlug/settings/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
     '/_authenticated/settings/account/': {
       id: '/_authenticated/settings/account/'
       path: '/account'
       fullPath: '/settings/account/'
       preLoaderRoute: typeof AuthenticatedSettingsAccountIndexRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
-    '/_authenticated/settings/organizations/': {
-      id: '/_authenticated/settings/organizations/'
-      path: '/organizations'
-      fullPath: '/settings/organizations/'
-      preLoaderRoute: typeof AuthenticatedSettingsOrganizationsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/security/': {
@@ -469,66 +591,79 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSectionPageIndexRouteImport
       parentRoute: typeof DocsRouteRoute
     }
-    '/_authenticated/_organization/organization/agents/': {
-      id: '/_authenticated/_organization/organization/agents/'
-      path: '/organization/agents'
-      fullPath: '/organization/agents/'
-      preLoaderRoute: typeof AuthenticatedOrganizationOrganizationAgentsIndexRouteImport
-      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    '/_authenticated/$orgSlug/agents/$agentSlug/': {
+      id: '/_authenticated/$orgSlug/agents/$agentSlug/'
+      path: '/agents/$agentSlug'
+      fullPath: '/$orgSlug/agents/$agentSlug/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugAgentsAgentSlugIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
-    '/_authenticated/_organization/organization/api-keys/': {
-      id: '/_authenticated/_organization/organization/api-keys/'
-      path: '/organization/api-keys'
-      fullPath: '/organization/api-keys/'
-      preLoaderRoute: typeof AuthenticatedOrganizationOrganizationApiKeysIndexRouteImport
-      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    '/_authenticated/$orgSlug/agents/new/': {
+      id: '/_authenticated/$orgSlug/agents/new/'
+      path: '/agents/new'
+      fullPath: '/$orgSlug/agents/new/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugAgentsNewIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
-    '/_authenticated/_organization/organization/members/': {
-      id: '/_authenticated/_organization/organization/members/'
-      path: '/organization/members'
-      fullPath: '/organization/members/'
-      preLoaderRoute: typeof AuthenticatedOrganizationOrganizationMembersIndexRouteImport
-      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/': {
+      id: '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/'
+      path: '/sandboxes/$sandboxProviderId'
+      fullPath: '/$orgSlug/sandboxes/$sandboxProviderId/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
-    '/_authenticated/_organization/organization/sandbox-providers/': {
-      id: '/_authenticated/_organization/organization/sandbox-providers/'
-      path: '/organization/sandbox-providers'
-      fullPath: '/organization/sandbox-providers/'
-      preLoaderRoute: typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRouteImport
-      parentRoute: typeof AuthenticatedOrganizationRouteRoute
+    '/_authenticated/$orgSlug/sandboxes/new/': {
+      id: '/_authenticated/$orgSlug/sandboxes/new/'
+      path: '/sandboxes/new'
+      fullPath: '/$orgSlug/sandboxes/new/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugSandboxesNewIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
   }
 }
 
-interface AuthenticatedOrganizationRouteRouteChildren {
-  AuthenticatedOrganizationIndexRoute: typeof AuthenticatedOrganizationIndexRoute
-  AuthenticatedOrganizationOrganizationAgentsIndexRoute: typeof AuthenticatedOrganizationOrganizationAgentsIndexRoute
-  AuthenticatedOrganizationOrganizationApiKeysIndexRoute: typeof AuthenticatedOrganizationOrganizationApiKeysIndexRoute
-  AuthenticatedOrganizationOrganizationMembersIndexRoute: typeof AuthenticatedOrganizationOrganizationMembersIndexRoute
-  AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute: typeof AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute
+interface AuthenticatedOrgSlugRouteRouteChildren {
+  AuthenticatedOrgSlugIndexRoute: typeof AuthenticatedOrgSlugIndexRoute
+  AuthenticatedOrgSlugAgentsIndexRoute: typeof AuthenticatedOrgSlugAgentsIndexRoute
+  AuthenticatedOrgSlugApiKeysIndexRoute: typeof AuthenticatedOrgSlugApiKeysIndexRoute
+  AuthenticatedOrgSlugMembersIndexRoute: typeof AuthenticatedOrgSlugMembersIndexRoute
+  AuthenticatedOrgSlugSandboxesIndexRoute: typeof AuthenticatedOrgSlugSandboxesIndexRoute
+  AuthenticatedOrgSlugSettingsIndexRoute: typeof AuthenticatedOrgSlugSettingsIndexRoute
+  AuthenticatedOrgSlugAgentsAgentSlugIndexRoute: typeof AuthenticatedOrgSlugAgentsAgentSlugIndexRoute
+  AuthenticatedOrgSlugAgentsNewIndexRoute: typeof AuthenticatedOrgSlugAgentsNewIndexRoute
+  AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute: typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
+  AuthenticatedOrgSlugSandboxesNewIndexRoute: typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
 }
 
-const AuthenticatedOrganizationRouteRouteChildren: AuthenticatedOrganizationRouteRouteChildren =
+const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChildren =
   {
-    AuthenticatedOrganizationIndexRoute: AuthenticatedOrganizationIndexRoute,
-    AuthenticatedOrganizationOrganizationAgentsIndexRoute:
-      AuthenticatedOrganizationOrganizationAgentsIndexRoute,
-    AuthenticatedOrganizationOrganizationApiKeysIndexRoute:
-      AuthenticatedOrganizationOrganizationApiKeysIndexRoute,
-    AuthenticatedOrganizationOrganizationMembersIndexRoute:
-      AuthenticatedOrganizationOrganizationMembersIndexRoute,
-    AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute:
-      AuthenticatedOrganizationOrganizationSandboxProvidersIndexRoute,
+    AuthenticatedOrgSlugIndexRoute: AuthenticatedOrgSlugIndexRoute,
+    AuthenticatedOrgSlugAgentsIndexRoute: AuthenticatedOrgSlugAgentsIndexRoute,
+    AuthenticatedOrgSlugApiKeysIndexRoute:
+      AuthenticatedOrgSlugApiKeysIndexRoute,
+    AuthenticatedOrgSlugMembersIndexRoute:
+      AuthenticatedOrgSlugMembersIndexRoute,
+    AuthenticatedOrgSlugSandboxesIndexRoute:
+      AuthenticatedOrgSlugSandboxesIndexRoute,
+    AuthenticatedOrgSlugSettingsIndexRoute:
+      AuthenticatedOrgSlugSettingsIndexRoute,
+    AuthenticatedOrgSlugAgentsAgentSlugIndexRoute:
+      AuthenticatedOrgSlugAgentsAgentSlugIndexRoute,
+    AuthenticatedOrgSlugAgentsNewIndexRoute:
+      AuthenticatedOrgSlugAgentsNewIndexRoute,
+    AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute:
+      AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute,
+    AuthenticatedOrgSlugSandboxesNewIndexRoute:
+      AuthenticatedOrgSlugSandboxesNewIndexRoute,
   }
 
-const AuthenticatedOrganizationRouteRouteWithChildren =
-  AuthenticatedOrganizationRouteRoute._addFileChildren(
-    AuthenticatedOrganizationRouteRouteChildren,
+const AuthenticatedOrgSlugRouteRouteWithChildren =
+  AuthenticatedOrgSlugRouteRoute._addFileChildren(
+    AuthenticatedOrgSlugRouteRouteChildren,
   )
 
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAccountIndexRoute: typeof AuthenticatedSettingsAccountIndexRoute
-  AuthenticatedSettingsOrganizationsIndexRoute: typeof AuthenticatedSettingsOrganizationsIndexRoute
   AuthenticatedSettingsSecurityIndexRoute: typeof AuthenticatedSettingsSecurityIndexRoute
 }
 
@@ -536,8 +671,6 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
   {
     AuthenticatedSettingsAccountIndexRoute:
       AuthenticatedSettingsAccountIndexRoute,
-    AuthenticatedSettingsOrganizationsIndexRoute:
-      AuthenticatedSettingsOrganizationsIndexRoute,
     AuthenticatedSettingsSecurityIndexRoute:
       AuthenticatedSettingsSecurityIndexRoute,
   }
@@ -548,16 +681,19 @@ const AuthenticatedSettingsRouteRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedOrganizationRouteRoute: typeof AuthenticatedOrganizationRouteRouteWithChildren
+  AuthenticatedOrgSlugRouteRoute: typeof AuthenticatedOrgSlugRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedOnboardingIndexRoute: typeof AuthenticatedOnboardingIndexRoute
+  AuthenticatedOrganizationsIndexRoute: typeof AuthenticatedOrganizationsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedOrganizationRouteRoute:
-    AuthenticatedOrganizationRouteRouteWithChildren,
+  AuthenticatedOrgSlugRouteRoute: AuthenticatedOrgSlugRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedOnboardingIndexRoute: AuthenticatedOnboardingIndexRoute,
+  AuthenticatedOrganizationsIndexRoute: AuthenticatedOrganizationsIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
