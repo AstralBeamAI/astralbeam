@@ -31,10 +31,6 @@
       "types": "./dist/react.d.ts",
       "default": "./dist/react.js"
     },
-    "./vue": {
-      "types": "./dist/vue.d.ts",
-      "default": "./dist/vue.js"
-    },
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -50,9 +46,6 @@
       ],
       "react": [
         "./dist/react.d.ts"
-      ],
-      "vue": [
-        "./dist/vue.d.ts"
       ]
     }
   },
@@ -78,8 +71,7 @@
   },
   "peerDependencies": {
     "react": ">=18",
-    "react-dom": ">=18",
-    "vue": ">=3"
+    "react-dom": ">=18"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -87,13 +79,7 @@
     },
     "react-dom": {
       "optional": true
-    },
-    "vue": {
-      "optional": true
     }
-  },
-  "dependencies": {
-    "effect": "4.0.0-rc.112"
   },
   "devDependencies": {
     "@base-ui/react": "^1.7.0",
@@ -102,7 +88,6 @@
     "@tailwindcss/cli": "^4.3.3",
     "@tanstack/ai": "^0.49.1",
     "@tanstack/ai-client": "^0.28.0",
-    "@tanstack/ai-react": "^0.22.1",
     "@tanstack/markdown": "^0.0.13",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",

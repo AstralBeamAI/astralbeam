@@ -11,8 +11,9 @@ import {
   AttachmentTitle,
 } from "@/widget/components/ui/attachment"
 import { Spinner } from "@/widget/components/ui/spinner"
-import { attachmentDataUri, formatAttachmentSize } from "../lib/attachments.ts"
+import { attachmentDataUri } from "../lib/attachments.ts"
 import type { DraftAttachment } from "../lib/types.ts"
+import { formatByteSize } from "../lib/utils.ts"
 import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
 
 // The chip's own state drives the frame and the title shimmer; "uploading" is the read, which
@@ -66,7 +67,7 @@ export function ComposerAttachments(
             <AttachmentContent>
               <AttachmentTitle>{attachment.name}</AttachmentTitle>
               <AttachmentDescription>
-                {attachment.error ?? formatAttachmentSize(attachment.size)}
+                {attachment.error ?? formatByteSize(attachment.size)}
               </AttachmentDescription>
             </AttachmentContent>
             <AttachmentActions>

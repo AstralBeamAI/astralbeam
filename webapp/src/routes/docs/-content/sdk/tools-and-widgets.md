@@ -65,7 +65,7 @@ const createTodo = defineTool({
 })
 ```
 
-- Import them from `@astralbeam/sdk/react` (JSX widgets) or `@astralbeam/sdk/client` (container widgets).
+- Import them from `@astralbeam/sdk/react` (JSX widgets) or `@astralbeam/sdk/client` (container widgets); `@astralbeam/sdk/core` has `defineTool` only, because its widgets carry no `render`.
 - With a plain JSON Schema, the input stays `Record<string, unknown>`, which is the honest type.
 
 ## Live state

@@ -147,6 +147,11 @@ export interface AstralBeamChatTheme {
   dark?: AstralBeamChatThemeVariables | undefined
 }
 
+/**
+ * Every option of the drop-in chat widget, and the one documented source the React props and the
+ * headless core options are derived from. Each is optional and accepts an explicit `undefined`, so
+ * a host with `exactOptionalPropertyTypes` can pass a value it does not have yet.
+ */
 export interface MountAstralBeamChatOptions {
   /**
    * Public ID of the organization-owned agent. Omit it to use the organization's default agent,
@@ -181,7 +186,7 @@ export interface MountAstralBeamChatOptions {
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
-  widgets?: Record<string, WidgetDefinition>
+  widgets?: Record<string, WidgetDefinition> | undefined
   /** Host-rendered replacements for parts of the widget's chrome; see `AstralBeamChatSlots`. */
   slots?: AstralBeamChatSlots | undefined
   /**
@@ -196,7 +201,7 @@ export interface MountAstralBeamChatOptions {
    */
   attachments?: boolean | AstralBeamChatAttachmentOptions | undefined
   /** Color scheme of the widget. Default `"system"`. */
-  colorScheme?: AstralBeamChatColorScheme
+  colorScheme?: AstralBeamChatColorScheme | undefined
   /** Custom values for the widget's theming CSS variables, per color scheme. */
   theme?: AstralBeamChatTheme | undefined
   /**

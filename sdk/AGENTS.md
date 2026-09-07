@@ -12,7 +12,6 @@ Mirror every entry point in `typesVersions` as well. `exports` is invisible to T
 - `src/core/` — the headless session and chat protocol; framework-free, bundled into `core.js` and into the React entry.
 - `src/react/` — the React wrapper; binds to the host's React.
 - `src/server/` — token minting; no framework imports.
-- `src/vue/` — placeholder.
 - `src/widget/` — the lazily loaded chat chunk with its own bundled React; not an entry point.
 - `src/lib/` — shared eager-safe modules: public option types, defaults, and the debug logger.
 
@@ -24,9 +23,10 @@ The chat widget must stay inside the client entry's lazy chunk so `dist/client.j
 - Everything the widget imports must be a devDependency so tsdown inlines it; a `dependencies` entry would force hosts to install it.
 - `src/lib/` must not import React or any `src/widget/` module; the widget may import it (types and small helpers).
 - `src/core/` must not import React or any `src/widget/` module either; the widget and the React entry build on it, never the reverse.
+- The widget renders `createAstralBeamChat`: extend the core session rather than re-implementing authentication, transport, the tool protocol, or transcript derivations in `src/widget/`.
 - Widget-only code, including stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
 - `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn) — import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
-- `react`, `react-dom`, and `vue` are optional peer dependencies; keep framework imports confined to their entry points.
+- `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`: keep framework imports confined to their entry points and validation hand-written.
 
 ## Styles
 
@@ -67,6 +67,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 
 - Keep every section scannable: one or two intro sentences (at most 30–40 words), then at most 6–8 bullets of 20–25 words each, with short code examples.
 - The README links to the hosted guides at `https://app.astralbeam.ai/docs/sdk/<page>`; keep both in step with SDK behavior changes.
+- Document a release's breaking changes and their replacements in the pull request body, not in a migration section of `README.md`.
 
 ## Build and publish
 

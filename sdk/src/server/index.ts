@@ -1,5 +1,4 @@
 import { base64url, SignJWT } from "jose"
-import * as Schema from "effect/Schema"
 
 export const CHAT_AUTH_TOKEN_AUDIENCE = "astralbeam"
 export const CHAT_AUTH_TOKEN_TYPE = "astralbeam+jwt"
@@ -9,73 +8,40 @@ export const CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS = 600
 
 const CHAT_AUTH_TOKEN_MAX_BYTES = 16_384
 const IDENTITY_MAX_BYTES = 8_192
+const EXTERNAL_ID_MAX_LENGTH = 255
+// key_<organization slug>_<key slug>_abo_<Better Auth secret>; neither slug can hold an
+// underscore, so the whole key parses by its separators.
+const API_KEY_PATTERN = /^key_[0-9a-z-]{1,63}_[0-9a-z-]{1,63}_abo_[A-Za-z]{64}$/
+const TENANT_FIELDS = ["id", "name", "metadata"]
+const TENANT_USER_FIELDS = ["id", "name", "admin", "metadata"]
 const textEncoder = new TextEncoder()
 
-const SlugSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[0-9a-z-]{1,63}$/)),
-)
-const ApiKeySecretSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^abo_[A-Za-z]{64}$/)),
-)
-const ApiKeySchema = Schema.TemplateLiteral([
-  "key_",
-  SlugSchema,
-  "_",
-  SlugSchema,
-  "_",
-  ApiKeySecretSchema,
-])
-const isApiKey = Schema.is(ApiKeySchema)
-const MetadataSchema = Schema.JsonObject.annotate({
-  message: "metadata must be a JSON object",
-})
-const TenantExternalIdSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.makeFilter((value) => value.length >= 1 && value.length <= 255, {
-      message: "tenant.id must be a 1-255 character string",
-    }),
-  ),
-)
-const TenantUserExternalIdSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.makeFilter((value) => value.length >= 1 && value.length <= 255, {
-      message: "user.id must be a 1-255 character string",
-    }),
-  ),
-)
-export const TenantSchema = Schema.Struct({
-  id: TenantExternalIdSchema,
-  name: Schema.optional(Schema.String),
-  metadata: Schema.optional(MetadataSchema),
-})
-export const TenantUserSchema = Schema.Struct({
-  id: TenantUserExternalIdSchema,
-  name: Schema.optional(Schema.String),
-  admin: Schema.optional(Schema.Boolean),
-  metadata: Schema.optional(MetadataSchema),
-})
-const IdentitySchema = Schema.Struct({
-  user: TenantUserSchema,
-  tenant: TenantSchema,
-}).pipe(
-  Schema.check(
-    Schema.makeFilter(
-      (value) => textEncoder.encode(JSON.stringify(value)).byteLength <= IDENTITY_MAX_BYTES,
-      { message: `user and tenant must not exceed ${IDENTITY_MAX_BYTES} bytes` },
-    ),
-  ),
-)
-const decodeIdentity = Schema.decodeUnknownSync(IdentitySchema, {
-  errors: "all",
-  onExcessProperty: "error",
-  reportInput: false,
-})
+/** A JSON value, which is all a `metadata` object may hold: the token carries it verbatim. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue }
+
+/** A `metadata` object: caller-owned keys, preserved verbatim in the token's claims. */
+export type JsonMetadata = { readonly [key: string]: JsonValue }
 
 /** Tenant identity from the Organization's application, including JSON metadata. */
-export type Tenant = typeof TenantSchema.Type
+export interface Tenant {
+  readonly id: string
+  readonly name?: string | undefined
+  readonly metadata?: JsonMetadata | undefined
+}
 
 /** User of an Organization's Tenant who interacts with AstralBeam. */
-export type TenantUser = typeof TenantUserSchema.Type
+export interface TenantUser {
+  readonly id: string
+  readonly name?: string | undefined
+  readonly admin?: boolean | undefined
+  readonly metadata?: JsonMetadata | undefined
+}
 
 export interface CreateChatAuthTokenOptions<
   TTenantUser extends TenantUser = TenantUser,
@@ -92,7 +58,7 @@ function parseApiKey(apiKey: string): {
   organizationSlug: string
   keySecret: string
 } {
-  if (!isApiKey(apiKey)) {
+  if (!API_KEY_PATTERN.test(apiKey)) {
     throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
   }
   const separator = apiKey.lastIndexOf("_abo_")
@@ -102,8 +68,54 @@ function parseApiKey(apiKey: string): {
   return { keyId, organizationSlug, keySecret }
 }
 
-function validatedIdentity(user: TenantUser, tenant: Tenant): typeof IdentitySchema.Type {
-  return JSON.parse(JSON.stringify(decodeIdentity({ user, tenant }))) as typeof IdentitySchema.Type
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+// Only what JSON.stringify preserves as-is: a class instance, a function, a `toJSON` hook or a
+// non-finite number would otherwise be rewritten on the way into a signed claim.
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true
+  if (typeof value === "number") return Number.isFinite(value)
+  if (Array.isArray(value)) return value.every(isJsonValue)
+  return isPlainObject(value) && Object.values(value).every(isJsonValue)
+}
+
+// One identity object's wire contract. Unknown fields are rejected rather than dropped: a
+// custom claim written beside `metadata` would otherwise vanish without the caller noticing.
+function validateIdentity(label: "user" | "tenant", value: unknown, isUser: boolean): void {
+  if (!isPlainObject(value)) throw new Error(`${label} must be an object`)
+  const fields = isUser ? TENANT_USER_FIELDS : TENANT_FIELDS
+  for (const key of Object.keys(value)) {
+    if (!fields.includes(key)) throw new Error(`${label} has an unknown field "${key}"`)
+  }
+  const { id, name, admin, metadata } = value
+  if (typeof id !== "string" || id.length < 1 || id.length > EXTERNAL_ID_MAX_LENGTH) {
+    throw new Error(`${label}.id must be a 1-${EXTERNAL_ID_MAX_LENGTH} character string`)
+  }
+  if (name !== undefined && typeof name !== "string") {
+    throw new Error(`${label}.name must be a string`)
+  }
+  if (isUser && admin !== undefined && typeof admin !== "boolean") {
+    throw new Error(`${label}.admin must be a boolean`)
+  }
+  if (metadata !== undefined && !(isPlainObject(metadata) && isJsonValue(metadata))) {
+    throw new Error(`${label}.metadata must be a JSON object`)
+  }
+}
+
+function validatedIdentity(user: TenantUser, tenant: Tenant): { user: TenantUser; tenant: Tenant } {
+  validateIdentity("user", user, true)
+  validateIdentity("tenant", tenant, false)
+  const identity = { user, tenant }
+  const json = JSON.stringify(identity)
+  if (textEncoder.encode(json).byteLength > IDENTITY_MAX_BYTES) {
+    throw new Error(`user and tenant must not exceed ${IDENTITY_MAX_BYTES} bytes`)
+  }
+  // Round-tripped so the claims carry plain JSON data, whatever the caller's objects were.
+  return JSON.parse(json) as { user: TenantUser; tenant: Tenant }
 }
 
 async function signingKey(secret: string) {

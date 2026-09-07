@@ -2,9 +2,11 @@
 // with no markup and no framework. `@astralbeam/sdk/react` builds `useAstralBeamChat` on it.
 
 export {
+  type AgentToolInfo,
   type AstralBeamChatCore,
   type AstralBeamChatCoreOptions,
   type AstralBeamChatState,
+  type ChatStreamCallbacks,
   createAstralBeamChat,
   type WidgetRenderRequest,
 } from "./session.ts"
@@ -38,7 +40,8 @@ export type {
   SandboxFileWrite,
   SandboxStatus,
 } from "./types.ts"
-export { defineTool, defineWidget } from "../lib/define.ts"
+// No defineWidget: a core widget is declared without a render, so its generic would type nothing.
+export { defineTool } from "../lib/define.ts"
 export type {
   InferParameters,
   JsonSchemaObject,

@@ -23,7 +23,7 @@ function MyChat() {
 }
 ```
 
-- State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`.
+- State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`.
 - Actions: `sendMessage`, `addToolResult`, `stop`, `reload`, `reset`; `core` exposes the raw session.
 - Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchChatAuthToken`; nothing needs a remount.
 - No shadow root and no bundled styles: your markup, your CSS.
@@ -41,7 +41,9 @@ await chat.sendMessage("What can you do?")
 chat.dispose()
 ```
 
-- `widgets` declares what the agent may draw; your `onRenderWidget` draws it and may return a cleanup.
+- A `widgets` entry is `{ description, parameters }` with no `render` — the session validates the props and hands each request to your `onRenderWidget`, which draws it and may return a cleanup.
+- `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` re-mints a rejected token.
+- Call the request's `release()` if you dispose a render yourself (an eviction cap of your own), so the session stops holding its cleanup.
 - `chat.updateOptions({ agentId })` merges option changes into the running session, keeping the transcript.
 - Sending settles dangling tool calls first (questionnaires as skipped), the same as the widget.
 - `capabilities` reflects the agent's dashboard policy; render only what it grants.

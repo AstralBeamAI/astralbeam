@@ -11,7 +11,7 @@ import {
   ATTACHMENT_DOCX_MIME_TYPE,
   ATTACHMENT_PPTX_MIME_TYPE,
   ATTACHMENT_XLSX_MIME_TYPE,
-} from "../lib/constants.ts"
+} from "../lib/attachment-policy.ts"
 import type { AttachmentKind } from "../lib/types.ts"
 
 /** Office files share one kind but not one icon: a chip should look like the file it holds. */

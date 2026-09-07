@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import type { AstralBeamChatSlotRenderer, AstralBeamChatSlots } from "../lib/types.ts"
 import type { DebugLogger } from "../lib/debug.ts"
-import { HOST_SLOT_PREFIX } from "./lib/constants.ts"
+import { HOST_SLOT_PREFIX } from "./lib/style-bridge.ts"
 
 export type HostSlotName = keyof AstralBeamChatSlots
 
