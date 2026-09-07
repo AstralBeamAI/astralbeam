@@ -25,7 +25,7 @@ Choose one of the two local workflows below: use the devcontainer or run the cod
 
 ### Option 1: Use the devcontainer
 
-- Open the repository root in Cursor or VS Code and choose **Reopen in Container**. The devcontainer finishes setup after PostgreSQL and Valkey are healthy.
+- Open the repository root in Cursor or VS Code and choose **Reopen in Container**. Once PostgreSQL and Valkey are healthy the devcontainer runs `./scripts/setup.sh`, which installs every project's dependencies and then applies the migrations, seeds the database, and builds the SDK.
 
 #### Optional: Match the devcontainer workspace path
 
