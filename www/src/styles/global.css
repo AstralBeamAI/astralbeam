@@ -428,51 +428,6 @@ main {
   padding: 6.5rem 1.5rem 7rem;
 }
 
-.hero-beam {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 2px;
-  transform: translateX(-50%);
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    var(--beam-faint) 18%,
-    color-mix(in srgb, var(--primary) 50%, transparent) 50%,
-    var(--beam-faint) 82%,
-    transparent 100%
-  );
-  filter: blur(0.5px);
-  animation: beam-pulse 5s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.hero-beam::before {
-  content: "";
-  position: absolute;
-  inset: 0 -34px;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    color-mix(in srgb, var(--primary) 4.5%, transparent) 35%,
-    color-mix(in srgb, var(--primary) 8.5%, transparent) 50%,
-    color-mix(in srgb, var(--primary) 4.5%, transparent) 65%,
-    transparent
-  );
-  filter: blur(14px);
-}
-
-@keyframes beam-pulse {
-  0%,
-  100% {
-    opacity: 0.75;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 .hero-inner {
   position: relative;
   max-width: 72rem;
@@ -1347,22 +1302,6 @@ main {
   justify-content: center;
 }
 
-.launch-beam {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  transform: translateX(-50%);
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    color-mix(in srgb, var(--primary) 40%, transparent),
-    transparent
-  );
-  pointer-events: none;
-}
-
 .launch-title {
   font-size: clamp(3rem, 10vw, 8rem);
   color: var(--primary);
@@ -1376,9 +1315,12 @@ main {
 }
 
 .launch-ctas {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  margin: 0 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: fit-content;
+  align-items: center;
   gap: 1rem;
 }
 
@@ -1493,7 +1435,8 @@ main {
     padding: 0.7rem 1.05rem;
   }
   /* Stack the CTAs; the single implicit column keeps them the same width. */
-  .hero-ctas {
+  .hero-ctas,
+  .launch-ctas {
     grid-auto-flow: row;
   }
 }
@@ -1512,7 +1455,6 @@ main {
   }
 
   .fx-scanlines::after,
-  .hero-beam,
   .scroll-chevron,
   .blink-dot,
   .t-caret,
