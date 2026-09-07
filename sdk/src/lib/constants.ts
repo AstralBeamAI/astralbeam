@@ -15,7 +15,7 @@ export const DEFAULT_EMPTY_DESCRIPTION =
 export const DEFAULT_API_URL = "https://app.astralbeam.ai/api"
 
 /** Host endpoint that mints chat JWTs when the mount options give none. */
-export const DEFAULT_AUTH_TOKEN_URL = "/api/astralbeam/token"
+export const DEFAULT_CHAT_AUTH_TOKEN_URL = "/api/astralbeam/token"
 
 /**
  * The chat API's URLs under an API base: the stream itself, the agent capability handshake,

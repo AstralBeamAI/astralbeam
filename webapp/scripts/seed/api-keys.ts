@@ -31,7 +31,7 @@ function hashSeedApiKeySecret(secret: string): string {
 }
 
 /**
- * Creates the organization API keys the todos example and its tests sign chat tokens with.
+ * Creates the organization API keys the todos example and its tests sign chat auth tokens with.
  *
  * Quota and rate-limit columns are left to their schema defaults, which already carry the
  * product's configured window, and `expiresAt` stays null to match the dashboard's Never default.

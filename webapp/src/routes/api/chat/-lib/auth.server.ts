@@ -6,14 +6,14 @@ import * as Schema from "effect/Schema"
 
 import { effectDatabase, runDatabaseEffect } from "@/db"
 import { apiKey, organization } from "@/db/schema.server"
-import { ChatTokenPayloadSchema, SlugSchema } from "@/lib/schemas"
+import { ChatAuthTokenPayloadSchema, SlugSchema } from "@/lib/schemas"
 import {
-  CHAT_TOKEN_AUDIENCE,
-  CHAT_TOKEN_IDENTITY_MAX_BYTES,
-  CHAT_TOKEN_MAX_LENGTH,
-  CHAT_TOKEN_MAX_LIFETIME_SECONDS,
-  CHAT_TOKEN_MIN_LIFETIME_SECONDS,
-  CHAT_TOKEN_TYPE,
+  CHAT_AUTH_TOKEN_AUDIENCE,
+  CHAT_AUTH_TOKEN_IDENTITY_MAX_BYTES,
+  CHAT_AUTH_TOKEN_MAX_LENGTH,
+  CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS,
+  CHAT_AUTH_TOKEN_MIN_LIFETIME_SECONDS,
+  CHAT_AUTH_TOKEN_TYPE,
 } from "./constants.server"
 import type { ChatAuthenticationError, ChatPrincipal, ChatTenantUser } from "./types"
 
@@ -22,7 +22,7 @@ const API_KEY_CONFIG_ID = "default"
 const ApiKeyIdSchema = Schema.TemplateLiteralParser(["key_", SlugSchema, "_", SlugSchema])
 const decodeApiKeyId = Schema.decodeUnknownOption(ApiKeyIdSchema)
 const CLOCK_TOLERANCE_SECONDS = 30
-const decodeChatTokenPayload = Schema.decodeUnknownSync(ChatTokenPayloadSchema, {
+const decodeChatAuthTokenPayload = Schema.decodeUnknownSync(ChatAuthTokenPayloadSchema, {
   onExcessProperty: "error",
 })
 
@@ -45,10 +45,10 @@ export async function authenticateChatRequest(request: Request): Promise<ChatPri
   try {
     protectedHeader = decodeProtectedHeader(token)
   } catch (cause) {
-    throw invalidToken("Malformed chat token header", cause)
+    throw invalidToken("Malformed chat auth token header", cause)
   }
   const apiKeyId = protectedHeader.kid
-  if (typeof apiKeyId !== "string") throw invalidToken("Wrong chat token header")
+  if (typeof apiKeyId !== "string") throw invalidToken("Wrong chat auth token header")
   const { organizationSlug, keySlug } = parseApiKeyId(apiKeyId)
 
   const [initial] = await runDatabaseEffect(
@@ -69,7 +69,7 @@ export async function authenticateChatRequest(request: Request): Promise<ChatPri
   if (!initial) throw invalidToken("API key not found")
 
   const verifier = textEncoder.encode(initial.digest)
-  const tenantUser = await verifyChatToken(token, verifier, apiKeyId)
+  const tenantUser = await verifyChatAuthToken(token, verifier, apiKeyId)
   const [current] = await runDatabaseEffect(
     Effect.flatMap(
       effectDatabase,
@@ -92,7 +92,7 @@ export async function authenticateChatRequest(request: Request): Promise<ChatPri
   }
 }
 
-export async function verifyChatToken(
+export async function verifyChatAuthToken(
   token: string,
   verifier: Uint8Array,
   apiKeyId: string,
@@ -101,25 +101,27 @@ export async function verifyChatToken(
     const { organizationSlug } = parseApiKeyId(apiKeyId)
     const { payload, protectedHeader } = await jwtVerify(token, verifier, {
       algorithms: ["HS256"],
-      typ: CHAT_TOKEN_TYPE,
+      typ: CHAT_AUTH_TOKEN_TYPE,
       issuer: organizationSlug,
-      audience: CHAT_TOKEN_AUDIENCE,
+      audience: CHAT_AUTH_TOKEN_AUDIENCE,
       requiredClaims: ["iat", "exp", "iss", "aud"],
       clockTolerance: CLOCK_TOLERANCE_SECONDS,
-      maxTokenAge: CHAT_TOKEN_MAX_LIFETIME_SECONDS,
+      maxTokenAge: CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS,
     })
     if (protectedHeader.kid !== apiKeyId) throw invalidToken("Wrong API key identifier")
     const identity = { user: payload.user, tenant: payload.tenant }
-    if (textEncoder.encode(JSON.stringify(identity)).byteLength > CHAT_TOKEN_IDENTITY_MAX_BYTES) {
+    if (
+      textEncoder.encode(JSON.stringify(identity)).byteLength > CHAT_AUTH_TOKEN_IDENTITY_MAX_BYTES
+    ) {
       throw invalidToken("Invalid user or tenant claims")
     }
-    const claims = decodeChatTokenPayload(payload)
+    const claims = decodeChatAuthTokenPayload(payload)
     if (
       claims.exp <= claims.iat ||
-      claims.exp - claims.iat < CHAT_TOKEN_MIN_LIFETIME_SECONDS ||
-      claims.exp - claims.iat > CHAT_TOKEN_MAX_LIFETIME_SECONDS
+      claims.exp - claims.iat < CHAT_AUTH_TOKEN_MIN_LIFETIME_SECONDS ||
+      claims.exp - claims.iat > CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS
     ) {
-      throw invalidToken("Invalid chat token claims")
+      throw invalidToken("Invalid chat auth token claims")
     }
     return { ...claims.user, tenant: claims.tenant }
   } catch (cause) {
@@ -138,7 +140,7 @@ function parseApiKeyId(apiKeyId: string): { organizationSlug: string; keySlug: s
 function readBearerToken(request: Request): string {
   const authorization = request.headers.get("authorization")
   const match = authorization && /^Bearer (\S+)$/i.exec(authorization)
-  if (!match?.[1] || match[1].length > CHAT_TOKEN_MAX_LENGTH) {
+  if (!match?.[1] || match[1].length > CHAT_AUTH_TOKEN_MAX_LENGTH) {
     throw invalidToken("Malformed bearer token")
   }
   return match[1]

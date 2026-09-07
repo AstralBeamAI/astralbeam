@@ -43,8 +43,12 @@ vi.mock("@/db", () => {
   }
 })
 
-import { authenticateChatRequest, isChatAuthenticationError, verifyChatToken } from "./auth.server"
-import { CHAT_TOKEN_AUDIENCE, CHAT_TOKEN_TYPE } from "./constants.server"
+import {
+  authenticateChatRequest,
+  isChatAuthenticationError,
+  verifyChatAuthToken,
+} from "./auth.server"
+import { CHAT_AUTH_TOKEN_AUDIENCE, CHAT_AUTH_TOKEN_TYPE } from "./constants.server"
 
 const apiKeyId = "key_acme-corp_production-key"
 const rawApiKey = `abo_${"A".repeat(64)}`
@@ -101,11 +105,11 @@ async function token(overrides: TokenOverrides = {}) {
   })
     .setProtectedHeader({
       alg: algorithm,
-      typ: overrides.type ?? CHAT_TOKEN_TYPE,
+      typ: overrides.type ?? CHAT_AUTH_TOKEN_TYPE,
       kid: overrides.apiKeyId ?? apiKeyId,
     })
     .setIssuer(overrides.issuer ?? "acme-corp")
-    .setAudience(overrides.audience ?? CHAT_TOKEN_AUDIENCE)
+    .setAudience(overrides.audience ?? CHAT_AUTH_TOKEN_AUDIENCE)
     .setIssuedAt(issuedAt)
     .setExpirationTime(
       overrides.expiresAt ?? issuedAt + (overrides.expiresInSeconds ?? 300),
@@ -186,20 +190,20 @@ describe("organization API-key chat JWTs", () => {
   })
 
   test("uses Better Auth's stored digest as the verifier and accepts v4 claims", async () => {
-    await expect(verifyChatToken(await token(), signingKey(), apiKeyId)).resolves.toEqual(
+    await expect(verifyChatAuthToken(await token(), signingKey(), apiKeyId)).resolves.toEqual(
       defaultTenantUser,
     )
   })
 
   test("does not require or interpret the optional JWT subject", async () => {
     await expect(
-      verifyChatToken(await token({ subject: "host-defined-subject" }), signingKey(), apiKeyId),
+      verifyChatAuthToken(await token({ subject: "host-defined-subject" }), signingKey(), apiKeyId),
     ).resolves.toEqual(defaultTenantUser)
   })
 
   test("accepts deeply nested metadata", async () => {
     await expect(
-      verifyChatToken(await token({ user: deeplyNestedUser }), signingKey(), apiKeyId),
+      verifyChatAuthToken(await token({ user: deeplyNestedUser }), signingKey(), apiKeyId),
     ).resolves.toEqual({ ...(deeplyNestedUser as object), tenant: defaultTenant })
   })
 
@@ -227,12 +231,12 @@ describe("organization API-key chat JWTs", () => {
     ],
     ["legacy nested tenant user", { claims: { tenantUser: defaultTenantUser } }],
   ])("rejects %s", async (_name, overrides) => {
-    await expect(verifyChatToken(await token(overrides), signingKey(), apiKeyId)).rejects
+    await expect(verifyChatAuthToken(await token(overrides), signingKey(), apiKeyId)).rejects
       .toSatisfy(isChatAuthenticationError)
   })
 
   test("rejects malformed tokens", async () => {
-    await expect(verifyChatToken("not-a-jwt", signingKey(), apiKeyId)).rejects.toSatisfy(
+    await expect(verifyChatAuthToken("not-a-jwt", signingKey(), apiKeyId)).rejects.toSatisfy(
       isChatAuthenticationError,
     )
   })

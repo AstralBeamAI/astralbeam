@@ -65,7 +65,7 @@ export const Route = createFileRoute("/api/chat/")({
           principal = await authenticateChatRequest(request)
         } catch (error) {
           if (isChatAuthenticationError(error)) {
-            return unauthorizedChatResponse(request, "The chat authentication token is invalid.")
+            return unauthorizedChatResponse(request, "The chat auth token is invalid.")
           }
           console.error("Failed to authenticate /api/chat request:", error)
           return errorResponse(request, 500, "The chat request could not be authenticated.")

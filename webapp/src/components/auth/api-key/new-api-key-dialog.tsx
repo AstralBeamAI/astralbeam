@@ -99,8 +99,9 @@ export function NewApiKeyDialog({
 
           <p className="text-xs text-muted-foreground">
             Use this key only with{" "}
-            <code className="font-mono text-foreground">createAstralBeamChatToken</code>{" "}
-            on your server. Never expose it in browser code.
+            <code className="font-mono text-foreground">createChatAuthToken</code>{" "}
+            on your server, to mint chat auth tokens for your tenant users. Never expose it in
+            browser code.
           </p>
         </div>
 

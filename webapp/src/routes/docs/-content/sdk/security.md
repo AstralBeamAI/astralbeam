@@ -11,7 +11,7 @@ One principle everywhere: the dashboard grants, the chat endpoint enforces, and 
 
 ## Tokens
 
-- Your server mints short-lived chat tokens (60–600 s) from the API key; the browser never sees the key.
+- Your server mints short-lived chat auth tokens (60–600 s) from the API key; the browser never sees the key.
 - Tokens are bearer credentials: they stay in memory, ride in an `Authorization` header (no cookies, no CSRF surface), and must only ever reach the deployment that issued the API key.
 - Self-hosted deployments must set `apiUrl` explicitly; the default points at the hosted cloud.
 

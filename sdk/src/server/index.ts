@@ -1,13 +1,13 @@
 import { base64url, SignJWT } from "jose"
 import * as Schema from "effect/Schema"
 
-export const ASTRALBEAM_TOKEN_AUDIENCE = "astralbeam"
-export const ASTRALBEAM_CHAT_TOKEN_TYPE = "astralbeam+jwt"
-export const ASTRALBEAM_CHAT_TOKEN_VERSION = 4
-export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
-export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
+export const CHAT_AUTH_TOKEN_AUDIENCE = "astralbeam"
+export const CHAT_AUTH_TOKEN_TYPE = "astralbeam+jwt"
+export const CHAT_AUTH_TOKEN_VERSION = 4
+export const CHAT_AUTH_TOKEN_LIFETIME_SECONDS = 300
+export const CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS = 600
 
-const CHAT_TOKEN_MAX_BYTES = 16_384
+const CHAT_AUTH_TOKEN_MAX_BYTES = 16_384
 const IDENTITY_MAX_BYTES = 8_192
 const textEncoder = new TextEncoder()
 
@@ -77,7 +77,7 @@ export type Tenant = typeof TenantSchema.Type
 /** User of an Organization's Tenant who interacts with AstralBeam. */
 export type TenantUser = typeof TenantUserSchema.Type
 
-export interface CreateAstralBeamChatTokenOptions<
+export interface CreateChatAuthTokenOptions<
   TTenantUser extends TenantUser = TenantUser,
   TTenant extends Tenant = Tenant,
 > {
@@ -113,109 +113,38 @@ async function signingKey(secret: string) {
   return textEncoder.encode(base64url.encode(new Uint8Array(digest)))
 }
 
-export interface CreateAstralBeamTokenRouteOptions<
-  TSession extends object = object,
-  TTenantUser extends TenantUser = TenantUser,
-  TTenant extends Tenant = Tenant,
-> {
-  /** The full API key, or a thunk read per request; missing or empty answers 503. */
-  readonly apiKey: string | undefined | (() => string | undefined)
-  /**
-   * Authenticates the request against the application's own session. Returning nothing, or
-   * throwing, answers 401.
-   */
-  readonly authenticate: (
-    request: Request,
-  ) => TSession | null | undefined | Promise<TSession | null | undefined>
-  /** Maps the authenticated session to the tenant user minted into the token. */
-  readonly user: (session: TSession) => TTenantUser
-  /** Maps the same authenticated session to the tenant minted into the token. */
-  readonly tenant: (session: TSession) => TTenant
-  readonly expiresInSeconds?: number | undefined
-}
-
-// Every response carries no-store: a cached token would outlive its short expiry.
-function tokenRouteResponse(body: Record<string, string>, status: number): Response {
-  return Response.json(body, { status, headers: { "cache-control": "no-store" } })
-}
-
-/**
- * Builds the fetch-standard `POST` handler for an application's token endpoint, owning the
- * method check, the unconfigured-key 503, the unauthenticated 401, and the `no-store` header.
- */
-export function createAstralBeamTokenRoute<
-  TSession extends object,
-  TTenantUser extends TenantUser = TenantUser,
-  TTenant extends Tenant = Tenant,
->(
-  options: CreateAstralBeamTokenRouteOptions<TSession, TTenantUser, TTenant>,
-): (request: Request) => Promise<Response> {
-  return async (request) => {
-    if (request.method !== "POST") {
-      return tokenRouteResponse({ error: "Use POST" }, 405)
-    }
-    const apiKey = typeof options.apiKey === "function" ? options.apiKey() : options.apiKey
-    if (!apiKey) {
-      return tokenRouteResponse({ error: "The AstralBeam API key is not configured" }, 503)
-    }
-    let session: TSession | null | undefined
-    try {
-      session = await options.authenticate(request)
-    } catch {
-      session = undefined
-    }
-    if (!session) {
-      return tokenRouteResponse({ error: "The session could not be verified" }, 401)
-    }
-    try {
-      const token = await createAstralBeamChatToken({
-        apiKey,
-        user: options.user(session),
-        tenant: options.tenant(session),
-        ...(options.expiresInSeconds === undefined
-          ? {}
-          : { expiresInSeconds: options.expiresInSeconds }),
-      })
-      return tokenRouteResponse({ token }, 200)
-    } catch {
-      // The thrown message can describe the API key's expected shape; never send it to a client.
-      return tokenRouteResponse({ error: "The chat token could not be created" }, 500)
-    }
-  }
-}
-
 /** Creates the short-lived bearer token returned by an application's server auth endpoint. */
-export async function createAstralBeamChatToken<
+export async function createChatAuthToken<
   TTenantUser extends TenantUser = TenantUser,
   TTenant extends Tenant = Tenant,
 >({
   apiKey,
   user,
   tenant,
-  expiresInSeconds = ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS,
-}: CreateAstralBeamChatTokenOptions<TTenantUser, TTenant>): Promise<string> {
+  expiresInSeconds = CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
+}: CreateChatAuthTokenOptions<TTenantUser, TTenant>): Promise<string> {
   if (
     !Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 ||
-    expiresInSeconds > ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS
+    expiresInSeconds > CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS
   ) {
-    throw new Error("AstralBeam chat tokens must live for 60-600 seconds")
+    throw new Error("chat auth tokens must live for 60-600 seconds")
   }
   const { keyId, organizationSlug, keySecret } = parseApiKey(apiKey)
   const identity = validatedIdentity(user, tenant)
   const now = Math.floor(Date.now() / 1_000)
   const token = await new SignJWT({
-    ver: ASTRALBEAM_CHAT_TOKEN_VERSION,
+    ver: CHAT_AUTH_TOKEN_VERSION,
     user: identity.user,
     tenant: identity.tenant,
   })
-    .setProtectedHeader({ alg: "HS256", typ: ASTRALBEAM_CHAT_TOKEN_TYPE, kid: keyId })
+    .setProtectedHeader({ alg: "HS256", typ: CHAT_AUTH_TOKEN_TYPE, kid: keyId })
     .setIssuer(organizationSlug)
-    .setAudience(ASTRALBEAM_TOKEN_AUDIENCE)
+    .setAudience(CHAT_AUTH_TOKEN_AUDIENCE)
     .setIssuedAt(now)
     .setExpirationTime(now + expiresInSeconds)
     .sign(await signingKey(keySecret))
-  if (textEncoder.encode(token).byteLength > CHAT_TOKEN_MAX_BYTES) {
-    throw new Error(`AstralBeam chat tokens must not exceed ${CHAT_TOKEN_MAX_BYTES} bytes`)
+  if (textEncoder.encode(token).byteLength > CHAT_AUTH_TOKEN_MAX_BYTES) {
+    throw new Error(`chat auth tokens must not exceed ${CHAT_AUTH_TOKEN_MAX_BYTES} bytes`)
   }
   return token
 }

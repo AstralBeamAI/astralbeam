@@ -42,7 +42,7 @@ export function chatWidget(page: Page) {
       return composer
     },
 
-    /** True once the widget has traded a session for a chat token and will accept a message. */
+    /** True once the widget has traded a session for a chat auth token and will accept a message. */
     async waitForReady(): Promise<void> {
       await expect(composer).toBeVisible()
       await expect(composer).not.toHaveAttribute("placeholder", "Verifying your session…")

@@ -20,7 +20,7 @@ import {
   readAttachmentData,
   resolveAttachmentOptions,
 } from "./lib/attachments.ts"
-import { chatApiUrls, DEFAULT_AUTH_TOKEN_URL, DEFAULT_TITLE } from "../lib/constants.ts"
+import { chatApiUrls, DEFAULT_CHAT_AUTH_TOKEN_URL, DEFAULT_TITLE } from "../lib/constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL, SANDBOX_STATUS_EVENT } from "../core/protocol.ts"
@@ -36,7 +36,7 @@ import {
   type ChatAuthenticationState,
   disposeChatAuthentication,
   fetchAuthenticatedChat,
-  getValidChatToken,
+  getValidChatAuthToken,
   initializeChatAuthentication,
 } from "../core/auth.ts"
 import type { ChatController } from "./index.tsx"
@@ -65,7 +65,7 @@ export function ChatWidget(
   const optionsRef = useRef(options)
   optionsRef.current = options
   const [authentication] = useState<ChatAuthenticationOptions>(() => ({
-    generateAuthToken: options.generateAuthToken ?? { url: DEFAULT_AUTH_TOKEN_URL },
+    fetchChatAuthToken: options.fetchChatAuthToken ?? { url: DEFAULT_CHAT_AUTH_TOKEN_URL },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -76,7 +76,8 @@ export function ChatWidget(
     debug,
   }))
   authentication.debug = debug
-  authentication.generateAuthToken = options.generateAuthToken ?? { url: DEFAULT_AUTH_TOKEN_URL }
+  authentication.fetchChatAuthToken = options.fetchChatAuthToken ??
+    { url: DEFAULT_CHAT_AUTH_TOKEN_URL }
   useEffect(() => {
     void initializeChatAuthentication(authentication).catch(() => undefined)
     return () => disposeChatAuthentication(authentication)
@@ -113,7 +114,7 @@ export function ChatWidget(
     fetchServerSentEvents(
       () => chatApiUrls(optionsRef.current.apiUrl).chat,
       async () => ({
-        headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
+        headers: { authorization: `Bearer ${await getValidChatAuthToken(authentication)}` },
         fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
       }),
     )
@@ -162,7 +163,7 @@ export function ChatWidget(
     if (options.agentId) url.searchParams.set("agentId", options.agentId)
     void (async () => {
       try {
-        const token = await getValidChatToken(authentication)
+        const token = await getValidChatAuthToken(authentication)
         const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
         if (!response.ok) throw new Error(`The config request answered ${response.status}`)
         const body = await response.json() as { capabilities?: { attachments?: unknown } }
@@ -423,7 +424,7 @@ export function ChatWidget(
           authError={authError}
           onAuthRetry={authentication
             ? () =>
-              void getValidChatToken({ ...authentication, force: true }).catch(() => undefined)
+              void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
             : undefined}
           attachments={attachments}
           attachmentLimits={attachmentLimits}

@@ -33,29 +33,36 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 
 ## Authentication
 
-The widget will not chat until your app mints it a short-lived token; it never sees your API key. See [Authentication](https://app.astralbeam.ai/docs/sdk/authentication).
+The widget will not chat until your app mints it a short-lived chat auth token; it never sees your API key. That token is the credential your server signs for AstralBeam, never your app's own session cookie or access token. See [Authentication](https://app.astralbeam.ai/docs/sdk/authentication).
 
 ```ts
-import { createAstralBeamTokenRoute } from "@astralbeam/sdk/server"
+import { createChatAuthToken } from "@astralbeam/sdk/server"
 
-export const POST = createAstralBeamTokenRoute({
-  apiKey: () => process.env.ASTRALBEAM_API_KEY, // key_<organization>_<key>_abo_<secret>
-  authenticate: (request) => getApplicationSession(request),
-  user: (session) => ({
-    id: session.user.id,
-    name: session.user.name,
-    metadata: { email: session.user.email },
-  }),
-  tenant: (session) => ({
-    id: session.tenant.id,
-    name: session.tenant.name,
-    metadata: { plan: session.tenant.plan },
-  }),
-})
+const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organization>_<key>_abo_<secret>
+
+export async function POST(request: Request) {
+  if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503 })
+  const session = await getApplicationSession(request)
+  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
+  const token = await createChatAuthToken({
+    apiKey,
+    user: {
+      id: session.user.id,
+      name: session.user.name,
+      metadata: { email: session.user.email },
+    },
+    tenant: {
+      id: session.tenant.id,
+      name: session.tenant.name,
+      metadata: { plan: session.tenant.plan },
+    },
+  })
+  return Response.json({ token }, { headers: { "cache-control": "no-store" } })
+}
 ```
 
 - Add one endpoint, `/api/astralbeam/token` by default, that authenticates your own session first.
-- The factory owns the method check, the unconfigured 503, the unauthenticated 401, and `no-store`.
+- Your handler owns the response: answer `cache-control: no-store`, and fail closed with a 401 or 503.
 - Authenticate once, then derive `user` and `tenant` separately from that same application session.
 - Derive `user` and `tenant` from trusted server-side state, never from anything the browser sent.
 - Provide stable tenant-local `user.id` and stable `tenant.id` values; names are optional, and set `user.admin` only from trusted state.
@@ -64,7 +71,7 @@ export const POST = createAstralBeamTokenRoute({
 - Tokens use the API key's organization slug as issuer and the platform audience `astralbeam`; AstralBeam does not require or interpret `sub`.
 - Tokens are signed, not encrypted: never put a secret in them.
 - Lifetimes are 60–600 seconds; the SDK renews in memory before expiry.
-- `generateAuthToken` says where the token comes from: `{ url, ...init }`, which the widget calls as `fetch(url, init)` with a standard `RequestInit`, or a function returning `{ token }` (or a promise of it, or `undefined` when it cannot mint one).
+- `fetchChatAuthToken` says where the chat auth token comes from: `{ url, ...init }`, which the widget calls as `fetch(url, init)` with a standard `RequestInit`, or a function returning `{ token }` (or a promise of it, or `undefined` when it cannot mint one).
 - It defaults to `{ url: "/api/astralbeam/token" }`, posted with the page's cookies, and runs again on every renewal, so a rotating credential stays current.
 
 ## Options
@@ -75,7 +82,7 @@ Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` appl
 | ------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
 | `agentId`                            | organization's default             | `agt_<organization>_<agent>` from the dashboard                    |
 | `apiUrl`                             | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API; the widget calls `/chat` there     |
-| `generateAuthToken`                  | `{ url: "/api/astralbeam/token" }` | Token endpoint as `{ url, ...RequestInit }`, or a minting function |
+| `fetchChatAuthToken`                 | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader`                | `"AstralBeam"`, `true`             | Header text, and whether the header and reset button show          |
 | `emptyTitle`, `emptyDescription`     | generic copy                       | Headline and subtitle of the empty transcript                      |
 | `colorScheme`, `theme`               | `"system"`, built-in palette       | Light/dark/system, and shadcn token overrides                      |
@@ -133,13 +140,13 @@ Each guide is short and self-contained.
 
 There is no root export. Conversation history is not built yet.
 
-| Entry point              | Contents                                                  | Peer dependency      |
-| ------------------------ | --------------------------------------------------------- | -------------------- |
-| `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader                 | none                 |
-| `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session              | none                 |
-| `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`                   | `react`, `react-dom` |
-| `@astralbeam/sdk/server` | `createAstralBeamChatToken`, `createAstralBeamTokenRoute` | none                 |
-| `@astralbeam/sdk/vue`    | Vue components (placeholder)                              | `vue`                |
+| Entry point              | Contents                                     | Peer dependency      |
+| ------------------------ | -------------------------------------------- | -------------------- |
+| `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader    | none                 |
+| `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session | none                 |
+| `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`      | `react`, `react-dom` |
+| `@astralbeam/sdk/server` | `createChatAuthToken`, the token minter      | none                 |
+| `@astralbeam/sdk/vue`    | Vue components (placeholder)                 | `vue`                |
 
 Types resolve under every TypeScript module resolution mode, including the classic `"moduleResolution": "node"` that Ionic, Capacitor, and Create React App templates still ship. TypeScript 5.0 or later is required, because the declarations use `const` type parameters; on TypeScript 4.x the `.d.ts` files fail to parse.
 
