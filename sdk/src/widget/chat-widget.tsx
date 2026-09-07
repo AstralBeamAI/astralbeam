@@ -75,9 +75,8 @@ export function ChatWidget(
   ])
   const sessionOptionsRef = useRef(sessionOptions)
   sessionOptionsRef.current = sessionOptions
-  // One session for the widget's lifetime, retuned in place, so an option update keeps the
-  // transcript, the connection, and the live widget renders. A lazy ref rather than a `useState`
-  // initializer, which Strict Mode invokes twice, leaving a second session minting tokens.
+  // One session per committed mount, retuned in place: built on first render rather than in a
+  // `useState` initializer, though Strict Mode's render probe can still build a discarded second.
   const chatRef = useRef<AstralBeamChatCore | null>(null)
   chatRef.current ??= createAstralBeamChat(sessionOptionsRef.current)
   const chat = chatRef.current

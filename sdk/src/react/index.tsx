@@ -91,8 +91,8 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
  * state stay live and nothing needs a remount.
  */
 export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
-  // Lazy ref rather than a `useState` initializer, which Strict Mode invokes twice in development:
-  // the discarded session would still be minting tokens. https://react.dev/reference/react/useRef
+  // https://react.dev/reference/react/useRef#caveats — one session per committed mount, built on
+  // first render, not a `useState` initializer; Strict Mode's render probe can still make a second.
   const coreRef = useRef<AstralBeamChatCore | null>(null)
   coreRef.current ??= createAstralBeamChat(options)
   const core = coreRef.current
