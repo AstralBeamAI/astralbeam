@@ -1,4 +1,7 @@
+import { existsSync, writeFileSync } from "node:fs"
+import { dirname, join } from "node:path"
 import process from "node:process"
+import { fileURLToPath } from "node:url"
 
 import { seedAgents } from "./seed/agents.ts"
 import { seedApiKeys } from "./seed/api-keys.ts"
@@ -13,6 +16,16 @@ import { SEED_PASSWORD, SEED_TODOS_TARGET, SEED_USERS } from "./seed/fixtures.ts
 import { seedOrganizations } from "./seed/organizations.ts"
 import { seedTenants } from "./seed/tenants.ts"
 import { seedUsers } from "./seed/users.ts"
+
+// Resolved from this file, not the cwd, so the seed writes the same path from anywhere.
+const todosEnvFile = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "examples",
+  "todos",
+  ".env",
+)
 
 loadSeedEnvironment()
 
@@ -62,9 +75,17 @@ try {
 
   console.log(`\nTenant users: ${summary.tenantUserCount}`)
 
-  console.log("\nTo point the todos example at this database, write examples/todos/.env:\n")
-  console.log(`  ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}`)
-  console.log(`  VITE_ASTRALBEAM_AGENT_ID=${SEED_TODOS_TARGET.agentId}`)
+  const todosEnv =
+    `ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}\nVITE_ASTRALBEAM_AGENT_ID=${SEED_TODOS_TARGET.agentId}\n`
+  // Both values are self-describing local-only fixtures and the file is gitignored, but an
+  // existing one may hold a real key, so it is never overwritten.
+  if (existsSync(todosEnvFile)) {
+    console.log("\nexamples/todos/.env already exists and was left alone; it should hold:\n")
+  } else {
+    writeFileSync(todosEnvFile, todosEnv)
+    console.log("\nWrote examples/todos/.env so the todos example points at this database:\n")
+  }
+  for (const line of todosEnv.trimEnd().split("\n")) console.log(`  ${line}`)
 
   if (!process.env.OPENAI_API_KEY) {
     console.warn(

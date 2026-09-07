@@ -49,19 +49,17 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
 ### Option 2: Run directly on macOS
 
-- From the repository root, run the setup script. It installs the Deno LTS toolchain and the projects' frozen dependencies:
+Run these four steps from the repository root, in order. They are the same sequence as the [README's local development section](README.md#local-development).
 
-  ```bash
-  ./scripts/setup.sh
-  ```
+1. Start a database. With Docker Compose, `docker compose up --detach --wait` starts PostgreSQL, PgBouncer, Valkey, and Mailpit. PgBouncer is the only database service published to the host, so the default `DATABASE_URL` sends local application, Drizzle, and migration traffic through its transaction pool. Set `PGBOUNCER_HOST_PORT` and update `DATABASE_URL` together only when port 5432 is unavailable; set `POSTGRES_HOST` and `POSTGRES_PORT` to route PgBouncer to a different backend. Without Compose, run your own PostgreSQL 18 or later reachable at the `DATABASE_URL` in `webapp/.env.development`, plus Mailpit on ports 1025 and 8025 if you want to read the outgoing email.
 
-- Open a new terminal so the project-managed Deno LTS is on `PATH` before running `deno task` commands.
+2. Set up the workspace with `./scripts/setup.sh`. It installs the Deno LTS toolchain and every project's frozen dependencies, then applies the migrations, runs `deno task --cwd webapp db-seed`, and builds the SDK. On macOS it never installs or starts PostgreSQL, Valkey, or Mailpit and never starts Docker Compose; if nothing is listening at `DATABASE_URL` it names the three steps it skipped and asks you to run it again once PostgreSQL is up. Open a new terminal so the project-managed Deno is on `PATH` before running `deno task` commands.
 
-- The setup script does not install PostgreSQL, Valkey, or Mailpit on macOS. When Docker Compose is available, it starts PostgreSQL, PgBouncer, Valkey, and Mailpit unless `SKIP_DOCKER_COMPOSE=true` is set. PgBouncer is the only database service published to the host, so the default `DATABASE_URL` sends local application, Drizzle, and migration traffic through its transaction pool. Set `PGBOUNCER_HOST_PORT` and update `DATABASE_URL` together only when port 5432 is unavailable; set `POSTGRES_HOST` and `POSTGRES_PORT` to route PgBouncer to a different backend.
+3. Put `OPENAI_API_KEY` in `webapp/.env.local` for chat, because the seed never writes it. The seed does create verified accounts, organizations, agents, and organization API keys, so local testing skips `/configure`, signup, and email verification; see the [database guide](webapp/src/db/README.md#seed-sample-data). It also writes `examples/todos/.env` with the seeded API key and agent ID when that file is absent, and never touches an existing one.
 
-- After migrations, fill the database with sample data using `deno task --cwd webapp db-seed`. It creates verified accounts, organizations, agents, and organization API keys, so local testing skips `/configure`, signup, and email verification; see the [database guide](webapp/src/db/README.md#seed-sample-data). Put `OPENAI_API_KEY` in `webapp/.env.local` for chat, because the seed never writes it.
+4. Start everything with `deno task dev`: the webapp on <http://localhost:4500>, the website on <http://localhost:4600>, the todos example on <http://localhost:4700>, and the SDK watcher.
 
-- From the repository root, stop services with `docker compose down`. Reset a worktree database by dropping and recreating only that database as documented in [`webapp/src/db/README.md`](webapp/src/db/README.md); do not recreate the shared Compose volumes. Use `docker compose exec postgres` only when that documented workflow requires a direct PostgreSQL connection.
+Stop the Compose services with `docker compose down`. Reset a worktree database by dropping and recreating only that database as documented in [`webapp/src/db/README.md`](webapp/src/db/README.md); do not recreate the shared Compose volumes. Use `docker compose exec postgres` only when that documented workflow requires a direct PostgreSQL connection.
 
 ## Cloud agent setup
 

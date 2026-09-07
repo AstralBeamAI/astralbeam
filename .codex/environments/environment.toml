@@ -19,4 +19,4 @@ command = "cd www && deno task dev"
 [[actions]]
 name = "Ready"
 icon = "tool"
-command = "deno task --cwd webapp ready && deno task --cwd www ready"
+command = "deno task --cwd sdk ready && deno task --cwd webapp ready && deno task --cwd www ready && deno task --cwd examples/todos ready"

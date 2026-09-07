@@ -14,6 +14,10 @@
     {
       "name": "Public website",
       "port": 4600
+    },
+    {
+      "name": "Todos example",
+      "port": 4700
     }
   ],
   "terminals": [

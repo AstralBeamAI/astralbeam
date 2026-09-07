@@ -147,7 +147,7 @@
 
 TODO: add common commands
 
-- `deno task db-seed` fills the current worktree's database with sample configuration, verified accounts, organizations, agents, API keys, tenants, and a Docker sandbox provider, so a browser or end-to-end check can skip `/configure`, signup, and API-key creation. It is idempotent, runs in one transaction, and refuses any `DATABASE_URL` whose host is not loopback. Keep it separate from `db-reset` and `db migrate`.
+- `deno task db-seed` fills the current worktree's database with sample configuration, verified accounts, organizations, agents, API keys, tenants, and a Docker sandbox provider, so a browser or end-to-end check can skip `/configure`, signup, and API-key creation. It also writes `examples/todos/.env` with the seeded API key and agent ID when that gitignored file is absent, so the example's token route works without a manual copy; an existing file is never touched. It is idempotent, runs in one transaction, and refuses any `DATABASE_URL` whose host is not loopback. Keep it separate from `db-reset` and `db migrate`.
   - `scripts/seed/fixtures.ts` is the only source of seeded identities and is imported by `examples/todos/e2e` across the project boundary, so keep it free of imports and runtime dependencies.
   - Seed modules run under a plain `deno run`, which cannot resolve the `@/` alias; import tables through the relative `src/db/schema.server.ts` path and never from `src/db/index.ts`, `agent.server.ts`, or `config.server.ts`.
   - The seed never writes `openai_api_key`, and skips any config key whose uppercase environment variable is set, because the environment takes precedence and `/configure` renders those fields read-only. Put the OpenAI key in `webapp/.env.local`.

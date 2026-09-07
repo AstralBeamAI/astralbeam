@@ -25,6 +25,7 @@
 - Keep plans and PR descriptions concise and evidence-backed; plans must still include motivation, authoritative references, affected files and API anchors, validation, and boundaries.
 - Keep each Markdown paragraph and list item on one source line.
 - Comment only non-obvious code or configuration decisions, including a link to authoritative documentation or an issue.
+- Keep code comments to at most two lines; longer reasoning belongs in the nearest `AGENTS.md` or a linked issue.
 
 ## Environment
 

@@ -20,7 +20,7 @@ Paste this as the demo agent's system prompt in the dashboard. `deno task --cwd 
 
 ## Run
 
-The quickest path is `deno task --cwd webapp db-seed`, which creates the `acme` organization with a `todos` agent already carrying the prompt above, a Docker sandbox provider, and an API key, then prints a ready-to-paste `.env` for this example. The numbered steps below are the same setup done by hand.
+The quickest path is `deno task --cwd webapp db-seed`, which creates the `acme` organization with a `todos` agent already carrying the prompt above, a Docker sandbox provider, and an API key, then writes `examples/todos/.env` for this example when that file does not exist yet, leaving an existing one alone. The numbered steps below are the same setup done by hand.
 
 1. In the webapp, use the organization's starter agent (already the default) or create one on the agents page, and set its system prompt to the demo prompt above. Prompts are agent configuration; the SDK cannot override them.
 2. Optionally configure and test a sandbox provider on the **Sandboxes** page, then select it on the agent. The endpoint gives that agent sandbox tools, and the demo prompt asks it to use them.

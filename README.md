@@ -29,49 +29,47 @@ examples/     # Standalone SDK consumer applications
 
 ## Local development
 
-Local development & testing is split across three apps: the webapp serves the agent endpoint, the SDK builds the chat widget, and the todos example embeds it.
+Local development spans three apps: the webapp serves the `/api/chat` agent endpoint, the SDK builds the chat widget, and the todos example embeds it. From a fresh clone, a running database plus `./scripts/setup.sh` and `deno task dev` is the whole loop.
 
-### 1. Set up the toolchain
+### 1. Start PostgreSQL and Mailpit
 
-Follow [`SETUP.md`](SETUP.md) for prerequisites and the PostgreSQL and Valkey service lifecycle, then install Deno and the projects' frozen dependencies:
+With Docker Compose, `docker compose up --detach --wait` from the repository root starts PostgreSQL, PgBouncer, Valkey, and Mailpit, and the default `DATABASE_URL` already points at PgBouncer, the only database endpoint published to the host.
+
+Natively on macOS, run your own PostgreSQL 18 or later reachable at the `DATABASE_URL` in [`webapp/.env.development`](webapp/.env.development), and Mailpit on ports 1025 and 8025 only if you want to read the outgoing email. See [`SETUP.md`](SETUP.md) for the one-time prerequisites.
+
+### 2. Set up the workspace
 
 ```sh
 ./scripts/setup.sh
 ```
 
-### 2. Run the webapp
+This installs Deno and every project's frozen dependencies, then — once it can reach the database — applies the migrations, runs `deno task --cwd webapp db-seed`, and builds the SDK into `sdk/dist`. If nothing is listening yet it says so and skips those three steps; start PostgreSQL and run it again.
 
-Serve the product application and the `/api/chat` agent endpoint on http://localhost:4500 :
+The seed creates verified accounts, organizations, agents, and organization API keys, so local testing skips `/configure`, signup, and email verification; see the [database guide](webapp/src/db/README.md#seed-sample-data). It also writes `examples/todos/.env` with the seeded API key and agent ID when that file does not exist, so the example's token route can mint chat tokens.
+
+`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are the only bootstrap variables, and [`webapp/.env.development`](webapp/.env.development) supplies local defaults for both. Every other runtime setting lives at <http://localhost:4500/configure>, which the first `DATABASE_ENCRYPTION_KEY` value signs into; deployment guidance is in [Setup](SETUP.md#configure-the-environment).
+
+### 3. Add an OpenAI key
+
+The seed never writes one, so chat needs a key of your own in `webapp/.env.local`:
 
 ```sh
-cd webapp
-deno install
+OPENAI_API_KEY=sk-...
+```
+
+### 4. Run everything
+
+```sh
 deno task dev
 ```
 
-`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are required before http://localhost:4500/configure opens operator sign-in. Use the first encryption key to apply pending migrations and manage other runtime settings; deployment guidance is in [Setup](SETUP.md#configure-the-environment).
+This starts the three dev servers and the SDK watcher together:
 
-### 3. Build the SDK
+- <http://localhost:4500> — the product application and its `/api/chat` agent endpoint
+- <http://localhost:4600> — the public website
+- <http://localhost:4700> — the todos example with the embedded widget; see [`examples/todos/README.md`](examples/todos/README.md) for what to try
 
-The SDK bundles the client, server, React, and Vue entry points into `sdk/dist`, the artifacts consumers import:
-
-```sh
-cd sdk
-deno install
-deno task build
-```
-
-### 4. Run the todos example
-
-A barebones TanStack Start app that embeds the widget from `sdk/dist`, mints demo chat auth tokens on the server, and points the widget at the webapp's `/api`, on http://localhost:4700. See [`examples/todos/README.md`](examples/todos/README.md) for what to try.
-
-```sh
-cd examples/todos
-deno install
-deno task dev
-```
-
-Rebuild the SDK and reload the page after changing SDK sources. The public website is separate: `cd www && deno task dev` starts it on http://localhost:4600.
+Reload the page after changing SDK sources: the watcher rewrites the `sdk/dist` output the example imports.
 
 ### 5. Run the projects from the repository root
 
@@ -79,7 +77,7 @@ The four projects keep their own toolchains and are not a package-manager worksp
 
 ```sh
 deno task install          # install every project's dependencies
-deno task dev              # run the webapp, website, and todos dev servers together
+deno task dev              # run the three dev servers and the SDK watcher together
 deno task build            # build the SDK first, then the webapp, website, and todos
 ```
 
