@@ -79,6 +79,7 @@
   - Creating an organization also creates its starter agent (named after the organization) and the `organization_configuration` row whose `default_agent_id` points at it, so `/api/chat` can resolve an agent for a host that sends no `agentId`. Keep an agent's sandbox provider optional, because a provider cannot be saved before its connection test passes, and keep `default_agent_id` behind the composite organization-scoped reference, releasing it in the same transaction that deletes the agent it points at.
   - Model independently usable organization integration instances as separate named rows, using `citext` when names must be case-insensitively unique. Keep provider IDs in a closed registry with shared Effect schemas and reject unknown or provider-mismatched fields before storage or return.
   - Preserve required extension DDL such as `CREATE EXTENSION IF NOT EXISTS citext` when regenerating an unmerged migration.
+  - Public identifier formats carry no backward compatibility before launch: change them outright and migrate the stored rows, without alias columns, deprecation windows, or backfills for data no database holds. Keep the failure loud and inside the migration's transaction instead.
   - `migrations` contains the drizzle migrations
 
 - `src/lib` contains application-wide shared code like:
