@@ -23,9 +23,10 @@
   // @daytona/sdk also `createRequire`s busboy at download time, which the built server bundle keeps
   // as a runtime specifier; webapp declares busboy only so that require resolves.
   "ignoreDependencies": ["busboy", "tslib"],
-  // Keep Deno-run generators and the TanStack Router and Start entries explicit.
+  // Keep Deno-run generators and framework entry points explicit.
   "entry": [
     "scripts/*.ts",
+    "src/lib/response-headers.server.ts",
     "src/router.tsx",
     "src/start.ts"
   ]
