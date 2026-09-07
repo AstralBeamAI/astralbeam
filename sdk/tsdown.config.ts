@@ -24,7 +24,6 @@ export default defineConfig([
     entry: {
       server: "src/server/index.ts",
       react: "src/react/index.tsx",
-      vue: "src/vue/index.ts",
       core: "src/core/index.ts",
     },
     platform: "neutral",

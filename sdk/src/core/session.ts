@@ -5,9 +5,10 @@ import {
   type MultimodalContent,
   type UIMessage,
 } from "@tanstack/ai-client"
+import type { StreamChunk } from "@tanstack/ai/client"
 import { chatApiUrls, DEFAULT_CHAT_AUTH_TOKEN_URL } from "../lib/constants.ts"
 import { createDebugLogger } from "../lib/debug.ts"
-import type { AstralBeamChatAuthTokenSource, ToolDefinition } from "../lib/types.ts"
+import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
 import {
   type ChatAuthenticationOptions,
@@ -31,25 +32,38 @@ export interface WidgetRenderRequest {
   toolCallId: string
 }
 
-export interface AstralBeamChatCoreOptions {
-  /** Public ID of the organization-owned agent; omitted, the organization's default answers. */
-  agentId?: string | undefined
-  /** Base URL of the AstralBeam API; `/chat` hangs off it. Default the hosted cloud. */
-  apiUrl?: string | undefined
-  /**
-   * Where short-lived chat JWTs come from: `{ url, ...RequestInit }` for a token endpoint, or a
-   * function minting `{ token }` in the host page. Either runs again on every renewal.
-   * Default `{ url: "/api/astralbeam/token" }`.
-   */
-  fetchChatAuthToken?: AstralBeamChatAuthTokenSource | undefined
-  /** Host tools the agent can call; `execute` runs wherever this session lives. */
-  tools?: Record<string, ToolDefinition> | undefined
-  /** Widgets declared to the agent; `onRenderWidget` is asked to draw them. */
+/**
+ * Mirrors of the underlying chat client's stream lifecycle, for a consumer that logs or traces the
+ * raw run; the drop-in widget passes its debug console logger here.
+ */
+export interface ChatStreamCallbacks {
+  onChunk?: ((chunk: StreamChunk) => void) | undefined
+  onResponse?: ((response?: Response) => void) | undefined
+  onFinish?: ((message: UIMessage) => void) | undefined
+  onError?: ((error: Error) => void) | undefined
+}
+
+/**
+ * The transport and tool options of the drop-in widget, minus everything about its UI, plus this
+ * session's own rendering hooks. The shared options are documented on `MountAstralBeamChatOptions`.
+ */
+export interface AstralBeamChatCoreOptions extends
+  Pick<
+    MountAstralBeamChatOptions,
+    "agentId" | "apiUrl" | "fetchChatAuthToken" | "tools" | "debug"
+  > {
+  /** Widgets declared to the agent, without a `render`; `onRenderWidget` is asked to draw them. */
   widgets?: Record<string, WidgetDeclaration> | undefined
   /** Draws an agent-requested widget however the host wants; may return a cleanup. */
   onRenderWidget?: ((request: WidgetRenderRequest) => (() => void) | void) | undefined
-  /** Logs every action to the console and asks the endpoint to log its side too. */
-  debug?: boolean | undefined
+  /** Stream lifecycle callbacks, read per event so they follow an update. */
+  streamCallbacks?: ChatStreamCallbacks | undefined
+}
+
+/** One tool as declared to the agent: its name, and the `metadata.title` that labels it. */
+export interface AgentToolInfo {
+  name: string
+  title: string | undefined
 }
 
 export interface AstralBeamChatState {
@@ -60,6 +74,8 @@ export interface AstralBeamChatState {
   auth: ChatAuthenticationState
   /** What the resolved agent grants; the UI should render only that. */
   capabilities: { attachments: boolean }
+  /** The tool set currently declared to the agent, in declaration order. */
+  agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
   sandbox: SandboxActivity
 }
@@ -79,6 +95,8 @@ export interface AstralBeamChatCore {
   addToolResult: ChatClient["addToolResult"]
   /** Stops the in-flight generation; the transcript keeps what already streamed. */
   stop: () => void
+  /** Mints a fresh chat auth token, ignoring the cached one; for a retry after a failure. */
+  retryAuthentication: () => void
   /** Re-runs the last exchange. */
   reload: () => Promise<void>
   /** Clears the conversation and disposes live widget renders. */
@@ -102,6 +120,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     error: undefined,
     auth: { status: "loading" },
     capabilities: { attachments: true },
+    agentTools: [],
     sandboxStatus: undefined,
     sandbox: { files: [], commands: [] },
   }
@@ -132,7 +151,9 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
       const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
       if (!response.ok) throw new Error(`The config request answered ${response.status}`)
       const body = await response.json() as { capabilities?: { attachments?: unknown } }
-      update({ capabilities: { attachments: body.capabilities?.attachments !== false } })
+      const attachments = body.capabilities?.attachments !== false
+      update({ capabilities: { attachments } })
+      debug?.("mount", "agent capabilities resolved", { attachments })
     } catch (error) {
       debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
     }
@@ -163,8 +184,23 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     return { widget: input.widget, rendered: live.onRenderWidget !== undefined }
   }
 
-  const agentTools = () =>
+  const buildTools = () =>
     buildAgentTools(live.widgets ?? {}, live.tools ?? {}, renderWidget, debug)
+  // Published as state so a UI can label a tool's transcript entry with its own title, including
+  // the widget and questionnaire tools this session declares itself.
+  const declareTools = () => {
+    const tools = buildTools()
+    update({
+      agentTools: tools.map((tool) => {
+        const title = tool.metadata?.["title"]
+        return {
+          name: tool.name,
+          title: typeof title === "string" && title.length > 0 ? title : undefined,
+        }
+      }),
+    })
+    return tools
+  }
   const forwardedProps = () => ({
     ...(live.agentId ? { agentId: live.agentId } : {}),
     ...(live.debug ? { debug: true } : {}),
@@ -177,7 +213,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
       headers: { authorization: `Bearer ${await getValidChatAuthToken(authentication)}` },
       fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
     })),
-    tools: agentTools(),
+    tools: declareTools(),
     forwardedProps: forwardedProps(),
     onMessagesChange: (messages) => {
       update({ messages, sandbox: collectSandboxActivity(messages), error: client.getError() })
@@ -189,11 +225,17 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
         eventType === SANDBOX_STATUS_EVENT &&
         (value === "starting" || value === "ready" || value === "error")
       ) {
+        debug?.("sandbox", `sandbox ${value}`)
         update({ sandboxStatus: value })
         return
       }
       debug?.("stream", `custom event "${eventType}"`, data)
     },
+    // Read per event rather than captured, so a `debug` update reaches the next chunk.
+    onChunk: (chunk) => live.streamCallbacks?.onChunk?.(chunk),
+    onResponse: (response) => live.streamCallbacks?.onResponse?.(response),
+    onFinish: (message) => live.streamCallbacks?.onFinish?.(message),
+    onError: (error) => live.streamCallbacks?.onError?.(error),
   })
 
   // A run input holding an unresolved tool call never reaches the model, so a send settles
@@ -203,12 +245,16 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
       for (const part of message.parts) {
         if (part.type !== "tool-call" || isSettledToolCall(part)) continue
         if (part.name === ASK_QUESTIONNAIRE_TOOL) {
+          debug?.("questionnaire", "skipping pending questionnaire before send", { id: part.id })
           void client.addToolResult({
             toolCallId: part.id,
             tool: part.name,
             output: { answers: [], skipped: true },
           })
         } else {
+          debug?.("tool", `settling unimplemented tool call "${part.name}" as error`, {
+            id: part.id,
+          })
           void client.addToolResult({
             toolCallId: part.id,
             tool: part.name,
@@ -235,7 +281,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
       authentication.fetchChatAuthToken = live.fetchChatAuthToken ??
         { url: DEFAULT_CHAT_AUTH_TOKEN_URL }
       authentication.debug = debug
-      client.updateOptions({ tools: agentTools(), forwardedProps: forwardedProps() })
+      client.updateOptions({ tools: declareTools(), forwardedProps: forwardedProps() })
       if (live.agentId !== agent || live.apiUrl !== apiUrl) void resolveCapabilities()
     },
     sendMessage: (content) => {
@@ -244,8 +290,12 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     },
     addToolResult: (result) => client.addToolResult(result),
     stop: () => client.stop(),
+    retryAuthentication: () => {
+      void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
+    },
     reload: () => client.reload(),
     reset: () => {
+      debug?.("status", "conversation reset")
       client.clear()
       disposeRenders()
       update({

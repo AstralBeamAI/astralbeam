@@ -28,7 +28,7 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 - The widget fills its container, so give it a parent with a definite height (`min-h-0` in a flex column).
 - Two origins by design: chat streams to the hosted cloud by default, while the token comes from your own app's endpoint. Self-hosted deployments set `apiUrl` to their own origin.
 - `@astralbeam/sdk/client` ships no React; the chat loads as a lazy chunk with its own bundled copy.
-- `react` and `react-dom` are optional peer dependencies used only by `@astralbeam/sdk/react`.
+- No runtime dependencies; `react` and `react-dom` are optional peers used only by `@astralbeam/sdk/react`.
 - Mount it above your router if the transcript should survive page navigation.
 
 ## Authentication
@@ -146,7 +146,6 @@ There is no root export. Conversation history is not built yet.
 | `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session | none                 |
 | `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`      | `react`, `react-dom` |
 | `@astralbeam/sdk/server` | `createChatAuthToken`, the token minter      | none                 |
-| `@astralbeam/sdk/vue`    | Vue components (placeholder)                 | `vue`                |
 
 Types resolve under every TypeScript module resolution mode, including the classic `"moduleResolution": "node"` that Ionic, Capacitor, and Create React App templates still ship. TypeScript 5.0 or later is required, because the declarations use `const` type parameters; on TypeScript 4.x the `.d.ts` files fail to parse.
 

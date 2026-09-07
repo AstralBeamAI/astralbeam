@@ -1,7 +1,7 @@
 import type { UIMessage } from "@tanstack/ai-client"
 import type { WidgetDefinition } from "../../lib/types.ts"
 export { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../../core/messages.ts"
-import { INHERITED_PROPERTIES, WIDGET_SLOT_PREFIX, WIDGET_SLOT_SELECTOR } from "./constants.ts"
+import { INHERITED_PROPERTIES, WIDGET_SLOT_PREFIX, WIDGET_SLOT_SELECTOR } from "./style-bridge.ts"
 import type { QuestionnaireItemSpec } from "./types.ts"
 
 /** Saves a blob as a file download through a transient anchor. */
@@ -22,12 +22,13 @@ export function downloadTextFile(filename: string, content: string): void {
   saveBlob(filename, new Blob([content], { type: "text/plain;charset=utf-8" }))
 }
 
-/** "1.2 MB" style label for an artifact row; undefined sizes read as nothing. */
+/** "1.2 MB" style label for an attachment chip or an artifact row; undefined reads as nothing. */
 export function formatByteSize(size: number | undefined): string | undefined {
   if (size === undefined) return undefined
   if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  const megabytes = size / (1024 * 1024)
+  if (megabytes >= 1) return `${megabytes.toFixed(megabytes < 10 ? 1 : 0)} MB`
+  return `${Math.round(size / 1024)} KB`
 }
 
 // Widget names come from the agent; inherited keys like "constructor" must not resolve.

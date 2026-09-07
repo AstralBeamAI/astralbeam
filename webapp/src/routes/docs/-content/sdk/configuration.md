@@ -24,6 +24,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 - `fetchChatAuthToken` is the only chat auth token option; the request form's init reaches `fetch` as given. See [Authentication](./authentication.md).
 - The transport options are read per request, not captured: a new `apiUrl` or `fetchChatAuthToken` applies to the next request, and a new `agentId` answers the next run.
 - Changing `agentId` keeps the transcript, which the new agent then sees as history; call `reset()` first for a clean conversation.
+- Every option accepts an explicit `undefined` and reads as unset, so a value you do not have yet needs no conditional prop under `exactOptionalPropertyTypes`.
 
 ## Chrome slots
 

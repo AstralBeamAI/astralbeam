@@ -4,6 +4,7 @@ import {
   acceptAttachmentFiles,
   attachmentContentParts,
   classifyAttachmentFile,
+  describeSentAttachment,
   resolveAttachmentOptions,
 } from "./attachments.ts"
 import type { DraftAttachment } from "./types.ts"
@@ -201,6 +202,22 @@ test("sends images as image parts and everything else as named documents", () =>
       metadata: { filename: "spec.pdf", size: 34 },
     },
   ])
+})
+
+// The href becomes an <img src> and a download anchor, so a part carrying an active scheme, or
+// bytes of a type this chat never sends, must reach neither — whoever built the transcript.
+test("a sent attachment points only at data the composer itself sends", () => {
+  const href = (value: string, mimeType?: string) =>
+    describeSentAttachment({
+      type: "document",
+      source: mimeType === undefined ? { value } : { value, mimeType },
+    }).href
+
+  expect(href("cGRm", "application/pdf")).toBe("data:application/pdf;base64,cGRm")
+  expect(href("data:image/png;base64,aW1n")).toBe("data:image/png;base64,aW1n")
+  expect(href("data:application/octet-stream;base64,AAAA")).toBeUndefined()
+  expect(href("javascript:alert(1)")).toBeUndefined()
+  expect(href("")).toBeUndefined()
 })
 
 test("attachments are on unless the host turns them off", () => {

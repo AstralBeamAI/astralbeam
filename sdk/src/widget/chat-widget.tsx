@@ -1,6 +1,5 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
-import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { Button } from "@/widget/components/ui/button"
 import {
   Card,
@@ -20,31 +19,21 @@ import {
   readAttachmentData,
   resolveAttachmentOptions,
 } from "./lib/attachments.ts"
-import { chatApiUrls, DEFAULT_CHAT_AUTH_TOKEN_URL, DEFAULT_TITLE } from "../lib/constants.ts"
+import { chatApiUrls, DEFAULT_TITLE } from "../lib/constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
-import { ASK_QUESTIONNAIRE_TOOL, SANDBOX_STATUS_EVENT } from "../core/protocol.ts"
+import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
 import { createDebugCallbacks } from "./lib/stream-debug.ts"
-import { collectSandboxActivity } from "../core/sandbox.ts"
-import type { SandboxStatus } from "../core/types.ts"
+import { type AstralBeamChatCoreOptions, createAstralBeamChat } from "../core/session.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { cn } from "cn"
-import { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "./lib/utils.ts"
-import { buildAgentTools } from "../core/agent-tools.ts"
-import {
-  type ChatAuthenticationOptions,
-  type ChatAuthenticationState,
-  disposeChatAuthentication,
-  fetchAuthenticatedChat,
-  getValidChatAuthToken,
-  initializeChatAuthentication,
-} from "../core/auth.ts"
+import { hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
 import type { ChatController } from "./index.tsx"
 import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
 
 // Shared fallback so `widgets` keeps its identity across renders when the host registers none;
-// a fresh `{}` would rebuild the memoized tool set (and push it through useChat) on every render.
+// a fresh `{}` would rebuild the memoized session options (and push them through the session).
 const NO_WIDGETS: Record<string, WidgetDefinition> = {}
 
 export function ChatWidget(
@@ -56,133 +45,58 @@ export function ChatWidget(
 ) {
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
-  const { activeSlots, renderWidget, discardAllRenders } = useWidgetRenders(widgets, host, debug)
+  const { activeSlots, renderWidget } = useWidgetRenders(widgets, host, debug)
   const hostSlots = useHostSlots(options.slots, host, debug)
-  const [authenticationState, setAuthenticationState] = useState<ChatAuthenticationState>({
-    status: "loading",
-  })
-  // Read by the connection's URL getter below, which runs long after the client was constructed.
-  const optionsRef = useRef(options)
-  optionsRef.current = options
-  const [authentication] = useState<ChatAuthenticationOptions>(() => ({
-    fetchChatAuthToken: options.fetchChatAuthToken ?? { url: DEFAULT_CHAT_AUTH_TOKEN_URL },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: setAuthenticationState,
-    fetchClient: globalThis.fetch.bind(globalThis),
-    debug,
-  }))
-  authentication.debug = debug
-  authentication.fetchChatAuthToken = options.fetchChatAuthToken ??
-    { url: DEFAULT_CHAT_AUTH_TOKEN_URL }
+  const streamCallbacks = useMemo(() => createDebugCallbacks(debug), [debug])
+  // Everything the headless session owns: authentication, transport, the tool protocol, and
+  // transcript state. Memoized because the update effect below keys off it.
+  const sessionOptions = useMemo<AstralBeamChatCoreOptions>(() => ({
+    agentId: options.agentId,
+    apiUrl: options.apiUrl,
+    fetchChatAuthToken: options.fetchChatAuthToken,
+    tools: options.tools,
+    widgets,
+    onRenderWidget: renderWidget,
+    streamCallbacks,
+    debug: options.debug,
+  }), [
+    options.agentId,
+    options.apiUrl,
+    options.fetchChatAuthToken,
+    options.tools,
+    options.debug,
+    widgets,
+    renderWidget,
+    streamCallbacks,
+  ])
+  const sessionOptionsRef = useRef(sessionOptions)
+  sessionOptionsRef.current = sessionOptions
+  // One session for the widget's lifetime, retuned in place, so an option update keeps the
+  // transcript, the connection, and the live widget renders.
+  const [chat] = useState(() => createAstralBeamChat(sessionOptionsRef.current))
+  // Re-applies the initial values harmlessly; afterwards, every option change retunes the session.
   useEffect(() => {
-    void initializeChatAuthentication(authentication).catch(() => undefined)
-    return () => disposeChatAuthentication(authentication)
-  }, [authentication])
+    chat.updateOptions(sessionOptions)
+  }, [chat, sessionOptions])
+  useEffect(() => () => chat.dispose(), [chat])
+  const { messages, status, error, auth, capabilities, sandbox, sandboxStatus, agentTools } =
+    useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
 
-  // Rebuilt whenever the declared surface changes: `render_widget` carries the widget catalog in
-  // its description, and a host tool's schema and `execute` are captured per definition. useChat
-  // pushes a new array through `client.updateOptions`, so the next run sees the current set.
-  const tools = useMemo(
-    () => buildAgentTools(widgets, options.tools ?? {}, renderWidget, debug),
-    [widgets, options.tools, debug, renderWidget],
-  )
-  const toolNames = useMemo(() => new Set(tools.map((tool) => tool.name)), [tools])
-  // Read off the built tools rather than `options.tools` so any tool that gains a metadata
-  // title, including the widget's own, labels its transcript entry the same way.
+  const toolNames = useMemo(() => new Set(agentTools.map((tool) => tool.name)), [agentTools])
   const toolTitles = useMemo(() => {
     const titles: Record<string, string> = {}
-    for (const tool of tools) {
-      const title = tool.metadata?.["title"]
-      if (typeof title === "string" && title.length > 0) titles[tool.name] = title
-    }
+    for (const tool of agentTools) if (tool.title !== undefined) titles[tool.name] = tool.title
     return titles
-  }, [tools])
+  }, [agentTools])
   useEffect(() => {
     debug?.("mount", "tool set declared to the agent", {
       tools: [...toolNames],
       widgets: Object.keys(widgets),
     })
   }, [debug, toolNames, widgets])
-
-  // A URL getter, because useChat reads the connection only when it constructs its client and a
-  // second client would cost the transcript.
-  const [connection] = useState(() =>
-    fetchServerSentEvents(
-      () => chatApiUrls(optionsRef.current.apiUrl).chat,
-      async () => ({
-        headers: { authorization: `Bearer ${await getValidChatAuthToken(authentication)}` },
-        fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
-      }),
-    )
-  )
-  const debugCallbacks = useMemo(() => createDebugCallbacks(debug), [debug])
-  // `debug: true` rides along in the forwarded props so the endpoint logs its side too. Always
-  // passed, even when empty: useChat skips an undefined value, so omitting it would leave a
-  // previously forwarded `debug` in place after the host turns it back off.
-  const forwardedProps = useMemo(() => ({
-    // Left out entirely when the host has no agent ID, which asks the endpoint for the
-    // organization's default agent.
-    ...(options.agentId ? { agentId: options.agentId } : {}),
-    ...(options.debug ? { debug: true } : {}),
-  }), [options.agentId, options.debug])
-  // Provisioning a sandbox takes tens of seconds, and no tool result exists while it happens, so
-  // the endpoint reports it as a CUSTOM event. Everything else about the sandbox is read back out
-  // of the transcript by `collectSandboxActivity`.
-  const [sandboxStatus, setSandboxStatus] = useState<SandboxStatus | undefined>(undefined)
-  const { messages, sendMessage, clear, status, error, addToolResult, stop, reload } = useChat({
-    initialMessages: [],
-    connection,
-    tools,
-    forwardedProps,
-    ...(debugCallbacks || {}),
-    onCustomEvent: (eventType, data) => {
-      const state = (data as { state?: unknown } | undefined)?.state
-      const sandboxState = eventType === SANDBOX_STATUS_EVENT &&
-          (state === "starting" || state === "ready" || state === "error")
-        ? state
-        : undefined
-      if (sandboxState === undefined) {
-        debug?.("stream", `custom event "${eventType}"`, data)
-        return
-      }
-      debug?.("sandbox", `sandbox ${sandboxState}`)
-      setSandboxStatus(sandboxState)
-    },
-  })
-  // Agent capability handshake: what the endpoint's resolved agent grants. Fails open for the UI
-  // (the endpoint still enforces the policy on every run), and re-resolves whenever the host
-  // points the chat at another agent or API base.
-  const [grantedAttachments, setGrantedAttachments] = useState(true)
-  useEffect(() => {
-    let cancelled = false
-    const url = new URL(chatApiUrls(options.apiUrl).config, globalThis.location.href)
-    if (options.agentId) url.searchParams.set("agentId", options.agentId)
-    void (async () => {
-      try {
-        const token = await getValidChatAuthToken(authentication)
-        const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
-        if (!response.ok) throw new Error(`The config request answered ${response.status}`)
-        const body = await response.json() as { capabilities?: { attachments?: unknown } }
-        if (cancelled) return
-        const attachments = body.capabilities?.attachments !== false
-        setGrantedAttachments(attachments)
-        debug?.("mount", "agent capabilities resolved", { attachments })
-      } catch (error) {
-        debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [authentication, debug, options.agentId, options.apiUrl])
   // Artifact downloads live beside the chat endpoint; tickets in tool outputs authorize them.
   const filesEndpoint = useMemo(() => chatApiUrls(options.apiUrl).files, [options.apiUrl])
-  const sandboxActivity = useMemo(() => collectSandboxActivity(messages), [messages])
-  const sandboxHasWork = sandboxActivity.files.length > 0 || sandboxActivity.commands.length > 0
+  const sandboxHasWork = sandbox.files.length > 0 || sandbox.commands.length > 0
   useEffect(() => {
     debug?.("status", `chat status is "${status}"`)
   }, [debug, status])
@@ -190,8 +104,8 @@ export function ChatWidget(
   const [attachments, setAttachments] = useState<DraftAttachment[]>([])
   // The agent's grant wins over the host option: the client may narrow, never widen.
   const attachmentLimits = useMemo(
-    () => resolveAttachmentOptions(grantedAttachments ? options.attachments : false),
-    [options.attachments, grantedAttachments],
+    () => resolveAttachmentOptions(capabilities.attachments ? options.attachments : false),
+    [options.attachments, capabilities.attachments],
   )
   // Ids only have to be unique within this composer, and `crypto.randomUUID` is undefined on a
   // host page served over plain HTTP. https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
@@ -203,41 +117,10 @@ export function ChatWidget(
   }, [attachmentLimits.enabled])
   const streamBusy = status === "submitted" || status === "streaming"
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
-  const authPending = authenticationState.status === "loading"
-  const authError = authenticationState.status === "error" ? authenticationState.error : undefined
+  const authPending = auth.status === "loading"
+  const authError = auth.status === "error" ? auth.error : undefined
   const isBusy = authPending || authError !== undefined || streamBusy ||
     hasPendingToolRun(messages, toolNames)
-
-  // A run input holding an unresolved tool call never reaches the model — the endpoint
-  // re-offers the pending tool and finishes, leaving the message unanswered — so a send
-  // settles every dangling call first: questionnaires as skipped, unknown tools as
-  // errors. The resolution may auto-resume the run; this message then queues behind it.
-  const settleDanglingToolCalls = () => {
-    for (const message of messages) {
-      for (const part of message.parts) {
-        if (part.type !== "tool-call" || isSettledToolCall(part)) continue
-        if (part.name === ASK_QUESTIONNAIRE_TOOL) {
-          debug?.("questionnaire", "skipping pending questionnaire before send", { id: part.id })
-          void addToolResult({
-            toolCallId: part.id,
-            tool: part.name,
-            output: { answers: [], skipped: true },
-          })
-        } else {
-          debug?.("tool", `settling unimplemented tool call "${part.name}" as error`, {
-            id: part.id,
-          })
-          void addToolResult({
-            toolCallId: part.id,
-            tool: part.name,
-            output: null,
-            state: "output-error",
-            errorText: `The page hosting this chat has no implementation for "${part.name}"`,
-          })
-        }
-      }
-    }
-  }
 
   // Every picked file becomes a chip, a rejected one included, so a file the limits turn away
   // says why instead of vanishing. Reads are per file: one unreadable file must not lose the rest.
@@ -291,7 +174,6 @@ export function ChatWidget(
     const parts = attachmentContentParts(attachments)
     const pendingRead = attachments.some((attachment) => attachment.status === "reading")
     if (isBusy || pendingRead || (text.length === 0 && parts.length === 0)) return
-    settleDanglingToolCalls()
     debug?.(
       "send",
       text.length > 0 ? text : `${parts.length} attachment(s), no message text`,
@@ -301,7 +183,8 @@ export function ChatWidget(
         ) => ({ name: attachment.name, kind: attachment.kind, size: attachment.size })),
       },
     )
-    void sendMessage(
+    // The session settles dangling tool calls before the send, so the run can proceed.
+    void chat.sendMessage(
       parts.length === 0 ? text : {
         content: [
           ...parts,
@@ -315,7 +198,7 @@ export function ChatWidget(
 
   const submitQuestionnaireAnswers = (toolCallId: string, answers: QuestionnaireAnswer[]) => {
     debug?.("questionnaire", "answers submitted", { toolCallId, answers })
-    void addToolResult({
+    void chat.addToolResult({
       toolCallId,
       tool: ASK_QUESTIONNAIRE_TOOL,
       output: { answers },
@@ -323,20 +206,17 @@ export function ChatWidget(
   }
 
   const resetConversation = () => {
-    debug?.("status", "conversation reset")
-    // clear() is the client's own reset: it aborts an active stream, drops queued sends, and
-    // resets resume state, where replacing the message array would let late chunks repopulate.
-    clear()
+    // The session's reset is the client's own: it aborts an active stream, drops queued sends,
+    // resets resume state, and disposes the live widget renders.
+    chat.reset()
     setDraft("")
     setAttachments([])
-    setSandboxStatus(undefined)
-    discardAllRenders()
   }
 
   // Re-registered every render so the loader's handle always calls the latest closures.
   useEffect(() => {
     controller.reset = resetConversation
-    controller.stop = stop
+    controller.stop = chat.stop
     return () => {
       controller.reset = undefined
       controller.stop = undefined
@@ -400,9 +280,7 @@ export function ChatWidget(
       }
       <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
         {sandboxStatus !== undefined && <SandboxStatusPill status={sandboxStatus} />}
-        {options.sandboxPanel === true && sandboxHasWork && (
-          <SandboxPanel activity={sandboxActivity} />
-        )}
+        {options.sandboxPanel === true && sandboxHasWork && <SandboxPanel activity={sandbox} />}
         <ChatComposer
           title={options.title ?? DEFAULT_TITLE}
           actionsSlot={hostSlots.has("composerActions")
@@ -413,19 +291,16 @@ export function ChatWidget(
           onSend={sendDraft}
           onStop={() => {
             debug?.("status", "generation stopped by user")
-            stop()
+            chat.stop()
           }}
-          onRetry={messages.length > 0 ? () => void reload() : undefined}
+          onRetry={messages.length > 0 ? () => void chat.reload() : undefined}
           showError={status === "error"}
           error={error}
           streamBusy={streamBusy}
           isBusy={isBusy}
           authPending={authPending}
           authError={authError}
-          onAuthRetry={authentication
-            ? () =>
-              void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
-            : undefined}
+          onAuthRetry={chat.retryAuthentication}
           attachments={attachments}
           attachmentLimits={attachmentLimits}
           onAddFiles={addAttachmentFiles}

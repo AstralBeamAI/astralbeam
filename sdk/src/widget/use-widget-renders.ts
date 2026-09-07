@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { WidgetDefinition } from "../lib/types.ts"
 import type { DebugLogger } from "../lib/debug.ts"
-import { validateParameters } from "../core/schema.ts"
-import type { RenderWidgetInput } from "../core/types.ts"
-import { MAX_ACTIVE_WIDGET_RENDERS } from "./lib/constants.ts"
+import type { WidgetRenderRequest } from "../core/session.ts"
 import { getWidget, slotNameForToolCall } from "./lib/utils.ts"
+
+// Renders are keyed per tool call so several can coexist, but they hold host DOM and host
+// component state for the life of the conversation, so the oldest are evicted past this many.
+const MAX_ACTIVE_WIDGET_RENDERS = 20
 
 interface ActiveWidgetRender {
   /** Kept so an update that drops the widget can dispose renders it can no longer resolve. */
@@ -13,16 +15,12 @@ interface ActiveWidgetRender {
   cleanup: (() => void) | undefined
 }
 
-function disposeWidgetRender({ container, cleanup }: ActiveWidgetRender) {
-  cleanup?.()
-  container.remove()
-}
-
 /**
  * Owns the live widget renders: light-DOM containers slotted into the transcript, keyed by tool
  * call so several renders of one widget coexist and only a repeat of the same call replaces its
  * own render. `activeSlots` holds the slot names currently backed by a live render — the
- * transcript renders a real <slot> only for these, a summary marker otherwise.
+ * transcript renders a real <slot> only for these, a summary marker otherwise. The session it is
+ * handed to resolves the widget and validates the props; this hook only draws.
  */
 export function useWidgetRenders(
   widgets: Record<string, WidgetDefinition>,
@@ -40,7 +38,8 @@ export function useWidgetRenders(
     // a size-based predicate discard oldest-first.
     for (const [toolCallId, render] of activeRenders.current) {
       if (!discard(render)) continue
-      disposeWidgetRender(render)
+      render.cleanup?.()
+      render.container.remove()
       activeRenders.current.delete(toolCallId)
       dropped.push(slotNameForToolCall(toolCallId))
     }
@@ -62,39 +61,30 @@ export function useWidgetRenders(
     }
   }, [])
 
-  // `renderWidget` has to stay referentially stable or the tool set built on it would rebuild on
-  // every render, so it reads the widgets and the logger through refs instead of capturing them:
-  // a render can be requested many turns after the update that declared the widget.
+  // `renderWidget` has to stay referentially stable or the session built on it would rebuild its
+  // tool set on every render, so it reads the widgets and the logger through refs instead of
+  // capturing them: a render can be requested many turns after the update that declared it.
   const widgetsRef = useRef(widgets)
   widgetsRef.current = widgets
   const debugRef = useRef(debug)
   debugRef.current = debug
 
   const renderWidget = useCallback(
-    async ({ widget, props }: RenderWidgetInput, toolCallId: string) => {
+    ({ widget, props, toolCallId }: WidgetRenderRequest) => {
       const debug = debugRef.current
       debug?.("widget", `agent requested widget "${widget}"`, { toolCallId, props })
       const definition = getWidget(widgetsRef.current, widget)
       if (!definition) throw new Error(`Unknown widget "${widget}"`)
-      const validated = await validateParameters(definition.parameters, props ?? {})
-      if (validated == null) {
-        debug?.("error", `props for widget "${widget}" failed validation`, { props })
-        throw new Error(`Props for widget "${widget}" failed validation`)
-      }
       if (!mounted.current) throw new Error("The chat is no longer mounted")
       const slotName = slotNameForToolCall(toolCallId)
-      const previous = activeRenders.current.get(toolCallId)
-      if (previous) {
-        debug?.("widget", `replacing previous render of "${widget}"`, { toolCallId })
-        disposeWidgetRender(previous)
-      }
       // The container is a light-DOM child of the shadow host, so the <slot> rendered
       // in the transcript projects it into the conversation.
       const container = document.createElement("div")
       container.slot = slotName
       host.append(container)
-      const cleanup = definition.render(validated, container)
-      activeRenders.current.set(toolCallId, { widget, container, cleanup: cleanup ?? undefined })
+      const cleanup = definition.render(props, container)
+      const active: ActiveWidgetRender = { widget, container, cleanup: cleanup ?? undefined }
+      activeRenders.current.set(toolCallId, active)
       // Insertion order makes the size predicate evict oldest-first; their transcript
       // entries collapse to a summary marker.
       const evicted = discardRenders(() => activeRenders.current.size > MAX_ACTIVE_WIDGET_RENDERS)
@@ -105,7 +95,8 @@ export function useWidgetRenders(
       }
       setActiveSlots((current) => new Set(current).add(slotName))
       debug?.("widget", `widget "${widget}" rendered`, { slotName })
-      return { widget, rendered: true }
+      // Selected by identity, so disposing a render this hook already evicted or replaced is a no-op.
+      return () => discardRenders((render) => render === active)
     },
     [host],
   )
@@ -120,5 +111,5 @@ export function useWidgetRenders(
     }
   }, [widgets, debug])
 
-  return { activeSlots, renderWidget, discardAllRenders: () => discardRenders(() => true) }
+  return { activeSlots, renderWidget }
 }

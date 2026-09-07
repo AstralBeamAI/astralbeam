@@ -3,6 +3,7 @@
 
 import type { ContentPart } from "@tanstack/ai/client"
 import type { AstralBeamChatAttachmentOptions } from "../../lib/types.ts"
+import { formatByteSize } from "./utils.ts"
 import {
   ATTACHMENT_DATA_MIME_TYPES,
   ATTACHMENT_IMAGE_MIME_TYPES,
@@ -15,7 +16,7 @@ import {
   MAX_ATTACHMENT_BYTES_BY_KIND,
   MAX_ATTACHMENT_TOTAL_BYTES,
   MAX_ATTACHMENTS_PER_MESSAGE,
-} from "./constants.ts"
+} from "./attachment-policy.ts"
 import type { AttachmentKind, DraftAttachment, ResolvedAttachmentOptions } from "./types.ts"
 
 /** The fields of a `File` the limits and classification need, so tests can pass plain objects. */
@@ -125,13 +126,6 @@ function attachmentSizeLimit(
   return Math.min(MAX_ATTACHMENT_BYTES_BY_KIND[kind], limits.maxFileBytes)
 }
 
-export function formatAttachmentSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  const megabytes = bytes / (1024 * 1024)
-  if (megabytes >= 1) return `${megabytes.toFixed(megabytes < 10 ? 1 : 0)} MB`
-  return `${Math.round(bytes / 1024)} KB`
-}
-
 /** Bytes already committed to the next message; unread files count at their reported size. */
 function attachmentBytesUsed(attachments: readonly DraftAttachment[]): number {
   return attachments.reduce(
@@ -184,9 +178,9 @@ export function acceptAttachmentFiles<TFile extends AttachmentFileInfo>(
     if (file.size === 0) return rejected("The file is empty")
     if (slots <= 0) return rejected(`Up to ${limits.maxFiles} files per message`)
     const sizeLimit = attachmentSizeLimit(classified.kind, limits)
-    if (file.size > sizeLimit) return rejected(`Too large (max ${formatAttachmentSize(sizeLimit)})`)
+    if (file.size > sizeLimit) return rejected(`Too large (max ${formatByteSize(sizeLimit)})`)
     if (bytes + file.size > limits.maxTotalBytes) {
-      return rejected(`Over the ${formatAttachmentSize(limits.maxTotalBytes)} message limit`)
+      return rejected(`Over the ${formatByteSize(limits.maxTotalBytes)} message limit`)
     }
     slots -= 1
     bytes += file.size
@@ -239,6 +233,17 @@ function attachmentContentPart(attachment: DraftAttachment): ContentPart | undef
 }
 
 /**
+ * The reference a chip may point at, as an `<img src>` and as a download anchor: a fetchable
+ * scheme, or inline data of a type this chat accepts. An active scheme (`javascript:`) or opaque
+ * bytes are dropped instead, leaving the chip without its download.
+ */
+function safeAttachmentHref(href: string): string | undefined {
+  if (/^(?:https?|blob):/i.test(href)) return href
+  const declared = /^data:([^;,]*)/i.exec(href)?.[1]
+  return declared !== undefined && mimeTypeKind(normalizeMimeType(declared)) ? href : undefined
+}
+
+/**
  * Describes a media part already in the transcript. Everything is read defensively: the parts
  * of a restored or host-built conversation carry no guaranteed metadata, and the sending
  * composer is the only thing that puts a filename on them.
@@ -246,7 +251,7 @@ function attachmentContentPart(attachment: DraftAttachment): ContentPart | undef
 export function describeSentAttachment(
   part: {
     type: "image" | "document"
-    source: { type: string; value: string; mimeType?: string }
+    source: { value: string; mimeType?: string }
     metadata?: unknown
   },
 ): {
@@ -259,30 +264,27 @@ export function describeSentAttachment(
   const metadata = typeof part.metadata === "object" && part.metadata !== null
     ? part.metadata as { filename?: unknown; size?: unknown }
     : {}
-  const url = part.source.type === "url" ? part.source.value : undefined
+  // Media parts carry no filename of their own, so an unlabeled one reads as its kind.
   const title = typeof metadata.filename === "string" && metadata.filename.length > 0
     ? metadata.filename
-    // Media parts carry no filename of their own, so fall back to the URL's last segment.
-    : url?.split(/[/\\?#]/).filter(Boolean).at(-1) ??
-      (part.type === "image" ? "Image" : "Attachment")
+    : part.type === "image"
+    ? "Image"
+    : "Attachment"
   const size = typeof metadata.size === "number" && metadata.size > 0
-    ? formatAttachmentSize(metadata.size)
+    ? formatByteSize(metadata.size)
     : undefined
   // A restored or host-built part may carry no type at all, so an unrecognized one reads as text.
   const kind: AttachmentKind = part.type === "image"
     ? "image"
     : mimeTypeKind(normalizeMimeType(part.source.mimeType ?? "")) ?? "text"
-  // The part already carries the bytes, so one reference serves both the thumbnail and the
-  // download; a `data` source becomes the data URI a download anchor can point at.
-  const href = url ??
-    (part.source.value.length === 0
-      ? undefined
-      : part.source.value.startsWith("data:")
-      ? part.source.value
-      : attachmentDataUri(
-        part.source.mimeType ?? (kind === "image" ? "image/png" : "application/octet-stream"),
-        part.source.value,
-      ))
+  // The part carries the bytes itself — the chat endpoint refuses a `url` source — so one data URI
+  // serves both the thumbnail and the download.
+  const href = part.source.value.length === 0 ? undefined : safeAttachmentHref(
+    part.source.value.startsWith("data:") ? part.source.value : attachmentDataUri(
+      part.source.mimeType ?? (kind === "image" ? "image/png" : "application/octet-stream"),
+      part.source.value,
+    ),
+  )
   return { kind, title, description: size, href }
 }
 

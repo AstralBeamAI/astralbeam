@@ -23,6 +23,7 @@ import {
   type InferParameters,
   type JsonSchemaObject,
   mountAstralBeamChat,
+  type MountAstralBeamChatOptions,
   type ParametersSchema,
   type ToolDefinition,
   type WidgetDefinition as ClientWidgetDefinition,
@@ -122,59 +123,20 @@ export interface AstralBeamChatRef {
   stop: () => void
 }
 
-export interface AstralBeamChatProps {
-  /**
-   * Public ID of the organization-owned agent. Omit it to use the organization's default agent,
-   * which the dashboard's agents page selects. A change answers the next run with the new agent
-   * and keeps the transcript, which that agent then sees as history.
-   */
-  agentId?: string
-  /** Name shown in the widget's header. Default `"AstralBeam"`. */
-  title?: string
-  /**
-   * Shows the widget's header with the title and the reset button; `false` hides both and gives
-   * the transcript the full height. Default `true`.
-   */
-  showHeader?: boolean
+/**
+ * Every mount option as a prop, with the DOM-rendering fields replaced by React ones: a widget
+ * renders JSX, and the chrome slots take nodes instead of renderers. The shared options are
+ * documented once, on `MountAstralBeamChatOptions`.
+ */
+export interface AstralBeamChatProps extends Omit<MountAstralBeamChatOptions, "widgets" | "slots"> {
+  /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
+  widgets?: Record<string, WidgetDefinition> | undefined
   /** Replaces the header's content with the host's own React content; `showHeader` still applies. */
   header?: ReactNode
   /** Replaces the empty-transcript state with the host's own React content. */
   empty?: ReactNode
   /** Extra host controls at the end of the composer's button row, next to send. */
   composerActions?: ReactNode
-  /** Headline shown on the empty transcript. Default `"Ask the assistant"`. */
-  emptyTitle?: string
-  /** Subtitle under the empty transcript's headline. */
-  emptyDescription?: string
-  /**
-   * Base URL of the AstralBeam API; the widget calls `/chat` under it. Read per request, so a
-   * change moves the next one. Default the hosted cloud.
-   */
-  apiUrl?: string
-  /**
-   * Where the short-lived chat JWT comes from: `{ url, ...RequestInit }` for a token endpoint, or
-   * a function minting `{ token }`, optionally a promise, in the host app. Read per token, and
-   * the function form runs in the host's React tree, so an inline closure over current auth state
-   * is fine and needs no memoization. Default `{ url: "/api/astralbeam/token" }`.
-   */
-  fetchChatAuthToken?: AstralBeamChatAuthTokenSource
-  /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
-  tools?: Record<string, ToolDefinition>
-  /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
-  widgets?: Record<string, WidgetDefinition>
-  /** Color scheme of the chat widget. Default `"system"`. */
-  colorScheme?: AstralBeamChatColorScheme
-  /** Custom values for the widget's theming CSS variables, per color scheme. */
-  theme?: AstralBeamChatTheme | undefined
-  /** File attachments in the composer, on by default; `false` turns them off. */
-  attachments?: boolean | AstralBeamChatAttachmentOptions
-  /** Shows the collected sandbox panel (files with downloads, command log) above the composer. Default `false`. */
-  sandboxPanel?: boolean
-  /**
-   * Logs every SDK action to the browser console with UTC timestamps and full payloads,
-   * and asks the endpoint to log its side of the run too.
-   */
-  debug?: boolean
 }
 
 interface ActiveRender {
