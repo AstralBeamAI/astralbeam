@@ -61,6 +61,7 @@
   },
   "scripts": {
     "build": "deno task generate:styles && tsdown",
+    "dev": "deno task generate:styles && tsdown --watch",
     "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts",
     "check": "deno task generate:styles && deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno fmt && deno lint --fix",

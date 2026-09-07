@@ -128,11 +128,70 @@ databases_are_external() {
 
 start_databases() {
   [ -f "$WORKSPACE_PATH/docker-compose.yml" ] || return 0
+  # macOS development runs the native checkout against a database the developer already runs, so
+  # this script never starts Compose there. See AGENTS.md's macOS rule.
+  if [ "$platform_name" = Darwin ]; then
+    echo "Skipped Docker Compose: macOS development uses a native database. Start it yourself with 'docker compose up --detach --wait' if you want the Compose services." >&2
+    return 0
+  fi
   if databases_are_external; then return; fi
   if [ "${SKIP_DOCKER_COMPOSE:-false}" = true ]; then return; fi
   if docker_compose_available; then
     (cd "$WORKSPACE_PATH" && docker compose up --detach --wait)
   fi
+}
+
+# Vite loads `webapp/.env.development[.local]`, and a shell value always wins, so this reads the
+# same order the webapp does. https://vite.dev/guide/env-and-mode
+webapp_database_url() {
+  local env_file url
+  if [ -n "${DATABASE_URL:-}" ]; then
+    printf '%s\n' "$DATABASE_URL"
+    return 0
+  fi
+  for env_file in "$WORKSPACE_PATH/webapp/.env.development.local" "$WORKSPACE_PATH/webapp/.env.development"; do
+    [ -f "$env_file" ] || continue
+    url=$(sed -n 's/^DATABASE_URL=//p' "$env_file" | tail -n 1)
+    if [ -n "$url" ]; then
+      printf '%s\n' "$url"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# A TCP connect separates "nothing is listening" from "the migration failed". `deno eval` rather
+# than `nc`, whose connect-scan flag differs by platform, and it needs no flags. https://docs.deno.com/go/eval
+database_is_reachable() {
+  DATABASE_PROBE_URL="$1" deno eval \
+    'const { hostname, port } = new URL(Deno.env.get("DATABASE_PROBE_URL")); (await Deno.connect({ hostname, port: Number(port) || 5432 })).close()' \
+    >/dev/null 2>&1
+}
+
+# The schema and the sample data before the SDK bundle, because the seed writes the API key and
+# agent ID that `examples/todos` reads and the example loads the SDK's built `dist`.
+bootstrap_workspace() {
+  [ -d "$WORKSPACE_PATH/webapp" ] || return 0
+  local url
+  # `DATABASE_URL` can carry a real password and this script runs under `set -x`, so the value is
+  # resolved and probed with tracing off, and only its credential-free tail is ever printed.
+  set +x
+  if ! url=$(webapp_database_url); then
+    echo "Skipped the migrate, seed, and SDK build steps: no DATABASE_URL in the environment or in webapp/.env.development[.local]." >&2
+    set -x
+    return 0
+  fi
+  # Checked on every platform: a caller can reach here before its database is up — Cursor Cloud
+  # installs before it starts Compose — and a named skip is more use than a `set -e` failure.
+  if ! database_is_reachable "$url"; then
+    echo "Skipped the migrate, seed, and SDK build steps: nothing is listening at ${url##*@}. Start PostgreSQL, then run './scripts/setup.sh' again." >&2
+    set -x
+    return 0
+  fi
+  set -x
+  (cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
+  (cd "$WORKSPACE_PATH/webapp" && deno task db-seed)
+  (cd "$WORKSPACE_PATH/sdk" && deno task build)
 }
 
 install_ubuntu_packages
@@ -141,4 +200,4 @@ install_deno
 install_workspace_packages
 run_install_extras
 start_databases
-if [ -d "$WORKSPACE_PATH/webapp" ]; then (cd "$WORKSPACE_PATH/webapp" && deno task db migrate); fi
+bootstrap_workspace

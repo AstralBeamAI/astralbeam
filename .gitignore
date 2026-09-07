@@ -1,5 +1,9 @@
 tmp/
 
+# The root deno.jsonc is a launcher with no dependencies; deno.land/install.sh leaves a lockfile
+# behind when it runs from here, and the four committed lockfiles live in the projects.
+/deno.lock
+
 # Logs
 logs
 *.log

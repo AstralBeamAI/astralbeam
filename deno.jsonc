@@ -13,11 +13,13 @@
 
     "dev:webapp": "deno task --cwd webapp dev",
     "dev:www": "deno task --cwd www dev",
+    "dev:sdk": "deno task --cwd sdk dev",
     "dev:todos": "deno task --cwd examples/todos dev",
-    // The SDK has no dev server; the todos example loads its built `dist` output.
+    // The SDK has no dev server; its watcher rewrites the `dist` output the todos example loads,
+    // so a page reload picks up an SDK source change.
     "dev": {
-      "description": "Run the webapp, website, and todos dev servers concurrently",
-      "dependencies": ["dev:webapp", "dev:www", "dev:todos"]
+      "description": "Run the webapp, website, and todos dev servers plus the SDK watcher concurrently",
+      "dependencies": ["dev:webapp", "dev:www", "dev:sdk", "dev:todos"]
     },
 
     "build:sdk": "deno task --cwd sdk build",
