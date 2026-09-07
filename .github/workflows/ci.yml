@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check ${{ matrix.project }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # Every project reports its own result, so one failing leg does not hide the others.
+      fail-fast: false
+      matrix:
+        project: [webapp, www, sdk, examples/todos]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          # setup-deno names the latest stable channel "latest". https://github.com/denoland/setup-deno#version-from-input
+          deno-version: latest
+          # Caches the module cache, keyed by a hash of the per-project deno.lock files.
+          cache: true
+
+      - name: Cache SDK node_modules
+        if: matrix.project == 'examples/todos'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: sdk/node_modules
+          key: node_modules-${{ runner.os }}-sdk-${{ hashFiles('sdk/deno.lock') }}
+
+      - name: Build the SDK
+        if: matrix.project == 'examples/todos'
+        # The example consumes `sdk/dist` through its `file:../../sdk` dependency, so its own
+        # typecheck and build cannot run before the SDK is installed and built.
+        working-directory: sdk
+        run: |
+          deno install --frozen
+          deno task build
+
+      - name: Cache node_modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ matrix.project }}/node_modules
+          key: node_modules-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles(format('{0}/deno.lock', matrix.project)) }}
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        env:
+          # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips. https://sharp.pixelplumbing.com/install#custom-libvips
+          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
+        run: deno install --frozen
+
+      - name: Check, test, and build
+        working-directory: ${{ matrix.project }}
+        run: deno task ready
+
+      - name: Compile and smoke-test Webapp binary
+        if: matrix.project == 'webapp'
+        working-directory: webapp
+        run: deno task binary:check
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: latest
+          cache: true
+
+      - name: Cache Webapp node_modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: webapp/node_modules
+          key: node_modules-${{ runner.os }}-webapp-${{ hashFiles('webapp/deno.lock') }}
+
+      - name: Cache SDK node_modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: sdk/node_modules
+          key: node_modules-${{ runner.os }}-sdk-${{ hashFiles('sdk/deno.lock') }}
+
+      - name: Cache todos example node_modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: examples/todos/node_modules
+          key: node_modules-${{ runner.os }}-examples/todos-${{ hashFiles('examples/todos/deno.lock') }}
+
+      - name: Install dependencies
+        env:
+          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
+        run: |
+          (cd webapp && deno install --frozen)
+          (cd sdk && deno install --frozen)
+          (cd examples/todos && deno install --frozen)
+
+      - name: Build the SDK
+        working-directory: sdk
+        run: deno task build
+
+      - name: Start test dependencies
+        # --wait blocks until PostgreSQL, PgBouncer, Valkey, and Mailpit are healthy.
+        run: docker compose up --detach --wait
+
+      - name: Migrate and seed the database
+        working-directory: webapp
+        run: |
+          deno task db migrate
+          deno task db-seed
+
+      - name: Install Chromium
+        working-directory: examples/todos
+        run: deno task e2e:install
+
+      - name: Run deterministic browser specs
+        working-directory: examples/todos
+        # Only the `app` project, which never calls a model; the suite starts its own webapp and
+        # todos servers. https://playwright.dev/docs/test-webserver
+        run: deno task e2e --project=app
