@@ -94,6 +94,18 @@ describe("organization API key authorization", () => {
       body: { code: "INVALID_ORGANIZATION_SLUG" },
     })
 
+    // Organization pages sit at the root of the URL space, so a reserved segment cannot be a slug.
+    await expect(fixture.auth.api.createOrganization({
+      body: {
+        name: "Docs",
+        slug: "docs",
+      },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject({
+      status: "BAD_REQUEST",
+      body: { code: "RESERVED_ORGANIZATION_SLUG" },
+    })
+
     await expect(fixture.auth.api.updateOrganization({
       body: {
         organizationId: fixture.organizationId,

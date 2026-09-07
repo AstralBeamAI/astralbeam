@@ -1,10 +1,11 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and domain-specific function names, generate an immutable organization slug from the display name, accept an onboarding name suggestion, notify callers after creation, and omit unsupported organization model fields while retaining the official create flow.
+// Local changes: use Phosphor and domain-specific function names, generate an immutable organization slug from the display name, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, and omit unsupported organization model fields while retaining the official create flow.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useCheckSlug, useCreateOrganization } from "@better-auth-ui/react/plugins/organization"
 import { BriefcaseIcon as Briefcase } from "@phosphor-icons/react"
+import type { Organization } from "better-auth/client"
 import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from "react"
 import { GeneratedSlugField } from "@/components/generated-slug-field"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -21,12 +22,13 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
+import { isReservedOrganizationSlug } from "@/lib/auth/organization-slug"
 
 /** Props for the `CreateOrganizationDialog` component. */
 export type CreateOrganizationDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onOrganizationCreated?: (() => unknown) | undefined
+  onOrganizationCreated?: ((organization: Organization) => unknown) | undefined
   initialName?: string
 }
 
@@ -47,17 +49,19 @@ export function CreateOrganizationDialog({
   const submissionLocked = useRef(false)
 
   const { mutate: createOrganization, isPending: isCreating } = useCreateOrganization(authClient, {
-    onSuccess: () => {
+    onSuccess: (organization) => {
       onOpenChange(false)
-      return onOrganizationCreated?.()
+      return onOrganizationCreated?.(organization)
     },
     onSettled: () => {
       submissionLocked.current = false
     },
   })
   const { mutateAsync: checkSlug } = useCheckSlug(authClient)
+  // The organization hooks reject a reserved slug server-side; this only saves a round trip.
   const checkOrganizationSlug = useCallback(
-    async (value: string) => (await checkSlug({ slug: value })).status,
+    async (value: string) =>
+      !isReservedOrganizationSlug(value) && (await checkSlug({ slug: value })).status,
     [checkSlug],
   )
 

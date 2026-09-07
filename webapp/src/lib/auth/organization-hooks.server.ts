@@ -10,6 +10,10 @@ import { SlugSchema } from "@/lib/schemas"
 import { SLUG_VALIDATION_MESSAGE } from "@/lib/slug"
 import { organizationRoles } from "./organization-access.ts"
 import { ORGANIZATION_API_KEY_PREFIX } from "./organization-api-key-configuration.ts"
+import {
+  isReservedOrganizationSlug,
+  RESERVED_ORGANIZATION_SLUG_MESSAGE,
+} from "./organization-slug.ts"
 
 const OrganizationApiKeySlugMetadataSchema = Schema.Struct({ slug: SlugSchema })
 const decodeOrganizationApiKeySlugMetadata = Schema.decodeUnknownOption(
@@ -148,6 +152,12 @@ function assertOrganizationSlug(value: unknown): asserts value is string {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_ORGANIZATION_SLUG",
       message: SLUG_VALIDATION_MESSAGE,
+    })
+  }
+  if (isReservedOrganizationSlug(value)) {
+    throw new APIError("BAD_REQUEST", {
+      code: "RESERVED_ORGANIZATION_SLUG",
+      message: RESERVED_ORGANIZATION_SLUG_MESSAGE,
     })
   }
 }
