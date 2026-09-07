@@ -6,7 +6,7 @@ import type { SeedTransaction } from "./database.ts"
 import { SEED_ORGANIZATIONS } from "./fixtures.ts"
 
 export type SeedAgentSummary = {
-  readonly publicId: string
+  readonly id: string
   readonly name: string
   readonly isDefault: boolean
   readonly sandboxProviderName: string | null
@@ -59,28 +59,28 @@ export async function seedAgents(
       providerIdsByName.set(provider.name, inserted.id)
     }
 
-    const agentIdsBySlug = new Map<string, string>()
+    const seededAgentIds = new Set<string>()
     for (const seedAgent of seedOrganization.agents) {
       const sandboxProviderId = seedAgent.sandboxProviderName === null
         ? null
         : providerIdsByName.get(seedAgent.sandboxProviderName) ?? null
       if (seedAgent.sandboxProviderName !== null && sandboxProviderId === null) {
         throw new Error(
-          `Agent '${seedAgent.slug}' references unseeded provider '${seedAgent.sandboxProviderName}'`,
+          `Agent '${seedAgent.name}' references unseeded provider '${seedAgent.sandboxProviderName}'`,
         )
       }
       const [inserted] = await transaction
         .insert(agent)
         .values({
+          id: seedAgent.id,
           organizationId,
-          slug: seedAgent.slug,
           name: seedAgent.name,
           systemPrompt: seedAgent.systemPrompt,
           attachmentsEnabled: seedAgent.attachmentsEnabled,
           sandboxProviderId,
         })
         .onConflictDoUpdate({
-          target: [agent.organizationId, agent.slug],
+          target: [agent.organizationId, agent.id],
           set: {
             name: seedAgent.name,
             systemPrompt: seedAgent.systemPrompt,
@@ -90,21 +90,21 @@ export async function seedAgents(
         })
         .returning({ id: agent.id })
       if (!inserted) {
-        throw new Error(`PostgreSQL did not return a row for agent '${seedAgent.slug}'`)
+        throw new Error(`PostgreSQL did not return a row for agent '${seedAgent.name}'`)
       }
-      agentIdsBySlug.set(seedAgent.slug, inserted.id)
+      seededAgentIds.add(inserted.id)
       summaries.push({
-        publicId: `agt_${seedOrganization.slug}_${seedAgent.slug}`,
+        id: inserted.id,
         name: seedAgent.name,
-        isDefault: seedAgent.slug === seedOrganization.defaultAgentSlug,
+        isDefault: seedAgent.id === seedOrganization.defaultAgentId,
         sandboxProviderName: seedAgent.sandboxProviderName,
       })
     }
 
-    const defaultAgentId = agentIdsBySlug.get(seedOrganization.defaultAgentSlug)
-    if (!defaultAgentId) {
+    const { defaultAgentId } = seedOrganization
+    if (!seededAgentIds.has(defaultAgentId)) {
       throw new Error(
-        `Default agent '${seedOrganization.defaultAgentSlug}' is missing from organization '${seedOrganization.slug}'`,
+        `Default agent '${defaultAgentId}' is missing from organization '${seedOrganization.slug}'`,
       )
     }
     await transaction

@@ -13,12 +13,12 @@ export const createAgent = createServerFn({ method: "POST" })
   .handler(({ context, data: { organizationSlug: _organizationSlug, ...fields } }) =>
     runDatabaseEffect(
       createOrganizationAgent({ organizationId: context.organizationId, ...fields }).pipe(
-        Effect.as({ ok: true as const, slug: fields.slug }),
+        Effect.map((id) => ({ ok: true as const, id })),
         Effect.catchTags({
           OrganizationAgentConflictError: (error) =>
             Effect.succeed({
               ok: false as const,
-              code: "duplicate_slug" as const,
+              code: "duplicate_name" as const,
               message: error.message,
             }),
           OrganizationAgentProviderError: (error) =>

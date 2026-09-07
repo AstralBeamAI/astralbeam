@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; take the organization and its permissions as props from the page loader; omit disabled teams, support responsive controls/table and strict optional props, and colocate the private loading row.
+// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; take the organization and its permissions as props from the page loader and scope every member query to its ID; omit disabled teams, support responsive controls/table and strict optional props, and colocate the private loading row.
 
 "use client"
 
@@ -131,27 +131,32 @@ export function OrganizationMembers({
   const paged = validatedPageSize !== undefined
 
   const { data: membersData, isPending: membersPending } = useListOrganizationMembers(authClient, {
-    query: paged
-      ? {
-        limit: validatedPageSize,
-        offset: page * validatedPageSize,
-        ...(roleFilter === "all" ? {} : {
-          filterField: "role",
-          filterValue: roleFilter,
-          // Roles are stored comma-joined, so an exact match would
-          // drop anyone holding more than one.
-          filterOperator: "contains" as const,
-        }),
-        ...(sortDescriptor?.column === "role"
-          ? {
-            sortBy: "role",
-            sortDirection: sortDescriptor.direction === "descending"
-              ? ("desc" as const)
-              : ("asc" as const),
-          }
-          : {}),
-      }
-      : undefined,
+    // Without an explicit ID the hook substitutes the mutable active organization, so a switch in
+    // this tab or another can pair another organization's rows with this page's permissions.
+    query: {
+      organizationId: organization.id,
+      ...(paged
+        ? {
+          limit: validatedPageSize,
+          offset: page * validatedPageSize,
+          ...(roleFilter === "all" ? {} : {
+            filterField: "role",
+            filterValue: roleFilter,
+            // Roles are stored comma-joined, so an exact match would
+            // drop anyone holding more than one.
+            filterOperator: "contains" as const,
+          }),
+          ...(sortDescriptor?.column === "role"
+            ? {
+              sortBy: "role",
+              sortDirection: sortDescriptor.direction === "descending"
+                ? ("desc" as const)
+                : ("asc" as const),
+            }
+            : {}),
+        }
+        : {}),
+    },
   })
 
   const owners = useListOrganizationMembers(authClient, {

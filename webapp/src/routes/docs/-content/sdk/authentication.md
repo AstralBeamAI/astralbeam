@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 ```tsx
 // A token endpoint on another origin, behind header auth.
 <AstralBeamChat
-  agentId="agt_acme_support"
+  agentId="agent_01990a5d-ac96-774b-b942-6b13c85384ca"
   fetchChatAuthToken={{
     url: "https://api.acme.com/astralbeam/token",
     headers: { authorization: `Bearer ${accessToken}` },

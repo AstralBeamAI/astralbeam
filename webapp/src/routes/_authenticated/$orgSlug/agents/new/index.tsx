@@ -39,7 +39,7 @@ function NewAgentPage() {
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Add agent</h1>
         <p className="text-sm text-muted-foreground">
-          Name the agent, pick its permanent identifier, and write its system prompt.
+          Name the agent and write its system prompt.
         </p>
       </div>
       <AgentForm

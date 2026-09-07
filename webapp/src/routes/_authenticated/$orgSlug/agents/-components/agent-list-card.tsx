@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { OrganizationAgent } from "@/db/agent.server"
-import { agentPublicId, copyAgentPublicId } from "../-lib/utils"
+import { copyAgentId } from "../-lib/utils"
 
 export type AgentListCardProps = {
   organizationSlug: string
@@ -16,16 +16,14 @@ export type AgentListCardProps = {
 }
 
 export function AgentListCard({ organizationSlug, agent, isDefault }: AgentListCardProps) {
-  const publicId = agentPublicId(organizationSlug, agent.slug)
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <RobotIcon aria-hidden="true" />
           <Link
-            to="/$orgSlug/agents/$agentSlug"
-            params={{ orgSlug: organizationSlug, agentSlug: agent.slug }}
+            to="/$orgSlug/agents/$agentId"
+            params={{ orgSlug: organizationSlug, agentId: agent.id }}
             className="min-w-0 flex-1 truncate hover:underline"
           >
             {agent.name}
@@ -42,14 +40,14 @@ export function AgentListCard({ organizationSlug, agent, isDefault }: AgentListC
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Agent ID</p>
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate text-xs">{publicId}</code>
+            <code className="min-w-0 flex-1 truncate text-xs">{agent.id}</code>
             <Button
               type="button"
               size="icon-sm"
               variant="outline"
               aria-label={`Copy ${agent.name} agent ID`}
               title={`Copy ${agent.name} agent ID`}
-              onClick={() => void copyAgentPublicId(publicId)}
+              onClick={() => void copyAgentId(agent.id)}
             >
               <CopyIcon aria-hidden="true" />
             </Button>

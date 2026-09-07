@@ -65,7 +65,7 @@ try {
     const labels = [seededAgent.isDefault ? "default" : null, seededAgent.sandboxProviderName]
       .filter((label) => label !== null)
     const suffix = labels.length > 0 ? `  [${labels.join(", ")}]` : ""
-    console.log(`  ${seededAgent.publicId}  ${seededAgent.name}${suffix}`)
+    console.log(`  ${seededAgent.id}  ${seededAgent.name}${suffix}`)
   }
 
   console.log("\nAPI keys")

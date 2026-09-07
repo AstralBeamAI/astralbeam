@@ -4,12 +4,11 @@ import type { ReactNode } from "react"
 
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { OrganizationResourceCounts } from "@/db/organization.server"
-import type { OrganizationPermissions } from "@/lib/auth/organization-access"
 
 export type DashboardResourceCardsProps = {
   organizationSlug: string
+  /** A null count means the loader withheld the resource, which is also why no card appears. */
   counts: OrganizationResourceCounts
-  permissions: OrganizationPermissions
 }
 
 const CARD_CLASS_NAME = "transition-colors hover:border-primary/40"
@@ -37,13 +36,12 @@ function ResourceCardBody(
 export function DashboardResourceCards({
   organizationSlug,
   counts,
-  permissions,
 }: DashboardResourceCardsProps) {
   const params = { orgSlug: organizationSlug }
 
   return (
     <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
-      {permissions.readConfiguration && (
+      {counts.agents !== null && (
         <Link to="/$orgSlug/agents" params={params}>
           <Card className={CARD_CLASS_NAME}>
             <ResourceCardBody
@@ -55,7 +53,7 @@ export function DashboardResourceCards({
           </Card>
         </Link>
       )}
-      {permissions.readConfiguration && (
+      {counts.sandboxProviders !== null && (
         <Link to="/$orgSlug/sandboxes" params={params}>
           <Card className={CARD_CLASS_NAME}>
             <ResourceCardBody
@@ -67,7 +65,7 @@ export function DashboardResourceCards({
           </Card>
         </Link>
       )}
-      {permissions.readApiKey && (
+      {counts.apiKeys !== null && (
         <Link to="/$orgSlug/api-keys" params={params}>
           <Card className={CARD_CLASS_NAME}>
             <ResourceCardBody

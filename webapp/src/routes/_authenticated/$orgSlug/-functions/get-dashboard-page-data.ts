@@ -13,11 +13,13 @@ export const getDashboardPageData = createServerFn({ method: "GET" })
   .handler(({ context }) =>
     runDatabaseEffect(
       Effect.gen(function* () {
-        const counts = yield* readOrganizationResourceCounts(context.organizationId)
-        return {
-          data: { organizationName: context.organizationName, counts },
+        // Counting only what this role may read makes the serialized payload the authorization
+        // boundary, rather than the cards the browser chooses to render.
+        const counts = yield* readOrganizationResourceCounts({
+          organizationId: context.organizationId,
           permissions: context.permissions,
-        }
+        })
+        return { data: { organizationName: context.organizationName, counts } }
       }),
     )
   )

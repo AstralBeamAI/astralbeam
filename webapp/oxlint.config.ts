@@ -268,7 +268,7 @@ export default defineConfig({
       "typescript/only-throw-error": [
         "src/routes/(authentication)/auth/$path.tsx",
         "src/routes/__root.tsx",
-        "src/routes/_authenticated/$orgSlug/agents/$agentSlug/index.tsx",
+        "src/routes/_authenticated/$orgSlug/agents/$agentId/index.tsx",
         "src/routes/_authenticated/$orgSlug/agents/index.tsx",
         "src/routes/_authenticated/$orgSlug/agents/new/index.tsx",
         "src/routes/_authenticated/$orgSlug/api-keys/index.tsx",

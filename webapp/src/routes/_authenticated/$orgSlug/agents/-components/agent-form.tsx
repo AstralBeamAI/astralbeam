@@ -3,7 +3,6 @@
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 
-import { GeneratedSlugField } from "@/components/generated-slug-field"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -26,11 +25,9 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import type { AgentSandboxProviderSummary, OrganizationAgent } from "@/db/agent.server"
-import { isValidSlug } from "@/lib/slug"
-import { checkAgentSlugAvailability } from "../-functions/check-agent-slug-availability"
 import { createAgent } from "../-functions/create-agent"
 import { updateAgent } from "../-functions/update-agent"
-import { agentPublicId, agentRequestFailedToast } from "../-lib/utils"
+import { agentRequestFailedToast } from "../-lib/utils"
 
 /** Stands in for a null provider, which the Select cannot represent with an empty value. */
 const NO_SANDBOX_PROVIDER = "none"
@@ -40,7 +37,7 @@ const AGENT_SYSTEM_PROMPT_MAX_LENGTH = 32_768
 
 export type AgentFormProps = {
   organizationSlug: string
-  /** Null on the create page, where the identifier is still being chosen. */
+  /** Null on the create page, where the agent's ID does not exist yet. */
   agent: OrganizationAgent | null
   sandboxProviders: readonly AgentSandboxProviderSummary[]
   readOnly: boolean
@@ -60,9 +57,6 @@ export function AgentForm({
   const [sandboxProviderId, setSandboxProviderId] = useState(
     existing?.sandboxProviderId ?? NO_SANDBOX_PROVIDER,
   )
-  const [availability, setAvailability] = useState<
-    "available" | "checking" | "idle" | "invalid" | "unavailable"
-  >("idle")
   const [saving, setSaving] = useState(false)
 
   // Base UI resolves the trigger's label from `items`, not from the rendered options.
@@ -78,14 +72,11 @@ export function AgentForm({
     : sandboxProviderId
   const normalizedName = name.trim()
   const valid = normalizedName.length > 0 && normalizedName.length <= AGENT_NAME_MAX_LENGTH &&
-    systemPrompt.length > 0 && systemPrompt.length <= AGENT_SYSTEM_PROMPT_MAX_LENGTH &&
-    (existing !== null || (availability !== "invalid" && availability !== "unavailable"))
+    systemPrompt.length > 0 && systemPrompt.length <= AGENT_SYSTEM_PROMPT_MAX_LENGTH
 
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!valid || readOnly) return
-    const slug = new FormData(event.currentTarget).get("slug")
-    if (existing === null && (typeof slug !== "string" || !isValidSlug(slug))) return
     setSaving(true)
     try {
       const fields = {
@@ -95,26 +86,26 @@ export function AgentForm({
         attachmentsEnabled,
         sandboxProviderId: selectedSandboxProviderId,
       }
-      const result = existing
-        ? await updateAgent({
+      if (existing) {
+        const result = await updateAgent({
           data: { ...fields, id: existing.id, lockVersion: existing.lockVersion },
         })
-        : await createAgent({ data: { ...fields, slug: slug as string } })
+        toast.add({
+          title: result.ok ? "Agent saved" : result.message,
+          type: result.ok ? "success" : "error",
+        })
+        if (result.ok || result.code === "stale") await router.invalidate()
+        return
+      }
+      const result = await createAgent({ data: fields })
       toast.add({
-        title: result.ok ? (existing ? "Agent saved" : "Agent created") : result.message,
+        title: result.ok ? "Agent created" : result.message,
         type: result.ok ? "success" : "error",
       })
-      if (!result.ok) {
-        if (result.code === "stale") await router.invalidate()
-        return
-      }
-      if (existing) {
-        await router.invalidate()
-        return
-      }
+      if (!result.ok) return
       await navigate({
-        to: "/$orgSlug/agents/$agentSlug",
-        params: { orgSlug: organizationSlug, agentSlug: slug as string },
+        to: "/$orgSlug/agents/$agentId",
+        params: { orgSlug: organizationSlug, agentId: result.id },
         replace: true,
       })
     } catch {
@@ -134,7 +125,7 @@ export function AgentForm({
           <CardDescription>
             {existing
               ? "The agent ID can't change. You can update the other settings."
-              : "Choose a permanent public agent ID."}
+              : "Name the agent and write its system prompt. Its ID is assigned on creation."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,34 +140,21 @@ export function AgentForm({
                 disabled={disabled}
                 onChange={(event) => setName(event.target.value)}
               />
+              <FieldDescription>Unique within this organization.</FieldDescription>
             </Field>
 
-            {existing
-              ? (
-                <Field>
-                  <FieldLabel htmlFor="agent-public-id">Agent ID</FieldLabel>
-                  <Input
-                    id="agent-public-id"
-                    value={agentPublicId(organizationSlug, existing.slug)}
-                    readOnly
-                    className="font-mono text-xs"
-                  />
-                  <FieldDescription>This identifier cannot be changed.</FieldDescription>
-                </Field>
-              )
-              : (
-                <GeneratedSlugField
-                  id="agent-identifier"
-                  label="Identifier"
-                  sourceValue={name}
-                  fallback="agent"
-                  checkAvailability={(slug) =>
-                    checkAgentSlugAvailability({ data: { organizationSlug, slug } })}
-                  onAvailabilityChange={setAvailability}
-                  formatPreview={(slug) => agentPublicId(organizationSlug, slug)}
-                  disabled={disabled}
+            {existing && (
+              <Field>
+                <FieldLabel htmlFor="agent-public-id">Agent ID</FieldLabel>
+                <Input
+                  id="agent-public-id"
+                  value={existing.id}
+                  readOnly
+                  className="font-mono text-xs"
                 />
-              )}
+                <FieldDescription>This identifier cannot be changed.</FieldDescription>
+              </Field>
+            )}
 
             <Field>
               <FieldLabel htmlFor="agent-system-prompt">System prompt</FieldLabel>
@@ -237,10 +215,7 @@ export function AgentForm({
         </CardContent>
         {!readOnly && (
           <CardFooter className="justify-end gap-2">
-            <Button
-              type="submit"
-              disabled={!valid || saving || availability === "checking"}
-            >
+            <Button type="submit" disabled={!valid || saving}>
               {saving ? "Saving…" : existing ? "Save changes" : "Create agent"}
             </Button>
           </CardFooter>

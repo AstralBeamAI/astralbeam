@@ -17,6 +17,12 @@ export const updateAgent = createServerFn({ method: "POST" })
         Effect.as({ ok: true as const }),
         catchOptimisticLockConflict("Reload before saving this agent again"),
         Effect.catchTags({
+          OrganizationAgentConflictError: (error) =>
+            Effect.succeed({
+              ok: false as const,
+              code: "duplicate_name" as const,
+              message: error.message,
+            }),
           OrganizationAgentProviderError: (error) =>
             Effect.succeed({
               ok: false as const,

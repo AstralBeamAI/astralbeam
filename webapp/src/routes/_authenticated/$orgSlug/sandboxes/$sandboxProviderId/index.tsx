@@ -82,7 +82,12 @@ function SandboxProviderPage() {
         canDelete={permissions.deleteConfiguration}
       />
 
+      {
+        /* Remounting on the lock version keeps the editor's local state tied to the snapshot it
+        was initialized from, so a save after a conflict cannot carry the stale one forward. */
+      }
       <SandboxProviderForm
+        key={`${data.provider.id}:${data.provider.lockVersion}`}
         organizationSlug={orgSlug}
         provider={data.provider}
         readOnly={!permissions.updateConfiguration}

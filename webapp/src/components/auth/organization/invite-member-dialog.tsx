@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; take the organization and creator role as props from the page loader; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; take the organization and creator role as props from the page loader and scope the invitation query to its ID; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields.
 
 "use client"
 
@@ -61,7 +61,9 @@ export function InviteMemberDialog({
     localization: organizationLocalization,
     roles,
   } = useAuthPlugin(organizationPlugin)
-  const invitations = useListOrganizationInvitations(authClient)
+  // Scoped to the prop, not the active organization, so the limit and the delivery-error refetch
+  // both describe the organization this dialog is inviting into.
+  const invitations = useListOrganizationInvitations(authClient, { query: { organizationId } })
   const assignableRoles = useMemo(
     () =>
       Object.fromEntries(

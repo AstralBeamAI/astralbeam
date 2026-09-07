@@ -47,13 +47,13 @@ type OrganizationNavigationEntry = {
 
 /** The sub-paths a switch carries over to the organization being switched to. */
 const organizationNavigation = [
-  { label: "Dashboard", segment: "", icon: HouseIcon },
-  { label: "Members", segment: "members", icon: UsersThreeIcon },
-  { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
+  { label: "Home", segment: "", icon: HouseIcon },
   { label: "Agents", segment: "agents", icon: RobotIcon, permission: "readConfiguration" },
+  { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
   { label: "API keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
+  { label: "Members", segment: "members", icon: UsersThreeIcon },
   {
-    label: "Organization settings",
+    label: "Settings",
     segment: "settings",
     icon: SlidersHorizontalIcon,
     permission: "updateOrganization",

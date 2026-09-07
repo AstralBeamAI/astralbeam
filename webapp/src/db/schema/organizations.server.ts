@@ -22,12 +22,13 @@ import {
   type SandboxProviderOptions,
   type SandboxTestMetadata,
 } from "../../lib/sandbox/schemas.ts"
-import { UuidV7Schema } from "../../lib/schemas.ts"
+import { AGENT_ID_PATTERN, AGENT_ID_PREFIX, UuidV7Schema } from "../../lib/schemas.ts"
 
 import {
   caseInsensitiveText,
   encryptedJson,
   lockVersion,
+  prefixedUuidV7,
   timestamps,
   timestampWithTimeZone,
   uuidV7,
@@ -142,15 +143,17 @@ export const sandboxProvider = snakeCase.table(
   ],
 )
 
+// drizzle-kit renders check DDL literally, so the constraint reuses the schema's pattern source.
+const AGENT_ID_SQL_PATTERN = sql.raw(`'${AGENT_ID_PATTERN.source}'`)
+
 export const agent = snakeCase.table(
   "agent",
   {
-    id: uuidV7(),
+    id: prefixedUuidV7(AGENT_ID_PREFIX),
     organizationId: uuid().notNull().references(() => organization.id, {
       onDelete: "cascade",
     }),
-    slug: text().notNull(),
-    name: text().notNull(),
+    name: caseInsensitiveText().notNull(),
     systemPrompt: text().notNull(),
     // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
     attachmentsEnabled: boolean().notNull().default(true),
@@ -166,8 +169,9 @@ export const agent = snakeCase.table(
       table.organizationId,
       table.sandboxProviderId,
     ),
-    uniqueIndex("agent_organization_id_slug_uidx").on(table.organizationId, table.slug),
-    check("agent_slug_check", sql`${table.slug} ~ '^[0-9a-z-]{1,63}$'`),
+    // The name is the only human-readable handle left once the ID is opaque.
+    uniqueIndex("agent_organization_id_name_uidx").on(table.organizationId, table.name),
+    check("agent_id_check", sql`${table.id} ~ ${AGENT_ID_SQL_PATTERN}`),
     check(
       "agent_system_prompt_length_check",
       sql`char_length(${table.systemPrompt}) between 1 and 32768`,
@@ -187,7 +191,7 @@ export const organizationConfiguration = snakeCase.table(
     organizationId: uuid().notNull().references(() => organization.id, {
       onDelete: "cascade",
     }),
-    defaultAgentId: uuid(),
+    defaultAgentId: text(),
     lockVersion: lockVersion(),
     ...timestamps(),
   },

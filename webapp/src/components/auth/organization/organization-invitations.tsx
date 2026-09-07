@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor, domain-specific function names, and hover titles for icon-only filter actions; take the organization and its invitation permissions as props from the page loader; make filters/table responsive, repair strict optional props, and colocate the private empty state.
+// Local changes: use Phosphor, domain-specific function names, and hover titles for icon-only filter actions; take the organization and its invitation permissions as props from the page loader and scope every invitation query to its ID; make filters/table responsive, repair strict optional props, and colocate the private empty state.
 
 import {
   hasMemberRole,
@@ -105,8 +105,11 @@ export function OrganizationInvitations({
 }: OrganizationInvitationsProps & ComponentProps<"div">) {
   const { authClient, localization } = useAuth<OrganizationAuthClient>()
   const { localization: organizationLocalization, roles } = useAuthPlugin(organizationPlugin)
+  // Without an explicit ID the hook substitutes the mutable active organization, so a switch in
+  // this tab or another can list another organization's invitations on this page.
   const { data: invitations, isPending: invitationsPending } = useListOrganizationInvitations(
     authClient,
+    { query: { organizationId } },
   )
 
   const isPending = invitationsPending

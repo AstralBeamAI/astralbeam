@@ -12,18 +12,17 @@ import {
 import { sqlConstraint } from "@/db/lib/sqlstate.server"
 import { agent, organizationConfiguration } from "@/db/schema/organizations.server"
 import {
+  AgentIdSchema,
   AgentNameSchema,
   AgentSystemPromptSchema,
   LockVersionSchema,
-  SlugSchema,
   UuidV7Schema,
 } from "@/lib/schemas"
 import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandbox/schemas"
 
 const OrganizationAgentSchema = createSelectSchema(agent, {
-  id: UuidV7Schema,
+  id: AgentIdSchema,
   organizationId: UuidV7Schema,
-  slug: SlugSchema,
   name: AgentNameSchema,
   systemPrompt: AgentSystemPromptSchema,
   sandboxProviderId: Schema.NullOr(UuidV7Schema),
@@ -40,12 +39,12 @@ export type AgentSandboxProviderSummary = typeof AgentSandboxProviderSummarySche
 
 const OrganizationAgentListSchema = Schema.Struct({
   agents: Schema.Array(OrganizationAgentSchema),
-  configuration: Schema.NullOr(Schema.Struct({ defaultAgentId: Schema.NullOr(UuidV7Schema) })),
+  configuration: Schema.NullOr(Schema.Struct({ defaultAgentId: Schema.NullOr(AgentIdSchema) })),
 })
 
 const OrganizationAgentFormOptionsSchema = Schema.Struct({
   sandboxProviders: Schema.Array(AgentSandboxProviderSummarySchema),
-  configuration: Schema.NullOr(Schema.Struct({ defaultAgentId: Schema.NullOr(UuidV7Schema) })),
+  configuration: Schema.NullOr(Schema.Struct({ defaultAgentId: Schema.NullOr(AgentIdSchema) })),
 })
 
 class OrganizationAgentConflictError extends Data.TaggedError(
@@ -59,9 +58,6 @@ class OrganizationAgentProviderError extends Data.TaggedError(
 class OrganizationDefaultAgentError extends Data.TaggedError(
   "OrganizationDefaultAgentError",
 )<{ readonly message: string }> {}
-
-/** Slug of the agent every new organization starts with, so its public ID is predictable. */
-const DEFAULT_AGENT_SLUG = "assistant"
 
 const DEFAULT_AGENT_NAME_SUFFIX = " Assistant"
 const AGENT_NAME_MAX_LENGTH = 100
@@ -128,12 +124,12 @@ export function readOrganizationAgentFormOptions(organizationId: string) {
   })
 }
 
-/** One agent addressed by the slug in its URL, or `null` when this organization has no such agent. */
-export function readOrganizationAgentBySlug(input: { organizationId: string; slug: string }) {
+/** One agent addressed by the ID in its URL, or `null` when this organization has no such agent. */
+export function readOrganizationAgentById(input: { organizationId: string; id: string }) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const rows = yield* db.select().from(agent).where(
-      and(eq(agent.organizationId, input.organizationId), eq(agent.slug, input.slug)),
+      and(eq(agent.organizationId, input.organizationId), eq(agent.id, input.id)),
     ).limit(1).pipe(Effect.orDie)
     const row = rows[0]
     if (!row) return null
@@ -158,7 +154,6 @@ export function provisionOrganizationDefaultAgent(input: {
         Effect.gen(function* () {
           const rows = yield* transaction.insert(agent).values({
             organizationId: input.organizationId,
-            slug: DEFAULT_AGENT_SLUG,
             name: defaultAgentName(input.organizationName),
             systemPrompt: defaultAgentSystemPrompt(input.organizationName),
           }).returning({ id: agent.id })
@@ -203,23 +198,28 @@ export function setOrganizationDefaultAgent(input: { organizationId: string; id:
     )
 }
 
+/** Returns the generated public agent ID, which is what the caller navigates to. */
 export function createOrganizationAgent(input: {
   organizationId: string
-  slug: string
   name: string
   systemPrompt: string
   attachmentsEnabled: boolean
   sandboxProviderId: string | null
 }) {
-  return Effect.flatMap(effectDatabase, (db) => db.insert(agent).values(input)).pipe(
+  return Effect.flatMap(
+    effectDatabase,
+    (db) => db.insert(agent).values(input).returning({ id: agent.id }),
+  ).pipe(
+    Effect.flatMap((rows) => {
+      const created = rows[0]
+      if (!created) {
+        return Effect.die(new Error("PostgreSQL did not return the created agent"))
+      }
+      return Effect.succeed(created.id)
+    }),
     Effect.catchIf(
-      isOrganizationAgentSlugConflict,
-      () =>
-        Effect.fail(
-          new OrganizationAgentConflictError({
-            message: "An agent with this identifier already exists",
-          }),
-        ),
+      isOrganizationAgentNameConflict,
+      () => Effect.fail(duplicateOrganizationAgentName()),
     ),
     Effect.catchIf(
       isOrganizationAgentProviderConflict,
@@ -251,6 +251,10 @@ export function updateOrganizationAgent(input: {
         sandboxProviderId: input.sandboxProviderId,
       },
     })).pipe(
+      Effect.catchIf(
+        isOrganizationAgentNameConflict,
+        () => Effect.fail(duplicateOrganizationAgentName()),
+      ),
       Effect.catchIf(
         isOrganizationAgentProviderConflict,
         () => Effect.fail(invalidOrganizationAgentProvider()),
@@ -291,14 +295,20 @@ export function deleteOrganizationAgent(input: {
   )
 }
 
+function duplicateOrganizationAgentName() {
+  return new OrganizationAgentConflictError({
+    message: "An agent with this name already exists",
+  })
+}
+
 function invalidOrganizationAgentProvider() {
   return new OrganizationAgentProviderError({
     message: "Select a sandbox provider from this organization",
   })
 }
 
-function isOrganizationAgentSlugConflict(error: unknown): boolean {
-  return sqlConstraint(error) === "agent_organization_id_slug_uidx"
+function isOrganizationAgentNameConflict(error: unknown): boolean {
+  return sqlConstraint(error) === "agent_organization_id_name_uidx"
 }
 
 function isOrganizationAgentProviderConflict(error: unknown): boolean {

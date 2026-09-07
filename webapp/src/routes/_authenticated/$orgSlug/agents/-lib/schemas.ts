@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 
 import {
+  AgentIdSchema,
   AgentNameSchema,
   AgentSystemPromptSchema,
   LockVersionSchema,
@@ -19,34 +20,26 @@ const AgentFieldsSchema = Schema.Struct({
   sandboxProviderId: Schema.NullOr(UuidV7Schema),
 })
 
-export const CreateAgentInputSchema = Schema.Struct({
-  ...AgentFieldsSchema.fields,
-  slug: SlugSchema,
-})
+export const CreateAgentInputSchema = AgentFieldsSchema
 
 export const UpdateAgentInputSchema = Schema.Struct({
   ...AgentFieldsSchema.fields,
-  id: UuidV7Schema,
+  id: AgentIdSchema,
   lockVersion: LockVersionSchema,
 })
 
 export const DeleteAgentInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,
-  id: UuidV7Schema,
+  id: AgentIdSchema,
   lockVersion: LockVersionSchema,
 })
 
 export const SetDefaultAgentInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,
-  id: UuidV7Schema,
+  id: AgentIdSchema,
 })
 
-export const CheckAgentSlugInputSchema = Schema.Struct({
+export const AgentIdInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,
-  slug: SlugSchema,
-})
-
-export const AgentSlugInputSchema = Schema.Struct({
-  organizationSlug: SlugSchema,
-  agentSlug: SlugSchema,
+  agentId: AgentIdSchema,
 })
