@@ -1,6 +1,6 @@
 # AstralBeam
 
-**Links:** [Website](https://astralbeam.ai) · [Docs](https://app.astralbeam.ai/docs) · [Hosted app](https://app.astralbeam.ai) · [Discord](https://discord.gg/S7j384JvSa)
+**Links:** [Website](https://astralbeam.ai) · [Docs](https://app.astralbeam.ai/docs) · [Discord](https://discord.gg/S7j384JvSa) · [Cloud](https://app.astralbeam.ai)
 
 Adding agents to a web app today involves patching together a bunch of frontend libraries, backend frameworks, LLM providers, observability tools, billing APIs, etc. which is time-taking and error-prone.
 
