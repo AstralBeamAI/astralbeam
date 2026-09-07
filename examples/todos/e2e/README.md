@@ -36,18 +36,18 @@ Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `c
 
 ## Layout
 
-| File                   | Owns                                                                       |
-| ---------------------- | -------------------------------------------------------------------------- |
-| `playwright.config.ts` | Projects, retries, capture settings, and the two dev servers               |
-| `worktree.ts`          | Project paths, ports, and the environment each server is given             |
-| `preflight.setup.ts`   | Fails once with an actionable message when the database is not seeded      |
-| `fixtures.ts`          | The `test` a spec imports, with `todos` and `chat` open and hydrated       |
-| `pages/todos-page.ts`  | Selectors and actions for the host app's own UI                            |
-| `pages/chat-widget.ts` | Selectors and actions for the embedded widget, including shadow-root notes |
-| `tokens.ts`            | Signs auth tokens directly, for keys the app's token route will never mint |
-| `capture.ts`           | Attaches a labelled screenshot to the report                               |
-| `specs/app/`           | Deterministic specs; never call a model                                    |
-| `specs/agent/`         | Specs that drive a real agent run                                          |
+| File                   | Owns                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| `playwright.config.ts` | Projects, retries, capture settings, and the two dev servers                    |
+| `worktree.ts`          | Project paths, ports, and the environment each server is given                  |
+| `preflight.setup.ts`   | Fails once with an actionable message when the database is not seeded           |
+| `fixtures.ts`          | The `test` a spec imports, with `todos` and `chat` open and hydrated            |
+| `pages/todos-page.ts`  | Selectors and actions for the host app's own UI                                 |
+| `pages/chat-widget.ts` | Selectors and actions for the embedded widget, including shadow-root notes      |
+| `tokens.ts`            | Signs chat auth tokens directly, for keys the app's token route will never mint |
+| `capture.ts`           | Attaches a labelled screenshot to the report                                    |
+| `specs/app/`           | Deterministic specs; never call a model                                         |
+| `specs/agent/`         | Specs that drive a real agent run                                               |
 
 ## Adding a flow
 

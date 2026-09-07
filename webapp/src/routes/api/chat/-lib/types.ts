@@ -1,6 +1,6 @@
 import type { chatParamsFromRequest } from "@tanstack/ai"
 
-import type { AuthTokenPayloadSchema } from "@/lib/schemas"
+import type { ChatAuthTokenPayloadSchema } from "@/lib/schemas"
 import type { AttachmentTable } from "./attachment-profile.server"
 
 export type ChatParams = Awaited<ReturnType<typeof chatParamsFromRequest>>
@@ -66,10 +66,10 @@ export interface ChatAuthenticationError extends Error {
   code: "invalid_token"
 }
 
-type AuthTokenPayload = typeof AuthTokenPayloadSchema.Type
+type ChatAuthTokenPayload = typeof ChatAuthTokenPayloadSchema.Type
 
-export type ChatTenantUser = AuthTokenPayload["user"] & {
-  readonly tenant: AuthTokenPayload["tenant"]
+export type ChatTenantUser = ChatAuthTokenPayload["user"] & {
+  readonly tenant: ChatAuthTokenPayload["tenant"]
 }
 
 export interface ChatPrincipal {

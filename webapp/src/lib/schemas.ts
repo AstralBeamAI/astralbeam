@@ -41,7 +41,7 @@ const ChatTenantUserSchema = Schema.Struct({
   metadata: Schema.optional(Schema.JsonObject),
 })
 
-export const AuthTokenPayloadSchema = Schema.StructWithRest(
+export const ChatAuthTokenPayloadSchema = Schema.StructWithRest(
   Schema.Struct({
     ver: Schema.Literal(4),
     iat: Schema.Int,

@@ -1,5 +1,5 @@
 import type { DebugLogger } from "../lib/debug.ts"
-import type { AstralBeamChatGenerateAuthToken } from "../lib/types.ts"
+import type { AstralBeamChatAuthTokenSource } from "../lib/types.ts"
 
 const REFRESH_SKEW_MS = 60_000
 const MAX_TOKEN_LENGTH = 16_384
@@ -22,14 +22,14 @@ interface ChatAuthenticationSession {
 
 export interface ChatAuthenticationOptions {
   /** The token endpoint to call or the host function to ask; callers resolve the default. */
-  generateAuthToken: AstralBeamChatGenerateAuthToken
+  fetchChatAuthToken: AstralBeamChatAuthTokenSource
   session: ChatAuthenticationSession
   onStateChange: (state: ChatAuthenticationState) => void
   fetchClient: typeof globalThis.fetch
   debug: DebugLogger | undefined
 }
 
-interface GetValidAuthTokenOptions extends ChatAuthenticationOptions {
+interface GetValidChatAuthTokenOptions extends ChatAuthenticationOptions {
   force?: boolean
 }
 
@@ -39,20 +39,20 @@ interface FetchAuthenticatedChatOptions extends ChatAuthenticationOptions {
 }
 
 function tokenExpiry(token: string): number {
-  if (token.length > MAX_TOKEN_LENGTH) throw new Error("The authentication token is too large")
+  if (token.length > MAX_TOKEN_LENGTH) throw new Error("The chat auth token is too large")
   const parts = token.split(".")
-  if (parts.length !== 3 || !parts[1]) throw new Error("The authentication token is not a JWT")
+  if (parts.length !== 3 || !parts[1]) throw new Error("The chat auth token is not a JWT")
   const encoded = parts[1].replaceAll("-", "+").replaceAll("_", "/")
   const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, "=")
   let payload: unknown
   try {
     payload = JSON.parse(atob(padded))
   } catch {
-    throw new Error("The authentication token has an invalid payload")
+    throw new Error("The chat auth token has an invalid payload")
   }
   const exp = (payload as { exp?: unknown } | null)?.exp
   if (!Number.isInteger(exp) || Number(exp) <= 0) {
-    throw new Error("The authentication token has no valid expiry")
+    throw new Error("The chat auth token has no valid expiry")
   }
   return Number(exp) * 1_000
 }
@@ -62,17 +62,17 @@ function bearerToken(headers: Headers): string | undefined {
   return authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined
 }
 
-async function requestAuthToken(
+async function requestChatAuthToken(
   options: ChatAuthenticationOptions,
   signal: AbortSignal,
 ): Promise<unknown> {
-  const { generateAuthToken, fetchClient } = options
+  const { fetchChatAuthToken, fetchClient } = options
   // No result at all means the host could not mint a token, which fails closed below.
-  if (typeof generateAuthToken === "function") {
-    const generated: { token?: unknown } | null | undefined = await generateAuthToken()
+  if (typeof fetchChatAuthToken === "function") {
+    const generated: { token?: unknown } | null | undefined = await fetchChatAuthToken()
     return generated?.token
   }
-  const { url, ...init } = generateAuthToken
+  const { url, ...init } = fetchChatAuthToken
   const headers = new Headers(init.headers)
   if (!headers.has("accept")) headers.set("accept", "application/json")
   const response = await fetchClient(url, {
@@ -90,14 +90,14 @@ async function requestAuthToken(
   return (body as { token?: unknown } | null)?.token
 }
 
-async function fetchAuthToken(options: ChatAuthenticationOptions): Promise<string> {
+async function loadChatAuthToken(options: ChatAuthenticationOptions): Promise<string> {
   const { session, onStateChange, debug } = options
   const { signal } = session.abortController
-  const source = typeof options.generateAuthToken === "function"
-    ? "generateAuthToken"
+  const source = typeof options.fetchChatAuthToken === "function"
+    ? "fetchChatAuthToken"
     : "Authentication endpoint"
   try {
-    const token = await requestAuthToken(options, signal)
+    const token = await requestChatAuthToken(options, signal)
     if (typeof token !== "string" || !token) {
       throw new Error(`${source} did not return a token`)
     }
@@ -119,7 +119,9 @@ async function fetchAuthToken(options: ChatAuthenticationOptions): Promise<strin
   }
 }
 
-export async function getValidAuthToken(options: GetValidAuthTokenOptions): Promise<string> {
+export async function getValidChatAuthToken(
+  options: GetValidChatAuthTokenOptions,
+): Promise<string> {
   const { session, force = false, onStateChange } = options
   const now = Date.now()
   if (!force && session.cached && session.cached.expiresAt - now > REFRESH_SKEW_MS) {
@@ -127,7 +129,7 @@ export async function getValidAuthToken(options: GetValidAuthTokenOptions): Prom
   }
   if (session.refreshPromise) return await session.refreshPromise
   onStateChange({ status: "loading" })
-  const refresh = fetchAuthToken(options)
+  const refresh = loadChatAuthToken(options)
   session.refreshPromise = refresh
   try {
     return await refresh
@@ -142,7 +144,7 @@ export async function initializeChatAuthentication(
   if (options.session.abortController.signal.aborted) {
     options.session.abortController = new AbortController()
   }
-  await getValidAuthToken(options)
+  await getValidChatAuthToken(options)
 }
 
 export function disposeChatAuthentication(
@@ -161,8 +163,8 @@ export async function fetchAuthenticatedChat(
   const usedToken = bearerToken(new Headers(init?.headers))
   const rejectedCurrentToken = !usedToken || session.cached?.value === usedToken
   if (rejectedCurrentToken) session.cached = undefined
-  debug?.("auth", "auth token was rejected; refreshing once")
-  const token = await getValidAuthToken({ ...options, force: rejectedCurrentToken })
+  debug?.("auth", "chat auth token was rejected; refreshing once")
+  const token = await getValidChatAuthToken({ ...options, force: rejectedCurrentToken })
   const headers = new Headers(init?.headers)
   headers.set("authorization", `Bearer ${token}`)
   await response.body?.cancel()

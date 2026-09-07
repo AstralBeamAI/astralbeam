@@ -14,8 +14,8 @@ import { createPortal } from "react-dom"
 import {
   type AstralBeamChatAttachmentOptions,
   type AstralBeamChatAuthTokenRequest,
+  type AstralBeamChatAuthTokenSource,
   type AstralBeamChatColorScheme,
-  type AstralBeamChatGenerateAuthToken,
   type AstralBeamChatHandle,
   type AstralBeamChatSlotRenderer,
   type AstralBeamChatTheme,
@@ -40,8 +40,8 @@ import {
 export type {
   AstralBeamChatAttachmentOptions,
   AstralBeamChatAuthTokenRequest,
+  AstralBeamChatAuthTokenSource,
   AstralBeamChatColorScheme,
-  AstralBeamChatGenerateAuthToken,
   AstralBeamChatTheme,
   InferParameters,
   ParametersSchema,
@@ -95,7 +95,7 @@ export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstral
     core,
     options.agentId,
     options.apiUrl,
-    options.generateAuthToken,
+    options.fetchChatAuthToken,
     options.tools,
     options.widgets,
     options.onRenderWidget,
@@ -157,7 +157,7 @@ export interface AstralBeamChatProps {
    * the function form runs in the host's React tree, so an inline closure over current auth state
    * is fine and needs no memoization. Default `{ url: "/api/astralbeam/token" }`.
    */
-  generateAuthToken?: AstralBeamChatGenerateAuthToken
+  fetchChatAuthToken?: AstralBeamChatAuthTokenSource
   /** Host-defined tools the agent can call, executed in the host's React app, keyed by name. */
   tools?: Record<string, ToolDefinition>
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
@@ -198,7 +198,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       emptyTitle,
       emptyDescription,
       apiUrl,
-      generateAuthToken,
+      fetchChatAuthToken,
       tools,
       widgets = {},
       colorScheme = DEFAULT_COLOR_SCHEME,
@@ -299,7 +299,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       () => ({
         agentId,
         apiUrl,
-        generateAuthToken,
+        fetchChatAuthToken,
         title,
         showHeader,
         emptyTitle,
@@ -316,7 +316,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       [
         agentId,
         apiUrl,
-        generateAuthToken,
+        fetchChatAuthToken,
         title,
         showHeader,
         emptyTitle,

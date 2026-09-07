@@ -1,11 +1,11 @@
 import { seedTarget } from "./worktree.ts"
 
 /**
- * Signs auth tokens so a spec can exercise the chat endpoint's authorization directly, including
+ * Signs chat auth tokens so a spec can exercise the chat endpoint's authorization directly, including
  * for a disabled key and another organization's key, which the app's own token route will never
  * mint.
  *
- * This deliberately reproduces `createAstralBeamAuthToken` from `sdk/src/server/index.ts` rather
+ * This deliberately reproduces `createChatAuthToken` from `sdk/src/server/index.ts` rather
  * than calling it: `@astralbeam/sdk` reaches the example through a `file:` dependency, and Deno
  * refuses to import an npm package by `file:` specifier unless the whole project switches to a
  * manual node_modules directory. Keep this in step with that function, and note that
@@ -15,10 +15,10 @@ import { seedTarget } from "./worktree.ts"
  * for the wrong reason.
  */
 
-const ASTRALBEAM_AUTH_TOKEN_TYPE = "astralbeam+jwt"
-const ASTRALBEAM_AUTH_TOKEN_VERSION = 4
+const CHAT_AUTH_TOKEN_TYPE = "astralbeam+jwt"
+const CHAT_AUTH_TOKEN_VERSION = 4
 const ASTRALBEAM_TOKEN_AUDIENCE = "astralbeam"
-const ASTRALBEAM_AUTH_TOKEN_LIFETIME_SECONDS = 300
+const CHAT_AUTH_TOKEN_LIFETIME_SECONDS = 300
 
 const textEncoder = new TextEncoder()
 
@@ -55,19 +55,19 @@ async function importSigningKey(secret: string): Promise<CryptoKey> {
   )
 }
 
-export async function mintSeedAuthToken(apiKey: string): Promise<string> {
+export async function mintSeedChatAuthToken(apiKey: string): Promise<string> {
   const { keyId, organizationSlug, secret } = parseApiKey(apiKey)
   const issuedAt = Math.floor(Date.now() / 1_000)
   const signingInput = [
-    base64UrlFromJson({ alg: "HS256", typ: ASTRALBEAM_AUTH_TOKEN_TYPE, kid: keyId }),
+    base64UrlFromJson({ alg: "HS256", typ: CHAT_AUTH_TOKEN_TYPE, kid: keyId }),
     base64UrlFromJson({
-      ver: ASTRALBEAM_AUTH_TOKEN_VERSION,
+      ver: CHAT_AUTH_TOKEN_VERSION,
       user: seedTarget.user,
       tenant: seedTarget.tenant,
       iss: organizationSlug,
       aud: ASTRALBEAM_TOKEN_AUDIENCE,
       iat: issuedAt,
-      exp: issuedAt + ASTRALBEAM_AUTH_TOKEN_LIFETIME_SECONDS,
+      exp: issuedAt + CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
     }),
   ].join(".")
   const signature = await crypto.subtle.sign(

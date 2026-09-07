@@ -31,7 +31,7 @@ const SEED_NAMES = {
 /**
  * API key secrets, in Better Auth's `abo_` + 64 letters shape. The seed stores only their SHA-256
  * digests, exactly as the `/organization/api-keys` dialog does; these raw values exist so the
- * todos example and its tests can sign auth tokens without a browser round-trip.
+ * todos example and its tests can sign chat auth tokens without a browser round-trip.
  */
 const SEED_API_KEY_SECRETS = {
   todos: "abo_AcmeTodosSeedKeyForLocalDevelopmentOnlyNotASecretDoNotDeployThis",

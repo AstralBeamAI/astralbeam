@@ -125,14 +125,14 @@ export interface AstralBeamChatAuthTokenRequest extends RequestInit {
 }
 
 /**
- * Where the widget's short-lived chat JWT comes from: an endpoint to POST, or a function that
+ * Where the widget's short-lived chat auth token comes from: an endpoint to POST, or a function that
  * mints the token in the host page and returns `{ token }`, optionally as a promise.
  *
  * Either form runs again on every renewal — near expiry and after a token is rejected — so a
  * rotating credential stays current rather than being captured once. A function that returns
  * `undefined`, or throws, fails authentication closed; the composer's retry link asks again.
  */
-export type AstralBeamChatGenerateAuthToken =
+export type AstralBeamChatAuthTokenSource =
   | AstralBeamChatAuthTokenRequest
   | (() => { token: string } | undefined | Promise<{ token: string } | undefined>)
 
@@ -172,12 +172,12 @@ export interface MountAstralBeamChatOptions {
    */
   apiUrl?: string | undefined
   /**
-   * Where the short-lived chat JWT comes from: `{ url, ...RequestInit }` for a token endpoint, or
-   * a function that mints `{ token }` in the host page. Read for every token, so a change applies
-   * to the next one, which is minted when the cached token nears expiry. Default
+   * Where the short-lived chat auth token comes from: `{ url, ...RequestInit }` for a token
+   * endpoint, or a function that mints `{ token }` in the host page. Read for every token, so a
+   * change applies to the next one, which is minted when the cached token nears expiry. Default
    * `{ url: "/api/astralbeam/token" }`, posted with the page's cookies.
    */
-  generateAuthToken?: AstralBeamChatGenerateAuthToken | undefined
+  fetchChatAuthToken?: AstralBeamChatAuthTokenSource | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */

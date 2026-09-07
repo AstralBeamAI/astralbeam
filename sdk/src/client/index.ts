@@ -14,8 +14,8 @@ import type { ChatHandle } from "../widget/index.tsx"
 export type {
   AstralBeamChatAttachmentOptions,
   AstralBeamChatAuthTokenRequest,
+  AstralBeamChatAuthTokenSource,
   AstralBeamChatColorScheme,
-  AstralBeamChatGenerateAuthToken,
   AstralBeamChatHandle,
   AstralBeamChatSlotRenderer,
   AstralBeamChatSlots,

@@ -8,7 +8,6 @@ import {
 import { createFileRoute } from "@tanstack/react-router"
 
 import { runDatabaseEffect } from "@/db"
-import { APP_NAME } from "@/lib/constants"
 import { createChatAdapter } from "./-lib/adapter.server"
 import { resolveChatAgent } from "./-lib/agent.server"
 import { createChatAttachmentTools } from "./-lib/attachment-tools.server"
@@ -66,7 +65,7 @@ export const Route = createFileRoute("/api/chat/")({
           principal = await authenticateChatRequest(request)
         } catch (error) {
           if (isChatAuthenticationError(error)) {
-            return unauthorizedChatResponse(request, `The ${APP_NAME} auth token is invalid.`)
+            return unauthorizedChatResponse(request, "The chat auth token is invalid.")
           }
           console.error("Failed to authenticate /api/chat request:", error)
           return errorResponse(request, 500, "The chat request could not be authenticated.")

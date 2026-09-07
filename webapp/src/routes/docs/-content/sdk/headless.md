@@ -25,7 +25,7 @@ function MyChat() {
 
 - State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`.
 - Actions: `sendMessage`, `addToolResult`, `stop`, `reload`, `reset`; `core` exposes the raw session.
-- Options follow the props you pass, including `agentId`, `apiUrl`, and `generateAuthToken`; nothing needs a remount.
+- Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchChatAuthToken`; nothing needs a remount.
 - No shadow root and no bundled styles: your markup, your CSS.
 
 ## Any framework

@@ -23,7 +23,6 @@ import {
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/toast"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
-import { APP_NAME } from "@/lib/constants"
 
 export type NewApiKeyDialogProps = {
   open: boolean
@@ -100,9 +99,9 @@ export function NewApiKeyDialog({
 
           <p className="text-xs text-muted-foreground">
             Use this key only with{" "}
-            <code className="font-mono text-foreground">createAstralBeamAuthToken</code>{" "}
-            on your server, to mint {APP_NAME}{" "}
-            auth tokens for your tenant users. Never expose it in browser code.
+            <code className="font-mono text-foreground">createChatAuthToken</code>{" "}
+            on your server, to mint chat auth tokens for your tenant users. Never expose it in
+            browser code.
           </p>
         </div>
 
