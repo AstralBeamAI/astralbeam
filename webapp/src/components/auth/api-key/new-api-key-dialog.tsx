@@ -99,7 +99,7 @@ export function NewApiKeyDialog({
 
           <p className="text-xs text-muted-foreground">
             Use this key only with{" "}
-            <code className="font-mono text-foreground">createAstralBeamChatToken</code>{" "}
+            <code className="font-mono text-foreground">createAstralBeamAuthToken</code>{" "}
             on your server. Never expose it in browser code.
           </p>
         </div>

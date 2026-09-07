@@ -4,10 +4,10 @@ The widget will not chat until it has a token, and it never sees your API key. Y
 
 ## The token endpoint
 
-`/api/astralbeam/token` by default; point the widget elsewhere with `generateAuthToken`. `createAstralBeamChatToken` is the only server helper: your handler authenticates its own session, mints the token, and answers `{ token }`.
+`/api/astralbeam/token` by default; point the widget elsewhere with `generateAuthToken`. `createAstralBeamAuthToken` is the only server helper: your handler authenticates its own session, mints the token, and answers `{ token }`.
 
 ```ts
-import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
+import { createAstralBeamAuthToken } from "@astralbeam/sdk/server"
 
 const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organization>_<key>_abo_<secret>
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503 })
   const session = await getApplicationSession(request)
   if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
-  const token = await createAstralBeamChatToken({
+  const token = await createAstralBeamAuthToken({
     apiKey,
     user: {
       id: session.user.id, // required; stable and unique within this tenant

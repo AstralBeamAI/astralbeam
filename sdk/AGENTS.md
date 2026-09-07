@@ -53,7 +53,6 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Keep every option updatable in place: read the agent, the API base, and the token source per request through live options or a getter rather than capturing them, so no option needs a remount and the transcript survives a change.
 - Treat a copied API key as its public ID plus the exact Better Auth raw key; hash the complete `abo_<secret>` value, never only its random suffix.
 - Model token identities as separate `user` and `tenant` objects with a required stable Tenant ID plus a stable tenant-local TenantUser ID; the host authenticates once and derives both objects from that same session. Preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
-- Keep `createAstralBeamChatToken` the only way to mint a token: `@astralbeam/sdk/server` ships no request-handling helper, because two documented paths to the same token were the confusion, and hosts own their endpoint's method, session, status codes, and headers.
 - Keep SDK option and model names camelCase, map AstralBeam-owned multiword JWT claim names to snake_case on the wire, and preserve caller-owned `metadata` keys verbatim.
 - Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject.
 

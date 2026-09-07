@@ -1,4 +1,4 @@
-import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
+import { createAstralBeamAuthToken } from "@astralbeam/sdk/server"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { API_KEY } from "@/lib/config.server.ts"
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/astralbeam/token")({
         // A real application authenticates its own session here and answers 401 without one;
         // the demo mints for one fixed user instead.
         try {
-          const token = await createAstralBeamChatToken({
+          const token = await createAstralBeamAuthToken({
             apiKey: API_KEY,
             user: DEMO_CHAT_USER,
             tenant: DEMO_CHAT_TENANT,

@@ -77,7 +77,7 @@ export type Tenant = typeof TenantSchema.Type
 /** User of an Organization's Tenant who interacts with AstralBeam. */
 export type TenantUser = typeof TenantUserSchema.Type
 
-export interface CreateAstralBeamChatTokenOptions<
+export interface CreateAstralBeamAuthTokenOptions<
   TTenantUser extends TenantUser = TenantUser,
   TTenant extends Tenant = Tenant,
 > {
@@ -114,7 +114,7 @@ async function signingKey(secret: string) {
 }
 
 /** Creates the short-lived bearer token returned by an application's server auth endpoint. */
-export async function createAstralBeamChatToken<
+export async function createAstralBeamAuthToken<
   TTenantUser extends TenantUser = TenantUser,
   TTenant extends Tenant = Tenant,
 >({
@@ -122,7 +122,7 @@ export async function createAstralBeamChatToken<
   user,
   tenant,
   expiresInSeconds = ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS,
-}: CreateAstralBeamChatTokenOptions<TTenantUser, TTenant>): Promise<string> {
+}: CreateAstralBeamAuthTokenOptions<TTenantUser, TTenant>): Promise<string> {
   if (
     !Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 ||
     expiresInSeconds > ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS

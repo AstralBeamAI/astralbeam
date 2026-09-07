@@ -5,7 +5,7 @@ import { seedTarget } from "./worktree.ts"
  * for a disabled key and another organization's key, which the app's own token route will never
  * mint.
  *
- * This deliberately reproduces `createAstralBeamChatToken` from `sdk/src/server/index.ts` rather
+ * This deliberately reproduces `createAstralBeamAuthToken` from `sdk/src/server/index.ts` rather
  * than calling it: `@astralbeam/sdk` reaches the example through a `file:` dependency, and Deno
  * refuses to import an npm package by `file:` specifier unless the whole project switches to a
  * manual node_modules directory. Keep this in step with that function, and note that

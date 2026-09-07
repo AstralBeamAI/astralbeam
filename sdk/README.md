@@ -36,7 +36,7 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 The widget will not chat until your app mints it a short-lived token; it never sees your API key. See [Authentication](https://app.astralbeam.ai/docs/sdk/authentication).
 
 ```ts
-import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
+import { createAstralBeamAuthToken } from "@astralbeam/sdk/server"
 
 const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organization>_<key>_abo_<secret>
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503 })
   const session = await getApplicationSession(request)
   if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
-  const token = await createAstralBeamChatToken({
+  const token = await createAstralBeamAuthToken({
     apiKey,
     user: {
       id: session.user.id,
@@ -145,7 +145,7 @@ There is no root export. Conversation history is not built yet.
 | `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader     | none                 |
 | `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session  | none                 |
 | `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`       | `react`, `react-dom` |
-| `@astralbeam/sdk/server` | `createAstralBeamChatToken`, the token minter | none                 |
+| `@astralbeam/sdk/server` | `createAstralBeamAuthToken`, the token minter | none                 |
 | `@astralbeam/sdk/vue`    | Vue components (placeholder)                  | `vue`                |
 
 Types resolve under every TypeScript module resolution mode, including the classic `"moduleResolution": "node"` that Ionic, Capacitor, and Create React App templates still ship. TypeScript 5.0 or later is required, because the declarations use `const` type parameters; on TypeScript 4.x the `.d.ts` files fail to parse.
