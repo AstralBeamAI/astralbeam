@@ -36,26 +36,33 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 The widget will not chat until your app mints it a short-lived token; it never sees your API key. See [Authentication](https://app.astralbeam.ai/docs/sdk/authentication).
 
 ```ts
-import { createAstralBeamTokenRoute } from "@astralbeam/sdk/server"
+import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
 
-export const POST = createAstralBeamTokenRoute({
-  apiKey: () => process.env.ASTRALBEAM_API_KEY, // key_<organization>_<key>_abo_<secret>
-  authenticate: (request) => getApplicationSession(request),
-  user: (session) => ({
-    id: session.user.id,
-    name: session.user.name,
-    metadata: { email: session.user.email },
-  }),
-  tenant: (session) => ({
-    id: session.tenant.id,
-    name: session.tenant.name,
-    metadata: { plan: session.tenant.plan },
-  }),
-})
+const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organization>_<key>_abo_<secret>
+
+export async function POST(request: Request) {
+  if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503 })
+  const session = await getApplicationSession(request)
+  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
+  const token = await createAstralBeamChatToken({
+    apiKey,
+    user: {
+      id: session.user.id,
+      name: session.user.name,
+      metadata: { email: session.user.email },
+    },
+    tenant: {
+      id: session.tenant.id,
+      name: session.tenant.name,
+      metadata: { plan: session.tenant.plan },
+    },
+  })
+  return Response.json({ token }, { headers: { "cache-control": "no-store" } })
+}
 ```
 
 - Add one endpoint, `/api/astralbeam/token` by default, that authenticates your own session first.
-- The factory owns the method check, the unconfigured 503, the unauthenticated 401, and `no-store`.
+- Your handler owns the response: answer `cache-control: no-store`, and fail closed with a 401 or 503.
 - Authenticate once, then derive `user` and `tenant` separately from that same application session.
 - Derive `user` and `tenant` from trusted server-side state, never from anything the browser sent.
 - Provide stable tenant-local `user.id` and stable `tenant.id` values; names are optional, and set `user.admin` only from trusted state.
@@ -133,13 +140,13 @@ Each guide is short and self-contained.
 
 There is no root export. Conversation history is not built yet.
 
-| Entry point              | Contents                                                  | Peer dependency      |
-| ------------------------ | --------------------------------------------------------- | -------------------- |
-| `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader                 | none                 |
-| `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session              | none                 |
-| `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`                   | `react`, `react-dom` |
-| `@astralbeam/sdk/server` | `createAstralBeamChatToken`, `createAstralBeamTokenRoute` | none                 |
-| `@astralbeam/sdk/vue`    | Vue components (placeholder)                              | `vue`                |
+| Entry point              | Contents                                      | Peer dependency      |
+| ------------------------ | --------------------------------------------- | -------------------- |
+| `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader     | none                 |
+| `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session  | none                 |
+| `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`       | `react`, `react-dom` |
+| `@astralbeam/sdk/server` | `createAstralBeamChatToken`, the token minter | none                 |
+| `@astralbeam/sdk/vue`    | Vue components (placeholder)                  | `vue`                |
 
 Types resolve under every TypeScript module resolution mode, including the classic `"moduleResolution": "node"` that Ionic, Capacitor, and Create React App templates still ship. TypeScript 5.0 or later is required, because the declarations use `const` type parameters; on TypeScript 4.x the `.d.ts` files fail to parse.
 

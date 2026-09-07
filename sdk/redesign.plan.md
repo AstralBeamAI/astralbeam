@@ -42,7 +42,7 @@ Boundaries become structural instead of filename conventions. No behavior change
 - Imperative handle on `<AstralBeamChat>` via `ref`: `reset`, `stop`, `update`.
 - `header`, `empty`, and `composerActions` slots on the drop-in, projected through the existing light-DOM `<slot>` mechanism.
 - No `preload` option (revised during implementation): deferring is the host conditionally rendering on first open, now documented in the configuration guide, since an API flag would duplicate what JSX already expresses.
-- `createAstralBeamTokenRoute()` in `@astralbeam/sdk/server`: fetch-standard handler factory replacing the copy-pasted 503/500/`no-store` endpoint.
+- `createAstralBeamTokenRoute()` in `@astralbeam/sdk/server`: fetch-standard handler factory replacing the copy-pasted 503/500/`no-store` endpoint. Removed again in 0.6.0 (user decision, 2026-09-07): two documented ways to mint a token confused more than the copied handler cost, so `createAstralBeamChatToken` is the only one.
 - Fix the `-webkit-text-fill-color` inheritance leak onto widget slots (bmd's documented gotcha).
 
 ### Phase 3 — sandbox panel rework (SDK only; shipped together with phases 4–6 per user decision, 2026-09-01)

@@ -1,22 +1,35 @@
-import { createAstralBeamTokenRoute } from "@astralbeam/sdk/server"
+import { createAstralBeamChatToken } from "@astralbeam/sdk/server"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { API_KEY } from "@/lib/config.server.ts"
 import { DEMO_CHAT_TENANT, DEMO_CHAT_USER } from "@/lib/constants.server.ts"
 
-// The factory owns the method check, the unconfigured-key 503, the 401, and no-store.
-const mintDemoChatToken = createAstralBeamTokenRoute({
-  apiKey: () => API_KEY,
-  // A real application authenticates its own session here; the demo has one fixed user.
-  authenticate: () => ({ user: DEMO_CHAT_USER, tenant: DEMO_CHAT_TENANT }),
-  user: (session) => session.user,
-  tenant: (session) => session.tenant,
-})
+// A cached token would outlive its short expiry, so every answer carries no-store.
+function tokenResponse(body: Record<string, string>, status: number): Response {
+  return Response.json(body, { status, headers: { "cache-control": "no-store" } })
+}
 
 export const Route = createFileRoute("/api/astralbeam/token")({
   server: {
     handlers: {
-      POST: ({ request }) => mintDemoChatToken(request),
+      POST: async () => {
+        if (!API_KEY) {
+          return tokenResponse({ error: "The AstralBeam API key is not configured" }, 503)
+        }
+        // A real application authenticates its own session here and answers 401 without one;
+        // the demo mints for one fixed user instead.
+        try {
+          const token = await createAstralBeamChatToken({
+            apiKey: API_KEY,
+            user: DEMO_CHAT_USER,
+            tenant: DEMO_CHAT_TENANT,
+          })
+          return tokenResponse({ token }, 200)
+        } catch {
+          // The thrown message can describe the API key's shape; never send it to a client.
+          return tokenResponse({ error: "The chat token could not be created" }, 500)
+        }
+      },
     },
   },
 })
