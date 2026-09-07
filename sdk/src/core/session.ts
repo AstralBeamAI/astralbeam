@@ -60,10 +60,35 @@ export interface AstralBeamChatCoreOptions extends
   streamCallbacks?: ChatStreamCallbacks | undefined
 }
 
+// Every option this session reads per request, so a consumer that watches option changes (the
+// React hook) cannot forget one: a missing or unknown key fails the typecheck below.
+export const CORE_OPTION_KEYS = Object.keys(
+  {
+    agentId: true,
+    apiUrl: true,
+    fetchChatAuthToken: true,
+    tools: true,
+    widgets: true,
+    onRenderWidget: true,
+    streamCallbacks: true,
+    debug: true,
+  } satisfies Record<keyof AstralBeamChatCoreOptions, true>,
+) as ReadonlyArray<keyof AstralBeamChatCoreOptions>
+
 /** One tool as declared to the agent: its name, and the `metadata.title` that labels it. */
 export interface AgentToolInfo {
   name: string
   title: string | undefined
+}
+
+function sameAgentTools(
+  current: readonly AgentToolInfo[],
+  next: readonly AgentToolInfo[],
+): boolean {
+  return current.length === next.length &&
+    current.every((tool, index) =>
+      tool.name === next[index]?.name && tool.title === next[index]?.title
+    )
 }
 
 export interface AstralBeamChatState {
@@ -143,7 +168,11 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   void initializeChatAuthentication(authentication).catch(() => undefined)
 
   // Agent capability handshake; fails open for state (the endpoint still enforces its policy).
+  // Generation-checked, so a slower response for a superseded agent or API base is dropped
+  // instead of overwriting the grant resolved for the current one.
+  let capabilitiesGeneration = 0
   const resolveCapabilities = async () => {
+    const generation = ++capabilitiesGeneration
     try {
       const url = new URL(chatApiUrls(live.apiUrl).config, globalThis.location?.href)
       if (live.agentId) url.searchParams.set("agentId", live.agentId)
@@ -151,6 +180,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
       const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
       if (!response.ok) throw new Error(`The config request answered ${response.status}`)
       const body = await response.json() as { capabilities?: { attachments?: unknown } }
+      if (generation !== capabilitiesGeneration) return
       const attachments = body.capabilities?.attachments !== false
       update({ capabilities: { attachments } })
       debug?.("mount", "agent capabilities resolved", { attachments })
@@ -190,15 +220,16 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   // the widget and questionnaire tools this session declares itself.
   const declareTools = () => {
     const tools = buildTools()
-    update({
-      agentTools: tools.map((tool) => {
-        const title = tool.metadata?.["title"]
-        return {
-          name: tool.name,
-          title: typeof title === "string" && title.length > 0 ? title : undefined,
-        }
-      }),
+    const agentTools = tools.map((tool) => {
+      const title = tool.metadata?.["title"]
+      return {
+        name: tool.name,
+        title: typeof title === "string" && title.length > 0 ? title : undefined,
+      }
     })
+    // Compared by value: a host that rebuilds equivalent tool objects every render would
+    // otherwise be notified of a change that then feeds its own update back in, forever.
+    if (!sameAgentTools(state.agentTools, agentTools)) update({ agentTools })
     return tools
   }
   const forwardedProps = () => ({

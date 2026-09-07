@@ -37,6 +37,8 @@ import {
   type AstralBeamChatState,
   createAstralBeamChat,
 } from "../core/index.ts"
+// Not part of the public core surface: the option list this wrapper has to watch.
+import { CORE_OPTION_KEYS } from "../core/session.ts"
 
 export type {
   AstralBeamChatAttachmentOptions,
@@ -90,18 +92,11 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
  */
 export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
   const [core] = useState(() => createAstralBeamChat(options))
+  // Keyed off every core option, `streamCallbacks` included: the session reads them per event, so
+  // a change that never reaches `updateOptions` would leave it calling the previous closures.
   useEffect(() => {
     core.updateOptions(options)
-  }, [
-    core,
-    options.agentId,
-    options.apiUrl,
-    options.fetchChatAuthToken,
-    options.tools,
-    options.widgets,
-    options.onRenderWidget,
-    options.debug,
-  ])
+  }, [core, ...CORE_OPTION_KEYS.map((key) => options[key])])
   useEffect(() => () => core.dispose(), [core])
   const state = useSyncExternalStore(core.subscribe, core.getState, core.getState)
   return {
