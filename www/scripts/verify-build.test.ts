@@ -102,19 +102,30 @@ describe("production website build", () => {
   })
 
   test("publishes discovery files", async () => {
-    const [robots, llms, licenses, sitemapIndex, sitemap, manifestText, mitLicense, oflLicense] =
-      await Promise.all([
-        readText("robots.txt"),
-        readText("llms.txt"),
-        readText("licenses.txt"),
-        readText("sitemap-index.xml"),
-        readText("sitemap-0.xml"),
-        readText("site.webmanifest"),
-        readFile(new URL("../../LICENSE-MIT", import.meta.url), "utf8"),
-        readFile(new URL("../../docs/legal/LICENSES/OFL-1.1.txt", import.meta.url), "utf8"),
-      ])
+    const [
+      headers,
+      robots,
+      llms,
+      licenses,
+      sitemapIndex,
+      sitemap,
+      manifestText,
+      mitLicense,
+      oflLicense,
+    ] = await Promise.all([
+      readText("_headers"),
+      readText("robots.txt"),
+      readText("llms.txt"),
+      readText("licenses.txt"),
+      readText("sitemap-index.xml"),
+      readText("sitemap-0.xml"),
+      readText("site.webmanifest"),
+      readFile(new URL("../../LICENSE-MIT", import.meta.url), "utf8"),
+      readFile(new URL("../../docs/legal/LICENSES/OFL-1.1.txt", import.meta.url), "utf8"),
+    ])
     const manifest: unknown = JSON.parse(manifestText)
 
+    expect(headers).toContain("frame-ancestors 'none'")
     expect(robots).toContain(`Sitemap: ${origin}/sitemap-index.xml`)
     expect(llms).toMatch(/^# AstralBeam$/mu)
     expect(llms).toContain(homeUrl)

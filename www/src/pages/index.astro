@@ -3,7 +3,8 @@ import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url
 import SiteLayout from "@/layouts/SiteLayout.astro"
 import { siteMetadata } from "@/lib/site"
 
-const waitlistUrl = "https://airtable.com/app5bJZxFB5NoPBUX/paghAGYUoz5JoIQDs/form"
+const appUrl = "https://app.astralbeam.ai"
+const discordUrl = "https://discord.gg/S7j384JvSa"
 
 const features = [
   {
@@ -90,9 +91,10 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
         </svg>
         <span class="hud-nav-label">GITHUB</span>
       </a>
+      <a href={discordUrl} target="_blank" rel="noopener noreferrer">DISCORD</a>
     </nav>
-    <a class="btn btn-primary hud-cta" href={waitlistUrl} target="_blank" rel="noopener noreferrer">
-        JOIN WAITLIST
+    <a class="btn btn-primary hud-cta" href={appUrl}>
+        OPEN THE APP
       </a>
   </header>
 
@@ -112,9 +114,8 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
             Add agentic chat to your web app in five minutes or less. AstralBeam handles streaming, history, tools, billing and more...
           </p>
         <div class="hero-ctas reveal" style="--reveal-delay:.48s">
-          <a class="btn btn-primary btn-lg" href={waitlistUrl} target="_blank"
-            rel="noopener noreferrer">
-              JOIN WAITLIST
+          <a class="btn btn-primary btn-lg" href={appUrl}>
+              OPEN THE APP
             </a>
           <a class="btn btn-ghost btn-lg" href={githubUrl} target="_blank"
             rel="noopener noreferrer">
@@ -444,12 +445,14 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
       <h2 class="display launch-title reveal scramble"
         data-text="READY FOR LAUNCH">READY FOR LAUNCH</h2>
       <p class="section-sub launch-sub reveal">
-          Get started with a few lines of code. Join the waitlist for early access.
+          Get started with a few lines of code, or come talk to us on Discord.
         </p>
-      <div class="reveal" style="--reveal-delay:.2s">
-        <a class="btn btn-primary btn-xl" href={waitlistUrl} target="_blank"
-          rel="noopener noreferrer">
-            JOIN WAITLIST
+      <div class="launch-ctas reveal" style="--reveal-delay:.2s">
+        <a class="btn btn-primary btn-xl" href={appUrl}>
+            OPEN THE APP
+          </a>
+        <a class="btn btn-ghost btn-xl" href={discordUrl} target="_blank" rel="noopener noreferrer">
+            JOIN THE DISCORD
           </a>
       </div>
     </section>
@@ -458,6 +461,7 @@ const githubUrl = "https://github.com/astralbeamai/astralbeam"
   <footer class="site-footer mono">
     <span>© 2026 ASTRALBEAM</span>
     <a href={githubUrl} target="_blank" rel="noopener noreferrer">GITHUB</a>
+    <a href={discordUrl} target="_blank" rel="noopener noreferrer">DISCORD</a>
     <a href="mailto:hello@astralbeam.ai">HELLO@ASTRALBEAM.AI</a>
     <a href="/terms">TERMS</a>
     <a href="/privacy">PRIVACY</a>

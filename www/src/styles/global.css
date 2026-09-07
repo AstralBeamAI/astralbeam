@@ -1374,6 +1374,13 @@ main {
   margin: 1.6rem auto 2.6rem;
 }
 
+.launch-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+}
+
 /* ---------- footer ---------- */
 
 .site-footer {

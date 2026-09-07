@@ -32,7 +32,7 @@ The quickest path is `deno task --cwd webapp db-seed`, which creates the `acme` 
 8. With a sandbox provider on the agent, ask it for something that needs code: "write a script that exports my todos as CSV and run it".
 9. Each sandbox step appears as an expandable row. While the sandbox provisions, a slim status pill sits above the composer; the **Sandbox** panel (opt-in via `sandboxPanel`) collects every file it wrote — each downloadable — and the whole command log.
 
-The token route is local-demo-only: it grants every caller the fixed demo identity, so do not deploy it unchanged. Real hosts must derive stable `tenant.id` and tenant-local `user.id` values from their authenticated application session, never trust a browser-supplied identity, and avoid secrets because JWT payloads are signed but not encrypted.
+The token route is local-demo-only: it grants every caller the fixed demo identity, so do not deploy it unchanged. As a backstop it answers 503 whenever `NODE_ENV` is `production`, so a deployed copy mints nothing until it is rewritten. Real hosts must derive stable `tenant.id` and tenant-local `user.id` values from their authenticated application session, never trust a browser-supplied identity, and avoid secrets because JWT payloads are signed but not encrypted.
 
 ## Automated checks
 
