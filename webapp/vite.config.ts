@@ -56,6 +56,21 @@ const viteConfig = defineConfig(({ mode }) => {
           for (const asset of legalAssets) this.emitFile({ type: "asset", ...asset })
         },
       },
+      {
+        name: "react-dom-deno-server",
+        apply: "build",
+        enforce: "pre",
+        // React maps Deno to its browser server build, whose referenced MessageChannel prevents
+        // process shutdown after the first request. Use the full Node server API in the SSR bundle.
+        // https://github.com/denoland/deno/issues/28919
+        resolveId(source, importer, options) {
+          if (!options.ssr || source !== "react-dom/server") return null
+          return this.resolve("react-dom/server.node", importer, {
+            ...options,
+            skipSelf: true,
+          })
+        },
+      },
       devtools(),
       ...(mode === "test" ? [] : nitro()),
       tailwindcss(),

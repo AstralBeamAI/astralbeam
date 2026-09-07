@@ -82,6 +82,7 @@ async function stopBinaryCheckProcess(
   if (stopped) return
   signalBinaryCheckProcess(binaryProcess, "SIGKILL")
   await status
+  throw new Error("Binary did not exit within 5 seconds of SIGTERM")
 }
 
 async function runBinaryCheck() {
@@ -131,12 +132,15 @@ async function runBinaryCheck() {
     if (!(await stylesheetResponse.text())) {
       throw new Error("Binary served an empty stylesheet")
     }
-
-    console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
   } finally {
-    await stopBinaryCheckProcess(binaryProcess, status)
-    await rm(temporaryDirectory, { recursive: true })
+    try {
+      await stopBinaryCheckProcess(binaryProcess, status)
+    } finally {
+      await rm(temporaryDirectory, { recursive: true })
+    }
   }
+
+  console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
 }
 
 await runBinaryCheck()
