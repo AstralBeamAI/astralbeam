@@ -1,5 +1,5 @@
 // Resolved sRGB values for the AstralBeam brand theme (docs/brand.md, pre-Deno-migration
-// apps/webapp/src/brand/theme.json), computed once via webapp/src/theme/theme.ts's color
+// apps/webapp/src/brand/theme.json), computed once via webapp/scripts/theme/theme.ts's color
 // engine. www only needs static hex values for meta tags and generated images, so the
 // resolution engine itself is not duplicated here.
 export const palette = {

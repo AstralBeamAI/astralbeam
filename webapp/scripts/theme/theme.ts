@@ -23,15 +23,13 @@ import { parseListOfComponentValues } from "@csstools/css-parser-algorithms"
 import { tokenize } from "@csstools/css-tokenizer"
 import { Schema, SchemaIssue } from "effect"
 
-import themeAuthoringSchema from "./theme.schema.json" with { type: "json" }
+import themeAuthoringSchema from "../../src/theme/theme.schema.json" with { type: "json" }
 
 export type ThemeToken = keyof typeof themeAuthoringSchema.$defs.lightColors.properties
 export const themeTokenNames: readonly ThemeToken[] = Object.freeze(
   Object.keys(themeAuthoringSchema.$defs.lightColors.properties).filter(isThemeTokenName),
 )
 export type ThemeMode = "light" | "dark"
-type ThemeCssVariableName = "--radius" | `--${ThemeToken}`
-export type ThemeCssVariables = Readonly<Record<ThemeCssVariableName, string>>
 export const defaultThemeRadius = themeAuthoringSchema.$defs.geometry.properties.radius.default
 export const themeDefinitionSchemaUrl = themeAuthoringSchema.$id
 const maximumThemeColorLength = findSchemaMaximumLength(
@@ -107,7 +105,7 @@ function findSchemaPattern(constraints: readonly object[], field: string): RegEx
   throw new Error(`Theme JSON Schema is missing the ${field} pattern`)
 }
 
-export interface ResolvedThemeColor {
+interface ResolvedThemeColor {
   readonly css: string
   readonly srgb: readonly [number, number, number]
   readonly srgbHex: `#${string}`
@@ -254,7 +252,7 @@ type ThemeDefinitionSchema = ReturnType<
 export const themeDocumentSchema: ThemeDocumentSchema = Schema.toStandardSchemaV1(
   themeDocumentEffectSchema,
 )
-export const themeDefinitionSchema: ThemeDefinitionSchema = Schema.toStandardSchemaV1(
+const themeDefinitionSchema: ThemeDefinitionSchema = Schema.toStandardSchemaV1(
   themeDefinitionEffectSchema,
 )
 
@@ -306,7 +304,7 @@ export function compileThemeCss(input: unknown): ThemeCssCompilationResult {
   }
 }
 
-export function resolveThemeColor(
+function resolveThemeColor(
   document: ThemeDocument,
   mode: ThemeMode,
   token: ThemeToken,
@@ -379,17 +377,6 @@ function serializeThemeCss(document: ThemeDocument): string {
     "}",
     "",
   ].join("\n")
-}
-
-export function themeCssVariables(document: ThemeDocument, mode: ThemeMode): ThemeCssVariables {
-  const colors = document.colors[mode]
-  const variables: Partial<Record<ThemeCssVariableName, string>> = {
-    "--radius": document.geometry.radius,
-  }
-
-  for (const token of themeTokenNames) variables[`--${token}`] = colors[token]
-
-  return completeThemeCssVariables(variables)
 }
 
 const colorPrecision = 6
@@ -1192,24 +1179,6 @@ function clamp(value: number, minimum: number, maximum: number): number {
 
 function generateColorDeclarations(colors: ThemeColorMap): string {
   return themeTokenNames.map((token) => `  --${token}: ${colors[token]};`).join("\n")
-}
-
-function completeThemeCssVariables(
-  variables: Partial<Record<ThemeCssVariableName, string>>,
-): ThemeCssVariables {
-  if (!hasEveryThemeCssVariable(variables)) {
-    throw new Error("Unable to map every theme CSS variable")
-  }
-  return Object.freeze(variables)
-}
-
-function hasEveryThemeCssVariable(
-  variables: Partial<Record<ThemeCssVariableName, string>>,
-): variables is Record<ThemeCssVariableName, string> {
-  return (
-    Object.hasOwn(variables, "--radius") &&
-    themeTokenNames.every((token) => Object.hasOwn(variables, `--${token}`))
-  )
 }
 
 function normalizeValidationPathSegment(segment: unknown): string | number {

@@ -14,7 +14,7 @@ The application owns its complete product stack, dependency lockfile, and projec
 - `src/lib` — application utilities and server-only Better Auth configuration
 - `src/routes` — public auth routes and protected application layouts
 - `src/styles.css` — Tailwind, fonts, semantic theme mappings, and generated brand variables
-- `src/theme` — pure theme compiler, concrete brand definition, schema, and tests
+- `src/theme` — concrete brand definition and the theme authoring JSON Schema
 
 ## Authentication
 
@@ -30,11 +30,12 @@ Run `deno task dev`, then open http://localhost:4500/dev. Email previews at http
 
 ## Theme
 
-The root route links the checked-in `src/styles.css` stylesheet. Its marked generated section supplies the light and dark semantic tokens, while the app theme controller applies system, light, or dark mode and persists the user's selection locally.
+The root route links the checked-in `src/styles.css` stylesheet. Its marked generated section supplies the light and dark semantic tokens, while the app theme controller applies system, light, or dark mode and persists the user's selection locally. `src/theme/brand.json` is the source of truth for those tokens; the design-time compiler in `scripts/theme` expands it and rewrites the generated section, and it also prints the static sRGB values `src/emails/email-theme.ts` inlines.
 
-Generate checked-in logo output from this directory:
+Generate the checked-in theme section and logo output from this directory:
 
 ```sh
+deno task generate:theme
 deno task generate:png
 ```
 

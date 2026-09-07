@@ -1,23 +1,21 @@
 // Adapted with: deno task ui add @emailcn/react-email/theme-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/themes/email-theme.ts
-// Local changes: Resolve the app's light brand palette to static sRGB email tokens, use system fonts, and expose matching class names only.
+// Local changes: Inline the app's light brand palette as static sRGB email tokens, use system fonts, and expose matching class names only.
 
 import { pixelBasedPreset, type TailwindConfig } from "react-email"
 
-import { palette, theme } from "../theme/brand.ts"
-
-const EMAIL_ROOT_FONT_SIZE_PX = 16
-
+// Email clients need static sRGB, so these are the light `src/theme/brand.json` roles resolved to
+// hex and `--radius` in pixels. Refresh them from what `deno task generate:theme` prints.
 const emailTheme = {
   colors: {
-    background: palette.light.background.srgbHex,
-    border: palette.light.border.srgbHex,
-    card: palette.light.card.srgbHex,
-    foreground: palette.light.foreground.srgbHex,
-    muted: palette.light.muted.srgbHex,
-    mutedForeground: palette.light.mutedForeground.srgbHex,
-    primary: palette.light.primary.srgbHex,
-    primaryForeground: palette.light.primaryForeground.srgbHex,
+    background: "#f7fcfb",
+    border: "#dee5e4",
+    card: "#ffffff",
+    foreground: "#07191d",
+    muted: "#ecf2f1",
+    mutedForeground: "#637171",
+    primary: "#0c7a69",
+    primaryForeground: "#f7fcfb",
   },
   containerWidth: "600px",
   fontFamily: [
@@ -27,7 +25,7 @@ const emailTheme = {
     "Arial",
     "sans-serif",
   ],
-  radius: resolveEmailRadius(theme.geometry.radius),
+  radius: "7px",
 } as const
 
 export const emailTailwindConfig = {
@@ -56,16 +54,3 @@ export const emailTailwindConfig = {
     },
   },
 } satisfies TailwindConfig
-
-function resolveEmailRadius(radius: string): string {
-  if (radius === "0") return "0px"
-
-  const match = /^(\d+(?:\.\d+)?)(px|rem|em|%)$/.exec(radius)
-  if (!match) {
-    throw new Error(`Email theme radius must use px, rem, em, or %; received '${radius}'`)
-  }
-  if (match[2] === "%") return radius
-  const value = Number(match[1])
-  const pixels = match[2] === "px" ? value : value * EMAIL_ROOT_FONT_SIZE_PX
-  return `${Math.round(pixels)}px`
-}
