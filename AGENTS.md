@@ -45,9 +45,10 @@
 
 ## Theme and brand
 
-- Keep the pure semantic theme compiler in `webapp/src/theme/theme.ts`; it must not perform filesystem, HTTP, DOM, environment, or mutable global-state work.
-- Treat `webapp/src/theme/brand.json` as the concrete theme source of truth and keep the marked theme section in `webapp/src/styles.css` synchronized through explicit edits.
-- Keep `webapp/src/theme/theme.schema.json`, the runtime contract, and the independently published `www/src/brand/theme.schema.json` snapshot synchronized through explicit edits; neither project may import the other.
+- Keep the semantic theme compiler design-time under `webapp/scripts/theme`; it must stay a pure function of its input, without filesystem, HTTP, DOM, environment, or mutable global-state work, and nothing under `webapp/src` may import it.
+- Treat `webapp/src/theme/brand.json` as the concrete theme source of truth and regenerate the marked theme section of `webapp/src/styles.css` from `webapp` with `deno task generate:theme` after changing it.
+- Email clients cannot read the stylesheet's OKLCH tokens, so `webapp/src/emails/email-theme.ts` inlines static sRGB values; refresh them from the palette `deno task generate:theme` prints.
+- Keep `webapp/src/theme/theme.schema.json`, the compiler's schemas, and the independently published `www/src/brand/theme.schema.json` snapshot synchronized through explicit edits; neither project may import the other.
 - Keep SVG logo masters and their generated PNG variants under `webapp/public` and regenerate the PNGs from `webapp` with `deno task generate:png` after SVG changes.
 
 ## Database
