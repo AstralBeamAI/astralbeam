@@ -122,6 +122,9 @@ async function runBinaryCheck() {
 
   try {
     const statusResponse = await fetchBinaryCheckResponse(new URL("/api/status", baseUrl))
+    if (statusResponse.headers.get("x-content-type-options") !== "nosniff") {
+      throw new Error("Binary did not send the application-wide response headers")
+    }
     const status = await statusResponse.json() as { status?: unknown }
     if (status.status !== "ok") {
       throw new Error("Binary status endpoint did not report ok")

@@ -26,6 +26,8 @@ import { CopyValueButton } from "./copy-value-button"
 export function ConfigValueInput({
   field,
   draft,
+  revealedValue,
+  onReveal,
   onDraftChange,
   footer,
   onGenerate,
@@ -33,16 +35,35 @@ export function ConfigValueInput({
 }: {
   field: ConfigureField
   draft: FieldDraft
+  /** Secret already fetched by `onReveal`; plain fields carry their value on `field`. */
+  revealedValue?: string | undefined
+  onReveal?: (() => Promise<boolean>) | undefined
   onDraftChange: (draft: FieldDraft) => void
   footer?: ReactNode
   onGenerate?: (() => void) | undefined
   disabled: boolean
 }) {
   const [visible, setVisible] = useState(false)
+  const [revealing, setRevealing] = useState(false)
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
-  const value = draft.kind === "set" ? draft.value : field.value ?? ""
+  const value = draft.kind === "set" ? draft.value : revealedValue ?? field.value ?? ""
   const readOnly = field.source === "environment"
   const valueVisible = field.kind !== "secret" || visible
+
+  // A stored secret is not in the page, so showing it has to fetch it first. A draft the operator
+  // just typed is already here, which keeps blind replacement free of a server round trip.
+  const revealValue = async () => {
+    if (draft.kind === "set" || revealedValue !== undefined || !onReveal) {
+      setVisible(true)
+      return
+    }
+    setRevealing(true)
+    try {
+      if (await onReveal()) setVisible(true)
+    } finally {
+      setRevealing(false)
+    }
+  }
   const storageMessage = field.storageStatus === "fallback-key"
     ? "Encrypted with a fallback key; replace and save it to use the active key."
     : field.storageStatus === "unreadable"
@@ -68,8 +89,11 @@ export function ConfigValueInput({
               size="icon-xs"
               aria-label={`${visible ? "Hide" : "Show"} ${field.label}`}
               title={`${visible ? "Hide" : "Show"} ${field.label}`}
-              disabled={disabled || !value}
-              onClick={() => setVisible((current) => !current)}
+              disabled={disabled || revealing || (!value && !field.isSet)}
+              onClick={() => {
+                if (visible) setVisible(false)
+                else void revealValue()
+              }}
             >
               {visible ? <EyeSlashIcon aria-hidden="true" /> : <EyeIcon aria-hidden="true" />}
             </InputGroupButton>

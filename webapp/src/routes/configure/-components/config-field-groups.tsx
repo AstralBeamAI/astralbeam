@@ -15,10 +15,12 @@ import { ConfigFieldInput } from "./config-field-input"
 export function ConfigFieldGroups({
   fields,
   drafts,
+  revealedValues,
   fieldErrors,
   disabled,
   onDraftChange,
   onGenerate,
+  onReveal,
   onTestEmailProvider,
   emailProvider,
   canTestEmailProvider,
@@ -27,10 +29,12 @@ export function ConfigFieldGroups({
 }: {
   fields: ConfigureField[]
   drafts: Record<string, FieldDraft>
+  revealedValues: Record<string, string>
   fieldErrors: Record<string, string>
   disabled: boolean
   onDraftChange: (key: string, draft: FieldDraft) => void
   onGenerate: (key: ConfigKey) => void
+  onReveal: (key: ConfigKey) => Promise<boolean>
   onTestEmailProvider: () => void
   emailProvider: EmailProvider
   canTestEmailProvider: boolean
@@ -58,10 +62,12 @@ export function ConfigFieldGroups({
               key={field.key}
               field={field}
               draft={drafts[field.key] ?? { kind: "unchanged" }}
+              revealedValue={revealedValues[field.key]}
               error={fieldErrors[field.key]}
               disabled={disabled}
               onDraftChange={(draft) => onDraftChange(field.key, draft)}
               onGenerate={field.canGenerate ? () => onGenerate(field.key) : undefined}
+              onReveal={field.kind === "secret" ? () => onReveal(field.key) : undefined}
               footer={field.source === "database" && field.key === "app_base_url"
                 ? (
                   <Button

@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 /**
- * Liveness probe. `scripts/check-binary.ts` reads it to decide the compiled binary has booted, so
- * it must stay reachable without a session. It is unauthenticated, which is why it answers with
- * one constant body: nothing here reads the request, logs it, or parses a body.
+ * Liveness probe `scripts/check-binary.ts` reads, so it stays reachable without a session; being
+ * unauthenticated is why it answers one constant body and never reads, logs, or parses a request.
  */
 export const Route = createFileRoute("/api/status")({
   server: {

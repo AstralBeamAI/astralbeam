@@ -48,6 +48,7 @@ import {
   withOrganizationApiKeySlug,
 } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
+import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
 
 // Better Auth 1.7.2 keeps these defaults inline rather than exporting them. Pass each value to
 // both its auth option and email callback so the real expiry and rendered copy stay in sync.
@@ -285,6 +286,11 @@ function buildAuth(config: AuthConfig) {
         // Let PostgreSQL apply the schema's UUIDv7 defaults. https://better-auth.com/docs/concepts/database#id-generation
         generateId: false,
         joins: true,
+      },
+      // Makes Better Auth walk a forwarded chain to the first hop it does not own instead of
+      // trusting only single-value headers; `/api/auth/$` verifies the sender. https://better-auth.com/docs/concepts/rate-limit
+      ipAddress: {
+        trustedProxies: [...LOOPBACK_PROXY_ADDRESSES],
       },
     },
     hooks: {

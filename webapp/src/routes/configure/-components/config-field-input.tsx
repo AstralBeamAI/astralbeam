@@ -27,17 +27,21 @@ function enumItems(
 export function ConfigFieldInput({
   field,
   draft,
+  revealedValue,
   error,
   onDraftChange,
   onGenerate,
+  onReveal,
   footer,
   disabled,
 }: {
   field: ConfigureField
   draft: FieldDraft
+  revealedValue?: string | undefined
   error: string | undefined
   onDraftChange: (draft: FieldDraft) => void
   onGenerate?: (() => void) | undefined
+  onReveal?: (() => Promise<boolean>) | undefined
   /** Rendered under a plain text or URL input, for actions only the editor knows how to offer. */
   footer?: ReactNode
   disabled: boolean
@@ -84,8 +88,10 @@ export function ConfigFieldInput({
           <ConfigValueInput
             field={field}
             draft={draft}
+            revealedValue={revealedValue}
             onDraftChange={onDraftChange}
             onGenerate={onGenerate}
+            onReveal={onReveal}
             footer={footer}
             disabled={disabled}
           />

@@ -1,10 +1,13 @@
 import {
   getRequest,
+  getRequestIP,
   getRequestUrl,
   setResponseHeader,
   setResponseStatus,
 } from "@tanstack/react-start/server"
 import { redirect } from "@tanstack/react-router"
+
+import { isLoopbackProxyAddress } from "@/lib/utils.server"
 
 export function isSameOriginConfigureRequest(request: Request, requestUrl: URL): boolean {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) return true
@@ -20,13 +23,17 @@ export function isSameOriginConfigureRequest(request: Request, requestUrl: URL):
 export function requireConfigureRequest(): void {
   setResponseHeader("Cache-Control", "no-store")
   setResponseHeader("Pragma", "no-cache")
-  setResponseHeader("X-Frame-Options", "DENY")
-  setResponseHeader("X-Content-Type-Options", "nosniff")
+  // Stricter than the application-wide default, so it stays here.
   setResponseHeader("Referrer-Policy", "no-referrer")
-  setResponseHeader("Content-Security-Policy", "frame-ancestors 'none'")
 
   const request = getRequest()
-  const requestUrl = getRequestUrl({ xForwardedHost: true, xForwardedProto: true })
+  // The forwarded host and protocol are only the ingress's when the connection came from it;
+  // otherwise a direct caller could satisfy the HTTPS requirement below with a header of its own.
+  const forwardedByIngress = isLoopbackProxyAddress(getRequestIP())
+  const requestUrl = getRequestUrl({
+    xForwardedHost: forwardedByIngress,
+    xForwardedProto: forwardedByIngress,
+  })
   if (import.meta.env.PROD && requestUrl.protocol !== "https:") {
     if (["GET", "HEAD"].includes(request.method.toUpperCase())) {
       const httpsUrl = new URL(requestUrl)
@@ -35,9 +42,6 @@ export function requireConfigureRequest(): void {
     }
     setResponseStatus(400)
     throw new Error("HTTPS is required")
-  }
-  if (import.meta.env.PROD) {
-    setResponseHeader("Strict-Transport-Security", "max-age=31536000")
   }
   if (!isSameOriginConfigureRequest(request, requestUrl)) {
     setResponseStatus(403)
