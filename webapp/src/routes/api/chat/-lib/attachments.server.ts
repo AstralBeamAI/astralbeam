@@ -7,6 +7,7 @@ import {
   CHAT_ATTACHMENT_IMAGE_MIME_TYPES,
   CHAT_ATTACHMENT_MAGIC_BYTES,
   CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
+  CHAT_ATTACHMENT_MAX_COUNT,
   CHAT_ATTACHMENT_MAX_FILENAME_LENGTH,
   CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS,
   CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
@@ -256,10 +257,15 @@ export function normalizeChatAttachments(
   const handles = new Set<string>()
   let totalBytes = 0
 
-  /** One media entry: the provider part it becomes, a refusal, or an attached file. */
+  /**
+   * One media entry: the provider part it becomes, a refusal, or an attached file. `position` is
+   * the entry's 1-based place among its own message's media entries, which is what the count cap
+   * is about.
+   */
   const convert = (
     entry: MediaEntry,
     shape: ContentShape,
+    position: number,
   ): { entry: unknown } | { file: ChatAttachmentFile } => {
     const metadata = typeof entry.metadata === "object" && entry.metadata !== null
       ? entry.metadata as { filename?: unknown }
@@ -296,6 +302,11 @@ export function normalizeChatAttachments(
       return refuse(
         "this assistant reads images, PDFs, text and source files, CSV and TSV data, Word, " +
           "Excel, and PowerPoint files.",
+      )
+    }
+    if (position > CHAT_ATTACHMENT_MAX_COUNT) {
+      return refuse(
+        `the message went over the limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments.`,
       )
     }
     const size = base64ByteLength(entry.source.value)
@@ -361,12 +372,14 @@ export function normalizeChatAttachments(
     const attached: string[] = []
     // Where the announcement goes, so it keeps the position of the first file it replaces.
     let slot = -1
+    let position = 0
     for (const entry of entries) {
       if (!isMediaEntry(entry)) {
         next.push(entry)
         continue
       }
-      const result = convert(entry, shape)
+      position += 1
+      const result = convert(entry, shape, position)
       if (!("file" in result)) {
         next.push(result.entry)
         continue

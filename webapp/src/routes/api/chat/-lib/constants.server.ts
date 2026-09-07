@@ -49,6 +49,9 @@ export const CHAT_ATTACHMENT_MAX_BYTES_BY_KIND = {
   office: 10 * 1024 * 1024,
 } as const
 export const CHAT_ATTACHMENT_MAX_TOTAL_BYTES = 20 * 1024 * 1024
+// Peer of the SDK composer's `MAX_ATTACHMENTS_PER_MESSAGE` in `sdk/src/widget/lib/constants.ts`,
+// which holds a message to the same count before it is sent; keep the two numbers equal.
+export const CHAT_ATTACHMENT_MAX_COUNT = 5
 
 // Ceiling for the whole run input, checked before the body is read: base64 inflates the 20 MB of
 // attachments to about 27 MB, and the rest is the transcript and the declared tools.
