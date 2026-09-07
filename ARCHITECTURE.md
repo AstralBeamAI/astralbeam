@@ -136,7 +136,7 @@ DATABASE_ENCRYPTION_KEY ──┤ comma-separated; the first entry encrypts, the
 - The uncompiled server runs under the named `runtime` permission set: `env`, `net`, `read`, and five `sys` entries, with no `write`, `run`, or `ffi`. Scripts that need more use the separate `tooling` set.
 - `sdk` builds with tsdown in two passes that treat React oppositely. The client entry bundles React into its lazy widget chunk, so a host page needs none of its own; the `core`, `react`, `server`, and `vue` entries never bundle it, so the React wrapper binds to the host's copy. Publishing is `deno task build` then `npm publish`, and only `dist`, `README.md`, `LICENSE`, and `package.json` ship.
 - `www` is a static Astro build deployed with wrangler as assets only; its `wrangler.json` has no `main`, so there is no server script to run.
-- CI is one workflow on every branch: install, start Compose, auto-fix, `ready` per project, then the webapp binary check. There is no deploy or publish workflow — the `www` deploy and the npm publish are manual.
+- CI is one workflow, on pull requests and pushes to `main`, with no write token and no auto-fixing. A `check` job runs `deno install --frozen` and `deno task ready` per project as a four-way matrix, so each reports its own result; the webapp leg also runs `binary:check`, and the todos leg builds the SDK first because it consumes `sdk/dist`. A separate `e2e` job starts Compose, migrates and seeds the database, builds the SDK, and runs the deterministic Playwright project — the one that never calls a model. There is no deploy or publish workflow — the `www` deploy and the npm publish are manual.
 
 ## Glossary
 
