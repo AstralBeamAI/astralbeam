@@ -122,8 +122,9 @@ async function runBinaryCheck() {
 
   try {
     const statusResponse = await fetchBinaryCheckResponse(new URL("/api/status", baseUrl))
-    if (await statusResponse.text() !== "OK") {
-      throw new Error("Binary status endpoint did not return OK")
+    const status = await statusResponse.json() as { status?: unknown }
+    if (status.status !== "ok") {
+      throw new Error("Binary status endpoint did not report ok")
     }
 
     const stylesheetResponse = await fetchBinaryCheckResponse(
