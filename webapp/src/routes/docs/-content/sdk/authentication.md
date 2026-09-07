@@ -1,10 +1,12 @@
 # Authentication
 
-The widget will not chat until it has a token, and it never sees your API key. Your app adds one endpoint that authenticates its own session, then mints a short-lived token from trusted server-side state.
+The widget will not chat until it has an AstralBeam auth token, and it never sees your API key. Your app adds one endpoint that authenticates its own session, then mints a short-lived AstralBeam auth token from trusted server-side state.
 
-## The token endpoint
+Throughout these guides, "AstralBeam auth token" always means this credential — the short-lived JWT your server signs for AstralBeam. It is never your application's own session cookie or access token, which stays yours and never reaches AstralBeam.
 
-`/api/astralbeam/token` by default; point the widget elsewhere with `generateAuthToken`. `createAstralBeamAuthToken` is the only server helper: your handler authenticates its own session, mints the token, and answers `{ token }`.
+## The auth token endpoint
+
+`/api/astralbeam/token` by default; point the widget elsewhere with `generateAuthToken`. `createAstralBeamAuthToken` is the only server helper: your handler authenticates its own session, mints the AstralBeam auth token, and answers `{ token }`.
 
 ```ts
 import { createAstralBeamAuthToken } from "@astralbeam/sdk/server"
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
 - Catch the minting error rather than forwarding it, because its message can describe the API key's expected shape.
 - Only your handler shape changes per framework; the minting call is identical everywhere the fetch standard reaches.
 
-## Where the token comes from
+## Where the AstralBeam auth token comes from
 
 `generateAuthToken` is the one option for this. Pass `{ url, ...init }` to point at an endpoint, which the widget calls as `fetch(url, init)` with a standard `RequestInit`, or pass a function to mint the token in the page yourself.
 
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
 />
 
 // Or mint it yourself: return { token }, or undefined when you cannot.
-<AstralBeamChat generateAuthToken={async () => await mintChatToken()} />
+<AstralBeamChat generateAuthToken={async () => await mintAstralBeamAuthToken()} />
 ```
 
 - Default `{ url: "/api/astralbeam/token" }`, posted with the page's cookies, which needs a session cookie the browser will send.
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
 
 ## Rules
 
-The token identifies the tenant user to AstralBeam, so treat it like a session credential.
+The AstralBeam auth token identifies the tenant user to AstralBeam, so treat it like a session credential.
 
 - Authenticate your own session before minting; anyone who can call this endpoint can drive the chat.
 - Authenticate once, then derive `user` and `tenant` separately from that same application session.
@@ -77,7 +79,7 @@ The token identifies the tenant user to AstralBeam, so treat it like a session c
 - SDK fields use camelCase; AstralBeam-owned JWT claims use snake_case, while `metadata` keys are preserved verbatim.
 - The JWT issuer is the organization slug from the API key and its audience is `astralbeam`. AstralBeam does not require or interpret `sub`.
 - Lifetimes are 60–600 seconds (`expiresInSeconds`), five minutes by default.
-- The SDK keeps the token in memory only and renews it before it expires.
+- The SDK keeps the AstralBeam auth token in memory only and renews it before it expires.
 
 ## Troubleshooting
 

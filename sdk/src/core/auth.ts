@@ -29,7 +29,7 @@ export interface ChatAuthenticationOptions {
   debug: DebugLogger | undefined
 }
 
-interface GetValidChatTokenOptions extends ChatAuthenticationOptions {
+interface GetValidAuthTokenOptions extends ChatAuthenticationOptions {
   force?: boolean
 }
 
@@ -62,7 +62,7 @@ function bearerToken(headers: Headers): string | undefined {
   return authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined
 }
 
-async function requestChatToken(
+async function requestAuthToken(
   options: ChatAuthenticationOptions,
   signal: AbortSignal,
 ): Promise<unknown> {
@@ -90,14 +90,14 @@ async function requestChatToken(
   return (body as { token?: unknown } | null)?.token
 }
 
-async function fetchChatToken(options: ChatAuthenticationOptions): Promise<string> {
+async function fetchAuthToken(options: ChatAuthenticationOptions): Promise<string> {
   const { session, onStateChange, debug } = options
   const { signal } = session.abortController
   const source = typeof options.generateAuthToken === "function"
     ? "generateAuthToken"
     : "Authentication endpoint"
   try {
-    const token = await requestChatToken(options, signal)
+    const token = await requestAuthToken(options, signal)
     if (typeof token !== "string" || !token) {
       throw new Error(`${source} did not return a token`)
     }
@@ -119,7 +119,7 @@ async function fetchChatToken(options: ChatAuthenticationOptions): Promise<strin
   }
 }
 
-export async function getValidChatToken(options: GetValidChatTokenOptions): Promise<string> {
+export async function getValidAuthToken(options: GetValidAuthTokenOptions): Promise<string> {
   const { session, force = false, onStateChange } = options
   const now = Date.now()
   if (!force && session.cached && session.cached.expiresAt - now > REFRESH_SKEW_MS) {
@@ -127,7 +127,7 @@ export async function getValidChatToken(options: GetValidChatTokenOptions): Prom
   }
   if (session.refreshPromise) return await session.refreshPromise
   onStateChange({ status: "loading" })
-  const refresh = fetchChatToken(options)
+  const refresh = fetchAuthToken(options)
   session.refreshPromise = refresh
   try {
     return await refresh
@@ -142,7 +142,7 @@ export async function initializeChatAuthentication(
   if (options.session.abortController.signal.aborted) {
     options.session.abortController = new AbortController()
   }
-  await getValidChatToken(options)
+  await getValidAuthToken(options)
 }
 
 export function disposeChatAuthentication(
@@ -161,8 +161,8 @@ export async function fetchAuthenticatedChat(
   const usedToken = bearerToken(new Headers(init?.headers))
   const rejectedCurrentToken = !usedToken || session.cached?.value === usedToken
   if (rejectedCurrentToken) session.cached = undefined
-  debug?.("auth", "chat token was rejected; refreshing once")
-  const token = await getValidChatToken({ ...options, force: rejectedCurrentToken })
+  debug?.("auth", "auth token was rejected; refreshing once")
+  const token = await getValidAuthToken({ ...options, force: rejectedCurrentToken })
   const headers = new Headers(init?.headers)
   headers.set("authorization", `Bearer ${token}`)
   await response.body?.cancel()

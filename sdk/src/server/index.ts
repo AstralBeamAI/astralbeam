@@ -2,12 +2,12 @@ import { base64url, SignJWT } from "jose"
 import * as Schema from "effect/Schema"
 
 export const ASTRALBEAM_TOKEN_AUDIENCE = "astralbeam"
-export const ASTRALBEAM_CHAT_TOKEN_TYPE = "astralbeam+jwt"
-export const ASTRALBEAM_CHAT_TOKEN_VERSION = 4
-export const ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS = 300
-export const ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS = 600
+export const ASTRALBEAM_AUTH_TOKEN_TYPE = "astralbeam+jwt"
+export const ASTRALBEAM_AUTH_TOKEN_VERSION = 4
+export const ASTRALBEAM_AUTH_TOKEN_LIFETIME_SECONDS = 300
+export const ASTRALBEAM_AUTH_TOKEN_MAX_LIFETIME_SECONDS = 600
 
-const CHAT_TOKEN_MAX_BYTES = 16_384
+const AUTH_TOKEN_MAX_BYTES = 16_384
 const IDENTITY_MAX_BYTES = 8_192
 const textEncoder = new TextEncoder()
 
@@ -121,30 +121,30 @@ export async function createAstralBeamAuthToken<
   apiKey,
   user,
   tenant,
-  expiresInSeconds = ASTRALBEAM_CHAT_TOKEN_LIFETIME_SECONDS,
+  expiresInSeconds = ASTRALBEAM_AUTH_TOKEN_LIFETIME_SECONDS,
 }: CreateAstralBeamAuthTokenOptions<TTenantUser, TTenant>): Promise<string> {
   if (
     !Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 ||
-    expiresInSeconds > ASTRALBEAM_CHAT_TOKEN_MAX_LIFETIME_SECONDS
+    expiresInSeconds > ASTRALBEAM_AUTH_TOKEN_MAX_LIFETIME_SECONDS
   ) {
-    throw new Error("AstralBeam chat tokens must live for 60-600 seconds")
+    throw new Error("AstralBeam auth tokens must live for 60-600 seconds")
   }
   const { keyId, organizationSlug, keySecret } = parseApiKey(apiKey)
   const identity = validatedIdentity(user, tenant)
   const now = Math.floor(Date.now() / 1_000)
   const token = await new SignJWT({
-    ver: ASTRALBEAM_CHAT_TOKEN_VERSION,
+    ver: ASTRALBEAM_AUTH_TOKEN_VERSION,
     user: identity.user,
     tenant: identity.tenant,
   })
-    .setProtectedHeader({ alg: "HS256", typ: ASTRALBEAM_CHAT_TOKEN_TYPE, kid: keyId })
+    .setProtectedHeader({ alg: "HS256", typ: ASTRALBEAM_AUTH_TOKEN_TYPE, kid: keyId })
     .setIssuer(organizationSlug)
     .setAudience(ASTRALBEAM_TOKEN_AUDIENCE)
     .setIssuedAt(now)
     .setExpirationTime(now + expiresInSeconds)
     .sign(await signingKey(keySecret))
-  if (textEncoder.encode(token).byteLength > CHAT_TOKEN_MAX_BYTES) {
-    throw new Error(`AstralBeam chat tokens must not exceed ${CHAT_TOKEN_MAX_BYTES} bytes`)
+  if (textEncoder.encode(token).byteLength > AUTH_TOKEN_MAX_BYTES) {
+    throw new Error(`AstralBeam auth tokens must not exceed ${AUTH_TOKEN_MAX_BYTES} bytes`)
   }
   return token
 }

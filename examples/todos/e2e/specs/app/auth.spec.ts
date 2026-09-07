@@ -1,5 +1,5 @@
 import { expect, test } from "../../fixtures.ts"
-import { mintSeedChatToken } from "../../tokens.ts"
+import { mintSeedAuthToken } from "../../tokens.ts"
 import { seedTarget, webappUrl } from "../../worktree.ts"
 
 /**
@@ -23,7 +23,7 @@ test("rejects a malformed bearer token", async ({ request }) => {
 test("rejects a token signed with a disabled API key", async ({ request }) => {
   // The signature verifies, because the digest is still stored; the key's `enabled` flag is what
   // must stop it. A regression here would keep revoked credentials working.
-  const token = await mintSeedChatToken(seedTarget.revokedApiKey)
+  const token = await mintSeedAuthToken(seedTarget.revokedApiKey)
   const response = await request.get(`${webappUrl}/api/chat/config`, {
     headers: { authorization: `Bearer ${token}` },
   })
@@ -31,7 +31,7 @@ test("rejects a token signed with a disabled API key", async ({ request }) => {
 })
 
 test("will not resolve another organization's agent", async ({ request }) => {
-  const token = await mintSeedChatToken(seedTarget.foreignApiKey)
+  const token = await mintSeedAuthToken(seedTarget.foreignApiKey)
   const response = await request.get(
     `${webappUrl}/api/chat/config?agentId=${seedTarget.agentId}`,
     { headers: { authorization: `Bearer ${token}` } },
@@ -44,7 +44,7 @@ test("resolves each organization's own default agent", async ({ request }) => {
   // Also proves the signatures minted here are genuinely valid, so the rejections above are
   // about the key's state rather than a token this suite got wrong.
   for (const apiKey of [seedTarget.apiKey, seedTarget.foreignApiKey]) {
-    const token = await mintSeedChatToken(apiKey)
+    const token = await mintSeedAuthToken(apiKey)
     const response = await request.get(`${webappUrl}/api/chat/config`, {
       headers: { authorization: `Bearer ${token}` },
     })

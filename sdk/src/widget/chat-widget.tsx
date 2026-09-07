@@ -36,7 +36,7 @@ import {
   type ChatAuthenticationState,
   disposeChatAuthentication,
   fetchAuthenticatedChat,
-  getValidChatToken,
+  getValidAuthToken,
   initializeChatAuthentication,
 } from "../core/auth.ts"
 import type { ChatController } from "./index.tsx"
@@ -113,7 +113,7 @@ export function ChatWidget(
     fetchServerSentEvents(
       () => chatApiUrls(optionsRef.current.apiUrl).chat,
       async () => ({
-        headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
+        headers: { authorization: `Bearer ${await getValidAuthToken(authentication)}` },
         fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
       }),
     )
@@ -162,7 +162,7 @@ export function ChatWidget(
     if (options.agentId) url.searchParams.set("agentId", options.agentId)
     void (async () => {
       try {
-        const token = await getValidChatToken(authentication)
+        const token = await getValidAuthToken(authentication)
         const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
         if (!response.ok) throw new Error(`The config request answered ${response.status}`)
         const body = await response.json() as { capabilities?: { attachments?: unknown } }
@@ -423,7 +423,7 @@ export function ChatWidget(
           authError={authError}
           onAuthRetry={authentication
             ? () =>
-              void getValidChatToken({ ...authentication, force: true }).catch(() => undefined)
+              void getValidAuthToken({ ...authentication, force: true }).catch(() => undefined)
             : undefined}
           attachments={attachments}
           attachmentLimits={attachmentLimits}

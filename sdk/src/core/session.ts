@@ -14,7 +14,7 @@ import {
   type ChatAuthenticationState,
   disposeChatAuthentication,
   fetchAuthenticatedChat,
-  getValidChatToken,
+  getValidAuthToken,
   initializeChatAuthentication,
 } from "./auth.ts"
 import { isSettledToolCall } from "./messages.ts"
@@ -128,7 +128,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     try {
       const url = new URL(chatApiUrls(live.apiUrl).config, globalThis.location?.href)
       if (live.agentId) url.searchParams.set("agentId", live.agentId)
-      const token = await getValidChatToken(authentication)
+      const token = await getValidAuthToken(authentication)
       const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
       if (!response.ok) throw new Error(`The config request answered ${response.status}`)
       const body = await response.json() as { capabilities?: { attachments?: unknown } }
@@ -174,7 +174,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     // A URL getter, because the client reads its connection once and a second client would cost
     // the transcript.
     connection: fetchServerSentEvents(() => chatApiUrls(live.apiUrl).chat, async () => ({
-      headers: { authorization: `Bearer ${await getValidChatToken(authentication)}` },
+      headers: { authorization: `Bearer ${await getValidAuthToken(authentication)}` },
       fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
     })),
     tools: agentTools(),

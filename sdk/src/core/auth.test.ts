@@ -4,7 +4,7 @@ import {
   type ChatAuthenticationOptions,
   type ChatAuthenticationState,
   fetchAuthenticatedChat,
-  getValidChatToken,
+  getValidAuthToken,
   initializeChatAuthentication,
 } from "./auth.ts"
 
@@ -37,7 +37,7 @@ test("chat authentication loads once and caches a token away from expiry", async
   } satisfies ChatAuthenticationOptions
 
   await initializeChatAuthentication(authentication)
-  expect(await getValidChatToken(authentication)).toBe(token)
+  expect(await getValidAuthToken(authentication)).toBe(token)
   expect(requests).toHaveLength(1)
   expect(requests[0]?.input).toBe("/auth")
   expect(requests[0]?.init?.method).toBe("POST")
@@ -65,8 +65,8 @@ test("chat authentication deduplicates concurrent refreshes", async () => {
     debug: undefined,
   } satisfies ChatAuthenticationOptions
 
-  const first = getValidChatToken(authentication)
-  const second = getValidChatToken(authentication)
+  const first = getValidAuthToken(authentication)
+  const second = getValidAuthToken(authentication)
   finish?.(Response.json({ token }))
   expect(await Promise.all([first, second])).toEqual([token, token])
   expect(requestCount).toBe(1)
@@ -90,7 +90,7 @@ test("chat authentication refreshes tokens near expiry", async () => {
   } satisfies ChatAuthenticationOptions
 
   await initializeChatAuthentication(authentication)
-  expect(await getValidChatToken(authentication)).toBe(tokens[1])
+  expect(await getValidAuthToken(authentication)).toBe(tokens[1])
   expect(requestCount).toBe(2)
 })
 
@@ -165,7 +165,7 @@ test("a stale rejected request reuses a token another request already refreshed"
     debug: undefined,
   } satisfies ChatAuthenticationOptions
   await initializeChatAuthentication(authentication)
-  await getValidChatToken({ ...authentication, force: true })
+  await getValidAuthToken({ ...authentication, force: true })
 
   const response = await fetchAuthenticatedChat({
     ...authentication,
@@ -252,7 +252,7 @@ test("a swapped token source is used for the next token, not the mounted one", a
   await initializeChatAuthentication(authentication)
   authentication.generateAuthToken = { url: "/other-auth" }
   // The first token sits inside the refresh skew, so the next read mints from the new source.
-  expect(await getValidChatToken(authentication)).toBe(tokens[1])
+  expect(await getValidAuthToken(authentication)).toBe(tokens[1])
   expect(requested).toEqual(["/auth", "/other-auth"])
 })
 
@@ -300,7 +300,7 @@ test("generateAuthToken mints tokens in the host page instead of at the token en
 
   await initializeChatAuthentication(authentication)
   // The first token sits inside the refresh skew, so the next read asks the host again.
-  expect(await getValidChatToken(authentication)).toBe(tokens[1])
+  expect(await getValidAuthToken(authentication)).toBe(tokens[1])
   expect(generated).toBe(2)
 })
 

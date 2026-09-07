@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 
-import { mintSeedChatToken, readJwtHeader } from "./tokens.ts"
+import { mintSeedAuthToken, readJwtHeader } from "./tokens.ts"
 import { seedTarget, todosUrl, webappUrl } from "./worktree.ts"
 
 /**
@@ -25,8 +25,8 @@ test("the todos token route mints a token for the seeded API key", async ({ requ
   ).toBe(`key_${seedTarget.organizationSlug}_todos`)
 })
 
-test("the webapp accepts a seeded chat token and resolves the seeded agent", async ({ request }) => {
-  const token = await mintSeedChatToken(seedTarget.apiKey)
+test("the webapp accepts a seeded auth token and resolves the seeded agent", async ({ request }) => {
+  const token = await mintSeedAuthToken(seedTarget.apiKey)
   const response = await request.get(
     `${webappUrl}/api/chat/config?agentId=${seedTarget.agentId}`,
     { headers: { authorization: `Bearer ${token}` } },

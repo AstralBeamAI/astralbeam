@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/astralbeam/token")({
           return tokenResponse({ token }, 200)
         } catch {
           // The thrown message can describe the API key's shape; never send it to a client.
-          return tokenResponse({ error: "The chat token could not be created" }, 500)
+          return tokenResponse({ error: "The auth token could not be created" }, 500)
         }
       },
     },

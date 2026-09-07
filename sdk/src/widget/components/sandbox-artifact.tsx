@@ -127,7 +127,7 @@ function ArtifactExpired({ label }: { label: string }) {
 /**
  * A `sandbox_publish_artifact` call in the transcript: an image renders inline with a download,
  * anything else is a download row. The ticket in the tool output is the whole authorization, so
- * this component never needs the chat token.
+ * this component never needs the auth token.
  */
 export function SandboxArtifactPart(
   { part, filesEndpoint }: { part: ToolCallPart; filesEndpoint: string },

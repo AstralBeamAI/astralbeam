@@ -1,4 +1,4 @@
-import { CHAT_MAX_REQUEST_BYTES, CHAT_TOKEN_AUDIENCE } from "./constants.server"
+import { AUTH_TOKEN_AUDIENCE, CHAT_MAX_REQUEST_BYTES } from "./constants.server"
 
 // The SDK chat widget embeds on host origins the webapp does not serve, so the endpoint must
 // answer cross-origin requests. Bearer auth uses no cookies, so "*" remains valid; the allowed
@@ -67,6 +67,6 @@ export async function readChatRequestJson(
 // A 401 must advertise the scheme it wants, or a client cannot tell "no token" from "wrong token".
 export function unauthorizedChatResponse(request: Request, message: string) {
   const response = errorResponse(request, 401, message)
-  response.headers.set("www-authenticate", `Bearer realm="${CHAT_TOKEN_AUDIENCE}"`)
+  response.headers.set("www-authenticate", `Bearer realm="${AUTH_TOKEN_AUDIENCE}"`)
   return response
 }

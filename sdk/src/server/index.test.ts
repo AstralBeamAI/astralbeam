@@ -4,8 +4,8 @@ import { jwtVerify } from "jose"
 import { expect, test } from "vitest"
 
 import {
-  ASTRALBEAM_CHAT_TOKEN_TYPE,
-  ASTRALBEAM_CHAT_TOKEN_VERSION,
+  ASTRALBEAM_AUTH_TOKEN_TYPE,
+  ASTRALBEAM_AUTH_TOKEN_VERSION,
   ASTRALBEAM_TOKEN_AUDIENCE,
   createAstralBeamAuthToken,
 } from "./index.ts"
@@ -42,14 +42,14 @@ test("createAstralBeamAuthToken mints the documented short-lived tenant identity
   )
 
   expect(protectedHeader).toMatchObject({
-    typ: ASTRALBEAM_CHAT_TOKEN_TYPE,
+    typ: ASTRALBEAM_AUTH_TOKEN_TYPE,
     kid: apiKeyId,
   })
   expect(payload.sub).toBeUndefined()
   expect(payload.iss).toBe("analytical-engines")
   expect(payload.aud).toBe(ASTRALBEAM_TOKEN_AUDIENCE)
   expect(payload.scope).toBeUndefined()
-  expect(payload.ver).toBe(ASTRALBEAM_CHAT_TOKEN_VERSION)
+  expect(payload.ver).toBe(ASTRALBEAM_AUTH_TOKEN_VERSION)
   expect(payload.user).toEqual(user)
   expect(payload.tenant).toEqual(tenant)
   expect(payload.tenantUser).toBeUndefined()
