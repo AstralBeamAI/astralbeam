@@ -36,7 +36,7 @@ Drop in the AstralBeam frontend SDK, and AstralBeam handles agentic chat, stream
 - [Hosted app](https://app.astralbeam.ai): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
 - [Documentation](https://app.astralbeam.ai/docs): Guides and reference for the SDK and the platform.
 - [Source code](https://github.com/astralbeamai/astralbeam): The open-source platform under AGPL-3.0.
-- [Discord](https://discord.gg/S7j384JvSa): Community chat with the AstralBeam team.
+- [Discord](https://discord.gg/suehFycUvW): Community chat with the AstralBeam team.
 
 ## Contact
 
