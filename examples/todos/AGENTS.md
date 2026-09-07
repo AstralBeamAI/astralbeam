@@ -10,7 +10,7 @@
 - Keep server-only code in `*.server.ts` files and never import server configuration into client-rendered modules.
 - Do not hardcode AstralBeam brand text outside `src/lib/config.ts` or `src/lib/config.server.ts`; import centralized labels and identifiers instead.
 - Keep only tests that protect durable behavior, security boundaries, or regressions; do not test constants or generated route structure.
-- Always write and run tests with Vitest through a Deno task; never use `Deno.test` or `deno test`.
+- Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`. Unit tests sit beside their source under `src`, and `vitest.config.ts` narrows the include glob so Vitest does not collect `e2e`'s Playwright specs.
 - Run `deno task ready` before publishing changes to this example.
 - Browser tests live in `e2e`, run with Playwright through `deno task e2e`, and are the one exception to the Vitest rule above; read `e2e/README.md` before changing them. Keep selectors in `e2e/pages`, identities in `webapp/scripts/seed/fixtures.ts`, and assertions on observable side effects rather than on an assistant's wording.
 - Keep deterministic specs in `e2e/specs/app` and specs that drive a real agent in `e2e/specs/agent`, because the latter spend model credits on every run.

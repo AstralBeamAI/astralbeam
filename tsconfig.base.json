@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Shared compiler options only: no `include`, `paths`, or `references`, so the four projects stay
+  // independent rather than becoming one project graph. https://www.typescriptlang.org/tsconfig/#extends
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "exactOptionalPropertyTypes": true,
+    "module": "Preserve",
+    "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "verbatimModuleSyntax": true
+  }
+}

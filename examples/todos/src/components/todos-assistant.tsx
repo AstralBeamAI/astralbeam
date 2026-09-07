@@ -26,10 +26,13 @@ export function TodosAssistant({
   tools,
   onToggleTodo,
 }: TodosAssistantProps) {
+  // `agentId` is an optional prop, so under `exactOptionalPropertyTypes` an unset agent has to be
+  // an absent prop rather than an explicit `undefined`.
+  const agentProps = CHAT_AGENT_ID === undefined ? {} : { agentId: CHAT_AGENT_ID }
   return (
     <aside className="chat-sidebar">
       <AstralBeamChat
-        agentId={CHAT_AGENT_ID}
+        {...agentProps}
         title={CHAT_TITLE}
         apiUrl={ASTRALBEAM_API_URL}
         tools={tools}

@@ -59,6 +59,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 ## Testing
 
 - Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
+- `tsconfig.json` includes the tests, so `deno task typecheck` covers them with the same options as `src`; keep them off `node:` builtins because this project deliberately has no `@types/node`.
 
 ## Documentation
 
