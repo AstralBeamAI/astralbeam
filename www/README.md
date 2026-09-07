@@ -8,8 +8,9 @@ Plain Astro + hand-rolled CSS + vanilla TypeScript, managed and run by Deno. No 
 - `deno task build` — static build to `dist/`
 - `deno task preview` — production preview on port 4001
 - `deno task check` — formatting, linting, type diagnostics, and Knip
-- `deno task test` — Astro diagnostics, production build, and generated-output verification
-- `deno task deploy` — diagnose, build, verify, and deploy the `www-astralbeam-ai` worker
+- `deno task test` — Vitest only; `scripts/verify-build.test.ts` reads `dist/`, so a build has to precede it
+- `deno task ready` — check, then build, then test, in that order for the reason above
+- `deno task deploy` — run `ready` and deploy the `www-astralbeam-ai` worker
 
 Structure:
 

@@ -1,6 +1,4 @@
-import { createHash } from "node:crypto"
-
-import { jwtVerify } from "jose"
+import { base64url, jwtVerify } from "jose"
 import { expect, test } from "vitest"
 
 import {
@@ -20,8 +18,9 @@ const tenant = {
   metadata: { plan: "enterprise" },
 }
 
-function signingKey(secret: string): Uint8Array {
-  return textEncoder.encode(createHash("sha256").update(secret).digest("base64url"))
+async function signingKey(secret: string): Promise<Uint8Array> {
+  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(secret))
+  return textEncoder.encode(base64url.encode(new Uint8Array(digest)))
 }
 
 test("createChatAuthToken mints the documented short-lived tenant identity", async () => {
@@ -33,7 +32,7 @@ test("createChatAuthToken mints the documented short-lived tenant identity", asy
   const token = await createChatAuthToken({ apiKey, user, tenant })
   const { payload, protectedHeader } = await jwtVerify(
     token,
-    signingKey(apiKeySecret),
+    await signingKey(apiKeySecret),
     {
       issuer: "analytical-engines",
       audience: CHAT_AUTH_TOKEN_AUDIENCE,
@@ -76,7 +75,7 @@ test("createChatAuthToken preserves opaque tenant user IDs exactly", async () =>
     user: { id },
     tenant: { id: " tenant-1 " },
   })
-  const { payload } = await jwtVerify(token, signingKey(apiKeySecret))
+  const { payload } = await jwtVerify(token, await signingKey(apiKeySecret))
 
   expect(payload.user).toEqual({ id })
   expect(payload.tenant).toEqual({ id: " tenant-1 " })
@@ -96,15 +95,18 @@ test("createChatAuthToken rejects out-of-range lifetimes and tenant user IDs", a
   })).rejects.toThrow(/60-600 seconds/)
 })
 
+// Both cases are values the prop type already rejects; the assertion is that the runtime schema
+// rejects them too, so `as never` is what lets the call be written at all.
 test.each([
   ["class instances", { id: "user-1", metadata: { value: new Date() } }],
   ["toJSON hooks", { id: "user-1", toJSON: () => ({ id: "other" }) }],
 ])("createChatAuthToken rejects user %s", async (_label, user) => {
-  await expect(createChatAuthToken({ apiKey, user, tenant })).rejects.toThrow()
+  await expect(createChatAuthToken({ apiKey, user: user as never, tenant })).rejects.toThrow()
 })
 
 test("createChatAuthToken accepts deeply nested metadata and rejects oversized identity data", async () => {
-  let deep: unknown = true
+  type NestedJson = boolean | { child: NestedJson }
+  let deep: NestedJson = true
   for (let level = 0; level < 50; level += 1) deep = { child: deep }
 
   await expect(createChatAuthToken({
@@ -158,7 +160,7 @@ test.each([true, false])(
       user: { id: "user-1", admin },
       tenant,
     })
-    const { payload } = await jwtVerify(token, signingKey(apiKeySecret))
+    const { payload } = await jwtVerify(token, await signingKey(apiKeySecret))
 
     expect(payload.user).toEqual({ id: "user-1", admin })
   },

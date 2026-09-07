@@ -1,27 +1,14 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "astro/tsconfigs/strict",
+  // The shared base comes last so its options win over Astro's preset. https://www.typescriptlang.org/tsconfig/#extends
+  "extends": ["astro/tsconfigs/strict", "../tsconfig.base.json"],
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist"],
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "exactOptionalPropertyTypes": true,
     "lib": ["ES2025", "DOM", "DOM.Iterable"],
-    "module": "Preserve",
-    "noEmit": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "paths": {
       "@/*": ["./src/*"]
     },
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "types": ["vite/client"],
-    "verbatimModuleSyntax": true
+    "types": ["vite/client"]
   }
 }
