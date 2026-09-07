@@ -13,6 +13,8 @@ interface ActiveWidgetRender {
   widget: string
   container: HTMLElement
   cleanup: (() => void) | undefined
+  /** Drops the session's copy of this render's cleanup, so a discarded render is collectible. */
+  release: () => void
 }
 
 /**
@@ -40,6 +42,9 @@ export function useWidgetRenders(
       if (!discard(render)) continue
       render.cleanup?.()
       render.container.remove()
+      // Released as well as disposed: the session holds the cleanup below, which captures this
+      // render, so an evicted one would keep its detached DOM alive until the next reset.
+      render.release()
       activeRenders.current.delete(toolCallId)
       dropped.push(slotNameForToolCall(toolCallId))
     }
@@ -70,7 +75,7 @@ export function useWidgetRenders(
   debugRef.current = debug
 
   const renderWidget = useCallback(
-    ({ widget, props, toolCallId }: WidgetRenderRequest) => {
+    ({ widget, props, toolCallId, release }: WidgetRenderRequest) => {
       const debug = debugRef.current
       debug?.("widget", `agent requested widget "${widget}"`, { toolCallId, props })
       const definition = getWidget(widgetsRef.current, widget)
@@ -82,8 +87,21 @@ export function useWidgetRenders(
       const container = document.createElement("div")
       container.slot = slotName
       host.append(container)
-      const cleanup = definition.render(props, container)
-      const active: ActiveWidgetRender = { widget, container, cleanup: cleanup ?? undefined }
+      // A render that throws part-way would otherwise leave its container in the host's DOM,
+      // with no entry below to dispose it.
+      let cleanup: (() => void) | void
+      try {
+        cleanup = definition.render(props, container)
+      } catch (error) {
+        container.remove()
+        throw error
+      }
+      const active: ActiveWidgetRender = {
+        widget,
+        container,
+        cleanup: cleanup ?? undefined,
+        release,
+      }
       activeRenders.current.set(toolCallId, active)
       // Insertion order makes the size predicate evict oldest-first; their transcript
       // entries collapse to a summary marker.

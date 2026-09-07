@@ -30,6 +30,11 @@ export interface WidgetRenderRequest {
   props: Record<string, unknown>
   /** Keys the render: a repeat of the same call replaces its own render, not another's. */
   toolCallId: string
+  /**
+   * Drops this session's copy of the render's cleanup, for a host that disposed the render itself;
+   * without it the cleanup — and the DOM it captures — is held until the next reset.
+   */
+  release: () => void
 }
 
 /**
@@ -209,8 +214,22 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     }
     renderCleanups.get(toolCallId)?.()
     renderCleanups.delete(toolCallId)
-    const cleanup = live.onRenderWidget?.({ widget: input.widget, props: validated, toolCallId })
-    if (cleanup) renderCleanups.set(toolCallId, cleanup)
+    // Compared by identity, so a late release cannot forget the cleanup of a newer render that
+    // has meanwhile taken over the same tool call.
+    let registered: (() => void) | undefined
+    const release = () => {
+      if (renderCleanups.get(toolCallId) === registered) renderCleanups.delete(toolCallId)
+    }
+    const cleanup = live.onRenderWidget?.({
+      widget: input.widget,
+      props: validated,
+      toolCallId,
+      release,
+    })
+    if (cleanup) {
+      registered = cleanup
+      renderCleanups.set(toolCallId, cleanup)
+    }
     return { widget: input.widget, rendered: live.onRenderWidget !== undefined }
   }
 

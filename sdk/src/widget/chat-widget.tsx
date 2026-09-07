@@ -24,7 +24,11 @@ import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
 import { createDebugCallbacks } from "./lib/stream-debug.ts"
-import { type AstralBeamChatCoreOptions, createAstralBeamChat } from "../core/session.ts"
+import {
+  type AstralBeamChatCore,
+  type AstralBeamChatCoreOptions,
+  createAstralBeamChat,
+} from "../core/session.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { cn } from "cn"
 import { hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
@@ -72,8 +76,11 @@ export function ChatWidget(
   const sessionOptionsRef = useRef(sessionOptions)
   sessionOptionsRef.current = sessionOptions
   // One session for the widget's lifetime, retuned in place, so an option update keeps the
-  // transcript, the connection, and the live widget renders.
-  const [chat] = useState(() => createAstralBeamChat(sessionOptionsRef.current))
+  // transcript, the connection, and the live widget renders. A lazy ref rather than a `useState`
+  // initializer, which Strict Mode invokes twice, leaving a second session minting tokens.
+  const chatRef = useRef<AstralBeamChatCore | null>(null)
+  chatRef.current ??= createAstralBeamChat(sessionOptionsRef.current)
+  const chat = chatRef.current
   // Re-applies the initial values harmlessly; afterwards, every option change retunes the session.
   useEffect(() => {
     chat.updateOptions(sessionOptions)

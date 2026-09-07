@@ -91,7 +91,11 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
  * state stay live and nothing needs a remount.
  */
 export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
-  const [core] = useState(() => createAstralBeamChat(options))
+  // Lazy ref rather than a `useState` initializer, which Strict Mode invokes twice in development:
+  // the discarded session would still be minting tokens. https://react.dev/reference/react/useRef
+  const coreRef = useRef<AstralBeamChatCore | null>(null)
+  coreRef.current ??= createAstralBeamChat(options)
+  const core = coreRef.current
   // Keyed off every core option, `streamCallbacks` included: the session reads them per event, so
   // a change that never reaches `updateOptions` would leave it calling the previous closures.
   useEffect(() => {
