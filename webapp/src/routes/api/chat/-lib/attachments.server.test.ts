@@ -6,6 +6,7 @@ import {
   normalizeChatAttachments,
   redactChatAttachmentData,
 } from "./attachments.server"
+import { CHAT_ATTACHMENT_MAX_COUNT } from "./constants.server"
 import type { ChatMessages } from "./types"
 
 const base64 = (text: string) => btoa(text)
@@ -155,6 +156,26 @@ test("refuses a binary file mislabeled as text and an oversized one", () => {
   expect(entries[0]?.text).toContain("not valid UTF-8 text")
   expect(entries[1]?.text).toContain("larger than the 1.0 MB limit")
   expect(attachments.every((attachment) => attachment.result === "rejected")).toBe(true)
+})
+
+// The SDK composer stops at MAX_ATTACHMENTS_PER_MESSAGE files, so a caller that sends more is not
+// the composer and gets the same number applied here.
+test("refuses attachments past the per-message count limit", () => {
+  const { attachments, files } = normalizeChatAttachments(
+    userMessage(
+      Array.from(
+        { length: CHAT_ATTACHMENT_MAX_COUNT + 2 },
+        (_, index) => documentEntry(`note-${index}.md`, "text/markdown", base64(`file ${index}`)),
+      ),
+    ),
+    withSandbox,
+  )
+  expect(files).toHaveLength(CHAT_ATTACHMENT_MAX_COUNT)
+  const rejected = attachments.filter((attachment) => attachment.result === "rejected")
+  expect(rejected).toHaveLength(2)
+  expect(rejected[0]?.reason).toContain(
+    `limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments`,
+  )
 })
 
 // A file with no text view is only useful to code, so without a sandbox there is nothing honest

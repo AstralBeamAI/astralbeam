@@ -4,6 +4,7 @@ import { expect, test } from "vitest"
 import { extractOfficeDocument, isOfficeMimeType } from "./attachment-office.server"
 import {
   CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES,
+  CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES,
   CHAT_ATTACHMENT_MAX_TABLE_COLUMNS,
 } from "./constants.server"
 
@@ -223,6 +224,23 @@ test("refuses an archive whose declared parts exceed the whole-archive budget", 
   // The archive itself is small; only its declared contents are not.
   expect(bytes.byteLength).toBeLessThan(CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES)
   expect(extractOfficeDocument(bytes, PPTX)).toEqual({
+    reason: "it declares more content than this assistant will unpack.",
+  })
+})
+
+// The entry count is declared by the archive too, and an entry no extractor wants is still an
+// entry the filter has to visit, so the count has to be bounded before `wanted` narrows it.
+test("refuses an archive that declares more entries than it will walk", () => {
+  const junk = Object.fromEntries(
+    Array.from(
+      { length: CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES + 1 },
+      (_, index) => [`junk/${index}.bin`, strToU8("x")],
+    ),
+  )
+  // Not one entry matches a Word part, so the selected-entry and declared-byte caps stay at zero.
+  const bytes = zipSync(junk)
+  expect(bytes.byteLength).toBeLessThan(CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES)
+  expect(extractOfficeDocument(bytes, DOCX)).toEqual({
     reason: "it declares more content than this assistant will unpack.",
   })
 })

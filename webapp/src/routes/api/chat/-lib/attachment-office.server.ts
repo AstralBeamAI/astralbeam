@@ -4,6 +4,7 @@ import {
   CHAT_ATTACHMENT_DOCX_MIME_TYPE,
   CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES,
   CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES,
+  CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES,
   CHAT_ATTACHMENT_MAX_SHEET_CELLS,
   CHAT_ATTACHMENT_MAX_TABLE_COLUMNS,
   CHAT_ATTACHMENT_MAX_TABLE_ROWS,
@@ -51,15 +52,25 @@ class OfficeArchiveTooLargeError extends Error {
  * before it returns, so thousands of individually modest parts still add up to gigabytes, and a
  * per-entry cap below the archive's could only ever skip a part — which surfaced to the agent as
  * "it holds no document part" rather than the truth. Throwing stops the unpack and says why.
+ *
+ * Every entry is counted before `wanted` runs, because the selected-entry and declared-byte caps
+ * describe only the parts that are kept: an archive whose central directory declares entries that
+ * never match `wanted` selects nothing, so neither cap can fire and the whole directory is walked.
+ * The visited count bounds that walk.
  */
 function readParts(
   bytes: Uint8Array,
   wanted: (name: string) => boolean,
 ): Record<string, string> {
+  let visited = 0
   let selected = 0
   let declared = 0
   const files = unzipSync(bytes, {
     filter: (file) => {
+      visited += 1
+      if (visited > CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES) {
+        throw new OfficeArchiveTooLargeError()
+      }
       if (!wanted(file.name)) return false
       selected += 1
       declared += file.originalSize

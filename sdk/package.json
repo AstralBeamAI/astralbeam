@@ -67,7 +67,7 @@
     "format": "deno fmt",
     "format:check": "deno fmt --check",
     "knip": "knip",
-    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install",
+    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install --frozen",
     "lint": "deno lint",
     "lint:fix": "deno lint --fix",
     "ready": "deno task check && deno task test && deno task build",

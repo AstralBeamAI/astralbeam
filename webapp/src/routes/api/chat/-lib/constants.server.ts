@@ -49,6 +49,9 @@ export const CHAT_ATTACHMENT_MAX_BYTES_BY_KIND = {
   office: 10 * 1024 * 1024,
 } as const
 export const CHAT_ATTACHMENT_MAX_TOTAL_BYTES = 20 * 1024 * 1024
+// Peer of the SDK composer's `MAX_ATTACHMENTS_PER_MESSAGE` in `sdk/src/widget/lib/constants.ts`,
+// which holds a message to the same count before it is sent; keep the two numbers equal.
+export const CHAT_ATTACHMENT_MAX_COUNT = 5
 
 // Ceiling for the whole run input, checked before the body is read: base64 inflates the 20 MB of
 // attachments to about 27 MB, and the rest is the transcript and the declared tools.
@@ -70,6 +73,11 @@ export const CHAT_ATTACHMENT_PROFILE_TYPED_ROWS = 50
 // `unzipSync` inflates every selected entry before returning. One archive-wide budget bounds both.
 export const CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES = 96 * 1024 * 1024
 export const CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES = 2_048
+// The entry count is declared by the archive too, and `filter` runs for every entry the central
+// directory declares whether or not the part is wanted, so the two caps above bound only the
+// entries that are kept. This one bounds the walk itself; it sits well above the few hundred
+// parts a real deck or workbook holds.
+export const CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES = 4_096
 
 // Table shape bounds. A worksheet's coordinates are attacker-chosen too — one value at the valid
 // cell `XFD1048576` describes a 17-billion-cell grid — and a delimited file can be one 10 MB row
