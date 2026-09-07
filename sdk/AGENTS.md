@@ -1,6 +1,6 @@
 # SDK development
 
-Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` quick start plus the webapp-hosted guides; neither carries internals. The active redesign roadmap is `redesign.plan.md`.
+Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` quick start plus the webapp-hosted guides; neither carries internals.
 
 ## Layout and entry points
 
