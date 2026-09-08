@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; generate immutable hidden key slugs; require a fresh session; promptly evict the one-time secret from the mutation cache.
+// Local changes: Use Phosphor icons; assemble one-time credentials from database IDs; require a fresh session; promptly evict the one-time secret from the mutation cache.
 
 "use client"
 
@@ -12,7 +12,6 @@ import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useCreateApiKey } from "@better-auth-ui/react/plugins/api-key"
 import { KeyIcon } from "@phosphor-icons/react"
 import { type SyntheticEvent, useState } from "react"
-import { GeneratedSlugField } from "@/components/generated-slug-field"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
@@ -35,8 +34,6 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
-import { isValidSlug } from "@/lib/slug"
-import { checkApiKeySlugAvailability } from "@/routes/_authenticated/$orgSlug/api-keys/-functions/check-api-key-slug-availability"
 import { NewApiKeyDialog } from "./new-api-key-dialog"
 
 export type CreateApiKeyDialogProps = {
@@ -44,14 +41,12 @@ export type CreateApiKeyDialogProps = {
   onOpenChange: (open: boolean) => void
   /** Create an organization-owned key by passing the organization id. */
   organizationId?: string | undefined
-  organizationSlug: string
 }
 
 export function CreateApiKeyDialog({
   open,
   onOpenChange,
   organizationId,
-  organizationSlug,
 }: CreateApiKeyDialogProps) {
   const { authClient, basePaths, localization, navigate, viewPaths } = useAuth<ApiKeyAuthClient>()
   const {
@@ -70,9 +65,6 @@ export function CreateApiKeyDialog({
   const [isNewKeyDialogOpen, setIsNewKeyDialogOpen] = useState(false)
   const [keyName, setKeyName] = useState<string | null>(null)
   const [name, setName] = useState("")
-  const [slugAvailability, setSlugAvailability] = useState<
-    "available" | "checking" | "idle" | "invalid" | "unavailable"
-  >("idle")
   const [nameError, setNameError] = useState<string>()
   const [newApiKey, setNewApiKey] = useState<string | null>(null)
   const availableConfigurations = configurations.filter(
@@ -96,7 +88,6 @@ export function CreateApiKeyDialog({
       resetCreateApiKey()
       setKeyName(null)
       setName("")
-      setSlugAvailability("idle")
       setNameError(undefined)
       setNewApiKey(null)
     }
@@ -123,8 +114,6 @@ export function CreateApiKeyDialog({
       setNameError(localization.auth.fieldRequired)
       return
     }
-    const slug = formData.get("slug")
-    if (typeof slug !== "string" || !isValidSlug(slug)) return
     setNameError(undefined)
 
     const expiration = formData.get("expiration")
@@ -137,7 +126,6 @@ export function CreateApiKeyDialog({
     const configId = typeof configIdValue === "string" ? configIdValue.trim() : ""
     const payload = {
       name: normalizedName,
-      metadata: { slug },
       ...(expiresIn ? { expiresIn } : {}),
       ...(configId ? { configId } : {}),
       ...(organizationId ? { organizationId } : {}),
@@ -147,7 +135,7 @@ export function CreateApiKeyDialog({
       onSuccess: (result) => {
         handleOpenChange(false)
         setKeyName(normalizedName)
-        setNewApiKey(`key_${organizationSlug}_${slug}_${result.key}`)
+        setNewApiKey(`key_${result.referenceId}_${result.id}_${result.key}`)
         setIsNewKeyDialogOpen(true)
       },
     })
@@ -231,21 +219,6 @@ export function CreateApiKeyDialog({
                 <FieldError>{nameError}</FieldError>
               </Field>
 
-              <div hidden>
-                <GeneratedSlugField
-                  key={String(open)}
-                  id="api-key-identifier"
-                  label="Identifier"
-                  sourceValue={name}
-                  fallback="key"
-                  checkAvailability={(slug) =>
-                    checkApiKeySlugAvailability({ data: { organizationSlug, slug } })}
-                  onAvailabilityChange={setSlugAvailability}
-                  formatPreview={(resourceSlug) => `key_${organizationSlug}_${resourceSlug}`}
-                  disabled={isCreating}
-                />
-              </div>
-
               {availableConfigurations.length > 0 && (
                 <Field>
                   <FieldLabel htmlFor="api-key-configuration">
@@ -327,8 +300,7 @@ export function CreateApiKeyDialog({
 
               <Button
                 type="submit"
-                disabled={isCreating || slugAvailability === "checking" ||
-                  slugAvailability === "invalid" || slugAvailability === "unavailable"}
+                disabled={isCreating}
               >
                 {isCreating && <Spinner />}
 

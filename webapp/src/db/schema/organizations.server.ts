@@ -80,7 +80,6 @@ export const apiKey = snakeCase.table(
     id: uuidV7PrimaryKey(),
     configId: text().default("default").notNull(),
     name: text().notNull(),
-    slug: text().notNull(),
     start: text(),
     organizationId: uuid().notNull().references(() => organization.id, {
       onDelete: "cascade",
@@ -108,11 +107,6 @@ export const apiKey = snakeCase.table(
     index("api_key_config_id_idx").on(table.configId),
     index("api_key_organization_id_idx").on(table.organizationId),
     uniqueIndex("api_key_key_idx").on(table.key),
-    uniqueIndex("api_key_organization_id_slug_uidx").on(
-      table.organizationId,
-      table.slug,
-    ),
-    check("api_key_slug_check", sql`${table.slug} ~ '^[0-9a-z-]{1,63}$'`),
   ],
 )
 

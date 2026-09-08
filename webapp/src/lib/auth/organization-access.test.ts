@@ -30,7 +30,6 @@ async function createAuthorizationFixture() {
         },
         references: "organization",
         requireName: true,
-        enableMetadata: true,
       }),
     ],
   })
@@ -136,7 +135,6 @@ describe("organization API key authorization", () => {
         body: {
           organizationId: fixture.organizationId,
           name: `${role} key`,
-          metadata: { slug: `${role}key` },
         },
         headers: fixture.headers[role],
       })
@@ -173,7 +171,6 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Custom rate limit",
-        metadata: { slug: "customratelimit" },
         ...serverOnlyRateLimit,
       },
       headers: fixture.headers.owner,
@@ -183,7 +180,6 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Fixed rate limit",
-        metadata: { slug: "fixedratelimit" },
       },
       headers: fixture.headers.owner,
     })
@@ -201,7 +197,6 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Owner key",
-        metadata: { slug: "ownerkey" },
       },
       headers: fixture.headers.owner,
     })
@@ -214,7 +209,6 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Viewer key",
-        metadata: { slug: "viewerkey" },
       },
       headers: fixture.headers.viewer,
     })).rejects.toMatchObject(denied)
@@ -239,12 +233,18 @@ describe("organization API key authorization", () => {
     })).rejects.toMatchObject(denied)
   })
 
+  test("rejects a custom secret prefix", async () => {
+    await expect(fixture.auth.api.createApiKey({
+      body: { organizationId: fixture.organizationId, name: "Invalid prefix", prefix: "other_" },
+      headers: fixture.headers.owner,
+    })).rejects.toMatchObject({ status: "BAD_REQUEST", body: { code: "INVALID_API_KEY_PREFIX" } })
+  })
+
   test("stores only the API key digest", async () => {
     const created = await fixture.auth.api.createApiKey({
       body: {
         organizationId: fixture.organizationId,
         name: "Hashed key",
-        metadata: { slug: "hashedkey" },
       },
       headers: fixture.headers.owner,
     })
@@ -280,7 +280,6 @@ describe("organization API key authorization", () => {
       body: {
         organizationId: fixture.organizationId,
         name: "Stale session key",
-        metadata: { slug: "stalesessionkey" },
       },
       headers: fixture.headers.owner,
     })).rejects.toMatchObject({

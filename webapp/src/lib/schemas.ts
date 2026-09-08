@@ -59,7 +59,7 @@ export const ChatAuthTokenPayloadSchema = Schema.StructWithRest(
     ver: Schema.Literal(4),
     iat: Schema.Int,
     exp: Schema.Int,
-    iss: SlugSchema,
+    iss: UuidV7Schema,
     aud: Schema.Literal("astralbeam"),
     user: ChatTenantUserSchema,
     tenant: ChatTenantSchema,

@@ -1,6 +1,6 @@
 import type { ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
 
-export type OrganizationApiKey = ListedApiKey & { readonly slug: string }
+export type OrganizationApiKey = ListedApiKey
 
 export const ORGANIZATION_API_KEY_PREFIX = "abo_"
 // Better Auth counts the prefix inside this preview length. https://better-auth.com/docs/plugins/api-key/reference#startingcharactersconfig-options

@@ -25,7 +25,7 @@ const apiDocsScalarOptions = {
     securitySchemes: {
       OrganizationApiKey: {
         value:
-          "key_northstar_docs_abo_kQmVrTsXpLnBwYcDfGhJzAeRuIoPsNdFkLwCxVbMnQeRtYuHiOpAsDfGhJkLzXcV",
+          "key_01990a5d-0000-7000-8000-000000000011_01990a5d-0000-7000-8000-000000000021_abo_kQmVrTsXpLnBwYcDfGhJzAeRuIoPsNdFkLwCxVbMnQeRtYuHiOpAsDfGhJkLzXcV",
       },
     },
   },

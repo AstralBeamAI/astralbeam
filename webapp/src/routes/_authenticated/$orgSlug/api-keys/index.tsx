@@ -18,7 +18,6 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/api-keys/")({
 })
 
 function ApiKeysPage() {
-  const { orgSlug } = Route.useParams()
   const { data, permissions } = Route.useLoaderData()
 
   return (
@@ -32,7 +31,6 @@ function ApiKeysPage() {
       <ApiKeys
         className="max-w-4xl"
         organizationId={data.organizationId}
-        organizationSlug={orgSlug}
         hideCreate={!permissions.createApiKey}
         hideUpdate={!permissions.updateApiKey}
         hideDelete={!permissions.deleteApiKey}
