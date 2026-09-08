@@ -28,7 +28,7 @@ test("the watched option list covers every option the session reads per request"
   const everyOption: Required<AstralBeamChatCoreOptions> = {
     agentId: "agt_acme_todos",
     apiUrl: "https://example.test/api",
-    fetchChatAuthToken: chatAuthToken,
+    fetchAstralBeamToken: chatAuthToken,
     tools: {},
     widgets: {},
     onRenderWidget: () => undefined,
@@ -49,7 +49,7 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
       execute: () => "done",
     },
   })
-  const chat = createAstralBeamChat({ fetchChatAuthToken: chatAuthToken, tools: tools() })
+  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatAuthToken, tools: tools() })
   let notifications = 0
   chat.subscribe(() => {
     notifications += 1
@@ -91,7 +91,7 @@ test("a capability response for a superseded agent does not overwrite the curren
     }))
   const chat = createAstralBeamChat({
     agentId: "agt_acme_first",
-    fetchChatAuthToken: chatAuthToken,
+    fetchAstralBeamToken: chatAuthToken,
   })
   await vi.waitFor(() => expect(requests).toHaveLength(1))
 

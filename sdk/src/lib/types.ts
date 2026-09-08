@@ -120,7 +120,7 @@ export type AstralBeamChatThemeVariables = Record<`--${string}`, string>
  * `credentials: "include"`, `cache: "no-store"`, and an `accept: application/json` header, each
  * overridable here, and the response is expected to carry `{ token }` as JSON.
  */
-export interface AstralBeamChatAuthTokenRequest extends RequestInit {
+export interface AstralBeamTokenRequest extends RequestInit {
   url: string
 }
 
@@ -132,8 +132,8 @@ export interface AstralBeamChatAuthTokenRequest extends RequestInit {
  * rotating credential stays current rather than being captured once. A function that returns
  * `undefined`, or throws, fails authentication closed; the composer's retry link asks again.
  */
-export type AstralBeamChatAuthTokenSource =
-  | AstralBeamChatAuthTokenRequest
+export type AstralBeamTokenSource =
+  | AstralBeamTokenRequest
   | (() => { token: string } | undefined | Promise<{ token: string } | undefined>)
 
 /**
@@ -182,7 +182,7 @@ export interface MountAstralBeamChatOptions {
    * change applies to the next one, which is minted when the cached token nears expiry. Default
    * `{ url: "/api/astralbeam/token" }`, posted with the page's cookies.
    */
-  fetchChatAuthToken?: AstralBeamChatAuthTokenSource | undefined
+  fetchAstralBeamToken?: AstralBeamTokenSource | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */

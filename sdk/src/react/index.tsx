@@ -13,12 +13,12 @@ import { createPortal } from "react-dom"
 // chunk and its bundled React instead of bundling a second copy.
 import {
   type AstralBeamChatAttachmentOptions,
-  type AstralBeamChatAuthTokenRequest,
-  type AstralBeamChatAuthTokenSource,
   type AstralBeamChatColorScheme,
   type AstralBeamChatHandle,
   type AstralBeamChatSlotRenderer,
   type AstralBeamChatTheme,
+  type AstralBeamTokenRequest,
+  type AstralBeamTokenSource,
   defineTool,
   type InferParameters,
   type JsonSchemaObject,
@@ -42,10 +42,10 @@ import { CORE_OPTION_KEYS } from "../core/session.ts"
 
 export type {
   AstralBeamChatAttachmentOptions,
-  AstralBeamChatAuthTokenRequest,
-  AstralBeamChatAuthTokenSource,
   AstralBeamChatColorScheme,
   AstralBeamChatTheme,
+  AstralBeamTokenRequest,
+  AstralBeamTokenSource,
   InferParameters,
   ParametersSchema,
   ToolDefinition,
@@ -159,7 +159,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       emptyTitle,
       emptyDescription,
       apiUrl,
-      fetchChatAuthToken,
+      fetchAstralBeamToken,
       tools,
       widgets = {},
       colorScheme = DEFAULT_COLOR_SCHEME,
@@ -260,7 +260,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       () => ({
         agentId,
         apiUrl,
-        fetchChatAuthToken,
+        fetchAstralBeamToken,
         title,
         showHeader,
         emptyTitle,
@@ -277,7 +277,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       [
         agentId,
         apiUrl,
-        fetchChatAuthToken,
+        fetchAstralBeamToken,
         title,
         showHeader,
         emptyTitle,

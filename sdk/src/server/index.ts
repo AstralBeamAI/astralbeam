@@ -43,7 +43,7 @@ export interface TenantUser {
   readonly metadata?: JsonMetadata | undefined
 }
 
-export interface CreateChatAuthTokenOptions<
+export interface CreateAstralBeamTokenOptions<
   TTenantUser extends TenantUser = TenantUser,
   TTenant extends Tenant = Tenant,
 > {
@@ -126,7 +126,7 @@ async function signingKey(secret: string) {
 }
 
 /** Creates the short-lived bearer token returned by an application's server auth endpoint. */
-export async function createChatAuthToken<
+export async function createAstralBeamToken<
   TTenantUser extends TenantUser = TenantUser,
   TTenant extends Tenant = Tenant,
 >({
@@ -134,7 +134,7 @@ export async function createChatAuthToken<
   user,
   tenant,
   expiresInSeconds = CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
-}: CreateChatAuthTokenOptions<TTenantUser, TTenant>): Promise<string> {
+}: CreateAstralBeamTokenOptions<TTenantUser, TTenant>): Promise<string> {
   if (
     !Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 ||
     expiresInSeconds > CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS
