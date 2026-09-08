@@ -1,10 +1,21 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router"
+import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router"
 import { APP_NAME } from "@/lib/constants"
 import { DocsMarkdown } from "../../-components/docs-markdown"
 import { findDocsPage, findDocsSection } from "../../-lib/content"
 
 export const Route = createFileRoute("/docs/$section/$page/")({
   loader: ({ params }) => {
+    if (params.section === "api") {
+      const anchors: Record<string, string> = {
+        "getting-started": "description/getting-started",
+        authentication: "description/authentication",
+        "pagination-and-errors": "description/pagination",
+        tenants: "tag/tenants",
+        "tenant-users": "tag/tenant_users",
+      }
+      if (!anchors[params.page]) throw notFound()
+      throw redirect({ href: `/docs/api#${anchors[params.page]}`, reloadDocument: true })
+    }
     const section = findDocsSection(params.section)
     const page = section ? findDocsPage(section, params.page) : undefined
     if (!section || !page) throw notFound()

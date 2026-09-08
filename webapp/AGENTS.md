@@ -121,6 +121,7 @@
   - Configure authentication plugins only with product-specific overrides; rely on Better Auth defaults and TanStack response headers when they already satisfy the requirement.
 
 - Use parameterized TanStack function middleware to share repeated authorization and trusted context. Keep resource server functions explicit when their validators, permissions, errors, or result contracts differ; do not add a parallel Effect HTTP/RPC transport merely to hide small wrappers.
+- Public management REST APIs use the approved executable Effect HttpApi boundary; read `src/routes/api/v1/AGENTS.md` before changing those APIs, their repositories, OpenAPI export, or adding a subsequent API version. This does not replace dashboard server functions or chat transport.
 - Prefer supported framework or library APIs and well-maintained community packages over minor custom abstractions or bespoke integration plumbing.
 - Write new server-side application logic as Effect programs with typed failures; yield native Effect integrations directly, lift unavoidable Promise APIs with `Effect.tryPromise`, and run Effects only at framework boundaries.
 - Generate Effect validation schemas from Drizzle tables with the built-in [`drizzle-orm/effect-schema`](https://orm.drizzle.team/docs/effect-schema) helpers at database and API boundaries instead of duplicating table shapes by hand.

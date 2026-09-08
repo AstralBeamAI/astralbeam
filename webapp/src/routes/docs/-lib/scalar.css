@@ -1,0 +1,61 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/manrope";
+
+/* Map the app's generated tokens to Scalar's supported theme variables.
+   https://scalar.com/products/api-references/themes */
+:root,
+.light-mode,
+.dark-mode {
+  --scalar-custom-header-height: 56px;
+  --scalar-font: "Inter Variable", sans-serif;
+  --scalar-font-code: ui-monospace, monospace;
+  --scalar-radius: var(--radius);
+  --scalar-background-1: var(--background);
+  --scalar-background-2: var(--muted);
+  --scalar-background-3: var(--secondary);
+  --scalar-background-accent: var(--accent);
+  --scalar-color-1: var(--foreground);
+  --scalar-color-2: var(--muted-foreground);
+  --scalar-color-3: var(--muted-foreground);
+  --scalar-color-accent: var(--primary);
+  --scalar-border-color: var(--border);
+  --scalar-button-1: var(--primary);
+  --scalar-button-1-hover: color-mix(in oklch, var(--primary) 90%, var(--background));
+  --scalar-button-1-color: var(--primary-foreground);
+  --scalar-sidebar-background-1: var(--sidebar);
+  --scalar-sidebar-color-1: var(--sidebar-foreground);
+  --scalar-sidebar-color-2: var(--muted-foreground);
+  --scalar-sidebar-color-active: var(--sidebar-primary);
+  --scalar-sidebar-border-color: var(--sidebar-border);
+  --scalar-sidebar-item-hover-background: var(--sidebar-accent);
+  --scalar-sidebar-item-hover-color: var(--sidebar-accent-foreground);
+  --scalar-sidebar-item-active-background: var(--sidebar-accent);
+  --scalar-sidebar-search-color: var(--muted-foreground);
+  --scalar-sidebar-search-border-color: var(--input);
+}
+
+body {
+  margin: 0;
+  padding-top: var(--scalar-custom-header-height);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--scalar-font);
+}
+
+body .scalar-api-reference .t-doc__sidebar {
+  top: var(--scalar-custom-header-height);
+  height: calc(100dvh - var(--scalar-custom-header-height));
+}
+
+.docs-header.api-docs-header {
+  position: fixed;
+  inset: 0 0 auto;
+}
+
+[role="navigation"] a[href="https://www.scalar.com"] {
+  display: none;
+}
+
+.scalar-api-reference :is(h1, h2, h3, h4) {
+  font-family: "Manrope Variable", sans-serif;
+}

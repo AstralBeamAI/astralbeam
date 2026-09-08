@@ -1,5 +1,6 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
-import { APP_LOGO_LIGHT_SVG_URL, APP_NAME } from "@/lib/constants"
+import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router"
+import { APP_NAME, APP_WORDMARK_DARK_SVG_URL, APP_WORDMARK_LIGHT_SVG_URL } from "@/lib/constants"
+import "./-lib/header.css"
 
 export const Route = createFileRoute("/docs")({
   component: DocsLayout,
@@ -8,23 +9,38 @@ export const Route = createFileRoute("/docs")({
 // Public documentation chrome: a slim top bar over the section content. Docs are
 // intentionally unauthenticated, like a package's hosted documentation site.
 function DocsLayout() {
+  const isSdk = useLocation({ select: ({ pathname }) => pathname.startsWith("/docs/sdk") })
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto flex h-14 items-center gap-3 px-4">
-          <Link
-            to="/"
-            reloadDocument
-            className="flex items-center gap-2 font-heading font-semibold"
-          >
-            <img src={APP_LOGO_LIGHT_SVG_URL} alt="" className="size-6" />
-            {APP_NAME}
-          </Link>
-          <span className="text-muted-foreground">/</span>
-          <Link to="/docs" className="font-medium text-muted-foreground hover:text-foreground">
-            Docs
-          </Link>
-        </div>
+      <header className="docs-header">
+        <nav aria-label="Breadcrumb">
+          <ol>
+            <li>
+              <Link to="/" aria-label={`${APP_NAME} home`}>
+                <img
+                  className="docs-wordmark-light"
+                  src={APP_WORDMARK_LIGHT_SVG_URL}
+                  alt={APP_NAME}
+                />
+                <img
+                  className="docs-wordmark-dark"
+                  src={APP_WORDMARK_DARK_SVG_URL}
+                  alt={APP_NAME}
+                />
+              </Link>
+            </li>
+            <li>
+              <Link to="/docs" aria-current={isSdk ? undefined : "page"}>Docs</Link>
+            </li>
+            {isSdk && (
+              <li>
+                <Link to="/docs/$section" params={{ section: "sdk" }} aria-current="location">
+                  SDK
+                </Link>
+              </li>
+            )}
+          </ol>
+        </nav>
       </header>
       <Outlet />
     </div>

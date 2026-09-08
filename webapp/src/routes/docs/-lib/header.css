@@ -1,0 +1,64 @@
+.docs-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-sizing: border-box;
+  height: 56px;
+  padding: 0 20px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+  font: 500 14px "Inter Variable", sans-serif;
+}
+
+.docs-header nav,
+.docs-header ol,
+.docs-header li,
+.docs-header a {
+  display: flex;
+  align-items: center;
+}
+
+.docs-header nav {
+  height: 100%;
+}
+
+.docs-header ol {
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-header li + li::before {
+  content: "/";
+  margin-right: 12px;
+  color: var(--muted-foreground);
+}
+
+.docs-header a {
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+
+.docs-header a:hover {
+  color: var(--foreground);
+}
+
+.docs-header [aria-current] {
+  color: var(--foreground);
+}
+
+.docs-header img {
+  width: 164px;
+  aspect-ratio: 1241 / 136;
+  height: auto;
+}
+
+.docs-header .docs-wordmark-dark,
+:is(.dark, .dark-mode) .docs-wordmark-light {
+  display: none;
+}
+
+:is(.dark, .dark-mode) .docs-wordmark-dark {
+  display: block;
+}

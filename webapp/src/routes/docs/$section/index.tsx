@@ -6,6 +6,7 @@ export const Route = createFileRoute("/docs/$section/")({
   beforeLoad: ({ params }) => {
     const section = findDocsSection(params.section)
     if (!section) throw notFound()
+    if (section.href) throw redirect({ href: section.href, reloadDocument: true })
     throw redirect({
       to: "/docs/$section/$page",
       params: { section: section.slug, page: section.pages[0]!.slug },
