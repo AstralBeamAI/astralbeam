@@ -19,7 +19,11 @@ export default defineConfig({
   // `test.only`. Use `--project` or `-g` for focused iteration instead.
   forbidOnly: true,
   outputDir: "./.output/test-results",
-  reporter: [["list"], ["html", { outputFolder: "./.output/report", open: "never" }]],
+  // printSteps narrates each `test.step` with its duration, which is most of what a run does.
+  reporter: [
+    ["list", { printSteps: true }],
+    ["html", { outputFolder: "./.output/report", open: "never" }],
+  ],
   // The suite drives the Vite dev server, which compiles a route the first time it is visited, so
   // the default five seconds is short for a first navigation or a first server-function call.
   expect: { timeout: 20_000 },

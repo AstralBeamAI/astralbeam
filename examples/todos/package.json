@@ -9,6 +9,7 @@
     "check:fix": "deno fmt && deno lint --fix",
     "dev": "vite",
     "e2e": "playwright test --config e2e/playwright.config.ts",
+    "e2e:capture": "E2E_CAPTURE=all playwright test --config e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
     "format": "deno fmt",
     "format:check": "deno fmt --check",

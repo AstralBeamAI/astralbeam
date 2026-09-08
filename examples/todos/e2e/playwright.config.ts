@@ -27,7 +27,11 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   outputDir: "./.output/test-results",
-  reporter: [["list"], ["html", { outputFolder: "./.output/report", open: "never" }]],
+  // printSteps narrates each `test.step` with its duration, which is most of what an agent run does.
+  reporter: [
+    ["list", { printSteps: true }],
+    ["html", { outputFolder: "./.output/report", open: "never" }],
+  ],
   use: {
     browserName: "chromium",
     baseURL: todosUrl,

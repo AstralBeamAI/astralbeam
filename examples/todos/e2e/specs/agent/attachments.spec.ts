@@ -19,9 +19,11 @@ const sampleCsvPath = join(
 )
 
 test("turns an attached spreadsheet into todos", async ({ todos, chat }) => {
-  await chat.waitForReady()
-  await chat.attach(sampleCsvPath)
-  await expect(chat.attachmentChip("tasks.csv")).toBeVisible()
+  await test.step("attach the sample spreadsheet", async () => {
+    await chat.waitForReady()
+    await chat.attach(sampleCsvPath)
+    await expect(chat.attachmentChip("tasks.csv")).toBeVisible()
+  })
 
   await chat.sendAndWait("Create one todo for each task row in the attached file.")
 
@@ -32,8 +34,11 @@ test("turns an attached spreadsheet into todos", async ({ todos, chat }) => {
 })
 
 test("reads an attached file's structure through the endpoint's tool", async ({ chat }) => {
-  await chat.waitForReady()
-  await chat.attach(sampleCsvPath)
+  await test.step("attach the sample spreadsheet", async () => {
+    await chat.waitForReady()
+    await chat.attach(sampleCsvPath)
+  })
+
   await chat.sendAndWait("What columns does the attached file have?")
 
   // A server-declared tool has no host title, so its row shows the bare registry name.

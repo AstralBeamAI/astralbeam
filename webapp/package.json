@@ -19,6 +19,7 @@
     "db-seed": "deno run -P=tooling scripts/seed-database.ts",
     "drizzle-studio": "drizzle-kit studio",
     "e2e": "playwright test --config e2e/playwright.config.ts",
+    "e2e:capture": "E2E_CAPTURE=all playwright test --config e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
     "format": "deno fmt",
     "format:check": "deno fmt --check",
