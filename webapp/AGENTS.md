@@ -97,9 +97,6 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 
 - Keep new functions at cyclomatic complexity 20 or lower and do not increase higher legacy functions. Extract focused helpers instead of suppressing the complexity finding.
 - Keep the root `ThemeProvider` around the document content so its SSR startup script applies the persisted or system theme before first paint. Do not defer initial theme application to a post-hydration effect.
-
-- Keep new functions at cyclomatic complexity 20 or lower and do not increase higher legacy functions. Extract focused helpers instead of suppressing the complexity finding.
-- Keep the root `ThemeProvider` around the document content so its SSR startup script applies the persisted or system theme before first paint. Do not defer initial theme application to a post-hydration effect.
 - `deno task e2e` runs the Playwright browser suite in `e2e/`, which starts its own webapp, SMTP sink, and `_e2e` database and drives `/configure`, signup, and every organization page. Read `e2e/README.md` before changing it, put focused specs in `specs/features` where the journey's recorded baseline makes them runnable on their own, compose them from `e2e/pages`, keep anything that starts a container in the opt-in `specs/sandbox`, and keep the suite out of `check`, `test`, `ready`, and CI so it stays an on-demand verification tool.
 
 - Never hardcode the word "AstralBeam" or any AstralBeam-specific description or nomenclature anywhere in the app. Assume it may be white-labeled.

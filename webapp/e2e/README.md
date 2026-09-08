@@ -54,7 +54,7 @@ Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `c
 
 ## Projects, and the baseline between them
 
-Three Playwright projects run in a dependency chain, so state a spec relies on is established by a project it depends on rather than by an unwritten ordering rule.
+Three default Playwright projects run in a dependency chain, with a fourth opt-in sandbox project, so state a spec relies on is established by a project it depends on rather than by an unwritten ordering rule.
 
 1. `preflight` checks the environment.
 2. `journey` drives the product from an unconfigured deployment, and ends by writing `.output/baseline.json` and `.output/baseline-state.json`.
