@@ -28,6 +28,10 @@ examples/     # Standalone SDK consumer applications
 
 Run the applications natively with Deno and the database services through Docker Compose or Podman Compose. See [Setup](SETUP.md) for one-time prerequisites.
 
+### Start PostgreSQL and Mailpit
+
+Compose starts PostgreSQL, PgBouncer, Valkey, and Mailpit. The default `DATABASE_URL` in [`webapp/.env.development`](webapp/.env.development) points at PgBouncer, the only database endpoint published to the host. On macOS, run Deno natively and use Compose for these services.
+
 From the repository root, start the services with Docker:
 
 ```sh
@@ -40,6 +44,10 @@ Or use Podman, then wait for the services to become healthy:
 podman compose up --detach
 podman compose ps
 ```
+
+Mailpit captures outgoing email on SMTP port 1025. Read it in the [local inbox](http://localhost:8025) on port 8025.
+
+### Set up the projects
 
 Install dependencies, migrate, seed local data, and build the SDK:
 
