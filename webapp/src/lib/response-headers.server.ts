@@ -30,6 +30,10 @@ export function applyResponseSecurityHeaders(
   request: Request,
   pathname: string,
 ): void {
+  if (pathname === "/api/openapi.json") {
+    headers.set("Cache-Control", "public, no-cache")
+    headers.set("Access-Control-Allow-Origin", "*")
+  }
   if (
     (pathname === "/docs" || pathname.startsWith("/docs/")) && !headers.has("Cache-Control")
   ) {

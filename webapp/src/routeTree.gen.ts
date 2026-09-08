@@ -26,7 +26,9 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
 import { Route as ApiChatConfigRouteImport } from './routes/api/chat/config'
 import { Route as ApiChatFilesRouteImport } from './routes/api/chat/files'
+import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 import { Route as DocsSectionIndexRouteImport } from './routes/docs/$section/index'
+import { Route as DocsApiIndexRouteImport } from './routes/docs/api/index'
 import { Route as AuthenticatedOrgSlugAgentsIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/index'
 import { Route as AuthenticatedOrgSlugApiKeysIndexRouteImport } from './routes/_authenticated/$orgSlug/api-keys/index'
 import { Route as AuthenticatedOrgSlugMembersIndexRouteImport } from './routes/_authenticated/$orgSlug/members/index'
@@ -129,9 +131,19 @@ const ApiChatFilesRoute = ApiChatFilesRouteImport.update({
   path: '/api/chat/files',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
+  id: '/api/v1/$',
+  path: '/api/v1/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSectionIndexRoute = DocsSectionIndexRouteImport.update({
   id: '/$section/',
   path: '/$section/',
+  getParentRoute: () => DocsRouteRoute,
+} as any)
+const DocsApiIndexRoute = DocsApiIndexRouteImport.update({
+  id: '/api/',
+  path: '/api/',
   getParentRoute: () => DocsRouteRoute,
 } as any)
 const AuthenticatedOrgSlugAgentsIndexRoute =
@@ -219,11 +231,13 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/config': typeof ApiChatConfigRoute
   '/api/chat/files': typeof ApiChatFilesRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/$orgSlug/': typeof AuthenticatedOrgSlugIndexRoute
   '/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
+  '/docs/api/': typeof DocsApiIndexRoute
   '/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/$orgSlug/api-keys/': typeof AuthenticatedOrgSlugApiKeysIndexRoute
   '/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
@@ -248,11 +262,13 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/config': typeof ApiChatConfigRoute
   '/api/chat/files': typeof ApiChatFilesRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/$orgSlug': typeof AuthenticatedOrgSlugIndexRoute
   '/onboarding': typeof AuthenticatedOnboardingIndexRoute
   '/organizations': typeof AuthenticatedOrganizationsIndexRoute
   '/api/chat': typeof ApiChatIndexRoute
   '/docs/$section': typeof DocsSectionIndexRoute
+  '/docs/api': typeof DocsApiIndexRoute
   '/$orgSlug/agents': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/$orgSlug/api-keys': typeof AuthenticatedOrgSlugApiKeysIndexRoute
   '/$orgSlug/members': typeof AuthenticatedOrgSlugMembersIndexRoute
@@ -281,11 +297,13 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/config': typeof ApiChatConfigRoute
   '/api/chat/files': typeof ApiChatFilesRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/_authenticated/$orgSlug/': typeof AuthenticatedOrgSlugIndexRoute
   '/_authenticated/onboarding/': typeof AuthenticatedOnboardingIndexRoute
   '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
+  '/docs/api/': typeof DocsApiIndexRoute
   '/_authenticated/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/_authenticated/$orgSlug/api-keys/': typeof AuthenticatedOrgSlugApiKeysIndexRoute
   '/_authenticated/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
@@ -314,11 +332,13 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/config'
     | '/api/chat/files'
+    | '/api/v1/$'
     | '/$orgSlug/'
     | '/onboarding/'
     | '/organizations/'
     | '/api/chat/'
     | '/docs/$section/'
+    | '/docs/api/'
     | '/$orgSlug/agents/'
     | '/$orgSlug/api-keys/'
     | '/$orgSlug/members/'
@@ -343,11 +363,13 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/config'
     | '/api/chat/files'
+    | '/api/v1/$'
     | '/$orgSlug'
     | '/onboarding'
     | '/organizations'
     | '/api/chat'
     | '/docs/$section'
+    | '/docs/api'
     | '/$orgSlug/agents'
     | '/$orgSlug/api-keys'
     | '/$orgSlug/members'
@@ -375,11 +397,13 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/config'
     | '/api/chat/files'
+    | '/api/v1/$'
     | '/_authenticated/$orgSlug/'
     | '/_authenticated/onboarding/'
     | '/_authenticated/organizations/'
     | '/api/chat/'
     | '/docs/$section/'
+    | '/docs/api/'
     | '/_authenticated/$orgSlug/agents/'
     | '/_authenticated/$orgSlug/api-keys/'
     | '/_authenticated/$orgSlug/members/'
@@ -404,6 +428,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatConfigRoute: typeof ApiChatConfigRoute
   ApiChatFilesRoute: typeof ApiChatFilesRoute
+  ApiV1SplatRoute: typeof ApiV1SplatRoute
   ApiChatIndexRoute: typeof ApiChatIndexRoute
 }
 
@@ -528,11 +553,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/$': {
+      id: '/api/v1/$'
+      path: '/api/v1/$'
+      fullPath: '/api/v1/$'
+      preLoaderRoute: typeof ApiV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/$section/': {
       id: '/docs/$section/'
       path: '/$section'
       fullPath: '/docs/$section/'
       preLoaderRoute: typeof DocsSectionIndexRouteImport
+      parentRoute: typeof DocsRouteRoute
+    }
+    '/docs/api/': {
+      id: '/docs/api/'
+      path: '/api'
+      fullPath: '/docs/api/'
+      preLoaderRoute: typeof DocsApiIndexRouteImport
       parentRoute: typeof DocsRouteRoute
     }
     '/_authenticated/$orgSlug/agents/': {
@@ -702,12 +741,14 @@ const AuthenticatedRouteRouteWithChildren =
 interface DocsRouteRouteChildren {
   DocsIndexRoute: typeof DocsIndexRoute
   DocsSectionIndexRoute: typeof DocsSectionIndexRoute
+  DocsApiIndexRoute: typeof DocsApiIndexRoute
   DocsSectionPageIndexRoute: typeof DocsSectionPageIndexRoute
 }
 
 const DocsRouteRouteChildren: DocsRouteRouteChildren = {
   DocsIndexRoute: DocsIndexRoute,
   DocsSectionIndexRoute: DocsSectionIndexRoute,
+  DocsApiIndexRoute: DocsApiIndexRoute,
   DocsSectionPageIndexRoute: DocsSectionPageIndexRoute,
 }
 
@@ -725,6 +766,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatConfigRoute: ApiChatConfigRoute,
   ApiChatFilesRoute: ApiChatFilesRoute,
+  ApiV1SplatRoute: ApiV1SplatRoute,
   ApiChatIndexRoute: ApiChatIndexRoute,
 }
 export const routeTree = rootRouteImport

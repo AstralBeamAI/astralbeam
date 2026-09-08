@@ -6,20 +6,22 @@
 
 - Use Deno from the affected project directory (`webapp`, `www`, `sdk`, or `examples/todos`) with `deno task <script>`, or from the repository root with `deno task --cwd <project> <script>`; the projects do not form a package-manager workspace. Deno is the only supported JavaScript runtime and package manager, while Vite and specialized npm packages run through Deno's compatibility layer.
 - Keep every project's `check`, `test`, and `build` tasks meaning the same thing, and `ready` meaning `check`, `test`, and `build`; `www` alone runs `build` before `test`, because its test reads `dist/`.
+- Compose reusable validation gates in the affected project's `check` task so local and CI checks stay aligned; keep workflow additions limited to environment provisioning and checks that require a distinct execution environment.
 - Root `tsconfig.base.json` holds only the compiler options all four projects share; each `tsconfig.json` `extends` it and keeps its own `jsx`, `lib`, `types`, `paths`, and file globs. Nothing else is shared at the root.
 - Keep the root `deno.jsonc` a launcher that only forwards `install`, `dev`, and `build` to the four projects; do not add a `workspace` field, project-specific configuration such as `fmt` or `lint`, or root copies of per-project tasks such as `check`, `test`, and `ready`.
 - Before non-trivial changes, inspect the current code, instructions, Git base and diff, generated artifacts, and installed APIs; prefer supported upstream contracts, narrow diffs, and removing one-use helpers over custom plumbing or speculative abstraction.
+- Ask before writing or changing code outside the user's explicitly requested scope; research, planning, and instruction updates do not authorize implementation or resuming previously paused implementation.
 - Before running `deno task knip:fix`, commit or back up untracked work because it can delete unused files that Git cannot restore; then inspect the complete project diff before running `deno task check:fix`.
 - Reserve Knip entries for actual execution or externally discovered roots, and add reusable modules only when code uses them; do not hide speculative modules or accidental exports with entries. Keep `includeEntryExports` enabled in the three applications, whose entry exports must also be used in-project, and off in `sdk`, whose entry-point exports are the published npm surface.
 - Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check; documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds; run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
 - Always write and run JavaScript and TypeScript tests with Vitest through the project's Deno task; never use `Deno.test` or `deno test`.
-- Keep tests that protect durable behavior, security boundaries, or previously observed regressions; avoid tests that only restate implementation details or exercise trivial constants and generated structure.
+- When coding or reviewing, remove low-value or redundant tests and unnecessary fixtures/mocks; keep tests that protect durable behavior, security boundaries, or observed regressions. Prefer short, direct tests and code over verbose setup or abstractions unless the extra complexity catches a distinct, worthwhile failure; do not retain tests merely to restate implementation details, trivial constants, or generated structure.
 - Before final validation, turn durable, non-obvious user corrections into one concise, nonduplicative instruction in the closest `AGENTS.md` or skill; skip one-off decisions and preferences.
 
 ## Documentation
 
-- Use `README.md` for consumers and `AGENTS.md` for authors. When creating an `AGENTS.md`, add a sibling `CLAUDE.md` symlink to it.
+- Use `README.md` and hosted guides for developers integrating the SDK/API: document setup, usage, behavior, and troubleshooting. Keep generator names, build workflows, and server implementation details in `AGENTS.md`, not consumer docs. When creating an `AGENTS.md`, add a sibling `CLAUDE.md` symlink to it.
 - Preserve existing `AGENTS.md` and skill instructions unless removal is explicit or resolves a documented conflict.
 - Name planning documents with the `*.plan.md` suffix so they are distinguishable from durable documentation.
 - Keep plans and PR descriptions concise and evidence-backed; plans must still include motivation, authoritative references, affected files and API anchors, validation, and boundaries.

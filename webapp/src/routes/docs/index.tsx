@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { APP_NAME } from "@/lib/constants"
 import { DOCS_SECTIONS } from "./-lib/content"
@@ -17,10 +17,9 @@ function DocsHomePage() {
       </p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {DOCS_SECTIONS.map((section) => (
-          <Link
+          <a
             key={section.slug}
-            to="/docs/$section/$page"
-            params={{ section: section.slug, page: section.pages[0]!.slug }}
+            href={section.href ?? `/docs/${section.slug}/${section.pages[0]!.slug}`}
             className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Card className="h-full transition-colors hover:bg-muted/50">
@@ -29,7 +28,7 @@ function DocsHomePage() {
                 <CardDescription>{section.description}</CardDescription>
               </CardHeader>
             </Card>
-          </Link>
+          </a>
         ))}
       </div>
     </main>

@@ -21,10 +21,18 @@ export interface DocsSection {
   slug: string
   title: string
   description: string
+  href?: string
   pages: DocsPage[]
 }
 
 export const DOCS_SECTIONS: DocsSection[] = [
+  {
+    slug: "api",
+    title: "API",
+    description: "Manage your application's Tenants and TenantUsers over HTTP.",
+    href: "/docs/api",
+    pages: [],
+  },
   {
     slug: "sdk",
     title: "SDK",
