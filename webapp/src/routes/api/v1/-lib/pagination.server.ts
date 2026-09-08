@@ -5,14 +5,14 @@ import {
   type DatabaseEncryptionKeyring,
   getDatabaseEncryptionKeyring,
 } from "@/db/lib/database-credentials.server"
-import { UuidV7Schema } from "@/lib/schemas"
+import { ApiUuidSchema } from "@/api/management"
 import type { RestScope } from "./contract.server"
 import { restFault } from "./responses.server"
 
 const restCursorSchema = Schema.Struct({
   version: Schema.Literal(1),
   binding: Schema.String,
-  id: UuidV7Schema,
+  id: ApiUuidSchema,
 })
 export type RestCollection = "tenants" | "tenant_users"
 type RestCursorScope = RestScope & { externalId?: string | undefined }

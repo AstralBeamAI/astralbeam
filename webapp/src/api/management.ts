@@ -1,5 +1,8 @@
 import { Schema } from "effect"
-import { UuidV7Schema } from "../lib/schemas.ts"
+
+export const ApiUuidSchema = Schema.String.check(
+  Schema.isUUID(undefined, { toJsonSchema: () => ({ format: "uuid" }) }),
+)
 
 export const TenantExternalIdSchema = Schema.String.check(
   Schema.isMinLength(1),
@@ -15,7 +18,7 @@ const metadata = Schema.JsonObject.annotate({
 const name = Schema.NullOr(Schema.String)
 
 export const TenantRecordSchema = Schema.Struct({
-  id: UuidV7Schema,
+  id: ApiUuidSchema,
   externalId: Schema.String,
   name,
   metadata,
@@ -25,7 +28,7 @@ export const TenantRecordSchema = Schema.Struct({
 
 export const TenantUserRecordSchema = Schema.Struct({
   ...TenantRecordSchema.fields,
-  tenantId: UuidV7Schema,
+  tenantId: ApiUuidSchema,
   admin: Schema.Boolean,
 })
 

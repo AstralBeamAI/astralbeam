@@ -13,7 +13,7 @@ const cursorScope = {
   tenantFilter: "019a0000-0000-7000-8000-000000000002",
 }
 const cursorPosition = {
-  id: "019a0000-0000-7000-8000-000000000003",
+  id: "019a0000-0000-4000-8000-000000000003",
 }
 describe("opaque pagination cursors", () => {
   test("maximum-length Unicode cursors fit the limit and survive retained-key rotation", async () => {

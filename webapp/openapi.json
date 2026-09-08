@@ -506,7 +506,6 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
               "format": "uuid",
               "examples": [
                 "019eed68-fd00-7c42-9a61-53b3a890d276"
@@ -715,7 +714,7 @@
             }
           }
         },
-        "description": "Get a Tenant by internal UUIDv7, not external_id.",
+        "description": "Get a Tenant by internal UUID, not external_id.",
         "summary": "Get a Tenant"
       },
       "patch": {
@@ -729,7 +728,6 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
               "format": "uuid",
               "examples": [
                 "019eed68-fd00-7c42-9a61-53b3a890d276"
@@ -964,7 +962,6 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
               "format": "uuid",
               "examples": [
                 "019eed68-fd00-7c42-9a61-53b3a890d276"
@@ -1237,7 +1234,6 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
               "format": "uuid",
               "examples": [
                 "019eed68-fd00-7c42-9a61-53b3a890d276"
@@ -1480,7 +1476,6 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
               "format": "uuid",
               "examples": [
                 "019eed68-fd00-7c42-9a61-53b3a890d276"
@@ -1493,7 +1488,6 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
               "format": "uuid",
               "examples": [
                 "019eed6a-d1c0-7543-b892-608cb6e174da"
@@ -1716,7 +1710,6 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
               "format": "uuid",
               "examples": [
                 "019eed68-fd00-7c42-9a61-53b3a890d276"
@@ -1729,7 +1722,6 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
               "format": "uuid",
               "examples": [
                 "019eed6a-d1c0-7543-b892-608cb6e174da"
@@ -1960,7 +1952,6 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "external_id": {
@@ -2203,7 +2194,6 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "external_id": {
@@ -2233,7 +2223,6 @@
           },
           "tenant_id": {
             "type": "string",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
           "admin": {
@@ -2437,12 +2426,12 @@
   "tags": [
     {
       "name": "tenants",
-      "description": "A Tenant is one of your Organization's customers. Use internal UUIDv7 IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
+      "description": "A Tenant is one of your Organization's customers. Use internal UUID IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
       "x-displayName": "Tenants"
     },
     {
       "name": "tenant_users",
-      "description": "A TenantUser is a user of one of your Organization's Tenants, not an employee using the dashboard. All routes use internal UUIDv7 tenant_id and user id values. External IDs are unique within the organization and Tenant; the same external user ID may exist in another Tenant. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable; users cannot move between Tenants. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. Stored admin does not change signed JWT authority. Creation does not issue tokens or upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
+      "description": "A TenantUser is a user of one of your Organization's Tenants, not an employee using the dashboard. All routes use internal UUID tenant_id and user id values. External IDs are unique within the organization and Tenant; the same external user ID may exist in another Tenant. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable; users cannot move between Tenants. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. Stored admin does not change signed JWT authority. Creation does not issue tokens or upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
       "x-displayName": "TenantUsers"
     }
   ]

@@ -2,6 +2,7 @@ import { Context, Schema, SchemaGetter } from "effect"
 import type { EffectDatabase } from "@/db"
 import type { TenantScope } from "../../../../db/tenant.server.ts"
 import {
+  ApiUuidSchema,
   TenantExternalIdSchema,
   TenantPatchSchema,
   TenantRecordSchema as ManagementTenantRecordSchema,
@@ -18,7 +19,6 @@ import {
   HttpApiSchema,
   OpenApi,
 } from "effect/unstable/httpapi"
-import { UuidV7Schema } from "../../../../lib/schemas.ts"
 import { APP_NAME } from "../../../../lib/constants.ts"
 
 const restExampleTenant = {
@@ -199,10 +199,10 @@ export const tenantUserRestPage = Schema.Struct({
     "Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.",
 }))
 const restPageHeaders = { Link: Schema.optionalKey(Schema.String) }
-const restMemberParams = { id: UuidV7Schema.annotate({ examples: [restExampleTenant.id] }) }
+const restMemberParams = { id: ApiUuidSchema.annotate({ examples: [restExampleTenant.id] }) }
 const restUserParams = {
   tenant_id: restMemberParams.id,
-  id: UuidV7Schema.annotate({ examples: [restExampleUser.id] }),
+  id: ApiUuidSchema.annotate({ examples: [restExampleUser.id] }),
 }
 
 export const TenantRestApi = HttpApi.make("TenantRestApi").add(
@@ -230,7 +230,7 @@ export const TenantRestApi = HttpApi.make("TenantRestApi").add(
       success: TenantRecordSchema,
     }).annotate(OpenApi.Summary, "Get a Tenant").annotate(
       OpenApi.Description,
-      "Get a Tenant by internal UUIDv7, not external_id.",
+      "Get a Tenant by internal UUID, not external_id.",
     ),
     HttpApiEndpoint.patch("updateTenant", "/tenants/:id", {
       params: restMemberParams,
@@ -242,7 +242,7 @@ export const TenantRestApi = HttpApi.make("TenantRestApi").add(
     ),
   ).annotate(
     OpenApi.Description,
-    "A Tenant is one of your Organization's customers. Use internal UUIDv7 IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
+    "A Tenant is one of your Organization's customers. Use internal UUID IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
   ),
   HttpApiGroup.make("tenant_users", { topLevel: true }).annotate(OpenApi.Override, {
     "x-displayName": "TenantUsers",
@@ -282,7 +282,7 @@ export const TenantRestApi = HttpApi.make("TenantRestApi").add(
     ),
   ).annotate(
     OpenApi.Description,
-    "A TenantUser is a user of one of your Organization's Tenants, not an employee using the dashboard. All routes use internal UUIDv7 tenant_id and user id values. External IDs are unique within the organization and Tenant; the same external user ID may exist in another Tenant. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable; users cannot move between Tenants. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. Stored admin does not change signed JWT authority. Creation does not issue tokens or upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
+    "A TenantUser is a user of one of your Organization's Tenants, not an employee using the dashboard. All routes use internal UUID tenant_id and user id values. External IDs are unique within the organization and Tenant; the same external user ID may exist in another Tenant. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable; users cannot move between Tenants. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. Stored admin does not change signed JWT authority. Creation does not issue tokens or upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
   ),
 ).prefix("/api/v1").middleware(RestBoundary).annotate(OpenApi.Title, `${APP_NAME} API`)
   .annotate(OpenApi.Version, "1.0.0").annotate(OpenApi.Transform, managementOpenApi)

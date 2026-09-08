@@ -373,10 +373,15 @@ describe("REST API through the Effect Fetch handler", () => {
   })
 
   test("reads persisted identities beyond the write limit", async () => {
-    const row = { ...restTenantRow, externalId: "x".repeat(256) }
-    restTestState.rows.push([row])
+    const row = {
+      ...restTenantRow,
+      id: "019a0000-0000-4000-8000-000000000003",
+      externalId: "x".repeat(256),
+    }
+    restTestState.rows.push([row], [row])
     const page = await restJson(tenantRestPage, "/tenants")
     expect(page.items[0]?.external_id).toBe(row.externalId)
+    expect(await restJson(TenantRecordSchema, `/tenants/${row.id}`)).toMatchObject({ id: row.id })
     await expect(
       restJson(TenantRecordSchema, "/tenants", {
         method: "POST",
