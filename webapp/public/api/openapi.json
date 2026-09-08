@@ -22,12 +22,7 @@
               "maxLength": 255,
               "description": "Exact, case-sensitive external ID; whitespace is preserved. Returns zero or one item."
             },
-            "required": false,
-            "examples": {
-              "default": {
-                "x-disabled": true
-              }
-            }
+            "required": false
           },
           {
             "name": "page_size",
@@ -48,12 +43,7 @@
               "minLength": 1,
               "maxLength": 2048
             },
-            "required": false,
-            "examples": {
-              "default": {
-                "x-disabled": true
-              }
-            }
+            "required": false
           },
           {
             "name": "page_before",
@@ -63,12 +53,7 @@
               "minLength": 1,
               "maxLength": 2048
             },
-            "required": false,
-            "examples": {
-              "default": {
-                "x-disabled": true
-              }
-            }
+            "required": false
           }
         ],
         "security": [
@@ -994,12 +979,7 @@
               "maxLength": 255,
               "description": "Exact, case-sensitive external ID; whitespace is preserved. Returns zero or one item."
             },
-            "required": false,
-            "examples": {
-              "default": {
-                "x-disabled": true
-              }
-            }
+            "required": false
           },
           {
             "name": "page_size",
@@ -1020,12 +1000,7 @@
               "minLength": 1,
               "maxLength": 2048
             },
-            "required": false,
-            "examples": {
-              "default": {
-                "x-disabled": true
-              }
-            }
+            "required": false
           },
           {
             "name": "page_before",
@@ -1035,12 +1010,7 @@
               "minLength": 1,
               "maxLength": 2048
             },
-            "required": false,
-            "examples": {
-              "default": {
-                "x-disabled": true
-              }
-            }
+            "required": false
           }
         ],
         "security": [

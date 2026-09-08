@@ -6,16 +6,6 @@ import { TenantRestApi } from "../src/routes/api/v1/-lib/contract.server.ts"
 const managementApiSnapshot = new URL("../public/api/openapi.json", import.meta.url)
 const document = OpenApi.fromApi(TenantRestApi)
 document.servers = [{ url: "/" }]
-for (const methods of Object.values(document.paths)) {
-  for (const operation of Object.values(methods)) {
-    if (Array.isArray(operation)) continue
-    for (const parameter of operation.parameters ?? []) {
-      if (parameter.in === "query" && !parameter.required && parameter.name !== "page_size") {
-        Object.assign(parameter, { examples: { default: { "x-disabled": true } } })
-      }
-    }
-  }
-}
 document.info.description = (await Promise.all(
   ["getting-started", "authentication", "pagination-and-errors"].map((page) =>
     readFile(new URL(`../src/routes/docs/-content/api/${page}.md`, import.meta.url), "utf8")
