@@ -24,7 +24,7 @@ export function Sidebar() {
 
 - The package has no runtime dependencies; `react` and `react-dom` are optional peers, and other entry points never load them.
 - Prop changes apply in place; the transcript and session survive them.
-- No option is fixed at mount: `agentId`, `apiUrl`, and `fetchChatAuthToken` change in place too.
+- No option is fixed at mount: `agentId`, `apiUrl`, and `fetchAstralBeamToken` change in place too.
 
 ## Mount anywhere else
 

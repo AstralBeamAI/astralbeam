@@ -1,5 +1,5 @@
 import type { DebugLogger } from "../lib/debug.ts"
-import type { AstralBeamChatAuthTokenSource } from "../lib/types.ts"
+import type { AstralBeamTokenSource } from "../lib/types.ts"
 
 const REFRESH_SKEW_MS = 60_000
 const MAX_TOKEN_LENGTH = 16_384
@@ -22,7 +22,7 @@ interface ChatAuthenticationSession {
 
 export interface ChatAuthenticationOptions {
   /** The token endpoint to call or the host function to ask; callers resolve the default. */
-  fetchChatAuthToken: AstralBeamChatAuthTokenSource
+  fetchAstralBeamToken: AstralBeamTokenSource
   session: ChatAuthenticationSession
   onStateChange: (state: ChatAuthenticationState) => void
   fetchClient: typeof globalThis.fetch
@@ -66,13 +66,13 @@ async function requestChatAuthToken(
   options: ChatAuthenticationOptions,
   signal: AbortSignal,
 ): Promise<unknown> {
-  const { fetchChatAuthToken, fetchClient } = options
+  const { fetchAstralBeamToken, fetchClient } = options
   // No result at all means the host could not mint a token, which fails closed below.
-  if (typeof fetchChatAuthToken === "function") {
-    const generated: { token?: unknown } | null | undefined = await fetchChatAuthToken()
+  if (typeof fetchAstralBeamToken === "function") {
+    const generated: { token?: unknown } | null | undefined = await fetchAstralBeamToken()
     return generated?.token
   }
-  const { url, ...init } = fetchChatAuthToken
+  const { url, ...init } = fetchAstralBeamToken
   const headers = new Headers(init.headers)
   if (!headers.has("accept")) headers.set("accept", "application/json")
   const response = await fetchClient(url, {
@@ -93,8 +93,8 @@ async function requestChatAuthToken(
 async function loadChatAuthToken(options: ChatAuthenticationOptions): Promise<string> {
   const { session, onStateChange, debug } = options
   const { signal } = session.abortController
-  const source = typeof options.fetchChatAuthToken === "function"
-    ? "fetchChatAuthToken"
+  const source = typeof options.fetchAstralBeamToken === "function"
+    ? "fetchAstralBeamToken"
     : "Authentication endpoint"
   try {
     const token = await requestChatAuthToken(options, signal)

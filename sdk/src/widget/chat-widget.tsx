@@ -57,7 +57,7 @@ export function ChatWidget(
   const sessionOptions = useMemo<AstralBeamChatCoreOptions>(() => ({
     agentId: options.agentId,
     apiUrl: options.apiUrl,
-    fetchChatAuthToken: options.fetchChatAuthToken,
+    fetchAstralBeamToken: options.fetchAstralBeamToken,
     tools: options.tools,
     widgets,
     onRenderWidget: renderWidget,
@@ -66,7 +66,7 @@ export function ChatWidget(
   }), [
     options.agentId,
     options.apiUrl,
-    options.fetchChatAuthToken,
+    options.fetchAstralBeamToken,
     options.tools,
     options.debug,
     widgets,
