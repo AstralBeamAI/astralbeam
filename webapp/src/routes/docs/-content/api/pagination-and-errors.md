@@ -83,16 +83,17 @@ The following conventions apply across the API. Endpoint descriptions call out r
 
 | Status    | Meaning                                             |
 | --------- | --------------------------------------------------- |
-| 400       | Invalid path/query/cursor                           |
+| 400       | Invalid path/query/cursor or malformed chat input   |
 | 401 / 403 | Invalid credentials / insufficient authority        |
 | 404       | Missing or out-of-scope record                      |
 | 409       | Duplicate scoped external ID                        |
+| 413       | Chat request exceeds 32 MiB                         |
 | 415       | Unsupported media type or encoding                  |
 | 422       | Malformed JSON, invalid write fields or empty PATCH |
 | 429       | Rate limit reached; observe Retry-After             |
 | 500 / 503 | Safe internal error / setup unavailable             |
 
-Missing and out-of-scope records both return `404`. POST/PATCH reject unknown fields, and PATCH must supply at least one mutable field; invalid writes return `422`.
+Missing and out-of-scope records both return `404`. Resource POST/PATCH requests reject unknown fields, and PATCH must supply at least one mutable field. Invalid resource writes return `422`. Chat preserves AG-UI camelCase input and reports malformed input as `400`. Failures after streaming starts are AG-UI `RUN_ERROR` events, not HTTP error responses.
 
 An invalid `admin` value, for example, returns `422 Unprocessable Content` with `Content-Type: application/problem+json`:
 

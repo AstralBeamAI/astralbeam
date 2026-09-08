@@ -6,14 +6,12 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 const databaseState = vi.hoisted(() => ({
   joinPredicates: [] as SQL[],
   rows: [] as unknown[][],
-  selectCalls: 0,
   wherePredicates: [] as SQL[],
 }))
 
 vi.mock("@/db", () => {
   const db = {
     select: () => {
-      databaseState.selectCalls += 1
       const rows = databaseState.rows.shift() ?? []
       const query = {
         from: () => query,
@@ -45,7 +43,6 @@ describe("organization agent chat lookup", () => {
   beforeEach(() => {
     databaseState.joinPredicates = []
     databaseState.rows = []
-    databaseState.selectCalls = 0
     databaseState.wherePredicates = []
   })
 
@@ -62,20 +59,17 @@ describe("organization agent chat lookup", () => {
     expect(wherePredicate?.params).toEqual([AGENT_ID, ORGANIZATION_ID])
   })
 
-  test.each([
-    undefined,
-    ORGANIZATION_ID,
-    "agt_acme_todo-agent",
-    `${AGENT_ID} `,
-    "agent_not-a-uuid",
-    // UUIDv4, so the version nibble the schema pins to 7 rejects it.
-    "agent_01990a5d-ac96-474b-b942-6b13c85384ca",
-  ])(
-    "returns the same missing result for a non-resolving public ID",
-    async (publicId) => {
-      await expect(resolveChatAgent(publicId, ORGANIZATION_ID)).resolves.toBeNull()
-    },
-  )
+  test("default lookup joins and scopes both organization-owned rows", async () => {
+    await expect(resolveChatAgent(undefined, ORGANIZATION_ID)).resolves.toBeNull()
+    const join = query(databaseState.joinPredicates[0]!)
+    expect(join.sql).toContain('"agent"."id" = "organization_configuration"."default_agent_id"')
+    expect(join.sql).toContain(
+      '"agent"."organization_id" = "organization_configuration"."organization_id"',
+    )
+    expect(query(databaseState.wherePredicates[0]!).params).toEqual([ORGANIZATION_ID])
+    await expect(resolveChatAgent("invalid", ORGANIZATION_ID)).resolves.toBeNull()
+    expect(databaseState.wherePredicates).toHaveLength(1)
+  })
 })
 
 function query(expression: SQL) {

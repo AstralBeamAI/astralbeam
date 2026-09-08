@@ -6,7 +6,7 @@ import {
   HttpApiSchema,
   OpenApi,
 } from "effect/unstable/httpapi"
-import type { TenantRestApi } from "./contract.server"
+import type { ApiV1 } from "./contract.server"
 import { restHandleErrors } from "./responses.server"
 import {
   restEmptyPage,
@@ -14,6 +14,7 @@ import {
   restPageFields,
   restPageHeaders,
   restPageQuery,
+  restResourceSecurity,
   restScope,
   tenantRestKeys,
 } from "./shared.server"
@@ -115,12 +116,12 @@ export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true }).annota
     OpenApi.Description,
     "Update supplied name/metadata fields only. Requires an organization API key. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.",
   ),
-).annotate(
+).annotateEndpoints(OpenApi.Override, restResourceSecurity).annotate(
   OpenApi.Description,
   "A Tenant is one of your Organization's customers. Use internal UUID IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
 )
 
-export function tenantHandlers(api: typeof TenantRestApi) {
+export function tenantHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "tenants",

@@ -1,8 +1,9 @@
 import { Cause, Effect, Layer, SchemaIssue } from "effect"
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
-import { TenantRestApi } from "./contract.server"
-import { RestBoundary, restScope } from "./shared.server"
+import { ApiV1 } from "./contract.server"
+import { ApiBoundary, RestAuthorization, restScope } from "./shared.server"
+import { chatHandlers } from "../chat/-lib/chat.server"
 import { authenticateRestRequest } from "./auth.server"
 import { tenantHandlers } from "./tenant.server"
 import { tenantUserHandlers } from "./tenant-user.server"
@@ -34,25 +35,34 @@ function restBoundaryFailure(cause: Cause.Cause<unknown>, operation: string) {
   }
   return restErrorResponse(error, operation)
 }
-const RestBoundaryLive = Layer.succeed(
-  RestBoundary,
-  (httpEffect, { endpoint }) =>
+const RestAuthorizationLive = Layer.succeed(
+  RestAuthorization,
+  (httpEffect) =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest
       const native = yield* HttpServerRequest.toWeb(request)
       const scope = yield* authenticateRestRequest(native)
-      if (!endpoint.query && new URL(native.url).search) {
+      return yield* httpEffect.pipe(Effect.provideService(restScope, scope))
+    }).pipe(restBoundaryErrors("authentication")),
+)
+
+const ApiBoundaryLive = Layer.succeed(
+  ApiBoundary,
+  (httpEffect, { endpoint }) =>
+    Effect.gen(function* () {
+      const request = yield* HttpServerRequest.HttpServerRequest
+      if (!endpoint.query && new URL(request.url, "http://localhost").search) {
         return yield* Effect.fail(restFault(400, "This endpoint does not accept query parameters."))
       }
-      return yield* httpEffect.pipe(Effect.provideService(restScope, scope))
-    }).pipe(
-      Effect.catchCause((cause) =>
-        Effect.sync(() =>
-          HttpServerResponse.fromWeb(restBoundaryFailure(cause, endpoint.identifier))
-        )
-      ),
-    ),
+      return yield* httpEffect
+    }).pipe(restBoundaryErrors(endpoint.identifier)),
 )
+
+function restBoundaryErrors(operation: string) {
+  return Effect.catchCause((cause) =>
+    Effect.sync(() => HttpServerResponse.fromWeb(restBoundaryFailure(cause, operation)))
+  )
+}
 
 // Borrow the existing ManagedRuntime service; this does not build another database pool.
 const RestDatabaseLayer = Layer.effect(
@@ -60,10 +70,10 @@ const RestDatabaseLayer = Layer.effect(
   Effect.promise(() => runDatabaseEffect(effectDatabase)),
 )
 
-export const tenantRestWebHandler = HttpRouter.toWebHandler(
-  HttpApiBuilder.layer(TenantRestApi).pipe(
-    Layer.provide([tenantHandlers(TenantRestApi), tenantUserHandlers(TenantRestApi)]),
-    Layer.provide(RestBoundaryLive),
+export const apiV1WebHandler = HttpRouter.toWebHandler(
+  HttpApiBuilder.layer(ApiV1).pipe(
+    Layer.provide([tenantHandlers(ApiV1), tenantUserHandlers(ApiV1), chatHandlers(ApiV1)]),
+    Layer.provide([ApiBoundaryLive, RestAuthorizationLive]),
     Layer.provide(RestDatabaseLayer),
     HttpRouter.provideRequest(RestDatabaseLayer),
     Layer.provide(HttpServer.layerServices),
@@ -88,7 +98,7 @@ export async function dispatchRestRequest(request: Request): Promise<Response> {
   let response: Response
   try {
     const prepared = prepareRestRequest(request)
-    response = await tenantRestWebHandler.handler(prepared)
+    response = await apiV1WebHandler.handler(prepared)
     if (
       response.status >= 400 &&
       !response.headers.get("content-type")?.includes("application/problem+json")

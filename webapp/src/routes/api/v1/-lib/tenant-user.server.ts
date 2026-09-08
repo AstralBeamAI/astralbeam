@@ -6,7 +6,7 @@ import {
   HttpApiSchema,
   OpenApi,
 } from "effect/unstable/httpapi"
-import type { TenantRestApi } from "./contract.server"
+import type { ApiV1 } from "./contract.server"
 import { restHandleErrors } from "./responses.server"
 import {
   restEmptyPage,
@@ -14,6 +14,7 @@ import {
   restPageFields,
   restPageHeaders,
   restPageQuery,
+  restResourceSecurity,
   restScope,
   tenantRestKeys,
 } from "./shared.server"
@@ -123,12 +124,12 @@ export const tenantUserApi = HttpApiGroup.make("tenant_users", { topLevel: true 
     OpenApi.Description,
     "Update supplied name/metadata/admin fields only. Stored admin does not grant or revoke JWT authority. name:null clears the name; metadata replaces the object.",
   ),
-).annotate(
+).annotateEndpoints(OpenApi.Override, restResourceSecurity).annotate(
   OpenApi.Description,
   "A TenantUser is a user of one of your Organization's Tenants, not an employee using the dashboard. All routes use internal UUID tenant_id and user id values. External IDs are unique within the organization and Tenant; the same external user ID may exist in another Tenant. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable; users cannot move between Tenants. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. Stored admin does not change signed JWT authority. Creation does not issue tokens or upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
 )
 
-export function tenantUserHandlers(api: typeof TenantRestApi) {
+export function tenantUserHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "tenant_users",
