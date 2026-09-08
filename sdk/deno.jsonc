@@ -13,7 +13,6 @@
     "proseWrap": "never",
     "exclude": [
       "deno.lock",
-      "src/api/generated",
       "src/widget/components/ui",
       "src/widget/styles.generated.ts"
     ]

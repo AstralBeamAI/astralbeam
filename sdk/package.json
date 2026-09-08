@@ -63,7 +63,7 @@
     "build": "deno task generate:styles && tsdown",
     "dev": "deno task generate:styles && tsdown --watch",
     "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts",
-    "generate:api": "orval",
+    "generate:api": "orval && deno fmt src/api/generated",
     "api:check": "deno task generate:api && git diff --exit-code -- src/api/generated",
     "check": "deno task generate:styles && deno task api:check && deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno task generate:styles && deno task generate:api && deno task lint:fix && deno task format && deno task knip:fix",
