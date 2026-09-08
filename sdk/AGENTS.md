@@ -57,6 +57,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Keep SDK option and model names camelCase, map AstralBeam-owned multiword JWT claim names to snake_case on the wire, and preserve caller-owned `metadata` keys verbatim.
 - Generated API types retain OpenAPI field names. Generate with `deno task generate:api` from the committed `webapp/public/api/openapi.json`; never hand-edit `src/api/generated`. Orval is development-only, and `/api` must contain no third-party runtime imports or bundled transport/validation dependencies.
 - Use typed `apiKey` options on servers and `astralBeamToken` options in browsers. Resource helpers support either, chat run/config accept only JWTs, and files use signed tickets. Keep TanStack's SSE parsing and the existing one-time 401 refresh outside the generated transport.
+- Preserve native Fetch redirect-following defaults for compatibility. Honor an explicit caller-provided `redirect` option.
 - Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject.
 
 ## Testing

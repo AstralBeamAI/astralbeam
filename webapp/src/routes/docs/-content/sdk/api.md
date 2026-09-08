@@ -47,7 +47,7 @@ Resource calls require a token with the signed `user.admin` claim and are restri
 - Pass either `page_after` or `page_before`, not both. A null continuation means there is no page in that direction. Listings are live, not snapshots.
 - PATCH sends only the fields supplied. `name: null` clears a name. Metadata replaces the whole object, and `{}` clears it.
 - Set `apiUrl` to your deployment's `/api` base and use `signal` to cancel a request.
-- Requests do not retry automatically and refuse redirects. A failed or aborted mutation may already have committed. Low-level JWT calls do not refresh tokens automatically.
+- Requests follow redirects by default and do not retry automatically. Use trusted API URLs and redirect destinations. A failed or aborted mutation may already have committed. Low-level JWT calls do not refresh tokens automatically.
 
 ```ts
 import { isAstralBeamApiError, updateTenant } from "@astralbeam/sdk/api"

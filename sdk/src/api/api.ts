@@ -58,7 +58,6 @@ async function apiResponse(path: string, options: ApiOptions | FileOptions): Pro
   const response = await fetchClient(resolveApiUrl(path, apiUrl), {
     ...init,
     headers,
-    redirect: "error",
   })
   if (response.ok) return response
   const value: unknown = await response.json().catch((error: unknown) => {
