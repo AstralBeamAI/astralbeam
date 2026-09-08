@@ -87,6 +87,7 @@ vi.mock("@/db/lib/rate-limiter.server", () => ({
 }))
 
 import { dispatchRestRequest, tenantRestWebHandler } from "./transport.server"
+import { encodeRestCursor } from "./pagination.server"
 import {
   RestApiErrorSchema,
   TenantRecordSchema,
@@ -190,7 +191,11 @@ describe("REST API through the Effect Fetch handler", () => {
         Effect.map(Option.getOrThrow),
       ),
     )
-    expect(page).toEqual({ items: [restUserRow], nextPosition: { id: restUserId } })
+    expect(page).toEqual({
+      items: [restUserRow],
+      nextPosition: { id: restUserId },
+      previousPosition: undefined,
+    })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restTenantId])
 
     const missing = await runDatabaseEffect(
@@ -224,8 +229,9 @@ describe("REST API through the Effect Fetch handler", () => {
         {
           items: backward ? ordered.slice(0, 2).reverse() : ordered.slice(0, 2),
           nextPosition: { id: restUserId },
+          previousPosition: undefined,
         },
-        { items: [ordered[2]], nextPosition: null },
+        { items: [ordered[2]], nextPosition: null, previousPosition: undefined },
       ])
       expect(restTestState.limits).toEqual([3, 3])
       expect(restLastPredicate().params).toEqual([restOrgId, restUserId])
@@ -282,25 +288,29 @@ describe("REST API through the Effect Fetch handler", () => {
       query: filter,
     })
     expect(users.items[0]).toMatchObject({ id: restUserId, external_id: restUserRow.externalId })
+    expect(users).toMatchObject({ page_after: null, page_before: null })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserRow.externalId])
     expect(restLastPredicate().sql).toContain('"tenant_user"."external_id" =')
   })
 
   test("filtered cursors allow page-size changes but reject filter changes", async () => {
     const filter = { "filter[external_id]": restTenantRow.externalId }
-    restTestState.rows.push([restTenantRow], [])
-    const matches = await restJson(tenantRestPage, "/tenants", { query: filter })
+    const cursor = await encodeRestCursor(restTenantRow, "tenants", {
+      organizationId: restOrgId,
+      externalId: restTenantRow.externalId,
+    })
+    restTestState.rows.push([])
     const terminal = await restJson(tenantRestPage, "/tenants", {
       query: {
         ...filter,
-        page_after: matches.end_cursor!,
+        page_after: cursor,
         page_size: 100,
       },
     })
-    expect(terminal).toMatchObject({ items: [], has_next_page: false })
+    expect(terminal).toEqual({ items: [], page_after: null, page_before: null })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantRow.externalId, restTenantId])
     await expect(restJson(tenantRestPage, "/tenants", {
-      query: { "filter[external_id]": "other", page_after: matches.end_cursor! },
+      query: { "filter[external_id]": "other", page_after: cursor },
     })).rejects.toMatchObject({ status: 400 })
   })
 
@@ -430,7 +440,7 @@ describe("REST API through the Effect Fetch handler", () => {
     restTestState.rows.push([], [], [])
     expect(await (await restRequest("/tenants", { headers })).json()).toMatchObject({
       items: [],
-      has_next_page: false,
+      page_after: null,
     })
     expect(restLastPredicate().sql).toContain("false")
     await expect(restRequest(`/tenants/${restOtherId}/tenant_users`, { headers }))
@@ -490,31 +500,54 @@ describe("REST API through the Effect Fetch handler", () => {
       query: { page_size: 1 },
     })
     expect(first.items.map((item) => item.id)).toEqual([restUserId])
-    expect(first.has_next_page).toBe(true)
+    expect(first.page_after).toEqual(expect.any(String))
+    expect(first.page_before).toBeNull()
     expect(restTestState.limits.at(-1)).toBe(2)
-    restTestState.rows.push([restTenantRow], [{ ...restUserRow, id: restOtherId }, restUserRow])
-    const backward = await restJson(tenantUserRestPage, `/tenants/${restTenantId}/tenant_users`, {
-      query: { page_size: 999, page_before: first.end_cursor! },
+    restTestState.rows.push([restTenantRow], [{ ...restUserRow, id: restOtherId }], [restUserRow])
+    const last = await restJson(tenantUserRestPage, `/tenants/${restTenantId}/tenant_users`, {
+      query: { page_size: 1, page_after: first.page_after! },
     })
-    expect(backward.items.map((item) => item.id)).toEqual([restUserId, restOtherId])
-    expect(backward.has_previous_page).toBe(false)
-    expect(restTestState.limits.at(-1)).toBe(101)
-    expect(restLastPredicate().sql).toContain('"tenant_user"."id" <')
+    expect(last.page_after).toBeNull()
+    expect(last.page_before).toEqual(expect.any(String))
+    restTestState.rows.push([restTenantRow], [restUserRow], [{ ...restUserRow, id: restOtherId }])
+    const backward = await restJson(tenantUserRestPage, `/tenants/${restTenantId}/tenant_users`, {
+      query: { page_size: 999, page_before: last.page_before! },
+    })
+    expect(backward.items.map((item) => item.id)).toEqual([restUserId])
+    expect(backward.page_before).toBeNull()
+    expect(backward.page_after).toEqual(first.page_after)
+    expect(restTestState.limits.slice(-2)).toEqual([101, 1])
+    expect(restLastPredicate().sql).toContain('"tenant_user"."id" >')
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserId])
     expect(restTestState.order.map((order) => new PgDialect().sqlToQuery(order).sql))
-      .toEqual(['"tenant_user"."id" desc'])
+      .toEqual(['"tenant_user"."id" asc'])
+    restTestState.rows.push(
+      [restTenantRow],
+      [{ ...restUserRow, id: restOtherId }, {
+        ...restUserRow,
+        id: "019a0000-0000-7000-8000-000000000005",
+      }],
+      [restUserRow],
+    )
+    const middle = await restRequest(
+      `/tenants/${restTenantId}/tenant_users?page_size=1&page_after=${first.page_after}`,
+    )
+    const middlePage: unknown = await middle.json()
+    expect(middlePage).toHaveProperty("page_after", expect.any(String))
+    expect(middlePage).toHaveProperty("page_before", last.page_before)
+    expect(middle.headers.get("link")).toContain('rel="next"')
+    expect(middle.headers.get("link")).toContain('rel="prev"')
     await expect(
       restJson(tenantUserRestPage, `/tenants/${restOtherId}/tenant_users`, {
-        query: { page_after: first.end_cursor! },
+        query: { page_after: first.page_after! },
       }),
     )
       .rejects.toMatchObject({ status: 400 })
     restTestState.rows.push([])
     expect(await restJson(tenantRestPage, "/tenants", { query: {} })).toEqual({
       items: [],
-      start_cursor: null,
-      end_cursor: null,
-      has_next_page: false,
+      page_after: null,
+      page_before: null,
     })
     for (const query of ["page_size=0", "page_after=x", "sort=id"]) {
       expect((await restRequest(`/tenants?${query}`)).status).toBe(400)

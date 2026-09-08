@@ -5,11 +5,11 @@ All lists support cursor-based pagination in both directions. Use the returned c
 ## Requests and responses
 
 - `page_size`: positive integer, default 20; values above 100 are accepted and capped.
-- `page_after`: the previous page's `end_cursor`.
-- `page_before`: the next page's `start_cursor`.
+- `page_after`: a returned `page_after` value, to fetch the next page.
+- `page_before`: a returned `page_before` value, to fetch the previous page.
 - At most one direction is accepted. Unknown/duplicate parameters, invalid sizes, and invalid or wrong-scope cursors return `400`.
 
-Responses contain `items`, `start_cursor`, `end_cursor`, and directional availability flags. Forward/default requests always supply `has_next_page`; stop when it is false, even if `end_cursor` is present. Backward requests always supply `has_previous_page`. The opposite flag may be absent; absence does not mean false.
+Responses contain `items`, `page_after`, and `page_before`. Pass either non-null continuation value unchanged as the same-named request parameter. A null value means no page is available in that direction. These values describe where to go next; they do not echo the request parameters.
 
 For example, a request with `page_size=1` can return `200 OK` with this body. Records are fictional and cursors are abbreviated; use actual returned cursors in requests.
 
@@ -25,19 +25,18 @@ For example, a request with `page_size=1` can return `200 OK` with this body. Re
       "updated_at": "2026-06-22T09:30:00.000Z"
     }
   ],
-  "start_cursor": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-  "end_cursor": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-  "has_next_page": true
+  "page_after": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
+  "page_before": null
 }
 ```
 
-Nonempty terminal pages still have both cursors. Empty pages have `items: []`, null cursors, and the requested direction's flag set to false. Stop on the directional flag, not cursor presence or page length. Follow `Link`'s `next`/`prev` relation when present. Page size may change between requests.
+The first page has `page_before: null`; the last has `page_after: null`. A single-page result has both values null. Empty pages have `items: []` and both values null. Stop when the continuation value for your direction is null, not based on page length. You can also follow `Link`'s `next`/`prev` relation when present. Page size may change between requests.
 
 Tenants and TenantUsers within a Tenant are ordered by internal `id`, ascending. Backward traversal preserves display order.
 
 ## Live listings
 
-Listings are not snapshots: concurrent inserts behind the cursor may be absent and deleted rows disappear. Treat cursors as opaque values and reuse them only for the same collection and authorized scope. If a cursor is rejected, restart without it. Positions beyond the requested boundary yield empty pages.
+Listings are not snapshots: concurrent inserts behind the cursor may be absent and deleted rows disappear. A continuation can therefore return an empty page if records are deleted between requests. Treat cursors as opaque values and reuse them only for the same collection and authorized scope. If a cursor is rejected, restart without it. Positions beyond the requested boundary yield empty pages.
 
 TenantUser lists bind cursors to the requested Tenant as well as the caller's scope. Both collections also bind cursors to the active filters. Adding, removing, or changing a filter while reusing a cursor returns `400`; start without a cursor when changing filters. Pagination links preserve the filters.
 
@@ -62,19 +61,19 @@ curl --include --get "$ASTRALBEAM_API_URL/v1/tenants" \
   --data-urlencode "page_size=1"
 ```
 
-If `has_next_page` is true, copy the returned `end_cursor` into `PAGE_AFTER`:
+If the returned `page_after` is not null, copy it into `PAGE_AFTER`:
 
 ```sh
-PAGE_AFTER="<returned end_cursor>"
+PAGE_AFTER="<returned page_after>"
 curl --include --get "$ASTRALBEAM_API_URL/v1/tenants" \
   -H "X-API-Key: $ASTRALBEAM_API_KEY" \
   --data-urlencode "page_size=1" \
   --data-urlencode "page_after=$PAGE_AFTER"
 ```
 
-To traverse backward, send a returned `start_cursor` as `page_before` instead, and stop when `has_previous_page` is false. Never send both directions together.
+To traverse backward, send the returned `page_before` as the `page_before` request parameter instead, and stop when it is null. Never send both directions together.
 
-The example response above also includes a `Link` header with the returned `end_cursor` and `rel="next"`. Resolve relative links against the request URL.
+The example response above also includes a `Link` header with the returned `page_after` and `rel="next"`. Resolve relative links against the request URL.
 
 # Errors
 

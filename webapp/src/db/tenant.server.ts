@@ -71,8 +71,8 @@ export function listTenants(
   scope: TenantScope,
   options: TenantListOptions = {},
 ) {
-  const { backward = false, externalId } = options
-  return databasePages(options, (position, pageSize) =>
+  const { externalId } = options
+  return databasePages(options, (position, limit, backward) =>
     Effect.gen(function* () {
       const database = yield* effectDatabase
       return yield* database.select().from(tenant).where(
@@ -81,7 +81,7 @@ export function listTenants(
           externalId === undefined ? undefined : eq(tenant.externalId, externalId),
           position ? (backward ? lt : gt)(tenant.id, position.id) : undefined,
         ),
-      ).orderBy((backward ? desc : asc)(tenant.id)).limit(pageSize + 1)
+      ).orderBy((backward ? desc : asc)(tenant.id)).limit(limit)
     }).pipe(Effect.mapError(tenantDatabaseError)))
 }
 

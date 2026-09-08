@@ -42,26 +42,27 @@ async function restPage<T extends { id: string }>(
   backward: boolean,
   externalId?: string,
 ) {
-  const { items, nextPosition } = page
-  const hasMore = nextPosition !== null
-  const cursorFor = async (row: T | undefined) =>
+  const { items, nextPosition, previousPosition } = page
+  const cursorFor = async (row: { id: string } | null | undefined) =>
     row ? await encodeRestCursor(row, collection, { ...scope, externalId }) : null
-  const start_cursor = await cursorFor(items[0])
-  const end_cursor = await cursorFor(items.at(-1))
-  const next = new URL(url, "http://localhost")
-  next.searchParams.delete("page_after")
-  next.searchParams.delete("page_before")
-  const position = backward ? start_cursor : end_cursor
-  if (position) next.searchParams.set(backward ? "page_before" : "page_after", position)
-  const body = {
-    items,
-    start_cursor,
-    end_cursor,
-    ...(backward ? { has_previous_page: hasMore } : { has_next_page: hasMore }),
+  const page_after = await cursorFor(backward ? previousPosition : nextPosition)
+  const page_before = await cursorFor(backward ? nextPosition : previousPosition)
+  const links = []
+  for (
+    const [parameter, cursor, relation] of [
+      ["page_after", page_after, "next"],
+      ["page_before", page_before, "prev"],
+    ] as const
+  ) {
+    if (!cursor) continue
+    const next = new URL(url, "http://localhost")
+    next.searchParams.delete("page_after")
+    next.searchParams.delete("page_before")
+    next.searchParams.set(parameter, cursor)
+    links.push(`<${next.pathname}${next.search}>; rel="${relation}"`)
   }
-  const headers = hasMore
-    ? { Link: `<${next.pathname}${next.search}>; rel="${backward ? "prev" : "next"}"` }
-    : {}
+  const body = { items, page_after, page_before }
+  const headers = links.length ? { Link: links.join(", ") } : {}
   return HttpApiSchema.withHeaders({ body, headers })
 }
 const tenantHandlers = HttpApiBuilder.group(
@@ -76,7 +77,13 @@ const tenantHandlers = HttpApiBuilder.group(
           "tenants",
           scope,
         )
-        const page = yield* listTenants(scope, { pageSize, position: cursor, backward, externalId })
+        const page = yield* listTenants(scope, {
+          pageSize,
+          position: cursor,
+          backward,
+          externalId,
+          includePrevious: true,
+        })
           .pipe(
             Stream.runHead,
             Effect.map(Option.getOrThrow),
@@ -118,6 +125,7 @@ const tenantUserHandlers = HttpApiBuilder.group(
           position: cursor,
           backward,
           externalId,
+          includePrevious: true,
         }).pipe(Stream.runHead, Effect.map(Option.getOrThrow))
         return yield* Effect.promise(() =>
           restPage(page, "tenant_users", tenantScope, request.url, backward, externalId)

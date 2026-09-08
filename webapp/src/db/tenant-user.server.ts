@@ -40,10 +40,10 @@ export function listTenantUsers(
   tenantId: string,
   options: TenantListOptions = {},
 ) {
-  const { backward = false, externalId } = options
+  const { externalId } = options
   return Stream.unwrap(Effect.gen(function* () {
     yield* requireTenant(scope, tenantId)
-    return databasePages(options, (position, pageSize) =>
+    return databasePages(options, (position, limit, backward) =>
       Effect.gen(function* () {
         const database = yield* effectDatabase
         return yield* database.select().from(tenantUser).where(
@@ -54,7 +54,7 @@ export function listTenantUsers(
           ),
         )
           .orderBy((backward ? desc : asc)(tenantUser.id))
-          .limit(pageSize + 1)
+          .limit(limit)
       }).pipe(Effect.mapError(tenantDatabaseError)))
   }))
 }

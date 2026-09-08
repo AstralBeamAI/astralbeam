@@ -65,7 +65,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Live keyset page. Forward requests include has_next_page; backward requests include has_previous_page. Cursors identify items, not availability.",
+            "description": "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
             "headers": {
               "link": {
                 "schema": {
@@ -1025,7 +1025,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Live keyset page ordered by tenant_id, id. Only the requested direction's availability is guaranteed.",
+            "description": "Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.",
             "headers": {
               "link": {
                 "schema": {
@@ -2023,7 +2023,7 @@
               "$ref": "#/components/schemas/TenantRecordEncoded"
             }
           },
-          "start_cursor": {
+          "page_after": {
             "anyOf": [
               {
                 "type": "string"
@@ -2031,9 +2031,10 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Pass as page_after to fetch the next page; null means no next page."
           },
-          "end_cursor": {
+          "page_before": {
             "anyOf": [
               {
                 "type": "string"
@@ -2041,22 +2042,17 @@
               {
                 "type": "null"
               }
-            ]
-          },
-          "has_next_page": {
-            "type": "boolean"
-          },
-          "has_previous_page": {
-            "type": "boolean"
+            ],
+            "description": "Pass as page_before to fetch the previous page; null means no previous page."
           }
         },
         "required": [
           "items",
-          "start_cursor",
-          "end_cursor"
+          "page_after",
+          "page_before"
         ],
         "additionalProperties": false,
-        "description": "Live keyset page. Forward requests include has_next_page; backward requests include has_previous_page. Cursors identify items, not availability.",
+        "description": "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
         "examples": [
           {
             "items": [
@@ -2072,15 +2068,13 @@
                 "updated_at": "2026-06-22T09:30:00.000Z"
               }
             ],
-            "start_cursor": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-            "end_cursor": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-            "has_next_page": false
+            "page_after": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
+            "page_before": null
           },
           {
             "items": [],
-            "start_cursor": null,
-            "end_cursor": null,
-            "has_next_page": false
+            "page_after": null,
+            "page_before": null
           }
         ]
       },
@@ -2125,27 +2119,7 @@
           "status",
           "detail"
         ],
-        "additionalProperties": false,
-        "examples": [
-          {
-            "type": "about:blank",
-            "status": 409,
-            "title": "Conflict",
-            "detail": "The external ID already exists in this scope."
-          },
-          {
-            "type": "about:blank",
-            "status": 422,
-            "title": "Unprocessable Content",
-            "detail": "Invalid request body.",
-            "issues": [
-              {
-                "path": "body.name",
-                "message": "Value does not match the API schema."
-              }
-            ]
-          }
-        ]
+        "additionalProperties": false
       },
       "CreateTenantInput": {
         "type": "object",
@@ -2304,7 +2278,7 @@
               "$ref": "#/components/schemas/TenantUserRecordEncoded"
             }
           },
-          "start_cursor": {
+          "page_after": {
             "anyOf": [
               {
                 "type": "string"
@@ -2312,9 +2286,10 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Pass as page_after to fetch the next page; null means no next page."
           },
-          "end_cursor": {
+          "page_before": {
             "anyOf": [
               {
                 "type": "string"
@@ -2322,22 +2297,17 @@
               {
                 "type": "null"
               }
-            ]
-          },
-          "has_next_page": {
-            "type": "boolean"
-          },
-          "has_previous_page": {
-            "type": "boolean"
+            ],
+            "description": "Pass as page_before to fetch the previous page; null means no previous page."
           }
         },
         "required": [
           "items",
-          "start_cursor",
-          "end_cursor"
+          "page_after",
+          "page_before"
         ],
         "additionalProperties": false,
-        "description": "Live keyset page ordered by tenant_id, id. Only the requested direction's availability is guaranteed.",
+        "description": "Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.",
         "examples": [
           {
             "items": [
@@ -2355,15 +2325,13 @@
                 "admin": false
               }
             ],
-            "start_cursor": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-            "end_cursor": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-            "has_next_page": false
+            "page_after": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
+            "page_before": null
           },
           {
             "items": [],
-            "start_cursor": null,
-            "end_cursor": null,
-            "has_next_page": false
+            "page_after": null,
+            "page_before": null
           }
         ]
       },

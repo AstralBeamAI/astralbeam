@@ -38,13 +38,11 @@ const restExampleUser = {
   tenant_id: restExampleTenant.id,
   admin: false,
 }
-const restEmptyPage = { items: [], start_cursor: null, end_cursor: null, has_next_page: false }
+const restEmptyPage = { items: [], page_after: null, page_before: null }
 const restExamplePageCursors = {
-  start_cursor:
+  page_after:
     "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-  end_cursor:
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-  has_next_page: false,
+  page_before: null,
 }
 const tenantRestKeys = {
   externalId: "external_id",
@@ -132,21 +130,6 @@ export const RestApiErrorSchema = Schema.Struct({
   ),
 }).annotate({
   identifier: "AstralBeamApiError",
-  examples: [
-    {
-      type: "about:blank",
-      status: 409,
-      title: "Conflict",
-      detail: "The external ID already exists in this scope.",
-    },
-    {
-      type: "about:blank",
-      status: 422,
-      title: "Unprocessable Content",
-      detail: "Invalid request body.",
-      issues: [{ path: "body.name", message: "Value does not match the API schema." }],
-    },
-  ],
 })
 const restErrorSchemas = [400, 401, 403, 404, 409, 415, 422, 429, 500, 503].map((status) =>
   HttpApiSchema.WithHeaders(RestApiErrorSchema, {
@@ -189,10 +172,12 @@ const restPageQuery = Schema.Struct({
 ).annotate(restStrictOptions)
 export type RestPageQuery = typeof restPageQuery.Type
 const restPageFields = {
-  start_cursor: Schema.NullOr(Schema.String),
-  end_cursor: Schema.NullOr(Schema.String),
-  has_next_page: Schema.optionalKey(Schema.Boolean),
-  has_previous_page: Schema.optionalKey(Schema.Boolean),
+  page_after: Schema.NullOr(Schema.String).annotate({
+    description: "Pass as page_after to fetch the next page; null means no next page.",
+  }),
+  page_before: Schema.NullOr(Schema.String).annotate({
+    description: "Pass as page_before to fetch the previous page; null means no previous page.",
+  }),
 }
 export const tenantRestPage = Schema.Struct({
   items: Schema.Array(TenantRecordSchema),
@@ -202,7 +187,7 @@ export const tenantRestPage = Schema.Struct({
     identifier: "TenantPage",
     examples: [{ items: [restExampleTenant], ...restExamplePageCursors }, restEmptyPage],
     description:
-      "Live keyset page. Forward requests include has_next_page; backward requests include has_previous_page. Cursors identify items, not availability.",
+      "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
   }))
 export const tenantUserRestPage = Schema.Struct({
   items: Schema.Array(TenantUserRecordSchema),
@@ -211,7 +196,7 @@ export const tenantUserRestPage = Schema.Struct({
   identifier: "TenantUserPage",
   examples: [{ items: [restExampleUser], ...restExamplePageCursors }, restEmptyPage],
   description:
-    "Live keyset page ordered by tenant_id, id. Only the requested direction's availability is guaranteed.",
+    "Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.",
 }))
 const restPageHeaders = { Link: Schema.optionalKey(Schema.String) }
 const restMemberParams = { id: UuidV7Schema.annotate({ examples: [restExampleTenant.id] }) }
@@ -302,7 +287,7 @@ export const TenantRestApi = HttpApi.make("TenantRestApi").add(
 ).prefix("/api/v1").middleware(RestBoundary).annotate(OpenApi.Title, `${APP_NAME} API`)
   .annotate(OpenApi.Version, "1.0.0").annotate(OpenApi.Transform, managementOpenApi)
 
-function managementOpenApi(document: Record<string, unknown>): Record<string, unknown> {
+export function managementOpenApi(document: Record<string, unknown>): Record<string, unknown> {
   const api = document as unknown as OpenApi.OpenAPISpec
   for (const methods of Object.values(api.paths)) {
     for (const operation of Object.values(methods)) {

@@ -48,7 +48,7 @@ curl --get "$ASTRALBEAM_API_URL/v1/tenants/$TENANT_ID/tenant_users" \
   --data-urlencode "page_size=20"
 ```
 
-The response is `200 OK` with an `items` array. When `has_next_page` is true, repeat the request with `page_after` set to the returned `end_cursor`. Stop when `has_next_page` is false, even if a cursor is present. See [Pagination](/docs/api#description/pagination) for a complete continuation example.
+The response is `200 OK` with an `items` array. Pass the returned `page_after` as the next request's `page_after` parameter. Stop when it is `null`. To go backward, pass the returned `page_before` instead. See [Pagination](/docs/api#description/pagination) for a complete continuation example.
 
 ## Identities and write behavior
 
