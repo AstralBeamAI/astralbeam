@@ -36,7 +36,8 @@ vi.mock("@/db", () => {
 
 import { resolveChatAgent } from "./agent.server"
 
-const AGENT_ID = "agent_01990a5d-ac96-774b-b942-6b13c85384ca"
+const STORED_AGENT_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
+const AGENT_ID = `agent_${STORED_AGENT_ID}`
 const ORGANIZATION_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
 
 describe("organization agent chat lookup", () => {
@@ -46,7 +47,7 @@ describe("organization agent chat lookup", () => {
     databaseState.wherePredicates = []
   })
 
-  test("scopes the public agent ID to the authenticated organization", async () => {
+  test("queries the stored UUID behind the public agent ID, scoped to the organization", async () => {
     databaseState.rows = [[{ systemPrompt: "Organization default" }]]
 
     await expect(resolveChatAgent(AGENT_ID, ORGANIZATION_ID)).resolves.toEqual({
@@ -56,7 +57,12 @@ describe("organization agent chat lookup", () => {
     const [wherePredicate] = databaseState.wherePredicates.map(query)
     expect(wherePredicate?.sql).toContain('"agent"."id" = $1')
     expect(wherePredicate?.sql).toContain('"agent"."organization_id" = $2')
-    expect(wherePredicate?.params).toEqual([AGENT_ID, ORGANIZATION_ID])
+    expect(wherePredicate?.params).toEqual([STORED_AGENT_ID, ORGANIZATION_ID])
+  })
+
+  test("rejects a bare stored UUID, which is not a public agent ID", async () => {
+    await expect(resolveChatAgent(STORED_AGENT_ID, ORGANIZATION_ID)).resolves.toBeNull()
+    expect(databaseState.wherePredicates).toHaveLength(0)
   })
 
   test("default lookup joins and scopes both organization-owned rows", async () => {

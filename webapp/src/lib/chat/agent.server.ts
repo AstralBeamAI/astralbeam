@@ -1,23 +1,21 @@
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
 
 import { effectDatabase, runDatabaseEffect } from "@/db"
 import { agent, organizationConfiguration } from "@/db/schema.server"
-import { AgentIdSchema } from "@/lib/schemas"
-
-const isAgentId = Schema.is(AgentIdSchema)
+import { toStoredAgentId } from "@/lib/schemas"
 
 /**
  * Resolve malformed and cross-organization public IDs identically. A host that sends no public ID
- * gets the organization's configured default agent.
+ * gets the organization's configured default agent. The returned `id` is the stored UUIDv7.
  */
 export async function resolveChatAgent(
   publicId: unknown,
   authenticatedOrganizationId: string,
 ) {
   const useDefault = publicId === undefined || publicId === null
-  if (!useDefault && !isAgentId(publicId)) return null
+  const storedId = useDefault ? null : toStoredAgentId(publicId)
+  if (storedId === null && !useDefault) return null
   const rows = await runDatabaseEffect(
     Effect.flatMap(effectDatabase, (db) => {
       const query = db.select({
@@ -26,7 +24,7 @@ export async function resolveChatAgent(
         attachmentsEnabled: agent.attachmentsEnabled,
         sandboxProviderId: agent.sandboxProviderId,
       }).from(agent)
-      const scoped = useDefault
+      const scoped = storedId === null
         ? query.innerJoin(
           organizationConfiguration,
           and(
@@ -36,7 +34,7 @@ export async function resolveChatAgent(
         ).where(eq(agent.organizationId, authenticatedOrganizationId))
         : query.where(
           and(
-            eq(agent.id, publicId),
+            eq(agent.id, storedId),
             eq(agent.organizationId, authenticatedOrganizationId),
           ),
         )

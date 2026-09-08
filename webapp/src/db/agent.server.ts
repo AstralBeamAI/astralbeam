@@ -12,23 +12,29 @@ import {
 import { sqlConstraint } from "@/db/lib/sqlstate.server"
 import { agent, organizationConfiguration } from "@/db/schema/organizations.server"
 import {
-  AgentIdSchema,
   AgentNameSchema,
   AgentSystemPromptSchema,
   LockVersionSchema,
+  toPublicAgentId,
+  toStoredAgentId,
   UuidV7Schema,
 } from "@/lib/schemas"
 import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandbox/schemas"
 
-const OrganizationAgentSchema = createSelectSchema(agent, {
-  id: AgentIdSchema,
+const AgentRowSchema = createSelectSchema(agent, {
+  id: UuidV7Schema,
   organizationId: UuidV7Schema,
   name: AgentNameSchema,
   systemPrompt: AgentSystemPromptSchema,
   sandboxProviderId: Schema.NullOr(UuidV7Schema),
   lockVersion: LockVersionSchema,
 })
-export type OrganizationAgent = typeof OrganizationAgentSchema.Type
+
+/**
+ * An agent as its pages and the SDK address it. This module is the only boundary that converts
+ * between the stored UUIDv7 and the public `agent_` ID, so nothing above it sees a bare UUID.
+ */
+export type OrganizationAgent = Omit<typeof AgentRowSchema.Type, "id"> & { id: string }
 
 const AgentSandboxProviderSummarySchema = Schema.Struct({
   id: UuidV7Schema,
@@ -37,15 +43,38 @@ const AgentSandboxProviderSummarySchema = Schema.Struct({
 })
 export type AgentSandboxProviderSummary = typeof AgentSandboxProviderSummarySchema.Type
 
+const AgentConfigurationSchema = Schema.NullOr(
+  Schema.Struct({ defaultAgentId: Schema.NullOr(UuidV7Schema) }),
+)
+
 const OrganizationAgentListSchema = Schema.Struct({
-  agents: Schema.Array(OrganizationAgentSchema),
-  configuration: Schema.NullOr(Schema.Struct({ defaultAgentId: Schema.NullOr(AgentIdSchema) })),
+  agents: Schema.Array(AgentRowSchema),
+  configuration: AgentConfigurationSchema,
 })
 
 const OrganizationAgentFormOptionsSchema = Schema.Struct({
   sandboxProviders: Schema.Array(AgentSandboxProviderSummarySchema),
-  configuration: Schema.NullOr(Schema.Struct({ defaultAgentId: Schema.NullOr(AgentIdSchema) })),
+  configuration: AgentConfigurationSchema,
 })
+
+function toOrganizationAgent(row: typeof AgentRowSchema.Type): OrganizationAgent {
+  return { ...row, id: toPublicAgentId(row.id) }
+}
+
+function publicDefaultAgentId(
+  configuration: typeof AgentConfigurationSchema.Type,
+): string | null {
+  const defaultAgentId = configuration?.defaultAgentId
+  return defaultAgentId === undefined || defaultAgentId === null
+    ? null
+    : toPublicAgentId(defaultAgentId)
+}
+
+/** Public IDs reach this module already validated, so a malformed one is a caller bug. */
+function storedAgentId(publicId: string) {
+  const id = toStoredAgentId(publicId)
+  return id === null ? Effect.die(new Error("Malformed agent ID")) : Effect.succeed(id)
+}
 
 class OrganizationAgentConflictError extends Data.TaggedError(
   "OrganizationAgentConflictError",
@@ -96,7 +125,10 @@ export function readOrganizationAgents(organizationId: string) {
       OrganizationAgentListSchema,
       { onExcessProperty: "error" },
     )(value).pipe(Effect.orDie)
-    return { agents, defaultAgentId: configuration?.defaultAgentId ?? null }
+    return {
+      agents: agents.map(toOrganizationAgent),
+      defaultAgentId: publicDefaultAgentId(configuration),
+    }
   })
 }
 
@@ -120,22 +152,28 @@ export function readOrganizationAgentFormOptions(organizationId: string) {
       OrganizationAgentFormOptionsSchema,
       { onExcessProperty: "error" },
     )(value).pipe(Effect.orDie)
-    return { sandboxProviders, defaultAgentId: configuration?.defaultAgentId ?? null }
+    return { sandboxProviders, defaultAgentId: publicDefaultAgentId(configuration) }
   })
 }
 
-/** One agent addressed by the ID in its URL, or `null` when this organization has no such agent. */
+/**
+ * One agent addressed by the public ID in its URL, or `null` when this organization has no such
+ * agent. A public ID that is not one at all resolves the same way, so a hand-typed URL 404s.
+ */
 export function readOrganizationAgentById(input: { organizationId: string; id: string }) {
   return Effect.gen(function* () {
+    const id = toStoredAgentId(input.id)
+    if (id === null) return null
     const db = yield* effectDatabase
     const rows = yield* db.select().from(agent).where(
-      and(eq(agent.organizationId, input.organizationId), eq(agent.id, input.id)),
+      and(eq(agent.organizationId, input.organizationId), eq(agent.id, id)),
     ).limit(1).pipe(Effect.orDie)
     const row = rows[0]
     if (!row) return null
-    return yield* Schema.decodeUnknownEffect(OrganizationAgentSchema, {
+    const decoded = yield* Schema.decodeUnknownEffect(AgentRowSchema, {
       onExcessProperty: "error",
     })(row).pipe(Effect.orDie)
+    return toOrganizationAgent(decoded)
   })
 }
 
@@ -165,7 +203,7 @@ export function provisionOrganizationDefaultAgent(input: {
             organizationId: input.organizationId,
             defaultAgentId: created.id,
           })
-          return created.id
+          return toPublicAgentId(created.id)
         })
       ),
   )
@@ -173,29 +211,32 @@ export function provisionOrganizationDefaultAgent(input: {
 
 /** Points the organization's configuration at `id`, creating the configuration row on demand. */
 export function setOrganizationDefaultAgent(input: { organizationId: string; id: string }) {
-  return Effect.flatMap(effectDatabase, (db) =>
-    db.insert(organizationConfiguration).values({
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    const defaultAgentId = yield* storedAgentId(input.id)
+    return yield* db.insert(organizationConfiguration).values({
       organizationId: input.organizationId,
-      defaultAgentId: input.id,
+      defaultAgentId,
     }).onConflictDoUpdate({
       target: organizationConfiguration.organizationId,
       set: {
-        defaultAgentId: input.id,
+        defaultAgentId,
         lockVersion: sql`${organizationConfiguration.lockVersion} + 1`,
         // Drizzle's `updatedAt` hook runs for update statements, not for a conflict clause.
         updatedAt: sql`now()`,
       },
-    })).pipe(
-      Effect.catchIf(
-        isOrganizationDefaultAgentConflict,
-        () =>
-          Effect.fail(
-            new OrganizationDefaultAgentError({
-              message: "Select an agent from this organization",
-            }),
-          ),
-      ),
-    )
+    })
+  }).pipe(
+    Effect.catchIf(
+      isOrganizationDefaultAgentConflict,
+      () =>
+        Effect.fail(
+          new OrganizationDefaultAgentError({
+            message: "Select an agent from this organization",
+          }),
+        ),
+    ),
+  )
 }
 
 /** Returns the generated public agent ID, which is what the caller navigates to. */
@@ -215,7 +256,7 @@ export function createOrganizationAgent(input: {
       if (!created) {
         return Effect.die(new Error("PostgreSQL did not return the created agent"))
       }
-      return Effect.succeed(created.id)
+      return Effect.succeed(toPublicAgentId(created.id))
     }),
     Effect.catchIf(
       isOrganizationAgentNameConflict,
@@ -237,11 +278,13 @@ export function updateOrganizationAgent(input: {
   attachmentsEnabled: boolean
   sandboxProviderId: string | null
 }) {
-  return Effect.flatMap(effectDatabase, (db) =>
-    updateWithOptimisticLock({
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    const id = yield* storedAgentId(input.id)
+    return yield* updateWithOptimisticLock({
       executor: db,
       table: agent,
-      id: input.id,
+      id,
       scope: eq(agent.organizationId, input.organizationId),
       expectedLockVersion: input.lockVersion,
       set: {
@@ -250,16 +293,17 @@ export function updateOrganizationAgent(input: {
         attachmentsEnabled: input.attachmentsEnabled,
         sandboxProviderId: input.sandboxProviderId,
       },
-    })).pipe(
-      Effect.catchIf(
-        isOrganizationAgentNameConflict,
-        () => Effect.fail(duplicateOrganizationAgentName()),
-      ),
-      Effect.catchIf(
-        isOrganizationAgentProviderConflict,
-        () => Effect.fail(invalidOrganizationAgentProvider()),
-      ),
-    )
+    })
+  }).pipe(
+    Effect.catchIf(
+      isOrganizationAgentNameConflict,
+      () => Effect.fail(duplicateOrganizationAgentName()),
+    ),
+    Effect.catchIf(
+      isOrganizationAgentProviderConflict,
+      () => Effect.fail(invalidOrganizationAgentProvider()),
+    ),
+  )
 }
 
 export function deleteOrganizationAgent(input: {
@@ -272,6 +316,7 @@ export function deleteOrganizationAgent(input: {
     (db) =>
       db.transaction((transaction) =>
         Effect.gen(function* () {
+          const id = yield* storedAgentId(input.id)
           // The configuration's restricted reference blocks the delete while this agent is the
           // organization's default, so release it in the same transaction.
           yield* transaction.update(organizationConfiguration).set({
@@ -280,13 +325,13 @@ export function deleteOrganizationAgent(input: {
           }).where(
             and(
               eq(organizationConfiguration.organizationId, input.organizationId),
-              eq(organizationConfiguration.defaultAgentId, input.id),
+              eq(organizationConfiguration.defaultAgentId, id),
             ),
           )
           return yield* deleteWithOptimisticLock({
             executor: transaction,
             table: agent,
-            id: input.id,
+            id,
             scope: eq(agent.organizationId, input.organizationId),
             expectedLockVersion: input.lockVersion,
           })

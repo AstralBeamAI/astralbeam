@@ -24,7 +24,8 @@
 
 ## Agent resolution
 
-- `resolveChatAgent` takes the `agentId` public id (`agent_<uuidv7>`, the agent's own primary key) or, when it is absent, joins `organization_configuration.default_agent_id`. Creating an organization also creates a starter agent and that configuration row, so the default normally exists; when it does not, the 404 says so specifically.
+- `resolveChatAgent` takes the `agentId` public id (`agent_<uuidv7>`) or, when it is absent, joins `organization_configuration.default_agent_id`. Creating an organization also creates a starter agent and that configuration row, so the default normally exists; when it does not, the 404 says so specifically.
+- It resolves the public id to the stored UUIDv7 with `toStoredAgentId` before querying, so `agent.id` is compared as a `uuid` and a bare UUID sent as `agentId` is refused like any other malformed value.
 - A malformed id, a non-string id, and an id belonging to another organization all return `null` and the same 404, because the query is additionally filtered by the authenticated organization id. There is no way to tell "not an id" from "not yours".
 - The agent row contributes exactly three things: `systemPrompt`, `attachmentsEnabled`, and the optional `sandboxProviderId`. It carries no model — every run uses the single `CHAT_MODEL` constant in `adapter.server.ts` with the deployment's `openai_api_key` config value.
 - System prompts compose in order: `CHAT_SYSTEM_PROMPT`, the attachment policy when the run carries files, the two sandbox prompts when sandbox tools were declared, then the agent's own prompt last. No prompt text ever names a file, sheet, or column: those strings are chosen by whoever made the file, and a system prompt carries deployment authority.

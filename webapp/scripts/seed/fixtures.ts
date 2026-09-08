@@ -27,13 +27,14 @@ const SEED_NAMES = {
 } as const
 
 /**
- * Fixed agent IDs. Agents carry no slug, so the seed writes these explicit values rather than
- * letting the database generate them, which keeps `SEED_TODOS_TARGET` composable without a query.
+ * Fixed stored agent UUIDv7s. Agents carry no slug, so the seed writes these explicit values
+ * rather than letting the database generate them, which keeps `SEED_TODOS_TARGET` composable
+ * without a query. `AGENT_ID_PREFIX` in `src/lib/schemas.ts` is the public prefix composed below.
  */
 const SEED_AGENT_IDS = {
-  acmeStarter: "agent_01990a5d-0000-7000-8000-000000000001",
-  acmeTodos: "agent_01990a5d-0000-7000-8000-000000000002",
-  globexStarter: "agent_01990a5d-0000-7000-8000-000000000003",
+  acmeStarter: "01990a5d-0000-7000-8000-000000000001",
+  acmeTodos: "01990a5d-0000-7000-8000-000000000002",
+  globexStarter: "01990a5d-0000-7000-8000-000000000003",
 } as const
 
 /**
@@ -208,8 +209,8 @@ export const SEED_ORGANIZATIONS = [
  */
 export const SEED_TODOS_TARGET = {
   organizationSlug: SEED_NAMES.acme,
-  agentId: SEED_AGENT_IDS.acmeTodos,
-  starterAgentId: SEED_AGENT_IDS.acmeStarter,
+  agentId: `agent_${SEED_AGENT_IDS.acmeTodos}`,
+  starterAgentId: `agent_${SEED_AGENT_IDS.acmeStarter}`,
   apiKey: `key_${SEED_NAMES.acme}_${SEED_NAMES.todosApiKey}_${SEED_API_KEY_SECRETS.todos}`,
   /** Disabled key: `/api/v1/chat` must reject a token signed with it. */
   revokedApiKey:

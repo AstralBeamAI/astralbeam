@@ -22,13 +22,12 @@ import {
   type SandboxProviderOptions,
   type SandboxTestMetadata,
 } from "../../lib/sandbox/schemas.ts"
-import { AGENT_ID_PATTERN, AGENT_ID_PREFIX, UuidV7Schema } from "../../lib/schemas.ts"
+import { UuidV7Schema } from "../../lib/schemas.ts"
 
 import {
   caseInsensitiveText,
   encryptedJson,
   lockVersion,
-  prefixedUuidV7,
   timestamps,
   timestampWithTimeZone,
   uuidV7,
@@ -143,13 +142,10 @@ export const sandboxProvider = snakeCase.table(
   ],
 )
 
-// drizzle-kit renders check DDL literally, so the constraint reuses the schema's pattern source.
-const AGENT_ID_SQL_PATTERN = sql.raw(`'${AGENT_ID_PATTERN.source}'`)
-
 export const agent = snakeCase.table(
   "agent",
   {
-    id: prefixedUuidV7(AGENT_ID_PREFIX),
+    id: uuidV7(),
     organizationId: uuid().notNull().references(() => organization.id, {
       onDelete: "cascade",
     }),
@@ -171,7 +167,6 @@ export const agent = snakeCase.table(
     ),
     // The name is the only human-readable handle left once the ID is opaque.
     uniqueIndex("agent_organization_id_name_uidx").on(table.organizationId, table.name),
-    check("agent_id_check", sql`${table.id} ~ ${AGENT_ID_SQL_PATTERN}`),
     check(
       "agent_system_prompt_length_check",
       sql`char_length(${table.systemPrompt}) between 1 and 32768`,
@@ -191,7 +186,7 @@ export const organizationConfiguration = snakeCase.table(
     organizationId: uuid().notNull().references(() => organization.id, {
       onDelete: "cascade",
     }),
-    defaultAgentId: text(),
+    defaultAgentId: uuid(),
     lockVersion: lockVersion(),
     ...timestamps(),
   },
