@@ -54,10 +54,10 @@ const todosPort = Number(process.env.E2E_TODOS_PORT ?? ports.todos)
  */
 const WEBAPP_ENV_FILES = [".env", ".env.local", ".env.development", ".env.development.local"]
 
-function readWebappEnvFiles(directory = webappDirectory): Record<string, string> {
+function readWebappEnvFiles(): Record<string, string> {
   const values: Record<string, string> = {}
   for (const fileName of WEBAPP_ENV_FILES) {
-    const path = join(directory, fileName)
+    const path = join(webappDirectory, fileName)
     if (!existsSync(path)) continue
     for (const line of readFileSync(path, "utf8").split("\n")) {
       const match = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i.exec(line)
@@ -81,10 +81,7 @@ const externalTodosUrl = process.env.E2E_TODOS_URL
 export const webappUrl = externalWebappUrl ?? `http://localhost:${webappPort}`
 export const todosUrl = externalTodosUrl ?? `http://localhost:${todosPort}`
 
-const seedAgentId = process.env.VITE_ASTRALBEAM_AGENT_ID ??
-  readWebappEnvFiles(todosDirectory).VITE_ASTRALBEAM_AGENT_ID
-if (!seedAgentId) throw new Error("Set VITE_ASTRALBEAM_AGENT_ID from db-seed output")
-export const seedTarget = { ...SEED_TODOS_TARGET, agentId: seedAgentId }
+export const seedTarget = SEED_TODOS_TARGET
 
 /** Agent specs spend real model credits, so they only run when a key is actually configured. */
 export const agentSpecsEnabled = Boolean(webappEnvValue("OPENAI_API_KEY"))

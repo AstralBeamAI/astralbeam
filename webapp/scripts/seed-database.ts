@@ -3,8 +3,6 @@ import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 
-import { generateAgentSlug } from "../src/lib/schemas.ts"
-
 import { seedAgents } from "./seed/agents.ts"
 import { seedApiKeys } from "./seed/api-keys.ts"
 import { seedConfig } from "./seed/config.ts"
@@ -77,12 +75,8 @@ try {
 
   console.log(`\nTenant users: ${summary.tenantUserCount}`)
 
-  const todosAgentId = generateAgentSlug({
-    organizationId: summary.organizationIdsBySlug.get(SEED_TODOS_TARGET.organizationSlug)!,
-    id: SEED_TODOS_TARGET.agentId,
-  })
   const todosEnv =
-    `ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}\nVITE_ASTRALBEAM_AGENT_ID=${todosAgentId}\n`
+    `ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}\nVITE_ASTRALBEAM_AGENT_ID=${SEED_TODOS_TARGET.agentId}\n`
   // Both values are self-describing local-only fixtures and the file is gitignored, but an
   // existing one may hold a real key, so it is never overwritten.
   if (existsSync(todosEnvFile)) {

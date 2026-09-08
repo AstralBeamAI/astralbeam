@@ -26,9 +26,14 @@ const SEED_NAMES = {
   todosTenantUser: "todos-user-1",
 } as const
 
+const SEED_ORGANIZATION_IDS = {
+  acme: "01990a5d-0000-7000-8000-000000000004",
+  globex: "01990a5d-0000-7000-8000-000000000005",
+} as const
+
 /**
  * Fixed agent IDs. Agents carry no slug, so the seed writes these explicit values rather than
- * letting the database generate them.
+ * letting the database generate them, which keeps `SEED_TODOS_TARGET` composable without a query.
  */
 const SEED_AGENT_IDS = {
   acmeStarter: "01990a5d-0000-7000-8000-000000000001",
@@ -99,6 +104,7 @@ const SEED_DOCKER_SANDBOX_PROVIDER = {
 
 export const SEED_ORGANIZATIONS = [
   {
+    id: SEED_ORGANIZATION_IDS.acme,
     slug: SEED_NAMES.acme,
     name: "Acme Inc",
     members: [
@@ -174,6 +180,7 @@ export const SEED_ORGANIZATIONS = [
     ],
   },
   {
+    id: SEED_ORGANIZATION_IDS.globex,
     slug: SEED_NAMES.globex,
     name: "Globex Corporation",
     members: [{ email: "globex-owner@example.com", role: "owner" }],
@@ -203,12 +210,12 @@ export const SEED_ORGANIZATIONS = [
 ] as const
 
 /**
- * The one entry point the todos example and its end-to-end suite read. Public agent IDs also
- * need the seeded organization UUID, so `db-seed` writes them to the example's environment.
+ * The one entry point the todos example and its end-to-end suite read. Composed from the same
+ * names the rows above use, so a renamed slug cannot leave a stale public ID behind.
  */
 export const SEED_TODOS_TARGET = {
   organizationSlug: SEED_NAMES.acme,
-  agentId: SEED_AGENT_IDS.acmeTodos,
+  agentId: `agent_${SEED_ORGANIZATION_IDS.acme}_${SEED_AGENT_IDS.acmeTodos}`,
   apiKey: `key_${SEED_NAMES.acme}_${SEED_NAMES.todosApiKey}_${SEED_API_KEY_SECRETS.todos}`,
   /** Disabled key: `/api/v1/chat` must reject a token signed with it. */
   revokedApiKey:

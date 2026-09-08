@@ -34,13 +34,11 @@ vi.mock("@/db", () => {
   }
 })
 
-import { generateAgentSlug } from "../schemas.ts"
-
 import { resolveChatAgent } from "./agent.server"
 
-const STORED_AGENT_ID = "01990a5d-ac96-774b-b942-6b13c85384cb"
+const AGENT_ID = "agent_01990a5d-ac96-774b-b942-6b13c85384ca_01990a5d-ac96-774b-b942-6b13c85384cb"
 const ORGANIZATION_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
-const AGENT_ID = generateAgentSlug({ organizationId: ORGANIZATION_ID, id: STORED_AGENT_ID })
+const STORED_AGENT_ID = "01990a5d-ac96-774b-b942-6b13c85384cb"
 
 describe("organization agent chat lookup", () => {
   beforeEach(() => {
@@ -50,10 +48,9 @@ describe("organization agent chat lookup", () => {
   })
 
   test("scopes the public agent ID to the authenticated organization", async () => {
-    databaseState.rows = [[{ id: STORED_AGENT_ID, systemPrompt: "Organization default" }]]
+    databaseState.rows = [[{ systemPrompt: "Organization default" }]]
 
     await expect(resolveChatAgent(AGENT_ID, ORGANIZATION_ID)).resolves.toEqual({
-      id: STORED_AGENT_ID,
       systemPrompt: "Organization default",
     })
 
@@ -64,9 +61,8 @@ describe("organization agent chat lookup", () => {
   })
 
   test.each([
-    STORED_AGENT_ID,
     `agent_${STORED_AGENT_ID}`,
-    generateAgentSlug({ organizationId: STORED_AGENT_ID, id: STORED_AGENT_ID }),
+    `agent_${STORED_AGENT_ID}_${STORED_AGENT_ID}`,
     `${AGENT_ID}\n`,
   ])("rejects malformed, legacy, and foreign slugs without querying: %s", async (id) => {
     await expect(resolveChatAgent(id, ORGANIZATION_ID)).resolves.toBeNull()

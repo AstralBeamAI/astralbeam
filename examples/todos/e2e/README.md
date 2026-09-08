@@ -2,7 +2,7 @@
 
 Browser tests that drive this example against a real webapp, a real organization API key, and a real agent. They exist so a change to the SDK, the chat endpoint, or the dashboard can be verified in minutes without anyone clicking through `/configure`, signup, and API-key creation by hand.
 
-The suite reads its identities from `webapp/scripts/seed/fixtures.ts` and `VITE_ASTRALBEAM_AGENT_ID` from the Todos environment, which `deno task db-seed` writes, so there is nothing to copy between the two.
+The suite reads its identities from `webapp/scripts/seed/fixtures.ts`, the same file `deno task db-seed` writes, so there is nothing to copy between the two.
 
 ## Run it
 
