@@ -5,6 +5,7 @@ import { PgDialect } from "drizzle-orm/pg-core"
 import * as Effect from "effect/Effect"
 import { SignJWT } from "jose"
 import { beforeEach, describe, expect, test, vi } from "vitest"
+import { runDatabaseEffect } from "@/db"
 
 const databaseState = vi.hoisted(() => ({
   joinPredicates: [] as SQL[],
@@ -28,6 +29,7 @@ vi.mock("@/db", () => {
           databaseState.wherePredicates.push(predicate)
           return query
         },
+        orderBy: () => query,
         limit: () => Effect.succeed(rows),
       }
       return query
@@ -49,6 +51,10 @@ import {
   verifyChatAuthToken,
 } from "./auth.server"
 import { CHAT_AUTH_TOKEN_AUDIENCE, CHAT_AUTH_TOKEN_TYPE } from "./constants.server"
+import {
+  authenticateOrganizationRequest,
+  verifyOrganizationToken,
+} from "../organization-token.server"
 
 const apiKeyId = "key_01990a5d-ac96-774b-b942-6b13c85384ca_01990a5d-ac96-774b-b942-6b13c85384c9"
 const rawApiKey = `abo_${"A".repeat(64)}`
@@ -125,6 +131,101 @@ describe("organization API-key chat JWTs", () => {
     databaseState.rows = []
     databaseState.selectCalls = 0
     databaseState.wherePredicates = []
+  })
+
+  test("organization tokens share lifecycle checks but cannot authenticate as chat", async () => {
+    const identity = { email: "operator@example.com", organizationId: apiKeyId.split("_")[1]! }
+    const currentUser = {
+      id: "organization-user",
+      name: "Operator",
+      email: identity.email,
+      role: "developer",
+    }
+    const jwt = await token({
+      version: 1,
+      type: "astralbeam-organization+jwt",
+      claims: { email: identity.email, organization_id: identity.organizationId },
+    })
+    await expect(verifyChatAuthToken(jwt, signingKey(), apiKeyId)).rejects.toThrow()
+    await expect(verifyOrganizationToken(await token(), signingKey(), apiKeyId)).rejects.toThrow()
+    const keyRow = [{
+      id: apiKeyId.split("_")[2],
+      digest: createHash("sha256").update(rawApiKey).digest("base64url"),
+      organizationId: identity.organizationId,
+    }]
+    databaseState.rows = [
+      keyRow,
+      [{ enabled: true, expiresAt: null }],
+      [currentUser],
+      keyRow,
+      [{ enabled: true, expiresAt: null }],
+      [{ ...currentUser, role: "viewer" }],
+      keyRow,
+      [{ enabled: true, expiresAt: null }],
+      [],
+      keyRow,
+      [{ enabled: false, expiresAt: null }],
+    ]
+    const authentication = authenticateOrganizationRequest(
+      new Request("https://example.test/api/v1/tenants", {
+        headers: { authorization: `Bearer ${jwt}` },
+      }),
+    )
+    await expect(runDatabaseEffect(authentication)).resolves.toMatchObject({
+      organizationId: identity.organizationId,
+      identity,
+      currentUser,
+    })
+    const dialect = new PgDialect()
+    const join = dialect.sqlToQuery(databaseState.joinPredicates.at(-1)!)
+    expect(join.sql).toContain('"member"."user_id" = "user"."id"')
+    expect(join.params).toEqual([identity.organizationId])
+    expect(dialect.sqlToQuery(databaseState.wherePredicates.at(-1)!).params).toEqual([
+      identity.email,
+    ])
+    await expect(runDatabaseEffect(authentication)).resolves.toMatchObject({
+      currentUser: { ...currentUser, role: "viewer" },
+    })
+    await expect(runDatabaseEffect(authentication)).rejects.toMatchObject({
+      _tag: "OrganizationMembershipError",
+    })
+    await expect(runDatabaseEffect(authentication)).rejects.toThrow()
+    expect(databaseState.selectCalls).toBe(11)
+    expect(databaseState.mutationCalls).toBe(0)
+  })
+
+  test("organization verifier rejects invalid version, lifetime, issuer, audience and extra identity claims", async () => {
+    const defaults = {
+      type: "astralbeam-organization+jwt",
+      version: 1,
+      claims: { email: "operator@example.com", organization_id: apiKeyId.split("_")[1]! },
+    }
+    for (
+      const override of [
+        { version: 2 },
+        { expiresInSeconds: 601 },
+        { expiresInSeconds: 59 },
+        { issuedAt: 1 },
+        { issuer: "another-org" },
+        { audience: "chat" },
+        { claims: { ...defaults.claims, tenant: { id: "t" } } },
+        { claims: { ...defaults.claims, role: "owner" } },
+        { claims: { ...defaults.claims, roles: ["owner"] } },
+        { claims: { ...defaults.claims, admin: true } },
+        { claims: { ...defaults.claims, organization_id: "another-org" } },
+        { claims: { ...defaults.claims, email: "invalid" } },
+        { claims: { ...defaults.claims, email: "owner\u0000@example.com" } },
+        { claims: { organization_id: defaults.claims.organization_id } },
+        { claims: { email: defaults.claims.email } },
+        { subject: "old-user-id" },
+        { algorithm: "HS384" as const },
+        { signingSecret: "wrong" },
+      ]
+    ) {
+      await expect(
+        verifyOrganizationToken(await token({ ...defaults, ...override }), signingKey(), apiKeyId),
+      ).rejects.toThrow()
+    }
   })
 
   test("authenticates through a lifecycle reread without consuming API-key usage", async () => {

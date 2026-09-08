@@ -40,56 +40,65 @@ export function isChatAuthenticationError(error: unknown): error is ChatAuthenti
  * read-only and does not consume Better Auth API-key usage.
  */
 export async function authenticateChatRequest(request: Request): Promise<ChatPrincipal> {
-  const token = readBearerToken(request)
-  let protectedHeader
-  try {
-    protectedHeader = decodeProtectedHeader(token)
-  } catch (cause) {
-    throw invalidToken("Malformed chat auth token header", cause)
-  }
-  const apiKeyId = protectedHeader.kid
-  if (typeof apiKeyId !== "string") throw invalidToken("Wrong chat auth token header")
-  const { organizationId, id } = parseApiKeyId(apiKeyId)
+  const result = await runDatabaseEffect(
+    authenticateOrganizationIssuedToken(request, verifyChatAuthToken),
+  )
+  return { organization: { id: result.organizationId }, tenantUser: result.identity }
+}
 
-  const [initial] = await runDatabaseEffect(
-    Effect.flatMap(effectDatabase, (db) =>
-      db.select({
-        id: apiKey.id,
-        digest: apiKey.key,
-        organizationId: organization.id,
-      }).from(organization).innerJoin(
-        apiKey,
+/** Shared key ownership/lifecycle verification. The supplied verifier must enforce its own JWT type. */
+export function authenticateOrganizationIssuedToken<T>(
+  request: Request,
+  verify: (token: string, verifier: Uint8Array, keyId: string) => Promise<T>,
+) {
+  return Effect.gen(function* () {
+    const { token, apiKeyId, organizationId, id } = yield* Effect.try({
+      try: () => {
+        const token = readBearerToken(request)
+        const apiKeyId = decodeProtectedHeader(token).kid
+        if (typeof apiKeyId !== "string") throw invalidToken("Wrong token header")
+        return { token, apiKeyId, ...parseApiKeyId(apiKeyId) }
+      },
+      catch: (cause) =>
+        isChatAuthenticationError(cause) ? cause : invalidToken("Malformed token header", cause),
+    })
+    const db = yield* effectDatabase
+    const [initial] = yield* db.select({
+      id: apiKey.id,
+      digest: apiKey.key,
+      organizationId: organization.id,
+    }).from(organization).innerJoin(
+      apiKey,
+      and(
+        eq(apiKey.organizationId, organization.id),
+        eq(apiKey.id, id),
+        eq(apiKey.configId, API_KEY_CONFIG_ID),
+      ),
+    ).where(eq(organization.id, organizationId)).limit(1)
+    if (!initial) return yield* Effect.fail(invalidToken("API key not found"))
+
+    const verifier = textEncoder.encode(initial.digest)
+    const identity = yield* Effect.tryPromise({
+      try: () => verify(token, verifier, apiKeyId),
+      catch: (cause) =>
+        isChatAuthenticationError(cause) ? cause : invalidToken("Invalid bearer token", cause),
+    })
+    const [current] = yield* db.select({ enabled: apiKey.enabled, expiresAt: apiKey.expiresAt })
+      .from(apiKey).where(
         and(
-          eq(apiKey.organizationId, organization.id),
-          eq(apiKey.id, id),
-          eq(apiKey.configId, API_KEY_CONFIG_ID),
+          eq(apiKey.id, initial.id),
+          eq(apiKey.organizationId, initial.organizationId),
         ),
-      ).where(eq(organization.id, organizationId)).limit(1)),
-  )
-  if (!initial) throw invalidToken("API key not found")
+      ).limit(1)
+    if (!current?.enabled || (current.expiresAt?.getTime() ?? Infinity) <= Date.now()) {
+      return yield* Effect.fail(invalidToken("API key is unavailable"))
+    }
 
-  const verifier = textEncoder.encode(initial.digest)
-  const tenantUser = await verifyChatAuthToken(token, verifier, apiKeyId)
-  const [current] = await runDatabaseEffect(
-    Effect.flatMap(
-      effectDatabase,
-      (db) =>
-        db.select({ enabled: apiKey.enabled, expiresAt: apiKey.expiresAt }).from(apiKey).where(
-          and(
-            eq(apiKey.id, initial.id),
-            eq(apiKey.organizationId, initial.organizationId),
-          ),
-        ).limit(1),
-    ),
-  )
-  if (!current?.enabled || (current.expiresAt?.getTime() ?? Infinity) <= Date.now()) {
-    throw invalidToken("API key is unavailable")
-  }
-
-  return {
-    organization: { id: initial.organizationId },
-    tenantUser,
-  }
+    return {
+      organizationId: initial.organizationId,
+      identity,
+    }
+  })
 }
 
 export async function verifyChatAuthToken(

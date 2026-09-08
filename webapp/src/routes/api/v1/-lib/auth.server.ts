@@ -1,11 +1,18 @@
 import { and, eq } from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { Duration, Effect } from "effect"
+import { decodeProtectedHeader } from "jose"
+import {
+  authenticateOrganizationRequest,
+  ORGANIZATION_TOKEN_TYPE,
+  OrganizationMembershipError,
+} from "@/lib/organization-token.server"
 import { type EffectDatabase, effectDatabase } from "@/db"
 import { apiKey, organization } from "@/db/schema/organizations.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { resolveTenant, type TenantError } from "@/db/tenant.server"
 import { getAuth } from "@/lib/auth.server"
+import { authorizeOrganizationRole } from "@/lib/auth/organization-access"
 import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
 import type { RestScope } from "./shared.server"
 import { type RestFault, restFault, restRateLimitFault } from "./responses.server"
@@ -22,6 +29,45 @@ export function authenticateRestRequest(
     }
     if (apiKeyHeader !== null || credential.startsWith("key_")) {
       return yield* authenticateRestApiKey(credential)
+    }
+    const header = yield* Effect.try({
+      try: () => decodeProtectedHeader(credential),
+      catch: () => restFault(401, "Invalid credentials."),
+    })
+    if (header.typ === ORGANIZATION_TOKEN_TYPE) {
+      const principal = yield* authenticateOrganizationRequest(request).pipe(
+        Effect.mapError((error) =>
+          error instanceof OrganizationMembershipError
+            ? restFault(403, "Organization membership is required.")
+            : isChatAuthenticationError(error)
+            ? restFault(401, "Invalid credentials.")
+            : restFault(500, "Authentication could not be completed.", { cause: error })
+        ),
+      )
+      if (
+        !authorizeOrganizationRole(principal.currentUser.role, {
+          tenantManagement: [
+            request.method === "GET" || request.method === "HEAD" ? "read" : "write",
+          ],
+        })
+      ) {
+        return yield* Effect.fail(
+          restFault(403, "Your organization role does not permit this operation."),
+        )
+      }
+      const identity = createHash("sha256").update(JSON.stringify([
+        principal.organizationId,
+        principal.currentUser.id,
+      ])).digest("base64url")
+      yield* databaseRateLimiter.consume({
+        key: `organization-rest:${identity}`,
+        limit: 100,
+        window: Duration.minutes(5),
+      }).pipe(Effect.mapError(restRateLimitFault))
+      return {
+        organizationId: principal.organizationId,
+        currentUser: principal.currentUser,
+      } satisfies RestScope
     }
     const principal = yield* Effect.tryPromise({
       try: () => authenticateChatRequest(request),

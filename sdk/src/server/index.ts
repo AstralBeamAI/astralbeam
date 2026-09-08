@@ -5,6 +5,7 @@ export const CHAT_AUTH_TOKEN_TYPE = "astralbeam+jwt"
 export const CHAT_AUTH_TOKEN_VERSION = 4
 export const CHAT_AUTH_TOKEN_LIFETIME_SECONDS = 300
 export const CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS = 600
+export const ORGANIZATION_AUTH_TOKEN_TYPE = "astralbeam-organization+jwt"
 
 const CHAT_AUTH_TOKEN_MAX_BYTES = 16_384
 const IDENTITY_MAX_BYTES = 8_192
@@ -124,6 +125,44 @@ async function signingKey(secret: string) {
   // https://github.com/better-auth/better-auth/blob/v1.7.2/packages/api-key/src/index.ts
   const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(secret))
   return textEncoder.encode(base64url.encode(new Uint8Array(digest)))
+}
+
+export interface CreateAstralBeamOrganizationTokenOptions {
+  readonly apiKey: string
+  /** Host-authenticated email of an existing organization member, never browser-supplied identity. */
+  readonly email: string
+  readonly organizationId: string
+  readonly expiresInSeconds?: number | undefined
+}
+
+/** Identifies a trusted organization member. The API checks their current database roles on every request. */
+export async function createAstralBeamOrganizationToken({
+  apiKey,
+  email,
+  organizationId,
+  expiresInSeconds = CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
+}: CreateAstralBeamOrganizationTokenOptions): Promise<string> {
+  if (
+    typeof email !== "string" || email.length > 320 || email.includes("\0") ||
+    !/^[^\s@]+@[^\s@]+$/.test(email)
+  ) {
+    throw new Error("email must be an email address of at most 320 characters")
+  }
+  if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 || expiresInSeconds > 600) {
+    throw new Error("organization auth tokens must live for 60-600 seconds")
+  }
+  const { keyId, organizationId: keyOrganizationId, keySecret } = parseApiKey(apiKey)
+  if (organizationId !== keyOrganizationId) {
+    throw new Error("organizationId must match the API key organization")
+  }
+  const now = Math.floor(Date.now() / 1000)
+  return await new SignJWT({ ver: 1, email, organization_id: organizationId })
+    .setProtectedHeader({ alg: "HS256", typ: ORGANIZATION_AUTH_TOKEN_TYPE, kid: keyId })
+    .setIssuer(organizationId)
+    .setAudience(CHAT_AUTH_TOKEN_AUDIENCE)
+    .setIssuedAt(now)
+    .setExpirationTime(now + expiresInSeconds)
+    .sign(await signingKey(keySecret))
 }
 
 /** Creates the short-lived bearer token returned by an application's server auth endpoint. */

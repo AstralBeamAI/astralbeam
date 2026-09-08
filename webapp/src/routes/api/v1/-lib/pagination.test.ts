@@ -59,10 +59,23 @@ describe("opaque pagination cursors", () => {
         { organizationId: cursorScope.organizationId },
         { ...cursorScope, externalId: "added-filter" },
         { ...cursorScope, tenantFilter: cursorPosition.id },
+        { ...cursorScope, search: "name" },
+        { ...cursorScope, admin: false },
       ]
     ) {
       await expect(decodeRestCursor(cursor, "tenant_users", scope, cursorOldKeyring)).rejects
         .toThrow()
+    }
+  })
+  test("binds search and admin filters even when admin is false", async () => {
+    const scope = { ...cursorScope, search: "東京_%", admin: false }
+    const cursor = await encodeRestCursor(cursorPosition, "tenant_users", scope, cursorOldKeyring)
+    expect(await decodeRestCursor(cursor, "tenant_users", scope, cursorOldKeyring)).toEqual(
+      cursorPosition,
+    )
+    for (const changed of [{ ...scope, search: "東京" }, { ...scope, admin: true }, cursorScope]) {
+      await expect(decodeRestCursor(cursor, "tenant_users", changed, cursorOldKeyring)).rejects
+        .toThrow("Invalid pagination cursor")
     }
   })
 })

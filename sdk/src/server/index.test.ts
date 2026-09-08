@@ -5,6 +5,7 @@ import {
   CHAT_AUTH_TOKEN_AUDIENCE,
   CHAT_AUTH_TOKEN_TYPE,
   CHAT_AUTH_TOKEN_VERSION,
+  createAstralBeamOrganizationToken,
   createAstralBeamToken,
 } from "./index.ts"
 
@@ -17,6 +18,45 @@ const tenant = {
   name: "Analytical Engines",
   metadata: { plan: "enterprise" },
 }
+
+test("organization token grants a separate, short-lived operator identity", async () => {
+  const options = { apiKey, email: "operator@example.com", organizationId: apiKeyId.split("_")[1]! }
+  const token = await createAstralBeamOrganizationToken(options)
+  const { payload } = await jwtVerify(token, await signingKey(apiKeySecret), {
+    typ: "astralbeam-organization+jwt",
+    algorithms: ["HS256"],
+    audience: "astralbeam",
+  })
+  expect(payload).toEqual({
+    ver: 1,
+    email: options.email,
+    organization_id: options.organizationId,
+    iss: options.organizationId,
+    aud: "astralbeam",
+    iat: expect.any(Number),
+    exp: expect.any(Number),
+  })
+  expect(payload.exp! - payload.iat!).toBe(300)
+  for (const expiresInSeconds of [59, 601, 60.5]) {
+    await expect(
+      createAstralBeamOrganizationToken({ ...options, expiresInSeconds }),
+    ).rejects.toThrow()
+  }
+  for (
+    const email of [
+      "",
+      "not-an-email",
+      "a b@example.com",
+      "a@@example.com",
+      "owner\u0000@example.com",
+      "a".repeat(309) + "@example.com",
+    ]
+  ) {
+    await expect(createAstralBeamOrganizationToken({ ...options, email })).rejects.toThrow()
+  }
+  await expect(createAstralBeamOrganizationToken({ ...options, organizationId: "another-org" }))
+    .rejects.toThrow("organizationId")
+})
 
 async function signingKey(secret: string): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(secret))

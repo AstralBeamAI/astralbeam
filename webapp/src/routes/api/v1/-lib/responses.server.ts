@@ -26,12 +26,13 @@ export class RestFault extends Data.TaggedError("RestFault")<{
   restStatus: number
   issues?: typeof RestApiErrorSchema.Type.issues
   retryAfter?: number
+  cause?: unknown
 }> {}
 
 export function restFault(
   status: number,
   detail: string,
-  options: Pick<RestFault, "issues" | "retryAfter"> = {},
+  options: Pick<RestFault, "issues" | "retryAfter" | "cause"> = {},
 ): RestFault {
   return new RestFault({ restStatus: status, message: detail, ...options })
 }

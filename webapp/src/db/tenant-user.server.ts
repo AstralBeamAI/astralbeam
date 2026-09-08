@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, ilike, lt, or, sql } from "drizzle-orm"
 import { Effect, Stream } from "effect"
 import { effectDatabase } from "@/db"
 import { tenantUser } from "@/db/schema/organizations.server"
@@ -10,6 +10,7 @@ import {
   TenantError,
   type TenantListOptions,
   type TenantScope,
+  tenantSearchPattern,
 } from "./tenant.server"
 
 type TenantUserWrite = typeof TenantUserWriteSchema.Type
@@ -38,9 +39,9 @@ function tenantUserWhere(scope: TenantScope, tenantId?: string, id?: string) {
 export function listTenantUsers(
   scope: TenantScope,
   tenantId: string,
-  options: TenantListOptions = {},
+  options: TenantListOptions & { admin?: boolean | undefined } = {},
 ) {
-  const { externalId } = options
+  const { externalId, search, admin } = options
   return Stream.unwrap(Effect.gen(function* () {
     yield* requireTenant(scope, tenantId)
     return databasePages(options, (position, limit, backward) =>
@@ -50,6 +51,13 @@ export function listTenantUsers(
           and(
             tenantUserWhere(scope, tenantId),
             externalId === undefined ? undefined : eq(tenantUser.externalId, externalId),
+            search
+              ? or(
+                ilike(tenantUser.name, tenantSearchPattern(search)),
+                ilike(tenantUser.externalId, tenantSearchPattern(search)),
+              )
+              : undefined,
+            admin === undefined ? undefined : eq(tenantUser.admin, admin),
             position ? (backward ? lt : gt)(tenantUser.id, position.id) : undefined,
           ),
         )

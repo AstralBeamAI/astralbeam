@@ -64,6 +64,7 @@ export async function POST(request: Request) {
 - Authenticate once and derive stable `user.id` and `tenant.id` values from that trusted session.
 - Keep API keys server-only. Tokens are signed, not encrypted, so their claims must contain no secrets.
 - Return `Cache-Control: no-store` and fail closed when configuration or authentication is missing.
+- For employee-facing Tenant management, use `createAstralBeamOrganizationToken`. The [API client guide](https://app.astralbeam.ai/docs/sdk/api) covers database-backed roles and browser integration.
 
 ## Options
 
@@ -135,7 +136,7 @@ There is no root export. Conversation history is not built yet.
 | `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader    | none                 |
 | `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session | none                 |
 | `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`      | `react`, `react-dom` |
-| `@astralbeam/sdk/server` | `createAstralBeamToken`, the token minter    | none                 |
+| `@astralbeam/sdk/server` | Tenant and organization token minters        | none                 |
 | `@astralbeam/sdk/api`    | Resource and chat HTTP helpers               | none                 |
 
 Types resolve under every TypeScript module resolution mode, including classic `"moduleResolution": "node"`. Requires TypeScript 5.0 or later because declarations use `const` type parameters, which fail to parse on TypeScript 4.x.

@@ -58,6 +58,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Use typed `apiKey` options on servers and `astralBeamToken` options in browsers. Resource helpers support either, chat run/config accept only JWTs, and files use signed tickets. Keep TanStack's SSE parsing and the existing one-time 401 refresh outside the generated transport.
 - Preserve native Fetch redirect-following defaults for compatibility. Honor an explicit caller-provided `redirect` option.
 - Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject.
+- Organization-management tokens use authenticated operator `email` and explicit `organizationId` SDK inputs, encoded as `email` and `organization_id` without `sub`. Require the Organization to match the API key. Never encode roles: organization membership and roles are resolved from the database on every resource request.
 
 ## Testing
 

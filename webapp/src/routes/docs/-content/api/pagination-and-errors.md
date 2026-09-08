@@ -46,7 +46,11 @@ Both list endpoints accept optional `filter[external_id]`, an exact, case-sensit
 
 Brackets belong to the parameter name. The value is plain text, not a JSON filter object.
 
-Empty values, repeated parameters, unsupported filters, and the unnamespaced `external_id` parameter return `400`. Partial matching, other field filters, sorting, full-text search, inclusion, selection, and counts are not supported.
+Both lists also accept `q`, up to 255 characters, for case-insensitive substring matching against name or external ID. Leading/trailing whitespace is trimmed, and empty search means no search filter. Percent signs, underscores, and backslashes are literal characters, not wildcards. NUL characters are rejected with `400`.
+
+TenantUser lists additionally accept `filter[admin]=true` or `filter[admin]=false` to filter stored status. Search, exact external-ID, and admin filters combine with AND. Stored admin does not change JWT authority.
+
+Empty exact/admin filter values, repeated parameters, unsupported filters, and the unnamespaced `external_id` parameter return `400`. Sorting, full-text search, inclusion, selection, and counts are not supported.
 
 ## Examples
 
