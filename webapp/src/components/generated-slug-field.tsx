@@ -165,12 +165,11 @@ export function GeneratedSlugField({
         {formatPreview && valid
           ? (
             <>
-              Public ID:{" "}
-              <span className="font-mono">{formatPreview(value)}</span>. It can't be changed later.
+              Public ID: <span className="font-mono">{formatPreview(value)}</span>.
             </>
           )
           : (
-            "Use lowercase letters, numbers, and hyphens only. It can't be changed later."
+            "Use lowercase letters, numbers, and hyphens only."
           )}
       </FieldDescription>
       <FieldError>{error}</FieldError>

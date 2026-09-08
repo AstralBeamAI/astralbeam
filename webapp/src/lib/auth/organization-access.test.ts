@@ -81,7 +81,7 @@ describe("organization API key authorization", () => {
     fixture = await createAuthorizationFixture()
   })
 
-  test("enforces strict immutable organization slugs", async () => {
+  test("validates editable organization slugs", async () => {
     await expect(fixture.auth.api.createOrganization({
       body: {
         name: "Invalid Slug",
@@ -108,23 +108,24 @@ describe("organization API key authorization", () => {
     await expect(fixture.auth.api.updateOrganization({
       body: {
         organizationId: fixture.organizationId,
-        data: { slug: "renamedorganization" },
+        data: { slug: "docs" },
       },
       headers: fixture.headers.owner,
     })).rejects.toMatchObject({
       status: "BAD_REQUEST",
-      body: { code: "ORGANIZATION_SLUG_IMMUTABLE" },
+      body: { code: "RESERVED_ORGANIZATION_SLUG" },
     })
 
     await expect(fixture.auth.api.updateOrganization({
       body: {
         organizationId: fixture.organizationId,
-        data: { name: "Renamed organization" },
+        data: { name: "Renamed organization", slug: "renamed-organization" },
       },
       headers: fixture.headers.owner,
     })).resolves.toMatchObject({
       name: "Renamed organization",
-      slug: "authorization-boundary",
+      id: fixture.organizationId,
+      slug: "renamed-organization",
     })
   })
 

@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and domain-specific function names, generate an immutable organization slug from the display name, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, and omit unsupported organization model fields while retaining the official create flow.
+// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, and omit unsupported organization model fields while retaining the official create flow.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"

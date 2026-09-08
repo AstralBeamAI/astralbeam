@@ -4,16 +4,25 @@ import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./slug.ts"
 
 export const UuidV7Schema = Schema.String.pipe(Schema.check(Schema.isUUID(7)))
 
-/**
- * Agents are addressed by an opaque prefixed ID in URLs, props, and the SDK's `agentId`, so the
- * prefix is generated into the stored value rather than added at each boundary.
- */
-export const AGENT_ID_PREFIX = "agent_"
+const AGENT_ID_UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+const AGENT_ID_PATTERN = new RegExp(
+  `^agent_(${AGENT_ID_UUID_PATTERN})_(${AGENT_ID_UUID_PATTERN})$`,
+)
 
-export const AGENT_ID_PATTERN =
-  /^agent_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+export function generateAgentSlug(input: { organizationId: string; id: string }): string {
+  return `agent_${input.organizationId}_${input.id}`
+}
+
+/** Parsed organization IDs identify a resource, but never authorize access to it. */
+export function parseAgentSlug(value: unknown): { organizationId: string; id: string } | null {
+  if (typeof value !== "string") return null
+  const match = AGENT_ID_PATTERN.exec(value)
+  if (!match || match[0] !== value) return null
+  return { organizationId: match[1]!, id: match[2]! }
+}
 
 export const AgentIdSchema = Schema.String.pipe(
+  Schema.check(Schema.isTrimmed()),
   Schema.check(Schema.isPattern(AGENT_ID_PATTERN, { message: "Enter a valid agent ID" })),
 )
 
