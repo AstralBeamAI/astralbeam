@@ -210,6 +210,7 @@ describe("REST API through the Effect Fetch handler", () => {
       apiKey: restTestApiKey,
       apiUrl: "http://localhost/api",
       fetchClient: restSdkFetch,
+      headers: new Headers({ "Content-Type": "application/json" }),
     }
     restTestState.rows.push([restTenantRow], [{ ...restTenantRow, name: "Updated" }])
     const tenant = await sdkCreateTenant({ external_id: restTenantRow.externalId }, options)

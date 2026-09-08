@@ -22,6 +22,30 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+test("HTTP errors reach chat state and callbacks with their API details", async () => {
+  const problem = { type: "about:blank", title: "Throttled", status: 429, detail: "Try later" }
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockImplementation(() => Promise.resolve(Response.json(problem, { status: 429 }))),
+  )
+  const onError = vi.fn()
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: chatAuthToken,
+    streamCallbacks: { onError },
+  })
+  try {
+    await chat.sendMessage("Hello")
+    expect(chat.getState().error?.message).toBe(problem.detail)
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+      name: "AstralBeamApiError",
+      message: problem.detail,
+      status: 429,
+    }))
+  } finally {
+    chat.dispose()
+  }
+})
+
 // The React wrapper watches these keys to re-apply option changes, so one missing from the list is
 // an option that silently keeps its mount-time value (`streamCallbacks` was, once).
 test("the watched option list covers every option the session reads per request", () => {

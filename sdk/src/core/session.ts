@@ -8,7 +8,7 @@ import {
 import type { StreamChunk } from "@tanstack/ai/client"
 import { DEFAULT_CHAT_AUTH_TOKEN_URL } from "../lib/constants.ts"
 import { getChatConfig, getRunChatUrl } from "../api/generated/api.ts"
-import { astralBeamChatFetch, resolveApiUrl } from "../api/api.ts"
+import { astralBeamChatFetch, isAstralBeamApiError, resolveApiUrl } from "../api/api.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
@@ -257,25 +257,34 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     ...(live.debug ? { debug: true } : {}),
   })
 
+  // Read the live API base for each request without recreating the conversation.
+  const connection = fetchServerSentEvents(
+    () => resolveApiUrl(getRunChatUrl(), live.apiUrl),
+    async () => {
+      const token = await getValidChatAuthToken(authentication)
+      return {
+        fetchClient: (_input, init) =>
+          astralBeamChatFetch(getRunChatUrl(), {
+            ...init,
+            apiUrl: live.apiUrl,
+            astralBeamToken: token,
+            fetchClient: (input, request) =>
+              fetchAuthenticatedChat({ ...authentication, input, init: request }),
+          }),
+      }
+    },
+  )
+  const connect = connection.connect
+  // Unwrap before ChatClient converts thrown errors into RUN_ERROR messages.
+  connection.connect = async function* (...args) {
+    try {
+      yield* connect(...args)
+    } catch (error) {
+      throw error instanceof Error && isAstralBeamApiError(error.cause) ? error.cause : error
+    }
+  }
   const client = new ChatClient({
-    // A URL getter, because the client reads its connection once and a second client would cost
-    // the transcript.
-    connection: fetchServerSentEvents(
-      () => resolveApiUrl(getRunChatUrl(), live.apiUrl),
-      async () => {
-        const token = await getValidChatAuthToken(authentication)
-        return {
-          fetchClient: (_input, init) =>
-            astralBeamChatFetch(getRunChatUrl(), {
-              ...init,
-              apiUrl: live.apiUrl,
-              astralBeamToken: token,
-              fetchClient: (input, request) =>
-                fetchAuthenticatedChat({ ...authentication, input, init: request }),
-            }),
-        }
-      },
-    ),
+    connection,
     tools: declareTools(),
     forwardedProps: forwardedProps(),
     onMessagesChange: (messages) => {

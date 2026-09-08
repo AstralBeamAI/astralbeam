@@ -43,7 +43,14 @@ function isApiErrorBody(value: unknown, status: number): value is AstralBeamApiE
 
 async function apiResponse(path: string, options: ApiOptions | FileOptions): Promise<Response> {
   const { apiUrl, apiKey, astralBeamToken, fetchClient = globalThis.fetch, ...init } = options
-  const headers = new Headers(init.headers)
+  const headers = new Headers()
+  const entries = init.headers instanceof Headers
+    ? init.headers.entries()
+    : Array.isArray(init.headers)
+    ? init.headers
+    : Object.entries(init.headers ?? {})
+  // Orval spreads defaults and caller headers as case-sensitive object keys.
+  for (const [name, value] of entries) headers.set(name, value)
   headers.delete("authorization")
   headers.delete("x-api-key")
   if (apiKey) headers.set("x-api-key", apiKey)

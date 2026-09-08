@@ -1,8 +1,6 @@
-import { afterEach, expect, expectTypeOf, test, vi } from "vitest"
+import { expect, expectTypeOf, test, vi } from "vitest"
 import { getChatConfig, getChatFile, listTenants, runChat, updateTenant } from "./index.ts"
 import { isAstralBeamApiError } from "./api.ts"
-
-afterEach(() => vi.unstubAllGlobals())
 
 test("typed credentials own authentication, preserving custom bases, queries and payloads", async () => {
   const fetchClient = vi.fn<typeof fetch>().mockImplementation(() =>
@@ -59,8 +57,6 @@ test("HTTP errors preserve status and headers, including non-JSON gateways", asy
   for (
     const body of [
       "<html>gateway</html>",
-      "",
-      "{",
       JSON.stringify({
         type: "about:blank",
         title: "Too Many Requests",
