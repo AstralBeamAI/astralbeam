@@ -22,12 +22,14 @@ deno task --cwd examples/todos e2e
 
 The suite starts its own webapp and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_WEBAPP_URL` and `E2E_TODOS_URL` to test servers you are already running instead.
 
+The `list` reporter narrates every `test.step` as it starts and finishes, with its duration. An agent spec's steps say what turn is running and, if the endpoint throttles it, that it is waiting out the rate-limit window rather than hanging.
+
 ## Evidence
 
 Failure videos, traces, and screenshots land in gitignored `e2e/.output`. The HTML report is `e2e/.output/report/index.html`, with traces under `test-results/<test>/trace.zip`.
 
 ```sh
-E2E_CAPTURE=all deno task --cwd examples/todos e2e      # record video, trace, and screenshots for passing specs too
+deno task --cwd examples/todos e2e:capture      # record video, trace, and screenshots for passing specs too
 ```
 
 Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `captureMoment(page, name)` from `capture.ts` attaches a labelled screenshot to the report, for a moment worth showing on its own.

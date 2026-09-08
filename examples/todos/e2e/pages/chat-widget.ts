@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from "@playwright/test"
+import { expect, type Locator, type Page, test } from "@playwright/test"
 
 /**
  * The embedded chat widget.
@@ -51,10 +51,12 @@ export function chatWidget(page: Page) {
 
     /** Sends a message and returns once the transcript shows it, so the run has begun. */
     async send(text: string): Promise<void> {
-      await this.waitForReady()
-      await composer.fill(text)
-      await composer.press("Enter")
-      await expect(root.getByText(text, { exact: false }).first()).toBeVisible()
+      await test.step(`send "${text}"`, async () => {
+        await this.waitForReady()
+        await composer.fill(text)
+        await composer.press("Enter")
+        await expect(root.getByText(text, { exact: false }).first()).toBeVisible()
+      })
     },
 
     /**
@@ -90,28 +92,33 @@ export function chatWidget(page: Page) {
      * succeed.
      */
     async waitForReply(previousCount: number): Promise<void> {
-      let recoveries = 0
-      let deadline = Date.now() + CHAT_IDLE_TIMEOUT_MS
-      while (Date.now() < deadline) {
-        if (await this.assistantMessages().count() > previousCount) return
-        const alert = this.errorAlert()
-        if (await alert.count() > 0) {
-          const message = await alert.first().innerText()
-          if (!message.includes("429")) {
-            throw new Error(`The chat request failed: ${message.replaceAll("\n", " ")}`)
+      await test.step("wait for the agent's reply", async () => {
+        let recoveries = 0
+        let deadline = Date.now() + CHAT_IDLE_TIMEOUT_MS
+        while (Date.now() < deadline) {
+          if (await this.assistantMessages().count() > previousCount) return
+          const alert = this.errorAlert()
+          if (await alert.count() > 0) {
+            const message = await alert.first().innerText()
+            if (!message.includes("429")) {
+              throw new Error(`The chat request failed: ${message.replaceAll("\n", " ")}`)
+            }
+            if (recoveries >= CHAT_RATE_LIMIT_MAX_RECOVERIES) {
+              throw new Error("The chat endpoint kept rate limiting this tenant user")
+            }
+            recoveries += 1
+            await test.step(
+              `rate limited (429), waiting out the ${CHAT_RATE_LIMIT_COOLDOWN_MS / 1000}s window`,
+              () => page.waitForTimeout(CHAT_RATE_LIMIT_COOLDOWN_MS),
+            )
+            await alert.first().getByRole("button", { name: "Retry" }).click()
+            deadline = Date.now() + CHAT_IDLE_TIMEOUT_MS
+            continue
           }
-          if (recoveries >= CHAT_RATE_LIMIT_MAX_RECOVERIES) {
-            throw new Error("The chat endpoint kept rate limiting this tenant user")
-          }
-          recoveries += 1
-          await page.waitForTimeout(CHAT_RATE_LIMIT_COOLDOWN_MS)
-          await alert.first().getByRole("button", { name: "Retry" }).click()
-          deadline = Date.now() + CHAT_IDLE_TIMEOUT_MS
-          continue
+          await page.waitForTimeout(CHAT_REPLY_POLL_MS)
         }
-        await page.waitForTimeout(CHAT_REPLY_POLL_MS)
-      }
-      throw new Error("The agent never added an assistant turn to the transcript")
+        throw new Error("The agent never added an assistant turn to the transcript")
+      })
     },
 
     /**

@@ -30,24 +30,29 @@ test.describe("with a Docker daemon", () => {
   test("runs a script in the sandbox and collects what it wrote", async ({ page, chat }) => {
     // Provisioning pulls an image on a cold machine, so this turn is the slowest in the suite.
     test.slow()
-    await chat.sendAndWait(
-      "Write a script that exports my todos as CSV, run it in your sandbox, and tell me the file name.",
-    )
+    await test.step("ask the agent to write and run the export script", () =>
+      chat.sendAndWait(
+        "Write a script that exports my todos as CSV, run it in your sandbox, and tell me the file name.",
+      ))
 
-    // The server chooses the socket, so a daemon the CLI can reach is not necessarily one the
-    // webapp can: on macOS with OrbStack, export DOCKER_HOST=unix:///var/run/docker.sock.
-    await expect(
-      chat.toolRow(/Could not write/),
-      "The sandbox refused a file write, which usually means the server could not reach Docker",
-    ).toHaveCount(0)
-    await expect(chat.toolRow(/^Wrote /)).toBeVisible()
-    // A finished command only prints its exit status when it actually ran.
-    await expect(chat.toolRow(/exit 0/)).toBeVisible()
+    await test.step("check the tool rows report a real sandbox run", async () => {
+      // The server chooses the socket, so a daemon the CLI can reach is not necessarily one the
+      // webapp can: on macOS with OrbStack, export DOCKER_HOST=unix:///var/run/docker.sock.
+      await expect(
+        chat.toolRow(/Could not write/),
+        "The sandbox refused a file write, which usually means the server could not reach Docker",
+      ).toHaveCount(0)
+      await expect(chat.toolRow(/^Wrote /)).toBeVisible()
+      // A finished command only prints its exit status when it actually ran.
+      await expect(chat.toolRow(/exit 0/)).toBeVisible()
+    })
 
-    await chat.openSandboxPanel()
-    await expect(chat.sandboxTab("Files")).toBeVisible()
-    // Every file the agent wrote is listed with its own download control.
-    expect(await chat.sandboxFileDownloads().count()).toBeGreaterThan(0)
-    await captureMoment(page, "sandbox panel with the files the agent wrote")
+    await test.step("open the sandbox panel and check the written file is listed", async () => {
+      await chat.openSandboxPanel()
+      await expect(chat.sandboxTab("Files")).toBeVisible()
+      // Every file the agent wrote is listed with its own download control.
+      expect(await chat.sandboxFileDownloads().count()).toBeGreaterThan(0)
+      await captureMoment(page, "sandbox panel with the files the agent wrote")
+    })
   })
 })

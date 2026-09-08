@@ -19,12 +19,14 @@ deno task --cwd webapp e2e
 
 Every run drops and recreates the suite's database, so it is repeatable and leaves no state behind between runs. Nothing needs seeding first.
 
+The `list` reporter narrates every `test.step` as it starts and finishes, with its duration, so the terminal shows what the run is doing rather than sitting silent until the journey's single long test ends.
+
 ## Evidence
 
 Video, traces, and screenshots are kept for any failure and land in `e2e/.output`, which is git-ignored.
 
 ```sh
-E2E_CAPTURE=all deno task e2e      # record video, trace, and screenshots for a passing run too
+deno task --cwd webapp e2e:capture   # record video, trace, and screenshots for a passing run too
 playwright show-report e2e/.output/report
 playwright show-trace e2e/.output/test-results/<test>/trace.zip
 ```
