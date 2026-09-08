@@ -3,19 +3,19 @@ import * as Effect from "effect/Effect"
 
 import { effectDatabase, runDatabaseEffect } from "@/db"
 import { agent, organizationConfiguration } from "@/db/schema.server"
-import { toStoredAgentId } from "@/lib/schemas"
+import { parseAgentSlug } from "@/lib/schemas"
 
 /**
  * Resolve malformed and cross-organization public IDs identically. A host that sends no public ID
- * gets the organization's configured default agent. The returned `id` is the stored UUIDv7.
+ * gets the organization's configured default agent.
  */
 export async function resolveChatAgent(
   publicId: unknown,
   authenticatedOrganizationId: string,
 ) {
   const useDefault = publicId === undefined || publicId === null
-  const storedId = useDefault ? null : toStoredAgentId(publicId)
-  if (storedId === null && !useDefault) return null
+  const parsed = parseAgentSlug(publicId)
+  if (!useDefault && (!parsed || parsed.organizationId !== authenticatedOrganizationId)) return null
   const rows = await runDatabaseEffect(
     Effect.flatMap(effectDatabase, (db) => {
       const query = db.select({
@@ -24,7 +24,7 @@ export async function resolveChatAgent(
         attachmentsEnabled: agent.attachmentsEnabled,
         sandboxProviderId: agent.sandboxProviderId,
       }).from(agent)
-      const scoped = storedId === null
+      const scoped = useDefault
         ? query.innerJoin(
           organizationConfiguration,
           and(
@@ -34,7 +34,7 @@ export async function resolveChatAgent(
         ).where(eq(agent.organizationId, authenticatedOrganizationId))
         : query.where(
           and(
-            eq(agent.id, storedId),
+            eq(agent.id, parsed!.id),
             eq(agent.organizationId, authenticatedOrganizationId),
           ),
         )

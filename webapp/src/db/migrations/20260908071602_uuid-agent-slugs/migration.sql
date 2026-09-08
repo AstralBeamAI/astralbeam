@@ -1,5 +1,3 @@
--- Position 7 drops the 'agent_' prefix; a value without it fails the uuid cast rather than
--- being silently mangled, and a null default_agent_id stays null.
 ALTER TABLE "organization_configuration" DROP CONSTRAINT "organization_configuration_default_agent_id_fk";--> statement-breakpoint
 ALTER TABLE "agent" DROP CONSTRAINT "agent_id_check";--> statement-breakpoint
 ALTER TABLE "agent" ALTER COLUMN "id" DROP DEFAULT;--> statement-breakpoint

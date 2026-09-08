@@ -34,11 +34,13 @@ vi.mock("@/db", () => {
   }
 })
 
+import { generateAgentSlug } from "../schemas.ts"
+
 import { resolveChatAgent } from "./agent.server"
 
-const STORED_AGENT_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
-const AGENT_ID = `agent_${STORED_AGENT_ID}`
+const STORED_AGENT_ID = "01990a5d-ac96-774b-b942-6b13c85384cb"
 const ORGANIZATION_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
+const AGENT_ID = generateAgentSlug({ organizationId: ORGANIZATION_ID, id: STORED_AGENT_ID })
 
 describe("organization agent chat lookup", () => {
   beforeEach(() => {
@@ -47,10 +49,11 @@ describe("organization agent chat lookup", () => {
     databaseState.wherePredicates = []
   })
 
-  test("queries the stored UUID behind the public agent ID, scoped to the organization", async () => {
-    databaseState.rows = [[{ systemPrompt: "Organization default" }]]
+  test("scopes the public agent ID to the authenticated organization", async () => {
+    databaseState.rows = [[{ id: STORED_AGENT_ID, systemPrompt: "Organization default" }]]
 
     await expect(resolveChatAgent(AGENT_ID, ORGANIZATION_ID)).resolves.toEqual({
+      id: STORED_AGENT_ID,
       systemPrompt: "Organization default",
     })
 
@@ -60,9 +63,14 @@ describe("organization agent chat lookup", () => {
     expect(wherePredicate?.params).toEqual([STORED_AGENT_ID, ORGANIZATION_ID])
   })
 
-  test("rejects a bare stored UUID, which is not a public agent ID", async () => {
-    await expect(resolveChatAgent(STORED_AGENT_ID, ORGANIZATION_ID)).resolves.toBeNull()
-    expect(databaseState.wherePredicates).toHaveLength(0)
+  test.each([
+    STORED_AGENT_ID,
+    `agent_${STORED_AGENT_ID}`,
+    generateAgentSlug({ organizationId: STORED_AGENT_ID, id: STORED_AGENT_ID }),
+    `${AGENT_ID}\n`,
+  ])("rejects malformed, legacy, and foreign slugs without querying: %s", async (id) => {
+    await expect(resolveChatAgent(id, ORGANIZATION_ID)).resolves.toBeNull()
+    expect(databaseState.wherePredicates).toEqual([])
   })
 
   test("default lookup joins and scopes both organization-owned rows", async () => {

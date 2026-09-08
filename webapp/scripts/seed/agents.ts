@@ -1,13 +1,13 @@
 import { sql } from "drizzle-orm"
 
+import { generateAgentSlug } from "../../src/lib/schemas.ts"
+
 import { agent, organizationConfiguration, sandboxProvider } from "../../src/db/schema.server.ts"
-import { toPublicAgentId } from "../../src/lib/schemas.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_ORGANIZATIONS } from "./fixtures.ts"
 
 export type SeedAgentSummary = {
-  /** The public `agent_` ID, which is what the seed prints for copying into the SDK. */
   readonly id: string
   readonly name: string
   readonly isDefault: boolean
@@ -96,7 +96,7 @@ export async function seedAgents(
       }
       seededAgentIds.add(inserted.id)
       summaries.push({
-        id: toPublicAgentId(inserted.id),
+        id: generateAgentSlug({ organizationId, id: inserted.id }),
         name: seedAgent.name,
         isDefault: seedAgent.id === seedOrganization.defaultAgentId,
         sandboxProviderName: seedAgent.sandboxProviderName,

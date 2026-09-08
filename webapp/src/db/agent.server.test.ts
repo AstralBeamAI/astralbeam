@@ -6,7 +6,15 @@ vi.mock("@/db", () => ({
   runDatabaseEffect: Effect.runPromise,
 }))
 
-import { defaultAgentName } from "./agent.server.ts"
+import { runDatabaseEffect } from "@/db"
+
+import {
+  defaultAgentName,
+  deleteOrganizationAgent,
+  readOrganizationAgentById,
+  setOrganizationDefaultAgent,
+  updateOrganizationAgent,
+} from "./agent.server.ts"
 
 describe("starter agent name", () => {
   test("names the agent after its organization", () => {
@@ -18,4 +26,23 @@ describe("starter agent name", () => {
     expect(name.length).toBeLessThanOrEqual(100)
     expect(name.endsWith(" Assistant")).toBe(true)
   })
+})
+
+test("rejects foreign agent slugs before reads or writes", async () => {
+  const input = {
+    organizationId: "01990a5d-ac96-774b-b942-6b13c85384cb",
+    id: "agent_01990a5d-ac96-774b-b942-6b13c85384cc_01990a5d-ac96-774b-b942-6b13c85384ca",
+    lockVersion: 0,
+    name: "Changed",
+    systemPrompt: "Changed",
+    attachmentsEnabled: true,
+    sandboxProviderId: null,
+  }
+  await expect(runDatabaseEffect(readOrganizationAgentById(input))).resolves.toBeNull()
+  await expect(runDatabaseEffect(setOrganizationDefaultAgent(input).pipe(Effect.flip)))
+    .resolves.toMatchObject({ _tag: "OrganizationDefaultAgentError" })
+  await expect(runDatabaseEffect(deleteOrganizationAgent(input).pipe(Effect.flip)))
+    .resolves.toMatchObject({ _tag: "OptimisticLockError", reason: "conflict" })
+  await expect(runDatabaseEffect(updateOrganizationAgent(input).pipe(Effect.flip)))
+    .resolves.toMatchObject({ _tag: "OptimisticLockError", reason: "conflict" })
 })

@@ -69,7 +69,6 @@
   - Drizzle Effect query failures store the Effect SQL error inside an `EffectDrizzleQueryError` Cause; inspect it with Effect's `Cause` utilities and then standard JavaScript `cause` links instead of traversing arbitrary fields or parsing error messages.
   - Keep domain schema definitions in responsibility-named `src/db/schema/*.server.ts` files and re-export every table and relation Drizzle Kit must discover from `schema.server.ts`.
   - Keep every organization-owned table in `src/db/schema/organizations.server.ts` and its relations centralized; first-party organization-owned tables use `uuidV7()` IDs inside composite primary keys, while Better Auth-owned tables retain their upstream-compatible UUIDv7 primary keys.
-  - An agent's public ID is `AGENT_ID_PREFIX` plus its stored UUIDv7, and `src/db/agent.server.ts` is the only place that converts: it returns public IDs through `toPublicAgentId` and resolves incoming ones through `toStoredAgentId`, so URLs, component props, and the SDK's `agentId` never carry a bare UUID and no query ever carries a prefix. `src/lib/chat/agent.server.ts` does the same for `/api/v1/chat`. Do not store a prefixed text key or convert anywhere else.
   - Define tables with `snakeCase.table` and camel-case TypeScript keys so Drizzle derives lower snake-case SQL column names.
   - Every organization-owned table must have a non-null `organizationId`. Use `(organizationId, id)` as the primary key for first-party tables, enforce one-to-one ownership with a unique foreign key, and propagate organization-scoped alternate keys, foreign keys, and unique constraints.
   - Tenant-owned tables must retain their own UUIDv7 ID, carry `organizationId` and `tenantId`, use all three columns as the primary key, and propagate composite organization/tenant foreign keys and unique constraints.
@@ -86,7 +85,7 @@
 
 - `src/lib` contains application-wide shared code like:
   - Apply global framing restrictions without embedded API path exemptions. Cross-origin fetch uses CORS, not framing permissions. Append the framing CSP as an additional policy so route-provided restrictions remain enforced.
-  - `schemas.ts`: reusable domain-neutral Effect schemas; reuse its UUIDv7 and lock-version schemas instead of duplicating their predicates. It also owns the agent public-ID shape, `AgentIdSchema` plus the `toPublicAgentId`/`toStoredAgentId` pair its repositories convert with.
+  - `schemas.ts`: reusable domain-neutral Effect schemas; reuse its UUIDv7 and lock-version schemas instead of duplicating their predicates.
   - Keep `src/lib/slug.ts` resource-agnostic: it owns the shared slug policy and suggestion generation, while public-ID structure and database lookup or creation stay at each resource boundary or repository.
   - `utils.ts`: utility functions
   - `utils.server.ts`: server-only utilities

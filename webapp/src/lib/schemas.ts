@@ -4,30 +4,27 @@ import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./slug.ts"
 
 export const UuidV7Schema = Schema.String.pipe(Schema.check(Schema.isUUID(7)))
 
-/**
- * An agent row stores a plain UUIDv7. Every boundary outside the database addresses it by that
- * UUIDv7 behind this prefix: dashboard URLs, component props, and the SDK's `agentId`.
- */
-const AGENT_ID_PREFIX = "agent_"
-
-const AGENT_ID_PATTERN =
-  /^agent_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-
-export const AgentIdSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(AGENT_ID_PATTERN, { message: "Enter a valid agent ID" })),
+const AGENT_ID_UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+const AGENT_ID_PATTERN = new RegExp(
+  `^agent_(${AGENT_ID_UUID_PATTERN})_(${AGENT_ID_UUID_PATTERN})$`,
 )
 
-const isAgentId = Schema.is(AgentIdSchema)
-
-/** The public ID an agent is addressed by, from the UUIDv7 its row stores. */
-export function toPublicAgentId(id: string): string {
-  return `${AGENT_ID_PREFIX}${id}`
+export function generateAgentSlug(input: { organizationId: string; id: string }): string {
+  return `agent_${input.organizationId}_${input.id}`
 }
 
-/** The stored UUIDv7 behind a public agent ID, or `null` when the value is not one. */
-export function toStoredAgentId(publicId: unknown): string | null {
-  return isAgentId(publicId) ? publicId.slice(AGENT_ID_PREFIX.length) : null
+/** Parsed organization IDs identify a resource, but never authorize access to it. */
+export function parseAgentSlug(value: unknown): { organizationId: string; id: string } | null {
+  if (typeof value !== "string") return null
+  const match = AGENT_ID_PATTERN.exec(value)
+  if (!match || match[0] !== value) return null
+  return { organizationId: match[1]!, id: match[2]! }
 }
+
+export const AgentIdSchema = Schema.String.pipe(
+  Schema.check(Schema.isTrimmed()),
+  Schema.check(Schema.isPattern(AGENT_ID_PATTERN, { message: "Enter a valid agent ID" })),
+)
 
 export const SlugSchema = Schema.String.pipe(
   Schema.check(Schema.isPattern(SLUG_PATTERN, { message: SLUG_VALIDATION_MESSAGE })),
