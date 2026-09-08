@@ -16,7 +16,7 @@ Use maintained Better Auth sources instead of relying on copied API details. Sta
 - Read [database](https://better-auth.com/docs/concepts/database) and [CLI](https://better-auth.com/docs/concepts/cli) before schema generation or migration work.
 - Read [security](https://better-auth.com/docs/reference/security), [options](https://better-auth.com/docs/reference/options), and [rate limiting](https://better-auth.com/docs/concepts/rate-limit) for every security review or production change.
 - Read [OAuth](https://better-auth.com/docs/concepts/oauth), [sessions](https://better-auth.com/docs/concepts/session-management), or the selected [plugin](https://better-auth.com/docs/plugins) only when the task touches that feature.
-- Use Better Auth's maintained [agent-skill pack](https://github.com/better-auth/skills) as upstream reference; do not copy its long-lived API reference into this project skill.
+- Use Better Auth's maintained [agent-skill pack](https://github.com/better-auth/skills) as upstream reference. Do not copy its long-lived API reference into this project skill.
 
 ## Workflow
 
@@ -30,7 +30,7 @@ Use maintained Better Auth sources instead of relying on copied API details. Sta
 
 ## Security invariants
 
-- Treat all client-supplied profile fields, callback URLs, OAuth `additionalData`, organization identifiers, and authorization claims as untrusted. Validate before use; carry server-derived OAuth state through the documented server context.
+- Treat all client-supplied profile fields, callback URLs, OAuth `additionalData`, organization identifiers, and authorization claims as untrusted. Validate before use. Carry server-derived OAuth state through the documented server context.
 - Keep secrets and provider credentials server-only, require a stable production base URL, and allow only necessary exact origins. Do not disable CSRF or origin checks to make an integration pass.
 - Trust forwarded host, protocol, or IP headers only behind a proxy that overwrites them and prevents direct origin access.
 - Use persistent or shared rate-limit storage for horizontally scaled or serverless production. Keep stricter rules on sensitive endpoints.

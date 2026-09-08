@@ -4,14 +4,14 @@ All lists support cursor-based pagination in both directions. Use the returned c
 
 ## Requests and responses
 
-- `page_size`: positive integer, default 20; values above 100 are accepted and capped.
+- `page_size`: positive integer, default 20. Values above 100 are accepted and capped.
 - `page_after`: a returned `page_after` value, to fetch the next page.
 - `page_before`: a returned `page_before` value, to fetch the previous page.
 - At most one direction is accepted. Unknown/duplicate parameters, invalid sizes, and invalid or wrong-scope cursors return `400`.
 
-Responses contain `items`, `page_after`, and `page_before`. Pass either non-null continuation value unchanged as the same-named request parameter. A null value means no page is available in that direction. These values describe where to go next; they do not echo the request parameters.
+Responses contain `items`, `page_after`, and `page_before`. Pass either non-null continuation value unchanged as the same-named request parameter. A null value means no page is available in that direction. These values describe where to go next. They do not echo the request parameters.
 
-For example, a request with `page_size=1` can return `200 OK` with this body. Records are fictional and cursors are abbreviated; use actual returned cursors in requests.
+For example, a request with `page_size=1` can return `200 OK` with this body. Records are fictional and cursors are abbreviated. Use actual returned cursors in requests.
 
 ```json
 {
@@ -30,7 +30,7 @@ For example, a request with `page_size=1` can return `200 OK` with this body. Re
 }
 ```
 
-The first page has `page_before: null`; the last has `page_after: null`. A single-page result has both values null. Empty pages have `items: []` and both values null. Stop when the continuation value for your direction is null, not based on page length. You can also follow `Link`'s `next`/`prev` relation when present. Page size may change between requests.
+The first page has `page_before: null`. The last has `page_after: null`. A single-page result has both values null. Empty pages have `items: []` and both values null. Stop when the continuation value for your direction is null, not based on page length. You can also follow `Link`'s `next`/`prev` relation when present. Page size may change between requests.
 
 Tenants and TenantUsers within a Tenant are ordered by internal `id`, ascending. Backward traversal preserves display order.
 
@@ -38,13 +38,13 @@ Tenants and TenantUsers within a Tenant are ordered by internal `id`, ascending.
 
 Listings are not snapshots: concurrent inserts behind the cursor may be absent and deleted rows disappear. A continuation can therefore return an empty page if records are deleted between requests. Treat cursors as opaque values and reuse them only for the same collection and authorized scope. If a cursor is rejected, restart without it. Positions beyond the requested boundary yield empty pages.
 
-TenantUser lists bind cursors to the requested Tenant as well as the caller's scope. Both collections also bind cursors to the active filters. Adding, removing, or changing a filter while reusing a cursor returns `400`; start without a cursor when changing filters. Pagination links preserve the filters.
+TenantUser lists bind cursors to the requested Tenant as well as the caller's scope. Both collections also bind cursors to the active filters. Adding, removing, or changing a filter while reusing a cursor returns `400`. Start without a cursor when changing filters. Pagination links preserve the filters.
 
 ## Filters
 
-Both list endpoints accept optional `filter[external_id]`, an exact, case-sensitive, untrimmed string of 1–255 characters. It returns zero or one item in the normal pagination envelope; no match is `200` with an empty page. Missing or inaccessible parent Tenants still return `404` on nested TenantUser lists.
+Both list endpoints accept optional `filter[external_id]`, an exact, case-sensitive, untrimmed string of 1–255 characters. It returns zero or one item in the normal pagination envelope. No match is `200` with an empty page. Missing or inaccessible parent Tenants still return `404` on nested TenantUser lists.
 
-Brackets belong to the parameter name; the value is plain text, not a JSON filter object.
+Brackets belong to the parameter name. The value is plain text, not a JSON filter object.
 
 Empty values, repeated parameters, unsupported filters, and the unnamespaced `external_id` parameter return `400`. Partial matching, other field filters, sorting, full-text search, inclusion, selection, and counts are not supported.
 
@@ -79,7 +79,7 @@ The example response above also includes a `Link` header with the returned `page
 
 Errors follow the `AstralBeamApiError` schema and use RFC 9457 `application/problem+json`: `type`, `title`, `status`, `detail`, and optional validation `issues` with `path` and `message`.
 
-The following conventions apply across the API. Endpoint descriptions call out resource-specific behavior; their response schemas use this same error format.
+The following conventions apply across the API. Endpoint descriptions call out resource-specific behavior. Their response schemas use this same error format.
 
 | Status    | Meaning                                             |
 | --------- | --------------------------------------------------- |
@@ -90,7 +90,7 @@ The following conventions apply across the API. Endpoint descriptions call out r
 | 413       | Chat request exceeds 32 MiB                         |
 | 415       | Unsupported media type or encoding                  |
 | 422       | Malformed JSON, invalid write fields or empty PATCH |
-| 429       | Rate limit reached; observe Retry-After             |
+| 429       | Rate limit reached, observe Retry-After             |
 | 500 / 503 | Safe internal error / setup unavailable             |
 
 Missing and out-of-scope records both return `404`. Resource POST/PATCH requests reject unknown fields, and PATCH must supply at least one mutable field. Invalid resource writes return `422`. Chat preserves AG-UI camelCase input and reports malformed input as `400`. Failures after streaming starts are AG-UI `RUN_ERROR` events, not HTTP error responses.
@@ -107,6 +107,6 @@ An invalid `admin` value, for example, returns `422 Unprocessable Content` with 
 }
 ```
 
-A timed-out or aborted mutation may already have committed; check its outcome before retrying. External proxies can return non-JSON errors, so inspect status and content type before parsing a failure body.
+A timed-out or aborted mutation may already have committed. Check its outcome before retrying. External proxies can return non-JSON errors, so inspect status and content type before parsing a failure body.
 
-A throttled response includes `Retry-After` in seconds; wait that long before trying again.
+A throttled response includes `Retry-After` in seconds. Wait that long before trying again.

@@ -2,57 +2,39 @@
 
 The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated migrations in this directory.
 
-## Structure
-
-- `index.ts` is guarded as server-only and exports the Promise Drizzle client, native Effect database service, and framework bridge.
-- `config.server.ts` validates decrypted values from the global `config` table and recovers unreadable rows for `/configure`; the Drizzle column codec owns encryption, while `src/lib/config` adds environment precedence and process-local caching through `getGlobalConfig`.
-- `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`.
-- `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
-- `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
-- `schema/` contains responsibility-named domain table and relation modules.
-- `migrations/` contains generated migration SQL and Drizzle snapshots.
-
-`schema/tables.server.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.server.ts` creates the base relation definition, adds Better Auth's generated-shape relation part, and exports the single composition root passed to `drizzle()`.
-
-## Query from server-only code
-
-Once a table is exported from the schema entrypoint, consume it with the Drizzle client:
-
-```ts
-import { db } from "@/db"
-import { projects } from "@/db/schema.server"
-
-export const listProjects = () => db.select().from(projects)
-```
-
-Both imports belong in server-only code and require `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration use the cached, environment-aware `getGlobalConfig` entry point. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
+For schema layout, encryption, authorization, and relation composition, follow [Webapp database instructions](../../AGENTS.md#database).
 
 ## Local services
 
-Start PostgreSQL, PgBouncer, and Valkey from the repository root before commands that connect to PostgreSQL. Podman supplies the Docker-compatible command used here:
+On macOS, run Deno natively and use Docker Compose or Podman Compose for database services. PgBouncer is the only host-published database endpoint. From the repository root, choose one:
 
 ```sh
 docker compose up --detach --wait
 ```
 
-PgBouncer owns the loopback database port and uses transaction pooling, so the checked-in development and test `DATABASE_URL` values route Webapp and Drizzle traffic through it. PostgreSQL is not published to the host; use `docker compose exec postgres` only for explicit direct database administration. If port 5432 is unavailable, set `PGBOUNCER_HOST_PORT` and change the local `DATABASE_URL` port to match.
+```sh
+podman compose up --detach
+podman compose ps
+```
+
+Wait for healthy services before database commands. See [Setup](../../../SETUP.md#option-2-run-directly-on-macos) for runtime installation and port overrides.
 
 Worktree setup copies the primary checkout's ignored `webapp/.env.development.local`, or creates it when absent, and appends a `DATABASE_URL` for that worktree. The database name is the unique worktree folder: for example, Codex worktree `.../worktrees/a3f4/astralbeam` uses database `a3f4`. An exported shell `DATABASE_URL` remains authoritative.
 
 ## Database commands
 
-Run Drizzle commands from `webapp`. Apply every checked-in migration that has not yet run against the configured database:
+Run these commands from the repository root. Apply every checked-in migration that has not yet run against the configured database:
 
 ```sh
-deno task db migrate
+deno task --cwd webapp db migrate
 ```
 
 After changing the TypeScript schema, generate a named migration, inspect its SQL and snapshot, verify migration-history consistency, then apply it:
 
 ```sh
-deno task db generate --name=add-projects
-deno task db check
-deno task db migrate
+deno task --cwd webapp db generate --name=add-projects
+deno task --cwd webapp db check
+deno task --cwd webapp db migrate
 ```
 
 From the repository root, drop and recreate only the confirmed-disposable database selected by Drizzle for the current worktree:
@@ -62,28 +44,19 @@ deno task --cwd webapp db-reset
 deno task --cwd webapp db migrate
 ```
 
-To delete every local database managed by Docker Compose, recreate its volumes from the repository root, then migrate the current worktree database:
-
-```sh
-docker compose down --volumes
-docker compose up --detach --wait
-deno task --cwd webapp db-reset
-deno task --cwd webapp db migrate
-```
-
-Both resets are destructive and must only be used for disposable local data. The Compose reset also deletes the shared Valkey and Mailpit data. `db-reset` only recreates the selected database; run `migrate` separately to apply pending checked-in migrations. `check` validates migration-history consistency and does not inspect which migrations a live database has applied.
+`db-reset` only recreates the selected disposable database. Apply migrations separately and never reset shared Compose volumes. Drizzle `check` validates migration-history consistency, not the live database's applied migrations.
 
 ## Seed sample data
 
-`deno task db-seed` fills the current worktree's database with everything a browser or end-to-end check would otherwise create by hand: global configuration, verified accounts, two organizations with members and a pending invitation, agents, organization API keys, Tenants and tenant users, and a Docker sandbox provider. It skips `/configure`, signup, email verification, and API-key creation entirely.
+`deno task --cwd webapp db-seed` fills the current worktree's database with everything a browser or end-to-end check would otherwise create by hand: global configuration, verified accounts, two organizations with members and a pending invitation, agents, organization API keys, Tenants and tenant users, and a Docker sandbox provider. It skips `/configure`, signup, email verification, and API-key creation entirely.
 
 ```sh
-deno task db-reset
-deno task db migrate
-deno task db-seed
+deno task --cwd webapp db-reset
+deno task --cwd webapp db migrate
+deno task --cwd webapp db-seed
 ```
 
-The seed is idempotent, so running it twice changes nothing but `updated_at`. It runs in one transaction, so a failure leaves no half-seeded database. It refuses any `DATABASE_URL` whose host is not loopback, because it writes fixed development credentials.
+The seed runs in one transaction and can be rerun to restore fixture values. It identifies organizations by UUID and preserves edited URL slugs. It accepts only loopback database hosts because it writes fixed development credentials.
 
 It prints every account with its password, each agent's public ID, each API key's full value, and a ready-to-paste block for `examples/todos/.env`. `scripts/seed/fixtures.ts` is the single source of those values, and `examples/todos/e2e` imports it directly.
 
@@ -100,21 +73,9 @@ Each generated `src/db/migrations/<timestamp>_<name>/` directory is one migratio
 
 Review the SQL and commit it with its matching snapshot and TypeScript schema change. Do not edit snapshots by hand.
 
-## Relations v2 composition
-
-The relation composition root always spreads `baseRelations` first and then each responsibility-named relation part. Better Auth core and its organization plugin remain together in the generated-shape `authRelations` part.
-
-When adding a domain such as billing or projects:
-
-1. Add its tables to a responsibility-named schema module and re-export them from `schema/tables.server.ts`.
-2. Define one relation part, such as `billingRelations`, with `defineRelationsPart(schema, ...)`.
-3. Spread that part after `baseRelations` in `databaseRelations`.
-
-Each source table must be owned by exactly one relation part. Two parts defining the same source table would allow a later object spread to silently replace relationships from the earlier part. See Drizzle's [Relations v2 part ordering](https://orm.drizzle.team/docs/relations#relations-parts).
-
-- This workflow has no automatic rollback command; reverse an applied change with another forward migration, and never rewrite migration history that may have reached a shared environment.
-- Resolve rename prompts carefully because a mistaken answer can produce destructive drop-and-create SQL.
-- Schema diffs cannot infer data backfills or transformations. Use `deno task db generate --custom --name=backfill-projects` for data migrations or unsupported DDL.
-- `push` compares the TypeScript schema directly with a live database without creating migration files. Keep it to disposable local experiments, use `deno task db push --explain` to preview the SQL, and never use `push --force` against shared data.
-- Older Drizzle examples may show root-level SQL files and `meta/_journal.json`; this repository uses Drizzle 1.0's colocated migration format.
-- Drizzle's `up` command upgrades migration metadata on disk; it does not apply pending migrations. Use `deno task db migrate` to update a database.
+- Reverse applied changes with a forward migration. There is no automatic rollback command.
+- Resolve rename prompts carefully to avoid accidental drop-and-create SQL.
+- Use `deno task --cwd webapp db generate --custom --name=backfill-projects` for data transformations or unsupported DDL.
+- `push --explain` previews direct schema synchronization for disposable prototypes. Never use `push --force` against shared data.
+- This repository uses colocated migration folders, not root SQL files and `meta/_journal.json`.
+- `up` upgrades metadata on disk. `migrate` applies pending migrations to PostgreSQL.

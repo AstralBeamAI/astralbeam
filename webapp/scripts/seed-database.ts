@@ -12,7 +12,12 @@ import {
   loadSeedEnvironment,
   resolveSeedDatabaseUrl,
 } from "./seed/database.ts"
-import { SEED_PASSWORD, SEED_TODOS_TARGET, SEED_USERS } from "./seed/fixtures.ts"
+import {
+  SEED_ORGANIZATIONS,
+  SEED_PASSWORD,
+  SEED_TODOS_TARGET,
+  SEED_USERS,
+} from "./seed/fixtures.ts"
 import { seedOrganizations } from "./seed/organizations.ts"
 import { seedTenants } from "./seed/tenants.ts"
 import { seedUsers } from "./seed/users.ts"
@@ -39,11 +44,11 @@ try {
   const summary = await database.transaction(async (transaction) => {
     const config = await seedConfig(transaction)
     const userIdsByEmail = await seedUsers(transaction)
-    const organizationIdsBySlug = await seedOrganizations(transaction, userIdsByEmail)
-    const agents = await seedAgents(transaction, organizationIdsBySlug)
-    const apiKeys = await seedApiKeys(transaction, organizationIdsBySlug)
-    const tenantUserCount = await seedTenants(transaction, organizationIdsBySlug)
-    return { config, organizationIdsBySlug, agents, apiKeys, tenantUserCount }
+    await seedOrganizations(transaction, userIdsByEmail)
+    const agents = await seedAgents(transaction)
+    const apiKeys = await seedApiKeys(transaction)
+    const tenantUserCount = await seedTenants(transaction)
+    return { config, agents, apiKeys, tenantUserCount }
   })
 
   console.log(`\nSeeded database '${databaseName}'.\n`)
@@ -58,7 +63,9 @@ try {
   for (const seedUser of SEED_USERS) console.log(`  ${seedUser.email}  ${seedUser.name}`)
 
   console.log("\nOrganizations")
-  for (const slug of summary.organizationIdsBySlug.keys()) console.log(`  ${slug}`)
+  for (const organization of SEED_ORGANIZATIONS) {
+    console.log(`  ${organization.id}  ${organization.name}`)
+  }
 
   console.log("\nAgents")
   for (const seededAgent of summary.agents) {
