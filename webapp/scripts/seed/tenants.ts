@@ -8,7 +8,7 @@ import { SEED_ORGANIZATIONS } from "./fixtures.ts"
 /**
  * Creates the Tenants and tenant users an Organization's own customers would have.
  *
- * `/api/chat` does not persist a tenant yet: it reads identity straight from the verified chat
+ * `/api/v1/chat` does not persist a tenant yet: it reads identity straight from the verified chat
  * token, so these rows are sample data for dashboard and query work rather than something the
  * chat flow depends on. The seeded `acme` tenant deliberately matches the identity
  * `examples/todos` mints, so the two views line up once chat does start writing them.

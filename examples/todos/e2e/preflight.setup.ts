@@ -28,7 +28,7 @@ test("the todos token route mints a token for the seeded API key", async ({ requ
 test("the webapp accepts a seeded chat auth token and resolves the seeded agent", async ({ request }) => {
   const token = await mintSeedChatAuthToken(seedTarget.apiKey)
   const response = await request.get(
-    `${webappUrl}/api/chat/config?agentId=${seedTarget.agentId}`,
+    `${webappUrl}/api/v1/chat/config?agentId=${seedTarget.agentId}`,
     { headers: { authorization: `Bearer ${token}` } },
   )
   expect(

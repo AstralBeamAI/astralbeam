@@ -1,5 +1,5 @@
 // Names and events of the AstralBeam chat protocol, shared by every consumer: the styled
-// widget, the headless core, and the endpoint (webapp/src/routes/api/chat); keep them in step.
+// widget, the headless core, and the endpoint (webapp/src/routes/api/v1/chat); keep them in step.
 
 // Client tools every chat mount declares to the agent: the endpoint forwards
 // them verbatim and the host executes them in its page.

@@ -35,7 +35,7 @@ export function isChatAuthenticationError(error: unknown): error is ChatAuthenti
  * Authenticate a chat JWT without the raw API key.
  *
  * This is the deliberate exception to Better Auth's `verifyApiKey`: the host signs offline and
- * `/api/chat` receives only the JWT, so it uses Better Auth's stored SHA-256 digest as the
+ * `/api/v1/chat` receives only the JWT, so it uses Better Auth's stored SHA-256 digest as the
  * verifier. Database read access is therefore sufficient to forge chat JWTs. Verification is
  * read-only and does not consume Better Auth API-key usage.
  */

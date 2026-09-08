@@ -31,7 +31,7 @@ examples/     # Standalone SDK consumer applications
 
 ## Local development
 
-Local development spans three apps: the webapp serves the `/api/chat` agent endpoint, the SDK builds the chat widget, and the todos example embeds it. From a fresh clone, a running database plus `./scripts/setup.sh` and `deno task dev` is the whole loop.
+Local development spans three apps: the webapp serves the `/api/v1/chat` agent endpoint, the SDK builds the chat widget, and the todos example embeds it. From a fresh clone, a running database plus `./scripts/setup.sh` and `deno task dev` is the whole loop.
 
 ### 1. Start PostgreSQL and Mailpit
 
@@ -67,7 +67,7 @@ deno task dev
 
 This starts the three dev servers and the SDK watcher together:
 
-- <http://localhost:4500> — the product application and its `/api/chat` agent endpoint
+- <http://localhost:4500> — the product application and its `/api/v1/chat` agent endpoint
 - <http://localhost:4600> — the public website
 - <http://localhost:4700> — the todos example with the embedded widget; see [`examples/todos/README.md`](examples/todos/README.md) for what to try
 

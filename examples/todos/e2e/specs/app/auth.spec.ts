@@ -9,12 +9,12 @@ import { seedTarget, webappUrl } from "../../worktree.ts"
  */
 
 test("rejects a chat request with no bearer token", async ({ request }) => {
-  const response = await request.post(`${webappUrl}/api/chat`, { data: {} })
+  const response = await request.post(`${webappUrl}/api/v1/chat`, { data: {} })
   expect(response.status()).toBe(401)
 })
 
 test("rejects a malformed bearer token", async ({ request }) => {
-  const response = await request.get(`${webappUrl}/api/chat/config`, {
+  const response = await request.get(`${webappUrl}/api/v1/chat/config`, {
     headers: { authorization: "Bearer not-a-jwt" },
   })
   expect(response.status()).toBe(401)
@@ -24,7 +24,7 @@ test("rejects a token signed with a disabled API key", async ({ request }) => {
   // The signature verifies, because the digest is still stored; the key's `enabled` flag is what
   // must stop it. A regression here would keep revoked credentials working.
   const token = await mintSeedChatAuthToken(seedTarget.revokedApiKey)
-  const response = await request.get(`${webappUrl}/api/chat/config`, {
+  const response = await request.get(`${webappUrl}/api/v1/chat/config`, {
     headers: { authorization: `Bearer ${token}` },
   })
   expect(response.status()).toBe(401)
@@ -33,7 +33,7 @@ test("rejects a token signed with a disabled API key", async ({ request }) => {
 test("will not resolve another organization's agent", async ({ request }) => {
   const token = await mintSeedChatAuthToken(seedTarget.foreignApiKey)
   const response = await request.get(
-    `${webappUrl}/api/chat/config?agentId=${seedTarget.agentId}`,
+    `${webappUrl}/api/v1/chat/config?agentId=${seedTarget.agentId}`,
     { headers: { authorization: `Bearer ${token}` } },
   )
   // Indistinguishable from an agent that does not exist, which is the point.
@@ -45,7 +45,7 @@ test("resolves each organization's own default agent", async ({ request }) => {
   // about the key's state rather than a token this suite got wrong.
   for (const apiKey of [seedTarget.apiKey, seedTarget.foreignApiKey]) {
     const token = await mintSeedChatAuthToken(apiKey)
-    const response = await request.get(`${webappUrl}/api/chat/config`, {
+    const response = await request.get(`${webappUrl}/api/v1/chat/config`, {
       headers: { authorization: `Bearer ${token}` },
     })
     expect(response.status()).toBe(200)

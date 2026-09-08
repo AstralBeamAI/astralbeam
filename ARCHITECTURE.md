@@ -8,7 +8,7 @@ AstralBeam lets an Organization — an AstralBeam customer, typically a SaaS app
 
 ## The four projects
 
-- `webapp` — the TanStack Start React application. It is the dashboard organization users sign in to, the `/api/chat` agent endpoint tenant users' browsers stream from, the `/configure` operator surface, and the `/docs` SDK guides. It owns the database, the theme, and all server logic.
+- `webapp` — the TanStack Start React application. It is the dashboard organization users sign in to, the `/api/v1/chat` agent endpoint tenant users' browsers stream from, the `/configure` operator surface, and the `/docs` SDK guides. It owns the database, the theme, and all server logic.
 - `sdk` — the npm package `@astralbeam/sdk`, with four public entry points. `client` is a small vanilla loader that attaches a shadow root and lazily imports the widget chunk (which carries its own bundled React, so a host page need not have React at all); `core` is the framework-free headless session — authentication, transport, tool protocol, transcript state; `react` is a thin wrapper that binds to the host's React; `server` mints chat auth tokens and imports no framework.
 - `www` — the Astro marketing site, built fully static and deployed to Cloudflare as assets only.
 - `examples/todos` — a standalone TanStack Start app that consumes the SDK's built `dist` through a `file:` dependency, mints demo tokens on its own server, and points the widget at the webapp's `/api`. It also hosts the Playwright end-to-end suite today, in `examples/todos/e2e`, which imports the webapp's seed fixtures across the project boundary.
@@ -27,7 +27,7 @@ Host app page (the Organization's SaaS, in a tenant user's browser)
 │      apiKey = key_<orgSlug>_<keySlug>_abo_<secret>, never leaves the server
 │      ──► HS256 JWT signed with the key's SHA-256 digest, 60–600 s
 │
-└─ 2. POST /api/chat, Authorization: Bearer <jwt>
+└─ 2. POST /api/v1/chat, Authorization: Bearer <jwt>
         │
         ▼
      webapp
@@ -38,7 +38,7 @@ Host app page (the Organization's SaaS, in a tenant user's browser)
            ├─ host tools + widgets ──► executed back in the host page
            ├─ read_attachment      ──► executed here, over the run's bytes
            └─ sandbox_* tools      ──► executed in the agent's sandbox provider
-                └─ sandbox_publish_artifact ──► ticket ──► /api/chat/files?ticket=
+                └─ sandbox_publish_artifact ──► ticket ──► /api/v1/chat/files?ticket=
       ◄── Server-Sent Events (AG-UI events) stream back to the widget
 ```
 
@@ -47,8 +47,8 @@ Host app page (the Organization's SaaS, in a tenant user's browser)
 - Two identity systems meet here and never mix. Better Auth owns the platform side: a `user` is a person with an AstralBeam login, a `member` row binds that user to an `organization` with a role of owner, developer, or viewer, and an `invitation` is a pending membership. This is the only identity that can sign in to the dashboard.
 - Tenant identity is asserted, not stored. An Organization creates an organization API key at `/:organizationSlug/api-keys`; the copied credential is `key_<organizationSlug>_<keySlug>_abo_<secret>`, where the `abo_`-prefixed tail is Better Auth's raw api-key value and the head is a public id the Organization can safely log. The database stores only a SHA-256 digest, in `api_key.key`. The api-key plugin's generic `referenceId` field is mapped to a real `organizationId` column so the ownership is explicit in the schema rather than implied by a convention.
 - The Organization's server calls `createChatAuthToken` from `@astralbeam/sdk/server`, which signs an HS256 JWT: `kid` is the key's public id, `iss` is the organization slug, `aud` is `astralbeam`, `ver` pins the claim shape, `exp` is 60–600 seconds out, and identity travels as two separate claims — `user` (the TenantUser: id, optional name, `admin`, `metadata`) and `tenant` (id, optional name, `metadata`). The signing key is the SHA-256 digest of the raw API key, which is exactly what the database holds, so the host signs offline and the endpoint verifies without either side transmitting the secret.
-- `/api/chat` verifies in a fixed order, and the order is the security property: parse `kid` as a lookup hint only, load the key row by organization slug plus key slug, verify the HS256 signature and `typ`/`iss`/`aud`/`iat`/`exp`, re-compare `kid` against the now-verified header, size-cap the identity claims, decode the payload with excess properties rejected, and only then re-read the key's `enabled` and `expires_at`. The trusted context is the organization id from the loaded row plus the token's two identity claims; nothing organization-scoped ever comes from the request body.
-- The consequence, recorded in `webapp/src/routes/api/chat/-lib/auth.server.ts`, is that read access to `api_key.key` is sufficient to forge a chat token. That column is a signing-key boundary, not merely a password hash.
+- `/api/v1/chat` verifies in a fixed order, and the order is the security property: parse `kid` as a lookup hint only, load the key row by organization slug plus key slug, verify the HS256 signature and `typ`/`iss`/`aud`/`iat`/`exp`, re-compare `kid` against the now-verified header, size-cap the identity claims, decode the payload with excess properties rejected, and only then re-read the key's `enabled` and `expires_at`. The trusted context is the organization id from the loaded row plus the token's two identity claims; nothing organization-scoped ever comes from the request body.
+- The consequence, recorded in `webapp/src/lib/chat/auth.server.ts`, is that read access to `api_key.key` is sufficient to forge a chat token. That column is a signing-key boundary, not merely a password hash.
 - The `tenant` and `tenant_user` tables exist and carry the composite keys tenancy needs, but nothing on the request path reads or writes them: the only writer today is `webapp/scripts/seed/tenants.ts`, and the seed's `acme` tenant deliberately matches the identity `examples/todos` mints so the two views will line up later. Persisting a tenant from a verified token is future work; until then a Tenant's identity lives only in the tokens its Organization signs.
 - Organization-owned first-party tables use `(organization_id, id)` as the primary key rather than `id` alone, and tenant-owned tables use `(organization_id, tenant_id, id)`. The point is not lookup speed: it is that every child reference becomes a composite foreign key, so `agent.sandbox_provider_id` points at `(sandbox_provider.organization_id, sandbox_provider.id)` and a row physically cannot reference another organization's row. With single-column keys, a cross-organization reference is one forgotten `where` clause away. Better Auth's own tables keep their upstream single-`id` shape with a plain `organization_id` column, so their tenancy is enforced by application queries instead — including `member`, which has no database uniqueness on `(organization_id, user_id)` at all.
 
@@ -87,10 +87,10 @@ Platform:
 | Table        | Purpose                                                                                          |
 | ------------ | ------------------------------------------------------------------------------------------------ |
 | `config`     | Global runtime settings, one row per registry key, with an encrypted `value`.                    |
-| `rate_limit` | Counter storage shared by Better Auth's limits, the `/configure` login limiter, and `/api/chat`. |
+| `rate_limit` | Counter storage shared by Better Auth's limits, the `/configure` login limiter, and `/api/v1/chat`. |
 
 - Exactly two columns are encrypted, both through the `encryptedJson()` Drizzle column type: `config.value` and `sandbox_provider.credentials`. The column type owns compact JWE — `dir` plus `A256GCM`, `kid` in the protected header, content key HKDF-derived from the active `DATABASE_ENCRYPTION_KEY` root — so a caller cannot accidentally store plaintext. Each payload embeds its own row identity (`config` embeds its `key`; `sandbox_provider` embeds both ids and its provider type) and that identity is compared with the sibling columns after decoding, so a ciphertext cannot be transplanted between rows.
-- Three in-process caches matter. The configuration snapshot is one whole-state object per process, guarded by a generation counter so a refresh that races an invalidation is discarded. The migration state is a memoized promise. The sandbox lease table is a plain `Map` in `webapp/src/routes/api/chat/-lib/sandbox.server.ts`. All three are process-local by design: another replica picks up configuration on restart, and a conversation that lands on another replica starts a fresh sandbox rather than resuming one.
+- Three in-process caches matter. The configuration snapshot is one whole-state object per process, guarded by a generation counter so a refresh that races an invalidation is discarded. The migration state is a memoized promise. The sandbox lease table is a plain `Map` in `webapp/src/lib/chat/sandbox.server.ts`. All three are process-local by design: another replica picks up configuration on restart, and a conversation that lands on another replica starts a fresh sandbox rather than resuming one.
 
 ## The configuration model
 

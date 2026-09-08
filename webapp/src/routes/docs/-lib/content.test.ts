@@ -10,7 +10,7 @@ import {
   CHAT_MAX_REQUEST_BYTES,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_WINDOW_MS,
-} from "@/routes/api/chat/-lib/constants.server"
+} from "@/lib/chat/constants.server"
 
 /** The docs page's own form for a byte cap, so a changed constant reads as a changed page. */
 function megabytes(bytes: number): string {

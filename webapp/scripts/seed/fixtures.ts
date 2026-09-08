@@ -211,7 +211,7 @@ export const SEED_TODOS_TARGET = {
   agentId: SEED_AGENT_IDS.acmeTodos,
   starterAgentId: SEED_AGENT_IDS.acmeStarter,
   apiKey: `key_${SEED_NAMES.acme}_${SEED_NAMES.todosApiKey}_${SEED_API_KEY_SECRETS.todos}`,
-  /** Disabled key: `/api/chat` must reject a token signed with it. */
+  /** Disabled key: `/api/v1/chat` must reject a token signed with it. */
   revokedApiKey:
     `key_${SEED_NAMES.acme}_${SEED_NAMES.revokedApiKey}_${SEED_API_KEY_SECRETS.revoked}`,
   /** Another organization's key: its tokens must not reach an `acme` agent. */

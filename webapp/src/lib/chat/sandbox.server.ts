@@ -139,7 +139,7 @@ async function startChatSandbox(
     onStatus({ state: "ready" })
     return handle
   } catch (error) {
-    console.error("Failed to start the /api/chat sandbox:", error)
+    console.error("Failed to start the /api/v1/chat sandbox:", error)
     onStatus({ state: "error" })
     throw new ChatSandboxUnavailableError("The sandbox could not be started")
   }
@@ -266,7 +266,7 @@ async function destroyChatSandboxLease(key: string): Promise<void> {
   try {
     await lease.provider.destroy({ id: lease.record.providerSandboxId })
   } catch (error) {
-    console.error("Failed to destroy an idle /api/chat sandbox:", error)
+    console.error("Failed to destroy an idle /api/v1/chat sandbox:", error)
   }
 }
 

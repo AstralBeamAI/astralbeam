@@ -46,4 +46,4 @@ A refused file keeps its chip in the composer, and the agent is told in one sent
 | Artifact download ticket | 15 minutes                                                                          | `404` — "The download has expired. Ask the agent to publish the file again." |
 | Text in the transcript   | 20,000 characters of command output, 40,000 of a file read, 200,000 of a file write | clamped with the middle elided                                               |
 
-Every value here is a constant in the deployment's source, in `webapp/src/routes/api/chat/-lib/constants.server.ts`; none of them is configurable, so a self-hosted deployment changes a limit by editing that file and rebuilding.
+Every value here is a constant in the deployment's source, in `webapp/src/lib/chat/constants.server.ts`; none of them is configurable, so a self-hosted deployment changes a limit by editing that file and rebuilding.

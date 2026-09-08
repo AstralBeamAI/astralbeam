@@ -81,7 +81,7 @@ Every option is also a prop on `<AstralBeamChat>`; `handle.update(options)` appl
 | Option                               | Default                            | Meaning                                                            |
 | ------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
 | `agentId`                            | organization's default             | `agent_<uuid>`, copied from the dashboard                          |
-| `apiUrl`                             | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API; the widget calls `/chat` there     |
+| `apiUrl`                             | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API; the widget calls `/v1/chat` there  |
 | `fetchChatAuthToken`                 | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader`                | `"AstralBeam"`, `true`             | Header text, and whether the header and reset button show          |
 | `emptyTitle`, `emptyDescription`     | generic copy                       | Headline and subtitle of the empty transcript                      |
