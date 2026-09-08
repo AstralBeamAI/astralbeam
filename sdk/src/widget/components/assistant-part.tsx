@@ -25,8 +25,7 @@ type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
 
 interface AssistantPartProps {
   part: MessagePart
-  /** URL of the chat endpoint's artifact route, for published sandbox files. */
-  filesEndpoint: string
+  apiUrl: string
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
@@ -99,7 +98,7 @@ function WidgetCallPart(
   { part, widgets, activeSlots }:
     & Omit<
       AssistantPartProps,
-      "filesEndpoint" | "onQuestionnaireAnswers" | "part" | "toolTitles"
+      "apiUrl" | "onQuestionnaireAnswers" | "part" | "toolTitles"
     >
     & { part: ToolCallPart },
 ) {
@@ -163,8 +162,7 @@ function QuestionnaireCallPart(
 }
 
 export function AssistantPart(
-  { part, filesEndpoint, widgets, toolTitles, activeSlots, onQuestionnaireAnswers }:
-    AssistantPartProps,
+  { part, apiUrl, widgets, toolTitles, activeSlots, onQuestionnaireAnswers }: AssistantPartProps,
 ) {
   switch (part.type) {
     case "text":
@@ -183,7 +181,7 @@ export function AssistantPart(
       // Before the failure branch: a sandbox step that threw still reads better as "could not
       // write app.py" than as a generic tool failure.
       if (isSandboxTool(part.name)) {
-        return <SandboxPart part={part} filesEndpoint={filesEndpoint} />
+        return <SandboxPart part={part} apiUrl={apiUrl} />
       }
       if (part.state === "error") {
         return <ToolCallDisclosure part={part} title={title} failed />

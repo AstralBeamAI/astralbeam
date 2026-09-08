@@ -126,6 +126,7 @@ widgets: {
 
 Each guide is short and self-contained.
 
+- [API client](https://app.astralbeam.ai/docs/sdk/api), typed resource and chat requests using server API keys or browser JWTs.
 - [Getting started](https://app.astralbeam.ai/docs/sdk/getting-started) — install, mount, layout requirements.
 - [Authentication](https://app.astralbeam.ai/docs/sdk/authentication) — the token endpoint and its security rules.
 - [Configuration](https://app.astralbeam.ai/docs/sdk/configuration) — every option, and what `update` can change.
@@ -146,6 +147,7 @@ There is no root export. Conversation history is not built yet.
 | `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session | none                 |
 | `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`      | `react`, `react-dom` |
 | `@astralbeam/sdk/server` | `createAstralBeamToken`, the token minter    | none                 |
+| `@astralbeam/sdk/api`    | Resource and chat HTTP helpers               | none                 |
 
 Types resolve under every TypeScript module resolution mode, including the classic `"moduleResolution": "node"` that Ionic, Capacitor, and Create React App templates still ship. TypeScript 5.0 or later is required, because the declarations use `const` type parameters; on TypeScript 4.x the `.d.ts` files fail to parse.
 

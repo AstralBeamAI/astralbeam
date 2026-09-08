@@ -19,7 +19,7 @@ import {
   readAttachmentData,
   resolveAttachmentOptions,
 } from "./lib/attachments.ts"
-import { chatApiUrls, DEFAULT_TITLE } from "../lib/constants.ts"
+import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
@@ -100,8 +100,7 @@ export function ChatWidget(
       widgets: Object.keys(widgets),
     })
   }, [debug, toolNames, widgets])
-  // Artifact downloads live beside the chat endpoint; tickets in tool outputs authorize them.
-  const filesEndpoint = useMemo(() => chatApiUrls(options.apiUrl).files, [options.apiUrl])
+  const apiUrl = options.apiUrl ?? DEFAULT_API_URL
   const sandboxHasWork = sandbox.files.length > 0 || sandbox.commands.length > 0
   useEffect(() => {
     debug?.("status", `chat status is "${status}"`)
@@ -268,7 +267,7 @@ export function ChatWidget(
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
           messages={messages}
-          filesEndpoint={filesEndpoint}
+          apiUrl={apiUrl}
           emptySlot={hostSlots.has("empty") ? hostSlotName("empty") : undefined}
           emptyTitle={options.emptyTitle}
           emptyDescription={options.emptyDescription}

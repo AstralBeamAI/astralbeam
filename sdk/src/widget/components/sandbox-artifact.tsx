@@ -1,4 +1,5 @@
 import { DownloadSimpleIcon, FileArrowDownIcon, WarningCircleIcon } from "@phosphor-icons/react"
+import { getChatFile } from "../../api/generated/api.ts"
 import type { MessagePart } from "@tanstack/ai-client"
 import { useEffect, useState } from "react"
 import { Button } from "@/widget/components/ui/button"
@@ -10,10 +11,6 @@ import { formatByteSize, isSettledToolCall, saveBlob } from "../lib/utils.ts"
 
 type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
 
-function artifactUrl(filesEndpoint: string, ticket: string): string {
-  return `${filesEndpoint}?ticket=${encodeURIComponent(ticket)}`
-}
-
 function artifactBasename(path: string): string {
   const index = path.lastIndexOf("/")
   return index === -1 ? path : path.slice(index + 1)
@@ -21,12 +18,11 @@ function artifactBasename(path: string): string {
 
 async function downloadArtifact(
   artifact: SandboxArtifact,
-  filesEndpoint: string,
+  apiUrl: string,
 ): Promise<boolean> {
   if (!artifact.ticket) return false
   try {
-    const response = await fetch(artifactUrl(filesEndpoint, artifact.ticket))
-    if (!response.ok) return false
+    const response = await getChatFile({ ticket: artifact.ticket }, { apiUrl })
     saveBlob(artifactBasename(artifact.path), await response.blob())
     return true
   } catch {
@@ -36,13 +32,13 @@ async function downloadArtifact(
 
 /** Inline preview for an image artifact, fetched once through its ticket into an object URL. */
 function ArtifactImage(
-  { artifact, filesEndpoint }: { artifact: SandboxArtifact; filesEndpoint: string },
+  { artifact, apiUrl }: { artifact: SandboxArtifact; apiUrl: string },
 ) {
   const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
   const [failed, setFailed] = useState(false)
   // A failed download click means the ticket died after the preview loaded; same recovery.
   const download = () => {
-    void downloadArtifact(artifact, filesEndpoint).then((ok) => {
+    void downloadArtifact(artifact, apiUrl).then((ok) => {
       if (!ok) setFailed(true)
     })
   }
@@ -53,8 +49,7 @@ function ArtifactImage(
     let cancelled = false
     void (async () => {
       try {
-        const response = await fetch(artifactUrl(filesEndpoint, ticket))
-        if (!response.ok) throw new Error(`The artifact request answered ${response.status}`)
+        const response = await getChatFile({ ticket }, { apiUrl })
         const url = URL.createObjectURL(await response.blob())
         if (cancelled) {
           URL.revokeObjectURL(url)
@@ -70,7 +65,7 @@ function ArtifactImage(
       cancelled = true
       if (revoked) URL.revokeObjectURL(revoked)
     }
-  }, [ticket, filesEndpoint])
+  }, [ticket, apiUrl])
   if (failed) {
     return <ArtifactExpired label={artifact.label} />
   }
@@ -130,7 +125,7 @@ function ArtifactExpired({ label }: { label: string }) {
  * this component never needs the chat auth token.
  */
 export function SandboxArtifactPart(
-  { part, filesEndpoint }: { part: ToolCallPart; filesEndpoint: string },
+  { part, apiUrl }: { part: ToolCallPart; apiUrl: string },
 ) {
   // Tickets expire; a download that comes back empty-handed swaps the row for the recovery note.
   const [downloadFailed, setDownloadFailed] = useState(false)
@@ -166,7 +161,7 @@ export function SandboxArtifactPart(
     return <ArtifactExpired label={artifact.label} />
   }
   if (artifact.mimeType?.startsWith("image/")) {
-    return <ArtifactImage artifact={artifact} filesEndpoint={filesEndpoint} />
+    return <ArtifactImage artifact={artifact} apiUrl={apiUrl} />
   }
   return (
     <div className="flex w-fit max-w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
@@ -183,7 +178,7 @@ export function SandboxArtifactPart(
         aria-label={`Download ${artifact.label}`}
         title="Download"
         onClick={() => {
-          void downloadArtifact(artifact, filesEndpoint).then((ok) => {
+          void downloadArtifact(artifact, apiUrl).then((ok) => {
             if (!ok) setDownloadFailed(true)
           })
         }}
