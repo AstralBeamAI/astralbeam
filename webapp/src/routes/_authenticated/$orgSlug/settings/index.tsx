@@ -28,7 +28,7 @@ function OrganizationSettingsPage() {
           Organization settings
         </h1>
         <p className="text-sm text-muted-foreground">
-          Rename this organization and review the slug its public IDs are built from.
+          Update this organization's name and URL slug.
         </p>
       </div>
       <OrganizationSettingsForm

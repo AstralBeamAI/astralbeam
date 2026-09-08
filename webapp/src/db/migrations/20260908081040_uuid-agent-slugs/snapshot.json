@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "9e3cd316-f8b5-4756-aaf9-977ee4ae90e3",
+  "id": "b31228ed-e42a-4050-81eb-a099ede6ca4e",
   "prevIds": [
-    "f909e055-8a26-4b74-9b86-ff1e7c7a5fe8"
+    "10ece212-f255-477b-b09c-0d03a1adcf06"
   ],
   "ddl": [
     {
@@ -430,19 +430,6 @@
       "generated": null,
       "identity": null,
       "name": "name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "api_key"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "slug",
       "entityType": "columns",
       "schema": "public",
       "table": "api_key"
@@ -2010,34 +1997,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "slug",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "api_key_organization_id_slug_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "api_key"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "key",
           "isExpression": false,
           "asc": true,
@@ -2783,13 +2742,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "agent"
-    },
-    {
-      "value": "\"slug\" ~ '^[0-9a-z-]{1,63}$'",
-      "name": "api_key_slug_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "api_key"
     },
     {
       "value": "\"slug\" ~ '^[0-9a-z-]{1,63}$'",
