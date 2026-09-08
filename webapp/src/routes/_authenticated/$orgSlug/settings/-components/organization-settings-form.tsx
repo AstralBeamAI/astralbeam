@@ -1,5 +1,8 @@
 "use client"
 
+import { organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
+import { useSession } from "@better-auth-ui/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 
@@ -15,6 +18,7 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
+import { authClient } from "@/lib/auth/client"
 import {
   isReservedOrganizationSlug,
   RESERVED_ORGANIZATION_SLUG_MESSAGE,
@@ -36,6 +40,8 @@ export function OrganizationSettingsForm({
   readOnly,
 }: OrganizationSettingsFormProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { data: session } = useSession(authClient)
   const navigate = useNavigate()
   const [name, setName] = useState(organizationName)
   const [slug, setSlug] = useState(organizationSlug)
@@ -58,6 +64,9 @@ export function OrganizationSettingsForm({
         toast.add({ title: result.message, type: "error" })
         return
       }
+      await queryClient.invalidateQueries({
+        queryKey: organizationQueryKeys.lists(session?.user.id),
+      })
       toast.add({ title: "Organization saved", type: "success" })
       await navigate({
         to: "/$orgSlug/settings",

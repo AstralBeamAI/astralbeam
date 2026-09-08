@@ -1,158 +1,107 @@
 # Architecture
 
-How AstralBeam is put together, for someone about to change it. Rules and conventions live in the `AGENTS.md` files; this document is the theory of the system.
+AstralBeam lets an Organization embed an agent in its product. Organization employees configure it in the dashboard. The Organization's server authenticates its Tenants and tenant users, then issues short-lived tokens for the embedded SDK.
 
-## What AstralBeam is
-
-AstralBeam lets an Organization — an AstralBeam customer, typically a SaaS app — add a production-ready agent to its own product. The Organization's employees are organization users, who sign in to the AstralBeam dashboard to configure agents, API keys, sandbox providers, and members. The Organization's own customers are Tenants, and the people inside a Tenant who type into the embedded chat sidebar are tenant users (`TenantUser`). The Organization's server mints a short-lived token for each of its tenant users; the SDK widget in that user's browser presents it to the chat endpoint, which runs the agent the Organization configured. No AstralBeam account is ever created for a tenant user.
+Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific counterparts. See [Setup](SETUP.md) for deployment and local development.
 
 ## The four projects
 
-- `webapp` — the TanStack Start React application. It is the dashboard organization users sign in to, the `/api/v1/chat` agent endpoint tenant users' browsers stream from, the `/configure` operator surface, and the `/docs` SDK guides. It owns the database, the theme, and all server logic.
-- `sdk` — the npm package `@astralbeam/sdk`, with four public entry points. `client` is a small vanilla loader that attaches a shadow root and lazily imports the widget chunk (which carries its own bundled React, so a host page need not have React at all); `core` is the framework-free headless session — authentication, transport, tool protocol, transcript state; `react` is a thin wrapper that binds to the host's React; `server` mints chat auth tokens and imports no framework.
-- `www` — the Astro marketing site, built fully static and deployed to Cloudflare as assets only.
-- `examples/todos` — a standalone TanStack Start app that consumes the SDK's built `dist` through a `file:` dependency, mints demo tokens on its own server, and points the widget at the webapp's `/api`. It also hosts the Playwright end-to-end suite today, in `examples/todos/e2e`, which imports the webapp's seed fixtures across the project boundary.
+| Project | Responsibility | Output |
+| --- | --- | --- |
+| `webapp` | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Deno binary |
+| `sdk` | Widget, headless session, React bindings, and token minting | `@astralbeam/sdk` npm package |
+| `www` | Static Astro website | Cloudflare assets |
+| `examples/todos` | Standalone SDK consumer and browser tests | Demo application |
 
-The four are independent Deno projects, each with its own `deno.jsonc`, `package.json` scripts, and `deno.lock`; there is deliberately no `workspace` field anywhere and no root lockfile. They ship on different schedules to different places — a compiled binary, a Cloudflare Worker, an npm tarball, and nothing at all — so each keeps its own toolchain, its own frozen dependency set, and its own `check`, `test`, and `ready` tasks — with those task names meaning the same thing everywhere, and `ready` meaning `check`, `test`, and `build`. The one thing they share is the root `tsconfig.base.json`, which holds the compiler options all four already agreed on and nothing else. The root `deno.jsonc` is a launcher that forwards only `install`, `dev`, and `build`.
+Each project owns its dependencies, lockfile, and tooling because they ship independently. The root shares compiler defaults in `tsconfig.base.json` and launches `install`, `dev`, and `build` tasks.
 
 ```text
-Host app page (the Organization's SaaS, in a tenant user's browser)
-│
-├─ @astralbeam/sdk client loader ──► shadow root ──► widget chunk (own React)
-│      │
-│      │ 1. fetch the host's own token endpoint
-│      ▼
-│    Host app server
-│      createAstralBeamToken({ apiKey, user, tenant })
-│      apiKey = key_<organizationId>_<id>_abo_<secret>, never leaves the server
-│      ──► HS256 JWT signed with the key's SHA-256 digest, 60–600 s
-│
-└─ 2. POST /api/v1/chat, Authorization: Bearer <jwt>
-        │
-        ▼
-     webapp
-      ├─ verify the JWT against the stored api_key digest ──► ChatPrincipal
-      ├─ resolve the agent (agentId, else the organization's default)
-      ├─ normalize attachments ──► provider parts + in-memory decoded files
-      └─ chat() ──► model
-           ├─ host tools + widgets ──► executed back in the host page
-           ├─ read_attachment      ──► executed here, over the run's bytes
-           └─ sandbox_* tools      ──► executed in the agent's sandbox provider
-                └─ sandbox_publish_artifact ──► ticket ──► /api/v1/chat/files?ticket=
-      ◄── Server-Sent Events (AG-UI events) stream back to the widget
+Tenant user's browser
+├─ Host application
+│  └─ SDK loader → shadow root → lazy widget with bundled React
+│       │
+│       ├─ 1. Request token from the host's authenticated endpoint
+│       │     Host server: createAstralBeamToken({ apiKey, user, tenant })
+│       │     API key stays server-side
+│       │
+│       └─ 2. POST /api/v1/chat with Bearer JWT
+│              webapp
+│              ├─ Verify token → ChatPrincipal
+│              ├─ Resolve agent and normalize attachments
+│              └─ Run model
+│                 ├─ Host tools/widgets → execute in the host page
+│                 ├─ read_attachment → read request-local bytes
+│                 └─ Sandbox tools → provider sandbox
+│                    └─ Publish artifact → signed download ticket
+└─ Receive AG-UI events over Server-Sent Events
 ```
 
 ## Identity and tenancy
 
-- Two identity systems meet here and never mix. Better Auth owns the platform side: a `user` is a person with an AstralBeam login, a `member` row binds that user to an `organization` with a role of owner, developer, or viewer, and an `invitation` is a pending membership. This is the only identity that can sign in to the dashboard.
-- Tenant identity is asserted, not stored. An Organization creates an organization API key at `/:organizationSlug/api-keys`; the copied credential is `key_<organizationId>_<id>_abo_<secret>`, where the `abo_`-prefixed tail is Better Auth's raw api-key value and the head combines the existing Organization and API-key UUIDv7 database IDs. The credential is assembled at runtime, with no API-key slug column. The database stores only a SHA-256 digest of the complete `abo_<secret>` value, in `api_key.key`. The api-key plugin's generic `referenceId` field is mapped to a real `organizationId` column so the ownership is explicit in the schema rather than implied by a convention.
-- The Organization's server calls `createAstralBeamToken` from `@astralbeam/sdk/server`, which signs an HS256 JWT: `kid` is `key_<organizationId>_<id>`, `iss` is the Organization's UUIDv7 database ID, `aud` is `astralbeam`, `ver` pins the claim shape, `exp` is 60–600 seconds out, and identity travels as two separate claims — `user` (the TenantUser: id, optional name, `admin`, `metadata`) and `tenant` (id, optional name, `metadata`). The signing key is the SHA-256 digest of the complete `abo_<secret>` value, which is exactly what the database holds, so the host signs offline and the endpoint verifies without either side transmitting the secret.
-- `/api/v1/chat` verifies in a fixed order, and the order is the security property: parse `kid` as a lookup hint only, load the key row by organization ID plus key ID plus `config_id = "default"`, verify the HS256 signature and `typ`/`iss`/`aud`/`iat`/`exp`, re-compare `kid` against the now-verified header, size-cap the identity claims, decode the payload with excess properties rejected, and only then re-read the key's `enabled` and `expires_at`. The trusted context is the organization id from the loaded row plus the token's two identity claims; nothing organization-scoped ever comes from the request body.
-- The consequence, recorded in `webapp/src/lib/chat/auth.server.ts`, is that read access to `api_key.key` is sufficient to forge a chat token. That column is a signing-key boundary, not merely a password hash.
-- The `tenant` and `tenant_user` tables exist and carry the composite keys tenancy needs, but nothing on the request path reads or writes them: the only writer today is `webapp/scripts/seed/tenants.ts`, and the seed's `acme` tenant deliberately matches the identity `examples/todos` mints so the two views will line up later. Persisting a tenant from a verified token is future work; until then a Tenant's identity lives only in the tokens its Organization signs.
-- Organization-owned first-party tables use `(organization_id, id)` as the primary key rather than `id` alone, and tenant-owned tables use `(organization_id, tenant_id, id)`. The point is not lookup speed: it is that every child reference becomes a composite foreign key, so `agent.sandbox_provider_id` points at `(sandbox_provider.organization_id, sandbox_provider.id)` and a row physically cannot reference another organization's row. With single-column keys, a cross-organization reference is one forgotten `where` clause away. Better Auth's own tables keep their upstream single-`id` shape with a plain `organization_id` column, so their tenancy is enforced by application queries instead — including `member`, which has no database uniqueness on `(organization_id, user_id)` at all.
+Dashboard identity and embedded-chat identity are separate. Better Auth owns dashboard users, accounts, sessions, memberships, invitations, and organization API keys. Tenant users have no AstralBeam login.
+
+An organization API key is `key_<organizationId>_<id>_abo_<secret>`. Its IDs are immutable UUIDs. Only `organization` stores a slug, used for dashboard URLs. Agent public IDs are `agent_<organizationId>_<id>`.
+
+The host signs chat JWTs using the SHA-256 digest of the complete `abo_<secret>` value. AstralBeam verifies them against the stored digest without receiving the raw key. Consequently, read access to `api_key.key` is enough to forge chat tokens. Treat it as signing-key access.
+
+JWTs carry separate `user` and `tenant` claims, use the organization UUID as issuer and `astralbeam` as audience, and expire after 60–600 seconds. Trusted organization context comes from the verified key row. The [chat authentication instructions](webapp/src/lib/chat/AGENTS.md#authentication) define verification order and lifecycle checks.
+
+The management API persists Tenants and TenantUsers. Chat authenticates their external identities from signed claims without reading or upserting those records. A signed `user.admin` claim grants scoped management access independently of stored TenantUser `admin` data. See [API authentication](webapp/src/routes/docs/-content/api/authentication.md).
+
+First-party organization-owned rows use `(organization_id, id)` keys. Tenant-owned rows add `tenant_id`. Composite foreign keys prevent cross-organization or cross-Tenant references at the database boundary. Better Auth tables retain adapter-compatible keys and require application-level scoping.
 
 ## Where state lives
 
-Better Auth-owned:
+| Tables | State |
+| --- | --- |
+| `user`, `account`, `session`, `verification` | Dashboard identity and authentication |
+| `organization`, `member`, `invitation` | Customer organization and employee access |
+| `api_key` | Organization credential digest, lifecycle, and quotas |
+| `agent` | Name, prompt, attachment policy, optional sandbox provider |
+| `organization_configuration` | Organization's default agent |
+| `sandbox_provider` | Named provider options and encrypted credentials |
+| `tenant`, `tenant_user` | Customer-owned external identities and metadata |
+| `config` | Encrypted deployment settings |
+| `rate_limit` | Shared authentication, setup, and API counters |
 
-| Table          | Purpose                                                                                                     |
-| -------------- | ----------------------------------------------------------------------------------------------------------- |
-| `user`         | A person with an AstralBeam login: email, verification state, `terms_accepted_at`.                          |
-| `account`      | One credential or OAuth connection belonging to a `user`; OAuth tokens live here, encrypted by Better Auth. |
-| `session`      | An active dashboard session, including the selected `active_organization_id`.                               |
-| `verification` | Short-lived tokens for email verification and password reset.                                               |
-| `organization` | The AstralBeam customer, addressed publicly by a unique `slug`.                                             |
-| `member`       | A `user`'s role in an `organization`: owner, developer, or viewer.                                          |
-| `invitation`   | A pending membership addressed to an email, with its role and expiry.                                       |
-| `api_key`      | An organization API key: UUIDv7 `id`, SHA-256 digest, `enabled`, `expires_at`, and the plugin's quota columns.   |
+The application encrypts `config.value` and `sandbox_provider.credentials` through the Drizzle column codec. Compact JWE uses keys derived from `DATABASE_ENCRYPTION_KEY`. Payloads include row identity, checked after decoding to prevent ciphertext transplantation. Better Auth separately encrypts retained OAuth tokens.
 
-Organization-owned first-party — `(organization_id, id)` primary keys, `lock_version` optimistic locks on all three:
+Configuration snapshots, migration state, and sandbox leases are process-local. Restart other replicas after configuration changes. A conversation routed to another replica may receive a fresh sandbox.
 
-| Table                        | Purpose                                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `agent`                      | One configured agent: `slug`, `name`, `system_prompt`, `attachments_enabled`, optional `sandbox_provider_id`. |
-| `sandbox_provider`           | One named sandbox backend: provider type, public initializer options, and encrypted credentials.              |
-| `organization_configuration` | One row per organization, holding the `default_agent_id` a host that sends no `agentId` resolves to.          |
+## Configuration
 
-Tenant-owned — `(organization_id, tenant_id, id)` for `tenant_user`, and a composite foreign key back to `tenant`:
+`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are the required bootstrap variables. Other settings normally live in `config`, with uppercase environment overrides taking precedence and making corresponding `/configure` fields read-only.
 
-| Table         | Purpose                                                                                |
-| ------------- | -------------------------------------------------------------------------------------- |
-| `tenant`      | An Organization's own customer, keyed by the `external_id` the Organization chooses.   |
-| `tenant_user` | A person inside a Tenant, keyed by a tenant-local `external_id`, plus an `admin` flag. |
+The first encryption-key entry encrypts writes and authenticates the operator. Older entries decrypt existing values during rotation. Unreadable values can be replaced without revealing their contents. See [key rotation and operator access](SETUP.md#configure-the-environment).
 
-Platform:
+`/configure` approves migrations by exact name and digest. The application opens only when configuration is valid and no migrations are pending. There is no persisted setup-complete flag. This lets an operator complete first boot or repair settings through the same interface.
 
-| Table        | Purpose                                                                                          |
-| ------------ | ------------------------------------------------------------------------------------------------ |
-| `config`     | Global runtime settings, one row per registry key, with an encrypted `value`.                    |
-| `rate_limit` | Counter storage shared by Better Auth's limits, the `/configure` login limiter, and `/api/v1/chat`. |
+## Server execution
 
-- Exactly two columns are encrypted, both through the `encryptedJson()` Drizzle column type: `config.value` and `sandbox_provider.credentials`. The column type owns compact JWE — `dir` plus `A256GCM`, `kid` in the protected header, content key HKDF-derived from the active `DATABASE_ENCRYPTION_KEY` root — so a caller cannot accidentally store plaintext. Each payload embeds its own row identity (`config` embeds its `key`; `sandbox_provider` embeds both ids and its provider type) and that identity is compared with the sibling columns after decoding, so a ciphertext cannot be transplanted between rows.
-- Three in-process caches matter. The configuration snapshot is one whole-state object per process, guarded by a generation counter so a refresh that races an invalidation is discarded. The migration state is a memoized promise. The sandbox lease table is a plain `Map` in `webapp/src/lib/chat/sandbox.server.ts`. All three are process-local by design: another replica picks up configuration on restart, and a conversation that lands on another replica starts a fresh sandbox rather than resuming one.
+TanStack Start server functions and routes form the framework boundary. Public management and chat APIs share an Effect HttpApi contract. Chat retains AG-UI input and streaming, while management resources use their own schemas and authorization.
 
-## The configuration model
+New application logic uses Effect with typed failures, executed through the `ManagedRuntime` bridge. Better Auth and TanStack sandbox lifecycle contracts remain Promise-based.
 
-Only two settings are environment variables. Everything else is a row in `config`.
+The database module owns separate `pg` pools for Promise and Effect clients. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](webapp/AGENTS.md#database) for the required pool lifecycle.
 
-```text
-DATABASE_URL ─────────────┐
-DATABASE_ENCRYPTION_KEY ──┤ comma-separated; the first entry encrypts, the rest decrypt
-                          ▼
-        ┌── /configure ──────────────────────────────────────┐
-        │  the operator signs in with the FIRST key itself   │
-        │  approves pending migrations by exact name + digest │
-        └───────────────┬────────────────────────────────────┘
-                        ▼
-                  config table — JWE-encrypted `value`, one row per registry key
-                        │
-   UPPERCASE env var ───┤ overrides a key, excludes it from the DB read entirely,
-   (APP_BASE_URL, …)    │ and renders that field read-only in /configure
-                        ▼
-              process-cached snapshot, read through getGlobalConfig
-                        │
-                        ▼
-        app gate: zero config issues AND zero pending migrations,
-        else page routes redirect to /configure and API routes answer 503
-```
+## SDK boundary
 
-- Settings live in the database because a self-hosted deployment is one binary and one PostgreSQL database. An operator who can reach `/configure` can finish setup, add an OpenAI key, or fix an SMTP host without a redeploy, a config file, or shell access to the process — and the same surface is what makes first boot possible at all, since the app gate is derived from configuration validity and migration state rather than from a persisted "installed" flag.
-- The key _list_ is what makes rotation possible: the first entry encrypts every write and the rest still decrypt, so `new,old` plus a re-save per value moves a deployment forward with no downtime and no plaintext window. A row encrypted under a fallback key is flagged and re-encrypted on its next save; a row that cannot be read at all can be replaced blind, without revealing what it held.
-- That same key is the operator credential — `/configure` compares its SHA-256 against the derived root and issues a 15-minute stateless session. Database credentials are deliberately not accepted. Because the key grants access to every encrypted value in the database, `/configure` needs an ingress allowlist, VPN, or identity-aware proxy in front of it.
-- An uppercase environment variable wins over the database for any registry key, and the overridden key is dropped from the database read rather than read and shadowed. That keeps the settings a hosting platform injects out of the surface an operator can edit, and out of the rows an operator's save could overwrite.
+The vanilla entry lazily loads a widget with its own React and styles. The React entry uses the host's React. Both build on the framework-free headless core, which owns authentication, transport, tool execution, and transcript state.
 
-## The server programming model
+Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox artifacts are downloaded through short-lived tickets bound to the published bytes. These boundaries are detailed in [SDK security](webapp/src/routes/docs/-content/sdk/security.md).
 
-- TanStack Start server functions and server route handlers are the only framework boundary. Route guards (`beforeLoad`) are navigation UX; every server function re-checks session, organization, and role independently, because a guard also runs in the browser.
-- Server logic below that boundary is written as Effect programs with typed failures (`Data.TaggedError`), so a failure a caller must handle appears in the type instead of as a thrown value. Effects run only at the boundary, through the single `ManagedRuntime` bridge exported from `webapp/src/db/index.ts` as `runDatabaseEffect`.
-- That module holds two `pg` pools, and the reason is a bug rather than symmetry. The Effect SQL client cancels the running query and releases or destroys its client whenever a fiber is interrupted; on a pool shared with Better Auth, an aborted request left behind a connection that later failed a session lookup with "Client was closed and is not queryable". Better Auth keeps the Promise-shaped Drizzle handle, Effect programs get their own pool, and neither driver's client lifecycle reaches the other's queries.
-- Not all server code is Effect yet, and that is honest rather than aspirational. Better Auth is Promise-shaped and stays that way. The sandbox lifecycle is Promise-shaped because TanStack's `SandboxHandle`, sandbox `ensure`, and tool `execute` contracts are, so that module is deliberately the async/await boundary itself. New server logic is written as Effect, and the direction is all-in.
+## Build and deployment
 
-## Build, run, deploy
+The webapp compiles to a Deno binary with an out-of-tree startup, asset, shutdown, and size check. The SDK publishes independently, and `www` deploys as static assets. CI validates each project and runs deterministic browser tests. Model-driven tests require separate credentials and spend credits.
 
-- `deno task dev` from the root runs the webapp on 4500, `www` on 4600, and the todos example on 4700, all with `strictPort` so a busy port is an error rather than a silent move to another one — a moved port would leave `APP_BASE_URL`, auth cookies, and email links pointing at the wrong server. The SDK has no dev server, so `dev` also starts its `tsdown --watch` build: an SDK source change rewrites `sdk/dist`, which the example resolves through its `file:` dependency, and a page reload picks it up. `./scripts/setup.sh` is the one-time step before that: it installs, migrates, seeds, and builds the SDK.
-- The webapp builds in two stages. Vite plus Nitro emit `.output/server/index.mjs` and `.output/public`, then `deno compile` produces a single `.output/astralbeam` binary. `deno task binary:check` enforces a 200 MiB ceiling and then smoke-tests the binary end to end — boots it in a temporary directory, polls `/api/status`, fetches a hashed asset, and requires a clean SIGTERM exit. CI runs the same check.
-- The server runs under the named `runtime` permission set: `env`, `net`, `read`, and five `sys` entries, with no `write`, `run`, or `ffi`. Scripts that need more use the separate `tooling` set.
-- `sdk` builds with tsdown in two passes that treat React oppositely. The client entry bundles React into its lazy widget chunk, so a host page needs none of its own; the `core`, `react`, and `server` entries never bundle it, so the React wrapper binds to the host's copy. Publishing is `deno task build` then `npm publish`, and only `dist`, `README.md`, `LICENSE`, and `package.json` ship.
-- `www` is a static Astro build deployed with wrangler as assets only; its `wrangler.json` has no `main`, so there is no server script to run.
-- CI is one workflow, on pull requests and pushes to `main`, with no write token and no auto-fixing. A `check` job runs `deno install --frozen` and `deno task ready` per project as a four-way matrix, so each reports its own result; the webapp leg also runs `binary:check`, and the todos leg builds the SDK first because it consumes `sdk/dist`. A separate `e2e` job starts Compose, migrates and seeds the database, builds the SDK, and runs the deterministic Playwright project — the one that never calls a model. There is no deploy or publish workflow — the `www` deploy and the npm publish are manual.
+Commands and build constraints belong to each project's instructions and manifests. The [root quick start](README.md#local-development) launches local development, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
 
 ## Glossary
 
-- **Organization** — an AstralBeam customer, typically a SaaS app. The membership and data boundary.
-- **organization user** — an employee of an Organization who signs in to the AstralBeam dashboard: a Better Auth `user` with a `member` row.
-- **Tenant** — one of an Organization's own customers, identified by an `external_id` the Organization chooses.
-- **TenantUser** — a person inside a Tenant who types into the embedded chat. Has no AstralBeam login; identified by a tenant-local `external_id`.
-- **agent** — a configured assistant: a name, a system prompt, an attachment policy, and optionally a sandbox provider. Resolved per chat request.
-- **organization API key** — a long-lived credential an Organization keeps on its own server, formatted `key_<organizationId>_<id>_abo_<secret>`. Only the SHA-256 digest of the complete `abo_<secret>` value is stored. Legacy slug-based credentials are rejected.
-- **chat auth token** — the short-lived (60–600 s) HS256 JWT an Organization's server mints per tenant user, sent as a bearer header. Never a cookie, so there is no CSRF surface.
-- **sandbox provider** — a stored, named configuration for a vendor sandbox (Daytona, Docker, Sprites, Vercel). Selecting one on an agent is what gives that agent sandbox tools.
-- **artifact** — a file the agent published out of its sandbox for the user, downloaded through a signed ticket bound to a digest of the exact published bytes.
-- **attachment** — a file a tenant user attached to a message, delivered either as a provider modality (image, PDF) or as a named file the agent reads with `read_attachment`. Never stored in the database.
-- **host tool / widget** — a function or component the host page declares to the agent and executes in its own page, with agent-chosen input.
-- **`/configure`** — the operator surface for database-backed settings and migration approval, authenticated by the active `DATABASE_ENCRYPTION_KEY` value.
-- **config registry** — the closed list of settings keys with their group, kind, validation, and defaults, in `webapp/src/lib/config/registry.server.ts`.
-- **public id / slug**: an identifier used across a boundary. Organization slugs identify dashboard routes. Agent public IDs (`agent_<organizationId>_<id>`) and API-key public IDs (`key_<organizationId>_<id>`) are assembled from their Organization and entity UUIDv7 database IDs.
-- **optimistic lock version** — the `lock_version` integer on a first-party mutable row; a conflicting concurrent write fails rather than silently winning.
-- **setup complete** — the derived state (zero config issues, zero pending migrations) that opens the app gate. Not a persisted flag.
+- **Organization**: an AstralBeam customer, usually a SaaS app.
+- **Organization user**: an employee who uses the dashboard through a Better Auth membership.
+- **Tenant**: one of the Organization's customers, identified by its chosen external ID.
+- **TenantUser**: a Tenant's user, identified by a tenant-local external ID.
+- **Chat auth token**: the short-lived JWT the host issues for a tenant user.
+- **Attachment**: a user-supplied file included in a chat request.
+- **Artifact**: a sandbox file published for download through a signed ticket.

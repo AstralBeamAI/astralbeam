@@ -1,38 +1,31 @@
 # Todos example
 
-A deliberately barebones TanStack Start todos app that embeds the AstralBeam chat sidebar from the built SDK. It consumes `@astralbeam/sdk` through a `file:../../sdk` dependency, so imports resolve through the package `exports` to `sdk/dist` — the same artifacts a published install would use.
-
-The app uses plain CSS with no Tailwind or shadcn/ui. That is the point: the chat widget's Tailwind-based UI lives entirely inside its shadow root, and the only host UI in the conversation is the app's own `TodoCard`, registered as the `todoCard` widget so the agent can render it inline with props it chooses, while live app state and handlers keep working.
-
-The chat talks to a real organization-owned agent: the app points `apiUrl` at the webapp's `/api`, serves the SDK's default `/api/astralbeam/token` token route (a handwritten handler over `createAstralBeamToken`), mints a short-lived JWT from an organization API key for a fixed demo tenant user, and registers `get_todos`, `create_todo`, `update_todo`, and `delete_todo` tools that execute against the app's own React state.
-
-The agent's instructions are owned by the dashboard: the SDK cannot send a system prompt, so paste the prompt below into the demo agent on the agents page.
-
-Attachments need no wiring — the composer takes them by default when the agent's policy allows them — and the prompt asks the agent to turn an attached file or screenshot into todos through the same tools. `samples/tasks.csv` is here to drag onto the composer: the message carries only the file's name, and the agent reads it through `read_attachment`, which answers with a page of text plus the table's columns and row count. With a sandbox on the agent it can compute over the real file instead.
-
-The sandbox needs no wiring either. Selecting a sandbox provider on the agent is enough for the endpoint to hand it file and command tools; the widget shows each step inline, and this app opts into the collected **Sandbox** panel with `sandboxPanel`.
+A TanStack Start app demonstrating the SDK sidebar, host tools, inline `TodoCard` widgets, attachments, and the optional sandbox panel. Its plain CSS stays separate from the widget's shadow-root styles.
 
 ## Demo agent prompt
 
-Paste this as the demo agent's system prompt in the dashboard. `deno task --cwd webapp db-seed` already installs it on the agent it creates, from `webapp/scripts/seed/fixtures.ts`; keep the two copies in step.
-
-> You are the assistant inside a personal todo-list app. The user manages a flat list of todos, each with an id, a text, and a completed flag. Use the tools to read and change the list instead of guessing its contents. Always show todos through the todoCard widget rather than describing them in prose: render one card per todo you are showing, each with that todo's id, including when the user asks to see the whole list. When the user attaches a file or a screenshot, read it and turn what it lists into todos with the tools, then show the cards for what you created. If your sandbox tools are available, use the sandbox for work the todo tools cannot do — writing a script to export the list, crunching dates for a schedule, or generating a file the user asked for — and keep using the todo tools for the list itself.
+Use the todos agent prompt from [`webapp/scripts/seed/fixtures.ts`](../../webapp/scripts/seed/fixtures.ts). `db-seed` installs it automatically. For manual setup, copy it into the agent in the dashboard.
 
 ## Run
 
 The quickest path is `deno task --cwd webapp db-seed`, which creates the `acme` organization with a `todos` agent already carrying the prompt above, a Docker sandbox provider, and an API key, then writes `examples/todos/.env` for this example when that file does not exist yet, leaving an existing one alone. The numbered steps below are the same setup done by hand.
 
-1. In the webapp, use the organization's starter agent (already the default) or create one on the agents page, and set its system prompt to the demo prompt above. Prompts are agent configuration; the SDK cannot override them.
+1. In the webapp, use the organization's starter agent (already the default) or create one on the agents page, and set its system prompt to the demo prompt above. Prompts are agent configuration. The SDK cannot override them.
 2. Optionally configure and test a sandbox provider on the **Sandboxes** page, then select it on the agent. The endpoint gives that agent sandbox tools, and the demo prompt asks it to use them.
 3. Create an organization API key and copy the one-time `key_<organizationId>_<id>_abo_<secret>` value.
 4. Copy `.env.example` to `.env` and configure the confidential API key on the server. Leave `VITE_ASTRALBEAM_AGENT_ID` empty to use the organization's default agent, or set the browser-safe agent ID shown on the agents page. The API key and agent must belong to the same organization.
-5. Start the webapp on port 4500 (`deno task dev` from `webapp`) with `OPENAI_API_KEY` configured; it verifies authenticated requests at `/api/v1/chat`.
+5. Start the webapp on port 4500 (`deno task dev` from `webapp`) with `OPENAI_API_KEY` configured. It verifies authenticated requests at `/api/v1/chat`.
 6. Build the SDK with `deno task build` from `sdk`.
-7. From this directory, run `deno install` and `deno task dev`, then open http://localhost:4700. Toggle the sidebar with "Hide assistant", cycle "Theme" through system/light/dark to retheme the app (plain CSS variables) and the widget (`colorScheme` prop) from one preference — each side resolves "system" against the OS setting live — and flip "Custom theme" to compare the widget's stock palette with the `theme` prop retuning its shadcn tokens to the app's parchment palette. Ask the assistant about your todos: it lists and edits them through the registered tools, and renders a `TodoCard` widget inline for every todo it shows, one per id. Toggle the todo inside the chat to see host state update. Then attach something — paste a screenshot of a list, or drop `samples/tasks.csv` on the composer — and ask the assistant to add them: the todos it creates come back as `TodoCard` widgets. Ask it what the columns are, or to total the estimates, and it reads the file through `read_attachment` — or runs code over the copy in its sandbox.
-8. With a sandbox provider on the agent, ask it for something that needs code: "write a script that exports my todos as CSV and run it".
-9. Each sandbox step appears as an expandable row. While the sandbox provisions, a slim status pill sits above the composer; the **Sandbox** panel (opt-in via `sandboxPanel`) collects every file it wrote — each downloadable — and the whole command log.
+7. From this directory, run `deno install` and `deno task dev`, then open <http://localhost:4700>.
 
-The token route is local-demo-only: it grants every caller the fixed demo identity, so do not deploy it unchanged. As a backstop it answers 503 whenever `NODE_ENV` is `production`, so a deployed copy mints nothing until it is rewritten. Real hosts must derive stable `tenant.id` and tenant-local `user.id` values from their authenticated application session, never trust a browser-supplied identity, and avoid secrets because JWT payloads are signed but not encrypted.
+## Try it
+
+- Toggle **Hide assistant**, **Theme**, and **Custom theme** to compare layout and palettes.
+- Ask the assistant to edit todos, then toggle a `TodoCard` inside the chat and confirm the host list updates.
+- Paste a screenshot or attach `samples/tasks.csv` and ask the assistant to create todos or analyze the table.
+- With a sandbox provider, ask it to export your todos as CSV. Inspect file downloads, command output, and exit codes in the **Sandbox** panel.
+
+The demo token route grants a fixed identity and returns `503` in production. Before deploying, replace it with a handler that derives stable Tenant and tenant-local user IDs from an authenticated session. Follow the [SDK authentication guide](https://app.astralbeam.ai/docs/sdk/authentication).
 
 ## Automated checks
 

@@ -1,6 +1,7 @@
 // Docs are authored as plain Markdown under -content/<section>/ and registered here; the
 // section and page order in this manifest is the order the navigation shows.
 import sdkAttachments from "../-content/sdk/attachments.md?raw"
+import sdkApi from "../-content/sdk/api.md?raw"
 import sdkAuthentication from "../-content/sdk/authentication.md?raw"
 import sdkConfiguration from "../-content/sdk/configuration.md?raw"
 import sdkGettingStarted from "../-content/sdk/getting-started.md?raw"
@@ -40,6 +41,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     pages: [
       { slug: "getting-started", title: "Getting started", markdown: sdkGettingStarted },
       { slug: "authentication", title: "Authentication", markdown: sdkAuthentication },
+      { slug: "api", title: "API client", markdown: sdkApi },
       { slug: "configuration", title: "Configuration", markdown: sdkConfiguration },
       { slug: "theming", title: "Theming", markdown: sdkTheming },
       { slug: "tools-and-widgets", title: "Tools and widgets", markdown: sdkToolsAndWidgets },

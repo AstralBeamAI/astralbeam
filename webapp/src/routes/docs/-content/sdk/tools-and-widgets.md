@@ -1,6 +1,6 @@
 # Tools and widgets
 
-A tool does something: its `execute` runs in your page and the resolved value streams back to the agent. A widget shows something: its `render` draws your own UI inline in the conversation. Both are keyed by name and declared to the agent with a `description` and a `parameters` schema.
+Tools execute actions in your page and return results to the agent. Widgets render host UI in the conversation. Both have a name, description, and parameter schema.
 
 ## Tools
 
@@ -15,7 +15,7 @@ tools: {
 }
 ```
 
-- The resolved value is returned to the agent as the tool result; a thrown error becomes a tool error.
+- The resolved value is returned to the agent as the tool result. A thrown error becomes a tool error.
 - A string `metadata.title` labels the tool's transcript entry in prose instead of its registry name.
 - New tools reach the agent on its next run.
 
@@ -31,9 +31,9 @@ widgets: {
 }
 ```
 
-- In React, `render` returns JSX; elsewhere it draws into a container and may return a cleanup.
+- In React, `render` returns JSX. Elsewhere it draws into a container and may return a cleanup.
 - Renders live in your app's tree, so state, context, and event handlers keep working.
-- Several renders of one widget can be live at once; the oldest collapse to a summary past a cap.
+- Several renders of one widget can be live at once. The oldest collapse to a summary past a cap.
 - Dropping a widget disposes any render of it still in the transcript.
 
 ## Schemas
@@ -42,7 +42,7 @@ widgets: {
 
 - A Standard Schema is enforced in the browser before your `execute` or `render` runs.
 - With plain JSON Schema, nothing validates in the browser: treat the agent's input as untrusted.
-- Models sometimes send numbers as strings; with Zod, prefer `z.coerce.number()` over `z.number()`.
+- Models sometimes send numbers as strings. With Zod, prefer `z.coerce.number()` over `z.number()`.
 
 ## Typed definitions
 
@@ -65,7 +65,7 @@ const createTodo = defineTool({
 })
 ```
 
-- Import them from `@astralbeam/sdk/react` (JSX widgets) or `@astralbeam/sdk/client` (container widgets); `@astralbeam/sdk/core` has `defineTool` only, because its widgets carry no `render`.
+- Import them from `@astralbeam/sdk/react` (JSX widgets) or `@astralbeam/sdk/client` (container widgets). `@astralbeam/sdk/core` has `defineTool` only, because its widgets carry no `render`.
 - With a plain JSON Schema, the input stays `Record<string, unknown>`, which is the honest type.
 
 ## Live state

@@ -2,27 +2,15 @@
 
 TanStack Start application for the AstralBeam product.
 
-The application owns its complete product stack, dependency lockfile, and project tooling configuration. Repository bootstrap, agent configuration, the development container, and local service orchestration remain at the repository root. The application does not depend on another AstralBeam project.
-
-## Structure
-
-- `public` — approved SVG logo masters, generated PNG variants, and other static files
-- `src/components/auth` — ejected Better Auth UI feature components
-- `src/components/ui` — shadcn-generated components
-- `src/db` — server-only Drizzle client, schema, and migrations
-- `src/emails` — React Email templates with SMTP, Resend API, and Amazon SES API delivery; local SMTP can be captured by Mailpit
-- `src/lib` — application utilities and server-only Better Auth configuration
-- `src/routes` — public auth routes and protected application layouts
-- `src/styles.css` — Tailwind, fonts, semantic theme mappings, and generated brand variables
-- `src/theme` — concrete brand definition and the theme authoring JSON Schema
+For local development, follow [Setup](../SETUP.md). See [Architecture](../ARCHITECTURE.md) for the system overview and [Webapp development](AGENTS.md) for source layout and implementation rules.
 
 ## Authentication
 
-Better Auth is mounted at `/api/auth/*`. Existing users sign in at `/auth/sign-in`, new users accept the legal terms at `/auth/sign-up`, unassociated users create an organization at `/onboarding`, and the authenticated application lives at `/` with organization members and account/security settings.
+Better Auth is mounted at `/api/auth/*`. Existing users sign in at `/auth/sign-in`, new users sign up at `/auth/sign-up` with legal acceptance when configured, unassociated users create an organization at `/onboarding`, and the authenticated application lives at `/` with organization members and account/security settings.
 
-The enabled methods are email/password, Google, and GitHub. Credential signup requires email verification; OAuth signup requires a verified provider identity and explicit signup intent. Organization invitations are emailed to the recipient and can be accepted only by the matching verified account.
+The enabled methods are email/password, Google, and GitHub. Credential signup requires email verification. OAuth signup requires a verified provider identity and explicit signup intent. Organization invitations are emailed to the recipient and can be accepted only by the matching verified account.
 
-Authenticated layouts provide first-render and reactive navigation protection, but they are not authorization boundaries. Better Auth APIs and server-only functions independently enforce sessions, organization membership, and configured organization permissions. Follow the repository [authentication setup](../SETUP.md#authentication-and-transactional-email) before testing these flows.
+See [authentication setup](../SETUP.md#authentication-and-transactional-email) before testing these flows.
 
 ## Development tools
 
@@ -30,21 +18,21 @@ Run `deno task dev`, then open http://localhost:4500/dev. Email previews at http
 
 ## Theme
 
-The root route links the checked-in `src/styles.css` stylesheet. Its marked generated section supplies the light and dark semantic tokens, while the app theme controller applies system, light, or dark mode and persists the user's selection locally. `src/theme/brand.json` is the source of truth for those tokens; the design-time compiler in `scripts/theme` expands it and rewrites the generated section, and it also prints the static sRGB values `src/emails/email-theme.ts` inlines.
-
-Generate the checked-in theme section and logo output from this directory:
+Choose system, light, or dark mode in the app. The selection is saved locally. Follow the root [theme instructions](../AGENTS.md#theme-and-brand) when changing theme inputs or logo masters:
 
 ```sh
-deno task generate:theme
-deno task generate:png
+deno task --cwd webapp generate:theme
+deno task --cwd webapp generate:png
 ```
 
 ## Database
 
-See the [database guide](src/db/README.md) for local service, migration, reset, and schema workflow details. Export schema modules from `src/db/schema.server.ts`, then generate and validate migrations from this directory:
+See the [database guide](src/db/README.md) for migration, reset, and sample-data commands.
+
+From the repository root:
 
 ```sh
-deno task db generate --name=add-projects
-deno task db check
-deno task db migrate
+deno task --cwd webapp db generate --name=add-projects
+deno task --cwd webapp db check
+deno task --cwd webapp db migrate
 ```

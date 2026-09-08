@@ -7,6 +7,13 @@ import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vit
 import { type EffectDatabase, runDatabaseEffect } from "@/db"
 import { listTenants } from "@/db/tenant.server"
 import { organization } from "@/db/schema/organizations.server"
+import {
+  createTenant as sdkCreateTenant,
+  getChatFile as sdkGetChatFile,
+  listTenants as sdkListTenants,
+  runChat as sdkRunChat,
+  updateTenant as sdkUpdateTenant,
+} from "../../../../../../sdk/src/api/index.ts"
 
 const restTestState = vi.hoisted(() => ({
   rows: [] as unknown[][],
@@ -119,6 +126,7 @@ const restOrgId = "019a0000-0000-7000-8000-000000000001"
 const restTenantId = "019a0000-0000-7000-8000-000000000002"
 const restUserId = "019a0000-0000-7000-8000-000000000003"
 const restOtherId = "019a0000-0000-7000-8000-000000000004"
+const restSdkFetch: typeof fetch = (input, init) => dispatchRestRequest(new Request(input, init))
 const restTestApiKey = `key_${restOrgId}_${restOtherId}_abo_${"A".repeat(64)}`
 const restTenantRow = {
   organizationId: restOrgId,
@@ -197,6 +205,40 @@ describe("REST API through the Effect Fetch handler", () => {
   })
   afterAll(() => apiV1WebHandler.dispose())
 
+  test("generated SDK sends typed writes and consumes live cursor pages", async () => {
+    const options = {
+      apiKey: restTestApiKey,
+      apiUrl: "http://localhost/api",
+      fetchClient: restSdkFetch,
+      headers: new Headers({ "Content-Type": "application/json" }),
+    }
+    restTestState.rows.push([restTenantRow], [{ ...restTenantRow, name: "Updated" }])
+    const tenant = await sdkCreateTenant({ external_id: restTenantRow.externalId }, options)
+    expect(tenant).toMatchObject({
+      id: restTenantId,
+      name: null,
+      created_at: "2026-09-01T00:00:00.000Z",
+    })
+    expect(await sdkUpdateTenant(tenant.id, { name: "Updated" }, options)).toHaveProperty(
+      "name",
+      "Updated",
+    )
+    restTestState.rows.push([restTenantRow, { ...restTenantRow, id: restOtherId }])
+    const first = await sdkListTenants({ page_size: 1 }, options)
+    restTestState.rows.push([{ ...restTenantRow, id: restOtherId }], [restTenantRow])
+    const second = await sdkListTenants({ page_size: 1, page_after: first.page_after! }, options)
+    expect(second.items[0]?.id).toBe(restOtherId)
+    restTestState.rows.push([restTenantRow], [{ ...restTenantRow, id: restOtherId }])
+    const previous = await sdkListTenants({ page_before: second.page_before! }, options)
+    expect(previous.items).toEqual(first.items)
+    restTestState.rows.push([])
+    await expect(sdkUpdateTenant(restOtherId, { name: null }, options)).rejects.toMatchObject({
+      name: "AstralBeamApiError",
+      status: 404,
+      body: { status: 404 },
+    })
+  })
+
   test("chat streams for non-admin JWTs and cancellation reaches the producer", async () => {
     restTestState.chat.mockResolvedValue({
       ...restPrincipal,
@@ -219,16 +261,16 @@ describe("REST API through the Effect Fetch handler", () => {
         )
       },
     )
-    const response = await restRequest("/chat", {
-      method: "POST",
-      headers: { Authorization: "Bearer signed-jwt", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        threadId: "thread",
-        runId: "run",
-        messages: [],
-        tools: [],
-        context: [],
-      }),
+    const response = await sdkRunChat({
+      threadId: "thread",
+      runId: "run",
+      messages: [],
+      tools: [],
+      context: [],
+    }, {
+      astralBeamToken: "signed-jwt",
+      apiUrl: "http://localhost/api",
+      fetchClient: restSdkFetch,
     })
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toContain("text/event-stream")
@@ -304,7 +346,10 @@ describe("REST API through the Effect Fetch handler", () => {
       size: bytes.length,
       sha256: await artifactContentDigest(bytes),
     })
-    const response = await restRequest(`/chat/files?ticket=${ticket}`, { headers: {} })
+    const response = await sdkGetChatFile({ ticket }, {
+      apiUrl: "http://localhost/api",
+      fetchClient: restSdkFetch,
+    })
     expect(response.status).toBe(200)
     expect(await response.text()).toBe("A published report")
     expect(response.headers.get("content-disposition")).toContain("report.txt")

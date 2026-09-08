@@ -23,14 +23,10 @@ export type SeedAgentSummary = {
  */
 export async function seedAgents(
   transaction: SeedTransaction,
-  organizationIdsBySlug: ReadonlyMap<string, string>,
 ): Promise<SeedAgentSummary[]> {
   const summaries: SeedAgentSummary[] = []
   for (const seedOrganization of SEED_ORGANIZATIONS) {
-    const organizationId = organizationIdsBySlug.get(seedOrganization.slug)
-    if (!organizationId) {
-      throw new Error(`Organization '${seedOrganization.slug}' was not seeded`)
-    }
+    const organizationId = seedOrganization.id
 
     const providerIdsByName = new Map<string, string>()
     for (const provider of seedOrganization.sandboxProviders) {
@@ -106,7 +102,7 @@ export async function seedAgents(
     const { defaultAgentId } = seedOrganization
     if (!seededAgentIds.has(defaultAgentId)) {
       throw new Error(
-        `Default agent '${defaultAgentId}' is missing from organization '${seedOrganization.slug}'`,
+        `Default agent '${defaultAgentId}' is missing from organization '${seedOrganization.id}'`,
       )
     }
     await transaction

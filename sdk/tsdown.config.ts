@@ -22,6 +22,7 @@ export default defineConfig([
   {
     // Pass 2: keeps React and the self-reference to pass 1's client entry external.
     entry: {
+      api: "src/api/index.ts",
       server: "src/server/index.ts",
       react: "src/react/index.tsx",
       core: "src/core/index.ts",

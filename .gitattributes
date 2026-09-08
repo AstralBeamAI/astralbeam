@@ -6,3 +6,5 @@ webapp/public/api/openapi.json linguist-generated
 webapp/src/db/migrations/**/snapshot.json linguist-generated
 webapp/deno.lock linguist-generated
 www/deno.lock linguist-generated
+sdk/src/api/generated/** linguist-generated
+sdk/deno.lock linguist-generated

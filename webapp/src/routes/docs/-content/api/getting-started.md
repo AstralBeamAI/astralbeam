@@ -8,11 +8,11 @@ Use the HTTP examples below or download the [OpenAPI document](/api/openapi.json
 
 In the dashboard, select your organization and open **API keys** as an owner or developer. Create a key and copy the full `key_…_abo_…` value into your server's `ASTRALBEAM_API_KEY` secret. Never send it to the browser.
 
-The reference uses the fictional key `key_01990a5d-0000-7000-8000-000000000011_01990a5d-0000-7000-8000-000000000021_abo_kQmVrTsXpLnBwYcDfGhJzAeRuIoPsNdFkLwCxVbMnQeRtYuHiOpAsDfGhJkLzXcV` to show the full format. It cannot authenticate. Records are illustrative, and example cursors are abbreviated; use your own key and IDs and reuse cursors returned by the API.
+Reference keys, records, and abbreviated cursors are illustrative. Use your own credentials and IDs, and reuse complete cursors returned by the API.
 
 The hosted API base is `https://app.astralbeam.ai/api`. Self-hosted installations use their own origin with the `/api` base, for example `https://beam.example.com/api`.
 
-Run the example once with your own stable identities; creating them again returns `409`. Each request is independent, not one transaction.
+Run the example once with your own stable identities. Creating them again returns `409`. Each request is independent, not one transaction.
 
 ## Create a Tenant and its users
 
@@ -52,7 +52,7 @@ The response is `200 OK` with an `items` array. Pass the returned `page_after` a
 
 ## Identities and write behavior
 
-On creation, omitted `name` defaults to `null`, `metadata` to `{}`, and TenantUser `admin` to `false`. On PATCH, omitted fields stay unchanged. Metadata updates replace the whole object, not individual keys; `{}` clears it and `null` is rejected. `name: null` clears a name. Stored `admin` is data, not permission to issue privileged JWTs.
+On creation, omitted `name` defaults to `null`, `metadata` to `{}`, and TenantUser `admin` to `false`. On PATCH, omitted fields stay unchanged. Metadata updates replace the whole object, not individual keys. `{}` clears it and `null` is rejected. `name: null` clears a name. Stored `admin` is data, not permission to issue privileged JWTs.
 
 | Your identity        | API field                             | Chat token field                     |
 | -------------------- | ------------------------------------- | ------------------------------------ |

@@ -26,7 +26,7 @@ Artifact downloads use the signed `ticket` query parameter provided by the agent
 
 ## Browser transport
 
-The API permits credential-free CORS for GET, POST, PATCH, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication; all resource responses use `Cache-Control: no-store`.
+The API permits credential-free CORS for GET, POST, PATCH, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication. All resource responses use `Cache-Control: no-store`.
 
 ## Examples
 

@@ -1,31 +1,32 @@
 # SDK development
 
-Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` quick start plus the webapp-hosted guides; neither carries internals.
+Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` quick start plus the webapp-hosted guides. Neither carries internals.
 
 ## Layout and entry points
 
-Each folder under `src/` with an `index.ts(x)` named in `tsdown.config.ts` is a public entry point and maps 1:1 to the `exports` field in `package.json`; add new entry points in both places.
+Each folder under `src/` with an `index.ts(x)` named in `tsdown.config.ts` is a public entry point and maps 1:1 to the `exports` field in `package.json`. Add new entry points in both places.
 
-Mirror every entry point in `typesVersions` as well. `exports` is invisible to TypeScript's classic `"moduleResolution": "node"`, which Ionic, Capacitor, and Create React App templates still ship, and without the [`typesVersions`](https://www.typescriptlang.org/docs/handbook/declaration-files/publishing.html#version-selection-with-typesversions) fallback those hosts get `Cannot find module "@astralbeam/sdk/react"`. The declarations themselves need TypeScript 5.0 for `const` type parameters, so 4.x hosts must upgrade; the fallback cannot help them.
+Mirror every entry point in `typesVersions` as well. `exports` is invisible to TypeScript's classic `"moduleResolution": "node"`, which Ionic, Capacitor, and Create React App templates still ship, and without the [`typesVersions`](https://www.typescriptlang.org/docs/handbook/declaration-files/publishing.html#version-selection-with-typesversions) fallback those hosts get `Cannot find module "@astralbeam/sdk/react"`. The declarations themselves need TypeScript 5.0 for `const` type parameters, so 4.x hosts must upgrade. The fallback cannot help them.
 
-- `src/client/` — the vanilla loader entry; no React, tiny by design.
-- `src/core/` — the headless session and chat protocol; framework-free, bundled into `core.js` and into the React entry.
-- `src/react/` — the React wrapper; binds to the host's React.
-- `src/server/` — token minting; no framework imports.
-- `src/widget/` — the lazily loaded chat chunk with its own bundled React; not an entry point.
-- `src/lib/` — shared eager-safe modules: public option types, defaults, and the debug logger.
+- `src/client/`, the vanilla loader entry. No React, tiny by design.
+- `src/core/`, the headless session and chat protocol. Framework-free, bundled into `core.js` and into the React entry.
+- `src/react/`, the React wrapper. Binds to the host's React.
+- `src/server/`, token minting. No framework imports.
+- `src/api/` owns the browser-safe, server-compatible generated HTTP client, exported as `/api`.
+- `src/widget/`, the lazily loaded chat chunk with its own bundled React. Not an entry point.
+- `src/lib/`, shared eager-safe modules: public option types, defaults, and the debug logger.
 
 ## The lazy chat boundary
 
 The chat widget must stay inside the client entry's lazy chunk so `dist/client.js` remains a small loader.
 
-- Never export `src/widget/` from an entry point; the dynamic import in `src/client/index.ts` is its only route.
-- Everything the widget imports must be a devDependency so tsdown inlines it; a `dependencies` entry would force hosts to install it.
-- `src/lib/` must not import React or any `src/widget/` module; the widget may import it (types and small helpers).
-- `src/core/` must not import React or any `src/widget/` module either; the widget and the React entry build on it, never the reverse.
+- Never export `src/widget/` from an entry point. The dynamic import in `src/client/index.ts` is its only route.
+- Everything the widget imports must be a devDependency so tsdown inlines it. A `dependencies` entry would force hosts to install it.
+- `src/lib/` must not import React or any `src/widget/` module. The widget may import it (types and small helpers).
+- `src/core/` must not import React or any `src/widget/` module either. The widget and the React entry build on it, never the reverse.
 - The widget renders `createAstralBeamChat`: extend the core session rather than re-implementing authentication, transport, the tool protocol, or transcript derivations in `src/widget/`.
 - Widget-only code, including stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
-- `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn) — import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
+- `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn), import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
 - `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`: keep framework imports confined to their entry points and validation hand-written.
 
 ## Styles
@@ -33,7 +34,7 @@ The chat widget must stay inside the client entry's lazy chunk so `dist/client.j
 The widget carries its compiled stylesheet as a string injected into its shadow root.
 
 - `src/widget/styles.generated.ts` is gitignored, never edited by hand, and regenerated by `deno task generate:styles` (run first by `build`, `check`, and `dev`).
-- `deno task dev` is `generate:styles` once and then `tsdown --watch`; tsdown watches only its own input graph, so rerun `dev` after editing `src/styles.css`.
+- `deno task dev` is `generate:styles` once and then `tsdown --watch`. Tsdown watches only its own input graph, so rerun `dev` after editing `src/styles.css`.
 - A fresh checkout needs `build` or `check` once before a standalone `typecheck` or `knip` can resolve it.
 
 ## UI components
@@ -41,37 +42,38 @@ The widget carries its compiled stylesheet as a string injected into its shadow 
 Generate shadcn components with `deno task ui add <component>` and allow only minimal typed fixups.
 
 - Keep `components.json` on `b0`/`base-nova`/`neutral`/RTL with Phosphor, independent of the webapp.
-- Registry-added files live under `src/widget/components/ui`; hand-written chat components one per file under `src/widget/components`.
-- Record the repeatable command at the top of each registry file as `// Added with: deno task ui add <component>`, plus every intentional local change.
+- Registry-added files live under `src/widget/components/ui`. Hand-written chat components one per file under `src/widget/components`.
 
 ## Code conventions
 
-- Use plain data and helper functions with explicit options objects; no classes or closure-based state factories, except framework-required classes such as React error boundaries.
-- Record structural and build reasoning as comments beside the code that depends on it.
-- Address AstralBeam through the single `apiUrl` base option and derive every route from it with `chatApiUrls`; a new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `fetchAstralBeamToken`.
+- Use plain data and helper functions with explicit options objects. No classes or closure-based state factories, except framework-required classes such as React error boundaries.
+- Put non-obvious structural reasoning in comments beside the affected code, within the root comment-length limit. Keep longer explanations here.
+- Address AstralBeam through the single `apiUrl` base option and use generated URL helpers with `resolveApiUrl`. A new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `fetchAstralBeamToken`.
 - Acquire chat auth tokens only through `fetchAstralBeamToken`: a `{ url, ...RequestInit }` object handed to `fetch` as-is, or a host function returning `{ token }`. Express new token-request knobs through standard `RequestInit` fields rather than new options, and keep the session's abort signal attached even when the host supplies its own.
 - Keep every option updatable in place: read the agent, the API base, and the token source per request through live options or a getter rather than capturing them, so no option needs a remount and the transcript survives a change.
-- Treat a copied API key as its public ID plus the exact Better Auth raw key; hash the complete `abo_<secret>` value, never only its random suffix.
-- Model token identities as separate `user` and `tenant` objects with a required stable Tenant ID plus a stable tenant-local TenantUser ID; the host authenticates once and derives both objects from that same session. Preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
+- Treat a copied API key as its public ID plus the exact Better Auth raw key. Hash the complete `abo_<secret>` value, never only its random suffix.
+- Model token identities as separate `user` and `tenant` objects with a required stable Tenant ID plus a stable tenant-local TenantUser ID. The host authenticates once and derives both objects from that same session. Preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
 - Keep SDK option and model names camelCase, map AstralBeam-owned multiword JWT claim names to snake_case on the wire, and preserve caller-owned `metadata` keys verbatim.
+- Generated API types retain OpenAPI field names. Generate with `deno task generate:api` from the committed `webapp/public/api/openapi.json`. Never hand-edit `src/api/generated`. Orval is development-only, and `/api` must contain no third-party runtime imports or bundled transport/validation dependencies.
+- Use typed `apiKey` options on servers and `astralBeamToken` options in browsers. Resource helpers support either, chat run/config accept only JWTs, and files use signed tickets. Keep TanStack's SSE parsing and the existing one-time 401 refresh outside the generated transport.
+- Preserve native Fetch redirect-following defaults for compatibility. Honor an explicit caller-provided `redirect` option.
 - Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject.
 
 ## Testing
 
 - For API-key or chat-auth changes, test the todos example in a browser with a dashboard-created API key, verify a real assistant tool changes the host todo list, and include the flow in the verification GIF.
-- Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
-- `tsconfig.json` includes the tests, so `deno task typecheck` covers them with the same options as `src`; keep them off `node:` builtins because this project deliberately has no `@types/node`.
+- `tsconfig.json` includes the tests, so `deno task typecheck` covers them with the same options as `src`. Keep them off `node:` builtins because this project deliberately has no `@types/node`.
 
 ## Documentation
 
-`README.md` is the quick start; the full guides live in the webapp's docs section, one short Markdown page per topic under `webapp/src/routes/docs/-content/sdk/`, served at `/docs/sdk`.
+`README.md` is the quick start. Full guides live under `webapp/src/routes/docs/-content/sdk/`, served at `/docs/sdk`. Apply the section-length guidance below to both.
 
 - Keep every section scannable: one or two intro sentences (at most 30–40 words), then at most 6–8 bullets of 20–25 words each, with short code examples.
-- The README links to the hosted guides at `https://app.astralbeam.ai/docs/sdk/<page>`; keep both in step with SDK behavior changes.
+- The README links to the hosted guides at `https://app.astralbeam.ai/docs/sdk/<page>`. Keep both in step with SDK behavior changes.
 - Document a release's breaking changes and their replacements in the pull request body, not in a migration section of `README.md`.
 
 ## Build and publish
 
-- Keep `tsdown` pinned exactly to `0.22.3`; newer versions pull `rolldown-plugin-dts@^0.27`, whose `yuku` native bindings Deno loads as JavaScript ([denoland/deno#36240](https://github.com/denoland/deno/issues/36240)). Re-test after that issue is fixed.
-- Publish with `deno task build` then `npm publish` from `sdk`; the package ships only `dist`, `README.md`, `LICENSE`, and `package.json`.
+- Keep `tsdown` pinned exactly to `0.22.3`. Newer versions pull `rolldown-plugin-dts@^0.27`, whose `yuku` native bindings Deno loads as JavaScript ([denoland/deno#36240](https://github.com/denoland/deno/issues/36240)). Re-test after that issue is fixed.
+- Build with `deno task build` before an authorized npm release. The package ships only `dist`, `README.md`, `LICENSE`, and `package.json`.
 - Keep top-level `../examples/*` as standalone consumer apps on the built `dist` via `file:` dependencies, with no Tailwind or shadcn of their own, so they keep demonstrating the shadow-root style boundary.

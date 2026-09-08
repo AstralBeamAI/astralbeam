@@ -36,11 +36,11 @@ type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
  * wrote as a file and the command it ran as a terminal, instead of both as pretty-printed JSON.
  */
 export function SandboxPart(
-  { part, filesEndpoint }: { part: ToolCallPart; filesEndpoint: string },
+  { part, apiUrl }: { part: ToolCallPart; apiUrl: string },
 ) {
   // Published artifacts have their own rendering: inline image or download row.
   if (part.name === SANDBOX_PUBLISH_ARTIFACT_TOOL) {
-    return <SandboxArtifactPart part={part} filesEndpoint={filesEndpoint} />
+    return <SandboxArtifactPart part={part} apiUrl={apiUrl} />
   }
   const failed = part.state === "error"
   const refusal = sandboxRefusal(part)

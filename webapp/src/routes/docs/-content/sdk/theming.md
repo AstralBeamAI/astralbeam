@@ -12,7 +12,7 @@ The widget ships its own palette inside a shadow root, so your page styles never
 
 ## Theme tokens
 
-`theme` overrides the widget's [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) per scheme; `light` is the base applied in both, and `dark` layers on top when the resolved scheme is dark.
+`theme` overrides the widget's [shadcn/ui tokens](https://ui.shadcn.com/docs/theming) per scheme. `light` is the base applied in both, and `dark` layers on top when the resolved scheme is dark.
 
 ```tsx
 <AstralBeamChat
@@ -32,7 +32,7 @@ The widget ships its own palette inside a shadow root, so your page styles never
 Your own widgets (see [Tools and widgets](./tools-and-widgets.md)) render in the host page's light DOM, not the shadow root.
 
 - They inherit your page's typography and CSS custom properties automatically.
-- Your own selectors match a render like any other element; target `[slot^="astralbeam-widget-"]` for all of them.
+- Your own selectors match a render like any other element. Target `[slot^="astralbeam-widget-"]` for all of them.
 - Inherited properties are read from the mount target's parent, so rules on the target itself are missed.
 - Tokens declared only in a cross-origin stylesheet cannot be read.
 - The bridge pins `-webkit-text-fill-color` to `currentColor` on projected content, so your `color` rules always drive text paint.
