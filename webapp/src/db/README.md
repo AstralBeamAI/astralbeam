@@ -2,7 +2,32 @@
 
 The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated migrations in this directory.
 
-For schema layout, encryption, authorization, and relation composition, follow [Webapp database instructions](../../AGENTS.md#database).
+## Structure
+
+- `index.ts` is guarded as server-only and exports the Promise Drizzle client, native Effect database service, and framework bridge.
+- `config.server.ts` validates decrypted values from the global `config` table and recovers unreadable rows for `/configure`. The Drizzle column codec owns encryption, while `src/lib/config` adds environment precedence and process-local caching through `getGlobalConfig`.
+- `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`.
+- `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
+- `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
+- `schema/` contains responsibility-named domain table and relation modules.
+- `migrations/` contains generated migration SQL and Drizzle snapshots.
+
+`schema/tables.server.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.server.ts` creates the base relation definition, adds Better Auth's generated-shape relation part, and exports the single composition root passed to `drizzle()`.
+
+## Query from server-only code
+
+Use the Drizzle client from server-only code, after authorizing the organization ID at the request boundary:
+
+```ts
+import { db } from "@/db"
+import { eq } from "drizzle-orm"
+import { agent } from "@/db/schema.server"
+
+export const listOrganizationAgents = (organizationId: string) =>
+  db.select().from(agent).where(eq(agent.organizationId, organizationId))
+```
+
+Database imports belong in server-only code and require `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration use the cached, environment-aware `getGlobalConfig` entry point. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
 
 ## Local services
 
@@ -79,3 +104,15 @@ Review the SQL and commit it with its matching snapshot and TypeScript schema ch
 - `push --explain` previews direct schema synchronization for disposable prototypes. Never use `push --force` against shared data.
 - This repository uses colocated migration folders, not root SQL files and `meta/_journal.json`.
 - `up` upgrades metadata on disk. `migrate` applies pending migrations to PostgreSQL.
+
+## Relations v2 composition
+
+The relation composition root always spreads `baseRelations` first and then each responsibility-named relation part. Better Auth core and its organization plugin remain together in the generated-shape `authRelations` part.
+
+When adding a domain such as billing or projects:
+
+1. Add its tables to a responsibility-named schema module and re-export them from `schema/tables.server.ts`.
+2. Define one relation part, such as `billingRelations`, with `defineRelationsPart(schema, ...)`.
+3. Spread that part after `baseRelations` in `databaseRelations`.
+
+Each source table must be owned by exactly one relation part. Two parts defining the same source table would allow a later object spread to silently replace relationships from the earlier part. See Drizzle's [Relations v2 part ordering](https://orm.drizzle.team/docs/relations#relations-parts).

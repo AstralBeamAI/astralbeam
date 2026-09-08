@@ -48,17 +48,7 @@
 - Model independently usable organization integration instances as separate named rows, using `citext` when names must be case-insensitively unique. Keep provider IDs in a closed registry with shared Effect schemas and reject unknown or provider-mismatched fields before storage or return.
 - Public identifier formats carry no backward compatibility before launch: change them outright and migrate the stored rows, without alias columns, deprecation windows, or backfills for data no database holds. Keep the failure loud and inside the migration's transaction instead.
 
-### Relations composition
-
-The relation composition root always spreads `baseRelations` first and then each responsibility-named relation part. Better Auth core and its organization plugin remain together in the generated-shape `authRelations` part.
-
-When adding a domain such as billing or projects:
-
-1. Add tables to a responsibility-named schema module and re-export them from `src/db/schema/tables.server.ts`.
-2. Define one relation part, such as `billingRelations`, with `defineRelationsPart(schema, ...)`.
-3. Spread that part after `baseRelations` in `databaseRelations`.
-
-Each source table must be owned by exactly one relation part. Two parts defining the same source table would allow a later object spread to silently replace relationships from the earlier part. See Drizzle's [Relations v2 part ordering](https://orm.drizzle.team/docs/relations#relations-parts).
+Follow the [relation composition guide](src/db/README.md#relations-v2-composition) when adding schema domains.
 
 ## Shared code
 

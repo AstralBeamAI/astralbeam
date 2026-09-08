@@ -66,13 +66,53 @@ export async function POST(request: Request) {
 - Return `Cache-Control: no-store` and fail closed when configuration or authentication is missing.
 - Tokens use the organization UUID as issuer and `astralbeam` as audience. The SDK renews them in memory before expiry.
 
-## Customization
+## Options
 
-All props can change in place through React or the vanilla handle's `update(options)`. Use `reset()` for a fresh transcript and `stop()` to stop generation.
+Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` applies any subset in place, and no option is fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
 
-- Set `apiUrl` to your self-hosted API base, including `/api`.
-- Choose `agentId`, header copy, color scheme, and theme tokens through [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
-- Register host tools and inline widgets through [Tools and widgets](https://app.astralbeam.ai/docs/sdk/tools-and-widgets). Validate agent-chosen input before executing it.
+| Option                               | Default                            | Meaning                                                              |
+| ------------------------------------ | ---------------------------------- | -------------------------------------------------------------------- |
+| `agentId`                            | organization's default             | `agent_<orgId>_<id>`, copied from the dashboard                      |
+| `apiUrl`                             | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API. The widget calls `/v1/chat` there    |
+| `fetchAstralBeamToken`               | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter   |
+| `title`, `showHeader`                | `"AstralBeam"`, `true`             | Header text, and whether the header and reset button show            |
+| `emptyTitle`, `emptyDescription`     | generic copy                       | Headline and subtitle of the empty transcript                        |
+| `colorScheme`, `theme`               | `"system"`, built-in palette       | Light/dark/system, and shadcn token overrides                        |
+| `attachments`                        | `true`                             | `false` hides the feature, or pass limits                            |
+| `tools`, `widgets`                   | none                               | What the agent can do and draw in your app                           |
+| `sandboxPanel`                       | `false`                            | Collected sandbox panel: files with downloads, command log           |
+| `header`, `empty`, `composerActions` | widget's own chrome                | Host-rendered replacements (React props. `slots` on the handle)      |
+| `debug`                              | `false`                            | Log SDK actions in the browser, with server logs in development only |
+
+A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
+
+## Tools and widgets
+
+A tool does something: its `execute` runs in your page. A widget shows something: its `render` draws your UI into the conversation. Both are declared with a `description` and a `parameters` schema. See [Tools and widgets](https://app.astralbeam.ai/docs/sdk/tools-and-widgets).
+
+```tsx
+tools: {
+  restart_service: {
+    metadata: { title: "Restart a service" },
+    description: "Restart one of the host app's services by name",
+    parameters: { type: "object", properties: { service: { type: "string" } }, required: ["service"] },
+    execute: async ({ service }) => await restartService(String(service)),
+  },
+},
+widgets: {
+  systemStatus: {
+    description: "Shows the current status of the host app's systems",
+    parameters: { type: "object", properties: { degraded: { type: "boolean" } } },
+    render: ({ degraded }) => <StatusCard degraded={Boolean(degraded)} />,
+  },
+}
+```
+
+- Schemas are plain JSON Schema, or any [Standard Schema](https://standardschema.dev) validator (Zod, Valibot, ArkType).
+- Only a Standard Schema validates input in the browser. With plain JSON Schema, treat input as untrusted.
+- `defineTool` and `defineWidget` type `execute`/`render` input from a Standard Schema's output.
+- In React, `render` returns JSX in your own tree, so state, context, and handlers keep working.
+- New tools and widgets reach the agent on its next run.
 
 ## Documentation
 
