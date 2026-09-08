@@ -51,7 +51,9 @@ export function authenticateRestRequest(
 }
 function authenticateRestApiKey(credential: string) {
   return Effect.gen(function* () {
-    const parts = /^key_([a-z0-9-]{1,63})_([a-z0-9-]{1,63})_(abo_[A-Za-z]{64})$/.exec(credential)
+    const parts =
+      /^key_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_(abo_[A-Za-z]{64})$/
+        .exec(credential)
     if (!parts) return yield* Effect.fail(restFault(401, "Invalid credentials."))
     const verified = yield* Effect.tryPromise({
       try: async () => (await getAuth()).api.verifyApiKey({ body: { key: parts[3]! } }),
@@ -77,9 +79,9 @@ function authenticateRestApiKey(credential: string) {
       eq(apiKey.organizationId, organization.id),
     ).where(and(
       eq(organization.id, verified.key.referenceId),
-      eq(organization.slug, parts[1]!),
+      eq(organization.id, parts[1]!),
       eq(apiKey.id, verified.key.id),
-      eq(apiKey.slug, parts[2]!),
+      eq(apiKey.id, parts[2]!),
       eq(apiKey.configId, "default"),
     )).limit(1).pipe(
       Effect.mapError(() => restFault(500, "Authentication could not be completed.")),

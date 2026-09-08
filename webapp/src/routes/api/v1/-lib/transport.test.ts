@@ -119,7 +119,7 @@ const restOrgId = "019a0000-0000-7000-8000-000000000001"
 const restTenantId = "019a0000-0000-7000-8000-000000000002"
 const restUserId = "019a0000-0000-7000-8000-000000000003"
 const restOtherId = "019a0000-0000-7000-8000-000000000004"
-const restTestApiKey = `key_example_test_abo_${"A".repeat(64)}`
+const restTestApiKey = `key_${restOrgId}_${restOtherId}_abo_${"A".repeat(64)}`
 const restTenantRow = {
   organizationId: restOrgId,
   id: restTenantId,
@@ -508,7 +508,7 @@ describe("REST API through the Effect Fetch handler", () => {
       body: { key: `abo_${"A".repeat(64)}` },
     })
     const ownership = new PgDialect().sqlToQuery(restTestState.predicates[0]!)
-    expect(ownership.params).toEqual([restOrgId, "example", restOtherId, "test", "default"])
+    expect(ownership.params).toEqual([restOrgId, restOrgId, restOtherId, restOtherId, "default"])
     restTestState.rows.push([], [])
     await expect(restRequest("/tenants", {
       headers: { "X-API-Key": restTestApiKey, Authorization: "Bearer other" },
@@ -520,6 +520,14 @@ describe("REST API through the Effect Fetch handler", () => {
     expect((await restRequest("/tenants")).status).toBe(401)
     restTestState.verify.mockResolvedValue({ valid: false, error: { code: "INVALID_API_KEY" } })
     expect((await restRequest("/tenants")).status).toBe(401)
+  })
+
+  test("rejects legacy API keys before verification", async () => {
+    const credential = `key_example_test_abo_${"A".repeat(64)}`
+    expect((await restRequest("/tenants", { headers: { "X-API-Key": credential } })).status).toBe(
+      401,
+    )
+    expect(restTestState.verify).not.toHaveBeenCalled()
   })
 
   test("JWT authority and missing identity handling do not depend on stored TenantUser admin", async () => {

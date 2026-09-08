@@ -8,7 +8,7 @@ Use the HTTP examples below or download the [OpenAPI document](/api/openapi.json
 
 In the dashboard, select your organization and open **API keys** as an owner or developer. Create a key and copy the full `key_…_abo_…` value into your server's `ASTRALBEAM_API_KEY` secret. Never send it to the browser.
 
-The reference uses the fictional key `key_northstar_docs_abo_kQmVrTsXpLnBwYcDfGhJzAeRuIoPsNdFkLwCxVbMnQeRtYuHiOpAsDfGhJkLzXcV` to show the full format. It cannot authenticate. Records are illustrative, and example cursors are abbreviated; use your own key and IDs and reuse cursors returned by the API.
+The reference uses the fictional key `key_01990a5d-0000-7000-8000-000000000011_01990a5d-0000-7000-8000-000000000021_abo_kQmVrTsXpLnBwYcDfGhJzAeRuIoPsNdFkLwCxVbMnQeRtYuHiOpAsDfGhJkLzXcV` to show the full format. It cannot authenticate. Records are illustrative, and example cursors are abbreviated; use your own key and IDs and reuse cursors returned by the API.
 
 The hosted API base is `https://app.astralbeam.ai/api`. Self-hosted installations use their own origin with the `/api` base, for example `https://beam.example.com/api`.
 

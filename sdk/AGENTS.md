@@ -48,8 +48,8 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 
 - Use plain data and helper functions with explicit options objects; no classes or closure-based state factories, except framework-required classes such as React error boundaries.
 - Record structural and build reasoning as comments beside the code that depends on it.
-- Address AstralBeam through the single `apiUrl` base option and derive every route from it with `chatApiUrls`; a new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `fetchChatAuthToken`.
-- Acquire chat auth tokens only through `fetchChatAuthToken`: a `{ url, ...RequestInit }` object handed to `fetch` as-is, or a host function returning `{ token }`. Express new token-request knobs through standard `RequestInit` fields rather than new options, and keep the session's abort signal attached even when the host supplies its own.
+- Address AstralBeam through the single `apiUrl` base option and derive every route from it with `chatApiUrls`; a new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `fetchAstralBeamToken`.
+- Acquire chat auth tokens only through `fetchAstralBeamToken`: a `{ url, ...RequestInit }` object handed to `fetch` as-is, or a host function returning `{ token }`. Express new token-request knobs through standard `RequestInit` fields rather than new options, and keep the session's abort signal attached even when the host supplies its own.
 - Keep every option updatable in place: read the agent, the API base, and the token source per request through live options or a getter rather than capturing them, so no option needs a remount and the transcript survives a change.
 - Treat a copied API key as its public ID plus the exact Better Auth raw key; hash the complete `abo_<secret>` value, never only its random suffix.
 - Model token identities as separate `user` and `tenant` objects with a required stable Tenant ID plus a stable tenant-local TenantUser ID; the host authenticates once and derives both objects from that same session. Preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
@@ -58,6 +58,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 
 ## Testing
 
+- For API-key or chat-auth changes, test the todos example in a browser with a dashboard-created API key, verify a real assistant tool changes the host todo list, and include the flow in the verification GIF.
 - Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
 - `tsconfig.json` includes the tests, so `deno task typecheck` covers them with the same options as `src`; keep them off `node:` builtins because this project deliberately has no `@types/node`.
 

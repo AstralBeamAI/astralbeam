@@ -45,7 +45,6 @@ import {
   organizationApiKeyPlugin,
   organizationProvisioningHooks,
   organizationRoleHooks,
-  withOrganizationApiKeySlug,
 } from "@/lib/auth/organization-hooks.server"
 import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
 import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
@@ -145,13 +144,11 @@ function buildAuth(config: AuthConfig) {
     appName: APP_NAME,
     baseURL: config.appBaseUrl,
     secret: config.betterAuthSecret,
-    database: withOrganizationApiKeySlug(
-      drizzleAdapter(db, {
-        provider: "pg",
-        schema: tables,
-        transaction: true,
-      }),
-    ),
+    database: drizzleAdapter(db, {
+      provider: "pg",
+      schema: tables,
+      transaction: true,
+    }),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
@@ -371,7 +368,6 @@ function buildAuth(config: AuthConfig) {
       organizationApiKeyPlugin,
       apiKey({
         defaultPrefix: ORGANIZATION_API_KEY_PREFIX,
-        enableMetadata: true,
         rateLimit: {
           maxRequests: ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
           timeWindow: ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,

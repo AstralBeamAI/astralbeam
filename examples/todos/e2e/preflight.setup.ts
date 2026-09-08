@@ -22,7 +22,7 @@ test("the todos token route mints a token for the seeded API key", async ({ requ
   expect(
     header.kid,
     "The token was signed with an unexpected API key; check ASTRALBEAM_API_KEY",
-  ).toBe(`key_${seedTarget.organizationSlug}_todos`)
+  ).toBe(`key_${seedTarget.organizationId}_${seedTarget.apiKeyId}`)
 })
 
 test("the webapp accepts a seeded chat auth token and resolves the seeded agent", async ({ request }) => {

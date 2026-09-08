@@ -23,8 +23,8 @@ Host app page (the Organization's SaaS, in a tenant user's browser)
 │      │ 1. fetch the host's own token endpoint
 │      ▼
 │    Host app server
-│      createChatAuthToken({ apiKey, user, tenant })
-│      apiKey = key_<orgSlug>_<keySlug>_abo_<secret>, never leaves the server
+│      createAstralBeamToken({ apiKey, user, tenant })
+│      apiKey = key_<organizationId>_<id>_abo_<secret>, never leaves the server
 │      ──► HS256 JWT signed with the key's SHA-256 digest, 60–600 s
 │
 └─ 2. POST /api/v1/chat, Authorization: Bearer <jwt>
@@ -45,9 +45,9 @@ Host app page (the Organization's SaaS, in a tenant user's browser)
 ## Identity and tenancy
 
 - Two identity systems meet here and never mix. Better Auth owns the platform side: a `user` is a person with an AstralBeam login, a `member` row binds that user to an `organization` with a role of owner, developer, or viewer, and an `invitation` is a pending membership. This is the only identity that can sign in to the dashboard.
-- Tenant identity is asserted, not stored. An Organization creates an organization API key at `/:organizationSlug/api-keys`; the copied credential is `key_<organizationSlug>_<keySlug>_abo_<secret>`, where the `abo_`-prefixed tail is Better Auth's raw api-key value and the head is a public id the Organization can safely log. The database stores only a SHA-256 digest, in `api_key.key`. The api-key plugin's generic `referenceId` field is mapped to a real `organizationId` column so the ownership is explicit in the schema rather than implied by a convention.
-- The Organization's server calls `createChatAuthToken` from `@astralbeam/sdk/server`, which signs an HS256 JWT: `kid` is the key's public id, `iss` is the organization slug, `aud` is `astralbeam`, `ver` pins the claim shape, `exp` is 60–600 seconds out, and identity travels as two separate claims — `user` (the TenantUser: id, optional name, `admin`, `metadata`) and `tenant` (id, optional name, `metadata`). The signing key is the SHA-256 digest of the raw API key, which is exactly what the database holds, so the host signs offline and the endpoint verifies without either side transmitting the secret.
-- `/api/v1/chat` verifies in a fixed order, and the order is the security property: parse `kid` as a lookup hint only, load the key row by organization slug plus key slug, verify the HS256 signature and `typ`/`iss`/`aud`/`iat`/`exp`, re-compare `kid` against the now-verified header, size-cap the identity claims, decode the payload with excess properties rejected, and only then re-read the key's `enabled` and `expires_at`. The trusted context is the organization id from the loaded row plus the token's two identity claims; nothing organization-scoped ever comes from the request body.
+- Tenant identity is asserted, not stored. An Organization creates an organization API key at `/:organizationSlug/api-keys`; the copied credential is `key_<organizationId>_<id>_abo_<secret>`, where the `abo_`-prefixed tail is Better Auth's raw api-key value and the head combines the existing Organization and API-key UUIDv7 database IDs. The credential is assembled at runtime, with no API-key slug column. The database stores only a SHA-256 digest of the complete `abo_<secret>` value, in `api_key.key`. The api-key plugin's generic `referenceId` field is mapped to a real `organizationId` column so the ownership is explicit in the schema rather than implied by a convention.
+- The Organization's server calls `createAstralBeamToken` from `@astralbeam/sdk/server`, which signs an HS256 JWT: `kid` is `key_<organizationId>_<id>`, `iss` is the Organization's UUIDv7 database ID, `aud` is `astralbeam`, `ver` pins the claim shape, `exp` is 60–600 seconds out, and identity travels as two separate claims — `user` (the TenantUser: id, optional name, `admin`, `metadata`) and `tenant` (id, optional name, `metadata`). The signing key is the SHA-256 digest of the complete `abo_<secret>` value, which is exactly what the database holds, so the host signs offline and the endpoint verifies without either side transmitting the secret.
+- `/api/v1/chat` verifies in a fixed order, and the order is the security property: parse `kid` as a lookup hint only, load the key row by organization ID plus key ID plus `config_id = "default"`, verify the HS256 signature and `typ`/`iss`/`aud`/`iat`/`exp`, re-compare `kid` against the now-verified header, size-cap the identity claims, decode the payload with excess properties rejected, and only then re-read the key's `enabled` and `expires_at`. The trusted context is the organization id from the loaded row plus the token's two identity claims; nothing organization-scoped ever comes from the request body.
 - The consequence, recorded in `webapp/src/lib/chat/auth.server.ts`, is that read access to `api_key.key` is sufficient to forge a chat token. That column is a signing-key boundary, not merely a password hash.
 - The `tenant` and `tenant_user` tables exist and carry the composite keys tenancy needs, but nothing on the request path reads or writes them: the only writer today is `webapp/scripts/seed/tenants.ts`, and the seed's `acme` tenant deliberately matches the identity `examples/todos` mints so the two views will line up later. Persisting a tenant from a verified token is future work; until then a Tenant's identity lives only in the tokens its Organization signs.
 - Organization-owned first-party tables use `(organization_id, id)` as the primary key rather than `id` alone, and tenant-owned tables use `(organization_id, tenant_id, id)`. The point is not lookup speed: it is that every child reference becomes a composite foreign key, so `agent.sandbox_provider_id` points at `(sandbox_provider.organization_id, sandbox_provider.id)` and a row physically cannot reference another organization's row. With single-column keys, a cross-organization reference is one forgotten `where` clause away. Better Auth's own tables keep their upstream single-`id` shape with a plain `organization_id` column, so their tenancy is enforced by application queries instead — including `member`, which has no database uniqueness on `(organization_id, user_id)` at all.
@@ -65,7 +65,7 @@ Better Auth-owned:
 | `organization` | The AstralBeam customer, addressed publicly by a unique `slug`.                                             |
 | `member`       | A `user`'s role in an `organization`: owner, developer, or viewer.                                          |
 | `invitation`   | A pending membership addressed to an email, with its role and expiry.                                       |
-| `api_key`      | An organization API key: SHA-256 digest, `slug`, `enabled`, `expires_at`, and the plugin's quota columns.   |
+| `api_key`      | An organization API key: UUIDv7 `id`, SHA-256 digest, `enabled`, `expires_at`, and the plugin's quota columns.   |
 
 Organization-owned first-party — `(organization_id, id)` primary keys, `lock_version` optimistic locks on all three:
 
@@ -145,7 +145,7 @@ DATABASE_ENCRYPTION_KEY ──┤ comma-separated; the first entry encrypts, the
 - **Tenant** — one of an Organization's own customers, identified by an `external_id` the Organization chooses.
 - **TenantUser** — a person inside a Tenant who types into the embedded chat. Has no AstralBeam login; identified by a tenant-local `external_id`.
 - **agent** — a configured assistant: a name, a system prompt, an attachment policy, and optionally a sandbox provider. Resolved per chat request.
-- **organization API key** — a long-lived credential an Organization keeps on its own server, formatted `key_<organizationSlug>_<keySlug>_abo_<secret>`. Only its SHA-256 digest is stored.
+- **organization API key** — a long-lived credential an Organization keeps on its own server, formatted `key_<organizationId>_<id>_abo_<secret>`. Only the SHA-256 digest of the complete `abo_<secret>` value is stored. Legacy slug-based credentials are rejected.
 - **chat auth token** — the short-lived (60–600 s) HS256 JWT an Organization's server mints per tenant user, sent as a bearer header. Never a cookie, so there is no CSRF surface.
 - **sandbox provider** — a stored, named configuration for a vendor sandbox (Daytona, Docker, Sprites, Vercel). Selecting one on an agent is what gives that agent sandbox tools.
 - **artifact** — a file the agent published out of its sandbox for the user, downloaded through a signed ticket bound to a digest of the exact published bytes.
@@ -153,6 +153,6 @@ DATABASE_ENCRYPTION_KEY ──┤ comma-separated; the first entry encrypts, the
 - **host tool / widget** — a function or component the host page declares to the agent and executes in its own page, with agent-chosen input.
 - **`/configure`** — the operator surface for database-backed settings and migration approval, authenticated by the active `DATABASE_ENCRYPTION_KEY` value.
 - **config registry** — the closed list of settings keys with their group, kind, validation, and defaults, in `webapp/src/lib/config/registry.server.ts`.
-- **public id / slug** — the URL-safe identifier a resource is addressed by across a boundary (`agent_<orgId>_<id>`, `key_<org>_<key>`), as opposed to its internal UUIDv7. An agent's public id encodes its organization and agent UUIDs.
+- **public id / slug**: an identifier used across a boundary. Organization slugs identify dashboard routes. Agent public IDs (`agent_<organizationId>_<id>`) and API-key public IDs (`key_<organizationId>_<id>`) are assembled from their Organization and entity UUIDv7 database IDs.
 - **optimistic lock version** — the `lock_version` integer on a first-party mutable row; a conflicting concurrent write fails rather than silently winning.
 - **setup complete** — the derived state (zero config issues, zero pending migrations) that opens the app gate. Not a persisted flag.

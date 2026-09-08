@@ -8,7 +8,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | -------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- |
 | `agentId`                        | organization's default agent       | `agent_<orgId>_<id>`, copied from the dashboard                                   |
 | `apiUrl`                         | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API; the widget streams from `/v1/chat`                |
-| `fetchChatAuthToken`             | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
+| `fetchAstralBeamToken`           | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
 | `title`                          | `"AstralBeam"`                     | Name in the widget's header                                                       |
 | `showHeader`                     | `true`                             | `false` hides the header and its reset button                                     |
 | `emptyTitle`, `emptyDescription` | generic copy                       | Headline and subtitle of the empty transcript                                     |
@@ -21,8 +21,8 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 
 - Self-hosted deployments must set `apiUrl` to their own origin; the default points at the hosted cloud, and chat auth tokens are bearer credentials that should only reach the deployment that issued the API key.
 - `apiUrl` is a base, not a route: the widget appends `/v1/chat` for the stream and its subroutes for the agent handshake and artifact downloads.
-- `fetchChatAuthToken` is the only chat auth token option; the request form's init reaches `fetch` as given. See [Authentication](./authentication.md).
-- The transport options are read per request, not captured: a new `apiUrl` or `fetchChatAuthToken` applies to the next request, and a new `agentId` answers the next run.
+- `fetchAstralBeamToken` is the only chat auth token option; the request form's init reaches `fetch` as given. See [Authentication](./authentication.md).
+- The transport options are read per request, not captured: a new `apiUrl` or `fetchAstralBeamToken` applies to the next request, and a new `agentId` answers the next run.
 - Changing `agentId` keeps the transcript, which the new agent then sees as history; call `reset()` first for a clean conversation.
 - Every option accepts an explicit `undefined` and reads as unset, so a value you do not have yet needs no conditional prop under `exactOptionalPropertyTypes`.
 

@@ -28,8 +28,6 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
-import type { OrganizationApiKey } from "@/lib/auth/organization-api-key-configuration"
-import { isValidSlug } from "@/lib/slug"
 import { cn } from "cn"
 import { ApiKey } from "./api-key"
 import { CreateApiKeyDialog } from "./create-api-key-dialog"
@@ -38,7 +36,6 @@ export type ApiKeysProps = {
   className?: string | undefined
   /** Scope the list and create payload to an organization. */
   organizationId?: string | undefined
-  organizationSlug: string
   /** Force the loading skeleton and disable the list query. */
   isPending?: boolean | undefined
   /** Hide the "Create API key" button (header + empty state). */
@@ -92,7 +89,6 @@ function ApiKeysEmpty({ onCreatePress, hideCreate }: {
 export function ApiKeys({
   className,
   organizationId,
-  organizationSlug,
   isPending: isPendingProp,
   hideCreate,
   hideDelete,
@@ -131,13 +127,7 @@ export function ApiKeys({
   )
 
   const isPending = isPendingProp || isListPending
-  const hasInvalidSlug = listData?.apiKeys.some((key) => {
-    const slug = (key as { slug?: unknown }).slug
-    return typeof slug !== "string" || !isValidSlug(slug)
-  }) ?? false
-  const organizationApiKeys = hasInvalidSlug
-    ? undefined
-    : listData?.apiKeys as OrganizationApiKey[] | undefined
+  const organizationApiKeys = listData?.apiKeys
   const total = listData?.total ?? 0
   const hasNextPage = (page + 1) * pageSize < total
 
@@ -187,7 +177,7 @@ export function ApiKeys({
         <CardContent className="p-0">
           {isPending
             ? <ApiKeySkeleton />
-            : isListError || hasInvalidSlug
+            : isListError
             ? (
               <div className="flex flex-col items-center gap-3 p-6 text-center" role="alert">
                 <p className="text-sm text-muted-foreground">
@@ -256,7 +246,6 @@ export function ApiKeys({
           open={createOpen}
           onOpenChange={setCreateOpen}
           organizationId={organizationId}
-          organizationSlug={organizationSlug}
         />
       )}
     </div>

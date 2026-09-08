@@ -55,7 +55,7 @@ export interface ChatStreamCallbacks {
 export interface AstralBeamChatCoreOptions extends
   Pick<
     MountAstralBeamChatOptions,
-    "agentId" | "apiUrl" | "fetchChatAuthToken" | "tools" | "debug"
+    "agentId" | "apiUrl" | "fetchAstralBeamToken" | "tools" | "debug"
   > {
   /** Widgets declared to the agent, without a `render`; `onRenderWidget` is asked to draw them. */
   widgets?: Record<string, WidgetDeclaration> | undefined
@@ -71,7 +71,7 @@ export const CORE_OPTION_KEYS = Object.keys(
   {
     agentId: true,
     apiUrl: true,
-    fetchChatAuthToken: true,
+    fetchAstralBeamToken: true,
     tools: true,
     widgets: true,
     onRenderWidget: true,
@@ -160,7 +160,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
   }
 
   const authentication: ChatAuthenticationOptions = {
-    fetchChatAuthToken: live.fetchChatAuthToken ?? { url: DEFAULT_CHAT_AUTH_TOKEN_URL },
+    fetchAstralBeamToken: live.fetchAstralBeamToken ?? { url: DEFAULT_CHAT_AUTH_TOKEN_URL },
     session: {
       cached: undefined,
       refreshPromise: undefined,
@@ -328,7 +328,7 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
       const apiUrl = live.apiUrl
       live = { ...live, ...next }
       debug = createDebugLogger(live.debug)
-      authentication.fetchChatAuthToken = live.fetchChatAuthToken ??
+      authentication.fetchAstralBeamToken = live.fetchAstralBeamToken ??
         { url: DEFAULT_CHAT_AUTH_TOKEN_URL }
       authentication.debug = debug
       client.updateOptions({ tools: declareTools(), forwardedProps: forwardedProps() })

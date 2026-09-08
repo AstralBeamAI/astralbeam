@@ -34,7 +34,7 @@ export async function seedOrganizations(
     }
     if (inserted.id !== seedOrganization.id) {
       throw new Error(
-        `Seed organization '${seedOrganization.slug}' has an unexpected UUID. Reset and migrate the database before db-seed.`,
+        `Seed organization '${seedOrganization.slug}' has a conflicting ID. Use a fresh worktree database.`,
       )
     }
     const organizationId = inserted.id

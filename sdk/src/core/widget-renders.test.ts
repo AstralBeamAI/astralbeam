@@ -41,7 +41,7 @@ test("a released render leaves no cleanup behind in the session", async () => {
   const cleanupsRun: string[] = []
   const releases = new Map<string, () => void>()
   const chat = createAstralBeamChat({
-    fetchChatAuthToken: chatAuthToken,
+    fetchAstralBeamToken: chatAuthToken,
     widgets: { card: { description: "A host card" } },
     onRenderWidget: ({ toolCallId, release }) => {
       releases.set(toolCallId, release)
@@ -69,7 +69,7 @@ test("a late release keeps the cleanup of the render that took over the tool cal
   const cleanupsRun: string[] = []
   const releases: Array<() => void> = []
   const chat = createAstralBeamChat({
-    fetchChatAuthToken: chatAuthToken,
+    fetchAstralBeamToken: chatAuthToken,
     widgets: { card: { description: "A host card" } },
     onRenderWidget: ({ toolCallId, release }) => {
       releases.push(release)

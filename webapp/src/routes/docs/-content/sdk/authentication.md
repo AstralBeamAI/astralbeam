@@ -6,18 +6,18 @@ Throughout these guides, "chat auth token" always means this credential — the 
 
 ## The auth token endpoint
 
-`/api/astralbeam/token` by default; point the widget elsewhere with `fetchChatAuthToken`. `createChatAuthToken` is the only server helper: your handler authenticates its own session, mints the chat auth token, and answers `{ token }`.
+`/api/astralbeam/token` by default; point the widget elsewhere with `fetchAstralBeamToken`. `createAstralBeamToken` is the only server helper: your handler authenticates its own session, mints the chat auth token, and answers `{ token }`.
 
 ```ts
-import { createChatAuthToken } from "@astralbeam/sdk/server"
+import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
-const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organization>_<key>_abo_<secret>
+const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organizationId>_<id>_abo_<secret>
 
 export async function POST(request: Request) {
   if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503 })
   const session = await getApplicationSession(request)
   if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
-  const token = await createChatAuthToken({
+  const token = await createAstralBeamToken({
     apiKey,
     user: {
       id: session.user.id, // required; stable and unique within this tenant
@@ -41,20 +41,20 @@ export async function POST(request: Request) {
 
 ## Where the chat auth token comes from
 
-`fetchChatAuthToken` is the one option for this. Pass `{ url, ...init }` to point at an endpoint, which the widget calls as `fetch(url, init)` with a standard `RequestInit`, or pass a function to mint the token in the page yourself.
+`fetchAstralBeamToken` is the one option for this. Pass `{ url, ...init }` to point at an endpoint, which the widget calls as `fetch(url, init)` with a standard `RequestInit`, or pass a function to mint the token in the page yourself.
 
 ```tsx
 // A token endpoint on another origin, behind header auth.
 <AstralBeamChat
   agentId="agent_01990a5d-ac96-774b-b942-6b13c85384cb_01990a5d-ac96-774b-b942-6b13c85384ca"
-  fetchChatAuthToken={{
+  fetchAstralBeamToken={{
     url: "https://api.acme.com/astralbeam/token",
     headers: { authorization: `Bearer ${accessToken}` },
   }}
 />
 
 // Or mint it yourself: return { token }, or undefined when you cannot.
-<AstralBeamChat fetchChatAuthToken={async () => await mintChatAuthToken()} />
+<AstralBeamChat fetchAstralBeamToken={async () => await mintChatAuthToken()} />
 ```
 
 - Default `{ url: "/api/astralbeam/token" }`, posted with the page's cookies, which needs a session cookie the browser will send.

@@ -5,10 +5,10 @@ import {
   CHAT_AUTH_TOKEN_AUDIENCE,
   CHAT_AUTH_TOKEN_TYPE,
   CHAT_AUTH_TOKEN_VERSION,
-  createChatAuthToken,
+  createAstralBeamToken,
 } from "./index.ts"
 
-const apiKeyId = "key_analytical-engines_production-key"
+const apiKeyId = "key_01990a5d-ac96-774b-b942-6b13c85384ca_01990a5d-ac96-774b-b942-6b13c85384c9"
 const apiKeySecret = `abo_${"aB".repeat(32)}`
 const apiKey = `${apiKeyId}_${apiKeySecret}`
 const textEncoder = new TextEncoder()
@@ -23,18 +23,18 @@ async function signingKey(secret: string): Promise<Uint8Array> {
   return textEncoder.encode(base64url.encode(new Uint8Array(digest)))
 }
 
-test("createChatAuthToken mints the documented short-lived tenant identity", async () => {
+test("createAstralBeamToken mints the documented short-lived tenant identity", async () => {
   const user = {
     id: "user-1",
     name: "Ada",
     metadata: { roles: ["owner"] },
   }
-  const token = await createChatAuthToken({ apiKey, user, tenant })
+  const token = await createAstralBeamToken({ apiKey, user, tenant })
   const { payload, protectedHeader } = await jwtVerify(
     token,
     await signingKey(apiKeySecret),
     {
-      issuer: "analytical-engines",
+      issuer: "01990a5d-ac96-774b-b942-6b13c85384ca",
       audience: CHAT_AUTH_TOKEN_AUDIENCE,
       algorithms: ["HS256"],
     },
@@ -45,7 +45,7 @@ test("createChatAuthToken mints the documented short-lived tenant identity", asy
     kid: apiKeyId,
   })
   expect(payload.sub).toBeUndefined()
-  expect(payload.iss).toBe("analytical-engines")
+  expect(payload.iss).toBe("01990a5d-ac96-774b-b942-6b13c85384ca")
   expect(payload.aud).toBe(CHAT_AUTH_TOKEN_AUDIENCE)
   expect(payload.scope).toBeUndefined()
   expect(payload.ver).toBe(CHAT_AUTH_TOKEN_VERSION)
@@ -55,22 +55,22 @@ test("createChatAuthToken mints the documented short-lived tenant identity", asy
   expect(payload.exp! - payload.iat!).toBe(300)
 })
 
-test("createChatAuthToken validates the combined API key", async () => {
-  await expect(createChatAuthToken({
-    apiKey: `key_bad_org_production_abo_${"aB".repeat(32)}`,
+test("createAstralBeamToken validates the combined API key", async () => {
+  await expect(createAstralBeamToken({
+    apiKey: `key_analytical-engines_production-key_${apiKeySecret}`,
     user: { id: "user-1" },
     tenant,
-  })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
-  await expect(createChatAuthToken({
+  })).rejects.toThrow(/key_<organizationId>_<id>_abo_<secret>/)
+  await expect(createAstralBeamToken({
     apiKey: `${apiKeyId}_notabo_${"aB".repeat(32)}`,
     user: { id: "user-1" },
     tenant,
-  })).rejects.toThrow(/key_<organization>_<key>_abo_<secret>/)
+  })).rejects.toThrow(/key_<organizationId>_<id>_abo_<secret>/)
 })
 
-test("createChatAuthToken preserves opaque tenant user IDs exactly", async () => {
+test("createAstralBeamToken preserves opaque tenant user IDs exactly", async () => {
   const id = " user-1 "
-  const token = await createChatAuthToken({
+  const token = await createAstralBeamToken({
     apiKey,
     user: { id },
     tenant: { id: " tenant-1 " },
@@ -81,13 +81,13 @@ test("createChatAuthToken preserves opaque tenant user IDs exactly", async () =>
   expect(payload.tenant).toEqual({ id: " tenant-1 " })
 })
 
-test("createChatAuthToken rejects out-of-range lifetimes and tenant user IDs", async () => {
-  await expect(createChatAuthToken({
+test("createAstralBeamToken rejects out-of-range lifetimes and tenant user IDs", async () => {
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "" },
     tenant,
   })).rejects.toThrow(/1-255 character string/)
-  await expect(createChatAuthToken({
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "user-1" },
     tenant,
@@ -100,52 +100,52 @@ test("createChatAuthToken rejects out-of-range lifetimes and tenant user IDs", a
 test.each([
   ["class instances", { id: "user-1", metadata: { value: new Date() } }],
   ["toJSON hooks", { id: "user-1", toJSON: () => ({ id: "other" }) }],
-])("createChatAuthToken rejects user %s", async (_label, user) => {
-  await expect(createChatAuthToken({ apiKey, user: user as never, tenant })).rejects.toThrow()
+])("createAstralBeamToken rejects user %s", async (_label, user) => {
+  await expect(createAstralBeamToken({ apiKey, user: user as never, tenant })).rejects.toThrow()
 })
 
-test("createChatAuthToken accepts deeply nested metadata and rejects oversized identity data", async () => {
+test("createAstralBeamToken accepts deeply nested metadata and rejects oversized identity data", async () => {
   type NestedJson = boolean | { child: NestedJson }
   let deep: NestedJson = true
   for (let level = 0; level < 50; level += 1) deep = { child: deep }
 
-  await expect(createChatAuthToken({
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "user-1", metadata: { deep } },
     tenant,
   })).resolves.toBeTypeOf("string")
-  await expect(createChatAuthToken({
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "user-1" },
     tenant: { id: "tenant-1", metadata: { data: "x".repeat(8_192) } },
   })).rejects.toThrow(/8192 bytes/)
 })
 
-test("createChatAuthToken rejects fields outside the metadata objects", async () => {
-  await expect(createChatAuthToken({
+test("createAstralBeamToken rejects fields outside the metadata objects", async () => {
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "user-1", roles: ["owner"] } as never,
     tenant,
   })).rejects.toThrow(/roles/)
-  await expect(createChatAuthToken({
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "user-1" },
     tenant: { id: "tenant-1", plan: "enterprise" } as never,
   })).rejects.toThrow(/plan/)
 })
 
-test("createChatAuthToken requires user and tenant and validates predefined fields", async () => {
-  await expect(createChatAuthToken({
+test("createAstralBeamToken requires user and tenant and validates predefined fields", async () => {
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "user-1" },
     tenant: undefined as never,
   })).rejects.toThrow(/tenant/)
-  await expect(createChatAuthToken({
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "user-1" },
     tenant: { id: "" },
   })).rejects.toThrow(/tenant\.id/)
-  await expect(createChatAuthToken({
+  await expect(createAstralBeamToken({
     apiKey,
     user: { id: "user-1", admin: "yes" } as never,
     tenant,
@@ -153,9 +153,9 @@ test("createChatAuthToken requires user and tenant and validates predefined fiel
 })
 
 test.each([true, false])(
-  "createChatAuthToken preserves an explicit tenant administrator claim (%s)",
+  "createAstralBeamToken preserves an explicit tenant administrator claim (%s)",
   async (admin) => {
-    const token = await createChatAuthToken({
+    const token = await createAstralBeamToken({
       apiKey,
       user: { id: "user-1", admin },
       tenant,
