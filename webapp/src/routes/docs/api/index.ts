@@ -4,13 +4,9 @@ import { APP_NAME, APP_WORDMARK_DARK_SVG_URL, APP_WORDMARK_LIGHT_SVG_URL } from 
 export const Route = createFileRoute("/docs/api/")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
-        const { apiDocsHandler, apiDocsStyles } = await import("../-lib/scalar.server")
-        const response = await apiDocsHandler.handler(request)
-        const html = (await response.text()).replace(
-          "</head>",
-          `<style>${apiDocsStyles}</style></head>`,
-        ).replace(
+      GET: async () => {
+        const { apiDocsHtml } = await import("../-lib/scalar.server")
+        const html = apiDocsHtml().replace(
           "<body>",
           `<body><header class="docs-header api-docs-header">
               <nav aria-label="Breadcrumb"><ol>
@@ -23,7 +19,7 @@ export const Route = createFileRoute("/docs/api/")({
               </ol></nav>
             </header>`,
         )
-        return new Response(html, response)
+        return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } })
       },
     },
   },

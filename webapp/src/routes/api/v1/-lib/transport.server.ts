@@ -1,19 +1,21 @@
 import { Cause, Effect, Layer, SchemaIssue } from "effect"
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
-import { RestBoundary, restScope, TenantRestApi } from "./contract.server"
+import { TenantRestApi } from "./contract.server"
+import { RestBoundary, restScope } from "./shared.server"
 import { authenticateRestRequest } from "./auth.server"
-import { RestDatabaseLayer, TenantRestHandlers } from "./handlers.server"
+import { tenantHandlers } from "./tenant.server"
+import { tenantUserHandlers } from "./tenant-user.server"
+import { effectDatabase, runDatabaseEffect } from "@/db"
 import { restErrorResponse, RestFault, restFault, restResponseHeaders } from "./responses.server"
-import { sqlState } from "@/db/lib/sqlstate.server"
 
-function restBoundaryFailure(cause: Cause.Cause<unknown>) {
+function restBoundaryFailure(cause: Cause.Cause<unknown>, operation: string) {
   const error = Cause.squash(cause)
   if (error instanceof RestFault) return restErrorResponse(error)
   if (HttpApiError.HttpApiSchemaError.is(error)) {
     const body = error.kind === "Payload"
     if (error.kind === "Body" || error.kind === "ResponseHeaders") {
-      return restErrorResponse(undefined)
+      return restErrorResponse(error, operation)
     }
     const issues = SchemaIssue.makeFormatterStandardSchemaV1()(error.cause.issue).issues.map((
       issue,
@@ -30,7 +32,7 @@ function restBoundaryFailure(cause: Cause.Cause<unknown>) {
       }),
     )
   }
-  return restErrorResponse(error)
+  return restErrorResponse(error, operation)
 }
 const RestBoundaryLive = Layer.succeed(
   RestBoundary,
@@ -45,24 +47,22 @@ const RestBoundaryLive = Layer.succeed(
       return yield* httpEffect.pipe(Effect.provideService(restScope, scope))
     }).pipe(
       Effect.catchCause((cause) =>
-        Effect.gen(function* () {
-          const response = restBoundaryFailure(cause)
-          if (response.status >= 500) {
-            yield* Effect.logError("Management API request failed", {
-              operation: endpoint.identifier,
-              status: response.status,
-              sqlState: sqlState(cause) ?? "unknown",
-            })
-          }
-          return HttpServerResponse.fromWeb(response)
-        })
+        Effect.sync(() =>
+          HttpServerResponse.fromWeb(restBoundaryFailure(cause, endpoint.identifier))
+        )
       ),
     ),
 )
 
+// Borrow the existing ManagedRuntime service; this does not build another database pool.
+const RestDatabaseLayer = Layer.effect(
+  effectDatabase,
+  Effect.promise(() => runDatabaseEffect(effectDatabase)),
+)
+
 export const tenantRestWebHandler = HttpRouter.toWebHandler(
   HttpApiBuilder.layer(TenantRestApi).pipe(
-    Layer.provide(TenantRestHandlers),
+    Layer.provide([tenantHandlers(TenantRestApi), tenantUserHandlers(TenantRestApi)]),
     Layer.provide(RestBoundaryLive),
     Layer.provide(RestDatabaseLayer),
     HttpRouter.provideRequest(RestDatabaseLayer),

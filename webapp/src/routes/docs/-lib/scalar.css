@@ -52,7 +52,7 @@ body .scalar-api-reference .t-doc__sidebar {
   inset: 0 0 auto;
 }
 
-[role="navigation"] a[href="https://www.scalar.com"] {
+:is([role="navigation"], aside) a[href="https://www.scalar.com"] {
   display: none;
 }
 

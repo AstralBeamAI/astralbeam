@@ -2,7 +2,7 @@
 
 # Keep deterministic generated outputs committed while collapsing their GitHub diffs. https://docs.github.com/repositories/working-with-files/managing-files/customizing-how-changed-files-appear-on-github
 webapp/src/routeTree.gen.ts linguist-generated
-webapp/openapi.json linguist-generated
+webapp/public/api/openapi.json linguist-generated
 webapp/src/db/migrations/**/snapshot.json linguist-generated
 webapp/deno.lock linguist-generated
 www/deno.lock linguist-generated

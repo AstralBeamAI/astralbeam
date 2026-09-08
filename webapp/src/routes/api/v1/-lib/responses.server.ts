@@ -1,6 +1,8 @@
-import type { RestApiErrorSchema } from "./contract.server"
+import type { RestApiErrorSchema } from "./shared.server"
 import type { TenantError } from "@/db/tenant.server"
-import { Data } from "effect"
+import { Data, Effect } from "effect"
+import { HttpServerResponse } from "effect/unstable/http"
+import { sqlState } from "../../../../db/lib/sqlstate.server.ts"
 
 const restErrorTitles: Record<number, string> = {
   400: "Bad Request",
@@ -30,7 +32,8 @@ export function restFault(
   return new RestFault({ restStatus: status, message: detail, ...options })
 }
 
-export function restErrorResponse(error: unknown): Response {
+export function restErrorResponse(error: unknown, stage = "dispatch"): Response {
+  const diagnosticCode = sqlState(error)
   if (error instanceof Error && "_tag" in error && error._tag === "TenantError") {
     const fault = error as TenantError
     error = restFault(
@@ -40,6 +43,9 @@ export function restErrorResponse(error: unknown): Response {
   }
   const fault = error instanceof RestFault ? error : undefined
   const status = fault?.restStatus ?? 500
+  if (status === 500) {
+    console.error("API request failed", { stage, status, sqlState: diagnosticCode ?? "unknown" })
+  }
   const body = {
     type: "about:blank",
     title: restErrorTitles[status] ?? "Request Failed",
@@ -54,6 +60,12 @@ export function restErrorResponse(error: unknown): Response {
       ...(fault?.retryAfter ? { "Retry-After": String(fault.retryAfter) } : {}),
     },
   })
+}
+
+export function restHandleErrors(operation: string) {
+  return Effect.catch((error: TenantError | RestFault) =>
+    Effect.sync(() => HttpServerResponse.fromWeb(restErrorResponse(error, operation)))
+  )
 }
 
 export function restResponseHeaders(response: Response): Response {

@@ -17,7 +17,7 @@ async function handleTenantRestRequest(request: Request): Promise<Response> {
     const { dispatchRestRequest } = await import("./-lib/transport.server")
     return await dispatchRestRequest(request)
   } catch (error) {
-    return restResponseHeaders(restErrorResponse(error))
+    return restResponseHeaders(restErrorResponse(error, "setup"))
   }
 }
 export const Route = createFileRoute("/api/v1/$")({

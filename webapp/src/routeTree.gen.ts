@@ -14,7 +14,6 @@ import { Route as DocsRouteRouteImport } from './routes/docs/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedOrgSlugRouteRouteImport } from './routes/_authenticated/$orgSlug/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
-import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
 import { Route as DevSplatRouteImport } from './routes/dev/$'
@@ -69,11 +68,6 @@ const AuthenticatedSettingsRouteRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiOpenapiDotjsonRoute = ApiOpenapiDotjsonRouteImport.update({
-  id: '/api/openapi.json',
-  path: '/api/openapi.json',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
@@ -229,7 +223,6 @@ export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteRouteWithChildren
   '/$orgSlug': typeof AuthenticatedOrgSlugRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
-  '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/configure/': typeof ConfigureIndexRoute
@@ -260,7 +253,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
-  '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/': typeof AuthenticatedIndexRoute
@@ -296,7 +288,6 @@ export interface FileRoutesById {
   '/docs': typeof DocsRouteRouteWithChildren
   '/_authenticated/$orgSlug': typeof AuthenticatedOrgSlugRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
-  '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -333,7 +324,6 @@ export interface FileRouteTypes {
     | '/docs'
     | '/$orgSlug'
     | '/settings'
-    | '/api/openapi.json'
     | '/api/status'
     | '/dev/$'
     | '/configure/'
@@ -364,7 +354,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/settings'
-    | '/api/openapi.json'
     | '/api/status'
     | '/dev/$'
     | '/'
@@ -399,7 +388,6 @@ export interface FileRouteTypes {
     | '/docs'
     | '/_authenticated/$orgSlug'
     | '/_authenticated/settings'
-    | '/api/openapi.json'
     | '/api/status'
     | '/dev/$'
     | '/_authenticated/'
@@ -433,7 +421,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   DocsRouteRoute: typeof DocsRouteRouteWithChildren
-  ApiOpenapiDotjsonRoute: typeof ApiOpenapiDotjsonRoute
   ApiStatusRoute: typeof ApiStatusRoute
   DevSplatRoute: typeof DevSplatRoute
   ConfigureIndexRoute: typeof ConfigureIndexRoute
@@ -481,13 +468,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/api/openapi.json': {
-      id: '/api/openapi.json'
-      path: '/api/openapi.json'
-      fullPath: '/api/openapi.json'
-      preLoaderRoute: typeof ApiOpenapiDotjsonRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/api/status': {
       id: '/api/status'
@@ -779,7 +759,6 @@ const DocsRouteRouteWithChildren = DocsRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   DocsRouteRoute: DocsRouteRouteWithChildren,
-  ApiOpenapiDotjsonRoute: ApiOpenapiDotjsonRoute,
   ApiStatusRoute: ApiStatusRoute,
   DevSplatRoute: DevSplatRoute,
   ConfigureIndexRoute: ConfigureIndexRoute,

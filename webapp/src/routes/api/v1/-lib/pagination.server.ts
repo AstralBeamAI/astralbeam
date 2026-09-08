@@ -1,13 +1,15 @@
 import { createHash } from "node:crypto"
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
+import { HttpApiSchema } from "effect/unstable/httpapi"
+import type { DatabasePage } from "@/db/lib/pagination.server"
 import { CompactSign, compactVerify, decodeProtectedHeader } from "jose"
 import {
   type DatabaseEncryptionKeyring,
   getDatabaseEncryptionKeyring,
 } from "@/db/lib/database-credentials.server"
 import { ApiUuidSchema } from "@/api/management"
-import type { RestScope } from "./contract.server"
-import { restFault } from "./responses.server"
+import type { RestPageQuery, RestScope } from "./shared.server"
+import { RestFault, restFault } from "./responses.server"
 
 const restCursorSchema = Schema.Struct({
   version: Schema.Literal(1),
@@ -66,4 +68,57 @@ export async function decodeRestCursor(
   } catch {
     throw restFault(400, "Invalid pagination cursor.")
   }
+}
+
+export function restPageOptions(
+  query: RestPageQuery,
+  collection: RestCollection,
+  scope: RestScope,
+) {
+  const externalId = query["filter[external_id]"]
+  return Effect.tryPromise({
+    try: async () => ({
+      pageSize: query.page_size ?? 20,
+      backward: query.page_before !== undefined,
+      externalId,
+      cursor: await decodeRestCursor(query.page_after ?? query.page_before, collection, {
+        ...scope,
+        externalId,
+      }),
+    }),
+    catch: (error) =>
+      error instanceof RestFault ? error : restFault(500, "Pagination could not be completed."),
+  })
+}
+
+export async function restPage<T extends { id: string }>(
+  page: DatabasePage<T>,
+  collection: RestCollection,
+  scope: RestScope,
+  url: string,
+  backward: boolean,
+  externalId?: string,
+) {
+  const { items, nextPosition, previousPosition } = page
+  const cursorFor = async (row: { id: string } | null | undefined) =>
+    row ? await encodeRestCursor(row, collection, { ...scope, externalId }) : null
+  const page_after = await cursorFor(backward ? previousPosition : nextPosition)
+  const page_before = await cursorFor(backward ? nextPosition : previousPosition)
+  const links = []
+  for (
+    const [parameter, cursor, relation] of [
+      ["page_after", page_after, "next"],
+      ["page_before", page_before, "prev"],
+    ] as const
+  ) {
+    if (!cursor) continue
+    const next = new URL(url, "http://localhost")
+    next.searchParams.delete("page_after")
+    next.searchParams.delete("page_before")
+    next.searchParams.set(parameter, cursor)
+    links.push(`<${next.pathname}${next.search}>; rel="${relation}"`)
+  }
+  const body = { items, page_after, page_before }
+  const headers = links.length ? { Link: links.join(", ") } : {}
+  return HttpApiSchema.withHeaders({ body, headers })
 }

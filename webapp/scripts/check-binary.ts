@@ -138,6 +138,15 @@ async function runBinaryCheck() {
     }
 
     const docsUrl = new URL("/docs/sdk/getting-started", baseUrl)
+    const openapi = await fetchBinaryCheckResponse(new URL("/api/openapi.json", baseUrl))
+    const specification = await openapi.json() as { paths: Record<string, unknown> }
+    if (
+      openapi.headers.get("access-control-allow-origin") !== "*" ||
+      openapi.headers.get("cache-control") !== "public, no-cache" ||
+      !openapi.headers.get("etag") || !specification.paths["/api/v1/tenants"]
+    ) {
+      throw new Error("Binary did not serve the canonical OpenAPI asset with cache/CORS headers")
+    }
     const docs = await fetchBinaryCheckResponse(docsUrl)
     const etag = docs.headers.get("etag")
     await docs.body?.cancel()

@@ -10,7 +10,7 @@ import {
   authenticateChatRequest,
   isChatAuthenticationError,
 } from "@/routes/api/chat/-lib/auth.server"
-import type { RestScope } from "./contract.server"
+import type { RestScope } from "./shared.server"
 import { type RestFault, restFault } from "./responses.server"
 
 export function authenticateRestRequest(
