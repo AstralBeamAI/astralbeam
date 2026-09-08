@@ -87,6 +87,24 @@ export const e2eDatabaseUrl = deriveE2eDatabaseUrl()
  */
 export const captureEverything = process.env.E2E_CAPTURE === "all"
 
+/**
+ * Pins one Docker endpoint for the whole run. The CLI resolves its endpoint through contexts while
+ * the server's client reads `DOCKER_HOST`, so with it unset the two can disagree and the spec's
+ * probe passes against a daemon the application never reaches.
+ * https://docs.docker.com/engine/manage-resources/contexts/
+ */
+function pinDockerHost(): void {
+  if (process.env.DOCKER_HOST) return
+  const probe = spawnSync(
+    "docker",
+    ["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
+    { encoding: "utf8" },
+  )
+  if (probe.status === 0 && probe.stdout.trim()) process.env.DOCKER_HOST = probe.stdout.trim()
+}
+
+pinDockerHost()
+
 /** Saving a sandbox provider runs a real connection test, so that step needs a live daemon. */
 export function dockerDaemonAvailable(): boolean {
   return spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0
@@ -120,6 +138,8 @@ export function e2eWebServers() {
         // Better Auth would otherwise take its base URL from stored configuration and reject
         // requests arriving on the suite's port. Everything else is set through `/configure`.
         APP_BASE_URL: webappUrl,
+        // Explicit, so the server's sandbox client uses the same daemon the spec probed.
+        ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}),
       },
       reuseExistingServer: false,
       timeout: 240_000,

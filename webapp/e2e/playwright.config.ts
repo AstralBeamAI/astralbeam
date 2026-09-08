@@ -1,17 +1,22 @@
-import process from "node:process"
-
 import { defineConfig } from "@playwright/test"
 
+import { baselineStatePath } from "./baseline.ts"
 import { captureEverything, e2eWebServers, webappUrl } from "./worktree.ts"
 
 /**
- * One webapp, one database, and one mail sink serve every spec, so the suite runs serially.
- * `preflight.setup.ts` runs first so an environment problem fails once with something to act on.
+ * One webapp, one database, and one mail sink serve every spec, so the suite runs serially and
+ * each project depends on the state the previous one established:
+ *
+ * - `preflight` fails once, with something to act on, when the environment is not ready.
+ * - `journey` drives the whole product from an unconfigured deployment and records its baseline.
+ * - `features` holds focused specs, which start from that baseline and the owner's session.
  */
 export default defineConfig({
   fullyParallel: false,
   workers: 1,
-  forbidOnly: Boolean(process.env.CI),
+  // Unconditional, because this suite never runs in CI: nothing else would catch a stray
+  // `test.only`. Use `--project` or `-g` for focused iteration instead.
+  forbidOnly: true,
   outputDir: "./.output/test-results",
   reporter: [["list"], ["html", { outputFolder: "./.output/report", open: "never" }]],
   // The suite drives the Vite dev server, which compiles a route the first time it is visited, so
@@ -31,12 +36,17 @@ export default defineConfig({
   projects: [
     { name: "preflight", testMatch: /preflight\.setup\.ts/ },
     {
-      name: "dashboard",
-      testDir: "./specs",
+      name: "journey",
+      testDir: "./specs/journey",
       dependencies: ["preflight"],
-      retries: 0,
-      // The journey covers the whole product in one browser session.
+      // Generous, because one test covers the whole product in a single browser session.
       timeout: 600_000,
+    },
+    {
+      name: "features",
+      testDir: "./specs/features",
+      dependencies: ["journey"],
+      use: { storageState: baselineStatePath },
     },
   ],
   webServer: e2eWebServers(),

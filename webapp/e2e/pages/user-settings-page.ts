@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test"
 
+import { expectToast } from "../dialogs.ts"
 import { waitForHydration } from "../hydration.ts"
 
 /**
@@ -24,7 +25,8 @@ export function userSettingsPage(page: Page) {
       await waitForHydration(save)
       await page.locator("#name").fill(name)
       await save.click()
-      await expect(page.locator("#name")).toHaveValue(name)
+      // The field already held this value before submit, so only the toast proves the write.
+      await expectToast(page, "Profile updated successfully")
     },
 
     changePasswordCard(): Locator {

@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test"
 
+import { expectToast } from "../dialogs.ts"
+
 export type AgentDraft = { name: string; systemPrompt: string; attachmentsEnabled?: boolean }
 
 /**
@@ -52,10 +54,10 @@ export function agentsPage(page: Page) {
       await expect(this.publicId()).toBeVisible()
     },
 
+    /** Waits for the write itself, because the button is enabled again either way. */
     async saveChanges(): Promise<void> {
-      const save = page.getByRole("button", { name: "Save changes" })
-      await save.click()
-      await expect(save).toBeEnabled()
+      await page.getByRole("button", { name: "Save changes" }).click()
+      await expectToast(page, "Agent saved")
     },
 
     async setAsDefault(): Promise<void> {

@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test"
 
-import { openAlertDialog } from "../dialogs.ts"
+import { expectToast, openAlertDialog } from "../dialogs.ts"
 import { waitForHydration } from "../hydration.ts"
 
 /**
@@ -67,7 +67,8 @@ export function configurePage(page: Page) {
     async save(): Promise<void> {
       await expect(saveButton).toBeEnabled()
       await saveButton.click()
-      await expect(saveButton).toBeDisabled()
+      // Save is disabled both while the write runs and once it leaves nothing pending.
+      await expectToast(page, "Configuration saved")
     },
 
     /** Ends the operator session and loads the application from the server. */

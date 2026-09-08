@@ -1,13 +1,17 @@
-import { captureMilestone } from "../capture.ts"
-import { expect, test } from "../fixtures.ts"
-import { makeRunIdentity } from "../identity.ts"
-import { emailLink, waitForEmail } from "../mailbox.ts"
-import { dockerDaemonAvailable, mailboxSmtpPort, operatorKey, webappUrl } from "../worktree.ts"
+import { baselineStatePath, writeBaseline } from "../../baseline.ts"
+import { captureMilestone } from "../../capture.ts"
+import { expect, test } from "../../fixtures.ts"
+import { makeRunIdentity } from "../../identity.ts"
+import { emailLink, waitForEmail } from "../../mailbox.ts"
+import { dockerDaemonAvailable, mailboxSmtpPort, operatorKey, webappUrl } from "../../worktree.ts"
 
 /**
  * One continuous session over an empty deployment: configure it, create an account, verify its
  * email, create an organization, and then work through every organization page. Each step is
  * composed from the page objects in `e2e/pages`, so a narrower spec can reuse the same parts.
+ *
+ * This is also the suite's setup project. It ends by recording the configured deployment and the
+ * signed-in owner, which every spec under `specs/features` depends on.
  */
 test("an operator configures the deployment and an owner runs the dashboard end to end", async ({ page, agents, apiKeys, auth, configure, members, onboarding, organizationDialog, organizationSettings, sandboxes, shell, userSettings }) => {
   const identity = makeRunIdentity()
@@ -192,5 +196,15 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await page.waitForURL(`**/${movedSlug}`)
     await expect(page.getByRole("heading", { level: 1, name: renamedOrganization })).toBeVisible()
     await captureMilestone(page, "13-signed-back-in")
+  })
+
+  await test.step("the run records its baseline for the feature specs", async () => {
+    writeBaseline({
+      email: identity.email,
+      password: identity.password,
+      organizationName: renamedOrganization,
+      organizationSlug: movedSlug,
+    })
+    await page.context().storageState({ path: baselineStatePath })
   })
 })

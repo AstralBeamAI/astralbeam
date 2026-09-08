@@ -1,4 +1,6 @@
-import { expect, type Page } from "@playwright/test"
+import type { Page } from "@playwright/test"
+
+import { expectToast } from "../dialogs.ts"
 
 /** `/:orgSlug/settings`. Changing the slug moves every organization URL, including this one. */
 export function organizationSettingsPage(page: Page) {
@@ -6,7 +8,7 @@ export function organizationSettingsPage(page: Page) {
     async rename(name: string): Promise<void> {
       await page.locator("#organization-name").fill(name)
       await page.getByRole("button", { name: "Save changes" }).click()
-      await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled()
+      await expectToast(page, "Organization saved")
     },
 
     async changeSlug(slug: string): Promise<void> {

@@ -1,5 +1,7 @@
 import { test as base } from "@playwright/test"
 
+import { type Baseline, readBaseline } from "./baseline.ts"
+
 import { type AgentsPage, agentsPage } from "./pages/agents-page.ts"
 import { type ApiKeysPage, apiKeysPage } from "./pages/api-keys-page.ts"
 import { type AuthPage, authPage } from "./pages/auth-page.ts"
@@ -19,6 +21,7 @@ import { type SandboxesPage, sandboxesPage } from "./pages/sandboxes-page.ts"
 import { type UserSettingsPage, userSettingsPage } from "./pages/user-settings-page.ts"
 
 type Fixtures = {
+  baseline: Baseline
   agents: AgentsPage
   apiKeys: ApiKeysPage
   auth: AuthPage
@@ -40,6 +43,11 @@ type Fixtures = {
  * React lint rules read a bare `use(...)` call as React's own hook.
  */
 export const test = base.extend<Fixtures>({
+  baseline: async ({ page }, provide) => {
+    // Depends on `page` only because Playwright requires a destructured first argument.
+    void page
+    await provide(readBaseline())
+  },
   agents: async ({ page }, provide) => await provide(agentsPage(page)),
   apiKeys: async ({ page }, provide) => await provide(apiKeysPage(page)),
   auth: async ({ page }, provide) => await provide(authPage(page)),
