@@ -38,7 +38,7 @@ The widget will not chat until your app mints it a short-lived chat auth token; 
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
-const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organization>_<key>_abo_<secret>
+const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organizationId>_<id>_abo_<secret>
 
 export async function POST(request: Request) {
   if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503 })

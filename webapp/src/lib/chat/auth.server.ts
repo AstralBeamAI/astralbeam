@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema"
 
 import { effectDatabase, runDatabaseEffect } from "@/db"
 import { apiKey, organization } from "@/db/schema.server"
-import { ChatAuthTokenPayloadSchema, SlugSchema } from "@/lib/schemas"
+import { ChatAuthTokenPayloadSchema, UuidV7Schema } from "@/lib/schemas"
 import {
   CHAT_AUTH_TOKEN_AUDIENCE,
   CHAT_AUTH_TOKEN_IDENTITY_MAX_BYTES,
@@ -19,7 +19,7 @@ import type { ChatAuthenticationError, ChatPrincipal, ChatTenantUser } from "./t
 
 const textEncoder = new TextEncoder()
 const API_KEY_CONFIG_ID = "default"
-const ApiKeyIdSchema = Schema.TemplateLiteralParser(["key_", SlugSchema, "_", SlugSchema])
+const ApiKeyIdSchema = Schema.TemplateLiteralParser(["key_", UuidV7Schema, "_", UuidV7Schema])
 const decodeApiKeyId = Schema.decodeUnknownOption(ApiKeyIdSchema)
 const CLOCK_TOLERANCE_SECONDS = 30
 const decodeChatAuthTokenPayload = Schema.decodeUnknownSync(ChatAuthTokenPayloadSchema, {
@@ -49,7 +49,7 @@ export async function authenticateChatRequest(request: Request): Promise<ChatPri
   }
   const apiKeyId = protectedHeader.kid
   if (typeof apiKeyId !== "string") throw invalidToken("Wrong chat auth token header")
-  const { organizationSlug, keySlug } = parseApiKeyId(apiKeyId)
+  const { organizationId, id } = parseApiKeyId(apiKeyId)
 
   const [initial] = await runDatabaseEffect(
     Effect.flatMap(effectDatabase, (db) =>
@@ -61,10 +61,10 @@ export async function authenticateChatRequest(request: Request): Promise<ChatPri
         apiKey,
         and(
           eq(apiKey.organizationId, organization.id),
-          eq(apiKey.slug, keySlug),
+          eq(apiKey.id, id),
           eq(apiKey.configId, API_KEY_CONFIG_ID),
         ),
-      ).where(eq(organization.slug, organizationSlug)).limit(1)),
+      ).where(eq(organization.id, organizationId)).limit(1)),
   )
   if (!initial) throw invalidToken("API key not found")
 
@@ -98,11 +98,11 @@ export async function verifyChatAuthToken(
   apiKeyId: string,
 ): Promise<ChatTenantUser> {
   try {
-    const { organizationSlug } = parseApiKeyId(apiKeyId)
+    const { organizationId } = parseApiKeyId(apiKeyId)
     const { payload, protectedHeader } = await jwtVerify(token, verifier, {
       algorithms: ["HS256"],
       typ: CHAT_AUTH_TOKEN_TYPE,
-      issuer: organizationSlug,
+      issuer: organizationId,
       audience: CHAT_AUTH_TOKEN_AUDIENCE,
       requiredClaims: ["iat", "exp", "iss", "aud"],
       clockTolerance: CLOCK_TOLERANCE_SECONDS,
@@ -130,11 +130,11 @@ export async function verifyChatAuthToken(
   }
 }
 
-function parseApiKeyId(apiKeyId: string): { organizationSlug: string; keySlug: string } {
+function parseApiKeyId(apiKeyId: string): { organizationId: string; id: string } {
   const publicId = decodeApiKeyId(apiKeyId)
   if (Option.isNone(publicId)) throw invalidToken("Malformed API key identifier")
-  const [, organizationSlug, , keySlug] = publicId.value
-  return { organizationSlug, keySlug }
+  const [, organizationId, , id] = publicId.value
+  return { organizationId, id }
 }
 
 function readBearerToken(request: Request): string {

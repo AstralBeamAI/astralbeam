@@ -1,8 +1,6 @@
-import { API_KEY_TABLE_NAME } from "@better-auth/api-key"
-import type { BetterAuthPlugin, DBAdapterInstance } from "better-auth"
+import type { BetterAuthPlugin } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import { runDatabaseEffect } from "@/db"
 import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
@@ -15,11 +13,6 @@ import {
   RESERVED_ORGANIZATION_SLUG_MESSAGE,
 } from "./organization-slug.ts"
 
-const OrganizationApiKeySlugMetadataSchema = Schema.Struct({ slug: SlugSchema })
-const decodeOrganizationApiKeySlugMetadata = Schema.decodeUnknownOption(
-  OrganizationApiKeySlugMetadataSchema,
-  { onExcessProperty: "error" },
-)
 const isOrganizationSlug = Schema.is(SlugSchema)
 
 export const organizationApiKeyPlugin = {
@@ -31,56 +24,17 @@ export const organizationApiKeyPlugin = {
         await freshSessionMiddleware(
           context as Parameters<typeof freshSessionMiddleware>[0],
         )
+        const body = context.body as { prefix?: unknown } | undefined
+        if (body?.prefix !== undefined && body.prefix !== ORGANIZATION_API_KEY_PREFIX) {
+          throw new APIError("BAD_REQUEST", {
+            code: "INVALID_API_KEY_PREFIX",
+            message: "API key prefix is invalid",
+          })
+        }
       }),
     }],
   },
-  schema: {
-    apikey: {
-      modelName: "apiKey",
-      fields: {
-        slug: {
-          type: "string",
-          required: false,
-          input: false,
-          returned: true,
-        },
-      },
-    },
-  },
 } satisfies BetterAuthPlugin
-
-// Better Auth's API-key create route writes through the raw adapter, bypassing database hooks.
-// https://github.com/better-auth/better-auth/blob/v1.7.2/packages/api-key/src/routes/create-api-key.ts
-export function withOrganizationApiKeySlug(adapterFactory: DBAdapterInstance): DBAdapterInstance {
-  return (options) => {
-    const adapter = adapterFactory(options)
-    return {
-      ...adapter,
-      create: <T extends Record<string, unknown>>(input: {
-        model: string
-        data: T
-        select?: string[] | undefined
-      }) =>
-        adapter.create({
-          ...input,
-          data: input.model === API_KEY_TABLE_NAME
-            ? prepareOrganizationApiKeyInsert(input.data)
-            : input.data,
-        }),
-    }
-  }
-}
-
-export function prepareOrganizationApiKeyInsert<T extends Record<string, unknown>>(data: T) {
-  const metadata = decodeOrganizationApiKeySlugMetadata(data.metadata)
-  if (data.prefix !== ORGANIZATION_API_KEY_PREFIX || Option.isNone(metadata)) {
-    throw new APIError("BAD_REQUEST", {
-      code: "INVALID_API_KEY_SLUG",
-      message: "API key identifier is invalid",
-    })
-  }
-  return { ...data, slug: metadata.value.slug, metadata: null }
-}
 
 function assertConfiguredOrganizationRoles(role: string): void {
   const roles = role.split(",")

@@ -32,13 +32,13 @@ function base64UrlFromJson(value: unknown): string {
   return base64UrlFromBytes(textEncoder.encode(JSON.stringify(value)))
 }
 
-function parseApiKey(apiKey: string): { keyId: string; organizationSlug: string; secret: string } {
+function parseApiKey(apiKey: string): { keyId: string; organizationId: string; secret: string } {
   const separator = apiKey.lastIndexOf("_abo_")
-  if (separator === -1) throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
+  if (separator === -1) throw new Error("apiKey must match key_<organizationId>_<id>_abo_<secret>")
   const keyId = apiKey.slice(0, separator)
   return {
     keyId,
-    organizationSlug: keyId.slice("key_".length, keyId.indexOf("_", "key_".length)),
+    organizationId: keyId.slice("key_".length, keyId.indexOf("_", "key_".length)),
     secret: apiKey.slice(separator + 1),
   }
 }
@@ -56,7 +56,7 @@ async function importSigningKey(secret: string): Promise<CryptoKey> {
 }
 
 export async function mintSeedChatAuthToken(apiKey: string): Promise<string> {
-  const { keyId, organizationSlug, secret } = parseApiKey(apiKey)
+  const { keyId, organizationId, secret } = parseApiKey(apiKey)
   const issuedAt = Math.floor(Date.now() / 1_000)
   const signingInput = [
     base64UrlFromJson({ alg: "HS256", typ: CHAT_AUTH_TOKEN_TYPE, kid: keyId }),
@@ -64,7 +64,7 @@ export async function mintSeedChatAuthToken(apiKey: string): Promise<string> {
       ver: CHAT_AUTH_TOKEN_VERSION,
       user: seedTarget.user,
       tenant: seedTarget.tenant,
-      iss: organizationSlug,
+      iss: organizationId,
       aud: ASTRALBEAM_TOKEN_AUDIENCE,
       iat: issuedAt,
       exp: issuedAt + CHAT_AUTH_TOKEN_LIFETIME_SECONDS,

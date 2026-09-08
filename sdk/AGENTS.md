@@ -58,6 +58,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 
 ## Testing
 
+- For API-key or chat-auth changes, test the todos example in a browser with a dashboard-created API key, verify a real assistant tool changes the host todo list, and include the flow in the verification GIF.
 - Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
 - `tsconfig.json` includes the tests, so `deno task typecheck` covers them with the same options as `src`; keep them off `node:` builtins because this project deliberately has no `@types/node`.
 

@@ -23,7 +23,7 @@ export async function seedOrganizations(
   for (const seedOrganization of SEED_ORGANIZATIONS) {
     const [inserted] = await transaction
       .insert(organization)
-      .values({ slug: seedOrganization.slug, name: seedOrganization.name })
+      .values({ id: seedOrganization.id, slug: seedOrganization.slug, name: seedOrganization.name })
       .onConflictDoUpdate({
         target: organization.slug,
         set: { name: seedOrganization.name, updatedAt: sql`now()` },
@@ -31,6 +31,11 @@ export async function seedOrganizations(
       .returning({ id: organization.id })
     if (!inserted) {
       throw new Error(`PostgreSQL did not return a row for organization '${seedOrganization.slug}'`)
+    }
+    if (inserted.id !== seedOrganization.id) {
+      throw new Error(
+        `Seed organization '${seedOrganization.slug}' has a conflicting ID. Use a fresh worktree database.`,
+      )
     }
     const organizationId = inserted.id
     organizationIdsBySlug.set(seedOrganization.slug, organizationId)

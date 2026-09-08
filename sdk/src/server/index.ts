@@ -9,9 +9,10 @@ export const CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS = 600
 const CHAT_AUTH_TOKEN_MAX_BYTES = 16_384
 const IDENTITY_MAX_BYTES = 8_192
 const EXTERNAL_ID_MAX_LENGTH = 255
-// key_<organization slug>_<key slug>_abo_<Better Auth secret>; neither slug can hold an
+// key_<organization ID>_<key ID>_abo_<Better Auth secret>; neither UUIDv7 ID can hold an
 // underscore, so the whole key parses by its separators.
-const API_KEY_PATTERN = /^key_[0-9a-z-]{1,63}_[0-9a-z-]{1,63}_abo_[A-Za-z]{64}$/
+const API_KEY_PATTERN =
+  /^key_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}_abo_[A-Za-z]{64}$/
 const TENANT_FIELDS = ["id", "name", "metadata"]
 const TENANT_USER_FIELDS = ["id", "name", "admin", "metadata"]
 const textEncoder = new TextEncoder()
@@ -55,17 +56,17 @@ export interface CreateAstralBeamTokenOptions<
 
 function parseApiKey(apiKey: string): {
   keyId: string
-  organizationSlug: string
+  organizationId: string
   keySecret: string
 } {
   if (!API_KEY_PATTERN.test(apiKey)) {
-    throw new Error("apiKey must match key_<organization>_<key>_abo_<secret>")
+    throw new Error("apiKey must match key_<organizationId>_<id>_abo_<secret>")
   }
   const separator = apiKey.lastIndexOf("_abo_")
   const keyId = apiKey.slice(0, separator)
   const keySecret = apiKey.slice(separator + 1)
-  const organizationSlug = keyId.slice("key_".length, keyId.indexOf("_", "key_".length))
-  return { keyId, organizationSlug, keySecret }
+  const organizationId = keyId.slice("key_".length, keyId.indexOf("_", "key_".length))
+  return { keyId, organizationId, keySecret }
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -141,7 +142,7 @@ export async function createAstralBeamToken<
   ) {
     throw new Error("chat auth tokens must live for 60-600 seconds")
   }
-  const { keyId, organizationSlug, keySecret } = parseApiKey(apiKey)
+  const { keyId, organizationId, keySecret } = parseApiKey(apiKey)
   const identity = validatedIdentity(user, tenant)
   const now = Math.floor(Date.now() / 1_000)
   const token = await new SignJWT({
@@ -150,7 +151,7 @@ export async function createAstralBeamToken<
     tenant: identity.tenant,
   })
     .setProtectedHeader({ alg: "HS256", typ: CHAT_AUTH_TOKEN_TYPE, kid: keyId })
-    .setIssuer(organizationSlug)
+    .setIssuer(organizationId)
     .setAudience(CHAT_AUTH_TOKEN_AUDIENCE)
     .setIssuedAt(now)
     .setExpirationTime(now + expiresInSeconds)

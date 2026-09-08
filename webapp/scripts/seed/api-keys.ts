@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 
-import { sql } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 
 import { apiKey } from "../../src/db/schema.server.ts"
 import {
@@ -48,24 +48,24 @@ export async function seedApiKeys(
     for (const seedApiKey of seedOrganization.apiKeys) {
       if (!SEED_API_KEY_SECRET_PATTERN.test(seedApiKey.secret)) {
         throw new Error(
-          `Seed API key '${seedApiKey.slug}' must match ${SEED_API_KEY_SECRET_PATTERN.source}`,
+          `Seed API key '${seedApiKey.id}' must match ${SEED_API_KEY_SECRET_PATTERN.source}`,
         )
       }
       const digest = hashSeedApiKeySecret(seedApiKey.secret)
       const start = seedApiKey.secret.slice(0, ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH)
-      await transaction
+      const [saved] = await transaction
         .insert(apiKey)
         .values({
           organizationId,
           name: seedApiKey.name,
-          slug: seedApiKey.slug,
+          id: seedApiKey.id,
           prefix: ORGANIZATION_API_KEY_PREFIX,
           start,
           key: digest,
           enabled: seedApiKey.enabled,
         })
         .onConflictDoUpdate({
-          target: [apiKey.organizationId, apiKey.slug],
+          target: apiKey.id,
           set: {
             name: seedApiKey.name,
             prefix: ORGANIZATION_API_KEY_PREFIX,
@@ -75,9 +75,11 @@ export async function seedApiKeys(
             expiresAt: null,
             updatedAt: sql`now()`,
           },
-        })
+          setWhere: eq(apiKey.organizationId, organizationId),
+        }).returning({ id: apiKey.id })
+      if (!saved) throw new Error(`Seed API key '${seedApiKey.id}' belongs to another organization`)
       summaries.push({
-        value: `key_${seedOrganization.slug}_${seedApiKey.slug}_${seedApiKey.secret}`,
+        value: `key_${organizationId}_${seedApiKey.id}_${seedApiKey.secret}`,
         name: seedApiKey.name,
         enabled: seedApiKey.enabled,
       })

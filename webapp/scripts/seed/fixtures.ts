@@ -11,19 +11,24 @@
 /** Shared sign-in password. Long enough for Better Auth's 12-character minimum. */
 export const SEED_PASSWORD = "astralbeam-seed-password"
 
-/**
- * Slugs and names that appear inside more than one seeded record or public ID. Kept in one place
- * so the composed public IDs below cannot drift from the rows the seed writes.
- */
+/** Shared fixture names for dashboard routes, providers, and tenant identity. */
 const SEED_NAMES = {
   acme: "acme",
   globex: "globex",
-  todosApiKey: "todos",
-  revokedApiKey: "revoked",
-  globexApiKey: "demo",
   dockerProvider: "Local Docker",
   todosTenant: "todos-tenant-1",
   todosTenantUser: "todos-user-1",
+} as const
+
+const SEED_ORGANIZATION_IDS = {
+  acme: "01990a5d-0000-7000-8000-000000000011",
+  globex: "01990a5d-0000-7000-8000-000000000012",
+} as const
+
+const SEED_API_KEY_IDS = {
+  todos: "01990a5d-0000-7000-8000-000000000021",
+  revoked: "01990a5d-0000-7000-8000-000000000022",
+  globex: "01990a5d-0000-7000-8000-000000000023",
 } as const
 
 /**
@@ -99,6 +104,7 @@ const SEED_DOCKER_SANDBOX_PROVIDER = {
 
 export const SEED_ORGANIZATIONS = [
   {
+    id: SEED_ORGANIZATION_IDS.acme,
     slug: SEED_NAMES.acme,
     name: "Acme Inc",
     members: [
@@ -128,13 +134,13 @@ export const SEED_ORGANIZATIONS = [
     defaultAgentId: SEED_AGENT_IDS.acmeTodos,
     apiKeys: [
       {
-        slug: SEED_NAMES.todosApiKey,
+        id: SEED_API_KEY_IDS.todos,
         name: "Todos example",
         secret: SEED_API_KEY_SECRETS.todos,
         enabled: true,
       },
       {
-        slug: SEED_NAMES.revokedApiKey,
+        id: SEED_API_KEY_IDS.revoked,
         name: "Revoked key",
         secret: SEED_API_KEY_SECRETS.revoked,
         enabled: false,
@@ -174,6 +180,7 @@ export const SEED_ORGANIZATIONS = [
     ],
   },
   {
+    id: SEED_ORGANIZATION_IDS.globex,
     slug: SEED_NAMES.globex,
     name: "Globex Corporation",
     members: [{ email: "globex-owner@example.com", role: "owner" }],
@@ -192,7 +199,7 @@ export const SEED_ORGANIZATIONS = [
     defaultAgentId: SEED_AGENT_IDS.globexStarter,
     apiKeys: [
       {
-        slug: SEED_NAMES.globexApiKey,
+        id: SEED_API_KEY_IDS.globex,
         name: "Globex demo",
         secret: SEED_API_KEY_SECRETS.globex,
         enabled: true,
@@ -204,19 +211,22 @@ export const SEED_ORGANIZATIONS = [
 
 /**
  * The one entry point the todos example and its end-to-end suite read. Composed from the same
- * names the rows above use, so a renamed slug cannot leave a stale public ID behind.
+ * IDs the rows above use, so fixture credentials always identify the persisted rows.
  */
 export const SEED_TODOS_TARGET = {
   organizationSlug: SEED_NAMES.acme,
+  organizationId: SEED_ORGANIZATION_IDS.acme,
+  apiKeyId: SEED_API_KEY_IDS.todos,
   agentId: SEED_AGENT_IDS.acmeTodos,
   starterAgentId: SEED_AGENT_IDS.acmeStarter,
-  apiKey: `key_${SEED_NAMES.acme}_${SEED_NAMES.todosApiKey}_${SEED_API_KEY_SECRETS.todos}`,
+  apiKey:
+    `key_${SEED_ORGANIZATION_IDS.acme}_${SEED_API_KEY_IDS.todos}_${SEED_API_KEY_SECRETS.todos}`,
   /** Disabled key: `/api/v1/chat` must reject a token signed with it. */
   revokedApiKey:
-    `key_${SEED_NAMES.acme}_${SEED_NAMES.revokedApiKey}_${SEED_API_KEY_SECRETS.revoked}`,
+    `key_${SEED_ORGANIZATION_IDS.acme}_${SEED_API_KEY_IDS.revoked}_${SEED_API_KEY_SECRETS.revoked}`,
   /** Another organization's key: its tokens must not reach an `acme` agent. */
   foreignApiKey:
-    `key_${SEED_NAMES.globex}_${SEED_NAMES.globexApiKey}_${SEED_API_KEY_SECRETS.globex}`,
+    `key_${SEED_ORGANIZATION_IDS.globex}_${SEED_API_KEY_IDS.globex}_${SEED_API_KEY_SECRETS.globex}`,
   /** Matches DEMO_CHAT_TENANT and DEMO_CHAT_USER in `examples/todos/src/lib/constants.server.ts`. */
   tenant: { id: SEED_NAMES.todosTenant, name: "Todos Example" },
   user: {

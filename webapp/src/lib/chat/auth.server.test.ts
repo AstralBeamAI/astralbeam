@@ -50,7 +50,7 @@ import {
 } from "./auth.server"
 import { CHAT_AUTH_TOKEN_AUDIENCE, CHAT_AUTH_TOKEN_TYPE } from "./constants.server"
 
-const apiKeyId = "key_acme-corp_production-key"
+const apiKeyId = "key_01990a5d-ac96-774b-b942-6b13c85384ca_01990a5d-ac96-774b-b942-6b13c85384c9"
 const rawApiKey = `abo_${"A".repeat(64)}`
 const defaultUser = {
   id: "tenant-user-1",
@@ -108,7 +108,7 @@ async function token(overrides: TokenOverrides = {}) {
       typ: overrides.type ?? CHAT_AUTH_TOKEN_TYPE,
       kid: overrides.apiKeyId ?? apiKeyId,
     })
-    .setIssuer(overrides.issuer ?? "acme-corp")
+    .setIssuer(overrides.issuer ?? "01990a5d-ac96-774b-b942-6b13c85384ca")
     .setAudience(overrides.audience ?? CHAT_AUTH_TOKEN_AUDIENCE)
     .setIssuedAt(issuedAt)
     .setExpirationTime(
@@ -152,11 +152,11 @@ describe("organization API-key chat JWTs", () => {
     const [joinPredicate] = databaseState.joinPredicates.map(query)
     const [lookupPredicate, lifecyclePredicate] = databaseState.wherePredicates.map(query)
     expect(joinPredicate?.sql).toContain('"api_key"."organization_id" = "organization"."id"')
-    expect(joinPredicate?.sql).toContain('"api_key"."slug" = $1')
+    expect(joinPredicate?.sql).toContain('"api_key"."id" = $1')
     expect(joinPredicate?.sql).toContain('"api_key"."config_id" = $2')
-    expect(joinPredicate?.params).toEqual(["production-key", "default"])
-    expect(lookupPredicate?.sql).toContain('"organization"."slug" = $1')
-    expect(lookupPredicate?.params).toEqual(["acme-corp"])
+    expect(joinPredicate?.params).toEqual(["01990a5d-ac96-774b-b942-6b13c85384c9", "default"])
+    expect(lookupPredicate?.sql).toContain('"organization"."id" = $1')
+    expect(lookupPredicate?.params).toEqual(["01990a5d-ac96-774b-b942-6b13c85384ca"])
     expect(lifecyclePredicate?.sql).toContain('"api_key"."id" = $1')
     expect(lifecyclePredicate?.sql).toContain('"api_key"."organization_id" = $2')
     expect(lifecyclePredicate?.params).toEqual([
@@ -187,12 +187,6 @@ describe("organization API-key chat JWTs", () => {
       ),
     ).rejects.toSatisfy(isChatAuthenticationError)
     expect(databaseState.mutationCalls).toBe(0)
-  })
-
-  test("uses Better Auth's stored digest as the verifier and accepts v4 claims", async () => {
-    await expect(verifyChatAuthToken(await token(), signingKey(), apiKeyId)).resolves.toEqual(
-      defaultTenantUser,
-    )
   })
 
   test("does not require or interpret the optional JWT subject", async () => {
@@ -233,6 +227,15 @@ describe("organization API-key chat JWTs", () => {
   ])("rejects %s", async (_name, overrides) => {
     await expect(verifyChatAuthToken(await token(overrides), signingKey(), apiKeyId)).rejects
       .toSatisfy(isChatAuthenticationError)
+  })
+
+  test("rejects legacy key IDs before querying", async () => {
+    await expect(authenticateChatRequest(
+      new Request("https://example.test/api/v1/chat", {
+        headers: { authorization: `Bearer ${await token({ apiKeyId: "key_acme_production" })}` },
+      }),
+    )).rejects.toSatisfy(isChatAuthenticationError)
+    expect(databaseState.selectCalls).toBe(0)
   })
 
   test("rejects malformed tokens", async () => {
