@@ -17,19 +17,6 @@ export const DEFAULT_API_URL = "https://app.astralbeam.ai/api"
 /** Host endpoint that mints chat JWTs when the mount options give none. */
 export const DEFAULT_CHAT_AUTH_TOKEN_URL = "/api/astralbeam/token"
 
-/**
- * The chat API's URLs under an API base: the stream itself, the agent capability handshake,
- * and artifact downloads. Chat is one API under the base; others will sit beside it.
- */
-export function chatApiUrls(apiUrl: string | undefined): {
-  chat: string
-  config: string
-  files: string
-} {
-  const chat = `${(apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, "")}/v1/chat`
-  return { chat, config: `${chat}/config`, files: `${chat}/files` }
-}
-
 /** Color scheme used when the mount options and the React prop give none. */
 export const DEFAULT_COLOR_SCHEME = "system"
 

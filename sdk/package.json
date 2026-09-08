@@ -15,6 +15,10 @@
   ],
   "sideEffects": false,
   "exports": {
+    "./api": {
+      "types": "./dist/api.d.ts",
+      "default": "./dist/api.js"
+    },
     "./client": {
       "types": "./dist/client.d.ts",
       "default": "./dist/client.js"
@@ -35,6 +39,9 @@
   },
   "typesVersions": {
     "*": {
+      "api": [
+        "./dist/api.d.ts"
+      ],
       "client": [
         "./dist/client.d.ts"
       ],
@@ -56,8 +63,10 @@
     "build": "deno task generate:styles && tsdown",
     "dev": "deno task generate:styles && tsdown --watch",
     "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts",
-    "check": "deno task generate:styles && deno task format:check && deno task lint && deno task typecheck && deno task knip",
-    "check:fix": "deno fmt && deno lint --fix",
+    "generate:api": "orval",
+    "api:check": "deno task generate:api && git diff --exit-code -- src/api/generated",
+    "check": "deno task generate:styles && deno task api:check && deno task format:check && deno task lint && deno task typecheck && deno task knip",
+    "check:fix": "deno task generate:styles && deno task generate:api && deno task lint:fix && deno task format && deno task knip:fix",
     "format": "deno fmt",
     "format:check": "deno fmt --check",
     "knip": "knip",
@@ -95,6 +104,7 @@
     "cn": "^0.2.4",
     "jose": "^6.2.9",
     "knip": "^6.32.2",
+    "orval": "8.30.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "shadcn": "^4.20.1",

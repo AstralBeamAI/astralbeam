@@ -12,6 +12,7 @@ Mirror every entry point in `typesVersions` as well. `exports` is invisible to T
 - `src/core/` — the headless session and chat protocol; framework-free, bundled into `core.js` and into the React entry.
 - `src/react/` — the React wrapper; binds to the host's React.
 - `src/server/` — token minting; no framework imports.
+- `src/api/` owns the browser-safe, server-compatible generated HTTP client, exported as `/api`.
 - `src/widget/` — the lazily loaded chat chunk with its own bundled React; not an entry point.
 - `src/lib/` — shared eager-safe modules: public option types, defaults, and the debug logger.
 
@@ -48,12 +49,14 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 
 - Use plain data and helper functions with explicit options objects; no classes or closure-based state factories, except framework-required classes such as React error boundaries.
 - Record structural and build reasoning as comments beside the code that depends on it.
-- Address AstralBeam through the single `apiUrl` base option and derive every route from it with `chatApiUrls`; a new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `fetchAstralBeamToken`.
+- Address AstralBeam through the single `apiUrl` base option and generated URL helpers with `resolveApiUrl`; a new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `fetchAstralBeamToken`.
 - Acquire chat auth tokens only through `fetchAstralBeamToken`: a `{ url, ...RequestInit }` object handed to `fetch` as-is, or a host function returning `{ token }`. Express new token-request knobs through standard `RequestInit` fields rather than new options, and keep the session's abort signal attached even when the host supplies its own.
 - Keep every option updatable in place: read the agent, the API base, and the token source per request through live options or a getter rather than capturing them, so no option needs a remount and the transcript survives a change.
 - Treat a copied API key as its public ID plus the exact Better Auth raw key; hash the complete `abo_<secret>` value, never only its random suffix.
 - Model token identities as separate `user` and `tenant` objects with a required stable Tenant ID plus a stable tenant-local TenantUser ID; the host authenticates once and derives both objects from that same session. Preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
 - Keep SDK option and model names camelCase, map AstralBeam-owned multiword JWT claim names to snake_case on the wire, and preserve caller-owned `metadata` keys verbatim.
+- Generated API types retain OpenAPI field names. Generate with `deno task generate:api` from the committed `webapp/public/api/openapi.json`; never hand-edit `src/api/generated`. Orval is development-only, and `/api` must contain no third-party runtime imports or bundled transport/validation dependencies.
+- Use typed `apiKey` options on servers and `astralBeamToken` options in browsers. Resource helpers support either, chat run/config accept only JWTs, and files use signed tickets. Keep TanStack's SSE parsing and the existing one-time 401 refresh outside the generated transport.
 - Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject.
 
 ## Testing
