@@ -57,10 +57,7 @@ export const organizationRoleHooks = {
   },
   beforeUpdateOrganization: ({ organization }) => {
     if (Object.hasOwn(organization, "slug")) {
-      throw new APIError("BAD_REQUEST", {
-        code: "ORGANIZATION_SLUG_IMMUTABLE",
-        message: "Organization slug cannot be changed",
-      })
+      assertOrganizationSlug(organization.slug)
     }
     return Promise.resolve()
   },

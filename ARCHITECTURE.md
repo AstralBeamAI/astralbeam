@@ -153,6 +153,6 @@ DATABASE_ENCRYPTION_KEY ──┤ comma-separated; the first entry encrypts, the
 - **host tool / widget** — a function or component the host page declares to the agent and executes in its own page, with agent-chosen input.
 - **`/configure`** — the operator surface for database-backed settings and migration approval, authenticated by the active `DATABASE_ENCRYPTION_KEY` value.
 - **config registry** — the closed list of settings keys with their group, kind, validation, and defaults, in `webapp/src/lib/config/registry.server.ts`.
-- **public id / slug**: an identifier used across a boundary. Organization slugs identify dashboard routes. An agent's public ID (`agent_<uuidv7>`) is its primary key. An API key's public ID (`key_<organizationId>_<id>`) is assembled from its Organization and API-key UUIDv7 database IDs.
+- **public id / slug**: an identifier used across a boundary. Organization slugs identify dashboard routes. Agent public IDs (`agent_<organizationId>_<id>`) and API-key public IDs (`key_<organizationId>_<id>`) are assembled from their Organization and entity UUIDv7 database IDs.
 - **optimistic lock version** — the `lock_version` integer on a first-party mutable row; a conflicting concurrent write fails rather than silently winning.
 - **setup complete** — the derived state (zero config issues, zero pending migrations) that opens the app gate. Not a persisted flag.

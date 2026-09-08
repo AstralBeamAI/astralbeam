@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm"
 
+import { generateAgentSlug } from "../../src/lib/schemas.ts"
+
 import { agent, organizationConfiguration, sandboxProvider } from "../../src/db/schema.server.ts"
 
 import type { SeedTransaction } from "./database.ts"
@@ -94,7 +96,7 @@ export async function seedAgents(
       }
       seededAgentIds.add(inserted.id)
       summaries.push({
-        id: inserted.id,
+        id: generateAgentSlug({ organizationId, id: inserted.id }),
         name: seedAgent.name,
         isDefault: seedAgent.id === seedOrganization.defaultAgentId,
         sandboxProviderName: seedAgent.sandboxProviderName,

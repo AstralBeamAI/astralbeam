@@ -1,6 +1,8 @@
 # AstralBeam development
 
 - Use the product glossary consistently: an Organization is an AstralBeam customer (typically a SaaS app), organization users are that customer's employees who use the AstralBeam dashboard, Tenants are the Organization's customers, and tenant users (`TenantUser`) are the Tenants' users who interact with the embedded agent sidebar.
+- orgs will have uuids (immutable) and slugs (editable). slugs will only be used in the URL. changing the slug will break old URLs.
+- other entities (agents, sandboxes, API keys) will have only opaque uuids, not slugs. the primary key for entity tables will be (org_id, entity_id). Public display for agent ids and API keys for usage in code will follow the convention table_orguuid_entityuuid (e.g. agent_sdfdsf_e4343).
 
 ## Tooling and validation
 
@@ -60,7 +62,7 @@
 - Keep domain table and relation modules under `webapp/src/db/schema`, re-export every module Drizzle Kit must discover from `webapp/src/db/schema.server.ts`, and keep generated migrations under `webapp/src/db/migrations`.
 - Run database commands from `webapp` with `deno task db <command>`.
 - After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
-- Use PostgreSQL `uuid` primary and foreign keys with database-generated `uuidv7()` defaults, `citext` for email identity, and `timestamp with time zone` without forced precision for application instants; PostgreSQL 18 is the minimum supported server version. A row whose own ID is also its public identifier across an API boundary may instead use a `text` key defaulted to a prefixed `uuidv7()`, so no boundary has to reformat it.
+- Use PostgreSQL `uuid` primary and foreign keys with database-generated `uuidv7()` defaults, `citext` for email identity, and `timestamp with time zone` without forced precision for application instants; PostgreSQL 18 is the minimum supported server version.
 - Define tables with `snakeCase.table`, keep TypeScript property names camel case, and omit redundant column-name arguments when Drizzle can derive the lower snake-case SQL name.
 - Keep required extension DDL such as `CREATE EXTENSION IF NOT EXISTS citext` in the generated migration because a Drizzle `customType` does not install its PostgreSQL extension. Regenerate an unmerged, unapplied migration when refining the same schema change, but never rewrite migration history that may have been applied by others.
 - Follow the applicable PostgreSQL [Don't Do This](https://wiki.postgresql.org/wiki/Don't_Do_This) guidance: keep identifiers lower snake case, use half-open timestamp ranges and `NOT EXISTS` where null-aware exclusion is needed, retain unconstrained `text`/`citext`, and avoid `timetz`, `CURRENT_TIME`, `char(n)`, default `varchar(n)`, `money`, `serial`, rules, table inheritance, and trust authentication over TCP/IP.

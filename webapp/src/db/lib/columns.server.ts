@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { customType, integer, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import { customType, integer, timestamp, uuid } from "drizzle-orm/pg-core"
 
 import {
   type DatabaseEncryptionKeyring,
@@ -68,12 +68,4 @@ export function uuidV7() {
 
 export function uuidV7PrimaryKey() {
   return uuidV7().primaryKey()
-}
-
-/**
- * A UUIDv7 the database generates behind a literal prefix, for IDs that travel through URLs and
- * public API surfaces where the resource should be recognizable without being guessable.
- */
-export function prefixedUuidV7(prefix: string) {
-  return text().default(sql.raw(`'${prefix}' || uuidv7()`)).notNull()
 }
