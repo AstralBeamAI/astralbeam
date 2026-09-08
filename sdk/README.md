@@ -142,7 +142,7 @@ There is no root export. Conversation history is not built yet.
 | `@astralbeam/sdk/server` | `createAstralBeamToken`, the token minter    | none                 |
 | `@astralbeam/sdk/api`    | Resource and chat HTTP helpers               | none                 |
 
-Requires TypeScript 5.0 or later, including when using classic `"moduleResolution": "node"`.
+Types resolve under every TypeScript module resolution mode, including classic `"moduleResolution": "node"`. Requires TypeScript 5.0 or later because declarations use `const` type parameters, which fail to parse on TypeScript 4.x.
 
 ## Example
 

@@ -98,10 +98,10 @@ Each generated `src/db/migrations/<timestamp>_<name>/` directory is one migratio
 
 Review the SQL and commit it with its matching snapshot and TypeScript schema change. Do not edit snapshots by hand.
 
-- Reverse applied changes with a forward migration. There is no automatic rollback command.
+- Reverse applied changes with a forward migration. There is no automatic rollback command, and migration history that may have reached a shared environment must never be rewritten.
 - Resolve rename prompts carefully to avoid accidental drop-and-create SQL.
-- Use `deno task --cwd webapp db generate --custom --name=backfill-projects` for data transformations or unsupported DDL.
-- `push --explain` previews direct schema synchronization for disposable prototypes. Never use `push --force` against shared data.
+- Schema diffs cannot infer data backfills or transformations. Use `deno task --cwd webapp db generate --custom --name=backfill-projects` for data migrations or unsupported DDL.
+- `push` compares the TypeScript schema with a live database without creating migration files. Use `deno task --cwd webapp db push --explain` for disposable local experiments, and never use `push --force` against shared data.
 - This repository uses colocated migration folders, not root SQL files and `meta/_journal.json`.
 - `up` upgrades metadata on disk. `migrate` applies pending migrations to PostgreSQL.
 
