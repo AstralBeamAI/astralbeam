@@ -1,5 +1,8 @@
 "use client"
 
+import { organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
+import { useSession } from "@better-auth-ui/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 
@@ -15,6 +18,7 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
+import { authClient } from "@/lib/auth/client"
 import { updateOrganizationSettings } from "../-functions/update-organization-settings"
 
 const ORGANIZATION_NAME_MAX_LENGTH = 100
@@ -31,6 +35,8 @@ export function OrganizationSettingsForm({
   readOnly,
 }: OrganizationSettingsFormProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { data: session } = useSession(authClient)
   const [name, setName] = useState(organizationName)
   const [saving, setSaving] = useState(false)
   const normalizedName = name.trim()
@@ -42,6 +48,9 @@ export function OrganizationSettingsForm({
     setSaving(true)
     try {
       await updateOrganizationSettings({ data: { organizationSlug, name: normalizedName } })
+      await queryClient.invalidateQueries({
+        queryKey: organizationQueryKeys.lists(session?.user.id),
+      })
       toast.add({ title: "Organization saved", type: "success" })
       await router.invalidate()
     } catch {
