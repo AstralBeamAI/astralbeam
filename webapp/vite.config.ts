@@ -7,6 +7,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
+import { configDefaults } from "vitest/config"
 
 const licensesDirectory = new URL("../docs/legal/LICENSES/", import.meta.url)
 const legalAssets = [
@@ -101,6 +102,8 @@ const viteConfig = defineConfig(({ mode }) => {
       // Vitest workers do not inherit Nitro's env; database consumers receive test layers, so the
       // module-level pool only needs a parseable placeholder.
       env: { DATABASE_URL: "postgres://test:test@127.0.0.1:5432/test" },
+      // `e2e` holds Playwright specs, which `deno task e2e` runs in its own runner.
+      exclude: [...configDefaults.exclude, "e2e/**"],
     },
   }
 })

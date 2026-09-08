@@ -131,6 +131,7 @@
 
 - Keep only tests that protect durable behavior, security boundaries, or regressions; avoid trivial assertions over constants, generated files, and implementation structure.
 - Always write and run tests with Vitest through `deno task test`; never use `Deno.test` or `deno test`.
+- `deno task e2e` runs the Playwright browser suite in `e2e/`, which starts its own webapp, SMTP sink, and `_e2e` database and drives `/configure`, signup, and every organization page. Read `e2e/README.md` before changing it, compose new flows from `e2e/pages`, and keep the suite out of `check`, `test`, `ready`, and CI so it stays an on-demand verification tool.
 - Keep new functions at cyclomatic complexity 20 or lower and do not increase higher legacy functions; extract focused helpers instead of suppressing the complexity finding.
 - Keep the root `ThemeProvider` around the document content so its SSR startup script applies the persisted or system theme before first paint; do not defer initial theme application to a post-hydration effect.
 
