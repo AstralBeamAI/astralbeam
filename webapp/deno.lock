@@ -3,9 +3,9 @@
   "specifiers": {
     "npm:@aws-sdk/client-sesv2@^3.1115.0": "3.1115.0",
     "npm:@base-ui/react@^1.6.0": "1.7.0_@types+react@19.2.18_date-fns@4.4.0_react@19.2.8_react-dom@19.2.8",
-    "npm:@better-auth-ui/core@1.7.12": "1.7.12_@better-auth+api-key@1.7.2__better-auth@1.7.2___@tanstack+react-start@1.168.46___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.0___react@19.2.8___react-dom@19.2.8___vitest@4.1.10___vue@3.5.42___typescript@6.0.3__typescript@6.0.3__vue@3.5.42_better-auth@1.7.2__@tanstack+react-start@1.168.46__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.0__react@19.2.8__react-dom@19.2.8__vitest@4.1.10__vue@3.5.42__typescript@6.0.3_typescript@6.0.3_vue@3.5.42",
-    "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12__@better-auth+api-key@1.7.2___better-auth@1.7.2____@tanstack+react-start@1.168.46____drizzle-kit@1.0.0-rc.5-ab785fc____drizzle-orm@1.0.0-rc.5-ab785fc____pg@8.23.0____react@19.2.8____react-dom@19.2.8____vitest@4.1.10____vue@3.5.42____typescript@6.0.3___typescript@6.0.3___vue@3.5.42__better-auth@1.7.2___@tanstack+react-start@1.168.46___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.0___react@19.2.8___react-dom@19.2.8___vitest@4.1.10___vue@3.5.42___typescript@6.0.3__typescript@6.0.3__vue@3.5.42_@better-auth+api-key@1.7.2__better-auth@1.7.2___@tanstack+react-start@1.168.46___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.0___react@19.2.8___react-dom@19.2.8___vitest@4.1.10___vue@3.5.42___typescript@6.0.3__typescript@6.0.3__vue@3.5.42_@tanstack+react-query@5.102.0_better-auth@1.7.2__@tanstack+react-start@1.168.46__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.0__react@19.2.8__react-dom@19.2.8__vitest@4.1.10__vue@3.5.42__typescript@6.0.3_react@19.2.8_react-dom@19.2.8_react-email@6.9.2_tailwindcss@4.3.3_zod@4.5.4_typescript@6.0.3_vue@3.5.42",
-    "npm:@better-auth/api-key@^1.7.2": "1.7.2_better-auth@1.7.2__@tanstack+react-start@1.168.46__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.0__react@19.2.8__react-dom@19.2.8__vitest@4.1.10__vue@3.5.42__typescript@6.0.3_typescript@6.0.3_vue@3.5.42",
+    "npm:@better-auth-ui/core@1.7.12": "1.7.12_@better-auth+api-key@1.7.2_better-auth@1.7.2_typescript@6.0.3_vue@3.5.42",
+    "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12_@better-auth+api-key@1.7.2_@tanstack+react-query@5.102.0_better-auth@1.7.2_react@19.2.8_react-dom@19.2.8_react-email@6.9.2_tailwindcss@4.3.3_zod@4.5.4_typescript@6.0.3_vue@3.5.42",
+    "npm:@better-auth/api-key@^1.7.2": "1.7.2_better-auth@1.7.2_typescript@6.0.3_vue@3.5.42",
     "npm:@better-auth/drizzle-adapter@^1.7.2": "1.7.2_@better-auth+core@1.7.2__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__@opentelemetry+api@1.9.1__better-call@1.4.0__jose@6.2.10__kysely@0.29.5__nanostores@1.5.2_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc_@opentelemetry+api@1.9.1",
     "npm:@csstools/color-helpers@6.1.0": "6.1.0",
     "npm:@csstools/css-color-parser@4.1.10": "4.1.10_@csstools+css-parser-algorithms@4.0.0_@csstools+css-tokenizer@4.0.0",
@@ -17,6 +17,7 @@
     "npm:@fontsource-variable/manrope@^5.2.8": "5.3.0",
     "npm:@marsidev/react-turnstile@^1.6.0": "1.6.0_react@19.2.8_react-dom@19.2.8",
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.2.8_react-dom@19.2.8",
+    "npm:@playwright/test@^1.58.0": "1.62.1",
     "npm:@react-email/render@2.1.0": "2.1.0_react@19.2.8_react-dom@19.2.8",
     "npm:@scalar/api-reference@^1.67.0": "1.67.0_tailwindcss@4.3.3_typescript@6.0.3_zod@4.5.4",
     "npm:@tailwindcss/vite@4": "4.3.3_vite@8.2.1",
@@ -650,7 +651,7 @@
         "@types/react"
       ]
     },
-    "@better-auth-ui/core@1.7.12_@better-auth+api-key@1.7.2__better-auth@1.7.2___@tanstack+react-start@1.168.46___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.0___react@19.2.8___react-dom@19.2.8___vitest@4.1.10___vue@3.5.42___typescript@6.0.3__typescript@6.0.3__vue@3.5.42_better-auth@1.7.2__@tanstack+react-start@1.168.46__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.0__react@19.2.8__react-dom@19.2.8__vitest@4.1.10__vue@3.5.42__typescript@6.0.3_typescript@6.0.3_vue@3.5.42": {
+    "@better-auth-ui/core@1.7.12_@better-auth+api-key@1.7.2_better-auth@1.7.2_typescript@6.0.3_vue@3.5.42": {
       "integrity": "sha512-+qUo2ED4fJ97PvIkk7ZdvdzV20vuSn2jCFeAieAdqyjYOIm9CD8Il3wqN+8uR+jqv5ODxB7Yi8uycZ8ItFhkXw==",
       "dependencies": [
         "@better-auth/agent-auth",
@@ -667,7 +668,7 @@
         "@better-auth/passkey"
       ]
     },
-    "@better-auth-ui/react@1.7.12_@better-auth-ui+core@1.7.12__@better-auth+api-key@1.7.2___better-auth@1.7.2____@tanstack+react-start@1.168.46____drizzle-kit@1.0.0-rc.5-ab785fc____drizzle-orm@1.0.0-rc.5-ab785fc____pg@8.23.0____react@19.2.8____react-dom@19.2.8____vitest@4.1.10____vue@3.5.42____typescript@6.0.3___typescript@6.0.3___vue@3.5.42__better-auth@1.7.2___@tanstack+react-start@1.168.46___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.0___react@19.2.8___react-dom@19.2.8___vitest@4.1.10___vue@3.5.42___typescript@6.0.3__typescript@6.0.3__vue@3.5.42_@better-auth+api-key@1.7.2__better-auth@1.7.2___@tanstack+react-start@1.168.46___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.0___react@19.2.8___react-dom@19.2.8___vitest@4.1.10___vue@3.5.42___typescript@6.0.3__typescript@6.0.3__vue@3.5.42_@tanstack+react-query@5.102.0_better-auth@1.7.2__@tanstack+react-start@1.168.46__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.0__react@19.2.8__react-dom@19.2.8__vitest@4.1.10__vue@3.5.42__typescript@6.0.3_react@19.2.8_react-dom@19.2.8_react-email@6.9.2_tailwindcss@4.3.3_zod@4.5.4_typescript@6.0.3_vue@3.5.42": {
+    "@better-auth-ui/react@1.7.12_@better-auth-ui+core@1.7.12_@better-auth+api-key@1.7.2_@tanstack+react-query@5.102.0_better-auth@1.7.2_react@19.2.8_react-dom@19.2.8_react-email@6.9.2_tailwindcss@4.3.3_zod@4.5.4_typescript@6.0.3_vue@3.5.42": {
       "integrity": "sha512-4k8g4ygCt7tg0/28CkRVLMKrROoIdiL/yVxw55/TcLHBl44Gxm3RqWvipJWJTz3dty7y5Q4CRkB13o49U9LX1A==",
       "dependencies": [
         "@better-auth-ui/core",
@@ -687,7 +688,7 @@
         "react-email"
       ]
     },
-    "@better-auth/agent-auth@0.6.2_better-auth@1.7.2__@tanstack+react-start@1.168.46__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.0__react@19.2.8__react-dom@19.2.8__vitest@4.1.10__vue@3.5.42__typescript@6.0.3_typescript@6.0.3_vue@3.5.42": {
+    "@better-auth/agent-auth@0.6.2_better-auth@1.7.2_typescript@6.0.3_vue@3.5.42": {
       "integrity": "sha512-bXJ31rkZtCd27TuUfaAqNLbeZOMfJih5fO9HGq8mrU/23E9ljxScCkIPA3RJmUJ0SBGtaHA9GKVwIlFce0slvg==",
       "dependencies": [
         "@better-auth/core@1.7.2_better-call@1.3.2_jose@6.2.10",
@@ -697,7 +698,7 @@
         "jose@6.2.10"
       ]
     },
-    "@better-auth/api-key@1.7.2_better-auth@1.7.2__@tanstack+react-start@1.168.46__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.0__react@19.2.8__react-dom@19.2.8__vitest@4.1.10__vue@3.5.42__typescript@6.0.3_typescript@6.0.3_vue@3.5.42": {
+    "@better-auth/api-key@1.7.2_better-auth@1.7.2_typescript@6.0.3_vue@3.5.42": {
       "integrity": "sha512-jih45wZaQ83lVYdChSnasxb8iax8p7AYetZ/XiImA9Yuag+cqmLBsaLPNvds5aZV18hLpmvzVkuzf7H/k1X88g==",
       "dependencies": [
         "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_@opentelemetry+api@1.9.1_better-call@1.4.0_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
@@ -771,7 +772,7 @@
         "@better-auth/utils@0.4.2"
       ]
     },
-    "@better-auth/passkey@1.7.1_better-auth@1.7.2__@tanstack+react-start@1.168.46__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.0__react@19.2.8__react-dom@19.2.8__vitest@4.1.10__vue@3.5.42__typescript@6.0.3_typescript@6.0.3_vue@3.5.42": {
+    "@better-auth/passkey@1.7.1_better-auth@1.7.2_typescript@6.0.3_vue@3.5.42": {
       "integrity": "sha512-bGnCBDL2udKniHI4IZpjh4lU8lQWRVk3SG/ZtTtZz6QZLCJ2YpVjjwv2O0VJt/jw9SLuXyccx3IFh4s0PKGTRQ==",
       "dependencies": [
         "@better-auth/core@1.7.2_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_@opentelemetry+api@1.9.1_better-call@1.4.0_jose@6.2.10_kysely@0.29.5_nanostores@1.5.2",
@@ -2797,6 +2798,13 @@
         "react",
         "react-dom"
       ]
+    },
+    "@playwright/test@1.62.1": {
+      "integrity": "sha512-DTcUc8qii+cpHvtOwggMtBRMjKZHXYWdw8syRYu2vtzuq4Wxphqq4NfCs5Zt44L6mA8rfDfj+PHnxFc/FeK6mQ==",
+      "dependencies": [
+        "playwright"
+      ],
+      "bin": true
     },
     "@protobufjs/aspromise@1.1.2": {
       "integrity": "sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ=="
@@ -5794,6 +5802,11 @@
         "universalify"
       ]
     },
+    "fsevents@2.3.2": {
+      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+      "os": ["darwin"],
+      "scripts": true
+    },
     "fsevents@2.3.3": {
       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
       "os": ["darwin"],
@@ -7690,6 +7703,20 @@
         "find-up@3.0.0"
       ]
     },
+    "playwright-core@1.62.1": {
+      "integrity": "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==",
+      "bin": true
+    },
+    "playwright@1.62.1": {
+      "integrity": "sha512-0M+L3LAD8/nm554LOla9Ayx0j0tmFZ0FBcoQ7F1VuVHpM/XpiC8RcDzBQB8W5+hA8L22THxELzeF+2WcUzvcLg==",
+      "dependencies": [
+        "playwright-core"
+      ],
+      "optionalDependencies": [
+        "fsevents@2.3.2"
+      ],
+      "bin": true
+    },
     "postal-mime@2.7.5": {
       "integrity": "sha512-GNEXKvWFQnbgO5NlrGzVa0FmWzBZ24PersAWErttSg1Hjpf0ATxTwS5DOMGaOpTG6bUh5cTr7xi0jAD942wCJA=="
     },
@@ -8963,7 +8990,7 @@
         "tinyglobby"
       ],
       "optionalDependencies": [
-        "fsevents"
+        "fsevents@2.3.3"
       ],
       "bin": true
     },
@@ -9199,6 +9226,7 @@
         "npm:@fontsource-variable/manrope@^5.2.8",
         "npm:@marsidev/react-turnstile@^1.6.0",
         "npm:@phosphor-icons/react@^2.1.10",
+        "npm:@playwright/test@^1.58.0",
         "npm:@react-email/render@2.1.0",
         "npm:@scalar/api-reference@^1.67.0",
         "npm:@tailwindcss/vite@4",

@@ -23,8 +23,16 @@
   // @daytona/sdk also `createRequire`s busboy at download time, which the built server bundle keeps
   // as a runtime specifier; webapp declares busboy only so that require resolves.
   "ignoreDependencies": ["busboy", "tslib"],
+  // The suite's config lives under `e2e/`, so Knip's Playwright plugin is pointed at it
+  // explicitly; its spec files and setup are the execution roots. https://knip.dev/reference/plugins/playwright
+  "playwright": {
+    "config": ["e2e/playwright.config.ts"],
+    "entry": ["e2e/preflight.setup.ts", "e2e/specs/**/*.spec.ts"]
+  },
   // Keep Deno-run generators and framework entry points explicit.
   "entry": [
+    "e2e/mailbox-server.ts",
+    "e2e/prepare-database.ts",
     "scripts/*.ts",
     "src/lib/response-headers.server.ts",
     "src/router.tsx",
