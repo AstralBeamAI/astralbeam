@@ -15,12 +15,10 @@ import { SEED_ORGANIZATIONS } from "./fixtures.ts"
  */
 export async function seedTenants(
   transaction: SeedTransaction,
-  organizationIdsBySlug: ReadonlyMap<string, string>,
 ): Promise<number> {
   let tenantUserCount = 0
   for (const seedOrganization of SEED_ORGANIZATIONS) {
-    const organizationId = organizationIdsBySlug.get(seedOrganization.slug)
-    if (!organizationId) throw new Error(`Organization '${seedOrganization.slug}' was not seeded`)
+    const organizationId = seedOrganization.id
 
     for (const seedTenant of seedOrganization.tenants) {
       const [insertedTenant] = await transaction

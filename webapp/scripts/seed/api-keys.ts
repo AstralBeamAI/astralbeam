@@ -38,12 +38,10 @@ function hashSeedApiKeySecret(secret: string): string {
  */
 export async function seedApiKeys(
   transaction: SeedTransaction,
-  organizationIdsBySlug: ReadonlyMap<string, string>,
 ): Promise<SeedApiKeySummary[]> {
   const summaries: SeedApiKeySummary[] = []
   for (const seedOrganization of SEED_ORGANIZATIONS) {
-    const organizationId = organizationIdsBySlug.get(seedOrganization.slug)
-    if (!organizationId) throw new Error(`Organization '${seedOrganization.slug}' was not seeded`)
+    const organizationId = seedOrganization.id
 
     for (const seedApiKey of seedOrganization.apiKeys) {
       if (!SEED_API_KEY_SECRET_PATTERN.test(seedApiKey.secret)) {

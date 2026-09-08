@@ -18,27 +18,20 @@ const SEED_INVITATION_EXPIRY_HOURS = 48
 export async function seedOrganizations(
   transaction: SeedTransaction,
   userIdsByEmail: ReadonlyMap<string, string>,
-): Promise<Map<string, string>> {
-  const organizationIdsBySlug = new Map<string, string>()
+): Promise<void> {
   for (const seedOrganization of SEED_ORGANIZATIONS) {
     const [inserted] = await transaction
       .insert(organization)
       .values({ id: seedOrganization.id, slug: seedOrganization.slug, name: seedOrganization.name })
       .onConflictDoUpdate({
-        target: organization.slug,
+        target: organization.id,
         set: { name: seedOrganization.name, updatedAt: sql`now()` },
       })
       .returning({ id: organization.id })
     if (!inserted) {
-      throw new Error(`PostgreSQL did not return a row for organization '${seedOrganization.slug}'`)
-    }
-    if (inserted.id !== seedOrganization.id) {
-      throw new Error(
-        `Seed organization '${seedOrganization.slug}' has a conflicting ID. Use a fresh worktree database.`,
-      )
+      throw new Error(`PostgreSQL did not return a row for organization '${seedOrganization.id}'`)
     }
     const organizationId = inserted.id
-    organizationIdsBySlug.set(seedOrganization.slug, organizationId)
 
     for (const seedMember of seedOrganization.members) {
       const userId = requireSeedUserId(userIdsByEmail, seedMember.email)
@@ -60,7 +53,7 @@ export async function seedOrganizations(
       ?.email
     for (const seedInvitation of seedOrganization.invitations) {
       if (!inviterEmail) {
-        throw new Error(`Organization '${seedOrganization.slug}' needs an owner to invite members`)
+        throw new Error(`Organization '${seedOrganization.id}' needs an owner to invite members`)
       }
       const inviterId = requireSeedUserId(userIdsByEmail, inviterEmail)
       const expiresAt = new Date(Date.now() + SEED_INVITATION_EXPIRY_HOURS * 60 * 60 * 1_000)
@@ -91,7 +84,6 @@ export async function seedOrganizations(
       })
     }
   }
-  return organizationIdsBySlug
 }
 
 function requireSeedUserId(userIdsByEmail: ReadonlyMap<string, string>, email: string): string {
