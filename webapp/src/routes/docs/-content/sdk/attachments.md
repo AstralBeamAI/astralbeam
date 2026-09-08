@@ -18,7 +18,7 @@ Pass `attachments: false` to turn the feature off, or an object to narrow it.
 
 | Kind     | Formats                                                  | How the agent reads it                                 |
 | -------- | -------------------------------------------------------- | ------------------------------------------------------ |
-| `image`  | PNG, JPEG, WebP, GIF                                     | Directly, it is one of the model's own modalities     |
+| `image`  | PNG, JPEG, WebP, GIF                                     | Directly, it is one of the model's own modalities      |
 | `pdf`    | PDF                                                      | Directly, as a document input                          |
 | `text`   | Markdown, JSON, YAML, CSS, HTML, SVG, source files, logs | `read_attachment`, a page at a time                    |
 | `data`   | CSV, TSV, Parquet, SQLite                                | Column profile with the text, then code in the sandbox |

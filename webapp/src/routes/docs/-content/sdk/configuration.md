@@ -17,7 +17,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `attachments`                    | `true`                             | `false` disables, an object narrows limits. See [Attachments](./attachments.md)   |
 | `sandboxPanel`                   | `false`                            | Shows the collected sandbox panel, see [Sandbox](./sandbox.md)                    |
 | `tools`, `widgets`               | none                               | See [Tools and widgets](./tools-and-widgets.md)                                   |
-| `debug`                          | `false`                            | Log SDK actions in the browser, with server logs in development only                    |
+| `debug`                          | `false`                            | Log SDK actions in the browser, with server logs in development only              |
 
 - For self-hosting, set `apiUrl` to your deployment’s `/api` base. Send tokens only to the deployment that issued the API key.
 - `apiUrl` is a base, not a route: the widget appends `/v1/chat` for the stream and its subroutes for the agent handshake and artifact downloads.

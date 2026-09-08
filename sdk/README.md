@@ -76,19 +76,19 @@ All props can change in place through React or the vanilla handle's `update(opti
 
 ## Documentation
 
-| Guide | Covers |
-| --- | --- |
-| [API client](https://app.astralbeam.ai/docs/sdk/api) | Typed resource and chat requests with API keys or JWTs. |
-| [Getting started](https://app.astralbeam.ai/docs/sdk/getting-started) | install, mount, layout requirements. |
-| [Authentication](https://app.astralbeam.ai/docs/sdk/authentication) | the token endpoint and its security rules. |
-| [Configuration](https://app.astralbeam.ai/docs/sdk/configuration) | every option, and what `update` can change. |
-| [Theming](https://app.astralbeam.ai/docs/sdk/theming) | color schemes, CSS tokens, the shadow-root boundary. |
-| [Tools and widgets](https://app.astralbeam.ai/docs/sdk/tools-and-widgets) | schemas, live state, rendering into the transcript. |
-| [Attachments](https://app.astralbeam.ai/docs/sdk/attachments) | file kinds, limits, what the endpoint enforces. |
-| [Limits](https://app.astralbeam.ai/docs/sdk/limits) | request, attachment, and sandbox limits. |
-| [Sandbox](https://app.astralbeam.ai/docs/sdk/sandbox) | steps, the opt-in panel, downloads, inline images. |
-| [Headless](https://app.astralbeam.ai/docs/sdk/headless) | own the whole chat UI on the same session. |
-| [Security model](https://app.astralbeam.ai/docs/sdk/security) | who grants, who enforces, what the client can change. |
+| Guide                                                                     | Covers                                                  |
+| ------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [API client](https://app.astralbeam.ai/docs/sdk/api)                      | Typed resource and chat requests with API keys or JWTs. |
+| [Getting started](https://app.astralbeam.ai/docs/sdk/getting-started)     | install, mount, layout requirements.                    |
+| [Authentication](https://app.astralbeam.ai/docs/sdk/authentication)       | the token endpoint and its security rules.              |
+| [Configuration](https://app.astralbeam.ai/docs/sdk/configuration)         | every option, and what `update` can change.             |
+| [Theming](https://app.astralbeam.ai/docs/sdk/theming)                     | color schemes, CSS tokens, the shadow-root boundary.    |
+| [Tools and widgets](https://app.astralbeam.ai/docs/sdk/tools-and-widgets) | schemas, live state, rendering into the transcript.     |
+| [Attachments](https://app.astralbeam.ai/docs/sdk/attachments)             | file kinds, limits, what the endpoint enforces.         |
+| [Limits](https://app.astralbeam.ai/docs/sdk/limits)                       | request, attachment, and sandbox limits.                |
+| [Sandbox](https://app.astralbeam.ai/docs/sdk/sandbox)                     | steps, the opt-in panel, downloads, inline images.      |
+| [Headless](https://app.astralbeam.ai/docs/sdk/headless)                   | own the whole chat UI on the same session.              |
+| [Security model](https://app.astralbeam.ai/docs/sdk/security)             | who grants, who enforces, what the client can change.   |
 
 ## Entry points
 
