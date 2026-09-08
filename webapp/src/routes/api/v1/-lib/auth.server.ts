@@ -6,12 +6,9 @@ import { apiKey, organization } from "@/db/schema/organizations.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { resolveTenant, type TenantError } from "@/db/tenant.server"
 import { getAuth } from "@/lib/auth.server"
-import {
-  authenticateChatRequest,
-  isChatAuthenticationError,
-} from "@/routes/api/chat/-lib/auth.server"
+import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
 import type { RestScope } from "./shared.server"
-import { type RestFault, restFault } from "./responses.server"
+import { type RestFault, restFault, restRateLimitFault } from "./responses.server"
 
 export function authenticateRestRequest(
   request: Request,
@@ -46,13 +43,7 @@ export function authenticateRestRequest(
       limit: 100,
       window: Duration.minutes(5),
     }).pipe(
-      Effect.mapError((error) =>
-        error.reason._tag === "RateLimitExceeded"
-          ? restFault(429, "Request limit exceeded.", {
-            retryAfter: Math.max(1, Math.ceil(Duration.toMillis(error.reason.retryAfter) / 1000)),
-          })
-          : restFault(500, "Request limit could not be checked.")
-      ),
+      Effect.mapError(restRateLimitFault),
     )
     const tenantId = yield* resolveTenant(organizationId, externalTenantId)
     return { organizationId, tenantId, externalTenantId } satisfies RestScope

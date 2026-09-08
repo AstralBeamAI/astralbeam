@@ -1,6 +1,6 @@
 # Authentication
 
-Manage your application's Tenants and TenantUsers under `/api/v1`. See the [quickstart](/docs/api#description/getting-started) and [OpenAPI 3.1 contract](/api/openapi.json).
+Chat and manage your application's Tenants and TenantUsers under `/api/v1`. See the [quickstart](/docs/api#description/getting-started) and [OpenAPI 3.1 contract](/api/openapi.json).
 
 ## Organization API keys
 
@@ -8,7 +8,7 @@ Send the full decorated key through `X-API-Key` or `Authorization: Bearer <key>`
 
 ## Tenant administrator JWTs
 
-A valid chat JWT with signed `user.admin: true` can read its own Tenant and read/create/update TenantUsers within it. Tenant writes and other JWTs are forbidden.
+A valid chat JWT with signed `user.admin: true` can read its own Tenant and read/create/update TenantUsers within it. Tenant writes are forbidden. Non-admin JWTs cannot access these resource operations.
 
 The JWT carries separate `user` and `tenant` claims. Signed `tenant.id` is an external identity, resolved within the issuing organization. Authentication never upserts identities or requires a persisted calling TenantUser.
 
@@ -16,7 +16,13 @@ Call `GET /api/v1/tenants` with the JWT to obtain your Tenant's internal `id` fo
 
 **Stored TenantUser admin does not grant or revoke JWT privileges.** Authority comes from the signed claim until expiry or backing-key invalidation.
 
-JWT REST requests have a separate limit of 100 requests per five minutes per organization, external Tenant, and external user identity. Throttling returns `429` and `Retry-After` seconds.
+JWT resource requests have a separate limit of 100 requests per five minutes per organization, external Tenant, and external user identity. Throttling returns `429` and `Retry-After` seconds.
+
+## Chat and downloads
+
+Chat runs and configuration accept a Bearer JWT without requiring administrator privileges or persisted Tenant/TenantUser records. Organization API keys cannot call chat directly. Chat runs have a separate limit of 20 requests per minute per organization, external Tenant, and external user identity.
+
+Artifact downloads use the signed `ticket` query parameter provided by the agent. Treat download URLs as temporary credentials. They do not require a Bearer header.
 
 ## Browser transport
 

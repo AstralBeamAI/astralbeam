@@ -11,7 +11,7 @@ export const DEFAULT_EMPTY_TITLE = "Ask the assistant"
 export const DEFAULT_EMPTY_DESCRIPTION =
   "It can answer questions and act through this app's own tools and widgets."
 
-/** Base URL of the AstralBeam API when the mount options give none; `/chat` and its subroutes hang off it. */
+/** Base URL of the AstralBeam API when the mount options give none; versioned routes hang off it. */
 export const DEFAULT_API_URL = "https://app.astralbeam.ai/api"
 
 /** Host endpoint that mints chat JWTs when the mount options give none. */
@@ -26,7 +26,7 @@ export function chatApiUrls(apiUrl: string | undefined): {
   config: string
   files: string
 } {
-  const chat = `${(apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, "")}/chat`
+  const chat = `${(apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, "")}/v1/chat`
   return { chat, config: `${chat}/config`, files: `${chat}/files` }
 }
 

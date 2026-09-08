@@ -1,9 +1,5 @@
 import type { NitroAppPlugin } from "nitro/types"
 
-// The SDK widget loads these routes from a customer's own origin, so they must stay framable and
-// keep the CSP that `/api/chat/files` sets on downloaded artifacts.
-const EMBEDDED_API_BASE_PATH = "/api/chat"
-
 // One year is the shortest max-age the preload list accepts.
 // https://hstspreload.org/#deployment-recommendations
 const STRICT_TRANSPORT_SECURITY = "max-age=63072000; includeSubDomains"
@@ -18,11 +14,6 @@ function isSecureRequest(request: Request): boolean {
   // A forged value only adds a header browsers ignore over plain HTTP, so the proxy's protocol
   // does not need the loopback check that `/configure` applies before enforcing HTTPS.
   return request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() === "https"
-}
-
-function isEmbeddedApiPath(pathname: string): boolean {
-  return pathname === EMBEDDED_API_BASE_PATH ||
-    pathname.startsWith(`${EMBEDDED_API_BASE_PATH}/`)
 }
 
 export function applyResponseSecurityHeaders(
@@ -43,11 +34,10 @@ export function applyResponseSecurityHeaders(
   headers.set("X-Content-Type-Options", "nosniff")
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
   headers.set("Permissions-Policy", PERMISSIONS_POLICY)
-  if (isEmbeddedApiPath(pathname)) return
   headers.set("X-Frame-Options", "DENY")
-  // Script and style directives are deliberately absent: the framework's inline bootstrap,
-  // Turnstile, and the docs pages each need their own allowlist audit first.
-  headers.set("Content-Security-Policy", "frame-ancestors 'none'")
+  // Browsers enforce both policies, preserving route-specific restrictions such as artifact sandboxing.
+  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy#multiple_content_security_policies
+  headers.append("Content-Security-Policy", "frame-ancestors 'none'")
 }
 
 const responseHeadersPlugin: NitroAppPlugin = (nitro) => {

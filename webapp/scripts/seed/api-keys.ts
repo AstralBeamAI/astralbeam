@@ -22,7 +22,7 @@ export type SeedApiKeySummary = {
 
 /**
  * Better Auth's `defaultKeyHasher`: an unpadded base64url SHA-256 digest of the raw key. The
- * digest is all the database ever holds, and `/api/chat` verifies chat-token signatures against
+ * digest is all the database ever holds, and `/api/v1/chat` verifies chat-token signatures against
  * it, so a seeded key works exactly like one created in the dashboard.
  * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/api-key/src/index.ts
  */

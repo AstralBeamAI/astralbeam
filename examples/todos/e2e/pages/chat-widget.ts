@@ -17,13 +17,13 @@ import { expect, type Locator, type Page } from "@playwright/test"
 const CHAT_IDLE_TIMEOUT_MS = 150_000
 
 /**
- * `/api/chat` allows 20 requests a minute per tenant user, and a single agent turn spans several
+ * `/api/v1/chat` allows 20 requests a minute per tenant user, and a single agent turn spans several
  * of them, because each host-tool call ends one request and starts another. A run of the agent
  * specs therefore exhausts that window, the endpoint answers 429, and the widget shows a
  * retryable error. Waiting the window out and pressing Retry keeps a throttled request from
  * failing an otherwise good spec. The example's token route mints one fixed tenant user, so every
  * spec shares the bucket; the limit itself is `CHAT_RATE_LIMIT_WINDOW_MS` and
- * `CHAT_RATE_LIMIT_MAX_REQUESTS` in `webapp/src/routes/api/chat/-lib/constants.server.ts`.
+ * `CHAT_RATE_LIMIT_MAX_REQUESTS` in `webapp/src/lib/chat/constants.server.ts`.
  */
 const CHAT_RATE_LIMIT_COOLDOWN_MS = 65_000
 const CHAT_RATE_LIMIT_MAX_RECOVERIES = 2

@@ -19,6 +19,9 @@ const restTestState = vi.hoisted(() => ({
   verify: vi.fn(),
   chat: vi.fn(),
   consume: vi.fn(),
+  agent: vi.fn(),
+  run: vi.fn(),
+  readFile: vi.fn(),
 }))
 
 // Return queued driver results, not a second implementation of database filtering or constraints.
@@ -77,7 +80,7 @@ vi.mock("@/db", () => {
 vi.mock("@/lib/auth.server", () => ({
   getAuth: () => Promise.resolve({ api: { verifyApiKey: restTestState.verify } }),
 }))
-vi.mock("@/routes/api/chat/-lib/auth.server", () => ({
+vi.mock("@/lib/chat/auth.server", () => ({
   authenticateChatRequest: restTestState.chat,
   isChatAuthenticationError: (error: unknown) =>
     error instanceof Error && error.name === "ChatAuthenticationError",
@@ -85,12 +88,32 @@ vi.mock("@/routes/api/chat/-lib/auth.server", () => ({
 vi.mock("@/db/lib/rate-limiter.server", () => ({
   databaseRateLimiter: { consume: restTestState.consume },
 }))
+vi.mock("@/lib/config", () => ({ getGlobalConfig: () => Promise.resolve("test-provider-key") }))
+vi.mock("@/lib/chat/agent.server", () => ({ resolveChatAgent: restTestState.agent }))
+vi.mock("@tanstack/ai", async (original) => ({
+  ...await original<typeof import("@tanstack/ai")>(),
+  chat: restTestState.run,
+}))
+vi.mock("@/db/organization-sandbox-provider.server", () => ({
+  resolveOrganizationSandboxProviderConfiguration: () => Effect.succeed({ provider: "test" }),
+}))
+vi.mock("@/lib/sandbox/factory.server", () => ({
+  createSandboxProvider: () =>
+    Effect.succeed({
+      resume: () =>
+        Promise.resolve({
+          cwd: "/workspace",
+          fs: { readBytes: restTestState.readFile },
+        }),
+    }),
+}))
 
-import { dispatchRestRequest, tenantRestWebHandler } from "./transport.server"
-import { TenantRestApi } from "./contract.server"
+import { apiV1WebHandler, dispatchRestRequest } from "./transport.server"
+import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
+import { artifactContentDigest, mintSandboxArtifactTicket } from "@/lib/chat/artifacts.server"
 
 const restOrgId = "019a0000-0000-7000-8000-000000000001"
 const restTenantId = "019a0000-0000-7000-8000-000000000002"
@@ -172,7 +195,144 @@ describe("REST API through the Effect Fetch handler", () => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
   })
-  afterAll(() => tenantRestWebHandler.dispose())
+  afterAll(() => apiV1WebHandler.dispose())
+
+  test("chat streams for non-admin JWTs and cancellation reaches the producer", async () => {
+    restTestState.chat.mockResolvedValue({
+      ...restPrincipal,
+      tenantUser: { ...restPrincipal.tenantUser, admin: false },
+    })
+    restTestState.agent.mockResolvedValue({
+      systemPrompt: "Help",
+      attachmentsEnabled: false,
+      sandboxProviderId: null,
+    })
+    let stopped = false
+    restTestState.run.mockImplementation(
+      async function* ({ abortController }: { abortController: AbortController }) {
+        yield { type: "RUN_STARTED", threadId: "thread", runId: "run" }
+        await new Promise<void>((resolve) =>
+          abortController.signal.addEventListener("abort", () => {
+            stopped = true
+            resolve()
+          }, { once: true })
+        )
+      },
+    )
+    const response = await restRequest("/chat", {
+      method: "POST",
+      headers: { Authorization: "Bearer signed-jwt", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread",
+        runId: "run",
+        messages: [],
+        tools: [],
+        context: [],
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("text/event-stream")
+    expect(response.headers.get("cache-control")).toContain("no-store")
+    const reader = response.body!.getReader()
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain("RUN_STARTED")
+    await reader.cancel()
+    await vi.waitFor(() => expect(stopped).toBe(true))
+    expect(restTestState.consume.mock.calls[0]![0]).toHaveProperty("limit", 20)
+    expect(restTestState.consume.mock.calls[0]![0]).toHaveProperty(
+      "key",
+      expect.stringMatching(/^chat:/),
+    )
+    expect(restTestState.verify).not.toHaveBeenCalled()
+    expect(restTestState.predicates).toEqual([])
+  })
+
+  test("chat HTTP failures share v1 errors, CORS, challenges, and retry information", async () => {
+    const headers = { Authorization: "Bearer signed-jwt", "Content-Type": "application/json" }
+    for (
+      const [body, extra, status] of [
+        ["{", {}, 400],
+        ["{}", { "content-length": String(33 * 1024 * 1024) }, 413],
+        ["{}", { "content-type": "text/plain" }, 415],
+      ] as const
+    ) {
+      const response = await restRequest("/chat", {
+        method: "POST",
+        headers: { ...headers, ...extra },
+        body,
+      })
+      expect(response.status).toBe(status)
+      expect(response.headers.get("content-type")).toContain("application/problem+json")
+      expect(response.headers.get("access-control-allow-origin")).toBe("*")
+      expect(await response.json()).toMatchObject({ status })
+    }
+    restTestState.agent.mockResolvedValue(null)
+    expect((await restRequest("/chat/config", { headers })).status).toBe(404)
+    restTestState.chat.mockRejectedValue(
+      Object.assign(new Error("private"), { name: "ChatAuthenticationError" }),
+    )
+    const unauthorized = await restRequest("/chat/config", { headers })
+    expect(unauthorized.status).toBe(401)
+    expect(unauthorized.headers.get("www-authenticate")).toContain("Bearer")
+    expect(await unauthorized.text()).not.toContain("private")
+    restTestState.chat.mockResolvedValue(restPrincipal)
+    restTestState.consume.mockReturnValue(Effect.fail(
+      new RateLimiter.RateLimiterError({
+        reason: new RateLimiter.RateLimitExceeded({
+          key: "chat:test",
+          limit: 20,
+          remaining: 0,
+          retryAfter: Duration.millis(1500),
+        }),
+      }),
+    ))
+    const limited = await restRequest("/chat", { method: "POST", headers, body: "{}" })
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get("retry-after")).toBe("2")
+  })
+
+  test("artifact tickets serve unchanged bytes and security headers without bearer auth", async () => {
+    const bytes = new TextEncoder().encode("A published report")
+    restTestState.readFile.mockResolvedValue(bytes)
+    const ticket = await mintSandboxArtifactTicket({
+      organizationId: restOrgId,
+      tenantId: "customer",
+      tenantUserId: "user",
+      sandboxProviderId: restOtherId,
+      providerSandboxId: "sandbox",
+      path: "/workspace/report.txt",
+      mimeType: "text/plain",
+      size: bytes.length,
+      sha256: await artifactContentDigest(bytes),
+    })
+    const response = await restRequest(`/chat/files?ticket=${ticket}`, { headers: {} })
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe("A published report")
+    expect(response.headers.get("content-disposition")).toContain("report.txt")
+    expect(response.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'")
+    expect(response.headers.get("cache-control")).toBe("private, no-store")
+    expect(response.headers.get("access-control-expose-headers")).toContain("Content-Disposition")
+    expect(restTestState.chat).not.toHaveBeenCalled()
+    expect(restTestState.verify).not.toHaveBeenCalled()
+    restTestState.readFile.mockResolvedValue(new TextEncoder().encode("changed"))
+    expect((await restRequest(`/chat/files?ticket=${ticket}`)).status).toBe(404)
+    expect((await restRequest("/chat/files?ticket=invalid")).status).toBe(404)
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {})
+    restTestState.readFile.mockRejectedValue(
+      Object.assign(new Error("private provider details"), {
+        name: "FileReadError",
+        code: "ENOENT",
+      }),
+    )
+    const failed = await restRequest(`/chat/files?ticket=${ticket}`)
+    expect(failed.status).toBe(500)
+    expect(logged).toHaveBeenCalledExactlyOnceWith("API request failed", {
+      stage: "getChatFile",
+      status: 500,
+      errorType: "FileReadError",
+      code: "ENOENT",
+    })
+    expect(await failed.text()).not.toContain("private provider details")
+  })
 
   test.each([false, true])(
     "database page streams advance lazily (backward: %s)",
@@ -508,7 +668,7 @@ describe("REST API through the Effect Fetch handler", () => {
 
 describe("REST request boundaries", () => {
   test("OpenAPI keeps one shared Tenant record model", () => {
-    const document = OpenApi.fromApi(TenantRestApi)
+    const document = OpenApi.fromApi(ApiV1)
     expect(
       Object.keys(document.components.schemas).filter((name) => name.startsWith("TenantRecord")),
     )

@@ -4,6 +4,9 @@ import type { EffectDatabase } from "@/db"
 import type { TenantScope } from "../../../../db/tenant.server.ts"
 import { TenantExternalIdSchema } from "../../../../api/management.ts"
 export const restEmptyPage = { items: [], page_after: null, page_before: null }
+export const restResourceSecurity = {
+  security: [{ OrganizationApiKey: [] }, { astralBeamToken: [] }],
+}
 export const restExamplePageCursors = {
   page_after:
     "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
@@ -26,9 +29,10 @@ export const RestApiErrorSchema = Schema.Struct({
 }).annotate({
   identifier: "AstralBeamApiError",
 })
-const restErrorSchemas = [400, 401, 403, 404, 409, 415, 422, 429, 500, 503].map((status) =>
+const restErrorSchemas = [400, 401, 403, 404, 409, 413, 415, 422, 429, 500, 503].map((status) =>
   HttpApiSchema.WithHeaders(RestApiErrorSchema, {
     "Retry-After": Schema.optionalKey(Schema.String),
+    "WWW-Authenticate": Schema.optionalKey(Schema.String),
   })
     .pipe(
       HttpApiSchema.status(status),
@@ -40,11 +44,15 @@ export interface RestScope extends TenantScope {
   tenantFilter?: string
 }
 export const restScope = Context.Service<RestScope>("RestScope")
-// Framework-required middleware class; authentication runs once before request decoding.
-export class RestBoundary extends HttpApiMiddleware.Service<
-  RestBoundary,
+export class ApiBoundary extends HttpApiMiddleware.Service<ApiBoundary>()(
+  "ApiBoundary",
+  { error: restErrorSchemas },
+) {}
+
+export class RestAuthorization extends HttpApiMiddleware.Service<
+  RestAuthorization,
   { provides: RestScope; requires: EffectDatabase }
->()("RestBoundary", { error: restErrorSchemas }) {}
+>()("RestAuthorization") {}
 
 const restPageCursor = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(2048))
 export const restPageQuery = Schema.Struct({

@@ -15,21 +15,26 @@ describe("response security headers", () => {
     expect(headers.get("cache-control")).toBe("private, no-store")
   })
 
-  test("frames and referrers are restricted on application responses", () => {
-    const headers = securityHeaders("https://app.example/organization", "/organization")
-    expect(headers.get("x-frame-options")).toBe("DENY")
-    expect(headers.get("content-security-policy")).toBe("frame-ancestors 'none'")
-    expect(headers.get("x-content-type-options")).toBe("nosniff")
-    expect(headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin")
-  })
-
-  test("the cross-origin embedded chat API keeps its own framing and CSP", () => {
-    for (const pathname of ["/api/chat", "/api/chat/config", "/api/chat/files"]) {
+  test.each(["/organization", "/api/v1/tenants", "/api/v1/chat", "/api/chat"])(
+    "frames and referrers are restricted on %s",
+    (pathname) => {
       const headers = securityHeaders(`https://app.example${pathname}`, pathname)
-      expect(headers.get("x-frame-options")).toBeNull()
-      expect(headers.get("content-security-policy")).toBeNull()
+      expect(headers.get("x-frame-options")).toBe("DENY")
+      expect(headers.get("content-security-policy")).toBe("frame-ancestors 'none'")
       expect(headers.get("x-content-type-options")).toBe("nosniff")
-    }
+      expect(headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin")
+    },
+  )
+
+  test("preserves route-provided CSP without allowing framing", () => {
+    const pathname = "/api/v1/chat/files"
+    const headers = new Headers({ "Content-Security-Policy": "sandbox; default-src 'none'" })
+    applyResponseSecurityHeaders(headers, new Request(`https://app.example${pathname}`), pathname)
+    expect(headers.get("x-frame-options")).toBe("DENY")
+    expect(headers.get("content-security-policy")).toBe(
+      "sandbox; default-src 'none', frame-ancestors 'none'",
+    )
+    expect(headers.get("x-content-type-options")).toBe("nosniff")
   })
 
   test("HSTS is sent only for requests that arrived over TLS", () => {

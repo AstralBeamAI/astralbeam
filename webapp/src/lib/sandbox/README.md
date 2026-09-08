@@ -51,7 +51,7 @@ The factory calls `vercelSandbox({ teamId, projectId, runtime, token })` with th
 
 A provider on its own runs nothing. Selecting one on an agent is what gives that agent sandbox tools.
 
-`/api/chat` then declares `sandbox_write_file`, `sandbox_read_file`, `sandbox_list_files`, and `sandbox_run_command` from `src/routes/api/chat/-lib/sandbox-tools.server.ts`.
+`/api/v1/chat` then declares `sandbox_write_file`, `sandbox_read_file`, `sandbox_list_files`, and `sandbox_run_command` from `src/lib/chat/sandbox-tools.server.ts`.
 
 - Nothing is provisioned when a run starts. The first tool the agent reaches for creates or resumes the sandbox.
 - One sandbox serves a conversation, so its later turns build on the files already in it.

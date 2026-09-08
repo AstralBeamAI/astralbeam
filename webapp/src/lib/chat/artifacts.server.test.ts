@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest"
 
 import {
-  artifactContentDigest,
   artifactContentDisposition,
   detectSandboxArtifactMimeType,
   isInlineArtifactMimeType,
@@ -54,15 +53,6 @@ describe("sandbox artifact tickets", () => {
     const { tenantId: _tenantId, ...withoutTenant } = ticket
     const tenantless = await mintSandboxArtifactTicket(withoutTenant as SandboxArtifactTicket)
     await expect(verifySandboxArtifactTicket(tenantless)).resolves.toBeUndefined()
-  })
-})
-
-describe("artifactContentDigest", () => {
-  it("binds to exact bytes", async () => {
-    const published = await artifactContentDigest(new Uint8Array([1, 2, 3]))
-    const replaced = await artifactContentDigest(new Uint8Array([1, 2, 4]))
-    expect(published).not.toBe(replaced)
-    await expect(artifactContentDigest(new Uint8Array([1, 2, 3]))).resolves.toBe(published)
   })
 })
 

@@ -139,7 +139,7 @@ describe("organization API-key chat JWTs", () => {
 
     await expect(
       authenticateChatRequest(
-        new Request("https://example.test/api/chat", {
+        new Request("https://example.test/api/v1/chat", {
           headers: { authorization: `Bearer ${await token()}` },
         }),
       ),
@@ -181,7 +181,7 @@ describe("organization API-key chat JWTs", () => {
 
     await expect(
       authenticateChatRequest(
-        new Request("https://example.test/api/chat", {
+        new Request("https://example.test/api/v1/chat", {
           headers: { authorization: `Bearer ${await token()}` },
         }),
       ),

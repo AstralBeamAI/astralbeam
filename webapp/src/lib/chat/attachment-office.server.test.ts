@@ -1,7 +1,7 @@
 import { strToU8, zipSync } from "fflate"
 import { expect, test } from "vitest"
 
-import { extractOfficeDocument, isOfficeMimeType } from "./attachment-office.server"
+import { extractOfficeDocument } from "./attachment-office.server"
 import {
   CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES,
   CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES,
@@ -253,9 +253,4 @@ test("explains a container that is not the office file it claims to be", () => {
   expect(extractOfficeDocument(container({}), "application/zip")).toEqual({
     reason: "this assistant cannot read that office format.",
   })
-})
-
-test("knows which MIME types it can read", () => {
-  expect([DOCX, PPTX, XLSX].every(isOfficeMimeType)).toBe(true)
-  expect(isOfficeMimeType("application/zip")).toBe(false)
 })

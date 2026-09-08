@@ -232,7 +232,7 @@ export function createChatSandboxTools(
       }).catch((error: unknown) => {
         // A command that cannot launch is the agent's problem to fix, not a broken run. The
         // vendor's own message can carry hostnames or tokens, so only the log sees it.
-        console.error("A /api/chat sandbox command failed to run:", error)
+        console.error("A /api/v1/chat sandbox command failed to run:", error)
         return { stdout: "", stderr: "The command could not be run.", exitCode: -1 }
       }),
       CHAT_SANDBOX_COMMAND_TIMEOUT_MS,
@@ -273,7 +273,7 @@ export function createChatSandboxTools(
     ).catch((error: unknown) => {
       // The agent only learns the path did not work; the vendor's message can carry hostnames or
       // tokens, so the reason stays in the log — without it a provider-side failure is invisible.
-      console.error("A /api/chat sandbox artifact could not be read:", error)
+      console.error("A /api/v1/chat sandbox artifact could not be read:", error)
       return undefined
     })
     if (bytes === undefined) {
