@@ -2,7 +2,7 @@
 
 Browser tests that drive the dashboard against a real server, a real PostgreSQL database, and real email. They exist so a change to authentication, `/configure`, or any organization page can be verified in a minute without anyone clicking through signup, verification, and organization creation by hand.
 
-The suite is self-contained. It creates and migrates its own database, starts its own webapp, and captures email in its own SMTP sink, so nothing it does touches the development database, the 4500 development server, or Docker.
+The suite is self-contained and deterministic. It creates and migrates its own database, starts its own webapp, and captures email in its own SMTP sink, so a default run touches neither the development database nor the 4500 development server, and never starts a container. The one project that does run containers is opt-in.
 
 ## Run it
 
@@ -13,6 +13,7 @@ deno task --cwd webapp e2e
 
 - `deno task e2e -g "some title"` narrows to matching test titles while iterating. Playwright does not apply `-g` to a dependency project, so the baseline below is still established.
 - `deno task e2e --project=features` runs only the focused specs, after their dependencies.
+- `E2E_SANDBOX=docker deno task e2e` adds the `sandbox` project. Its specs save a sandbox provider, which runs the product's real connection test, so they create, use, and destroy a container and may pull `node:22` first. The project does not exist without that variable, so a run without it is deterministic rather than dependent on whether a daemon happens to be up.
 - `deno task e2e --ui` opens Playwright's runner for stepping through a flow.
 - It is not part of `check`, `test`, or `ready`, and it does not run in CI. Run it deliberately.
 
@@ -49,6 +50,7 @@ Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `c
 | `pages/`               | Selectors and actions, one module per surface                                |
 | `specs/journey/`       | The full cold-start journey, which is also the suite's setup project         |
 | `specs/features/`      | Focused specs, which start from the journey's baseline                       |
+| `specs/sandbox/`       | Specs that run real containers, present only under `E2E_SANDBOX=docker`      |
 
 ## Projects, and the baseline between them
 
@@ -57,6 +59,7 @@ Three Playwright projects run in a dependency chain, so state a spec relies on i
 1. `preflight` checks the environment.
 2. `journey` drives the product from an unconfigured deployment, and ends by writing `.output/baseline.json` and `.output/baseline-state.json`.
 3. `features` depends on `journey`, so its specs open with the owner already signed in and read that organization from the `baseline` fixture.
+4. `sandbox` depends on `journey` the same way, and exists only under `E2E_SANDBOX=docker`.
 
 ## Adding a flow
 
@@ -66,7 +69,7 @@ Compose it from the page objects; a spec should read as the user's steps and not
 2. Take the page objects you need from the fixture argument. Add a method to a page object rather than putting a raw selector in a spec.
 3. Take the organization to work in from the `baseline` fixture; the spec is already signed in as its owner. `test.use({ storageState: { cookies: [], origins: [] } })` gets a signed-out context instead, as `route-guards.spec.ts` does.
 4. Take unique names from `makeRunIdentity()` for anything the spec creates, so two runs never collide.
-5. Put a flow that needs an unconfigured deployment in `specs/journey` instead, and extend the baseline it records if a later spec needs more of it.
+5. Put a flow that needs an unconfigured deployment in `specs/journey` instead, and extend the baseline it records if a later spec needs more of it. Put anything that starts a container in `specs/sandbox`.
 
 ## How the environment is assembled
 
@@ -84,6 +87,7 @@ The webapp server is given only `PORT`, `DATABASE_URL`, `APP_BASE_URL`, and the 
 | Required configuration keys            | the configure step in `specs/`            |
 | Server startup, ports, or required env | `worktree.ts`                             |
 | A new capability to cover              | a new spec under `specs/features`         |
+| A capability that needs a container    | a new spec under `specs/sandbox`          |
 | What a focused spec may assume         | `baseline.ts` and the journey's last step |
 
 ## Things that will bite you
@@ -96,5 +100,5 @@ The webapp server is given only `PORT`, `DATABASE_URL`, `APP_BASE_URL`, and the 
 - **The invitations table keeps a cancelled row** and only changes its status badge, so a cancelled invitation does not disappear.
 - **Creating an organization generates a random slug suffix**, so a spec that asserts URLs must type its own slug into the dialog.
 - **Signing up checks the password against Have I Been Pwned**, which is a real network call. `makeRunIdentity()` returns a random password, which satisfies it.
-- **Saving a sandbox provider runs a real connection test**, so the Docker step only runs where a daemon is reachable and is skipped otherwise. `worktree.ts` resolves the CLI's active context into `DOCKER_HOST` and forwards it to the server, so the probe and the application cannot end up on different daemons.
+- **Saving a sandbox provider runs a real connection test**, which is why that lives behind `E2E_SANDBOX=docker` rather than behind an ambient daemon probe. `worktree.ts` resolves the CLI's active context into `DOCKER_HOST` and forwards it to the server, so the spec's probe and the application cannot end up on different daemons.
 - **A mutation's own controls are disabled while it runs and enabled again afterwards**, so waiting on a button says nothing about whether the write landed. Page-object methods wait for the success toast through `expectToast`, which is what makes them safe to compose.

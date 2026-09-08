@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test"
 
+import { waitForHydration } from "../hydration.ts"
+
 /**
  * `/:orgSlug/sandboxes`. Saving a provider runs a real connection test first, so
  * `createDockerProvider` needs a reachable Docker daemon.
@@ -18,6 +20,7 @@ export function sandboxesPage(page: Page) {
       await page.getByRole("link", { name: "Add provider" }).first().click()
       await expect(page.getByRole("heading", { level: 1, name: "Add sandbox provider" }))
         .toBeVisible()
+      await waitForHydration(page.locator("#sandbox-provider-name"))
     },
 
     async selectProviderType(label: string): Promise<void> {

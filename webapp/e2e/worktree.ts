@@ -105,7 +105,12 @@ function pinDockerHost(): void {
 
 pinDockerHost()
 
-/** Saving a sandbox provider runs a real connection test, so that step needs a live daemon. */
+/**
+ * Saving a sandbox provider runs the product's real connection test, which creates, uses, and
+ * destroys a container and may pull its image, so that project is opt-in rather than ambient.
+ */
+export const sandboxSpecsEnabled = process.env.E2E_SANDBOX === "docker"
+
 export function dockerDaemonAvailable(): boolean {
   return spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0
 }

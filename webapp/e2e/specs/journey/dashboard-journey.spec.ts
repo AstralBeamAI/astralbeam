@@ -3,7 +3,7 @@ import { captureMilestone } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 import { makeRunIdentity } from "../../identity.ts"
 import { emailLink, waitForEmail } from "../../mailbox.ts"
-import { dockerDaemonAvailable, mailboxSmtpPort, operatorKey, webappUrl } from "../../worktree.ts"
+import { mailboxSmtpPort, operatorKey, webappUrl } from "../../worktree.ts"
 
 /**
  * One continuous session over an empty deployment: configure it, create an account, verify its
@@ -111,13 +111,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   await test.step("the owner reviews the sandbox providers page", async () => {
     await shell.openSection("Sandboxes", "Sandboxes")
     await expect(sandboxes.emptyState()).toBeVisible()
-
-    // Saving a provider runs a real connection test, so this only runs where Docker is up.
-    if (dockerDaemonAvailable()) {
-      await sandboxes.createDockerProvider(`Local Docker ${identity.runId}`, "node:22")
-      await shell.openSection("Sandboxes", "Sandboxes")
-      await expect(sandboxes.card(`Local Docker ${identity.runId}`)).toBeVisible()
-    }
+    // Creating one runs a real connection test against a container, which `specs/sandbox` covers
+    // on request; the journey stays deterministic and stops at the form.
+    await sandboxes.startCreate()
     await captureMilestone(page, "06-sandboxes")
   })
 

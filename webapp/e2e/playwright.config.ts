@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test"
 
 import { baselineStatePath } from "./baseline.ts"
-import { captureEverything, e2eWebServers, webappUrl } from "./worktree.ts"
+import { captureEverything, e2eWebServers, sandboxSpecsEnabled, webappUrl } from "./worktree.ts"
 
 /**
  * One webapp, one database, and one mail sink serve every spec, so the suite runs serially and
@@ -10,6 +10,7 @@ import { captureEverything, e2eWebServers, webappUrl } from "./worktree.ts"
  * - `preflight` fails once, with something to act on, when the environment is not ready.
  * - `journey` drives the whole product from an unconfigured deployment and records its baseline.
  * - `features` holds focused specs, which start from that baseline and the owner's session.
+ * - `sandbox` exists only under `E2E_SANDBOX=docker`, because its specs run real containers.
  */
 export default defineConfig({
   fullyParallel: false,
@@ -48,6 +49,16 @@ export default defineConfig({
       dependencies: ["journey"],
       use: { storageState: baselineStatePath },
     },
+    ...(sandboxSpecsEnabled
+      ? [{
+        name: "sandbox",
+        testDir: "./specs/sandbox",
+        dependencies: ["journey"],
+        use: { storageState: baselineStatePath },
+        // Generous, because a first run pulls the image before the container starts.
+        timeout: 300_000,
+      }]
+      : []),
   ],
   webServer: e2eWebServers(),
 })
