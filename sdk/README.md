@@ -64,7 +64,6 @@ export async function POST(request: Request) {
 - Authenticate once and derive stable `user.id` and `tenant.id` values from that trusted session.
 - Keep API keys server-only. Tokens are signed, not encrypted, so their claims must contain no secrets.
 - Return `Cache-Control: no-store` and fail closed when configuration or authentication is missing.
-- Tokens use the organization UUID as issuer and `astralbeam` as audience. The SDK renews them in memory before expiry.
 
 ## Options
 
@@ -110,9 +109,6 @@ widgets: {
 
 - Schemas are plain JSON Schema, or any [Standard Schema](https://standardschema.dev) validator (Zod, Valibot, ArkType).
 - Only a Standard Schema validates input in the browser. With plain JSON Schema, treat input as untrusted.
-- `defineTool` and `defineWidget` type `execute`/`render` input from a Standard Schema's output.
-- In React, `render` returns JSX in your own tree, so state, context, and handlers keep working.
-- New tools and widgets reach the agent on its next run.
 
 ## Documentation
 
