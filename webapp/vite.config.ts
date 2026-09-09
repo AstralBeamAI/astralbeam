@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs"
+import { extname } from "node:path"
 import process from "node:process"
 
 import tailwindcss from "@tailwindcss/vite"
@@ -83,6 +84,11 @@ const viteConfig = defineConfig(({ mode }) => {
           failOnError: true,
         },
         hooks: {
+          // A bare /docs/<section> URL redirects to the section's first page, and Nitro writes an
+          // extensionless response body over the directory holding that section's own pages.
+          "prerender:generate": (route) => {
+            if (!extname(route.fileName ?? "")) route.skip = true
+          },
           "prerender:config": (config) => {
             // Shared route imports create lazy pools. Only the prerender bundle gets this URL.
             // https://nitro.build/config#hooks
