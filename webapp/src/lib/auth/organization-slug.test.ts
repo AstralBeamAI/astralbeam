@@ -22,7 +22,8 @@ function readTopLevelRouteSegments(directory: URL): string[] {
       }
       return [name]
     }
-    const base = name.replace(/\.(ts|tsx)$/u, "")
+    // TanStack Router escapes a literal dot in a file name as `[.]`, as in `robots[.]txt.ts`.
+    const base = name.replace(/\.(ts|tsx)$/u, "").replaceAll("[.]", ".")
     return base === "index" || base === "route" ? [] : [base]
   })
 }

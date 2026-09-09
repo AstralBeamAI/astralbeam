@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { expect, test } from "vitest"
 
 import limits from "../-content/sdk/limits.md?raw"
-import { DOCS_SECTIONS } from "./content"
+import { DOCS_SECTIONS, docsSitemapPaths } from "./content"
 import {
   CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
   CHAT_ATTACHMENT_MAX_COUNT,
@@ -59,6 +59,21 @@ test("same-folder Markdown links resolve to a page the same reader can reach", (
       }
     }
   }
+})
+
+// The sitemap is the one place that advertises docs URLs to crawlers, so a draft must not reach it.
+test("the sitemap lists the published docs without drafts or redirects", () => {
+  const paths = docsSitemapPaths()
+  const draftPaths = DOCS_SECTIONS.filter((section) => section.draft)
+    .flatMap((section) => section.pages.map((page) => `/docs/${section.slug}/${page.slug}`))
+
+  expect(paths).toContain("/docs")
+  expect(paths).toContain("/docs/api")
+  expect(paths).toContain("/docs/sdk/getting-started")
+  expect(draftPaths.length).toBeGreaterThan(0)
+  expect(paths.filter((path) => draftPaths.includes(path))).toEqual([])
+  // A bare section URL only redirects to its first page.
+  expect(paths).not.toContain("/docs/sdk")
 })
 
 test("the manifest and the content directory hold exactly the same pages", () => {

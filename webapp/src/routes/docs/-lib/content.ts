@@ -113,6 +113,18 @@ export function publishedDocsPages(section: DocsSection): DocsPage[] {
   return section.pages.filter((page) => !page.draft)
 }
 
+/** Crawlable docs paths: drafts are unlisted, and a bare section URL is only a redirect. */
+export function docsSitemapPaths(): string[] {
+  return [
+    "/docs",
+    ...DOCS_SECTIONS.filter((section) => !section.draft).flatMap((section) =>
+      section.href
+        ? [section.href]
+        : publishedDocsPages(section).map((page) => `/docs/${section.slug}/${page.slug}`)
+    ),
+  ]
+}
+
 export function loadDocsMarkdown(sectionSlug: string, pageSlug: string): Promise<string> {
   const load = docsMarkdownByPath[`/src/routes/docs/-content/${sectionSlug}/${pageSlug}.md`]
   if (!load) throw new Error(`Unregistered docs Markdown: ${sectionSlug}/${pageSlug}`)
