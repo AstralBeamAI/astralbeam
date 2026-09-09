@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router"
 import { APP_NAME, APP_WORDMARK_DARK_SVG_URL, APP_WORDMARK_LIGHT_SVG_URL } from "@/lib/constants"
+import { findDocsSection } from "./-lib/content"
 import "./-lib/header.css"
 
 export const Route = createFileRoute("/docs")({
@@ -9,7 +10,9 @@ export const Route = createFileRoute("/docs")({
 // Public documentation chrome: a slim top bar over the section content. Docs are
 // intentionally unauthenticated, like a package's hosted documentation site.
 function DocsLayout() {
-  const isSdk = useLocation({ select: ({ pathname }) => pathname.startsWith("/docs/sdk") })
+  const section = useLocation({
+    select: ({ pathname }) => findDocsSection(pathname.split("/")[2] ?? ""),
+  })
   return (
     <div className="min-h-svh bg-background text-foreground">
       <header className="docs-header">
@@ -30,12 +33,16 @@ function DocsLayout() {
               </Link>
             </li>
             <li>
-              <Link to="/docs" aria-current={isSdk ? undefined : "page"}>Docs</Link>
+              <Link to="/docs" aria-current={section ? undefined : "page"}>Docs</Link>
             </li>
-            {isSdk && (
+            {section && (
               <li>
-                <Link to="/docs/$section" params={{ section: "sdk" }} aria-current="location">
-                  SDK
+                <Link
+                  to="/docs/$section"
+                  params={{ section: section.slug }}
+                  aria-current="location"
+                >
+                  {section.title}
                 </Link>
               </li>
             )}

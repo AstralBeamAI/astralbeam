@@ -2,6 +2,7 @@
 
 import { useAuth } from "@better-auth-ui/react"
 import {
+  BookOpenTextIcon,
   BriefcaseIcon,
   CubeIcon,
   HouseIcon,
@@ -165,6 +166,17 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href="/docs" onClick={() => setOpenMobile(false)} />}
+              tooltip="Documentation"
+            >
+              <BookOpenTextIcon aria-hidden="true" />
+              <span>Documentation</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <UserButton
           align="start"
           hideSettings

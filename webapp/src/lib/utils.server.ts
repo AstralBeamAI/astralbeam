@@ -12,3 +12,12 @@ export function isLoopbackProxyAddress(address: string | undefined): boolean {
   return LOOPBACK_PROXY_ADDRESSES.includes(address) ||
     address === IPV4_MAPPED_LOOPBACK_ADDRESS
 }
+
+/** The deployment's public origin, for the absolute URLs crawlers require. */
+export async function resolveAppOrigin(request: Request): Promise<string> {
+  const { getGlobalConfig } = await import("@/lib/config")
+  // A crawler reads robots.txt before setup stores a base URL and while the database holding it is
+  // unreachable, and treats a 5xx there as disallow-all, so the request's origin is the fallback.
+  const appBaseUrl = await getGlobalConfig("app_base_url").catch(() => undefined)
+  return appBaseUrl ?? new URL(request.url).origin
+}
