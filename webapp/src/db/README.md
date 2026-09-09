@@ -16,6 +16,8 @@ The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated
 
 ## Query from server-only code
 
+Tenant and TenantUser name/external-ID substring searches use `pg_trgm` GIN indexes, installed by migration. The migration role needs permission to create the extension. Short or punctuation-only terms without extractable trigrams may still scan their scope. See [PostgreSQL index support](https://www.postgresql.org/docs/18/pgtrgm.html#PGTRGM-INDEX).
+
 Use the Drizzle client from server-only code, after authorizing the organization ID at the request boundary:
 
 ```ts

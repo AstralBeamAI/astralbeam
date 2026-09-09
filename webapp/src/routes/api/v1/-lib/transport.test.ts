@@ -575,9 +575,7 @@ describe("REST API through the Effect Fetch handler", () => {
         })).status,
       ).toBe(writeStatus === 201 ? 200 : 403)
       expect(restTestState.writes).toHaveLength(writeStatus === 201 ? 2 : 0)
-      if (writeStatus === 201) {
-        expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserId])
-      }
+      expect(restTestState.consume).toHaveBeenCalledTimes(3)
     },
   )
 

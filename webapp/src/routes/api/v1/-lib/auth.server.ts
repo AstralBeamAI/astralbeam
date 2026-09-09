@@ -44,6 +44,15 @@ export function authenticateRestRequest(
             : restFault(500, "Authentication could not be completed.", { cause: error })
         ),
       )
+      const identity = createHash("sha256").update(JSON.stringify([
+        principal.organizationId,
+        principal.currentUser.id,
+      ])).digest("base64url")
+      yield* databaseRateLimiter.consume({
+        key: `organization-rest:${identity}`,
+        limit: 100,
+        window: Duration.minutes(5),
+      }).pipe(Effect.mapError(restRateLimitFault))
       if (
         !authorizeOrganizationRole(principal.currentUser.role, {
           tenantManagement: [
@@ -55,15 +64,6 @@ export function authenticateRestRequest(
           restFault(403, "Your organization role does not permit this operation."),
         )
       }
-      const identity = createHash("sha256").update(JSON.stringify([
-        principal.organizationId,
-        principal.currentUser.id,
-      ])).digest("base64url")
-      yield* databaseRateLimiter.consume({
-        key: `organization-rest:${identity}`,
-        limit: 100,
-        window: Duration.minutes(5),
-      }).pipe(Effect.mapError(restRateLimitFault))
       return {
         organizationId: principal.organizationId,
         currentUser: principal.currentUser,

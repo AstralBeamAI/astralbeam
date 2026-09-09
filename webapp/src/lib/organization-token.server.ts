@@ -4,9 +4,10 @@ import { and, asc, eq } from "drizzle-orm"
 import { effectDatabase } from "@/db"
 import { user } from "@/db/schema/authentication.server"
 import { member } from "@/db/schema/organizations.server"
+import { APP_HANDLE } from "@/lib/constants"
 import { authenticateOrganizationIssuedToken } from "./chat/auth.server"
 
-export const ORGANIZATION_TOKEN_TYPE = "astralbeam-organization+jwt"
+export const ORGANIZATION_TOKEN_TYPE = `${APP_HANDLE}-organization+jwt`
 export type OrganizationCurrentUser = Pick<typeof user.$inferSelect, "id" | "name" | "email"> & {
   role: typeof member.$inferSelect.role
 }
@@ -14,7 +15,7 @@ export class OrganizationMembershipError extends Data.TaggedError("OrganizationM
 const organizationTokenClaims = Schema.Struct({
   ver: Schema.Literal(1),
   iss: Schema.String,
-  aud: Schema.Literal("astralbeam"),
+  aud: Schema.Literal(APP_HANDLE),
   email: Schema.String.check(
     Schema.isPattern(/^[^\s@]+@[^\s@]+$/),
     Schema.isMaxLength(320),
@@ -35,7 +36,7 @@ export function verifyOrganizationToken(token: string, verifier: Uint8Array, key
         algorithms: ["HS256"],
         typ: ORGANIZATION_TOKEN_TYPE,
         issuer,
-        audience: "astralbeam",
+        audience: APP_HANDLE,
         requiredClaims: ["iss", "aud", "email", "organization_id", "iat", "exp"],
         clockTolerance: 30,
         maxTokenAge: 600,
