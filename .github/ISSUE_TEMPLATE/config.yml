@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and help
+    url: https://discord.gg/suehFycUvW
+    about: Ask on Discord. Setup questions and usage help are answered there.
+  - name: Report a vulnerability
+    url: https://github.com/AstralBeamAI/astralbeam/security/advisories/new
+    about: Report security issues privately, never in a public issue.
+  - name: Documentation
+    url: https://app.astralbeam.ai/docs
+    about: SDK and API reference.
