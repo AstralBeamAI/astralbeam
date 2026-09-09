@@ -66,4 +66,4 @@ Before approving, inspect the staged package with `npm stage list`, `npm stage v
 
 Run the workflow manually from the Actions tab with the `dry-run` input to exercise the builds without creating a release or staging anything.
 
-The SDK publishes through [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so there is no npm token in the repository. The trusted publisher on npmjs.com must name this repository and the workflow filename `release.yml` exactly, both case-sensitive. Leave its "Allowed actions" setting unchecked, which is the stage-only default and keeps the 2FA approval gate in place.
+The SDK publishes through [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so there is no npm token in the repository. The trusted publisher on npmjs.com names this repository and the workflow filename `release.yml` exactly, both case-sensitive. It leaves the "Allowed actions" setting unchecked, which is the stage-only default and keeps the 2FA approval gate in place.
