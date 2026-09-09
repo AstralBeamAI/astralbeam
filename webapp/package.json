@@ -58,6 +58,7 @@
     "@tanstack/ai-sandbox-docker": "^0.3.2",
     "@tanstack/ai-sandbox-sprites": "^0.2.4",
     "@tanstack/ai-sandbox-vercel": "^0.2.4",
+    "@tanstack/highlight": "^0.0.10",
     "@tanstack/markdown": "^0.0.13",
     "@tanstack/react-devtools": "^0.10.9",
     "@tanstack/react-pacer": "^0.23.0",

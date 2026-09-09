@@ -8,13 +8,12 @@ import {
 } from "@better-auth-ui/core/plugins/theme"
 
 import { Appearance } from "@/components/auth/theme/appearance"
-import { ThemeToggleItem } from "@/components/auth/theme/theme-toggle-item"
 
 export const themePlugin = createAuthPlugin(
   coreThemePlugin.id,
   (options: ThemePluginOptions) => ({
     ...coreThemePlugin(options),
-    userMenuItems: [ThemeToggleItem],
+    userMenuItems: [],
     accountCards: [Appearance],
   }),
 )

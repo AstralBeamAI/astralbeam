@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 
+import { ThemeToggle } from "@/components/theme-toggle"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "../-components/app-sidebar"
 import { getOrganizationRouteContext } from "../$orgSlug/-functions/get-organization-route-context"
@@ -40,6 +41,7 @@ function SettingsLayout() {
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center border-b bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/70 sm:px-4">
           <SidebarTrigger />
+          <ThemeToggle className="ms-auto" />
         </header>
         <Outlet />
       </SidebarInset>
