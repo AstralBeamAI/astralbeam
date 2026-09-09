@@ -22,7 +22,7 @@ We are a small team, so these are targets rather than guarantees. If you have no
 
 ## Supported versions
 
-AstralBeam is pre-1.0 and has not had a public release yet. Security fixes land on `main` and ship in the next release. There are no maintained older release lines, and there are no backports, so run the latest release or `main` if you self-host.
+AstralBeam is pre-1.0. Only the latest published version is supported, which today means the newest `@astralbeam/sdk` release on npm and the current `main` for self-hosted deployments. Security fixes land on `main` and ship in the next release. There are no maintained older release lines and no backports, so upgrade to the latest version before reporting.
 
 ## Scope
 

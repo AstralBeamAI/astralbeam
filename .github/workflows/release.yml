@@ -165,7 +165,9 @@ jobs:
           package-manager-cache: false
 
       - name: Update npm
-        run: npm install --global npm@latest
+        # Node 24 patches bundle npm 11.13.0 through 11.19.0, and 11.13.0 is below the 11.15.0
+        # floor the `stage` subcommands need, so pin an exact npm into this OIDC-credentialed job.
+        run: npm install --global npm@11.19.0
 
       - name: Stage the SDK
         # Staging never makes the package public, so no token or 2FA is needed here. A maintainer
