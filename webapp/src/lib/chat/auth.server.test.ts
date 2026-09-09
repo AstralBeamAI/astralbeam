@@ -147,7 +147,8 @@ describe("organization API-key chat JWTs", () => {
       claims: { email: identity.email, organization_id: identity.organizationId },
     })
     await expect(verifyChatAuthToken(jwt, signingKey(), apiKeyId)).rejects.toThrow()
-    await expect(verifyOrganizationToken(await token(), signingKey(), apiKeyId)).rejects.toThrow()
+    await expect(Effect.runPromise(verifyOrganizationToken(await token(), signingKey(), apiKeyId)))
+      .rejects.toThrow()
     const keyRow = [{
       id: apiKeyId.split("_")[2],
       digest: createHash("sha256").update(rawApiKey).digest("base64url"),
@@ -176,11 +177,10 @@ describe("organization API-key chat JWTs", () => {
       identity,
       currentUser,
     })
-    const dialect = new PgDialect()
-    const join = dialect.sqlToQuery(databaseState.joinPredicates.at(-1)!)
+    const join = query(databaseState.joinPredicates.at(-1)!)
     expect(join.sql).toContain('"member"."user_id" = "user"."id"')
     expect(join.params).toEqual([identity.organizationId])
-    expect(dialect.sqlToQuery(databaseState.wherePredicates.at(-1)!).params).toEqual([
+    expect(query(databaseState.wherePredicates.at(-1)!).params).toEqual([
       identity.email,
     ])
     await expect(runDatabaseEffect(authentication)).resolves.toMatchObject({
@@ -222,8 +222,9 @@ describe("organization API-key chat JWTs", () => {
         { signingSecret: "wrong" },
       ]
     ) {
+      const jwt = await token({ ...defaults, ...override })
       await expect(
-        verifyOrganizationToken(await token({ ...defaults, ...override }), signingKey(), apiKeyId),
+        Effect.runPromise(verifyOrganizationToken(jwt, signingKey(), apiKeyId)),
       ).rejects.toThrow()
     }
   })

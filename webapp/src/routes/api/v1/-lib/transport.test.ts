@@ -491,65 +491,37 @@ describe("REST API through the Effect Fetch handler", () => {
     }
   })
 
-  test("organization JWTs allow scoped management and use a stable operator rate bucket", async () => {
+  test("organization JWTs scope the current user and rate bucket", async () => {
     const currentUser = {
       id: restUserId,
       name: "Operator",
       email: "operator@example.com",
       role: "developer",
     }
-    restTestState.organizationAuth.mockReturnValue(
-      Effect.succeed({
-        organizationId: restOrgId,
-        identity: { email: "operator@example.com", organizationId: restOrgId },
-        currentUser,
-      }),
-    )
     const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
-    const headers = { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" }
-    await expect(
-      runDatabaseEffect(
-        authenticateRestRequest(new Request("https://example.test/api/v1/tenants", { headers })),
-      ),
-    ).resolves.toEqual({ organizationId: restOrgId, currentUser })
-    restTestState.rows.push([restTenantRow], [restTenantRow], [restUserRow])
-    expect((await restRequest("/tenants", { headers })).status).toBe(200)
-    expect(
-      (await restRequest("/tenants", {
-        headers,
-        method: "POST",
-        body: JSON.stringify({ external_id: "new" }),
-      })).status,
-    ).toBe(201)
-    restTestState.organizationAuth.mockReturnValue(
-      Effect.succeed({
-        organizationId: restOrgId,
-        identity: { email: "renamed@example.com", organizationId: restOrgId },
-        currentUser: { ...currentUser, email: "renamed@example.com" },
-      }),
-    )
-    expect(
-      (await restRequest(`/tenants/${restTenantId}/tenant_users/${restUserId}`, {
-        headers,
-        method: "PATCH",
-        body: JSON.stringify({ admin: true }),
-      })).status,
-    ).toBe(200)
-    expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserId])
+    const headers = { Authorization: `Bearer ${jwt}` }
+    for (
+      const scope of [
+        { organizationId: restOrgId, currentUser },
+        {
+          organizationId: restOrgId,
+          currentUser: { ...currentUser, email: "renamed@example.com" },
+        },
+        { organizationId: restOtherId, currentUser },
+      ]
+    ) {
+      restTestState.organizationAuth.mockReturnValue(Effect.succeed(scope))
+      await expect(runDatabaseEffect(authenticateRestRequest(
+        new Request("https://example.test/api/v1/tenants", { headers }),
+      ))).resolves.toEqual(scope)
+      restTestState.rows.push([])
+      expect((await restRequest("/tenants", { headers })).status).toBe(200)
+      expect(restLastPredicate().params).toEqual([scope.organizationId])
+    }
     expect(restTestState.chat).not.toHaveBeenCalled()
     const buckets = restTestState.consume.mock.calls.map(([call]) => call.key)
-    expect(new Set(buckets).size).toBe(1)
-    restTestState.organizationAuth.mockReturnValue(
-      Effect.succeed({
-        organizationId: restOtherId,
-        identity: { email: "operator@example.com", organizationId: restOtherId },
-        currentUser,
-      }),
-    )
-    restTestState.rows.push([])
-    await restRequest("/tenants", { headers })
-    expect(restLastPredicate().params).toEqual([restOtherId])
-    expect(restTestState.consume.mock.calls.at(-1)![0].key).not.toBe(buckets[0])
+    expect(new Set(buckets.slice(0, 4)).size).toBe(1)
+    expect(buckets[4]).not.toBe(buckets[0])
     await expect(
       runDatabaseEffect(authenticateRestRequest(
         new Request("https://example.test/api/v1/tenants", {
@@ -603,6 +575,9 @@ describe("REST API through the Effect Fetch handler", () => {
         })).status,
       ).toBe(writeStatus === 201 ? 200 : 403)
       expect(restTestState.writes).toHaveLength(writeStatus === 201 ? 2 : 0)
+      if (writeStatus === 201) {
+        expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserId])
+      }
     },
   )
 

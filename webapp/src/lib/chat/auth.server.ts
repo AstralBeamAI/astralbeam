@@ -41,15 +41,19 @@ export function isChatAuthenticationError(error: unknown): error is ChatAuthenti
  */
 export async function authenticateChatRequest(request: Request): Promise<ChatPrincipal> {
   const result = await runDatabaseEffect(
-    authenticateOrganizationIssuedToken(request, verifyChatAuthToken),
+    authenticateOrganizationIssuedToken(
+      request,
+      (token, verifier, apiKeyId) =>
+        Effect.tryPromise(() => verifyChatAuthToken(token, verifier, apiKeyId)),
+    ),
   )
   return { organization: { id: result.organizationId }, tenantUser: result.identity }
 }
 
 /** Shared key ownership/lifecycle verification. The supplied verifier must enforce its own JWT type. */
-export function authenticateOrganizationIssuedToken<T>(
+export function authenticateOrganizationIssuedToken<T, E>(
   request: Request,
-  verify: (token: string, verifier: Uint8Array, keyId: string) => Promise<T>,
+  verify: (token: string, verifier: Uint8Array, keyId: string) => Effect.Effect<T, E>,
 ) {
   return Effect.gen(function* () {
     const { token, apiKeyId, organizationId, id } = yield* Effect.try({
@@ -78,11 +82,11 @@ export function authenticateOrganizationIssuedToken<T>(
     if (!initial) return yield* Effect.fail(invalidToken("API key not found"))
 
     const verifier = textEncoder.encode(initial.digest)
-    const identity = yield* Effect.tryPromise({
-      try: () => verify(token, verifier, apiKeyId),
-      catch: (cause) =>
-        isChatAuthenticationError(cause) ? cause : invalidToken("Invalid bearer token", cause),
-    })
+    const identity = yield* verify(token, verifier, apiKeyId).pipe(
+      Effect.mapError((cause) =>
+        isChatAuthenticationError(cause) ? cause : invalidToken("Invalid bearer token", cause)
+      ),
+    )
     const [current] = yield* db.select({ enabled: apiKey.enabled, expiresAt: apiKey.expiresAt })
       .from(apiKey).where(
         and(

@@ -1,4 +1,4 @@
-import { jwtVerify } from "jose"
+import { errors, jwtVerify } from "jose"
 import { Data, Effect, Schema } from "effect"
 import { and, asc, eq } from "drizzle-orm"
 import { effectDatabase } from "@/db"
@@ -25,35 +25,33 @@ const organizationTokenClaims = Schema.Struct({
   exp: Schema.Int,
 })
 
-export async function verifyOrganizationToken(token: string, verifier: Uint8Array, keyId: string) {
-  try {
+export function verifyOrganizationToken(token: string, verifier: Uint8Array, keyId: string) {
+  return Effect.gen(function* () {
     const issuer = keyId.split("_")[1]
-    if (!issuer) throw new Error("Invalid key identifier")
+    if (!issuer) return yield* Effect.fail(new errors.JWTInvalid("Invalid key identifier"))
     // Separate types and strict claims prevent cross-JWT substitution. https://www.rfc-editor.org/rfc/rfc8725#section-3.12
-    const { payload, protectedHeader } = await jwtVerify(token, verifier, {
-      algorithms: ["HS256"],
-      typ: ORGANIZATION_TOKEN_TYPE,
-      issuer,
-      audience: "astralbeam",
-      requiredClaims: ["iss", "aud", "email", "organization_id", "iat", "exp"],
-      clockTolerance: 30,
-      maxTokenAge: 600,
-    })
-    const claims = Schema.decodeUnknownSync(organizationTokenClaims, { onExcessProperty: "error" })(
-      payload,
+    const { payload, protectedHeader } = yield* Effect.tryPromise(() =>
+      jwtVerify(token, verifier, {
+        algorithms: ["HS256"],
+        typ: ORGANIZATION_TOKEN_TYPE,
+        issuer,
+        audience: "astralbeam",
+        requiredClaims: ["iss", "aud", "email", "organization_id", "iat", "exp"],
+        clockTolerance: 30,
+        maxTokenAge: 600,
+      })
     )
+    const claims = yield* Schema.decodeUnknownEffect(organizationTokenClaims, {
+      onExcessProperty: "error",
+    })(payload)
     if (
       protectedHeader.kid !== keyId || claims.organization_id !== issuer ||
       claims.exp - claims.iat < 60 || claims.exp - claims.iat > 600
     ) {
-      throw new Error("Invalid organization token")
+      return yield* Effect.fail(new errors.JWTInvalid("Invalid organization token claims"))
     }
     return { email: claims.email, organizationId: claims.organization_id }
-  } catch (cause) {
-    throw Object.assign(new Error("Invalid organization token", { cause }), {
-      code: "invalid_token",
-    })
-  }
+  })
 }
 
 export function authenticateOrganizationRequest(request: Request) {

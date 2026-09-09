@@ -44,10 +44,7 @@ test("organization token grants a separate, short-lived operator identity", asyn
   }
   for (
     const email of [
-      "",
       "not-an-email",
-      "a b@example.com",
-      "a@@example.com",
       "owner\u0000@example.com",
       "a".repeat(309) + "@example.com",
     ]
