@@ -29,6 +29,7 @@
 - Keep plans and PR descriptions concise and evidence-backed. Plans must still include motivation, authoritative references, affected files and API anchors, validation, and boundaries.
 - Keep each Markdown paragraph and list item on one source line, with blank lines before lists. Apply these rules to instruction files too. Preserve code syntax, exact quoted output, and third-party license text.
 - Avoid semicolons and em dashes in documentation and Markdown prose. Use periods or commas instead.
+- Write `/docs` consumer prose in the house voice, which the posts at [swiftace.org](https://swiftace.org) model. Open by naming the subject and what we are about to do, never by describing the page. Use "let's" and "we" through a procedure and "you" for the reader's own state and consequences. Give every command a lead-in that names its purpose, state a reason cause first in the same sentence, number sequential steps, label asides `**NOTE**:` or `**TIP**:`, and keep tables for enumerable reference data rather than explanation.
 - Comment only non-obvious code or configuration decisions, including a link to authoritative documentation or an issue.
 - Keep code comments to at most two lines. Longer reasoning belongs in the nearest `AGENTS.md` or a linked issue.
 

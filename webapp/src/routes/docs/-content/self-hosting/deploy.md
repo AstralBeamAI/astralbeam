@@ -1,10 +1,12 @@
 # Deploy
 
-This page installs AstralBeam on one Linux host with PostgreSQL behind a connection pooler and a reverse proxy in front. Read [Overview](./overview.md) first for what the deployment consists of.
+Let's install AstralBeam on a Linux host, with PostgreSQL behind a connection pooler and a reverse proxy in front. Basic knowledge of Linux, systemd, and TLS termination is assumed here. [Overview](./overview.md) describes what the finished deployment consists of.
 
-## Get a release binary
+## 1. Get a release binary
 
-Each tagged release publishes one prebuilt asset, `astralbeam-v<version>-linux-x86_64`, built for Linux on x86_64. There is no container image and no package for other platforms, so build from source for anything else.
+Every tagged release publishes one prebuilt asset, `astralbeam-v<version>-linux-x86_64`, built for Linux on x86_64.
+
+Run these commands to download that asset and install it as `astralbeam`:
 
 ```sh
 gh release download v0.1.0 --repo AstralBeamAI/astralbeam --pattern 'astralbeam-*-linux-x86_64'
@@ -12,11 +14,11 @@ chmod +x astralbeam-v0.1.0-linux-x86_64
 mv astralbeam-v0.1.0-linux-x86_64 /usr/local/bin/astralbeam
 ```
 
-The release carries no checksum or signature file. Verify what you downloaded by running it: with the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. The same checks run in CI on every release.
+The release carries no checksum or signature file, so verify what you downloaded by running it. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. The same checks run in CI on every release.
 
-## Or build from source
+For any other platform, and for a fork, we build the binary ourselves. Deno is the only supported toolchain.
 
-Deno is the only supported toolchain. From the repository root, install the frozen dependencies once, then build and compile.
+Run these commands from the repository root to install the frozen dependencies, build, and compile:
 
 ```sh
 ./scripts/setup.sh
@@ -24,24 +26,36 @@ deno task --cwd webapp build
 deno task --cwd webapp compile
 ```
 
-Order matters: `build` writes the Nitro server bundle and static assets into `webapp/.output`, and `compile` embeds that output into `webapp/.output/astralbeam`. Compiling without a fresh build ships stale assets.
+The binary lands at `webapp/.output/astralbeam`. Order matters here: `build` writes the Nitro server bundle and static assets into `webapp/.output`, and `compile` embeds that output, so compiling without a fresh build ships stale assets.
 
-To run the same smoke check CI runs, use `deno task --cwd webapp binary:check`. It compiles, then rejects a binary over 200 MiB, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM.
+Run this command to compile and smoke-test the binary the way CI does:
 
-You can also skip `compile` and run the server bundle directly with `deno task --cwd webapp start`, which needs the repository and its installed dependencies on the host. The binary is the simpler artifact to copy to a server.
+```sh
+deno task --cwd webapp binary:check
+```
 
-## Provision the database
+It rejects a binary over 200 MiB, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. It prints `Binary smoke check passed` with the binary's size when all of that holds.
 
-PostgreSQL 18 is the minimum. Create a dedicated role and database, and let the application own its schema.
+**TIP**: You can skip `compile` and run the server bundle with `deno task --cwd webapp start`, which needs the repository and its installed dependencies on the host.
+
+## 2. Provision the database
+
+PostgreSQL 18 is the minimum. Production deployments should connect through a dedicated account with limited privileges, instead of the `postgres` superuser.
+
+Run these commands to create that role and an empty database it owns:
 
 ```sh
 createuser --pwprompt astralbeam
 createdb --owner=astralbeam astralbeam
 ```
 
-Migrations create the `citext` extension, which needs a role permitted to run `CREATE EXTENSION` on first migration. Point `DATABASE_URL` at a transaction-pooling pooler rather than PostgreSQL directly, and give the pooler a prepared statement allowance, because the application sends prepared queries. With PgBouncer that means `pool_mode = transaction` and a non-zero `max_prepared_statements`, which the reference Compose setup sets to 200. A pooler configured without it fails queries once a statement is prepared.
+The application owns its schema from there. The first migration creates the `citext` extension, so the role must be permitted to run `CREATE EXTENSION`.
 
-## Set the bootstrap environment
+Point `DATABASE_URL` at a transaction-pooling pooler rather than at PostgreSQL directly. The application sends prepared queries, so we must give the pooler a prepared statement allowance as well. With PgBouncer that means `pool_mode = transaction` and a non-zero `max_prepared_statements`, which the reference Compose setup sets to 200.
+
+**NOTE**: A pooler in transaction mode without a prepared statement allowance fails queries as soon as a statement is prepared.
+
+## 3. Set the bootstrap environment
 
 Only two variables are required. Both are read once per process, so changing either needs a restart.
 
@@ -52,17 +66,21 @@ Only two variables are required. Both are read once per process, so changing eit
 | `PORT`                    | No       | TCP port to listen on                                                                                                                               |
 | `APP_BASE_URL`            | No       | Environment override for the base URL setting, which can otherwise be set at `/configure`                                                           |
 
-Generate the encryption value with high entropy and keep it in your secret manager:
+Run this command to generate a high-entropy encryption value:
 
 ```sh
 openssl rand -base64 32
 ```
 
-The keyring is hashed into key material, so length and hashing do not rescue a weak passphrase. Losing the first entry means losing every stored secret. A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list of unique secrets containing 32 to 1,024 characters each`, and a missing URL reports `'DATABASE_URL' environment variable is not set`. With either variable missing or invalid, `/configure` renders a "Server restart required" page naming the offending variables instead of the editor.
+Keep it in your deployment's secret manager. The keyring is hashed into key material, so length and hashing do not rescue a weak passphrase, and losing the first entry means losing every stored secret.
 
-## Start the server
+A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list of unique secrets containing 32 to 1,024 characters each`, and a missing URL reports `'DATABASE_URL' environment variable is not set`. With either variable missing or invalid, `/configure` renders a "Server restart required" page naming the offending variables instead of the editor.
 
-Run the binary under a process manager as an unprivileged user. A minimal systemd unit:
+## 4. Start the server
+
+To keep the server running even after we log out of the host, we must set it up as a Linux system service, owned by an unprivileged user.
+
+Save this unit as `/etc/systemd/system/astralbeam.service`:
 
 ```ini
 [Unit]
@@ -80,11 +98,24 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
-Keep `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in the `EnvironmentFile` rather than in the unit, and restrict that file to the service user. The process serves HTTP on `PORT`, logs to stdout and stderr, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are clean. The development server, by contrast, runs on port 4500.
+Keep `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in the `EnvironmentFile` rather than in the unit, and restrict that file to the service user.
 
-## Put it behind a reverse proxy
+Run these commands to load the unit and start the service:
 
-Terminate TLS at the proxy, bind the application to loopback, and let nothing else reach the origin. The application trusts `X-Forwarded-Host` and `X-Forwarded-Proto` on `/configure` only when the request peer is a loopback address, which is exactly why the proxy must be on the same host as the application, must overwrite both headers, and must not be bypassable. It also replaces `X-Forwarded-For` with the real peer address whenever the peer is not loopback, so authentication rate limits cannot be spoofed by a client header.
+```sh
+systemctl daemon-reload
+systemctl enable --now astralbeam
+```
+
+`systemctl status astralbeam` should now report the service as active, and `curl -i http://127.0.0.1:3000/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
+
+**NOTE**: The development server runs on port 4500. A production process listens on whatever `PORT` says.
+
+## 5. Put it behind a reverse proxy
+
+Terminate TLS at the proxy, bind the application to loopback, and let nothing else reach the origin. `/configure` trusts `X-Forwarded-Host` and `X-Forwarded-Proto` only when the request peer is a loopback address, so the proxy must run on the same host as the application, must overwrite both headers, and must not be bypassable.
+
+Add this location block to the server that terminates TLS:
 
 ```nginx
 location / {
@@ -96,20 +127,24 @@ location / {
 }
 ```
 
-Because the encryption key grants access to every encrypted value, restrict `/configure` further at the ingress with an IP allowlist, a VPN, or an identity-aware proxy, and rate-limit it there during first setup. See [Security](./security.md).
+The application replaces `X-Forwarded-For` with the real peer address whenever the peer is not loopback, so a client cannot spoof the address authentication rate limits are keyed on.
 
-## Complete setup
+The encryption key grants access to every encrypted value in the database, so `/configure` deserves more protection than the application's own throttle. Restrict who can reach it at the ingress with an IP allowlist, a VPN, or an identity-aware proxy, and rate-limit it there during first setup. See [Security](./security.md).
 
-Open `https://your-host/configure`. Any other page redirects there until setup is complete.
+## 6. Complete setup
+
+Open `https://your-host/configure` in a browser. Every other page redirects there until setup is complete.
 
 1. Sign in with the first entry of `DATABASE_ENCRYPTION_KEY`. Database credentials and fallback keyring entries are not accepted, and a wrong value reports `Invalid encryption key`.
 2. On a new database, the page shows the pending migrations with their SQL. Expand and review them, then apply them. See [Operations](./operations.md).
 3. Fill in the required settings: the application base URL, the Cloudflare Turnstile site and secret keys, and the authentication secret, which is generated for you on the first save if you leave it unset. Add email delivery, OAuth clients, and the OpenAI key as needed. Every setting is described in [Configuration](./configuration.md).
-4. When the page reports "Configuration is complete", use **Go to app**. That ends the operator session and loads the application.
+4. When the page reports "Configuration is complete", use **Go to app**, which ends the operator session and loads the application.
 
-Sessions last 15 minutes, and sign-in is throttled to 5 attempts per minute, so keep the key at hand while you work through the form.
+Sessions last 15 minutes and sign-in is throttled to 5 attempts per minute, so keep the key at hand while you work through the form.
 
-## Verify the deployment
+## 7. Verify the deployment
+
+Run each of these against the public origin:
 
 | Check                                        | Expected                                                               |
 | -------------------------------------------- | ---------------------------------------------------------------------- |
@@ -118,13 +153,13 @@ Sessions last 15 minutes, and sign-in is throttled to 5 attempts per minute, so 
 | `curl -s https://your-host/api/openapi.json` | The OpenAPI document, including the `/api/v1/tenants` path             |
 | `curl -i https://your-host/api/v1/tenants`   | `401` once setup is complete, `503` with `Retry-After` while it is not |
 
-`/api/status` is a liveness probe only. It answers one constant body without touching the database, so it stays `200` even when configuration is incomplete or PostgreSQL is unreachable. There is no separate readiness endpoint. To check readiness, call an API route and treat `503` as not ready.
+`/api/status` is a liveness probe and nothing more. It answers one constant body without touching the database, so it stays `200` even when configuration is incomplete or PostgreSQL is unreachable. There is no separate readiness endpoint, so to check readiness, call an API route and treat `503` as not ready.
 
 ## Upgrade
 
 1. Read the release notes, and back up the database before an upgrade that carries migrations.
 2. Replace the artifact and restart. Stop the old process, swap the binary, and start the new one.
-3. If the release added migrations, the gate closes and every page redirects to `/configure`. Sign in, review the new SQL, and apply it. Alternatively apply it ahead of the restart with `deno task --cwd webapp db migrate` from a checkout of the new version.
+3. If the release added migrations, the gate closes and every page redirects to `/configure`. Sign in, review the new SQL, and apply it. You can also apply it ahead of the restart with `deno task --cwd webapp db migrate` from a checkout of the new version, run from the repository root.
 4. Restart every other replica so each one reloads configuration and migration state.
 
-Downgrading is not supported, because there is no rollback for a migration. Reverse a schema change with a forward migration instead.
+Downgrading is not supported, because a migration has no rollback. Reverse a schema change with a forward migration instead.

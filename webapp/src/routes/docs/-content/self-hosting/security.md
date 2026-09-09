@@ -1,17 +1,12 @@
 # Security
 
-What a self-hosted deployment protects on its own, and what you have to do. The embedded chat boundary is documented separately in the [SDK security model](/docs/sdk/security).
+A self-hosted deployment keeps its stored secrets under a key you own, and leaves the rest to how you put the application on the network. The embedded chat boundary is covered separately in the [SDK security model](/docs/sdk/security).
 
 ## Encryption at rest
 
-Two columns hold ciphertext rather than plaintext.
+Two columns hold ciphertext rather than plaintext: `config.value`, which is every deployment setting stored through `/configure`, and `sandbox_provider.credentials`, which is each organization's sandbox provider credentials.
 
-| Column                         | Contents                                             |
-| ------------------------------ | ---------------------------------------------------- |
-| `config.value`                 | Every deployment setting stored through `/configure` |
-| `sandbox_provider.credentials` | Each organization's sandbox provider credentials     |
-
-Both are sealed as compact JWE with AES-256-GCM, using a key derived from an entry of `DATABASE_ENCRYPTION_KEY`. The header carries a non-secret key identifier so the right keyring entry can be selected during a rotation, and the encrypted payload embeds the row's own identity, which is compared with the row after decoding. Moving ciphertext from one row to another therefore fails instead of decrypting under the wrong identity, and a malformed envelope or an unknown key identifier never falls back to unverified data.
+Both are sealed as compact JWE with AES-256-GCM, using a key derived from an entry of `DATABASE_ENCRYPTION_KEY`. The header carries a non-secret key identifier, so the right keyring entry can be selected during a rotation, and the encrypted payload embeds the row's own identity, which is compared with the row after decoding. Moving ciphertext from one row to another therefore fails instead of decrypting under the wrong identity, and a malformed envelope or an unknown key identifier never falls back to unverified data.
 
 Better Auth separately encrypts the OAuth tokens it retains. Everything else, including API key digests, is stored as it reads, so treat the whole database as sensitive and protect it with PostgreSQL's own transport and storage controls.
 
@@ -19,12 +14,14 @@ Better Auth separately encrypts the OAuth tokens it retains. Everything else, in
 
 `DATABASE_ENCRYPTION_KEY` is a comma-separated keyring, not a single value. The first entry is active: it encrypts every new write and it is the operator sign-in credential. Later entries only decrypt.
 
-1. Restart every replica with the new entry first and the old one behind it: `DATABASE_ENCRYPTION_KEY=new,old`.
+1. Restart every replica with the new entry first and the old one behind it, as `DATABASE_ENCRYPTION_KEY=new,old`.
 2. Open `/configure`. It confirms "Encryption key rotation in progress" and shows how many fallback entries are available.
-3. Re-save each value that still uses the old entry. A field encrypted under a fallback key says `Encrypted with a fallback key; replace and save it to use the active key.`. Non-secret fields move across on a plain save. A secret must be revealed or replaced first, because the page never holds a copy of a stored secret.
+3. Re-save each value that still uses the old entry. A field encrypted under a fallback key says `Encrypted with a fallback key; replace and save it to use the active key.`. Non-secret fields move across on a plain save, while a secret must be revealed or replaced first, because the page never holds a copy of a stored secret.
 4. Once nothing reports a fallback key, restart again with only the new entry.
 
-Rotating the active entry has two immediate effects. Every operator session is invalidated, because session signing derives from the active entry, and sign-in now requires the new value. Removing an entry that still protects a stored value makes that value unreadable, so complete step 3 before step 4.
+Rotating the active entry has two immediate effects. Every operator session is invalidated, because session signing derives from the active entry, and sign-in now requires the new value.
+
+**NOTE**: Removing an entry that still protects a stored value makes that value unreadable, so we must finish step 3 before step 4.
 
 Each entry must be 32 to 1024 characters, unique after trimming, and free of commas. Hashing does not strengthen a weak passphrase, so generate each entry with `openssl rand -base64 32` and keep it in your secret manager.
 
@@ -32,7 +29,9 @@ Each entry must be 32 to 1024 characters, unique after trimming, and free of com
 
 A stored value that cannot be decrypted, because its key is gone or its envelope is damaged, is reported as such rather than guessed at. The deployment behaves as if the setting were unset, the log records `Ignoring invalid stored config value for '<key>'`, and the field at `/configure` says `The stored value cannot be read; enter and save a replacement.`.
 
-You do not need to recover a value to replace it. Type a new one over the field and save. This blind replacement is deliberate, so a lost key never forces you to reveal or reconstruct the old secret. If the value was a credential held elsewhere, rotate it at the provider too, since you can no longer prove what was stored.
+You do not need to recover a value to replace it. Type a new one over the field and save. This blind replacement is deliberate, so a lost key never forces you to reveal or reconstruct the old secret.
+
+**TIP**: If the value was a credential held elsewhere, rotate it at that provider too, since you can no longer prove what was stored.
 
 ## Operator access
 
@@ -59,23 +58,25 @@ Every response, on every route, carries these headers:
 | `Permissions-Policy`        | `camera=(), display-capture=(), geolocation=(), microphone=(), payment=(), usb=()` |
 | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains`, on secure requests only                     |
 
-Framing is denied everywhere, including the API paths. The embedded widget uses cross-origin fetch rather than a frame, so it needs no framing exemption. HSTS is sent when the request arrived over HTTPS or the proxy said it did, so it never appears on a plain-HTTP local run.
+Framing is denied everywhere, including the API paths, because the embedded widget uses cross-origin fetch rather than a frame and needs no framing exemption. HSTS is sent when the request arrived over HTTPS or the proxy said it did, so it never appears on a plain-HTTP local run.
 
 ## Reverse proxy trust
 
-`X-Forwarded-Host` and `X-Forwarded-Proto` are honored on `/configure` only when the request's own peer is a loopback address. That is the rule the deployment topology has to satisfy:
+`X-Forwarded-Host` and `X-Forwarded-Proto` are honored on `/configure` only when the request's own peer is a loopback address. That is the rule the deployment topology has to satisfy.
 
 - Run the reverse proxy on the same host as the application and have it connect over loopback.
 - Have the proxy overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` on every request instead of passing a client value through.
-- Prevent any other client from reaching the application port directly. A remote caller that reaches it cannot satisfy the HTTPS requirement with a forged header, but it also should not be able to try.
+- Prevent any other client from reaching the application port directly. A remote caller cannot satisfy the HTTPS requirement with a forged header, but it should not be able to try either.
 
-The proxy must own `X-Forwarded-For` too. When a request's peer is not loopback, the application replaces that header with the actual peer address before authentication sees it, so a client cannot spoof the address authentication rate limits are keyed on. See [Deploy](./deploy.md) for a proxy configuration that satisfies all of this.
+The proxy must own `X-Forwarded-For` too. When a request's peer is not loopback, the application replaces that header with the actual peer address before authentication sees it, so a client cannot spoof the address authentication rate limits are keyed on. [Deploy](./deploy.md) has a proxy configuration that satisfies all of this.
 
 ## Bot protection
 
 The Cloudflare Turnstile site key and secret key are both required settings, listed with the rest in [Configuration](./configuration.md), so no deployment runs without a CAPTCHA. They protect sign-in, sign-up, and password reset. The site key is served to browsers, and the secret key stays server side and is used to validate each token with Cloudflare.
 
-Create a separate widget per deployment, restrict it to the hostnames that serve that deployment, and keep production widgets from allowing localhost. Cloudflare publishes test keys for local and automated use, and those belong nowhere near production.
+Create a separate widget per deployment, restrict it to the hostnames that serve that deployment, and keep production widgets from allowing localhost.
+
+**NOTE**: Cloudflare publishes test keys for local and automated use. Those belong nowhere near production.
 
 ## Credentials and tokens
 
