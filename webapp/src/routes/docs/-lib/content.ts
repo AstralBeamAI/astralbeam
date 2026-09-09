@@ -11,11 +11,24 @@ import sdkSandbox from "../-content/sdk/sandbox.md?raw"
 import sdkSecurity from "../-content/sdk/security.md?raw"
 import sdkTheming from "../-content/sdk/theming.md?raw"
 import sdkToolsAndWidgets from "../-content/sdk/tools-and-widgets.md?raw"
+import startQuickstart from "../-content/start/quickstart.md?raw"
+import startTodosTutorial from "../-content/start/todos-tutorial.md?raw"
+import dashboardAgents from "../-content/dashboard/agents.md?raw"
+import dashboardApiKeys from "../-content/dashboard/api-keys.md?raw"
+import dashboardMembers from "../-content/dashboard/members.md?raw"
+import dashboardSandboxes from "../-content/dashboard/sandboxes.md?raw"
+import dashboardSettings from "../-content/dashboard/settings.md?raw"
+import selfHostingConfiguration from "../-content/self-hosting/configuration.md?raw"
+import selfHostingDeploy from "../-content/self-hosting/deploy.md?raw"
+import selfHostingOperations from "../-content/self-hosting/operations.md?raw"
+import selfHostingOverview from "../-content/self-hosting/overview.md?raw"
+import selfHostingSecurity from "../-content/self-hosting/security.md?raw"
 
 export interface DocsPage {
   slug: string
   title: string
   markdown: string
+  draft?: boolean
 }
 
 export interface DocsSection {
@@ -23,16 +36,22 @@ export interface DocsSection {
   title: string
   description: string
   href?: string
+  // Fragment anchors keyed by page slug, for a section whose `href` target renders its own pages.
+  anchors?: Record<string, string>
+  draft?: boolean
   pages: DocsPage[]
 }
 
 export const DOCS_SECTIONS: DocsSection[] = [
   {
-    slug: "api",
-    title: "API",
-    description: "Manage your application's Tenants and TenantUsers over HTTP.",
-    href: "/docs/api",
-    pages: [],
+    slug: "start",
+    title: "Get started",
+    description: "TODO",
+    draft: true,
+    pages: [
+      { slug: "quickstart", title: "Quickstart", markdown: startQuickstart },
+      { slug: "todos-tutorial", title: "Todos tutorial", markdown: startTodosTutorial },
+    ],
   },
   {
     slug: "sdk",
@@ -52,12 +71,58 @@ export const DOCS_SECTIONS: DocsSection[] = [
       { slug: "security", title: "Security model", markdown: sdkSecurity },
     ],
   },
+  {
+    slug: "api",
+    title: "API",
+    description: "Manage your application's Tenants and TenantUsers over HTTP.",
+    href: "/docs/api",
+    anchors: {
+      "getting-started": "description/getting-started",
+      authentication: "description/authentication",
+      "pagination-and-errors": "description/pagination",
+      tenants: "tag/tenants",
+      "tenant-users": "tag/tenant_users",
+    },
+    pages: [],
+  },
+  {
+    slug: "dashboard",
+    title: "Dashboard",
+    description: "TODO",
+    draft: true,
+    pages: [
+      { slug: "agents", title: "Agents", markdown: dashboardAgents },
+      { slug: "sandboxes", title: "Sandboxes", markdown: dashboardSandboxes },
+      { slug: "api-keys", title: "API keys", markdown: dashboardApiKeys },
+      { slug: "members", title: "Members", markdown: dashboardMembers },
+      { slug: "settings", title: "Settings", markdown: dashboardSettings },
+    ],
+  },
+  {
+    slug: "self-hosting",
+    title: "Self-hosting",
+    description: "TODO",
+    draft: true,
+    pages: [
+      { slug: "overview", title: "Overview", markdown: selfHostingOverview },
+      { slug: "deploy", title: "Deploy", markdown: selfHostingDeploy },
+      { slug: "configuration", title: "Configuration", markdown: selfHostingConfiguration },
+      { slug: "operations", title: "Operations", markdown: selfHostingOperations },
+      { slug: "security", title: "Security", markdown: selfHostingSecurity },
+    ],
+  },
 ]
 
+// A draft section or page stays in the manifest but out of every rendered link, so the prerender
+// crawl never reaches it and the lookups below 404 its URL.
 export function findDocsSection(sectionSlug: string): DocsSection | undefined {
-  return DOCS_SECTIONS.find((section) => section.slug === sectionSlug)
+  return DOCS_SECTIONS.find((section) => !section.draft && section.slug === sectionSlug)
 }
 
 export function findDocsPage(section: DocsSection, pageSlug: string): DocsPage | undefined {
-  return section.pages.find((page) => page.slug === pageSlug)
+  return section.pages.find((page) => !page.draft && page.slug === pageSlug)
+}
+
+export function publishedDocsPages(section: DocsSection): DocsPage[] {
+  return section.pages.filter((page) => !page.draft)
 }

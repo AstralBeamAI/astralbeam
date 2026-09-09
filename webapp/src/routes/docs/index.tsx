@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { APP_NAME } from "@/lib/constants"
-import { DOCS_SECTIONS } from "./-lib/content"
+import { DOCS_SECTIONS, publishedDocsPages } from "./-lib/content"
 
 export const Route = createFileRoute("/docs/")({
   head: () => ({ meta: [{ title: `Docs · ${APP_NAME}` }] }),
@@ -16,10 +16,10 @@ function DocsHomePage() {
         Guides for building on {APP_NAME}.
       </p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        {DOCS_SECTIONS.map((section) => (
+        {DOCS_SECTIONS.filter((section) => !section.draft).map((section) => (
           <a
             key={section.slug}
-            href={section.href ?? `/docs/${section.slug}/${section.pages[0]!.slug}`}
+            href={section.href ?? `/docs/${section.slug}/${publishedDocsPages(section)[0]!.slug}`}
             className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Card className="h-full transition-colors hover:bg-muted/50">

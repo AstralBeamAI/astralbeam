@@ -1,6 +1,8 @@
+import { readdirSync } from "node:fs"
 import { expect, test } from "vitest"
 
 import limits from "../-content/sdk/limits.md?raw"
+import { DOCS_SECTIONS } from "./content"
 import {
   CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
   CHAT_ATTACHMENT_MAX_COUNT,
@@ -29,4 +31,32 @@ test("the Limits page quotes the caps the chat endpoint enforces", () => {
     `${CHAT_AUTH_TOKEN_MIN_LIFETIME_SECONDS}–${CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS} seconds`,
   ]
   for (const value of expected) expect(limits).toContain(value)
+})
+
+// DocsMarkdown rewrites a same-folder `./page.md` link to that page's route, which 404s in
+// production if the page was renamed or unregistered.
+test("every same-folder Markdown link resolves to a page in the same section", () => {
+  for (const section of DOCS_SECTIONS) {
+    const slugs = section.pages.map((page) => page.slug)
+    for (const page of section.pages) {
+      for (const [, target] of page.markdown.matchAll(/\.\/([\w-]+)\.md/g)) {
+        expect(slugs, `${section.slug}/${page.slug} links to ./${target}.md`).toContain(target)
+      }
+    }
+  }
+})
+
+test("every content file is registered in the manifest with non-empty Markdown", () => {
+  const registered = DOCS_SECTIONS.flatMap((section) =>
+    [...section.pages.map((page) => page.slug), ...Object.keys(section.anchors ?? {})]
+      .map((slug) => `${section.slug}/${slug}.md`)
+  )
+  const files = readdirSync(new URL("../-content", import.meta.url), { recursive: true })
+    .map(String).filter((entry) => entry.endsWith(".md"))
+  for (const file of files) expect(registered).toContain(file)
+  for (const section of DOCS_SECTIONS) {
+    for (const page of section.pages) {
+      expect(page.markdown.trim(), `${section.slug}/${page.slug}`).not.toBe("")
+    }
+  }
 })
