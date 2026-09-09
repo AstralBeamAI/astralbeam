@@ -67,7 +67,9 @@ AstralBeam may assign or transfer this agreement, and the licenses granted in it
 
 If a provision of this agreement is held unenforceable, the rest stays in force and the unenforceable provision applies to the greatest extent permitted.
 
-This document is the entire agreement between You and AstralBeam about the rights it covers, and it replaces any earlier understanding on that subject. It may be amended only by a later published version that You agree to, or in a writing signed by both parties. A failure to enforce a provision is not a waiver of it.
+This agreement supplements, and does not supersede or replace, any employment, contractor, confidentiality, invention assignment, copyright assignment, or software grant agreement between You and AstralBeam. Where any of those gives AstralBeam rights in a Contribution that are broader than the rights granted here, those rights are unaffected and continue to apply in full.
+
+Subject to the paragraph above, this document is the entire agreement between You and AstralBeam about the rights it covers, and it replaces any earlier understanding on that subject. It may be amended only by a later published version that You agree to, or in a writing signed by both parties. A failure to enforce a provision is not a waiver of it.
 
 ## 10. Agreeing to this document
 
