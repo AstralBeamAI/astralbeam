@@ -1,15 +1,16 @@
 {
   "name": "@astralbeam/sdk",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Frontend SDK for AstralBeam: drop-in agent UI, chat streaming, and server helpers",
   "license": "MIT",
   "type": "module",
   "homepage": "https://astralbeam.ai",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/astralbeamai/astralbeam.git",
+    "url": "git+https://github.com/AstralBeamAI/astralbeam.git",
     "directory": "sdk"
   },
+  "bugs": "https://github.com/AstralBeamAI/astralbeam/issues",
   "files": [
     "dist"
   ],

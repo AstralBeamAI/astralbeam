@@ -1,0 +1,189 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and verify everything without creating the release or staging the SDK
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+env:
+  # A tag push carries no inputs, so an absent `dry-run` means a real release.
+  DRY_RUN: ${{ inputs.dry-run || false }}
+
+jobs:
+  verify:
+    name: Verify version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Verify the tag matches the SDK version
+        id: version
+        # `sdk` is the only versioned project: webapp and examples/todos declare no version and
+        # www is a private placeholder at 0.0.0, so the tag gates the SDK version alone.
+        run: |
+          version="$(jq -r .version sdk/package.json)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            if [ "$DRY_RUN" = true ]; then
+              echo "::notice::Dry run on ${GITHUB_REF_NAME}, sdk/package.json is at ${version}"
+              exit 0
+            fi
+            echo "::error::A release must run from a v* tag, but this run is on ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          if [ "$GITHUB_REF_NAME" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match sdk/package.json version ${version}"
+            exit 1
+          fi
+
+  build:
+    name: Build release artifacts
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RELEASE_ASSET: astralbeam-v${{ needs.verify.outputs.version }}-linux-x86_64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: latest
+          cache: true
+
+      - name: Install SDK dependencies
+        working-directory: sdk
+        run: deno install --frozen
+
+      - name: Build the SDK
+        working-directory: sdk
+        run: deno task build
+
+      - name: Install Webapp dependencies
+        working-directory: webapp
+        env:
+          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
+        run: deno install --frozen
+
+      - name: Build the Webapp
+        # `deno task compile` embeds `.output`, so the Vite and Nitro build has to run first.
+        working-directory: webapp
+        run: deno task build
+
+      - name: Compile and smoke-test the Webapp binary
+        working-directory: webapp
+        run: deno task binary:check
+
+      - name: Name the binary after the release
+        run: mv webapp/.output/astralbeam "$RELEASE_ASSET"
+
+      - name: Upload the Webapp binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: webapp-binary
+          path: ${{ env.RELEASE_ASSET }}
+          if-no-files-found: error
+
+      - name: Upload the SDK package output
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sdk-dist
+          path: sdk/dist
+          if-no-files-found: error
+
+  github-release:
+    name: Create the GitHub release
+    # Runs after staging so a failed npm step does not leave a release pointing at an unstaged SDK.
+    needs: [verify, build, stage-npm]
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download the Webapp binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: webapp-binary
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ASSET: astralbeam-v${{ needs.verify.outputs.version }}-linux-x86_64
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes "$RELEASE_ASSET"
+
+  stage-npm:
+    name: Stage the SDK on npm
+    needs: [verify, build]
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Trusted publishing exchanges this OIDC token for a short-lived npm credential. https://docs.npmjs.com/trusted-publishers
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download the SDK package output
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sdk-dist
+          path: sdk/dist
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Staged publishing needs Node 22.14.0 or higher and npm 11.15.0 or later. https://docs.npmjs.com/staged-publishing
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Update npm
+        # Node 24 patches bundle npm 11.13.0 through 11.19.0, and 11.13.0 is below the 11.15.0
+        # floor the `stage` subcommands need, so pin an exact npm into this OIDC-credentialed job.
+        run: npm install --global npm@11.19.0
+
+      - name: Stage the SDK
+        # Staging never makes the package public, so no token or 2FA is needed here. A maintainer
+        # approves it with 2FA afterwards. https://docs.npmjs.com/cli/v11/commands/npm-stage
+        shell: bash
+        working-directory: sdk
+        run: npm stage publish | tee "$RUNNER_TEMP/npm-stage.log"
+
+      - name: Report the staged package
+        run: |
+          {
+            echo "## SDK staged on npm"
+            echo
+            echo "Approve it with \`npm stage approve <stage-id>\` or from the Staged Packages tab on [npmjs.com](https://www.npmjs.com/package/@astralbeam/sdk). Approval prompts for 2FA."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/npm-stage.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
