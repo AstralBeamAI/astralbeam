@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { expect, test } from "vitest"
 
 import limits from "../-content/sdk/limits.md?raw"
@@ -33,30 +33,48 @@ test("the Limits page quotes the caps the chat endpoint enforces", () => {
   for (const value of expected) expect(limits).toContain(value)
 })
 
-// DocsMarkdown rewrites a same-folder `./page.md` link to that page's route, which 404s in
-// production if the page was renamed or unregistered.
-test("every same-folder Markdown link resolves to a page in the same section", () => {
+const contentDirectory = new URL("../-content/", import.meta.url)
+
+/** Every Markdown file under -content, keyed as the manifest addresses it: `<section>/<page>.md`. */
+function readDocsContentFiles(): Map<string, string> {
+  return new Map(
+    readdirSync(contentDirectory, { recursive: true }).map(String)
+      .filter((entry) => entry.endsWith(".md"))
+      .map((entry) => [entry, readFileSync(new URL(entry, contentDirectory), "utf8")]),
+  )
+}
+
+// DocsMarkdown rewrites a same-folder `./page.md` link to that page's route. A published page may
+// only point at another published page, because `findDocsPage` 404s a draft target in production.
+test("same-folder Markdown links resolve to a page the same reader can reach", () => {
+  const files = readDocsContentFiles()
   for (const section of DOCS_SECTIONS) {
-    const slugs = section.pages.map((page) => page.slug)
     for (const page of section.pages) {
-      for (const [, target] of page.markdown.matchAll(/\.\/([\w-]+)\.md/g)) {
-        expect(slugs, `${section.slug}/${page.slug} links to ./${target}.md`).toContain(target)
+      const unpublished = Boolean(section.draft || page.draft)
+      const reachable = section.pages.filter((entry) => unpublished || !entry.draft)
+        .map((entry) => entry.slug)
+      const markdown = files.get(`${section.slug}/${page.slug}.md`) ?? ""
+      for (const [, target] of markdown.matchAll(/\.\/([\w-]+)\.md/g)) {
+        expect(reachable, `${section.slug}/${page.slug} links to ./${target}.md`).toContain(target)
       }
     }
   }
 })
 
-test("every content file is registered in the manifest with non-empty Markdown", () => {
+test("the manifest and the content directory hold exactly the same pages", () => {
+  const files = readDocsContentFiles()
   const registered = DOCS_SECTIONS.flatMap((section) =>
     [...section.pages.map((page) => page.slug), ...Object.keys(section.anchors ?? {})]
       .map((slug) => `${section.slug}/${slug}.md`)
   )
-  const files = readdirSync(new URL("../-content", import.meta.url), { recursive: true })
-    .map(String).filter((entry) => entry.endsWith(".md"))
-  for (const file of files) expect(registered).toContain(file)
-  for (const section of DOCS_SECTIONS) {
-    for (const page of section.pages) {
-      expect(page.markdown.trim(), `${section.slug}/${page.slug}`).not.toBe("")
-    }
+  for (const [file, markdown] of files) {
+    expect(registered, `${file} is not registered`).toContain(file)
+    expect(markdown.trim(), `${file} is empty`).not.toBe("")
   }
+  // An `anchors` slug may have no file, but a registered page whose file is missing would only
+  // fail when a reader opened it.
+  const pageFiles = DOCS_SECTIONS.flatMap((section) =>
+    section.pages.map((page) => `${section.slug}/${page.slug}.md`)
+  )
+  for (const file of pageFiles) expect([...files.keys()]).toContain(file)
 })

@@ -1,29 +1,55 @@
 # Members
 
+Members are the people in your own company who sign in to this dashboard. Your customers' users, the people who talk to the embedded agent, are tenant users and never appear here. Adding a member grants dashboard access, not access to any product of yours.
+
+Every member can open this page and see who else is in the organization, whatever their role.
+
 ## Roles
 
-TODO: cover Owner, Developer, and Viewer, and what each role can do across the dashboard.
+A role decides what a member may do. There are three.
 
-## Invite a member
+| Capability                                          | Owner | Developer | Viewer |
+| --------------------------------------------------- | ----- | --------- | ------ |
+| See the organization home and the member list       | Yes   | Yes       | Yes    |
+| Read and change agents and sandbox providers        | Yes   | Yes       | No     |
+| List, create, rename, and delete API keys           | Yes   | Yes       | No     |
+| Invite members, change their roles, and remove them | Yes   | No        | No     |
+| Change the organization's name and slug             | Yes   | No        | No     |
 
-TODO: cover inviting by email, selecting roles, who may grant Owner, and how long an invitation stays valid.
+Developer is the working role for anyone configuring the product. Owner adds control over people and the organization itself. Viewer is deliberately narrow: a viewer sees the organization exists and who is in it, and nothing about its configuration or credentials.
 
-## Pending invitations
+A member can hold more than one role, and any single role that permits an action is enough. Only an owner can grant the Owner role.
 
-TODO: cover the pending list, cancelling an invitation, and what to do when delivery failed.
+Pages a role cannot use are hidden from the sidebar, and reaching one by URL returns the person to the organization home. The restriction is applied when the page loads its data, so nothing withheld is merely hidden in the browser.
+
+## Inviting a member
+
+An owner invites someone by email address and picks the roles they will have on joining. The address does not need an account yet.
+
+An invitation is valid for 48 hours. Inviting an address that already has a pending invitation is refused rather than duplicated, so when the first email never arrived, or its delivery failed outright, resend the existing invitation from its row in the pending list instead of inviting again.
+
+Cancel a pending invitation if it was sent in error. Cancelling stops the link from working even before it expires.
 
 ## Accepting an invitation
 
-TODO: cover what the invited person sees, that the email must match the address they sign in with, and where they land afterwards.
+The recipient has to be signed in with the same email address the invitation was sent to, and that address has to be verified. An invitation cannot be forwarded to a colleague or accepted from a second account, because the addresses will not match.
 
-## Change a member's roles
+Your sign-in address cannot be changed from within the dashboard, so invite people at the address they already use to sign in.
 
-TODO: cover editing roles from the member row and when a change takes effect.
+Accepting adds the person with the roles the invitation carried. Declining leaves the organization untouched and sends no notification, but the invitation's status changes, so the invitation list is where to look when someone you invited never appears.
 
-## Remove a member or leave
+## Changing roles
 
-TODO: cover removing someone else and leaving an organization yourself.
+An owner can change any member's roles. A member who is not an owner cannot change or remove an owner, so a developer cannot promote themselves.
 
-## Searching and filtering
+A change applies on the member's next request. Anyone with the page already open keeps the sidebar they loaded until they navigate or reload, and a page they no longer have access to fails at that point rather than continuing to work.
 
-TODO: cover the search box and role filter on the member list.
+Demoting a developer to viewer immediately closes off agents, sandbox providers, and API keys. It does not invalidate any API key they created, because keys belong to the organization. Rotate the key if that person should lose the access it grants. See [API keys](./api-keys.md).
+
+## Removing a member and leaving
+
+Removing a member ends their dashboard access. Everything they configured stays exactly as it is, including agents, sandbox providers, and API keys, so removal alone is not a revocation of any credential they may still hold a copy of.
+
+Leaving an organization yourself has the same effect and returns you to your list of organizations. Rejoining requires a fresh invitation.
+
+An organization keeps at least one owner. The dashboard will not let the last owner leave or be removed, so promote another member to owner before that person goes.

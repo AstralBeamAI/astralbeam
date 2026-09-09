@@ -1,33 +1,19 @@
 // Docs are authored as plain Markdown under -content/<section>/ and registered here; the
 // section and page order in this manifest is the order the navigation shows.
-import sdkAttachments from "../-content/sdk/attachments.md?raw"
-import sdkApi from "../-content/sdk/api.md?raw"
-import sdkAuthentication from "../-content/sdk/authentication.md?raw"
-import sdkConfiguration from "../-content/sdk/configuration.md?raw"
-import sdkGettingStarted from "../-content/sdk/getting-started.md?raw"
-import sdkHeadless from "../-content/sdk/headless.md?raw"
-import sdkLimits from "../-content/sdk/limits.md?raw"
-import sdkSandbox from "../-content/sdk/sandbox.md?raw"
-import sdkSecurity from "../-content/sdk/security.md?raw"
-import sdkTheming from "../-content/sdk/theming.md?raw"
-import sdkToolsAndWidgets from "../-content/sdk/tools-and-widgets.md?raw"
-import startQuickstart from "../-content/start/quickstart.md?raw"
-import startTodosTutorial from "../-content/start/todos-tutorial.md?raw"
-import dashboardAgents from "../-content/dashboard/agents.md?raw"
-import dashboardApiKeys from "../-content/dashboard/api-keys.md?raw"
-import dashboardMembers from "../-content/dashboard/members.md?raw"
-import dashboardSandboxes from "../-content/dashboard/sandboxes.md?raw"
-import dashboardSettings from "../-content/dashboard/settings.md?raw"
-import selfHostingConfiguration from "../-content/self-hosting/configuration.md?raw"
-import selfHostingDeploy from "../-content/self-hosting/deploy.md?raw"
-import selfHostingOperations from "../-content/self-hosting/operations.md?raw"
-import selfHostingOverview from "../-content/self-hosting/overview.md?raw"
-import selfHostingSecurity from "../-content/self-hosting/security.md?raw"
+
+// Bodies load per page, so /docs and each article ship only the Markdown they render. The api
+// directory is excluded because it feeds the OpenAPI description, not a route of its own.
+// https://vite.dev/guide/features#glob-import
+const docsMarkdownByPath = import.meta.glob<string>([
+  "/src/routes/docs/-content/*/*.md",
+  "!/src/routes/docs/-content/api/*.md",
+], { query: "?raw", import: "default" })
 
 export interface DocsPage {
   slug: string
   title: string
-  markdown: string
+  // Hidden from navigation, the prerender crawl, and routing. The Markdown stays in the public
+  // repository and its chunk stays fetchable, so this is unpublished, not embargoed.
   draft?: boolean
 }
 
@@ -46,11 +32,11 @@ export const DOCS_SECTIONS: DocsSection[] = [
   {
     slug: "start",
     title: "Get started",
-    description: "TODO",
+    description: "Go from a new organization to a working embedded agent.",
     draft: true,
     pages: [
-      { slug: "quickstart", title: "Quickstart", markdown: startQuickstart },
-      { slug: "todos-tutorial", title: "Todos tutorial", markdown: startTodosTutorial },
+      { slug: "quickstart", title: "Quickstart" },
+      { slug: "todos-tutorial", title: "Todos tutorial" },
     ],
   },
   {
@@ -58,17 +44,17 @@ export const DOCS_SECTIONS: DocsSection[] = [
     title: "SDK",
     description: "Embed the agent chat sidebar in your application.",
     pages: [
-      { slug: "getting-started", title: "Getting started", markdown: sdkGettingStarted },
-      { slug: "authentication", title: "Authentication", markdown: sdkAuthentication },
-      { slug: "api", title: "API client", markdown: sdkApi },
-      { slug: "configuration", title: "Configuration", markdown: sdkConfiguration },
-      { slug: "theming", title: "Theming", markdown: sdkTheming },
-      { slug: "tools-and-widgets", title: "Tools and widgets", markdown: sdkToolsAndWidgets },
-      { slug: "attachments", title: "Attachments", markdown: sdkAttachments },
-      { slug: "limits", title: "Limits", markdown: sdkLimits },
-      { slug: "sandbox", title: "Sandbox", markdown: sdkSandbox },
-      { slug: "headless", title: "Headless", markdown: sdkHeadless },
-      { slug: "security", title: "Security model", markdown: sdkSecurity },
+      { slug: "getting-started", title: "Getting started" },
+      { slug: "authentication", title: "Authentication" },
+      { slug: "api", title: "API client" },
+      { slug: "configuration", title: "Configuration" },
+      { slug: "theming", title: "Theming" },
+      { slug: "tools-and-widgets", title: "Tools and widgets" },
+      { slug: "attachments", title: "Attachments" },
+      { slug: "limits", title: "Limits" },
+      { slug: "sandbox", title: "Sandbox" },
+      { slug: "headless", title: "Headless" },
+      { slug: "security", title: "Security model" },
     ],
   },
   {
@@ -88,27 +74,27 @@ export const DOCS_SECTIONS: DocsSection[] = [
   {
     slug: "dashboard",
     title: "Dashboard",
-    description: "TODO",
+    description: "Configure the agents, sandboxes, keys, and members your organization uses.",
     draft: true,
     pages: [
-      { slug: "agents", title: "Agents", markdown: dashboardAgents },
-      { slug: "sandboxes", title: "Sandboxes", markdown: dashboardSandboxes },
-      { slug: "api-keys", title: "API keys", markdown: dashboardApiKeys },
-      { slug: "members", title: "Members", markdown: dashboardMembers },
-      { slug: "settings", title: "Settings", markdown: dashboardSettings },
+      { slug: "agents", title: "Agents" },
+      { slug: "sandboxes", title: "Sandboxes" },
+      { slug: "api-keys", title: "API keys" },
+      { slug: "members", title: "Members" },
+      { slug: "settings", title: "Settings" },
     ],
   },
   {
     slug: "self-hosting",
     title: "Self-hosting",
-    description: "TODO",
+    description: "Run and operate the platform on your own infrastructure.",
     draft: true,
     pages: [
-      { slug: "overview", title: "Overview", markdown: selfHostingOverview },
-      { slug: "deploy", title: "Deploy", markdown: selfHostingDeploy },
-      { slug: "configuration", title: "Configuration", markdown: selfHostingConfiguration },
-      { slug: "operations", title: "Operations", markdown: selfHostingOperations },
-      { slug: "security", title: "Security", markdown: selfHostingSecurity },
+      { slug: "overview", title: "Overview" },
+      { slug: "deploy", title: "Deploy" },
+      { slug: "configuration", title: "Configuration" },
+      { slug: "operations", title: "Operations" },
+      { slug: "security", title: "Security" },
     ],
   },
 ]
@@ -125,4 +111,10 @@ export function findDocsPage(section: DocsSection, pageSlug: string): DocsPage |
 
 export function publishedDocsPages(section: DocsSection): DocsPage[] {
   return section.pages.filter((page) => !page.draft)
+}
+
+export function loadDocsMarkdown(sectionSlug: string, pageSlug: string): Promise<string> {
+  const load = docsMarkdownByPath[`/src/routes/docs/-content/${sectionSlug}/${pageSlug}.md`]
+  if (!load) throw new Error(`Unregistered docs Markdown: ${sectionSlug}/${pageSlug}`)
+  return load()
 }

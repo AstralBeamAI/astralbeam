@@ -1,10 +1,15 @@
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router"
 import { APP_NAME } from "@/lib/constants"
 import { DocsMarkdown } from "../../-components/docs-markdown"
-import { findDocsPage, findDocsSection, publishedDocsPages } from "../../-lib/content"
+import {
+  findDocsPage,
+  findDocsSection,
+  loadDocsMarkdown,
+  publishedDocsPages,
+} from "../../-lib/content"
 
 export const Route = createFileRoute("/docs/$section/$page/")({
-  loader: ({ params }) => {
+  loader: async ({ params }) => {
     const section = findDocsSection(params.section)
     if (section?.href) {
       const anchor = section.anchors?.[params.page]
@@ -13,7 +18,7 @@ export const Route = createFileRoute("/docs/$section/$page/")({
     }
     const page = section ? findDocsPage(section, params.page) : undefined
     if (!section || !page) throw notFound()
-    return { pageTitle: page.title }
+    return { pageTitle: page.title, markdown: await loadDocsMarkdown(section.slug, page.slug) }
   },
   head: ({ loaderData }) => ({
     meta: [{ title: `${loaderData?.pageTitle} · Docs · ${APP_NAME}` }],
@@ -22,10 +27,9 @@ export const Route = createFileRoute("/docs/$section/$page/")({
 })
 
 function DocsArticlePage() {
-  const { section: sectionSlug, page: pageSlug } = Route.useParams()
-  // The loader already 404s unknown params, so both lookups are non-null here.
-  const section = findDocsSection(sectionSlug)!
-  const page = findDocsPage(section, pageSlug)!
+  const { markdown } = Route.useLoaderData()
+  // The loader already 404s an unknown section, so this lookup is non-null here.
+  const section = findDocsSection(Route.useParams().section)!
   return (
     <div className="container mx-auto flex max-w-6xl gap-10 px-4 py-10">
       <nav aria-label={`${section.title} pages`} className="hidden w-52 shrink-0 md:block">
@@ -48,7 +52,7 @@ function DocsArticlePage() {
         </ul>
       </nav>
       <main className="min-w-0 max-w-3xl flex-1 pb-16">
-        <DocsMarkdown markdown={page.markdown} sectionSlug={section.slug} />
+        <DocsMarkdown markdown={markdown} sectionSlug={section.slug} />
       </main>
     </div>
   )

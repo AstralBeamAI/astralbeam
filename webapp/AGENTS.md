@@ -27,6 +27,7 @@
 - Put HTTP server routes under `src/routes/api` unless another location has a specific purpose.
 - Keep `/dev` utilities synthetic and development-only, returning `404` in production.
 - Keep prerendered docs generic. Fetch user-specific tokens and snippets client-side through authenticated `private, no-store` responses, never generated HTML.
+- A `draft` docs section or page is hidden from navigation, routing, and the prerender crawl, and its Markdown still ships in the repository and in a fetchable chunk. Treat `draft` as unpublished, never as confidential.
 
 ## Database
 
