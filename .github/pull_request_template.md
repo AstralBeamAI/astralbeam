@@ -11,4 +11,4 @@
 - [ ] The diff is focused on one change.
 - [ ] Affected documentation is updated in this pull request.
 - [ ] `deno task --cwd <project> ready` passes for each project touched, or the change is documentation only.
-- [ ] I agree to the [Contributor License Agreement](https://github.com/AstralBeamAI/astralbeam/blob/main/docs/legal/CLA.md).
+- [ ] I agree to the [Contributor License Agreement](https://github.com/AstralBeamAI/astralbeam/blob/main/docs/legal/CLA.md) version 0.1. If I am contributing on behalf of an employer or other entity, I have named that entity and my authority to bind it in this pull request.
