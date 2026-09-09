@@ -57,12 +57,62 @@ const apiDocsScalarOptions = {
   customCss: apiDocsStyles,
 } satisfies NonNullable<ReferenceProps["configuration"]>
 
+const apiDocsThemeScript = `(function () {
+  var storageKey = "theme"
+  var themes = ["system", "light", "dark"]
+  function readTheme() {
+    try {
+      var stored = localStorage.getItem(storageKey)
+      return themes.indexOf(stored) !== -1 ? stored : "system"
+    } catch (error) {
+      return "system"
+    }
+  }
+  function resolvedTheme(theme) {
+    if (theme !== "system") return theme
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light"
+  }
+  function applyTheme(theme) {
+    var resolved = resolvedTheme(theme)
+    var root = document.documentElement
+    root.classList.remove("dark", "light", "dark-mode", "light-mode")
+    root.classList.add(resolved, resolved === "dark" ? "dark-mode" : "light-mode")
+    root.style.colorScheme = resolved
+    var button = document.querySelector("[data-docs-theme-toggle]")
+    if (!button) return
+    var label = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System"
+    button.setAttribute("aria-label", "Theme: " + label)
+    button.querySelectorAll("[data-theme-icon]").forEach(function (icon) {
+      icon.toggleAttribute("hidden", icon.getAttribute("data-theme-icon") !== theme)
+    })
+  }
+  applyTheme(readTheme())
+  document.addEventListener("DOMContentLoaded", function () {
+    applyTheme(readTheme())
+  })
+  document.addEventListener("click", function (event) {
+    var target = event.target
+    if (!(target instanceof Element)) return
+    if (!target.closest("[data-docs-theme-toggle]")) return
+    var next = themes[(themes.indexOf(readTheme()) + 1) % themes.length]
+    try {
+      localStorage.setItem(storageKey, next)
+    } catch (error) {
+      console.error("Failed to set theme", error)
+    }
+    applyTheme(next)
+  })
+})()`
+
 export function apiDocsHtml() {
   return `<!doctype html><html><head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${APP_NAME} API</title>
     <style>${apiDocsStyles}</style>
+    <script>${apiDocsThemeScript}</script>
     </head><body>
     <div id="api-reference-container"></div>
     <script>${String(scalarScript).replaceAll("</script", "<\\/script")}</script>

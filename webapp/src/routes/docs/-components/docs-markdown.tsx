@@ -4,7 +4,10 @@ import {
   type MarkdownComponents,
 } from "@tanstack/markdown/react"
 import { Link } from "@tanstack/react-router"
+import { cn } from "cn"
 import { createElement, type ReactNode } from "react"
+
+import { docsHighlightMarkdownCode } from "../-lib/highlight"
 
 // Tailwind's preflight drops heading sizes, list markers, and block margins, so each element the
 // renderer emits is restyled here rather than through a typography plugin.
@@ -23,7 +26,7 @@ const docsTagClasses: Record<string, string> = {
   code: "rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[0.85em]",
   // A fenced block nests a `code` element, whose chip styling is undone so only the block paints.
   pre:
-    "my-4 overflow-x-auto rounded-lg border bg-muted/50 p-4 font-mono text-sm [&_code]:bg-transparent [&_code]:p-0",
+    "my-4 overflow-x-auto rounded-lg border p-4 font-mono text-sm [&_code]:bg-transparent [&_code]:p-0",
   hr: "my-6",
   thead: "border-b",
   th: "px-3 py-2 text-start font-medium",
@@ -35,7 +38,8 @@ const docsTagClasses: Record<string, string> = {
 const docsStyledTags = Object.fromEntries(
   Object.entries(docsTagClasses).map(([tag, className]) => [
     tag,
-    (props: { children?: ReactNode }) => createElement(tag, { ...props, className }),
+    ({ className: extraClassName, ...props }: { children?: ReactNode; className?: string }) =>
+      createElement(tag, { ...props, className: cn(className, extraClassName) }),
   ]),
 )
 
@@ -85,5 +89,11 @@ export function DocsMarkdown(
       )
     },
   }
-  return <Markdown components={components}>{markdown}</Markdown>
+  return (
+    <div className="docs-markdown">
+      <Markdown components={components} highlighter={docsHighlightMarkdownCode}>
+        {markdown}
+      </Markdown>
+    </div>
+  )
 }

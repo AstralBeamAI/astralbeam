@@ -1,5 +1,6 @@
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router"
 
+import { ThemeToggle } from "@/components/theme-toggle"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { isValidSlug } from "@/lib/slug"
@@ -32,6 +33,7 @@ function OrganizationLayout() {
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center border-b bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/70 sm:px-4">
           <SidebarTrigger />
+          <ThemeToggle className="ms-auto" />
         </header>
         <Outlet key={orgSlug} />
       </SidebarInset>
@@ -46,6 +48,7 @@ function OrganizationLayoutSkeleton() {
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center border-b bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/70 sm:px-4">
           <SidebarTrigger />
+          <ThemeToggle className="ms-auto" />
         </header>
         <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8" aria-busy="true">
           <Skeleton className="h-9 w-56" />

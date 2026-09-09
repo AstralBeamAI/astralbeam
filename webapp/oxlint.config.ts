@@ -257,10 +257,9 @@ export default defineConfig({
         "src/components/auth/settings/settings.tsx",
         "src/db/migration-runner.server.test.ts",
       ],
-      // TODO: Recheck the 2 generated defaults after the upstream prop contract changes.
+      // TODO: Recheck the generated default after the upstream prop contract changes.
       "typescript/no-useless-default-assignment": [
         "src/components/auth/theme/appearance.tsx",
-        "src/components/auth/theme/theme-toggle-item.tsx",
       ],
       // TanStack Router intentionally throws redirect() and notFound() control-flow values.
       // TODO: Reconcile 27 control-flow throws across these 18 files with Error-only throws.

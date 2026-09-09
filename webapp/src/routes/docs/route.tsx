@@ -1,6 +1,8 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { APP_NAME, APP_WORDMARK_DARK_SVG_URL, APP_WORDMARK_LIGHT_SVG_URL } from "@/lib/constants"
 import { findDocsSection } from "./-lib/content"
+import { docsHighlightCss } from "./-lib/highlight"
 import "./-lib/header.css"
 
 export const Route = createFileRoute("/docs")({
@@ -15,6 +17,7 @@ function DocsLayout() {
   })
   return (
     <div className="min-h-svh bg-background text-foreground">
+      <style>{docsHighlightCss}</style>
       <header className="docs-header">
         <nav aria-label="Breadcrumb">
           <ol>
@@ -48,6 +51,7 @@ function DocsLayout() {
             )}
           </ol>
         </nav>
+        <ThemeToggle />
       </header>
       <Outlet />
     </div>

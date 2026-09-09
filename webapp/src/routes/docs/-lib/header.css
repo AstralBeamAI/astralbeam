@@ -2,7 +2,11 @@
   position: sticky;
   top: 0;
   z-index: 100;
+  display: flex;
   box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   height: 56px;
   padding: 0 20px;
   background: var(--background);
@@ -19,7 +23,27 @@
 }
 
 .docs-header nav {
+  min-width: 0;
   height: 100%;
+}
+
+.docs-theme-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.docs-theme-toggle:hover {
+  background: var(--muted);
+  color: var(--foreground);
 }
 
 .docs-header ol {
