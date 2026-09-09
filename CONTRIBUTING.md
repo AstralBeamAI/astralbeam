@@ -49,9 +49,9 @@ CI runs `ready` for all four projects, compiles and smoke-tests the webapp binar
 
 This repository is dual licensed. Files under [`www`](www), [`sdk`](sdk), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
 
-AstralBeam also asks contributors to sign a Contributor License Agreement, either the [individual CLA](docs/legal/CLA.md) or, when you contribute on behalf of an employer, the [corporate CLA](docs/legal/CLA-CORPORATE.md). Both are adapted from the Apache CLAs. They grant AstralBeam Inc. a copyright and patent license including the right to sublicense, which is what lets the project ship the same code in the AGPL repository and in the hosted commercial offering. You keep ownership of your contribution.
+AstralBeam also asks contributors to agree to the [Contributor License Agreement](docs/legal/CLA.md). It grants AstralBeam Inc. a copyright and patent license to your contribution and lets AstralBeam license that contribution onward under any terms, expressly including AGPL-3.0-only, the MIT License, and proprietary or commercial terms. That is what lets the project ship the same code in this repository and in the hosted commercial offering. You keep ownership of your contribution and every right to use it yourself. One document covers both contributions you make on your own behalf and contributions you make as an employee, so there is no separate corporate agreement to sign.
 
-Signatures are collected when a contribution is proposed, by agreeing to the CLA on the pull request. There is no automation for this in the repository today. [CLA Assistant](https://cla-assistant.io) is the usual GitHub App for collecting signatures automatically, and installing it is a decision for the repository owner.
+Agreement is collected when a contribution is proposed, by ticking the CLA acknowledgement in the pull request template. There is no automation for this in the repository today. [CLA Assistant](https://cla-assistant.io) is the usual GitHub App for collecting agreements automatically, and installing it is a decision for the repository owner.
 
 ## Releasing
 
