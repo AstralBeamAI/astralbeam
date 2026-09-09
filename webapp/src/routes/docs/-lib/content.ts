@@ -33,7 +33,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     slug: "start",
     title: "Get started",
     description: "Go from a new organization to a working embedded agent.",
-    draft: true,
+    draft: false,
     pages: [
       { slug: "quickstart", title: "Quickstart" },
       { slug: "todos-tutorial", title: "Todos tutorial" },
@@ -75,7 +75,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     slug: "dashboard",
     title: "Dashboard",
     description: "Configure the agents, sandboxes, keys, and members your organization uses.",
-    draft: true,
+    draft: false,
     pages: [
       { slug: "agents", title: "Agents" },
       { slug: "sandboxes", title: "Sandboxes" },
@@ -88,7 +88,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     slug: "self-hosting",
     title: "Self-hosting",
     description: "Run and operate the platform on your own infrastructure.",
-    draft: true,
+    draft: false,
     pages: [
       { slug: "overview", title: "Overview" },
       { slug: "deploy", title: "Deploy" },

@@ -70,7 +70,9 @@ test("the sitemap lists the published docs without drafts or redirects", () => {
   expect(paths).toContain("/docs")
   expect(paths).toContain("/docs/api")
   expect(paths).toContain("/docs/sdk/getting-started")
-  expect(draftPaths.length).toBeGreaterThan(0)
+  expect(paths).toContain("/docs/start/quickstart")
+  expect(paths).toContain("/docs/dashboard/agents")
+  expect(paths).toContain("/docs/self-hosting/overview")
   expect(paths.filter((path) => draftPaths.includes(path))).toEqual([])
   // A bare section URL only redirects to its first page.
   expect(paths).not.toContain("/docs/sdk")
