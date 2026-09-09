@@ -34,7 +34,7 @@ You represent that:
 
 - You are legally entitled to grant the licenses in this agreement.
 - If Your employer has rights to intellectual property You create that covers Your Contribution, You have either received Your employer's permission to make the Contribution or are authorized to enter this agreement on Your employer's behalf and to bind it to these terms.
-- Each Contribution is Your original creation.
+- Each Contribution is Your original creation, apart from any third-party material You identify under the next point.
 - Your Contribution discloses the complete details of any third-party material it contains and of any license, patent, trademark, or other restriction affecting it that You are personally aware of.
 
 You agree to notify AstralBeam promptly if You become aware of any fact or circumstance that makes one of these representations inaccurate in any respect.
