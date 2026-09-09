@@ -93,6 +93,7 @@ const token = await createAstralBeamOrganizationToken({
 - Authenticate and authorize the operator on your server. Never take email or organization ownership directly from browser input.
 - The email must match an existing organization user and membership. The API rechecks database roles on every request: owners/developers read and write, viewers read only.
 - `organizationId` must match the API key's Organization. Tokens last 60–600 seconds, defaulting to 300.
+- For a custom deployment, set `appHandle` to its `APP_HANDLE`. It defaults to `astralbeam` and controls both JWT type and audience. Keep it server-configured.
 - Pass the token as `astralBeamToken` to `/api` helpers. Never encode roles in it. Missing membership or insufficient permission returns `403`.
 - Return tokens with `Cache-Control: no-store`. Keep API keys server-side and handle minting errors without exposing their details.
 
