@@ -60,14 +60,14 @@ Then start the application with that `DATABASE_URL` and the encryption keyring t
 
 ## Health checks
 
-| Endpoint      | Behavior                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `/api/status` | Liveness only. Always `200` with `{"status":"ok"}`. It never touches the database or reads the request                         |
-| `/api/v1/*`   | `503` with `Retry-After: 10` and a problem document whose detail is `Server configuration required.` while setup is incomplete |
-| `/api/auth/*` | `503` with `{"error":"Application is not configured"}` while setup is incomplete                                               |
-| Page routes   | Redirect to `/configure` while setup is incomplete                                                                             |
+| Endpoint      | Behavior                                                                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/status` | Counts organization rows. `200` with `{"status":"ok"}` when that query succeeds, otherwise `503` with an `error` field. It does not read the request |
+| `/api/v1/*`   | `503` with `Retry-After: 10` and a problem document whose detail is `Server configuration required.` while setup is incomplete                       |
+| `/api/auth/*` | `503` with `{"error":"Application is not configured"}` while setup is incomplete                                                                     |
+| Page routes   | Redirect to `/configure` while setup is incomplete                                                                                                   |
 
-Point a process supervisor or load balancer liveness probe at `/api/status`. Because that probe deliberately answers without reading anything, it stays `200` when the database is down, and there is no separate readiness endpoint. For readiness, probe an API route and treat `503` as not ready and `401` as ready.
+Point a process supervisor or load balancer probe at `/api/status`. It counts organization rows and reports `{"status":"ok"}` only when that query succeeds, so a database outage returns `503` with an `error` field. There is no separate readiness endpoint. For API readiness, probe an API route and treat `503` as not ready and `401` as ready.
 
 ## Logs
 

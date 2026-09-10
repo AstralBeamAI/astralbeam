@@ -153,7 +153,7 @@ Run each of these against the public origin:
 | `curl -s https://your-host/api/openapi.json` | The OpenAPI document, including the `/api/v1/tenants` path             |
 | `curl -i https://your-host/api/v1/tenants`   | `401` once setup is complete, `503` with `Retry-After` while it is not |
 
-`/api/status` is a liveness probe and nothing more. It answers one constant body without touching the database, so it stays `200` even when configuration is incomplete or PostgreSQL is unreachable. There is no separate readiness endpoint, so to check readiness, call an API route and treat `503` as not ready.
+`/api/status` counts organization rows and answers `{"status":"ok"}` when that query succeeds. A database failure returns `503` with an `error` field, without the count. There is no separate readiness endpoint, so to check API readiness, call an API route and treat `503` as not ready.
 
 ## Upgrade
 
