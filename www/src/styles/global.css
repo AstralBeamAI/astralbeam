@@ -212,46 +212,6 @@ a[href] {
 
 /* ---------- HUD chrome ---------- */
 
-.hud-frame {
-  position: fixed;
-  inset: 10px;
-  z-index: 45;
-  pointer-events: none;
-}
-
-.hud-corner {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--beam-soft);
-  opacity: 0.9;
-}
-
-.hud-corner.tl {
-  top: 0;
-  left: 0;
-  border-right: 0;
-  border-bottom: 0;
-}
-.hud-corner.tr {
-  top: 0;
-  right: 0;
-  border-left: 0;
-  border-bottom: 0;
-}
-.hud-corner.bl {
-  bottom: 0;
-  left: 0;
-  border-right: 0;
-  border-top: 0;
-}
-.hud-corner.br {
-  bottom: 0;
-  right: 0;
-  border-left: 0;
-  border-top: 0;
-}
-
 .hud-top {
   position: fixed;
   top: 0;
@@ -288,6 +248,16 @@ a[href] {
   display: block;
   height: 24px;
   width: auto;
+  filter: drop-shadow(0 0 6px var(--beam-faint));
+}
+
+.hud-brand-mark {
+  display: none;
+  /* The AB master centers its mark in a square with generous padding, so the box is
+     oversized and the negative margin pulls it back to the mark's optical height. */
+  height: 48px;
+  width: auto;
+  margin-block: -14px;
   filter: drop-shadow(0 0 6px var(--beam-faint));
 }
 
@@ -1080,6 +1050,72 @@ main {
   color: var(--foreground);
 }
 
+/* A chart the agent renders through the host's own component: one series, so the
+   peak week carries the accent and the rest recede to context. */
+.chart-total {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.chart-plot {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.45rem;
+  height: 6.6rem;
+  /* Headroom for the peak's value label, which sits above the tallest bar. */
+  padding-top: 1.1rem;
+  margin-top: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-col {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.chart-bar {
+  width: 100%;
+  max-width: 24px;
+  height: var(--v);
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.5s ease-out;
+}
+
+.agent-widget.shown .chart-bar {
+  transform: none;
+}
+
+.chart-col.is-peak .chart-bar {
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--beam-faint);
+}
+
+.chart-value {
+  position: absolute;
+  bottom: calc(var(--v) + 0.25rem);
+  font-size: 0.6rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.chart-ticks {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: var(--text-chrome);
+  list-style: none;
+}
+
 /* A file the visitor attached, shown above their message like the real composer does. */
 .agent-attachment {
   display: inline-flex;
@@ -1484,7 +1520,10 @@ main {
     letter-spacing: 0.1em;
   }
   .hud-brand-wordmark {
-    height: clamp(14px, 4vw, 16px);
+    display: none;
+  }
+  .hud-brand-mark {
+    display: block;
   }
   .benefits,
   .integrations-grid,
@@ -1570,5 +1609,10 @@ main {
 
   .agent-tool .tool-dot {
     animation: none;
+  }
+
+  .chart-bar {
+    transform: none;
+    transition: none;
   }
 }

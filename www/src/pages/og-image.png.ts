@@ -7,9 +7,9 @@ import { siteMetadata } from "@/lib/site"
 export const prerender = true
 
 export const GET = createPngRoute(async () => {
-  const logo = await renderSiteLogo(132)
+  const logo = await renderSiteLogo(150, { opaque: false })
   return sharp(Buffer.from(socialCardSvg()))
-    .composite([{ input: logo, left: 974, top: 72 }])
+    .composite([{ input: logo, left: 984, top: 75 }])
     .png()
     .toBuffer()
 })
@@ -32,14 +32,13 @@ function socialCardSvg() {
     <rect width="1200" height="630" fill="${palette.dark.background.srgbHex}"/>
     <rect width="1200" height="630" fill="url(#grid)"/>
     <rect width="1200" height="630" fill="url(#glow)"/>
-    <path d="M1080 -30L872 660" stroke="${palette.dark.primary.srgbHex}" stroke-width="3" opacity="0.62" filter="url(#beam-glow)"/>
+    <path d="M1010 -30L802 660" stroke="${palette.dark.primary.srgbHex}" stroke-width="3" opacity="0.62" filter="url(#beam-glow)"/>
     <rect x="38" y="38" width="1124" height="554" rx="8" fill="none" stroke="${palette.dark.border.srgbHex}" stroke-width="2"/>
     <path d="M38 94V38H94M1106 38H1162V94M38 536V592H94M1106 592H1162V536" fill="none" stroke="${palette.dark.primary.srgbHex}" stroke-width="3"/>
-    <circle cx="96" cy="94" r="3" fill="${palette.dark.primary.srgbHex}"/>
     <text x="80" y="112" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="22" font-weight="700" letter-spacing="4">OPEN SOURCE AGENT INFRASTRUCTURE</text>
-    <text x="76" y="272" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">THE <tspan fill="${palette.dark.primary.srgbHex}">AGENTIC</tspan></text>
-    <text x="76" y="370" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">CHAT WIDGET</text>
-    <text x="76" y="468" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">FOR YOUR APP</text>
+    <text x="80" y="272" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">THE <tspan fill="${palette.dark.primary.srgbHex}">AGENTIC</tspan></text>
+    <text x="80" y="370" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">CHAT WIDGET</text>
+    <text x="80" y="468" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">FOR YOUR APP</text>
     <path d="M80 516H1120" stroke="${palette.dark.border.srgbHex}" stroke-width="2"/>
     <text x="80" y="558" fill="${palette.dark.mutedForeground.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="20" letter-spacing="2">ONE COMPONENT. YOUR TOOLS. YOUR USERS.</text>
     <text x="1120" y="558" text-anchor="end" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="20" font-weight="700" letter-spacing="2">ASTRALBEAM.AI</text>

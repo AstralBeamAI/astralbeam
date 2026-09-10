@@ -1,13 +1,16 @@
 ---
+import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
 import SiteLayout from "@/layouts/SiteLayout.astro"
 import { siteMetadata } from "@/lib/site"
 
-const signUpUrl = "https://app.astralbeam.ai/auth/sign-up"
-const logInUrl = "https://app.astralbeam.ai/auth/sign-in"
-const docsUrl = "https://app.astralbeam.ai/docs"
-const discordUrl = "https://discord.gg/suehFycUvW"
-const githubUrl = "https://github.com/astralbeamai/astralbeam"
+const {
+  signUp: signUpUrl,
+  logIn: logInUrl,
+  docs: docsUrl,
+  discord: discordUrl,
+  github: githubUrl,
+} = siteMetadata.links
 
 interface Benefit {
   name: string
@@ -270,17 +273,12 @@ function highlight(code: string) {
   <div class="fx-scanlines" aria-hidden="true"></div>
   <div class="fx-vignette" aria-hidden="true"></div>
 
-  <!-- HUD chrome -->
-  <div class="hud-frame" aria-hidden="true">
-    <i class="hud-corner tl"></i><i class="hud-corner tr"></i>
-    <i class="hud-corner bl"></i><i class="hud-corner br"></i>
-  </div>
-
   <header class="hud-top">
     <div class="hud-inner">
       <a class="hud-brand" href="/" aria-label="AstralBeam home">
         <img class="hud-brand-wordmark" src={astralbeamDarkWordmarkUrl} alt="" width="1241"
           height="136" />
+        <img class="hud-brand-mark" src={astralbeamDarkLogoUrl} alt="" width="270" height="270" />
       </a>
       <nav class="hud-nav" aria-label="Primary">
         <a class="hud-nav-social" href={githubUrl} target="_blank" rel="noopener noreferrer"
@@ -313,7 +311,6 @@ function highlight(code: string) {
     <section class="hero" id="top">
       <div class="hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow reveal">OPEN SOURCE AGENT INFRASTRUCTURE</p>
           <h1 class="display hero-title">
             <span class="reveal scramble" data-text="THE">THE</span>{" "}
             <span class="reveal scramble beam-text" data-text="AGENTIC" style="--reveal-delay:.06s">AGENTIC</span><br />
@@ -426,6 +423,55 @@ function highlight(code: string) {
                 </a>
                 <p class="agent-stream" data-stream>
                   3 of 41 returns are still unpaid, $612 in total. The spreadsheet is ready to download.
+                </p>
+              </article>
+              <article class="agent-msg is-user" data-step>
+                <p>How have refunds trended over the last six weeks?</p>
+              </article>
+              <article class="agent-msg is-agent" data-step>
+                <ul class="agent-tools mono">
+                  <li class="agent-tool" data-tool>
+                    <i class="tool-dot" aria-hidden="true"></i><span class="tool-name">refundsByWeek</span><b>6 weeks</b>
+                  </li>
+                </ul>
+                <!-- The host's own <RefundsChart /> widget: one series, peak week emphasized. -->
+                <figure class="agent-widget agent-chart" data-widget>
+                  <figcaption class="widget-head mono">
+                    <span>REFUNDS BY WEEK</span>
+                    <span class="chart-total">$8,200</span>
+                  </figcaption>
+                  <div class="chart-plot" role="img" aria-label="Refunds by week: week 33 $1,180, week 34 $2,140, week 35 $1,760, week 36 $1,320, week 37 $980, week 38 $820.">
+                    <div class="chart-col" style="--v:55%">
+                      <i class="chart-bar" aria-hidden="true"></i>
+                    </div>
+                    <div class="chart-col is-peak" style="--v:100%">
+                      <b class="chart-value mono">$2,140</b>
+                      <i class="chart-bar" aria-hidden="true"></i>
+                    </div>
+                    <div class="chart-col" style="--v:82%">
+                      <i class="chart-bar" aria-hidden="true"></i>
+                    </div>
+                    <div class="chart-col" style="--v:62%">
+                      <i class="chart-bar" aria-hidden="true"></i>
+                    </div>
+                    <div class="chart-col" style="--v:46%">
+                      <i class="chart-bar" aria-hidden="true"></i>
+                    </div>
+                    <div class="chart-col" style="--v:38%">
+                      <i class="chart-bar" aria-hidden="true"></i>
+                    </div>
+                  </div>
+                  <ul class="chart-ticks mono">
+                    <li>W33</li>
+                    <li>W34</li>
+                    <li>W35</li>
+                    <li>W36</li>
+                    <li>W37</li>
+                    <li>W38</li>
+                  </ul>
+                </figure>
+                <p class="agent-stream" data-stream>
+                  Refunds peaked at $2,140 in week 34 after the carrier delay, then fell 62% by week 38.
                 </p>
               </article>
             </div>

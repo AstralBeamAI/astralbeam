@@ -6,6 +6,7 @@ export const prerender = true
 
 export const GET: APIRoute = ({ site }) => {
   const homeUrl = siteUrl("/", site?.href)
+  const { app, docs, github, discord } = siteMetadata.links
 
   return new Response(
     `# AstralBeam
@@ -36,10 +37,10 @@ Drop a Cursor-style agent sidebar into your product with one npm package and one
 ## Links
 
 - [Home](${homeUrl}): Product overview, integration steps, and deployment model.
-- [Hosted app](https://app.astralbeam.ai): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
-- [Documentation](https://app.astralbeam.ai/docs): Guides and reference for the SDK and the platform.
-- [Source code](https://github.com/astralbeamai/astralbeam): The open-source platform under AGPL-3.0.
-- [Discord](https://discord.gg/suehFycUvW): Community chat with the AstralBeam team.
+- [Hosted app](${app}): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
+- [Documentation](${docs}): Guides and reference for the SDK and the platform.
+- [Source code](${github}): The open-source platform under AGPL-3.0.
+- [Discord](${discord}): Community chat with the AstralBeam team.
 
 ## Contact
 

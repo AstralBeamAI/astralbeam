@@ -289,14 +289,14 @@ function initAgentDemo() {
   // Pauses in ms. The intro should read like a conversation happening in real
   // time rather than a transcript being dumped into the panel.
   const PACE = {
-    open: 1400,
-    beforeUser: 1650,
-    beforeAgent: 1400,
-    afterMessage: 850,
-    tool: 700,
-    betweenTools: 320,
-    widget: 550,
-    visitorReply: 1400,
+    open: 1250,
+    beforeUser: 1480,
+    beforeAgent: 1250,
+    afterMessage: 760,
+    tool: 630,
+    betweenTools: 290,
+    widget: 490,
+    visitorReply: 1250,
   }
 
   function wait(ms: number) {
@@ -365,8 +365,8 @@ function initAgentDemo() {
       let shown = 0
       function frame() {
         if (!alive()) return resolve()
-        // A character and a half per frame reads like a real token stream.
-        shown = Math.min(text.length, shown + 1.5)
+        // Roughly a character and a half per frame reads like a real token stream.
+        shown = Math.min(text.length, shown + 1.65)
         stream.textContent = text.slice(0, Math.floor(shown))
         scrollToEnd()
         if (shown < text.length) {
