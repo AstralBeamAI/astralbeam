@@ -6,8 +6,8 @@ import { effectDatabase, runDatabaseEffect } from "@/db"
 import { organization } from "@/db/schema/organizations.server"
 
 /**
- * Liveness probe `scripts/check-binary.ts` reads, so it stays reachable without a session and never
- * reads, logs, or parses a request. It counts organization rows only to confirm the database answers.
+ * Liveness probe that stays reachable without a session and never reads, logs, or parses a
+ * request. It counts organization rows only to confirm the database answers.
  */
 async function handleStatusRequest() {
   try {
