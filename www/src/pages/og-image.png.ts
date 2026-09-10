@@ -36,12 +36,12 @@ function socialCardSvg() {
     <rect x="38" y="38" width="1124" height="554" rx="8" fill="none" stroke="${palette.dark.border.srgbHex}" stroke-width="2"/>
     <path d="M38 94V38H94M1106 38H1162V94M38 536V592H94M1106 592H1162V536" fill="none" stroke="${palette.dark.primary.srgbHex}" stroke-width="3"/>
     <circle cx="96" cy="94" r="3" fill="${palette.dark.primary.srgbHex}"/>
-    <text x="80" y="112" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="22" font-weight="700" letter-spacing="4">OPEN SOURCE AI INFRASTRUCTURE</text>
-    <text x="76" y="272" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="82" font-weight="700" letter-spacing="2">SHIP AGENTS</text>
-    <text x="76" y="370" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="82" font-weight="700" letter-spacing="2">IN MINUTES</text>
-    <text x="76" y="468" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="82" font-weight="700" letter-spacing="2">NOT MONTHS</text>
+    <text x="80" y="112" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="22" font-weight="700" letter-spacing="4">OPEN SOURCE AGENT INFRASTRUCTURE</text>
+    <text x="76" y="272" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">THE <tspan fill="${palette.dark.primary.srgbHex}">AGENTIC</tspan></text>
+    <text x="76" y="370" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">CHAT WIDGET</text>
+    <text x="76" y="468" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">FOR YOUR APP</text>
     <path d="M80 516H1120" stroke="${palette.dark.border.srgbHex}" stroke-width="2"/>
-    <text x="80" y="558" fill="${palette.dark.mutedForeground.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="20" letter-spacing="2">ONE SERVICE. PRODUCTION-READY.</text>
+    <text x="80" y="558" fill="${palette.dark.mutedForeground.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="20" letter-spacing="2">ONE COMPONENT. YOUR TOOLS. YOUR USERS.</text>
     <text x="1120" y="558" text-anchor="end" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="20" font-weight="700" letter-spacing="2">ASTRALBEAM.AI</text>
   </svg>`
 }

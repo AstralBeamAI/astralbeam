@@ -195,37 +195,33 @@ function initReveals() {
 
 /* ============ terminal typing ============ */
 
-/* Resolves once the snippet has finished typing, so the agent demo beside it can
-   start streaming only after the code it illustrates is on screen. */
-function initTerminal() {
-  const terminal = document.getElementById("terminal")
-  if (!terminal) return Promise.resolve()
-  const lines = Array.from(terminal.querySelectorAll<HTMLElement>(".t-line"))
+/* Each step's snippet types itself in the first time it scrolls into view. */
+function initTerminals() {
+  for (const terminal of document.querySelectorAll<HTMLElement>("[data-terminal]")) {
+    const lines = Array.from(terminal.querySelectorAll<HTMLElement>(".t-line"))
 
-  if (reducedMotion) {
-    lines.forEach((l) => l.classList.add("typed"))
-    return Promise.resolve()
-  }
+    if (reducedMotion) {
+      lines.forEach((l) => l.classList.add("typed"))
+      continue
+    }
 
-  return new Promise<void>((resolve) => {
     const io = new IntersectionObserver(
       (entries) => {
         if (!entries.some((e) => e.isIntersecting)) return
         io.disconnect()
 
-        let delay = 300
+        let delay = 200
         for (const line of lines) {
           const isCmd = line.dataset.type === "cmd"
           setTimeout(() => line.classList.add("typed"), delay)
-          delay += isCmd ? 650 : 120
+          delay += isCmd ? 650 : 110
         }
-        setTimeout(resolve, delay + 250)
       },
       { threshold: 0.35 },
     )
 
     io.observe(terminal)
-  })
+  }
 }
 
 /* ============ agent sidebar prototype ============ */
@@ -237,7 +233,10 @@ const DEMO_REPLIES: Array<{ tool?: [string, string]; text: string }> = [
     tool: ["lookupOrder", "4830"],
     text: "Order 4830 shipped this morning. Tracking is already in her inbox.",
   },
-  { tool: ["refund", "$9.00"], text: "Refunded the shipping fee too, since the delay was on us." },
+  {
+    tool: ["refundOrder", "$9.00"],
+    text: "Refunded the shipping fee too, since the delay was on us.",
+  },
   { text: "Two similar tickets came in this week. Want me to group them into one thread?" },
   {
     tool: ["addNote", "account"],
@@ -260,7 +259,7 @@ const DEMO_REPLIES: Array<{ tool?: [string, string]; text: string }> = [
   },
 ]
 
-function initAgentDemo(codeReady: Promise<void>) {
+function initAgentDemo() {
   const panel = document.getElementById("agent-demo")
   if (!panel) return
   const composer = panel.querySelector<HTMLFormElement>("[data-composer]")
@@ -290,14 +289,14 @@ function initAgentDemo(codeReady: Promise<void>) {
   // Pauses in ms. The intro should read like a conversation happening in real
   // time rather than a transcript being dumped into the panel.
   const PACE = {
-    open: 450,
-    beforeUser: 1250,
-    beforeAgent: 750,
-    afterMessage: 650,
-    tool: 520,
-    betweenTools: 240,
-    widget: 400,
-    visitorReply: 900,
+    open: 1400,
+    beforeUser: 1650,
+    beforeAgent: 1400,
+    afterMessage: 850,
+    tool: 700,
+    betweenTools: 320,
+    widget: 550,
+    visitorReply: 1400,
   }
 
   function wait(ms: number) {
@@ -366,9 +365,9 @@ function initAgentDemo(codeReady: Promise<void>) {
       let shown = 0
       function frame() {
         if (!alive()) return resolve()
-        // A few characters per frame reads like a real token stream.
-        shown = Math.min(text.length, shown + 2)
-        stream.textContent = text.slice(0, shown)
+        // A character and a half per frame reads like a real token stream.
+        shown = Math.min(text.length, shown + 1.5)
+        stream.textContent = text.slice(0, Math.floor(shown))
         scrollToEnd()
         if (shown < text.length) {
           requestAnimationFrame(frame)
@@ -515,11 +514,8 @@ function initAgentDemo(codeReady: Promise<void>) {
     (entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return
       io.disconnect()
-      void codeReady.then(() => {
-        // A zero here means nothing has interrupted the intro while the snippet
-        // was typing, so it is still safe to start it.
-        if (intro === 0) void play()
-      })
+      // Zero means neither a replay nor a visitor message beat the observer to it.
+      if (intro === 0) void play()
     },
     { threshold: 0.3 },
   )
@@ -530,7 +526,8 @@ function initAgentDemo(codeReady: Promise<void>) {
 function init() {
   initStarfield()
   initReveals()
-  initAgentDemo(initTerminal())
+  initTerminals()
+  initAgentDemo()
 }
 
 // WebKit runs module scripts before pending stylesheets finish loading, unlike Chromium and
