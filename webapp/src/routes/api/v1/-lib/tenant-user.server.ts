@@ -13,9 +13,9 @@ import {
   restExamplePageCursors,
   restPageFields,
   restPageHeaders,
-  restPageQuery,
   restResourceSecurity,
   restScope,
+  restUserPageQuery,
   tenantRestKeys,
 } from "./shared.server"
 import {
@@ -93,11 +93,11 @@ export const tenantUserApi = HttpApiGroup.make("tenant_users", { topLevel: true 
 ).add(
   HttpApiEndpoint.get("listUsersForTenant", "/tenants/:tenant_id/tenant_users", {
     params: { tenant_id: restUserParams.tenant_id },
-    query: restPageQuery,
+    query: restUserPageQuery,
     success: HttpApiSchema.WithHeaders(tenantUserRestPage, restPageHeaders),
   }).annotate(OpenApi.Summary, "List TenantUsers").annotate(
     OpenApi.Description,
-    "List users of one Tenant in internal ID order, optionally filtered by exact external ID. No matching user returns an empty page; missing and out-of-scope Tenants return 404. Cursors cannot be reused for another Tenant or filter. Live listing, not a snapshot.",
+    "List users of one Tenant in internal ID order. q searches name or external ID as a case-insensitive literal substring. Exact filter[external_id] and filter[admin] combine with AND. No matching user returns an empty page; missing and out-of-scope Tenants return 404. Cursors cannot be reused for another Tenant or filter. Live listing, not a snapshot.",
   ),
   HttpApiEndpoint.post("createTenantUser", "/tenants/:tenant_id/tenant_users", {
     params: { tenant_id: restUserParams.tenant_id },
@@ -144,20 +144,31 @@ export function tenantUserHandlers(api: typeof ApiV1) {
           listUsersForTenant: Effect.fn(function* ({ params, query, request }) {
             const scope = yield* restScope
             const tenantScope = { ...scope, tenantFilter: params.tenant_id }
-            const { pageSize, backward, cursor, externalId } = yield* restPageOptions(
-              query,
-              "tenant_users",
-              tenantScope,
-            )
+            const { pageSize, backward, cursor, externalId, search, admin } =
+              yield* restPageOptions(
+                query,
+                "tenant_users",
+                tenantScope,
+              )
             const page = yield* listTenantUsers(scope, params.tenant_id, {
               pageSize,
               position: cursor,
               backward,
               externalId,
+              search,
+              admin,
               includePrevious: true,
             }).pipe(Stream.runHead, Effect.map(Option.getOrThrow))
             return yield* Effect.promise(() =>
-              restPage(page, "tenant_users", tenantScope, request.url, backward, externalId)
+              restPage(page, {
+                collection: "tenant_users",
+                scope: tenantScope,
+                url: request.url,
+                backward,
+                externalId,
+                search,
+                admin,
+              })
             )
           }, restHandleErrors("listUsersForTenant")),
           getTenantUser: Effect.fn(function* ({ params }) {

@@ -3,12 +3,14 @@ import { defaultStatements, memberAc, ownerAc } from "better-auth/plugins/organi
 
 const organizationApiKeyActions = ["create", "read", "update", "delete"] as const
 const organizationConfigurationActions = ["read", "update", "test", "delete"] as const
+const organizationTenantManagementActions = ["read", "write"] as const
 
 // Extend the default statements and rebuild each role as documented for custom permissions. https://better-auth.com/docs/plugins/organization#custom-permissions
 export const organizationAccessControl = createAccessControl({
   ...defaultStatements,
   apiKey: organizationApiKeyActions,
   organizationConfiguration: organizationConfigurationActions,
+  tenantManagement: organizationTenantManagementActions,
 })
 
 export const organizationRoles = {
@@ -16,14 +18,17 @@ export const organizationRoles = {
     ...ownerAc.statements,
     apiKey: organizationApiKeyActions,
     organizationConfiguration: organizationConfigurationActions,
+    tenantManagement: organizationTenantManagementActions,
   }),
   developer: organizationAccessControl.newRole({
     ...memberAc.statements,
     apiKey: organizationApiKeyActions,
     organizationConfiguration: organizationConfigurationActions,
+    tenantManagement: organizationTenantManagementActions,
   }),
   viewer: organizationAccessControl.newRole({
     ...memberAc.statements,
+    tenantManagement: ["read"],
   }),
 } as const
 

@@ -11,6 +11,7 @@ import {
   createTenant as sdkCreateTenant,
   getChatFile as sdkGetChatFile,
   listTenants as sdkListTenants,
+  listUsersForTenant as sdkListUsers,
   runChat as sdkRunChat,
   updateTenant as sdkUpdateTenant,
 } from "../../../../../../sdk/src/api/index.ts"
@@ -25,7 +26,8 @@ const restTestState = vi.hoisted(() => ({
   keyRows: [] as { id: string }[],
   verify: vi.fn(),
   chat: vi.fn(),
-  consume: vi.fn(),
+  organizationAuth: vi.fn(),
+  consume: vi.fn<(options: { key: string }) => Effect.Effect<void, RateLimiter.RateLimiterError>>(),
   agent: vi.fn(),
   run: vi.fn(),
   readFile: vi.fn(),
@@ -95,6 +97,11 @@ vi.mock("@/lib/chat/auth.server", () => ({
 vi.mock("@/db/lib/rate-limiter.server", () => ({
   databaseRateLimiter: { consume: restTestState.consume },
 }))
+vi.mock("@/lib/organization-token.server", () => ({
+  OrganizationMembershipError: class extends Error {},
+  ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
+  authenticateOrganizationRequest: restTestState.organizationAuth,
+}))
 vi.mock("@/lib/config", () => ({ getGlobalConfig: () => Promise.resolve("test-provider-key") }))
 vi.mock("@/lib/chat/agent.server", () => ({ resolveChatAgent: restTestState.agent }))
 vi.mock("@tanstack/ai", async (original) => ({
@@ -116,6 +123,8 @@ vi.mock("@/lib/sandbox/factory.server", () => ({
 }))
 
 import { apiV1WebHandler, dispatchRestRequest } from "./transport.server"
+import { authenticateRestRequest } from "./auth.server"
+import { OrganizationMembershipError } from "@/lib/organization-token.server"
 import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
@@ -127,6 +136,7 @@ const restTenantId = "019a0000-0000-7000-8000-000000000002"
 const restUserId = "019a0000-0000-7000-8000-000000000003"
 const restOtherId = "019a0000-0000-7000-8000-000000000004"
 const restSdkFetch: typeof fetch = (input, init) => dispatchRestRequest(new Request(input, init))
+const restTenantJwt = `${btoa(JSON.stringify({ typ: "astralbeam+jwt" }))}.e30.c2ln`
 const restTestApiKey = `key_${restOrgId}_${restOtherId}_abo_${"A".repeat(64)}`
 const restTenantRow = {
   organizationId: restOrgId,
@@ -268,7 +278,7 @@ describe("REST API through the Effect Fetch handler", () => {
       tools: [],
       context: [],
     }, {
-      astralBeamToken: "signed-jwt",
+      astralBeamToken: restTenantJwt,
       apiUrl: "http://localhost/api",
       fetchClient: restSdkFetch,
     })
@@ -289,7 +299,7 @@ describe("REST API through the Effect Fetch handler", () => {
   })
 
   test("chat HTTP failures share v1 errors, CORS, challenges, and retry information", async () => {
-    const headers = { Authorization: "Bearer signed-jwt", "Content-Type": "application/json" }
+    const headers = { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" }
     for (
       const [body, extra, status] of [
         ["{", {}, 400],
@@ -445,6 +455,149 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId])
   })
 
+  test("generated search queries escape patterns and retain every ownership and admin predicate", async () => {
+    const options = {
+      apiKey: restTestApiKey,
+      apiUrl: "http://localhost/api",
+      fetchClient: restSdkFetch,
+    }
+    restTestState.rows.push([restTenantRow], [restTenantRow], [restUserRow])
+    await sdkListTenants({ q: "  東京_%\\  " }, options)
+    expect(restLastPredicate().params).toEqual([restOrgId, "%東京\\_\\%\\\\%", "%東京\\_\\%\\\\%"])
+    await sdkListUsers(restTenantId, {
+      q: "Ada",
+      "filter[admin]": "false",
+      "filter[external_id]": "u",
+    }, options)
+    expect(restLastPredicate().params).toEqual([
+      restOrgId,
+      restTenantId,
+      "u",
+      "%Ada%",
+      "%Ada%",
+      false,
+    ])
+    expect(restLastPredicate().sql).toContain(" ilike ")
+    for (
+      const path of [
+        "/tenants?filter[admin]=true",
+        `/tenants/${restTenantId}/tenant_users?filter[admin]=1`,
+        `/tenants?q=${"a".repeat(256)}`,
+        "/tenants?q=%00",
+        `/tenants/${restTenantId}/tenant_users?q=%00`,
+      ]
+    ) {
+      expect((await restRequest(path)).status).toBe(400)
+    }
+  })
+
+  test("organization JWTs scope the current user and rate bucket", async () => {
+    const currentUser = {
+      id: restUserId,
+      name: "Operator",
+      email: "operator@example.com",
+      role: "developer",
+    }
+    const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
+    const headers = { Authorization: `Bearer ${jwt}` }
+    for (
+      const scope of [
+        { organizationId: restOrgId, currentUser },
+        {
+          organizationId: restOrgId,
+          currentUser: { ...currentUser, email: "renamed@example.com" },
+        },
+        { organizationId: restOtherId, currentUser },
+      ]
+    ) {
+      restTestState.organizationAuth.mockReturnValue(Effect.succeed(scope))
+      restTestState.rows.push([])
+      expect((await restRequest("/tenants", { headers })).status).toBe(200)
+      expect(restLastPredicate().params).toEqual([scope.organizationId])
+    }
+    await expect(runDatabaseEffect(authenticateRestRequest(
+      new Request("https://example.test/api/v1/tenants", { headers }),
+    ))).resolves.toEqual({ organizationId: restOtherId, currentUser })
+    expect(restTestState.chat).not.toHaveBeenCalled()
+    const buckets = restTestState.consume.mock.calls.map(([call]) => call.key)
+    expect(buckets[1]).toBe(buckets[0])
+    expect(buckets[2]).not.toBe(buckets[0])
+    await expect(
+      runDatabaseEffect(authenticateRestRequest(
+        new Request("https://example.test/api/v1/tenants", {
+          headers: { "X-API-Key": restTestApiKey },
+        }),
+      )),
+    ).resolves.toEqual({ organizationId: restOrgId })
+  })
+
+  test("organization JWTs without membership are forbidden before accessing resources", async () => {
+    restTestState.organizationAuth.mockReturnValue(Effect.fail(new OrganizationMembershipError()))
+    const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
+    const response = await restRequest("/tenants", { headers: { Authorization: `Bearer ${jwt}` } })
+    expect(response.status).toBe(403)
+    expect(restTestState.predicates).toEqual([])
+    expect(restTestState.writes).toEqual([])
+    expect(restTestState.consume).not.toHaveBeenCalled()
+  })
+
+  test.each(
+    [
+      ["owner", 200, 201],
+      ["developer", 200, 201],
+      ["viewer", 200, 403],
+      ["viewer,developer", 200, 201],
+      ["unknown", 403, 403],
+    ] as const,
+  )(
+    "organization role %s gates resource reads and writes",
+    async (role, readStatus, writeStatus) => {
+      restTestState.organizationAuth.mockReturnValue(Effect.succeed({
+        organizationId: restOrgId,
+        currentUser: { id: restUserId, name: "Operator", email: "operator@example.com", role },
+      }))
+      const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
+      const headers = { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" }
+      restTestState.rows.push([restTenantRow], [restTenantRow], [restUserRow])
+      expect((await restRequest("/tenants", { headers })).status).toBe(readStatus)
+      expect(
+        (await restRequest("/tenants", {
+          headers,
+          method: "POST",
+          body: JSON.stringify({ external_id: "new" }),
+        })).status,
+      ).toBe(writeStatus)
+      expect(
+        (await restRequest(`/tenants/${restTenantId}/tenant_users/${restUserId}`, {
+          headers,
+          method: "PATCH",
+          body: JSON.stringify({ name: "Updated" }),
+        })).status,
+      ).toBe(writeStatus === 201 ? 200 : 403)
+      expect(restTestState.writes).toHaveLength(writeStatus === 201 ? 2 : 0)
+      expect(restTestState.consume).toHaveBeenCalledTimes(3)
+    },
+  )
+
+  test("organization authentication preserves safe database diagnostics without disclosing them", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {})
+    restTestState.organizationAuth.mockReturnValue(
+      Effect.fail(Object.assign(new Error("private database details"), { code: "42P01" })),
+    )
+    const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
+    const response = await restRequest("/tenants", { headers: { Authorization: `Bearer ${jwt}` } })
+    expect(response.status).toBe(500)
+    expect(await response.json()).toMatchObject({
+      detail: "Authentication could not be completed.",
+    })
+    expect(logged).toHaveBeenCalledExactlyOnceWith(
+      "API request failed",
+      expect.objectContaining({ code: "42P01" }),
+    )
+    expect(JSON.stringify(logged.mock.calls)).not.toContain("private database details")
+    expect(restTestState.predicates).toEqual([])
+  })
+
   test("TenantUser updates preserve scope and lists accept exact filters", async () => {
     restTestState.rows.push([restUserRow])
     await restJson(TenantUserRecordSchema, `/tenants/${restTenantId}/tenant_users/${restUserId}`, {
@@ -576,7 +729,7 @@ describe("REST API through the Effect Fetch handler", () => {
   })
 
   test("JWT authority and missing identity handling do not depend on stored TenantUser admin", async () => {
-    const headers = { Authorization: "Bearer signed-jwt" }
+    const headers = { Authorization: `Bearer ${restTenantJwt}` }
     restTestState.rows.push([{ id: restTenantId }], [restUserRow])
     expect(
       (await restRequest(`/tenants/${restTenantId}/tenant_users?filter[external_id]=user`, {
@@ -633,7 +786,7 @@ describe("REST API through the Effect Fetch handler", () => {
         tenantUser: { ...restPrincipal.tenantUser, tenant: { id: tenant } },
       })
       restTestState.rows.push([], [])
-      await restRequest("/tenants", { headers: { Authorization: "Bearer signed-jwt" } })
+      await restRequest("/tenants", { headers: { Authorization: `Bearer ${restTenantJwt}` } })
     }
     const [first, second] = restTestState.consume.mock.calls.map(([options]) =>
       options as { key: string; limit: number; window: Duration.Duration }
@@ -652,7 +805,7 @@ describe("REST API through the Effect Fetch handler", () => {
       }),
     ))
     const limited = await restRequest("/tenants", {
-      headers: { Authorization: "Bearer signed-jwt" },
+      headers: { Authorization: `Bearer ${restTenantJwt}` },
     })
     expect(limited.status).toBe(429)
     expect(limited.headers.get("retry-after")).toBe("2")

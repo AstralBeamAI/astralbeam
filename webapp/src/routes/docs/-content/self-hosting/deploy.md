@@ -14,7 +14,7 @@ chmod +x astralbeam-v0.1.0-linux-x86_64
 mv astralbeam-v0.1.0-linux-x86_64 /usr/local/bin/astralbeam
 ```
 
-The release carries no checksum or signature file, so verify what you downloaded by running it. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. The same checks run in CI on every release.
+The release carries no checksum or signature file, so verify what you downloaded by running it. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests every release binary the same way, without the database-backed status check.
 
 For any other platform, and for a fork, we build the binary ourselves. Deno is the only supported toolchain.
 

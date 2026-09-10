@@ -220,6 +220,8 @@ export const tenant = snakeCase.table(
       table.externalId,
     ),
     check("tenant_metadata_object_check", sql`jsonb_typeof(${table.metadata}) = 'object'`),
+    index("tenant_name_trgm_idx").using("gin", table.name.op("gin_trgm_ops")),
+    index("tenant_external_id_trgm_idx").using("gin", table.externalId.op("gin_trgm_ops")),
   ],
 )
 
@@ -249,6 +251,8 @@ export const tenantUser = snakeCase.table(
       "tenant_user_metadata_object_check",
       sql`jsonb_typeof(${table.metadata}) = 'object'`,
     ),
+    index("tenant_user_name_trgm_idx").using("gin", table.name.op("gin_trgm_ops")),
+    index("tenant_user_external_id_trgm_idx").using("gin", table.externalId.op("gin_trgm_ops")),
     foreignKey({
       name: "tenant_user_organization_id_tenant_id_fk",
       columns: [table.organizationId, table.tenantId],

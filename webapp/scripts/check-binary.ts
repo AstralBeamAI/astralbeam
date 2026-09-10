@@ -121,15 +121,6 @@ async function runBinaryCheck() {
   const status = waitForBinaryCheckProcess(binaryProcess)
 
   try {
-    const statusResponse = await fetchBinaryCheckResponse(new URL("/api/status", baseUrl))
-    if (statusResponse.headers.get("x-content-type-options") !== "nosniff") {
-      throw new Error("Binary did not send the application-wide response headers")
-    }
-    const status = await statusResponse.json() as { status?: unknown }
-    if (status.status !== "ok") {
-      throw new Error("Binary status endpoint did not report ok")
-    }
-
     const stylesheetResponse = await fetchBinaryCheckResponse(
       new URL(`/assets/${stylesheetName}`, baseUrl),
     )
@@ -152,6 +143,7 @@ async function runBinaryCheck() {
     await docs.body?.cancel()
     if (
       !etag || docs.headers.get("cache-control") !== "public, no-cache" ||
+      docs.headers.get("x-content-type-options") !== "nosniff" ||
       docs.headers.get("content-security-policy") !== "frame-ancestors 'none'"
     ) {
       throw new Error("Binary did not serve docs with cache and security headers")

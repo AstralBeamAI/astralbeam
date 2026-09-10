@@ -126,6 +126,44 @@ async function signingKey(secret: string) {
   return textEncoder.encode(base64url.encode(new Uint8Array(digest)))
 }
 
+export interface CreateAstralBeamOrganizationTokenOptions {
+  readonly apiKey: string
+  /** Host-authenticated email of an existing organization member, never browser-supplied identity. */
+  readonly email: string
+  readonly organizationId: string
+  readonly expiresInSeconds?: number | undefined
+}
+
+/** Delegates a member's current database permissions. Does not restrict the API-key holder's authority. */
+export async function createAstralBeamOrganizationToken({
+  apiKey,
+  email,
+  organizationId,
+  expiresInSeconds = CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
+}: CreateAstralBeamOrganizationTokenOptions): Promise<string> {
+  if (
+    typeof email !== "string" || email.length > 320 || email.includes("\0") ||
+    !/^[^\s@]+@[^\s@]+$/.test(email)
+  ) {
+    throw new Error("email must be an email address of at most 320 characters")
+  }
+  if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 || expiresInSeconds > 600) {
+    throw new Error("organization auth tokens must live for 60-600 seconds")
+  }
+  const { keyId, organizationId: keyOrganizationId, keySecret } = parseApiKey(apiKey)
+  if (organizationId !== keyOrganizationId) {
+    throw new Error("organizationId must match the API key organization")
+  }
+  const now = Math.floor(Date.now() / 1000)
+  return await new SignJWT({ ver: 1, email, organization_id: organizationId })
+    .setProtectedHeader({ alg: "HS256", typ: "astralbeam-organization+jwt", kid: keyId })
+    .setIssuer(organizationId)
+    .setAudience(CHAT_AUTH_TOKEN_AUDIENCE)
+    .setIssuedAt(now)
+    .setExpirationTime(now + expiresInSeconds)
+    .sign(await signingKey(keySecret))
+}
+
 /** Creates the short-lived bearer token returned by an application's server auth endpoint. */
 export async function createAstralBeamToken<
   TTenantUser extends TenantUser = TenantUser,

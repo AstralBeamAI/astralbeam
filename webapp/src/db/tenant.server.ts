@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, ilike, lt, or, sql } from "drizzle-orm"
 import { Data, Effect } from "effect"
 import { effectDatabase } from "@/db"
 import { tenant } from "@/db/schema/organizations.server"
@@ -16,6 +16,12 @@ type TenantWrite = typeof TenantWriteSchema.Type
 type TenantPatch = typeof TenantPatchSchema.Type
 export interface TenantListOptions extends DatabasePageOptions {
   externalId?: string | undefined
+  search?: string | undefined
+}
+
+/** Escape LIKE wildcards so user input is a literal substring, not a pattern. */
+export function tenantSearchPattern(search: string) {
+  return `%${search.replace(/[\\%_]/g, "\\$&")}%`
 }
 export class TenantError extends Data.TaggedError("TenantError")<{
   reason: "NotFound" | "Conflict" | "Forbidden" | "Database"
@@ -71,7 +77,7 @@ export function listTenants(
   scope: TenantScope,
   options: TenantListOptions = {},
 ) {
-  const { externalId } = options
+  const { externalId, search } = options
   return databasePages(options, (position, limit, backward) =>
     Effect.gen(function* () {
       const database = yield* effectDatabase
@@ -79,6 +85,12 @@ export function listTenants(
         and(
           tenantWhere(scope),
           externalId === undefined ? undefined : eq(tenant.externalId, externalId),
+          search
+            ? or(
+              ilike(tenant.name, tenantSearchPattern(search)),
+              ilike(tenant.externalId, tenantSearchPattern(search)),
+            )
+            : undefined,
           position ? (backward ? lt : gt)(tenant.id, position.id) : undefined,
         ),
       ).orderBy((backward ? desc : asc)(tenant.id)).limit(limit)

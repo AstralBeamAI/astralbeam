@@ -44,6 +44,12 @@ function customizeOpenApi(document: Record<string, unknown>): Record<string, unk
       scheme: "bearer",
       description: "Chat JWT. Tenant resource APIs also accept a full organization API key here.",
     },
+    organizationToken: {
+      type: "http",
+      scheme: "bearer",
+      description:
+        "Organization-management JWT delegates the selected member's current database permissions: owners/developers read and write Tenant resources, viewers read only. The trusted API-key holder selects the member and retains owner-equivalent resource access. Does not authenticate chat or dashboard administration.",
+    },
     ArtifactTicket: {
       type: "apiKey",
       in: "query",
