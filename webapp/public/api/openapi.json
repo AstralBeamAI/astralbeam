@@ -3,7 +3,7 @@
   "info": {
     "title": "AstralBeam API",
     "version": "1.0.0",
-    "description": "# Getting started\n\nProvision your application's customers (Tenants) and their users (TenantUsers) over HTTPS from any language. Organization members are your employees using the dashboard, not TenantUsers.\n\nUse the HTTP examples below or download the [OpenAPI document](/api/openapi.json). For embedded chat, see the separate [SDK guides](/docs/sdk).\n\n## Prerequisites\n\nIn the dashboard, select your organization and open **API keys** as an owner or developer. Create a key and copy the full `key_…_abo_…` value into your server's `ASTRALBEAM_API_KEY` secret. Never send it to the browser.\n\nReference keys, records, and abbreviated cursors are illustrative. Use your own credentials and IDs, and reuse complete cursors returned by the API.\n\nThe hosted API base is `https://app.astralbeam.ai/api`. Self-hosted installations use their own origin with the `/api` base, for example `https://beam.example.com/api`.\n\nRun the example once with your own stable identities. Creating them again returns `409`. Each request is independent, not one transaction.\n\n## Create a Tenant and its users\n\nWith `ASTRALBEAM_API_KEY` already set securely, create a Tenant:\n\n```sh\nexport ASTRALBEAM_API_URL=\"https://app.astralbeam.ai/api\"\ncurl --include \"$ASTRALBEAM_API_URL/v1/tenants\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\"external_id\":\"customer-42\",\"name\":\"Acme Logistics\",\"metadata\":{\"plan\":\"pro\",\"region\":\"eu-west-1\"}}'\n```\n\nThe response is `201 Created` with a JSON record and a `Location` header pointing to it. Use the returned internal `id` as `tenant_id` when creating or listing [TenantUsers](/docs/api#tag/tenant_users). The generated reference below includes request and response examples for every operation.\n\nCopy that returned `id` into `TENANT_ID`, then create a user belonging to the Tenant:\n\n```sh\nTENANT_ID=\"<id from the Tenant response>\"\ncurl --include \"$ASTRALBEAM_API_URL/v1/tenants/$TENANT_ID/tenant_users\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\"external_id\":\"user-7\",\"name\":\"Alex Morgan\"}'\n```\n\nThis returns `201 Created` with the new user's internal `id`, the parent `tenant_id`, `admin: false`, and `metadata: {}`. Keep `user-7` as the user's identity in your application and chat tokens.\n\nList that Tenant's users:\n\n```sh\ncurl --get \"$ASTRALBEAM_API_URL/v1/tenants/$TENANT_ID/tenant_users\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  --data-urlencode \"page_size=20\"\n```\n\nThe response is `200 OK` with an `items` array. Pass the returned `page_after` as the next request's `page_after` parameter. Stop when it is `null`. To go backward, pass the returned `page_before` instead. See [Pagination](/docs/api#description/pagination) for a complete continuation example.\n\n## Identities and write behavior\n\nOn creation, omitted `name` defaults to `null`, `metadata` to `{}`, and TenantUser `admin` to `false`. On PATCH, omitted fields stay unchanged. Metadata updates replace the whole object, not individual keys. `{}` clears it and `null` is rejected. `name: null` clears a name. Stored `admin` is data, not permission to issue privileged JWTs.\n\n| Your identity        | API field                             | Chat token field                     |\n| -------------------- | ------------------------------------- | ------------------------------------ |\n| Customer ID          | Tenant `external_id`                  | `tenant.id`                          |\n| Tenant-local user ID | TenantUser `external_id`              | `user.id`                            |\n| Returned internal ID | Response `id`, used in resource paths | Do not use as your external identity |\n\nMinting a chat token does not provision these records. API calls do not mint tokens. For embedded chat, follow the separate [token endpoint guide](/docs/sdk/authentication).\n\n## Recover from an uncertain create\n\nIf a create times out or returns `409`, list with `filter[external_id]` set to the exact external ID before deciding what to do next. Inspect `items[0]`: a found record proves that identity exists, not that every attempted field matches. An empty page does not prove a timed-out request cannot still commit. These APIs do not offer idempotency keys.\n\nThe [Tenants](/docs/api#tag/tenants) and [TenantUsers](/docs/api#tag/tenant_users) references include filtering examples. For permissions and complete schemas, see [authentication](/docs/api#description/authentication) and the [OpenAPI contract](/api/openapi.json).\n\n\n# Authentication\n\nChat and manage your application's Tenants and TenantUsers under `/api/v1`. See the [quickstart](/docs/api#description/getting-started) and [OpenAPI 3.1 contract](/api/openapi.json).\n\n## Organization API keys\n\nSend the full decorated key through `X-API-Key` or `Authorization: Bearer <key>`. If both are present, `X-API-Key` takes precedence. Keys manage resources throughout their organization and retain their configured rate limits. Dashboard session cookies alone are not accepted. Never expose an organization key to browser code.\n\n## Tenant administrator JWTs\n\nA valid chat JWT with signed `user.admin: true` can read its own Tenant and read/create/update TenantUsers within it. Tenant writes are forbidden. Non-admin JWTs cannot access these resource operations.\n\nThe JWT carries separate `user` and `tenant` claims. Signed `tenant.id` is an external identity, resolved within the issuing organization. Authentication never upserts identities or requires a persisted calling TenantUser.\n\nCall `GET /api/v1/tenants` with the JWT to obtain your Tenant's internal `id` for TenantUser routes. It returns an empty list if the Tenant does not exist. TenantUser lists and other reads/writes return `404` for a missing or inaccessible Tenant or record.\n\n**Stored TenantUser admin does not grant or revoke JWT privileges.** Authority comes from the signed claim until expiry or backing-key invalidation.\n\nJWT resource requests have a separate limit of 100 requests per five minutes per organization, external Tenant, and external user identity. Throttling returns `429` and `Retry-After` seconds.\n\n## Chat and downloads\n\nChat runs and configuration accept a Bearer JWT without requiring administrator privileges or persisted Tenant/TenantUser records. Organization API keys cannot call chat directly. Chat runs have a separate limit of 20 requests per minute per organization, external Tenant, and external user identity.\n\nArtifact downloads use the signed `ticket` query parameter provided by the agent. Treat download URLs as temporary credentials. They do not require a Bearer header.\n\n## Browser transport\n\nThe API permits credential-free CORS for GET, POST, PATCH, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication. All resource responses use `Cache-Control: no-store`.\n\n## Examples\n\nSet `ASTRALBEAM_API_KEY` securely in your server environment, then send it with each request:\n\n```sh\ncurl \"https://app.astralbeam.ai/api/v1/tenants\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\"\n```\n\nAlternatively, with an admin JWT in `ASTRALBEAM_TOKEN`, use Bearer authentication.\n\n```sh\ncurl \"https://app.astralbeam.ai/api/v1/tenants\" \\\n  -H \"Authorization: Bearer $ASTRALBEAM_TOKEN\"\n```\n\nBoth return `200 OK` with a paginated list in the credential's scope. POST/PATCH requests also require `Content-Type: application/json`.\n\n\n# Pagination\n\nAll lists support cursor-based pagination in both directions. Use the returned cursors to fetch the next or previous page.\n\n## Requests and responses\n\n- `page_size`: positive integer, default 20. Values above 100 are accepted and capped.\n- `page_after`: a returned `page_after` value, to fetch the next page.\n- `page_before`: a returned `page_before` value, to fetch the previous page.\n- At most one direction is accepted. Unknown/duplicate parameters, invalid sizes, and invalid or wrong-scope cursors return `400`.\n\nResponses contain `items`, `page_after`, and `page_before`. Pass either non-null continuation value unchanged as the same-named request parameter. A null value means no page is available in that direction. These values describe where to go next. They do not echo the request parameters.\n\nFor example, a request with `page_size=1` can return `200 OK` with this body. Records are fictional and cursors are abbreviated. Use actual returned cursors in requests.\n\n```json\n{\n  \"items\": [\n    {\n      \"id\": \"019eed68-fd00-7c42-9a61-53b3a890d276\",\n      \"external_id\": \"customer-42\",\n      \"name\": \"Acme Logistics\",\n      \"metadata\": { \"plan\": \"pro\", \"region\": \"eu-west-1\" },\n      \"created_at\": \"2026-06-22T09:30:00.000Z\",\n      \"updated_at\": \"2026-06-22T09:30:00.000Z\"\n    }\n  ],\n  \"page_after\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature\",\n  \"page_before\": null\n}\n```\n\nThe first page has `page_before: null`. The last has `page_after: null`. A single-page result has both values null. Empty pages have `items: []` and both values null. Stop when the continuation value for your direction is null, not based on page length. You can also follow `Link`'s `next`/`prev` relation when present. Page size may change between requests.\n\nTenants and TenantUsers within a Tenant are ordered by internal `id`, ascending. Backward traversal preserves display order.\n\n## Live listings\n\nListings are not snapshots: concurrent inserts behind the cursor may be absent and deleted rows disappear. A continuation can therefore return an empty page if records are deleted between requests. Treat cursors as opaque values and reuse them only for the same collection and authorized scope. If a cursor is rejected, restart without it. Positions beyond the requested boundary yield empty pages.\n\nTenantUser lists bind cursors to the requested Tenant as well as the caller's scope. Both collections also bind cursors to the active filters. Adding, removing, or changing a filter while reusing a cursor returns `400`. Start without a cursor when changing filters. Pagination links preserve the filters.\n\n## Filters\n\nBoth list endpoints accept optional `filter[external_id]`, an exact, case-sensitive, untrimmed string of 1–255 characters. It returns zero or one item in the normal pagination envelope. No match is `200` with an empty page. Missing or inaccessible parent Tenants still return `404` on nested TenantUser lists.\n\nBrackets belong to the parameter name. The value is plain text, not a JSON filter object.\n\nEmpty values, repeated parameters, unsupported filters, and the unnamespaced `external_id` parameter return `400`. Partial matching, other field filters, sorting, full-text search, inclusion, selection, and counts are not supported.\n\n## Examples\n\nWith `ASTRALBEAM_API_KEY` set securely in your server environment, request the first page. `--include` shows the status and response headers alongside the JSON body.\n\nFor exact filtering, add `--data-urlencode \"filter[external_id]=customer-42\"` and keep that parameter on any continuation request.\n\n```sh\nexport ASTRALBEAM_API_URL=\"https://app.astralbeam.ai/api\"\ncurl --include --get \"$ASTRALBEAM_API_URL/v1/tenants\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  --data-urlencode \"page_size=1\"\n```\n\nIf the returned `page_after` is not null, copy it into `PAGE_AFTER`:\n\n```sh\nPAGE_AFTER=\"<returned page_after>\"\ncurl --include --get \"$ASTRALBEAM_API_URL/v1/tenants\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  --data-urlencode \"page_size=1\" \\\n  --data-urlencode \"page_after=$PAGE_AFTER\"\n```\n\nTo traverse backward, send the returned `page_before` as the `page_before` request parameter instead, and stop when it is null. Never send both directions together.\n\nThe example response above also includes a `Link` header with the returned `page_after` and `rel=\"next\"`. Resolve relative links against the request URL.\n\n# Errors\n\nErrors follow the `AstralBeamApiError` schema and use RFC 9457 `application/problem+json`: `type`, `title`, `status`, `detail`, and optional validation `issues` with `path` and `message`.\n\nThe following conventions apply across the API. Endpoint descriptions call out resource-specific behavior. Their response schemas use this same error format.\n\n| Status    | Meaning                                             |\n| --------- | --------------------------------------------------- |\n| 400       | Invalid path/query/cursor or malformed chat input   |\n| 401 / 403 | Invalid credentials / insufficient authority        |\n| 404       | Missing or out-of-scope record                      |\n| 409       | Duplicate scoped external ID                        |\n| 413       | Chat request exceeds 32 MiB                         |\n| 415       | Unsupported media type or encoding                  |\n| 422       | Malformed JSON, invalid write fields or empty PATCH |\n| 429       | Rate limit reached, observe Retry-After             |\n| 500 / 503 | Safe internal error / setup unavailable             |\n\nMissing and out-of-scope records both return `404`. Resource POST/PATCH requests reject unknown fields, and PATCH must supply at least one mutable field. Invalid resource writes return `422`. Chat preserves AG-UI camelCase input and reports malformed input as `400`. Failures after streaming starts are AG-UI `RUN_ERROR` events, not HTTP error responses.\n\nAn invalid `admin` value, for example, returns `422 Unprocessable Content` with `Content-Type: application/problem+json`:\n\n```json\n{\n  \"type\": \"about:blank\",\n  \"title\": \"Unprocessable Content\",\n  \"status\": 422,\n  \"detail\": \"Invalid request body.\",\n  \"issues\": [{ \"path\": \"body.admin\", \"message\": \"Expected boolean\" }]\n}\n```\n\nA timed-out or aborted mutation may already have committed. Check its outcome before retrying. External proxies can return non-JSON errors, so inspect status and content type before parsing a failure body.\n\nA throttled response includes `Retry-After` in seconds. Wait that long before trying again.\n"
+    "description": "# Getting started\n\nProvision your application's customers (Tenants) and their users (TenantUsers) over HTTPS from any language. Organization members are your employees using the dashboard, not TenantUsers.\n\nUse the HTTP examples below or download the [OpenAPI document](/api/openapi.json). For embedded chat, see the separate [SDK guides](/docs/sdk).\n\n## Prerequisites\n\nIn the dashboard, select your organization and open **API keys** as an owner or developer. Create a key and copy the full `key_…_abo_…` value into your server's `ASTRALBEAM_API_KEY` secret. Never send it to the browser.\n\nReference keys, records, and abbreviated cursors are illustrative. Use your own credentials and IDs, and reuse complete cursors returned by the API.\n\nThe hosted API base is `https://app.astralbeam.ai/api`. Self-hosted installations use their own origin with the `/api` base, for example `https://beam.example.com/api`.\n\nRun the example once with your own stable identities. Creating them again returns `409`. Each request is independent, not one transaction.\n\n## Create a Tenant and its users\n\nWith `ASTRALBEAM_API_KEY` already set securely, create a Tenant:\n\n```sh\nexport ASTRALBEAM_API_URL=\"https://app.astralbeam.ai/api\"\ncurl --include \"$ASTRALBEAM_API_URL/v1/tenants\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\"external_id\":\"customer-42\",\"name\":\"Acme Logistics\",\"metadata\":{\"plan\":\"pro\",\"region\":\"eu-west-1\"}}'\n```\n\nThe response is `201 Created` with a JSON record and a `Location` header pointing to it. Use the returned internal `id` as `tenant_id` when creating or listing [TenantUsers](/docs/api#tag/tenant_users). The generated reference below includes request and response examples for every operation.\n\nCopy that returned `id` into `TENANT_ID`, then create a user belonging to the Tenant:\n\n```sh\nTENANT_ID=\"<id from the Tenant response>\"\ncurl --include \"$ASTRALBEAM_API_URL/v1/tenants/$TENANT_ID/tenant_users\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\"external_id\":\"user-7\",\"name\":\"Alex Morgan\"}'\n```\n\nThis returns `201 Created` with the new user's internal `id`, the parent `tenant_id`, `admin: false`, and `metadata: {}`. Keep `user-7` as the user's identity in your application and chat tokens.\n\nList that Tenant's users:\n\n```sh\ncurl --get \"$ASTRALBEAM_API_URL/v1/tenants/$TENANT_ID/tenant_users\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  --data-urlencode \"page_size=20\"\n```\n\nThe response is `200 OK` with an `items` array. Pass the returned `page_after` as the next request's `page_after` parameter. Stop when it is `null`. To go backward, pass the returned `page_before` instead. See [Pagination](/docs/api#description/pagination) for a complete continuation example.\n\n## Identities and write behavior\n\nOn creation, omitted `name` defaults to `null`, `metadata` to `{}`, and TenantUser `admin` to `false`. On PATCH, omitted fields stay unchanged. Metadata updates replace the whole object, not individual keys. `{}` clears it and `null` is rejected. `name: null` clears a name. Stored `admin` is data, not permission to issue privileged JWTs.\n\n| Your identity        | API field                             | Chat token field                     |\n| -------------------- | ------------------------------------- | ------------------------------------ |\n| Customer ID          | Tenant `external_id`                  | `tenant.id`                          |\n| Tenant-local user ID | TenantUser `external_id`              | `user.id`                            |\n| Returned internal ID | Response `id`, used in resource paths | Do not use as your external identity |\n\nMinting a chat token does not provision these records. API calls do not mint tokens. For embedded chat, follow the separate [token endpoint guide](/docs/sdk/authentication).\n\n## Recover from an uncertain create\n\nIf a create times out or returns `409`, list with `filter[external_id]` set to the exact external ID before deciding what to do next. Inspect `items[0]`: a found record proves that identity exists, not that every attempted field matches. An empty page does not prove a timed-out request cannot still commit. These APIs do not offer idempotency keys.\n\nThe [Tenants](/docs/api#tag/tenants) and [TenantUsers](/docs/api#tag/tenant_users) references include filtering examples. For permissions and complete schemas, see [authentication](/docs/api#description/authentication) and the [OpenAPI contract](/api/openapi.json).\n\n\n# Authentication\n\nChat and manage your application's Tenants and TenantUsers under `/api/v1`. See the [quickstart](/docs/api#description/getting-started) and [OpenAPI 3.1 contract](/api/openapi.json).\n\n## Organization API keys\n\nSend the full decorated key through `X-API-Key` or `Authorization: Bearer <key>`. If both are present, `X-API-Key` takes precedence. Keys manage resources throughout their organization and retain their configured rate limits. Dashboard session cookies alone are not accepted. Never expose an organization key to browser code.\n\n## Organization management JWTs\n\nThe trusted API-key holder selects the authenticated member and delegates their current database permissions to the token recipient. These checks constrain the delegated token, not its issuer, who retains owner-equivalent resource access throughout the Organization.\n\nA short-lived organization-management JWT identifies an organization member for Tenant and TenantUser operations throughout its issuing Organization. The server reads current roles from the database on every request: owners and developers can GET, POST, and PATCH; viewers can GET only. Unknown roles grant no access. Composable roles retain the grants of their recognized roles. Issue tokens only to authenticated operators authorized by the host application to access that Organization.\n\nThe protected type is `astralbeam-organization+jwt`, distinct from chat JWTs. Claims are version `ver: 1`, authenticated operator `email`, Organization UUID `organization_id`, matching issuer `iss`, audience `astralbeam`, `iat`, and `exp`. There is no `sub` or user-ID claim. The lifetime is 60–600 seconds. Both Organization claims must match the signing key's Organization, and the key must remain enabled and unexpired.\n\nOrganization JWTs cannot authenticate chat or manage dashboard Members, API keys, or configuration. Resource requests are limited to 100 per five minutes per Organization and resolved organization user. Changing tokens or the user's email does not reset the rate bucket.\n\nThe email must identify an existing organization user with membership in the claimed Organization. The server matches email case-insensitively and checks membership on every request, returning `403` when it is absent, removed, or lacks permission for the operation. Role changes apply on the next request. Do not include role, roles, or admin claims in organization JWTs; they are rejected. Authentication does not create users, memberships, or login sessions.\n\n## Tenant administrator JWTs\n\nA valid chat JWT with signed `user.admin: true` can read its own Tenant and read/create/update TenantUsers within it. Tenant writes are forbidden. Non-admin JWTs cannot access these resource operations.\n\nThe JWT carries separate `user` and `tenant` claims. Signed `tenant.id` is an external identity, resolved within the issuing organization. Authentication never upserts identities or requires a persisted calling TenantUser.\n\nCall `GET /api/v1/tenants` with the JWT to obtain your Tenant's internal `id` for TenantUser routes. It returns an empty list if the Tenant does not exist. TenantUser lists and other reads/writes return `404` for a missing or inaccessible Tenant or record.\n\n**Stored TenantUser admin does not grant or revoke JWT privileges.** Authority comes from the signed claim until expiry or backing-key invalidation.\n\nJWT resource requests have a separate limit of 100 requests per five minutes per organization, external Tenant, and external user identity. Throttling returns `429` and `Retry-After` seconds.\n\n## Chat and downloads\n\nChat runs and configuration accept a Bearer JWT without requiring administrator privileges or persisted Tenant/TenantUser records. Organization API keys cannot call chat directly. Chat runs have a separate limit of 20 requests per minute per organization, external Tenant, and external user identity.\n\nArtifact downloads use the signed `ticket` query parameter provided by the agent. Treat download URLs as temporary credentials. They do not require a Bearer header.\n\n## Browser transport\n\nThe API permits credential-free CORS for GET, POST, PATCH, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication. All resource responses use `Cache-Control: no-store`.\n\n## Examples\n\nSet `ASTRALBEAM_API_KEY` securely in your server environment, then send it with each request:\n\n```sh\ncurl \"https://app.astralbeam.ai/api/v1/tenants\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\"\n```\n\nAlternatively, with an admin JWT in `ASTRALBEAM_TOKEN`, use Bearer authentication.\n\n```sh\ncurl \"https://app.astralbeam.ai/api/v1/tenants\" \\\n  -H \"Authorization: Bearer $ASTRALBEAM_TOKEN\"\n```\n\nBoth return `200 OK` with a paginated list in the credential's scope. POST/PATCH requests also require `Content-Type: application/json`.\n\n\n# Pagination\n\nAll lists support cursor-based pagination in both directions. Use the returned cursors to fetch the next or previous page.\n\n## Requests and responses\n\n- `page_size`: positive integer, default 20. Values above 100 are accepted and capped.\n- `page_after`: a returned `page_after` value, to fetch the next page.\n- `page_before`: a returned `page_before` value, to fetch the previous page.\n- At most one direction is accepted. Unknown/duplicate parameters, invalid sizes, and invalid or wrong-scope cursors return `400`.\n\nResponses contain `items`, `page_after`, and `page_before`. Pass either non-null continuation value unchanged as the same-named request parameter. A null value means no page is available in that direction. These values describe where to go next. They do not echo the request parameters.\n\nFor example, a request with `page_size=1` can return `200 OK` with this body. Records are fictional and cursors are abbreviated. Use actual returned cursors in requests.\n\n```json\n{\n  \"items\": [\n    {\n      \"id\": \"019eed68-fd00-7c42-9a61-53b3a890d276\",\n      \"external_id\": \"customer-42\",\n      \"name\": \"Acme Logistics\",\n      \"metadata\": { \"plan\": \"pro\", \"region\": \"eu-west-1\" },\n      \"created_at\": \"2026-06-22T09:30:00.000Z\",\n      \"updated_at\": \"2026-06-22T09:30:00.000Z\"\n    }\n  ],\n  \"page_after\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature\",\n  \"page_before\": null\n}\n```\n\nThe first page has `page_before: null`. The last has `page_after: null`. A single-page result has both values null. Empty pages have `items: []` and both values null. Stop when the continuation value for your direction is null, not based on page length. You can also follow `Link`'s `next`/`prev` relation when present. Page size may change between requests.\n\nTenants and TenantUsers within a Tenant are ordered by internal `id`, ascending. Backward traversal preserves display order.\n\n## Live listings\n\nListings are not snapshots: concurrent inserts behind the cursor may be absent and deleted rows disappear. A continuation can therefore return an empty page if records are deleted between requests. Treat cursors as opaque values and reuse them only for the same collection and authorized scope. If a cursor is rejected, restart without it. Positions beyond the requested boundary yield empty pages.\n\nTenantUser lists bind cursors to the requested Tenant as well as the caller's scope. Both collections also bind cursors to the active filters. Adding, removing, or changing a filter while reusing a cursor returns `400`. Start without a cursor when changing filters. Pagination links preserve the filters.\n\n## Filters\n\nBoth list endpoints accept optional `filter[external_id]`, an exact, case-sensitive, untrimmed string of 1–255 characters. It returns zero or one item in the normal pagination envelope. No match is `200` with an empty page. Missing or inaccessible parent Tenants still return `404` on nested TenantUser lists.\n\nBrackets belong to the parameter name. The value is plain text, not a JSON filter object.\n\nBoth lists also accept `q`, up to 255 characters, for case-insensitive substring matching against name or external ID. Leading/trailing whitespace is trimmed, and empty search means no search filter. Percent signs, underscores, and backslashes are literal characters, not wildcards. NUL characters are rejected with `400`.\n\nTenantUser lists additionally accept `filter[admin]=true` or `filter[admin]=false` to filter stored status. Search, exact external-ID, and admin filters combine with AND. Stored admin does not change JWT authority.\n\nEmpty exact/admin filter values, repeated parameters, unsupported filters, and the unnamespaced `external_id` parameter return `400`. Sorting, full-text search, inclusion, selection, and counts are not supported.\n\n## Examples\n\nWith `ASTRALBEAM_API_KEY` set securely in your server environment, request the first page. `--include` shows the status and response headers alongside the JSON body.\n\nFor exact filtering, add `--data-urlencode \"filter[external_id]=customer-42\"` and keep that parameter on any continuation request.\n\n```sh\nexport ASTRALBEAM_API_URL=\"https://app.astralbeam.ai/api\"\ncurl --include --get \"$ASTRALBEAM_API_URL/v1/tenants\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  --data-urlencode \"page_size=1\"\n```\n\nIf the returned `page_after` is not null, copy it into `PAGE_AFTER`:\n\n```sh\nPAGE_AFTER=\"<returned page_after>\"\ncurl --include --get \"$ASTRALBEAM_API_URL/v1/tenants\" \\\n  -H \"X-API-Key: $ASTRALBEAM_API_KEY\" \\\n  --data-urlencode \"page_size=1\" \\\n  --data-urlencode \"page_after=$PAGE_AFTER\"\n```\n\nTo traverse backward, send the returned `page_before` as the `page_before` request parameter instead, and stop when it is null. Never send both directions together.\n\nThe example response above also includes a `Link` header with the returned `page_after` and `rel=\"next\"`. Resolve relative links against the request URL.\n\n# Errors\n\nErrors follow the `AstralBeamApiError` schema and use RFC 9457 `application/problem+json`: `type`, `title`, `status`, `detail`, and optional validation `issues` with `path` and `message`.\n\nThe following conventions apply across the API. Endpoint descriptions call out resource-specific behavior. Their response schemas use this same error format.\n\n| Status    | Meaning                                             |\n| --------- | --------------------------------------------------- |\n| 400       | Invalid path/query/cursor or malformed chat input   |\n| 401 / 403 | Invalid credentials / insufficient authority        |\n| 404       | Missing or out-of-scope record                      |\n| 409       | Duplicate scoped external ID                        |\n| 413       | Chat request exceeds 32 MiB                         |\n| 415       | Unsupported media type or encoding                  |\n| 422       | Malformed JSON, invalid write fields or empty PATCH |\n| 429       | Rate limit reached, observe Retry-After             |\n| 500 / 503 | Safe internal error / setup unavailable             |\n\nMissing and out-of-scope records both return `404`. Resource POST/PATCH requests reject unknown fields, and PATCH must supply at least one mutable field. Invalid resource writes return `422`. Chat preserves AG-UI camelCase input and reports malformed input as `400`. Failures after streaming starts are AG-UI `RUN_ERROR` events, not HTTP error responses.\n\nAn invalid `admin` value, for example, returns `422 Unprocessable Content` with `Content-Type: application/problem+json`:\n\n```json\n{\n  \"type\": \"about:blank\",\n  \"title\": \"Unprocessable Content\",\n  \"status\": 422,\n  \"detail\": \"Invalid request body.\",\n  \"issues\": [{ \"path\": \"body.admin\", \"message\": \"Expected boolean\" }]\n}\n```\n\nA timed-out or aborted mutation may already have committed. Check its outcome before retrying. External proxies can return non-JSON errors, so inspect status and content type before parsing a failure body.\n\nA throttled response includes `Retry-After` in seconds. Wait that long before trying again.\n"
   },
   "paths": {
     "/api/v1/tenants": {
@@ -13,6 +13,17 @@
         ],
         "operationId": "listTenants",
         "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "pattern": "^[^\\u0000]*$",
+              "description": "Case-insensitive literal substring of name or external_id. Trimmed, blank means no search."
+            },
+            "required": false
+          },
           {
             "name": "filter[external_id]",
             "in": "query",
@@ -62,6 +73,9 @@
           },
           {
             "astralBeamToken": []
+          },
+          {
+            "organizationToken": []
           }
         ],
         "responses": {
@@ -348,7 +362,7 @@
             }
           }
         },
-        "description": "List Tenants in internal ID order, optionally filtered by exact external ID. No match returns an empty page. Organization keys see their organization; admin JWTs see only their signed Tenant. Keep filters unchanged when reusing cursors. Live listing, not a snapshot.",
+        "description": "List Tenants in internal ID order. q searches name or external ID as a case-insensitive literal substring. filter[external_id] adds an exact match. Organization keys and organization-management JWTs see their organization; admin tenant JWTs see only their signed Tenant. Keep filters unchanged when reusing cursors. Live listing, not a snapshot.",
         "summary": "List Tenants"
       },
       "post": {
@@ -363,6 +377,9 @@
           },
           {
             "astralBeamToken": []
+          },
+          {
+            "organizationToken": []
           }
         ],
         "responses": {
@@ -649,7 +666,7 @@
             }
           }
         },
-        "description": "Create a Tenant with an exact customer-provided external_id. Requires an organization API key. An external_id already used in this organization returns 409; creation never upserts.",
+        "description": "Create a Tenant with an exact customer-provided external_id. Requires an organization API key or organization-management JWT with a current owner/developer role. An external_id already used in this organization returns 409; creation never upserts.",
         "summary": "Create a Tenant",
         "requestBody": {
           "content": {
@@ -689,6 +706,9 @@
           },
           {
             "astralBeamToken": []
+          },
+          {
+            "organizationToken": []
           }
         ],
         "responses": {
@@ -995,6 +1015,9 @@
           },
           {
             "astralBeamToken": []
+          },
+          {
+            "organizationToken": []
           }
         ],
         "responses": {
@@ -1273,7 +1296,7 @@
             }
           }
         },
-        "description": "Update supplied name/metadata fields only. Requires an organization API key. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.",
+        "description": "Update supplied name/metadata fields only. Requires an organization API key or organization-management JWT with a current owner/developer role. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.",
         "summary": "Update a Tenant",
         "requestBody": {
           "content": {
@@ -1305,6 +1328,17 @@
               ]
             },
             "required": true
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "pattern": "^[^\\u0000]*$",
+              "description": "Case-insensitive literal substring of name or external_id. Trimmed, blank means no search."
+            },
+            "required": false
           },
           {
             "name": "filter[external_id]",
@@ -1347,6 +1381,18 @@
               "maxLength": 2048
             },
             "required": false
+          },
+          {
+            "name": "filter[admin]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false
           }
         ],
         "security": [
@@ -1355,6 +1401,9 @@
           },
           {
             "astralBeamToken": []
+          },
+          {
+            "organizationToken": []
           }
         ],
         "responses": {
@@ -1641,7 +1690,7 @@
             }
           }
         },
-        "description": "List users of one Tenant in internal ID order, optionally filtered by exact external ID. No matching user returns an empty page; missing and out-of-scope Tenants return 404. Cursors cannot be reused for another Tenant or filter. Live listing, not a snapshot.",
+        "description": "List users of one Tenant in internal ID order. q searches name or external ID as a case-insensitive literal substring. Exact filter[external_id] and filter[admin] combine with AND. No matching user returns an empty page; missing and out-of-scope Tenants return 404. Cursors cannot be reused for another Tenant or filter. Live listing, not a snapshot.",
         "summary": "List TenantUsers"
       },
       "post": {
@@ -1669,6 +1718,9 @@
           },
           {
             "astralBeamToken": []
+          },
+          {
+            "organizationToken": []
           }
         ],
         "responses": {
@@ -2007,6 +2059,9 @@
           },
           {
             "astralBeamToken": []
+          },
+          {
+            "organizationToken": []
           }
         ],
         "responses": {
@@ -2325,6 +2380,9 @@
           },
           {
             "astralBeamToken": []
+          },
+          {
+            "organizationToken": []
           }
         ],
         "responses": {
@@ -4097,6 +4155,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Chat JWT. Tenant resource APIs also accept a full organization API key here."
+      },
+      "organizationToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Organization-management JWT delegates the selected member's current database permissions: owners/developers read and write Tenant resources, viewers read only. The trusted API-key holder selects the member and retains owner-equivalent resource access. Does not authenticate chat or dashboard administration."
       },
       "ArtifactTicket": {
         "type": "apiKey",

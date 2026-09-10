@@ -176,6 +176,12 @@ export interface ChatConfiguration {
 
 export type ListTenantsParams = {
   /**
+   * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
+   * @maxLength 255
+   * @pattern ^[^\u0000]*$
+   */
+  q?: string
+  /**
    * Exact, case-sensitive external ID; whitespace is preserved. Returns zero or one item.
    * @minLength 1
    * @maxLength 255
@@ -200,6 +206,12 @@ export type ListTenantsParams = {
 
 export type ListUsersForTenantParams = {
   /**
+   * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
+   * @maxLength 255
+   * @pattern ^[^\u0000]*$
+   */
+  q?: string
+  /**
    * Exact, case-sensitive external ID; whitespace is preserved. Returns zero or one item.
    * @minLength 1
    * @maxLength 255
@@ -220,7 +232,16 @@ export type ListUsersForTenantParams = {
    * @maxLength 2048
    */
   page_before?: string
+  "filter[admin]"?: ListUsersForTenantFilterAdmin
 }
+
+export type ListUsersForTenantFilterAdmin =
+  typeof ListUsersForTenantFilterAdmin[keyof typeof ListUsersForTenantFilterAdmin]
+
+export const ListUsersForTenantFilterAdmin = {
+  true: "true",
+  false: "false",
+} as const
 
 export type GetChatConfigParams = {
   agentId?: string
@@ -245,7 +266,7 @@ export const getListTenantsUrl = (params: ListTenantsParams) => {
 }
 
 /**
- * List Tenants in internal ID order, optionally filtered by exact external ID. No match returns an empty page. Organization keys see their organization; admin JWTs see only their signed Tenant. Keep filters unchanged when reusing cursors. Live listing, not a snapshot.
+ * List Tenants in internal ID order. q searches name or external ID as a case-insensitive literal substring. filter[external_id] adds an exact match. Organization keys and organization-management JWTs see their organization; admin tenant JWTs see only their signed Tenant. Keep filters unchanged when reusing cursors. Live listing, not a snapshot.
  * @summary List Tenants
  */
 export const listTenants = (
@@ -263,7 +284,7 @@ export const getCreateTenantUrl = () => {
 }
 
 /**
- * Create a Tenant with an exact customer-provided external_id. Requires an organization API key. An external_id already used in this organization returns 409; creation never upserts.
+ * Create a Tenant with an exact customer-provided external_id. Requires an organization API key or organization-management JWT with a current owner/developer role. An external_id already used in this organization returns 409; creation never upserts.
  * @summary Create a Tenant
  */
 export const createTenant = (
@@ -317,7 +338,7 @@ export const getUpdateTenantUrl = (id: string) => {
 }
 
 /**
- * Update supplied name/metadata fields only. Requires an organization API key. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.
+ * Update supplied name/metadata fields only. Requires an organization API key or organization-management JWT with a current owner/developer role. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.
  * @summary Update a Tenant
  */
 export const updateTenant = (
@@ -369,7 +390,7 @@ export const getListUsersForTenantUrl = (tenantId: string, params: ListUsersForT
 }
 
 /**
- * List users of one Tenant in internal ID order, optionally filtered by exact external ID. No matching user returns an empty page; missing and out-of-scope Tenants return 404. Cursors cannot be reused for another Tenant or filter. Live listing, not a snapshot.
+ * List users of one Tenant in internal ID order. q searches name or external ID as a case-insensitive literal substring. Exact filter[external_id] and filter[admin] combine with AND. No matching user returns an empty page; missing and out-of-scope Tenants return 404. Cursors cannot be reused for another Tenant or filter. Live listing, not a snapshot.
  * @summary List TenantUsers
  */
 export const listUsersForTenant = (

@@ -17,7 +17,11 @@ const restCursorSchema = Schema.Struct({
   id: ApiUuidSchema,
 })
 export type RestCollection = "tenants" | "tenant_users"
-type RestCursorScope = RestScope & { externalId?: string | undefined }
+type RestCursorScope = RestScope & {
+  externalId?: string | undefined
+  search?: string | undefined
+  admin?: boolean | undefined
+}
 
 function restCursorBinding(collection: RestCollection, scope: RestCursorScope) {
   return createHash("sha256").update(JSON.stringify([
@@ -26,6 +30,8 @@ function restCursorBinding(collection: RestCollection, scope: RestCursorScope) {
     scope.externalTenantId ?? null,
     scope.tenantFilter ?? null,
     scope.externalId ?? null,
+    scope.search ?? null,
+    scope.admin ?? null,
   ])).digest("base64url")
 }
 
@@ -71,19 +77,25 @@ export async function decodeRestCursor(
 }
 
 export function restPageOptions(
-  query: RestPageQuery,
+  query: RestPageQuery & { "filter[admin]"?: "true" | "false" | undefined },
   collection: RestCollection,
   scope: RestScope,
 ) {
   const externalId = query["filter[external_id]"]
+  const search = query.q?.trim() || undefined
+  const admin = query["filter[admin]"] === undefined ? undefined : query["filter[admin]"] === "true"
   return Effect.tryPromise({
     try: async () => ({
       pageSize: query.page_size ?? 20,
       backward: query.page_before !== undefined,
       externalId,
+      search,
+      admin,
       cursor: await decodeRestCursor(query.page_after ?? query.page_before, collection, {
         ...scope,
         externalId,
+        search,
+        admin,
       }),
     }),
     catch: (error) =>
@@ -93,15 +105,19 @@ export function restPageOptions(
 
 export async function restPage<T extends { id: string }>(
   page: DatabasePage<T>,
-  collection: RestCollection,
-  scope: RestScope,
-  url: string,
-  backward: boolean,
-  externalId?: string,
+  { collection, scope, url, backward, externalId, search, admin }: {
+    collection: RestCollection
+    scope: RestScope
+    url: string
+    backward: boolean
+    externalId?: string | undefined
+    search?: string | undefined
+    admin?: boolean | undefined
+  },
 ) {
   const { items, nextPosition, previousPosition } = page
   const cursorFor = async (row: { id: string } | null | undefined) =>
-    row ? await encodeRestCursor(row, collection, { ...scope, externalId }) : null
+    row ? await encodeRestCursor(row, collection, { ...scope, externalId, search, admin }) : null
   const page_after = await cursorFor(backward ? previousPosition : nextPosition)
   const page_before = await cursorFor(backward ? nextPosition : previousPosition)
   const links = []

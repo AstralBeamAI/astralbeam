@@ -1,11 +1,12 @@
 import { Context, Schema, SchemaGetter } from "effect"
 import { HttpApiMiddleware, HttpApiSchema } from "effect/unstable/httpapi"
 import type { EffectDatabase } from "@/db"
+import type { OrganizationCurrentUser } from "@/lib/organization-token.server"
 import type { TenantScope } from "../../../../db/tenant.server.ts"
 import { TenantExternalIdSchema } from "../../../../api/management.ts"
 export const restEmptyPage = { items: [], page_after: null, page_before: null }
 export const restResourceSecurity = {
-  security: [{ OrganizationApiKey: [] }, { astralBeamToken: [] }],
+  security: [{ OrganizationApiKey: [] }, { astralBeamToken: [] }, { organizationToken: [] }],
 }
 export const restExamplePageCursors = {
   page_after:
@@ -40,6 +41,7 @@ const restErrorSchemas = [400, 401, 403, 404, 409, 413, 415, 422, 429, 500, 503]
     )
 )
 export interface RestScope extends TenantScope {
+  currentUser?: OrganizationCurrentUser
   externalTenantId?: string
   tenantFilter?: string
 }
@@ -56,6 +58,18 @@ export class RestAuthorization extends HttpApiMiddleware.Service<
 
 const restPageCursor = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(2048))
 export const restPageQuery = Schema.Struct({
+  q: Schema.optionalKey(
+    Schema.String.check(
+      Schema.isMaxLength(255),
+      Schema.makeFilter((value) => !value.includes("\0"), {
+        message: "Search must not contain NUL characters.",
+        toJsonSchema: () => ({ pattern: "^[^\\u0000]*$" }),
+      }),
+    ).annotate({
+      description:
+        "Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.",
+    }),
+  ),
   "filter[external_id]": Schema.optionalKey(TenantExternalIdSchema.annotate({
     description:
       "Exact, case-sensitive external ID; whitespace is preserved. Returns zero or one item.",
@@ -74,6 +88,12 @@ export const restPageQuery = Schema.Struct({
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
 ).annotate(restStrictOptions)
 export type RestPageQuery = typeof restPageQuery.Type
+export const restUserPageQuery = Schema.Struct({
+  ...restPageQuery.fields,
+  "filter[admin]": Schema.optionalKey(Schema.Literals(["true", "false"])),
+}).check(
+  Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
+).annotate(restStrictOptions)
 export const restPageFields = {
   page_after: Schema.NullOr(Schema.String).annotate({
     description: "Pass as page_after to fetch the next page; null means no next page.",

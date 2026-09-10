@@ -90,7 +90,7 @@ export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true }).annota
     success: HttpApiSchema.WithHeaders(tenantRestPage, restPageHeaders),
   }).annotate(OpenApi.Summary, "List Tenants").annotate(
     OpenApi.Description,
-    "List Tenants in internal ID order, optionally filtered by exact external ID. No match returns an empty page. Organization keys see their organization; admin JWTs see only their signed Tenant. Keep filters unchanged when reusing cursors. Live listing, not a snapshot.",
+    "List Tenants in internal ID order. q searches name or external ID as a case-insensitive literal substring. filter[external_id] adds an exact match. Organization keys and organization-management JWTs see their organization; admin tenant JWTs see only their signed Tenant. Keep filters unchanged when reusing cursors. Live listing, not a snapshot.",
   ),
   HttpApiEndpoint.post("createTenant", "/tenants", {
     payload: CreateTenantSchema,
@@ -99,7 +99,7 @@ export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true }).annota
     }).pipe(HttpApiSchema.status(201)),
   }).annotate(OpenApi.Summary, "Create a Tenant").annotate(
     OpenApi.Description,
-    "Create a Tenant with an exact customer-provided external_id. Requires an organization API key. An external_id already used in this organization returns 409; creation never upserts.",
+    "Create a Tenant with an exact customer-provided external_id. Requires an organization API key or organization-management JWT with a current owner/developer role. An external_id already used in this organization returns 409; creation never upserts.",
   ),
   HttpApiEndpoint.get("getTenant", "/tenants/:id", {
     params: restMemberParams,
@@ -114,7 +114,7 @@ export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true }).annota
     success: TenantRecordSchema,
   }).annotate(OpenApi.Summary, "Update a Tenant").annotate(
     OpenApi.Description,
-    "Update supplied name/metadata fields only. Requires an organization API key. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.",
+    "Update supplied name/metadata fields only. Requires an organization API key or organization-management JWT with a current owner/developer role. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.",
   ),
 ).annotateEndpoints(OpenApi.Override, restResourceSecurity).annotate(
   OpenApi.Description,
@@ -136,7 +136,7 @@ export function tenantHandlers(api: typeof ApiV1) {
         return handlers.handleAll({
           listTenants: Effect.fn(function* ({ query, request }) {
             const scope = yield* restScope
-            const { pageSize, backward, cursor, externalId } = yield* restPageOptions(
+            const { pageSize, backward, cursor, externalId, search } = yield* restPageOptions(
               query,
               "tenants",
               scope,
@@ -146,6 +146,7 @@ export function tenantHandlers(api: typeof ApiV1) {
               position: cursor,
               backward,
               externalId,
+              search,
               includePrevious: true,
             })
               .pipe(
@@ -153,7 +154,14 @@ export function tenantHandlers(api: typeof ApiV1) {
                 Effect.map(Option.getOrThrow),
               )
             return yield* Effect.promise(() =>
-              restPage(page, "tenants", scope, request.url, backward, externalId)
+              restPage(page, {
+                collection: "tenants",
+                scope,
+                url: request.url,
+                backward,
+                externalId,
+                search,
+              })
             )
           }, restHandleErrors("listTenants")),
           getTenant: Effect.fn(function* ({ params }) {
