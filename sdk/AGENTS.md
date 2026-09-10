@@ -57,7 +57,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Generated API types retain OpenAPI field names. Generate with `deno task generate:api` from the committed `webapp/public/api/openapi.json`. Never hand-edit `src/api/generated`. Orval is development-only, and `/api` must contain no third-party runtime imports or bundled transport/validation dependencies.
 - Use typed `apiKey` options on servers and `astralBeamToken` options in browsers. Resource helpers support either, chat run/config accept only JWTs, and files use signed tickets. Keep TanStack's SSE parsing and the existing one-time 401 refresh outside the generated transport.
 - Preserve native Fetch redirect-following defaults for compatibility. Honor an explicit caller-provided `redirect` option.
-- Mint organization-issued tokens for the `astralbeam` audience by default without duplicating tenant identity into the optional JWT subject. Organization-management tokens accept a server-configured `appHandle` matching the deployment's `APP_HANDLE` for both type and audience. Verify custom-handle compatibility using the SDK minter, not a separately assembled JWT.
+- Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject. Do not expose a deployment-handle option while `APP_HANDLE` remains a source constant.
 - Organization-management tokens use authenticated operator `email` and explicit `organizationId` SDK inputs, encoded as `email` and `organization_id` without `sub`. Require the Organization to match the API key. Never encode roles: organization membership and roles are resolved from the database on every resource request.
 
 ## Testing

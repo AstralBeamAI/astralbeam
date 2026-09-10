@@ -8,6 +8,8 @@ Send the full decorated key through `X-API-Key` or `Authorization: Bearer <key>`
 
 ## Organization management JWTs
 
+The trusted API-key holder selects the authenticated member and delegates their current database permissions to the token recipient. These checks constrain the delegated token, not its issuer, who retains owner-equivalent resource access throughout the Organization.
+
 A short-lived organization-management JWT identifies an organization member for Tenant and TenantUser operations throughout its issuing Organization. The server reads current roles from the database on every request: owners and developers can GET, POST, and PATCH; viewers can GET only. Unknown roles grant no access. Composable roles retain the grants of their recognized roles. Issue tokens only to authenticated operators authorized by the host application to access that Organization.
 
 The protected type is `astralbeam-organization+jwt`, distinct from chat JWTs. Claims are version `ver: 1`, authenticated operator `email`, Organization UUID `organization_id`, matching issuer `iss`, audience `astralbeam`, `iat`, and `exp`. There is no `sub` or user-ID claim. The lifetime is 60–600 seconds. Both Organization claims must match the signing key's Organization, and the key must remain enabled and unexpired.

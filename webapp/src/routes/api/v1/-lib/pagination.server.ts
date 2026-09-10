@@ -30,10 +30,8 @@ function restCursorBinding(collection: RestCollection, scope: RestCursorScope) {
     scope.externalTenantId ?? null,
     scope.tenantFilter ?? null,
     scope.externalId ?? null,
-    // Preserve existing cursor bindings when neither new filter is present.
-    ...(scope.search || scope.admin !== undefined
-      ? [scope.search ?? null, scope.admin ?? null]
-      : []),
+    scope.search ?? null,
+    scope.admin ?? null,
   ])).digest("base64url")
 }
 

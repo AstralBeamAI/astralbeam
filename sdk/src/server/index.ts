@@ -128,18 +128,15 @@ async function signingKey(secret: string) {
 
 export interface CreateAstralBeamOrganizationTokenOptions {
   readonly apiKey: string
-  /** Deployment APP_HANDLE, configured server-side. Defaults to astralbeam. */
-  readonly appHandle?: string | undefined
   /** Host-authenticated email of an existing organization member, never browser-supplied identity. */
   readonly email: string
   readonly organizationId: string
   readonly expiresInSeconds?: number | undefined
 }
 
-/** Identifies a trusted organization member. The API checks their current database roles on every request. */
+/** Delegates a member's current database permissions. Does not restrict the API-key holder's authority. */
 export async function createAstralBeamOrganizationToken({
   apiKey,
-  appHandle = CHAT_AUTH_TOKEN_AUDIENCE,
   email,
   organizationId,
   expiresInSeconds = CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
@@ -159,9 +156,9 @@ export async function createAstralBeamOrganizationToken({
   }
   const now = Math.floor(Date.now() / 1000)
   return await new SignJWT({ ver: 1, email, organization_id: organizationId })
-    .setProtectedHeader({ alg: "HS256", typ: `${appHandle}-organization+jwt`, kid: keyId })
+    .setProtectedHeader({ alg: "HS256", typ: "astralbeam-organization+jwt", kid: keyId })
     .setIssuer(organizationId)
-    .setAudience(appHandle)
+    .setAudience(CHAT_AUTH_TOKEN_AUDIENCE)
     .setIssuedAt(now)
     .setExpirationTime(now + expiresInSeconds)
     .sign(await signingKey(keySecret))

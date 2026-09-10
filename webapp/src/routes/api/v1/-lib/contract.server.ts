@@ -48,7 +48,7 @@ function customizeOpenApi(document: Record<string, unknown>): Record<string, unk
       type: "http",
       scheme: "bearer",
       description:
-        "Organization-management JWT. Current database roles apply: owners/developers read and write Tenant resources, viewers read only. Does not authenticate chat or dashboard administration.",
+        "Organization-management JWT delegates the selected member's current database permissions: owners/developers read and write Tenant resources, viewers read only. The trusted API-key holder selects the member and retains owner-equivalent resource access. Does not authenticate chat or dashboard administration.",
     },
     ArtifactTicket: {
       type: "apiKey",
