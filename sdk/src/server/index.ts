@@ -5,7 +5,6 @@ export const CHAT_AUTH_TOKEN_TYPE = "astralbeam+jwt"
 export const CHAT_AUTH_TOKEN_VERSION = 4
 export const CHAT_AUTH_TOKEN_LIFETIME_SECONDS = 300
 export const CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS = 600
-export const ORGANIZATION_AUTH_TOKEN_TYPE = "astralbeam-organization+jwt"
 
 const CHAT_AUTH_TOKEN_MAX_BYTES = 16_384
 const IDENTITY_MAX_BYTES = 8_192
