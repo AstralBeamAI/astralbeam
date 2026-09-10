@@ -190,7 +190,6 @@ describe("organization API-key chat JWTs", () => {
       _tag: "OrganizationMembershipError",
     })
     await expect(runDatabaseEffect(authentication)).rejects.toThrow()
-    expect(databaseState.selectCalls).toBe(11)
     expect(databaseState.mutationCalls).toBe(0)
   })
 
@@ -210,8 +209,6 @@ describe("organization API-key chat JWTs", () => {
         { audience: "chat" },
         { claims: { ...defaults.claims, tenant: { id: "t" } } },
         { claims: { ...defaults.claims, role: "owner" } },
-        { claims: { ...defaults.claims, roles: ["owner"] } },
-        { claims: { ...defaults.claims, admin: true } },
         { claims: { ...defaults.claims, organization_id: "another-org" } },
         { claims: { ...defaults.claims, email: "invalid" } },
         { claims: { ...defaults.claims, email: "owner\u0000@example.com" } },

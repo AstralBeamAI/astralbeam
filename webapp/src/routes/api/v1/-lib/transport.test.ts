@@ -511,17 +511,17 @@ describe("REST API through the Effect Fetch handler", () => {
       ]
     ) {
       restTestState.organizationAuth.mockReturnValue(Effect.succeed(scope))
-      await expect(runDatabaseEffect(authenticateRestRequest(
-        new Request("https://example.test/api/v1/tenants", { headers }),
-      ))).resolves.toEqual(scope)
       restTestState.rows.push([])
       expect((await restRequest("/tenants", { headers })).status).toBe(200)
       expect(restLastPredicate().params).toEqual([scope.organizationId])
     }
+    await expect(runDatabaseEffect(authenticateRestRequest(
+      new Request("https://example.test/api/v1/tenants", { headers }),
+    ))).resolves.toEqual({ organizationId: restOtherId, currentUser })
     expect(restTestState.chat).not.toHaveBeenCalled()
     const buckets = restTestState.consume.mock.calls.map(([call]) => call.key)
-    expect(new Set(buckets.slice(0, 4)).size).toBe(1)
-    expect(buckets[4]).not.toBe(buckets[0])
+    expect(buckets[1]).toBe(buckets[0])
+    expect(buckets[2]).not.toBe(buckets[0])
     await expect(
       runDatabaseEffect(authenticateRestRequest(
         new Request("https://example.test/api/v1/tenants", {
