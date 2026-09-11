@@ -101,8 +101,14 @@ export async function POST(request: Request) {
   const session = await getSession(request)
   const token = await createAstralBeamToken({
     apiKey: process.env.ASTRALBEAM_API_KEY,
-    user: { id: session.user.id, name: session.user.name },
-    tenant: { id: session.org.id, name: session.org.name },
+    user: {
+      id: session.user.id,
+      name: session.user.name,
+    },
+    tenant: {
+      id: session.org.id,
+      name: session.org.name,
+    },
   })
   return Response.json({ token })
 }`,
@@ -657,7 +663,9 @@ function highlight(code: string) {
     <a href={docsUrl}>DOCS</a>
     <a href={githubUrl} target="_blank" rel="noopener noreferrer">GITHUB</a>
     <a href={discordUrl} target="_blank" rel="noopener noreferrer">DISCORD</a>
-    <a href="mailto:hello@astralbeam.ai">HELLO@ASTRALBEAM.AI</a>
+    <a href="mailto:hello@astralbeam.ai">
+      <span class="mail-full">HELLO@ASTRALBEAM.AI</span><span class="mail-short">CONTACT</span>
+    </a>
     <a href="/terms">TERMS</a>
     <a href="/privacy">PRIVACY</a>
     <a href="/licenses.txt">LICENSES</a>

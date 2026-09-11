@@ -1461,14 +1461,14 @@ main {
   color: var(--text-muted);
 }
 
-/* Same equal-width grid as the hero CTAs. */
+/* Snapped to the card grid above: two columns at the cards' own gap, and a pair
+   width of two columns plus one gap, so each button matches one card's width. */
 .os-repo {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  width: fit-content;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: calc(50% - 0.625rem);
   align-items: center;
-  gap: 1rem 1.4rem;
+  gap: 1rem 1.25rem;
   margin-top: 2.4rem;
 }
 
@@ -1527,7 +1527,20 @@ main {
   color: var(--primary);
 }
 
+/* The address is too wide for a phone column, so a "CONTACT" label stands in. */
+.mail-short {
+  display: none;
+}
+
 /* ---------- responsive ---------- */
+
+/* Narrower than this a card column is too tight for the button labels, so the pair
+   spans the whole grid instead. Its middle gap still lands on a card gap. */
+@media (max-width: 76rem) {
+  .os-repo {
+    width: 100%;
+  }
+}
 
 @media (max-width: 900px) {
   /* Stack the hero: the copy owns the first screen, less the 4rem of widget left
@@ -1702,6 +1715,21 @@ main {
   /* One sentence per line, instead of a break mid-clause. */
   .launch-sub span {
     display: block;
+  }
+  /* Two columns of links, with the copyright spanning its own row. */
+  .site-footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem 1.6rem;
+  }
+  .site-footer > span {
+    grid-column: 1 / -1;
+  }
+  .mail-full {
+    display: none;
+  }
+  .mail-short {
+    display: inline;
   }
   .hero-ctas .btn,
   .os-repo .btn,
