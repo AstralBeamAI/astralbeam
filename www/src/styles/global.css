@@ -82,9 +82,11 @@
 :root,
 .dark {
   --panel: color-mix(in srgb, var(--card) 88%, transparent);
+  /* --border vanishes against the lifted panel surfaces, so dividers and chrome
+     outlines drawn on top of --panel use this brighter step instead. */
+  --border-strong: color-mix(in oklab, var(--border) 78%, var(--foreground));
   --beam-soft: color-mix(in srgb, var(--primary) 45%, transparent);
   --beam-faint: color-mix(in srgb, var(--primary) 14%, transparent);
-  --danger-soft: color-mix(in srgb, var(--destructive) 38%, transparent);
   --shadow: color-mix(in srgb, var(--background) 60%, transparent);
   /* Body copy and small mono chrome sit under the scanline and vignette
      overlays, so they are mixed toward --foreground rather than using
@@ -95,6 +97,9 @@
   --font-body: "Space Grotesk Variable", "Space Grotesk", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
   --chamfer: 18px;
+  /* One content column for the navbar, hero, sections, and footer. */
+  --content: 78rem;
+  --gutter: clamp(1.25rem, 4vw, 3rem);
 }
 
 * {
@@ -144,7 +149,7 @@ a[href] {
   font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: 0.015em;
-  line-height: 0.94;
+  line-height: 1.04;
   text-transform: uppercase;
 }
 
@@ -210,56 +215,13 @@ a[href] {
 
 /* ---------- HUD chrome ---------- */
 
-.hud-frame {
-  position: fixed;
-  inset: 10px;
-  z-index: 45;
-  pointer-events: none;
-}
-
-.hud-corner {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--beam-soft);
-  opacity: 0.9;
-}
-
-.hud-corner.tl {
-  top: 0;
-  left: 0;
-  border-right: 0;
-  border-bottom: 0;
-}
-.hud-corner.tr {
-  top: 0;
-  right: 0;
-  border-left: 0;
-  border-bottom: 0;
-}
-.hud-corner.bl {
-  bottom: 0;
-  left: 0;
-  border-right: 0;
-  border-top: 0;
-}
-.hud-corner.br {
-  bottom: 0;
-  right: 0;
-  border-left: 0;
-  border-top: 0;
-}
-
 .hud-top {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-  padding: 0.9rem clamp(1.25rem, 4vw, 3rem);
+  padding: 0.9rem 0;
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--background) 92%, transparent),
@@ -268,6 +230,19 @@ a[href] {
   );
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+}
+
+/* The CTA and the menu button size themselves from this pair, so their boxes stay
+   identical at every breakpoint. */
+.hud-inner {
+  --control-pad: 0.7rem;
+  --control-font: 0.74rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  max-width: var(--content);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
 }
 
 .hud-brand {
@@ -280,6 +255,16 @@ a[href] {
   display: block;
   height: 24px;
   width: auto;
+  filter: drop-shadow(0 0 6px var(--beam-faint));
+}
+
+.hud-brand-mark {
+  display: none;
+  /* The AB master centers its mark in a square with generous padding, so the box is
+     oversized and the negative margin pulls it back to the mark's optical height. */
+  height: 48px;
+  width: auto;
+  margin-block: -14px;
   filter: drop-shadow(0 0 6px var(--beam-faint));
 }
 
@@ -395,6 +380,45 @@ a[href] {
   pointer-events: auto;
 }
 
+/* Sized from the same --control-* pair as the CTA beside it, less the 1px the CTA
+   does not spend on a border, so the two boxes match and this one stays square. */
+.hud-menu {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: calc(var(--control-pad) - 1px);
+  font-size: var(--control-font);
+  color: var(--text-chrome);
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  border: 1px solid var(--input);
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.hud-menu:hover,
+.hud-menu[aria-expanded="true"] {
+  color: var(--primary);
+  border-color: var(--beam-soft);
+}
+
+.hud-menu:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* 1.6em is the body line-height, so the icon box equals the CTA's line box. */
+.icon-menu {
+  width: 1.6em;
+  height: 1.6em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
 /* ---------- reveal / scramble ---------- */
 
 .reveal {
@@ -422,29 +446,45 @@ main {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  text-align: center;
-  padding: 6.5rem 1.5rem 7rem;
+  padding: 6.5rem 0 7rem;
 }
 
-.hero-inner {
+/* Copy on the left, the widget on the right. The demo column is capped so the
+   transcript reads at sidebar width rather than stretching with the viewport. */
+.hero-grid {
   position: relative;
-  max-width: 72rem;
+  width: 100%;
+  max-width: var(--content);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 27rem);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 5rem);
+}
+
+.hero-copy {
+  min-width: 0;
 }
 
 .eyebrow {
   font-family: var(--font-mono);
   font-size: clamp(0.7rem, 1.4vw, 0.84rem);
-  letter-spacing: 0.3em;
+  letter-spacing: 0.24em;
   color: var(--primary);
   text-shadow: 0 0 14px var(--beam-soft);
   margin-bottom: 1.5rem;
   text-wrap: balance;
 }
 
+/* The hyphen in "SELF-HOSTED" is a wrap opportunity, which split the word on a phone. */
+.eyebrow span {
+  white-space: nowrap;
+}
+
 .hero-title {
-  font-size: clamp(3.4rem, 11vw, 8.5rem);
+  font-size: clamp(3rem, 6.4vw, 5.6rem);
   text-shadow: 0 4px 40px var(--shadow);
 }
 
@@ -457,23 +497,34 @@ main {
 }
 
 .hero-sub {
-  margin: 1.8rem auto 0;
-  max-width: 38rem;
+  margin: 1.8rem 0 0;
+  max-width: 34rem;
   font-size: clamp(1.06rem, 2vw, 1.22rem);
   color: var(--text-muted);
+  /* Even line lengths: the ragged break left one short trailing line. */
+  text-wrap: balance;
 }
 
 /* Grid rather than flex so the CTAs match widths: `1fr` tracks inside a
    `fit-content` container all resolve to the widest item's size.
    https://drafts.csswg.org/css-grid/#algo-flex-tracks */
 .hero-ctas {
-  margin: 2.2rem auto 0;
+  margin: 2.2rem 0 0;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   width: fit-content;
   align-items: center;
   gap: 1rem;
+}
+
+.hero-install {
+  margin-top: 1.6rem;
+  /* Grows with the wide layout, where 0.78rem read as fine print, and floors at
+     the phone size the stacked hero already fits. */
+  font-size: clamp(0.78rem, 1.05vw, 0.96rem);
+  letter-spacing: 0.04em;
+  color: var(--text-chrome);
 }
 
 /* The hero grows past 100svh on short viewports, so anchor the cue to the fold
@@ -528,13 +579,15 @@ main {
 
 .section {
   position: relative;
-  max-width: 78rem;
+  max-width: var(--content);
   margin: 0 auto;
-  padding: clamp(6rem, 12vh, 9rem) clamp(1.25rem, 4vw, 3rem);
+  padding: clamp(6rem, 12vh, 9rem) var(--gutter);
 }
 
+/* Wide enough for the longest one-line title, "OPEN SOURCE FROM DAY ONE", which
+   needs 50rem at the clamped 4.6rem type size, plus slack for font fallbacks. */
 .section-head {
-  max-width: 46rem;
+  max-width: 54rem;
   margin-bottom: 3.5rem;
 }
 
@@ -598,219 +651,85 @@ main {
   gap: 0.6rem;
 }
 
-/* ---------- compare ---------- */
+/* ---------- steps ---------- */
 
-.compare-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
+/* The three steps read as one sequence, so they sit closer than other sections. */
+.step {
+  padding-top: clamp(3.5rem, 7vh, 5.5rem);
+  padding-bottom: clamp(3.5rem, 7vh, 5.5rem);
 }
 
-.compare-panel {
+.step .section-head {
+  margin-bottom: 2.6rem;
+}
+
+.step-index {
+  font-size: 0.74rem;
+  letter-spacing: 0.3em;
+  color: var(--primary);
+  text-shadow: 0 0 14px var(--beam-soft);
+  margin-bottom: 1rem;
+}
+
+/* Code on the left, what it unlocks on the right. Both tracks floor at zero so
+   the pre-formatted lines scroll inside the terminal instead of widening the
+   grid, and the row stretches both panels to the taller one.
+   https://www.w3.org/TR/css-grid-1/#min-size-auto */
+.step-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.benefits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.9rem;
+  list-style: none;
+}
+
+.benefit {
+  --cut: 12px;
   display: flex;
   flex-direction: column;
-  padding: 1.6rem 1.8rem 1.5rem;
-}
-
-.compare-panel .compare-note {
-  margin-top: auto;
-}
-
-.compare-panel.is-beam {
-  background: color-mix(in srgb, var(--primary) 40%, transparent);
-}
-
-.compare-panel.is-beam::before {
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--card) 94%, var(--primary)),
-    color-mix(in oklab, var(--background) 96%, var(--primary))
-  );
-}
-
-.compare-panel .x-mark {
-  color: var(--destructive);
-}
-.compare-panel .check-mark {
-  color: var(--primary);
-}
-
-.compare-art {
-  width: 100%;
-  height: auto;
-  margin: 1.4rem 0 0.9rem;
-}
-
-/* ---------- chaos side ---------- */
-
-.compare-art.is-chaos {
-  color: var(--destructive);
-}
-
-.compare-art .tangle path {
-  stroke: color-mix(in srgb, var(--destructive) 88%, transparent);
-  stroke-width: 1.5;
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--destructive) 60%, transparent));
-  animation: tangle-drift 5s linear infinite;
-}
-
-/* Mixed colors, speeds, and directions so no two wires read as one system. */
-.compare-art .tangle path:nth-child(2n) {
-  stroke: color-mix(in srgb, var(--chart-4) 80%, transparent);
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--chart-4) 45%, transparent));
-  animation-duration: 3.4s;
-  animation-direction: reverse;
-}
-
-.compare-art .tangle path:nth-child(3n) {
-  stroke: color-mix(in srgb, var(--destructive) 65%, transparent);
-  animation-duration: 7.5s;
-}
-
-.compare-art .tangle path:nth-child(4n) {
-  stroke-width: 2;
-  animation-duration: 2.6s;
-}
-
-@keyframes tangle-drift {
-  to {
-    stroke-dashoffset: -130;
-  }
-}
-
-.node-set rect {
-  fill: var(--card);
-  stroke: var(--input);
-}
-
-.node-set text {
-  fill: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-anchor: middle;
-}
-
-.node-set.is-tangled rect {
-  fill: color-mix(in oklab, var(--card) 88%, var(--destructive));
-  stroke: color-mix(in srgb, var(--destructive) 70%, transparent);
-  stroke-width: 1.2;
-}
-
-.node-set.is-tangled text {
-  fill: var(--foreground);
-  font-weight: 700;
-}
-
-/* The positioning transform lives on the wrapper `g`, so the jitter animates an
-   inner group whose local origin is already the box center. transform-origin
-   must be pinned to that origin: the default 50% 50% resolves against the
-   viewBox, which would swing each node around the canvas center instead.
-   https://drafts.csswg.org/css-transforms-2/#transform-box */
-.node-set.is-tangled .node {
-  transform-box: view-box;
-  transform-origin: 0 0;
-  animation: node-jitter 2.9s ease-in-out infinite;
-  animation-delay: var(--jitter-delay, 0s);
-}
-
-@keyframes node-jitter {
-  0%,
-  100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  25% {
-    transform: translate(1.5px, -1px) rotate(-1.1deg);
-  }
-  50% {
-    transform: translate(-1px, 1.5px) rotate(0.9deg);
-  }
-  75% {
-    transform: translate(1px, 1px) rotate(-0.5deg);
-  }
-}
-
-/* ---------- beam side ---------- */
-
-.node-set.is-aligned rect {
-  fill: var(--card);
-  stroke: color-mix(in srgb, var(--primary) 45%, transparent);
-}
-
-.core-node rect {
-  fill: color-mix(in srgb, var(--primary) 12%, transparent);
-  stroke: var(--primary);
-}
-
-.core-wordmark {
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 45%, transparent));
-}
-
-.beam-line {
-  stroke: var(--primary);
-  stroke-width: 2;
-  stroke-dasharray: 6 8;
-  filter: drop-shadow(0 0 6px var(--beam-soft));
-  animation: beam-flow 1.6s linear infinite;
-}
-
-@keyframes beam-flow {
-  to {
-    stroke-dashoffset: -28;
-  }
-}
-
-.compare-note {
-  font-size: 0.94rem;
-  color: var(--text-muted);
-  padding-top: 0.8rem;
-  border-top: 1px solid var(--border);
-}
-
-/* ---------- features ---------- */
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.25rem;
-}
-
-.feature-panel {
-  padding: 1.5rem 1.6rem 1.7rem;
+  padding: 1.05rem 1.1rem 1.15rem;
   transition: filter 0.25s;
 }
 
-.feature-panel:hover {
+.benefit-status {
+  margin-top: auto;
+  padding-top: 0.8rem;
+}
+
+.benefit:hover {
   background: var(--beam-soft);
   filter: drop-shadow(0 0 18px color-mix(in srgb, var(--primary) 16%, transparent));
 }
 
-.feature-icon svg {
-  width: 34px;
-  height: 34px;
-  stroke: var(--primary);
-  stroke-width: 1.6;
-  fill: none;
-  stroke-linecap: square;
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 35%, transparent));
-}
-
-.feature-icon svg .fill {
-  fill: var(--primary);
-  stroke: none;
-}
-
-.feature-name {
-  margin-top: 1.1rem;
-  font-size: 1.08rem;
+.benefit-name {
+  font-size: 0.96rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
-.feature-desc {
-  margin-top: 0.6rem;
-  font-size: 0.95rem;
+.benefit-desc {
+  margin-top: 0.45rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
   color: var(--text-muted);
+}
+
+/* Roadmap marker. Same treatment wherever something is not shipped yet. */
+.tag {
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 0.14rem 0.4rem;
+  color: var(--warning);
+  border: 1px dashed color-mix(in srgb, var(--warning) 55%, transparent);
+  white-space: nowrap;
 }
 
 .panel-corner {
@@ -826,27 +745,20 @@ main {
   z-index: 1;
 }
 
-.feature-panel:hover .panel-corner {
+.benefit:hover .panel-corner {
   opacity: 1;
 }
 
-/* ---------- quickstart ---------- */
-
-.quickstart-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-/* `fr` tracks floor at min-content, so the pre-formatted terminal lines would
-   widen the grid past the viewport instead of wrapping or scrolling inside
-   .terminal-body. https://www.w3.org/TR/css-grid-1/#min-size-auto */
-.quickstart-grid > * {
-  min-width: 0;
-}
+/* ---------- terminal ---------- */
 
 .terminal {
   --cut: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-body {
+  flex: 1;
 }
 
 .terminal-bar {
@@ -857,7 +769,7 @@ main {
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   color: var(--text-chrome);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .terminal-bar > span:last-child {
@@ -948,19 +860,48 @@ main {
   animation: blink 1.1s steps(2, start) infinite;
 }
 
-/* ---------- quickstart: agent sidebar prototype ---------- */
+/* ---------- hero: agent sidebar prototype ---------- */
 
-/* The transcript grows as the visitor chats. If the panel were a normal grid
-   item, that growth would feed back into the auto row height and stretch both
-   boxes, so the panel is absolutely positioned inside its cell: it fills the row
-   the code panel establishes, and its content no longer sizes the row. */
-.agent-slot {
+/* The transcript grows as the visitor chats, so the panel gets a fixed height
+   and scrolls inside, the way the real sidebar fills its host container. */
+.hero-demo {
   position: relative;
-  min-height: 26rem;
+  min-width: 0;
+  height: min(34rem, 72svh);
 }
 
+/* A light pulse: a thin beam-colored ring expands from the widget's edge and
+   fades, marking it as the live piece of the page. */
+.hero-demo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--primary);
+  box-shadow: 0 0 12px var(--beam-soft);
+  opacity: 0;
+  pointer-events: none;
+  animation: demo-pulse 3.2s ease-out infinite;
+}
+
+@keyframes demo-pulse {
+  0% {
+    inset: 0;
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    inset: -14px;
+    opacity: 0;
+  }
+}
+
+/* Square corners and a brighter surface: this panel stands in for the real widget,
+   which has none of the HUD chamfers. The lift stays on the card's own hue, because
+   mixing the accent into it muddied the surface. */
 .agent-panel {
-  --cut: 14px;
+  --cut: 0px;
+  --panel: color-mix(in oklab, var(--card) 91%, var(--foreground));
+  background: color-mix(in srgb, var(--primary) 70%, transparent);
   position: absolute;
   inset: 0;
   display: flex;
@@ -976,7 +917,7 @@ main {
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   color: var(--text-chrome);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .agent-replay {
@@ -989,7 +930,7 @@ main {
   letter-spacing: 0.16em;
   color: var(--text-chrome);
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   cursor: pointer;
   transition:
     color 0.2s,
@@ -1066,7 +1007,7 @@ main {
   font-size: 0.7rem;
   letter-spacing: 0.04em;
   color: var(--text-chrome);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   background: color-mix(in srgb, var(--card) 80%, transparent);
   opacity: 0;
   transform: translateY(6px);
@@ -1167,6 +1108,192 @@ main {
   color: var(--foreground);
 }
 
+/* A chart the agent renders through the host's own component: one series, so the
+   peak week carries the accent and the rest recede to context. */
+.chart-total {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.chart-plot {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.45rem;
+  height: 6.6rem;
+  /* Headroom for the peak's value label, which sits above the tallest bar. */
+  padding-top: 1.1rem;
+  margin-top: 0.75rem;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.chart-col {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.chart-bar {
+  width: 100%;
+  max-width: 24px;
+  height: var(--v);
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.5s ease-out;
+}
+
+.agent-widget.shown .chart-bar {
+  transform: none;
+}
+
+.chart-col.is-peak .chart-bar {
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--beam-faint);
+}
+
+.chart-value {
+  position: absolute;
+  bottom: calc(var(--v) + 0.25rem);
+  font-size: 0.6rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.chart-ticks {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: var(--text-chrome);
+  list-style: none;
+}
+
+/* A file the visitor attached, shown above their message like the real composer does. */
+.agent-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: var(--foreground);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  background: color-mix(in srgb, var(--background) 60%, transparent);
+}
+
+.agent-attachment b {
+  font-weight: 400;
+  color: var(--text-chrome);
+}
+
+/* Both chips download a real sample file. */
+.agent-attachment:hover,
+.agent-artifact:hover {
+  border-color: var(--primary);
+  filter: drop-shadow(0 0 8px var(--beam-faint));
+}
+
+.icon-file {
+  width: 0.95em;
+  height: 0.95em;
+  flex: none;
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+/* A sandbox artifact: the download chip the widget renders for a published file. */
+.agent-artifact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.7rem;
+}
+
+.artifact-name {
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-size {
+  color: var(--text-chrome);
+}
+
+.artifact-download {
+  margin-left: auto;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* The pending marker, mounted while the reply is still "generating". */
+.agent-thinking {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.66rem;
+  /* Sentence case, so the wide tracking the uppercase chrome uses would read loose. */
+  letter-spacing: 0.06em;
+  color: var(--text-chrome);
+}
+
+.thinking-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--beam-soft);
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+/* A highlight swept through the text itself, the same background-clip technique
+   the widget's own `shimmer` utility uses. */
+.thinking-label {
+  background-image: linear-gradient(
+    100deg,
+    currentColor 0 38%,
+    color-mix(in oklab, var(--foreground) 62%, var(--primary)) 50%,
+    currentColor 62%
+  );
+  background-repeat: no-repeat;
+  background-size: 220% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-sweep 1.8s linear infinite;
+}
+
+@keyframes shimmer-sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes thinking-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
 .agent-stream {
   min-height: 1.6em;
 }
@@ -1239,6 +1366,57 @@ main {
   outline-offset: 2px;
 }
 
+/* ---------- integrations ---------- */
+
+.integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.integration-panel {
+  --cut: 14px;
+  padding: 1.5rem 1.5rem 1.6rem;
+}
+
+.integration-label {
+  font-size: 0.74rem;
+  letter-spacing: 0.24em;
+  color: var(--primary);
+}
+
+.integration-desc {
+  margin-top: 0.7rem;
+  font-size: 0.93rem;
+  color: var(--text-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+  list-style: none;
+}
+
+.chip {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--foreground);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+}
+
+/* The same dashed warning outline as the `IN PROGRESS` tag, so the chip carries
+   its own meaning without a legend under the grid. */
+.chip.is-soon {
+  color: var(--text-chrome);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--warning) 55%, transparent);
+  background: transparent;
+}
+
 /* ---------- open source ---------- */
 
 /* The watermark bleeds off the right edge by design; clip horizontally so it
@@ -1262,7 +1440,7 @@ main {
 
 .os-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.25rem;
 }
 
@@ -1283,11 +1461,14 @@ main {
   color: var(--text-muted);
 }
 
+/* Snapped to the card grid above: two columns at the cards' own gap, and a pair
+   width of two columns plus one gap, so each button matches one card's width. */
 .os-repo {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: calc(50% - 0.625rem);
   align-items: center;
-  gap: 1rem 1.4rem;
+  gap: 1rem 1.25rem;
   margin-top: 2.4rem;
 }
 
@@ -1333,12 +1514,12 @@ main {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.8rem 1.6rem;
-  padding: 1.3rem clamp(1.25rem, 4vw, 3rem) 2.6rem;
+  padding: 1.3rem var(--gutter) 2.6rem;
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   color: var(--text-chrome);
   border-top: 1px solid var(--border);
-  max-width: 78rem;
+  max-width: var(--content);
   margin: 0 auto;
 }
 
@@ -1346,18 +1527,74 @@ main {
   color: var(--primary);
 }
 
+/* The address is too wide for a phone column, so a "CONTACT" label stands in. */
+.mail-short {
+  display: none;
+}
+
 /* ---------- responsive ---------- */
 
-@media (max-width: 900px) {
-  .compare-grid,
-  .quickstart-grid {
-    grid-template-columns: 1fr;
+/* Narrower than this a card column is too tight for the button labels, so the pair
+   spans the whole grid instead. Its middle gap still lands on a card gap. */
+@media (max-width: 76rem) {
+  .os-repo {
+    width: 100%;
   }
-  .features-grid {
-    grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 900px) {
+  /* Stack the hero: the copy owns the first screen, less the 4rem of widget left
+     showing at the fold so the transcript reads as the next thing to scroll to. */
+  .hero {
+    min-height: 0;
+    padding: 0 0 5rem;
+  }
+  .hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  .hero-copy {
+    min-height: calc(100svh - 6rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* Clears the fixed bar above. */
+    padding: 5.5rem 0 0.25rem;
+    text-align: center;
+  }
+  /* The peek has to be visible before any scrolling, so the widget opts out of the
+     scroll reveal here: its 25% threshold cannot be met by the sliver on screen. */
+  .hero-demo.reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .hero-title {
+    font-size: clamp(3.4rem, 13.5vw, 5.2rem);
+  }
+  .hero-sub {
+    margin-inline: auto;
+  }
+  .hero-ctas {
+    margin-inline: auto;
+  }
+  /* Explicit width: the panel inside is absolutely positioned, so an auto-margin
+     grid item would otherwise shrink to zero. */
+  .hero-demo {
+    width: 100%;
+    max-width: 27rem;
+    height: min(32rem, 76svh);
+    margin: 0 auto;
+  }
+  /* The widget already peeks in at the fold, so the cue has nothing to point at. */
+  .scroll-cue {
+    display: none;
+  }
+  .step-body {
+    grid-template-columns: minmax(0, 1fr);
   }
   .os-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .hud-nav {
     gap: 1.2rem;
@@ -1367,56 +1604,86 @@ main {
 }
 
 /* The wordmark, the nav, and the CTA stop fitting on one line well before the
-   narrowest phones, so tighten them in two steps. */
+   narrowest phones, so the links collapse into the hamburger panel. */
 @media (max-width: 820px) {
-  .hud-top {
-    gap: 1.25rem;
+  .hud-inner {
+    position: relative;
+    gap: 1rem;
+    --control-pad: 0.62rem;
+    --control-font: 0.66rem;
   }
   .hud-brand-wordmark {
     height: 20px;
   }
+  /* Anchored to the bar rather than the viewport so the panel tracks the gutter,
+     and stacked full width because it now holds the labels the bar dropped. */
   .hud-nav {
-    gap: 0.85rem;
-    font-size: 0.66rem;
-  }
-  .hud-nav-label {
+    position: absolute;
+    top: calc(100% + 0.9rem);
+    right: var(--gutter);
+    z-index: 1;
     display: none;
+    align-items: stretch;
+    gap: 0;
+    min-width: 13rem;
+    margin-left: 0;
+    padding: 0.35rem;
+    /* Opaque: the hero headline sits directly behind the panel, and the bar's own
+       backdrop-filter keeps a translucent surface from blurring what shows through. */
+    background: var(--card);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 18px 40px var(--shadow);
+  }
+  /* column-reverse rather than reordered markup: the panel puts the sign-in link
+     nearest the button it drops from, while the bar keeps its source order. */
+  .hud-nav[data-open] {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .hud-nav a {
+    padding: 0.7rem 0.75rem;
   }
   .hud-cta {
-    font-size: 0.66rem;
-    padding: 0.62rem 1rem;
+    margin-left: auto;
+    font-size: var(--control-font);
+    padding: var(--control-pad) 1rem;
+  }
+  .hud-menu {
+    display: inline-flex;
   }
 }
 
 @media (max-width: 640px) {
   .hud-top {
+    padding: 0.8rem 0;
+  }
+  .hud-inner {
     gap: 1rem;
-    padding: 0.8rem 1rem;
-  }
-  .hud-nav {
-    gap: 0.7rem;
-    font-size: 0.6rem;
-    letter-spacing: 0.08em;
-  }
-  /* Only the log-in link fits beside the wordmark and the CTA on a phone;
-     GitHub and Discord stay one tap away in the footer. */
-  .hud-nav-social {
-    display: none;
+    --control-pad: 0.6rem;
+    --control-font: 0.62rem;
   }
   .hud-cta {
-    font-size: 0.62rem;
-    padding: 0.6rem 0.9rem;
+    font-size: var(--control-font);
+    padding: var(--control-pad) 0.9rem;
     letter-spacing: 0.1em;
   }
+  /* Tightened just enough to keep the eyebrow on one line down to a 360px screen. */
+  .eyebrow {
+    letter-spacing: 0.18em;
+  }
   .hud-brand-wordmark {
-    height: clamp(14px, 4vw, 16px);
+    display: none;
   }
-  .features-grid,
+  .hud-brand-mark {
+    display: block;
+  }
+  .benefits,
+  .integrations-grid,
   .os-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
-  .compare-panel {
-    padding: 1.4rem 1.2rem 1.3rem;
+  .hero-demo {
+    max-width: none;
   }
   /* Wrap the snippet instead of scrolling it: a horizontally scrollable code
      block inside a full-width page reads as a stuck page swipe on touch. */
@@ -1434,10 +1701,42 @@ main {
     gap: 0.7rem;
     padding: 0.7rem 1.05rem;
   }
-  /* Stack the CTAs; the single implicit column keeps them the same width. */
+  /* Every CTA pair stays side by side at equal width, so the buttons get tighter
+     and the lower pairs span the full column. */
   .hero-ctas,
+  .os-repo,
   .launch-ctas {
-    grid-auto-flow: row;
+    gap: 0.7rem;
+  }
+  .os-repo,
+  .launch-ctas {
+    width: 100%;
+  }
+  /* One sentence per line, instead of a break mid-clause. */
+  .launch-sub span {
+    display: block;
+  }
+  /* Two columns of links, with the copyright spanning its own row. */
+  .site-footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem 1.6rem;
+  }
+  .site-footer > span {
+    grid-column: 1 / -1;
+  }
+  .mail-full {
+    display: none;
+  }
+  .mail-short {
+    display: inline;
+  }
+  .hero-ctas .btn,
+  .os-repo .btn,
+  .launch-ctas .btn {
+    padding: 0.9rem 0.8rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
   }
 }
 
@@ -1457,11 +1756,12 @@ main {
   .fx-scanlines::after,
   .scroll-chevron,
   .blink-dot,
-  .t-caret,
-  .beam-line,
-  .compare-art .tangle path,
-  .node-set.is-tangled .node {
+  .t-caret {
     animation: none;
+  }
+
+  .hero-demo::before {
+    display: none;
   }
 
   .t-line {
@@ -1478,7 +1778,19 @@ main {
     transition: none;
   }
 
-  .agent-tool .tool-dot {
+  .agent-tool .tool-dot,
+  .thinking-dot {
     animation: none;
+  }
+
+  .thinking-label {
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+  }
+
+  .chart-bar {
+    transform: none;
+    transition: none;
   }
 }

@@ -1,4 +1,5 @@
 ---
+import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
 import SiteLayout from "@/layouts/SiteLayout.astro"
 import { siteMetadata } from "@/lib/site"
@@ -17,7 +18,10 @@ const { title, description, canonicalPath, effectiveDate } = Astro.props
   <div class="legal-shell">
     <header class="legal-header">
       <a class="legal-brand" href="/" aria-label="AstralBeam home">
-        <img src={astralbeamDarkWordmarkUrl} alt="AstralBeam" width="1241" height="136" />
+        <img class="legal-brand-wordmark" src={astralbeamDarkWordmarkUrl} alt="AstralBeam"
+          width="1241" height="136" />
+        <img class="legal-brand-mark" src={astralbeamDarkLogoUrl} alt="AstralBeam" width="270"
+          height="270" />
       </a>
       <nav aria-label="Legal documents">
         <a href="/terms">Terms</a>
@@ -69,10 +73,19 @@ const { title, description, canonicalPath, effectiveDate } = Astro.props
   border-bottom: 1px solid var(--border);
 }
 
-.legal-brand img {
+.legal-brand-wordmark {
   display: block;
   width: auto;
   height: 1.5rem;
+}
+
+.legal-brand-mark {
+  display: none;
+  width: auto;
+  /* The AB master centers its mark in a padded square, so the box is oversized and
+     the negative margin pulls it back to the mark's optical height. */
+  height: 3rem;
+  margin-block: -0.875rem;
 }
 
 .legal-header nav {
@@ -187,6 +200,14 @@ const { title, description, canonicalPath, effectiveDate } = Astro.props
 
   .legal-main {
     width: min(calc(100% - 2rem), 52rem);
+  }
+
+  .legal-brand-wordmark {
+    display: none;
+  }
+
+  .legal-brand-mark {
+    display: block;
   }
 
   .legal-footer a:first-of-type {

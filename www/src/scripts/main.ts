@@ -161,6 +161,32 @@ function scramble(el: HTMLElement) {
   requestAnimationFrame(frame)
 }
 
+/* ============ HUD chrome ============ */
+
+/* Below 820px the primary links live in a dropdown panel instead of the bar. */
+function initMenu() {
+  const toggle = document.querySelector<HTMLButtonElement>("[data-menu]")
+  const nav = document.getElementById("hud-nav")
+  if (!toggle || !nav) return
+
+  function setOpen(open: boolean) {
+    nav?.toggleAttribute("data-open", open)
+    toggle?.setAttribute("aria-expanded", String(open))
+    toggle?.setAttribute("aria-label", open ? "Close menu" : "Open menu")
+  }
+
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation()
+    setOpen(!nav.hasAttribute("data-open"))
+  })
+
+  // Any tap outside, or on one of the links, dismisses the panel.
+  document.addEventListener("click", () => setOpen(false))
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setOpen(false)
+  })
+}
+
 /* ============ scroll reveals ============ */
 
 function initReveals() {
@@ -195,37 +221,33 @@ function initReveals() {
 
 /* ============ terminal typing ============ */
 
-/* Resolves once the snippet has finished typing, so the agent demo beside it can
-   start streaming only after the code it illustrates is on screen. */
-function initTerminal() {
-  const terminal = document.getElementById("terminal")
-  if (!terminal) return Promise.resolve()
-  const lines = Array.from(terminal.querySelectorAll<HTMLElement>(".t-line"))
+/* Each step's snippet types itself in the first time it scrolls into view. */
+function initTerminals() {
+  for (const terminal of document.querySelectorAll<HTMLElement>("[data-terminal]")) {
+    const lines = Array.from(terminal.querySelectorAll<HTMLElement>(".t-line"))
 
-  if (reducedMotion) {
-    lines.forEach((l) => l.classList.add("typed"))
-    return Promise.resolve()
-  }
+    if (reducedMotion) {
+      lines.forEach((l) => l.classList.add("typed"))
+      continue
+    }
 
-  return new Promise<void>((resolve) => {
     const io = new IntersectionObserver(
       (entries) => {
         if (!entries.some((e) => e.isIntersecting)) return
         io.disconnect()
 
-        let delay = 300
+        let delay = 200
         for (const line of lines) {
           const isCmd = line.dataset.type === "cmd"
           setTimeout(() => line.classList.add("typed"), delay)
-          delay += isCmd ? 650 : 120
+          delay += isCmd ? 650 : 110
         }
-        setTimeout(resolve, delay + 250)
       },
       { threshold: 0.35 },
     )
 
     io.observe(terminal)
-  })
+  }
 }
 
 /* ============ agent sidebar prototype ============ */
@@ -237,7 +259,10 @@ const DEMO_REPLIES: Array<{ tool?: [string, string]; text: string }> = [
     tool: ["lookupOrder", "4830"],
     text: "Order 4830 shipped this morning. Tracking is already in her inbox.",
   },
-  { tool: ["refund", "$9.00"], text: "Refunded the shipping fee too, since the delay was on us." },
+  {
+    tool: ["refundOrder", "$9.00"],
+    text: "Refunded the shipping fee too, since the delay was on us.",
+  },
   { text: "Two similar tickets came in this week. Want me to group them into one thread?" },
   {
     tool: ["addNote", "account"],
@@ -260,7 +285,7 @@ const DEMO_REPLIES: Array<{ tool?: [string, string]; text: string }> = [
   },
 ]
 
-function initAgentDemo(codeReady: Promise<void>) {
+function initAgentDemo() {
   const panel = document.getElementById("agent-demo")
   if (!panel) return
   const composer = panel.querySelector<HTMLFormElement>("[data-composer]")
@@ -290,14 +315,14 @@ function initAgentDemo(codeReady: Promise<void>) {
   // Pauses in ms. The intro should read like a conversation happening in real
   // time rather than a transcript being dumped into the panel.
   const PACE = {
-    open: 450,
-    beforeUser: 1250,
-    beforeAgent: 750,
-    afterMessage: 650,
-    tool: 520,
-    betweenTools: 240,
-    widget: 400,
-    visitorReply: 900,
+    open: 1250,
+    beforeUser: 1480,
+    beforeAgent: 1250,
+    afterMessage: 760,
+    tool: 630,
+    betweenTools: 290,
+    widget: 490,
+    visitorReply: 1250,
   }
 
   function wait(ms: number) {
@@ -344,6 +369,7 @@ function initAgentDemo(codeReady: Promise<void>) {
 
   /* Jump the intro to its end without touching anything the visitor has sent. */
   function completeScripted() {
+    feed.querySelectorAll(".agent-thinking").forEach((marker) => marker.remove())
     for (const message of scripted) {
       if (!message.isConnected) feed.append(message)
       finish(message)
@@ -366,9 +392,9 @@ function initAgentDemo(codeReady: Promise<void>) {
       let shown = 0
       function frame() {
         if (!alive()) return resolve()
-        // A few characters per frame reads like a real token stream.
-        shown = Math.min(text.length, shown + 2)
-        stream.textContent = text.slice(0, shown)
+        // Roughly a character and a half per frame reads like a real token stream.
+        shown = Math.min(text.length, shown + 1.65)
+        stream.textContent = text.slice(0, Math.floor(shown))
         scrollToEnd()
         if (shown < text.length) {
           requestAnimationFrame(frame)
@@ -379,6 +405,29 @@ function initAgentDemo(codeReady: Promise<void>) {
       }
       requestAnimationFrame(frame)
     })
+  }
+
+  /* Stands in for the wait before the model's first token, the way the real
+     sidebar shows its shimmering "Thinking…" marker. */
+  function createThinking() {
+    const marker = document.createElement("article")
+    marker.className = "agent-msg is-agent agent-thinking mono"
+    marker.setAttribute("role", "status")
+    const dot = document.createElement("i")
+    dot.className = "thinking-dot"
+    dot.setAttribute("aria-hidden", "true")
+    const label = document.createElement("span")
+    label.className = "thinking-label"
+    label.textContent = "Thinking\u2026"
+    marker.append(dot, label)
+    return marker
+  }
+
+  async function think(ms: number, alive: () => boolean) {
+    const marker = createThinking()
+    await mount(marker)
+    if (alive()) await wait(ms)
+    marker.remove()
   }
 
   async function playMessage(message: HTMLElement, alive: () => boolean) {
@@ -413,7 +462,11 @@ function initAgentDemo(codeReady: Promise<void>) {
     reset()
     for (const [index, message] of scripted.entries()) {
       const isUser = message.classList.contains("is-user")
-      await wait(index === 0 ? PACE.open : isUser ? PACE.beforeUser : PACE.beforeAgent)
+      if (isUser) {
+        await wait(index === 0 ? PACE.open : PACE.beforeUser)
+      } else {
+        await think(PACE.beforeAgent, alive)
+      }
       if (!alive()) return
       await playMessage(message, alive)
       if (!alive()) return
@@ -489,7 +542,7 @@ function initAgentDemo(codeReady: Promise<void>) {
 
     void (async () => {
       await mount(userMessage)
-      await wait(PACE.visitorReply)
+      await think(PACE.visitorReply, always)
       await playMessage(agentMessage, always)
     })()
   })
@@ -515,11 +568,8 @@ function initAgentDemo(codeReady: Promise<void>) {
     (entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return
       io.disconnect()
-      void codeReady.then(() => {
-        // A zero here means nothing has interrupted the intro while the snippet
-        // was typing, so it is still safe to start it.
-        if (intro === 0) void play()
-      })
+      // Zero means neither a replay nor a visitor message beat the observer to it.
+      if (intro === 0) void play()
     },
     { threshold: 0.3 },
   )
@@ -529,8 +579,10 @@ function initAgentDemo(codeReady: Promise<void>) {
 
 function init() {
   initStarfield()
+  initMenu()
   initReveals()
-  initAgentDemo(initTerminal())
+  initTerminals()
+  initAgentDemo()
 }
 
 // WebKit runs module scripts before pending stylesheets finish loading, unlike Chromium and

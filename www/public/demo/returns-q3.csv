@@ -1,0 +1,42 @@
+return_id,order_id,customer,returned_on,reason,amount_usd,refund_status
+R-1200,4700,Dana Whitfield,2026-07-01,Wrong size,39.00,Paid
+R-1201,4704,Priya Raman,2026-07-03,Damaged in transit,76.00,Paid
+R-1202,4706,Marcus Lee,2026-07-05,Changed mind,113.00,Paid
+R-1203,4710,Elena Petrova,2026-07-07,Defective,150.00,Paid
+R-1204,4712,Tom Okafor,2026-07-09,Late delivery,187.00,Paid
+R-1205,4716,Sofia Alvarez,2026-07-11,Wrong size,64.00,Paid
+R-1206,4718,Liam Chen,2026-07-13,Damaged in transit,101.00,Paid
+R-1207,4722,Aisha Bello,2026-07-15,Changed mind,248.00,Unpaid
+R-1208,4724,Noah Fischer,2026-07-17,Defective,175.00,Paid
+R-1209,4728,Maya Goldberg,2026-07-19,Late delivery,52.00,Paid
+R-1210,4730,Omar Haddad,2026-07-21,Wrong size,89.00,Paid
+R-1211,4734,Grace Kim,2026-07-23,Damaged in transit,126.00,Paid
+R-1212,4736,Dana Whitfield,2026-07-25,Changed mind,163.00,Paid
+R-1213,4740,Priya Raman,2026-07-27,Defective,40.00,Paid
+R-1214,4742,Marcus Lee,2026-07-29,Late delivery,77.00,Paid
+R-1215,4746,Elena Petrova,2026-07-31,Wrong size,114.00,Paid
+R-1216,4748,Tom Okafor,2026-08-02,Damaged in transit,151.00,Paid
+R-1217,4752,Sofia Alvarez,2026-08-04,Changed mind,188.00,Paid
+R-1218,4754,Liam Chen,2026-08-06,Defective,65.00,Paid
+R-1219,4758,Aisha Bello,2026-08-08,Late delivery,189.00,Unpaid
+R-1220,4760,Noah Fischer,2026-08-10,Wrong size,139.00,Paid
+R-1221,4764,Maya Goldberg,2026-08-12,Damaged in transit,176.00,Paid
+R-1222,4766,Omar Haddad,2026-08-14,Changed mind,53.00,Paid
+R-1223,4770,Grace Kim,2026-08-16,Defective,90.00,Paid
+R-1224,4772,Dana Whitfield,2026-08-18,Late delivery,127.00,Paid
+R-1225,4776,Priya Raman,2026-08-20,Wrong size,164.00,Paid
+R-1226,4778,Marcus Lee,2026-08-22,Damaged in transit,41.00,Paid
+R-1227,4782,Elena Petrova,2026-08-24,Changed mind,78.00,Paid
+R-1228,4784,Tom Okafor,2026-08-26,Defective,115.00,Paid
+R-1229,4788,Sofia Alvarez,2026-08-28,Late delivery,152.00,Paid
+R-1230,4790,Liam Chen,2026-08-30,Wrong size,189.00,Paid
+R-1231,4794,Aisha Bello,2026-09-01,Damaged in transit,66.00,Paid
+R-1232,4796,Noah Fischer,2026-09-03,Changed mind,103.00,Paid
+R-1233,4800,Maya Goldberg,2026-09-05,Defective,175.00,Unpaid
+R-1234,4802,Omar Haddad,2026-09-07,Late delivery,177.00,Paid
+R-1235,4806,Grace Kim,2026-09-09,Wrong size,54.00,Paid
+R-1236,4808,Dana Whitfield,2026-09-11,Damaged in transit,91.00,Paid
+R-1237,4812,Priya Raman,2026-09-13,Changed mind,128.00,Paid
+R-1238,4814,Marcus Lee,2026-09-15,Defective,165.00,Paid
+R-1239,4818,Elena Petrova,2026-09-17,Late delivery,42.00,Paid
+R-1240,4820,Tom Okafor,2026-09-19,Wrong size,79.00,Paid

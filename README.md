@@ -2,16 +2,74 @@
 
 **Links:** [Website](https://astralbeam.ai) · [Docs](https://app.astralbeam.ai/docs) · [Discord](https://discord.gg/suehFycUvW) · [Cloud](https://app.astralbeam.ai)
 
-[AstralBeam](https://astralbeam.ai) is an open-source platform for embedding agents in web apps, available self-hosted or in the cloud. Its goal is to combine:
+[AstralBeam](https://astralbeam.ai) is the agentic chat widget for your app. Drop a Cursor-style agent sidebar into your product. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use [AstralBeam Cloud](https://app.astralbeam.ai).
 
-- A customizable agent sidebar with chat streaming, history, and observability.
-- Host tools, skills, MCP integrations, and actions inside your app.
-- Per-customer rate limits and Stripe-integrated token billing.
-- Prompt management, A/B testing, and production evaluations.
-- Multiplayer chat, background agents, model routing, and prompt caching.
-- Multi-tenancy, SSO, privacy, and role-based access control.
+## How it works
 
-MCP and AG-UI support let teams adopt it alongside an existing stack.
+Integration takes three steps. Each one is a few lines of code and unlocks the next layer of the platform. Items marked *in progress* are on the roadmap and not shipped yet.
+
+### 1. Add the frontend SDK
+
+```sh
+npm install @astralbeam/sdk
+```
+
+```tsx
+import { AstralBeamChat } from "@astralbeam/sdk/react"
+
+export function Sidebar() {
+  return <AstralBeamChat title="Acme Assistant" />
+}
+```
+
+You get a Cursor-style agentic chat sidebar with a managed backend, full customization of copy, colors, and slots, users' file attachments, coding sandboxes with downloadable artifacts, and resumable streaming (in progress).
+
+### 2. Identify your users
+
+Your server already knows who is signed in. Mint a short-lived token that carries the user and their tenant, and the widget picks it up. API keys never reach the browser.
+
+```ts
+import { createAstralBeamToken } from "@astralbeam/sdk/server"
+
+export async function POST(request: Request) {
+  const session = await getSession(request)
+  const token = await createAstralBeamToken({
+    apiKey: process.env.ASTRALBEAM_API_KEY,
+    user: { id: session.user.id, name: session.user.name },
+    tenant: { id: session.org.id, name: session.org.name },
+  })
+  return Response.json({ token })
+}
+```
+
+You get per-customer and per-user rate limits and tenant isolation, plus conversation history, usage tracking, Stripe-metered billing, and one-click observability (in progress).
+
+### 3. Hook up tools and widgets
+
+Declare what the agent can do and what it can draw. Tools run in your page against your own state. Widgets render your components inside the reply.
+
+```tsx
+<AstralBeamChat
+  tools={{
+    refundOrder: defineTool({
+      description: "Refund an order and notify the customer",
+      parameters: z.object({ orderId: z.string() }),
+      execute: ({ orderId }) => api.refund(orderId),
+    }),
+  }}
+  widgets={{
+    orderCard: defineWidget({
+      description: "Show an order's status and total",
+      parameters: z.object({ orderId: z.string() }),
+      render: ({ orderId }) => <OrderCard id={orderId} />,
+    }),
+  }}
+/>
+```
+
+The agent can read user data, take actions inside your app, render interactive widgets in its replies, and ask before acting. Exposing the same tools over MCP, so users can drive your app from Claude or ChatGPT, is in progress.
+
+AstralBeam works with your existing LLM providers and gateways, observability platforms, and coding sandbox providers. The SDK is MIT licensed and the platform is AGPL-3.0. Start with the [docs](https://app.astralbeam.ai/docs).
 
 ## Codebase Structure
 
