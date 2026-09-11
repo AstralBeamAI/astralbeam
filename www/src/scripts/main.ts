@@ -161,6 +161,32 @@ function scramble(el: HTMLElement) {
   requestAnimationFrame(frame)
 }
 
+/* ============ HUD chrome ============ */
+
+/* Below 820px the primary links live in a dropdown panel instead of the bar. */
+function initMenu() {
+  const toggle = document.querySelector<HTMLButtonElement>("[data-menu]")
+  const nav = document.getElementById("hud-nav")
+  if (!toggle || !nav) return
+
+  function setOpen(open: boolean) {
+    nav?.toggleAttribute("data-open", open)
+    toggle?.setAttribute("aria-expanded", String(open))
+    toggle?.setAttribute("aria-label", open ? "Close menu" : "Open menu")
+  }
+
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation()
+    setOpen(!nav.hasAttribute("data-open"))
+  })
+
+  // Any tap outside, or on one of the links, dismisses the panel.
+  document.addEventListener("click", () => setOpen(false))
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setOpen(false)
+  })
+}
+
 /* ============ scroll reveals ============ */
 
 function initReveals() {
@@ -343,6 +369,7 @@ function initAgentDemo() {
 
   /* Jump the intro to its end without touching anything the visitor has sent. */
   function completeScripted() {
+    feed.querySelectorAll(".agent-thinking").forEach((marker) => marker.remove())
     for (const message of scripted) {
       if (!message.isConnected) feed.append(message)
       finish(message)
@@ -380,6 +407,29 @@ function initAgentDemo() {
     })
   }
 
+  /* Stands in for the wait before the model's first token, the way the real
+     sidebar shows its shimmering "Thinking…" marker. */
+  function createThinking() {
+    const marker = document.createElement("article")
+    marker.className = "agent-msg is-agent agent-thinking mono"
+    marker.setAttribute("role", "status")
+    const dot = document.createElement("i")
+    dot.className = "thinking-dot"
+    dot.setAttribute("aria-hidden", "true")
+    const label = document.createElement("span")
+    label.className = "thinking-label"
+    label.textContent = "Thinking\u2026"
+    marker.append(dot, label)
+    return marker
+  }
+
+  async function think(ms: number, alive: () => boolean) {
+    const marker = createThinking()
+    await mount(marker)
+    if (alive()) await wait(ms)
+    marker.remove()
+  }
+
   async function playMessage(message: HTMLElement, alive: () => boolean) {
     await mount(message)
     if (!alive()) return
@@ -412,7 +462,11 @@ function initAgentDemo() {
     reset()
     for (const [index, message] of scripted.entries()) {
       const isUser = message.classList.contains("is-user")
-      await wait(index === 0 ? PACE.open : isUser ? PACE.beforeUser : PACE.beforeAgent)
+      if (isUser) {
+        await wait(index === 0 ? PACE.open : PACE.beforeUser)
+      } else {
+        await think(PACE.beforeAgent, alive)
+      }
       if (!alive()) return
       await playMessage(message, alive)
       if (!alive()) return
@@ -488,7 +542,7 @@ function initAgentDemo() {
 
     void (async () => {
       await mount(userMessage)
-      await wait(PACE.visitorReply)
+      await think(PACE.visitorReply, always)
       await playMessage(agentMessage, always)
     })()
   })
@@ -525,6 +579,7 @@ function initAgentDemo() {
 
 function init() {
   initStarfield()
+  initMenu()
   initReveals()
   initTerminals()
   initAgentDemo()

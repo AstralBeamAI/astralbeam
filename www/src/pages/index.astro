@@ -43,12 +43,14 @@ export function Sidebar() {
   return (
     <AstralBeamChat
       title="Acme Assistant"
-      colorScheme="system"
       theme={{
-        light: { "--primary": "#4f46e5", "--radius": "0.75rem" },
-        dark: { "--primary": "#818cf8" },
-      }}
-      emptyTitle="Ask anything about your account"
+        light: {
+          "--primary": "#4f46e5",
+          "--radius": "0.75rem",
+        },
+        dark: {
+          "--primary": "#818cf8",
+        }}}
       attachments={{ maxFiles: 5 }}
     />
   )
@@ -139,7 +141,7 @@ export async function POST(request: Request) {
   },
   {
     index: "03",
-    title: "HOOK UP TOOLS & WIDGETS",
+    title: "CONNECT TOOLS & WIDGETS",
     desc:
       "Declare what the agent can do and what it can draw. Tools run in your page against your own state. Widgets render your components inside the reply.",
     file: "sidebar.tsx",
@@ -280,7 +282,7 @@ function highlight(code: string) {
           height="136" />
         <img class="hud-brand-mark" src={astralbeamDarkLogoUrl} alt="" width="270" height="270" />
       </a>
-      <nav class="hud-nav" aria-label="Primary">
+      <nav class="hud-nav" id="hud-nav" aria-label="Primary">
         <a class="hud-nav-social" href={githubUrl} target="_blank" rel="noopener noreferrer"
           aria-label="AstralBeam on GitHub">
           <svg class="icon-social" viewBox="0 0 16 16" aria-hidden="true">
@@ -298,11 +300,19 @@ function highlight(code: string) {
           <span class="hud-nav-label">DISCORD</span>
         </a>
         <a href={docsUrl}>DOCS</a>
-        <a href={logInUrl}>LOG IN</a>
+        <a href={logInUrl}>SIGN IN</a>
       </nav>
       <a class="btn btn-primary hud-cta" href={signUpUrl}>
       GET STARTED
     </a>
+      <button class="hud-menu" type="button" aria-controls="hud-nav" aria-expanded="false"
+        aria-label="Open menu" data-menu>
+        <svg class="icon-menu" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M2 4h12"></path>
+          <path d="M2 8h12"></path>
+          <path d="M2 12h12"></path>
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -311,6 +321,7 @@ function highlight(code: string) {
     <section class="hero" id="top">
       <div class="hero-grid">
         <div class="hero-copy">
+          <p class="eyebrow reveal">OPEN SOURCE · <span>SELF-HOSTED</span> OR MANAGED</p>
           <h1 class="display hero-title">
             <span class="reveal scramble" data-text="THE">THE</span>{" "}
             <span class="reveal scramble beam-text" data-text="AGENTIC" style="--reveal-delay:.06s">AGENTIC</span><br />
@@ -318,8 +329,8 @@ function highlight(code: string) {
             <span class="reveal scramble" data-text="FOR YOUR APP" style="--reveal-delay:.24s">FOR YOUR APP</span>
           </h1>
           <p class="hero-sub reveal" style="--reveal-delay:.36s">
-            Drop a Cursor-style agent sidebar into your product. It streams answers, calls your
-            tools, renders your components, and works with users' files.
+            Drop a Cursor-style agent into your product. It answers queries, interacts with your
+            app, renders your UI widgets, and works with uploaded files.
           </p>
           <div class="hero-ctas reveal" style="--reveal-delay:.48s">
             <a class="btn btn-primary btn-lg" href={signUpUrl}>
@@ -567,9 +578,6 @@ function highlight(code: string) {
           ))
         }
       </div>
-      <p class="legend mono reveal">
-        <i class="chip is-soon legend-swatch" aria-hidden="true"></i> DASHED = IN PROGRESS
-      </p>
     </section>
 
     <!-- ============ OPEN SOURCE ============ -->
@@ -586,9 +594,8 @@ function highlight(code: string) {
       </svg>
 
       <div class="section-head">
-        <h2 class="display section-title reveal scramble"
-          data-text="YOURS TO RUN. YOURS TO EXTEND.">
-          YOURS TO RUN. YOURS TO EXTEND.
+        <h2 class="display section-title reveal scramble" data-text="OPEN SOURCE FROM DAY ONE">
+          OPEN SOURCE FROM DAY ONE
         </h2>
         <p class="section-sub reveal">
           The AstralBeam platform is open source under AGPL-3.0, built on open standards, and
@@ -631,7 +638,7 @@ function highlight(code: string) {
       <h2 class="display launch-title reveal scramble"
         data-text="READY FOR LAUNCH">READY FOR LAUNCH</h2>
       <p class="section-sub launch-sub reveal">
-        Get started with a few lines of code, or come talk to us on Discord.
+        Get started with a few lines of code, <span>or come talk to us on Discord.</span>
       </p>
       <div class="launch-ctas reveal" style="--reveal-delay:.2s">
         <a class="btn btn-primary btn-xl" href={signUpUrl}>
