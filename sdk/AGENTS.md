@@ -76,5 +76,6 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 ## Build and publish
 
 - Keep `tsdown` pinned exactly to `0.22.3`. Newer versions pull `rolldown-plugin-dts@^0.27`, whose `yuku` native bindings Deno loads as JavaScript ([denoland/deno#36240](https://github.com/denoland/deno/issues/36240)). Re-test after that issue is fixed.
+- Bump `version` in `package.json` in the same pull request that changes the published SDK surface, and give that pull request the tag, dry-run, and `npm stage approve` steps from [`CONTRIBUTING.md`](../CONTRIBUTING.md) so a maintainer can release it without looking them up.
 - Build with `deno task build` before an authorized npm release. The package ships only `dist`, `README.md`, `LICENSE`, and `package.json`.
 - Keep top-level `../examples/*` as standalone consumer apps on the built `dist` via `file:` dependencies, with no Tailwind or shadcn of their own, so they keep demonstrating the shadow-root style boundary.
