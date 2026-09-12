@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
 import { isValidOpenaiApiKey, OPENAI_API_KEY_VALIDATION_MESSAGE } from "@/lib/schemas"
@@ -21,19 +21,21 @@ import { updateOrganizationOpenaiApiKey } from "../-functions/update-organizatio
 
 export type OrganizationOpenaiApiKeyCardProps = {
   organizationSlug: string
-  configured: boolean
+  /** The stored key's last four characters, or null when the organization has no key. */
+  last4: string | null
   readOnly: boolean
 }
 
 export function OrganizationOpenaiApiKeyCard({
   organizationSlug,
-  configured,
+  last4,
   readOnly,
 }: OrganizationOpenaiApiKeyCardProps) {
   const router = useRouter()
   const [apiKey, setApiKey] = useState("")
   const [pending, setPending] = useState(false)
   const trimmedApiKey = apiKey.trim()
+  const configured = last4 !== null
 
   const submit = async (value: string | null) => {
     setPending(true)
@@ -80,28 +82,46 @@ export function OrganizationOpenaiApiKeyCard({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Field>
-            <FieldLabel htmlFor="organization-openai-api-key">
-              {configured ? "Replacement key" : "Key"}
-            </FieldLabel>
-            <Input
-              id="organization-openai-api-key"
-              type="password"
-              value={apiKey}
-              autoComplete="off"
-              placeholder="sk-…"
-              disabled={pending || readOnly}
-              onChange={(event) => setApiKey(event.target.value)}
-              className="font-mono text-xs"
-            />
-            <FieldDescription>
-              {trimmedApiKey.length > 0 && !isValidOpenaiApiKey(trimmedApiKey)
-                ? OPENAI_API_KEY_VALIDATION_MESSAGE
-                : configured
-                ? "A stored key is never shown again. Saving a new one replaces it."
-                : "Create a key in the OpenAI dashboard and paste it here."}
-            </FieldDescription>
-          </Field>
+          <FieldGroup>
+            {configured && (
+              <Field>
+                <FieldLabel htmlFor="organization-openai-api-key-current">
+                  Configured key
+                </FieldLabel>
+                <Input
+                  id="organization-openai-api-key-current"
+                  value={`sk-***${last4}`}
+                  readOnly
+                  className="font-mono text-xs"
+                />
+                <FieldDescription>
+                  Only the last four characters are shown, so you can tell which key is in use.
+                </FieldDescription>
+              </Field>
+            )}
+            <Field>
+              <FieldLabel htmlFor="organization-openai-api-key">
+                {configured ? "Replacement key" : "Key"}
+              </FieldLabel>
+              <Input
+                id="organization-openai-api-key"
+                type="password"
+                value={apiKey}
+                autoComplete="off"
+                placeholder="sk-…"
+                disabled={pending || readOnly}
+                onChange={(event) => setApiKey(event.target.value)}
+                className="font-mono text-xs"
+              />
+              <FieldDescription>
+                {trimmedApiKey.length > 0 && !isValidOpenaiApiKey(trimmedApiKey)
+                  ? OPENAI_API_KEY_VALIDATION_MESSAGE
+                  : configured
+                  ? "Saving a new key replaces the configured one."
+                  : "Create a key in the OpenAI dashboard and paste it here."}
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
         </CardContent>
         {!readOnly && (
           <CardFooter className="justify-end gap-2">

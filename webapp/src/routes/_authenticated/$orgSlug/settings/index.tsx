@@ -39,7 +39,7 @@ function OrganizationSettingsPage() {
       />
       <OrganizationOpenaiApiKeyCard
         organizationSlug={data.organization.slug}
-        configured={data.openaiApiKeyConfigured}
+        last4={data.openaiApiKeyLast4}
         readOnly={!permissions.updateConfiguration}
       />
     </div>

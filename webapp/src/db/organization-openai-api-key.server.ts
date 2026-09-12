@@ -5,15 +5,14 @@ import * as Effect from "effect/Effect"
 import { effectDatabase } from "@/db"
 import { organizationConfiguration } from "@/db/schema/organizations.server"
 
+/** How much of a stored key may leave the server, which is what names it without revealing it. */
+const OPENAI_API_KEY_HINT_LENGTH = 4
+
 class OrganizationOpenaiApiKeyError extends Data.TaggedError(
   "OrganizationOpenaiApiKeyError",
 )<{ readonly message: string }> {}
 
-/**
- * Whether the organization has a key, tested in SQL so nothing is decrypted.
- *
- * Every caller of this is a page payload, and a key is never part of one.
- */
+/** Whether the organization has a key, tested in SQL so the common page read decrypts nothing. */
 export function readOrganizationOpenaiApiKeyConfigured(organizationId: string) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
@@ -53,6 +52,19 @@ export function readOrganizationOpenaiApiKey(organizationId: string) {
     }
     return row.openaiApiKey.apiKey
   })
+}
+
+/**
+ * The settings page's read: the stored key's last four characters, or `null` when none is stored.
+ *
+ * Derived from the one stored copy rather than saved beside it, so the hint cannot drift from the
+ * key, and the key itself never leaves the server.
+ */
+export function readOrganizationOpenaiApiKeyHint(organizationId: string) {
+  return Effect.map(
+    readOrganizationOpenaiApiKey(organizationId),
+    (apiKey) => apiKey === null ? null : apiKey.slice(-OPENAI_API_KEY_HINT_LENGTH),
+  )
 }
 
 /** Replaces or clears the key, creating the configuration row on demand. */

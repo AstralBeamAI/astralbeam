@@ -26,7 +26,7 @@ Every chat run for this organization streams on this key, and the deployment hol
 
 Let's set one. Create a secret key in the [OpenAI dashboard](https://platform.openai.com/api-keys), paste it into the field, and press **Save key**. A key is accepted only in the shape OpenAI issues, which starts with `sk-` and contains no spaces, so a pasted environment line or project ID is rejected before it reaches storage.
 
-The key is stored encrypted, the same way sandbox credentials are, and it is never shown again, not even to you. The card reports **Configured** instead, and the field becomes a replacement: saving a new key replaces the old one, and **Remove key** clears it, which stops chat for every embedded widget in this organization at once.
+The key is stored encrypted, the same way sandbox credentials are, and it is never shown again in full, not even to you. The card reports **Configured** and shows the last four characters as `sk-***abcd`, which is enough to tell which of your keys is in use, and the field below it becomes a replacement: saving a new key replaces the old one, and **Remove key** clears it, which stops chat for every embedded widget in this organization at once.
 
 **NOTE**: usage on this key is billed to your own OpenAI account. Model spend for your tenant users is yours, not the deployment's.
 

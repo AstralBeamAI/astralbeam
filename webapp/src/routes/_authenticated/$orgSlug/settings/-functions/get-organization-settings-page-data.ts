@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { runDatabaseEffect } from "@/db"
-import { readOrganizationOpenaiApiKeyConfigured } from "@/db/organization-openai-api-key.server"
+import { readOrganizationOpenaiApiKeyHint } from "@/db/organization-openai-api-key.server"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
 import { SlugSchema } from "@/lib/schemas"
 
@@ -12,15 +12,16 @@ export const getOrganizationSettingsPageData = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ organizationSlug: SlugSchema })))
   .handler(({ context }) =>
     runDatabaseEffect(
-      // Presence only, never the key itself: this payload reaches the browser.
-      readOrganizationOpenaiApiKeyConfigured(context.organizationId).pipe(
-        Effect.map((openaiApiKeyConfigured) => ({
+      // The last four characters name the stored key for whoever is about to replace it. Nothing
+      // more of it reaches the browser.
+      readOrganizationOpenaiApiKeyHint(context.organizationId).pipe(
+        Effect.map((openaiApiKeyLast4) => ({
           data: {
             organization: {
               name: context.organizationName,
               slug: context.organizationSlug,
             },
-            openaiApiKeyConfigured,
+            openaiApiKeyLast4,
           },
           permissions: context.permissions,
         })),
