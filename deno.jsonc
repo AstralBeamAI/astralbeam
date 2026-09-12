@@ -1,10 +1,17 @@
 {
   "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
-  // Root launcher only, so the projects keep their own toolchains: there is deliberately no
-  // `workspace` member list, and each task delegates to the owning project's `deno.jsonc` the same
-  // way CI does. Tasks use `--cwd` where the project defines the task, and `cd` for the built-in
-  // `deno install` command. https://docs.deno.com/runtime/reference/cli/task/
+  // Projects keep their own toolchains without a workspace. Delegated tasks use --cwd.
+  // https://docs.deno.com/runtime/reference/cli/task/
+  "fmt": {
+    // Only format root files. Subprojects own their formatting configuration and checks.
+    // https://docs.deno.com/runtime/fundamentals/configuration/#formatting
+    "include": ["*"],
+    "proseWrap": "never"
+  },
   "tasks": {
+    "format": "deno fmt",
+    "format:check": "deno fmt --check",
+
     "install:webapp": "cd webapp && deno install",
     "install:www": "cd www && deno install",
     "install:sdk": "cd sdk && deno install",
