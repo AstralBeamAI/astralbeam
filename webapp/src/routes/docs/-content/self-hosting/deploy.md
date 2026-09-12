@@ -137,7 +137,7 @@ Open `https://your-host/configure` in a browser. Every other page redirects ther
 
 1. Sign in with the first entry of `DATABASE_ENCRYPTION_KEY`. Database credentials and fallback keyring entries are not accepted, and a wrong value reports `Invalid encryption key`.
 2. On a new database, the page shows the pending migrations with their SQL. Expand and review them, then apply them. See [Operations](./operations.md).
-3. Fill in the required settings: the application base URL, the Cloudflare Turnstile site and secret keys, and the authentication secret, which is generated for you on the first save if you leave it unset. Add email delivery, OAuth clients, and the OpenAI key as needed. Every setting is described in [Configuration](./configuration.md).
+3. Fill in the required settings: the application base URL, the Cloudflare Turnstile site and secret keys, and the authentication secret, which is generated for you on the first save if you leave it unset. Add email delivery and OAuth clients as needed. Model provider keys are not here: each organization sets its own OpenAI API key in the dashboard. Every setting is described in [Configuration](./configuration.md).
 4. When the page reports "Configuration is complete", use **Go to app**, which ends the operator session and loads the application.
 
 Sessions last 15 minutes and sign-in is throttled to 5 attempts per minute, so keep the key at hand while you work through the form.

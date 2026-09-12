@@ -22,7 +22,7 @@ import {
   type SandboxProviderOptions,
   type SandboxTestMetadata,
 } from "../../lib/sandbox/schemas.ts"
-import { UuidV7Schema } from "../../lib/schemas.ts"
+import { OpenaiApiKeySchema, UuidV7Schema } from "../../lib/schemas.ts"
 
 import {
   caseInsensitiveText,
@@ -173,6 +173,16 @@ export const agent = snakeCase.table(
   ],
 )
 
+const OrganizationOpenaiApiKeyPayloadSchema = Schema.Struct({
+  organizationId: UuidV7Schema,
+  apiKey: OpenaiApiKeySchema,
+})
+
+const decodeOrganizationOpenaiApiKeyPayload = Schema.decodeUnknownSync(
+  OrganizationOpenaiApiKeyPayloadSchema,
+  { onExcessProperty: "error" },
+)
+
 export const organizationConfiguration = snakeCase.table(
   "organization_configuration",
   {
@@ -181,6 +191,8 @@ export const organizationConfiguration = snakeCase.table(
       onDelete: "cascade",
     }),
     defaultAgentId: uuid(),
+    // Every chat run streams on the organization's own key; the deployment holds none.
+    openaiApiKey: encryptedJson({ decode: decodeOrganizationOpenaiApiKeyPayload }),
     lockVersion: lockVersion(),
     ...timestamps(),
   },

@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
+import { OrganizationOpenaiApiKeyCard } from "./-components/organization-openai-api-key-card"
 import { OrganizationSettingsForm } from "./-components/organization-settings-form"
 import { getOrganizationSettingsPageData } from "./-functions/get-organization-settings-page-data"
 
@@ -28,13 +29,18 @@ function OrganizationSettingsPage() {
           Organization settings
         </h1>
         <p className="text-sm text-muted-foreground">
-          Update this organization's name and URL slug.
+          Update this organization's name, URL slug, and model provider key.
         </p>
       </div>
       <OrganizationSettingsForm
         organizationSlug={data.organization.slug}
         organizationName={data.organization.name}
         readOnly={!permissions.updateOrganization}
+      />
+      <OrganizationOpenaiApiKeyCard
+        organizationSlug={data.organization.slug}
+        last4={data.openaiApiKeyLast4}
+        readOnly={!permissions.updateConfiguration}
       />
     </div>
   )
@@ -48,6 +54,7 @@ function OrganizationSettingsPageSkeleton() {
         <Skeleton className="h-5 w-full max-w-md" />
       </div>
       <Skeleton className="h-72 w-full max-w-2xl rounded-xl" />
+      <Skeleton className="h-64 w-full max-w-2xl rounded-xl" />
     </div>
   )
 }

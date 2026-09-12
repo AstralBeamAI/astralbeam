@@ -90,12 +90,12 @@ describe("global configuration", () => {
       ...completeStoredConfig().values,
       google_client_id: "google-id",
       google_client_secret: "google-secret",
-      openai_api_key: "openai-secret",
+      resend_api_key: "resend-secret",
     }))
 
     expect(serialized).toContain("turnstile-site-key")
     expect(serialized).not.toContain("google-secret")
-    expect(serialized).not.toContain("openai-secret")
+    expect(serialized).not.toContain("resend-secret")
     expect(serialized).not.toContain(CONFIG_TEST_SECRET)
     expect(serialized).not.toContain("turnstile-secret-key")
   })
@@ -126,7 +126,7 @@ describe("global configuration", () => {
       ...complete,
       rows: [
         ...(complete.rows ?? []),
-        { key: "openai_api_key", storageStatus: "unreadable" },
+        { key: "resend_api_key", storageStatus: "unreadable" },
       ],
     })
     expect((await getGlobalConfigState()).issues).toEqual([])

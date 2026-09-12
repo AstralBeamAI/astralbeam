@@ -1,6 +1,6 @@
 # Settings
 
-An organization has two settings of its own, a display name and a URL slug, and both are owner-only. Everything else about how the embedded agent behaves is configured on the other pages in this section.
+An organization has three settings of its own, a display name, a URL slug, and the OpenAI API key its chat runs on, and all three are owner-only. Everything else about how the embedded agent behaves is configured on the other pages in this section.
 
 ## The name
 
@@ -20,9 +20,19 @@ Saving moves you to the new URL, and nobody else is moved.
 
 Nothing outside the dashboard depends on the slug. The organization's real identity is a permanent internal ID, which is what public agent IDs, API keys, and chat auth tokens are built from, so a slug change never affects embedded chat, tokens already minted, or applications in production.
 
+## The OpenAI API key
+
+Every chat run for this organization streams on this key, and the deployment holds none of its own, so the embedded agent cannot answer anything until one is set. The organization home page carries a banner while it is missing, and each message the widget sends is refused with the error `Org OpenAI key is not configured`, which the tenant user sees in place of a reply.
+
+Let's set one. Create a secret key in the [OpenAI dashboard](https://platform.openai.com/api-keys), paste it into the field, and press **Save key**. A key is accepted only in the shape OpenAI issues, which starts with `sk-` and contains no spaces, so a pasted environment line or project ID is rejected before it reaches storage.
+
+The key is stored encrypted, the same way sandbox credentials are, and it is never shown again in full, not even to you. The card reports **Configured** and shows the last four characters as `sk-***abcd`, which is enough to tell which of your keys is in use, and the field below it becomes a replacement: saving a new key replaces the old one, and **Remove key** clears it, which stops chat for every embedded widget in this organization at once.
+
+**NOTE**: usage on this key is billed to your own OpenAI account. Model spend for your tenant users is yours, not the deployment's.
+
 ## Who can change these
 
-Only owners. Developers and viewers do not see this page in the sidebar and are returned to the organization home when they open its URL. See [Members](./members.md).
+Only owners. Developers and viewers do not see this page in the sidebar and are returned to the organization home when they open its URL, where developers still see the missing-key banner. See [Members](./members.md).
 
 An organization cannot be deleted from the dashboard.
 

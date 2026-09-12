@@ -41,6 +41,21 @@ export const AgentSystemPromptSchema = Schema.String.pipe(
   Schema.check(Schema.isMaxLength(32_768)),
 )
 
+export const OPENAI_API_KEY_VALIDATION_MESSAGE =
+  "Enter an OpenAI API key, which starts with 'sk-' and contains no spaces"
+
+// Shape only: every key OpenAI issues is one `sk-` token, so a pasted env line or project ID is
+// refused here instead of failing every chat run. https://platform.openai.com/docs/api-reference/authentication
+export const OpenaiApiKeySchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^sk-[\w-]{16,500}$/, {
+      message: OPENAI_API_KEY_VALIDATION_MESSAGE,
+    }),
+  ),
+)
+
+export const isValidOpenaiApiKey = Schema.is(OpenaiApiKeySchema)
+
 export const LockVersionSchema = Schema.Number.pipe(
   Schema.check(Schema.makeFilter((value) => Number.isSafeInteger(value) && value >= 0)),
 )

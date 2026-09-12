@@ -70,7 +70,7 @@ With Podman, wait for the services to become healthy before setup. PgBouncer pub
 ./scripts/setup.sh
 ```
 
-Setup installs the Deno toolchain and frozen dependencies, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Deno on `PATH`. Configure `OPENAI_API_KEY` in `webapp/.env.local` for chat.
+Setup installs the Deno toolchain and frozen dependencies, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Deno on `PATH`. Chat runs on each organization's own OpenAI API key, set in the dashboard under **Settings**; put `OPENAI_API_KEY` in `webapp/.env.local` and the seed gives it to every seeded organization.
 
 ```sh
 deno task dev                      # all apps and the SDK watcher

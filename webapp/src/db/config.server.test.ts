@@ -23,7 +23,7 @@ describe("database configuration", () => {
       { key: "better_auth_secret", storedValue: "not-a-compact-jwe" },
       {
         key: "turnstile_secret_key",
-        storedValue: encryptedRow("openai_api_key", "provider-secret").storedValue,
+        storedValue: encryptedRow("resend_api_key", "provider-secret").storedValue,
       },
     ])
     const logged = vi.spyOn(console, "error").mockImplementation(() => {})

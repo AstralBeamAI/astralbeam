@@ -1,6 +1,5 @@
 import { existsSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
-import process from "node:process"
 import { fileURLToPath } from "node:url"
 
 import { seedAgents } from "./seed/agents.ts"
@@ -18,7 +17,7 @@ import {
   SEED_TODOS_TARGET,
   SEED_USERS,
 } from "./seed/fixtures.ts"
-import { seedOrganizations } from "./seed/organizations.ts"
+import { seedOrganizationOpenaiApiKeys, seedOrganizations } from "./seed/organizations.ts"
 import { seedTenants } from "./seed/tenants.ts"
 import { seedUsers } from "./seed/users.ts"
 
@@ -46,9 +45,10 @@ try {
     const userIdsByEmail = await seedUsers(transaction)
     await seedOrganizations(transaction, userIdsByEmail)
     const agents = await seedAgents(transaction)
+    const openaiApiKey = await seedOrganizationOpenaiApiKeys(transaction)
     const apiKeys = await seedApiKeys(transaction)
     const tenantUserCount = await seedTenants(transaction)
-    return { config, agents, apiKeys, tenantUserCount }
+    return { config, agents, apiKeys, openaiApiKey, tenantUserCount }
   })
 
   console.log(`\nSeeded database '${databaseName}'.\n`)
@@ -94,9 +94,13 @@ try {
   }
   for (const line of todosEnv.trimEnd().split("\n")) console.log(`  ${line}`)
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (summary.openaiApiKey === "written") {
+    console.log("\nStored OPENAI_API_KEY as every seeded organization's own OpenAI API key.")
+  } else {
     console.warn(
-      "\nOPENAI_API_KEY is not set, so chat requests will answer 503. Add it to webapp/.env.local;\nthe seed never stores it, because an environment value takes precedence over the database.",
+      `\nOPENAI_API_KEY is ${
+        summary.openaiApiKey === "invalid" ? "not a well-formed 'sk-' key" : "not set"
+      }, so chat requests answer 503 until each organization's\nkey is set in the dashboard under Settings. Put a key in webapp/.env.local to seed it instead.`,
     )
   }
   console.log()
