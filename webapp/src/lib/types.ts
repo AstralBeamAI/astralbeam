@@ -26,13 +26,12 @@ export type ConfigKey =
   | "aws_region"
   | "aws_access_key_id"
   | "aws_secret_access_key"
-  | "openai_api_key"
   | "privacy_policy_url"
   | "terms_of_service_url"
 
 export interface ConfigDefinition {
   key: ConfigKey
-  group: "General" | "Authentication" | "Email Delivery" | "LLM Providers"
+  group: "General" | "Authentication" | "Email Delivery"
   label: string
   description: string
   kind: "text" | "url" | "secret" | "enum"

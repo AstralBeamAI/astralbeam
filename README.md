@@ -59,7 +59,7 @@ The [seed](webapp/src/db/README.md#seed-sample-data) creates local accounts and 
 
 ### Chat credentials
 
-The seed never writes one, so chat needs a key of your own in `webapp/.env.local`:
+Chat runs on the organization's own OpenAI API key, which owners set in the dashboard under **Settings**. Put a key of your own in `webapp/.env.local` and the seed gives it to every seeded organization:
 
 ```sh
 OPENAI_API_KEY=sk-...

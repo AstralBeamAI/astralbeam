@@ -89,11 +89,9 @@ For SES, we should leave both AWS credential fields unset so the deployment uses
 
 ## Model provider
 
-| Setting          | Required | Default | Notes                                                  |
-| ---------------- | -------- | ------- | ------------------------------------------------------ |
-| `openai_api_key` | No       | none    | Powers the chat endpoint. Chat fails while it is unset |
+Model provider keys are not deployment settings and are not on this page. Each organization stores its own OpenAI API key in the dashboard, under **Settings**, encrypted per organization the way sandbox credentials are.
 
-This key is not part of the setup gate, so the application will open to users without it. Until it is set, every chat request is refused with `503` and the detail `Chat is not configured.`, which reaches the embedded widget as an error rather than a reply.
+Because the deployment holds no key, the application opens to users whether or not any organization has set one. Until an organization sets its key, its chat requests are refused with `503` and the detail `Org OpenAI key is not configured`, which reaches the embedded widget as an error rather than a reply. The organization's home page carries a banner until then.
 
 ## Sandbox providers
 

@@ -17,7 +17,7 @@ deno task --cwd examples/todos e2e
 
 - `deno task --cwd examples/todos e2e --project=app` runs only the free specs. Nothing in that project calls a model.
 - `deno task --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
-- Without `OPENAI_API_KEY`, the `agent` project is omitted. Report it as not run, not as passed.
+- Without `OPENAI_API_KEY` in `webapp/.env.local`, which the seed stores as each organization's own key, the `agent` project is omitted. Report it as not run, not as passed.
 - `deno task --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
 
 The suite starts its own webapp and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_WEBAPP_URL` and `E2E_TODOS_URL` to test servers you are already running instead.

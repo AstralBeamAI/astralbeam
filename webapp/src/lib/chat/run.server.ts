@@ -1,6 +1,7 @@
 import { type AnyServerTool, chat, mergeAgentTools } from "@tanstack/ai"
 
 import { runDatabaseEffect } from "@/db"
+import { readOrganizationOpenaiApiKey } from "@/db/organization-openai-api-key.server"
 import { createChatAdapter } from "./adapter.server"
 import { resolveChatAgent } from "./agent.server"
 import { createChatAttachmentTools } from "./attachment-tools.server"
@@ -20,13 +21,14 @@ import { resolveChatSandboxSession } from "./sandbox.server"
 import { createChatSandboxTools } from "./sandbox-tools.server"
 import type { ChatParams, ChatPrincipal } from "./types"
 import { chatError } from "./errors.server"
-import { getGlobalConfig } from "@/lib/config"
 
 export async function createChatRun(
   params: ChatParams,
   principal: ChatPrincipal,
 ) {
-  const openaiApiKey = await getGlobalConfig("openai_api_key")
+  const openaiApiKey = await runDatabaseEffect(
+    readOrganizationOpenaiApiKey(principal.organization.id),
+  )
   const { agentId, systemPrompt, debug } = params.forwardedProps
   const selectedAgent = await resolveChatAgent(agentId, principal.organization.id)
   if (!selectedAgent) {
@@ -61,7 +63,7 @@ export async function createChatRun(
     log("request", `client-declared tools (${params.tools.length})`, params.tools)
   }
   if (!openaiApiKey) {
-    throw chatError("Unavailable", "Chat is not configured.")
+    throw chatError("Unavailable", "Org OpenAI key is not configured")
   }
   // Attachments are rewritten into what the model reads before the run starts: the
   // provider adapter throws on a content part it cannot map, which would fail the whole
