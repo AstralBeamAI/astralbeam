@@ -1,5 +1,5 @@
 import { ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/widget/components/ui/button"
 import {
   InputGroup,
@@ -18,6 +18,8 @@ interface ChatComposerProps {
   title: string
   /** Name of the host's composer-actions slot; when set, extra host controls project into the row. */
   actionsSlot?: string | undefined
+  /** Focus the input once it accepts typing, which is after authentication resolves. */
+  autoFocus: boolean
   draft: string
   onDraftChange: (draft: string) => void
   onSend: () => void
@@ -46,6 +48,7 @@ export function ChatComposer(
   {
     title,
     actionsSlot,
+    autoFocus,
     draft,
     onDraftChange,
     onSend,
@@ -65,6 +68,7 @@ export function ChatComposer(
   }: ChatComposerProps,
 ) {
   const fileInput = useRef<HTMLInputElement>(null)
+  const textarea = useRef<HTMLTextAreaElement>(null)
   const [dropTarget, setDropTarget] = useState(false)
   const blocked = authPending || authError !== undefined
   // A file still being read would be left out of the message, so the send waits for it.
@@ -75,6 +79,18 @@ export function ChatComposer(
       attachmentLimits.maxFiles
   const canAttach = attachmentLimits.enabled && !blocked
   const sendDisabled = isBusy || blocked || reading || (draft.trim().length === 0 && !sendable)
+
+  // React's own `autoFocus` would be dropped on the disabled textarea the pending token renders,
+  // so this focuses the first render that accepts typing, once, and never over the host's focus.
+  const autoFocused = useRef(false)
+  useEffect(() => {
+    if (!autoFocus || blocked || autoFocused.current) return
+    autoFocused.current = true
+    const input = textarea.current
+    if (!input) return
+    const active = input.ownerDocument.activeElement
+    if (active === null || active === input.ownerDocument.body) input.focus()
+  }, [autoFocus, blocked])
 
   const addFiles = (files: FileList | null) => {
     if (!canAttach || !files || files.length === 0) return
@@ -159,13 +175,14 @@ export function ChatComposer(
           }}
         />
       )}
-      <InputGroup className={cn(dropTarget && "border-ring ring-3 ring-ring/50")}>
+      <InputGroup className={cn("cursor-text", dropTarget && "border-ring ring-3 ring-ring/50")}>
         {attachments.length > 0 && (
           <InputGroupAddon align="block-start">
             <ComposerAttachments attachments={attachments} onRemove={onRemoveAttachment} />
           </InputGroupAddon>
         )}
         <InputGroupTextarea
+          ref={textarea}
           aria-label="Message"
           className="max-h-24 min-h-9"
           placeholder={authPending

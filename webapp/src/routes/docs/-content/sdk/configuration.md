@@ -12,6 +12,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `title`                          | `"AstralBeam"`                     | Name in the widget's header                                                       |
 | `showHeader`                     | `true`                             | `false` hides the header and its reset button                                     |
 | `emptyTitle`, `emptyDescription` | generic copy                       | Headline and subtitle of the empty transcript                                     |
+| `autoFocus`                      | `false`                            | Focuses the composer once the session is verified, so typing can start right away |
 | `colorScheme`                    | `"system"`                         | `"light"`, `"dark"`, or follow the OS setting live                                |
 | `theme`                          | built-in palette                   | `{ light, dark }` CSS token overrides, see [Theming](./theming.md)                |
 | `attachments`                    | `true`                             | `false` disables, an object narrows limits. See [Attachments](./attachments.md)   |
@@ -24,6 +25,8 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 - `fetchAstralBeamToken` is the only chat auth token option. The request form's init reaches `fetch` as given. See [Authentication](./authentication.md).
 - Transport options are read per request. Updated `apiUrl`, `fetchAstralBeamToken`, and `agentId` values apply to the next request or run.
 - Changing `agentId` keeps the transcript, which the new agent then sees as history. Call `reset()` first for a clean conversation.
+- `autoFocus` applies once per mount, after the chat auth token resolves, and never when your page already holds focus, so it cannot pull the caret out of one of your own fields. Mobile browsers raise the on-screen keyboard only for a focus that follows a tap, so on a phone it places the caret without necessarily opening the keyboard.
+- A tap anywhere inside the composer's box focuses the message input, the attach and send buttons aside, so a thumb does not have to land on the text itself.
 - Every option accepts an explicit `undefined` and reads as unset, so a value you do not have yet needs no conditional prop under `exactOptionalPropertyTypes`.
 
 ## Chrome slots
