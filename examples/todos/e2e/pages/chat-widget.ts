@@ -42,6 +42,11 @@ export function chatWidget(page: Page) {
       return composer
     },
 
+    /** The composer's bottom row. Its middle is padding between the attach and send buttons. */
+    composerButtonRow(): Locator {
+      return root.locator('[data-slot="input-group-addon"][data-align="block-end"]')
+    },
+
     /** True once the widget has traded a session for a chat auth token and will accept a message. */
     async waitForReady(): Promise<void> {
       await expect(composer).toBeVisible()
