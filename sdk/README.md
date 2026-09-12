@@ -77,6 +77,7 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `fetchAstralBeamToken`               | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter   |
 | `title`, `showHeader`                | `"AstralBeam"`, `true`             | Header text, and whether the header and reset button show            |
 | `emptyTitle`, `emptyDescription`     | generic copy                       | Headline and subtitle of the empty transcript                        |
+| `autoFocus`                          | `false`                            | Focus the composer once the session is verified                      |
 | `colorScheme`, `theme`               | `"system"`, built-in palette       | Light/dark/system, and shadcn token overrides                        |
 | `attachments`                        | `true`                             | `false` hides the feature, or pass limits                            |
 | `tools`, `widgets`                   | none                               | What the agent can do and draw in your app                           |

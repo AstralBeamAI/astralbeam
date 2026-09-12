@@ -288,6 +288,7 @@ export function ChatWidget(
         {options.sandboxPanel === true && sandboxHasWork && <SandboxPanel activity={sandbox} />}
         <ChatComposer
           title={options.title ?? DEFAULT_TITLE}
+          autoFocus={options.autoFocus === true}
           actionsSlot={hostSlots.has("composerActions")
             ? hostSlotName("composerActions")
             : undefined}

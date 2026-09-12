@@ -67,3 +67,19 @@ test("the debug switch reports its state", async ({ todos }) => {
   await todos.toggleDebug()
   await expect(todos.controls.debug).toHaveText("Debug: on")
 })
+
+test("the composer takes focus on mount, because the host passes autoFocus", async ({ chat }) => {
+  await chat.waitForReady()
+  await expect(chat.composer()).toBeFocused()
+})
+
+test("a tap beside the text still focuses the message input", async ({ page, chat }) => {
+  await chat.waitForReady()
+  // The heading takes no focus itself, so clicking it leaves the page with none.
+  await page.getByRole("heading", { name: "Todos" }).click()
+  await expect(chat.composer()).not.toBeFocused()
+
+  // The middle of the button row is padding: the attach button sits at its start, send at its end.
+  await chat.composerButtonRow().click()
+  await expect(chat.composer()).toBeFocused()
+})

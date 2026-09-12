@@ -166,6 +166,14 @@ export interface MountAstralBeamChatOptions {
    * and gives the transcript the full height. Default `true`.
    */
   showHeader?: boolean | undefined
+  /**
+   * Focuses the composer's input as soon as the widget can accept typing, which is after the
+   * chat auth token resolves. It happens once per mount, and never when the host page already
+   * holds focus, so it cannot take the caret out of one of your own fields. Mobile browsers open
+   * the on-screen keyboard only for a focus that follows a user gesture, so on a phone this
+   * places the caret without necessarily raising the keyboard. Default `false`.
+   */
+  autoFocus?: boolean | undefined
   /** Headline shown on the empty transcript. Default `"Ask the assistant"`. */
   emptyTitle?: string | undefined
   /** Subtitle shown under the empty transcript's headline. Default describes the app's tools and widgets. */

@@ -33,6 +33,7 @@ export function TodosAssistant({
         title={CHAT_TITLE}
         apiUrl={ASTRALBEAM_API_URL}
         tools={tools}
+        autoFocus
         colorScheme={colorScheme}
         theme={customTheme ? WIDGET_THEME : undefined}
         sandboxPanel
