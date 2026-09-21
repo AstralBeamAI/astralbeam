@@ -30,6 +30,71 @@ if (first.page_after) {
 
 API records use internal IDs. Token-facing user and tenant IDs remain your application's external identifiers. Fields match the REST API, including `external_id`, `created_at`, and `page_after`. Timestamps are strings.
 
+## Browser: organization JWT
+
+This optional path is for internal employee tools, not typical customer embeds. Organization JWT users must already be AstralBeam organization members. Tokens delegate their current database permissions: owners and developers can read and write, while viewers can only read. API-key holders select the member and retain owner-equivalent access. These restrictions apply to the delegated token, not its issuer.
+
+The helper accepts `expiresInSeconds` between 60 and 600, defaulting to 300. `organizationId` must match the API key's Organization.
+
+Create an authenticated endpoint in your application. This example path, `/api/astralbeam/organization-token`, is host-owned, not an AstralBeam endpoint. Keep it separate from your tenant chat token endpoint.
+
+```ts
+import { createAstralBeamOrganizationToken } from "@astralbeam/sdk/server"
+
+export async function POST(request: Request) {
+  const headers = { "Cache-Control": "no-store" }
+  const session = await getApplicationSession(request)
+  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401, headers })
+  const apiKey = process.env.ASTRALBEAM_API_KEY
+  const organizationId = process.env.ASTRALBEAM_ORGANIZATION_ID
+  if (!apiKey || !organizationId) {
+    return Response.json({ error: "Not configured" }, { status: 503, headers })
+  }
+  try {
+    const token = await createAstralBeamOrganizationToken({
+      apiKey,
+      organizationId,
+      email: session.user.email,
+    })
+    return Response.json({ token }, { headers })
+  } catch {
+    return Response.json({ error: "Token could not be issued" }, { status: 500, headers })
+  }
+}
+```
+
+`getApplicationSession` represents your server's existing authentication. Derive a verified email from it, never the request body. Use your framework's session/CSRF protections and restrict the endpoint to your intended employee audience.
+
+Set `ASTRALBEAM_ORGANIZATION_ID` to the Organization UUID embedded in your full API key (`key_<organizationId>_<keyId>_abo_<secret>`). It is neither the organization slug nor a Tenant ID. These environment variable names are your host application's configuration, not required SDK configuration.
+
+```ts
+import { listTenants, listUsersForTenant } from "@astralbeam/sdk/api"
+
+const response = await fetch("/api/astralbeam/organization-token", {
+  method: "POST",
+  credentials: "same-origin",
+  cache: "no-store",
+})
+if (!response.ok) throw new Error(`Token endpoint returned ${response.status}`)
+const { token } = await response.json()
+if (typeof token !== "string" || !token) throw new Error("Missing token")
+const options = { astralBeamToken: token }
+const filters = { q: "Acme", page_size: 20 }
+const first = await listTenants(filters, options)
+if (first.page_after) {
+  const second = await listTenants({ ...filters, page_after: first.page_after }, options)
+}
+if (first.items[0]) {
+  const users = await listUsersForTenant(first.items[0].id, {
+    q: "Alex",
+    "filter[admin]": "false",
+    page_size: 20,
+  }, options)
+}
+```
+
+Keep tokens in memory. The helper signs locally; successful minting does not prove membership or permission. Roles are not encoded in tokens: each API request checks current database membership and roles. A role downgrade applies on the next request without waiting for token expiry. Organization tokens cannot authenticate chat or dashboard administration.
+
 ## Browser: tenant JWT
 
 Obtain a short-lived token from your application's authenticated token endpoint, never expose an organization API key in browser code. The `astralBeamToken` option sends `Authorization: Bearer`.
@@ -105,68 +170,3 @@ const bytes = await file.arrayBuffer()
 ```
 
 Chat accepts tenant JWTs without requiring admin privileges. Downloads use their signed ticket, not an API key or JWT. See the [API reference](/docs/api) for all operations, permissions, and response schemas.
-
-## Browser: organization JWT
-
-This optional path is for internal employee tools, not typical customer embeds. Organization JWT users must already be AstralBeam organization members. Tokens delegate their current database permissions: owners and developers can read and write, while viewers can only read. API-key holders select the member and retain owner-equivalent access. These restrictions apply to the delegated token, not its issuer.
-
-The helper accepts `expiresInSeconds` between 60 and 600, defaulting to 300. `organizationId` must match the API key's Organization.
-
-Create an authenticated endpoint in your application. This example path, `/api/astralbeam/organization-token`, is host-owned, not an AstralBeam endpoint. Keep it separate from your tenant chat token endpoint.
-
-```ts
-import { createAstralBeamOrganizationToken } from "@astralbeam/sdk/server"
-
-export async function POST(request: Request) {
-  const headers = { "Cache-Control": "no-store" }
-  const session = await getApplicationSession(request)
-  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401, headers })
-  const apiKey = process.env.ASTRALBEAM_API_KEY
-  const organizationId = process.env.ASTRALBEAM_ORGANIZATION_ID
-  if (!apiKey || !organizationId) {
-    return Response.json({ error: "Not configured" }, { status: 503, headers })
-  }
-  try {
-    const token = await createAstralBeamOrganizationToken({
-      apiKey,
-      organizationId,
-      email: session.user.email,
-    })
-    return Response.json({ token }, { headers })
-  } catch {
-    return Response.json({ error: "Token could not be issued" }, { status: 500, headers })
-  }
-}
-```
-
-`getApplicationSession` represents your server's existing authentication. Derive a verified email from it, never the request body. Use your framework's session/CSRF protections and restrict the endpoint to your intended employee audience.
-
-Set `ASTRALBEAM_ORGANIZATION_ID` to the Organization UUID embedded in your full API key (`key_<organizationId>_<keyId>_abo_<secret>`). It is neither the organization slug nor a Tenant ID. These environment variable names are your host application's configuration, not required SDK configuration.
-
-```ts
-import { listTenants, listUsersForTenant } from "@astralbeam/sdk/api"
-
-const response = await fetch("/api/astralbeam/organization-token", {
-  method: "POST",
-  credentials: "same-origin",
-  cache: "no-store",
-})
-if (!response.ok) throw new Error(`Token endpoint returned ${response.status}`)
-const { token } = await response.json()
-if (typeof token !== "string" || !token) throw new Error("Missing token")
-const options = { astralBeamToken: token }
-const filters = { q: "Acme", page_size: 20 }
-const first = await listTenants(filters, options)
-if (first.page_after) {
-  const second = await listTenants({ ...filters, page_after: first.page_after }, options)
-}
-if (first.items[0]) {
-  const users = await listUsersForTenant(first.items[0].id, {
-    q: "Alex",
-    "filter[admin]": "false",
-    page_size: 20,
-  }, options)
-}
-```
-
-Keep tokens in memory. The helper signs locally; successful minting does not prove membership or permission. Roles are not encoded in tokens: each API request checks current database membership and roles. A role downgrade applies on the next request without waiting for token expiry. Organization tokens cannot authenticate chat or dashboard administration.

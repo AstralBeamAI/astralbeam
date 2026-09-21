@@ -153,7 +153,7 @@ export function DirectoryTable(
     getRowCanExpand: () => true,
   })
   return (
-    <Table>
+    <Table className="[&_th]:h-12 [&_th]:px-4 [&_td]:px-4 [&_td]:py-3">
       <TableHeader>
         {table.getHeaderGroups().map((group) => (
           <TableRow key={group.id}>

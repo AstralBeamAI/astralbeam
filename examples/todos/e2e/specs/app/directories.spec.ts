@@ -2,7 +2,8 @@ import { expect, test } from "../../fixtures.ts"
 import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"
 import { SEED_ORGANIZATIONS } from "../../../../../webapp/scripts/seed/fixtures.ts"
-import { mintSeedChatAuthToken } from "../../tokens.ts"
+// @deno-types="../../../../../sdk/dist/server.d.ts"
+import { createAstralBeamToken } from "../../../../../sdk/dist/server.js"
 import { seedTarget } from "../../worktree.ts"
 
 test("separate directories filter users by tenant and admin status", async ({ page }) => {
@@ -96,12 +97,13 @@ test("vanilla tenant directories enforce admin authority across reset and remoun
   const directory = directoriesPage(page)
   const tenant = SEED_ORGANIZATIONS[0].tenants[1]
   const [admin, member] = tenant.users
-  const adminIdentity = {
+  const adminTarget = {
+    apiKey: seedTarget.apiKey,
     tenant: { id: tenant.externalId, name: tenant.name },
     user: { id: admin.externalId, name: admin.name, admin: admin.admin, metadata: admin.metadata },
   }
-  const memberIdentity = {
-    tenant: adminIdentity.tenant,
+  const memberTarget = {
+    ...adminTarget,
     user: {
       id: member.externalId,
       name: member.name,
@@ -109,7 +111,7 @@ test("vanilla tenant directories enforce admin authority across reset and remoun
       metadata: member.metadata,
     },
   }
-  let token = await mintSeedChatAuthToken(seedTarget.apiKey, adminIdentity)
+  let token = await createAstralBeamToken(adminTarget)
   await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
   await openVanillaDirectories(page)
   await expect(directory.tenant(tenant.name)).toBeVisible()
@@ -121,7 +123,7 @@ test("vanilla tenant directories enforce admin authority across reset and remoun
   await directory.remount.click()
   await expect(directory.user(admin.name)).toBeVisible()
 
-  token = await mintSeedChatAuthToken(seedTarget.apiKey, memberIdentity)
+  token = await createAstralBeamToken(memberTarget)
   const denied = page.waitForResponse((response) =>
     response.url().includes("/api/v1/tenants") && response.status() === 403
   )
@@ -129,7 +131,7 @@ test("vanilla tenant directories enforce admin authority across reset and remoun
   await denied
   await expect(directory.users).toContainText("Access denied")
   await expect(directory.user(admin.name)).toHaveCount(0)
-  token = await mintSeedChatAuthToken(seedTarget.apiKey, adminIdentity)
+  token = await createAstralBeamToken(adminTarget)
   await directory.reset.click()
   await expect(directory.user(admin.name)).toBeVisible()
   await captureMoment(page, "vanilla-tenant-directories")

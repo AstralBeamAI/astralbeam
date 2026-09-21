@@ -101,7 +101,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           }}
         />
       )}
-      <div className="flex flex-wrap items-center gap-2 border-b p-3">
+      <div className="flex flex-wrap items-center gap-3 border-b p-4">
         <Input
           aria-label="Search by name or external ID"
           placeholder="Search by name or external ID…"
@@ -189,7 +189,7 @@ function TenantPicker(
   })
   const items = query.data?.pages.flatMap((page) => page.items) ?? []
   return (
-    <div ref={container} className="border-b p-3">
+    <div ref={container} className="border-b p-4">
       <Combobox
         items={items}
         filter={null}
@@ -246,7 +246,7 @@ function DirectoryPage(
   })
   return (
     <div aria-busy={query.isFetching}>
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
         <span role="status" className="text-xs text-muted-foreground">
           {query.isFetching
             ? "Loading…"
@@ -281,7 +281,7 @@ function DirectoryPage(
             filtered={!!q || admin !== "all"}
           />
         )}
-      <div className="border-t p-3">
+      <div className="border-t p-4">
         <PageNavigation
           page={query.isError ? undefined : query.data}
           busy={query.isFetching}
@@ -340,7 +340,7 @@ function ListingError({ error, retry }: { error: Error; retry: () => void }) {
   }
   const retryAfter = apiError?.headers.get("retry-after")
   return (
-    <Alert variant="destructive" className="m-3 w-auto">
+    <Alert variant="destructive" className="m-4 w-auto">
       <AlertTitle>{titles[status ?? 0] ?? "Unable to load directory"}</AlertTitle>
       <AlertDescription>
         {status === 429 ? `Please retry after ${retryAfter ?? "a few"} seconds.` : error.message}
