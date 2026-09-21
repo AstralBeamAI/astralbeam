@@ -10,6 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TenantUsersIndexRouteImport } from './routes/tenant-users/index'
+import { Route as TenantsIndexRouteImport } from './routes/tenants/index'
+import { Route as ApiAstralbeamOrganizationTokenRouteImport } from './routes/api/astralbeam/organization-token'
 import { Route as ApiAstralbeamTokenRouteImport } from './routes/api/astralbeam/token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -17,6 +20,22 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TenantUsersIndexRoute = TenantUsersIndexRouteImport.update({
+  id: '/tenant-users/',
+  path: '/tenant-users/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TenantsIndexRoute = TenantsIndexRouteImport.update({
+  id: '/tenants/',
+  path: '/tenants/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAstralbeamOrganizationTokenRoute =
+  ApiAstralbeamOrganizationTokenRouteImport.update({
+    id: '/api/astralbeam/organization-token',
+    path: '/api/astralbeam/organization-token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
   id: '/api/astralbeam/token',
   path: '/api/astralbeam/token',
@@ -25,27 +44,55 @@ const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/tenant-users/': typeof TenantUsersIndexRoute
+  '/tenants/': typeof TenantsIndexRoute
+  '/api/astralbeam/organization-token': typeof ApiAstralbeamOrganizationTokenRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/tenant-users': typeof TenantUsersIndexRoute
+  '/tenants': typeof TenantsIndexRoute
+  '/api/astralbeam/organization-token': typeof ApiAstralbeamOrganizationTokenRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/tenant-users/': typeof TenantUsersIndexRoute
+  '/tenants/': typeof TenantsIndexRoute
+  '/api/astralbeam/organization-token': typeof ApiAstralbeamOrganizationTokenRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/astralbeam/token'
+  fullPaths:
+    | '/'
+    | '/tenant-users/'
+    | '/tenants/'
+    | '/api/astralbeam/organization-token'
+    | '/api/astralbeam/token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/astralbeam/token'
-  id: '__root__' | '/' | '/api/astralbeam/token'
+  to:
+    | '/'
+    | '/tenant-users'
+    | '/tenants'
+    | '/api/astralbeam/organization-token'
+    | '/api/astralbeam/token'
+  id:
+    | '__root__'
+    | '/'
+    | '/tenant-users/'
+    | '/tenants/'
+    | '/api/astralbeam/organization-token'
+    | '/api/astralbeam/token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  TenantUsersIndexRoute: typeof TenantUsersIndexRoute
+  TenantsIndexRoute: typeof TenantsIndexRoute
+  ApiAstralbeamOrganizationTokenRoute: typeof ApiAstralbeamOrganizationTokenRoute
   ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
 }
 
@@ -56,6 +103,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tenant-users/': {
+      id: '/tenant-users/'
+      path: '/tenant-users'
+      fullPath: '/tenant-users/'
+      preLoaderRoute: typeof TenantUsersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tenants/': {
+      id: '/tenants/'
+      path: '/tenants'
+      fullPath: '/tenants/'
+      preLoaderRoute: typeof TenantsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/astralbeam/organization-token': {
+      id: '/api/astralbeam/organization-token'
+      path: '/api/astralbeam/organization-token'
+      fullPath: '/api/astralbeam/organization-token'
+      preLoaderRoute: typeof ApiAstralbeamOrganizationTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/astralbeam/token': {
@@ -70,6 +138,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  TenantUsersIndexRoute: TenantUsersIndexRoute,
+  TenantsIndexRoute: TenantsIndexRoute,
+  ApiAstralbeamOrganizationTokenRoute: ApiAstralbeamOrganizationTokenRoute,
   ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
 }
 export const routeTree = rootRouteImport

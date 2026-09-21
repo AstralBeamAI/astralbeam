@@ -47,6 +47,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
       { slug: "getting-started", title: "Getting started" },
       { slug: "authentication", title: "Authentication" },
       { slug: "api", title: "API client" },
+      { slug: "listings", title: "Tenant directories" },
       { slug: "configuration", title: "Configuration" },
       { slug: "theming", title: "Theming" },
       { slug: "tools-and-widgets", title: "Tools and widgets" },

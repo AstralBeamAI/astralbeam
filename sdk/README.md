@@ -129,13 +129,17 @@ widgets: {
 
 ## Entry points
 
+Read-only Tenant and TenantUser widgets are available from `/client` and `/react`. See [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
+
+Use `/client` to mount the styled directories from any framework.
+
 There is no root export. Conversation history is not built yet.
 
 | Entry point              | Contents                                     | Peer dependency      |
 | ------------------------ | -------------------------------------------- | -------------------- |
-| `@astralbeam/sdk/client` | `mountAstralBeamChat`, the vanilla loader    | none                 |
+| `@astralbeam/sdk/client` | Chat and Tenant directory mounts             | none                 |
 | `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session | none                 |
-| `@astralbeam/sdk/react`  | `<AstralBeamChat>`, `useAstralBeamChat`      | `react`, `react-dom` |
+| `@astralbeam/sdk/react`  | Chat hooks and isolated UI wrappers          | `react`, `react-dom` |
 | `@astralbeam/sdk/server` | Tenant and organization token minters        | none                 |
 | `@astralbeam/sdk/api`    | Resource and chat HTTP helpers               | none                 |
 

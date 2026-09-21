@@ -55,15 +55,21 @@ async function importSigningKey(secret: string): Promise<CryptoKey> {
   )
 }
 
-export async function mintSeedChatAuthToken(apiKey: string): Promise<string> {
+export async function mintSeedChatAuthToken(
+  apiKey: string,
+  identity: {
+    tenant: { id: string; name: string }
+    user: { id: string; name: string; admin: boolean; metadata: Record<string, unknown> }
+  } = seedTarget,
+): Promise<string> {
   const { keyId, organizationId, secret } = parseApiKey(apiKey)
   const issuedAt = Math.floor(Date.now() / 1_000)
   const signingInput = [
     base64UrlFromJson({ alg: "HS256", typ: CHAT_AUTH_TOKEN_TYPE, kid: keyId }),
     base64UrlFromJson({
       ver: CHAT_AUTH_TOKEN_VERSION,
-      user: seedTarget.user,
-      tenant: seedTarget.tenant,
+      user: identity.user,
+      tenant: identity.tenant,
       iss: organizationId,
       aud: ASTRALBEAM_TOKEN_AUDIENCE,
       iat: issuedAt,

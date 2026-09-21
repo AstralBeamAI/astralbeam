@@ -231,6 +231,7 @@ export const SEED_TODOS_TARGET = {
   user: {
     id: SEED_NAMES.todosTenantUser,
     name: "Ada Lovelace",
+    admin: false,
     metadata: { email: "ada@example.com" },
   },
 } as const

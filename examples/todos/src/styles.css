@@ -10,6 +10,18 @@ body {
   font-family: Georgia, "Times New Roman", serif;
 }
 
+.todos-header a {
+  color: inherit;
+}
+.directories h1 {
+  margin-top: 1rem;
+}
+.todos-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 .app {
   height: 100vh;
 }

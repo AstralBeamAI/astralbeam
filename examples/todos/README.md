@@ -20,6 +20,9 @@ The quickest path is `deno task --cwd webapp db-seed`, which creates the `acme` 
 
 ## Try it
 
+- Open **Tenants** (`/tenants`) or **Tenant users** (`/tenant-users`) for the embedded tables. Set server-only `ASTRALBEAM_ORGANIZATION_ID` to your API key's organization UUID and `ASTRALBEAM_OPERATOR_EMAIL` to an existing member's email. For the seed, use the Acme UUID in `webapp/scripts/seed/fixtures.ts` and `owner@example.com`. This fixed-identity demo token endpoint is disabled in production.
+- The Tenant users page includes a searchable Tenant combobox with incremental loading and persistent selected-Tenant context. Enable **Show stored admin fields** to reveal the optional column and filter, or expand a name to inspect metadata.
+- Open `/tenant-users?tenantExternalId=northwind` to select a Tenant by your own external ID without looking up its internal UUID first.
 - Toggle **Hide assistant**, **Theme**, and **Custom theme** to compare layout and palettes.
 - Ask the assistant to edit todos, then toggle a `TodoCard` inside the chat and confirm the host list updates.
 - Paste a screenshot or attach `samples/tasks.csv` and ask the assistant to create todos or analyze the table.

@@ -75,29 +75,7 @@ The chat auth token identifies the tenant user to AstralBeam, so treat it like a
 - The issuer is the organization UUID from the API key, with audience `astralbeam`. AstralBeam does not require `sub`.
 - `expiresInSeconds` accepts 60–600 seconds and defaults to 300. The SDK retains tokens in memory and renews before expiry.
 
-## Organization management tokens
-
-Use `createAstralBeamOrganizationToken` for organization-wide Tenant and TenantUser management. This is separate from chat authentication and does not create a dashboard login session.
-
-```ts
-import { createAstralBeamOrganizationToken } from "@astralbeam/sdk/server"
-
-const token = await createAstralBeamOrganizationToken({
-  apiKey,
-  email: session.user.email,
-  organizationId: configuredOrganizationId,
-  expiresInSeconds: 300,
-})
-```
-
-- Authenticate and authorize the operator on your server. Never take email or organization ownership directly from browser input.
-- Tokens delegate the selected member's current database permissions: owners/developers read and write, viewers read only. Role changes and membership removal apply on subsequent requests.
-- `organizationId` must match the API key's Organization. Tokens last 60–600 seconds, defaulting to 300.
-- The API-key holder selects the member and retains owner-equivalent resource access. These role checks restrict the delegated token, not its issuer.
-- Pass the token as `astralBeamToken` to `/api` helpers. Never encode roles in it. Missing membership or insufficient permission returns `403`.
-- Return tokens with `Cache-Control: no-store`. Keep API keys server-side and handle minting errors without exposing their details.
-
-See the [API client guide](./api) for a complete host endpoint, browser calls, filtering, and token-expiry recovery. Organization tokens cannot authenticate chat or dashboard administration.
+**NOTE**: Internal tools can also use [organization-management tokens](./api.md). They are separate from tenant authentication and cannot authenticate chat or create a dashboard session.
 
 ## Troubleshooting
 
