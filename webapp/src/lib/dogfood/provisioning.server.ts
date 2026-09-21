@@ -11,6 +11,7 @@ import {
   isDogfoodOwner,
   readDogfoodOrganization,
   readDogfoodOwner,
+  replacePendingDogfoodOwner,
 } from "@/db/dogfood.server"
 import { getAuth } from "@/lib/auth.server"
 import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
@@ -46,15 +47,19 @@ function prepareOwnerOnboarding(input: OwnerOnboarding, state: DatabaseConfigSta
         Effect.mapError(() => ownerOnboardingFailure("Pending onboarding is invalid")),
       )
       if (
-        pending.email !== input.email ||
         (pending.organizationId &&
           (pending.organizationName !== input.organizationName ||
             pending.organizationSlug !== input.organizationSlug))
       ) {
         return yield* Effect.fail(
           ownerOnboardingFailure(
-            "Finish the pending onboarding with the original owner and organization details.",
+            "Finish the pending onboarding with the original organization details.",
           ),
+        )
+      }
+      if (pending.email !== input.email) {
+        return yield* replacePendingDogfoodOwner(pending, input).pipe(
+          Effect.tap(() => Effect.sync(invalidateGlobalConfig)),
         )
       }
       return { ...pending, ...input }

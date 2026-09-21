@@ -3,6 +3,8 @@ import * as Effect from "effect/Effect"
 
 import { effectDatabase } from "@/db"
 import { member, organization, user } from "@/db/schema.server"
+import { applyDatabaseConfigChangesEffect } from "@/db/config.server"
+import type { OwnerOnboarding, PendingOnboarding } from "@/lib/dogfood/schema"
 
 export function withDogfoodProvisioningLock<A, E, R>(operation: Effect.Effect<A, E, R>) {
   return Effect.gen(function* () {
@@ -73,5 +75,60 @@ export function isDogfoodOwner(input: { organizationId: string; userId: string }
       and(eq(member.organizationId, input.organizationId), eq(member.userId, input.userId)),
     )
     return rows.some((row) => row.role.split(",").includes("owner"))
+  })
+}
+
+export function replacePendingDogfoodOwner(pending: PendingOnboarding, input: OwnerOnboarding) {
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    return yield* db.transaction((transaction) =>
+      Effect.gen(function* () {
+        if (!pending.requiresResetEmail) {
+          return yield* Effect.fail({
+            _tag: "OwnerOnboardingError" as const,
+            message: "Finish onboarding with the existing owner account.",
+          })
+        }
+        const previous = yield* readDogfoodOwner(pending.email)
+        const customer = yield* readDogfoodOrganization({
+          id: pending.organizationId,
+          slug: pending.organizationSlug,
+        })
+        if (
+          customer && (!previous || !(yield* isDogfoodOwner({
+            organizationId: customer.id,
+            userId: previous.id,
+          })))
+        ) {
+          return yield* Effect.fail({
+            _tag: "OwnerOnboardingError" as const,
+            message: "That organization is not owned by the pending account",
+          })
+        }
+        if (yield* readDogfoodOwner(input.email)) {
+          return yield* Effect.fail({
+            _tag: "OwnerOnboardingError" as const,
+            message: "Use an unused email address to replace the pending owner.",
+          })
+        }
+        const replacement = yield* createDogfoodOwner(input.email)
+        if (customer) {
+          yield* transaction.update(member).set({ userId: replacement.id }).where(and(
+            eq(member.organizationId, customer.id),
+            eq(member.userId, previous!.id),
+          ))
+        }
+        const updated = {
+          ...pending,
+          ...input,
+          ...(customer ? { organizationId: customer.id } : {}),
+        }
+        yield* applyDatabaseConfigChangesEffect([{
+          key: "dogfood_pending_setup",
+          value: JSON.stringify(updated),
+        }])
+        return updated
+      })
+    )
   })
 }

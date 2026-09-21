@@ -54,7 +54,7 @@ vi.mock("@/emails/index", () => ({
 import { db, runDatabaseEffect } from "@/db"
 import { getDatabaseConfig } from "@/db/config.server"
 import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
-import { account, agent, organization, user } from "@/db/schema.server"
+import { account, agent, member, organization, user } from "@/db/schema.server"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
@@ -75,12 +75,12 @@ function provisionDogfood(input = ownerOnboardingFixture) {
   return runDatabaseEffect(withDogfoodProvisioningLock(provisionDogfoodResources(input)))
 }
 
-async function completeOwnerPassword() {
+async function completeOwnerPassword(email = ownerOnboardingFixture.email) {
   const auth = await getAuth()
   const token = new URL(dogfoodIntegration.resetUrl).pathname.split("/").at(-1)!
   await auth.api.resetPassword({ body: { token, newPassword: ownerOnboardingPassword } })
   const response = await auth.api.signInEmail({
-    body: { email: ownerOnboardingFixture.email, password: ownerOnboardingPassword },
+    body: { email, password: ownerOnboardingPassword },
     asResponse: true,
   })
   expect(response.status).toBe(200)
@@ -143,6 +143,51 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(sendResetPasswordEmail).not.toHaveBeenCalled()
       await provisionDogfood({ ...ownerOnboardingFixture, email: "different-owner@example.com" })
       expect(await db.select().from(organization)).toHaveLength(1)
+    })
+
+    test("correcting a pending email removes only the old membership and keeps email required", async () => {
+      dogfoodIntegration.failEmail = true
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      const organizations = await db.select().from(organization)
+      const agents = await db.select().from(agent)
+      const [previous] = await db.select().from(user)
+      const auth = await getAuth()
+      const unrelated = await auth.api.createOrganization({
+        body: { userId: previous!.id, name: "Unrelated", slug: "unrelated" },
+      })
+      const corrected = { ...ownerOnboardingFixture, email: "corrected-owner@example.com" }
+      await db.insert(user).values({
+        email: corrected.email,
+        name: "Existing",
+        emailVerified: true,
+      })
+      await expect(provisionDogfood(corrected)).rejects.toMatchObject({
+        _tag: "OwnerOnboardingError",
+      })
+      expect(await db.select().from(member)).toHaveLength(2)
+      await db.execute(sql`delete from "user" where email = ${corrected.email}`)
+      await expect(provisionDogfood(corrected)).rejects.toMatchObject({
+        _tag: "OwnerOnboardingError",
+      })
+      const pending = await getDatabaseConfig()
+      expect(pending.values.dogfood_organization_id).toBeUndefined()
+      expect(JSON.parse(pending.values.dogfood_pending_setup!)).toMatchObject({
+        email: corrected.email,
+        requiresResetEmail: true,
+        organizationId: organizations[0]!.id,
+      })
+      const memberships = await db.select().from(member)
+      expect(memberships.filter((row) => row.userId === previous!.id)).toMatchObject([
+        { organizationId: unrelated.id, role: "owner" },
+      ])
+      dogfoodIntegration.failEmail = false
+      await provisionDogfood(corrected)
+      expect((await db.select().from(organization)).filter((row) => row.id !== unrelated.id))
+        .toEqual(organizations)
+      expect((await db.select().from(agent)).filter((row) => row.organizationId !== unrelated.id))
+        .toEqual(agents)
+      expect(vi.mocked(sendResetPasswordEmail).mock.lastCall?.[0].user.email).toBe(corrected.email)
+      await completeOwnerPassword(corrected.email)
     })
 
     test("concurrent provisioning reuses a verified account without sending email", async () => {
