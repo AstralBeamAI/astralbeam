@@ -518,15 +518,6 @@ main {
   gap: 1rem;
 }
 
-.hero-install {
-  margin-top: 1.6rem;
-  /* Grows with the wide layout, where 0.78rem read as fine print, and floors at
-     the phone size the stacked hero already fits. */
-  font-size: clamp(0.78rem, 1.05vw, 0.96rem);
-  letter-spacing: 0.04em;
-  color: var(--text-chrome);
-}
-
 /* The hero grows past 100svh on short viewports, so anchor the cue to the fold
    itself rather than to the bottom of the section: the hero starts at the top of
    the document, so this always lands just inside the first screen. */
