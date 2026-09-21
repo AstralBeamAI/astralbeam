@@ -75,6 +75,8 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 
 ## Configuration and authentication
 
+- Keep `/configure` authorization independent of dashboard sessions and dogfood membership. The encryption-key operator session must suffice before and after provisioning, including configuration repair.
+
 - `/configure` (`src/routes/configure`) is the operator surface for database-backed config. If the login limiter table is missing, render sign-in without throttling. Authenticate short, stateless sessions only with the first active `DATABASE_ENCRYPTION_KEY` value. Never use database credentials. Require production HTTPS and same-origin mutations, and trust forwarded host/protocol only when the request's own peer is the loopback reverse proxy. Send secret-kind values to the browser only through `revealConfigValue`, one key at a time, so a page load never carries them. Mask values until explicitly revealed, approve migrations by exact name and digest, and derive the app gate from process-cached configuration validity and migration state rather than a persisted completion marker.
 
 - Authentication uses Better Auth with verified email/password, Google, GitHub, and Organizations. Keep username, passwordless, OTP, magic-link, change-email, account deletion, organization deletion, teams, and dynamic roles disabled unless product scope changes. The Better Auth instance is built per config snapshot through `getAuth()`. Google and GitHub are enabled only when both of a provider's config credentials are set.

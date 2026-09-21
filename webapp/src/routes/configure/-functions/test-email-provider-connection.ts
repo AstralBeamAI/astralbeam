@@ -2,17 +2,12 @@ import { createServerFn } from "@tanstack/react-start"
 import { Schema } from "effect"
 
 import { EmailProviderConnectionInputSchema } from "@/emails/schema"
+import { configureMiddleware } from "../-lib/configure-middleware"
 
 export const testEmailProviderConnection = createServerFn({ method: "POST" })
+  .middleware([configureMiddleware])
   .validator(Schema.toStandardSchemaV1(EmailProviderConnectionInputSchema))
   .handler(async ({ data }) => {
-    const { requireConfigureRequest } = await import("../-lib/configure-request.server")
-    const { getOperatorSession } = await import("../-lib/operator-session.server")
-    requireConfigureRequest()
-    if (!await getOperatorSession()) {
-      return { ok: false, error: "Operator authentication required" } as const
-    }
-
     switch (data.provider) {
       case "smtp":
         return await (await import("@/emails/providers/smtp")).testConnection(data.settings)

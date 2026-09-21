@@ -40,6 +40,10 @@ vi.mock("@/db/organization.server", () => ({
   readOrganizationMembership: accessState.readOrganizationMembership,
 }))
 
+vi.mock("@/lib/config/state.server", () => ({
+  isSetupComplete: () => Promise.resolve(true),
+}))
+
 import { type EffectDatabase, effectDatabase } from "@/db"
 import {
   requireOrganizationAccess,

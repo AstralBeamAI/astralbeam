@@ -68,8 +68,20 @@ jobs:
           SHARP_IGNORE_GLOBAL_LIBVIPS: 1
         run: deno install --frozen
 
+      - name: Prepare Webapp test database
+        if: matrix.project == 'webapp'
+        working-directory: webapp
+        env:
+          DATABASE_URL: postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test
+        run: |
+          docker compose up --detach --wait postgres pgbouncer
+          docker compose exec -T postgres createdb -U astralbeam ci_dogfood_test
+          deno task db migrate
+
       - name: Check, test, and build
         working-directory: ${{ matrix.project }}
+        env:
+          DATABASE_URL: ${{ matrix.project == 'webapp' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
         run: deno task ready
 
       - name: Compile and smoke-test Webapp binary

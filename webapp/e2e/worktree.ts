@@ -140,8 +140,16 @@ export function e2eWebServers() {
       env: {
         PORT: String(webappPort),
         DATABASE_URL: e2eDatabaseUrl,
+        EMAIL_PROVIDER: "smtp",
+        SMTP_HOST: "127.0.0.1",
+        SMTP_PORT: "",
+        SMTP_SECURITY: "none",
+        SMTP_USERNAME: "",
+        SMTP_PASSWORD: "",
+        TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+        TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
         // Better Auth would otherwise take its base URL from stored configuration and reject
-        // requests arriving on the suite's port. Everything else is set through `/configure`.
+        // requests arriving on the suite's port.
         APP_BASE_URL: webappUrl,
         // Explicit, so the server's sandbox client uses the same daemon the spec probed.
         ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}),

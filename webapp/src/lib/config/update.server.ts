@@ -1,4 +1,5 @@
-import { applyDatabaseConfigChanges } from "@/db/config.server"
+import { applyDatabaseConfigChanges, getDatabaseConfig } from "@/db/config.server"
+import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import {
   CONFIG_DEFINITIONS,
   configEnvironmentVariable,
@@ -33,7 +34,7 @@ function validateConfigUpdates(updates: readonly GlobalConfigUpdate[]) {
     }
     seenKeys.add(update.key)
     const definition = findConfigDefinition(update.key)
-    if (!definition) {
+    if (!definition || definition.systemManaged) {
       fieldErrors.push({ key: update.key, message: "Unknown configuration key" })
       continue
     }
@@ -103,6 +104,16 @@ export async function updateGlobalConfig(
   )
   if (generated.fieldErrors.length > 0) return { ok: false, fieldErrors: generated.fieldErrors }
 
+  // Hidden system-managed values must rotate on saves without being sent to the browser.
+  if (getDatabaseEncryptionKeyring().length > 1) {
+    const { rows, values } = await getDatabaseConfig()
+    for (const row of rows ?? []) {
+      const definition = findConfigDefinition(row.key)
+      if (definition?.systemManaged && row.storageStatus === "fallback-key") {
+        decoded.changes.push({ key: definition.key, value: values[definition.key]! })
+      }
+    }
+  }
   await applyDatabaseConfigChanges(decoded.changes, generated.values)
   invalidateGlobalConfig()
   return { ok: true }

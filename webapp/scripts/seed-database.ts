@@ -20,6 +20,7 @@ import {
 import { seedOrganizationOpenaiApiKeys, seedOrganizations } from "./seed/organizations.ts"
 import { seedTenants } from "./seed/tenants.ts"
 import { seedUsers } from "./seed/users.ts"
+import { seedDogfood } from "./seed/dogfood.ts"
 
 // Resolved from this file, not the cwd, so the seed writes the same path from anywhere.
 const todosEnvFile = join(
@@ -48,6 +49,7 @@ try {
     const openaiApiKey = await seedOrganizationOpenaiApiKeys(transaction)
     const apiKeys = await seedApiKeys(transaction)
     const tenantUserCount = await seedTenants(transaction)
+    await seedDogfood(transaction, userIdsByEmail)
     return { config, agents, apiKeys, openaiApiKey, tenantUserCount }
   })
 

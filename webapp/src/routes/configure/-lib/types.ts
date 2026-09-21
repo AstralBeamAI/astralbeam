@@ -1,4 +1,5 @@
 import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigStorageEntry } from "@/lib/types"
+import type { OwnerOnboarding } from "@/lib/dogfood/schema"
 
 export interface ConfigureField {
   key: ConfigKey
@@ -42,6 +43,7 @@ export type ConfigurePageState =
   | { status: "signed-out" }
   | {
     status: "ready"
+    onboarding: OwnerOnboarding | null
     /** ISO instant the operator session expires at, for the live countdown. */
     sessionExpiresAt: string
     fallbackEncryptionKeyCount: number

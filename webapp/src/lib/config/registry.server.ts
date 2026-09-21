@@ -9,6 +9,7 @@ import {
   SmtpSecuritySchema,
 } from "@/emails/schema"
 import { generateSecret } from "@/lib/generate-secret.server"
+import { UuidV7Schema } from "@/lib/schemas"
 import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "@/lib/types"
 
 function isLoopbackHost(hostname: string): boolean {
@@ -84,6 +85,29 @@ const decodeSmtpPort = sanitizedDecoder(
 )
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
+  {
+    key: "dogfood_organization_id",
+    group: "General",
+    label: "Owner onboarding",
+    description: "Organization hosting the embedded assistant.",
+    kind: "secret",
+    required: true,
+    systemManaged: true,
+    decode: sanitizedDecoder(
+      Schema.decodeUnknownSync(UuidV7Schema),
+      "Invalid dogfood organization",
+    ),
+  },
+  {
+    key: "dogfood_pending_setup",
+    group: "General",
+    label: "Pending owner onboarding",
+    description: "Encrypted recovery state for incomplete owner onboarding.",
+    kind: "secret",
+    required: false,
+    systemManaged: true,
+    decode: nonEmptyDecoder("Pending owner onboarding"),
+  },
   {
     key: "app_base_url",
     group: "General",
@@ -339,6 +363,7 @@ export function configEnvironmentVariable(key: ConfigKey): Uppercase<ConfigKey> 
 }
 
 export function hasEnvironmentConfigOverride(key: ConfigKey): boolean {
+  if (findConfigDefinition(key)?.systemManaged) return false
   const value = process.env[configEnvironmentVariable(key)]
   return value !== undefined && value !== ""
 }
@@ -372,6 +397,7 @@ export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
 export function environmentConfigValues(): ConfigValues {
   const values: ConfigValues = {}
   for (const definition of CONFIG_DEFINITIONS) {
+    if (definition.systemManaged) continue
     const environmentVariable = configEnvironmentVariable(definition.key)
     const environmentValue = process.env[environmentVariable]
     if (environmentValue === undefined || environmentValue === "") continue

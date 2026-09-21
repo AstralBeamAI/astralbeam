@@ -26,7 +26,7 @@ type StoredConfigRow = {
   readonly storage?: NonNullable<ConfigStorageEntry["storageStatus"]>
 }
 
-type DatabaseConfigState = {
+export type DatabaseConfigState = {
   readonly rows: ConfigStorageEntry[] | null
   readonly values: ConfigValues
 }
@@ -146,7 +146,7 @@ function databaseConfigValue(value: DatabaseConfigGeneratedValue) {
   }
 }
 
-function applyDatabaseConfigChangesEffect(
+export function applyDatabaseConfigChangesEffect(
   changes: readonly DatabaseConfigChange[],
   generatedValues: readonly DatabaseConfigGeneratedValue[] = [],
 ) {

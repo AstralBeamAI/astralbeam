@@ -4,6 +4,10 @@ import { Option, Schema } from "effect"
 import { useState } from "react"
 
 import { toast } from "@/components/ui/toast"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { FieldError } from "@/components/ui/field"
+import { type OwnerOnboarding, OwnerOnboardingInput } from "@/lib/dogfood/schema"
 import {
   EMAIL_PROVIDER_SETTING_KEYS,
   EmailProviderConnectionInputSchema,
@@ -29,18 +33,21 @@ const emailConfigKeys = new Set([
 ])
 
 export function ConfigEditor({
+  onboarding,
   fields,
   issues,
   setupComplete,
   fallbackEncryptionKeyCount,
   onChanged,
 }: {
+  onboarding: OwnerOnboarding | null
   fields: ConfigureField[]
   issues: ConfigIssue[]
   setupComplete: boolean
   fallbackEncryptionKeyCount: number
   onChanged: () => void
 }) {
+  const [owner, setOwner] = useState(onboarding)
   const [drafts, setDrafts] = useState<Record<string, FieldDraft>>({})
   // Secrets arrive as `null`, so a value an operator revealed is the only copy the page holds.
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>({})
@@ -113,7 +120,9 @@ export function ConfigEditor({
   }
 
   const savePendingUpdates = async () => {
-    const result = await saveConfigValues({ data: { updates: pendingUpdates } })
+    const result = await saveConfigValues({
+      data: { updates: pendingUpdates, ...(onboarding && owner ? { onboarding: owner } : {}) },
+    })
     if (result.ok) {
       setFieldErrors({})
       setDrafts({})
@@ -196,13 +205,61 @@ export function ConfigEditor({
       setupComplete={setupComplete}
       busy={busy}
       onSave={() => void handleSave()}
-      saveDisabled={pendingUpdates.length === 0 && !hasMissingGeneratedValue}
+      saveDisabled={onboarding
+        ? !Schema.is(OwnerOnboardingInput)(owner)
+        : pendingUpdates.length === 0 && !hasMissingGeneratedValue &&
+          fallbackEncryptionKeyCount === 0}
     />
   )
 
   return (
     <div className="flex flex-col gap-6">
       {actions}
+
+      {onboarding && owner && (
+        <section
+          className="space-y-4 rounded-xl border p-5"
+          aria-labelledby="owner-onboarding-title"
+        >
+          <h2 id="owner-onboarding-title" className="text-lg font-semibold">Owner onboarding</h2>
+          <p className="text-sm text-muted-foreground">
+            A new owner receives a password-reset email. Setup stays incomplete until sending
+            succeeds. Existing verified accounts are reused without another email.
+          </p>
+          {([
+            ["email", "Owner email (required)", "Enter a valid email address."],
+            [
+              "organizationName",
+              "Dogfood Organization name",
+              "Use 1–100 characters without leading or trailing spaces.",
+            ],
+            [
+              "organizationSlug",
+              "Dogfood Organization slug",
+              "Use 1–63 lowercase letters, numbers, or hyphens, and avoid reserved names.",
+            ],
+          ] as const).map(([key, label, message]) => {
+            const invalid = owner[key] !== "" &&
+              !Schema.is(OwnerOnboardingInput.fields[key])(owner[key])
+            return (
+              <div key={key} className="space-y-2">
+                <Label htmlFor={`owner-${key}`}>{label}</Label>
+                <Input
+                  id={`owner-${key}`}
+                  type={key === "email" ? "email" : "text"}
+                  required
+                  aria-invalid={invalid}
+                  aria-describedby={invalid ? `owner-${key}-error` : undefined}
+                  value={owner[key]}
+                  disabled={busy}
+                  onChange={(event) => setOwner({ ...owner, [key]: event.target.value })}
+                />
+                {invalid && <FieldError id={`owner-${key}-error`}>{message}</FieldError>}
+              </div>
+            )
+          })}
+        </section>
+      )}
 
       <SetupStatusAlert
         setupComplete={setupComplete}

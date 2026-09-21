@@ -62,6 +62,7 @@ function ConfigurePage() {
         )
         : (
           <ConfigEditor
+            onboarding={state.onboarding}
             fields={state.fields}
             issues={state.issues}
             setupComplete={state.setupComplete}

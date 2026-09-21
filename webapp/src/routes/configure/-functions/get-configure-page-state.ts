@@ -39,7 +39,9 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
     const setupComplete = issues.length === 0 && migrationState.pending.length === 0
     const rowsByKey = new Map((rows ?? []).map((row) => [row.key, row]))
     const overriddenKeys = new Set(environmentConfigOverrideKeys())
-    const fields: ConfigureField[] = CONFIG_DEFINITIONS.map((definition) => {
+    const fields: ConfigureField[] = CONFIG_DEFINITIONS.filter((definition) =>
+      !definition.systemManaged
+    ).map((definition) => {
       const row = rowsByKey.get(definition.key)
       const source = overriddenKeys.has(definition.key) ? "environment" : "database"
       return {
@@ -63,8 +65,24 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
         value: definition.kind === "secret" ? null : effectiveValues[definition.key] ?? null,
       }
     })
+    const { PendingOwnerOnboardingJson } = await import("@/lib/dogfood/schema")
+    const { Schema } = await import("effect")
+    const pending = effectiveValues.dogfood_pending_setup
+      ? await withConfigureError(
+        "Pending onboarding could not be read",
+        () =>
+          Schema.decodeUnknownPromise(PendingOwnerOnboardingJson)(
+            effectiveValues.dogfood_pending_setup!,
+          ),
+      )
+      : null
     return {
       status: "ready",
+      onboarding: effectiveValues.dogfood_organization_id ? null : {
+        email: pending?.email ?? "",
+        organizationName: pending?.organizationName ?? "dogfood",
+        organizationSlug: pending?.organizationSlug ?? "dogfood",
+      },
       sessionExpiresAt: session.expiresAt.toISOString(),
       fallbackEncryptionKeyCount: getDatabaseEncryptionKeyring().length - 1,
       setupComplete,

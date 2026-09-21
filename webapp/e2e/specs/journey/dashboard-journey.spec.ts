@@ -15,6 +15,7 @@ import { mailboxSmtpPort, operatorKey, webappUrl } from "../../worktree.ts"
  */
 test("an operator configures the deployment and an owner runs the dashboard end to end", async ({ page, agents, apiKeys, auth, configure, members, onboarding, organizationDialog, organizationSettings, sandboxes, shell, userSettings }) => {
   const identity = makeRunIdentity()
+  const ownerEmail = `owner-${identity.runId}@example.com`
   const renamedOrganization = `${identity.organizationName} Renamed`
   const movedSlug = `${identity.organizationSlug}-moved`
 
@@ -23,12 +24,11 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await configure.signIn(operatorKey)
     await expect(configure.setupStatus()).toHaveText("Configuration required")
 
-    expect(
-      await configure.isEnvironmentProvided("better_auth_secret"),
-      "BETTER_AUTH_SECRET is set in the environment, so this run cannot exercise /configure",
-    ).toBe(false)
-    await configure.generateSecret("better_auth_secret")
+    if (!(await configure.isEnvironmentProvided("better_auth_secret"))) {
+      await configure.generateSecret("better_auth_secret")
+    }
 
+    await page.getByLabel("Owner email (required)").fill(ownerEmail)
     // Points the deployment at the suite's mail sink, which every later email step depends on.
     await configure.setValue("smtp_port", String(mailboxSmtpPort))
     await configure.testEmailConnection()
@@ -37,6 +37,13 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(configure.setupStatus()).toHaveText("Configuration is complete")
     await captureMilestone(page, "01-configure-complete")
     await configure.goToApp()
+    const email = await waitForEmail(ownerEmail)
+    const resetLink = emailLink(email, /\/api\/auth\/reset-password\//)
+    expect(resetLink).toContain(webappUrl)
+    await auth.resetPassword(resetLink, identity.password)
+    await auth.signIn(ownerEmail, identity.password)
+    await expect(shell.navigation).toBeVisible()
+    await page.goto("/auth/sign-out")
   })
 
   await test.step("a visitor signs up and verifies their email address", async () => {
