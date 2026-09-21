@@ -1,10 +1,53 @@
 import { and, eq, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
+import { defaultKeyHasher } from "@better-auth/api-key"
+import { generateRandomString } from "better-auth/crypto"
 
 import { effectDatabase } from "@/db"
-import { member, organization, user } from "@/db/schema.server"
+import { apiKey, member, organization, user } from "@/db/schema.server"
 import { applyDatabaseConfigChangesEffect } from "@/db/config.server"
 import type { OwnerOnboarding, PendingOnboarding } from "@/lib/dogfood/schema"
+import {
+  ORGANIZATION_API_KEY_PREFIX,
+  ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
+} from "@/lib/auth/organization-api-key-configuration"
+
+/** Commit the credential and its encrypted recovery record together, including across crashes. */
+export function createDogfoodCredential(pending: PendingOnboarding & { organizationId: string }) {
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    const secret = yield* Effect.sync(() =>
+      `${ORGANIZATION_API_KEY_PREFIX}${generateRandomString(64, "a-z", "A-Z")}`
+    )
+    const hashed = yield* Effect.tryPromise({
+      try: () => defaultKeyHasher(secret),
+      catch: () => ({
+        _tag: "OwnerOnboardingError" as const,
+        message: "Credential generation failed",
+      }),
+    })
+    return yield* db.transaction((transaction) =>
+      Effect.gen(function* () {
+        const [key] = yield* transaction.insert(apiKey).values({
+          organizationId: pending.organizationId,
+          name: "dogfood",
+          prefix: ORGANIZATION_API_KEY_PREFIX,
+          start: secret.slice(0, ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH),
+          key: hashed,
+        }).returning({ id: apiKey.id })
+        const recovery = {
+          ...pending,
+          apiKey: `key_${pending.organizationId}_${key!.id}_${secret}`,
+        }
+        yield* applyDatabaseConfigChangesEffect([{
+          key: "dogfood_pending_setup",
+          value: JSON.stringify(recovery),
+        }])
+        return recovery
+      })
+    )
+  })
+}
 
 export function withDogfoodProvisioningLock<A, E, R>(operation: Effect.Effect<A, E, R>) {
   return Effect.gen(function* () {

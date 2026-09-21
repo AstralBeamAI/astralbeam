@@ -8,6 +8,7 @@ export interface PublicConfig {
 
 export type ConfigKey =
   | "dogfood_organization_id"
+  | "dogfood_api_key"
   | "dogfood_pending_setup"
   | "app_base_url"
   | "better_auth_secret"

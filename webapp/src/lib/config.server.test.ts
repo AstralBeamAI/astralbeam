@@ -36,6 +36,8 @@ const CONFIG_TEST_SECRET = "a".repeat(64)
 function completeStoredConfig() {
   const values: ConfigValues = {
     dogfood_organization_id: "01990a5d-0000-7000-8000-000000000013",
+    dogfood_api_key:
+      `key_01990a5d-0000-7000-8000-000000000013_01990a5d-0000-7000-8000-000000000024_abo_${CONFIG_TEST_SECRET}`,
     app_base_url: "http://localhost:3000",
     better_auth_secret: CONFIG_TEST_SECRET,
     turnstile_site_key: "turnstile-site-key",

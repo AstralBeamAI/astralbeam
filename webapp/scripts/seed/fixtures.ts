@@ -14,6 +14,8 @@ export const SEED_PASSWORD = "astralbeam-seed-password"
 export const SEED_DOGFOOD = {
   organizationId: "01990a5d-0000-7000-8000-000000000013",
   agentId: "01990a5d-0000-7000-8000-000000000004",
+  apiKeyId: "01990a5d-0000-7000-8000-000000000024",
+  secret: "abo_DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
   ownerEmail: "owner@example.com",
   name: "dogfood",
   slug: "dogfood",

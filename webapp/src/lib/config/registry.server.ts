@@ -10,6 +10,7 @@ import {
 } from "@/emails/schema"
 import { generateSecret } from "@/lib/generate-secret.server"
 import { UuidV7Schema } from "@/lib/schemas"
+import { DogfoodCredential } from "@/lib/dogfood/schema"
 import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "@/lib/types"
 
 function isLoopbackHost(hostname: string): boolean {
@@ -96,6 +97,19 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     decode: sanitizedDecoder(
       Schema.decodeUnknownSync(UuidV7Schema),
       "Invalid dogfood organization",
+    ),
+  },
+  {
+    key: "dogfood_api_key",
+    group: "General",
+    label: "Embedded assistant credential",
+    description: "Server-only credential provisioned during owner onboarding.",
+    kind: "secret",
+    required: true,
+    systemManaged: true,
+    decode: sanitizedDecoder(
+      Schema.decodeUnknownSync(DogfoodCredential),
+      "Invalid embedded assistant credential",
     ),
   },
   {
@@ -413,6 +427,15 @@ export function environmentConfigValues(): ConfigValues {
 
 export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] {
   const issues: ConfigIssue[] = []
+  if (
+    values.dogfood_api_key && values.dogfood_organization_id &&
+    !values.dogfood_api_key.startsWith(`key_${values.dogfood_organization_id}_`)
+  ) {
+    issues.push({
+      key: "dogfood_api_key",
+      message: "Embedded assistant credential ownership is invalid",
+    })
+  }
   for (const definition of CONFIG_DEFINITIONS) {
     if (definition.required && !values[definition.key]) {
       issues.push({ key: definition.key, message: `${definition.label} is required` })

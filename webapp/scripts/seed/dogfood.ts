@@ -2,12 +2,14 @@ import { inArray } from "drizzle-orm"
 
 import {
   agent,
+  apiKey,
   configTable,
   member,
   organization,
   organizationConfiguration,
 } from "../../src/db/schema.server.ts"
 import type { SeedTransaction } from "./database.ts"
+import { hashSeedApiKeySecret } from "./api-keys.ts"
 import { SEED_DOGFOOD } from "./fixtures.ts"
 
 /** Never overwrite real or partially provisioned dogfood configuration, even in development. */
@@ -17,6 +19,7 @@ export async function seedDogfood(
 ): Promise<void> {
   const managedKeys = [
     "dogfood_organization_id",
+    "dogfood_api_key",
     "dogfood_pending_setup",
   ]
   const existing = await transaction.select({ key: configTable.key }).from(configTable).where(
@@ -47,9 +50,20 @@ export async function seedDogfood(
     organizationId: fixture.organizationId,
     defaultAgentId: fixture.agentId,
   })
-  const key = "dogfood_organization_id"
-  await transaction.insert(configTable).values({
-    key,
-    value: { key, value: fixture.organizationId },
+  await transaction.insert(apiKey).values({
+    organizationId: fixture.organizationId,
+    id: fixture.apiKeyId,
+    name: "dogfood",
+    prefix: "abo_",
+    start: fixture.secret.slice(0, 10),
+    key: hashSeedApiKeySecret(fixture.secret),
   })
+  for (
+    const [key, value] of Object.entries({
+      dogfood_organization_id: fixture.organizationId,
+      dogfood_api_key: `key_${fixture.organizationId}_${fixture.apiKeyId}_${fixture.secret}`,
+    })
+  ) {
+    await transaction.insert(configTable).values({ key, value: { key, value } })
+  }
 }

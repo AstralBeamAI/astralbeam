@@ -26,7 +26,7 @@ export type SeedApiKeySummary = {
  * it, so a seeded key works exactly like one created in the dashboard.
  * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/api-key/src/index.ts
  */
-function hashSeedApiKeySecret(secret: string): string {
+export function hashSeedApiKeySecret(secret: string): string {
   return createHash("sha256").update(secret).digest("base64url")
 }
 
