@@ -10,7 +10,7 @@ Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific cou
 | ---------------- | --------------------------------------------------------------------- | ----------------------------- |
 | `webapp`         | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Deno binary                   |
 | `sdk`            | Widget, headless session, React bindings, and token minting           | `@astralbeam/sdk` npm package |
-| `www`            | Static Astro website                                                  | Cloudflare assets             |
+| `www`            | Prerendered TanStack Start website                                    | Cloudflare assets             |
 | `examples/todos` | Standalone SDK consumer and browser tests                             | Demo application              |
 
 Each project owns its dependencies, lockfile, and tooling because they ship independently. The root shares compiler defaults in `tsconfig.base.json` and launches `install`, `dev`, and `build` tasks.

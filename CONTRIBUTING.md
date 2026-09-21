@@ -15,7 +15,7 @@ Deno is the only supported runtime and package manager for this repository. Vite
 The repository holds four independent Deno projects that do not form a package-manager workspace:
 
 - `webapp`, the TanStack Start product application, database, theme, and dashboard UI.
-- `www`, the public Astro website.
+- `www`, the public website, a prerendered TanStack Start application.
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
 - `examples/todos`, a standalone application that consumes the built SDK.
 
