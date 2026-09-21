@@ -2,19 +2,19 @@
 
 Cinematic "mission console" landing page for astralbeam.ai, translated into AstralBeam's own starship-bridge identity (deep space, neon-teal beam, scanlines, mono readouts).
 
-TanStack Start + hand-rolled CSS + vanilla TypeScript, managed and run by Deno. Every route is prerendered at build time, so `dist/` is plain static assets. No Tailwind and no dependency on another AstralBeam project.
+TanStack Start + hand-rolled CSS + vanilla TypeScript, managed and run by Deno. Every route is prerendered at build time, so `.output/public/` is plain static assets and the server bundle beside it goes unused. No Tailwind and no dependency on another AstralBeam project.
 
 Run common commands from the repository root:
 
 ```sh
 deno task --cwd www dev      # development server on 4600
-deno task --cwd www build    # static output in dist/
+deno task --cwd www build    # static output in .output/public/
 deno task --cwd www preview  # production preview on 4001
 deno task --cwd www ready    # check, build, then test
 deno task --cwd www deploy   # ready, then deploy to Cloudflare
 ```
 
-`ready` builds before testing because the tests inspect `dist/`. Use `deploy` only when publishing the website is intended.
+`ready` builds before testing because the tests inspect `.output/public/`. Use `deploy` only when publishing the website is intended.
 
 Structure:
 
@@ -33,6 +33,8 @@ Structure:
 - `scripts/verify-build.test.ts`, Vitest contract tests for page metadata and every generated discovery asset
 
 `vite.config.ts` lists every prerendered route. Add a route there when adding a page, otherwise the build will not emit it.
+
+Two caveats for the development server. Vite claims `.png` requests before Nitro sees them, so `/favicon.png` and `/og-image.png` answer 404 under `dev` while building them correctly. Nitro also registers its public output directory as a top-level asset root, so do not point `output.publicDir` back inside the project: every path the last build wrote a file for would then fail under `dev`.
 
 All animation respects `prefers-reduced-motion`. Fonts are self-hosted via @fontsource (Anton / Space Grotesk / JetBrains Mono).
 

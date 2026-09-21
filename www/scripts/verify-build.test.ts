@@ -10,7 +10,7 @@ const origin = "https://www.astralbeam.ai"
 const homeUrl = `${origin}/`
 const iconUrl = `${origin}${siteMetadata.icon.path}`
 const iconSize = `${siteMetadata.icon.size}x${siteMetadata.icon.size}`
-const distUrl = new URL("../dist/", import.meta.url)
+const distUrl = new URL("../.output/public/", import.meta.url)
 const themeSchemaUrl = new URL("../src/brand/theme.schema.json", import.meta.url)
 
 function readText(path: string) {

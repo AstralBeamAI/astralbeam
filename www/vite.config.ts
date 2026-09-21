@@ -30,14 +30,16 @@ export default defineConfig(({ mode }) => ({
   preview: { host: true, port: 4001, strictPort: true },
   build: { target: "es2025" },
   plugins: [
-    // The suite reads `dist`, so it has no server or prerenderer to start.
+    // The suite reads the built output, so it has no server or prerenderer to start.
     ...(mode === "test" ? [] : [nitro({
-      // Every route is prerendered, so only `dist` ships and wrangler.json stays pointed where
-      // it always was. Nitro's `static` preset defines no entry and its Vite builder has no
-      // case for that, so pin a server preset and leave its bundle in the ignored `.output`.
+      // Every route is prerendered, so only `.output/public` ships and the server bundle beside
+      // it goes unused. Nitro's `static` preset defines no entry and its Vite builder has no
+      // case for that, so pin a server preset instead.
+      // The output paths stay at their defaults: Nitro registers its public output directory as
+      // a top-level fallthrough asset root, and reading from it throws in dev, so pointing it
+      // inside the project breaks `dev` for every path that the last build wrote a file for.
       // https://github.com/nitrojs/nitro/blob/v3/src/vite.ts
       preset: "node-server",
-      output: { publicDir: "dist" },
       prerender: {
         routes: prerenderRoutes,
         crawlLinks: false,
