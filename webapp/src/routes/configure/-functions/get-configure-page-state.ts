@@ -15,6 +15,11 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
     const { getOperatorSession } = await import("../-lib/operator-session.server")
     const session = await getOperatorSession()
     if (!session) return { status: "signed-out" }
+    const { getConfigureSession } = await import("../-lib/configure-access.server")
+    const { runDatabaseEffect } = await import("@/db")
+    if (!await runDatabaseEffect(getConfigureSession(Promise.resolve(session)))) {
+      return { status: "owner-required" }
+    }
 
     const [
       { CONFIG_DEFINITIONS, configEnvironmentVariable, environmentConfigOverrideKeys },
@@ -39,7 +44,9 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
     const setupComplete = issues.length === 0 && migrationState.pending.length === 0
     const rowsByKey = new Map((rows ?? []).map((row) => [row.key, row]))
     const overriddenKeys = new Set(environmentConfigOverrideKeys())
-    const fields: ConfigureField[] = CONFIG_DEFINITIONS.map((definition) => {
+    const fields: ConfigureField[] = CONFIG_DEFINITIONS.filter((definition) =>
+      !definition.systemManaged
+    ).map((definition) => {
       const row = rowsByKey.get(definition.key)
       const source = overriddenKeys.has(definition.key) ? "environment" : "database"
       return {
@@ -63,8 +70,24 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
         value: definition.kind === "secret" ? null : effectiveValues[definition.key] ?? null,
       }
     })
+    const { PendingOwnerOnboardingJson } = await import("@/lib/internal/schema")
+    const { Schema } = await import("effect")
+    const pending = effectiveValues.internal_pending_setup
+      ? await withConfigureError(
+        "Pending onboarding could not be read",
+        () =>
+          Schema.decodeUnknownPromise(PendingOwnerOnboardingJson)(
+            effectiveValues.internal_pending_setup!,
+          ),
+      )
+      : null
     return {
       status: "ready",
+      onboarding: effectiveValues.internal_organization_id ? null : {
+        email: pending?.email ?? "",
+        organizationName: pending?.organizationName ?? "internal",
+        organizationSlug: pending?.organizationSlug ?? "internal",
+      },
       sessionExpiresAt: session.expiresAt.toISOString(),
       fallbackEncryptionKeyCount: getDatabaseEncryptionKeyring().length - 1,
       setupComplete,

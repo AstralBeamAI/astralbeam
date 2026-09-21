@@ -75,7 +75,7 @@ deno task --cwd webapp db migrate
 
 ## Seed sample data
 
-`deno task --cwd webapp db-seed` fills the current worktree's database with everything a browser or end-to-end check would otherwise create by hand: global configuration, verified accounts, two organizations with members and a pending invitation, agents, organization API keys, Tenants and tenant users, and a Docker sandbox provider. It skips `/configure`, signup, email verification, and API-key creation entirely.
+`deno task --cwd webapp db-seed` fills the current worktree's database with global configuration, internal and sample organizations, verified accounts, members, agents, organization API keys, Tenants and tenant users, and a Docker sandbox provider. It skips `/configure`, signup, email verification, and API-key creation entirely.
 
 ```sh
 deno task --cwd webapp db-reset

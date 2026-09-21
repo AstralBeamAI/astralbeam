@@ -6,6 +6,7 @@ import * as Schema from "effect/Schema"
 
 import { readOrganizationMembership } from "@/db/organization.server"
 import { getAuth } from "@/lib/auth.server"
+import { isSetupComplete } from "@/lib/config/state.server"
 import {
   authorizeOrganizationRole,
   deriveOrganizationPermissions,
@@ -15,6 +16,7 @@ import {
 import { SlugSchema } from "@/lib/schemas"
 
 export interface OrganizationAccess {
+  readonly canConfigure?: boolean
   readonly organizationId: string
   readonly organizationSlug: string
   readonly organizationName: string
@@ -43,10 +45,12 @@ export function requireOrganizationAccess(input: {
   data: unknown
   permissions?: OrganizationPermissionRequest
 }) {
+  const headers = getRequest().headers
+  setResponseHeader("Cache-Control", "no-store")
   return Effect.gen(function* () {
     const slugInput = decodeOrganizationSlugInput(input.data)
     if (Option.isNone(slugInput)) return yield* denyOrganizationAccess(404)
-    const access = yield* resolveOrganizationAccess(slugInput.value.organizationSlug)
+    const access = yield* resolveOrganizationAccess(slugInput.value.organizationSlug, headers)
     if (access === null) return yield* denyOrganizationAccess(404)
     if (input.permissions && !authorizeOrganizationRole(access.role, input.permissions)) {
       return yield* denyOrganizationAccess(403)
@@ -60,16 +64,22 @@ export function requireOrganizationAccess(input: {
  * active organization at the URL, which Better Auth's member and api-key APIs read.
  */
 export function resolveOrganizationRouteAccess(organizationSlug: string) {
-  return resolveOrganizationAccess(organizationSlug, { synchronizeActive: true })
+  const headers = getRequest().headers
+  setResponseHeader("Cache-Control", "no-store")
+  return resolveOrganizationAccess(organizationSlug, headers, { synchronizeActive: true })
 }
 
 function resolveOrganizationAccess(
   organizationSlug: string,
+  headers: Headers,
   options?: { synchronizeActive: boolean },
 ) {
   return Effect.gen(function* () {
-    const headers = getRequest().headers
-    setResponseHeader("Cache-Control", "no-store")
+    const configured = yield* Effect.tryPromise({
+      try: isSetupComplete,
+      catch: (cause) => new OrganizationSessionError({ cause }),
+    })
+    if (!configured) return yield* denyOrganizationAccess(403)
     const auth = yield* Effect.tryPromise({
       try: () => getAuth(),
       catch: (cause) => new OrganizationSessionError({ cause }),

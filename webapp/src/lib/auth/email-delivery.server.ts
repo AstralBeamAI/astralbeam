@@ -1,4 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server"
+import { AsyncLocalStorage } from "node:async_hooks"
 import { APIError } from "better-auth/api"
 
 import {
@@ -16,6 +17,17 @@ import {
  * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/context/create-context.ts
  */
 const failedAuthEmailRequests = new WeakMap<Request, APIError>()
+const blockingAuthEmailContext = new AsyncLocalStorage<{ error?: APIError }>()
+
+/** Also detects swallowed send failures in requestless Better Auth server API calls. */
+export function withBlockingAuthEmailDelivery<A>(operation: () => Promise<A>): Promise<A> {
+  return blockingAuthEmailContext.run({}, async () => {
+    const result = await operation()
+    const error = blockingAuthEmailContext.getStore()?.error
+    if (error) throw error
+    return result
+  })
+}
 
 function currentAuthEmailRequest(): Request | null {
   try {
@@ -46,6 +58,8 @@ export async function deliverBlockingAuthEmail(send: () => Promise<void>): Promi
   } catch {
     // The send boundary already logged the provider's reason against the masked recipient.
     const error = authEmailDeliveryError()
+    const scope = blockingAuthEmailContext.getStore()
+    if (scope) scope.error = error
     const request = currentAuthEmailRequest()
     if (request) failedAuthEmailRequests.set(request, error)
     throw error

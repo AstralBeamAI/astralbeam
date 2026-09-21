@@ -41,7 +41,7 @@ export function authPage(page: Page) {
       await page.locator("#password").fill(password)
       await page.locator("#confirmPassword").fill(password)
       // Only rendered when a legal policy URL is configured.
-      const acceptLegal = page.locator("#accept-legal")
+      const acceptLegal = page.getByRole("checkbox")
       if (await acceptLegal.count() > 0) await acceptLegal.click()
       await submitWhenReady(submitButton(/^sign up$/i))
     },
@@ -51,6 +51,15 @@ export function authPage(page: Page) {
       await page.locator("#email").fill(email)
       await page.locator("#password").fill(password)
       await submitWhenReady(submitButton(/^sign in$/i))
+    },
+
+    async resetPassword(link: string, password: string): Promise<void> {
+      await page.goto(link)
+      await waitForHydration(page.locator("#password"))
+      await page.locator("#password").fill(password)
+      await page.locator("#confirmPassword").fill(password)
+      await submitWhenReady(submitButton(/^reset password$/i))
+      await page.waitForURL(/\/auth\/sign-in/)
     },
 
     /** Opens the link from the verification email, which also signs the new account in. */

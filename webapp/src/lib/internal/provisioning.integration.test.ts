@@ -1,0 +1,323 @@
+import process from "node:process"
+import { spawn } from "node:child_process"
+import { createServer } from "node:net"
+import { fromCrossJSON, type SerovalNode, toJSON } from "seroval"
+import { eq, sql } from "drizzle-orm"
+import * as Effect from "effect/Effect"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
+
+const internalIntegration = vi.hoisted(() => {
+  // Vite supplies this parseable value only so database modules can load when the suite is skipped.
+  const configuredUrl = globalThis.process.env.DATABASE_URL
+  const url = configuredUrl === "postgres://test:test@127.0.0.1:5432/test"
+    ? undefined
+    : configuredUrl
+  if (url) {
+    const parsed = new URL(url)
+    if (
+      parsed.hostname !== "127.0.0.1" ||
+      !(parsed.pathname.endsWith("_test") || parsed.pathname.endsWith("_e2e"))
+    ) {
+      throw new Error("Use a disposable loopback database ending in _test or _e2e")
+    }
+  }
+  return {
+    url,
+    request: null as Request | null,
+    operatorCookie: undefined as string | undefined,
+    resetUrl: "",
+    failEmail: false,
+  }
+})
+
+vi.mock("@tanstack/react-start/server", () => ({
+  getRequest: () => {
+    if (!internalIntegration.request) throw new Error("No request")
+    return internalIntegration.request
+  },
+  getCookie: () => internalIntegration.operatorCookie,
+  setCookie: vi.fn(),
+  deleteCookie: vi.fn(),
+  setResponseHeader: vi.fn(),
+  setResponseStatus: vi.fn(),
+}))
+vi.mock("@/emails/index", () => ({
+  sendResetPasswordEmail: vi.fn(({ url }: { url: string }) => {
+    if (internalIntegration.failEmail) throw new Error("provider-private-failure")
+    internalIntegration.resetUrl = url
+    return Promise.resolve()
+  }),
+  sendAccountExistsEmail: vi.fn(),
+  sendOrganizationInvitationEmail: vi.fn(),
+  sendPasswordChangedEmail: vi.fn().mockResolvedValue(undefined),
+  sendVerificationEmail: vi.fn(),
+}))
+
+import { db, runDatabaseEffect } from "@/db"
+import { getDatabaseConfig } from "@/db/config.server"
+import { withInternalProvisioningLock } from "@/db/internal.server"
+import { account, agent, member, organization, user } from "@/db/schema.server"
+import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
+import { encryptDatabaseValue } from "@/db/lib/encryption.server"
+import { decodeConfigValuePayload } from "@/db/schema/config.server"
+import { getAuth } from "@/lib/auth.server"
+import { resolveOrganizationRouteAccess } from "@/lib/auth/organization-membership.server"
+import { sendResetPasswordEmail } from "@/emails/index"
+import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
+import { getConfigureSession } from "@/routes/configure/-lib/configure-access.server"
+import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
+import { provisionInternalResources } from "./provisioning.server"
+
+const ownerOnboardingFixture = {
+  email: "provisioning-owner@example.com",
+  organizationName: "internal",
+  organizationSlug: "internal",
+}
+const ownerOnboardingPassword = "Owner-Onboarding-Test-Password-761"
+
+function provisionInternal(input = ownerOnboardingFixture) {
+  return runDatabaseEffect(withInternalProvisioningLock(provisionInternalResources(input)))
+}
+
+async function completeOwnerPassword() {
+  const auth = await getAuth()
+  const token = new URL(internalIntegration.resetUrl).pathname.split("/").at(-1)!
+  await auth.api.resetPassword({ body: { token, newPassword: ownerOnboardingPassword } })
+  const response = await auth.api.signInEmail({
+    body: { email: ownerOnboardingFixture.email, password: ownerOnboardingPassword },
+    asResponse: true,
+  })
+  expect(response.status).toBe(200)
+  const cookie = response.headers.getSetCookie().map((part) => part.split(";")[0]).join("; ")
+  return new Headers({ cookie })
+}
+
+describe.skipIf(!internalIntegration.url)(
+  "owner provisioning with PostgreSQL and Better Auth",
+  () => {
+    afterEach(() => vi.unstubAllEnvs())
+
+    beforeEach(async () => {
+      // The URL guard runs before any database module is imported.
+      await db.execute(sql`truncate "config", "organization", "user" cascade`)
+      process.env.DATABASE_ENCRYPTION_KEY = "internal-integration-encryption-key-not-for-production"
+      process.env.APP_BASE_URL = "http://localhost:4500"
+      process.env.BETTER_AUTH_SECRET = "internal-integration-auth-key-not-for-production"
+      process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
+      process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
+      process.env.TERMS_OF_SERVICE_URL = "https://example.com/terms"
+      internalIntegration.request = new Request("http://localhost:4500/configure")
+      internalIntegration.operatorCookie = undefined
+      internalIntegration.failEmail = false
+      internalIntegration.resetUrl = ""
+      vi.clearAllMocks()
+      invalidateGlobalConfig()
+    })
+
+    test("incomplete authentication cannot finalize ownership", async () => {
+      delete process.env.TURNSTILE_SITE_KEY
+      invalidateGlobalConfig()
+      await expect(provisionInternal()).rejects
+        .toMatchObject({ _tag: "OwnerOnboardingError" })
+      expect((await getDatabaseConfig()).values.internal_organization_id).toBeUndefined()
+      expect(await db.select().from(user)).toHaveLength(0)
+      expect(sendResetPasswordEmail).not.toHaveBeenCalled()
+    })
+
+    test("failed delivery retains provenance and retry reuses resources before a real password reset", async () => {
+      internalIntegration.failEmail = true
+      await expect(provisionInternal()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      expect((await getDatabaseConfig()).values.internal_organization_id).toBeUndefined()
+      const [created] = await db.select().from(user)
+      expect(created).toMatchObject({ emailVerified: true, termsAcceptedAt: null })
+      expect(await db.select().from(account)).toHaveLength(0)
+      expect(await db.select().from(agent)).toHaveLength(1)
+      internalIntegration.failEmail = false
+      await provisionInternal()
+      expect(sendResetPasswordEmail).toHaveBeenCalledTimes(2)
+      expect(await db.select().from(user)).toHaveLength(1)
+      expect(await db.select().from(agent)).toHaveLength(1)
+      expect((await getDatabaseConfig()).values.internal_pending_setup).toBeUndefined()
+      await completeOwnerPassword()
+    })
+
+    test("concurrent provisioning reuses an unverified account without sending email", async () => {
+      await db.insert(user).values({ email: ownerOnboardingFixture.email, name: "Existing owner" })
+      const concurrent = await Promise.allSettled(
+        Array.from({ length: 3 }, () => provisionInternal()),
+      )
+      expect(concurrent.some((result) => result.status === "fulfilled")).toBe(true)
+      await provisionInternal()
+      expect(sendResetPasswordEmail).not.toHaveBeenCalled()
+      expect(await db.select().from(organization)).toHaveLength(1)
+      expect((await db.select().from(user))[0]?.emailVerified).toBe(true)
+    })
+
+    test("an unrelated slug is rejected without taking ownership or trapping setup", async () => {
+      const auth = await getAuth()
+      const [other] = await db.insert(user).values({ email: "other@example.com", name: "Other" })
+        .returning()
+      await auth.api.createOrganization({
+        body: { userId: other!.id, name: "Existing", slug: "internal" },
+      })
+      await expect(provisionInternal()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      expect((await getDatabaseConfig()).values.internal_pending_setup).toBeUndefined()
+      expect(await db.select().from(user)).toHaveLength(1)
+      await provisionInternal({ ...ownerOnboardingFixture, organizationSlug: "newinternal" })
+      expect(await db.select().from(organization)).toHaveLength(2)
+    })
+
+    test("configuration remains owner-gated during incomplete setup", async () => {
+      internalIntegration.operatorCookie = await createOperatorSession()
+      expect(await runDatabaseEffect(getConfigureSession())).not.toBeNull()
+      await provisionInternal()
+      const headers = await completeOwnerPassword()
+      internalIntegration.request = new Request("http://localhost:4500/configure", { headers })
+      const internalId = (await getDatabaseConfig()).values.internal_organization_id!
+      await db.update(member).set({ role: "viewer" }).where(eq(member.organizationId, internalId))
+      expect(await runDatabaseEffect(getConfigureSession())).toBeNull()
+      await db.update(member).set({ role: "owner" }).where(eq(member.organizationId, internalId))
+      vi.stubEnv("GITHUB_CLIENT_ID", "incomplete-provider")
+      vi.stubEnv("GITHUB_CLIENT_SECRET", "")
+      invalidateGlobalConfig()
+      expect(await runDatabaseEffect(getConfigureSession())).not.toBeNull()
+      await expect(runDatabaseEffect(resolveOrganizationRouteAccess("internal"))).rejects
+        .toMatchObject({ status: 403 })
+      internalIntegration.request = new Request("http://localhost:4500/configure")
+      expect(await runDatabaseEffect(getConfigureSession())).toBeNull()
+    })
+
+    test(
+      "compiled configuration endpoints enforce both credentials and protect internal secrets",
+      async () => {
+        await provisionInternal()
+        const ownerHeaders = await completeOwnerPassword()
+        const operator = await createOperatorSession()
+        const authorizedCookie = `${ownerHeaders.get("cookie")}; operator_session=${operator}`
+        const fallbackKey = "retired-internal-test-encryption-key"
+        const listener = createServer()
+        await new Promise<void>((resolve) => listener.listen(0, "127.0.0.1", resolve))
+        const address = listener.address()
+        if (!address || typeof address === "string") throw new Error("Missing test port")
+        const port = address.port
+        await new Promise<void>((resolve) => listener.close(() => resolve()))
+        const origin = `http://localhost:${port}`
+        const server = spawn(process.execPath, [
+          "task",
+          "dev",
+          "--port",
+          String(port),
+          "--strictPort",
+        ], {
+          cwd: process.cwd(),
+          env: {
+            ...process.env,
+            DATABASE_URL: internalIntegration.url!,
+            DATABASE_ENCRYPTION_KEY: `${process.env.DATABASE_ENCRYPTION_KEY},${fallbackKey}`,
+            APP_BASE_URL: origin,
+            NODE_ENV: "development",
+          },
+          stdio: "ignore",
+        })
+        try {
+          await vi.waitFor(async () => {
+            expect(
+              (await fetch(`${origin}/src/routes/configure/-functions/save-config-values.ts`)).ok,
+            ).toBe(true)
+          }, { timeout: 30_000, interval: 250 })
+          const cases = [
+            ["save-config-values", { updates: [] }],
+            ["generate-config-value", { key: "internal_organization_id" }],
+            ["reveal-config-value", { key: "internal_organization_id" }],
+            ["apply-migrations", { approvedMigrations: [] }],
+            ["test-email-provider-connection", {
+              provider: "smtp",
+              settings: { host: "127.0.0.1", port: 1025, security: "none" },
+            }],
+          ] as const
+          const requests = new Map<string, (cookie: string, input?: unknown) => Promise<Response>>()
+          for (const [name, data] of cases) {
+            const module =
+              await (await fetch(`${origin}/src/routes/configure/-functions/${name}.ts`))
+                .text()
+            const id = /createClientRpc\("([^"]+)"\)/.exec(module)?.[1]
+            if (!id) throw new Error(`Missing compiled RPC for ${name}`)
+            const request = (cookie: string, input: unknown = data) =>
+              fetch(`${origin}/_serverFn/${id}`, {
+                method: "POST",
+                headers: {
+                  cookie,
+                  origin,
+                  "sec-fetch-site": "same-origin",
+                  "content-type": "application/json",
+                  "x-tsr-serverFn": "true",
+                },
+                body: JSON.stringify(toJSON({ data: input })),
+              })
+            requests.set(name, request)
+            for (
+              const cookie of ["", `operator_session=${operator}`, ownerHeaders.get("cookie")!]
+            ) {
+              const response = await request(cookie)
+              await response.text()
+              expect(response.status).toBe(403)
+            }
+          }
+          for (const name of ["reveal-config-value", "generate-config-value"]) {
+            const response = await requests.get(name)!(authorizedCookie)
+            expect(response.status).toBe(200)
+            const result = fromCrossJSON(await response.json() as SerovalNode, {}) as {
+              result: unknown
+            }
+            expect(result.result).toMatchObject({ ok: false })
+            expect(result.result).not.toHaveProperty("value")
+          }
+          const before = (await getDatabaseConfig()).values.privacy_policy_url
+          const acquired = Promise.withResolvers<void>()
+          const release = Promise.withResolvers<void>()
+          const lock = runDatabaseEffect(withInternalProvisioningLock(Effect.promise(() => {
+            acquired.resolve()
+            return release.promise
+          })))
+          try {
+            await acquired.promise
+            const response = await requests.get("save-config-values")!(
+              authorizedCookie,
+              {
+                updates: [{ key: "privacy_policy_url", value: "https://example.com/blocked" }],
+              },
+            )
+            expect(response.status).toBe(409)
+            await response.text()
+            expect((await getDatabaseConfig()).values.privacy_policy_url).toBe(before)
+          } finally {
+            release.resolve()
+            await lock
+          }
+          const configured = (await getDatabaseConfig()).values
+          const key = "internal_organization_id"
+          const encrypted = encryptDatabaseValue({
+            value: { key, value: configured[key]! },
+            decode: decodeConfigValuePayload,
+            keyring: parseDatabaseEncryptionKeyring(fallbackKey),
+          })
+          await db.execute(sql`update config set value = ${encrypted} where key = ${key}`)
+          const response = await requests.get("save-config-values")!(authorizedCookie)
+          const result = fromCrossJSON(await response.json() as SerovalNode, {}) as {
+            result: unknown
+          }
+          expect(result.result).toEqual({ ok: true })
+          // This process only has the active key, so a read proves the fallback can be retired.
+          expect((await getDatabaseConfig()).values).toEqual(configured)
+        } finally {
+          server.kill("SIGTERM")
+          await new Promise<void>((resolve) => {
+            if (server.exitCode !== null || server.signalCode !== null) resolve()
+            else server.once("exit", () => resolve())
+          })
+        }
+      },
+      60_000,
+    )
+  },
+)

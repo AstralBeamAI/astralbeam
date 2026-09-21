@@ -118,6 +118,7 @@
     "oxlint": "^1.80.0",
     "oxlint-tsgolint": "^7.0.2001",
     "sharp": "^0.34.3",
+    "seroval": "1.6.3",
     "tailwindcss": "^4",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",

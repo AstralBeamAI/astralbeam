@@ -1,4 +1,5 @@
 import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigStorageEntry } from "@/lib/types"
+import type { OwnerOnboarding } from "@/lib/internal/schema"
 
 export interface ConfigureField {
   key: ConfigKey
@@ -40,8 +41,10 @@ export type ConfigurePageState =
     bootstrapIssues: readonly ("DATABASE_URL" | "DATABASE_ENCRYPTION_KEY")[]
   }
   | { status: "signed-out" }
+  | { status: "owner-required" }
   | {
     status: "ready"
+    onboarding: OwnerOnboarding | null
     /** ISO instant the operator session expires at, for the live countdown. */
     sessionExpiresAt: string
     fallbackEncryptionKeyCount: number

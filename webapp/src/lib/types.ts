@@ -7,6 +7,8 @@ export interface PublicConfig {
 }
 
 export type ConfigKey =
+  | "internal_organization_id"
+  | "internal_pending_setup"
   | "app_base_url"
   | "better_auth_secret"
   | "google_client_id"
@@ -30,6 +32,8 @@ export type ConfigKey =
   | "terms_of_service_url"
 
 export interface ConfigDefinition {
+  /** Internal database-only value, never editable or revealable through generic configuration. */
+  systemManaged?: true
   key: ConfigKey
   group: "General" | "Authentication" | "Email Delivery"
   label: string

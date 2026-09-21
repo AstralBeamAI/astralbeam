@@ -157,10 +157,7 @@ export function readOrganizationAgentById(input: { organizationId: string; id: s
   })
 }
 
-/**
- * Gives a new organization the agent and default-agent configuration an SDK mount needs, so a
- * host page can omit its agent ID from the first minute.
- */
+/** Recover a missing default without replacing an existing agent or creating duplicates. */
 export function provisionOrganizationDefaultAgent(input: {
   organizationId: string
   organizationName: string
@@ -170,20 +167,31 @@ export function provisionOrganizationDefaultAgent(input: {
     (db) =>
       db.transaction((transaction) =>
         Effect.gen(function* () {
-          const rows = yield* transaction.insert(agent).values({
+          yield* transaction.insert(organizationConfiguration).values({
+            organizationId: input.organizationId,
+          })
+            .onConflictDoNothing()
+          const [configuration] = yield* transaction.select({
+            defaultAgentId: organizationConfiguration.defaultAgentId,
+          }).from(organizationConfiguration).where(
+            eq(organizationConfiguration.organizationId, input.organizationId),
+          ).for("update")
+          if (configuration?.defaultAgentId) return configuration.defaultAgentId
+          const [existing] = yield* transaction.select({ id: agent.id }).from(agent).where(
+            eq(agent.organizationId, input.organizationId),
+          ).orderBy(agent.createdAt, agent.id).limit(1)
+          const selected = existing ?? (yield* transaction.insert(agent).values({
             organizationId: input.organizationId,
             name: defaultAgentName(input.organizationName),
             systemPrompt: defaultAgentSystemPrompt(input.organizationName),
-          }).returning({ id: agent.id })
-          const created = rows[0]
-          if (!created) {
-            return yield* Effect.fail(new Error("PostgreSQL did not return the created agent"))
-          }
-          yield* transaction.insert(organizationConfiguration).values({
-            organizationId: input.organizationId,
-            defaultAgentId: created.id,
-          })
-          return created.id
+          }).returning({ id: agent.id }))[0]!
+          yield* transaction.update(organizationConfiguration).set({
+            defaultAgentId: selected.id,
+            lockVersion: sql`${organizationConfiguration.lockVersion} + 1`,
+          }).where(
+            eq(organizationConfiguration.organizationId, input.organizationId),
+          )
+          return selected.id
         })
       ),
   )

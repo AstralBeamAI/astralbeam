@@ -48,6 +48,19 @@ function ConfigurePage() {
 
       {state.status === "signed-out"
         ? <OperatorLoginForm onLoggedIn={refresh} />
+        : state.status === "owner-required"
+        ? (
+          <Alert>
+            <AlertTitle>Internal owner sign-in required</AlertTitle>
+            <AlertDescription>
+              <p>
+                Configuration requires both an operator session and an internal Organization owner
+                account.
+              </p>
+              <a href="/auth/sign-in?redirectTo=%2Fconfigure&fresh=true">Sign in as an owner</a>
+            </AlertDescription>
+          </Alert>
+        )
         : state.migrations.pending.length > 0
         ? (
           <>
@@ -62,6 +75,7 @@ function ConfigurePage() {
         )
         : (
           <ConfigEditor
+            onboarding={state.onboarding}
             fields={state.fields}
             issues={state.issues}
             setupComplete={state.setupComplete}
