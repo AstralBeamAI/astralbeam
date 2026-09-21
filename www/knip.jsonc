@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "tags": ["-knipignore"],
+  "treatConfigHintsAsErrors": true,
+  "treatTagHintsAsErrors": true,
+  // The website is self-contained, so source entry exports must also be used within this project.
+  // https://knip.dev/reference/configuration#includeentryexports
+  "includeEntryExports": true,
+  // TanStack Start discovers the router factory by convention rather than through an import.
+  "entry": ["src/router.tsx"],
+  // src/styles/index.css pulls the three font families in through bare `@import` specifiers,
+  // which Knip parses but does not resolve back to a package. The build emits their woff2 files.
+  "ignoreDependencies": [
+    "@fontsource-variable/space-grotesk",
+    "@fontsource/anton",
+    "@fontsource/jetbrains-mono"
+  ]
+}

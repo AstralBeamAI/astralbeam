@@ -1,0 +1,8 @@
+/* The single stylesheet the document links. main.ts waits on `link[rel="stylesheet"]` before
+   reading brand colors, so the page must not split its CSS across several links. */
+@import "@fontsource/anton";
+@import "@fontsource/jetbrains-mono";
+@import "@fontsource/jetbrains-mono/700.css";
+@import "@fontsource-variable/space-grotesk";
+@import "./global.css";
+@import "./legal.css";

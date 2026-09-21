@@ -1,0 +1,40 @@
+{
+  "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
+  // Nitro owns generated artifacts; Deno's source checks must not reinterpret bundled dependency JSDoc imports.
+  "exclude": [".output", "dist"],
+  "nodeModulesDir": "auto",
+  // Sharp validates its lockfile-pinned prebuilt binary during install. https://sharp.pixelplumbing.com/install
+  "allowScripts": ["npm:esbuild", "npm:sharp", "npm:workerd"],
+  "unstable": ["no-legacy-abort"],
+  "permissions": {
+    "tooling": {
+      "env": true,
+      "ffi": true,
+      "net": true,
+      "read": true,
+      "run": true,
+      "sys": true,
+      "write": true
+    }
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "semiColons": false,
+    "proseWrap": "never",
+    "exclude": ["deno.lock", "src/routeTree.gen.ts"]
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended", "jsx", "react"],
+      // The mono eyebrows above the hero and legal titles literally read `// ERROR 404` and
+      // `// LEGAL`, which jsx-no-comment-text-nodes and jsx-curly-braces cannot both accept.
+      "exclude": [
+        "jsx-no-comment-text-nodes",
+        "no-sloppy-imports",
+        "no-window",
+        "no-window-prefix"
+      ]
+    },
+    "exclude": ["src/routeTree.gen.ts"]
+  }
+}
