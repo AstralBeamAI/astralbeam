@@ -134,8 +134,23 @@ describe.skipIf(!dogfoodIntegration.url)(
       await completeOwnerPassword()
     })
 
-    test("concurrent provisioning reuses an unverified account without sending email", async () => {
+    test("an unverified account is rejected without changing it or trapping setup", async () => {
       await db.insert(user).values({ email: ownerOnboardingFixture.email, name: "Existing owner" })
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      expect((await db.select().from(user))[0]?.emailVerified).toBe(false)
+      expect(await db.select().from(organization)).toHaveLength(0)
+      expect((await getDatabaseConfig()).values.dogfood_pending_setup).toBeUndefined()
+      expect(sendResetPasswordEmail).not.toHaveBeenCalled()
+      await provisionDogfood({ ...ownerOnboardingFixture, email: "different-owner@example.com" })
+      expect(await db.select().from(organization)).toHaveLength(1)
+    })
+
+    test("concurrent provisioning reuses a verified account without sending email", async () => {
+      await db.insert(user).values({
+        email: ownerOnboardingFixture.email,
+        name: "Existing owner",
+        emailVerified: true,
+      })
       const concurrent = await Promise.allSettled(
         Array.from({ length: 3 }, () => provisionDogfood()),
       )

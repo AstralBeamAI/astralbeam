@@ -11,7 +11,6 @@ import {
   isDogfoodOwner,
   readDogfoodOrganization,
   readDogfoodOwner,
-  verifyDogfoodOwner,
 } from "@/db/dogfood.server"
 import { getAuth } from "@/lib/auth.server"
 import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
@@ -115,7 +114,6 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
     )
     const existing = yield* readDogfoodOwner(pending.email)
     const owner = existing ?? (yield* createDogfoodOwner(pending.email))
-    if (existing) yield* verifyDogfoodOwner(existing.id)
     let customer = yield* readDogfoodOrganization({
       id: pending.organizationId,
       slug: pending.organizationSlug,

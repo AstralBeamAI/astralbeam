@@ -32,8 +32,14 @@ export function withDogfoodProvisioningLock<A, E, R>(operation: Effect.Effect<A,
 export function readDogfoodOwner(email: string) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
-    const rows = yield* db.select({ id: user.id }).from(user)
+    const rows = yield* db.select({ id: user.id, emailVerified: user.emailVerified }).from(user)
       .where(eq(user.email, email)).limit(1)
+    if (rows[0] && !rows[0].emailVerified) {
+      return yield* Effect.fail({
+        _tag: "OwnerOnboardingError" as const,
+        message: "That account is not verified. Choose a different owner email.",
+      })
+    }
     return rows[0] ?? null
   })
 }
@@ -47,13 +53,6 @@ export function createDogfoodOwner(email: string) {
       emailVerified: true,
     }).returning({ id: user.id })
     return owner!
-  })
-}
-
-export function verifyDogfoodOwner(userId: string) {
-  return Effect.gen(function* () {
-    const db = yield* effectDatabase
-    yield* db.update(user).set({ emailVerified: true }).where(eq(user.id, userId))
   })
 }
 

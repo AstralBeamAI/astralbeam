@@ -13,7 +13,7 @@ Every authentication flow in this app is two writes with a network call between 
 
 ## What each flow leaves behind
 
-- Operator-authorized owner provisioning inserts a verified user through Drizzle without recording legal acceptance or creating a password. Keep Better Auth responsible for reset tokens and credential creation, without enabling the Admin plugin solely for provisioning.
+- Operator-authorized owner provisioning inserts a verified user through Drizzle without recording legal acceptance or creating a password. Reuse existing accounts only when already verified, never promote an unverified signup and its existing credentials. Keep Better Auth responsible for reset tokens and credential creation, without enabling the Admin plugin solely for provisioning.
 
 - `/sign-up/email`, new address, delivery fails: the `user` and `credential` `account` rows exist and are unverified. The response now reports the failure instead of routing to the verification screen. The rows are deliberately not rolled back, because signing up again is idempotent and recovers the account.
 - `/sign-up/email`, address already registered: Better Auth returns its synthetic-user response so the reply cannot confirm the address exists, and it sends nothing by default. `onExistingUserSignUp` fills that gap, an unverified account gets its verification link resent, a verified account gets the `account-exists` notice pointing at sign-in and password reset. Without this, a duplicate sign-up ends on a verification screen that no email will ever arrive for.

@@ -224,7 +224,7 @@ export function ConfigEditor({
           <h2 id="owner-onboarding-title" className="text-lg font-semibold">Owner onboarding</h2>
           <p className="text-sm text-muted-foreground">
             A new owner receives a password-reset email. Setup stays incomplete until sending
-            succeeds. Existing accounts are reused without another email.
+            succeeds. Existing verified accounts are reused without another email.
           </p>
           {([
             ["email", "Owner email (required)", "Enter a valid email address."],
