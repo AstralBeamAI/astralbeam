@@ -145,6 +145,23 @@ Let's connect user row actions and terminal request failures to your application
 
 Directories share chat's `theme` and `colorScheme` options. Reuse the same theme object across widgets. Removing overrides restores the SDK palette without resetting the directory. See [Theming](./theming.md).
 
+Because directories render inside a Shadow DOM, host styles and React `className` only affect the outer container. Let's pass application-owned CSS through `customCss` to customize the contents:
+
+```tsx
+<AstralBeamTenantList
+  fetchAstralBeamToken={{ url: "/api/astralbeam/token" }}
+  customCss={`
+    [data-slot="directory"] { gap: 1.5rem; }
+    [data-slot="directory-toolbar"] { padding: 0.5rem; }
+    [data-slot="table"] { font-size: 0.75rem; }
+  `}
+/>
+```
+
+`customCss` is ordinary CSS, not uncompiled Tailwind classes. It applies only inside this widget. Changing or removing it updates styles without resetting filters, pagination, or authentication. Use `handle.update({ customCss })` with vanilla mounts, or change the React prop. Pass only trusted application CSS, never user-supplied content.
+
+The directory styling slots are `directory`, `directory-header`, `directory-toolbar`, `directory-page-controls`, `directory-tenant-picker`, `directory-tenant-label`, `directory-empty`, `directory-page`, `directory-pagination`, and `directory-avatar`. Shared control slots include `input`, `input-group`, `native-select`, `button`, `combobox-content`, `alert`, `table-container`, `table`, `table-head`, and `table-cell`. Select them with `[data-slot="..."]`. Prefer `theme` for colors and fonts, and `customCss` for layout, spacing, focus treatment, and component sizing.
+
 | Option                         | Default                         | Purpose                                                                                                                      |
 | ------------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `fetchAstralBeamToken`         | Required                        | Endpoint `{ url, ...RequestInit }` or function returning `{ token }`. Unlike chat, directories have no default token source. |
@@ -154,6 +171,7 @@ Directories share chat's `theme` and `colorScheme` options. Reuse the same theme
 | `pageSize`                     | `20`                            | Initial page size, one of `20`, `50`, or `100`.                                                                              |
 | `title`                        | `"Tenants"` or `"Tenant users"` | Header and accessible region name.                                                                                           |
 | `showHeader`                   | `true`                          | Show the directory heading and tenant context.                                                                               |
+| `customCss`                    | None                            | Trusted CSS inside the widget's Shadow DOM. Omit to retain SDK styles.                                                       |
 | `showAdmin`                    | `false`                         | User directory only. Show the stored admin column and filter, without changing permissions.                                  |
 | `colorScheme`, `theme`         | `"system"`, SDK palette         | Chat-compatible appearance options.                                                                                          |
 | `onTenantSelect`               | None                            | Tenant directory's Open action.                                                                                              |

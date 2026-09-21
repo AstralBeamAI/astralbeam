@@ -25,6 +25,18 @@ const decodeOrganizationMembership = Schema.decodeUnknownEffect(
   { onExcessProperty: "error" },
 )
 
+export function isLastOrganizationApiKey(keyId: string) {
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    const [key] = yield* db.select({ organizationId: apiKey.organizationId }).from(apiKey)
+      .where(eq(apiKey.id, keyId))
+    if (!key) return false
+    const [row] = yield* db.select({ count: count() }).from(apiKey)
+      .where(eq(apiKey.organizationId, key.organizationId))
+    return row?.count === 1
+  })
+}
+
 /**
  * Turns a URL slug into the organization the signed-in user actually belongs to, or `null`.
  * Better Auth's `member` has no `(organization_id, user_id)` uniqueness, so the order is explicit.

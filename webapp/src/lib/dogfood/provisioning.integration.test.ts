@@ -55,11 +55,20 @@ vi.mock("@/emails/index", () => ({
 import { db, runDatabaseEffect } from "@/db"
 import { getDatabaseConfig } from "@/db/config.server"
 import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
-import { account, agent, apiKey, member, organization, user } from "@/db/schema.server"
+import {
+  account,
+  agent,
+  apiKey,
+  member,
+  organization,
+  organizationConfiguration,
+  user,
+} from "@/db/schema.server"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
 import { getAuth } from "@/lib/auth.server"
+import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
 import { sendResetPasswordEmail } from "@/emails/index"
 import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
@@ -98,6 +107,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       process.env.DATABASE_ENCRYPTION_KEY = "dogfood-integration-encryption-key-not-for-production"
       process.env.APP_BASE_URL = "http://localhost:4500"
       process.env.BETTER_AUTH_SECRET = "dogfood-integration-auth-key-not-for-production"
+      process.env.OPENAI_API_KEY = "sk-development-provisioning-test-only"
       process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
       process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
       process.env.TERMS_OF_SERVICE_URL = "https://example.com/terms"
@@ -106,6 +116,22 @@ describe.skipIf(!dogfoodIntegration.url)(
       dogfoodIntegration.resetUrl = ""
       vi.clearAllMocks()
       invalidateGlobalConfig()
+    })
+
+    test("local organization creation copies the model key without overwriting settings on retry", async () => {
+      await provisionDogfood()
+      const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
+      expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey).toEqual({
+        organizationId,
+        apiKey: "sk-development-provisioning-test-only",
+      })
+      await runDatabaseEffect(provisionOrganizationDefaultAgent({
+        organizationId,
+        organizationName: "dogfood",
+        openaiApiKey: "sk-different-development-test-key",
+      }))
+      expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey?.apiKey)
+        .toBe("sk-development-provisioning-test-only")
     })
 
     test("incomplete authentication cannot finalize ownership", async () => {

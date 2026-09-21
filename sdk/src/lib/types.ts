@@ -204,6 +204,8 @@ export interface MountAstralBeamChatOptions {
   colorScheme?: AstralBeamChatColorScheme | undefined
   /** Custom values for the widget's theming CSS variables, per color scheme. */
   theme?: AstralBeamChatTheme | undefined
+  /** Trusted application CSS, scoped to this widget's shadow root. */
+  customCss?: string | undefined
   /**
    * Logs every SDK action to the browser console with UTC timestamps and full payloads,
    * and asks the endpoint (via the forwarded props) to log its side of the run too.

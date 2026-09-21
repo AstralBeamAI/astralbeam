@@ -7,6 +7,7 @@ import type { BetterAuthPlugin } from "better-auth"
 import { betterAuth } from "better-auth/minimal"
 import {
   addOAuthServerContext,
+  APIError,
   createAuthMiddleware,
   createEmailVerificationToken,
   isAPIError,
@@ -14,7 +15,8 @@ import {
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 
-import { db } from "@/db"
+import { db, runDatabaseEffect } from "@/db"
+import { isLastOrganizationApiKey } from "@/db/organization.server"
 import { tables } from "@/db/schema.server"
 import {
   sendAccountExistsEmail,
@@ -293,6 +295,19 @@ function buildAuth(config: AuthConfig) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
+        if (context.path === "/api-key/delete" && typeof body?.keyId === "string") {
+          // Authorize reading the key before disclosing why it cannot be deleted.
+          await (await getAuth()).api.getApiKey({
+            headers: context.headers ?? new Headers(),
+            query: { id: body.keyId },
+          })
+          if (await runDatabaseEffect(isLastOrganizationApiKey(body.keyId))) {
+            throw new APIError("FORBIDDEN", {
+              code: "LAST_API_KEY",
+              message: "The last API key cannot be deleted. Create another key first.",
+            })
+          }
+        }
         const isApiKeyCreate = context.path === "/api-key/create"
         if (isApiKeyCreate || context.path === "/api-key/update") {
           // Better Auth recommends a before hook for endpoint-specific input adjustments. https://better-auth.com/docs/concepts/hooks#before-hooks

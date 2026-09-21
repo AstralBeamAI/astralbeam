@@ -34,7 +34,7 @@ export function DirectoryTable(
       accessorKey: "external_id",
       header: "ID",
       cell: ({ row }) => (
-        <span className="block max-w-64 break-all font-mono text-xs">
+        <span className="block w-72 break-all font-mono text-xs whitespace-normal">
           {row.original.external_id}
         </span>
       ),
@@ -46,11 +46,12 @@ export function DirectoryTable(
         const record = row.original
         const name = record.name || record.external_id
         return (
-          <div className="flex items-center gap-3 py-1">
+          <div className="flex min-w-48 items-center gap-3 py-1">
             {kind === "users" && (
               <span
+                data-slot="directory-avatar"
                 aria-hidden
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium"
+                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium uppercase"
               >
                 {name.trim().split(/\s+/).slice(0, 2).map((part) => Array.from(part)[0]).join("")}
               </span>
@@ -60,7 +61,12 @@ export function DirectoryTable(
               className="h-auto max-w-64 justify-start p-0 text-start whitespace-normal break-words"
               onClick={() => table.setExpanded(row.getIsExpanded() ? {} : { [row.id]: true })}
               aria-expanded={row.getIsExpanded()}
+              title={row.getIsExpanded() ? "Hide metadata" : "Show metadata"}
             >
+              <CaretRightIcon
+                aria-hidden
+                className={row.getIsExpanded() ? "rotate-90" : undefined}
+              />
               {name}
             </Button>
           </div>
@@ -88,7 +94,7 @@ export function DirectoryTable(
         const entries = Object.entries(row.original.metadata)
         return entries.length
           ? (
-            <dl className="max-w-72 space-y-1 text-xs">
+            <dl className="min-w-32 max-w-72 space-y-1 text-xs">
               {entries.slice(0, 3).map(([key, value]) => (
                 <div key={key} className="flex gap-1">
                   <dt className="max-w-24 shrink-0 truncate text-muted-foreground">{key}:</dt>

@@ -1,3 +1,4 @@
+import process from "node:process"
 import type { BetterAuthPlugin } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
@@ -89,11 +90,14 @@ export const organizationProvisioningHooks = {
       await runDatabaseEffect(provisionOrganizationDefaultAgent({
         organizationId: organization.id,
         organizationName: organization.name,
+        openaiApiKey: import.meta.env.DEV ? process.env.OPENAI_API_KEY?.trim() : undefined,
       }))
-    } catch (error) {
+    } catch {
       // The organization is already created and its owner can add an agent by hand, so a failure
       // here must not fail the request that created it.
-      console.error("Failed to create the default agent for a new organization:", error)
+      console.error("Failed to initialize organization settings", {
+        organizationId: organization.id,
+      })
     }
   },
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest"
 
-import { ChatRequestTooLargeError, readChatRequestJson } from "./utils.server"
+import { readRequestJson, RequestTooLargeError } from "./request-body.server"
 
 test("bounds a request body when content-length is absent", async () => {
   const body = new ReadableStream<Uint8Array>({
@@ -16,7 +16,7 @@ test("bounds a request body when content-length is absent", async () => {
   })
 
   expect(request.headers.has("content-length")).toBe(false)
-  await expect(readChatRequestJson(request, 8)).rejects.toBeInstanceOf(
-    ChatRequestTooLargeError,
+  await expect(readRequestJson(request, 8)).rejects.toBeInstanceOf(
+    RequestTooLargeError,
   )
 })

@@ -26,7 +26,7 @@ export function renderListing(
   kind: "tenants" | "users",
 ): ListingRenderer {
   const style = document.createElement("style")
-  style.textContent = chatStyles
+  style.textContent = chatStyles + (options.customCss ?? "")
   shadow.append(style)
   const root = createRoot(container)
   const client = new QueryClient({
@@ -70,6 +70,9 @@ export function resetListing(state: ListingRenderer) {
 
 export function updateListing(state: ListingRenderer, next: Options) {
   const previous = state.options
+  if (previous.customCss !== next.customCss) {
+    state.style.textContent = chatStyles + (next.customCss ?? "")
+  }
   const changed = previous.apiUrl !== next.apiUrl
   state.options = next
   if (changed) return resetListing(state)

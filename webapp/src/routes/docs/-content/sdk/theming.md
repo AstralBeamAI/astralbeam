@@ -27,6 +27,16 @@ The widget ships its own palette inside a shadow root, so your page styles never
 - Values apply immediately on prop or `update` changes.
 - Because the shadow root cannot read your stylesheet, tokens must be passed here, not inherited.
 
+## Custom CSS
+
+Because chat renders inside a Shadow DOM, pass application-owned CSS through `customCss` to customize its layout and controls. Let's give the composer a larger input:
+
+```tsx
+<AstralBeamChat customCss={`textarea { min-height: 5rem; }`} />
+```
+
+The same option works with `mountAstralBeamChat`. Call `handle.update({ customCss })` or change the React prop to apply styles without resetting the conversation or draft. Set it to `undefined` to restore SDK styles. Pass ordinary, trusted application CSS, not uncompiled Tailwind classes or user-supplied content. Prefer `theme` for colors and fonts. [Directories](./listings.md) support the same option.
+
 ## Widget renders
 
 Your own widgets (see [Tools and widgets](./tools-and-widgets.md)) render in the host page's light DOM, not the shadow root.

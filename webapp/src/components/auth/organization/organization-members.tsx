@@ -1,5 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/organization
 // Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; take the organization and its permissions as props from the page loader and scope every member query to its ID; omit disabled teams, support responsive controls/table and strict optional props, and colocate the private loading row.
+// Local changes: match directory pagination with a page-size selector, refresh icon, and right-aligned navigation.
 
 "use client"
 
@@ -11,6 +12,7 @@ import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useListOrganizationMembers } from "@better-auth-ui/react/plugins/organization"
 import type { Member, Organization } from "better-auth/client"
 import {
+  ArrowClockwiseIcon,
   CaretUpIcon as ChevronUp,
   FunnelIcon as Filter,
   MagnifyingGlassIcon as Search,
@@ -29,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -114,7 +117,7 @@ export function OrganizationMembers({
   canRemoveMember,
   ...props
 }: OrganizationMembersProps & ComponentProps<"div">) {
-  const validatedPageSize = validatePageSize(pageSize)
+  const [validatedPageSize, setPageSize] = useState(() => validatePageSize(pageSize))
   const { authClient } = useAuth<OrganizationAuthClient>()
   const {
     localization: organizationLocalization,
@@ -130,7 +133,7 @@ export function OrganizationMembers({
 
   const paged = validatedPageSize !== undefined
 
-  const { data: membersData, isPending: membersPending } = useListOrganizationMembers(authClient, {
+  const membersQuery = useListOrganizationMembers(authClient, {
     // Without an explicit ID the hook substitutes the mutable active organization, so a switch in
     // this tab or another can pair another organization's rows with this page's permissions.
     query: {
@@ -158,6 +161,7 @@ export function OrganizationMembers({
         : {}),
     },
   })
+  const { data: membersData, isPending: membersPending, isFetching, refetch } = membersQuery
 
   const owners = useListOrganizationMembers(authClient, {
     query: {
@@ -307,6 +311,39 @@ export function OrganizationMembers({
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+          {paged && (
+            <div className="flex items-center gap-2 sm:ms-auto">
+              <NativeSelect
+                aria-label="Rows per page"
+                value={validatedPageSize}
+                onChange={(event) => {
+                  setPage(0)
+                  setPageSize(Number(event.target.value))
+                }}
+              >
+                {[...new Set([20, 50, 100, validatedPageSize])].sort((a, b) => a - b).map((
+                  size,
+                ) => (
+                  <NativeSelectOption key={size} value={size}>{size} per page</NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Refresh members"
+                title="Refresh members"
+                disabled={isFetching || owners.isFetching}
+                onClick={() => void Promise.all([refetch(), owners.refetch()])}
+              >
+                <ArrowClockwiseIcon
+                  aria-hidden
+                  className={isFetching || owners.isFetching
+                    ? "animate-spin motion-reduce:animate-none"
+                    : undefined}
+                />
+              </Button>
+            </div>
+          )}
         </div>
 
         {roleFilter !== "all" && (
@@ -383,36 +420,29 @@ export function OrganizationMembers({
           </Table>
         </Card>
 
-        {paged && total > 0 && (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground text-sm tabular-nums">
-              {organizationLocalization.paginationRange
-                .replace("{{from}}", String(pageStart + 1))
-                .replace("{{to}}", String(pageEnd))
-                .replace("{{total}}", String(total))}
-            </p>
-
-            <div className="grid grid-cols-2 gap-2 sm:flex">
+        {paged && (
+          <div className="sm:flex sm:justify-end">
+            <nav aria-label="Member pages" className="grid grid-cols-2 gap-2 sm:flex">
               <Button
                 size="sm"
                 variant="outline"
                 className="w-full sm:w-auto"
-                disabled={isPending || page === 0}
+                disabled={isFetching || page === 0}
                 onClick={() => setPage((current) => Math.max(0, current - 1))}
               >
-                {organizationLocalization.previousPage}
+                Previous
               </Button>
 
               <Button
                 size="sm"
                 variant="outline"
                 className="w-full sm:w-auto"
-                disabled={isPending || !hasNextPage}
+                disabled={isFetching || !hasNextPage}
                 onClick={() => setPage((current) => current + 1)}
               >
-                {organizationLocalization.nextPage}
+                Next
               </Button>
-            </div>
+            </nav>
           </div>
         )}
       </div>

@@ -30,7 +30,7 @@ export function renderChat(
   options: MountAstralBeamChatOptions,
 ): ChatHandle {
   const style = document.createElement("style")
-  style.textContent = chatStyles
+  style.textContent = chatStyles + (options.customCss ?? "")
   shadowRoot.append(style)
   // Tracks the options the widget last rendered with, so the style bridge's logger follows a
   // `debug` update the same way the widget's own does.
@@ -40,6 +40,9 @@ export function renderChat(
   const controller: ChatController = {}
   // The mount target (an HTMLElement per mountAstralBeamChat) hosts the slotted widget renders.
   const render = (nextOptions: MountAstralBeamChatOptions) => {
+    if (live.customCss !== nextOptions.customCss) {
+      style.textContent = chatStyles + (nextOptions.customCss ?? "")
+    }
     live = nextOptions
     root.render(
       <ChatWidget
