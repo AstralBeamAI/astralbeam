@@ -118,21 +118,32 @@ describe.skipIf(!dogfoodIntegration.url)(
       invalidateGlobalConfig()
     })
 
-    test("local organization creation copies the model key without overwriting settings on retry", async () => {
-      await provisionDogfood()
-      const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
-      expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey).toEqual({
-        organizationId,
-        apiKey: "sk-development-provisioning-test-only",
-      })
-      await runDatabaseEffect(provisionOrganizationDefaultAgent({
-        organizationId,
-        organizationName: "dogfood",
-        openaiApiKey: "sk-different-development-test-key",
-      }))
-      expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey?.apiKey)
-        .toBe("sk-development-provisioning-test-only")
-    })
+    test.each([undefined, "invalid-key", "sk-development-provisioning-test-only"])(
+      "local organization creation tolerates model key %s and preserves settings on retry",
+      async (apiKey) => {
+        if (apiKey === undefined) delete process.env.OPENAI_API_KEY
+        else process.env.OPENAI_API_KEY = apiKey
+        await provisionDogfood()
+        const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
+        const expectedKey = apiKey?.startsWith("sk-")
+          ? {
+            organizationId,
+            apiKey,
+          }
+          : null
+        const [configuration] = await db.select().from(organizationConfiguration)
+        const [defaultAgent] = await db.select().from(agent)
+        expect(configuration).toMatchObject({ organizationId, openaiApiKey: expectedKey })
+        expect(defaultAgent).toMatchObject({ organizationId, id: configuration!.defaultAgentId })
+        await runDatabaseEffect(provisionOrganizationDefaultAgent({
+          organizationId,
+          organizationName: "dogfood",
+          openaiApiKey: "sk-different-development-test-key",
+        }))
+        expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey)
+          .toEqual(expectedKey)
+      },
+    )
 
     test("incomplete authentication cannot finalize ownership", async () => {
       delete process.env.TURNSTILE_SITE_KEY
