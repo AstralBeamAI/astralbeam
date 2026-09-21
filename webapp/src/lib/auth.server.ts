@@ -301,6 +301,13 @@ function buildAuth(config: AuthConfig) {
             headers: context.headers ?? new Headers(),
             query: { id: body.keyId },
           })
+          const credential = await getGlobalConfig("dogfood_api_key")
+          if (credential?.split("_")[2] === body.keyId) {
+            throw new APIError("FORBIDDEN", {
+              code: "DOGFOOD_API_KEY_IN_USE",
+              message: "This API key is used by the embedded assistant and cannot be deleted.",
+            })
+          }
           if (await runDatabaseEffect(isLastOrganizationApiKey(body.keyId))) {
             throw new APIError("FORBIDDEN", {
               code: "LAST_API_KEY",

@@ -1,0 +1,27 @@
+[data-slot="directory"] input,
+[data-slot="directory"] select,
+[data-slot="combobox-item"],
+[data-slot="combobox-empty"],
+[data-slot="directory-pagination"] button,
+[data-slot="directory"] table {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+[data-slot="directory"] :is(input, select, button):focus-visible,
+[data-slot="directory"] [data-slot="input-group"]:has(input:focus-visible) {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--ring) 50%, transparent);
+}
+
+[data-slot="combobox-content"] {
+  box-shadow: 0 1px 3px color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+
+[data-slot="directory"] th {
+  height: 2.5rem;
+  padding-inline: 0.5rem;
+}
+
+[data-slot="directory"] td {
+  padding: 0.5rem;
+}

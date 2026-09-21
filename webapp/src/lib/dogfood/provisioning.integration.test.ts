@@ -2,7 +2,7 @@ import process from "node:process"
 import { spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { fromCrossJSON, type SerovalNode, toJSON } from "seroval"
-import { sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { defaultKeyHasher } from "@better-auth/api-key"
 import * as Effect from "effect/Effect"
 import { beforeEach, describe, expect, test, vi } from "vitest"
@@ -54,6 +54,7 @@ vi.mock("@/emails/index", () => ({
 
 import { db, runDatabaseEffect } from "@/db"
 import { getDatabaseConfig } from "@/db/config.server"
+import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
 import {
   account,
@@ -62,6 +63,8 @@ import {
   member,
   organization,
   organizationConfiguration,
+  tenant,
+  tenantUser,
   user,
 } from "@/db/schema.server"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
@@ -72,6 +75,9 @@ import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
 import { sendResetPasswordEmail } from "@/emails/index"
 import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
+import { authenticateChatRequest } from "@/lib/chat/auth.server"
+import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
+import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { provisionDogfoodResources } from "./provisioning.server"
 
 const ownerOnboardingFixture = {
@@ -144,6 +150,179 @@ describe.skipIf(!dogfoodIntegration.url)(
           .toEqual(expectedKey)
       },
     )
+
+    test("two tab selectors and concurrent JIT upserts preserve tenant isolation and ordinary JWT privileges", async () => {
+      await provisionDogfood()
+      await expect(runDatabaseEffect(issueDashboardToken({
+        organizationSlug: "dogfood",
+        headers: new Headers(),
+      }))).rejects.toMatchObject({ status: 401 })
+      expect(await db.select().from(tenant)).toHaveLength(0)
+      const headers = await completeOwnerPassword()
+      const auth = await getAuth()
+      const session = await auth.api.getSession({ headers })
+      const second = await auth.api.createOrganization({
+        body: { userId: session!.user.id, name: "Second", slug: "second" },
+      })
+      await auth.api.setActiveOrganization({ headers, body: { organizationId: second.id } })
+      const issued = await Promise.all(
+        Array.from(
+          { length: 5 },
+          () => runDatabaseEffect(issueDashboardToken({ organizationSlug: "dogfood", headers })),
+        ),
+      )
+      const request = new Request("http://localhost:4500/api/v1/chat", {
+        headers: { authorization: `Bearer ${issued[0]!.token}` },
+      })
+      const principal = await authenticateChatRequest(request)
+      const dogfoodId = (await getDatabaseConfig()).values.dogfood_organization_id!
+      expect(principal.organization.id).toBe(dogfoodId)
+      expect(principal.tenantUser).toMatchObject({
+        id: session!.user.id,
+        admin: false,
+        tenant: { id: dogfoodId },
+      })
+      await expect(runDatabaseEffect(authenticateRestRequest(request))).rejects.toMatchObject({
+        restStatus: 403,
+      })
+      expect(await db.select().from(tenant)).toHaveLength(1)
+      expect(await db.select().from(tenantUser)).toHaveLength(1)
+      const [firstUser] = await db.select().from(tenantUser)
+      await db.update(tenantUser).set({ admin: true }).where(eq(tenantUser.id, firstUser!.id))
+      await runDatabaseEffect(issueDashboardToken({ organizationSlug: "dogfood", headers }))
+      expect((await db.select().from(tenantUser))[0]).toMatchObject({
+        id: firstUser!.id,
+        admin: false,
+      })
+      await runDatabaseEffect(issueDashboardToken({ organizationSlug: "second", headers }))
+      expect(await db.select().from(tenantUser)).toHaveLength(2)
+      await db.update(organization).set({ slug: "renamed" }).where(eq(organization.id, dogfoodId))
+      await runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers }))
+      expect(await db.select().from(tenant)).toEqual(expect.arrayContaining([
+        expect.objectContaining({ externalId: dogfoodId, metadata: { slug: "renamed" } }),
+        expect.objectContaining({ externalId: second.id, metadata: { slug: "second" } }),
+      ]))
+      await db.delete(member).where(
+        and(eq(member.organizationId, second.id), eq(member.userId, session!.user.id)),
+      )
+      await expect(runDatabaseEffect(issueDashboardToken({ organizationSlug: "second", headers })))
+        .rejects.toMatchObject({ status: 404 })
+      expect(await db.select().from(tenantUser)).toHaveLength(2)
+      await runDatabaseEffect(
+        databaseRateLimiter.consume({
+          key: `dashboard-token:${session!.user.id}`,
+          limit: 60,
+          tokens: 60,
+          window: "1 minute",
+        }).pipe(Effect.ignore),
+      )
+      await expect(runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers })))
+        .rejects.toMatchObject({ status: 429 })
+    })
+
+    test("directory tokens use the selected organization's key and current member permissions", async () => {
+      await provisionDogfood()
+      const headers = await completeOwnerPassword()
+      const auth = await getAuth()
+      const session = await auth.api.getSession({ headers })
+      const second = await auth.api.createOrganization({
+        body: { userId: session!.user.id, name: "Directory", slug: "directory" },
+      })
+      const input = { organizationSlug: "directory", scope: "organization" as const, headers }
+      await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
+        status: 503,
+        code: "NO_API_KEYS",
+      })
+      const disabled = await auth.api.createApiKey({
+        headers,
+        body: { organizationId: second.id, name: "Disabled" },
+      })
+      await db.update(apiKey).set({ enabled: false }).where(eq(apiKey.id, disabled.id))
+      await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
+        status: 503,
+        code: undefined,
+      })
+      const active = await auth.api.createApiKey({
+        headers,
+        body: { organizationId: second.id, name: "Active" },
+      })
+      await auth.api.deleteApiKey({ headers, body: { keyId: disabled.id } })
+      await expect(auth.api.deleteApiKey({ headers, body: { keyId: active.id } }))
+        .rejects.toMatchObject({ body: { code: "LAST_API_KEY" } })
+      await db.update(member).set({ role: "viewer" }).where(and(
+        eq(member.organizationId, second.id),
+        eq(member.userId, session!.user.id),
+      ))
+      const { token } = await runDatabaseEffect(issueDashboardToken(input))
+      const authorization = { authorization: `Bearer ${token}` }
+      const scope = await runDatabaseEffect(authenticateRestRequest(
+        new Request(
+          "http://localhost:4500/api/v1/tenants",
+          { headers: authorization },
+        ),
+      ))
+      expect(scope).toMatchObject({
+        organizationId: second.id,
+        currentUser: { id: session!.user.id, role: "viewer" },
+      })
+      await expect(runDatabaseEffect(authenticateRestRequest(
+        new Request(
+          "http://localhost:4500/api/v1/tenants",
+          { method: "POST", headers: authorization },
+        ),
+      ))).rejects.toMatchObject({ restStatus: 403 })
+      expect(await db.select().from(tenant)).toHaveLength(0)
+      await db.update(apiKey).set({ expiresAt: new Date(0) }).where(eq(apiKey.id, active.id))
+      await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
+        status: 503,
+      })
+      await expect(runDatabaseEffect(authenticateRestRequest(
+        new Request(
+          "http://localhost:4500/api/v1/tenants",
+          { headers: authorization },
+        ),
+      ))).rejects.toMatchObject({ restStatus: 401 })
+      await db.delete(member).where(eq(member.organizationId, second.id))
+      await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
+        status: 404,
+      })
+    })
+
+    test("the configured chat key cannot be deleted, regardless of its name", async () => {
+      await provisionDogfood()
+      const headers = await completeOwnerPassword()
+      const auth = await getAuth()
+      const [protectedKey] = await db.select().from(apiKey)
+      await expect(auth.api.deleteApiKey({ body: { keyId: protectedKey!.id } }))
+        .rejects.toMatchObject({ statusCode: 401 })
+      await db.update(member).set({ role: "viewer" })
+      await expect(auth.api.deleteApiKey({ headers, body: { keyId: protectedKey!.id } }))
+        .rejects.toMatchObject({ body: { code: "INSUFFICIENT_API_KEY_PERMISSIONS" } })
+      await db.update(member).set({ role: "owner" })
+      const unrelated = await auth.api.createApiKey({
+        headers,
+        body: { organizationId: protectedKey!.organizationId, name: "dogfood" },
+      })
+      await auth.api.updateApiKey({
+        headers,
+        body: { keyId: protectedKey!.id, name: "Renamed" },
+      })
+      const response = await auth.handler(
+        new Request("http://localhost:4500/api/auth/api-key/delete", {
+          method: "POST",
+          headers: {
+            ...Object.fromEntries(headers),
+            "content-type": "application/json",
+            origin: "http://localhost:4500",
+          },
+          body: JSON.stringify({ keyId: protectedKey!.id }),
+        }),
+      )
+      expect(response.status).toBe(403)
+      expect(await response.json()).toMatchObject({ code: "DOGFOOD_API_KEY_IN_USE" })
+      await auth.api.deleteApiKey({ headers, body: { keyId: unrelated.id } })
+      expect(await db.select({ id: apiKey.id }).from(apiKey)).toEqual([{ id: protectedKey!.id }])
+    })
 
     test("incomplete authentication cannot finalize ownership", async () => {
       delete process.env.TURNSTILE_SITE_KEY

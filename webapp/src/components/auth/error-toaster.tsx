@@ -30,6 +30,9 @@ function safeAuthError(error: unknown): string {
   if (authErrorCode(error) === "LAST_API_KEY") {
     return "The last API key cannot be deleted. Create another key first."
   }
+  if (authErrorCode(error) === "DOGFOOD_API_KEY_IN_USE") {
+    return "This API key is used by the embedded assistant and cannot be deleted."
+  }
   const status = isRecord(error) && typeof error.status === "number" ? error.status : undefined
   if (status === 429) {
     return "Too many attempts. Please wait a moment and try again."

@@ -38,6 +38,7 @@ export type OrganizationPermissionRequest = Parameters<
 
 /** Every organization permission a page or its navigation entry depends on. */
 export interface OrganizationPermissions {
+  readonly readTenants: boolean
   readonly updateOrganization: boolean
   readonly createInvitation: boolean
   readonly cancelInvitation: boolean
@@ -68,6 +69,7 @@ export function deriveOrganizationPermissions(role: string): OrganizationPermiss
   const allows = (permissions: OrganizationPermissionRequest) =>
     authorizeOrganizationRole(role, permissions)
   return {
+    readTenants: allows({ tenantManagement: ["read"] }),
     updateOrganization: allows({ organization: ["update"] }),
     createInvitation: allows({ invitation: ["create"] }),
     cancelInvitation: allows({ invitation: ["cancel"] }),
