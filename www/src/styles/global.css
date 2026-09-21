@@ -655,7 +655,7 @@ main {
 }
 
 .step-index {
-  font-size: 0.74rem;
+  font-size: clamp(0.7rem, 1.4vw, 0.84rem);
   letter-spacing: 0.3em;
   color: var(--primary);
   text-shadow: 0 0 14px var(--beam-soft);

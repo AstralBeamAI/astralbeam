@@ -3,7 +3,7 @@ export const siteMetadata = {
   origin: "https://www.astralbeam.ai",
   title: "AstralBeam - Add an Agent to Your App in Minutes",
   description:
-    "Open source agent infrastructure. Add a Cursor-style agentic chat widget to your app in minutes. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use AstralBeam Cloud.",
+    "Add a Cursor-style agentic chat widget to your app in minutes. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use AstralBeam Cloud.",
   email: "hello@astralbeam.ai",
   links: {
     app: "https://app.astralbeam.ai",
