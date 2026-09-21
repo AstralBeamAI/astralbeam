@@ -1,10 +1,18 @@
 export const siteMetadata = {
   name: "AstralBeam",
   origin: "https://www.astralbeam.ai",
-  title: "AstralBeam - Ship agents in minutes, not months",
+  title: "AstralBeam - Add an Agent to Your App in Minutes",
   description:
-    "Open source AI infrastructure. Add agentic chat to your web app in five minutes or less. AstralBeam handles streaming, history, tools, billing and more.",
+    "Open source agent infrastructure. Add a Cursor-style agentic chat widget to your app in minutes. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use AstralBeam Cloud.",
   email: "hello@astralbeam.ai",
+  links: {
+    app: "https://app.astralbeam.ai",
+    signUp: "https://app.astralbeam.ai/auth/sign-up",
+    logIn: "https://app.astralbeam.ai/auth/sign-in",
+    docs: "https://app.astralbeam.ai/docs",
+    github: "https://github.com/astralbeamai/astralbeam",
+    discord: "https://discord.gg/suehFycUvW",
+  },
   icon: {
     path: "/favicon.png",
     size: 512,
@@ -13,7 +21,7 @@ export const siteMetadata = {
     path: "/og-image.png",
     width: 1200,
     height: 630,
-    alt: "AstralBeam mission console: Ship agents in minutes, not months.",
+    alt: "AstralBeam: add an agent to your app in minutes.",
   },
 } as const
 

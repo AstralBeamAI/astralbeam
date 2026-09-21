@@ -19,14 +19,15 @@ deno task --cwd www deploy   # ready, then deploy to Cloudflare
 Structure:
 
 - `src/layouts/SiteLayout.astro`, shared document shell, search/social metadata, icons, manifest, and Organization structured data
-- `src/pages/index.astro`, the whole page (hero, compare, quickstart, features, open source, launch) plus HUD chrome
+- `src/pages/index.astro`, the whole page (hero with the agent-sidebar prototype, three integration step sections with code and benefit tiles, integrations, open source, launch) plus HUD chrome. Benefits and integrations marked `soon` render an "IN PROGRESS" tag or a dashed chip
+- `public/demo/`, the sample CSV and spreadsheet the hero prototype's attachment and artifact chips download
 - `src/pages/404.astro`, "SIGNAL LOST" error page (wrangler `404-page` handling)
 - `src/pages/*.ts`, prerendered metadata resources, sitemap, icons, social image, `robots.txt`, and `llms.txt`
 - `src/assets/`, website-owned logos
 - `src/brand/palette.ts`, website-owned sRGB colors used by generated metadata images
 - `src/brand/theme.schema.json`, hardcoded public theme schema snapshot
 - `src/styles/global.css`, all styling, including website-owned semantic colors under explicit theme selectors
-- `src/scripts/main.ts`, canvas starfield, scramble-in headlines, scroll reveals, terminal typing, and the hardcoded agent-sidebar prototype replay
+- `src/scripts/main.ts`, canvas starfield, scramble-in headlines, scroll reveals, per-snippet terminal typing, and the hardcoded agent-sidebar prototype replay in the hero
 - `src/pages/schemas/theme.schema.json.ts`, prerendered route that publishes the website-owned schema snapshot
 - `scripts/verify-build.test.ts`, Deno-executed Vitest contract tests for page metadata and every generated discovery asset
 
