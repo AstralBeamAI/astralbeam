@@ -43,9 +43,6 @@ export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRend
         onError={() => clearTurnstile("Human verification failed to load. Please try again.")}
         onTimeout={() => clearTurnstile("Human verification timed out. Please try again.")}
         onUnsupported={() => clearTurnstile("Human verification is not supported by this browser.")}
-        scriptOptions={{
-          onError: () => clearTurnstile("Human verification failed to load. Please try again."),
-        }}
       />
       <FieldError>{error}</FieldError>
     </Field>

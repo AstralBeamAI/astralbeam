@@ -3,6 +3,7 @@ import { spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { fromCrossJSON, type SerovalNode, toJSON } from "seroval"
 import { sql } from "drizzle-orm"
+import { defaultKeyHasher } from "@better-auth/api-key"
 import * as Effect from "effect/Effect"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -54,7 +55,7 @@ vi.mock("@/emails/index", () => ({
 import { db, runDatabaseEffect } from "@/db"
 import { getDatabaseConfig } from "@/db/config.server"
 import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
-import { account, agent, member, organization, user } from "@/db/schema.server"
+import { account, agent, apiKey, member, organization, user } from "@/db/schema.server"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
@@ -124,13 +125,22 @@ describe.skipIf(!dogfoodIntegration.url)(
       const [created] = await db.select().from(user)
       expect(created).toMatchObject({ emailVerified: true, termsAcceptedAt: null })
       expect(await db.select().from(account)).toHaveLength(0)
+      const keys = await db.select().from(apiKey)
+      expect(keys).toHaveLength(1)
       expect(await db.select().from(agent)).toHaveLength(1)
       dogfoodIntegration.failEmail = false
       await provisionDogfood()
       expect(sendResetPasswordEmail).toHaveBeenCalledTimes(2)
       expect(await db.select().from(user)).toHaveLength(1)
+      expect(await db.select().from(apiKey)).toEqual(keys)
       expect(await db.select().from(agent)).toHaveLength(1)
-      expect((await getDatabaseConfig()).values.dogfood_pending_setup).toBeUndefined()
+      const { values } = await getDatabaseConfig()
+      expect(values.dogfood_pending_setup).toBeUndefined()
+      const prefix = `key_${keys[0]!.organizationId}_${keys[0]!.id}_`
+      expect(values.dogfood_api_key).toMatch(new RegExp(`^${prefix}abo_[A-Za-z]{64}$`))
+      expect(await defaultKeyHasher(values.dogfood_api_key!.slice(prefix.length))).toBe(
+        keys[0]!.key,
+      )
       await completeOwnerPassword()
     })
 
@@ -262,8 +272,8 @@ describe.skipIf(!dogfoodIntegration.url)(
           }, { timeout: 30_000, interval: 250 })
           const cases = [
             ["save-config-values", { updates: [] }],
-            ["generate-config-value", { key: "dogfood_organization_id" }],
-            ["reveal-config-value", { key: "dogfood_organization_id" }],
+            ["generate-config-value", { key: "dogfood_api_key" }],
+            ["reveal-config-value", { key: "dogfood_api_key" }],
             ["apply-migrations", { approvedMigrations: [] }],
             ["test-email-provider-connection", {
               provider: "smtp",
@@ -330,13 +340,14 @@ describe.skipIf(!dogfoodIntegration.url)(
             await lock
           }
           const configured = (await getDatabaseConfig()).values
-          const key = "dogfood_organization_id"
-          const encrypted = encryptDatabaseValue({
-            value: { key, value: configured[key]! },
-            decode: decodeConfigValuePayload,
-            keyring: parseDatabaseEncryptionKeyring(fallbackKey),
-          })
-          await db.execute(sql`update config set value = ${encrypted} where key = ${key}`)
+          for (const key of ["dogfood_organization_id", "dogfood_api_key"] as const) {
+            const encrypted = encryptDatabaseValue({
+              value: { key, value: configured[key]! },
+              decode: decodeConfigValuePayload,
+              keyring: parseDatabaseEncryptionKeyring(fallbackKey),
+            })
+            await db.execute(sql`update config set value = ${encrypted} where key = ${key}`)
+          }
           const response = await requests.get("save-config-values")!(authorizedCookie)
           const result = fromCrossJSON(await response.json() as SerovalNode, {}) as {
             result: unknown

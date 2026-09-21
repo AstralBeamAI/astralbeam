@@ -7,6 +7,7 @@ import {
   getDatabaseConfigEffect,
 } from "@/db/config.server"
 import {
+  createDogfoodCredential,
   createDogfoodOwner,
   isDogfoodOwner,
   readDogfoodOrganization,
@@ -99,7 +100,8 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
     }
     if (
       state.rows?.some((row) =>
-        (row.key === "dogfood_organization_id" || row.key === "dogfood_pending_setup") &&
+        (row.key === "dogfood_organization_id" || row.key === "dogfood_api_key" ||
+          row.key === "dogfood_pending_setup") &&
         row.storageStatus === "unreadable"
       )
     ) {
@@ -109,7 +111,7 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
         ),
       )
     }
-    const pending = yield* prepareOwnerOnboarding(
+    let pending = yield* prepareOwnerOnboarding(
       { ...input, email: input.email.toLowerCase() },
       state,
     )
@@ -154,6 +156,10 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
     const organizationId = customer.id
     yield* savePendingOwner({ ...pending, organizationId })
     yield* provisionOrganizationDefaultAgent({ organizationId, organizationName: customer.name })
+    if (!pending.apiKey) {
+      pending = yield* createDogfoodCredential({ ...pending, organizationId })
+      yield* Effect.sync(invalidateGlobalConfig)
+    }
     if (pending.requiresResetEmail) {
       const baseUrl = yield* ownerProvisioningApi(
         () => getGlobalConfig("app_base_url"),
@@ -174,6 +180,7 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
     }
     yield* applyDatabaseConfigChangesEffect([
       { key: "dogfood_organization_id", value: organizationId },
+      { key: "dogfood_api_key", value: pending.apiKey! },
       { key: "dogfood_pending_setup", value: null },
     ])
     yield* Effect.sync(invalidateGlobalConfig)
