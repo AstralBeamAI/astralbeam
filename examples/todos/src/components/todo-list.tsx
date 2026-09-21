@@ -1,4 +1,5 @@
 import type { AstralBeamChatColorScheme } from "@astralbeam/sdk/react"
+import { Link } from "@tanstack/react-router"
 
 import type { Todo } from "@/lib/types.ts"
 
@@ -37,6 +38,9 @@ export function TodoList({
     <main className="todos">
       <header className="todos-header">
         <h1>Todos</h1>
+        <nav aria-label="Example pages">
+          <Link to="/tenant-users">Tenant users</Link>
+        </nav>
       </header>
       <form
         className="todos-form"

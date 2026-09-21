@@ -8,6 +8,9 @@
     "npm:@tanstack/ai-client@0.28": "0.28.0_zod@4.5.4",
     "npm:@tanstack/ai@~0.49.1": "0.49.1_zod@4.5.4",
     "npm:@tanstack/markdown@^0.0.13": "0.0.13_react@19.2.8",
+    "npm:@tanstack/react-pacer@0.23": "0.23.0_react@19.2.8_react-dom@19.2.8",
+    "npm:@tanstack/react-query@^5.102.8": "5.102.8_react@19.2.8",
+    "npm:@tanstack/react-table@^9.2.4": "9.2.4_react@19.2.8_react-dom@19.2.8",
     "npm:@types/react-dom@^19.2.3": "19.2.4_@types+react@19.2.18",
     "npm:@types/react@^19.2.13": "19.2.18",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
@@ -1398,7 +1401,7 @@
     "@tanstack/ai-event-client@0.10.0": {
       "integrity": "sha512-grvlmM0z4rMLvjwPKBfT4/sL4D97yqocSzyaTvUa+2wZmXESCf/uR/7ZAldOKBasEx6qO5EJ31hdKDEDjnrnDg==",
       "dependencies": [
-        "@tanstack/devtools-event-client"
+        "@tanstack/devtools-event-client@0.4.4"
       ]
     },
     "@tanstack/ai-utils@0.4.0": {
@@ -1418,6 +1421,10 @@
       "integrity": "sha512-6T5Yop/793YI+H+5J8Hsyj4kCih9sl4t3ElLgKioW5hk3ocn+ZdSJ94tT7vL7uabxSugWYBZlOTMPzEw2puvQw==",
       "bin": true
     },
+    "@tanstack/devtools-event-client@0.5.0": {
+      "integrity": "sha512-H+OH3zC6Vhu/K0NaVfQKknEKawc/+2PT+D3SB3Ox0V8SiMlTo0abbmH2rH0721R2aNYbjdMXA1oENOd8E2UVoA==",
+      "bin": true
+    },
     "@tanstack/markdown@0.0.13_react@19.2.8": {
       "integrity": "sha512-ZSQP2ulBvlPzdpZeRheBJnaELo7e4ET/D/XrfgweHyqhhLMN5vUJJAUl7ufSRd7GlfO/vwdzjKPh0E0JwqJkDA==",
       "dependencies": [
@@ -1425,6 +1432,58 @@
       ],
       "optionalPeers": [
         "react"
+      ]
+    },
+    "@tanstack/pacer@0.22.0": {
+      "integrity": "sha512-Zq23KOn30tFiA6ZYWihs5x++ttHkOIcnIIjRrJq05tGrYx9+iHsmVaj8jb7UJVemEI+JRWGzJ9C+50YV4nRz0w==",
+      "dependencies": [
+        "@tanstack/devtools-event-client@0.5.0",
+        "@tanstack/store"
+      ]
+    },
+    "@tanstack/query-core@5.102.8": {
+      "integrity": "sha512-ZNjkJ33CqvPNec/6lZBnHqLc3EVGPZ9ySLhYahU9TcuRFdmwXewuj0c4hwSWcGHqEUwcSrKeZ+oGcvPBqXcQcg=="
+    },
+    "@tanstack/react-pacer@0.23.0_react@19.2.8_react-dom@19.2.8": {
+      "integrity": "sha512-Ec3h+kT8kYlpGb1M8F7836q+udE/M2RmE8KLr1rhs+UDBgvxjfmyR2bIUeaDEe9Zn1YXNI986RbErXyr5fEJIg==",
+      "dependencies": [
+        "@tanstack/pacer",
+        "@tanstack/react-store",
+        "react",
+        "react-dom"
+      ]
+    },
+    "@tanstack/react-query@5.102.8_react@19.2.8": {
+      "integrity": "sha512-TYBea4OuXWD7MhaSHq069TWbFe7rcwWN6kzT7JF0OKi1K6c1gTv2IzD6A6ExJsCMozdkqBWeuIUZmu4KQg0O5A==",
+      "dependencies": [
+        "@tanstack/query-core",
+        "react"
+      ]
+    },
+    "@tanstack/react-store@0.11.1_react@19.2.8_react-dom@19.2.8": {
+      "integrity": "sha512-HaIGKI3YLmjBYIvy5DFDY23oNaYZIsTZfngey07Uh5iLVJgM3bIGCnZeOFOqzjFld9JHWcaHJnasD/bKoGKwJQ==",
+      "dependencies": [
+        "@tanstack/store",
+        "react",
+        "react-dom",
+        "use-sync-external-store"
+      ]
+    },
+    "@tanstack/react-table@9.2.4_react@19.2.8_react-dom@19.2.8": {
+      "integrity": "sha512-Rzp1Q4e0/nIgEjmISYR5HeEgLTNtrG+C7NFZf/AbCxPO5hg+zC3yNGwcoECigUk8SFzzvhXbd2rFdtP2ZiGrfA==",
+      "dependencies": [
+        "@tanstack/react-store",
+        "@tanstack/table-core",
+        "react"
+      ]
+    },
+    "@tanstack/store@0.11.1": {
+      "integrity": "sha512-mzTOBhypOuDJAy/D8n2MfUZ1HFkXnmSETviRyhqEC8LUE7/IZQExOTxMANj3KjTofYTkFNpBY67qaVrT41YccA=="
+    },
+    "@tanstack/table-core@9.2.4": {
+      "integrity": "sha512-GwdDyGGr6UXAtubF14yAwcXvdaogqfsQgIk89Suebjxob/Rjq2xvfmXsjDF1rQmKmhHsJm9TOY7myxv3i6geJw==",
+      "dependencies": [
+        "@tanstack/store"
       ]
     },
     "@ts-morph/common@0.27.0": {
@@ -3710,6 +3769,9 @@
         "npm:@tanstack/ai-client@0.28",
         "npm:@tanstack/ai@~0.49.1",
         "npm:@tanstack/markdown@^0.0.13",
+        "npm:@tanstack/react-pacer@0.23",
+        "npm:@tanstack/react-query@^5.102.8",
+        "npm:@tanstack/react-table@^9.2.4",
         "npm:@types/react-dom@^19.2.3",
         "npm:@types/react@^19.2.13",
         "npm:class-variance-authority@~0.7.1",

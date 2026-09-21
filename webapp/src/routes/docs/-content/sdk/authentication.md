@@ -1,10 +1,12 @@
 # Authentication
 
-Your server authenticates the application session and issues a short-lived chat JWT. The widget receives that token, never your API key or application session credential.
+Tenant JWTs identify your application's tenant users to AstralBeam. Let's connect your authenticated session to chat and tenant directories without exposing your API key.
 
 ## The auth token endpoint
 
-`/api/astralbeam/token` by default. Point the widget elsewhere with `fetchAstralBeamToken`. Your handler authenticates its own session, mints a chat token with `createAstralBeamToken`, and answers `{ token }`.
+Chat uses `/api/astralbeam/token` by default. Directories require an explicit `fetchAstralBeamToken` option, which can point to that same endpoint. Your handler authenticates its own session and answers `{ token }`.
+
+Let's issue a token for the user and tenant from your trusted session:
 
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
@@ -12,32 +14,45 @@ import { createAstralBeamToken } from "@astralbeam/sdk/server"
 const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organizationId>_<id>_abo_<secret>
 
 export async function POST(request: Request) {
-  if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503 })
+  const headers = { "Cache-Control": "no-store" }
+  if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503, headers })
   const session = await getApplicationSession(request)
-  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
-  const token = await createAstralBeamToken({
-    apiKey,
-    user: {
-      id: session.user.id, // required; stable and unique within this tenant
-      name: session.user.name,
-      metadata: { email: session.user.email },
-    },
-    tenant: {
-      id: session.tenant.id,
-      name: session.tenant.name,
-      metadata: { plan: session.tenant.plan },
-    },
-  })
-  return Response.json({ token }, { headers: { "cache-control": "no-store" } })
+  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401, headers })
+  try {
+    const token = await createAstralBeamToken({
+      apiKey,
+      user: {
+        id: session.user.id,
+        name: session.user.name,
+        metadata: { email: session.user.email },
+      },
+      tenant: {
+        id: session.tenant.id,
+        name: session.tenant.name,
+        metadata: { plan: session.tenant.plan },
+      },
+    })
+    return Response.json({ token }, { headers })
+  } catch {
+    return Response.json({ error: "Token could not be issued" }, { status: 500, headers })
+  }
 }
 ```
 
 - Answer `cache-control: no-store`: a cached token would outlive its short expiry and reach the wrong end user.
 - Return `401` for a missing session and `503` for missing configuration. The widget displays the failure and offers a retry.
 - Catch the minting error rather than forwarding it, because its message can describe the API key's expected shape.
-- Only your handler shape changes per framework. The minting call is identical everywhere the fetch standard reaches.
+- `getApplicationSession` is your host application's authentication adapter, not an SDK function. Apply your framework's session and CSRF protections.
 
-## Where the chat auth token comes from
+## Directory access
+
+The token above permits chat, not directory access. Only set `user.admin: true` after verifying the user's tenant-admin permissions in your application.
+
+**NOTE**: Signed admin authority permits reading the Tenant and reading and writing its TenantUsers through the API. A read-only widget does not make its token read-only. Stored `admin` fields do not grant this authority.
+
+The Tenant must exist with an `external_id` matching the token's `tenant.id`. Persisted TenantUsers are directory contents, not an authentication prerequisite for the signed administrator. Deleting a TenantUser does not revoke a token. Authentication does not provision records. Follow [Tenant directories](./listings.md) for provisioning and embedding.
+
+## Where the token comes from
 
 `fetchAstralBeamToken` is the one option for this. Pass `{ url, ...init }` to point at an endpoint, which the widget calls as `fetch(url, init)` with a standard `RequestInit`, or pass a function that retrieves a server-minted token.
 
@@ -55,17 +70,17 @@ export async function POST(request: Request) {
 <AstralBeamChat fetchAstralBeamToken={async () => await mintChatAuthToken()} />
 ```
 
-- Default `{ url: "/api/astralbeam/token" }`, posted with the page's cookies, which needs a session cookie the browser will send.
+- Chat defaults to `{ url: "/api/astralbeam/token" }`. For directories, pass this explicitly. Cookie authentication requires a session cookie the browser will send.
 - Request defaults: `POST`, `credentials: "include"`, `cache: "no-store"`, and `accept: application/json`. Supplied values override these. Return `{ token }` in JSON.
 - Both forms run on renewal and after token rejection, keeping rotating credentials current.
 - React reads the function prop from the latest render. Closures over current authentication state need no memoization.
-- Returning `undefined` or throwing fails closed. The composer shows the error and its retry link asks you again.
-- Remount when switching end users so the previous user's transcript is discarded.
+- Returning `undefined` or throwing fails closed. The widget shows the error and offers a retry.
+- Remount when switching end users so the previous user's transcript or directory rows are discarded.
 - A cross-origin endpoint with a custom header is preflighted, so it must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
 
 ## Rules
 
-The chat auth token identifies the tenant user to AstralBeam, so treat it like a session credential.
+The tenant JWT identifies the tenant user to AstralBeam, so treat it like a session credential.
 
 - Authenticate once. Derive `user` and `tenant` from the same trusted server-side session, never browser-supplied identity.
 - `user.id` and `tenant.id` must be stable 1–255 character strings. Names are optional, and user IDs are tenant-local.
@@ -75,29 +90,7 @@ The chat auth token identifies the tenant user to AstralBeam, so treat it like a
 - The issuer is the organization UUID from the API key, with audience `astralbeam`. AstralBeam does not require `sub`.
 - `expiresInSeconds` accepts 60–600 seconds and defaults to 300. The SDK retains tokens in memory and renews before expiry.
 
-## Organization management tokens
-
-Use `createAstralBeamOrganizationToken` for organization-wide Tenant and TenantUser management. This is separate from chat authentication and does not create a dashboard login session.
-
-```ts
-import { createAstralBeamOrganizationToken } from "@astralbeam/sdk/server"
-
-const token = await createAstralBeamOrganizationToken({
-  apiKey,
-  email: session.user.email,
-  organizationId: configuredOrganizationId,
-  expiresInSeconds: 300,
-})
-```
-
-- Authenticate and authorize the operator on your server. Never take email or organization ownership directly from browser input.
-- Tokens delegate the selected member's current database permissions: owners/developers read and write, viewers read only. Role changes and membership removal apply on subsequent requests.
-- `organizationId` must match the API key's Organization. Tokens last 60–600 seconds, defaulting to 300.
-- The API-key holder selects the member and retains owner-equivalent resource access. These role checks restrict the delegated token, not its issuer.
-- Pass the token as `astralBeamToken` to `/api` helpers. Never encode roles in it. Missing membership or insufficient permission returns `403`.
-- Return tokens with `Cache-Control: no-store`. Keep API keys server-side and handle minting errors without exposing their details.
-
-See the [API client guide](./api) for a complete host endpoint, browser calls, filtering, and token-expiry recovery. Organization tokens cannot authenticate chat or dashboard administration.
+**NOTE**: Internal tools can also use [organization-management tokens](./api.md). They are separate from tenant authentication and cannot authenticate chat or create a dashboard session.
 
 ## Troubleshooting
 

@@ -1,3 +1,4 @@
+import { applyWidgetTheme } from "../lib/theme.ts"
 import {
   DEFAULT_API_URL,
   DEFAULT_COLOR_SCHEME,
@@ -32,6 +33,15 @@ export type {
 } from "../lib/types.ts"
 export { defineTool, defineWidget } from "../lib/define.ts"
 export type { TypedToolDefinition, TypedWidgetDefinition } from "../lib/define.ts"
+export { mountAstralBeamTenantList, mountAstralBeamTenantUserList } from "./listings.ts"
+export type {
+  AstralBeamListingHandle,
+  AstralBeamListingOptions,
+  AstralBeamTenantListHandle,
+  AstralBeamTenantUserListHandle,
+  MountAstralBeamTenantListOptions,
+  MountAstralBeamTenantUserListOptions,
+} from "./listings.ts"
 
 // Mounts the AstralBeam chat widget into `target`, inside a shadow root that isolates
 // its styles. The React chat loads lazily, keeping this entry a tiny loader.
@@ -69,24 +79,15 @@ export function mountAstralBeamChat(
   // Inline custom properties on the container override the sheet's `:host`/`.dark` blocks by
   // inheritance; `setProperty` keeps host-supplied names and values out of parsed CSS text.
   const appliedVariables = new Set<string>()
-  const applyThemeVariables = (dark: boolean) => {
-    for (const name of appliedVariables) container.style.removeProperty(name)
-    appliedVariables.clear()
-    // Mirrors shadcn's `:root`/`.dark` split: `light` is the base for both schemes.
-    const overrides = { ...live.theme?.light, ...(dark ? live.theme?.dark : undefined) }
-    for (const [name, value] of Object.entries(overrides)) {
-      if (!name.startsWith("--")) continue
-      container.style.setProperty(name, value)
-      appliedVariables.add(name)
-    }
-  }
   // The `.dark` class on the container drives the palette and the Tailwind `dark:` variant; light
   // needs no class. `"system"` re-resolves on OS preference changes.
   const applyTheme = () => {
-    const colorScheme = live.colorScheme ?? DEFAULT_COLOR_SCHEME
-    const dark = colorScheme === "dark" || (colorScheme === "system" && systemDark.matches)
-    container.classList.toggle("dark", dark)
-    applyThemeVariables(dark)
+    const { colorScheme, dark } = applyWidgetTheme(
+      container,
+      appliedVariables,
+      live,
+      systemDark.matches,
+    )
     debug?.("theme", `color scheme "${colorScheme}" resolved to ${dark ? "dark" : "light"}`, {
       themeVariables: [...appliedVariables],
     })

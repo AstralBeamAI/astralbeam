@@ -154,7 +154,7 @@ export const SEED_ORGANIZATIONS = [
           {
             externalId: SEED_NAMES.todosTenantUser,
             name: "Ada Lovelace",
-            admin: false,
+            admin: true,
             metadata: { email: "ada@example.com" },
           },
         ],
@@ -231,6 +231,7 @@ export const SEED_TODOS_TARGET = {
   user: {
     id: SEED_NAMES.todosTenantUser,
     name: "Ada Lovelace",
+    admin: true,
     metadata: { email: "ada@example.com" },
   },
 } as const

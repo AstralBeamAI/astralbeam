@@ -2,14 +2,13 @@
 
 Use `@astralbeam/sdk/api` to manage Tenants and TenantUsers from your server or an authorized browser session. The same helpers work in both environments.
 
-| Use case                  | Credential                         | Resource access                                     |
-| ------------------------- | ---------------------------------- | --------------------------------------------------- |
-| Backend provisioning      | Organization API key               | Read and write throughout its Organization          |
-| Employee management UI    | Organization JWT                   | Owners/developers read and write; viewers read only |
-| Customer administrator UI | Tenant JWT with `user.admin: true` | Read its Tenant; read and write its TenantUsers     |
-| End-user chat             | Tenant JWT                         | Chat only, unless signed admin is true              |
+| Use case                  | Credential                         | Resource access                                 |
+| ------------------------- | ---------------------------------- | ----------------------------------------------- |
+| Backend provisioning      | Organization API key               | Read and write throughout its Organization      |
+| Customer administrator UI | Tenant JWT with `user.admin: true` | Read its Tenant; read and write its TenantUsers |
+| End-user chat             | Tenant JWT                         | Chat only, unless signed admin is true          |
 
-Organization JWT users must already be AstralBeam organization members. TenantUsers are your customers' users and do not need dashboard accounts. Neither token provisions Tenant or TenantUser records.
+TenantUsers are your customers' users and do not need dashboard accounts. Authentication does not provision Tenant or TenantUser records.
 
 ## Server: organization API key
 
@@ -32,6 +31,10 @@ if (first.page_after) {
 API records use internal IDs. Token-facing user and tenant IDs remain your application's external identifiers. Fields match the REST API, including `external_id`, `created_at`, and `page_after`. Timestamps are strings.
 
 ## Browser: organization JWT
+
+This optional path is for internal employee tools, not typical customer embeds. Organization JWT users must already be AstralBeam organization members. Tokens delegate their current database permissions: owners and developers can read and write, while viewers can only read. API-key holders select the member and retain owner-equivalent access. These restrictions apply to the delegated token, not its issuer.
+
+The helper accepts `expiresInSeconds` between 60 and 600, defaulting to 300. `organizationId` must match the API key's Organization.
 
 Create an authenticated endpoint in your application. This example path, `/api/astralbeam/organization-token`, is host-owned, not an AstralBeam endpoint. Keep it separate from your tenant chat token endpoint.
 

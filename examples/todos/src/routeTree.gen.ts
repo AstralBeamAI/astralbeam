@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TenantUsersIndexRouteImport } from './routes/tenant-users/index'
 import { Route as ApiAstralbeamTokenRouteImport } from './routes/api/astralbeam/token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TenantUsersIndexRoute = TenantUsersIndexRouteImport.update({
+  id: '/tenant-users/',
+  path: '/tenant-users/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
@@ -25,27 +31,31 @@ const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/tenant-users/': typeof TenantUsersIndexRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/tenant-users': typeof TenantUsersIndexRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/tenant-users/': typeof TenantUsersIndexRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/astralbeam/token'
+  fullPaths: '/' | '/tenant-users/' | '/api/astralbeam/token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/astralbeam/token'
-  id: '__root__' | '/' | '/api/astralbeam/token'
+  to: '/' | '/tenant-users' | '/api/astralbeam/token'
+  id: '__root__' | '/' | '/tenant-users/' | '/api/astralbeam/token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  TenantUsersIndexRoute: typeof TenantUsersIndexRoute
   ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tenant-users/': {
+      id: '/tenant-users/'
+      path: '/tenant-users'
+      fullPath: '/tenant-users/'
+      preLoaderRoute: typeof TenantUsersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/astralbeam/token': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  TenantUsersIndexRoute: TenantUsersIndexRoute,
   ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
 }
 export const routeTree = rootRouteImport

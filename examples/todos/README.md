@@ -1,6 +1,6 @@
 # Todos example
 
-A TanStack Start app demonstrating the SDK sidebar, host tools, inline `TodoCard` widgets, attachments, and the optional sandbox panel. Its plain CSS stays separate from the widget's shadow-root styles.
+A TanStack Start app demonstrating the SDK chat sidebar and tenant-user listing, host tools, inline `TodoCard` widgets, attachments, and the optional sandbox panel. Its plain CSS stays separate from the widgets' shadow-root styles.
 
 ## Demo agent prompt
 
@@ -13,13 +13,16 @@ The quickest path is `deno task --cwd webapp db-seed`, which creates the `acme` 
 1. In the webapp, use the organization's starter agent (already the default) or create one on the agents page, and set its system prompt to the demo prompt above. Prompts are agent configuration. The SDK cannot override them.
 2. Optionally configure and test a sandbox provider on the **Sandboxes** page, then select it on the agent. The endpoint gives that agent sandbox tools, and the demo prompt asks it to use them.
 3. Create an organization API key and copy the one-time `key_<organizationId>_<id>_abo_<secret>` value.
-4. Copy `.env.example` to `.env` and configure the confidential API key on the server. Leave `VITE_ASTRALBEAM_AGENT_ID` empty to use the organization's default agent, or set the browser-safe agent ID shown on the agents page. The API key and agent must belong to the same organization.
-5. Set the organization's OpenAI API key on the webapp's organization **Settings** page, which is what every chat run streams on. Then start the webapp on port 4500 (`deno task dev` from `webapp`). It verifies authenticated requests at `/api/v1/chat`.
+4. Copy `.env.example` to `.env.local` and configure the confidential API key on the server. Leave `VITE_ASTRALBEAM_AGENT_ID` empty to use the organization's default agent, or set the browser-safe agent ID shown on the agents page. The API key and agent must belong to the same organization. Never commit `.env.local`.
+5. Start the webapp on port 4500 with `deno task --cwd webapp dev` from the repository root. For chat, also set the organization's OpenAI API key on its **Settings** page. The tenant-user listing does not need a model key or sandbox provider.
 6. Build the SDK with `deno task build` from `sdk`.
-7. From this directory, run `deno install` and `deno task dev`, then open <http://localhost:4700>.
+7. For the listing, provision a Tenant with `external_id: "todos-tenant-1"` and a TenantUser with `external_id: "todos-user-1"` under it in the API key's Organization. The seed already creates these records. For manual setup, use the [directory provisioning example](https://app.astralbeam.ai/docs/sdk/listings) with these IDs, which match [`src/lib/constants.server.ts`](src/lib/constants.server.ts).
+8. From this directory, run `deno install` and `deno task dev`, then open <http://localhost:4700>.
 
 ## Try it
 
+- Open **Tenant users** (`/tenant-users`) to browse the current tenant's users. It shares the chat token endpoint and uses the SDK's default tenant scope. The demo user's signed admin claim permits reading and writing TenantUsers through the API, although the widget itself is read-only. It grants no access to other tenants or dashboard administration.
+- Enable **Show stored admin fields** to reveal the optional column and filter, or expand a name to inspect metadata. The tenant comes from the signed JWT, with no tenant picker or organization token.
 - Toggle **Hide assistant**, **Theme**, and **Custom theme** to compare layout and palettes.
 - Ask the assistant to edit todos, then toggle a `TodoCard` inside the chat and confirm the host list updates.
 - Paste a screenshot or attach `samples/tasks.csv` and ask the assistant to create todos or analyze the table.
