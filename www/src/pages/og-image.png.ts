@@ -35,7 +35,7 @@ function socialCardSvg() {
     <path d="M1010 -30L802 660" stroke="${palette.dark.primary.srgbHex}" stroke-width="3" opacity="0.62" filter="url(#beam-glow)"/>
     <rect x="38" y="38" width="1124" height="554" rx="8" fill="none" stroke="${palette.dark.border.srgbHex}" stroke-width="2"/>
     <path d="M38 94V38H94M1106 38H1162V94M38 536V592H94M1106 592H1162V536" fill="none" stroke="${palette.dark.primary.srgbHex}" stroke-width="3"/>
-    <text x="80" y="112" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="22" font-weight="700" letter-spacing="4">OPEN SOURCE AGENT INFRASTRUCTURE</text>
+    <text x="80" y="112" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans Mono, monospace" font-size="22" font-weight="700" letter-spacing="4">OPEN SOURCE · SELF-HOSTED OR MANAGED</text>
     <text x="80" y="272" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">ADD AN AGENT</text>
     <text x="80" y="370" fill="${palette.dark.primary.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">TO YOUR APP</text>
     <text x="80" y="468" fill="${palette.dark.foreground.srgbHex}" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="2">IN MINUTES</text>
