@@ -8,6 +8,7 @@ export function directoriesPage(page: Page) {
   return {
     tenants,
     users,
+    userTable: users.locator('[data-slot="directory-table"]'),
     error: page.getByRole("alert").filter({ hasText: "Directory error:" }),
     dismissError: page.getByRole("button", { name: "Dismiss error" }),
     retry: users.getByRole("button", { name: "Retry", exact: true }),
