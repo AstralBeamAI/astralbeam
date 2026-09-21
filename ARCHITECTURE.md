@@ -6,12 +6,12 @@ Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific cou
 
 ## The four projects
 
-| Project | Responsibility | Output |
-| --- | --- | --- |
-| `webapp` | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Deno binary |
-| `sdk` | Widget, headless session, React bindings, and token minting | `@astralbeam/sdk` npm package |
-| `www` | Static Astro website | Cloudflare assets |
-| `examples/todos` | Standalone SDK consumer and browser tests | Demo application |
+| Project          | Responsibility                                                        | Output                        |
+| ---------------- | --------------------------------------------------------------------- | ----------------------------- |
+| `webapp`         | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Deno binary                   |
+| `sdk`            | Widget, headless session, React bindings, and token minting           | `@astralbeam/sdk` npm package |
+| `www`            | Static Astro website                                                  | Cloudflare assets             |
+| `examples/todos` | Standalone SDK consumer and browser tests                             | Demo application              |
 
 Each project owns its dependencies, lockfile, and tooling because they ship independently. The root shares compiler defaults in `tsconfig.base.json` and launches `install`, `dev`, and `build` tasks.
 
@@ -52,17 +52,17 @@ First-party organization-owned rows use `(organization_id, id)` keys. Tenant-own
 
 ## Where state lives
 
-| Tables | State |
-| --- | --- |
-| `user`, `account`, `session`, `verification` | Dashboard identity and authentication |
-| `organization`, `member`, `invitation` | Customer organization and employee access |
-| `api_key` | Organization credential digest, lifecycle, and quotas |
-| `agent` | Name, prompt, attachment policy, optional sandbox provider |
-| `organization_configuration` | Organization's default agent |
-| `sandbox_provider` | Named provider options and encrypted credentials |
-| `tenant`, `tenant_user` | Customer-owned external identities and metadata |
-| `config` | Encrypted deployment settings |
-| `rate_limit` | Shared authentication, setup, and API counters |
+| Tables                                       | State                                                      |
+| -------------------------------------------- | ---------------------------------------------------------- |
+| `user`, `account`, `session`, `verification` | Dashboard identity and authentication                      |
+| `organization`, `member`, `invitation`       | Customer organization and employee access                  |
+| `api_key`                                    | Organization credential digest, lifecycle, and quotas      |
+| `agent`                                      | Name, prompt, attachment policy, optional sandbox provider |
+| `organization_configuration`                 | Organization's default agent                               |
+| `sandbox_provider`                           | Named provider options and encrypted credentials           |
+| `tenant`, `tenant_user`                      | Customer-owned external identities and metadata            |
+| `config`                                     | Encrypted deployment settings                              |
+| `rate_limit`                                 | Shared authentication, setup, and API counters             |
 
 The application encrypts `config.value` and `sandbox_provider.credentials` through the Drizzle column codec. Compact JWE uses keys derived from `DATABASE_ENCRYPTION_KEY`. Payloads include row identity, checked after decoding to prevent ciphertext transplantation. Better Auth separately encrypts retained OAuth tokens.
 

@@ -159,7 +159,7 @@ export function ChatComposer(
           }}
         />
       )}
-      <InputGroup className={cn(dropTarget && "border-ring ring-3 ring-ring/50")}>
+      <InputGroup className={cn("cursor-text", dropTarget && "border-ring ring-3 ring-ring/50")}>
         {attachments.length > 0 && (
           <InputGroupAddon align="block-start">
             <ComposerAttachments attachments={attachments} onRemove={onRemoveAttachment} />

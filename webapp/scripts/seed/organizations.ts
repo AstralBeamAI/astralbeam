@@ -1,6 +1,15 @@
+import process from "node:process"
+
 import { and, eq, sql } from "drizzle-orm"
 
-import { invitation, member, organization } from "../../src/db/schema.server.ts"
+import { isValidOpenaiApiKey } from "../../src/lib/schemas.ts"
+
+import {
+  invitation,
+  member,
+  organization,
+  organizationConfiguration,
+} from "../../src/db/schema.server.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_ORGANIZATIONS } from "./fixtures.ts"
@@ -84,6 +93,34 @@ export async function seedOrganizations(
       })
     }
   }
+}
+
+export type SeedOpenaiApiKeyResult = "written" | "invalid" | "missing"
+
+/**
+ * Gives every seeded organization the environment's `OPENAI_API_KEY` as its own key.
+ *
+ * The deployment holds no model key: `/api/v1/chat` streams on the organization's. This keeps a
+ * fresh local database able to run chat without pasting the key into the dashboard.
+ */
+export async function seedOrganizationOpenaiApiKeys(
+  transaction: SeedTransaction,
+): Promise<SeedOpenaiApiKeyResult> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
+  if (!apiKey) return "missing"
+  if (!isValidOpenaiApiKey(apiKey)) return "invalid"
+  for (const seedOrganization of SEED_ORGANIZATIONS) {
+    const openaiApiKey = { organizationId: seedOrganization.id, apiKey }
+    await transaction
+      .insert(organizationConfiguration)
+      .values({ organizationId: seedOrganization.id, openaiApiKey })
+      .onConflictDoUpdate({
+        target: organizationConfiguration.organizationId,
+        // An upsert bypasses Drizzle's `updatedAt` hook, so the column is set explicitly.
+        set: { openaiApiKey, updatedAt: sql`now()` },
+      })
+  }
+  return "written"
 }
 
 function requireSeedUserId(userIdsByEmail: ReadonlyMap<string, string>, email: string): string {

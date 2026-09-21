@@ -36,6 +36,9 @@ jobs:
           # Caches the module cache, keyed by a hash of the per-project deno.lock files.
           cache: true
 
+      - name: Check root formatting
+        run: deno task format:check
+
       - name: Cache SDK node_modules
         if: matrix.project == 'examples/todos'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6

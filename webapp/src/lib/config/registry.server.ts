@@ -303,15 +303,6 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     decode: nonEmptyDecoder("AWS secret access key"),
   },
   {
-    key: "openai_api_key",
-    group: "LLM Providers",
-    label: "OpenAI API Key",
-    description: "Powers the chat API. Chat requests fail with 503 while it is unset.",
-    kind: "secret",
-    required: false,
-    decode: nonEmptyDecoder("OpenAI API key"),
-  },
-  {
     key: "privacy_policy_url",
     group: "General",
     label: "Privacy Policy URL",

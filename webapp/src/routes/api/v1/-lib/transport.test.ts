@@ -102,7 +102,9 @@ vi.mock("@/lib/organization-token.server", () => ({
   ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
   authenticateOrganizationRequest: restTestState.organizationAuth,
 }))
-vi.mock("@/lib/config", () => ({ getGlobalConfig: () => Promise.resolve("test-provider-key") }))
+vi.mock("@/db/organization-openai-api-key.server", () => ({
+  readOrganizationOpenaiApiKey: () => Effect.succeed("test-provider-key"),
+}))
 vi.mock("@/lib/chat/agent.server", () => ({ resolveChatAgent: restTestState.agent }))
 vi.mock("@tanstack/ai", async (original) => ({
   ...await original<typeof import("@tanstack/ai")>(),

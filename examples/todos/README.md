@@ -14,7 +14,7 @@ The quickest path is `deno task --cwd webapp db-seed`, which creates the `acme` 
 2. Optionally configure and test a sandbox provider on the **Sandboxes** page, then select it on the agent. The endpoint gives that agent sandbox tools, and the demo prompt asks it to use them.
 3. Create an organization API key and copy the one-time `key_<organizationId>_<id>_abo_<secret>` value.
 4. Copy `.env.example` to `.env` and configure the confidential API key on the server. Leave `VITE_ASTRALBEAM_AGENT_ID` empty to use the organization's default agent, or set the browser-safe agent ID shown on the agents page. The API key and agent must belong to the same organization.
-5. Start the webapp on port 4500 (`deno task dev` from `webapp`) with `OPENAI_API_KEY` configured. It verifies authenticated requests at `/api/v1/chat`.
+5. Set the organization's OpenAI API key on the webapp's organization **Settings** page, which is what every chat run streams on. Then start the webapp on port 4500 (`deno task dev` from `webapp`). It verifies authenticated requests at `/api/v1/chat`.
 6. Build the SDK with `deno task build` from `sdk`.
 7. From this directory, run `deno install` and `deno task dev`, then open <http://localhost:4700>.
 

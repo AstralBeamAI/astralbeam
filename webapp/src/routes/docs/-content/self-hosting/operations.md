@@ -113,7 +113,7 @@ deno task --cwd webapp db migrate
 deno task --cwd webapp db-seed
 ```
 
-The seed prints every account with its password, each agent's public ID, and each API key's full value. It never writes `openai_api_key` and skips any setting that has an environment override.
+The seed prints every account with its password, each agent's public ID, and each API key's full value. It skips any setting that has an environment override, and stores `OPENAI_API_KEY` from the environment as every seeded organization's own OpenAI API key.
 
 It refuses anything but a loopback database host, reporting `Refusing to seed the database at '<host>': seeding writes fixed development credentials and is limited to a loopback host`, because it writes fixed, published credentials. It also requires `DATABASE_ENCRYPTION_KEY`, refuses to run against an unmigrated database, runs in one transaction, and can be re-run to restore the fixture values.
 

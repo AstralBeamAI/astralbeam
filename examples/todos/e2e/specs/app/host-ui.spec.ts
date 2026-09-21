@@ -67,3 +67,12 @@ test("the debug switch reports its state", async ({ todos }) => {
   await todos.toggleDebug()
   await expect(todos.controls.debug).toHaveText("Debug: on")
 })
+
+test("a tap beside the text focuses the message input", async ({ chat }) => {
+  await chat.waitForReady()
+  await expect(chat.composer()).not.toBeFocused()
+
+  // The middle of the button row is padding: the attach button sits at its start, send at its end.
+  await chat.composerButtonRow().click()
+  await expect(chat.composer()).toBeFocused()
+})

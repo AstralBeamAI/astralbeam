@@ -87,7 +87,7 @@ The seed runs in one transaction and can be rerun to restore fixture values. It 
 
 It prints every account with its password, each agent's public ID, each API key's full value, and a ready-to-paste block for `examples/todos/.env`. `scripts/seed/fixtures.ts` is the single source of those values, and `examples/todos/e2e` imports it directly.
 
-The seed never writes `openai_api_key` and skips configuration keys with an uppercase environment override. Put the OpenAI key in `webapp/.env.local`, which `scripts/copy-worktree-env.sh` copies into every worktree. See [environment configuration](../../../SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
+The seed skips configuration keys with an uppercase environment override, and writes `OPENAI_API_KEY` as every seeded organization's own encrypted key, because `/api/v1/chat` streams on the organization's key rather than a deployment one. Put the OpenAI key in `webapp/.env.local`, which `scripts/copy-worktree-env.sh` copies into every worktree. See [environment configuration](../../../SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
 
 ## Drizzle migration workflow
 
