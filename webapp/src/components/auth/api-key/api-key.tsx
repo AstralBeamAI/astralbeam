@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons and support exact optional property types.
+// Local changes: Use Phosphor icons, support exact optional property types, and disable last-key deletion.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { KeyIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react"
@@ -23,6 +23,7 @@ export type ApiKeyProps = {
   apiKey: OrganizationApiKey
   /** Hide the row's delete button (e.g., when caller lacks `apiKey:delete`). */
   hideDelete?: boolean | undefined
+  deleteDisabled?: boolean | undefined
   /** Hide the row's edit button (e.g., when caller lacks `apiKey:update`). */
   hideUpdate?: boolean | undefined
   /** Called after this key is deleted. */
@@ -32,6 +33,7 @@ export type ApiKeyProps = {
 export function ApiKey({
   apiKey,
   hideDelete,
+  deleteDisabled,
   hideUpdate,
   onDeleted,
 }: ApiKeyProps) {
@@ -89,18 +91,21 @@ export function ApiKey({
               size="sm"
               onClick={() => setDeleteOpen(true)}
               aria-label={apiKeyLocalization.deleteApiKey}
+              disabled={deleteDisabled}
             >
               <XIcon aria-hidden="true" />
 
               {localization.settings.delete}
             </Button>
 
-            <DeleteApiKeyDialog
-              open={deleteOpen}
-              onOpenChange={setDeleteOpen}
-              apiKey={apiKey}
-              onDeleted={onDeleted}
-            />
+            {!deleteDisabled && (
+              <DeleteApiKeyDialog
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                apiKey={apiKey}
+                onDeleted={onDeleted}
+              />
+            )}
           </>
         )}
       </ItemActions>

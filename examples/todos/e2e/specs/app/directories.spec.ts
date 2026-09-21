@@ -52,17 +52,17 @@ test("directories share chat theme tokens across system, dark, and removed overr
   const directory = directoriesPage(page)
   const tenant = SEED_ORGANIZATIONS[0].tenants[0]
   await directory.open()
-  await expect(directory.users).toHaveCSS("background-color", "rgb(250, 246, 239)")
+  await expect(directory.userTable).toHaveCSS("background-color", "rgb(253, 249, 240)")
   await page.emulateMedia({ colorScheme: "dark" })
-  await expect(directory.users).toHaveCSS("background-color", "rgb(32, 26, 17)")
+  await expect(directory.userTable).toHaveCSS("background-color", "rgb(43, 36, 22)")
   await captureMoment(page, "tenant-users-shared-dark-theme")
   await directory.theme.click()
-  await expect(directory.users).toHaveCSS("background-color", "rgb(250, 246, 239)")
+  await expect(directory.userTable).toHaveCSS("background-color", "rgb(253, 249, 240)")
   await directory.customTheme.click()
-  await expect(directory.users).toHaveCSS("--background", /^oklch\((1|100%) 0 0\)$/)
+  await expect(directory.userTable).toHaveCSS("background-color", /^oklch\((1|100%) 0 0\)$/)
   await expect(directory.user(tenant.users[0].name)).toBeVisible()
   await directory.customTheme.click()
-  await expect(directory.users).toHaveCSS("background-color", "rgb(250, 246, 239)")
+  await expect(directory.userTable).toHaveCSS("background-color", "rgb(253, 249, 240)")
 })
 
 test("terminal API failures reach the host without losing the widget error UI", async ({ page }) => {

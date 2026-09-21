@@ -84,6 +84,7 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `title`, `showHeader`                | `"AstralBeam"`, `true`             | Header text, and whether the header and reset button show            |
 | `emptyTitle`, `emptyDescription`     | generic copy                       | Headline and subtitle of the empty transcript                        |
 | `colorScheme`, `theme`               | `"system"`, built-in palette       | Light/dark/system, and shadcn token overrides                        |
+| `customCss`                          | None                               | Trusted CSS inside the widget's Shadow DOM                           |
 | `attachments`                        | `true`                             | `false` hides the feature, or pass limits                            |
 | `tools`, `widgets`                   | none                               | What the agent can do and draw in your app                           |
 | `sandboxPanel`                       | `false`                            | Collected sandbox panel: files with downloads, command log           |

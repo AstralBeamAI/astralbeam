@@ -8,10 +8,11 @@ export function directoriesPage(page: Page) {
   return {
     tenants,
     users,
+    userTable: users.locator('[data-slot="directory-table"]'),
     error: page.getByRole("alert").filter({ hasText: "Directory error:" }),
     dismissError: page.getByRole("button", { name: "Dismiss error" }),
     retry: users.getByRole("button", { name: "Retry", exact: true }),
-    refresh: users.getByRole("button", { name: "Refresh", exact: true }),
+    refresh: users.getByRole("button", { name: "Refresh directory", exact: true }),
     next: tenants.getByRole("button", { name: "Next", exact: true }),
     previous: tenants.getByRole("button", { name: "Previous", exact: true }),
     reset: page.getByRole("button", { name: "Reset", exact: true }),

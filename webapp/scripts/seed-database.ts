@@ -46,10 +46,10 @@ try {
     const userIdsByEmail = await seedUsers(transaction)
     await seedOrganizations(transaction, userIdsByEmail)
     const agents = await seedAgents(transaction)
-    const openaiApiKey = await seedOrganizationOpenaiApiKeys(transaction)
     const apiKeys = await seedApiKeys(transaction)
     const tenantUserCount = await seedTenants(transaction)
     await seedDogfood(transaction, userIdsByEmail)
+    const openaiApiKey = await seedOrganizationOpenaiApiKeys(transaction)
     return { config, agents, apiKeys, openaiApiKey, tenantUserCount }
   })
 

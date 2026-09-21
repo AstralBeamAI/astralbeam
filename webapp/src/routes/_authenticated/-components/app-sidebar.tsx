@@ -91,7 +91,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
   const { Link, localization } = useAuth()
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const { setOpenMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
 
   useEffect(() => {
     setOpenMobile(false)
@@ -112,7 +112,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       <SidebarHeader>
         <OrganizationSwitcher
           align="start"
-          side="right"
+          side={isMobile ? "bottom" : "right"}
           hidePersonal
           hideSettings
           {...organization

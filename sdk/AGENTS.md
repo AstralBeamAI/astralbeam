@@ -75,6 +75,8 @@ Verify embedded directories through the existing consumer examples and their bro
 - Use TanStack Table's built-in state and APIs for supported table behavior instead of parallel React state. Keep opaque API cursors outside page-index pagination.
 - Directory pagination caps rendering at 100 records, so virtualization is unnecessary.
 - Display customer-provided external IDs as the first column labeled "ID" in directories. Do not display AstralBeam's internal record or tenant UUIDs.
+- Keep readable minimum column widths on narrow screens and confine horizontal scrolling to the table, without collapsing identifiers or overlapping neighboring cells.
+- Keep host-specific directory styling in consumer props (`theme` and `customCss`). Preserve SDK defaults and expose stable `data-slot` hooks instead of importing a consumer's design preferences into widget primitives.
 
 ## Testing
 

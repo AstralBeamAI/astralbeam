@@ -161,6 +161,7 @@ export function readOrganizationAgentById(input: { organizationId: string; id: s
 export function provisionOrganizationDefaultAgent(input: {
   organizationId: string
   organizationName: string
+  openaiApiKey?: string | undefined
 }) {
   return Effect.flatMap(
     effectDatabase,
@@ -169,6 +170,9 @@ export function provisionOrganizationDefaultAgent(input: {
         Effect.gen(function* () {
           yield* transaction.insert(organizationConfiguration).values({
             organizationId: input.organizationId,
+            openaiApiKey: input.openaiApiKey
+              ? { organizationId: input.organizationId, apiKey: input.openaiApiKey }
+              : undefined,
           })
             .onConflictDoNothing()
           const [configuration] = yield* transaction.select({

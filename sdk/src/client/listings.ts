@@ -12,6 +12,8 @@ export interface AstralBeamListingOptions extends AstralBeamListingCoreOptions {
   pageSize?: 20 | 50 | 100 | undefined
   title?: string | undefined
   showHeader?: boolean | undefined
+  /** Trusted application CSS, scoped to this widget's shadow root. */
+  customCss?: string | undefined
   colorScheme?: AstralBeamChatColorScheme | undefined
   theme?: AstralBeamChatTheme | undefined
 }
@@ -79,7 +81,7 @@ function mountListing(
 ): AstralBeamListingHandle<ListingOptions> {
   const shadow = target.shadowRoot ?? target.attachShadow({ mode: "open" })
   const container = document.createElement("div")
-  container.className = WIDGET_CONTAINER_CLASS
+  container.className = `${WIDGET_CONTAINER_CLASS} bg-transparent`
   container.style.height = "100%"
   shadow.append(container)
   const media = matchMedia("(prefers-color-scheme: dark)")

@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, and colocated list states.
+// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, last-key deletion protection, and colocated list states.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -209,6 +209,7 @@ export function ApiKeys({
                     <ApiKey
                       apiKey={key}
                       hideDelete={hideDelete}
+                      deleteDisabled={total <= 1}
                       hideUpdate={hideUpdate}
                       onDeleted={() => {
                         if (page > 0 && organizationApiKeys.length === 1) setPage(page - 1)
@@ -220,6 +221,11 @@ export function ApiKeys({
             )}
         </CardContent>
       </Card>
+      {!hideDelete && total === 1 && (
+        <p className="text-sm text-muted-foreground">
+          The last API key cannot be deleted. Create another key first.
+        </p>
+      )}
       {(page > 0 || hasNextPage) && (
         <div className="flex justify-end gap-2">
           <Button

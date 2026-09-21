@@ -1,13 +1,11 @@
-import { CHAT_MAX_REQUEST_BYTES } from "@/lib/chat/constants.server"
+export class RequestTooLargeError extends Error {}
 
-export class ChatRequestTooLargeError extends Error {}
-
-export async function readChatRequestJson(
+export async function readRequestJson(
   request: Request,
-  maximumBytes = CHAT_MAX_REQUEST_BYTES,
+  maximumBytes: number,
 ): Promise<unknown> {
   const declared = Number(request.headers.get("content-length"))
-  if (Number.isFinite(declared) && declared > maximumBytes) throw new ChatRequestTooLargeError()
+  if (Number.isFinite(declared) && declared > maximumBytes) throw new RequestTooLargeError()
   const reader = request.body?.getReader()
   if (!reader) return JSON.parse("") as unknown
 
@@ -20,7 +18,7 @@ export async function readChatRequestJson(
       byteLength += value.byteLength
       if (byteLength > maximumBytes) {
         await reader.cancel().catch(() => undefined)
-        throw new ChatRequestTooLargeError()
+        throw new RequestTooLargeError()
       }
       chunks.push(value)
     }

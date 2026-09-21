@@ -14,6 +14,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `emptyTitle`, `emptyDescription` | generic copy                       | Headline and subtitle of the empty transcript                                     |
 | `colorScheme`                    | `"system"`                         | `"light"`, `"dark"`, or follow the OS setting live                                |
 | `theme`                          | built-in palette                   | `{ light, dark }` CSS token overrides, see [Theming](./theming.md)                |
+| `customCss`                      | None                               | Trusted CSS inside the widget's Shadow DOM, updated without resetting chat        |
 | `attachments`                    | `true`                             | `false` disables, an object narrows limits. See [Attachments](./attachments.md)   |
 | `sandboxPanel`                   | `false`                            | Shows the collected sandbox panel, see [Sandbox](./sandbox.md)                    |
 | `tools`, `widgets`               | none                               | See [Tools and widgets](./tools-and-widgets.md)                                   |

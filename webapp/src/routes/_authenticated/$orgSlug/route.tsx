@@ -24,7 +24,6 @@ export const Route = createFileRoute("/_authenticated/$orgSlug")({
 })
 
 function OrganizationLayout() {
-  const { orgSlug } = Route.useParams()
   const { organization } = Route.useRouteContext()
 
   return (
@@ -35,7 +34,7 @@ function OrganizationLayout() {
           <SidebarTrigger />
           <ThemeToggle className="ms-auto" />
         </header>
-        <Outlet key={orgSlug} />
+        <Outlet key={organization.organizationId} />
       </SidebarInset>
     </SidebarProvider>
   )
