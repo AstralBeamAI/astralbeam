@@ -137,17 +137,6 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
             <SidebarGroupContent>
               <nav aria-label="Organization navigation">
                 <SidebarMenu>
-                  {organization.canConfigure && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        render={<a href="/configure" aria-label="Configure" />}
-                        tooltip="Configure"
-                      >
-                        <SlidersHorizontalIcon aria-hidden="true" />
-                        <span>Configure</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
                   {organizationNavigation.map((item) => {
                     if (item.permission && !organization.permissions[item.permission]) return null
                     const href = organizationPath(organization.organizationSlug, item.segment)

@@ -23,18 +23,12 @@ async function handleAuthRequest(request: Request): Promise<Response> {
   if (getDatabaseBootstrapIssues().length > 0) {
     return new Response("Server configuration required", { status: 503 })
   }
-  const [{ getAuth }, { setupGateResponse, isAuthConfigured }] = await Promise.all([
+  const [{ getAuth }, { setupGateResponse }] = await Promise.all([
     import("@/lib/auth.server"),
     import("@/lib/config/state.server"),
   ])
   const gate = await setupGateResponse()
-  if (gate) {
-    const path = new URL(request.url).pathname.replace(/^\/api\/auth/, "")
-    const recovery =
-      /^\/(?:get-session|sign-out|sign-in\/(?:email|social)|callback\/[^/]+|request-password-reset|reset-password(?:\/[^/]+)?|verify-email|send-verification-email)$/
-        .test(path)
-    if (!recovery || !await isAuthConfigured()) return gate
-  }
+  if (gate) return gate
   return (await getAuth()).handler(withTrustedForwardedFor(request))
 }
 

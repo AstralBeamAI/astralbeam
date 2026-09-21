@@ -63,15 +63,14 @@ const getSetupState = createIsomorphicFn()
     const { getDatabaseBootstrapIssues } = await import(
       "@/db/lib/database-credentials.server"
     )
-    if (getDatabaseBootstrapIssues().length > 0) return { setupComplete: false, authReady: false }
-    const { isSetupComplete, isAuthConfigured } = await import("@/lib/config/state.server")
+    if (getDatabaseBootstrapIssues().length > 0) return { setupComplete: false }
+    const { isSetupComplete } = await import("@/lib/config/state.server")
     return {
       setupComplete: await isSetupComplete(),
-      authReady: await isAuthConfigured(),
     }
   })
   // The server gates application documents. Public docs leave through a full document navigation.
-  .client(() => ({ setupComplete: true, authReady: true }))
+  .client(() => ({ setupComplete: true }))
 
 function isDocsPath(pathname: string): boolean {
   return pathname === "/docs" || pathname.startsWith("/docs/")
@@ -90,7 +89,7 @@ export const Route = createRootRouteWithContext<{
     const isConfigurePath = location.pathname === "/configure" ||
       location.pathname.startsWith("/configure/")
     if (!state.setupComplete) {
-      if (isConfigurePath || (state.authReady && location.pathname.startsWith("/auth/"))) return
+      if (isConfigurePath) return
       throw redirect({ to: "/configure", replace: true })
     }
 

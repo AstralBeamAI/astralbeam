@@ -2,12 +2,19 @@ import { getDatabaseMigrationState } from "@/db/migration-runner.server"
 import { getGlobalConfigState } from "@/lib/config/runtime.server"
 import type { ConfigValues, PublicConfig } from "@/lib/types"
 
-export async function isSetupComplete(): Promise<boolean> {
+async function loadSetupState() {
   const [config, migrations] = await Promise.all([
     getGlobalConfigState(),
     getDatabaseMigrationState(),
   ])
-  return config.issues.length === 0 && migrations.pending.length === 0
+  return {
+    config,
+    setupComplete: config.issues.length === 0 && migrations.pending.length === 0,
+  }
+}
+
+export async function isSetupComplete(): Promise<boolean> {
+  return (await loadSetupState()).setupComplete
 }
 
 // API-route gate; page routes redirect to /configure from the root route instead.
@@ -20,15 +27,12 @@ export async function setupGateResponse(): Promise<Response | null> {
 }
 
 export async function loadPublicConfig(): Promise<PublicConfig | null> {
-  const { values } = await getGlobalConfigState()
-  return authConfigurationReady(values) ? publicConfigFromValues(values) : null
+  const { config, setupComplete } = await loadSetupState()
+  return setupComplete ? publicConfigFromValues(config.values) : null
 }
 
 export async function isAuthConfigured(): Promise<boolean> {
-  return authConfigurationReady((await getGlobalConfigState()).values)
-}
-
-function authConfigurationReady(values: ConfigValues): boolean {
+  const { values } = await getGlobalConfigState()
   return Boolean(
     values.app_base_url && values.better_auth_secret && values.turnstile_site_key &&
       values.turnstile_secret_key,

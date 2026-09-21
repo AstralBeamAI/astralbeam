@@ -15,11 +15,6 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
     const { getOperatorSession } = await import("../-lib/operator-session.server")
     const session = await getOperatorSession()
     if (!session) return { status: "signed-out" }
-    const { getConfigureSession } = await import("../-lib/configure-access.server")
-    const { runDatabaseEffect } = await import("@/db")
-    if (!await runDatabaseEffect(getConfigureSession(Promise.resolve(session)))) {
-      return { status: "owner-required" }
-    }
 
     const [
       { CONFIG_DEFINITIONS, configEnvironmentVariable, environmentConfigOverrideKeys },

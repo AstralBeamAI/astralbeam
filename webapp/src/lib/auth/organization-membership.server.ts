@@ -16,7 +16,6 @@ import {
 import { SlugSchema } from "@/lib/schemas"
 
 export interface OrganizationAccess {
-  readonly canConfigure?: boolean
   readonly organizationId: string
   readonly organizationSlug: string
   readonly organizationName: string

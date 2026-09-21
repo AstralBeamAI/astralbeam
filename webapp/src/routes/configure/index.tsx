@@ -48,19 +48,6 @@ function ConfigurePage() {
 
       {state.status === "signed-out"
         ? <OperatorLoginForm onLoggedIn={refresh} />
-        : state.status === "owner-required"
-        ? (
-          <Alert>
-            <AlertTitle>Dogfood owner sign-in required</AlertTitle>
-            <AlertDescription>
-              <p>
-                Configuration requires both an operator session and a dogfood Organization owner
-                account.
-              </p>
-              <a href="/auth/sign-in?redirectTo=%2Fconfigure&fresh=true">Sign in as an owner</a>
-            </AlertDescription>
-          </Alert>
-        )
         : state.migrations.pending.length > 0
         ? (
           <>

@@ -41,7 +41,6 @@ export type ConfigurePageState =
     bootstrapIssues: readonly ("DATABASE_URL" | "DATABASE_ENCRYPTION_KEY")[]
   }
   | { status: "signed-out" }
-  | { status: "owner-required" }
   | {
     status: "ready"
     onboarding: OwnerOnboarding | null

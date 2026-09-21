@@ -2,9 +2,9 @@ import process from "node:process"
 import { spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { fromCrossJSON, type SerovalNode, toJSON } from "seroval"
-import { eq, sql } from "drizzle-orm"
+import { sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 
 const dogfoodIntegration = vi.hoisted(() => {
   // Vite supplies this parseable value only so database modules can load when the suite is skipped.
@@ -24,7 +24,6 @@ const dogfoodIntegration = vi.hoisted(() => {
   return {
     url,
     request: null as Request | null,
-    operatorCookie: undefined as string | undefined,
     resetUrl: "",
     failEmail: false,
   }
@@ -35,7 +34,6 @@ vi.mock("@tanstack/react-start/server", () => ({
     if (!dogfoodIntegration.request) throw new Error("No request")
     return dogfoodIntegration.request
   },
-  getCookie: () => dogfoodIntegration.operatorCookie,
   setCookie: vi.fn(),
   deleteCookie: vi.fn(),
   setResponseHeader: vi.fn(),
@@ -56,15 +54,13 @@ vi.mock("@/emails/index", () => ({
 import { db, runDatabaseEffect } from "@/db"
 import { getDatabaseConfig } from "@/db/config.server"
 import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
-import { account, agent, member, organization, user } from "@/db/schema.server"
+import { account, agent, organization, user } from "@/db/schema.server"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
 import { getAuth } from "@/lib/auth.server"
-import { resolveOrganizationRouteAccess } from "@/lib/auth/organization-membership.server"
 import { sendResetPasswordEmail } from "@/emails/index"
 import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
-import { getConfigureSession } from "@/routes/configure/-lib/configure-access.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
 import { provisionDogfoodResources } from "./provisioning.server"
 
@@ -95,8 +91,6 @@ async function completeOwnerPassword() {
 describe.skipIf(!dogfoodIntegration.url)(
   "owner provisioning with PostgreSQL and Better Auth",
   () => {
-    afterEach(() => vi.unstubAllEnvs())
-
     beforeEach(async () => {
       // The URL guard runs before any database module is imported.
       await db.execute(sql`truncate "config", "organization", "user" cascade`)
@@ -107,7 +101,6 @@ describe.skipIf(!dogfoodIntegration.url)(
       process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
       process.env.TERMS_OF_SERVICE_URL = "https://example.com/terms"
       dogfoodIntegration.request = new Request("http://localhost:4500/configure")
-      dogfoodIntegration.operatorCookie = undefined
       dogfoodIntegration.failEmail = false
       dogfoodIntegration.resetUrl = ""
       vi.clearAllMocks()
@@ -167,33 +160,13 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select().from(organization)).toHaveLength(2)
     })
 
-    test("configuration remains owner-gated during incomplete setup", async () => {
-      dogfoodIntegration.operatorCookie = await createOperatorSession()
-      expect(await runDatabaseEffect(getConfigureSession())).not.toBeNull()
-      await provisionDogfood()
-      const headers = await completeOwnerPassword()
-      dogfoodIntegration.request = new Request("http://localhost:4500/configure", { headers })
-      const dogfoodId = (await getDatabaseConfig()).values.dogfood_organization_id!
-      await db.update(member).set({ role: "viewer" }).where(eq(member.organizationId, dogfoodId))
-      expect(await runDatabaseEffect(getConfigureSession())).toBeNull()
-      await db.update(member).set({ role: "owner" }).where(eq(member.organizationId, dogfoodId))
-      vi.stubEnv("GITHUB_CLIENT_ID", "incomplete-provider")
-      vi.stubEnv("GITHUB_CLIENT_SECRET", "")
-      invalidateGlobalConfig()
-      expect(await runDatabaseEffect(getConfigureSession())).not.toBeNull()
-      await expect(runDatabaseEffect(resolveOrganizationRouteAccess("dogfood"))).rejects
-        .toMatchObject({ status: 403 })
-      dogfoodIntegration.request = new Request("http://localhost:4500/configure")
-      expect(await runDatabaseEffect(getConfigureSession())).toBeNull()
-    })
-
     test(
-      "compiled configuration endpoints enforce both credentials and protect dogfood secrets",
+      "configuration requires only operator credentials, including during repair",
       async () => {
         await provisionDogfood()
         const ownerHeaders = await completeOwnerPassword()
         const operator = await createOperatorSession()
-        const authorizedCookie = `${ownerHeaders.get("cookie")}; operator_session=${operator}`
+        const authorizedCookie = `operator_session=${operator}`
         const fallbackKey = "retired-dogfood-test-encryption-key"
         const listener = createServer()
         await new Promise<void>((resolve) => listener.listen(0, "127.0.0.1", resolve))
@@ -215,6 +188,8 @@ describe.skipIf(!dogfoodIntegration.url)(
             DATABASE_URL: dogfoodIntegration.url!,
             DATABASE_ENCRYPTION_KEY: `${process.env.DATABASE_ENCRYPTION_KEY},${fallbackKey}`,
             APP_BASE_URL: origin,
+            GITHUB_CLIENT_ID: "incomplete-provider",
+            GITHUB_CLIENT_SECRET: "",
             NODE_ENV: "development",
           },
           stdio: "ignore",
@@ -256,7 +231,7 @@ describe.skipIf(!dogfoodIntegration.url)(
               })
             requests.set(name, request)
             for (
-              const cookie of ["", `operator_session=${operator}`, ownerHeaders.get("cookie")!]
+              const cookie of ["", ownerHeaders.get("cookie")!]
             ) {
               const response = await request(cookie)
               await response.text()
