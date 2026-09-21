@@ -7,7 +7,7 @@ import { toast } from "@/components/ui/toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { FieldError } from "@/components/ui/field"
-import { type OwnerOnboarding, OwnerOnboardingInput } from "@/lib/internal/schema"
+import { type OwnerOnboarding, OwnerOnboardingInput } from "@/lib/dogfood/schema"
 import {
   EMAIL_PROVIDER_SETTING_KEYS,
   EmailProviderConnectionInputSchema,
@@ -230,12 +230,12 @@ export function ConfigEditor({
             ["email", "Owner email (required)", "Enter a valid email address."],
             [
               "organizationName",
-              "Internal Organization name",
+              "Dogfood Organization name",
               "Use 1–100 characters without leading or trailing spaces.",
             ],
             [
               "organizationSlug",
-              "Internal Organization slug",
+              "Dogfood Organization slug",
               "Use 1–63 lowercase letters, numbers, or hyphens, and avoid reserved names.",
             ],
           ] as const).map(([key, label, message]) => {

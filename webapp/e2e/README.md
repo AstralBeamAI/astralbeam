@@ -77,7 +77,7 @@ Compose it from the page objects; a spec should read as the user's steps and not
 
 `worktree.ts` derives three ports from the worktree path, so a given worktree always uses the same ones and two worktrees can run at once. It also derives the suite's database from `DATABASE_URL` in `webapp/.env*` by appending `_e2e`, which `prepare-database.ts` refuses to touch unless the name really ends that way and the host is loopback.
 
-The webapp server receives its derived ports, database URL, and resolved `DOCKER_HOST`. SMTP and Turnstile test keys are pinned so local provider settings cannot redirect test email or require a production CAPTCHA. The journey sets the SMTP port through `/configure`, reuses an environment-provided authentication secret or generates one, and completes the internal owner's password-reset onboarding before testing signup and the dashboard.
+The webapp server receives its derived ports, database URL, and resolved `DOCKER_HOST`. SMTP and Turnstile test keys are pinned so local provider settings cannot redirect test email or require a production CAPTCHA. The journey sets the SMTP port through `/configure`, reuses an environment-provided authentication secret or generates one, and completes the dogfood owner's password-reset onboarding before testing signup and the dashboard.
 
 `E2E_DATABASE_URL`, `E2E_WEBAPP_PORT`, `E2E_SMTP_PORT`, and `E2E_MAILBOX_PORT` override the derived values.
 

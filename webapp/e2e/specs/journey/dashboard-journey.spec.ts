@@ -34,7 +34,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await configure.testEmailConnection()
     await configure.save()
 
-    await expect(page.getByText("Internal owner sign-in required")).toBeVisible()
+    await expect(page.getByText("Dogfood owner sign-in required")).toBeVisible()
     const email = await waitForEmail(ownerEmail)
     const resetLink = emailLink(email, /\/api\/auth\/reset-password\//)
     expect(resetLink).toContain(webappUrl)

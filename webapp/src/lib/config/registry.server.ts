@@ -86,7 +86,7 @@ const decodeSmtpPort = sanitizedDecoder(
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
-    key: "internal_organization_id",
+    key: "dogfood_organization_id",
     group: "General",
     label: "Owner onboarding",
     description: "Organization hosting the embedded assistant.",
@@ -95,11 +95,11 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     systemManaged: true,
     decode: sanitizedDecoder(
       Schema.decodeUnknownSync(UuidV7Schema),
-      "Invalid internal organization",
+      "Invalid dogfood organization",
     ),
   },
   {
-    key: "internal_pending_setup",
+    key: "dogfood_pending_setup",
     group: "General",
     label: "Pending owner onboarding",
     description: "Encrypted recovery state for incomplete owner onboarding.",

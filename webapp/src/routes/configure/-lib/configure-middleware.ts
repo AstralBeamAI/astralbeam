@@ -6,14 +6,14 @@ export const configureMiddleware = createMiddleware({ type: "function" }).server
     const { getConfigureSession } = await import("./configure-access.server")
     const { setResponseStatus } = await import("@tanstack/react-start/server")
     const { runDatabaseEffect } = await import("@/db")
-    const { withInternalProvisioningLock } = await import("@/db/internal.server")
+    const { withDogfoodProvisioningLock } = await import("@/db/dogfood.server")
     const { Effect, Predicate } = await import("effect")
     requireConfigureRequest()
     const configureSession = getConfigureSession()
     const unauthorized = new Error(
-      "Configuration requires an operator session and internal ownership",
+      "Configuration requires an operator session and dogfood ownership",
     )
-    return runDatabaseEffect(withInternalProvisioningLock(Effect.gen(function* () {
+    return runDatabaseEffect(withDogfoodProvisioningLock(Effect.gen(function* () {
       if (!(yield* configureSession)) {
         return yield* Effect.fail(unauthorized)
       }

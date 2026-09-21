@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { Schema } from "effect"
 
 import type { ConfigureFieldError } from "../-lib/types"
-import { OwnerOnboardingInput } from "@/lib/internal/schema"
+import { OwnerOnboardingInput } from "@/lib/dogfood/schema"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
 const SaveConfigValuesInput = Schema.Struct({
@@ -29,21 +29,21 @@ export const saveConfigValues = createServerFn({ method: "POST" })
       "Configuration could not be saved",
       async (): Promise<SaveConfigValuesResult> => {
         const { getGlobalConfig } = await import("@/lib/config")
-        const needsOnboarding = !await getGlobalConfig("internal_organization_id")
+        const needsOnboarding = !await getGlobalConfig("dogfood_organization_id")
         if (needsOnboarding && !data.onboarding) {
           return {
             ok: false,
-            error: "Owner email and internal organization are required",
+            error: "Owner email and dogfood organization are required",
             fieldErrors: [],
           }
         }
         const saved = await updateGlobalConfig(data.updates)
         if (!saved.ok || !needsOnboarding) return saved
-        const { provisionInternalResources } = await import("@/lib/internal/provisioning.server")
+        const { provisionDogfoodResources } = await import("@/lib/dogfood/provisioning.server")
         const { runDatabaseEffect } = await import("@/db")
         const { Effect } = await import("effect")
         return runDatabaseEffect(
-          provisionInternalResources(data.onboarding!).pipe(
+          provisionDogfoodResources(data.onboarding!).pipe(
             Effect.as({ ok: true } as const),
             Effect.catchTag(
               "OwnerOnboardingError",

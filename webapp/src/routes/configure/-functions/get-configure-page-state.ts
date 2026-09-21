@@ -70,23 +70,23 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
         value: definition.kind === "secret" ? null : effectiveValues[definition.key] ?? null,
       }
     })
-    const { PendingOwnerOnboardingJson } = await import("@/lib/internal/schema")
+    const { PendingOwnerOnboardingJson } = await import("@/lib/dogfood/schema")
     const { Schema } = await import("effect")
-    const pending = effectiveValues.internal_pending_setup
+    const pending = effectiveValues.dogfood_pending_setup
       ? await withConfigureError(
         "Pending onboarding could not be read",
         () =>
           Schema.decodeUnknownPromise(PendingOwnerOnboardingJson)(
-            effectiveValues.internal_pending_setup!,
+            effectiveValues.dogfood_pending_setup!,
           ),
       )
       : null
     return {
       status: "ready",
-      onboarding: effectiveValues.internal_organization_id ? null : {
+      onboarding: effectiveValues.dogfood_organization_id ? null : {
         email: pending?.email ?? "",
-        organizationName: pending?.organizationName ?? "internal",
-        organizationSlug: pending?.organizationSlug ?? "internal",
+        organizationName: pending?.organizationName ?? "dogfood",
+        organizationSlug: pending?.organizationSlug ?? "dogfood",
       },
       sessionExpiresAt: session.expiresAt.toISOString(),
       fallbackEncryptionKeyCount: getDatabaseEncryptionKeyring().length - 1,

@@ -13,7 +13,7 @@ export const getOrganizationRouteContext = createServerFn({ method: "GET" })
     const { getGlobalConfig } = await import("@/lib/config")
     return {
       ...access,
-      canConfigure: access.organizationId === await getGlobalConfig("internal_organization_id") &&
+      canConfigure: access.organizationId === await getGlobalConfig("dogfood_organization_id") &&
         access.role.split(",").includes("owner"),
     }
   })

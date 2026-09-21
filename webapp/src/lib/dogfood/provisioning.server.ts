@@ -7,12 +7,12 @@ import {
   getDatabaseConfigEffect,
 } from "@/db/config.server"
 import {
-  createInternalOwner,
-  isInternalOwner,
-  readInternalOrganization,
-  readInternalOwner,
-  verifyInternalOwner,
-} from "@/db/internal.server"
+  createDogfoodOwner,
+  isDogfoodOwner,
+  readDogfoodOrganization,
+  readDogfoodOwner,
+  verifyDogfoodOwner,
+} from "@/db/dogfood.server"
 import { getAuth } from "@/lib/auth.server"
 import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
 import { withBlockingAuthEmailDelivery } from "@/lib/auth/email-delivery.server"
@@ -34,14 +34,14 @@ function ownerProvisioningApi<A>(operation: () => Promise<A>, message: string) {
 
 function savePendingOwner(pending: PendingOnboarding) {
   return applyDatabaseConfigChangesEffect([{
-    key: "internal_pending_setup",
+    key: "dogfood_pending_setup",
     value: JSON.stringify(pending),
   }]).pipe(Effect.tap(() => Effect.sync(invalidateGlobalConfig)))
 }
 
 function prepareOwnerOnboarding(input: OwnerOnboarding, state: DatabaseConfigState) {
   return Effect.gen(function* () {
-    const stored = state.values.internal_pending_setup
+    const stored = state.values.dogfood_pending_setup
     if (stored) {
       const pending = yield* Schema.decodeUnknownEffect(PendingOwnerOnboardingJson)(stored).pipe(
         Effect.mapError(() => ownerOnboardingFailure("Pending onboarding is invalid")),
@@ -60,13 +60,13 @@ function prepareOwnerOnboarding(input: OwnerOnboarding, state: DatabaseConfigSta
       }
       return { ...pending, ...input }
     }
-    const existing = yield* readInternalOwner(input.email)
-    const customer = yield* readInternalOrganization({
+    const existing = yield* readDogfoodOwner(input.email)
+    const customer = yield* readDogfoodOrganization({
       slug: input.organizationSlug,
     })
     if (
       customer &&
-      (!existing || !(yield* isInternalOwner({ organizationId: customer.id, userId: existing.id })))
+      (!existing || !(yield* isDogfoodOwner({ organizationId: customer.id, userId: existing.id })))
     ) {
       return yield* Effect.fail(
         ownerOnboardingFailure("That organization is not owned by the selected account"),
@@ -82,10 +82,10 @@ function prepareOwnerOnboarding(input: OwnerOnboarding, state: DatabaseConfigSta
 }
 
 /** Caller must hold the provisioning lock, including configuration mutations preceding this call. */
-export function provisionInternalResources(input: OwnerOnboarding) {
+export function provisionDogfoodResources(input: OwnerOnboarding) {
   return Effect.gen(function* () {
     const state = yield* getDatabaseConfigEffect()
-    if (state.values.internal_organization_id) return
+    if (state.values.dogfood_organization_id) return
     if (
       !(yield* ownerProvisioningApi(isAuthConfigured, "Authentication settings are unavailable"))
     ) {
@@ -95,7 +95,7 @@ export function provisionInternalResources(input: OwnerOnboarding) {
     }
     if (
       state.rows?.some((row) =>
-        (row.key === "internal_organization_id" || row.key === "internal_pending_setup") &&
+        (row.key === "dogfood_organization_id" || row.key === "dogfood_pending_setup") &&
         row.storageStatus === "unreadable"
       )
     ) {
@@ -113,14 +113,14 @@ export function provisionInternalResources(input: OwnerOnboarding) {
       getAuth,
       "Save the required authentication settings before onboarding",
     )
-    const existing = yield* readInternalOwner(pending.email)
-    const owner = existing ?? (yield* createInternalOwner(pending.email))
-    if (existing) yield* verifyInternalOwner(existing.id)
-    let customer = yield* readInternalOrganization({
+    const existing = yield* readDogfoodOwner(pending.email)
+    const owner = existing ?? (yield* createDogfoodOwner(pending.email))
+    if (existing) yield* verifyDogfoodOwner(existing.id)
+    let customer = yield* readDogfoodOrganization({
       id: pending.organizationId,
       slug: pending.organizationSlug,
     })
-    if (customer && !(yield* isInternalOwner({ organizationId: customer.id, userId: owner.id }))) {
+    if (customer && !(yield* isDogfoodOwner({ organizationId: customer.id, userId: owner.id }))) {
       return yield* Effect.fail(
         ownerOnboardingFailure("That organization is not owned by the selected account"),
       )
@@ -140,12 +140,12 @@ export function provisionInternalResources(input: OwnerOnboarding) {
               userId: owner.id,
             },
           }),
-        "The internal organization could not be created",
+        "The dogfood organization could not be created",
       )
     }
     if (!customer) {
       return yield* Effect.fail(
-        ownerOnboardingFailure("The internal organization could not be created"),
+        ownerOnboardingFailure("The dogfood organization could not be created"),
       )
     }
     const organizationId = customer.id
@@ -170,8 +170,8 @@ export function provisionInternalResources(input: OwnerOnboarding) {
       )
     }
     yield* applyDatabaseConfigChangesEffect([
-      { key: "internal_organization_id", value: organizationId },
-      { key: "internal_pending_setup", value: null },
+      { key: "dogfood_organization_id", value: organizationId },
+      { key: "dogfood_pending_setup", value: null },
     ])
     yield* Effect.sync(invalidateGlobalConfig)
   })

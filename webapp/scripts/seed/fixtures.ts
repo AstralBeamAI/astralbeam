@@ -11,12 +11,12 @@
 /** Shared sign-in password. Long enough for Better Auth's 12-character minimum. */
 export const SEED_PASSWORD = "astralbeam-seed-password"
 
-export const SEED_INTERNAL = {
+export const SEED_DOGFOOD = {
   organizationId: "01990a5d-0000-7000-8000-000000000013",
   agentId: "01990a5d-0000-7000-8000-000000000004",
   ownerEmail: "owner@example.com",
-  name: "internal",
-  slug: "internal",
+  name: "dogfood",
+  slug: "dogfood",
 } as const
 
 /** Shared fixture names for dashboard routes, providers, and tenant identity. */

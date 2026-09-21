@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import { effectDatabase } from "@/db"
 import { member, organization, user } from "@/db/schema.server"
 
-export function withInternalProvisioningLock<A, E, R>(operation: Effect.Effect<A, E, R>) {
+export function withDogfoodProvisioningLock<A, E, R>(operation: Effect.Effect<A, E, R>) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const context = yield* Effect.context<R>()
@@ -29,7 +29,7 @@ export function withInternalProvisioningLock<A, E, R>(operation: Effect.Effect<A
   })
 }
 
-export function readInternalOwner(email: string) {
+export function readDogfoodOwner(email: string) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const rows = yield* db.select({ id: user.id }).from(user)
@@ -38,7 +38,7 @@ export function readInternalOwner(email: string) {
   })
 }
 
-export function createInternalOwner(email: string) {
+export function createDogfoodOwner(email: string) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const [owner] = yield* db.insert(user).values({
@@ -50,14 +50,14 @@ export function createInternalOwner(email: string) {
   })
 }
 
-export function verifyInternalOwner(userId: string) {
+export function verifyDogfoodOwner(userId: string) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     yield* db.update(user).set({ emailVerified: true }).where(eq(user.id, userId))
   })
 }
 
-export function readInternalOrganization(input: { id?: string | undefined; slug: string }) {
+export function readDogfoodOrganization(input: { id?: string | undefined; slug: string }) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const rows = yield* db.select({ id: organization.id, name: organization.name }).from(
@@ -67,7 +67,7 @@ export function readInternalOrganization(input: { id?: string | undefined; slug:
   })
 }
 
-export function isInternalOwner(input: { organizationId: string; userId: string }) {
+export function isDogfoodOwner(input: { organizationId: string; userId: string }) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const rows = yield* db.select({ role: member.role }).from(member).where(

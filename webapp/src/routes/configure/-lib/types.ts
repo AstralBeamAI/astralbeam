@@ -1,5 +1,5 @@
 import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigStorageEntry } from "@/lib/types"
-import type { OwnerOnboarding } from "@/lib/internal/schema"
+import type { OwnerOnboarding } from "@/lib/dogfood/schema"
 
 export interface ConfigureField {
   key: ConfigKey

@@ -8,24 +8,24 @@ import {
   organizationConfiguration,
 } from "../../src/db/schema.server.ts"
 import type { SeedTransaction } from "./database.ts"
-import { SEED_INTERNAL } from "./fixtures.ts"
+import { SEED_DOGFOOD } from "./fixtures.ts"
 
-/** Never overwrite real or partially provisioned internal configuration, even in development. */
-export async function seedInternal(
+/** Never overwrite real or partially provisioned dogfood configuration, even in development. */
+export async function seedDogfood(
   transaction: SeedTransaction,
   userIdsByEmail: ReadonlyMap<string, string>,
 ): Promise<void> {
   const managedKeys = [
-    "internal_organization_id",
-    "internal_pending_setup",
+    "dogfood_organization_id",
+    "dogfood_pending_setup",
   ]
   const existing = await transaction.select({ key: configTable.key }).from(configTable).where(
     inArray(configTable.key, managedKeys),
   )
   if (existing.length > 0) return
-  const fixture = SEED_INTERNAL
+  const fixture = SEED_DOGFOOD
   const ownerId = userIdsByEmail.get(fixture.ownerEmail)
-  if (!ownerId) throw new Error("Seed internal owner is missing")
+  if (!ownerId) throw new Error("Seed dogfood owner is missing")
   await transaction.insert(organization).values({
     id: fixture.organizationId,
     name: fixture.name,
@@ -39,7 +39,7 @@ export async function seedInternal(
   await transaction.insert(agent).values({
     organizationId: fixture.organizationId,
     id: fixture.agentId,
-    name: "Internal Assistant",
+    name: "Dogfood Assistant",
     systemPrompt:
       "Help users understand the application. Use only the capabilities the host provides.",
   })
@@ -47,7 +47,7 @@ export async function seedInternal(
     organizationId: fixture.organizationId,
     defaultAgentId: fixture.agentId,
   })
-  const key = "internal_organization_id"
+  const key = "dogfood_organization_id"
   await transaction.insert(configTable).values({
     key,
     value: { key, value: fixture.organizationId },

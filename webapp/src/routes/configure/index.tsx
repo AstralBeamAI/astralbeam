@@ -51,10 +51,10 @@ function ConfigurePage() {
         : state.status === "owner-required"
         ? (
           <Alert>
-            <AlertTitle>Internal owner sign-in required</AlertTitle>
+            <AlertTitle>Dogfood owner sign-in required</AlertTitle>
             <AlertDescription>
               <p>
-                Configuration requires both an operator session and an internal Organization owner
+                Configuration requires both an operator session and a dogfood Organization owner
                 account.
               </p>
               <a href="/auth/sign-in?redirectTo=%2Fconfigure&fresh=true">Sign in as an owner</a>

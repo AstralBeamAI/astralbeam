@@ -6,7 +6,7 @@ import { eq, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
-const internalIntegration = vi.hoisted(() => {
+const dogfoodIntegration = vi.hoisted(() => {
   // Vite supplies this parseable value only so database modules can load when the suite is skipped.
   const configuredUrl = globalThis.process.env.DATABASE_URL
   const url = configuredUrl === "postgres://test:test@127.0.0.1:5432/test"
@@ -32,10 +32,10 @@ const internalIntegration = vi.hoisted(() => {
 
 vi.mock("@tanstack/react-start/server", () => ({
   getRequest: () => {
-    if (!internalIntegration.request) throw new Error("No request")
-    return internalIntegration.request
+    if (!dogfoodIntegration.request) throw new Error("No request")
+    return dogfoodIntegration.request
   },
-  getCookie: () => internalIntegration.operatorCookie,
+  getCookie: () => dogfoodIntegration.operatorCookie,
   setCookie: vi.fn(),
   deleteCookie: vi.fn(),
   setResponseHeader: vi.fn(),
@@ -43,8 +43,8 @@ vi.mock("@tanstack/react-start/server", () => ({
 }))
 vi.mock("@/emails/index", () => ({
   sendResetPasswordEmail: vi.fn(({ url }: { url: string }) => {
-    if (internalIntegration.failEmail) throw new Error("provider-private-failure")
-    internalIntegration.resetUrl = url
+    if (dogfoodIntegration.failEmail) throw new Error("provider-private-failure")
+    dogfoodIntegration.resetUrl = url
     return Promise.resolve()
   }),
   sendAccountExistsEmail: vi.fn(),
@@ -55,7 +55,7 @@ vi.mock("@/emails/index", () => ({
 
 import { db, runDatabaseEffect } from "@/db"
 import { getDatabaseConfig } from "@/db/config.server"
-import { withInternalProvisioningLock } from "@/db/internal.server"
+import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
 import { account, agent, member, organization, user } from "@/db/schema.server"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
@@ -66,22 +66,22 @@ import { sendResetPasswordEmail } from "@/emails/index"
 import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { getConfigureSession } from "@/routes/configure/-lib/configure-access.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
-import { provisionInternalResources } from "./provisioning.server"
+import { provisionDogfoodResources } from "./provisioning.server"
 
 const ownerOnboardingFixture = {
   email: "provisioning-owner@example.com",
-  organizationName: "internal",
-  organizationSlug: "internal",
+  organizationName: "dogfood",
+  organizationSlug: "dogfood",
 }
 const ownerOnboardingPassword = "Owner-Onboarding-Test-Password-761"
 
-function provisionInternal(input = ownerOnboardingFixture) {
-  return runDatabaseEffect(withInternalProvisioningLock(provisionInternalResources(input)))
+function provisionDogfood(input = ownerOnboardingFixture) {
+  return runDatabaseEffect(withDogfoodProvisioningLock(provisionDogfoodResources(input)))
 }
 
 async function completeOwnerPassword() {
   const auth = await getAuth()
-  const token = new URL(internalIntegration.resetUrl).pathname.split("/").at(-1)!
+  const token = new URL(dogfoodIntegration.resetUrl).pathname.split("/").at(-1)!
   await auth.api.resetPassword({ body: { token, newPassword: ownerOnboardingPassword } })
   const response = await auth.api.signInEmail({
     body: { email: ownerOnboardingFixture.email, password: ownerOnboardingPassword },
@@ -92,7 +92,7 @@ async function completeOwnerPassword() {
   return new Headers({ cookie })
 }
 
-describe.skipIf(!internalIntegration.url)(
+describe.skipIf(!dogfoodIntegration.url)(
   "owner provisioning with PostgreSQL and Better Auth",
   () => {
     afterEach(() => vi.unstubAllEnvs())
@@ -100,16 +100,16 @@ describe.skipIf(!internalIntegration.url)(
     beforeEach(async () => {
       // The URL guard runs before any database module is imported.
       await db.execute(sql`truncate "config", "organization", "user" cascade`)
-      process.env.DATABASE_ENCRYPTION_KEY = "internal-integration-encryption-key-not-for-production"
+      process.env.DATABASE_ENCRYPTION_KEY = "dogfood-integration-encryption-key-not-for-production"
       process.env.APP_BASE_URL = "http://localhost:4500"
-      process.env.BETTER_AUTH_SECRET = "internal-integration-auth-key-not-for-production"
+      process.env.BETTER_AUTH_SECRET = "dogfood-integration-auth-key-not-for-production"
       process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
       process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
       process.env.TERMS_OF_SERVICE_URL = "https://example.com/terms"
-      internalIntegration.request = new Request("http://localhost:4500/configure")
-      internalIntegration.operatorCookie = undefined
-      internalIntegration.failEmail = false
-      internalIntegration.resetUrl = ""
+      dogfoodIntegration.request = new Request("http://localhost:4500/configure")
+      dogfoodIntegration.operatorCookie = undefined
+      dogfoodIntegration.failEmail = false
+      dogfoodIntegration.resetUrl = ""
       vi.clearAllMocks()
       invalidateGlobalConfig()
     })
@@ -117,37 +117,37 @@ describe.skipIf(!internalIntegration.url)(
     test("incomplete authentication cannot finalize ownership", async () => {
       delete process.env.TURNSTILE_SITE_KEY
       invalidateGlobalConfig()
-      await expect(provisionInternal()).rejects
+      await expect(provisionDogfood()).rejects
         .toMatchObject({ _tag: "OwnerOnboardingError" })
-      expect((await getDatabaseConfig()).values.internal_organization_id).toBeUndefined()
+      expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
       expect(await db.select().from(user)).toHaveLength(0)
       expect(sendResetPasswordEmail).not.toHaveBeenCalled()
     })
 
     test("failed delivery retains provenance and retry reuses resources before a real password reset", async () => {
-      internalIntegration.failEmail = true
-      await expect(provisionInternal()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
-      expect((await getDatabaseConfig()).values.internal_organization_id).toBeUndefined()
+      dogfoodIntegration.failEmail = true
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
       const [created] = await db.select().from(user)
       expect(created).toMatchObject({ emailVerified: true, termsAcceptedAt: null })
       expect(await db.select().from(account)).toHaveLength(0)
       expect(await db.select().from(agent)).toHaveLength(1)
-      internalIntegration.failEmail = false
-      await provisionInternal()
+      dogfoodIntegration.failEmail = false
+      await provisionDogfood()
       expect(sendResetPasswordEmail).toHaveBeenCalledTimes(2)
       expect(await db.select().from(user)).toHaveLength(1)
       expect(await db.select().from(agent)).toHaveLength(1)
-      expect((await getDatabaseConfig()).values.internal_pending_setup).toBeUndefined()
+      expect((await getDatabaseConfig()).values.dogfood_pending_setup).toBeUndefined()
       await completeOwnerPassword()
     })
 
     test("concurrent provisioning reuses an unverified account without sending email", async () => {
       await db.insert(user).values({ email: ownerOnboardingFixture.email, name: "Existing owner" })
       const concurrent = await Promise.allSettled(
-        Array.from({ length: 3 }, () => provisionInternal()),
+        Array.from({ length: 3 }, () => provisionDogfood()),
       )
       expect(concurrent.some((result) => result.status === "fulfilled")).toBe(true)
-      await provisionInternal()
+      await provisionDogfood()
       expect(sendResetPasswordEmail).not.toHaveBeenCalled()
       expect(await db.select().from(organization)).toHaveLength(1)
       expect((await db.select().from(user))[0]?.emailVerified).toBe(true)
@@ -158,43 +158,43 @@ describe.skipIf(!internalIntegration.url)(
       const [other] = await db.insert(user).values({ email: "other@example.com", name: "Other" })
         .returning()
       await auth.api.createOrganization({
-        body: { userId: other!.id, name: "Existing", slug: "internal" },
+        body: { userId: other!.id, name: "Existing", slug: "dogfood" },
       })
-      await expect(provisionInternal()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
-      expect((await getDatabaseConfig()).values.internal_pending_setup).toBeUndefined()
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      expect((await getDatabaseConfig()).values.dogfood_pending_setup).toBeUndefined()
       expect(await db.select().from(user)).toHaveLength(1)
-      await provisionInternal({ ...ownerOnboardingFixture, organizationSlug: "newinternal" })
+      await provisionDogfood({ ...ownerOnboardingFixture, organizationSlug: "newdogfood" })
       expect(await db.select().from(organization)).toHaveLength(2)
     })
 
     test("configuration remains owner-gated during incomplete setup", async () => {
-      internalIntegration.operatorCookie = await createOperatorSession()
+      dogfoodIntegration.operatorCookie = await createOperatorSession()
       expect(await runDatabaseEffect(getConfigureSession())).not.toBeNull()
-      await provisionInternal()
+      await provisionDogfood()
       const headers = await completeOwnerPassword()
-      internalIntegration.request = new Request("http://localhost:4500/configure", { headers })
-      const internalId = (await getDatabaseConfig()).values.internal_organization_id!
-      await db.update(member).set({ role: "viewer" }).where(eq(member.organizationId, internalId))
+      dogfoodIntegration.request = new Request("http://localhost:4500/configure", { headers })
+      const dogfoodId = (await getDatabaseConfig()).values.dogfood_organization_id!
+      await db.update(member).set({ role: "viewer" }).where(eq(member.organizationId, dogfoodId))
       expect(await runDatabaseEffect(getConfigureSession())).toBeNull()
-      await db.update(member).set({ role: "owner" }).where(eq(member.organizationId, internalId))
+      await db.update(member).set({ role: "owner" }).where(eq(member.organizationId, dogfoodId))
       vi.stubEnv("GITHUB_CLIENT_ID", "incomplete-provider")
       vi.stubEnv("GITHUB_CLIENT_SECRET", "")
       invalidateGlobalConfig()
       expect(await runDatabaseEffect(getConfigureSession())).not.toBeNull()
-      await expect(runDatabaseEffect(resolveOrganizationRouteAccess("internal"))).rejects
+      await expect(runDatabaseEffect(resolveOrganizationRouteAccess("dogfood"))).rejects
         .toMatchObject({ status: 403 })
-      internalIntegration.request = new Request("http://localhost:4500/configure")
+      dogfoodIntegration.request = new Request("http://localhost:4500/configure")
       expect(await runDatabaseEffect(getConfigureSession())).toBeNull()
     })
 
     test(
-      "compiled configuration endpoints enforce both credentials and protect internal secrets",
+      "compiled configuration endpoints enforce both credentials and protect dogfood secrets",
       async () => {
-        await provisionInternal()
+        await provisionDogfood()
         const ownerHeaders = await completeOwnerPassword()
         const operator = await createOperatorSession()
         const authorizedCookie = `${ownerHeaders.get("cookie")}; operator_session=${operator}`
-        const fallbackKey = "retired-internal-test-encryption-key"
+        const fallbackKey = "retired-dogfood-test-encryption-key"
         const listener = createServer()
         await new Promise<void>((resolve) => listener.listen(0, "127.0.0.1", resolve))
         const address = listener.address()
@@ -212,7 +212,7 @@ describe.skipIf(!internalIntegration.url)(
           cwd: process.cwd(),
           env: {
             ...process.env,
-            DATABASE_URL: internalIntegration.url!,
+            DATABASE_URL: dogfoodIntegration.url!,
             DATABASE_ENCRYPTION_KEY: `${process.env.DATABASE_ENCRYPTION_KEY},${fallbackKey}`,
             APP_BASE_URL: origin,
             NODE_ENV: "development",
@@ -227,8 +227,8 @@ describe.skipIf(!internalIntegration.url)(
           }, { timeout: 30_000, interval: 250 })
           const cases = [
             ["save-config-values", { updates: [] }],
-            ["generate-config-value", { key: "internal_organization_id" }],
-            ["reveal-config-value", { key: "internal_organization_id" }],
+            ["generate-config-value", { key: "dogfood_organization_id" }],
+            ["reveal-config-value", { key: "dogfood_organization_id" }],
             ["apply-migrations", { approvedMigrations: [] }],
             ["test-email-provider-connection", {
               provider: "smtp",
@@ -275,7 +275,7 @@ describe.skipIf(!internalIntegration.url)(
           const before = (await getDatabaseConfig()).values.privacy_policy_url
           const acquired = Promise.withResolvers<void>()
           const release = Promise.withResolvers<void>()
-          const lock = runDatabaseEffect(withInternalProvisioningLock(Effect.promise(() => {
+          const lock = runDatabaseEffect(withDogfoodProvisioningLock(Effect.promise(() => {
             acquired.resolve()
             return release.promise
           })))
@@ -295,7 +295,7 @@ describe.skipIf(!internalIntegration.url)(
             await lock
           }
           const configured = (await getDatabaseConfig()).values
-          const key = "internal_organization_id"
+          const key = "dogfood_organization_id"
           const encrypted = encryptDatabaseValue({
             value: { key, value: configured[key]! },
             decode: decodeConfigValuePayload,
