@@ -14,6 +14,8 @@
 - Build shared components under `src/components` with shadcn/ui primitives.
 - Give icon-only controls an accessible name and hover explanation, usually `aria-label` and `title`. Use a Tooltip when richer content is needed.
 - Keep single-use private states, skeletons, and rows in their consumer unless reuse or substantial complexity warrants extraction.
+- Pass the dashboard theme to embedded SDK widgets through `colorScheme`, and hide duplicate widget headers when the dashboard supplies their titles. Keep dashboard directory styling in `theme` and `customCss` props, not SDK defaults.
+- Dock dashboard chat beside the page without a modal backdrop from 1024px upward, and use a full-width panel below that. Match the dashboard's 56px header, reserve content space for the fixed launcher, and preserve chat state when closed.
 
 ## Routes
 
@@ -76,8 +78,13 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 
 ## Configuration and authentication
 
+- The embedded SDK uses `file:../sdk` and must be built before the webapp. Keep typechecking on `deno check`, using manual node_modules for the local package link and sloppy-import resolution for the SDK's generated declaration imports. Keep tenant identity persistence in `/api/astralbeam/token`, resolve the displayed Organization selector against authenticated membership, and never turn dashboard roles into tenant-admin privileges.
+
 - Keep `/configure` authorization independent of dashboard sessions and dogfood membership. The encryption-key operator session must suffice before and after provisioning, including configuration repair.
-- Authorize key access before disclosing deletion protections. Check the last-key deletion rule through Drizzle before deletion and disable the action in the UI. Do not add database triggers for application validation.
+- Reject API deletion of the key referenced by `dogfood_api_key`, matching its UUID rather than its editable name.
+- Authorize key access before disclosing deletion protections. Rate-limit dashboard token issuance per authenticated user through the shared database limiter before signing or identity upserts.
+- Dashboard directories use organization-management JWTs for the displayed Organization, never dogfood chat tokens. Authenticate the member before selecting its first enabled, unexpired API key, and keep the stored signing digest server-only. Resource APIs recheck membership and role on every request.
+- Keep default API-key selection behind `readOrganizationDefaultApiKey` in organization configuration. For now it returns the first enabled, unexpired key without a stored setting. Check the last-key deletion rule through Drizzle before deletion and disable the action in the UI. Do not add database triggers for application validation.
 
 - `/configure` (`src/routes/configure`) is the operator surface for database-backed config. If the login limiter table is missing, render sign-in without throttling. Authenticate short, stateless sessions only with the first active `DATABASE_ENCRYPTION_KEY` value. Never use database credentials. Require production HTTPS and same-origin mutations, and trust forwarded host/protocol only when the request's own peer is the loopback reverse proxy. Send secret-kind values to the browser only through `revealConfigValue`, one key at a time, so a page load never carries them. Mask values until explicitly revealed, approve migrations by exact name and digest, and derive the app gate from process-cached configuration validity and migration state rather than a persisted completion marker.
 

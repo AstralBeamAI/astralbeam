@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth/client"
 import { normalizeReturnPath } from "@/lib/auth/redirect"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
 import { INERT_REDIRECT_ORIGIN } from "@/lib/constants"
+import { DogfoodChat } from "./-components/dogfood-chat"
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ context, location }) => {
@@ -33,5 +34,12 @@ function AuthenticatedLayout() {
     )
   }
 
-  return <Outlet />
+  return (
+    <div className="group/dogfood flex items-start">
+      <div className="min-w-0 flex-1 max-lg:group-has-[[data-dogfood-chat=open]]/dogfood:hidden [&_[data-slot=sidebar-inset]]:pb-20">
+        <Outlet />
+      </div>
+      <DogfoodChat />
+    </div>
+  )
 }

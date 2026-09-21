@@ -40,15 +40,15 @@ jobs:
         run: deno task format:check
 
       - name: Cache SDK node_modules
-        if: matrix.project == 'examples/todos'
+        if: matrix.project == 'examples/todos' || matrix.project == 'webapp'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: sdk/node_modules
           key: node_modules-${{ runner.os }}-sdk-${{ hashFiles('sdk/deno.lock') }}
 
       - name: Build the SDK
-        if: matrix.project == 'examples/todos'
-        # The example consumes `sdk/dist` through its `file:../../sdk` dependency, so its own
+        if: matrix.project == 'examples/todos' || matrix.project == 'webapp'
+        # The webapp and example consume `sdk/dist` through file dependencies, so their
         # typecheck and build cannot run before the SDK is installed and built.
         working-directory: sdk
         run: |

@@ -53,6 +53,13 @@ const organizationNavigation = [
   { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
   { label: "API keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
   { label: "Members", segment: "members", icon: UsersThreeIcon },
+  { label: "Tenants", segment: "tenants", icon: BriefcaseIcon, permission: "readTenants" },
+  {
+    label: "Tenant users",
+    segment: "tenant-users",
+    icon: UsersThreeIcon,
+    permission: "readTenants",
+  },
   {
     label: "Settings",
     segment: "settings",

@@ -24,6 +24,7 @@ import { Route as authenticationAuthPathRouteImport } from './routes/(authentica
 import { Route as AuthenticatedOrgSlugIndexRouteImport } from './routes/_authenticated/$orgSlug/index'
 import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
 import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations/index'
+import { Route as ApiAstralbeamTokenRouteImport } from './routes/api/astralbeam/token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
 import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
@@ -34,6 +35,8 @@ import { Route as AuthenticatedOrgSlugApiKeysIndexRouteImport } from './routes/_
 import { Route as AuthenticatedOrgSlugMembersIndexRouteImport } from './routes/_authenticated/$orgSlug/members/index'
 import { Route as AuthenticatedOrgSlugSandboxesIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/index'
 import { Route as AuthenticatedOrgSlugSettingsIndexRouteImport } from './routes/_authenticated/$orgSlug/settings/index'
+import { Route as AuthenticatedOrgSlugTenantUsersIndexRouteImport } from './routes/_authenticated/$orgSlug/tenant-users/index'
+import { Route as AuthenticatedOrgSlugTenantsIndexRouteImport } from './routes/_authenticated/$orgSlug/tenants/index'
 import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
 import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
 import { Route as DocsSectionPageIndexRouteImport } from './routes/docs/$section/$page/index'
@@ -121,6 +124,11 @@ const AuthenticatedOrganizationsIndexRoute =
     path: '/organizations/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
+  id: '/api/astralbeam/token',
+  path: '/api/astralbeam/token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -174,6 +182,18 @@ const AuthenticatedOrgSlugSettingsIndexRoute =
   AuthenticatedOrgSlugSettingsIndexRouteImport.update({
     id: '/settings/',
     path: '/settings/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedOrgSlugTenantUsersIndexRoute =
+  AuthenticatedOrgSlugTenantUsersIndexRouteImport.update({
+    id: '/tenant-users/',
+    path: '/tenant-users/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedOrgSlugTenantsIndexRoute =
+  AuthenticatedOrgSlugTenantsIndexRouteImport.update({
+    id: '/tenants/',
+    path: '/tenants/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
 const AuthenticatedSettingsAccountIndexRoute =
@@ -230,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
+  '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
@@ -243,6 +264,8 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
   '/$orgSlug/sandboxes/': typeof AuthenticatedOrgSlugSandboxesIndexRoute
   '/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
+  '/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
+  '/$orgSlug/tenants/': typeof AuthenticatedOrgSlugTenantsIndexRoute
   '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
@@ -261,6 +284,7 @@ export interface FileRoutesByTo {
   '/configure': typeof ConfigureIndexRoute
   '/docs': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
+  '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
@@ -274,6 +298,8 @@ export interface FileRoutesByTo {
   '/$orgSlug/members': typeof AuthenticatedOrgSlugMembersIndexRoute
   '/$orgSlug/sandboxes': typeof AuthenticatedOrgSlugSandboxesIndexRoute
   '/$orgSlug/settings': typeof AuthenticatedOrgSlugSettingsIndexRoute
+  '/$orgSlug/tenant-users': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
+  '/$orgSlug/tenants': typeof AuthenticatedOrgSlugTenantsIndexRoute
   '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page': typeof DocsSectionPageIndexRoute
@@ -296,6 +322,7 @@ export interface FileRoutesById {
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
+  '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
@@ -309,6 +336,8 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
   '/_authenticated/$orgSlug/sandboxes/': typeof AuthenticatedOrgSlugSandboxesIndexRoute
   '/_authenticated/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
+  '/_authenticated/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
+  '/_authenticated/$orgSlug/tenants/': typeof AuthenticatedOrgSlugTenantsIndexRoute
   '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
@@ -331,6 +360,7 @@ export interface FileRouteTypes {
     | '/configure/'
     | '/docs/'
     | '/auth/$path'
+    | '/api/astralbeam/token'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/v1/$'
@@ -344,6 +374,8 @@ export interface FileRouteTypes {
     | '/$orgSlug/members/'
     | '/$orgSlug/sandboxes/'
     | '/$orgSlug/settings/'
+    | '/$orgSlug/tenant-users/'
+    | '/$orgSlug/tenants/'
     | '/settings/account/'
     | '/settings/security/'
     | '/docs/$section/$page/'
@@ -362,6 +394,7 @@ export interface FileRouteTypes {
     | '/configure'
     | '/docs'
     | '/auth/$path'
+    | '/api/astralbeam/token'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/v1/$'
@@ -375,6 +408,8 @@ export interface FileRouteTypes {
     | '/$orgSlug/members'
     | '/$orgSlug/sandboxes'
     | '/$orgSlug/settings'
+    | '/$orgSlug/tenant-users'
+    | '/$orgSlug/tenants'
     | '/settings/account'
     | '/settings/security'
     | '/docs/$section/$page'
@@ -396,6 +431,7 @@ export interface FileRouteTypes {
     | '/configure/'
     | '/docs/'
     | '/(authentication)/auth/$path'
+    | '/api/astralbeam/token'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/v1/$'
@@ -409,6 +445,8 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/members/'
     | '/_authenticated/$orgSlug/sandboxes/'
     | '/_authenticated/$orgSlug/settings/'
+    | '/_authenticated/$orgSlug/tenant-users/'
+    | '/_authenticated/$orgSlug/tenants/'
     | '/_authenticated/settings/account/'
     | '/_authenticated/settings/security/'
     | '/docs/$section/$page/'
@@ -426,6 +464,7 @@ export interface RootRouteChildren {
   DevSplatRoute: typeof DevSplatRoute
   ConfigureIndexRoute: typeof ConfigureIndexRoute
   authenticationAuthPathRoute: typeof authenticationAuthPathRoute
+  ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatSplatRoute: typeof ApiChatSplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
@@ -538,6 +577,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrganizationsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/astralbeam/token': {
+      id: '/api/astralbeam/token'
+      path: '/api/astralbeam/token'
+      fullPath: '/api/astralbeam/token'
+      preLoaderRoute: typeof ApiAstralbeamTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -608,6 +654,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
+    '/_authenticated/$orgSlug/tenant-users/': {
+      id: '/_authenticated/$orgSlug/tenant-users/'
+      path: '/tenant-users'
+      fullPath: '/$orgSlug/tenant-users/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugTenantUsersIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/$orgSlug/tenants/': {
+      id: '/_authenticated/$orgSlug/tenants/'
+      path: '/tenants'
+      fullPath: '/$orgSlug/tenants/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugTenantsIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
     '/_authenticated/settings/account/': {
       id: '/_authenticated/settings/account/'
       path: '/account'
@@ -667,6 +727,8 @@ interface AuthenticatedOrgSlugRouteRouteChildren {
   AuthenticatedOrgSlugMembersIndexRoute: typeof AuthenticatedOrgSlugMembersIndexRoute
   AuthenticatedOrgSlugSandboxesIndexRoute: typeof AuthenticatedOrgSlugSandboxesIndexRoute
   AuthenticatedOrgSlugSettingsIndexRoute: typeof AuthenticatedOrgSlugSettingsIndexRoute
+  AuthenticatedOrgSlugTenantUsersIndexRoute: typeof AuthenticatedOrgSlugTenantUsersIndexRoute
+  AuthenticatedOrgSlugTenantsIndexRoute: typeof AuthenticatedOrgSlugTenantsIndexRoute
   AuthenticatedOrgSlugAgentsAgentIdIndexRoute: typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   AuthenticatedOrgSlugAgentsNewIndexRoute: typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute: typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
@@ -685,6 +747,10 @@ const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChil
       AuthenticatedOrgSlugSandboxesIndexRoute,
     AuthenticatedOrgSlugSettingsIndexRoute:
       AuthenticatedOrgSlugSettingsIndexRoute,
+    AuthenticatedOrgSlugTenantUsersIndexRoute:
+      AuthenticatedOrgSlugTenantUsersIndexRoute,
+    AuthenticatedOrgSlugTenantsIndexRoute:
+      AuthenticatedOrgSlugTenantsIndexRoute,
     AuthenticatedOrgSlugAgentsAgentIdIndexRoute:
       AuthenticatedOrgSlugAgentsAgentIdIndexRoute,
     AuthenticatedOrgSlugAgentsNewIndexRoute:
@@ -765,6 +831,7 @@ const rootRouteChildren: RootRouteChildren = {
   DevSplatRoute: DevSplatRoute,
   ConfigureIndexRoute: ConfigureIndexRoute,
   authenticationAuthPathRoute: authenticationAuthPathRoute,
+  ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatSplatRoute: ApiChatSplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,

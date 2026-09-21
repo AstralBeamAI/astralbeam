@@ -33,7 +33,7 @@
     "build:webapp": "deno task --cwd webapp build",
     "build:www": "deno task --cwd www build",
     "build:todos": "deno task --cwd examples/todos build",
-    // The SDK builds first because the todos example consumes its `dist` output through `file:../../sdk`.
+    // The SDK builds first because the webapp and todos example consume its linked `dist` output.
     "build": "deno task build:sdk && deno task build:webapp && deno task build:www && deno task build:todos"
   }
 }

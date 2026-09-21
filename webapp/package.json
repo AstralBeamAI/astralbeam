@@ -34,10 +34,11 @@
     "preview": "vite preview",
     "ready": "deno task check && deno task test && deno task build",
     "test": "vitest run",
-    "typecheck": "deno check",
+    "typecheck": "deno check --node-modules-dir=manual --unstable-sloppy-imports",
     "ui": "shadcn"
   },
   "dependencies": {
+    "@astralbeam/sdk": "file:../sdk",
     "@aws-sdk/client-sesv2": "^3.1115.0",
     "@base-ui/react": "^1.6.0",
     "@better-auth-ui/core": "1.7.12",
