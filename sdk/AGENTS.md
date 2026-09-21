@@ -73,6 +73,7 @@ Verify embedded directories through the existing consumer examples and their bro
 - Verify vanilla and React mounts, tenant and organization scope, non-admin denial, search beyond page one, literal wildcard search, cursors, metadata, theme isolation, and unmount/remount.
 - Directory queries use TanStack Query/Table. Keep Effect on server workflows, use native Drizzle Effects directly, and do not add an Effect runtime to the client bundle.
 - Use TanStack Table's built-in state and APIs for supported table behavior instead of parallel React state. Keep opaque API cursors outside page-index pagination.
+- Directory pagination caps rendering at 100 records, so virtualization is unnecessary.
 - Display customer-provided external IDs as the first column labeled "ID" in directories. Do not display AstralBeam's internal record or tenant UUIDs.
 
 ## Testing

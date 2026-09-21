@@ -1,6 +1,5 @@
 export const APP_NAME = "AstralBeam Todos"
 export const CHAT_TITLE = "Todos assistant"
-export const DIRECTORY_TOKEN_SOURCE = { url: "/api/astralbeam/organization-token" }
 // Overridable so the end-to-end suite can point at a webapp it started on its own port.
 export const ASTRALBEAM_API_URL = import.meta.env.VITE_ASTRALBEAM_API_URL ||
   "http://localhost:4500/api"

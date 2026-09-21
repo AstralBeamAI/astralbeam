@@ -8,10 +8,9 @@ export function directoriesPage(page: Page) {
   return {
     tenants,
     users,
-    selection: page.getByRole("status").filter({ hasText: "Selected tenant:" }),
     error: page.getByRole("alert").filter({ hasText: "Directory error:" }),
     dismissError: page.getByRole("button", { name: "Dismiss error" }),
-    retry: tenants.getByRole("button", { name: "Retry", exact: true }),
+    retry: users.getByRole("button", { name: "Retry", exact: true }),
     next: tenants.getByRole("button", { name: "Next", exact: true }),
     previous: tenants.getByRole("button", { name: "Previous", exact: true }),
     reset: page.getByRole("button", { name: "Reset", exact: true }),
@@ -20,11 +19,7 @@ export function directoriesPage(page: Page) {
     clearTenant: users.getByRole("button", { name: "Clear tenant" }),
     theme: page.getByRole("button", { name: /^Theme:/ }),
     customTheme: page.getByRole("button", { name: /^Custom theme:/ }),
-    popup: users.locator('[data-slot="combobox-content"]'),
-    open: () => page.goto("/tenants"),
-    openUsers: () => page.getByRole("link", { name: "Tenant users", exact: true }).click(),
-    openExternal: (id: string) =>
-      page.goto(`/tenant-users?tenantExternalId=${encodeURIComponent(id)}`),
+    open: () => page.goto("/tenant-users"),
     selectTenant: async (name: string) => {
       await users.getByRole("combobox", { name: "Tenant", exact: true }).fill(name)
       await users.getByRole("option", { name: new RegExp(name) }).click()
@@ -41,7 +36,10 @@ export function directoriesPage(page: Page) {
   }
 }
 
-export async function openVanillaDirectories(page: Page) {
+export async function openVanillaDirectories(
+  page: Page,
+  options: { scope?: "organization"; tenantExternalId?: string } = {},
+) {
   await page.route("**/__listing-sdk/*.js", (route) =>
     route.fulfill({
       path: fileURLToPath(
@@ -65,7 +63,7 @@ export async function openVanillaDirectories(page: Page) {
           import { mountAstralBeamTenantList, mountAstralBeamTenantUserList } from '/__listing-sdk/client.js';
           const options = { apiUrl: ${
     JSON.stringify(`${webappUrl}/api`)
-  }, fetchAstralBeamToken: { url: '/__listing-token' } };
+  }, fetchAstralBeamToken: { url: '/__listing-token' }, ...${JSON.stringify(options)} };
           const mount = () => [
             mountAstralBeamTenantList(document.getElementById('tenants'), options),
             mountAstralBeamTenantUserList(document.getElementById('users'), options),

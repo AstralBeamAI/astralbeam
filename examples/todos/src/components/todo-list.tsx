@@ -39,7 +39,6 @@ export function TodoList({
       <header className="todos-header">
         <h1>Todos</h1>
         <nav aria-label="Example pages">
-          <Link to="/tenants">Tenants</Link>
           <Link to="/tenant-users">Tenant users</Link>
         </nav>
       </header>

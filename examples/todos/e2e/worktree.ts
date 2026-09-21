@@ -4,7 +4,7 @@ import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 
-import { SEED_TODOS_TARGET, SEED_USERS } from "../../../webapp/scripts/seed/fixtures.ts"
+import { SEED_TODOS_TARGET } from "../../../webapp/scripts/seed/fixtures.ts"
 
 /**
  * Resolves everything about this worktree the suite needs: where the projects are, which ports its
@@ -158,8 +158,6 @@ export function e2eWebServers() {
         PORT: String(todosPort),
         // The confidential key the token route signs with, and the browser-safe agent it targets.
         ASTRALBEAM_API_KEY: seedTarget.apiKey,
-        ASTRALBEAM_ORGANIZATION_ID: seedTarget.organizationId,
-        ASTRALBEAM_OPERATOR_EMAIL: SEED_USERS[0].email,
         VITE_ASTRALBEAM_AGENT_ID: seedTarget.agentId,
         VITE_ASTRALBEAM_API_URL: `${webappUrl}/api`,
       },
