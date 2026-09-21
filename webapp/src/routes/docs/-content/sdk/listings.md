@@ -120,7 +120,7 @@ Use an `accountId` that changes with either the signed-in user or tenant, and se
 - React props and vanilla `update()` apply live options. Inline token-source objects and callbacks do not clear the view.
 - React refs and vanilla handles expose `refresh()` to reload queries and `reset()` to clear state and immediately reacquire authentication.
 - `reset()` requires a ready host session. It is not a pause or sign-out operation.
-- Token-source updates take effect on the next acquisition or refresh, not immediately. API URL changes clear authentication and cached rows.
+- `refresh()` reloads data and may reuse the cached JWT. Token-source updates apply on the next token acquisition. Use `reset()` to reacquire authentication with a ready host session. API URL changes clear authentication and cached rows.
 - Changing scope or a pinned tenant clears the view. Changing page size restarts pagination while preserving filters.
 
 ## Host callbacks

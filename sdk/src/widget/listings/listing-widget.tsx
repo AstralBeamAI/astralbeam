@@ -142,11 +142,22 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
         ? <ListingLoading />
         : (kind === "users" || pinned) && !tenantId
         ? (
-          <p role="status" className="p-8 text-center text-muted-foreground">
-            {needsPicker
-              ? "Select a tenant to view its users."
-              : "No persisted tenant found. Create the tenant before listing its users."}
-          </p>
+          <div className="space-y-3 p-8 text-center">
+            <p role="status" className="text-muted-foreground">
+              {needsPicker
+                ? "Select a tenant to view its users."
+                : "No persisted tenant found. Create the tenant, then refresh."}
+            </p>
+            {resolve && (
+              <Button
+                variant="outline"
+                disabled={tenant.isFetching}
+                onClick={() => void tenant.refetch()}
+              >
+                <ArrowClockwiseIcon aria-hidden />Refresh
+              </Button>
+            )}
+          </div>
         )
         : (
           <DirectoryPage

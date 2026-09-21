@@ -50,7 +50,7 @@ The token above permits chat, not directory access. Only set `user.admin: true` 
 
 **NOTE**: Signed admin authority permits reading the Tenant and reading and writing its TenantUsers through the API. A read-only widget does not make its token read-only. Stored `admin` fields do not grant this authority.
 
-Directory records must already exist, with `external_id` values matching the token's `tenant.id` and `user.id`. Authentication does not provision them. Follow [Tenant directories](./listings.md) for provisioning and embedding.
+The Tenant must exist with an `external_id` matching the token's `tenant.id`. Persisted TenantUsers are directory contents, not an authentication prerequisite for the signed administrator. Deleting a TenantUser does not revoke a token. Authentication does not provision records. Follow [Tenant directories](./listings.md) for provisioning and embedding.
 
 ## Where the token comes from
 

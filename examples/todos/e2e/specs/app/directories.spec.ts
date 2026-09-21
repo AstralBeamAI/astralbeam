@@ -33,6 +33,20 @@ test("example lists only its tenant's users and filters stored admin status", as
   await expect(directory.user(admin.name)).toBeVisible()
 })
 
+test("a missing tenant can be refreshed after provisioning without remounting", async ({ page }) => {
+  const directory = directoriesPage(page)
+  await page.route(
+    "**/api/v1/tenants?*",
+    (route) => route.fulfill({ json: { items: [], page_after: null, page_before: null } }),
+  )
+  await directory.open()
+  await expect(directory.users).toContainText("No persisted tenant found")
+  await captureMoment(page, "missing-tenant-refresh")
+  await page.unroute("**/api/v1/tenants?*")
+  await directory.refresh.click()
+  await expect(directory.user(seedTarget.user.name)).toBeVisible()
+})
+
 test("directories share chat theme tokens across system, dark, and removed overrides", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
   const directory = directoriesPage(page)
