@@ -138,8 +138,6 @@ widgets: {
 
 Read-only Tenant and TenantUser widgets are available from `/client` and `/react`. See [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
 
-Use `/client` to mount the styled directories from any framework.
-
 There is no root export. Conversation history is not built yet.
 
 | Entry point              | Contents                                     | Peer dependency      |

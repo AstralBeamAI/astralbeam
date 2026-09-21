@@ -64,7 +64,7 @@ Tenant directories show tenant records and their users inside your application. 
 
 **NOTE**: The widget is read-only, but its signed tenant-admin JWT permits reading the Tenant and reading and writing its TenantUsers through the API. Stored `admin` is informational, not an authorization source.
 
-## Components
+## Mount in React
 
 Use `AstralBeamTenantUserList` for a tenant's users. `AstralBeamTenantList` shows Tenant records, limited to the signed tenant by default.
 
@@ -76,22 +76,23 @@ import { AstralBeamTenantList } from "@astralbeam/sdk/react"
 <AstralBeamTenantList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
 ```
 
-The `/client` mounts work with Vue, Svelte, Angular, or plain JavaScript. Mount after the DOM element exists. The widgets bundle React internally, so your application need not install it.
+## Mount anywhere else
 
-Let's mount the user directory without React:
+`mountAstralBeamTenantUserList` takes a target element and options, and returns a handle.
+
+Let's mount the user directory and update its appearance:
 
 ```ts
 import { mountAstralBeamTenantUserList } from "@astralbeam/sdk/client"
 
-const directory = mountAstralBeamTenantUserList(document.getElementById("users")!, {
+const handle = mountAstralBeamTenantUserList(document.getElementById("users")!, {
   fetchAstralBeamToken: { url: "/api/astralbeam/token" },
 })
-
-// On sign-out, account transition, or removal of the host screen:
-directory.unmount()
+handle.update({ colorScheme: "dark" })
+handle.unmount()
 ```
 
-Use `mountAstralBeamTenantList` from the same entry point for Tenant records.
+Use `mountAstralBeamTenantList` from the same entry point for Tenant records. The directory loads lazily with its own bundled React.
 
 ## Tenant identifiers
 
