@@ -1,9 +1,9 @@
 export const siteMetadata = {
   name: "AstralBeam",
   origin: "https://www.astralbeam.ai",
-  title: "AstralBeam - The Agentic Chat Widget for Your App",
+  title: "AstralBeam - Add an Agent to Your App in Minutes",
   description:
-    "Open source agent infrastructure. Drop a Cursor-style agentic chat widget into your app. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use AstralBeam Cloud.",
+    "Open source agent infrastructure. Add a Cursor-style agentic chat widget to your app in minutes. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use AstralBeam Cloud.",
   email: "hello@astralbeam.ai",
   links: {
     app: "https://app.astralbeam.ai",
@@ -21,7 +21,7 @@ export const siteMetadata = {
     path: "/og-image.png",
     width: 1200,
     height: 630,
-    alt: "AstralBeam: the agentic chat widget for your app.",
+    alt: "AstralBeam: add an agent to your app in minutes.",
   },
 } as const
 

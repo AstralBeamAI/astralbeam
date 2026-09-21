@@ -11,7 +11,7 @@ export const GET: APIRoute = ({ site }) => {
   return new Response(
     `# AstralBeam
 
-> AstralBeam is open source agent infrastructure: the agentic chat widget for your app.
+> AstralBeam is open source agent infrastructure: add an agentic chat widget to your app in minutes.
 
 Drop a Cursor-style agent sidebar into your product with one npm package and one component. It streams answers, calls your tools, renders your own components, and works with users' files. Self-host the platform or use AstralBeam Cloud. Items marked "in progress" are on the roadmap and not shipped yet.
 
