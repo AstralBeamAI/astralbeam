@@ -1,7 +1,10 @@
 node_modules
 .DS_Store
 dist
-.astro
+.nitro
+.output
+.tanstack
+.tanstack-start
 .wrangler
 *.local
 .env

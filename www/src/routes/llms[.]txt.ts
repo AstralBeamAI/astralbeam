@@ -1,15 +1,9 @@
-import type { APIRoute } from "astro"
+import { createFileRoute } from "@tanstack/react-router"
 
 import { siteMetadata, siteUrl } from "@/lib/site"
 
-export const prerender = true
-
-export const GET: APIRoute = ({ site }) => {
-  const homeUrl = siteUrl("/", site?.href)
-  const { app, docs, github, discord } = siteMetadata.links
-
-  return new Response(
-    `# AstralBeam
+const { app, docs, github, discord } = siteMetadata.links
+const llmsText = `# AstralBeam
 
 > AstralBeam adds an agentic chat widget to your app in minutes.
 
@@ -36,7 +30,7 @@ Drop a Cursor-style agent sidebar into your product with one npm package and one
 
 ## Links
 
-- [Home](${homeUrl}): Product overview, integration steps, and deployment model.
+- [Home](${siteUrl("/")}): Product overview, integration steps, and deployment model.
 - [Hosted app](${app}): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
 - [Documentation](${docs}): Guides and reference for the SDK and the platform.
 - [Source code](${github}): The open-source platform under AGPL-3.0.
@@ -45,7 +39,15 @@ Drop a Cursor-style agent sidebar into your product with one npm package and one
 ## Contact
 
 For more information, contact ${siteMetadata.email}.
-`,
-    { headers: { "Content-Type": "text/plain; charset=utf-8" } },
-  )
-}
+`
+
+export const Route = createFileRoute("/llms.txt")({
+  server: {
+    handlers: {
+      GET: () =>
+        new Response(llmsText, {
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        }),
+    },
+  },
+})

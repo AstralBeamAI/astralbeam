@@ -73,7 +73,7 @@ AstralBeam works with your existing LLM providers and gateways, observability pl
 
 ## Codebase Structure
 
-There are four independent Deno projects: a TanStack Start product application with app-local shadcn/ui components, the public Astro website, the frontend SDK published to npm, and a standalone TanStack Start example that consumes the built SDK.
+There are four independent Deno projects: a TanStack Start product application with app-local shadcn/ui components, the prerendered TanStack Start marketing website, the frontend SDK published to npm, and a standalone TanStack Start example that consumes the built SDK.
 
 ```text
 webapp/       # TanStack Start application, database, theme, and UI

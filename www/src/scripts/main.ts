@@ -1,4 +1,6 @@
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+// Read once by startSiteEffects(). The landing route imports this module during SSR, so nothing
+// here may touch the DOM until the browser calls in.
+let reducedMotion = false
 
 /* ============ starfield ============ */
 
@@ -585,13 +587,17 @@ function init() {
   initAgentDemo()
 }
 
-// WebKit runs module scripts before pending stylesheets finish loading, unlike Chromium and
-// Firefox, so on a cold Safari load the brand colors read from computed styles can still be
-// empty. That throws in initStarfield() before the reveals are wired up and leaves the page
-// blank. https://github.com/whatwg/html/issues/3890
-const stylesheet = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"]')
-if (stylesheet && !stylesheet.sheet) {
-  stylesheet.addEventListener("load", init, { once: true })
-} else {
-  init()
+export function startSiteEffects() {
+  reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+  // WebKit runs module scripts before pending stylesheets finish loading, unlike Chromium and
+  // Firefox, so on a cold Safari load the brand colors read from computed styles can still be
+  // empty. That throws in initStarfield() before the reveals are wired up and leaves the page
+  // blank. https://github.com/whatwg/html/issues/3890
+  const stylesheet = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"]')
+  if (stylesheet && !stylesheet.sheet) {
+    stylesheet.addEventListener("load", init, { once: true })
+  } else {
+    init()
+  }
 }

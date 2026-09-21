@@ -1,14 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  // The shared base comes last so its options win over Astro's preset. https://www.typescriptlang.org/tsconfig/#extends
-  "extends": ["astro/tsconfigs/strict", "../tsconfig.base.json"],
-  "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"],
+  "extends": "../tsconfig.base.json",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", ".nitro", ".output", ".tanstack", ".tanstack-start", "dist"],
   "compilerOptions": {
+    "jsx": "react-jsx",
     "lib": ["ES2025", "DOM", "DOM.Iterable"],
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["vite/client"]
+    // `tsc` runs the typecheck, so unlike the Deno-checked projects this one declares Node's
+    // types itself for the build config, the prerendered resource routes, and the suite.
+    "types": ["node", "vite/client", "@tanstack/react-start"]
   }
 }

@@ -1,10 +1,9 @@
-import type { APIRoute } from "astro"
 import sharp from "sharp"
 
 import darkLogoSvg from "@/assets/astralbeam-logo-dark.svg?raw"
 import { palette } from "@/brand/palette"
 
-const darkLogo = Buffer.from(darkLogoSvg)
+const darkLogo = new TextEncoder().encode(darkLogoSvg)
 const transparent = { r: 0, g: 0, b: 0, alpha: 0 }
 
 // The favicon needs its own opaque plate, while the social card composites the mark
@@ -21,7 +20,7 @@ export function renderSiteLogo(size: number, { opaque = true } = {}) {
     .toBuffer()
 }
 
-export function createPngRoute(render: () => Promise<Uint8Array>): APIRoute {
+export function createPngHandler(render: () => Promise<Uint8Array>) {
   return async () =>
     new Response(new Uint8Array(await render()), {
       headers: {

@@ -6,7 +6,13 @@
   // The website is self-contained, so source entry exports must also be used within this project.
   // https://knip.dev/reference/configuration#includeentryexports
   "includeEntryExports": true,
-  // Astro's compiler does not follow external script src references, so keep this production entry explicit.
-  // https://github.com/webpro-nl/knip/blob/main/packages/knip/src/plugins/astro/compiler.ts
-  "entry": ["src/scripts/main.ts!"]
+  // TanStack Start discovers the router factory by convention rather than through an import.
+  "entry": ["src/router.tsx"],
+  // src/styles/index.css pulls the three font families in through bare `@import` specifiers,
+  // which Knip parses but does not resolve back to a package. The build emits their woff2 files.
+  "ignoreDependencies": [
+    "@fontsource-variable/space-grotesk",
+    "@fontsource/anton",
+    "@fontsource/jetbrains-mono"
+  ]
 }

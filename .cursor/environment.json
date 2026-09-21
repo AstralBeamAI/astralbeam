@@ -29,7 +29,7 @@
     {
       "name": "Public website",
       "command": "cd www && deno task dev",
-      "description": "Runs the Astro website on port 4600."
+      "description": "Runs the public website on port 4600."
     }
   ]
 }

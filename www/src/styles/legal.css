@@ -1,55 +1,6 @@
----
-import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inline"
-import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
-import SiteLayout from "@/layouts/SiteLayout.astro"
-import { siteMetadata } from "@/lib/site"
+/* Shell for /terms and /privacy. Every selector is prefixed with `legal-`, so these rules stay
+   off the landing page without a scoping mechanism. */
 
-interface Props {
-  title: string
-  description: string
-  canonicalPath: string
-  effectiveDate: string
-}
-
-const { title, description, canonicalPath, effectiveDate } = Astro.props
----
-<SiteLayout title={`${title} | ${siteMetadata.name}`} description={description}
-  canonicalPath={canonicalPath}>
-  <div class="legal-shell">
-    <header class="legal-header">
-      <a class="legal-brand" href="/" aria-label="AstralBeam home">
-        <img class="legal-brand-wordmark" src={astralbeamDarkWordmarkUrl} alt="AstralBeam"
-          width="1241" height="136" />
-        <img class="legal-brand-mark" src={astralbeamDarkLogoUrl} alt="AstralBeam" width="270"
-          height="270" />
-      </a>
-      <nav aria-label="Legal documents">
-        <a href="/terms">Terms</a>
-        <a href="/privacy">Privacy</a>
-      </nav>
-    </header>
-
-    <main class="legal-main">
-      <header class="legal-title">
-        <p class="mono">// LEGAL</p>
-        <h1>{title}</h1>
-        <p>Effective {effectiveDate}</p>
-      </header>
-
-      <article class="legal-content">
-        <slot />
-      </article>
-    </main>
-
-    <footer class="legal-footer mono">
-      <span>© 2026 ASTRALBEAM</span>
-      <a href={`mailto:${siteMetadata.email}`}>{siteMetadata.email}</a>
-      <a href="/">HOME</a>
-    </footer>
-  </div>
-</SiteLayout>
-
-<style>
 .legal-shell {
   min-height: 100svh;
   background:
@@ -99,7 +50,7 @@ const { title, description, canonicalPath, effectiveDate } = Astro.props
 
 .legal-header a,
 .legal-footer a,
-:global(.legal-content a) {
+.legal-content a {
   color: var(--primary);
   text-decoration: underline;
   text-decoration-color: transparent;
@@ -109,7 +60,7 @@ const { title, description, canonicalPath, effectiveDate } = Astro.props
 
 .legal-header a:hover,
 .legal-footer a:hover,
-:global(.legal-content a:hover) {
+.legal-content a:hover {
   text-decoration-color: currentColor;
 }
 
@@ -149,33 +100,33 @@ const { title, description, canonicalPath, effectiveDate } = Astro.props
   padding-top: 1rem;
 }
 
-:global(.legal-content section) {
+.legal-content section {
   padding-block: 2rem;
   border-bottom: 1px solid var(--border);
 }
 
-:global(.legal-content h2) {
+.legal-content h2 {
   margin-bottom: 0.9rem;
   font-size: 1.2rem;
   line-height: 1.3;
 }
 
-:global(.legal-content p),
-:global(.legal-content li) {
+.legal-content p,
+.legal-content li {
   color: var(--text-muted);
 }
 
-:global(.legal-content p + p),
-:global(.legal-content ul + p),
-:global(.legal-content p + ul) {
+.legal-content p + p,
+.legal-content ul + p,
+.legal-content p + ul {
   margin-top: 0.9rem;
 }
 
-:global(.legal-content ul) {
+.legal-content ul {
   padding-left: 1.25rem;
 }
 
-:global(.legal-content li + li) {
+.legal-content li + li {
   margin-top: 0.45rem;
 }
 
@@ -214,4 +165,3 @@ const { title, description, canonicalPath, effectiveDate } = Astro.props
     margin-left: 0;
   }
 }
-</style>

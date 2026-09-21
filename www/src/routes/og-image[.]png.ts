@@ -1,17 +1,22 @@
+import { createFileRoute } from "@tanstack/react-router"
 import sharp from "sharp"
 
 import { palette } from "@/brand/palette"
-import { createPngRoute, renderSiteLogo } from "@/lib/site-image"
+import { createPngHandler, renderSiteLogo } from "@/lib/site-image"
 import { siteMetadata } from "@/lib/site"
 
-export const prerender = true
-
-export const GET = createPngRoute(async () => {
-  const logo = await renderSiteLogo(150, { opaque: false })
-  return sharp(Buffer.from(socialCardSvg()))
-    .composite([{ input: logo, left: 984, top: 75 }])
-    .png()
-    .toBuffer()
+export const Route = createFileRoute("/og-image.png")({
+  server: {
+    handlers: {
+      GET: createPngHandler(async () => {
+        const logo = await renderSiteLogo(150, { opaque: false })
+        return sharp(new TextEncoder().encode(socialCardSvg()))
+          .composite([{ input: logo, left: 984, top: 75 }])
+          .png()
+          .toBuffer()
+      }),
+    },
+  },
 })
 
 function socialCardSvg() {

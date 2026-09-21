@@ -450,6 +450,22 @@ main {
   padding: 6.5rem 0 7rem;
 }
 
+/* The not-found page's single centered column, where the landing page uses .hero-grid.
+   .hero-sub is width-capped and .hero-ctas is a fit-content grid, so neither answers to
+   `text-align` on its own. */
+.hero-inner {
+  width: 100%;
+  max-width: var(--content);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  text-align: center;
+}
+
+.hero-inner .hero-sub,
+.hero-inner .hero-ctas {
+  margin-inline: auto;
+}
+
 /* Copy on the left, the widget on the right. The demo column is capped so the
    transcript reads at sidebar width rather than stretching with the viewport. */
 .hero-grid {

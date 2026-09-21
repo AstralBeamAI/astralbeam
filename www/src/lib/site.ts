@@ -25,6 +25,6 @@ export const siteMetadata = {
   },
 } as const
 
-export function siteUrl(pathname: string, base: string | URL = siteMetadata.origin) {
-  return new URL(pathname, base).href
+export function siteUrl(pathname: string) {
+  return new URL(pathname, siteMetadata.origin).href
 }
