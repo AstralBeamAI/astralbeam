@@ -118,3 +118,31 @@ When adding a domain such as billing or projects:
 3. Spread that part after `baseRelations` in `databaseRelations`.
 
 Each source table must be owned by exactly one relation part. Two parts defining the same source table would allow a later object spread to silently replace relationships from the earlier part. See Drizzle's [Relations v2 part ordering](https://orm.drizzle.team/docs/relations#relations-parts).
+
+## PostgreSQL cache
+
+`cache.server.ts` provides schema-typed JSON reads, writes, and deletes through the existing Effect database runtime. The global `cache_entry` table isolates keys by namespace. Effect v4's `KeyValueStore.toSchemaStore` handles serialization.
+
+```ts
+import { Schema } from "effect"
+import { runDatabaseEffect } from "@/db"
+import { deleteDatabaseCache, readDatabaseCache, writeDatabaseCache } from "@/db/cache.server"
+
+const options = { namespace: "example:v1", key: "hello", schema: Schema.String }
+await runDatabaseEffect(writeDatabaseCache({ ...options, value: "world", timeToLive: "5 minutes" }))
+await runDatabaseEffect(writeDatabaseCache({ ...options, value: "updated", timeToLive: "1 hour" }))
+const value = await runDatabaseEffect(readDatabaseCache(options)) // Option.some("updated")
+await runDatabaseEffect(deleteDatabaseCache(options))
+```
+
+Writes insert missing keys or atomically replace both value and expiration for an existing namespace/key pair, using last-write-wins semantics. Updates preserve `id` and `created_at` and refresh `updated_at`. Omitted or infinite `timeToLive` means no expiration, and zero or negative TTL expires immediately. PostgreSQL's statement clock determines expiration. Reads never extend TTL. The [storage rationale](schema/cache.server.ts) explains each column and index, the alternatives, and the upstream references.
+
+Only `deleteDatabaseCache` removes rows, for the exact namespace/key pair whether expired or live. Cleanup is deferred: expired rows remain stored but unreadable through the cache API until explicitly deleted. PostgreSQL autovacuum reclaims dead row versions after deletion, but does not delete entries based on TTL.
+
+Namespaces allow at most 64 Unicode code points and keys at most 512, enforced in both the application and database. Oversized inputs fail with `KeyValueStoreError` before a cache query. Database and codec failures propagate to callers. JSON `null` is a cached value, distinct from a miss.
+
+Authorize access before cache operations. Include all input and identity dimensions in the key, using immutable Organization and Tenant UUIDs. Use a new namespace version when the value schema changes incompatibly. This table is not an encrypted secret store.
+
+The integration suite requires a disposable loopback `DATABASE_URL` whose database name ends in `_test`, with checked-in migrations applied.
+
+Reference: [Effect KeyValueStore](https://effect.website/docs/v4/api/effect/unstable/persistence/KeyValueStore).
