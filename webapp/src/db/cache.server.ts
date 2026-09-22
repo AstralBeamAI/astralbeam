@@ -1,8 +1,6 @@
 import { and, count, eq, gt, isNull, or, sql } from "drizzle-orm"
-import * as Cache from "effect/Cache"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
-import * as Option from "effect/Option"
 import type * as Schema from "effect/Schema"
 import { KeyValueStore } from "effect/unstable/persistence"
 
@@ -28,7 +26,7 @@ function databaseCacheError(method: string, cause: unknown) {
 
 const validateDatabaseCacheKey = Effect.fn("validateDatabaseCacheKey")(function* (options: {
   readonly namespace: string
-  readonly key?: string
+  readonly key: string
 }) {
   if (Array.from(options.namespace).length > DATABASE_CACHE_NAMESPACE_MAX_LENGTH) {
     return yield* Effect.fail(
@@ -39,7 +37,7 @@ const validateDatabaseCacheKey = Effect.fn("validateDatabaseCacheKey")(function*
       }),
     )
   }
-  if (options.key !== undefined && Array.from(options.key).length > DATABASE_CACHE_KEY_MAX_LENGTH) {
+  if (Array.from(options.key).length > DATABASE_CACHE_KEY_MAX_LENGTH) {
     return yield* Effect.fail(
       new KeyValueStore.KeyValueStoreError({
         method: "validate",
@@ -136,50 +134,3 @@ export const deleteDatabaseCache = Effect.fn("deleteDatabaseCache")(
     yield* store.remove(options.key)
   },
 )
-
-export const makeDatabaseCacheLookup = Effect.fn("makeDatabaseCacheLookup")(
-  function* <S extends Schema.Constraint, E, R>(options: {
-    readonly namespace: string
-    readonly schema: S
-    readonly lookup: (key: string) => Effect.Effect<S["Type"], E, R>
-    readonly timeToLive?: Duration.Input
-    readonly capacity?: number
-  }) {
-    yield* validateDatabaseCacheKey(options)
-    const store = KeyValueStore.toSchemaStore(
-      yield* makeDatabaseCacheStore(options),
-      options.schema,
-    )
-    const cache = yield* Cache.make({
-      capacity: options.capacity ?? 1024,
-      timeToLive: Duration.zero,
-      requireServicesAt: "construction",
-      lookup: (key: string) =>
-        Effect.gen(function* () {
-          const cached = yield* store.get(key)
-          if (Option.isSome(cached)) return cached.value
-          const value = yield* options.lookup(key)
-          yield* store.set(key, value)
-          return value
-        }),
-    })
-    return (key: string) =>
-      validateDatabaseCacheKey({ namespace: options.namespace, key }).pipe(
-        Effect.andThen(() => Cache.get(cache, key)),
-      )
-  },
-)
-
-export const pruneDatabaseCache = Effect.fn("pruneDatabaseCache")(function* () {
-  const database = yield* effectDatabase
-  const rows = yield* database.delete(cacheEntry).where(sql`${cacheEntry.id} in (
-    select id from ${cacheEntry}
-    where expires_at <= statement_timestamp()
-    order by expires_at, id
-    limit 1000
-    for update skip locked
-  )`).returning({ id: cacheEntry.id }).pipe(
-    Effect.mapError((cause) => databaseCacheError("prune", cause)),
-  )
-  return rows.length
-})

@@ -121,41 +121,27 @@ Each source table must be owned by exactly one relation part. Two parts defining
 
 ## PostgreSQL cache
 
-`cache.server.ts` provides schema-typed JSON caching through the existing Effect database runtime. The global `cache_entry` table isolates keys by namespace. It uses Effect v4's `KeyValueStore.toSchemaStore` for serialization and a private `Cache` for pending-load deduplication. `Persistable` and `PersistedCache` are unnecessary for this explicit KV API.
+`cache.server.ts` provides schema-typed JSON reads, writes, and deletes through the existing Effect database runtime. The global `cache_entry` table isolates keys by namespace. Effect v4's `KeyValueStore.toSchemaStore` handles serialization.
 
 ```ts
-import { Effect, Schema } from "effect"
+import { Schema } from "effect"
 import { runDatabaseEffect } from "@/db"
-import { makeDatabaseCacheLookup, readDatabaseCache, writeDatabaseCache } from "@/db/cache.server"
+import { deleteDatabaseCache, readDatabaseCache, writeDatabaseCache } from "@/db/cache.server"
 
-const options = { namespace: "example:v1", schema: Schema.String }
-await runDatabaseEffect(writeDatabaseCache({ ...options, key: "hello", value: "world" }))
-const value = await runDatabaseEffect(readDatabaseCache({ ...options, key: "hello" })) // Option<string>
-
-// Construct once in the owning application layer and reuse the returned function.
-const lookup = await runDatabaseEffect(makeDatabaseCacheLookup({
-  ...options,
-  timeToLive: "5 minutes",
-  lookup: (key) => Effect.succeed(`computed ${key}`),
-}))
-const result = await runDatabaseEffect(lookup("hello"))
+const options = { namespace: "example:v1", key: "hello", schema: Schema.String }
+await runDatabaseEffect(writeDatabaseCache({ ...options, value: "world", timeToLive: "5 minutes" }))
+const value = await runDatabaseEffect(readDatabaseCache(options)) // Option<string>
+await runDatabaseEffect(deleteDatabaseCache(options))
 ```
 
-Writes atomically replace both value and expiration. Omitted or infinite `timeToLive` means no expiration, and zero or negative TTL expires immediately. PostgreSQL's statement clock determines expiration. Reads never extend TTL. The [storage rationale](schema/cache.server.ts) explains each column and index, the alternatives, and the upstream references.
+Writes atomically replace both value and expiration, using last-write-wins semantics. Omitted or infinite `timeToLive` means no expiration, and zero or negative TTL expires immediately. PostgreSQL's statement clock determines expiration. Reads never extend TTL. The [storage rationale](schema/cache.server.ts) explains each column and index, the alternatives, and the upstream references.
 
-Rows are deleted only when a caller runs one of these Effects through the existing database runtime:
+Only `deleteDatabaseCache` removes rows, for the exact namespace/key pair whether expired or live. Cleanup is deferred: expired rows remain stored but unreadable through the cache API until explicitly deleted. PostgreSQL autovacuum reclaims dead row versions after deletion, but does not delete entries based on TTL.
 
-- `runDatabaseEffect(deleteDatabaseCache({ namespace, key }))` executes DELETE for that exact pair, whether expired or still live.
-- `runDatabaseEffect(pruneDatabaseCache())` deletes at most 1000 expired rows across all namespaces and returns the deleted count. It locks candidates and skips busy rows in the same SQL statement. Later invocations handle remaining or previously locked entries.
+Namespaces allow at most 64 Unicode code points and keys at most 512, enforced in both the application and database. Oversized inputs fail with `KeyValueStoreError` before a cache query. Database and codec failures propagate to callers. JSON `null` is a cached value, distinct from a miss.
 
-**No production caller or cleanup scheduler is installed.** TTL currently makes expired rows unreadable through the cache API, but leaves them stored until explicitly deleted or pruned. Indefinite entries are never pruned. The in-memory capacity does not limit database rows. PostgreSQL autovacuum reclaims dead row versions after deletion, but does not delete entries based on TTL.
+Authorize access before cache operations. Include all input and identity dimensions in the key, using immutable Organization and Tenant UUIDs. Use a new namespace version when the value schema changes incompatibly. This table is not an encrypted secret store.
 
-A lookup shares pending work within one constructed instance, captures its Effect services at construction, and consults PostgreSQL again after completion. Its bounded in-memory cache defaults to capacity 1024 with zero TTL. Capacity pressure can evict pending keys and permit duplicate work. Separate instances or processes can also compute the same miss. Successful writes use last-write-wins semantics. Deletion does not cancel a pending load, which can repopulate the entry. Canceling the final waiter interrupts pending work. Failed lookups are not persisted. Database, codec, and loader failures propagate to callers.
+The integration suite requires a disposable loopback `DATABASE_URL` whose database name ends in `_test`, with checked-in migrations applied.
 
-Namespaces allow at most 64 Unicode code points and keys at most 512, enforced in both the application and database. Oversized inputs fail with `KeyValueStoreError` before a cache query.
-
-Authorize access before cache operations. Include all input and identity dimensions in the key, using immutable Organization and Tenant UUIDs. Use a new namespace version when the value schema changes incompatibly. JSON `null` is a cached value, distinct from a miss. This table is not an encrypted secret store.
-
-The integration suite requires a disposable loopback `DATABASE_URL` whose database name ends in `_test`, with checked-in migrations applied. It uses real PostgreSQL time and locks rather than Effect's test clock.
-
-References: [Effect KeyValueStore](https://effect.website/docs/v4/api/effect/unstable/persistence/KeyValueStore), [Effect Cache](https://effect.website/docs/v4/api/effect/Cache), and the [synchronous interruption fix](https://github.com/Effect-TS/effect/commit/78cc9c0d0f36b59f7034b2ace56a4a5c02b7a551) included in the pinned lockfile's Effect rc.117.
+Reference: [Effect KeyValueStore](https://effect.website/docs/v4/api/effect/unstable/persistence/KeyValueStore).

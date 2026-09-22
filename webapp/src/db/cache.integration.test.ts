@@ -1,5 +1,5 @@
-import { and, eq, sql } from "drizzle-orm"
-import { Duration, Effect, Exit, Fiber, Latch, Option, Schema } from "effect"
+import { eq, sql } from "drizzle-orm"
+import { Duration, Effect, Option, Schema } from "effect"
 import { afterEach, describe, expect, test, vi } from "vitest"
 
 const cacheIntegration = vi.hoisted(() => {
@@ -16,13 +16,7 @@ const cacheIntegration = vi.hoisted(() => {
 
 import { db, runDatabaseEffect } from "@/db"
 import { cacheEntry } from "@/db/schema.server"
-import {
-  deleteDatabaseCache,
-  makeDatabaseCacheLookup,
-  pruneDatabaseCache,
-  readDatabaseCache,
-  writeDatabaseCache,
-} from "./cache.server"
+import { deleteDatabaseCache, readDatabaseCache, writeDatabaseCache } from "./cache.server"
 
 const cacheTestNamespace = "cache-integration"
 const cacheTestOptions = {
@@ -97,119 +91,12 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
     )
   })
 
-  test("reuses persisted data across instances and observes writes and deletes", async () => {
-    let calls = 0
-    await runDatabaseEffect(Effect.gen(function* () {
-      const options = { ...cacheTestOptions, lookup: () => Effect.sync(() => `load-${++calls}`) }
-      const first = yield* makeDatabaseCacheLookup(options)
-      const second = yield* makeDatabaseCacheLookup(options)
-      expect(yield* first("key")).toBe("load-1")
-      expect(yield* second("key")).toBe("load-1")
-      yield* writeDatabaseCache({ ...cacheTestOptions, value: "external" })
-      expect(yield* first("key")).toBe("external")
-      yield* deleteDatabaseCache(cacheTestOptions)
-      expect(yield* first("key")).toBe("load-2")
-    }))
-  })
-
-  test("shares pending work and canceling one waiter preserves another", async () => {
-    let calls = 0
-    await runDatabaseEffect(Effect.gen(function* () {
-      const started = yield* Latch.make()
-      const complete = yield* Latch.make()
-      const lookup = yield* makeDatabaseCacheLookup({
-        ...cacheTestOptions,
-        lookup: (key) =>
-          Effect.gen(function* () {
-            calls++
-            if (key === "independent") return key
-            yield* started.open
-            yield* complete.await
-            return "shared"
-          }),
-      })
-      const first = yield* lookup("key").pipe(Effect.forkChild({ startImmediately: true }))
-      yield* started.await
-      const second = yield* lookup("key").pipe(Effect.forkChild({ startImmediately: true }))
-      expect(yield* lookup("independent")).toBe("independent")
-      yield* Fiber.interrupt(first)
-      yield* complete.open
-      expect(yield* Fiber.join(second)).toBe("shared")
-      expect(calls).toBe(2)
-    }))
-  })
-
-  test("interrupts abandoned work and retries it", async () => {
-    let calls = 0
-    await runDatabaseEffect(Effect.gen(function* () {
-      const started = yield* Latch.make()
-      const interrupted = yield* Latch.make()
-      const lookup = yield* makeDatabaseCacheLookup({
-        ...cacheTestOptions,
-        lookup: () =>
-          Effect.suspend(() =>
-            ++calls > 1 ? Effect.succeed("retried") : started.open.pipe(
-              Effect.andThen(Effect.never),
-              Effect.onInterrupt(() => interrupted.open),
-            )
-          ),
-      })
-      const waiter = yield* lookup("key").pipe(Effect.forkChild({ startImmediately: true }))
-      yield* started.await
-      yield* Fiber.interrupt(waiter)
-      yield* interrupted.await
-      expect(yield* lookup("key")).toBe("retried")
-    }))
-  })
-
-  test("does not retain failed or synchronously interrupted loads", async () => {
-    for (const failure of [Effect.fail("lookup failure"), Effect.interrupt]) {
-      let calls = 0
-      await runDatabaseEffect(Effect.gen(function* () {
-        yield* deleteDatabaseCache(cacheTestOptions)
-        const lookup = yield* makeDatabaseCacheLookup({
-          ...cacheTestOptions,
-          lookup: () => Effect.suspend(() => ++calls > 1 ? Effect.succeed("retried") : failure),
-        })
-        expect(Exit.isFailure(yield* Effect.exit(lookup("key")))).toBe(true)
-        expect(yield* readDatabaseCache(cacheTestOptions)).toEqual(Option.none())
-        expect(yield* lookup("key")).toBe("retried")
-        expect(calls).toBe(2)
-      }))
-    }
-  })
-
-  test("propagates corrupt JSON and schema errors without invoking the loader", async () => {
-    const loader = vi.fn(() => Effect.succeed("loaded"))
+  test("propagates corrupt JSON and schema errors", async () => {
     for (const value of ["not-json", "42"]) {
       await db.insert(cacheEntry).values({ namespace: cacheTestNamespace, key: "key", value })
         .onConflictDoUpdate({ target: [cacheEntry.namespace, cacheEntry.key], set: { value } })
-      const error = await runDatabaseEffect(Effect.gen(function* () {
-        const lookup = yield* makeDatabaseCacheLookup({ ...cacheTestOptions, lookup: loader })
-        return yield* lookup("key").pipe(Effect.flip)
-      }))
+      const error = await runDatabaseEffect(readDatabaseCache(cacheTestOptions).pipe(Effect.flip))
       expect(error._tag).toBe("SchemaError")
     }
-    expect(loader).not.toHaveBeenCalled()
-  })
-
-  test("prunes at most 1000 expired rows and skips locked renewals", async () => {
-    await db.insert(cacheEntry).values(Array.from({ length: 1002 }, (_, key) => ({
-      namespace: cacheTestNamespace,
-      key: String(key),
-      value: '"expired"',
-      expiresAt: new Date(0),
-    })))
-    await db.transaction(async (transaction) => {
-      await transaction.update(cacheEntry).set({ expiresAt: null }).where(and(
-        eq(cacheEntry.namespace, cacheTestNamespace),
-        eq(cacheEntry.key, "0"),
-      ))
-      expect(await runDatabaseEffect(pruneDatabaseCache())).toBe(1000)
-    })
-    expect(await runDatabaseEffect(pruneDatabaseCache())).toBe(1)
-    expect(await runDatabaseEffect(readDatabaseCache({ ...cacheTestOptions, key: "0" }))).toEqual(
-      Option.some("expired"),
-    )
   })
 })

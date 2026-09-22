@@ -2,34 +2,22 @@ import { assert, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
 import { type EffectDatabase, effectDatabase } from "@/db"
-import {
-  deleteDatabaseCache,
-  makeDatabaseCacheLookup,
-  readDatabaseCache,
-  writeDatabaseCache,
-} from "./cache.server"
+import { deleteDatabaseCache, readDatabaseCache, writeDatabaseCache } from "./cache.server"
 
-it.effect("propagates database failures without running the loader", () => {
+it.effect("propagates database failures on reads", () => {
   const cause = new Error("database unavailable")
   const database = {
     select: () => ({ from: () => ({ where: () => Effect.fail(cause) }) }),
     delete: () => ({ where: () => Effect.fail(cause) }),
   } as unknown as EffectDatabase
   return Effect.gen(function* () {
-    let calls = 0
-    const lookup = yield* makeDatabaseCacheLookup({
+    const error = yield* readDatabaseCache({
       namespace: "database-failure",
+      key: "key",
       schema: Schema.String,
-      lookup: () =>
-        Effect.sync(() => {
-          calls++
-          return "value"
-        }),
-    })
-    const error = yield* lookup("key").pipe(Effect.flip)
+    }).pipe(Effect.flip)
     assert.strictEqual(error._tag, "KeyValueStoreError")
     assert.strictEqual(error.cause, cause)
-    assert.strictEqual(calls, 0)
   }).pipe(Effect.provideService(effectDatabase, database))
 })
 
@@ -52,29 +40,6 @@ it.effect("propagates write failures", () => {
   }).pipe(Effect.provideService(effectDatabase, database))
 })
 
-it.effect("retries synchronously interrupted loads", () => {
-  const database = {
-    select: () => ({ from: () => ({ where: () => Effect.succeed([]) }) }),
-    delete: () => ({ where: () => Effect.succeed([]) }),
-    insert: () => ({ values: () => ({ onConflictDoUpdate: () => Effect.void }) }),
-  } as unknown as EffectDatabase
-  return Effect.gen(function* () {
-    let calls = 0
-    const lookup = yield* makeDatabaseCacheLookup({
-      namespace: "interrupted",
-      schema: Schema.String,
-      lookup: () =>
-        Effect.suspend(() => ++calls > 1 ? Effect.succeed("retried") : Effect.interrupt),
-    })
-    const invalid = yield* lookup("x".repeat(513)).pipe(Effect.flip)
-    assert.strictEqual(invalid._tag, "KeyValueStoreError")
-    assert.strictEqual(calls, 0)
-    yield* Effect.exit(lookup("key"))
-    assert.strictEqual(yield* lookup("key"), "retried")
-    assert.strictEqual(calls, 2)
-  }).pipe(Effect.provideService(effectDatabase, database))
-})
-
 it.effect("rejects oversized cache identities before accessing the database", () =>
   Effect.gen(function* () {
     for (
@@ -91,10 +56,4 @@ it.effect("rejects oversized cache identities before accessing the database", ()
         assert.strictEqual(error._tag, "KeyValueStoreError")
       }
     }
-    const error = yield* makeDatabaseCacheLookup({
-      namespace: "x".repeat(65),
-      schema: Schema.String,
-      lookup: () => Effect.succeed("value"),
-    }).pipe(Effect.flip)
-    assert.strictEqual(error._tag, "KeyValueStoreError")
   }).pipe(Effect.provideService(effectDatabase, {} as EffectDatabase)))
