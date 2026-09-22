@@ -1,3 +1,4 @@
+import { decodeJwt } from "jose"
 import { type CurrentUser, getCurrentUser } from "../api/generated/api.ts"
 import { isAstralBeamApiError } from "../api/api.ts"
 import type { DebugLogger } from "../lib/debug.ts"
@@ -48,31 +49,15 @@ interface FetchAuthenticatedChatOptions extends ChatAuthenticationOptions {
 
 function tokenTiming(token: string) {
   if (token.length > MAX_TOKEN_LENGTH) throw new Error("The chat auth token is too large")
-  const parts = token.split(".")
-  if (parts.length !== 3 || !parts[1]) throw new Error("The chat auth token is not a JWT")
-  const encoded = parts[1].replaceAll("-", "+").replaceAll("_", "/")
-  const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, "=")
-  let payload: unknown
-  try {
-    payload = JSON.parse(atob(padded))
-  } catch {
-    throw new Error("The chat auth token has an invalid payload")
-  }
-  const exp = (payload as { exp?: unknown } | null)?.exp
+  const { exp, iat, user } = decodeJwt<{ user?: { admin?: boolean } }>(token)
   if (!Number.isInteger(exp) || Number(exp) <= 0) {
     throw new Error("The chat auth token has no valid expiry")
   }
   const expiresAt = Number(exp) * 1_000
-  const iat = (payload as { iat?: number }).iat
   const lifetime = iat === undefined ? 300_000 : expiresAt - iat * 1_000
   const margin = Math.min(REFRESH_SKEW_MS, lifetime * 0.2)
-  const tenantAdmin = (payload as { user?: { admin?: boolean } }).user?.admin === true
+  const tenantAdmin = user?.admin === true
   return { expiresAt, refreshAt: expiresAt - margin, tenantAdmin }
-}
-
-function bearerToken(headers: Headers): string | undefined {
-  const authorization = headers.get("authorization")
-  return authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined
 }
 
 async function requestChatAuthToken(
@@ -80,10 +65,8 @@ async function requestChatAuthToken(
   signal: AbortSignal,
 ): Promise<unknown> {
   const { fetchAstralBeamToken, fetchClient } = options
-  // No result at all means the host could not mint a token, which fails closed below.
   if (typeof fetchAstralBeamToken === "function") {
-    const generated: { token?: unknown } | null | undefined = await fetchAstralBeamToken()
-    return generated?.token
+    return (await fetchAstralBeamToken())?.token
   }
   if (!fetchAstralBeamToken) {
     throw new Error("Provide fetchAstralBeamToken.")
@@ -211,13 +194,6 @@ async function loadChatAuthToken(options: GetValidChatAuthTokenOptions): Promise
         throw error
       }
       signal.throwIfAborted()
-      if (
-        !currentUser || !["tenant", "organization"].includes(currentUser.scope) ||
-        !currentUser.organization?.id || !currentUser.user?.id ||
-        (currentUser.scope === "tenant" && !currentUser.tenant?.id)
-      ) {
-        throw new Error("The current-user endpoint returned an invalid identity")
-      }
       if (options.scope && options.scope !== currentUser.scope) {
         throw new Error(`Expected ${options.scope} authentication`)
       }
@@ -287,7 +263,9 @@ export async function fetchAuthenticatedChat(
   const { input, init, session, fetchClient, debug } = options
   const response = await fetchClient(input, init)
   if (response.status !== 401 || session.abortController.signal.aborted) return response
-  const usedToken = bearerToken(new Headers(init?.headers))
+  const headers = new Headers(init?.headers)
+  const authorization = headers.get("authorization")
+  const usedToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined
   debug?.("auth", "chat auth token was rejected; refreshing once")
   await response.body?.cancel()
   const previous = authenticationState(options)
@@ -298,7 +276,6 @@ export async function fetchAuthenticatedChat(
     authenticationIdentity(previous.currentUser) !== authenticationIdentity(current.currentUser)
   ) throw new DOMException("Identity changed", "AbortError")
   init?.signal?.throwIfAborted()
-  const headers = new Headers(init?.headers)
   headers.set("authorization", `Bearer ${token}`)
   return await fetchClient(input, { ...init, headers })
 }

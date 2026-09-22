@@ -10,13 +10,11 @@ export function startAuthentication(options: ChatAuthenticationOptions): () => v
   let timer: ReturnType<typeof setTimeout> | undefined
   const events = new AbortController()
   let retries = 0
-  let lastAttempt = 0
   const visible = () =>
     typeof document === "undefined" ||
     (document.visibilityState !== "hidden" && globalThis.navigator?.onLine !== false)
   const refresh = () => {
     if (events.signal.aborted || !visible()) return
-    lastAttempt = Date.now()
     void getValidChatAuthToken({ ...options, force: true }).catch(() => {})
   }
   const schedule = () => {
@@ -48,7 +46,6 @@ export function startAuthentication(options: ChatAuthenticationOptions): () => v
       return
     }
     const cached = options.session.cached
-    if (Date.now() - lastAttempt < 1_000) return schedule()
     if (!cached || Date.now() - cached.synchronizedAt >= 60_000 || cached.refreshAt <= Date.now()) {
       refresh()
     } else schedule()
