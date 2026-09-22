@@ -69,7 +69,7 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
     }))
   })
 
-  test("expires on the database clock and resets expiry on overwrite", async () => {
+  test("upserts value and TTL together while preserving row identity and creation time", async () => {
     await runDatabaseEffect(
       writeDatabaseCache({ ...cacheTestOptions, value: "expired", timeToLive: Duration.zero }),
     )
@@ -81,6 +81,26 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
       eq(cacheEntry.namespace, cacheTestNamespace),
     )
     expect(finite?.expiresAt).toBeInstanceOf(Date)
+    expect(await runDatabaseEffect(readDatabaseCache(cacheTestOptions))).toEqual(
+      Option.some("finite"),
+    )
+    await runDatabaseEffect(
+      writeDatabaseCache({ ...cacheTestOptions, value: "extended", timeToLive: "2 hours" }),
+    )
+    const extendedRows = await db.select().from(cacheEntry).where(
+      eq(cacheEntry.namespace, cacheTestNamespace),
+    )
+    expect(extendedRows).toHaveLength(1)
+    const extended = extendedRows[0]!
+    expect(extended.id).toBe(finite!.id)
+    expect(extended.createdAt).toEqual(finite!.createdAt)
+    expect(extended.updatedAt.getTime()).toBeGreaterThanOrEqual(finite!.updatedAt.getTime())
+    expect(extended.expiresAt!.getTime()).toBeGreaterThan(finite!.expiresAt!.getTime())
+    expect(extended.expiresAt!.getTime() - extended.updatedAt.getTime()).toBe(7_200_000)
+    expect(extended.value).toBe('"extended"')
+    expect(await runDatabaseEffect(readDatabaseCache(cacheTestOptions))).toEqual(
+      Option.some("extended"),
+    )
     await runDatabaseEffect(writeDatabaseCache({ ...cacheTestOptions, value: "forever" }))
     const [unlimited] = await db.select().from(cacheEntry).where(
       eq(cacheEntry.namespace, cacheTestNamespace),
@@ -89,6 +109,21 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
     expect(await runDatabaseEffect(readDatabaseCache(cacheTestOptions))).toEqual(
       Option.some("forever"),
     )
+    await runDatabaseEffect(
+      writeDatabaseCache({
+        ...cacheTestOptions,
+        value: "expired again",
+        timeToLive: Duration.zero,
+      }),
+    )
+    const expiredRows = await db.select().from(cacheEntry).where(
+      eq(cacheEntry.namespace, cacheTestNamespace),
+    )
+    expect(expiredRows).toHaveLength(1)
+    expect(expiredRows[0]!.id).toBe(finite!.id)
+    expect(expiredRows[0]!.value).toBe('"expired again"')
+    expect(expiredRows[0]!.expiresAt).toEqual(expiredRows[0]!.updatedAt)
+    expect(await runDatabaseEffect(readDatabaseCache(cacheTestOptions))).toEqual(Option.none())
   })
 
   test("propagates corrupt JSON and schema errors", async () => {
