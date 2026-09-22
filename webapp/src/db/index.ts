@@ -7,17 +7,14 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
+import * as Redacted from "effect/Redacted"
 import { Pool } from "pg"
 
 import { getDatabaseUrl } from "@/db/lib/database-credentials.server"
 import { databaseRelations } from "@/db/schema.server"
 
-// Better Auth's Drizzle adapter and the Effect SQL client take pooled connections on different
-// terms: the Effect client cancels the running query and releases or destroys its client whenever a
-// fiber is interrupted, so on a shared pool an aborted request can leave behind a connection that
-// later serves a session lookup as "Client was closed and is not queryable". Give each driver its
-// own pool so neither one's client lifecycle reaches the other's queries.
-// https://node-postgres.com/apis/pool
+// Keep Better Auth and Effect connection lifecycles independent.
+// https://effect.website/docs/v4/api/sql-pg/PgClient/
 function createDatabasePool(applicationName: string, max: number): Pool {
   const pool = new Pool({
     connectionString: getDatabaseUrl(),
@@ -62,11 +59,14 @@ export const effectDatabase = Context.Service<EffectDatabase>("@astralbeam/Effec
 export const runDatabaseEffect = ManagedRuntime.make(
   Layer.effect(effectDatabase, makeEffectDatabase).pipe(
     Layer.provide(
-      PgClient.layerFrom(
-        PgClient.fromPool({
-          acquire: Effect.succeed(createDatabasePool("astralbeam-webapp", 10)),
-        }),
-      ),
+      PgClient.layer({
+        url: Redacted.make(getDatabaseUrl()),
+        applicationName: "astralbeam-webapp",
+        maxConnections: 10,
+        idleTimeout: "30 seconds",
+        connectionTTL: "30 minutes",
+        prepare: false,
+      }),
     ),
   ),
 ).runPromise

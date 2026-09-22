@@ -129,6 +129,21 @@ export const tenantUserApi = HttpApiGroup.make("tenant_users", { topLevel: true 
   "A TenantUser is a user of one of your Organization's Tenants, not an employee using the dashboard. All routes use internal UUID tenant_id and user id values. External IDs are unique within the organization and Tenant; the same external user ID may exist in another Tenant. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable; users cannot move between Tenants. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. Stored admin does not change signed JWT authority. Creation does not issue tokens or upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
 )
 
+function toTenantUserResponse(
+  row: typeof TenantUserRecordSchema.Type,
+): typeof TenantUserRecordSchema.Type {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    externalId: row.externalId,
+    name: row.name,
+    admin: row.admin,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }
+}
+
 export function tenantUserHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
@@ -160,7 +175,7 @@ export function tenantUserHandlers(api: typeof ApiV1) {
               includePrevious: true,
             }).pipe(Stream.runHead, Effect.map(Option.getOrThrow))
             return yield* Effect.promise(() =>
-              restPage(page, {
+              restPage({ ...page, items: page.items.map((row) => toTenantUserResponse(row)) }, {
                 collection: "tenant_users",
                 scope: tenantScope,
                 url: request.url,
@@ -172,17 +187,21 @@ export function tenantUserHandlers(api: typeof ApiV1) {
             )
           }, restHandleErrors("listUsersForTenant")),
           getTenantUser: Effect.fn(function* ({ params }) {
-            return yield* getTenantUser(yield* restScope, params.tenant_id, params.id)
+            return toTenantUserResponse(
+              yield* getTenantUser(yield* restScope, params.tenant_id, params.id),
+            )
           }, restHandleErrors("getTenantUser")),
           createTenantUser: Effect.fn(function* ({ params, payload }) {
             const row = yield* createTenantUser(yield* restScope, params.tenant_id, payload)
             return HttpApiSchema.withHeaders({
-              body: row,
+              body: toTenantUserResponse(row),
               headers: { Location: `/api/v1/tenants/${row.tenantId}/tenant_users/${row.id}` },
             })
           }, restHandleErrors("createTenantUser")),
           updateTenantUser: Effect.fn(function* ({ params, payload }) {
-            return yield* updateTenantUser(yield* restScope, params.tenant_id, params.id, payload)
+            return toTenantUserResponse(
+              yield* updateTenantUser(yield* restScope, params.tenant_id, params.id, payload),
+            )
           }, restHandleErrors("updateTenantUser")),
         })
       }),

@@ -1,5 +1,11 @@
 import { Effect, Schema } from "effect"
 
+export const emailProviderParseOptions = {
+  errors: "all",
+  onExcessProperty: "error",
+  reportInput: false,
+} as const
+
 /** Providers `sendEmail` can dispatch to; each maps to one `src/emails/providers` module. */
 export const EmailProviderSchema = Schema.Literals(["smtp", "resend", "ses"]).annotate({
   title: "Email provider",
@@ -85,7 +91,6 @@ export const SmtpProviderSettingsSchema = Schema.Struct({
 ).annotate({
   title: "SMTP connection settings",
   description: "Settings used to verify an SMTP server without sending email.",
-  parseOptions: { errors: "all", onExcessProperty: "error", reportInput: false },
 })
 export type SmtpProviderSettings = Schema.Schema.Type<typeof SmtpProviderSettingsSchema>
 
@@ -100,7 +105,6 @@ const ResendProviderSettingsSchema = Schema.Struct({
 }).annotate({
   title: "Resend connection settings",
   description: "Settings used to verify access to the Resend API.",
-  parseOptions: { errors: "all", onExcessProperty: "error", reportInput: false },
 })
 export type ResendProviderSettings = Schema.Schema.Type<typeof ResendProviderSettingsSchema>
 
@@ -136,7 +140,6 @@ const SesProviderSettingsSchema = Schema.Struct({
 ).annotate({
   title: "Amazon SES connection settings",
   description: "Settings used to verify access to Amazon SES.",
-  parseOptions: { errors: "all", onExcessProperty: "error", reportInput: false },
 })
 export type SesProviderSettings = Schema.Schema.Type<typeof SesProviderSettingsSchema>
 
@@ -182,5 +185,4 @@ export const EmailProviderConnectionInputSchema = Schema.Union([
 ]).annotate({
   title: "Email provider connection test",
   description: "Provider-specific settings submitted from the configuration page for verification.",
-  parseOptions: { errors: "all", onExcessProperty: "error", reportInput: false },
 })
