@@ -77,7 +77,7 @@ import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
 import { authenticateChatRequest } from "@/lib/chat/auth.server"
 import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
-import { synchronizeTenantIdentity } from "@/db/tenant-identity.server"
+import { syncTenantCurrentUser } from "@/db/current-user.server"
 import { synchronizeCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { provisionDogfoodResources } from "./provisioning.server"
@@ -258,8 +258,8 @@ describe.skipIf(!dogfoodIntegration.url)(
           tenant: { id: "same-tenant", name: "Original tenant", metadata: { first: true } },
         },
       }
-      const synchronize = (value: Parameters<typeof synchronizeTenantIdentity>[0]) =>
-        runDatabaseEffect(synchronizeTenantIdentity(value))
+      const synchronize = (value: Parameters<typeof syncTenantCurrentUser>[0]) =>
+        runDatabaseEffect(syncTenantCurrentUser(value))
       const original = await synchronize(principal)
       const minimal = await synchronize({
         organization: principal.organization,

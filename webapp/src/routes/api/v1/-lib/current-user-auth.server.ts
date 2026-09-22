@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { Effect } from "effect"
 import { decodeProtectedHeader } from "jose"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { synchronizeTenantIdentity } from "@/db/tenant-identity.server"
+import { syncTenantCurrentUser } from "@/db/current-user.server"
 import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
 import { CHAT_AUTH_TOKEN_TYPE } from "@/lib/chat/constants.server"
 import {
@@ -61,7 +61,7 @@ export function synchronizeCurrentUser(request: Request) {
       principal.tenantUser.tenant.id,
       principal.tenantUser.id,
     ])
-    const records = yield* synchronizeTenantIdentity(principal)
+    const records = yield* syncTenantCurrentUser(principal)
     return { scope: "tenant" as const, organization: principal.organization, ...records }
   }).pipe(
     Effect.catchIf(

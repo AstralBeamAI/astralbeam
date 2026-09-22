@@ -5,7 +5,7 @@ import { tenant, tenantUser } from "@/db/schema/organizations.server"
 import type { ChatPrincipal } from "@/lib/chat/types"
 import { tenantDatabaseError } from "./tenant.server"
 
-export function synchronizeTenantIdentity(principal: ChatPrincipal) {
+export function syncTenantCurrentUser(principal: ChatPrincipal) {
   return Effect.gen(function* () {
     const database = yield* effectDatabase
     const identity = principal.tenantUser
