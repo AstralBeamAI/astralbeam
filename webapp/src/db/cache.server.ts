@@ -21,6 +21,13 @@ function databaseCacheError(method: string, cause: unknown) {
 
 const validateDatabaseCacheKey = Effect.fn("validateDatabaseCacheKey")(
   function* (options: DatabaseCacheKey) {
+    // UTF-8 replaces lone surrogates, which would make stored keys disagree with JSON lock identities.
+    // https://encoding.spec.whatwg.org/#interface-textencoder
+    if (!options.namespace.isWellFormed() || !options.key.isWellFormed()) {
+      return yield* Effect.fail(
+        databaseCacheError("validate", "Cache namespace and key must be well-formed Unicode"),
+      )
+    }
     if (
       Array.from(options.namespace).length > DATABASE_CACHE_NAMESPACE_MAX_LENGTH ||
       Array.from(options.key).length > DATABASE_CACHE_KEY_MAX_LENGTH
@@ -34,6 +41,19 @@ const validateDatabaseCacheKey = Effect.fn("validateDatabaseCacheKey")(
 
 // Transaction locks cover absent keys and work with transaction pooling, unlike session locks.
 // https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS
+function withValidatedDatabaseCacheLock<A, E, R>(
+  sql: SqlClient.SqlClient,
+  options: DatabaseCacheKey,
+  effect: Effect.Effect<A, E, R>,
+) {
+  return sql.withTransaction(Effect.gen(function* () {
+    yield* sql`select pg_advisory_xact_lock(hashtextextended(${
+      JSON.stringify(["cache", options.namespace, options.key])
+    }, 0))`
+    return yield* effect
+  }))
+}
+
 export function withDatabaseCacheLock<A, E, R>(
   options: DatabaseCacheKey,
   effect: Effect.Effect<A, E, R>,
@@ -41,20 +61,16 @@ export function withDatabaseCacheLock<A, E, R>(
   return Effect.gen(function* () {
     yield* validateDatabaseCacheKey(options)
     const sql = yield* SqlClient.SqlClient
-    return yield* sql.withTransaction(Effect.gen(function* () {
-      yield* sql`select pg_advisory_xact_lock(hashtextextended(${
-        JSON.stringify(["cache", options.namespace, options.key])
-      }, 0))`
-      return yield* effect
-    }))
+    return yield* withValidatedDatabaseCacheLock(sql, options, effect)
   })
 }
 
 const makeDatabaseCacheStore = Effect.fn("makeDatabaseCacheStore")(function* (options: {
   readonly namespace: string
-  readonly timeToLive?: Duration.Input
+  readonly timeToLiveMillis?: number
 }) {
   const sql = yield* SqlClient.SqlClient
+  const milliseconds = options.timeToLiveMillis ?? Infinity
   return KeyValueStore.makeStringOnly({
     get: (key) =>
       sql<{ value: string }>`select value from cache_entry
@@ -64,34 +80,26 @@ const makeDatabaseCacheStore = Effect.fn("makeDatabaseCacheStore")(function* (op
         Effect.mapError((cause) => databaseCacheError("get", cause)),
       ),
     set: (key, value) =>
-      withDatabaseCacheLock(
+      withValidatedDatabaseCacheLock(
+        sql,
         { namespace: options.namespace, key },
-        Effect.gen(function* () {
-          const milliseconds = yield* Effect.try({
-            try: () =>
-              options.timeToLive === undefined
-                ? Infinity
-                : Duration.toMillis(Duration.fromInputUnsafe(options.timeToLive)),
-            catch: (cause) => databaseCacheError("set", cause),
-          })
-          yield* sql`insert into cache_entry (namespace, key, value, expires_at)
+        sql`insert into cache_entry (namespace, key, value, expires_at)
         values (${options.namespace}, ${key}, ${value},
           statement_timestamp() + (${
-            milliseconds === Infinity ? null : milliseconds
-          }::double precision * interval '1 millisecond'))
+          milliseconds === Infinity ? null : milliseconds
+        }::double precision * interval '1 millisecond'))
         on conflict (namespace, key) do update set value = excluded.value,
-          expires_at = excluded.expires_at, updated_at = statement_timestamp()`
-        }),
+          expires_at = excluded.expires_at, updated_at = statement_timestamp()`,
       ).pipe(
-        Effect.provideService(SqlClient.SqlClient, sql),
+        Effect.asVoid,
         Effect.mapError((cause) => databaseCacheError("set", cause)),
       ),
     remove: (key) =>
-      withDatabaseCacheLock(
+      withValidatedDatabaseCacheLock(
+        sql,
         { namespace: options.namespace, key },
         sql`delete from cache_entry where namespace = ${options.namespace} and key = ${key}`,
       ).pipe(
-        Effect.provideService(SqlClient.SqlClient, sql),
         Effect.asVoid,
         Effect.mapError((cause) => databaseCacheError("remove", cause)),
       ),
@@ -127,7 +135,12 @@ export const writeDatabaseCache = Effect.fn("writeDatabaseCache")(
     },
   ) {
     yield* validateDatabaseCacheKey(options)
-    const store = yield* makeDatabaseCacheStore(options)
+    const timeToLiveMillis = yield* Effect.try({
+      try: () =>
+        options.timeToLive === undefined ? Infinity : Duration.toMillis(options.timeToLive),
+      catch: (cause) => databaseCacheError("set", cause),
+    })
+    const store = yield* makeDatabaseCacheStore({ namespace: options.namespace, timeToLiveMillis })
     yield* KeyValueStore.toSchemaStore(store, options.schema).set(options.key, options.value)
   },
 )

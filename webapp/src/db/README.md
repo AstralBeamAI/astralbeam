@@ -121,7 +121,7 @@ Each source table must be owned by exactly one relation part. Two parts defining
 
 ## PostgreSQL cache
 
-`cache.server.ts` provides schema-typed JSON reads, writes, deletes, paginated listing, and transaction-scoped key locking through the existing Effect SQL client. The global `cache_entry` table isolates keys by namespace. Effect v4's `KeyValueStore.toSchemaStore` handles serialization. Direct SQL keeps the adapter usable from the native Deno worker and CLI without importing the web server's database runtime.
+`cache.server.ts` provides schema-typed JSON reads, writes, deletes, and transaction-scoped key locking through the existing Effect SQL client. The global `cache_entry` table isolates keys by namespace. Effect v4's `KeyValueStore.toSchemaStore` handles serialization. Direct SQL keeps the adapter usable from the native Deno worker and CLI without importing the web server's database runtime.
 
 ```ts
 import { Schema } from "effect"
@@ -139,7 +139,7 @@ Writes insert missing keys or atomically replace both value and expiration for a
 
 Only `deleteDatabaseCache` removes rows, for the exact namespace/key pair whether expired or live. Cleanup is deferred: expired rows remain stored but unreadable through the cache API until explicitly deleted. PostgreSQL autovacuum reclaims dead row versions after deletion, but does not delete entries based on TTL.
 
-Namespaces allow at most 64 Unicode code points and keys at most 512, enforced in both the application and database. Oversized inputs fail with `KeyValueStoreError` before a cache query. Database and codec failures propagate to callers. JSON `null` is a cached value, distinct from a miss.
+Namespaces allow at most 64 Unicode code points and keys at most 512, enforced in both the application and database. Oversized inputs and unpaired Unicode surrogates fail with `KeyValueStoreError` before a cache query. Rejecting unpaired surrogates keeps advisory-lock identities consistent with UTF-8 database keys. TTL conversion also fails before database access. Database and codec failures propagate to callers. JSON `null` is a cached value, distinct from a miss.
 
 Authorize access before cache operations. Include all input and identity dimensions in the key, using immutable Organization and Tenant UUIDs. Use a new namespace version when the value schema changes incompatibly. This table is not an encrypted secret store.
 
