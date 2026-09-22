@@ -130,11 +130,12 @@ import { deleteDatabaseCache, readDatabaseCache, writeDatabaseCache } from "@/db
 
 const options = { namespace: "example:v1", key: "hello", schema: Schema.String }
 await runDatabaseEffect(writeDatabaseCache({ ...options, value: "world", timeToLive: "5 minutes" }))
-const value = await runDatabaseEffect(readDatabaseCache(options)) // Option<string>
+await runDatabaseEffect(writeDatabaseCache({ ...options, value: "updated", timeToLive: "1 hour" }))
+const value = await runDatabaseEffect(readDatabaseCache(options)) // Option.some("updated")
 await runDatabaseEffect(deleteDatabaseCache(options))
 ```
 
-Writes atomically replace both value and expiration, using last-write-wins semantics. Omitted or infinite `timeToLive` means no expiration, and zero or negative TTL expires immediately. PostgreSQL's statement clock determines expiration. Reads never extend TTL. The [storage rationale](schema/cache.server.ts) explains each column and index, the alternatives, and the upstream references.
+Writes insert missing keys or atomically replace both value and expiration for an existing namespace/key pair, using last-write-wins semantics. Updates preserve `id` and `created_at` and refresh `updated_at`. Omitted or infinite `timeToLive` means no expiration, and zero or negative TTL expires immediately. PostgreSQL's statement clock determines expiration. Reads never extend TTL. The [storage rationale](schema/cache.server.ts) explains each column and index, the alternatives, and the upstream references.
 
 Only `deleteDatabaseCache` removes rows, for the exact namespace/key pair whether expired or live. Cleanup is deferred: expired rows remain stored but unreadable through the cache API until explicitly deleted. PostgreSQL autovacuum reclaims dead row versions after deletion, but does not delete entries based on TTL.
 

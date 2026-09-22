@@ -113,6 +113,8 @@ export const readDatabaseCache = Effect.fn("readDatabaseCache")(
   },
 )
 
+// Upserts value and expiry together, preserving id/createdAt and refreshing updatedAt.
+// Omitted TTL clears existing expiry. https://www.postgresql.org/docs/18/sql-insert.html#SQL-ON-CONFLICT
 export const writeDatabaseCache = Effect.fn("writeDatabaseCache")(
   function* <S extends Schema.Constraint>(
     options: DatabaseCacheKey & {
