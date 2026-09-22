@@ -58,7 +58,7 @@ export const effectDatabase = Context.Service<EffectDatabase>("@astralbeam/Effec
 
 export const runDatabaseEffect = ManagedRuntime.make(
   Layer.effect(effectDatabase, makeEffectDatabase).pipe(
-    Layer.provide(
+    Layer.provideMerge(
       PgClient.layer({
         url: Redacted.make(getDatabaseUrl()),
         applicationName: "astralbeam-webapp",

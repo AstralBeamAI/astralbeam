@@ -121,7 +121,7 @@ Each source table must be owned by exactly one relation part. Two parts defining
 
 ## PostgreSQL cache
 
-`cache.server.ts` provides schema-typed JSON reads, writes, and deletes through the existing Effect database runtime. The global `cache_entry` table isolates keys by namespace. Effect v4's `KeyValueStore.toSchemaStore` handles serialization.
+`cache.server.ts` provides schema-typed JSON reads, writes, deletes, paginated listing, and transaction-scoped key locking through the existing Effect SQL client. The global `cache_entry` table isolates keys by namespace. Effect v4's `KeyValueStore.toSchemaStore` handles serialization. Direct SQL keeps the adapter usable from the native Deno worker and CLI without importing the web server's database runtime.
 
 ```ts
 import { Schema } from "effect"
@@ -142,6 +142,12 @@ Only `deleteDatabaseCache` removes rows, for the exact namespace/key pair whethe
 Namespaces allow at most 64 Unicode code points and keys at most 512, enforced in both the application and database. Oversized inputs fail with `KeyValueStoreError` before a cache query. Database and codec failures propagate to callers. JSON `null` is a cached value, distinct from a miss.
 
 Authorize access before cache operations. Include all input and identity dimensions in the key, using immutable Organization and Tenant UUIDs. Use a new namespace version when the value schema changes incompatibly. This table is not an encrypted secret store.
+
+`listDatabaseCache({ namespace, schema, prefix?, cursor? })` returns up to 100 live `{ key, value }` entries and an exclusive `nextCursor`. Keys sort descending under the database collation. The prefix is literal, including percent and underscore characters. Pagination is not a snapshot, so concurrent inserts above the cursor appear on the next scan.
+
+`withDatabaseCacheLock({ namespace, key }, effect)` runs an Effect inside a transaction-scoped key lock, including when the key does not exist. Read the current value inside that Effect before updating it. Public writes and deletes participate in the same locking protocol. The lock remains held until the enclosing transaction commits or rolls back. Use the same SqlClient with the default PostgreSQL READ COMMITTED isolation for every participating query, and acquire multiple keys in a consistent order to avoid deadlocks. Never perform slow external calls while holding a lock. See [transaction-level advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS).
+
+For durable metadata, omit TTL and reserve a namespace that ordinary cache invalidation must never delete. These records remain until explicitly deleted.
 
 The integration suite requires a disposable loopback `DATABASE_URL` whose database name ends in `_test`, with checked-in migrations applied.
 

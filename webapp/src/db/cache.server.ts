@@ -1,15 +1,10 @@
-import { and, count, eq, gt, isNull, or, sql } from "drizzle-orm"
-import * as Duration from "effect/Duration"
-import * as Effect from "effect/Effect"
-import type * as Schema from "effect/Schema"
+import { Duration, Effect, Schema } from "effect"
 import { KeyValueStore } from "effect/unstable/persistence"
-
-import { effectDatabase } from "@/db"
-import { cacheEntry } from "@/db/schema.server"
+import { SqlClient } from "effect/unstable/sql"
 import {
   DATABASE_CACHE_KEY_MAX_LENGTH,
   DATABASE_CACHE_NAMESPACE_MAX_LENGTH,
-} from "./schema/cache.server"
+} from "./schema/cache.server.ts"
 
 interface DatabaseCacheKey {
   readonly namespace: string
@@ -24,97 +19,105 @@ function databaseCacheError(method: string, cause: unknown) {
   })
 }
 
-const validateDatabaseCacheKey = Effect.fn("validateDatabaseCacheKey")(function* (options: {
-  readonly namespace: string
-  readonly key: string
-}) {
-  if (Array.from(options.namespace).length > DATABASE_CACHE_NAMESPACE_MAX_LENGTH) {
-    return yield* Effect.fail(
-      new KeyValueStore.KeyValueStoreError({
-        method: "validate",
-        message:
-          `Cache namespace must not exceed ${DATABASE_CACHE_NAMESPACE_MAX_LENGTH} characters`,
-      }),
-    )
-  }
-  if (Array.from(options.key).length > DATABASE_CACHE_KEY_MAX_LENGTH) {
-    return yield* Effect.fail(
-      new KeyValueStore.KeyValueStoreError({
-        method: "validate",
-        message: `Cache key must not exceed ${DATABASE_CACHE_KEY_MAX_LENGTH} characters`,
-      }),
-    )
-  }
-})
+const validateDatabaseCacheKey = Effect.fn("validateDatabaseCacheKey")(
+  function* (options: DatabaseCacheKey) {
+    if (
+      Array.from(options.namespace).length > DATABASE_CACHE_NAMESPACE_MAX_LENGTH ||
+      Array.from(options.key).length > DATABASE_CACHE_KEY_MAX_LENGTH
+    ) {
+      return yield* Effect.fail(
+        databaseCacheError("validate", "Cache identity exceeds length limit"),
+      )
+    }
+  },
+)
+
+// Transaction locks cover absent keys and work with transaction pooling, unlike session locks.
+// https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS
+export function withDatabaseCacheLock<A, E, R>(
+  options: DatabaseCacheKey,
+  effect: Effect.Effect<A, E, R>,
+) {
+  return Effect.gen(function* () {
+    yield* validateDatabaseCacheKey(options)
+    const sql = yield* SqlClient.SqlClient
+    return yield* sql.withTransaction(Effect.gen(function* () {
+      yield* sql`select pg_advisory_xact_lock(hashtextextended(${
+        JSON.stringify(["cache", options.namespace, options.key])
+      }, 0))`
+      return yield* effect
+    }))
+  })
+}
 
 const makeDatabaseCacheStore = Effect.fn("makeDatabaseCacheStore")(function* (options: {
   readonly namespace: string
   readonly timeToLive?: Duration.Input
 }) {
-  const database = yield* effectDatabase
-  const namespace = eq(cacheEntry.namespace, options.namespace)
-  const live = or(
-    isNull(cacheEntry.expiresAt),
-    gt(cacheEntry.expiresAt, sql`statement_timestamp()`),
-  )
+  const sql = yield* SqlClient.SqlClient
   return KeyValueStore.makeStringOnly({
     get: (key) =>
-      database.select({ value: cacheEntry.value }).from(cacheEntry)
-        .where(and(namespace, eq(cacheEntry.key, key), live)).pipe(
-          Effect.map((rows) => rows[0]?.value),
-          Effect.mapError((cause) => databaseCacheError("get", cause)),
-        ),
+      sql<{ value: string }>`select value from cache_entry
+      where namespace = ${options.namespace} and key = ${key}
+      and (expires_at is null or expires_at > statement_timestamp())`.pipe(
+        Effect.map((rows) => rows[0]?.value),
+        Effect.mapError((cause) => databaseCacheError("get", cause)),
+      ),
     set: (key, value) =>
-      Effect.gen(function* () {
-        const milliseconds = yield* Effect.try({
-          try: () =>
-            options.timeToLive === undefined
-              ? Infinity
-              : Duration.toMillis(Duration.fromInputUnsafe(options.timeToLive)),
-          catch: (cause) => databaseCacheError("set", cause),
-        })
-        const expiresAt = milliseconds === Infinity
-          ? null
-          : sql`statement_timestamp() + (${milliseconds} * interval '1 millisecond')`
-        yield* database.insert(cacheEntry).values({
-          namespace: options.namespace,
-          key,
-          value,
-          expiresAt,
-        })
-          .onConflictDoUpdate({
-            target: [cacheEntry.namespace, cacheEntry.key],
-            set: { value, expiresAt, updatedAt: sql`statement_timestamp()` },
-          }).pipe(Effect.mapError((cause) => databaseCacheError("set", cause)))
-      }),
+      withDatabaseCacheLock(
+        { namespace: options.namespace, key },
+        Effect.gen(function* () {
+          const milliseconds = yield* Effect.try({
+            try: () =>
+              options.timeToLive === undefined
+                ? Infinity
+                : Duration.toMillis(Duration.fromInputUnsafe(options.timeToLive)),
+            catch: (cause) => databaseCacheError("set", cause),
+          })
+          yield* sql`insert into cache_entry (namespace, key, value, expires_at)
+        values (${options.namespace}, ${key}, ${value},
+          statement_timestamp() + (${
+            milliseconds === Infinity ? null : milliseconds
+          }::double precision * interval '1 millisecond'))
+        on conflict (namespace, key) do update set value = excluded.value,
+          expires_at = excluded.expires_at, updated_at = statement_timestamp()`
+        }),
+      ).pipe(
+        Effect.provideService(SqlClient.SqlClient, sql),
+        Effect.mapError((cause) => databaseCacheError("set", cause)),
+      ),
     remove: (key) =>
-      database.delete(cacheEntry).where(and(namespace, eq(cacheEntry.key, key))).pipe(
+      withDatabaseCacheLock(
+        { namespace: options.namespace, key },
+        sql`delete from cache_entry where namespace = ${options.namespace} and key = ${key}`,
+      ).pipe(
+        Effect.provideService(SqlClient.SqlClient, sql),
         Effect.asVoid,
         Effect.mapError((cause) => databaseCacheError("remove", cause)),
       ),
-    clear: database.delete(cacheEntry).where(namespace).pipe(
+    clear: sql`delete from cache_entry where namespace = ${options.namespace}`.pipe(
       Effect.asVoid,
       Effect.mapError((cause) => databaseCacheError("clear", cause)),
     ),
-    size: database.select({ count: count() }).from(cacheEntry).where(and(namespace, live)).pipe(
-      Effect.map((rows) => rows[0]?.count ?? 0),
-      Effect.mapError((cause) => databaseCacheError("size", cause)),
-    ),
+    size: sql<{ count: number }>`select count(*)::integer as count from cache_entry
+      where namespace = ${options.namespace} and (expires_at is null or expires_at > statement_timestamp())`
+      .pipe(
+        Effect.map((rows) => rows[0]!.count),
+        Effect.mapError((cause) => databaseCacheError("size", cause)),
+      ),
   })
 })
 
 export const readDatabaseCache = Effect.fn("readDatabaseCache")(
-  function* <S extends Schema.Constraint>(
-    options: DatabaseCacheKey & { readonly schema: S },
-  ) {
+  function* <S extends Schema.Constraint>(options: DatabaseCacheKey & { readonly schema: S }) {
     yield* validateDatabaseCacheKey(options)
     const store = yield* makeDatabaseCacheStore(options)
     return yield* KeyValueStore.toSchemaStore(store, options.schema).get(options.key)
   },
 )
 
-// Upserts value and expiry together, preserving id/createdAt and refreshing updatedAt.
-// Omitted TTL clears existing expiry. https://www.postgresql.org/docs/18/sql-insert.html#SQL-ON-CONFLICT
+// Upserts value and expiry together. Omitted TTL clears existing expiry.
+// https://www.postgresql.org/docs/18/sql-insert.html#SQL-ON-CONFLICT
 export const writeDatabaseCache = Effect.fn("writeDatabaseCache")(
   function* <S extends Schema.Constraint>(
     options: DatabaseCacheKey & {
@@ -134,5 +137,35 @@ export const deleteDatabaseCache = Effect.fn("deleteDatabaseCache")(
     yield* validateDatabaseCacheKey(options)
     const store = yield* makeDatabaseCacheStore(options)
     yield* store.remove(options.key)
+  },
+)
+
+/** Live entries in descending key order, with an exclusive cursor. No snapshot across pages. */
+export const listDatabaseCache = Effect.fn("listDatabaseCache")(
+  function* <S extends Schema.Constraint>(options: {
+    readonly namespace: string
+    readonly schema: S
+    readonly prefix?: string
+    readonly cursor?: string | undefined
+  }) {
+    yield* validateDatabaseCacheKey({ namespace: options.namespace, key: options.prefix ?? "" })
+    yield* validateDatabaseCacheKey({ namespace: options.namespace, key: options.cursor ?? "" })
+    const sql = yield* SqlClient.SqlClient
+    const rows = yield* sql<{ key: string; value: string }>`select key, value from cache_entry
+      where namespace = ${options.namespace} and starts_with(key, ${options.prefix ?? ""})
+      and (${options.cursor ?? null}::text is null or key < ${options.cursor ?? null})
+      and (expires_at is null or expires_at > statement_timestamp()) order by key desc limit 101`
+      .pipe(
+        Effect.mapError((cause) => databaseCacheError("list", cause)),
+      )
+    const codec = Schema.fromJsonString(Schema.toCodecJson(options.schema))
+    const items = yield* Effect.forEach(
+      rows.slice(0, 100),
+      (row) =>
+        Schema.decodeUnknownEffect(codec)(row.value).pipe(
+          Effect.map((value) => ({ key: row.key, value })),
+        ),
+    )
+    return { items, nextCursor: rows.length > 100 ? rows[99]!.key : null }
   },
 )
