@@ -139,33 +139,3 @@ export const deleteDatabaseCache = Effect.fn("deleteDatabaseCache")(
     yield* store.remove(options.key)
   },
 )
-
-/** Live entries in descending key order, with an exclusive cursor. No snapshot across pages. */
-export const listDatabaseCache = Effect.fn("listDatabaseCache")(
-  function* <S extends Schema.Constraint>(options: {
-    readonly namespace: string
-    readonly schema: S
-    readonly prefix?: string
-    readonly cursor?: string | undefined
-  }) {
-    yield* validateDatabaseCacheKey({ namespace: options.namespace, key: options.prefix ?? "" })
-    yield* validateDatabaseCacheKey({ namespace: options.namespace, key: options.cursor ?? "" })
-    const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql<{ key: string; value: string }>`select key, value from cache_entry
-      where namespace = ${options.namespace} and starts_with(key, ${options.prefix ?? ""})
-      and (${options.cursor ?? null}::text is null or key < ${options.cursor ?? null})
-      and (expires_at is null or expires_at > statement_timestamp()) order by key desc limit 101`
-      .pipe(
-        Effect.mapError((cause) => databaseCacheError("list", cause)),
-      )
-    const codec = Schema.fromJsonString(Schema.toCodecJson(options.schema))
-    const items = yield* Effect.forEach(
-      rows.slice(0, 100),
-      (row) =>
-        Schema.decodeUnknownEffect(codec)(row.value).pipe(
-          Effect.map((value) => ({ key: row.key, value })),
-        ),
-    )
-    return { items, nextCursor: rows.length > 100 ? rows[99]!.key : null }
-  },
-)

@@ -19,7 +19,6 @@ import { db, runDatabaseEffect } from "@/db"
 import { cacheEntry } from "@/db/schema.server"
 import {
   deleteDatabaseCache,
-  listDatabaseCache,
   readDatabaseCache,
   withDatabaseCacheLock,
   writeDatabaseCache,
@@ -167,41 +166,5 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
     expect(await runDatabaseEffect(readDatabaseCache(counter))).toEqual(Option.some(10))
     await runDatabaseEffect(deleteDatabaseCache(counter))
     expect(await runDatabaseEffect(readDatabaseCache(counter))).toEqual(Option.none())
-  })
-
-  test("paginates live keys within a namespace using literal prefixes", async () => {
-    const options = { namespace: cacheTestNamespace, schema: Schema.Number, prefix: "literal_%" }
-    await runDatabaseEffect(
-      Effect.forEach(
-        Array.from({ length: 102 }, (_, i) => i),
-        (i) =>
-          writeDatabaseCache({
-            ...options,
-            key: `literal_%${String(i).padStart(3, "0")}`,
-            value: i,
-          }),
-      ),
-    )
-    await runDatabaseEffect(
-      writeDatabaseCache({ ...options, key: "literal_%expired", value: -1, timeToLive: 0 }),
-    )
-    await runDatabaseEffect(writeDatabaseCache({ ...options, key: "literalXX", value: -2 }))
-    await runDatabaseEffect(
-      writeDatabaseCache({
-        ...options,
-        namespace: `${cacheTestNamespace}-other`,
-        key: "literal_%other",
-        value: -3,
-      }),
-    )
-    const first = await runDatabaseEffect(listDatabaseCache(options))
-    expect(first.items.map((entry) => entry.value)).toEqual(
-      Array.from({ length: 100 }, (_, i) => 101 - i),
-    )
-    const second = await runDatabaseEffect(
-      listDatabaseCache({ ...options, cursor: first.nextCursor! }),
-    )
-    expect(second.items.map((entry) => entry.value)).toEqual([1, 0])
-    expect(second.nextCursor).toBeNull()
   })
 })
