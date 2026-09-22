@@ -121,7 +121,16 @@ export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true }).annota
   "A Tenant is one of your Organization's customers. Use internal UUID IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
 )
 
-const toTenantResponse = Schema.decodeUnknownSync(Schema.toType(TenantRecordSchema))
+function toTenantResponse(row: typeof TenantRecordSchema.Type): typeof TenantRecordSchema.Type {
+  return {
+    id: row.id,
+    externalId: row.externalId,
+    name: row.name,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }
+}
 
 export function tenantHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
