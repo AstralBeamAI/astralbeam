@@ -78,13 +78,16 @@ export function ChatWidget(
   // One session per committed mount, retuned in place: built on first render rather than in a
   // `useState` initializer, though Strict Mode's render probe can still build a discarded second.
   const chatRef = useRef<AstralBeamChatCore | null>(null)
-  chatRef.current ??= createAstralBeamChat(sessionOptionsRef.current)
+  chatRef.current ??= createAstralBeamChat(sessionOptionsRef.current, true)
   const chat = chatRef.current
   // Re-applies the initial values harmlessly; afterwards, every option change retunes the session.
   useEffect(() => {
     chat.updateOptions(sessionOptions)
   }, [chat, sessionOptions])
-  useEffect(() => () => chat.dispose(), [chat])
+  useEffect(() => {
+    chat.start()
+    return () => chat.dispose()
+  }, [chat])
   const { messages, status, error, auth, capabilities, sandbox, sandboxStatus, agentTools } =
     useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
 

@@ -8,7 +8,6 @@ import {
   hasOrganizationApiKeys,
   readOrganizationDefaultApiKey,
 } from "@/db/organization-configuration.server"
-import { upsertDogfoodIdentity } from "@/db/dogfood.server"
 import { getAuth } from "@/lib/auth.server"
 import { getGlobalConfig } from "@/lib/config"
 import { APP_HANDLE } from "@/lib/constants"
@@ -84,7 +83,6 @@ export function issueDashboardToken(input: {
       try: () => createAstralBeamToken({ apiKey, tenant, user }),
       catch: () => dashboardTokenFailure(503, "Embedded assistant is unavailable"),
     })
-    yield* upsertDogfoodIdentity({ organizationId, tenant, user })
     return { token }
   })
 }

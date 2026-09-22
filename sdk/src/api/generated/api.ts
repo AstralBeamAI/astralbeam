@@ -174,6 +174,26 @@ export interface ChatConfiguration {
   capabilities: ChatConfigurationCapabilities
 }
 
+export type CurrentUser = {
+  scope: "tenant"
+  organization: {
+    id: string
+  }
+  tenant: TenantRecordEncoded
+  user: TenantUserRecordEncoded
+} | {
+  scope: "organization"
+  organization: {
+    id: string
+  }
+  user: {
+    id: string
+    name: string
+    email: string
+    role: string
+  }
+}
+
 export type ListTenantsParams = {
   /**
    * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
@@ -604,5 +624,20 @@ export const getChatFile = (
   return astralBeamFileFetch<Blob>(getGetChatFileUrl(params), {
     ...options,
     method: "GET",
+  })
+}
+
+export const getGetCurrentUserUrl = () => {
+  return `/api/v1/me`
+}
+
+/**
+ * Use a tenant JWT to upsert its own Tenant and TenantUser atomically, without requiring admin authority. Supplied names and metadata replace stored values, omitted profile fields and admin are preserved, and an explicit admin claim updates stored admin. An organization JWT returns existing user membership and the current database role without provisioning identities. API keys and cookies are not accepted. Limited to 100 requests per five minutes per identity.
+ * @summary Get the current user
+ */
+export const getCurrentUser = (options: Parameters<typeof astralBeamJwtFetch>[1]) => {
+  return astralBeamJwtFetch<CurrentUser>(getGetCurrentUserUrl(), {
+    ...options,
+    method: "POST",
   })
 }

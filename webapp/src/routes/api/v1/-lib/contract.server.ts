@@ -5,10 +5,13 @@ import { chatApi } from "../chat/-lib/chat.server"
 import { tenantApi } from "./tenant.server"
 import { tenantUserApi } from "./tenant-user.server"
 
+import { currentUserApi } from "./current-user.server"
+
 export const ApiV1 = HttpApi.make("ApiV1").add(
   tenantApi.middleware(RestAuthorization),
   tenantUserApi.middleware(RestAuthorization),
   chatApi,
+  currentUserApi,
 )
   .prefix("/api/v1").middleware(ApiBoundary).annotate(OpenApi.Title, `${APP_NAME} API`)
   .annotate(OpenApi.Version, "1.0.0").annotate(OpenApi.Transform, customizeOpenApi)

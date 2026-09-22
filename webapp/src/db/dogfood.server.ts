@@ -4,7 +4,7 @@ import { defaultKeyHasher } from "@better-auth/api-key"
 import { generateRandomString } from "better-auth/crypto"
 
 import { effectDatabase } from "@/db"
-import { apiKey, member, organization, tenant, tenantUser, user } from "@/db/schema.server"
+import { apiKey, member, organization, user } from "@/db/schema.server"
 import { applyDatabaseConfigChangesEffect } from "@/db/config.server"
 import type { OwnerOnboarding, PendingOnboarding } from "@/lib/dogfood/schema"
 import {
@@ -171,47 +171,6 @@ export function replacePendingDogfoodOwner(pending: PendingOnboarding, input: Ow
           value: JSON.stringify(updated),
         }])
         return updated
-      })
-    )
-  })
-}
-
-/** The token issuer alone materializes dashboard identities in the dogfood tenant namespace. */
-export function upsertDogfoodIdentity(input: {
-  organizationId: string
-  tenant: { id: string; name: string; metadata: { slug: string } }
-  user: { id: string; name: string; metadata: { email: string } }
-}) {
-  return Effect.gen(function* () {
-    const db = yield* effectDatabase
-    yield* db.transaction((tx) =>
-      Effect.gen(function* () {
-        const values = {
-          organizationId: input.organizationId,
-          externalId: input.tenant.id,
-          name: input.tenant.name,
-          metadata: input.tenant.metadata,
-        }
-        const [customer] = yield* tx.insert(tenant).values(values).onConflictDoUpdate({
-          target: [tenant.organizationId, tenant.externalId],
-          set: { name: values.name, metadata: values.metadata, updatedAt: sql`now()` },
-        }).returning({ id: tenant.id })
-        yield* tx.insert(tenantUser).values({
-          organizationId: input.organizationId,
-          tenantId: customer!.id,
-          externalId: input.user.id,
-          name: input.user.name,
-          metadata: input.user.metadata,
-          admin: false,
-        }).onConflictDoUpdate({
-          target: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.externalId],
-          set: {
-            name: input.user.name,
-            metadata: input.user.metadata,
-            admin: false,
-            updatedAt: sql`now()`,
-          },
-        })
       })
     )
   })

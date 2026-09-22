@@ -1,351 +1,265 @@
-import { expect, test } from "vitest"
-
+import { afterEach, expect, test, vi } from "vitest"
 import {
-  type ChatAuthenticationOptions,
-  type ChatAuthenticationState,
+  authenticationState,
+  createChatAuthentication,
+  disposeChatAuthentication,
   fetchAuthenticatedChat,
   getValidChatAuthToken,
   initializeChatAuthentication,
+  updateAuthentication,
 } from "./auth.ts"
+import { startAuthentication } from "./auth-lifecycle.ts"
 
-function jwt(expiresAt: number, marker: string) {
-  const payload = btoa(JSON.stringify({ exp: Math.floor(expiresAt / 1_000), marker }))
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replaceAll("=", "")
-  return `header.${payload}.signature`
+function jwt(marker = "user", lifetime = 300) {
+  const iat = Math.floor(Date.now() / 1_000)
+  return `header.${btoa(JSON.stringify({ iat, exp: iat + lifetime, marker }))}.signature`
 }
-
-test("chat authentication loads once and caches a token away from expiry", async () => {
-  const token = jwt(Date.now() + 300_000, "cached")
-  const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
-  const states: ChatAuthenticationState[] = []
-  const fetchClient = ((input: RequestInfo | URL, init?: RequestInit) => {
-    requests.push({ input, ...(init ? { init } : {}) })
-    return Promise.resolve(Response.json({ token }))
-  }) as typeof fetch
-  const authentication = {
+const currentUser = {
+  scope: "tenant",
+  organization: { id: "org" },
+  tenant: { id: "tenant" },
+  user: { id: "user", name: "First", admin: false },
+}
+function authentication() {
+  const auth = createChatAuthentication({
+    apiUrl: "https://api.example/api",
     fetchAstralBeamToken: { url: "/auth" },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: (state: ChatAuthenticationState) => states.push(state),
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await initializeChatAuthentication(authentication)
-  expect(await getValidChatAuthToken(authentication)).toBe(token)
-  expect(requests).toHaveLength(1)
-  expect(requests[0]?.input).toBe("/auth")
-  expect(requests[0]?.init?.method).toBe("POST")
-  expect(requests[0]?.init?.credentials).toBe("include")
-  expect(states.map(({ status }) => status)).toEqual(["loading", "ready"])
-})
-
-test("chat authentication deduplicates concurrent refreshes", async () => {
-  const token = jwt(Date.now() + 300_000, "deduplicated")
-  let finish: ((response: Response) => void) | undefined
-  let requestCount = 0
-  const fetchClient = (async () => {
-    requestCount += 1
-    return await new Promise<Response>((resolve) => finish = resolve)
-  }) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: { url: "/auth" },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  const first = getValidChatAuthToken(authentication)
-  const second = getValidChatAuthToken(authentication)
-  finish?.(Response.json({ token }))
-  expect(await Promise.all([first, second])).toEqual([token, token])
-  expect(requestCount).toBe(1)
-})
-
-test("chat authentication refreshes tokens near expiry", async () => {
-  const tokens = [jwt(Date.now() + 30_000, "short"), jwt(Date.now() + 300_000, "fresh")]
-  let requestCount = 0
-  const fetchClient =
-    (() => Promise.resolve(Response.json({ token: tokens[requestCount++] }))) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: { url: "/auth" },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await initializeChatAuthentication(authentication)
-  expect(await getValidChatAuthToken(authentication)).toBe(tokens[1])
-  expect(requestCount).toBe(2)
-})
-
-test("chat authentication refreshes and retries a rejected chat request once", async () => {
-  const firstToken = jwt(Date.now() + 300_000, "first")
-  const secondToken = jwt(Date.now() + 300_000, "second")
-  let authRequests = 0
-  let chatRequests = 0
-  const fetchClient = ((input: RequestInfo | URL, init?: RequestInit) => {
-    if (input === "/auth") {
-      return Promise.resolve(
-        Response.json({ token: authRequests++ === 0 ? firstToken : secondToken }),
-      )
-    }
-    chatRequests += 1
-    const authorization = new Headers(init?.headers).get("authorization")
-    if (chatRequests === 1) {
-      expect(authorization).toBe(`Bearer ${firstToken}`)
-      return Promise.resolve(new Response(null, { status: 401 }))
-    }
-    expect(authorization).toBe(`Bearer ${secondToken}`)
-    return Promise.resolve(new Response("ok"))
-  }) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: { url: "/auth" },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-  await initializeChatAuthentication(authentication)
-
-  const response = await fetchAuthenticatedChat({
-    ...authentication,
-    input: "/chat",
-    init: { headers: { authorization: `Bearer ${firstToken}` } },
   })
-  expect(await response.text()).toBe("ok")
-  expect(authRequests).toBe(2)
-  expect(chatRequests).toBe(2)
-})
-
-test("a stale rejected request reuses a token another request already refreshed", async () => {
-  const firstToken = jwt(Date.now() + 300_000, "first")
-  const secondToken = jwt(Date.now() + 300_000, "second")
-  let authRequests = 0
-  let chatRequests = 0
-  const fetchClient = ((input: RequestInfo | URL, init?: RequestInit) => {
-    if (input === "/auth") {
-      return Promise.resolve(
-        Response.json({ token: authRequests++ === 0 ? firstToken : secondToken }),
-      )
-    }
-    chatRequests += 1
-    if (chatRequests === 1) return Promise.resolve(new Response(null, { status: 401 }))
-    expect(new Headers(init?.headers).get("authorization")).toBe(`Bearer ${secondToken}`)
-    return Promise.resolve(new Response("ok"))
-  }) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: { url: "/auth" },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-  await initializeChatAuthentication(authentication)
-  await getValidChatAuthToken({ ...authentication, force: true })
-
-  const response = await fetchAuthenticatedChat({
-    ...authentication,
-    input: "/chat",
-    init: { headers: { authorization: `Bearer ${firstToken}` } },
-  })
-  expect(await response.text()).toBe("ok")
-  expect(authRequests).toBe(2)
-})
-
-test("chat authentication fails closed for malformed endpoint responses", async () => {
-  let lastState: ChatAuthenticationState | undefined
-  const fetchClient = (() => Promise.resolve(Response.json({ token: "not-a-jwt" }))) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: { url: "/auth" },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: (state: ChatAuthenticationState) => lastState = state,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await expect(initializeChatAuthentication(authentication)).rejects.toThrow(/not a JWT/)
-  expect(lastState?.status).toBe("error")
-})
-
-test("the request form reaches fetch as its own RequestInit, over the widget's defaults", async () => {
-  const token = jwt(Date.now() + 300_000, "request-form")
-  let sentUrl: RequestInfo | URL | undefined
-  let sent: RequestInit | undefined
-  const fetchClient = ((input: RequestInfo | URL, init?: RequestInit) => {
-    sentUrl = input
-    sent = init
-    return Promise.resolve(Response.json({ token }))
-  }) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: {
-      url: "https://api.acme.com/astralbeam/token",
-      credentials: "omit",
-      headers: { authorization: "Bearer host-credential" },
-    },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await initializeChatAuthentication(authentication)
-  expect(sentUrl).toBe("https://api.acme.com/astralbeam/token")
-  const headers = new Headers(sent?.headers)
-  expect(headers.get("authorization")).toBe("Bearer host-credential")
-  expect(headers.get("accept")).toBe("application/json")
-  expect(sent?.method).toBe("POST")
-  expect(sent?.cache).toBe("no-store")
-  expect(sent?.credentials).toBe("omit")
-})
-
-test("a swapped token source is used for the next token, not the mounted one", async () => {
-  const tokens = [jwt(Date.now() + 30_000, "short"), jwt(Date.now() + 300_000, "swapped")]
-  const requested: Array<RequestInfo | URL> = []
-  const fetchClient = ((input: RequestInfo | URL) => {
-    requested.push(input)
-    return Promise.resolve(Response.json({ token: tokens[requested.length - 1] }))
-  }) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: { url: "/auth" },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await initializeChatAuthentication(authentication)
-  authentication.fetchAstralBeamToken = { url: "/other-auth" }
-  // The first token sits inside the refresh skew, so the next read mints from the new source.
-  expect(await getValidChatAuthToken(authentication)).toBe(tokens[1])
-  expect(requested).toEqual(["/auth", "/other-auth"])
-})
-
-test("a host-supplied signal does not detach the token request from the session", async () => {
-  let sentSignal: AbortSignal | undefined
-  const fetchClient = ((_input: RequestInfo | URL, init?: RequestInit) => {
-    sentSignal = init?.signal ?? undefined
-    return Promise.resolve(Response.json({ token: jwt(Date.now() + 300_000, "signal") }))
-  }) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: { url: "/auth", signal: new AbortController().signal },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await initializeChatAuthentication(authentication)
-  expect(sentSignal?.aborted).toBe(false)
-  authentication.session.abortController.abort()
-  expect(sentSignal?.aborted).toBe(true)
-})
-
-test("fetchAstralBeamToken mints tokens in the host page instead of at the token endpoint", async () => {
-  const tokens = [jwt(Date.now() + 30_000, "short"), jwt(Date.now() + 300_000, "renewed")]
-  let generated = 0
-  const fetchClient = (() => {
-    throw new Error("the token endpoint must not be called")
-  }) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: () => Promise.resolve({ token: tokens[generated++] as string }),
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: () => undefined,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await initializeChatAuthentication(authentication)
-  // The first token sits inside the refresh skew, so the next read asks the host again.
-  expect(await getValidChatAuthToken(authentication)).toBe(tokens[1])
-  expect(generated).toBe(2)
-})
-
-test("a fetchAstralBeamToken that mints no token fails closed", async () => {
-  let lastState: ChatAuthenticationState | undefined
-  const authentication = {
-    fetchAstralBeamToken: () => undefined,
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: (state: ChatAuthenticationState) => lastState = state,
-    fetchClient: (() => {
-      throw new Error("the token endpoint must not be called")
-    }) as typeof fetch,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
-
-  await expect(initializeChatAuthentication(authentication)).rejects.toThrow(
-    /fetchAstralBeamToken did not return a token/,
+  const fetch = vi.fn<typeof globalThis.fetch>((input) =>
+    Promise.resolve(Response.json(input === "/auth" ? { token: jwt() } : currentUser))
   )
-  expect(lastState?.status).toBe("error")
+  auth.fetchClient = fetch
+  return { auth, fetch }
+}
+function browser() {
+  const document = Object.assign(new EventTarget(), { visibilityState: "visible" })
+  const window = new EventTarget()
+  vi.stubGlobal("document", document)
+  vi.stubGlobal("addEventListener", window.addEventListener.bind(window))
+  vi.stubGlobal("navigator", { onLine: true })
+  return document
+}
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
-test("a throwing fetchAstralBeamToken fails closed without a request", async () => {
-  let lastState: ChatAuthenticationState | undefined
-  let requests = 0
-  const fetchClient = (() => {
-    requests += 1
-    return Promise.resolve(Response.json({ token: jwt(Date.now() + 300_000, "unreachable") }))
-  }) as typeof fetch
-  const authentication = {
-    fetchAstralBeamToken: () => Promise.reject(new Error("the host session expired")),
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: (state: ChatAuthenticationState) => lastState = state,
-    fetchClient,
-    debug: undefined,
-  } satisfies ChatAuthenticationOptions
+test("coalesces token acquisition and /me, publishing only a synchronized identity", async () => {
+  const { auth, fetch } = authentication()
+  const response = Promise.withResolvers<Response>()
+  fetch.mockImplementation((input) =>
+    input === "/auth" ? Promise.resolve(Response.json({ token: jwt() })) : response.promise
+  )
+  const first = getValidChatAuthToken(auth)
+  const second = getValidChatAuthToken(auth)
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+  expect(authenticationState(auth).status).toBe("loading")
+  expect(auth.session.cached).toBeUndefined()
+  response.resolve(Response.json(currentUser))
+  expect(await first).toBe(await second)
+  expect(await getValidChatAuthToken(auth)).toBe(await first)
+  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(authenticationState(auth)).toEqual({ status: "ready", currentUser })
+  expect(fetch.mock.calls[1]![1]).toMatchObject({ credentials: "omit", cache: "no-store" })
+})
 
-  await expect(initializeChatAuthentication(authentication)).rejects.toThrow(/host session expired/)
-  expect(lastState?.status).toBe("error")
-  expect(requests).toBe(0)
+test("request init stays host-owned and both signals cancel token acquisition", async () => {
+  const { auth, fetch } = authentication()
+  const controller = new AbortController()
+  auth.fetchAstralBeamToken = {
+    url: "/auth",
+    credentials: "omit",
+    signal: controller.signal,
+    headers: { authorization: "Bearer host" },
+  }
+  await initializeChatAuthentication(auth)
+  const init = fetch.mock.calls[0]![1]!
+  expect(init).toMatchObject({ method: "POST", credentials: "omit", cache: "no-store" })
+  expect(new Headers(init.headers).get("authorization")).toBe("Bearer host")
+  controller.abort()
+  expect(init.signal?.aborted).toBe(true)
+  expect(new Headers(fetch.mock.calls[1]![1]?.headers).get("authorization")).toBe(
+    `Bearer ${auth.session.cached!.value}`,
+  )
+  disposeChatAuthentication(auth)
+  expect(fetch.mock.calls[1]![1]?.signal?.aborted).toBe(true)
+})
+
+test("expired and near-expiry source tokens fail instead of starting a refresh loop", async () => {
+  const { auth, fetch } = authentication()
+  auth.fetchAstralBeamToken = () => ({ token: jwt("expired", -1) })
+  await expect(getValidChatAuthToken(auth)).rejects.toThrow(/expired/)
+  auth.fetchAstralBeamToken = () => ({ token: jwt("too-short", 1) })
+  await expect(getValidChatAuthToken(auth)).rejects.toThrow(/expiry/)
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+test("failed /me clears the old credential and profile, and scope mismatches fail", async () => {
+  const { auth, fetch } = authentication()
+  await initializeChatAuthentication(auth)
+  auth.fetchAstralBeamToken = () => ({ token: jwt() })
+  fetch.mockResolvedValue(Response.json({ detail: "Unavailable" }, { status: 503 }))
+  await expect(getValidChatAuthToken({ ...auth, force: true })).rejects.toMatchObject({
+    status: 503,
+  })
+  expect(auth.session.cached).toBeUndefined()
+  expect(authenticationState(auth)).not.toHaveProperty("currentUser")
+  fetch.mockResolvedValue(Response.json(currentUser))
+  auth.scope = "organization"
+  await expect(getValidChatAuthToken(auth)).rejects.toThrow(/Expected organization/)
+})
+
+test("only a 401 retries initial /me, and a rejected resource has one renewal budget", async () => {
+  const { auth, fetch } = authentication()
+  let count = 0
+  const source = vi.fn(() => ({ token: jwt(String(count++)) }))
+  auth.fetchAstralBeamToken = source
+  fetch.mockResolvedValueOnce(new Response(null, { status: 401 })).mockResolvedValue(
+    Response.json(currentUser),
+  )
+  await getValidChatAuthToken(auth)
+  expect(source).toHaveBeenCalledTimes(2)
+  fetch.mockResolvedValueOnce(new Response(null, { status: 401 }))
+    .mockResolvedValueOnce(Response.json(currentUser))
+    .mockResolvedValueOnce(new Response(null, { status: 401 }))
+  await expect(
+    fetchAuthenticatedChat({
+      ...auth,
+      input: "/chat",
+      init: { headers: { authorization: `Bearer ${auth.session.cached!.value}` } },
+    }),
+  ).resolves.toMatchObject({ status: 401 })
+  expect(source).toHaveBeenCalledTimes(3)
+  expect(new Headers(fetch.mock.calls.at(-1)![1]?.headers).get("authorization")).toBe(
+    `Bearer ${auth.session.cached!.value}`,
+  )
+})
+
+test.each([403, 404, 429])("/me HTTP %s is not retried as an expired token", async (status) => {
+  const { auth, fetch } = authentication()
+  const source = vi.fn(() => ({ token: jwt() }))
+  auth.fetchAstralBeamToken = source
+  fetch.mockResolvedValue(new Response(null, { status }))
+  await expect(getValidChatAuthToken(auth)).rejects.toMatchObject({ status })
+  expect(source).toHaveBeenCalledOnce()
+})
+
+test("disposal and API changes discard late host callbacks and current-user responses", async () => {
+  const { auth, fetch } = authentication()
+  const source = Promise.withResolvers<{ token: string }>()
+  auth.fetchAstralBeamToken = () => source.promise
+  const old = getValidChatAuthToken(auth)
+  disposeChatAuthentication(auth)
+  source.resolve({ token: jwt() })
+  await expect(old).rejects.toMatchObject({ name: "AbortError" })
+  expect(fetch).not.toHaveBeenCalled()
+  const response = Promise.withResolvers<Response>()
+  updateAuthentication(auth, {
+    apiUrl: "https://new.example/api",
+    fetchAstralBeamToken: () => ({ token: jwt() }),
+  })
+  fetch.mockReturnValue(response.promise)
+  const pending = getValidChatAuthToken(auth)
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+  updateAuthentication(auth, {
+    apiUrl: "https://other.example/api",
+    fetchAstralBeamToken: auth.fetchAstralBeamToken,
+  })
+  response.resolve(Response.json(currentUser))
+  await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+  expect(authenticationState(auth).status).toBe("loading")
+})
+
+test("browser lifecycle refreshes with the latest source, pauses hidden, revalidates foreground, and cleans up", async () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(0)
+  const document = browser()
+  const { auth, fetch } = authentication()
+  auth.fetchAstralBeamToken = () => ({ token: jwt("user", 60) })
+  const stop = startAuthentication(auth)
+  await vi.advanceTimersByTimeAsync(0)
+  const next = vi.fn(() => ({ token: jwt("updated", 60) }))
+  updateAuthentication(auth, { apiUrl: auth.apiUrl, fetchAstralBeamToken: next })
+  fetch.mockResolvedValue(
+    Response.json({ ...currentUser, user: { ...currentUser.user, name: "Updated" } }),
+  )
+  await vi.advanceTimersByTimeAsync(48_000)
+  expect(next).toHaveBeenCalledOnce()
+  expect(authenticationState(auth)).toMatchObject({ currentUser: { user: { name: "Updated" } } })
+  expect(fetch).toHaveBeenCalledTimes(2)
+  document.visibilityState = "hidden"
+  document.dispatchEvent(new Event("visibilitychange"))
+  await vi.advanceTimersByTimeAsync(100)
+  document.visibilityState = "visible"
+  document.dispatchEvent(new Event("visibilitychange"))
+  await vi.advanceTimersByTimeAsync(48_000)
+  expect(fetch).toHaveBeenCalledTimes(3)
+  document.visibilityState = "hidden"
+  document.dispatchEvent(new Event("visibilitychange"))
+  await vi.advanceTimersByTimeAsync(120_000)
+  expect(fetch).toHaveBeenCalledTimes(3)
+  document.visibilityState = "visible"
+  document.dispatchEvent(new Event("visibilitychange"))
+  await vi.advanceTimersByTimeAsync(0)
+  expect(fetch).toHaveBeenCalledTimes(4)
+  stop()
+  disposeChatAuthentication(auth)
+  await vi.advanceTimersByTimeAsync(120_000)
+  expect(fetch).toHaveBeenCalledTimes(4)
+})
+
+test.each([false, true])(
+  "a rejected chat never replays across an identity change (concurrent: %s)",
+  async (concurrent) => {
+    const { auth, fetch } = authentication()
+    await initializeChatAuthentication(auth)
+    const token = auth.session.cached!.value
+    const response = Promise.withResolvers<Response>()
+    fetch.mockReturnValueOnce(response.promise).mockResolvedValue(
+      Response.json({ ...currentUser, user: { ...currentUser.user, id: "other" } }),
+    )
+    auth.fetchAstralBeamToken = () => ({ token: jwt("other") })
+    const request = fetchAuthenticatedChat({
+      ...auth,
+      input: "/chat",
+      init: { headers: { authorization: `Bearer ${token}` } },
+    })
+    if (concurrent) await getValidChatAuthToken({ ...auth, force: true })
+    response.resolve(new Response(null, { status: 401 }))
+    await expect(request).rejects.toMatchObject({ name: "AbortError" })
+    expect(fetch).toHaveBeenCalledTimes(4)
+  },
+)
+
+test("renewal preserves ready state until it succeeds or fails", async () => {
+  const { auth, fetch } = authentication()
+  await initializeChatAuthentication(auth)
+  const response = Promise.withResolvers<Response>()
+  auth.fetchAstralBeamToken = () => ({ token: jwt("new") })
+  fetch.mockReturnValue(response.promise)
+  const renewal = getValidChatAuthToken({ ...auth, force: true })
+  expect(authenticationState(auth)).toEqual({ status: "ready", currentUser })
+  response.resolve(new Response(null, { status: 403 }))
+  await expect(renewal).rejects.toMatchObject({ status: 403 })
+  expect(authenticationState(auth).status).toBe("error")
+  expect(auth.session.cached).toBeUndefined()
+})
+
+test("transient synchronization retries honor Retry-After and stop after three attempts", async () => {
+  vi.useFakeTimers()
+  browser()
+  const { auth, fetch } = authentication()
+  auth.fetchAstralBeamToken = () => ({ token: jwt() })
+  fetch.mockImplementation(() =>
+    Promise.resolve(new Response(null, { status: 429, headers: { "Retry-After": "10" } }))
+  )
+  const stop = startAuthentication(auth)
+  await vi.advanceTimersByTimeAsync(9_999)
+  expect(fetch).toHaveBeenCalledOnce()
+  await vi.advanceTimersByTimeAsync(20_001)
+  expect(fetch).toHaveBeenCalledTimes(4)
+  await vi.advanceTimersByTimeAsync(60_000)
+  expect(fetch).toHaveBeenCalledTimes(4)
+  stop()
+  disposeChatAuthentication(auth)
 })

@@ -9,6 +9,7 @@ import type { ListingRenderer } from "../widget/listings/index.tsx"
 import type { AstralBeamListingCoreOptions } from "../core/listings.ts"
 
 export interface AstralBeamListingOptions extends AstralBeamListingCoreOptions {
+  fetchAstralBeamToken: NonNullable<AstralBeamListingCoreOptions["fetchAstralBeamToken"]>
   pageSize?: 20 | 50 | 100 | undefined
   title?: string | undefined
   showHeader?: boolean | undefined
@@ -101,7 +102,7 @@ function mountListing(
   return {
     update: (next) => updateListingMount(state, next),
     refresh: () => {
-      if (!state.disposed) void state.renderer?.client.invalidateQueries()
+      if (!state.disposed && state.renderer) state.runtime!.refreshListing(state.renderer)
     },
     reset: () => {
       if (!state.disposed && state.renderer) state.runtime!.resetListing(state.renderer)

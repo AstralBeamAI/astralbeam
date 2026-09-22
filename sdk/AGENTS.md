@@ -26,7 +26,7 @@ The chat widget must stay inside the client entry's lazy chunk so `dist/client.j
 - `src/core/` must not import React or any `src/widget/` module either. The widget and the React entry build on it, never the reverse.
 - The widget renders `createAstralBeamChat`: extend the core session rather than re-implementing authentication, transport, the tool protocol, or transcript derivations in `src/widget/`.
 - Keep directory authentication, identity resolution, and resource loading in `src/core/listings.ts`. Framework adapters own rendering and reactive bindings, consume the same core functions, and must not duplicate those contracts. Keep styled DOM mounts available independently of host frameworks.
-- Follow chat's live-option lifecycle for directory wrappers: mount once and update callbacks and token sources without clearing state on reference changes. Unmount during sign-out or account transitions. Reset reloads immediately and requires a ready host session. API-base changes clear directory authentication and rows.
+- Follow chat's live-option lifecycle for directory wrappers: mount once and update callbacks and token sources without clearing state on reference changes. Unmount during sign-out or account transitions. Reset reloads immediately and requires a ready host session. API-base changes clear directory authentication and rows. Keep public refresh able to recover failed authentication, and report shared authentication failures once through the latest `onError` callback.
 - Widget-only code, including stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
 - `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn), import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
 - `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`: keep framework imports confined to their entry points and validation hand-written.
@@ -56,6 +56,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Put non-obvious structural reasoning in comments beside the affected code, within the root comment-length limit. Keep longer explanations here.
 - Address AstralBeam through the single `apiUrl` base option and use generated URL helpers with `resolveApiUrl`. A new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `fetchAstralBeamToken`.
 - Acquire chat auth tokens only through `fetchAstralBeamToken`: a `{ url, ...RequestInit }` object handed to `fetch` as-is, or a host function returning `{ token }`. Express new token-request knobs through standard `RequestInit` fields rather than new options, and keep the session's abort signal attached even when the host supplies its own.
+- Preserve chat's existing `/api/astralbeam/token` default. Directories require an explicit token prop. All components use the shared current-user synchronization and refresh lifecycle for endpoint and function token sources.
 - Keep every option updatable in place: read the agent, the API base, and the token source per request through live options or a getter rather than capturing them, so no option needs a remount and the transcript survives a change.
 - Treat a copied API key as its public ID plus the exact Better Auth raw key. Hash the complete `abo_<secret>` value, never only its random suffix.
 - Model token identities as separate `user` and `tenant` objects with a required stable Tenant ID plus a stable tenant-local TenantUser ID. The host authenticates once and derives both objects from that same session. Preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
@@ -71,7 +72,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 Verify embedded directories through the existing consumer examples and their browser-test infrastructure. Do not add a separate SDK preview server or token endpoint.
 
 - Verify vanilla and React mounts, tenant and organization scope, non-admin denial, search beyond page one, literal wildcard search, cursors, metadata, theme isolation, and unmount/remount.
-- Directory queries use TanStack Query/Table. Keep Effect on server workflows, use native Drizzle Effects directly, and do not add an Effect runtime to the client bundle.
+- Directory queries use TanStack Query/Table. Only Effect Schema is allowed in the SDK. Keep the Effect runtime, scheduling, and concurrency APIs on the server, where Drizzle queries use native Effects.
 - Use TanStack Table's built-in state and APIs for supported table behavior instead of parallel React state. Keep opaque API cursors outside page-index pagination.
 - Directory pagination caps rendering at 100 records, so virtualization is unnecessary.
 - Display customer-provided external IDs as the first column labeled "ID" in directories. Do not display AstralBeam's internal record or tenant UUIDs.

@@ -1,4 +1,4 @@
-import { disposeChatAuthentication } from "./auth.ts"
+import { disposeChatAuthentication, getValidChatAuthToken } from "./auth.ts"
 import { describe, expect, test, vi } from "vitest"
 import {
   disposeListingSession,
@@ -7,6 +7,27 @@ import {
   loadListingPage,
   resolveListingTenant,
 } from "./listings.ts"
+
+vi.mock("../api/generated/api.ts", async (original) => ({
+  ...await original<typeof import("../api/generated/api.ts")>(),
+  getCurrentUser: ({ astralBeamToken }: { astralBeamToken: string }) => {
+    const payload = JSON.parse(atob(astralBeamToken.split(".")[1]!))
+    return Promise.resolve(
+      payload.email
+        ? {
+          scope: "organization",
+          organization: { id: payload.organization_id },
+          user: { id: payload.email, email: payload.email, role: "owner" },
+        }
+        : {
+          scope: "tenant",
+          organization: { id: payload.iss },
+          tenant: { id: payload.tenant.id },
+          user: { id: payload.user.id, admin: payload.user.admin },
+        },
+    )
+  },
+}))
 
 function token(
   email = "operator@example.com",
@@ -230,6 +251,10 @@ describe("listing authentication lifecycle", () => {
     await expect(listingRequest(organization, new AbortController().signal, request)).rejects
       .toThrow("tenantId or tenantExternalId is required")
     expect(request).not.toHaveBeenCalled()
+    tenant.options.scope = "tenant"
+    request.mockResolvedValue("tenant rows")
+    await expect(listingRequest(tenant, new AbortController().signal, request))
+      .resolves.toBe("tenant rows")
     disposeChatAuthentication(tenant.auth)
     disposeChatAuthentication(organization.auth)
   })
@@ -256,4 +281,24 @@ describe("listing authentication lifecycle", () => {
       expect(source).toHaveBeenCalledOnce()
     },
   )
+})
+
+test("authentication failures notify once even with waiting requests", async () => {
+  const onError = vi.fn()
+  const failure = new Error("Host session expired")
+  const source = Promise.withResolvers<{ token: string }>()
+  const session = listingSession(
+    { fetchAstralBeamToken: () => source.promise, onError },
+    vi.fn(),
+  )
+  try {
+    const authentication = getValidChatAuthToken(session.auth)
+    const request = listingRequest(session, new AbortController().signal, vi.fn())
+    source.reject(failure)
+    await expect(authentication).rejects.toBe(failure)
+    await expect(request).rejects.toBe(failure)
+    expect(onError).toHaveBeenCalledExactlyOnceWith(failure)
+  } finally {
+    disposeListingSession(session)
+  }
 })
