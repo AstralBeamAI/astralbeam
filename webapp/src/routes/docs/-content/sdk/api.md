@@ -178,7 +178,7 @@ Let's get the current user after obtaining a JWT:
 ```ts
 import { getCurrentUser } from "@astralbeam/sdk/api"
 
-const currentUser = await getCurrentUser({}, { astralBeamToken: token })
+const currentUser = await getCurrentUser({ astralBeamToken: token })
 ```
 
 Ordinary tenant JWTs can synchronize their own Tenant and TenantUser. Organization JWTs return existing membership, including viewers, without provisioning. SDK components call this automatically after every token acquisition. See [authentication](./authentication.md).

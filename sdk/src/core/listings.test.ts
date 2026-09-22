@@ -10,7 +10,7 @@ import {
 
 vi.mock("../api/generated/api.ts", async (original) => ({
   ...await original<typeof import("../api/generated/api.ts")>(),
-  getCurrentUser: (_body: unknown, { astralBeamToken }: { astralBeamToken: string }) => {
+  getCurrentUser: ({ astralBeamToken }: { astralBeamToken: string }) => {
     const payload = JSON.parse(atob(astralBeamToken.split(".")[1]!))
     return Promise.resolve(
       payload.email

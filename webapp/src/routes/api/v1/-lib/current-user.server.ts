@@ -29,7 +29,6 @@ const CurrentUserSchema = Schema.Union([
 
 export const currentUserApi = HttpApiGroup.make("currentUser", { topLevel: true }).add(
   HttpApiEndpoint.post("getCurrentUser", "/me", {
-    payload: Schema.Record(Schema.String, Schema.Never),
     success: CurrentUserSchema,
   }).annotate(OpenApi.Summary, "Get the current user").annotate(
     OpenApi.Description,

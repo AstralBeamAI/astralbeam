@@ -271,8 +271,6 @@ export type GetChatFileParams = {
   ticket: string
 }
 
-export type GetCurrentUserBody = { [key: string]: unknown }
-
 export const getListTenantsUrl = (params: ListTenantsParams) => {
   const normalizedParams = new URLSearchParams()
 
@@ -637,33 +635,9 @@ export const getGetCurrentUserUrl = () => {
  * Use a tenant JWT to upsert its own Tenant and TenantUser atomically, without requiring admin authority. Supplied names and metadata replace stored values, omitted profile fields and admin are preserved, and an explicit admin claim updates stored admin. An organization JWT returns existing user membership and the current database role without provisioning identities. API keys and cookies are not accepted. Limited to 100 requests per five minutes per identity.
  * @summary Get the current user
  */
-export const getCurrentUser = (
-  getCurrentUserBody: GetCurrentUserBody,
-  options: Parameters<typeof astralBeamJwtFetch>[1],
-) => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {}
-    if (h instanceof Headers) return Object.fromEntries(h.entries())
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      )
-    }
-    const headers: Record<string, string | readonly string[]> = {}
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value
-    }
-    return headers
-  }
+export const getCurrentUser = (options: Parameters<typeof astralBeamJwtFetch>[1]) => {
   return astralBeamJwtFetch<CurrentUser>(getGetCurrentUserUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(getCurrentUserBody),
   })
 }

@@ -20,7 +20,7 @@ The email must identify an existing organization user with membership in the cla
 
 ## Current user
 
-Send a tenant or organization JWT to `POST /api/v1/me` with `Content-Type: application/json` and body `{}`. Extra fields and query parameters are rejected. API keys and dashboard cookies cannot authenticate this endpoint.
+Send a tenant or organization JWT to `POST /api/v1/me` without a request body. Identity comes only from the verified JWT, and query parameters are rejected. API keys and dashboard cookies cannot authenticate this endpoint.
 
 Tenant JWTs return `{ scope: "tenant", organization: { id }, tenant, user }`, using the public Tenant and TenantUser records. The request upserts only the signed Tenant and current TenantUser in one transaction. Ordinary non-admin users can synchronize themselves. Omitted names, metadata, and admin preserve existing values. Supplied metadata replaces the stored object, and explicit `user.admin` updates stored admin. New records default to null names, empty metadata, and false admin.
 

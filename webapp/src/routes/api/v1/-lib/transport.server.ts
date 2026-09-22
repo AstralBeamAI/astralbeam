@@ -55,6 +55,19 @@ const ApiBoundaryLive = Layer.succeed(
       if (!endpoint.query && new URL(request.url, "http://localhost").search) {
         return yield* Effect.fail(restFault(400, "This endpoint does not accept query parameters."))
       }
+      if (endpoint.payload.size > 0) {
+        if (
+          request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !==
+            "application/json"
+        ) {
+          return yield* Effect.fail(restFault(415, "Use application/json."))
+        }
+        if (
+          request.headers["content-encoding"] && request.headers["content-encoding"] !== "identity"
+        ) {
+          return yield* Effect.fail(restFault(415, "Content encoding is not supported."))
+        }
+      }
       return yield* httpEffect
     }).pipe(restBoundaryErrors(endpoint.identifier)),
 )
@@ -87,24 +100,11 @@ export const apiV1WebHandler = HttpRouter.toWebHandler(
   { disableLogger: true },
 )
 
-function prepareRestRequest(request: Request): Request {
-  if (request.method !== "POST" && request.method !== "PATCH") return request
-  if (
-    request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json"
-  ) throw restFault(415, "Use application/json.")
-  if (
-    request.headers.has("content-encoding") &&
-    request.headers.get("content-encoding") !== "identity"
-  ) throw restFault(415, "Content encoding is not supported.")
-  return request
-}
-
 export async function dispatchRestRequest(request: Request): Promise<Response> {
   if (request.method === "OPTIONS") return restResponseHeaders(new Response(null, { status: 204 }))
   let response: Response
   try {
-    const prepared = prepareRestRequest(request)
-    response = await apiV1WebHandler.handler(prepared)
+    response = await apiV1WebHandler.handler(request)
     if (
       response.status >= 400 &&
       !response.headers.get("content-type")?.includes("application/problem+json")

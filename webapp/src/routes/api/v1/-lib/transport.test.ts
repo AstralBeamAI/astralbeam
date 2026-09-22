@@ -228,7 +228,7 @@ describe("REST API through the Effect Fetch handler", () => {
       tenantUser: { ...restPrincipal.tenantUser, admin: false },
     })
     restTestState.rows.push([restTenantRow], [restUserRow])
-    const current = await sdkGetCurrentUser({}, {
+    const current = await sdkGetCurrentUser({
       astralBeamToken: restTenantJwt,
       apiUrl: "http://localhost/api",
       fetchClient: restSdkFetch,
@@ -255,32 +255,23 @@ describe("REST API through the Effect Fetch handler", () => {
       apiUrl: "http://localhost/api",
       fetchClient: restSdkFetch,
     }
-    expect(await sdkGetCurrentUser({}, options)).toEqual({
+    expect(await sdkGetCurrentUser(options)).toEqual({
       scope: "organization",
       organization: { id: restOrgId },
       user,
     })
     restTestState.organizationAuth.mockReturnValue(Effect.fail(new OrganizationMembershipError()))
-    await expect(sdkGetCurrentUser({}, options)).rejects.toMatchObject({ status: 403 })
+    await expect(sdkGetCurrentUser(options)).rejects.toMatchObject({ status: 403 })
     expect(restTestState.writes).toHaveLength(0)
   })
 
-  test("current-user rejects invalid credentials, extra identity fields and non-object payloads before writes", async () => {
-    for (const body of [{ tenant: { id: "other" } }, [], null, "invalid"]) {
-      const response = await restRequest("/me", {
-        method: "POST",
-        headers: { authorization: `Bearer ${restTenantJwt}`, "content-type": "application/json" },
-        body: JSON.stringify(body),
-      })
-      expect(response.status).toBe(422)
-    }
+  test("current-user rejects invalid credentials before writes", async () => {
     for (
       const headers of [{ "x-api-key": restTestApiKey }, { authorization: "Bearer malformed" }, {}]
     ) {
       const response = await restRequest("/me", {
         method: "POST",
-        headers: { ...headers, "content-type": "application/json" },
-        body: "{}",
+        headers,
       })
       expect(response.status).toBe(401)
     }
@@ -289,8 +280,7 @@ describe("REST API through the Effect Fetch handler", () => {
     )
     const revoked = await restRequest("/me", {
       method: "POST",
-      headers: { authorization: `Bearer ${restTenantJwt}`, "content-type": "application/json" },
-      body: "{}",
+      headers: { authorization: `Bearer ${restTenantJwt}` },
     })
     expect(revoked.status).toBe(401)
     expect(restTestState.writes).toHaveLength(0)
@@ -299,8 +289,7 @@ describe("REST API through the Effect Fetch handler", () => {
   test("current-user throttling and query rejection cannot write identities", async () => {
     const options = {
       method: "POST",
-      headers: { authorization: `Bearer ${restTenantJwt}`, "content-type": "application/json" },
-      body: "{}",
+      headers: { authorization: `Bearer ${restTenantJwt}` },
     }
     expect((await restRequest("/me?tenant=other", options)).status).toBe(400)
     restTestState.consume.mockReturnValue(Effect.fail(

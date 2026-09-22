@@ -179,7 +179,7 @@ async function loadChatAuthToken(options: GetValidChatAuthTokenOptions): Promise
       }
       let currentUser: CurrentUser
       try {
-        currentUser = await getCurrentUser({}, {
+        currentUser = await getCurrentUser({
           apiUrl,
           astralBeamToken: token,
           fetchClient: options.fetchClient,
