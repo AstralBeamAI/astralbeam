@@ -271,7 +271,7 @@ export type GetChatFileParams = {
   ticket: string
 }
 
-export type SyncCurrentUserBody = { [key: string]: unknown }
+export type GetCurrentUserBody = { [key: string]: unknown }
 
 export const getListTenantsUrl = (params: ListTenantsParams) => {
   const normalizedParams = new URLSearchParams()
@@ -629,16 +629,16 @@ export const getChatFile = (
   })
 }
 
-export const getSyncCurrentUserUrl = () => {
+export const getGetCurrentUserUrl = () => {
   return `/api/v1/me`
 }
 
 /**
  * Use a tenant JWT to upsert its own Tenant and TenantUser atomically, without requiring admin authority. Supplied names and metadata replace stored values, omitted profile fields and admin are preserved, and an explicit admin claim updates stored admin. An organization JWT returns existing user membership and the current database role without provisioning identities. API keys and cookies are not accepted. Limited to 100 requests per five minutes per identity.
- * @summary Synchronize the current user
+ * @summary Get the current user
  */
-export const syncCurrentUser = (
-  syncCurrentUserBody: SyncCurrentUserBody,
+export const getCurrentUser = (
+  getCurrentUserBody: GetCurrentUserBody,
   options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
   const getHeaders = (
@@ -660,10 +660,10 @@ export const syncCurrentUser = (
     }
     return headers
   }
-  return astralBeamJwtFetch<CurrentUser>(getSyncCurrentUserUrl(), {
+  return astralBeamJwtFetch<CurrentUser>(getGetCurrentUserUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(syncCurrentUserBody),
+    body: JSON.stringify(getCurrentUserBody),
   })
 }

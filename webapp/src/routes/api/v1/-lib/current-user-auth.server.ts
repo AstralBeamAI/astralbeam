@@ -20,7 +20,7 @@ function currentUserRateLimit(identity: readonly string[]) {
   }).pipe(Effect.mapError(restRateLimitFault))
 }
 
-export function synchronizeCurrentUser(request: Request) {
+export function getCurrentUser(request: Request) {
   return Effect.gen(function* () {
     const typ = yield* Effect.try({
       try: () => {

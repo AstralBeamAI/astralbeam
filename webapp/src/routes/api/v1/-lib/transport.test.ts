@@ -10,10 +10,10 @@ import { organization } from "@/db/schema/organizations.server"
 import {
   createTenant as sdkCreateTenant,
   getChatFile as sdkGetChatFile,
+  getCurrentUser as sdkGetCurrentUser,
   listTenants as sdkListTenants,
   listUsersForTenant as sdkListUsers,
   runChat as sdkRunChat,
-  syncCurrentUser as sdkSyncCurrentUser,
   updateTenant as sdkUpdateTenant,
 } from "../../../../../../sdk/src/api/index.ts"
 
@@ -228,7 +228,7 @@ describe("REST API through the Effect Fetch handler", () => {
       tenantUser: { ...restPrincipal.tenantUser, admin: false },
     })
     restTestState.rows.push([restTenantRow], [restUserRow])
-    const current = await sdkSyncCurrentUser({}, {
+    const current = await sdkGetCurrentUser({}, {
       astralBeamToken: restTenantJwt,
       apiUrl: "http://localhost/api",
       fetchClient: restSdkFetch,
@@ -255,13 +255,13 @@ describe("REST API through the Effect Fetch handler", () => {
       apiUrl: "http://localhost/api",
       fetchClient: restSdkFetch,
     }
-    expect(await sdkSyncCurrentUser({}, options)).toEqual({
+    expect(await sdkGetCurrentUser({}, options)).toEqual({
       scope: "organization",
       organization: { id: restOrgId },
       user,
     })
     restTestState.organizationAuth.mockReturnValue(Effect.fail(new OrganizationMembershipError()))
-    await expect(sdkSyncCurrentUser({}, options)).rejects.toMatchObject({ status: 403 })
+    await expect(sdkGetCurrentUser({}, options)).rejects.toMatchObject({ status: 403 })
     expect(restTestState.writes).toHaveLength(0)
   })
 

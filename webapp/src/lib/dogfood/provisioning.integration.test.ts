@@ -78,7 +78,7 @@ import { createOperatorSession } from "@/routes/configure/-lib/operator-session.
 import { authenticateChatRequest } from "@/lib/chat/auth.server"
 import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
 import { syncTenantCurrentUser } from "@/db/current-user.server"
-import { synchronizeCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
+import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { provisionDogfoodResources } from "./provisioning.server"
 
@@ -91,7 +91,7 @@ const ownerOnboardingPassword = "Owner-Onboarding-Test-Password-761"
 
 async function synchronizeDashboardIdentity(organizationSlug: string, headers: Headers) {
   const { token } = await runDatabaseEffect(issueDashboardToken({ organizationSlug, headers }))
-  return runDatabaseEffect(synchronizeCurrentUser(
+  return runDatabaseEffect(getCurrentUser(
     new Request("http://localhost/api/v1/me", {
       headers: { authorization: `Bearer ${token}` },
     }),
@@ -189,7 +189,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       await Promise.all(
         issued.map(({ token }) =>
           runDatabaseEffect(
-            synchronizeCurrentUser(
+            getCurrentUser(
               new Request("http://localhost/api/v1/me", {
                 headers: { authorization: `Bearer ${token}` },
               }),

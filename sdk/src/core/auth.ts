@@ -1,4 +1,4 @@
-import { type CurrentUser, syncCurrentUser } from "../api/generated/api.ts"
+import { type CurrentUser, getCurrentUser } from "../api/generated/api.ts"
 import { isAstralBeamApiError } from "../api/api.ts"
 import type { DebugLogger } from "../lib/debug.ts"
 import type { AstralBeamTokenSource } from "../lib/types.ts"
@@ -195,7 +195,7 @@ async function loadChatAuthToken(options: GetValidChatAuthTokenOptions): Promise
       }
       let currentUser: CurrentUser
       try {
-        currentUser = await syncCurrentUser({}, {
+        currentUser = await getCurrentUser({}, {
           apiUrl,
           astralBeamToken: token,
           fetchClient: options.fetchClient,

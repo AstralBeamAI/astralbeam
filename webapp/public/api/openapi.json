@@ -3606,7 +3606,7 @@
         "tags": [
           "currentUser"
         ],
-        "operationId": "syncCurrentUser",
+        "operationId": "getCurrentUser",
         "parameters": [],
         "security": [
           {
@@ -3893,7 +3893,7 @@
           }
         },
         "description": "Use a tenant JWT to upsert its own Tenant and TenantUser atomically, without requiring admin authority. Supplied names and metadata replace stored values, omitted profile fields and admin are preserved, and an explicit admin claim updates stored admin. An organization JWT returns existing user membership and the current database role without provisioning identities. API keys and cookies are not accepted. Limited to 100 requests per five minutes per identity.",
-        "summary": "Synchronize the current user",
+        "summary": "Get the current user",
         "requestBody": {
           "content": {
             "application/json": {
