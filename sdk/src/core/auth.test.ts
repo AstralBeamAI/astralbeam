@@ -208,21 +208,41 @@ test("browser lifecycle refreshes with the latest source, pauses hidden, revalid
   expect(fetch).toHaveBeenCalledTimes(4)
 })
 
-test("a rejected chat request never replays its transcript under a changed identity", async () => {
-  const { auth, fetch } = authentication()
-  await initializeChatAuthentication(auth)
-  const token = auth.session.cached!.value
-  auth.fetchAstralBeamToken = () => ({ token: jwt("other") })
-  fetch.mockResolvedValueOnce(new Response(null, { status: 401 }))
-    .mockResolvedValueOnce(
+test.each([false, true])(
+  "a rejected chat never replays across an identity change (concurrent: %s)",
+  async (concurrent) => {
+    const { auth, fetch } = authentication()
+    await initializeChatAuthentication(auth)
+    const token = auth.session.cached!.value
+    const response = Promise.withResolvers<Response>()
+    fetch.mockReturnValueOnce(response.promise).mockResolvedValue(
       Response.json({ ...currentUser, user: { ...currentUser.user, id: "other" } }),
     )
-  await expect(fetchAuthenticatedChat({
-    ...auth,
-    input: "/chat",
-    init: { headers: { authorization: `Bearer ${token}` } },
-  })).rejects.toMatchObject({ name: "AbortError" })
-  expect(fetch).toHaveBeenCalledTimes(4)
+    auth.fetchAstralBeamToken = () => ({ token: jwt("other") })
+    const request = fetchAuthenticatedChat({
+      ...auth,
+      input: "/chat",
+      init: { headers: { authorization: `Bearer ${token}` } },
+    })
+    if (concurrent) await getValidChatAuthToken({ ...auth, force: true })
+    response.resolve(new Response(null, { status: 401 }))
+    await expect(request).rejects.toMatchObject({ name: "AbortError" })
+    expect(fetch).toHaveBeenCalledTimes(4)
+  },
+)
+
+test("renewal preserves ready state until it succeeds or fails", async () => {
+  const { auth, fetch } = authentication()
+  await initializeChatAuthentication(auth)
+  const response = Promise.withResolvers<Response>()
+  auth.fetchAstralBeamToken = () => ({ token: jwt("new") })
+  fetch.mockReturnValue(response.promise)
+  const renewal = getValidChatAuthToken({ ...auth, force: true })
+  expect(authenticationState(auth)).toEqual({ status: "ready", currentUser })
+  response.resolve(new Response(null, { status: 403 }))
+  await expect(renewal).rejects.toMatchObject({ status: 403 })
+  expect(authenticationState(auth).status).toBe("error")
+  expect(auth.session.cached).toBeUndefined()
 })
 
 test("transient synchronization retries honor Retry-After and stop after three attempts", async () => {

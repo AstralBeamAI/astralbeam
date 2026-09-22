@@ -14,6 +14,7 @@ export type ChatAuthenticationState =
 
 interface CachedToken {
   value: string
+  expiresAt: number
   refreshAt: number
   synchronizedAt: number
   tenantAdmin: boolean
@@ -197,7 +198,13 @@ async function loadChatAuthToken(options: GetValidChatAuthTokenOptions): Promise
       if (options.scope && options.scope !== currentUser.scope) {
         throw new Error(`Expected ${options.scope} authentication`)
       }
-      session.cached = { value: token, refreshAt, synchronizedAt: Date.now(), tenantAdmin }
+      session.cached = {
+        value: token,
+        expiresAt,
+        refreshAt,
+        synchronizedAt: Date.now(),
+        tenantAdmin,
+      }
       publishAuthentication(options, { status: "ready", currentUser })
       debug?.("auth", "authentication ready", { expiresAt: new Date(expiresAt) })
       return token
@@ -219,7 +226,9 @@ export async function getValidChatAuthToken(
   session.abortController.signal.throwIfAborted()
   if (session.refreshPromise) return await session.refreshPromise
   if (!force && session.cached && session.cached.refreshAt > Date.now()) return session.cached.value
-  publishAuthentication(options, { status: "loading" })
+  if (!session.cached || session.cached.expiresAt <= Date.now()) {
+    publishAuthentication(options, { status: "loading" })
+  }
   const refresh = loadChatAuthToken(options)
   session.refreshPromise = refresh
   try {
@@ -261,6 +270,7 @@ export async function fetchAuthenticatedChat(
   options: FetchAuthenticatedChatOptions,
 ): Promise<Response> {
   const { input, init, session, fetchClient, debug } = options
+  const previous = authenticationState(options)
   const response = await fetchClient(input, init)
   if (response.status !== 401 || session.abortController.signal.aborted) return response
   const headers = new Headers(init?.headers)
@@ -268,11 +278,10 @@ export async function fetchAuthenticatedChat(
   const usedToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined
   debug?.("auth", "chat auth token was rejected; refreshing once")
   await response.body?.cancel()
-  const previous = authenticationState(options)
   const token = await refreshRejectedAuthentication(options, usedToken)
   const current = authenticationState(options)
   if (
-    previous.status === "ready" && current.status === "ready" &&
+    previous.status !== "ready" || current.status !== "ready" ||
     authenticationIdentity(previous.currentUser) !== authenticationIdentity(current.currentUser)
   ) throw new DOMException("Identity changed", "AbortError")
   init?.signal?.throwIfAborted()

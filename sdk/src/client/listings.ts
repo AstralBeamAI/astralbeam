@@ -9,6 +9,7 @@ import type { ListingRenderer } from "../widget/listings/index.tsx"
 import type { AstralBeamListingCoreOptions } from "../core/listings.ts"
 
 export interface AstralBeamListingOptions extends AstralBeamListingCoreOptions {
+  fetchAstralBeamToken: NonNullable<AstralBeamListingCoreOptions["fetchAstralBeamToken"]>
   pageSize?: 20 | 50 | 100 | undefined
   title?: string | undefined
   showHeader?: boolean | undefined
