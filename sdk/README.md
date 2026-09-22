@@ -72,6 +72,8 @@ export async function POST(request: Request) {
 - Directory access additionally requires signed `user.admin: true`, derived from trusted tenant permissions, and persisted records. Follow [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings).
 - For employee-facing Tenant management, use `createAstralBeamOrganizationToken`. The [API client guide](https://app.astralbeam.ai/docs/sdk/api) covers database-backed roles and browser integration.
 
+Existing token props and the default chat endpoint keep working. After acquiring a token, components call `POST /api/v1/me` and renew before expiry. See [authentication and refresh behavior](https://app.astralbeam.ai/docs/sdk/authentication).
+
 ## Options
 
 Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` applies any subset in place, and no option is fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).

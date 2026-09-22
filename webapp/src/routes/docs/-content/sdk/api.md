@@ -170,3 +170,15 @@ const bytes = await file.arrayBuffer()
 ```
 
 Chat accepts tenant JWTs without requiring admin privileges. Downloads use their signed ticket, not an API key or JWT. See the [API reference](/docs/api) for all operations, permissions, and response schemas.
+
+## Current-user synchronization
+
+Let's synchronize the signed current identity after obtaining a JWT:
+
+```ts
+import { syncCurrentUser } from "@astralbeam/sdk/api"
+
+const currentUser = await syncCurrentUser({}, { astralBeamToken: token })
+```
+
+Ordinary tenant JWTs can synchronize their own Tenant and TenantUser. Organization JWTs return existing membership, including viewers, without provisioning. SDK components call this automatically after every token acquisition. See [authentication](./authentication.md).

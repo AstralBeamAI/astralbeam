@@ -1,5 +1,5 @@
 import { OpenApi } from "effect/unstable/httpapi"
-import { Context, Duration, Effect, Schema, Stream } from "effect"
+import { Context, Data, Duration, Effect, Schema, Stream } from "effect"
 import { RateLimiter } from "effect/unstable/persistence"
 import type { SQL } from "drizzle-orm"
 import { PgDialect } from "drizzle-orm/pg-core"
@@ -13,6 +13,7 @@ import {
   listTenants as sdkListTenants,
   listUsersForTenant as sdkListUsers,
   runChat as sdkRunChat,
+  syncCurrentUser as sdkSyncCurrentUser,
   updateTenant as sdkUpdateTenant,
 } from "../../../../../../sdk/src/api/index.ts"
 
@@ -72,9 +73,13 @@ vi.mock("@/db", () => {
       restTestState.writes.push(value)
       return this
     },
+    onConflictDoUpdate() {
+      return this
+    },
     returning: result,
   }
   const database = {
+    transaction: (run: (tx: unknown) => unknown) => run(database),
     select: () => ({ ...query }),
     insert: () => ({ ...query }),
     update: () => ({ ...query }),
@@ -98,7 +103,7 @@ vi.mock("@/db/lib/rate-limiter.server", () => ({
   databaseRateLimiter: { consume: restTestState.consume },
 }))
 vi.mock("@/lib/organization-token.server", () => ({
-  OrganizationMembershipError: class extends Error {},
+  OrganizationMembershipError: class extends Data.TaggedError("OrganizationMembershipError") {},
   ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
   authenticateOrganizationRequest: restTestState.organizationAuth,
 }))
@@ -216,6 +221,103 @@ describe("REST API through the Effect Fetch handler", () => {
     vi.unstubAllEnvs()
   })
   afterAll(() => apiV1WebHandler.dispose())
+
+  test("current-user synchronization provisions non-admin identities before chat and exposes only public fields", async () => {
+    restTestState.chat.mockResolvedValue({
+      ...restPrincipal,
+      tenantUser: { ...restPrincipal.tenantUser, admin: false },
+    })
+    restTestState.rows.push([restTenantRow], [restUserRow])
+    const current = await sdkSyncCurrentUser({}, {
+      astralBeamToken: restTenantJwt,
+      apiUrl: "http://localhost/api",
+      fetchClient: restSdkFetch,
+    })
+    expect(current).toMatchObject({
+      scope: "tenant",
+      organization: { id: restOrgId },
+      tenant: { id: restTenantId },
+      user: { id: restUserId, admin: false },
+    })
+    expect(current).not.toHaveProperty("tenant.organizationId")
+    expect(current).not.toHaveProperty("user.organization_id")
+    expect(restTestState.writes).toHaveLength(2)
+  })
+
+  test("current-user organization viewers read fresh membership without identity writes", async () => {
+    const token = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
+    const user = { id: restUserId, name: "Viewer", email: "viewer@example.com", role: "viewer" }
+    restTestState.organizationAuth.mockReturnValue(
+      Effect.succeed({ organizationId: restOrgId, currentUser: user }),
+    )
+    const options = {
+      astralBeamToken: token,
+      apiUrl: "http://localhost/api",
+      fetchClient: restSdkFetch,
+    }
+    expect(await sdkSyncCurrentUser({}, options)).toEqual({
+      scope: "organization",
+      organization: { id: restOrgId },
+      user,
+    })
+    restTestState.organizationAuth.mockReturnValue(Effect.fail(new OrganizationMembershipError()))
+    await expect(sdkSyncCurrentUser({}, options)).rejects.toMatchObject({ status: 403 })
+    expect(restTestState.writes).toHaveLength(0)
+  })
+
+  test("current-user rejects invalid credentials, extra identity fields and non-object payloads before writes", async () => {
+    for (const body of [{ tenant: { id: "other" } }, [], null, "invalid"]) {
+      const response = await restRequest("/me", {
+        method: "POST",
+        headers: { authorization: `Bearer ${restTenantJwt}`, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      expect(response.status).toBe(422)
+    }
+    for (
+      const headers of [{ "x-api-key": restTestApiKey }, { authorization: "Bearer malformed" }, {}]
+    ) {
+      const response = await restRequest("/me", {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: "{}",
+      })
+      expect(response.status).toBe(401)
+    }
+    restTestState.chat.mockRejectedValue(
+      Object.assign(new Error("Revoked"), { name: "ChatAuthenticationError" }),
+    )
+    const revoked = await restRequest("/me", {
+      method: "POST",
+      headers: { authorization: `Bearer ${restTenantJwt}`, "content-type": "application/json" },
+      body: "{}",
+    })
+    expect(revoked.status).toBe(401)
+    expect(restTestState.writes).toHaveLength(0)
+  })
+
+  test("current-user throttling and query rejection cannot write identities", async () => {
+    const options = {
+      method: "POST",
+      headers: { authorization: `Bearer ${restTenantJwt}`, "content-type": "application/json" },
+      body: "{}",
+    }
+    expect((await restRequest("/me?tenant=other", options)).status).toBe(400)
+    restTestState.consume.mockReturnValue(Effect.fail(
+      new RateLimiter.RateLimiterError({
+        reason: new RateLimiter.RateLimitExceeded({
+          key: "current-user:test",
+          limit: 100,
+          remaining: 0,
+          retryAfter: Duration.millis(1500),
+        }),
+      }),
+    ))
+    const response = await restRequest("/me", options)
+    expect(response.status).toBe(429)
+    expect(response.headers.get("retry-after")).toBe("2")
+    expect(restTestState.writes).toHaveLength(0)
+  })
 
   test("generated SDK sends typed writes and consumes live cursor pages", async () => {
     const options = {

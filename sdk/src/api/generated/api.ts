@@ -174,6 +174,26 @@ export interface ChatConfiguration {
   capabilities: ChatConfigurationCapabilities
 }
 
+export type CurrentUser = {
+  scope: "tenant"
+  organization: {
+    id: string
+  }
+  tenant: TenantRecordEncoded
+  user: TenantUserRecordEncoded
+} | {
+  scope: "organization"
+  organization: {
+    id: string
+  }
+  user: {
+    id: string
+    name: string
+    email: string
+    role: string
+  }
+}
+
 export type ListTenantsParams = {
   /**
    * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
@@ -250,6 +270,8 @@ export type GetChatConfigParams = {
 export type GetChatFileParams = {
   ticket: string
 }
+
+export type SyncCurrentUserBody = { [key: string]: unknown }
 
 export const getListTenantsUrl = (params: ListTenantsParams) => {
   const normalizedParams = new URLSearchParams()
@@ -604,5 +626,44 @@ export const getChatFile = (
   return astralBeamFileFetch<Blob>(getGetChatFileUrl(params), {
     ...options,
     method: "GET",
+  })
+}
+
+export const getSyncCurrentUserUrl = () => {
+  return `/api/v1/me`
+}
+
+/**
+ * Use a tenant JWT to upsert its own Tenant and TenantUser atomically, without requiring admin authority. Supplied names and metadata replace stored values, omitted profile fields and admin are preserved, and an explicit admin claim updates stored admin. An organization JWT returns existing user membership and the current database role without provisioning identities. API keys and cookies are not accepted. Limited to 100 requests per five minutes per identity.
+ * @summary Synchronize the current user
+ */
+export const syncCurrentUser = (
+  syncCurrentUserBody: SyncCurrentUserBody,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<CurrentUser>(getSyncCurrentUserUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(syncCurrentUserBody),
   })
 }

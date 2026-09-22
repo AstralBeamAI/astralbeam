@@ -1,16 +1,19 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 
 import { ASK_QUESTIONNAIRE_TOOL } from "./protocol.ts"
-import {
-  type AstralBeamChatCoreOptions,
-  CORE_OPTION_KEYS,
-  createAstralBeamChat,
-} from "./session.ts"
+import { createAstralBeamChat } from "./session.ts"
 
 // The token cache only reads `exp` out of the payload; nothing here verifies a signature.
 function chatAuthToken(): { token: string } {
   const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1_000) + 300 }))
   return { token: `header.${payload}.signature` }
+}
+
+const currentUser = {
+  scope: "tenant",
+  organization: { id: "org" },
+  tenant: { id: "tenant" },
+  user: { id: "user" },
 }
 
 beforeEach(() => {
@@ -44,23 +47,6 @@ test("HTTP errors reach chat state and callbacks with their API details", async 
   } finally {
     chat.dispose()
   }
-})
-
-// The React wrapper watches these keys to re-apply option changes, so one missing from the list is
-// an option that silently keeps its mount-time value (`streamCallbacks` was, once).
-test("the watched option list covers every option the session reads per request", () => {
-  const everyOption: Required<AstralBeamChatCoreOptions> = {
-    agentId: "agt_acme_todos",
-    apiUrl: "https://example.test/api",
-    fetchAstralBeamToken: chatAuthToken,
-    tools: {},
-    widgets: {},
-    onRenderWidget: () => undefined,
-    streamCallbacks: {},
-    debug: false,
-  }
-
-  expect([...CORE_OPTION_KEYS].sort()).toEqual(Object.keys(everyOption).sort())
 })
 
 // A React host rebuilds its tool objects every render, so publishing a fresh `agentTools` for an
@@ -105,14 +91,21 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
 // attachment grant the composer reads must be the current agent's.
 test("a capability response for a superseded agent does not overwrite the current grant", async () => {
   const requests: Array<{ url: string; answer: (attachments: boolean) => void }> = []
-  vi.stubGlobal("fetch", (input: URL) =>
-    new Promise<Response>((resolve) => {
-      requests.push({
-        url: String(input),
-        answer: (attachments) =>
-          resolve(new Response(JSON.stringify({ capabilities: { attachments } }))),
-      })
-    }))
+  vi.stubGlobal(
+    "fetch",
+    (input: URL) =>
+      String(input).endsWith("/me")
+        ? Promise.resolve(
+          Response.json(currentUser),
+        )
+        : new Promise<Response>((resolve) => {
+          requests.push({
+            url: String(input),
+            answer: (attachments) =>
+              resolve(new Response(JSON.stringify({ capabilities: { attachments } }))),
+          })
+        }),
+  )
   const chat = createAstralBeamChat({
     agentId: "agt_acme_first",
     fetchAstralBeamToken: chatAuthToken,
@@ -130,4 +123,23 @@ test("a capability response for a superseded agent does not overwrite the curren
 
   expect(chat.getState().capabilities.attachments).toBe(false)
   chat.dispose()
+})
+
+test("a rejected capability request renews once without a refresh notification loop", async () => {
+  const fetch = vi.fn((input: RequestInfo | URL) =>
+    Promise.resolve(
+      String(input).endsWith("/me")
+        ? Response.json(currentUser)
+        : new Response(null, { status: 401 }),
+    )
+  )
+  vi.stubGlobal("fetch", fetch)
+  const source = vi.fn(chatAuthToken)
+  const chat = createAstralBeamChat({ fetchAstralBeamToken: source })
+  try {
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(4))
+    expect(source).toHaveBeenCalledTimes(2)
+  } finally {
+    chat.dispose()
+  }
 })

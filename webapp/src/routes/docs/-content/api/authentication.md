@@ -18,6 +18,16 @@ Organization JWTs cannot authenticate chat or manage dashboard Members, API keys
 
 The email must identify an existing organization user with membership in the claimed Organization. The server matches email case-insensitively and checks membership on every request, returning `403` when it is absent, removed, or lacks permission for the operation. Role changes apply on the next request. Do not include role, roles, or admin claims in organization JWTs; they are rejected. Authentication does not create users, memberships, or login sessions.
 
+## Current user
+
+Send a tenant or organization JWT to `POST /api/v1/me` with `Content-Type: application/json` and body `{}`. Extra fields and query parameters are rejected. API keys and dashboard cookies cannot authenticate this endpoint.
+
+Tenant JWTs return `{ scope: "tenant", organization: { id }, tenant, user }`, using the public Tenant and TenantUser records. The request upserts only the signed Tenant and current TenantUser in one transaction. Ordinary non-admin users can synchronize themselves. Omitted names, metadata, and admin preserve existing values. Supplied metadata replaces the stored object, and explicit `user.admin` updates stored admin. New records default to null names, empty metadata, and false admin.
+
+Organization JWTs return `{ scope: "organization", organization: { id }, user: { id, name, email, role } }`. Membership and role are read again, including for viewers, without creating users, memberships, tenants, or sessions. Removed membership returns `403`.
+
+Success is `200` with `Cache-Control: no-store`. Invalid or revoked JWTs return `401`. Synchronization has its own 100-request-per-five-minute bucket per authenticated identity. Throttling returns `429` with `Retry-After`.
+
 ## Tenant administrator JWTs
 
 A valid chat JWT with signed `user.admin: true` can read its own Tenant and read/create/update TenantUsers within it. Tenant writes are forbidden. Non-admin JWTs cannot access these resource operations.

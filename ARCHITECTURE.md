@@ -24,7 +24,10 @@ Tenant user's browser
 │       │     Host server: createAstralBeamToken({ apiKey, user, tenant })
 │       │     API key stays server-side
 │       │
-│       └─ 2. POST /api/v1/chat with Bearer JWT
+│       ├─ 2. POST /api/v1/me with Bearer JWT
+│       │     Synchronize the Tenant and current TenantUser
+│       │
+│       └─ 3. POST /api/v1/chat with Bearer JWT
 │              webapp
 │              ├─ Verify token → ChatPrincipal
 │              ├─ Resolve agent and normalize attachments
@@ -46,7 +49,7 @@ The host signs chat JWTs using the SHA-256 digest of the complete `abo_<secret>`
 
 JWTs carry separate `user` and `tenant` claims, use the organization UUID as issuer and `astralbeam` as audience, and expire after 60–600 seconds. Trusted organization context comes from the verified key row. The [chat authentication instructions](webapp/src/lib/chat/AGENTS.md#authentication) define verification order and lifecycle checks.
 
-The management API persists Tenants and TenantUsers. Chat authenticates their external identities from signed claims without reading or upserting those records. A signed `user.admin` claim grants scoped management access independently of stored TenantUser `admin` data. See [API authentication](webapp/src/routes/docs/-content/api/authentication.md).
+The management API persists Tenants and TenantUsers. Before becoming ready, SDK authentication calls JWT-only `POST /api/v1/me` to synchronize the signed Tenant and current TenantUser atomically. Organization JWTs instead return the existing member and current role. Token issuance does not write these identities. Chat authenticates their external identities from signed claims without reading or upserting those records. A signed `user.admin` claim grants scoped management access independently of stored TenantUser `admin` data. See [API authentication](webapp/src/routes/docs/-content/api/authentication.md).
 
 First-party organization-owned rows use `(organization_id, id)` keys. Tenant-owned rows add `tenant_id`. Composite foreign keys prevent cross-organization or cross-Tenant references at the database boundary. Better Auth tables retain adapter-compatible keys and require application-level scoping.
 
@@ -87,6 +90,8 @@ The database module owns separate `pg` pools for Promise and Effect clients. Eff
 ## SDK boundary
 
 The vanilla entry lazily loads a widget with its own React and styles. The React entry uses the host's React. Both build on the framework-free headless core, which owns authentication, transport, tool execution, and transcript state.
+
+Chat and directory components use the same framework-free authentication lifecycle for token acquisition, current-user synchronization, proactive renewal, and bounded retry. Each component owns and disposes its session.
 
 Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox artifacts are downloaded through short-lived tickets bound to the published bytes. These boundaries are detailed in [SDK security](webapp/src/routes/docs/-content/sdk/security.md).
 

@@ -13,13 +13,17 @@ import { createDebugLogger } from "../lib/debug.ts"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
 import {
-  type ChatAuthenticationOptions,
+  authenticationIdentity,
+  authenticationState,
   type ChatAuthenticationState,
+  createChatAuthentication,
   disposeChatAuthentication,
   fetchAuthenticatedChat,
   getValidChatAuthToken,
-  initializeChatAuthentication,
+  subscribeAuthentication,
+  updateAuthentication,
 } from "./auth.ts"
+import { startAuthentication } from "./auth-lifecycle.ts"
 import { isSettledToolCall } from "./messages.ts"
 import { ASK_QUESTIONNAIRE_TOOL, SANDBOX_STATUS_EVENT } from "./protocol.ts"
 import { collectSandboxActivity } from "./sandbox.ts"
@@ -113,6 +117,8 @@ export interface AstralBeamChatState {
 }
 
 export interface AstralBeamChatCore {
+  /** Start browser side effects after a React commit. Vanilla sessions start automatically. */
+  start: () => void
   getState: () => AstralBeamChatState
   /** Notifies on every state change; returns the unsubscribe. */
   subscribe: (listener: () => void) => () => void
@@ -142,7 +148,10 @@ export interface AstralBeamChatCore {
  * transcript state, with no markup. The drop-in widget is one consumer; a host that owns its
  * whole UI is another.
  */
-export function createAstralBeamChat(options: AstralBeamChatCoreOptions): AstralBeamChatCore {
+export function createAstralBeamChat(
+  options: AstralBeamChatCoreOptions,
+  deferStart = false,
+): AstralBeamChatCore {
   let live: AstralBeamChatCoreOptions = { ...options }
   let debug = createDebugLogger(live.debug)
   const listeners = new Set<() => void>()
@@ -161,30 +170,31 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     for (const listener of listeners) listener()
   }
 
-  const authentication: ChatAuthenticationOptions = {
+  const authentication = createChatAuthentication({
+    apiUrl: live.apiUrl,
+    scope: "tenant",
     fetchAstralBeamToken: live.fetchAstralBeamToken ?? { url: DEFAULT_CHAT_AUTH_TOKEN_URL },
-    session: {
-      cached: undefined,
-      refreshPromise: undefined,
-      abortController: new AbortController(),
-    },
-    onStateChange: (auth) => update({ auth }),
-    fetchClient: globalThis.fetch.bind(globalThis),
-    debug,
-  }
-  void initializeChatAuthentication(authentication).catch(() => undefined)
+  })
+  let stopAuthentication: (() => void) | undefined
+  let unsubscribeAuthentication: (() => void) | undefined
+  let identity: string | undefined
+  let started = false
 
   // Agent capability handshake; fails open for state (the endpoint still enforces its policy).
   // Generation-checked, so a slower response for a superseded agent or API base is dropped
   // instead of overwriting the grant resolved for the current one.
   let capabilitiesGeneration = 0
+  let capabilityIdentity: string | undefined
   const resolveCapabilities = async () => {
     const generation = ++capabilitiesGeneration
     try {
       const token = await getValidChatAuthToken(authentication)
+      if (generation !== capabilitiesGeneration) return
       const body = await getChatConfig(live.agentId ? { agentId: live.agentId } : {}, {
-        apiUrl: live.apiUrl,
+        apiUrl: authentication.apiUrl,
         astralBeamToken: token,
+        signal: authentication.session.abortController.signal,
+        fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
       })
       if (generation !== capabilitiesGeneration) return
       const attachments = body.capabilities?.attachments !== false
@@ -194,7 +204,6 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
       debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
     }
   }
-  void resolveCapabilities()
 
   // Live widget renders, keyed per tool call like the styled widget's, so a repeated call
   // replaces its own render and a reset disposes them all.
@@ -259,14 +268,18 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
 
   // Read the live API base for each request without recreating the conversation.
   const connection = fetchServerSentEvents(
-    () => resolveApiUrl(getRunChatUrl(), live.apiUrl),
+    () => resolveApiUrl(getRunChatUrl(), authentication.apiUrl),
     async () => {
+      const previousIdentity = identity
       const token = await getValidChatAuthToken(authentication)
+      if (previousIdentity !== undefined && previousIdentity !== identity) {
+        throw new DOMException("Identity changed", "AbortError")
+      }
       return {
         fetchClient: (_input, init) =>
           astralBeamChatFetch(getRunChatUrl(), {
             ...init,
-            apiUrl: live.apiUrl,
+            apiUrl: authentication.apiUrl,
             astralBeamToken: token,
             fetchClient: (input, request) =>
               fetchAuthenticatedChat({ ...authentication, input, init: request }),
@@ -339,7 +352,35 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     }
   }
 
+  const observeAuthentication = () => {
+    const auth = authenticationState(authentication)
+    if (auth.status === "ready") {
+      const nextIdentity = authenticationIdentity(auth.currentUser)
+      if (identity !== undefined && identity !== nextIdentity) {
+        client.stop()
+        client.clear()
+        disposeRenders()
+        update({ messages: [], sandbox: { files: [], commands: [] }, sandboxStatus: undefined })
+      }
+      identity = nextIdentity
+      if (capabilityIdentity !== nextIdentity) {
+        capabilityIdentity = nextIdentity
+        void resolveCapabilities()
+      }
+    }
+    update({ auth })
+  }
+  const start = () => {
+    if (started) return
+    started = true
+    unsubscribeAuthentication = subscribeAuthentication(authentication, observeAuthentication)
+    observeAuthentication()
+    stopAuthentication = startAuthentication(authentication)
+  }
+  if (!deferStart) start()
+
   return {
+    start,
     getState: () => state,
     subscribe: (listener) => {
       listeners.add(listener)
@@ -350,11 +391,13 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
       const apiUrl = live.apiUrl
       live = { ...live, ...next }
       debug = createDebugLogger(live.debug)
-      authentication.fetchAstralBeamToken = live.fetchAstralBeamToken ??
-        { url: DEFAULT_CHAT_AUTH_TOKEN_URL }
+      updateAuthentication(authentication, {
+        apiUrl: live.apiUrl,
+        fetchAstralBeamToken: live.fetchAstralBeamToken ?? { url: DEFAULT_CHAT_AUTH_TOKEN_URL },
+      })
       authentication.debug = debug
       client.updateOptions({ tools: declareTools(), forwardedProps: forwardedProps() })
-      if (live.agentId !== agent || live.apiUrl !== apiUrl) void resolveCapabilities()
+      if (started && (live.agentId !== agent || live.apiUrl !== apiUrl)) void resolveCapabilities()
     },
     sendMessage: (content) => {
       settleDanglingToolCalls()
@@ -379,8 +422,18 @@ export function createAstralBeamChat(options: AstralBeamChatCoreOptions): Astral
     },
     dispose: () => {
       disposeRenders()
-      client.dispose()
+      client.stop()
+      capabilitiesGeneration++
+      capabilityIdentity = undefined
+      stopAuthentication?.()
+      unsubscribeAuthentication?.()
       disposeChatAuthentication(authentication)
+      started = false
+      // React Strict Mode immediately restarts a committed session. Dispose the client only if
+      // that restart did not happen: https://react.dev/reference/react/useEffect#caveats
+      queueMicrotask(() => {
+        if (!started) client.dispose()
+      })
       listeners.clear()
     },
   }

@@ -77,6 +77,8 @@ import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
 import { authenticateChatRequest } from "@/lib/chat/auth.server"
 import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
+import { synchronizeTenantIdentity } from "@/db/tenant-identity.server"
+import { synchronizeCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { provisionDogfoodResources } from "./provisioning.server"
 
@@ -86,6 +88,15 @@ const ownerOnboardingFixture = {
   organizationSlug: "dogfood",
 }
 const ownerOnboardingPassword = "Owner-Onboarding-Test-Password-761"
+
+async function synchronizeDashboardIdentity(organizationSlug: string, headers: Headers) {
+  const { token } = await runDatabaseEffect(issueDashboardToken({ organizationSlug, headers }))
+  return runDatabaseEffect(synchronizeCurrentUser(
+    new Request("http://localhost/api/v1/me", {
+      headers: { authorization: `Bearer ${token}` },
+    }),
+  ))
+}
 
 function provisionDogfood(input = ownerOnboardingFixture) {
   return runDatabaseEffect(withDogfoodProvisioningLock(provisionDogfoodResources(input)))
@@ -174,6 +185,18 @@ describe.skipIf(!dogfoodIntegration.url)(
       const request = new Request("http://localhost:4500/api/v1/chat", {
         headers: { authorization: `Bearer ${issued[0]!.token}` },
       })
+      expect(await db.select().from(tenant)).toHaveLength(0)
+      await Promise.all(
+        issued.map(({ token }) =>
+          runDatabaseEffect(
+            synchronizeCurrentUser(
+              new Request("http://localhost/api/v1/me", {
+                headers: { authorization: `Bearer ${token}` },
+              }),
+            ),
+          )
+        ),
+      )
       const principal = await authenticateChatRequest(request)
       const dogfoodId = (await getDatabaseConfig()).values.dogfood_organization_id!
       expect(principal.organization.id).toBe(dogfoodId)
@@ -189,15 +212,15 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select().from(tenantUser)).toHaveLength(1)
       const [firstUser] = await db.select().from(tenantUser)
       await db.update(tenantUser).set({ admin: true }).where(eq(tenantUser.id, firstUser!.id))
-      await runDatabaseEffect(issueDashboardToken({ organizationSlug: "dogfood", headers }))
+      await synchronizeDashboardIdentity("dogfood", headers)
       expect((await db.select().from(tenantUser))[0]).toMatchObject({
         id: firstUser!.id,
         admin: false,
       })
-      await runDatabaseEffect(issueDashboardToken({ organizationSlug: "second", headers }))
+      await synchronizeDashboardIdentity("second", headers)
       expect(await db.select().from(tenantUser)).toHaveLength(2)
       await db.update(organization).set({ slug: "renamed" }).where(eq(organization.id, dogfoodId))
-      await runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers }))
+      await synchronizeDashboardIdentity("renamed", headers)
       expect(await db.select().from(tenant)).toEqual(expect.arrayContaining([
         expect.objectContaining({ externalId: dogfoodId, metadata: { slug: "renamed" } }),
         expect.objectContaining({ externalId: second.id, metadata: { slug: "second" } }),
@@ -218,6 +241,89 @@ describe.skipIf(!dogfoodIntegration.url)(
       )
       await expect(runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers })))
         .rejects.toMatchObject({ status: 429 })
+    })
+
+    test("tenant synchronization preserves identity, replaces supplied fields, isolates scope and rolls back", async () => {
+      const [first, second] = await db.insert(organization).values([
+        { name: "First", slug: "first" },
+        { name: "Second", slug: "second" },
+      ]).returning()
+      const principal = {
+        organization: { id: first!.id },
+        tenantUser: {
+          id: "same-user",
+          name: "Original",
+          admin: true,
+          metadata: { first: true },
+          tenant: { id: "same-tenant", name: "Original tenant", metadata: { first: true } },
+        },
+      }
+      const synchronize = (value: Parameters<typeof synchronizeTenantIdentity>[0]) =>
+        runDatabaseEffect(synchronizeTenantIdentity(value))
+      const original = await synchronize(principal)
+      const minimal = await synchronize({
+        organization: principal.organization,
+        tenantUser: { id: "same-user", tenant: { id: "same-tenant" } },
+      })
+      expect(minimal.tenant).toMatchObject({
+        id: original.tenant.id,
+        name: "Original tenant",
+        metadata: { first: true },
+        createdAt: original.tenant.createdAt,
+      })
+      expect(minimal.user).toMatchObject({
+        id: original.user.id,
+        name: "Original",
+        metadata: { first: true },
+        admin: true,
+        createdAt: original.user.createdAt,
+      })
+      const changed = await synchronize({
+        ...principal,
+        tenantUser: {
+          ...principal.tenantUser,
+          name: "Changed",
+          metadata: {},
+          admin: false,
+          tenant: { ...principal.tenantUser.tenant, metadata: { next: true } },
+        },
+      })
+      expect(changed.user).toMatchObject({
+        id: original.user.id,
+        name: "Changed",
+        metadata: {},
+        admin: false,
+      })
+      expect(changed.tenant.metadata).toEqual({ next: true })
+      const newUser = await synchronize({
+        organization: principal.organization,
+        tenantUser: { id: "new-user", tenant: { id: "same-tenant" } },
+      })
+      expect(newUser.user.admin).toBe(false)
+      const otherTenant = await synchronize({
+        ...principal,
+        tenantUser: { ...principal.tenantUser, tenant: { id: "other-tenant" } },
+      })
+      const otherOrganization = await synchronize({
+        ...principal,
+        organization: { id: second!.id },
+      })
+      expect(new Set([original.user.id, otherTenant.user.id, otherOrganization.user.id]).size).toBe(
+        3,
+      )
+      await db.execute(
+        sql`alter table tenant_user add constraint synchronization_rollback_test check (external_id <> 'rollback-user')`,
+      )
+      try {
+        await expect(synchronize({
+          ...principal,
+          tenantUser: { id: "rollback-user", tenant: { id: "rollback-tenant" } },
+        })).rejects.toBeDefined()
+        expect(await db.select().from(tenant).where(eq(tenant.externalId, "rollback-tenant")))
+          .toHaveLength(0)
+      } finally {
+        await db.execute(sql`alter table tenant_user drop constraint synchronization_rollback_test`)
+      }
     })
 
     test("directory tokens use the selected organization's key and current member permissions", async () => {

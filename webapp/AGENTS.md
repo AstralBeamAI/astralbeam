@@ -57,6 +57,8 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 
 ## Shared code
 
+- Prefer Effect's built-in error handling, scheduling, and concurrency operators over custom server control flow.
+
 - Apply global framing restrictions without embedded API path exemptions. Cross-origin fetch uses CORS, not framing permissions. Append the framing CSP as an additional policy so route-provided restrictions remain enforced.
 - `schemas.ts`: reusable domain-neutral Effect schemas. Reuse its UUIDv7 and lock-version schemas instead of duplicating their predicates.
 - `src/lib/slug.ts` owns organization URL slug validation and suggestions. Keep UUID-based public identifiers and database operations at their resource boundaries.
@@ -78,11 +80,11 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 
 ## Configuration and authentication
 
-- The embedded SDK uses `file:../sdk` and must be built before the webapp. Keep typechecking on `deno check`, using manual node_modules for the local package link and sloppy-import resolution for the SDK's generated declaration imports. Keep tenant identity persistence in `/api/astralbeam/token`, resolve the displayed Organization selector against authenticated membership, and never turn dashboard roles into tenant-admin privileges.
+- The embedded SDK uses `file:../sdk` and must be built before the webapp. Keep typechecking on `deno check`, using manual node_modules for the local package link and sloppy-import resolution for the SDK's generated declaration imports. Keep tenant identity persistence in JWT-authenticated `POST /api/v1/me`, keep token issuance read-only, resolve the displayed Organization selector against authenticated membership, and never turn dashboard roles into tenant-admin privileges.
 
 - Keep `/configure` authorization independent of dashboard sessions and dogfood membership. The encryption-key operator session must suffice before and after provisioning, including configuration repair.
 - Reject API deletion of the key referenced by `dogfood_api_key`, matching its UUID rather than its editable name.
-- Authorize key access before disclosing deletion protections. Rate-limit dashboard token issuance per authenticated user through the shared database limiter before signing or identity upserts.
+- Authorize key access before disclosing deletion protections. Rate-limit dashboard token issuance per authenticated user through the shared database limiter before signing.
 - Dashboard directories use organization-management JWTs for the displayed Organization, never dogfood chat tokens. Authenticate the member before selecting its first enabled, unexpired API key, and keep the stored signing digest server-only. Resource APIs recheck membership and role on every request.
 - Keep default API-key selection behind `readOrganizationDefaultApiKey` in organization configuration. For now it returns the first enabled, unexpired key without a stored setting. Check the last-key deletion rule through Drizzle before deletion and disable the action in the UI. Do not add database triggers for application validation.
 

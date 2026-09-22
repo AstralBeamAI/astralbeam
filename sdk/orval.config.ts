@@ -27,6 +27,7 @@ export default defineConfig({
         mutator: mutator("astralBeamApiFetch"),
         fetch: { includeHttpResponseReturnType: false },
         operations: {
+          syncCurrentUser: { mutator: mutator("astralBeamJwtFetch") },
           getChatConfig: { mutator: mutator("astralBeamJwtFetch") },
           runChat: { mutator: mutator("astralBeamChatFetch") },
           getChatFile: { mutator: mutator("astralBeamFileFetch") },

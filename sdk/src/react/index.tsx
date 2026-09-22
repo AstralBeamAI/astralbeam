@@ -100,14 +100,17 @@ export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstral
   // https://react.dev/reference/react/useRef#caveats — one session per committed mount, built on
   // first render, not a `useState` initializer; Strict Mode's render probe can still make a second.
   const coreRef = useRef<AstralBeamChatCore | null>(null)
-  coreRef.current ??= createAstralBeamChat(options)
+  coreRef.current ??= createAstralBeamChat(options, true)
   const core = coreRef.current
   // Keyed off every core option, `streamCallbacks` included: the session reads them per event, so
   // a change that never reaches `updateOptions` would leave it calling the previous closures.
   useEffect(() => {
     core.updateOptions(options)
   }, [core, ...CORE_OPTION_KEYS.map((key) => options[key])])
-  useEffect(() => () => core.dispose(), [core])
+  useEffect(() => {
+    core.start()
+    return () => core.dispose()
+  }, [core])
   const state = useSyncExternalStore(core.subscribe, core.getState, core.getState)
   return {
     ...state,

@@ -1,7 +1,13 @@
 import {
+  authenticationIdentity,
+  authenticationState,
   type ChatAuthenticationOptions,
+  createChatAuthentication,
   disposeChatAuthentication,
   getValidChatAuthToken,
+  refreshRejectedAuthentication,
+  subscribeAuthentication,
+  updateAuthentication,
 } from "./auth.ts"
 import { isAstralBeamApiError, type JwtOptions } from "../api/api.ts"
 import {
@@ -12,12 +18,11 @@ import {
   type TenantPage,
   type TenantUserPage,
 } from "../api/generated/api.ts"
-import { decodeJwt, decodeProtectedHeader } from "jose"
 import type { AstralBeamTokenSource } from "../lib/types.ts"
 
 export interface AstralBeamListingCoreOptions {
   apiUrl?: string | undefined
-  fetchAstralBeamToken: AstralBeamTokenSource
+  fetchAstralBeamToken?: AstralBeamTokenSource | undefined
   /** Tenant is the safe default. Organization mode requires an organization-management JWT. */
   scope?: "tenant" | "organization" | undefined
   /** Internal UUID. Supply this or tenantExternalId for tenant mode with an organization JWT. */
@@ -33,30 +38,39 @@ export interface ListingSession {
   identity?: string | undefined
   options: AstralBeamListingCoreOptions
   onIdentityChange: () => void
+  abortController: AbortController
 }
 
 export function listingSession(
   options: AstralBeamListingCoreOptions,
   onIdentityChange: () => void,
 ): ListingSession {
-  return {
+  const session: ListingSession = {
     options,
     onIdentityChange,
-    auth: {
+    abortController: new AbortController(),
+    auth: createChatAuthentication({
+      apiUrl: options.apiUrl,
       fetchAstralBeamToken: options.fetchAstralBeamToken,
-      session: {
-        cached: undefined,
-        refreshPromise: undefined,
-        abortController: new AbortController(),
-      },
-      onStateChange: () => {},
-      fetchClient: globalThis.fetch,
-      debug: undefined,
-    },
+    }),
+  }
+  subscribeAuthentication(session.auth, () => {
+    const state = authenticationState(session.auth)
+    if (state.status === "error") reportListingError(session, state.error)
+  })
+  return session
+}
+
+function reportListingError(session: ListingSession, error: unknown) {
+  try {
+    session.options.onError?.(error instanceof Error ? error : new Error(String(error)))
+  } catch {
+    // Preserve authentication and request state even if a host callback throws.
   }
 }
 
 export function disposeListingSession(session: ListingSession) {
+  session.abortController.abort()
   disposeChatAuthentication(session.auth)
 }
 
@@ -116,18 +130,6 @@ export function loadListingPage(
   })
 }
 
-function tokenContext(token: string) {
-  const { typ } = decodeProtectedHeader(token)
-  const { iss, organization_id, email, tenant, user } = decodeJwt<{
-    tenant?: { id?: string }
-    user?: { id?: string; admin?: boolean }
-  }>(token)
-  return {
-    organization: typ === "astralbeam-organization+jwt",
-    identity: JSON.stringify([typ, iss, organization_id, email, tenant?.id, user?.id, user?.admin]),
-  }
-}
-
 export function listingRequest<T>(
   session: ListingSession,
   signal: AbortSignal,
@@ -135,15 +137,14 @@ export function listingRequest<T>(
 ): Promise<T> {
   const result = requestListing(session, signal, request)
   void result.catch((error: unknown) => {
+    const auth = authenticationState(session.auth)
     if (
-      !signal.aborted && !session.auth.session.abortController.signal.aborted &&
+      !(auth.status === "error" && auth.error === error) &&
+      !session.abortController.signal.aborted && !signal.aborted &&
+      !session.auth.session.abortController.signal.aborted &&
       !(error instanceof Error && error.name === "AbortError")
     ) {
-      try {
-        session.options.onError?.(error instanceof Error ? error : new Error(String(error)))
-      } catch {
-        // Preserve the request failure even if a host callback throws.
-      }
+      reportListingError(session, error)
     }
   })
   return result
@@ -154,24 +155,36 @@ async function requestListing<T>(
   signal: AbortSignal,
   request: (auth: JwtOptions) => Promise<T>,
 ): Promise<T> {
-  const combined = AbortSignal.any([signal, session.auth.session.abortController.signal])
+  const combined = AbortSignal.any([
+    signal,
+    session.abortController.signal,
+    session.auth.session.abortController.signal,
+  ])
   for (let attempt = 0; attempt < 2; attempt++) {
     combined.throwIfAborted()
-    session.auth.fetchAstralBeamToken = session.options.fetchAstralBeamToken
-    const token = await getValidChatAuthToken(session.auth)
+    updateAuthentication(session.auth, {
+      apiUrl: session.options.apiUrl,
+      fetchAstralBeamToken: session.options.fetchAstralBeamToken,
+    })
+    const token = await getValidChatAuthToken({ ...session.auth, retryUnauthorized: attempt === 0 })
     combined.throwIfAborted()
-    // Decoding is only a UI hint. Authorization: https://app.astralbeam.ai/docs/sdk/api
-    const context = tokenContext(token)
-    if (session.identity !== undefined && session.identity !== context.identity) {
+    const state = authenticationState(session.auth)
+    if (state.status !== "ready") throw new Error("Authentication is not ready")
+    const organization = state.currentUser.scope === "organization"
+    const identity = authenticationIdentity(
+      state.currentUser,
+      session.auth.session.cached!.tenantAdmin,
+    )
+    if (session.identity !== undefined && session.identity !== identity) {
       session.onIdentityChange()
       throw new DOMException("Identity changed", "AbortError")
     }
-    session.identity = context.identity
-    if (session.options.scope === "organization" && !context.organization) {
+    session.identity = identity
+    if (session.options.scope === "organization" && !organization) {
       throw new Error("Organization mode requires an organization-management token.")
     }
     if (
-      (session.options.scope ?? "tenant") === "tenant" && context.organization &&
+      (session.options.scope ?? "tenant") === "tenant" && organization &&
       !session.options.tenantId && session.options.tenantExternalId === undefined
     ) {
       throw new Error(
@@ -180,7 +193,7 @@ async function requestListing<T>(
     }
     try {
       const result = await request({
-        apiUrl: session.options.apiUrl,
+        apiUrl: session.auth.apiUrl,
         astralBeamToken: token,
         signal: combined,
       })
@@ -188,7 +201,7 @@ async function requestListing<T>(
       return result
     } catch (error) {
       if (attempt || !isAstralBeamApiError(error) || error.status !== 401) throw error
-      if (session.auth.session.cached?.value === token) session.auth.session.cached = undefined
+      await refreshRejectedAuthentication(session.auth, token)
     }
   }
   throw new Error("Authentication failed")

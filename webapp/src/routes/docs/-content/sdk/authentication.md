@@ -50,7 +50,7 @@ The token above permits chat, not directory access. Only set `user.admin: true` 
 
 **NOTE**: Signed admin authority permits reading the Tenant and reading and writing its TenantUsers through the API. A read-only widget does not make its token read-only. Stored `admin` fields do not grant this authority.
 
-The Tenant must exist with an `external_id` matching the token's `tenant.id`. Persisted TenantUsers are directory contents, not an authentication prerequisite for the signed administrator. Deleting a TenantUser does not revoke a token. Authentication does not provision records. Follow [Tenant directories](./listings.md) for provisioning and embedding.
+After fetching a JWT, the SDK calls `POST /api/v1/me` to synchronize the Tenant and current TenantUser from signed claims before loading chat or directory data. Ordinary tenant users can synchronize their own identity too. Other TenantUsers appear after their own synchronization or a management API import. Deleting a TenantUser does not revoke its token, and a later synchronization recreates it. Follow [Tenant directories](./listings.md) for provisioning and embedding.
 
 ## Where the token comes from
 
@@ -72,11 +72,21 @@ The Tenant must exist with an `external_id` matching the token's `tenant.id`. Pe
 
 - Chat defaults to `{ url: "/api/astralbeam/token" }`. For directories, pass this explicitly. Cookie authentication requires a session cookie the browser will send.
 - Request defaults: `POST`, `credentials: "include"`, `cache: "no-store"`, and `accept: application/json`. Supplied values override these. Return `{ token }` in JSON.
-- Both forms run on renewal and after token rejection, keeping rotating credentials current.
+- Both forms call `/me` after every acquisition and use the same proactive renewal and failure recovery.
 - React reads the function prop from the latest render. Closures over current authentication state need no memoization.
 - Returning `undefined` or throwing fails closed. The widget shows the error and offers a retry.
 - Remount when switching end users so the previous user's transcript or directory rows are discarded.
 - A cross-origin endpoint with a custom header is preflighted, so it must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
+
+## Refresh and current-user behavior
+
+Components become ready only after token acquisition and `/me` both succeed. They renew while visible and online before expiry, and refresh on focus or reconnect when the last synchronization is at least 60 seconds old. Updating a token-source callback changes the next acquisition without resetting the current session.
+
+A `401` gets one renewal and retry. Other client errors do not trigger token renewal. Transient network, `5xx`, and `429` synchronization failures get up to three delayed retries, respecting `Retry-After`. Failures hide the cached identity and block new authenticated work. Explicit retry or a later focus/reconnect can recover. An already authorized chat stream continues.
+
+Tenant synchronization preserves omitted names, metadata, and admin. Supplied metadata replaces the stored object, and explicit `user.admin` updates stored admin. Organization synchronization returns the current database membership and role without creating records. Profile freshness depends on updated host claims. An older valid JWT can overwrite newer tenant profile fields, so this is not cross-tab conflict resolution.
+
+**NOTE**: Deploy the server's `POST /api/v1/me` endpoint before updating clients. A missing endpoint fails authentication.
 
 ## Rules
 

@@ -1,3 +1,11 @@
+import { startAuthentication } from "../../core/auth-lifecycle.ts"
+import {
+  authenticationIdentity,
+  authenticationState,
+  getValidChatAuthToken,
+  subscribeAuthentication,
+  updateAuthentication,
+} from "../../core/auth.ts"
 import { createRoot, type Root } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type {
@@ -15,6 +23,8 @@ export interface ListingRenderer {
   client: QueryClient
   options: Options
   kind: "tenants" | "users"
+  stopAuthentication?: (() => void) | undefined
+  unsubscribeAuthentication?: (() => void) | undefined
   revision: number
   session: ListingSession
 }
@@ -43,28 +53,56 @@ export function renderListing(
     revision: 0,
     session: listingSession(options, () => resetListing(state)),
   }
+  watchListingAuthentication(state)
   renderListingState(state)
   return state
 }
 
 function renderListingState(state: ListingRenderer) {
+  const auth = authenticationState(state.session.auth)
   state.root.render(
     <QueryClientProvider client={state.client}>
-      <ListingWidget
-        key={state.revision}
-        options={state.options}
-        kind={state.kind}
-        session={state.session}
-      />
+      {auth.status === "error"
+        ? (
+          <div role="alert" className="p-4 text-sm">
+            <p>{auth.error.message}</p>
+            <button
+              type="button"
+              className="underline"
+              onClick={() => refreshListing(state)}
+            >
+              Retry authentication
+            </button>
+          </div>
+        )
+        : (
+          <ListingWidget
+            key={state.revision}
+            options={state.options}
+            kind={state.kind}
+            session={state.session}
+          />
+        )}
     </QueryClientProvider>,
   )
 }
 
+export function refreshListing(state: ListingRenderer) {
+  if (authenticationState(state.session.auth).status === "error") {
+    void getValidChatAuthToken({ ...state.session.auth, force: true }).catch(() => {})
+  } else {
+    void state.client.invalidateQueries()
+  }
+}
+
 export function resetListing(state: ListingRenderer) {
+  state.unsubscribeAuthentication?.()
+  state.stopAuthentication?.()
   disposeListingSession(state.session)
   state.client.clear()
   state.session = listingSession(state.options, () => resetListing(state))
   state.revision++
+  watchListingAuthentication(state)
   renderListingState(state)
 }
 
@@ -77,6 +115,10 @@ export function updateListing(state: ListingRenderer, next: Options) {
   state.options = next
   if (changed) return resetListing(state)
   state.session.options = next
+  updateAuthentication(state.session.auth, {
+    apiUrl: next.apiUrl,
+    fetchAstralBeamToken: next.fetchAstralBeamToken,
+  })
   if (
     previous.scope !== next.scope || previous.tenantId !== next.tenantId ||
     previous.tenantExternalId !== next.tenantExternalId
@@ -88,8 +130,36 @@ export function updateListing(state: ListingRenderer, next: Options) {
 }
 
 export function disposeListing(state: ListingRenderer) {
+  state.unsubscribeAuthentication?.()
+  state.stopAuthentication?.()
   disposeListingSession(state.session)
   state.client.clear()
   state.root.unmount()
   state.style.remove()
+}
+
+function watchListingAuthentication(state: ListingRenderer) {
+  let identity: string | undefined
+  state.unsubscribeAuthentication = subscribeAuthentication(state.session.auth, () => {
+    const auth = authenticationState(state.session.auth)
+    if (auth.status === "error") {
+      state.client.clear()
+      state.revision++
+    } else if (auth.status === "ready") {
+      const next = authenticationIdentity(
+        auth.currentUser,
+        state.session.auth.session.cached!.tenantAdmin,
+      )
+      if (identity !== undefined && identity !== next) {
+        state.session.abortController.abort()
+        state.session.abortController = new AbortController()
+        state.session.identity = undefined
+        state.client.clear()
+        state.revision++
+      }
+      identity = next
+    }
+    renderListingState(state)
+  })
+  state.stopAuthentication = startAuthentication(state.session.auth)
 }

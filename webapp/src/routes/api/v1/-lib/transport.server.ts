@@ -3,6 +3,7 @@ import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "e
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { ApiV1 } from "./contract.server"
 import { ApiBoundary, RestAuthorization, restScope } from "./shared.server"
+import { currentUserHandlers } from "./current-user.server"
 import { chatHandlers } from "../chat/-lib/chat.server"
 import { authenticateRestRequest } from "./auth.server"
 import { tenantHandlers } from "./tenant.server"
@@ -72,7 +73,12 @@ const RestDatabaseLayer = Layer.effect(
 
 export const apiV1WebHandler = HttpRouter.toWebHandler(
   HttpApiBuilder.layer(ApiV1).pipe(
-    Layer.provide([tenantHandlers(ApiV1), tenantUserHandlers(ApiV1), chatHandlers(ApiV1)]),
+    Layer.provide([
+      tenantHandlers(ApiV1),
+      tenantUserHandlers(ApiV1),
+      chatHandlers(ApiV1),
+      currentUserHandlers(ApiV1),
+    ]),
     Layer.provide([ApiBoundaryLive, RestAuthorizationLive]),
     Layer.provide(RestDatabaseLayer),
     HttpRouter.provideRequest(RestDatabaseLayer),

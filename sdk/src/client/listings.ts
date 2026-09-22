@@ -101,7 +101,7 @@ function mountListing(
   return {
     update: (next) => updateListingMount(state, next),
     refresh: () => {
-      if (!state.disposed) void state.renderer?.client.invalidateQueries()
+      if (!state.disposed && state.renderer) state.runtime!.refreshListing(state.renderer)
     },
     reset: () => {
       if (!state.disposed && state.renderer) state.runtime!.resetListing(state.renderer)

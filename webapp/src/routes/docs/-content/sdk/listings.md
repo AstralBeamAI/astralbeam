@@ -137,7 +137,7 @@ Let's connect user row actions and terminal request failures to your application
 
 `openUserDetails` and `reportDirectoryError` are host functions. Providing `onTenantSelect` or `onTenantUserSelect` adds an Open action. Clicking the name still expands metadata. Callbacks receive API records with snake_case field names.
 
-`onError` reports each failed request after the automatic authentication retry finishes. It includes token-acquisition failures, excludes cancellations and identity-change resets, and preserves the widget's error UI. Use `isAstralBeamApiError` from `/api` to inspect HTTP status and structured problem details. Multiple failed requests can report separately, so deduplicate host notifications if needed. A `403` is a permission failure, not necessarily an expired session.
+`onError` reports each failed request after the automatic authentication retry finishes. It includes initial and background authentication failures, excludes cancellations and identity-change resets, and preserves the widget's error UI. Shared authentication failures report once, including when several requests are waiting. Use `isAstralBeamApiError` from `/api` to inspect HTTP status and structured problem details. Multiple failed requests can report separately, so deduplicate host notifications if needed. A `403` is a permission failure, not necessarily an expired session.
 
 `onTenantChange` observes actual organization-scope picker changes, returning a Tenant record or `null` when cleared. It does not fire for initial or pinned values and does not make the picker controlled.
 
