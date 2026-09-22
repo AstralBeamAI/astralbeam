@@ -18,7 +18,6 @@ export const tenantRestKeys = {
   createdAt: "created_at",
   updatedAt: "updated_at",
 } as const
-const restStrictOptions = { parseOptions: { onExcessProperty: "error" as const } }
 export const RestApiErrorSchema = Schema.Struct({
   type: Schema.String,
   title: Schema.String,
@@ -86,14 +85,14 @@ export const restPageQuery = Schema.Struct({
   page_before: Schema.optionalKey(restPageCursor),
 }).check(
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
-).annotate(restStrictOptions)
+)
 export type RestPageQuery = typeof restPageQuery.Type
 export const restUserPageQuery = Schema.Struct({
   ...restPageQuery.fields,
   "filter[admin]": Schema.optionalKey(Schema.Literals(["true", "false"])),
 }).check(
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
-).annotate(restStrictOptions)
+)
 export const restPageFields = {
   page_after: Schema.NullOr(Schema.String).annotate({
     description: "Pass as page_after to fetch the next page; null means no next page.",

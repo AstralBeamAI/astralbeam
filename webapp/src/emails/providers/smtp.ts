@@ -2,6 +2,7 @@ import nodemailer from "nodemailer"
 import { Schema } from "effect"
 import { getGlobalConfig } from "../../lib/config/index.ts"
 import {
+  emailProviderParseOptions,
   runConnectionTest,
   type SmtpProviderSettings,
   SmtpProviderSettingsSchema,
@@ -45,7 +46,7 @@ export const sendSmtpEmail: SendProviderEmail = async (input) => {
     getGlobalConfig("smtp_username"),
     getGlobalConfig("smtp_password"),
   ])
-  const settings = Schema.decodeUnknownSync(SmtpProviderSettingsSchema)({
+  const settings = Schema.decodeUnknownSync(SmtpProviderSettingsSchema, emailProviderParseOptions)({
     smtp_host,
     smtp_port,
     smtp_security,

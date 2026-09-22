@@ -6,8 +6,12 @@ import { tenantApi } from "./tenant.server"
 import { tenantUserApi } from "./tenant-user.server"
 
 export const ApiV1 = HttpApi.make("ApiV1").add(
-  tenantApi.middleware(RestAuthorization),
-  tenantUserApi.middleware(RestAuthorization),
+  tenantApi.annotate(HttpApi.ParseOptions, { onExcessProperty: "error" }).middleware(
+    RestAuthorization,
+  ),
+  tenantUserApi.annotate(HttpApi.ParseOptions, { onExcessProperty: "error" }).middleware(
+    RestAuthorization,
+  ),
   chatApi,
 )
   .prefix("/api/v1").middleware(ApiBoundary).annotate(OpenApi.Title, `${APP_NAME} API`)
@@ -17,7 +21,7 @@ function customizeOpenApi(document: Record<string, unknown>): Record<string, unk
   const api = document as unknown as OpenApi.OpenAPISpec
   for (const methods of Object.values(api.paths)) {
     for (const operation of Object.values(methods)) {
-      if (Array.isArray(operation)) continue
+      if (Array.isArray(operation) || !("parameters" in operation)) continue
       for (const parameter of operation.parameters ?? []) {
         if (parameter.in === "query" && parameter.name === "page_size") {
           // Effect string-tree codecs expose their serialization; HTTP tooling needs the logical numeric type.

@@ -11,6 +11,7 @@ import { type OwnerOnboarding, OwnerOnboardingInput } from "@/lib/dogfood/schema
 import {
   EMAIL_PROVIDER_SETTING_KEYS,
   EmailProviderConnectionInputSchema,
+  emailProviderParseOptions,
   EmailProviderSchema,
 } from "@/emails/schema"
 import type { ConfigIssue, ConfigKey } from "@/lib/types"
@@ -26,6 +27,7 @@ import { SetupStatusAlert } from "./setup-status-alert"
 const decodeEmailProvider = Schema.decodeUnknownSync(EmailProviderSchema)
 const decodeEmailProviderConnectionInput = Schema.decodeUnknownOption(
   EmailProviderConnectionInputSchema,
+  emailProviderParseOptions,
 )
 const emailConfigKeys = new Set([
   "email_provider",

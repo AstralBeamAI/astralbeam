@@ -57,7 +57,7 @@ function createColorMap(surface: string, foreground: string) {
 }
 
 describe("theme document schema", () => {
-  test("requires the exact resolved structure and semantic token set", () => {
+  test("requires the exact resolved structure and semantic token set", async () => {
     const organizationTheme = createOrganizationTheme()
     const missingToken = { ...organizationTheme.colors.light } as Record<string, string>
     delete missingToken.background
@@ -96,7 +96,8 @@ describe("theme document schema", () => {
     ]
 
     for (const document of documentsWithExtras) {
-      expect(Exit.isFailure(Schema.decodeUnknownExit(themeDocumentSchema)(document))).toBe(true)
+      const validation = await themeDocumentSchema["~standard"].validate(document)
+      expect(validation.issues?.length).toBeGreaterThan(0)
     }
     expect(() =>
       parseThemeDocument({

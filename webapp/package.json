@@ -45,7 +45,7 @@
     "@better-auth-ui/react": "1.7.12",
     "@better-auth/api-key": "^1.7.2",
     "@better-auth/drizzle-adapter": "^1.7.2",
-    "@effect/sql-pg": "^4.0.0-rc.112",
+    "@effect/sql-pg": "^4.0.0-rc.117",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/manrope": "^5.2.8",
     "@marsidev/react-turnstile": "^1.6.0",
@@ -74,7 +74,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.4",
     "drizzle-orm": "^1.0.0-rc.5",
-    "effect": "^4.0.0-rc.112",
+    "effect": "^4.0.0-rc.117",
     "fflate": "^0.8.3",
     "jose": "^6.2.10",
     "nodemailer": "^9.0.5",
@@ -93,7 +93,7 @@
     "@csstools/css-color-parser": "4.1.10",
     "@csstools/css-parser-algorithms": "4.0.0",
     "@csstools/css-tokenizer": "4.0.0",
-    "@effect/vitest": "^4.0.0-rc.112",
+    "@effect/vitest": "^4.0.0-rc.117",
     "@playwright/test": "^1.58.0",
     "@tailwindcss/vite": "^4",
     "@tanstack/devtools-vite": "^0.8.3",
@@ -122,6 +122,6 @@
     "seroval": "1.6.3",
     "tailwindcss": "^4",
     "vite": "^8.0.16",
-    "vitest": "^4.1.3"
+    "vitest": "^5.0.1"
   }
 }

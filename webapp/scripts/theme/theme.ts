@@ -213,9 +213,6 @@ const themeDocumentEffectSchema = Schema.Struct({
   geometry: Schema.Struct({ radius: themeRadiusSchema }),
 }).pipe(
   Schema.check(Schema.makeFilter(findSemanticContrastIssues)),
-  Schema.annotate({
-    parseOptions: { errors: "all", onExcessProperty: "error" },
-  }),
 )
 
 const lightThemeDefinitionSchema = Schema.Struct({
@@ -238,8 +235,6 @@ const themeDefinitionEffectSchema = Schema.Struct({
   geometry: Schema.Struct({
     radius: Schema.optionalKey(themeRadiusSchema),
   }),
-}).annotate({
-  parseOptions: { errors: "all", onExcessProperty: "error" },
 })
 
 type ThemeDocumentSchema = ReturnType<
@@ -249,11 +244,15 @@ type ThemeDefinitionSchema = ReturnType<
   typeof Schema.toStandardSchemaV1<typeof themeDefinitionEffectSchema>
 >
 
+const themeParseOptions = { errors: "all", onExcessProperty: "error" } as const
+
 export const themeDocumentSchema: ThemeDocumentSchema = Schema.toStandardSchemaV1(
   themeDocumentEffectSchema,
+  { parseOptions: themeParseOptions },
 )
 const themeDefinitionSchema: ThemeDefinitionSchema = Schema.toStandardSchemaV1(
   themeDefinitionEffectSchema,
+  { parseOptions: themeParseOptions },
 )
 
 type ThemeColorMap = Schema.Schema.Type<typeof themeColorMapSchema>
@@ -269,8 +268,8 @@ export type ThemeCssCompilationResult =
   | { readonly ok: true; readonly css: string }
   | { readonly ok: false; readonly issues: readonly ThemeValidationIssue[] }
 
-const decodeThemeDocument = Schema.decodeUnknownSync(themeDocumentSchema)
-const decodeThemeDefinition = Schema.decodeUnknownSync(themeDefinitionSchema)
+const decodeThemeDocument = Schema.decodeUnknownSync(themeDocumentSchema, themeParseOptions)
+const decodeThemeDefinition = Schema.decodeUnknownSync(themeDefinitionSchema, themeParseOptions)
 
 export function parseThemeDocument(input: unknown): ThemeDocument {
   return decodeThemeDocument(input)

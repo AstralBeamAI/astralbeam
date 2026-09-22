@@ -52,22 +52,21 @@ const tenantUserMutableFields = {
     }),
   ),
 }
-const writeOptions = { parseOptions: { onExcessProperty: "error" as const } }
 
 export const TenantWriteSchema = Schema.Struct({
   externalId: TenantExternalIdSchema,
   ...tenantMutableFields,
-}).annotate(writeOptions)
+})
 
 export const TenantUserWriteSchema = Schema.Struct({
   externalId: TenantExternalIdSchema,
   ...tenantUserMutableFields,
-}).annotate(writeOptions)
+})
 
 export const TenantPatchSchema = Schema.Struct(tenantMutableFields).check(
   Schema.isMinProperties(1),
-).annotate(writeOptions)
+)
 
 export const TenantUserPatchSchema = Schema.Struct(tenantUserMutableFields).check(
   Schema.isMinProperties(1),
-).annotate(writeOptions)
+)

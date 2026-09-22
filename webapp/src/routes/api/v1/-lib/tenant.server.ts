@@ -121,6 +121,8 @@ export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true }).annota
   "A Tenant is one of your Organization's customers. Use internal UUID IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
 )
 
+const toTenantResponse = Schema.decodeUnknownSync(Schema.toType(TenantRecordSchema))
+
 export function tenantHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
@@ -154,7 +156,7 @@ export function tenantHandlers(api: typeof ApiV1) {
                 Effect.map(Option.getOrThrow),
               )
             return yield* Effect.promise(() =>
-              restPage(page, {
+              restPage({ ...page, items: page.items.map((row) => toTenantResponse(row)) }, {
                 collection: "tenants",
                 scope,
                 url: request.url,
@@ -165,17 +167,17 @@ export function tenantHandlers(api: typeof ApiV1) {
             )
           }, restHandleErrors("listTenants")),
           getTenant: Effect.fn(function* ({ params }) {
-            return yield* getTenant(yield* restScope, params.id)
+            return toTenantResponse(yield* getTenant(yield* restScope, params.id))
           }, restHandleErrors("getTenant")),
           createTenant: Effect.fn(function* ({ payload }) {
             const row = yield* createTenant(yield* restScope, payload)
             return HttpApiSchema.withHeaders({
-              body: row,
+              body: toTenantResponse(row),
               headers: { Location: `/api/v1/tenants/${row.id}` },
             })
           }, restHandleErrors("createTenant")),
           updateTenant: Effect.fn(function* ({ params, payload }) {
-            return yield* updateTenant(yield* restScope, params.id, payload)
+            return toTenantResponse(yield* updateTenant(yield* restScope, params.id, payload))
           }, restHandleErrors("updateTenant")),
         })
       }),
