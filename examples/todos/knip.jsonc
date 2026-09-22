@@ -1,6 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
-  "entry": ["e2e/fixtures/authentication.tsx"],
   "tags": ["-knipignore"],
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,

@@ -5,6 +5,8 @@ import { createAstralBeamToken } from "../../../../../sdk/dist/server.js"
 import type { Page } from "@playwright/test"
 
 async function openAuthentication(page: Page) {
+  const fixture = new URL("../../fixtures/authentication.tsx", import.meta.url)
+  const fixturePath = fixture.pathname.slice(new URL("../../../", import.meta.url).pathname.length)
   await page.route(
     "**/*",
     (route) => route.request().resourceType() === "script" ? route.abort() : route.continue(),
@@ -12,7 +14,7 @@ async function openAuthentication(page: Page) {
   await page.goto("/")
   await page.unroute("**/*")
   await page.setContent(
-    '<html><title>Standalone authentication</title><div id="authentication-root"></div><script type="module">import RefreshRuntime from "/@react-refresh"; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => type => type; window.__vite_plugin_react_preamble_installed__ = true; await import("/e2e/fixtures/authentication.tsx");</script></html>',
+    `<html><title>Standalone authentication</title><div id="authentication-root"></div><script type="module">import RefreshRuntime from "/@react-refresh"; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => type => type; window.__vite_plugin_react_preamble_installed__ = true; await import("/${fixturePath}");</script></html>`,
   )
 }
 
