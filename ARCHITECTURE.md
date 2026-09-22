@@ -82,7 +82,7 @@ TanStack Start server functions and routes form the framework boundary. Public m
 
 New application logic uses Effect with typed failures, executed through the `ManagedRuntime` bridge. Better Auth and TanStack sandbox lifecycle contracts remain Promise-based.
 
-The database module owns separate `pg` pools for Promise and Effect clients. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](webapp/AGENTS.md#database) for the required pool lifecycle.
+The database module owns a `pg` pool for Promise and Better Auth queries and a separate native `@effect/sql-pg` pool for Effect queries. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](webapp/AGENTS.md#database) for the required pool lifecycle.
 
 ## SDK boundary
 
