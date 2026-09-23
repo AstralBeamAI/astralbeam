@@ -60,7 +60,10 @@ function ApiKeySkeleton() {
   )
 }
 
-function ApiKeysEmpty({ onCreatePress, hideCreate }: {
+function ApiKeysEmpty({
+  onCreatePress,
+  hideCreate,
+}: {
   onCreatePress: () => void
   hideCreate?: boolean | undefined
 }) {
@@ -112,19 +115,16 @@ export function ApiKeys({
     isFetching: isListFetching,
     isPending: isListPending,
     refetch: refetchApiKeys,
-  } = useListApiKeys(
-    authClient,
-    {
-      enabled: !isPendingProp,
-      query: {
-        limit: pageSize,
-        offset: page * pageSize,
-        sortBy,
-        sortDirection,
-        ...(organizationId ? { organizationId } : {}),
-      },
+  } = useListApiKeys(authClient, {
+    enabled: !isPendingProp,
+    query: {
+      limit: pageSize,
+      offset: page * pageSize,
+      sortBy,
+      sortDirection,
+      ...(organizationId ? { organizationId } : {}),
     },
-  )
+  })
 
   const isPending = isPendingProp || isListPending
   const organizationApiKeys = listData?.apiKeys
@@ -136,9 +136,7 @@ export function ApiKeys({
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex items-end justify-between gap-3">
-        <h2 className="truncate text-sm font-semibold">
-          {apiKeyLocalization.apiKeys}
-        </h2>
+        <h2 className="truncate text-sm font-semibold">{apiKeyLocalization.apiKeys}</h2>
 
         {!hideCreate && (
           <Button
@@ -175,50 +173,41 @@ export function ApiKeys({
 
       <Card className="p-0">
         <CardContent className="p-0">
-          {isPending
-            ? <ApiKeySkeleton />
-            : isListError
-            ? (
-              <div className="flex flex-col items-center gap-3 p-6 text-center" role="alert">
-                <p className="text-sm text-muted-foreground">
-                  API keys could not be loaded.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isListFetching}
-                  onClick={() => void refetchApiKeys()}
-                >
-                  Try again
-                </Button>
-              </div>
-            )
-            : !organizationApiKeys?.length
-            ? (
-              <ApiKeysEmpty
-                onCreatePress={() => setCreateOpen(true)}
-                hideCreate={hideCreate}
-              />
-            )
-            : (
-              <ItemGroup className="gap-0">
-                {organizationApiKeys.map((key, index) => (
-                  <Fragment key={key.id}>
-                    {index > 0 && <ItemSeparator />}
-                    <ApiKey
-                      apiKey={key}
-                      hideDelete={hideDelete}
-                      deleteDisabled={total <= 1}
-                      hideUpdate={hideUpdate}
-                      onDeleted={() => {
-                        if (page > 0 && organizationApiKeys.length === 1) setPage(page - 1)
-                      }}
-                    />
-                  </Fragment>
-                ))}
-              </ItemGroup>
-            )}
+          {isPending ? (
+            <ApiKeySkeleton />
+          ) : isListError ? (
+            <div className="flex flex-col items-center gap-3 p-6 text-center" role="alert">
+              <p className="text-sm text-muted-foreground">API keys could not be loaded.</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isListFetching}
+                onClick={() => void refetchApiKeys()}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : !organizationApiKeys?.length ? (
+            <ApiKeysEmpty onCreatePress={() => setCreateOpen(true)} hideCreate={hideCreate} />
+          ) : (
+            <ItemGroup className="gap-0">
+              {organizationApiKeys.map((key, index) => (
+                <Fragment key={key.id}>
+                  {index > 0 && <ItemSeparator />}
+                  <ApiKey
+                    apiKey={key}
+                    hideDelete={hideDelete}
+                    deleteDisabled={total <= 1}
+                    hideUpdate={hideUpdate}
+                    onDeleted={() => {
+                      if (page > 0 && organizationApiKeys.length === 1) setPage(page - 1)
+                    }}
+                  />
+                </Fragment>
+              ))}
+            </ItemGroup>
+          )}
         </CardContent>
       </Card>
       {!hideDelete && total === 1 && (

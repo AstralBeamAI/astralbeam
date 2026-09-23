@@ -26,8 +26,7 @@ const tagClasses: Record<string, string> = {
   blockquote: "my-2 border-s-2 ps-3 text-muted-foreground italic",
   code: "rounded-sm bg-muted px-1 py-0.5 font-mono text-xs",
   // A fenced block nests a `code` element, whose chip styling is undone so only the block paints.
-  pre:
-    "my-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs [&_code]:bg-transparent [&_code]:p-0",
+  pre: "my-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs [&_code]:bg-transparent [&_code]:p-0",
   hr: "my-3",
   thead: "border-b",
   th: "px-2 py-1 text-start font-medium",

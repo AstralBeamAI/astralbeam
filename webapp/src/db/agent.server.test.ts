@@ -35,10 +35,13 @@ test("rejects foreign agent slugs before reads or writes", async () => {
     sandboxProviderId: null,
   }
   await expect(runDatabaseEffect(readOrganizationAgentById(input))).resolves.toBeNull()
-  await expect(runDatabaseEffect(setOrganizationDefaultAgent(input).pipe(Effect.flip)))
-    .resolves.toMatchObject({ _tag: "OrganizationDefaultAgentError" })
-  await expect(runDatabaseEffect(deleteOrganizationAgent(input).pipe(Effect.flip)))
-    .resolves.toMatchObject({ _tag: "OptimisticLockError", reason: "conflict" })
-  await expect(runDatabaseEffect(updateOrganizationAgent(input).pipe(Effect.flip)))
-    .resolves.toMatchObject({ _tag: "OptimisticLockError", reason: "conflict" })
+  await expect(
+    runDatabaseEffect(setOrganizationDefaultAgent(input).pipe(Effect.flip)),
+  ).resolves.toMatchObject({ _tag: "OrganizationDefaultAgentError" })
+  await expect(
+    runDatabaseEffect(deleteOrganizationAgent(input).pipe(Effect.flip)),
+  ).resolves.toMatchObject({ _tag: "OptimisticLockError", reason: "conflict" })
+  await expect(
+    runDatabaseEffect(updateOrganizationAgent(input).pipe(Effect.flip)),
+  ).resolves.toMatchObject({ _tag: "OptimisticLockError", reason: "conflict" })
 })

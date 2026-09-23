@@ -6,7 +6,7 @@
     "runtime": {
       "env": true,
       "net": true,
-      "read": true
-    }
-  }
+      "read": true,
+    },
+  },
 }

@@ -15,10 +15,10 @@ npm install @astralbeam/sdk
 ```
 
 ```tsx
-import { AstralBeamChat } from "@astralbeam/sdk/react";
+import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 export function Sidebar() {
-  return <AstralBeamChat title="Acme Assistant" />;
+  return <AstralBeamChat title="Acme Assistant" />
 }
 ```
 
@@ -29,16 +29,16 @@ You get a Cursor-style agentic chat sidebar with a managed backend, full customi
 Your server already knows who is signed in. Mint a short-lived token that carries the user and their tenant, and the widget picks it up. API keys never reach the browser.
 
 ```ts
-import { createAstralBeamToken } from "@astralbeam/sdk/server";
+import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
 export async function POST(request: Request) {
-  const session = await getSession(request);
+  const session = await getSession(request)
   const token = await createAstralBeamToken({
     apiKey: process.env.ASTRALBEAM_API_KEY,
     user: { id: session.user.id, name: session.user.name },
     tenant: { id: session.org.id, name: session.org.name },
-  });
-  return Response.json({ token });
+  })
+  return Response.json({ token })
 }
 ```
 
@@ -64,7 +64,7 @@ Declare what the agent can do and what it can draw. Tools run in your page again
       render: ({ orderId }) => <OrderCard id={orderId} />,
     }),
   }}
-/>;
+/>
 ```
 
 The agent can read user data, take actions inside your app, render interactive widgets in its replies, and ask before acting. Exposing the same tools over MCP, so users can drive your app from Claude or ChatGPT, is in progress.

@@ -6,9 +6,8 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
   async (): Promise<ConfigurePageState> => {
     const { requireConfigureRequest } = await import("../-lib/configure-request.server")
     requireConfigureRequest()
-    const { getDatabaseBootstrapIssues, getDatabaseEncryptionKeyring } = await import(
-      "@/db/lib/database-credentials.server"
-    )
+    const { getDatabaseBootstrapIssues, getDatabaseEncryptionKeyring } =
+      await import("@/db/lib/database-credentials.server")
     const bootstrapIssues = getDatabaseBootstrapIssues()
     if (bootstrapIssues.length > 0) return { status: "unavailable", bootstrapIssues }
 
@@ -30,17 +29,14 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
 
     const [migrationState, configState] = await Promise.all([
       withConfigureError("Migration state could not be loaded", getDatabaseMigrationState),
-      withConfigureError(
-        "Configuration could not be loaded",
-        getGlobalConfigState,
-      ),
+      withConfigureError("Configuration could not be loaded", getGlobalConfigState),
     ])
     const { issues, rows, values: effectiveValues } = configState
     const setupComplete = issues.length === 0 && migrationState.pending.length === 0
     const rowsByKey = new Map((rows ?? []).map((row) => [row.key, row]))
     const overriddenKeys = new Set(environmentConfigOverrideKeys())
-    const fields: ConfigureField[] = CONFIG_DEFINITIONS.filter((definition) =>
-      !definition.systemManaged
+    const fields: ConfigureField[] = CONFIG_DEFINITIONS.filter(
+      (definition) => !definition.systemManaged,
     ).map((definition) => {
       const row = rowsByKey.get(definition.key)
       const source = overriddenKeys.has(definition.key) ? "environment" : "database"
@@ -56,33 +52,34 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
         environmentVariable: configEnvironmentVariable(definition.key),
         source,
         ...(definition.options ? { options: definition.options } : {}),
-        isSet: source === "environment"
-          ? effectiveValues[definition.key] !== undefined
-          : row !== undefined,
+        isSet:
+          source === "environment"
+            ? effectiveValues[definition.key] !== undefined
+            : row !== undefined,
         ...(row?.storageStatus ? { storageStatus: row.storageStatus } : {}),
         // A secret never leaves with the page; `isSet` drives the masked state and
         // `revealConfigValue` fetches the one value an operator asks to see.
-        value: definition.kind === "secret" ? null : effectiveValues[definition.key] ?? null,
+        value: definition.kind === "secret" ? null : (effectiveValues[definition.key] ?? null),
       }
     })
     const { PendingOwnerOnboardingJson } = await import("@/lib/dogfood/schema")
     const { Schema } = await import("effect")
     const pending = effectiveValues.dogfood_pending_setup
-      ? await withConfigureError(
-        "Pending onboarding could not be read",
-        () =>
+      ? await withConfigureError("Pending onboarding could not be read", () =>
           Schema.decodeUnknownPromise(PendingOwnerOnboardingJson)(
             effectiveValues.dogfood_pending_setup!,
           ),
-      )
+        )
       : null
     return {
       status: "ready",
-      onboarding: effectiveValues.dogfood_organization_id ? null : {
-        email: pending?.email ?? "",
-        organizationName: pending?.organizationName ?? "dogfood",
-        organizationSlug: pending?.organizationSlug ?? "dogfood",
-      },
+      onboarding: effectiveValues.dogfood_organization_id
+        ? null
+        : {
+            email: pending?.email ?? "",
+            organizationName: pending?.organizationName ?? "dogfood",
+            organizationSlug: pending?.organizationSlug ?? "dogfood",
+          },
       sessionExpiresAt: session.expiresAt.toISOString(),
       fallbackEncryptionKeyCount: getDatabaseEncryptionKeyring().length - 1,
       setupComplete,

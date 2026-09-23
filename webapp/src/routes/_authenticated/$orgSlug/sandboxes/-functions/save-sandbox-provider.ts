@@ -25,8 +25,8 @@ export const saveSandboxProvider = createServerFn({ method: "POST" })
           providerType: data.providerType,
           options: data.options,
           credentials: data.credentials,
-          ...data.id && { id: data.id },
-          ...data.lockVersion !== null && { lockVersion: data.lockVersion },
+          ...(data.id && { id: data.id }),
+          ...(data.lockVersion !== null && { lockVersion: data.lockVersion }),
         })
         const connection = prepared.requiresTest
           ? yield* runOrganizationSandboxConnectionTest(prepared.candidate)
@@ -35,9 +35,10 @@ export const saveSandboxProvider = createServerFn({ method: "POST" })
           return {
             ok: false as const,
             code: connection.errorCode ?? "provider_error",
-            message: connection.errorCode === "cleanup_failed"
-              ? "The connection worked, but its temporary sandbox could not be removed"
-              : "The provider connection test failed; the existing configuration was not changed",
+            message:
+              connection.errorCode === "cleanup_failed"
+                ? "The connection worked, but its temporary sandbox could not be removed"
+                : "The provider connection test failed; the existing configuration was not changed",
           }
         }
         const saved = yield* saveOrganizationSandboxProvider(prepared, connection?.testedAt)
@@ -59,5 +60,5 @@ export const saveSandboxProvider = createServerFn({ method: "POST" })
             }),
         }),
       ),
-    )
+    ),
   )

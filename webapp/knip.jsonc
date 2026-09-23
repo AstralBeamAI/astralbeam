@@ -15,8 +15,8 @@
       "types",
       "nsTypes",
       "enumMembers",
-      "namespaceMembers"
-    ]
+      "namespaceMembers",
+    ],
   },
   // @daytona/sdk ships `importHelpers` output that imports tslib without declaring it, so webapp
   // declares tslib only to make that specifier resolvable. https://www.typescriptlang.org/tsconfig/#importHelpers
@@ -27,7 +27,7 @@
   // explicitly; its spec files and setup are the execution roots. https://knip.dev/reference/plugins/playwright
   "playwright": {
     "config": ["e2e/playwright.config.ts"],
-    "entry": ["e2e/preflight.setup.ts", "e2e/specs/**/*.spec.ts"]
+    "entry": ["e2e/preflight.setup.ts", "e2e/specs/**/*.spec.ts"],
   },
   // Keep Deno-run generators and framework entry points explicit.
   "entry": [
@@ -36,6 +36,6 @@
     "scripts/*.ts",
     "src/lib/response-headers.server.ts",
     "src/router.tsx",
-    "src/start.ts"
-  ]
+    "src/start.ts",
+  ],
 }

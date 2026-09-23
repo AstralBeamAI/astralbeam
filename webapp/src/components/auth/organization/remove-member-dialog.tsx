@@ -36,11 +36,7 @@ export type RemoveMemberDialogProps = {
   member: Member & { user: Partial<User> }
 }
 
-export function RemoveMemberDialog({
-  open,
-  onOpenChange,
-  member,
-}: RemoveMemberDialogProps) {
+export function RemoveMemberDialog({ open, onOpenChange, member }: RemoveMemberDialogProps) {
   const { authClient, localization } = useAuth<OrganizationAuthClient>()
   const { localization: organizationLocalization, roles } = useAuthPlugin(organizationPlugin)
 
@@ -59,9 +55,7 @@ export function RemoveMemberDialog({
             <Trash2 />
           </AlertDialogMedia>
 
-          <AlertDialogTitle>
-            {organizationLocalization.removeMember}
-          </AlertDialogTitle>
+          <AlertDialogTitle>{organizationLocalization.removeMember}</AlertDialogTitle>
 
           <AlertDialogDescription>
             {organizationLocalization.removeMemberWarning}
@@ -72,16 +66,12 @@ export function RemoveMemberDialog({
           <CardContent className="flex flex-row items-center justify-between gap-2">
             <UserView user={member.user} />
 
-            <Badge variant="outline">
-              {memberRoleLabels(member.role, roles).join(", ")}
-            </Badge>
+            <Badge variant="outline">{memberRoleLabels(member.role, roles).join(", ")}</Badge>
           </CardContent>
         </Card>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>
-            {localization.settings.cancel}
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>{localization.settings.cancel}</AlertDialogCancel>
 
           <Button
             variant="destructive"
@@ -90,7 +80,8 @@ export function RemoveMemberDialog({
               removeMember({
                 memberIdOrEmail: member.id,
                 organizationId: member.organizationId,
-              })}
+              })
+            }
           >
             {isPending && <Spinner />}
 

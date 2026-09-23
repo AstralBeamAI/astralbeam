@@ -67,12 +67,14 @@ export function AgentForm({
       value: provider.id,
     })),
   ]
-  const selectedSandboxProviderId = sandboxProviderId === NO_SANDBOX_PROVIDER
-    ? null
-    : sandboxProviderId
+  const selectedSandboxProviderId =
+    sandboxProviderId === NO_SANDBOX_PROVIDER ? null : sandboxProviderId
   const normalizedName = name.trim()
-  const valid = normalizedName.length > 0 && normalizedName.length <= AGENT_NAME_MAX_LENGTH &&
-    systemPrompt.length > 0 && systemPrompt.length <= AGENT_SYSTEM_PROMPT_MAX_LENGTH
+  const valid =
+    normalizedName.length > 0 &&
+    normalizedName.length <= AGENT_NAME_MAX_LENGTH &&
+    systemPrompt.length > 0 &&
+    systemPrompt.length <= AGENT_SYSTEM_PROMPT_MAX_LENGTH
 
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -184,7 +186,8 @@ export function AgentForm({
               </FieldLabel>
             </Field>
             <FieldDescription>
-              Enforced by the chat endpoint; the SDK hides the composer&apos;s attach button when off.
+              Enforced by the chat endpoint; the SDK hides the composer&apos;s attach button when
+              off.
             </FieldDescription>
 
             <Field>

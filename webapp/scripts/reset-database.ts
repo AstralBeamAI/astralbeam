@@ -12,7 +12,5 @@ await Effect.runPromise(
     const sql = yield* PgClient
     yield* sql`DROP DATABASE IF EXISTS ${sql(database)} WITH (FORCE)`
     yield* sql`CREATE DATABASE ${sql(database)}`
-  }).pipe(
-    Effect.provide(layer({ url: Redacted.make(url.href) })),
-  ),
+  }).pipe(Effect.provide(layer({ url: Redacted.make(url.href) }))),
 )

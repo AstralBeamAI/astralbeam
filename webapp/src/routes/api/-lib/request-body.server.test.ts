@@ -16,7 +16,5 @@ test("bounds a request body when content-length is absent", async () => {
   })
 
   expect(request.headers.has("content-length")).toBe(false)
-  await expect(readRequestJson(request, 8)).rejects.toBeInstanceOf(
-    RequestTooLargeError,
-  )
+  await expect(readRequestJson(request, 8)).rejects.toBeInstanceOf(RequestTooLargeError)
 })

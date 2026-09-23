@@ -13,10 +13,7 @@ export const Route = createFileRoute("/_authenticated")({
     const access = await getRouteSessionAccessDecision(context.queryClient)
     if (access.status !== "signed-out") return { access }
 
-    const redirectTo = normalizeReturnPath(
-      location.href,
-      INERT_REDIRECT_ORIGIN,
-    )
+    const redirectTo = normalizeReturnPath(location.href, INERT_REDIRECT_ORIGIN)
     const search = new URLSearchParams({ redirectTo })
     throw redirect({ href: `/auth/sign-in?${search}`, replace: true })
   },

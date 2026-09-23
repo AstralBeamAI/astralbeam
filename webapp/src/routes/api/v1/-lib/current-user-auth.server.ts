@@ -13,11 +13,13 @@ import { restFault, restRateLimitFault } from "./responses.server"
 
 function currentUserRateLimit(identity: readonly string[]) {
   const key = createHash("sha256").update(JSON.stringify(identity)).digest("base64url")
-  return databaseRateLimiter.consume({
-    key: `current-user:${key}`,
-    limit: 100,
-    window: "5 minutes",
-  }).pipe(Effect.mapError(restRateLimitFault))
+  return databaseRateLimiter
+    .consume({
+      key: `current-user:${key}`,
+      limit: 100,
+      window: "5 minutes",
+    })
+    .pipe(Effect.mapError(restRateLimitFault))
 }
 
 export function getCurrentUser(request: Request) {
@@ -32,9 +34,8 @@ export function getCurrentUser(request: Request) {
     })
     if (typ === ORGANIZATION_TOKEN_TYPE) {
       const principal = yield* authenticateOrganizationRequest(request).pipe(
-        Effect.catchTag(
-          "OrganizationMembershipError",
-          () => Effect.fail(restFault(403, "Organization membership is required.")),
+        Effect.catchTag("OrganizationMembershipError", () =>
+          Effect.fail(restFault(403, "Organization membership is required.")),
         ),
       )
       yield* currentUserRateLimit([
@@ -64,9 +65,8 @@ export function getCurrentUser(request: Request) {
     const records = yield* syncTenantCurrentUser(principal)
     return { scope: "tenant" as const, organization: principal.organization, ...records }
   }).pipe(
-    Effect.catchIf(
-      isChatAuthenticationError,
-      () => Effect.fail(restFault(401, "Invalid credentials.")),
+    Effect.catchIf(isChatAuthenticationError, () =>
+      Effect.fail(restFault(401, "Invalid credentials.")),
     ),
   )
 }

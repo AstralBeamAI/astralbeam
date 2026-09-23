@@ -18,8 +18,9 @@ export function sandboxesPage(page: Page) {
 
     async startCreate(): Promise<void> {
       await page.getByRole("link", { name: "Add provider" }).first().click()
-      await expect(page.getByRole("heading", { level: 1, name: "Add sandbox provider" }))
-        .toBeVisible()
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Add sandbox provider" }),
+      ).toBeVisible()
       await waitForHydration(page.locator("#sandbox-provider-name"))
     },
 

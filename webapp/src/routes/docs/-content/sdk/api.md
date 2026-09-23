@@ -2,11 +2,11 @@
 
 Use `@astralbeam/sdk/api` to manage Tenants and TenantUsers from your server or an authorized browser session. The same helpers work in both environments.
 
-| Use case                  | Credential                         | Resource access                                 |
-| ------------------------- | ---------------------------------- | ----------------------------------------------- |
-| Backend provisioning      | Organization API key               | Read and write throughout its Organization      |
+| Use case | Credential | Resource access |
+| --- | --- | --- |
+| Backend provisioning | Organization API key | Read and write throughout its Organization |
 | Customer administrator UI | Tenant JWT with `user.admin: true` | Read its Tenant; read and write its TenantUsers |
-| End-user chat             | Tenant JWT                         | Chat only, unless signed admin is true          |
+| End-user chat | Tenant JWT | Chat only, unless signed admin is true |
 
 TenantUsers are your customers' users and do not need dashboard accounts. Authentication does not provision Tenant or TenantUser records.
 
@@ -85,11 +85,15 @@ if (first.page_after) {
   const second = await listTenants({ ...filters, page_after: first.page_after }, options)
 }
 if (first.items[0]) {
-  const users = await listUsersForTenant(first.items[0].id, {
-    q: "Alex",
-    "filter[admin]": "false",
-    page_size: 20,
-  }, options)
+  const users = await listUsersForTenant(
+    first.items[0].id,
+    {
+      q: "Alex",
+      "filter[admin]": "false",
+      page_size: 20,
+    },
+    options,
+  )
 }
 ```
 

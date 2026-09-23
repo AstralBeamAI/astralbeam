@@ -62,7 +62,8 @@ export async function verifyOperatorSession(
       !Number.isInteger(payload.exp) ||
       payload.exp <= payload.iat ||
       payload.exp - payload.iat !== OPERATOR_SESSION_TTL_SECONDS
-    ) return null
+    )
+      return null
     return { expiresAt: new Date(payload.exp * 1_000) }
   } catch {
     return null

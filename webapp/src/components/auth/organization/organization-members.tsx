@@ -76,10 +76,7 @@ export type OrganizationMembersProps = {
 }
 
 function validatePageSize(pageSize?: number) {
-  if (
-    pageSize !== undefined &&
-    (!Number.isInteger(pageSize) || pageSize <= 0)
-  ) {
+  if (pageSize !== undefined && (!Number.isInteger(pageSize) || pageSize <= 0)) {
     throw new RangeError("pageSize must be a positive integer")
   }
 
@@ -140,24 +137,27 @@ export function OrganizationMembers({
       organizationId: organization.id,
       ...(paged
         ? {
-          limit: validatedPageSize,
-          offset: page * validatedPageSize,
-          ...(roleFilter === "all" ? {} : {
-            filterField: "role",
-            filterValue: roleFilter,
-            // Roles are stored comma-joined, so an exact match would
-            // drop anyone holding more than one.
-            filterOperator: "contains" as const,
-          }),
-          ...(sortDescriptor?.column === "role"
-            ? {
-              sortBy: "role",
-              sortDirection: sortDescriptor.direction === "descending"
-                ? ("desc" as const)
-                : ("asc" as const),
-            }
-            : {}),
-        }
+            limit: validatedPageSize,
+            offset: page * validatedPageSize,
+            ...(roleFilter === "all"
+              ? {}
+              : {
+                  filterField: "role",
+                  filterValue: roleFilter,
+                  // Roles are stored comma-joined, so an exact match would
+                  // drop anyone holding more than one.
+                  filterOperator: "contains" as const,
+                }),
+            ...(sortDescriptor?.column === "role"
+              ? {
+                  sortBy: "role",
+                  sortDirection:
+                    sortDescriptor.direction === "descending"
+                      ? ("desc" as const)
+                      : ("asc" as const),
+                }
+              : {}),
+          }
         : {}),
     },
   })
@@ -244,9 +244,7 @@ export function OrganizationMembers({
   return (
     <div className={cn("flex flex-col gap-3", className)} {...props}>
       <div className="flex items-end justify-between gap-3">
-        <h3 className="truncate text-sm font-semibold">
-          {organizationLocalization.members}
-        </h3>
+        <h3 className="truncate text-sm font-semibold">{organizationLocalization.members}</h3>
 
         {canInvite && (
           <Button
@@ -262,10 +260,8 @@ export function OrganizationMembers({
 
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          {
-            /* list-members has no search parameter, so a search box would
-              only ever filter the page in front of you. */
-          }
+          {/* list-members has no search parameter, so a search box would
+              only ever filter the page in front of you. */}
           {!paged && (
             <InputGroup className="w-full min-w-0 sm:w-[220px]">
               <InputGroupInput
@@ -297,10 +293,7 @@ export function OrganizationMembers({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="start">
-              <DropdownMenuRadioGroup
-                value={roleFilter}
-                onValueChange={setRoleFilter}
-              >
+              <DropdownMenuRadioGroup value={roleFilter} onValueChange={setRoleFilter}>
                 <DropdownMenuRadioItem value="all">
                   {organizationLocalization.all}
                 </DropdownMenuRadioItem>
@@ -323,11 +316,13 @@ export function OrganizationMembers({
                   setPageSize(Number(event.target.value))
                 }}
               >
-                {[...new Set([20, 50, 100, validatedPageSize])].sort((a, b) => a - b).map((
-                  size,
-                ) => (
-                  <NativeSelectOption key={size} value={size}>{size} per page</NativeSelectOption>
-                ))}
+                {[...new Set([20, 50, 100, validatedPageSize])]
+                  .sort((a, b) => a - b)
+                  .map((size) => (
+                    <NativeSelectOption key={size} value={size}>
+                      {size} per page
+                    </NativeSelectOption>
+                  ))}
               </NativeSelect>
               <Button
                 variant="outline"
@@ -339,9 +334,11 @@ export function OrganizationMembers({
               >
                 <ArrowClockwiseIcon
                   aria-hidden
-                  className={isFetching || owners.isFetching
-                    ? "animate-spin motion-reduce:animate-none"
-                    : undefined}
+                  className={
+                    isFetching || owners.isFetching
+                      ? "animate-spin motion-reduce:animate-none"
+                      : undefined
+                  }
                 />
               </Button>
             </div>
@@ -351,9 +348,7 @@ export function OrganizationMembers({
         {roleFilter !== "all" && (
           <Badge variant="secondary" className="w-fit gap-1">
             {organizationLocalization.role}:{" "}
-            <span className="capitalize">
-              {roles?.[roleFilter] ?? roleFilter}
-            </span>
+            <span className="capitalize">{roles?.[roleFilter] ?? roleFilter}</span>
             <Button
               aria-label={organizationLocalization.clear}
               title={organizationLocalization.clear}
@@ -372,40 +367,38 @@ export function OrganizationMembers({
           <Table aria-label={organizationLocalization.members}>
             <TableHeader>
               <TableRow>
-                {
-                  /* Name and email live on the joined user row, which
-                    list-members cannot sort by. */
-                }
-                {paged
-                  ? <TableHead>{organizationLocalization.member}</TableHead>
-                  : (
-                    <MemberSortableTableHead
-                      sortDirection={sortDescriptor?.column === "user"
-                        ? sortDescriptor.direction
-                        : undefined}
-                      onClick={() => toggleMemberSort("user")}
-                    >
-                      {organizationLocalization.member}
-                    </MemberSortableTableHead>
-                  )}
+                {/* Name and email live on the joined user row, which
+                    list-members cannot sort by. */}
+                {paged ? (
+                  <TableHead>{organizationLocalization.member}</TableHead>
+                ) : (
+                  <MemberSortableTableHead
+                    sortDirection={
+                      sortDescriptor?.column === "user" ? sortDescriptor.direction : undefined
+                    }
+                    onClick={() => toggleMemberSort("user")}
+                  >
+                    {organizationLocalization.member}
+                  </MemberSortableTableHead>
+                )}
 
                 <MemberSortableTableHead
-                  sortDirection={sortDescriptor?.column === "role"
-                    ? sortDescriptor.direction
-                    : undefined}
+                  sortDirection={
+                    sortDescriptor?.column === "role" ? sortDescriptor.direction : undefined
+                  }
                   onClick={() => toggleMemberSort("role")}
                 >
                   {organizationLocalization.role}
                 </MemberSortableTableHead>
 
-                <TableHead className="text-end">
-                  {organizationLocalization.actions}
-                </TableHead>
+                <TableHead className="text-end">{organizationLocalization.actions}</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {isPending ? <OrganizationMemberRowSkeleton /> : (
+              {isPending ? (
+                <OrganizationMemberRowSkeleton />
+              ) : (
                 sortedMembers?.map((member) => (
                   <OrganizationMemberRow
                     key={member.id}

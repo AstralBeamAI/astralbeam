@@ -22,15 +22,7 @@ const publicEmailDomains = new Set([
   "zoho.com",
 ])
 
-const commonCountryCodeSecondLevelDomains = new Set([
-  "ac",
-  "co",
-  "com",
-  "edu",
-  "gov",
-  "net",
-  "org",
-])
+const commonCountryCodeSecondLevelDomains = new Set(["ac", "co", "com", "edu", "gov", "net", "org"])
 
 /** Suggest a human-readable organization name from a non-public email domain. */
 export function suggestOrganizationNameFromEmail(email: string): string {
@@ -49,7 +41,8 @@ export function suggestOrganizationNameFromEmail(email: string): string {
 
   const topLevelDomain = labels.at(-1)
   const secondLevelDomain = labels.at(-2)
-  const usesCountryCodeSecondLevelDomain = topLevelDomain?.length === 2 &&
+  const usesCountryCodeSecondLevelDomain =
+    topLevelDomain?.length === 2 &&
     secondLevelDomain !== undefined &&
     commonCountryCodeSecondLevelDomains.has(secondLevelDomain)
   const organizationLabel = labels.at(usesCountryCodeSecondLevelDomain ? -3 : -2)

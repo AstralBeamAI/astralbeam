@@ -61,11 +61,13 @@ export function ProviderButtons({
           {...(disabled === undefined ? {} : { disabled })}
           {...(termsAccepted === undefined ? {} : { termsAccepted })}
           view={view}
-          display={resolvedSocialLayout === "vertical"
-            ? "full"
-            : resolvedSocialLayout === "grid"
-            ? "name"
-            : "icon"}
+          display={
+            resolvedSocialLayout === "vertical"
+              ? "full"
+              : resolvedSocialLayout === "grid"
+                ? "name"
+                : "icon"
+          }
           className={cn(resolvedSocialLayout === "horizontal" && "flex-1")}
         />
       ))}

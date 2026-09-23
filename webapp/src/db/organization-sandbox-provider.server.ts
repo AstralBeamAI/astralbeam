@@ -79,20 +79,23 @@ class SandboxProviderNameConflictError extends Data.TaggedError(
   "SandboxProviderNameConflictError",
 )<{ readonly message: string }> {}
 
-class SandboxProviderInUseError extends Data.TaggedError(
-  "SandboxProviderInUseError",
-)<{ readonly message: string }> {}
+class SandboxProviderInUseError extends Data.TaggedError("SandboxProviderInUseError")<{
+  readonly message: string
+}> {}
 
 /** The list page's read: no credentials leave the server, so nothing to decrypt or reveal. */
 export function readOrganizationSandboxProviderSummaries(organizationId: string) {
   return sandboxProviderDatabaseEffect((db) =>
-    db.select({
-      id: sandboxProvider.id,
-      name: sandboxProvider.name,
-      providerType: sandboxProvider.providerType,
-      lastTest: sandboxProvider.lastTest,
-    }).from(sandboxProvider).where(eq(sandboxProvider.organizationId, organizationId))
-      .orderBy(asc(sandboxProvider.name), asc(sandboxProvider.id))
+    db
+      .select({
+        id: sandboxProvider.id,
+        name: sandboxProvider.name,
+        providerType: sandboxProvider.providerType,
+        lastTest: sandboxProvider.lastTest,
+      })
+      .from(sandboxProvider)
+      .where(eq(sandboxProvider.organizationId, organizationId))
+      .orderBy(asc(sandboxProvider.name), asc(sandboxProvider.id)),
   ).pipe(
     Effect.flatMap((rows) =>
       Effect.forEach(rows, (row) =>
@@ -100,7 +103,8 @@ export function readOrganizationSandboxProviderSummaries(organizationId: string)
           onExcessProperty: "error",
         })(row).pipe(
           Effect.mapError((cause) => new OrganizationSandboxProviderRepositoryError({ cause })),
-        ))
+        ),
+      ),
     ),
   )
 }
@@ -108,7 +112,7 @@ export function readOrganizationSandboxProviderSummaries(organizationId: string)
 /** The detail page's read, which reveals credentials for masked editing. */
 export function readOrganizationSandboxProvider(organizationId: string, id: string) {
   return readSandboxProviderRow(organizationId, id).pipe(
-    Effect.flatMap((row) => row ? revealSandboxProviderRow(row) : Effect.succeed(null)),
+    Effect.flatMap((row) => (row ? revealSandboxProviderRow(row) : Effect.succeed(null))),
   )
 }
 
@@ -117,10 +121,10 @@ export function prepareOrganizationSandboxProviderCandidate<Provider extends San
 ) {
   return Effect.gen(function* () {
     const name = yield* decodeSandboxProviderValue(() =>
-      Schema.decodeUnknownSync(SandboxProviderNameSchema)(input.name)
+      Schema.decodeUnknownSync(SandboxProviderNameSchema)(input.name),
     )
     const options = yield* decodeSandboxProviderValue(() =>
-      decodeProviderOptions(input.providerType, input.options)
+      decodeProviderOptions(input.providerType, input.options),
     )
     const existing = input.id ? yield* readSandboxProviderRow(input.organizationId, input.id) : null
     if (
@@ -137,15 +141,18 @@ export function prepareOrganizationSandboxProviderCandidate<Provider extends San
     }
     yield* ensureSandboxProviderNameAvailable(input.organizationId, name, input.id)
     const credentials = yield* decodeSandboxProviderValue(() =>
-      decodeProviderCredentials(input.providerType, input.credentials)
+      decodeProviderCredentials(input.providerType, input.credentials),
     )
-    const existingCredentials = existing && existing.providerType === input.providerType
-      ? yield* readSandboxProviderCredentials(existing)
-      : null
-    const credentialsChanged = !existing || existing.providerType !== input.providerType ||
+    const existingCredentials =
+      existing && existing.providerType === input.providerType
+        ? yield* readSandboxProviderCredentials(existing)
+        : null
+    const credentialsChanged =
+      !existing ||
+      existing.providerType !== input.providerType ||
       JSON.stringify(existingCredentials) !== JSON.stringify(credentials)
-    const requiresTest = credentialsChanged ||
-      JSON.stringify(existing?.options) !== JSON.stringify(options)
+    const requiresTest =
+      credentialsChanged || JSON.stringify(existing?.options) !== JSON.stringify(options)
     return {
       organizationId: input.organizationId,
       candidate: { name, provider: input.providerType, options, credentials },
@@ -171,7 +178,7 @@ export function saveOrganizationSandboxProvider<Provider extends SandboxProvider
     const existing = prepared.existing
     const lastTest = testedAt
       ? { status: "success" as const, testedAt }
-      : existing?.lastTest ?? null
+      : (existing?.lastTest ?? null)
 
     if (!existing) {
       return yield* createOrganizationSandboxProvider({
@@ -183,18 +190,19 @@ export function saveOrganizationSandboxProvider<Provider extends SandboxProvider
 
     const db = yield* effectDatabase
 
-    const credentialUpdate = prepared.candidate.provider === "docker"
-      ? { credentials: null }
-      : prepared.credentialsChanged
-      ? {
-        credentials: {
-          sandboxProviderId: existing.id,
-          organizationId: prepared.organizationId,
-          providerType: prepared.candidate.provider,
-          credentials: prepared.candidate.credentials,
-        },
-      }
-      : {}
+    const credentialUpdate =
+      prepared.candidate.provider === "docker"
+        ? { credentials: null }
+        : prepared.credentialsChanged
+          ? {
+              credentials: {
+                sandboxProviderId: existing.id,
+                organizationId: prepared.organizationId,
+                providerType: prepared.candidate.provider,
+                credentials: prepared.candidate.credentials,
+              },
+            }
+          : {}
     yield* updateWithOptimisticLock({
       executor: db,
       table: sandboxProvider,
@@ -255,7 +263,7 @@ export function recordOrganizationSandboxProviderTest(input: {
         lastTest: {
           status: input.status,
           testedAt: input.testedAt,
-          ...input.errorCode && { errorCode: input.errorCode },
+          ...(input.errorCode && { errorCode: input.errorCode }),
         },
       },
     })
@@ -307,14 +315,17 @@ function createOrganizationSandboxProvider<Provider extends SandboxProviderId>(i
   return sandboxProviderDatabaseEffect((db) =>
     db.transaction((transaction) =>
       Effect.gen(function* () {
-        const createdRows = yield* transaction.insert(sandboxProvider).values({
-          organizationId: input.organizationId,
-          name: input.candidate.name,
-          providerType: input.candidate.provider,
-          options: input.candidate.options,
-          credentials: null,
-          lastTest: input.lastTest,
-        }).returning()
+        const createdRows = yield* transaction
+          .insert(sandboxProvider)
+          .values({
+            organizationId: input.organizationId,
+            name: input.candidate.name,
+            providerType: input.candidate.provider,
+            options: input.candidate.options,
+            credentials: null,
+            lastTest: input.lastTest,
+          })
+          .returning()
         const created = createdRows[0]
         if (!created) {
           return yield* Effect.fail(
@@ -323,19 +334,23 @@ function createOrganizationSandboxProvider<Provider extends SandboxProviderId>(i
         }
         if (input.candidate.provider === "docker") return created
 
-        const rows = yield* transaction.update(sandboxProvider).set({
-          credentials: {
-            sandboxProviderId: created.id,
-            organizationId: input.organizationId,
-            providerType: input.candidate.provider,
-            credentials: input.candidate.credentials,
-          },
-        }).where(
-          and(
-            eq(sandboxProvider.organizationId, created.organizationId),
-            eq(sandboxProvider.id, created.id),
-          ),
-        ).returning()
+        const rows = yield* transaction
+          .update(sandboxProvider)
+          .set({
+            credentials: {
+              sandboxProviderId: created.id,
+              organizationId: input.organizationId,
+              providerType: input.candidate.provider,
+              credentials: input.candidate.credentials,
+            },
+          })
+          .where(
+            and(
+              eq(sandboxProvider.organizationId, created.organizationId),
+              eq(sandboxProvider.id, created.id),
+            ),
+          )
+          .returning()
         const row = rows[0]
         if (!row) {
           return yield* Effect.fail(
@@ -343,8 +358,8 @@ function createOrganizationSandboxProvider<Provider extends SandboxProviderId>(i
           )
         }
         return row
-      })
-    )
+      }),
+    ),
   ).pipe(Effect.map((row) => row.id))
 }
 
@@ -368,13 +383,14 @@ function readSandboxProviderCredentials(
     )
   }
   if (
-    payload.sandboxProviderId !== row.id || payload.organizationId !== row.organizationId ||
+    payload.sandboxProviderId !== row.id ||
+    payload.organizationId !== row.organizationId ||
     payload.providerType !== row.providerType
   ) {
     return Effect.fail(storedSandboxProviderError("Stored credentials belong to another provider"))
   }
   return decodeSandboxProviderValue(() =>
-    decodeProviderCredentials(row.providerType, payload.credentials)
+    decodeProviderCredentials(row.providerType, payload.credentials),
   )
 }
 
@@ -391,32 +407,37 @@ function ensureSandboxProviderNameAvailable(
   excludedId?: string,
 ) {
   return sandboxProviderDatabaseEffect((db) =>
-    db.select({ id: sandboxProvider.id }).from(sandboxProvider).where(
-      and(
-        eq(sandboxProvider.organizationId, organizationId),
-        eq(sandboxProvider.name, name),
-        excludedId ? ne(sandboxProvider.id, excludedId) : undefined,
-      ),
-    ).limit(1)
+    db
+      .select({ id: sandboxProvider.id })
+      .from(sandboxProvider)
+      .where(
+        and(
+          eq(sandboxProvider.organizationId, organizationId),
+          eq(sandboxProvider.name, name),
+          excludedId ? ne(sandboxProvider.id, excludedId) : undefined,
+        ),
+      )
+      .limit(1),
   ).pipe(
     Effect.flatMap((rows) =>
-      rows.length === 0 ? Effect.void : Effect.fail(
-        new SandboxProviderNameConflictError({
-          message: "A sandbox provider with this name already exists",
-        }),
-      )
+      rows.length === 0
+        ? Effect.void
+        : Effect.fail(
+            new SandboxProviderNameConflictError({
+              message: "A sandbox provider with this name already exists",
+            }),
+          ),
     ),
   )
 }
 
-function readSandboxProviderRow(
-  organizationId: string,
-  id: string,
-) {
+function readSandboxProviderRow(organizationId: string, id: string) {
   return sandboxProviderDatabaseEffect((db) =>
-    db.select().from(sandboxProvider).where(
-      and(eq(sandboxProvider.organizationId, organizationId), eq(sandboxProvider.id, id)),
-    ).limit(1)
+    db
+      .select()
+      .from(sandboxProvider)
+      .where(and(eq(sandboxProvider.organizationId, organizationId), eq(sandboxProvider.id, id)))
+      .limit(1),
   ).pipe(
     Effect.flatMap((rows) => {
       const row = rows[0]
@@ -435,7 +456,8 @@ function sandboxProviderDatabaseEffect<Value>(
   return Effect.flatMap(effectDatabase, (db) =>
     operation(db).pipe(
       Effect.mapError((cause) => new OrganizationSandboxProviderRepositoryError({ cause })),
-    ))
+    ),
+  )
 }
 
 function decodeSandboxProviderValue<Value>(
@@ -454,20 +476,19 @@ function decodeSandboxProviderValue<Value>(
 }
 
 function decodeSandboxProviderRow(value: unknown) {
-  return Schema.decodeUnknownEffect(
-    SandboxProviderRowSchema,
-    { onExcessProperty: "error" },
-  )(value).pipe(
+  return Schema.decodeUnknownEffect(SandboxProviderRowSchema, { onExcessProperty: "error" })(
+    value,
+  ).pipe(
     Effect.flatMap((row) =>
       decodeSandboxProviderValue(() => ({
         ...row,
         options: decodeProviderOptions(row.providerType, row.options),
-      }))
+      })),
     ),
     Effect.mapError((cause) =>
       cause instanceof OrganizationSandboxProviderRepositoryError
         ? cause
-        : new OrganizationSandboxProviderRepositoryError({ cause })
+        : new OrganizationSandboxProviderRepositoryError({ cause }),
     ),
   )
 }

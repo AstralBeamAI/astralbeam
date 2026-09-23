@@ -35,7 +35,7 @@ async function read(
   input: { file: string; offset?: number; limit?: number },
 ) {
   const [tool] = createChatAttachmentTools({ files })
-  return await tool?.execute?.(input) as Record<string, unknown>
+  return (await tool?.execute?.(input)) as Record<string, unknown>
 }
 
 // An agent should not be offered a reader when there is nothing to read.
@@ -62,11 +62,16 @@ test("reports a table's shape and the sandbox path alongside the text", async ()
   const sheet: ChatAttachmentFile = {
     ...file("month,sales\nJan,343\n", "sales.csv"),
     mimeType: "text/csv",
-    tables: [{
-      delimiter: ",",
-      rows: 1,
-      columns: [{ name: "month", type: "string" }, { name: "sales", type: "integer" }],
-    }],
+    tables: [
+      {
+        delimiter: ",",
+        rows: 1,
+        columns: [
+          { name: "month", type: "string" },
+          { name: "sales", type: "integer" },
+        ],
+      },
+    ],
   }
   const result = await read([sheet], { file: "sales.csv" })
   expect(result).toMatchObject({

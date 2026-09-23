@@ -13,11 +13,15 @@ Tenant directories show tenant records and their users inside your application. 
 
    const auth = { apiKey: organizationApiKey }
    const tenant = await createTenant({ external_id: "northwind", name: "Northwind Traders" }, auth)
-   await createTenantUser(tenant.id, {
-     external_id: "nancy",
-     name: "Nancy",
-     metadata: { department: "Support" },
-   }, auth)
+   await createTenantUser(
+     tenant.id,
+     {
+       external_id: "nancy",
+       name: "Nancy",
+       metadata: { department: "Support" },
+     },
+     auth,
+   )
    ```
 
    These are create operations, not upserts. For repeatable synchronization, look up exact external IDs with `filter[external_id]`, then create or update using the returned UUIDs. If concurrent creation returns `409`, look up the existing record. See the [API client guide](./api.md).
@@ -73,7 +77,7 @@ Let's render the current tenant's record in React:
 ```tsx
 import { AstralBeamTenantList } from "@astralbeam/sdk/react"
 
-<AstralBeamTenantList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
+;<AstralBeamTenantList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
 ```
 
 ## Mount anywhere else
@@ -162,22 +166,22 @@ Because directories render inside a Shadow DOM, host styles and React `className
 
 The directory styling slots are `directory`, `directory-header`, `directory-toolbar`, `directory-page-controls`, `directory-tenant-picker`, `directory-tenant-label`, `directory-empty`, `directory-page`, `directory-pagination`, and `directory-avatar`. Shared control slots include `input`, `input-group`, `native-select`, `button`, `combobox-content`, `alert`, `table-container`, `table`, `table-head`, and `table-cell`. Select them with `[data-slot="..."]`. Prefer `theme` for colors and fonts, and `customCss` for layout, spacing, focus treatment, and component sizing.
 
-| Option                         | Default                         | Purpose                                                                                                                      |
-| ------------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `fetchAstralBeamToken`         | Required                        | Endpoint `{ url, ...RequestInit }` or function returning `{ token }`. Unlike chat, directories have no default token source. |
-| `apiUrl`                       | `https://app.astralbeam.ai/api` | AstralBeam API base. Set your deployment's `/api` URL when self-hosting.                                                     |
-| `scope`                        | `"tenant"`                      | Tenant view, or `"organization"` with an organization-management JWT.                                                        |
-| `tenantId`, `tenantExternalId` | Signed tenant in tenant scope   | Pin a Tenant by internal UUID or exact external ID. Internal ID takes precedence.                                            |
-| `pageSize`                     | `20`                            | Initial page size, one of `20`, `50`, or `100`.                                                                              |
-| `title`                        | `"Tenants"` or `"Tenant users"` | Header and accessible region name.                                                                                           |
-| `showHeader`                   | `true`                          | Show the directory heading and tenant context.                                                                               |
-| `customCss`                    | None                            | Trusted CSS inside the widget's Shadow DOM. Omit to retain SDK styles.                                                       |
-| `showAdmin`                    | `false`                         | User directory only. Show the stored admin column and filter, without changing permissions.                                  |
-| `colorScheme`, `theme`         | `"system"`, SDK palette         | Chat-compatible appearance options.                                                                                          |
-| `onTenantSelect`               | None                            | Tenant directory's Open action.                                                                                              |
-| `onTenantUserSelect`           | None                            | User directory's Open action.                                                                                                |
-| `onTenantChange`               | None                            | User directory's organization-scope picker changes.                                                                          |
-| `onError`                      | None                            | Failed requests after authentication retry, excluding cancellations.                                                         |
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `fetchAstralBeamToken` | Required | Endpoint `{ url, ...RequestInit }` or function returning `{ token }`. Unlike chat, directories have no default token source. |
+| `apiUrl` | `https://app.astralbeam.ai/api` | AstralBeam API base. Set your deployment's `/api` URL when self-hosting. |
+| `scope` | `"tenant"` | Tenant view, or `"organization"` with an organization-management JWT. |
+| `tenantId`, `tenantExternalId` | Signed tenant in tenant scope | Pin a Tenant by internal UUID or exact external ID. Internal ID takes precedence. |
+| `pageSize` | `20` | Initial page size, one of `20`, `50`, or `100`. |
+| `title` | `"Tenants"` or `"Tenant users"` | Header and accessible region name. |
+| `showHeader` | `true` | Show the directory heading and tenant context. |
+| `customCss` | None | Trusted CSS inside the widget's Shadow DOM. Omit to retain SDK styles. |
+| `showAdmin` | `false` | User directory only. Show the stored admin column and filter, without changing permissions. |
+| `colorScheme`, `theme` | `"system"`, SDK palette | Chat-compatible appearance options. |
+| `onTenantSelect` | None | Tenant directory's Open action. |
+| `onTenantUserSelect` | None | User directory's Open action. |
+| `onTenantChange` | None | User directory's organization-scope picker changes. |
+| `onError` | None | Failed requests after authentication retry, excluding cancellations. |
 
 - Previous/Next follow server cursors, with no estimated totals or client-side sorting.
 - Search is debounced and matches literal text in names or external IDs. Collections use server-side search, while an explicitly selected single Tenant is filtered locally. Filters reset the current page.

@@ -20,9 +20,11 @@ function SentAttachment({ part }: { part: MediaPart }) {
   return (
     <Attachment size="sm">
       <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
-        {thumbnail
-          ? <img src={thumbnail} alt="" />
-          : <AttachmentKindIcon kind={kind} mimeType={part.source.mimeType} />}
+        {thumbnail ? (
+          <img src={thumbnail} alt="" />
+        ) : (
+          <AttachmentKindIcon kind={kind} mimeType={part.source.mimeType} />
+        )}
       </AttachmentMedia>
       <AttachmentContent>
         <AttachmentTitle>{title}</AttachmentTitle>
@@ -52,8 +54,8 @@ function SentAttachment({ part }: { part: MediaPart }) {
 export function UserMessageBody({ message }: { message: UIMessage }) {
   const text = getMessageText(message)
   // Attachments read above the text, as they do in the composer that sent them.
-  const media = message.parts.filter((part): part is MediaPart =>
-    part.type === "image" || part.type === "document"
+  const media = message.parts.filter(
+    (part): part is MediaPart => part.type === "image" || part.type === "document",
   )
   return (
     <>
@@ -61,7 +63,9 @@ export function UserMessageBody({ message }: { message: UIMessage }) {
         // Wrapped, not the composer's scrolling row: a sent message is read, not edited, so
         // every attachment should be visible without scrolling a narrow sidebar sideways.
         <div className="flex w-full flex-wrap justify-end gap-2">
-          {media.map((part, partIndex) => <SentAttachment key={partIndex} part={part} />)}
+          {media.map((part, partIndex) => (
+            <SentAttachment key={partIndex} part={part} />
+          ))}
         </div>
       )}
       {text.length > 0 && (

@@ -48,9 +48,11 @@ export function OrganizationSettingsForm({
   const [saving, setSaving] = useState(false)
   const normalizedName = name.trim()
   const normalizedSlug = slug.trim()
-  const valid = normalizedName.length > 0 &&
+  const valid =
+    normalizedName.length > 0 &&
     normalizedName.length <= ORGANIZATION_NAME_MAX_LENGTH &&
-    isValidSlug(normalizedSlug) && !isReservedOrganizationSlug(normalizedSlug)
+    isValidSlug(normalizedSlug) &&
+    !isReservedOrganizationSlug(normalizedSlug)
 
   const save = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -118,8 +120,8 @@ export function OrganizationSettingsForm({
                 {!isValidSlug(normalizedSlug)
                   ? SLUG_VALIDATION_MESSAGE
                   : isReservedOrganizationSlug(normalizedSlug)
-                  ? RESERVED_ORGANIZATION_SLUG_MESSAGE
-                  : "Changing the slug breaks old URLs."}
+                    ? RESERVED_ORGANIZATION_SLUG_MESSAGE
+                    : "Changing the slug breaks old URLs."}
               </FieldDescription>
             </Field>
           </FieldGroup>
@@ -128,8 +130,11 @@ export function OrganizationSettingsForm({
           <CardFooter className="justify-end">
             <Button
               type="submit"
-              disabled={!valid || saving ||
-                (normalizedName === organizationName && normalizedSlug === organizationSlug)}
+              disabled={
+                !valid ||
+                saving ||
+                (normalizedName === organizationName && normalizedSlug === organizationSlug)
+              }
             >
               {saving ? "Saving…" : "Save changes"}
             </Button>

@@ -50,9 +50,7 @@ function AgentPage() {
           Agents
         </Link>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            {data.agent.name}
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{data.agent.name}</h1>
           {data.isDefault && (
             <Badge variant="secondary" className="gap-1">
               <StarIcon aria-hidden="true" />
@@ -83,10 +81,8 @@ function AgentPage() {
         canDelete={permissions.deleteConfiguration}
       />
 
-      {
-        /* Remounting on the lock version keeps the editor's local state tied to the snapshot it
-        was initialized from, so a save after a conflict cannot carry the stale one forward. */
-      }
+      {/* Remounting on the lock version keeps the editor's local state tied to the snapshot it
+        was initialized from, so a save after a conflict cannot carry the stale one forward. */}
       <AgentForm
         key={`${data.agent.id}:${data.agent.lockVersion}`}
         organizationSlug={orgSlug}

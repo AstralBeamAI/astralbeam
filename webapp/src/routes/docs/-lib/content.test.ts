@@ -38,7 +38,8 @@ const contentDirectory = new URL("../-content/", import.meta.url)
 /** Every Markdown file under -content, keyed as the manifest addresses it: `<section>/<page>.md`. */
 function readDocsContentFiles(): Map<string, string> {
   return new Map(
-    readdirSync(contentDirectory, { recursive: true }).map(String)
+    readdirSync(contentDirectory, { recursive: true })
+      .map(String)
       .filter((entry) => entry.endsWith(".md"))
       .map((entry) => [entry, readFileSync(new URL(entry, contentDirectory), "utf8")]),
   )
@@ -51,7 +52,8 @@ test("same-folder Markdown links resolve to a page the same reader can reach", (
   for (const section of DOCS_SECTIONS) {
     for (const page of section.pages) {
       const unpublished = Boolean(section.draft || page.draft)
-      const reachable = section.pages.filter((entry) => unpublished || !entry.draft)
+      const reachable = section.pages
+        .filter((entry) => unpublished || !entry.draft)
         .map((entry) => entry.slug)
       const markdown = files.get(`${section.slug}/${page.slug}.md`) ?? ""
       for (const [, target] of markdown.matchAll(/\.\/([\w-]+)\.md/g)) {
@@ -64,8 +66,9 @@ test("same-folder Markdown links resolve to a page the same reader can reach", (
 // The sitemap is the one place that advertises docs URLs to crawlers, so a draft must not reach it.
 test("the sitemap lists the published docs without drafts or redirects", () => {
   const paths = docsSitemapPaths()
-  const draftPaths = DOCS_SECTIONS.filter((section) => section.draft)
-    .flatMap((section) => section.pages.map((page) => `/docs/${section.slug}/${page.slug}`))
+  const draftPaths = DOCS_SECTIONS.filter((section) => section.draft).flatMap((section) =>
+    section.pages.map((page) => `/docs/${section.slug}/${page.slug}`),
+  )
 
   expect(paths).toContain("/docs")
   expect(paths).toContain("/docs/api")
@@ -81,8 +84,9 @@ test("the sitemap lists the published docs without drafts or redirects", () => {
 test("the manifest and the content directory hold exactly the same pages", () => {
   const files = readDocsContentFiles()
   const registered = DOCS_SECTIONS.flatMap((section) =>
-    [...section.pages.map((page) => page.slug), ...Object.keys(section.anchors ?? {})]
-      .map((slug) => `${section.slug}/${slug}.md`)
+    [...section.pages.map((page) => page.slug), ...Object.keys(section.anchors ?? {})].map(
+      (slug) => `${section.slug}/${slug}.md`,
+    ),
   )
   for (const [file, markdown] of files) {
     expect(registered, `${file} is not registered`).toContain(file)
@@ -91,7 +95,7 @@ test("the manifest and the content directory hold exactly the same pages", () =>
   // An `anchors` slug may have no file, but a registered page whose file is missing would only
   // fail when a reader opened it.
   const pageFiles = DOCS_SECTIONS.flatMap((section) =>
-    section.pages.map((page) => `${section.slug}/${page.slug}.md`)
+    section.pages.map((page) => `${section.slug}/${page.slug}.md`),
   )
   for (const file of pageFiles) expect([...files.keys()]).toContain(file)
 })

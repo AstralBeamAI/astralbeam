@@ -30,10 +30,7 @@ export type PasswordStrengthMeterProps = {
  * empty. The score never gates submission: your server rules stay the
  * authority on what is acceptable.
  */
-export function PasswordStrengthMeter({
-  password,
-  className,
-}: PasswordStrengthMeterProps) {
+export function PasswordStrengthMeter({ password, className }: PasswordStrengthMeterProps) {
   const { emailAndPassword, localization } = useAuth()
 
   if (!emailAndPassword?.strengthMeter) return null
@@ -68,9 +65,7 @@ export function PasswordStrengthMeter({
 
       <p aria-live="polite" className="text-muted-foreground text-xs">
         {localization.auth.passwordStrength}:{" "}
-        <span className="font-medium text-foreground">
-          {levelLabels[level]}
-        </span>
+        <span className="font-medium text-foreground">{levelLabels[level]}</span>
       </p>
     </div>
   )

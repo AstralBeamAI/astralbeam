@@ -9,12 +9,14 @@ const REACT_INSTANCE_KEY_PREFIX = "__react"
  */
 export async function waitForHydration(locator: Locator): Promise<void> {
   await locator.waitFor()
-  await expect.poll(
-    () =>
-      locator.evaluate(
-        (node, prefix) => Object.keys(node).some((key) => key.startsWith(prefix)),
-        REACT_INSTANCE_KEY_PREFIX,
-      ),
-    { timeout: 60_000, message: "React never attached to the control" },
-  ).toBe(true)
+  await expect
+    .poll(
+      () =>
+        locator.evaluate(
+          (node, prefix) => Object.keys(node).some((key) => key.startsWith(prefix)),
+          REACT_INSTANCE_KEY_PREFIX,
+        ),
+      { timeout: 60_000, message: "React never attached to the control" },
+    )
+    .toBe(true)
 }

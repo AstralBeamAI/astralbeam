@@ -34,8 +34,10 @@ export async function loadPublicConfig(): Promise<PublicConfig | null> {
 export async function isAuthConfigured(): Promise<boolean> {
   const { values } = await getGlobalConfigState()
   return Boolean(
-    values.app_base_url && values.better_auth_secret && values.turnstile_site_key &&
-      values.turnstile_secret_key,
+    values.app_base_url &&
+    values.better_auth_secret &&
+    values.turnstile_site_key &&
+    values.turnstile_secret_key,
   )
 }
 

@@ -49,42 +49,40 @@ function SandboxesPage() {
         )}
       </div>
 
-      {data.sandboxProviders.length === 0
-        ? (
-          <Empty className="max-w-4xl">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <CubeIcon aria-hidden="true" />
-              </EmptyMedia>
-              <EmptyTitle>No sandbox providers yet</EmptyTitle>
-              <EmptyDescription>
-                Selecting a provider on an agent is what gives that agent its sandbox tools.
-              </EmptyDescription>
-            </EmptyHeader>
-            {permissions.updateConfiguration && (
-              <EmptyContent>
-                <Link
-                  to="/$orgSlug/sandboxes/new"
-                  params={{ orgSlug }}
-                  className={buttonVariants({ size: "sm" })}
-                >
-                  Add provider
-                </Link>
-              </EmptyContent>
-            )}
-          </Empty>
-        )
-        : (
-          <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
-            {data.sandboxProviders.map((provider) => (
-              <SandboxProviderListCard
-                key={provider.id}
-                organizationSlug={orgSlug}
-                provider={provider}
-              />
-            ))}
-          </div>
-        )}
+      {data.sandboxProviders.length === 0 ? (
+        <Empty className="max-w-4xl">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CubeIcon aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No sandbox providers yet</EmptyTitle>
+            <EmptyDescription>
+              Selecting a provider on an agent is what gives that agent its sandbox tools.
+            </EmptyDescription>
+          </EmptyHeader>
+          {permissions.updateConfiguration && (
+            <EmptyContent>
+              <Link
+                to="/$orgSlug/sandboxes/new"
+                params={{ orgSlug }}
+                className={buttonVariants({ size: "sm" })}
+              >
+                Add provider
+              </Link>
+            </EmptyContent>
+          )}
+        </Empty>
+      ) : (
+        <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
+          {data.sandboxProviders.map((provider) => (
+            <SandboxProviderListCard
+              key={provider.id}
+              organizationSlug={orgSlug}
+              provider={provider}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

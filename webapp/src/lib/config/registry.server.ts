@@ -18,19 +18,18 @@ function isLoopbackHost(hostname: string): boolean {
 }
 
 function isServerOrigin(url: URL): boolean {
-  return (url.protocol === "https:" ||
-    (url.protocol === "http:" && isLoopbackHost(url.hostname))) &&
+  return (
+    (url.protocol === "https:" || (url.protocol === "http:" && isLoopbackHost(url.hostname))) &&
     !url.username &&
     !url.password &&
     url.pathname === "/" &&
     !url.search &&
     !url.hash
+  )
 }
 
 const decodeServerOrigin = Schema.decodeUnknownSync(
-  Schema.URLFromString.pipe(
-    Schema.check(Schema.makeFilter(isServerOrigin)),
-  ),
+  Schema.URLFromString.pipe(Schema.check(Schema.makeFilter(isServerOrigin))),
 )
 const decodeSecretValue = Schema.decodeUnknownSync(
   Schema.String.pipe(Schema.check(Schema.isMinLength(32))),
@@ -48,7 +47,7 @@ const decodeEmailFromAddress = Schema.decodeUnknownSync(
   Schema.String.pipe(
     Schema.check(
       Schema.makeFilter((value) =>
-        EMAIL_ADDRESS_PATTERN.test(NAMED_EMAIL_ADDRESS_PATTERN.exec(value)?.[1] ?? value)
+        EMAIL_ADDRESS_PATTERN.test(NAMED_EMAIL_ADDRESS_PATTERN.exec(value)?.[1] ?? value),
       ),
     ),
   ),
@@ -56,9 +55,7 @@ const decodeEmailFromAddress = Schema.decodeUnknownSync(
 const decodeSmtpSecurity = Schema.decodeUnknownSync(SmtpSecuritySchema)
 const decodePublicHttpUrl = Schema.decodeUnknownSync(
   Schema.URLFromString.pipe(
-    Schema.check(
-      Schema.makeFilter((url) => url.protocol === "https:" || url.protocol === "http:"),
-    ),
+    Schema.check(Schema.makeFilter((url) => url.protocol === "https:" || url.protocol === "http:")),
   ),
 )
 
@@ -383,9 +380,9 @@ export function hasEnvironmentConfigOverride(key: ConfigKey): boolean {
 }
 
 export function environmentConfigOverrideKeys(): ConfigKey[] {
-  return CONFIG_DEFINITIONS
-    .filter((definition) => hasEnvironmentConfigOverride(definition.key))
-    .map((definition) => definition.key)
+  return CONFIG_DEFINITIONS.filter((definition) =>
+    hasEnvironmentConfigOverride(definition.key),
+  ).map((definition) => definition.key)
 }
 
 function parseEnvironmentConfigValue(value: string): unknown {
@@ -402,7 +399,7 @@ export function findConfigDefinition(key: string): ConfigDefinition | undefined 
 
 export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
   CONFIG_DEFINITIONS.flatMap((definition) =>
-    definition.defaultValue === undefined ? [] : [[definition.key, definition.defaultValue]]
+    definition.defaultValue === undefined ? [] : [[definition.key, definition.defaultValue]],
   ),
 ) as ConfigValues
 
@@ -428,7 +425,8 @@ export function environmentConfigValues(): ConfigValues {
 export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] {
   const issues: ConfigIssue[] = []
   if (
-    values.dogfood_api_key && values.dogfood_organization_id &&
+    values.dogfood_api_key &&
+    values.dogfood_organization_id &&
     !values.dogfood_api_key.startsWith(`key_${values.dogfood_organization_id}_`)
   ) {
     issues.push({
@@ -485,9 +483,9 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
       : "aws_access_key_id"
     issues.push({
       key: missing,
-      message: `${
-        configEnvironmentVariable(missing)
-      } is required when the paired AWS credential is supplied through the environment`,
+      message: `${configEnvironmentVariable(
+        missing,
+      )} is required when the paired AWS credential is supplied through the environment`,
     })
   } else if (Boolean(values.aws_access_key_id) !== Boolean(values.aws_secret_access_key)) {
     const missing = values.aws_access_key_id ? "aws_secret_access_key" : "aws_access_key_id"

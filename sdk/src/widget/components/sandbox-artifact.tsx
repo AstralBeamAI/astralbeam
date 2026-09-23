@@ -16,10 +16,7 @@ function artifactBasename(path: string): string {
   return index === -1 ? path : path.slice(index + 1)
 }
 
-async function downloadArtifact(
-  artifact: SandboxArtifact,
-  apiUrl: string,
-): Promise<boolean> {
+async function downloadArtifact(artifact: SandboxArtifact, apiUrl: string): Promise<boolean> {
   if (!artifact.ticket) return false
   try {
     const response = await getChatFile({ ticket: artifact.ticket }, { apiUrl })
@@ -31,9 +28,7 @@ async function downloadArtifact(
 }
 
 /** Inline preview for an image artifact, fetched once through its ticket into an object URL. */
-function ArtifactImage(
-  { artifact, apiUrl }: { artifact: SandboxArtifact; apiUrl: string },
-) {
+function ArtifactImage({ artifact, apiUrl }: { artifact: SandboxArtifact; apiUrl: string }) {
   const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
   const [failed, setFailed] = useState(false)
   // A failed download click means the ticket died after the preview loaded; same recovery.
@@ -112,8 +107,8 @@ function ArtifactExpired({ label }: { label: string }) {
         <WarningCircleIcon />
       </MarkerIcon>
       <MarkerContent>
-        <span className="font-mono">{label}</span>{" "}
-        is no longer available; ask the agent to publish it again.
+        <span className="font-mono">{label}</span> is no longer available; ask the agent to publish
+        it again.
       </MarkerContent>
     </Marker>
   )
@@ -124,9 +119,7 @@ function ArtifactExpired({ label }: { label: string }) {
  * anything else is a download row. The ticket in the tool output is the whole authorization, so
  * this component never needs the chat auth token.
  */
-export function SandboxArtifactPart(
-  { part, apiUrl }: { part: ToolCallPart; apiUrl: string },
-) {
+export function SandboxArtifactPart({ part, apiUrl }: { part: ToolCallPart; apiUrl: string }) {
   // Tickets expire; a download that comes back empty-handed swaps the row for the recovery note.
   const [downloadFailed, setDownloadFailed] = useState(false)
   const artifact = readSandboxArtifact(part)

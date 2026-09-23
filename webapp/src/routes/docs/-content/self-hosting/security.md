@@ -49,14 +49,14 @@ In production, `/configure` requires HTTPS. A `GET` or `HEAD` over plain HTTP is
 
 Every response, on every route, carries these headers:
 
-| Header                      | Value                                                                              |
-| --------------------------- | ---------------------------------------------------------------------------------- |
-| `X-Content-Type-Options`    | `nosniff`                                                                          |
-| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                  |
-| `X-Frame-Options`           | `DENY`                                                                             |
-| `Content-Security-Policy`   | `frame-ancestors 'none'`, appended so a route's own policy still applies           |
-| `Permissions-Policy`        | `camera=(), display-capture=(), geolocation=(), microphone=(), payment=(), usb=()` |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains`, on secure requests only                     |
+| Header | Value |
+| --- | --- |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `X-Frame-Options` | `DENY` |
+| `Content-Security-Policy` | `frame-ancestors 'none'`, appended so a route's own policy still applies |
+| `Permissions-Policy` | `camera=(), display-capture=(), geolocation=(), microphone=(), payment=(), usb=()` |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains`, on secure requests only |
 
 Framing is denied everywhere, including the API paths, because the embedded widget uses cross-origin fetch rather than a frame and needs no framing exemption. HSTS is sent when the request arrived over HTTPS or the proxy said it did, so it never appears on a plain-HTTP local run.
 

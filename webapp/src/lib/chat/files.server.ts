@@ -27,7 +27,7 @@ export async function readChatFile(token: string) {
       ticket.sandboxProviderId,
     ).pipe(
       Effect.flatMap((configuration) =>
-        createSandboxProvider(configuration.provider, configuration)
+        createSandboxProvider(configuration.provider, configuration),
       ),
     ),
   )
@@ -51,7 +51,7 @@ export async function readChatFile(token: string) {
   }
   // The capability covers exactly the published bytes: a same-type overwrite must be
   // republished, so the digest decides and the sniff is re-run for the response header.
-  if (await artifactContentDigest(bytes) !== ticket.sha256) {
+  if ((await artifactContentDigest(bytes)) !== ticket.sha256) {
     throw chatError("NotFound", "The file changed since it was published.")
   }
   const mimeType = detectSandboxArtifactMimeType(bytes)

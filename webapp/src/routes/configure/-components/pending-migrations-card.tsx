@@ -64,9 +64,8 @@ export function PendingMigrationsCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          {pending.length} pending migration{pending.length === 1 ? "" : "s"}{" "}
-          must run before configuration ({appliedCount}{" "}
-          already applied). Review the SQL, then apply.
+          {pending.length} pending migration{pending.length === 1 ? "" : "s"} must run before
+          configuration ({appliedCount} already applied). Review the SQL, then apply.
         </p>
         {error && (
           <Alert variant="destructive">
@@ -105,8 +104,8 @@ export function PendingMigrationsCard({
               <AlertDialogTitle>Apply pending migrations?</AlertDialogTitle>
               <AlertDialogDescription>
                 This runs the {pending.length} reviewed migration
-                {pending.length === 1 ? "" : "s"}{" "}
-                against the database. Back up the database first if it holds data you cannot lose.
+                {pending.length === 1 ? "" : "s"} against the database. Back up the database first
+                if it holds data you cannot lose.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

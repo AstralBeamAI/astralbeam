@@ -24,7 +24,10 @@ export function membersPage(page: Page) {
 
     /** Better Auth creates the invitation and then sends its email, so this also proves delivery. */
     async invite(email: string): Promise<void> {
-      await page.getByRole("button", { name: /^invite member$/i }).first().click()
+      await page
+        .getByRole("button", { name: /^invite member$/i })
+        .first()
+        .click()
       const dialog = openDialog(page)
       await dialog.locator("#invite-member-email").fill(email)
       await dialog.getByRole("button", { name: /^invite member$/i }).click()
@@ -34,7 +37,9 @@ export function membersPage(page: Page) {
 
     /** The row stays listed; only its status badge changes, which is how the history is kept. */
     async cancelInvitation(email: string): Promise<void> {
-      await this.invitationRow(email).getByRole("button", { name: /cancel invitation/i }).click()
+      await this.invitationRow(email)
+        .getByRole("button", { name: /cancel invitation/i })
+        .click()
       await expect(this.invitationRow(email)).toContainText("Canceled")
     },
   }

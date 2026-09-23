@@ -29,5 +29,5 @@ export const createAgent = createServerFn({ method: "POST" })
             }),
         }),
       ),
-    )
+    ),
   )

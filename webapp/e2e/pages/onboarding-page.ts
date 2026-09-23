@@ -5,8 +5,9 @@ export function onboardingPage(page: Page) {
   return {
     async expectVisible(): Promise<void> {
       await page.waitForURL(/\/onboarding/)
-      await expect(page.getByRole("heading", { name: "Join or create an organization" }))
-        .toBeVisible()
+      await expect(
+        page.getByRole("heading", { name: "Join or create an organization" }),
+      ).toBeVisible()
     },
 
     pendingInvitations(): Locator {

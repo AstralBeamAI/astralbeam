@@ -21,8 +21,12 @@ export interface AstralBeamApiError extends Error {
 }
 
 export function isAstralBeamApiError(error: unknown): error is AstralBeamApiError {
-  return error instanceof Error && error.name === "AstralBeamApiError" &&
-    "status" in error && typeof error.status === "number"
+  return (
+    error instanceof Error &&
+    error.name === "AstralBeamApiError" &&
+    "status" in error &&
+    typeof error.status === "number"
+  )
 }
 
 export function resolveApiUrl(path: string, apiUrl = DEFAULT_API_URL): string {
@@ -32,23 +36,28 @@ export function resolveApiUrl(path: string, apiUrl = DEFAULT_API_URL): string {
 function isApiErrorBody(value: unknown, status: number): value is AstralBeamApiErrorBody {
   if (!value || typeof value !== "object") return false
   const body = value as AstralBeamApiErrorBody
-  return body.status === status && typeof body.type === "string" &&
-    typeof body.title === "string" && typeof body.detail === "string" &&
+  return (
+    body.status === status &&
+    typeof body.type === "string" &&
+    typeof body.title === "string" &&
+    typeof body.detail === "string" &&
     (body.issues === undefined ||
       (Array.isArray(body.issues) &&
-        body.issues.every((issue) =>
-          issue && typeof issue.path === "string" && typeof issue.message === "string"
+        body.issues.every(
+          (issue) => issue && typeof issue.path === "string" && typeof issue.message === "string",
         )))
+  )
 }
 
 async function apiResponse(path: string, options: ApiOptions | FileOptions): Promise<Response> {
   const { apiUrl, apiKey, astralBeamToken, fetchClient = globalThis.fetch, ...init } = options
   const headers = new Headers()
-  const entries = init.headers instanceof Headers
-    ? init.headers.entries()
-    : Array.isArray(init.headers)
-    ? init.headers
-    : Object.entries(init.headers ?? {})
+  const entries =
+    init.headers instanceof Headers
+      ? init.headers.entries()
+      : Array.isArray(init.headers)
+        ? init.headers
+        : Object.entries(init.headers ?? {})
   // Orval spreads defaults and caller headers as case-sensitive object keys.
   for (const [name, value] of entries) headers.set(name, value)
   headers.delete("authorization")

@@ -33,17 +33,19 @@ export function issueDashboardToken(input: {
       catch: () => dashboardTokenFailure(503, "Authentication is unavailable"),
     })
     if (!session) return yield* Effect.fail(dashboardTokenFailure(401, "Authentication required"))
-    yield* databaseRateLimiter.consume({
-      key: `dashboard-token:${session.user.id}`,
-      limit: 60,
-      window: "1 minute",
-    }).pipe(
-      Effect.mapError((error) =>
-        error.reason._tag === "RateLimitExceeded"
-          ? dashboardTokenFailure(429, "Too many token requests. Please try again in a minute.")
-          : dashboardTokenFailure(503, "Authentication is unavailable")
-      ),
-    )
+    yield* databaseRateLimiter
+      .consume({
+        key: `dashboard-token:${session.user.id}`,
+        limit: 60,
+        window: "1 minute",
+      })
+      .pipe(
+        Effect.mapError((error) =>
+          error.reason._tag === "RateLimitExceeded"
+            ? dashboardTokenFailure(429, "Too many token requests. Please try again in a minute.")
+            : dashboardTokenFailure(503, "Authentication is unavailable"),
+        ),
+      )
     const organization = yield* readOrganizationMembership({
       organizationSlug: input.organizationSlug,
       userId: session.user.id,

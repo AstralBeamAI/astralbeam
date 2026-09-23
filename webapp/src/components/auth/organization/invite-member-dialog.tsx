@@ -43,7 +43,8 @@ export type InviteMemberDialogProps = {
   isOwner: boolean
 }
 
-const pickDefaultRole = (keys: string[]) => keys.includes("viewer") ? "viewer" : (keys.at(-1) ?? "")
+const pickDefaultRole = (keys: string[]) =>
+  keys.includes("viewer") ? "viewer" : (keys.at(-1) ?? "")
 
 /**
  * Render a dialog for inviting a member to the organization.
@@ -66,9 +67,7 @@ export function InviteMemberDialog({
   const invitations = useListOrganizationInvitations(authClient, { query: { organizationId } })
   const assignableRoles = useMemo(
     () =>
-      Object.fromEntries(
-        Object.entries(roles).filter(([role]) => isOwner || role !== creatorRole),
-      ),
+      Object.fromEntries(Object.entries(roles).filter(([role]) => isOwner || role !== creatorRole)),
     [creatorRole, isOwner, roles],
   )
 
@@ -104,31 +103,26 @@ export function InviteMemberDialog({
     if (!open) setEmailError(undefined)
   }
 
-  const { mutate: inviteMember, isPending: isInviting } = useInviteMember(
-    authClient,
-    {
-      // Better Auth creates the invitation before it sends the email, so a delivery failure leaves
-      // a pending invitation the list has not seen yet. Refetching surfaces its row, whose resend
-      // control is the recovery path; ErrorToaster reports the failure itself.
-      onError: (error) => {
-        if (isAuthEmailDeliveryError(error)) void invitations.refetch()
-      },
-      onSuccess: () => {
-        onOpenChange(false)
-        toast.add({ title: organizationLocalization.inviteMemberSuccess, type: "success" })
-      },
+  const { mutate: inviteMember, isPending: isInviting } = useInviteMember(authClient, {
+    // Better Auth creates the invitation before it sends the email, so a delivery failure leaves
+    // a pending invitation the list has not seen yet. Refetching surfaces its row, whose resend
+    // control is the recovery path; ErrorToaster reports the failure itself.
+    onError: (error) => {
+      if (isAuthEmailDeliveryError(error)) void invitations.refetch()
     },
-  )
+    onSuccess: () => {
+      onOpenChange(false)
+      toast.add({ title: organizationLocalization.inviteMemberSuccess, type: "success" })
+    },
+  })
 
   const isRoleValid = selectedRoles.length > 0
 
-  const roleSummary = selectedRoles
-    .map((entry) => assignableRoles[entry] ?? entry)
-    .join(", ")
+  const roleSummary = selectedRoles.map((entry) => assignableRoles[entry] ?? entry).join(", ")
 
   const toggleInvitationRole = (role: string) => {
     setSelectedRoles((current) =>
-      current.includes(role) ? current.filter((entry) => entry !== role) : [...current, role]
+      current.includes(role) ? current.filter((entry) => entry !== role) : [...current, role],
     )
   }
 
@@ -139,22 +133,19 @@ export function InviteMemberDialog({
 
     const formData = new FormData(e.currentTarget)
     const invitationEmail = (formData.get("email") as string).trim()
-    const invitationRoles = [...selectedRoles] as Parameters<
-      typeof inviteMember
-    >[0]["role"]
+    const invitationRoles = [...selectedRoles] as Parameters<typeof inviteMember>[0]["role"]
 
-    inviteMember(
-      {
-        email: invitationEmail,
-        organizationId,
-        role: invitationRoles,
-      },
-    )
+    inviteMember({
+      email: invitationEmail,
+      organizationId,
+      role: invitationRoles,
+    })
   }
 
-  const atInvitationLimit = invitationLimit !== undefined &&
-    (invitations.data?.filter((invitation) => invitation.status === "pending")
-        .length ?? 0) >= invitationLimit
+  const atInvitationLimit =
+    invitationLimit !== undefined &&
+    (invitations.data?.filter((invitation) => invitation.status === "pending").length ?? 0) >=
+      invitationLimit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -173,9 +164,7 @@ export function InviteMemberDialog({
 
           <div className="flex flex-col gap-4">
             <Field data-invalid={!!emailError}>
-              <FieldLabel htmlFor="invite-member-email">
-                {localization.auth.email}
-              </FieldLabel>
+              <FieldLabel htmlFor="invite-member-email">{localization.auth.email}</FieldLabel>
 
               <Input
                 id="invite-member-email"
@@ -201,9 +190,7 @@ export function InviteMemberDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="invite-member-role">
-                {organizationLocalization.role}
-              </FieldLabel>
+              <FieldLabel htmlFor="invite-member-role">{organizationLocalization.role}</FieldLabel>
 
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -251,10 +238,7 @@ export function InviteMemberDialog({
               {localization.settings.cancel}
             </DialogClose>
 
-            <Button
-              type="submit"
-              disabled={isInviting || !isRoleValid || atInvitationLimit}
-            >
+            <Button type="submit" disabled={isInviting || !isRoleValid || atInvitationLimit}>
               {isInviting && <Spinner />}
 
               {organizationLocalization.inviteMember}

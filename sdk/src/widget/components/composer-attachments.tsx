@@ -28,12 +28,13 @@ const CHIP_STATE = {
  * The picked files above the composer input, rejected ones included: a chip saying why a file
  * cannot be sent is more useful than a file that silently never arrives.
  */
-export function ComposerAttachments(
-  { attachments, onRemove }: {
-    attachments: readonly DraftAttachment[]
-    onRemove: (id: string) => void
-  },
-) {
+export function ComposerAttachments({
+  attachments,
+  onRemove,
+}: {
+  attachments: readonly DraftAttachment[]
+  onRemove: (id: string) => void
+}) {
   const group = useRef<HTMLDivElement>(null)
   const newest = attachments.at(-1)?.id
   // The row scrolls rather than wraps, so a file added past the visible width — a rejected one
@@ -46,9 +47,10 @@ export function ComposerAttachments(
   return (
     <AttachmentGroup ref={group} className="w-full">
       {attachments.map((attachment) => {
-        const thumbnail = attachment.kind === "image" && attachment.data !== undefined
-          ? attachmentDataUri(attachment.mimeType, attachment.data)
-          : undefined
+        const thumbnail =
+          attachment.kind === "image" && attachment.data !== undefined
+            ? attachmentDataUri(attachment.mimeType, attachment.data)
+            : undefined
         return (
           <Attachment
             key={attachment.id}
@@ -58,11 +60,13 @@ export function ComposerAttachments(
             role={attachment.status === "error" ? "alert" : undefined}
           >
             <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
-              {thumbnail
-                ? <img src={thumbnail} alt="" />
-                : attachment.status === "reading"
-                ? <Spinner />
-                : <AttachmentKindIcon kind={attachment.kind} mimeType={attachment.mimeType} />}
+              {thumbnail ? (
+                <img src={thumbnail} alt="" />
+              ) : attachment.status === "reading" ? (
+                <Spinner />
+              ) : (
+                <AttachmentKindIcon kind={attachment.kind} mimeType={attachment.mimeType} />
+              )}
             </AttachmentMedia>
             <AttachmentContent>
               <AttachmentTitle>{attachment.name}</AttachmentTitle>

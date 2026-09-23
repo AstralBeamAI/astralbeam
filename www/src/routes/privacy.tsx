@@ -34,40 +34,37 @@ function PrivacyPage() {
         <h2>2. Information we collect</h2>
         <ul>
           <li>
-            <strong>Account information:</strong>{" "}
-            name, email address, email-verification status, profile image received from Google,
-            GitHub, or Gravatar, a hashed password credential when you use email and password, and
-            account identifiers and profile information received from Google or GitHub when you use
-            those sign-in methods.
+            <strong>Account information:</strong> name, email address, email-verification status,
+            profile image received from Google, GitHub, or Gravatar, a hashed password credential
+            when you use email and password, and account identifiers and profile information
+            received from Google or GitHub when you use those sign-in methods.
           </li>
           <li>
-            <strong>Authentication and security information:</strong>{" "}
-            linked sign-in methods, OAuth scopes and token records, the date and time you accepted
-            the Terms of Service and Privacy Policy at signup, session identifiers,
-            active-organization selection, verification and password-reset records, rate-limit
-            records, and sign-in or other security events.
+            <strong>Authentication and security information:</strong> linked sign-in methods, OAuth
+            scopes and token records, the date and time you accepted the Terms of Service and
+            Privacy Policy at signup, session identifiers, active-organization selection,
+            verification and password-reset records, rate-limit records, and sign-in or other
+            security events.
           </li>
           <li>
-            <strong>Organization information:</strong>{" "}
-            organization name, membership, role, invitations, settings, and related administrative
-            activity. If an organization invites someone, we collect the invitee&apos;s email address and
-            the inviter&apos;s account information before the invitee creates or joins an account.
+            <strong>Organization information:</strong> organization name, membership, role,
+            invitations, settings, and related administrative activity. If an organization invites
+            someone, we collect the invitee&apos;s email address and the inviter&apos;s account
+            information before the invitee creates or joins an account.
           </li>
           <li>
-            <strong>Customer Content:</strong>{" "}
-            prompts, messages, files, tool inputs and outputs, agent configurations, and other
-            information submitted through the Services.
+            <strong>Customer Content:</strong> prompts, messages, files, tool inputs and outputs,
+            agent configurations, and other information submitted through the Services.
           </li>
           <li>
-            <strong>Usage and technical information:</strong>{" "}
-            IP address, browser and device information, timestamps, session information,
-            diagnostics, security events, and interactions with the Services.
+            <strong>Usage and technical information:</strong> IP address, browser and device
+            information, timestamps, session information, diagnostics, security events, and
+            interactions with the Services.
           </li>
           <li>
-            <strong>Communications:</strong>{" "}
-            messages, support requests, feedback, information submitted through our waitlist or
-            other forms, and account-verification, password-reset, password-change, security, and
-            organization-invitation emails we send.
+            <strong>Communications:</strong> messages, support requests, feedback, information
+            submitted through our waitlist or other forms, and account-verification, password-reset,
+            password-change, security, and organization-invitation emails we send.
           </li>
         </ul>
       </section>
@@ -96,18 +93,19 @@ function PrivacyPage() {
           not be shared.
         </p>
         <p>
-          When you create, change, or reset a password, we screen it against Have I Been Pwned&apos;s
-          Pwned Passwords service. The check sends only the first five characters of a SHA-1 hash
-          derived from the password—not the password or its full hash—to retrieve a range of
-          possible matches, which our authentication service checks locally. We use the result only
-          to reject passwords reported as compromised. Learn more about the{" "}
+          When you create, change, or reset a password, we screen it against Have I Been
+          Pwned&apos;s Pwned Passwords service. The check sends only the first five characters of a
+          SHA-1 hash derived from the password—not the password or its full hash—to retrieve a range
+          of possible matches, which our authentication service checks locally. We use the result
+          only to reject passwords reported as compromised. Learn more about the{" "}
           <a
             href="https://haveibeenpwned.com/API/v3#PwnedPasswords"
             target="_blank"
             rel="noopener noreferrer"
           >
             Pwned Passwords privacy-preserving range search
-          </a>.
+          </a>
+          .
         </p>
         <p>
           When you choose Google or GitHub, the provider authenticates you and returns the account
@@ -127,14 +125,15 @@ function PrivacyPage() {
           address and browser details under{" "}
           <a href="https://automattic.com/privacy/" target="_blank" rel="noopener noreferrer">
             Automattic&apos;s privacy policy
-          </a>.
+          </a>
+          .
         </p>
         <p>
-          GitHub sign-in uses the <code>user:email</code>{" "}
-          scope so GitHub can provide a verified address, including when your primary address is
-          private. This scope provides read-only access to your GitHub email addresses; AstralBeam
-          uses the verified address for authentication and account linking, not to access repository
-          content. You can review GitHub&apos;s{" "}
+          GitHub sign-in uses the <code>user:email</code> scope so GitHub can provide a verified
+          address, including when your primary address is private. This scope provides read-only
+          access to your GitHub email addresses; AstralBeam uses the verified address for
+          authentication and account linking, not to access repository content. You can review
+          GitHub&apos;s{" "}
           <a
             href="https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps"
             target="_blank"
@@ -149,7 +148,8 @@ function PrivacyPage() {
             rel="noopener noreferrer"
           >
             privacy statement
-          </a>.
+          </a>
+          .
         </p>
       </section>
 
@@ -157,10 +157,10 @@ function PrivacyPage() {
         <h2>5. Google user data</h2>
         <p>
           When you choose Google sign-in, AstralBeam requests only the <code>openid</code>,{" "}
-          <code>email</code>, and <code>profile</code>{" "}
-          scopes. We use the resulting account identifier, name, email address, profile image, and
-          authentication information to create or authenticate your account, display your profile,
-          secure your session, and support account administration.
+          <code>email</code>, and <code>profile</code> scopes. We use the resulting account
+          identifier, name, email address, profile image, and authentication information to create
+          or authenticate your account, display your profile, secure your session, and support
+          account administration.
         </p>
         <p>
           We do not sell Google user data, use it for advertising or credit decisions, or use it to
@@ -173,7 +173,8 @@ function PrivacyPage() {
             rel="noopener noreferrer"
           >
             Google API Services User Data Policy
-          </a>, including its Limited Use requirements.
+          </a>
+          , including its Limited Use requirements.
         </p>
       </section>
 
@@ -237,11 +238,11 @@ function PrivacyPage() {
         <p>
           You may update certain profile information, review or revoke active sessions, and manage
           linked sign-in methods through the Services where those controls are available. You can
-          also revoke AstralBeam&apos;s access through Google or GitHub, although doing so does not by
-          itself delete information already held by AstralBeam. Depending on where you live, you may
-          have rights to access, correct, delete, restrict, object to, or receive a copy of personal
-          information. Contact us to make a request. We may need to verify your identity and may
-          retain information where an exception applies.
+          also revoke AstralBeam&apos;s access through Google or GitHub, although doing so does not
+          by itself delete information already held by AstralBeam. Depending on where you live, you
+          may have rights to access, correct, delete, restrict, object to, or receive a copy of
+          personal information. Contact us to make a request. We may need to verify your identity
+          and may retain information where an exception applies.
         </p>
       </section>
 

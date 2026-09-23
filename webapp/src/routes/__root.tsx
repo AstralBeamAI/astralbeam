@@ -60,9 +60,7 @@ const getRedirectOrigin = createIsomorphicFn()
 
 const getSetupState = createIsomorphicFn()
   .server(async () => {
-    const { getDatabaseBootstrapIssues } = await import(
-      "@/db/lib/database-credentials.server"
-    )
+    const { getDatabaseBootstrapIssues } = await import("@/db/lib/database-credentials.server")
     if (getDatabaseBootstrapIssues().length > 0) return { setupComplete: false }
     const { isSetupComplete } = await import("@/lib/config/state.server")
     return {
@@ -86,8 +84,8 @@ export const Route = createRootRouteWithContext<{
   beforeLoad: async ({ location }) => {
     if (isDocsPath(location.pathname)) return
     const state = await getSetupState()
-    const isConfigurePath = location.pathname === "/configure" ||
-      location.pathname.startsWith("/configure/")
+    const isConfigurePath =
+      location.pathname === "/configure" || location.pathname.startsWith("/configure/")
     if (!state.setupComplete) {
       if (isConfigurePath) return
       throw redirect({ to: "/configure", replace: true })
@@ -104,10 +102,7 @@ export const Route = createRootRouteWithContext<{
       AUTH_ALLOWED_RETURN_PATHS,
     )
 
-    if (
-      rawRedirectTo === redirectTo &&
-      searchParams.getAll("redirectTo").length === 1
-    ) {
+    if (rawRedirectTo === redirectTo && searchParams.getAll("redirectTo").length === 1) {
       return
     }
 
@@ -119,7 +114,7 @@ export const Route = createRootRouteWithContext<{
       replace: true,
     })
   },
-  loader: ({ location }) => isDocsPath(location.pathname) ? null : getPublicConfig(),
+  loader: ({ location }) => (isDocsPath(location.pathname) ? null : getPublicConfig()),
   head: () => ({
     meta: [
       {
@@ -182,10 +177,7 @@ function AppProviders({ children }: { children: ReactNode }) {
     [setTheme],
   )
   const searchStr = useLocation({ select: (location) => location.searchStr })
-  const origin = resolveRedirectOrigin(
-    globalThis.location,
-    INERT_REDIRECT_ORIGIN,
-  )
+  const origin = resolveRedirectOrigin(globalThis.location, INERT_REDIRECT_ORIGIN)
   const redirectTo = normalizeReturnPath(
     new URLSearchParams(searchStr).get("redirectTo"),
     origin,

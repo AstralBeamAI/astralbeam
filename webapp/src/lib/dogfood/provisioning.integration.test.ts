@@ -10,9 +10,8 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 const dogfoodIntegration = vi.hoisted(() => {
   // Vite supplies this parseable value only so database modules can load when the suite is skipped.
   const configuredUrl = globalThis.process.env.DATABASE_URL
-  const url = configuredUrl === "postgres://test:test@127.0.0.1:5432/test"
-    ? undefined
-    : configuredUrl
+  const url =
+    configuredUrl === "postgres://test:test@127.0.0.1:5432/test" ? undefined : configuredUrl
   if (url) {
     const parsed = new URL(url)
     if (
@@ -91,11 +90,13 @@ const ownerOnboardingPassword = "Owner-Onboarding-Test-Password-761"
 
 async function synchronizeDashboardIdentity(organizationSlug: string, headers: Headers) {
   const { token } = await runDatabaseEffect(issueDashboardToken({ organizationSlug, headers }))
-  return runDatabaseEffect(getCurrentUser(
-    new Request("http://localhost/api/v1/me", {
-      headers: { authorization: `Bearer ${token}` },
-    }),
-  ))
+  return runDatabaseEffect(
+    getCurrentUser(
+      new Request("http://localhost/api/v1/me", {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    ),
+  )
 }
 
 function provisionDogfood(input = ownerOnboardingFixture) {
@@ -111,7 +112,10 @@ async function completeOwnerPassword(email = ownerOnboardingFixture.email) {
     asResponse: true,
   })
   expect(response.status).toBe(200)
-  const cookie = response.headers.getSetCookie().map((part) => part.split(";")[0]).join("; ")
+  const cookie = response.headers
+    .getSetCookie()
+    .map((part) => part.split(";")[0])
+    .join("; ")
   return new Headers({ cookie })
 }
 
@@ -144,30 +148,37 @@ describe.skipIf(!dogfoodIntegration.url)(
         const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
         const expectedKey = apiKey?.startsWith("sk-")
           ? {
-            organizationId,
-            apiKey,
-          }
+              organizationId,
+              apiKey,
+            }
           : null
         const [configuration] = await db.select().from(organizationConfiguration)
         const [defaultAgent] = await db.select().from(agent)
         expect(configuration).toMatchObject({ organizationId, openaiApiKey: expectedKey })
         expect(defaultAgent).toMatchObject({ organizationId, id: configuration!.defaultAgentId })
-        await runDatabaseEffect(provisionOrganizationDefaultAgent({
-          organizationId,
-          organizationName: "dogfood",
-          openaiApiKey: "sk-different-development-test-key",
-        }))
-        expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey)
-          .toEqual(expectedKey)
+        await runDatabaseEffect(
+          provisionOrganizationDefaultAgent({
+            organizationId,
+            organizationName: "dogfood",
+            openaiApiKey: "sk-different-development-test-key",
+          }),
+        )
+        expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey).toEqual(
+          expectedKey,
+        )
       },
     )
 
     test("two tab selectors and concurrent JIT upserts preserve tenant isolation and ordinary JWT privileges", async () => {
       await provisionDogfood()
-      await expect(runDatabaseEffect(issueDashboardToken({
-        organizationSlug: "dogfood",
-        headers: new Headers(),
-      }))).rejects.toMatchObject({ status: 401 })
+      await expect(
+        runDatabaseEffect(
+          issueDashboardToken({
+            organizationSlug: "dogfood",
+            headers: new Headers(),
+          }),
+        ),
+      ).rejects.toMatchObject({ status: 401 })
       expect(await db.select().from(tenant)).toHaveLength(0)
       const headers = await completeOwnerPassword()
       const auth = await getAuth()
@@ -177,9 +188,8 @@ describe.skipIf(!dogfoodIntegration.url)(
       })
       await auth.api.setActiveOrganization({ headers, body: { organizationId: second.id } })
       const issued = await Promise.all(
-        Array.from(
-          { length: 5 },
-          () => runDatabaseEffect(issueDashboardToken({ organizationSlug: "dogfood", headers })),
+        Array.from({ length: 5 }, () =>
+          runDatabaseEffect(issueDashboardToken({ organizationSlug: "dogfood", headers })),
         ),
       )
       const request = new Request("http://localhost:4500/api/v1/chat", {
@@ -194,7 +204,7 @@ describe.skipIf(!dogfoodIntegration.url)(
                 headers: { authorization: `Bearer ${token}` },
               }),
             ),
-          )
+          ),
         ),
       )
       const principal = await authenticateChatRequest(request)
@@ -221,33 +231,42 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select().from(tenantUser)).toHaveLength(2)
       await db.update(organization).set({ slug: "renamed" }).where(eq(organization.id, dogfoodId))
       await synchronizeDashboardIdentity("renamed", headers)
-      expect(await db.select().from(tenant)).toEqual(expect.arrayContaining([
-        expect.objectContaining({ externalId: dogfoodId, metadata: { slug: "renamed" } }),
-        expect.objectContaining({ externalId: second.id, metadata: { slug: "second" } }),
-      ]))
-      await db.delete(member).where(
-        and(eq(member.organizationId, second.id), eq(member.userId, session!.user.id)),
+      expect(await db.select().from(tenant)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ externalId: dogfoodId, metadata: { slug: "renamed" } }),
+          expect.objectContaining({ externalId: second.id, metadata: { slug: "second" } }),
+        ]),
       )
-      await expect(runDatabaseEffect(issueDashboardToken({ organizationSlug: "second", headers })))
-        .rejects.toMatchObject({ status: 404 })
+      await db
+        .delete(member)
+        .where(and(eq(member.organizationId, second.id), eq(member.userId, session!.user.id)))
+      await expect(
+        runDatabaseEffect(issueDashboardToken({ organizationSlug: "second", headers })),
+      ).rejects.toMatchObject({ status: 404 })
       expect(await db.select().from(tenantUser)).toHaveLength(2)
       await runDatabaseEffect(
-        databaseRateLimiter.consume({
-          key: `dashboard-token:${session!.user.id}`,
-          limit: 60,
-          tokens: 60,
-          window: "1 minute",
-        }).pipe(Effect.ignore),
+        databaseRateLimiter
+          .consume({
+            key: `dashboard-token:${session!.user.id}`,
+            limit: 60,
+            tokens: 60,
+            window: "1 minute",
+          })
+          .pipe(Effect.ignore),
       )
-      await expect(runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers })))
-        .rejects.toMatchObject({ status: 429 })
+      await expect(
+        runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers })),
+      ).rejects.toMatchObject({ status: 429 })
     })
 
     test("tenant synchronization preserves identity, replaces supplied fields, isolates scope and rolls back", async () => {
-      const [first, second] = await db.insert(organization).values([
-        { name: "First", slug: "first" },
-        { name: "Second", slug: "second" },
-      ]).returning()
+      const [first, second] = await db
+        .insert(organization)
+        .values([
+          { name: "First", slug: "first" },
+          { name: "Second", slug: "second" },
+        ])
+        .returning()
       const principal = {
         organization: { id: first!.id },
         tenantUser: {
@@ -315,12 +334,15 @@ describe.skipIf(!dogfoodIntegration.url)(
         sql`alter table tenant_user add constraint synchronization_rollback_test check (external_id <> 'rollback-user')`,
       )
       try {
-        await expect(synchronize({
-          ...principal,
-          tenantUser: { id: "rollback-user", tenant: { id: "rollback-tenant" } },
-        })).rejects.toBeDefined()
-        expect(await db.select().from(tenant).where(eq(tenant.externalId, "rollback-tenant")))
-          .toHaveLength(0)
+        await expect(
+          synchronize({
+            ...principal,
+            tenantUser: { id: "rollback-user", tenant: { id: "rollback-tenant" } },
+          }),
+        ).rejects.toBeDefined()
+        expect(
+          await db.select().from(tenant).where(eq(tenant.externalId, "rollback-tenant")),
+        ).toHaveLength(0)
       } finally {
         await db.execute(sql`alter table tenant_user drop constraint synchronization_rollback_test`)
       }
@@ -353,41 +375,49 @@ describe.skipIf(!dogfoodIntegration.url)(
         body: { organizationId: second.id, name: "Active" },
       })
       await auth.api.deleteApiKey({ headers, body: { keyId: disabled.id } })
-      await expect(auth.api.deleteApiKey({ headers, body: { keyId: active.id } }))
-        .rejects.toMatchObject({ body: { code: "LAST_API_KEY" } })
-      await db.update(member).set({ role: "viewer" }).where(and(
-        eq(member.organizationId, second.id),
-        eq(member.userId, session!.user.id),
-      ))
+      await expect(
+        auth.api.deleteApiKey({ headers, body: { keyId: active.id } }),
+      ).rejects.toMatchObject({ body: { code: "LAST_API_KEY" } })
+      await db
+        .update(member)
+        .set({ role: "viewer" })
+        .where(and(eq(member.organizationId, second.id), eq(member.userId, session!.user.id)))
       const { token } = await runDatabaseEffect(issueDashboardToken(input))
       const authorization = { authorization: `Bearer ${token}` }
-      const scope = await runDatabaseEffect(authenticateRestRequest(
-        new Request(
-          "http://localhost:4500/api/v1/tenants",
-          { headers: authorization },
+      const scope = await runDatabaseEffect(
+        authenticateRestRequest(
+          new Request("http://localhost:4500/api/v1/tenants", { headers: authorization }),
         ),
-      ))
+      )
       expect(scope).toMatchObject({
         organizationId: second.id,
         currentUser: { id: session!.user.id, role: "viewer" },
       })
-      await expect(runDatabaseEffect(authenticateRestRequest(
-        new Request(
-          "http://localhost:4500/api/v1/tenants",
-          { method: "POST", headers: authorization },
+      await expect(
+        runDatabaseEffect(
+          authenticateRestRequest(
+            new Request("http://localhost:4500/api/v1/tenants", {
+              method: "POST",
+              headers: authorization,
+            }),
+          ),
         ),
-      ))).rejects.toMatchObject({ restStatus: 403 })
+      ).rejects.toMatchObject({ restStatus: 403 })
       expect(await db.select().from(tenant)).toHaveLength(0)
-      await db.update(apiKey).set({ expiresAt: new Date(0) }).where(eq(apiKey.id, active.id))
+      await db
+        .update(apiKey)
+        .set({ expiresAt: new Date(0) })
+        .where(eq(apiKey.id, active.id))
       await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
         status: 503,
       })
-      await expect(runDatabaseEffect(authenticateRestRequest(
-        new Request(
-          "http://localhost:4500/api/v1/tenants",
-          { headers: authorization },
+      await expect(
+        runDatabaseEffect(
+          authenticateRestRequest(
+            new Request("http://localhost:4500/api/v1/tenants", { headers: authorization }),
+          ),
         ),
-      ))).rejects.toMatchObject({ restStatus: 401 })
+      ).rejects.toMatchObject({ restStatus: 401 })
       await db.delete(member).where(eq(member.organizationId, second.id))
       await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
         status: 404,
@@ -399,11 +429,13 @@ describe.skipIf(!dogfoodIntegration.url)(
       const headers = await completeOwnerPassword()
       const auth = await getAuth()
       const [protectedKey] = await db.select().from(apiKey)
-      await expect(auth.api.deleteApiKey({ body: { keyId: protectedKey!.id } }))
-        .rejects.toMatchObject({ statusCode: 401 })
+      await expect(
+        auth.api.deleteApiKey({ body: { keyId: protectedKey!.id } }),
+      ).rejects.toMatchObject({ statusCode: 401 })
       await db.update(member).set({ role: "viewer" })
-      await expect(auth.api.deleteApiKey({ headers, body: { keyId: protectedKey!.id } }))
-        .rejects.toMatchObject({ body: { code: "INSUFFICIENT_API_KEY_PERMISSIONS" } })
+      await expect(
+        auth.api.deleteApiKey({ headers, body: { keyId: protectedKey!.id } }),
+      ).rejects.toMatchObject({ body: { code: "INSUFFICIENT_API_KEY_PERMISSIONS" } })
       await db.update(member).set({ role: "owner" })
       const unrelated = await auth.api.createApiKey({
         headers,
@@ -433,8 +465,7 @@ describe.skipIf(!dogfoodIntegration.url)(
     test("incomplete authentication cannot finalize ownership", async () => {
       delete process.env.TURNSTILE_SITE_KEY
       invalidateGlobalConfig()
-      await expect(provisionDogfood()).rejects
-        .toMatchObject({ _tag: "OwnerOnboardingError" })
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
       expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
       expect(await db.select().from(user)).toHaveLength(0)
       expect(sendResetPasswordEmail).not.toHaveBeenCalled()
@@ -514,10 +545,12 @@ describe.skipIf(!dogfoodIntegration.url)(
       ])
       dogfoodIntegration.failEmail = false
       await provisionDogfood(corrected)
-      expect((await db.select().from(organization)).filter((row) => row.id !== unrelated.id))
-        .toEqual(organizations)
-      expect((await db.select().from(agent)).filter((row) => row.organizationId !== unrelated.id))
-        .toEqual(agents)
+      expect(
+        (await db.select().from(organization)).filter((row) => row.id !== unrelated.id),
+      ).toEqual(organizations)
+      expect(
+        (await db.select().from(agent)).filter((row) => row.organizationId !== unrelated.id),
+      ).toEqual(agents)
       expect(vi.mocked(sendResetPasswordEmail).mock.lastCall?.[0].user.email).toBe(corrected.email)
       await completeOwnerPassword(corrected.email)
     })
@@ -540,7 +573,9 @@ describe.skipIf(!dogfoodIntegration.url)(
 
     test("an unrelated slug is rejected without taking ownership or trapping setup", async () => {
       const auth = await getAuth()
-      const [other] = await db.insert(user).values({ email: "other@example.com", name: "Other" })
+      const [other] = await db
+        .insert(user)
+        .values({ email: "other@example.com", name: "Other" })
         .returning()
       await auth.api.createOrganization({
         body: { userId: other!.id, name: "Existing", slug: "dogfood" },
@@ -552,28 +587,23 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select().from(organization)).toHaveLength(2)
     })
 
-    test(
-      "configuration requires only operator credentials, including during repair",
-      async () => {
-        await provisionDogfood()
-        const ownerHeaders = await completeOwnerPassword()
-        const operator = await createOperatorSession()
-        const authorizedCookie = `operator_session=${operator}`
-        const fallbackKey = "retired-dogfood-test-encryption-key"
-        const listener = createServer()
-        await new Promise<void>((resolve) => listener.listen(0, "127.0.0.1", resolve))
-        const address = listener.address()
-        if (!address || typeof address === "string") throw new Error("Missing test port")
-        const port = address.port
-        await new Promise<void>((resolve) => listener.close(() => resolve()))
-        const origin = `http://localhost:${port}`
-        const server = spawn(process.execPath, [
-          "task",
-          "dev",
-          "--port",
-          String(port),
-          "--strictPort",
-        ], {
+    test("configuration requires only operator credentials, including during repair", async () => {
+      await provisionDogfood()
+      const ownerHeaders = await completeOwnerPassword()
+      const operator = await createOperatorSession()
+      const authorizedCookie = `operator_session=${operator}`
+      const fallbackKey = "retired-dogfood-test-encryption-key"
+      const listener = createServer()
+      await new Promise<void>((resolve) => listener.listen(0, "127.0.0.1", resolve))
+      const address = listener.address()
+      if (!address || typeof address === "string") throw new Error("Missing test port")
+      const port = address.port
+      await new Promise<void>((resolve) => listener.close(() => resolve()))
+      const origin = `http://localhost:${port}`
+      const server = spawn(
+        process.execPath,
+        ["task", "dev", "--port", String(port), "--strictPort"],
+        {
           cwd: process.cwd(),
           env: {
             ...process.env,
@@ -585,107 +615,111 @@ describe.skipIf(!dogfoodIntegration.url)(
             NODE_ENV: "development",
           },
           stdio: "ignore",
-        })
-        try {
-          await vi.waitFor(async () => {
+        },
+      )
+      try {
+        await vi.waitFor(
+          async () => {
             expect(
               (await fetch(`${origin}/src/routes/configure/-functions/save-config-values.ts`)).ok,
             ).toBe(true)
-          }, { timeout: 30_000, interval: 250 })
-          const cases = [
-            ["save-config-values", { updates: [] }],
-            ["generate-config-value", { key: "dogfood_api_key" }],
-            ["reveal-config-value", { key: "dogfood_api_key" }],
-            ["apply-migrations", { approvedMigrations: [] }],
-            ["test-email-provider-connection", {
+          },
+          { timeout: 30_000, interval: 250 },
+        )
+        const cases = [
+          ["save-config-values", { updates: [] }],
+          ["generate-config-value", { key: "dogfood_api_key" }],
+          ["reveal-config-value", { key: "dogfood_api_key" }],
+          ["apply-migrations", { approvedMigrations: [] }],
+          [
+            "test-email-provider-connection",
+            {
               provider: "smtp",
               settings: { host: "127.0.0.1", port: 1025, security: "none" },
-            }],
-          ] as const
-          const requests = new Map<string, (cookie: string, input?: unknown) => Promise<Response>>()
-          for (const [name, data] of cases) {
-            const module =
-              await (await fetch(`${origin}/src/routes/configure/-functions/${name}.ts`))
-                .text()
-            const id = /createClientRpc\("([^"]+)"\)/.exec(module)?.[1]
-            if (!id) throw new Error(`Missing compiled RPC for ${name}`)
-            const request = (cookie: string, input: unknown = data) =>
-              fetch(`${origin}/_serverFn/${id}`, {
-                method: "POST",
-                headers: {
-                  cookie,
-                  origin,
-                  "sec-fetch-site": "same-origin",
-                  "content-type": "application/json",
-                  "x-tsr-serverFn": "true",
-                },
-                body: JSON.stringify(toJSON({ data: input })),
-              })
-            requests.set(name, request)
-            for (
-              const cookie of ["", ownerHeaders.get("cookie")!]
-            ) {
-              const response = await request(cookie)
-              await response.text()
-              expect(response.status).toBe(403)
-            }
-          }
-          for (const name of ["reveal-config-value", "generate-config-value"]) {
-            const response = await requests.get(name)!(authorizedCookie)
-            expect(response.status).toBe(200)
-            const result = fromCrossJSON(await response.json() as SerovalNode, {}) as {
-              result: unknown
-            }
-            expect(result.result).toMatchObject({ ok: false })
-            expect(result.result).not.toHaveProperty("value")
-          }
-          const before = (await getDatabaseConfig()).values.privacy_policy_url
-          const acquired = Promise.withResolvers<void>()
-          const release = Promise.withResolvers<void>()
-          const lock = runDatabaseEffect(withDogfoodProvisioningLock(Effect.promise(() => {
-            acquired.resolve()
-            return release.promise
-          })))
-          try {
-            await acquired.promise
-            const response = await requests.get("save-config-values")!(
-              authorizedCookie,
-              {
-                updates: [{ key: "privacy_policy_url", value: "https://example.com/blocked" }],
+            },
+          ],
+        ] as const
+        const requests = new Map<string, (cookie: string, input?: unknown) => Promise<Response>>()
+        for (const [name, data] of cases) {
+          const module = await (
+            await fetch(`${origin}/src/routes/configure/-functions/${name}.ts`)
+          ).text()
+          const id = /createClientRpc\("([^"]+)"\)/.exec(module)?.[1]
+          if (!id) throw new Error(`Missing compiled RPC for ${name}`)
+          const request = (cookie: string, input: unknown = data) =>
+            fetch(`${origin}/_serverFn/${id}`, {
+              method: "POST",
+              headers: {
+                cookie,
+                origin,
+                "sec-fetch-site": "same-origin",
+                "content-type": "application/json",
+                "x-tsr-serverFn": "true",
               },
-            )
-            expect(response.status).toBe(409)
-            await response.text()
-            expect((await getDatabaseConfig()).values.privacy_policy_url).toBe(before)
-          } finally {
-            release.resolve()
-            await lock
-          }
-          const configured = (await getDatabaseConfig()).values
-          for (const key of ["dogfood_organization_id", "dogfood_api_key"] as const) {
-            const encrypted = encryptDatabaseValue({
-              value: { key, value: configured[key]! },
-              decode: decodeConfigValuePayload,
-              keyring: parseDatabaseEncryptionKeyring(fallbackKey),
+              body: JSON.stringify(toJSON({ data: input })),
             })
-            await db.execute(sql`update config set value = ${encrypted} where key = ${key}`)
+          requests.set(name, request)
+          for (const cookie of ["", ownerHeaders.get("cookie")!]) {
+            const response = await request(cookie)
+            await response.text()
+            expect(response.status).toBe(403)
           }
-          const response = await requests.get("save-config-values")!(authorizedCookie)
-          const result = fromCrossJSON(await response.json() as SerovalNode, {}) as {
+        }
+        for (const name of ["reveal-config-value", "generate-config-value"]) {
+          const response = await requests.get(name)!(authorizedCookie)
+          expect(response.status).toBe(200)
+          const result = fromCrossJSON((await response.json()) as SerovalNode, {}) as {
             result: unknown
           }
-          expect(result.result).toEqual({ ok: true })
-          // This process only has the active key, so a read proves the fallback can be retired.
-          expect((await getDatabaseConfig()).values).toEqual(configured)
-        } finally {
-          server.kill("SIGTERM")
-          await new Promise<void>((resolve) => {
-            if (server.exitCode !== null || server.signalCode !== null) resolve()
-            else server.once("exit", () => resolve())
-          })
+          expect(result.result).toMatchObject({ ok: false })
+          expect(result.result).not.toHaveProperty("value")
         }
-      },
-      60_000,
-    )
+        const before = (await getDatabaseConfig()).values.privacy_policy_url
+        const acquired = Promise.withResolvers<void>()
+        const release = Promise.withResolvers<void>()
+        const lock = runDatabaseEffect(
+          withDogfoodProvisioningLock(
+            Effect.promise(() => {
+              acquired.resolve()
+              return release.promise
+            }),
+          ),
+        )
+        try {
+          await acquired.promise
+          const response = await requests.get("save-config-values")!(authorizedCookie, {
+            updates: [{ key: "privacy_policy_url", value: "https://example.com/blocked" }],
+          })
+          expect(response.status).toBe(409)
+          await response.text()
+          expect((await getDatabaseConfig()).values.privacy_policy_url).toBe(before)
+        } finally {
+          release.resolve()
+          await lock
+        }
+        const configured = (await getDatabaseConfig()).values
+        for (const key of ["dogfood_organization_id", "dogfood_api_key"] as const) {
+          const encrypted = encryptDatabaseValue({
+            value: { key, value: configured[key]! },
+            decode: decodeConfigValuePayload,
+            keyring: parseDatabaseEncryptionKeyring(fallbackKey),
+          })
+          await db.execute(sql`update config set value = ${encrypted} where key = ${key}`)
+        }
+        const response = await requests.get("save-config-values")!(authorizedCookie)
+        const result = fromCrossJSON((await response.json()) as SerovalNode, {}) as {
+          result: unknown
+        }
+        expect(result.result).toEqual({ ok: true })
+        // This process only has the active key, so a read proves the fallback can be retired.
+        expect((await getDatabaseConfig()).values).toEqual(configured)
+      } finally {
+        server.kill("SIGTERM")
+        await new Promise<void>((resolve) => {
+          if (server.exitCode !== null || server.signalCode !== null) resolve()
+          else server.once("exit", () => resolve())
+        })
+      }
+    }, 60_000)
   },
 )

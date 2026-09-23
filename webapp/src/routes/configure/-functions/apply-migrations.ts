@@ -3,10 +3,12 @@ import { Schema } from "effect"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
 const ApplyMigrationsInput = Schema.Struct({
-  approvedMigrations: Schema.Array(Schema.Struct({
-    name: Schema.NonEmptyString,
-    hash: Schema.NonEmptyString,
-  })),
+  approvedMigrations: Schema.Array(
+    Schema.Struct({
+      name: Schema.NonEmptyString,
+      hash: Schema.NonEmptyString,
+    }),
+  ),
 })
 
 interface ApplyMigrationsActionResult {
@@ -21,15 +23,12 @@ export const applyMigrations = createServerFn({ method: "POST" })
     const { applyApprovedMigrations } = await import("@/db/migration-runner.server")
     const { invalidateGlobalConfig } = await import("@/lib/config/runtime.server")
     const { withConfigureError } = await import("../-lib/configure-error.server")
-    const result = await withConfigureError(
-      "Pending migrations could not be applied",
-      async () => {
-        try {
-          return await applyApprovedMigrations([...data.approvedMigrations])
-        } finally {
-          invalidateGlobalConfig()
-        }
-      },
-    )
+    const result = await withConfigureError("Pending migrations could not be applied", async () => {
+      try {
+        return await applyApprovedMigrations([...data.approvedMigrations])
+      } finally {
+        invalidateGlobalConfig()
+      }
+    })
     return result.ok ? { ok: true } : { ok: false, error: result.error }
   })

@@ -7,11 +7,13 @@ import { configureMiddleware } from "../-lib/configure-middleware"
 
 const SaveConfigValuesInput = Schema.Struct({
   onboarding: Schema.optional(OwnerOnboardingInput),
-  updates: Schema.Array(Schema.Struct({
-    key: Schema.NonEmptyString,
-    // `null` clears an optional value.
-    value: Schema.NullOr(Schema.String),
-  })),
+  updates: Schema.Array(
+    Schema.Struct({
+      key: Schema.NonEmptyString,
+      // `null` clears an optional value.
+      value: Schema.NullOr(Schema.String),
+    }),
+  ),
 })
 
 type SaveConfigValuesResult =
@@ -29,7 +31,7 @@ export const saveConfigValues = createServerFn({ method: "POST" })
       "Configuration could not be saved",
       async (): Promise<SaveConfigValuesResult> => {
         const { getGlobalConfig } = await import("@/lib/config")
-        const needsOnboarding = !await getGlobalConfig("dogfood_organization_id")
+        const needsOnboarding = !(await getGlobalConfig("dogfood_organization_id"))
         if (needsOnboarding && !data.onboarding) {
           return {
             ok: false,
@@ -45,10 +47,8 @@ export const saveConfigValues = createServerFn({ method: "POST" })
         return runDatabaseEffect(
           provisionDogfoodResources(data.onboarding!).pipe(
             Effect.as({ ok: true } as const),
-            Effect.catchTag(
-              "OwnerOnboardingError",
-              (error) =>
-                Effect.succeed({ ok: false, error: error.message, fieldErrors: [] } as const),
+            Effect.catchTag("OwnerOnboardingError", (error) =>
+              Effect.succeed({ ok: false, error: error.message, fieldErrors: [] } as const),
             ),
           ),
         )

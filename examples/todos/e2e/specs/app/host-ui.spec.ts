@@ -43,7 +43,10 @@ test("one theme control retunes the app and the widget together", async ({ todos
   await expect(chat.composer()).toBeVisible()
 })
 
-test("the custom theme prop can be toggled without unmounting the widget", async ({ todos, chat }) => {
+test("the custom theme prop can be toggled without unmounting the widget", async ({
+  todos,
+  chat,
+}) => {
   await chat.waitForReady()
   await expect(todos.controls.customTheme).toHaveText("Custom theme: on")
   await todos.toggleCustomTheme()
@@ -51,7 +54,10 @@ test("the custom theme prop can be toggled without unmounting the widget", async
   await expect(chat.composer()).toBeVisible()
 })
 
-test("hiding the assistant unmounts the widget and showing it mounts a new one", async ({ todos, chat }) => {
+test("hiding the assistant unmounts the widget and showing it mounts a new one", async ({
+  todos,
+  chat,
+}) => {
   await chat.waitForReady()
   await todos.toggleAssistant()
   await expect(todos.controls.assistant).toHaveText("Show assistant")

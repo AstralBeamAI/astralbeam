@@ -23,12 +23,13 @@ export const generateConfigValue = createServerFn({ method: "POST" })
     if (!definition || definition.systemManaged || !generate) {
       return { ok: false, error: "This configuration value cannot be generated" }
     }
-    const result = await withConfigureError(
-      "The configuration value could not be generated",
-      () => updateGlobalConfig([{ key: definition.key, value: generate() }]),
+    const result = await withConfigureError("The configuration value could not be generated", () =>
+      updateGlobalConfig([{ key: definition.key, value: generate() }]),
     )
-    return result.ok ? { ok: true } : {
-      ok: false,
-      error: result.fieldErrors[0]?.message ?? "The configuration value could not be generated",
-    }
+    return result.ok
+      ? { ok: true }
+      : {
+          ok: false,
+          error: result.fieldErrors[0]?.message ?? "The configuration value could not be generated",
+        }
   })

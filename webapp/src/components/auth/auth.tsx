@@ -53,13 +53,7 @@ const AUTH_VIEWS: Partial<Record<AuthView, ComponentType<AuthProps>>> = {
  * @param view - Explicit auth view to render (e.g., `"signIn"`, `"signUp"`)
  * @returns The React element for the resolved authentication view
  */
-export function Auth({
-  className,
-  path,
-  socialLayout,
-  socialPosition,
-  view,
-}: AuthProps) {
+export function Auth({ className, path, socialLayout, socialPosition, view }: AuthProps) {
   const { plugins, viewPaths } = useAuth()
 
   if (!view && !path) {
@@ -72,10 +66,8 @@ export function Auth({
     ...(socialPosition === undefined ? {} : { socialPosition }),
   }
 
-  const authView = view ||
-    (Object.keys(viewPaths.auth) as AuthView[]).find(
-      (key) => viewPaths.auth[key] === path,
-    )
+  const authView =
+    view || (Object.keys(viewPaths.auth) as AuthView[]).find((key) => viewPaths.auth[key] === path)
 
   // 1. Plugin overrides (`views.auth[currentView]`) — first plugin wins,
   //    including over built-in views. Resolves the view key from `view`,
@@ -83,12 +75,10 @@ export function Auth({
   for (const plugin of plugins) {
     const pluginAuthPaths = plugin.viewPaths?.auth
 
-    const pluginView = view ??
+    const pluginView =
+      view ??
       authView ??
-      (pluginAuthPaths &&
-        Object.keys(pluginAuthPaths).find(
-          (key) => pluginAuthPaths[key] === path,
-        ))
+      (pluginAuthPaths && Object.keys(pluginAuthPaths).find((key) => pluginAuthPaths[key] === path))
     if (!pluginView) continue
 
     const PluginView = plugin.views?.auth?.[pluginView]
@@ -101,9 +91,9 @@ export function Auth({
 
   if (!AuthView) {
     throw new Error(
-      `[Better Auth UI] Unknown view "${authView}". Valid views are: ${
-        Object.keys(AUTH_VIEWS).join(", ")
-      }`,
+      `[Better Auth UI] Unknown view "${authView}". Valid views are: ${Object.keys(AUTH_VIEWS).join(
+        ", ",
+      )}`,
     )
   }
 

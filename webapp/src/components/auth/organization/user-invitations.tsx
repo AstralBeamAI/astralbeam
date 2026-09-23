@@ -35,33 +35,29 @@ export function UserInvitations({ className, onInvitationAction }: UserInvitatio
   return (
     <div className={className}>
       <div className="flex flex-col gap-3">
-        <h2 className="truncate text-sm font-semibold">
-          {organizationLocalization.invitations}
-        </h2>
+        <h2 className="truncate text-sm font-semibold">{organizationLocalization.invitations}</h2>
 
         <Card className="p-0">
           <CardContent className="p-0">
-            {session.isPending || (emailVerified && isPending)
-              ? (
-                <ItemGroup>
-                  <UserInvitationRowSkeleton />
-                </ItemGroup>
-              )
-              : !invitations?.length
-              ? <UserInvitationsEmpty verificationRequired={!emailVerified} />
-              : (
-                <ItemGroup className="gap-0">
-                  {invitations.map((invitation, index) => (
-                    <Fragment key={invitation.id}>
-                      {index > 0 && <ItemSeparator />}
-                      <UserInvitationRow
-                        invitation={invitation}
-                        {...onInvitationAction ? { onInvitationAction } : {}}
-                      />
-                    </Fragment>
-                  ))}
-                </ItemGroup>
-              )}
+            {session.isPending || (emailVerified && isPending) ? (
+              <ItemGroup>
+                <UserInvitationRowSkeleton />
+              </ItemGroup>
+            ) : !invitations?.length ? (
+              <UserInvitationsEmpty verificationRequired={!emailVerified} />
+            ) : (
+              <ItemGroup className="gap-0">
+                {invitations.map((invitation, index) => (
+                  <Fragment key={invitation.id}>
+                    {index > 0 && <ItemSeparator />}
+                    <UserInvitationRow
+                      invitation={invitation}
+                      {...(onInvitationAction ? { onInvitationAction } : {})}
+                    />
+                  </Fragment>
+                ))}
+              </ItemGroup>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -93,9 +89,7 @@ function UserInvitationsEmpty({
   return (
     <Empty>
       <EmptyHeader>
-        <EmptyMedia variant="icon">
-          {verificationRequired ? <MailWarning /> : <Send />}
-        </EmptyMedia>
+        <EmptyMedia variant="icon">{verificationRequired ? <MailWarning /> : <Send />}</EmptyMedia>
         <EmptyTitle>
           {verificationRequired
             ? organizationLocalization.verifyEmailToViewInvitations

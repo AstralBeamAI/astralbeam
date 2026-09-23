@@ -43,7 +43,7 @@ export function agentsPage(page: Page) {
       if (attachmentsEnabled !== undefined) {
         // The shadcn checkbox keeps its id on a hidden proxy input, so drive it through its role.
         const checkbox = page.locator("form").getByRole("checkbox")
-        if (await checkbox.isChecked() !== attachmentsEnabled) await checkbox.click()
+        if ((await checkbox.isChecked()) !== attachmentsEnabled) await checkbox.click()
         await expect(checkbox).toBeChecked({ checked: attachmentsEnabled })
       }
     },

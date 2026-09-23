@@ -54,13 +54,15 @@ export function TodosAssistant({
             render: ({ id, highlight }) => {
               // Host state changes re-render this definition, keeping projected cards live.
               const todo = todos.find((candidate) => candidate.id === Number(id))
-              return todo && (
-                <TodoCard
-                  title={todo.text}
-                  completed={todo.completed}
-                  highlight={Boolean(highlight)}
-                  onToggle={() => onToggleTodo(todo.id)}
-                />
+              return (
+                todo && (
+                  <TodoCard
+                    title={todo.text}
+                    completed={todo.completed}
+                    highlight={Boolean(highlight)}
+                    onToggle={() => onToggleTodo(todo.id)}
+                  />
+                )
               )
             },
           },

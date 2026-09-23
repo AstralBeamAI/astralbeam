@@ -13,7 +13,20 @@ import { mailboxSmtpPort, operatorKey, webappUrl } from "../../worktree.ts"
  * This is also the suite's setup project. It ends by recording the configured deployment and the
  * signed-in owner, which every spec under `specs/features` depends on.
  */
-test("an operator configures the deployment and an owner runs the dashboard end to end", async ({ page, agents, apiKeys, auth, configure, members, onboarding, organizationDialog, organizationSettings, sandboxes, shell, userSettings }) => {
+test("an operator configures the deployment and an owner runs the dashboard end to end", async ({
+  page,
+  agents,
+  apiKeys,
+  auth,
+  configure,
+  members,
+  onboarding,
+  organizationDialog,
+  organizationSettings,
+  sandboxes,
+  shell,
+  userSettings,
+}) => {
   const identity = makeRunIdentity()
   const ownerEmail = `owner-${identity.runId}@example.com`
   const renamedOrganization = `${identity.organizationName} Renamed`
@@ -67,8 +80,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await onboarding.openCreateOrganization()
     await organizationDialog.create(identity.organizationName, identity.organizationSlug)
     await page.waitForURL(`**/${identity.organizationSlug}`)
-    await expect(page.getByRole("heading", { level: 1, name: identity.organizationName }))
-      .toBeVisible()
+    await expect(
+      page.getByRole("heading", { level: 1, name: identity.organizationName }),
+    ).toBeVisible()
     await captureMilestone(page, "04-dashboard")
   })
 

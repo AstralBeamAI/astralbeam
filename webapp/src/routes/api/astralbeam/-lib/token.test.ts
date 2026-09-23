@@ -11,14 +11,18 @@ vi.mock("@/lib/config", () => ({ getGlobalConfig: vi.fn() }))
 vi.mock("@/lib/config/state.server", () => ({ isSetupComplete: vi.fn() }))
 vi.mock("@/lib/auth/dashboard-token.server", () => ({ issueDashboardToken: vi.fn() }))
 
-const dashboardTokenHandler = (Route.options.server!.handlers as {
-  POST: (context: { request: Request }) => Promise<Response>
-}).POST
+const dashboardTokenHandler = (
+  Route.options.server!.handlers as {
+    POST: (context: { request: Request }) => Promise<Response>
+  }
+).POST
 
 beforeEach(() => {
   vi.mocked(getGlobalConfig).mockReset().mockResolvedValue("https://app.example")
   vi.mocked(isSetupComplete).mockReset().mockResolvedValue(true)
-  vi.mocked(issueDashboardToken).mockReset().mockReturnValue(Effect.succeed({ token: "signed" }))
+  vi.mocked(issueDashboardToken)
+    .mockReset()
+    .mockReturnValue(Effect.succeed({ token: "signed" }))
 })
 
 test.each([
@@ -56,12 +60,14 @@ test("forwards the tab selector and never caches tokens or authentication failur
     headers: request.headers,
   })
   expect(response.headers.get("cache-control")).toBe("private, no-store")
-  vi.mocked(issueDashboardToken).mockReturnValue(Effect.fail({
-    _tag: "DashboardTokenError",
-    status: 401,
-    message: "Authentication required",
-    code: undefined,
-  }))
+  vi.mocked(issueDashboardToken).mockReturnValue(
+    Effect.fail({
+      _tag: "DashboardTokenError",
+      status: 401,
+      message: "Authentication required",
+      code: undefined,
+    }),
+  )
   const denied = await dashboardTokenHandler({ request })
   expect(denied.status).toBe(401)
   expect(denied.headers.get("cache-control")).toBe("private, no-store")

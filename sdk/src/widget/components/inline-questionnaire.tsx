@@ -19,7 +19,10 @@ import type { QuestionnaireAnswer, QuestionnaireItemSpec } from "../lib/types.ts
 // Collects submitted answers as the structured tool output the agent receives.
 function collectAnswers(items: QuestionnaireItemSpec[], formData: FormData): QuestionnaireAnswer[] {
   return items.map((item) => {
-    const values = formData.getAll(item.name).map(String).filter((value) => value.length > 0)
+    const values = formData
+      .getAll(item.name)
+      .map(String)
+      .filter((value) => value.length > 0)
     const labels = values.map(
       (value) => item.choices.find((choice) => choice.value === value)?.label ?? value,
     )
@@ -27,12 +30,13 @@ function collectAnswers(items: QuestionnaireItemSpec[], formData: FormData): Que
   })
 }
 
-export function InlineQuestionnaire(
-  { items, onAnswers }: {
-    items: QuestionnaireItemSpec[]
-    onAnswers: (answers: QuestionnaireAnswer[]) => void
-  },
-) {
+export function InlineQuestionnaire({
+  items,
+  onAnswers,
+}: {
+  items: QuestionnaireItemSpec[]
+  onAnswers: (answers: QuestionnaireAnswer[]) => void
+}) {
   return (
     <Questionnaire
       className="rounded-xl border bg-card p-4"

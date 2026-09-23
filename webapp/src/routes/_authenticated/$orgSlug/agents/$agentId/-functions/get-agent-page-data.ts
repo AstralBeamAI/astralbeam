@@ -26,5 +26,5 @@ export const getAgentPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         }
       }),
-    )
+    ),
   )

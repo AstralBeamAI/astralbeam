@@ -61,9 +61,7 @@ function SandboxProviderPage() {
           <ArrowLeftIcon aria-hidden="true" />
           Sandboxes
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          {data.provider.name}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{data.provider.name}</h1>
         <p className="text-sm text-muted-foreground">
           {descriptor?.label ?? data.provider.providerType}
         </p>
@@ -82,10 +80,8 @@ function SandboxProviderPage() {
         canDelete={permissions.deleteConfiguration}
       />
 
-      {
-        /* Remounting on the lock version keeps the editor's local state tied to the snapshot it
-        was initialized from, so a save after a conflict cannot carry the stale one forward. */
-      }
+      {/* Remounting on the lock version keeps the editor's local state tied to the snapshot it
+        was initialized from, so a save after a conflict cannot carry the stale one forward. */}
       <SandboxProviderForm
         key={`${data.provider.id}:${data.provider.lockVersion}`}
         organizationSlug={orgSlug}

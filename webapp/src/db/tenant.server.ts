@@ -57,8 +57,8 @@ function tenantWhere(scope: TenantScope, id?: string) {
     scope.tenantId === undefined
       ? undefined
       : scope.tenantId === null
-      ? sql`false`
-      : eq(tenant.id, scope.tenantId),
+        ? sql`false`
+        : eq(tenant.id, scope.tenantId),
     id === undefined ? undefined : eq(tenant.id, id),
   )
 }
@@ -66,43 +66,46 @@ function tenantWhere(scope: TenantScope, id?: string) {
 export function resolveTenant(organizationId: string, externalId: string) {
   return Effect.gen(function* () {
     const database = yield* effectDatabase
-    const rows = yield* database.select({ id: tenant.id }).from(tenant).where(
-      and(eq(tenant.organizationId, organizationId), eq(tenant.externalId, externalId)),
-    ).limit(1)
+    const rows = yield* database
+      .select({ id: tenant.id })
+      .from(tenant)
+      .where(and(eq(tenant.organizationId, organizationId), eq(tenant.externalId, externalId)))
+      .limit(1)
     return rows[0]?.id ?? null
   }).pipe(Effect.mapError(tenantDatabaseError))
 }
 
-export function listTenants(
-  scope: TenantScope,
-  options: TenantListOptions = {},
-) {
+export function listTenants(scope: TenantScope, options: TenantListOptions = {}) {
   const { externalId, search } = options
   return databasePages(options, (position, limit, backward) =>
     Effect.gen(function* () {
       const database = yield* effectDatabase
-      return yield* database.select().from(tenant).where(
-        and(
-          tenantWhere(scope),
-          externalId === undefined ? undefined : eq(tenant.externalId, externalId),
-          search
-            ? or(
-              ilike(tenant.name, tenantSearchPattern(search)),
-              ilike(tenant.externalId, tenantSearchPattern(search)),
-            )
-            : undefined,
-          position ? (backward ? lt : gt)(tenant.id, position.id) : undefined,
-        ),
-      ).orderBy((backward ? desc : asc)(tenant.id)).limit(limit)
-    }).pipe(Effect.mapError(tenantDatabaseError)))
+      return yield* database
+        .select()
+        .from(tenant)
+        .where(
+          and(
+            tenantWhere(scope),
+            externalId === undefined ? undefined : eq(tenant.externalId, externalId),
+            search
+              ? or(
+                  ilike(tenant.name, tenantSearchPattern(search)),
+                  ilike(tenant.externalId, tenantSearchPattern(search)),
+                )
+              : undefined,
+            position ? (backward ? lt : gt)(tenant.id, position.id) : undefined,
+          ),
+        )
+        .orderBy((backward ? desc : asc)(tenant.id))
+        .limit(limit)
+    }).pipe(Effect.mapError(tenantDatabaseError)),
+  )
 }
 
 export function getTenant(scope: TenantScope, id: string) {
   return Effect.gen(function* () {
     const database = yield* effectDatabase
-    const rows = yield* database.select().from(tenant).where(
-      tenantWhere(scope, id),
-    ).limit(1)
+    const rows = yield* database.select().from(tenant).where(tenantWhere(scope, id)).limit(1)
     return rows[0]
   }).pipe(
     Effect.mapError(tenantDatabaseError),
@@ -124,10 +127,13 @@ export function createTenant(scope: TenantScope, input: TenantWrite) {
       )
     }
     const database = yield* effectDatabase
-    const [row] = yield* database.insert(tenant).values({
-      ...input,
-      organizationId: scope.organizationId,
-    }).returning()
+    const [row] = yield* database
+      .insert(tenant)
+      .values({
+        ...input,
+        organizationId: scope.organizationId,
+      })
+      .returning()
     return row!
   }).pipe(Effect.mapError(tenantDatabaseError))
 }
@@ -143,8 +149,7 @@ export function updateTenant(scope: TenantScope, id: string, patch: TenantPatch)
       )
     }
     const database = yield* effectDatabase
-    const rows = yield* database.update(tenant).set(patch).where(tenantWhere(scope, id))
-      .returning()
+    const rows = yield* database.update(tenant).set(patch).where(tenantWhere(scope, id)).returning()
     return rows[0]
   }).pipe(
     Effect.mapError(tenantDatabaseError),

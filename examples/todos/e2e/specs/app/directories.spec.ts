@@ -33,11 +33,12 @@ test("example lists only its tenant's users and filters stored admin status", as
   await expect(directory.user(admin.name)).toBeVisible()
 })
 
-test("a missing tenant can be refreshed after provisioning without remounting", async ({ page }) => {
+test("a missing tenant can be refreshed after provisioning without remounting", async ({
+  page,
+}) => {
   const directory = directoriesPage(page)
-  await page.route(
-    "**/api/v1/tenants?*",
-    (route) => route.fulfill({ json: { items: [], page_after: null, page_before: null } }),
+  await page.route("**/api/v1/tenants?*", (route) =>
+    route.fulfill({ json: { items: [], page_after: null, page_before: null } }),
   )
   await directory.open()
   await expect(directory.users).toContainText("No persisted tenant found")
@@ -47,7 +48,9 @@ test("a missing tenant can be refreshed after provisioning without remounting", 
   await expect(directory.user(seedTarget.user.name)).toBeVisible()
 })
 
-test("directories share chat theme tokens across system, dark, and removed overrides", async ({ page }) => {
+test("directories share chat theme tokens across system, dark, and removed overrides", async ({
+  page,
+}) => {
   await page.emulateMedia({ colorScheme: "light" })
   const directory = directoriesPage(page)
   const tenant = SEED_ORGANIZATIONS[0].tenants[0]
@@ -65,7 +68,9 @@ test("directories share chat theme tokens across system, dark, and removed overr
   await expect(directory.userTable).toHaveCSS("background-color", "rgb(253, 249, 240)")
 })
 
-test("terminal API failures reach the host without losing the widget error UI", async ({ page }) => {
+test("terminal API failures reach the host without losing the widget error UI", async ({
+  page,
+}) => {
   const directory = directoriesPage(page)
   await page.route("**/api/v1/tenants/*/tenant_users?*", (route) =>
     route.fulfill({
@@ -77,7 +82,8 @@ test("terminal API failures reach the host without losing the widget error UI", 
         status: 403,
         detail: "Directory access denied",
       }),
-    }))
+    }),
+  )
   await directory.open()
   await expect(directory.error).toContainText("Directory error: Directory access denied")
   await expect(directory.users.getByText("Directory access denied")).toBeVisible()
@@ -89,7 +95,9 @@ test("terminal API failures reach the host without losing the widget error UI", 
   await expect(directory.error).toHaveCount(0)
 })
 
-test("vanilla tenant directories enforce admin authority across reset and remount", async ({ page }) => {
+test("vanilla tenant directories enforce admin authority across reset and remount", async ({
+  page,
+}) => {
   const directory = directoriesPage(page)
   const tenant = SEED_ORGANIZATIONS[0].tenants[1]
   const [admin, member] = tenant.users
@@ -120,8 +128,8 @@ test("vanilla tenant directories enforce admin authority across reset and remoun
   await expect(directory.user(admin.name)).toBeVisible()
 
   token = await createAstralBeamToken(memberTarget)
-  const denied = page.waitForResponse((response) =>
-    response.url().includes("/api/v1/tenants") && response.status() === 403
+  const denied = page.waitForResponse(
+    (response) => response.url().includes("/api/v1/tenants") && response.status() === 403,
   )
   await directory.reset.click()
   await denied
@@ -155,8 +163,8 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   await directory.previous.click()
   await expect(directory.tenant(first.name)).toBeVisible()
   await expect(directory.tenant(second.name)).toHaveCount(0)
-  const searched = page.waitForResponse((response) =>
-    new URL(response.url()).searchParams.get("q") === "o"
+  const searched = page.waitForResponse(
+    (response) => new URL(response.url()).searchParams.get("q") === "o",
   )
   await directory.tenantPicker.fill("o")
   await searched
@@ -173,7 +181,9 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   await captureMoment(page, "tenant-search-real-cursors")
 })
 
-test("external tenant IDs resolve exactly and missing tenants never show another tenant's users", async ({ page }) => {
+test("external tenant IDs resolve exactly and missing tenants never show another tenant's users", async ({
+  page,
+}) => {
   const directory = directoriesPage(page)
   const tenant = SEED_ORGANIZATIONS[0].tenants[1]
   const token = await createAstralBeamOrganizationToken({

@@ -5,16 +5,13 @@ import { useEffect, useState } from "react"
 
 function formatRemaining(milliseconds: number): string {
   const seconds = Math.max(0, Math.round(milliseconds / 1000))
-  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${
-    String(seconds % 60).padStart(2, "0")
-  }`
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(
+    2,
+    "0",
+  )}`
 }
 
-export function OperatorSessionStatus({
-  sessionExpiresAt,
-}: {
-  sessionExpiresAt: string
-}) {
+export function OperatorSessionStatus({ sessionExpiresAt }: { sessionExpiresAt: string }) {
   const router = useRouter()
   const expiresAt = new Date(sessionExpiresAt).getTime()
   const [remaining, setRemaining] = useState(() => expiresAt - Date.now())

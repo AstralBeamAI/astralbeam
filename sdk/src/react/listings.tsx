@@ -64,41 +64,45 @@ function useListingMount<
     onTenantSelect,
     onTenantUserSelect,
   } = options
-  const live = useMemo(() => ({
-    apiUrl,
-    fetchAstralBeamToken,
-    scope,
-    tenantId,
-    tenantExternalId,
-    showAdmin,
-    pageSize,
-    title,
-    showHeader,
-    customCss,
-    colorScheme,
-    theme,
-    onError,
-    onTenantChange,
-    onTenantSelect,
-    onTenantUserSelect,
-  }) as T, [
-    apiUrl,
-    fetchAstralBeamToken,
-    scope,
-    tenantId,
-    tenantExternalId,
-    showAdmin,
-    pageSize,
-    title,
-    showHeader,
-    customCss,
-    colorScheme,
-    theme,
-    onError,
-    onTenantChange,
-    onTenantSelect,
-    onTenantUserSelect,
-  ])
+  const live = useMemo(
+    () =>
+      ({
+        apiUrl,
+        fetchAstralBeamToken,
+        scope,
+        tenantId,
+        tenantExternalId,
+        showAdmin,
+        pageSize,
+        title,
+        showHeader,
+        customCss,
+        colorScheme,
+        theme,
+        onError,
+        onTenantChange,
+        onTenantSelect,
+        onTenantUserSelect,
+      }) as T,
+    [
+      apiUrl,
+      fetchAstralBeamToken,
+      scope,
+      tenantId,
+      tenantExternalId,
+      showAdmin,
+      pageSize,
+      title,
+      showHeader,
+      customCss,
+      colorScheme,
+      theme,
+      onError,
+      onTenantChange,
+      onTenantSelect,
+      onTenantUserSelect,
+    ],
+  )
   const liveRef = useRef(live)
   useEffect(() => {
     liveRef.current = live
@@ -114,11 +118,15 @@ function useListingMount<
   useEffect(() => {
     handle.current?.update(live)
   }, [live])
-  useImperativeHandle(ref, () => ({
-    update: (next) => handle.current?.update(next),
-    refresh: () => handle.current?.refresh(),
-    reset: () => handle.current?.reset(),
-    unmount: () => handle.current?.unmount(),
-  }), [])
+  useImperativeHandle(
+    ref,
+    () => ({
+      update: (next) => handle.current?.update(next),
+      refresh: () => handle.current?.refresh(),
+      reset: () => handle.current?.reset(),
+      unmount: () => handle.current?.unmount(),
+    }),
+    [],
+  )
   return target
 }

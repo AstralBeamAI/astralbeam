@@ -56,50 +56,60 @@ const sandboxPath = Schema.String.pipe(
 // Each input goes through both conversions: `toStandardSchemaV1` gives TanStack the validator it
 // runs before `execute`, and `toStandardJSONSchemaV1` the JSON Schema it declares to the model.
 const WriteSandboxFileInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(Schema.Struct({
-    path: sandboxPath.annotate({
-      description: "File to create or replace, relative to the workspace or absolute inside it.",
+  Schema.toStandardSchemaV1(
+    Schema.Struct({
+      path: sandboxPath.annotate({
+        description: "File to create or replace, relative to the workspace or absolute inside it.",
+      }),
+      content: Schema.String.annotate({
+        description: "The complete new contents of the file, replacing anything already there.",
+      }),
     }),
-    content: Schema.String.annotate({
-      description: "The complete new contents of the file, replacing anything already there.",
-    }),
-  })),
+  ),
 )
 
 const ReadSandboxFileInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(Schema.Struct({
-    path: sandboxPath.annotate({ description: "File to read, inside the workspace." }),
-  })),
+  Schema.toStandardSchemaV1(
+    Schema.Struct({
+      path: sandboxPath.annotate({ description: "File to read, inside the workspace." }),
+    }),
+  ),
 )
 
 const ListSandboxFilesInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(Schema.Struct({
-    path: Schema.optionalKey(
-      sandboxPath.annotate({ description: "Directory to list. Defaults to the workspace root." }),
-    ),
-  })),
+  Schema.toStandardSchemaV1(
+    Schema.Struct({
+      path: Schema.optionalKey(
+        sandboxPath.annotate({ description: "Directory to list. Defaults to the workspace root." }),
+      ),
+    }),
+  ),
 )
 
 const PublishSandboxArtifactInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(Schema.Struct({
-    path: sandboxPath.annotate({
-      description: "File to share with the user, inside the workspace.",
+  Schema.toStandardSchemaV1(
+    Schema.Struct({
+      path: sandboxPath.annotate({
+        description: "File to share with the user, inside the workspace.",
+      }),
     }),
-  })),
+  ),
 )
 
 const RunSandboxCommandInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(Schema.Struct({
-    command: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
-      description:
-        "Shell command to run. It goes through the sandbox's shell, so pipes and redirection work.",
-    }),
-    cwd: Schema.optionalKey(
-      sandboxPath.annotate({
-        description: "Working directory for the command. Defaults to the workspace root.",
+  Schema.toStandardSchemaV1(
+    Schema.Struct({
+      command: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
+        description:
+          "Shell command to run. It goes through the sandbox's shell, so pipes and redirection work.",
       }),
-    ),
-  })),
+      cwd: Schema.optionalKey(
+        sandboxPath.annotate({
+          description: "Working directory for the command. Defaults to the workspace root.",
+        }),
+      ),
+    }),
+  ),
 )
 
 /** What the sandbox tools need from TanStack's tool execution context, which is itself optional. */
@@ -107,19 +117,17 @@ interface SandboxToolContext {
   emitCustomEvent: (name: string, value: ChatSandboxStatus) => void
 }
 
-export function createChatSandboxTools(
-  input: {
-    readonly session: ChatSandboxSession
-    readonly log?: DebugLog | undefined
-    /** Verified identifiers minted into artifact tickets; never client-supplied. */
-    readonly artifactScope: {
-      readonly organizationId: string
-      readonly tenantId: string
-      readonly tenantUserId: string
-      readonly sandboxProviderId: string
-    }
-  },
-): AnyServerTool[] {
+export function createChatSandboxTools(input: {
+  readonly session: ChatSandboxSession
+  readonly log?: DebugLog | undefined
+  /** Verified identifiers minted into artifact tickets; never client-supplied. */
+  readonly artifactScope: {
+    readonly organizationId: string
+    readonly tenantId: string
+    readonly tenantUserId: string
+    readonly sandboxProviderId: string
+  }
+}): AnyServerTool[] {
   const { session, log, artifactScope } = input
   /**
    * Every tool starts the sandbox the same way, reporting provisioning progress as it goes. The
@@ -141,7 +149,8 @@ export function createChatSandboxTools(
   }).server<SandboxToolContext>(async ({ path, content }, context) => {
     if (content.length > CHAT_SANDBOX_MAX_WRITE_CHARACTERS) {
       return {
-        refusal: `A single write is limited to ${CHAT_SANDBOX_MAX_WRITE_CHARACTERS} characters. ` +
+        refusal:
+          `A single write is limited to ${CHAT_SANDBOX_MAX_WRITE_CHARACTERS} characters. ` +
           "Write the file in pieces and join them with a command.",
       }
     }
@@ -226,15 +235,17 @@ export function createChatSandboxTools(
     // The signal bounds the vendor call; the surrounding race bounds a provider that ignores it,
     // so a hung command reports a timeout to the agent instead of holding the run open.
     const result = await withSandboxTimeout(
-      handle.process.exec(command, {
-        cwd: resolved.path,
-        signal: AbortSignal.timeout(CHAT_SANDBOX_COMMAND_TIMEOUT_MS),
-      }).catch((error: unknown) => {
-        // A command that cannot launch is the agent's problem to fix, not a broken run. The
-        // vendor's own message can carry hostnames or tokens, so only the log sees it.
-        console.error("A /api/v1/chat sandbox command failed to run:", error)
-        return { stdout: "", stderr: "The command could not be run.", exitCode: -1 }
-      }),
+      handle.process
+        .exec(command, {
+          cwd: resolved.path,
+          signal: AbortSignal.timeout(CHAT_SANDBOX_COMMAND_TIMEOUT_MS),
+        })
+        .catch((error: unknown) => {
+          // A command that cannot launch is the agent's problem to fix, not a broken run. The
+          // vendor's own message can carry hostnames or tokens, so only the log sees it.
+          console.error("A /api/v1/chat sandbox command failed to run:", error)
+          return { stdout: "", stderr: "The command could not be run.", exitCode: -1 }
+        }),
       CHAT_SANDBOX_COMMAND_TIMEOUT_MS,
     )
     const durationMs = Date.now() - startedAt
@@ -281,8 +292,7 @@ export function createChatSandboxTools(
     }
     if (bytes.byteLength > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) {
       return {
-        refusal:
-          `Artifacts are limited to ${CHAT_SANDBOX_MAX_ARTIFACT_BYTES} bytes. Compress or split the file.`,
+        refusal: `Artifacts are limited to ${CHAT_SANDBOX_MAX_ARTIFACT_BYTES} bytes. Compress or split the file.`,
       }
     }
     // Sniffed from content, never from the extension, so a renamed file cannot change how the
@@ -332,9 +342,10 @@ export function resolveSandboxPath(
   path: string,
 ): SandboxResolvedPath | SandboxRefusal {
   const normalized = normalizeSandboxPath(path.startsWith("/") ? path : `${root}/${path}`)
-  const mapped = root !== CHAT_SANDBOX_ROOT && isUnderSandboxRoot(CHAT_SANDBOX_ROOT, normalized)
-    ? `${root}${normalized.slice(CHAT_SANDBOX_ROOT.length)}`
-    : normalized
+  const mapped =
+    root !== CHAT_SANDBOX_ROOT && isUnderSandboxRoot(CHAT_SANDBOX_ROOT, normalized)
+      ? `${root}${normalized.slice(CHAT_SANDBOX_ROOT.length)}`
+      : normalized
   if (!isUnderSandboxRoot(root, mapped)) {
     return {
       refusal: `Only paths inside ${root} can be used here. Reach anything else with a command.`,

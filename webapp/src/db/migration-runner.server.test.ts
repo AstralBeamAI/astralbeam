@@ -16,7 +16,7 @@ function lockClient(locked: boolean) {
 describe("migration advisory lock", () => {
   test("runs migrations while the transaction-scoped lock is held", async () => {
     const applyMigrations = vi.fn(() =>
-      Promise.resolve({ ok: true as const, applied: ["migration"] })
+      Promise.resolve({ ok: true as const, applied: ["migration"] }),
     )
     const locking = lockClient(true)
 

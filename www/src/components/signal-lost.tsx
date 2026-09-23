@@ -20,7 +20,9 @@ export function SignalLost() {
             This sector is uncharted. The page you requested does not exist.
           </p>
           <div className="hero-ctas">
-            <a className="btn btn-primary btn-lg" href="/">RETURN TO BASE</a>
+            <a className="btn btn-primary btn-lg" href="/">
+              RETURN TO BASE
+            </a>
           </div>
         </div>
       </main>

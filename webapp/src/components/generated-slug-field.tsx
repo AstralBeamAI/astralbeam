@@ -56,25 +56,24 @@ export function GeneratedSlugField({
   const [suffixBytes, setSuffixBytes] = useState<Uint8Array | null>(null)
   const [manualValue, setManualValue] = useState<string | null>(null)
   const [availabilityResult, setAvailabilityResult] = useState<SlugAvailabilityResult | null>(null)
-  const suggestion = suffixBytes === null
-    ? ""
-    : generateSlugSuggestion(sourceValue, fallback, suffixBytes)
+  const suggestion =
+    suffixBytes === null ? "" : generateSlugSuggestion(sourceValue, fallback, suffixBytes)
   const value = manualValue ?? suggestion
   const valid = isValidSlug(value)
   const availability: SlugAvailability = !valid
     ? "invalid"
     : !checkAvailability
-    ? "available"
-    : availabilityResult?.value === value
-    ? availabilityResult.availability
-    : "checking"
+      ? "available"
+      : availabilityResult?.value === value
+        ? availabilityResult.availability
+        : "checking"
 
   const availabilityDebouncer = useDebouncer(
     async (nextValue: string) => {
       if (!checkAvailability) return
 
       try {
-        const next = await checkAvailability(nextValue) ? "available" : "unavailable"
+        const next = (await checkAvailability(nextValue)) ? "available" : "unavailable"
         setAvailabilityResult({ value: nextValue, availability: next })
       } catch {
         setAvailabilityResult({ value: nextValue, availability: "idle" })
@@ -117,15 +116,16 @@ export function GeneratedSlugField({
     setManualValue(null)
   }
 
-  const error = suffixBytes === null
-    ? undefined
-    : value.length === 0
-    ? "Identifier is required"
-    : !valid
-    ? SLUG_VALIDATION_MESSAGE
-    : availability === "unavailable"
-    ? "This identifier is not available"
-    : undefined
+  const error =
+    suffixBytes === null
+      ? undefined
+      : value.length === 0
+        ? "Identifier is required"
+        : !valid
+          ? SLUG_VALIDATION_MESSAGE
+          : availability === "unavailable"
+            ? "This identifier is not available"
+            : undefined
 
   return (
     <Field data-invalid={!!error}>
@@ -162,15 +162,13 @@ export function GeneratedSlugField({
         </InputGroupAddon>
       </InputGroup>
       <FieldDescription>
-        {formatPreview && valid
-          ? (
-            <>
-              Public ID: <span className="font-mono">{formatPreview(value)}</span>.
-            </>
-          )
-          : (
-            "Use lowercase letters, numbers, and hyphens only."
-          )}
+        {formatPreview && valid ? (
+          <>
+            Public ID: <span className="font-mono">{formatPreview(value)}</span>.
+          </>
+        ) : (
+          "Use lowercase letters, numbers, and hyphens only."
+        )}
       </FieldDescription>
       <FieldError>{error}</FieldError>
     </Field>

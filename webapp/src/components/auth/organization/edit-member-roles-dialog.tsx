@@ -69,8 +69,10 @@ export function EditMemberRolesDialog({
   const toggleMemberRole = (role: string, checked: boolean) => {
     setSelectedRoles((current) =>
       checked
-        ? current.includes(role) ? current : [...current, role]
-        : current.filter((entry) => entry !== role)
+        ? current.includes(role)
+          ? current
+          : [...current, role]
+        : current.filter((entry) => entry !== role),
     )
   }
 
@@ -103,11 +105,10 @@ export function EditMemberRolesDialog({
           <div className="flex flex-col gap-2">
             {roles.map(([role, label]) => {
               const checked = selectedRoles.includes(role)
-              const disabled = isPending ||
+              const disabled =
+                isPending ||
                 (checked && selectedRoles.length === 1) ||
-                (role === protectedRole &&
-                  checked &&
-                  protectedRoleRemovalDisabled === true)
+                (role === protectedRole && checked && protectedRoleRemovalDisabled === true)
               const id = `member-${member.id}-role-${role}`
 
               return (

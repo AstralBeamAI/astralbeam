@@ -12,9 +12,7 @@ class DatabaseEncryptionError extends Data.TaggedError("DatabaseEncryptionError"
   readonly message: string
 }> {}
 
-const DATABASE_ENCRYPTION_SALT = new TextEncoder().encode(
-  "database-encryption:hkdf-sha256:v1",
-)
+const DATABASE_ENCRYPTION_SALT = new TextEncoder().encode("database-encryption:hkdf-sha256:v1")
 const DATABASE_ENCRYPTION_INFO = new TextEncoder().encode("database-encryption:a256gcm:v1")
 const DATABASE_ENCRYPTION_KID_PATTERN = /^[\w-]{43}$/
 
@@ -35,9 +33,7 @@ type DecryptDatabaseValueOptions<Value> = {
   keyring: DatabaseEncryptionKeyring
 }
 
-export function encryptDatabaseValue<Value>(
-  options: EncryptDatabaseValueOptions<Value>,
-): string {
+export function encryptDatabaseValue<Value>(options: EncryptDatabaseValueOptions<Value>): string {
   try {
     const value = options.decode(options.value)
     const activeKey = options.keyring[0]

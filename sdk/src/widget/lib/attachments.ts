@@ -30,9 +30,8 @@ export interface AttachmentFileInfo {
 export function resolveAttachmentOptions(
   option: boolean | AstralBeamChatAttachmentOptions | undefined,
 ): ResolvedAttachmentOptions {
-  const given: AstralBeamChatAttachmentOptions = typeof option === "object" && option !== null
-    ? option
-    : {}
+  const given: AstralBeamChatAttachmentOptions =
+    typeof option === "object" && option !== null ? option : {}
   // A positive number is required for every cap: a zero or negative override would silently
   // reject every file, which reads as a broken composer rather than as a configured limit.
   const positive = (value: number | undefined, fallback: number) =>
@@ -57,8 +56,12 @@ function fileExtension(name: string): string {
 }
 
 function isTextualMimeType(mimeType: string): boolean {
-  return mimeType.startsWith("text/") || ATTACHMENT_TEXT_MIME_TYPES.includes(mimeType) ||
-    mimeType.endsWith("+json") || mimeType.endsWith("+xml")
+  return (
+    mimeType.startsWith("text/") ||
+    ATTACHMENT_TEXT_MIME_TYPES.includes(mimeType) ||
+    mimeType.endsWith("+json") ||
+    mimeType.endsWith("+xml")
+  )
 }
 
 /** Matches one `accept` entry, which is either a full MIME type or a `type/*` pattern. */
@@ -99,7 +102,9 @@ export function classifyAttachmentFile(
     mimeType = canonical
     // `.env.production` and friends are the one family worth a prefix; the rest are exact names.
   } else if (
-    ATTACHMENT_TEXT_FILENAMES.includes(name) || name === ".env" || name.startsWith(".env.") ||
+    ATTACHMENT_TEXT_FILENAMES.includes(name) ||
+    name === ".env" ||
+    name.startsWith(".env.") ||
     ATTACHMENT_TEXT_EXTENSIONS.includes(extension)
   ) {
     kind = "text"
@@ -111,7 +116,8 @@ export function classifyAttachmentFile(
   }
   if (!kind) return { error: "Unsupported file type" }
   if (
-    limits.accept.length > 0 && !limits.accept.some((entry) => matchesAcceptEntry(mimeType, entry))
+    limits.accept.length > 0 &&
+    !limits.accept.some((entry) => matchesAcceptEntry(mimeType, entry))
   ) {
     return { error: "This chat does not accept that file type" }
   }
@@ -119,17 +125,14 @@ export function classifyAttachmentFile(
 }
 
 /** Per-file cap: the kind's own limit, lowered by a host-supplied ceiling. */
-function attachmentSizeLimit(
-  kind: AttachmentKind,
-  limits: ResolvedAttachmentOptions,
-): number {
+function attachmentSizeLimit(kind: AttachmentKind, limits: ResolvedAttachmentOptions): number {
   return Math.min(MAX_ATTACHMENT_BYTES_BY_KIND[kind], limits.maxFileBytes)
 }
 
 /** Bytes already committed to the next message; unread files count at their reported size. */
 function attachmentBytesUsed(attachments: readonly DraftAttachment[]): number {
   return attachments.reduce(
-    (total, attachment) => attachment.status === "error" ? total : total + attachment.size,
+    (total, attachment) => (attachment.status === "error" ? total : total + attachment.size),
     0,
   )
 }
@@ -156,16 +159,19 @@ export function attachmentAcceptAttribute(limits: ResolvedAttachmentOptions): st
  * with `status: "error"` and the reason, so the composer can show why rather than dropping
  * the file; the caller reads only the ones that come back as `"reading"`.
  */
-export function acceptAttachmentFiles<TFile extends AttachmentFileInfo>(
-  { files, existing, limits, createId }: {
-    files: readonly TFile[]
-    existing: readonly DraftAttachment[]
-    limits: ResolvedAttachmentOptions
-    createId: () => string
-  },
-): Array<{ draft: DraftAttachment; file: TFile }> {
-  let slots = limits.maxFiles -
-    existing.filter((attachment) => attachment.status !== "error").length
+export function acceptAttachmentFiles<TFile extends AttachmentFileInfo>({
+  files,
+  existing,
+  limits,
+  createId,
+}: {
+  files: readonly TFile[]
+  existing: readonly DraftAttachment[]
+  limits: ResolvedAttachmentOptions
+  createId: () => string
+}): Array<{ draft: DraftAttachment; file: TFile }> {
+  let slots =
+    limits.maxFiles - existing.filter((attachment) => attachment.status !== "error").length
   let bytes = attachmentBytesUsed(existing)
   return files.map((file) => {
     const base = { id: createId(), name: file.name, size: file.size, mimeType: file.type }
@@ -248,49 +254,57 @@ function safeAttachmentHref(href: string): string | undefined {
  * of a restored or host-built conversation carry no guaranteed metadata, and the sending
  * composer is the only thing that puts a filename on them.
  */
-export function describeSentAttachment(
-  part: {
-    type: "image" | "document"
-    source: { value: string; mimeType?: string }
-    metadata?: unknown
-  },
-): {
+export function describeSentAttachment(part: {
+  type: "image" | "document"
+  source: { value: string; mimeType?: string }
+  metadata?: unknown
+}): {
   kind: AttachmentKind
   title: string
   description: string | undefined
   /** Where the file itself lives, for the thumbnail and the download; absent if it carries none. */
   href: string | undefined
 } {
-  const metadata = typeof part.metadata === "object" && part.metadata !== null
-    ? part.metadata as { filename?: unknown; size?: unknown }
-    : {}
+  const metadata =
+    typeof part.metadata === "object" && part.metadata !== null
+      ? (part.metadata as { filename?: unknown; size?: unknown })
+      : {}
   // Media parts carry no filename of their own, so an unlabeled one reads as its kind.
-  const title = typeof metadata.filename === "string" && metadata.filename.length > 0
-    ? metadata.filename
-    : part.type === "image"
-    ? "Image"
-    : "Attachment"
-  const size = typeof metadata.size === "number" && metadata.size > 0
-    ? formatByteSize(metadata.size)
-    : undefined
+  const title =
+    typeof metadata.filename === "string" && metadata.filename.length > 0
+      ? metadata.filename
+      : part.type === "image"
+        ? "Image"
+        : "Attachment"
+  const size =
+    typeof metadata.size === "number" && metadata.size > 0
+      ? formatByteSize(metadata.size)
+      : undefined
   // A restored or host-built part may carry no type at all, so an unrecognized one reads as text.
-  const kind: AttachmentKind = part.type === "image"
-    ? "image"
-    : mimeTypeKind(normalizeMimeType(part.source.mimeType ?? "")) ?? "text"
+  const kind: AttachmentKind =
+    part.type === "image"
+      ? "image"
+      : (mimeTypeKind(normalizeMimeType(part.source.mimeType ?? "")) ?? "text")
   // The part carries the bytes itself — the chat endpoint refuses a `url` source — so one data URI
   // serves both the thumbnail and the download.
-  const href = part.source.value.length === 0 ? undefined : safeAttachmentHref(
-    part.source.value.startsWith("data:") ? part.source.value : attachmentDataUri(
-      part.source.mimeType ?? (kind === "image" ? "image/png" : "application/octet-stream"),
-      part.source.value,
-    ),
-  )
+  const href =
+    part.source.value.length === 0
+      ? undefined
+      : safeAttachmentHref(
+          part.source.value.startsWith("data:")
+            ? part.source.value
+            : attachmentDataUri(
+                part.source.mimeType ??
+                  (kind === "image" ? "image/png" : "application/octet-stream"),
+                part.source.value,
+              ),
+        )
   return { kind, title, description: size, href }
 }
 
 /** The parts to send with a message, in pick order; unread and rejected files are left out. */
 export function attachmentContentParts(attachments: readonly DraftAttachment[]): ContentPart[] {
-  return attachments.map(attachmentContentPart).filter((part): part is ContentPart =>
-    part !== undefined
-  )
+  return attachments
+    .map(attachmentContentPart)
+    .filter((part): part is ContentPart => part !== undefined)
 }

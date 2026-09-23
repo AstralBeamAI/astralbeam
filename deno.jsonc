@@ -22,7 +22,7 @@
     // so a page reload picks up an SDK source change.
     "dev": {
       "description": "Run the webapp, website, and todos dev servers plus the SDK watcher concurrently",
-      "dependencies": ["dev:webapp", "dev:www", "dev:sdk", "dev:todos"]
+      "dependencies": ["dev:webapp", "dev:www", "dev:sdk", "dev:todos"],
     },
 
     "build:sdk": "deno task --cwd sdk build",
@@ -30,6 +30,6 @@
     "build:www": "deno task --cwd www build",
     "build:todos": "deno task --cwd examples/todos build",
     // The SDK builds first because the webapp and todos example consume its linked `dist` output.
-    "build": "deno task build:sdk && deno task build:webapp && deno task build:www && deno task build:todos"
-  }
+    "build": "deno task build:sdk && deno task build:webapp && deno task build:www && deno task build:todos",
+  },
 }

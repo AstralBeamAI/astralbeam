@@ -38,9 +38,7 @@ function NewAgentPage() {
           Agents
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Add agent</h1>
-        <p className="text-sm text-muted-foreground">
-          Name the agent and write its system prompt.
-        </p>
+        <p className="text-sm text-muted-foreground">Name the agent and write its system prompt.</p>
       </div>
       <AgentForm
         organizationSlug={orgSlug}

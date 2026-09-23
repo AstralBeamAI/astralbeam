@@ -35,17 +35,14 @@ export default function EmailVerificationEmail({
 
       <EmailDivider />
       <Text className="m-0 text-sm leading-6 text-muted-foreground">
-        This link was sent to{" "}
-        <EmailAddressLink email={email} />. If you did not request it, you can safely ignore this
-        email. The link will expire in {expiryMinutes} minutes.
+        This link was sent to <EmailAddressLink email={email} />. If you did not request it, you can
+        safely ignore this email. The link will expire in {expiryMinutes} minutes.
       </Text>
     </EmailShell>
   )
 }
 
-export function createEmailVerificationPreviewProps(
-  origin: string,
-): EmailVerificationEmailProps {
+export function createEmailVerificationPreviewProps(origin: string): EmailVerificationEmailProps {
   return {
     appName: APP_NAME,
     email: "member@example.com",

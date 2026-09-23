@@ -25,9 +25,7 @@ function loadRawDatabaseTestKeyring(value: unknown) {
 }
 
 function loadDatabaseTestKeyring(value: string) {
-  return loadRawDatabaseTestKeyring(
-    value.split(",").map(databaseTestSecret).join(","),
-  )
+  return loadRawDatabaseTestKeyring(value.split(",").map(databaseTestSecret).join(","))
 }
 
 function encodeDatabaseTestValue(
@@ -69,12 +67,9 @@ describe("database encryption keyring", () => {
     `${one},`,
     `${one},${one}`,
     42,
-  ])(
-    "rejects missing, short, empty, duplicate, or non-string key lists",
-    (value) => {
-      expect(() => loadRawDatabaseTestKeyring(value)).toThrow()
-    },
-  )
+  ])("rejects missing, short, empty, duplicate, or non-string key lists", (value) => {
+    expect(() => loadRawDatabaseTestKeyring(value)).toThrow()
+  })
 
   test("derives stable key IDs and preserves active-first ordering", async () => {
     const first = loadRawDatabaseTestKeyring(
@@ -85,15 +80,19 @@ describe("database encryption keyring", () => {
     const stored = encodeDatabaseTestValue("value", first, decodeDatabaseTestString)
     const sameStored = encodeDatabaseTestValue("value", same, decodeDatabaseTestString)
     expect(databaseTestKeyId(stored)).toBe(databaseTestKeyId(sameStored))
-    await expect(calculateJwkThumbprint({
-      kty: "oct",
-      k: base64url.encode(first[0].root),
-    })).resolves.toBe(databaseTestKeyId(stored))
-    expect(decryptDatabaseValue({
-      storedValue: stored,
-      decode: decodeDatabaseTestString,
-      keyring: reversed,
-    })).toEqual({ value: "value", usedFallbackKey: true })
+    await expect(
+      calculateJwkThumbprint({
+        kty: "oct",
+        k: base64url.encode(first[0].root),
+      }),
+    ).resolves.toBe(databaseTestKeyId(stored))
+    expect(
+      decryptDatabaseValue({
+        storedValue: stored,
+        decode: decodeDatabaseTestString,
+        keyring: reversed,
+      }),
+    ).toEqual({ value: "value", usedFallbackKey: true })
   })
 })
 
@@ -138,17 +137,19 @@ describe("encrypted database values", () => {
       newAndOld,
       decodeDatabaseTestString,
     )
-    expect(decryptDatabaseValue({
-      storedValue: newStored,
-      decode: decodeDatabaseTestString,
-      keyring: newAndOld,
-    })).toEqual({ value: "old value", usedFallbackKey: false })
+    expect(
+      decryptDatabaseValue({
+        storedValue: newStored,
+        decode: decodeDatabaseTestString,
+        keyring: newAndOld,
+      }),
+    ).toEqual({ value: "old value", usedFallbackKey: false })
     expect(() =>
       decryptDatabaseValue({
         storedValue: oldStored,
         decode: decodeDatabaseTestString,
         keyring: loadDatabaseTestKeyring("new"),
-      })
+      }),
     ).toThrow()
   })
 
@@ -170,7 +171,7 @@ describe("encrypted database values", () => {
           storedValue,
           decode: decodeDatabaseTestString,
           keyring,
-        })
+        }),
       ).toThrow()
     }
 
@@ -180,7 +181,7 @@ describe("encrypted database values", () => {
         storedValue: invalidPayload,
         decode: decodeDatabaseTestString,
         keyring,
-      })
+      }),
     ).toThrow()
   })
 })

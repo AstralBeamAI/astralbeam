@@ -1,9 +1,6 @@
 export class RequestTooLargeError extends Error {}
 
-export async function readRequestJson(
-  request: Request,
-  maximumBytes: number,
-): Promise<unknown> {
+export async function readRequestJson(request: Request, maximumBytes: number): Promise<unknown> {
   const declared = Number(request.headers.get("content-length"))
   if (Number.isFinite(declared) && declared > maximumBytes) throw new RequestTooLargeError()
   const reader = request.body?.getReader()

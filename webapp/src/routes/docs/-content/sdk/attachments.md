@@ -6,23 +6,23 @@ The composer takes files by default: paperclip button, drag and drop, or paste. 
 
 Pass `attachments: false` to turn the feature off, or an object to narrow it.
 
-| Option          | Default                                                              | Meaning                                             |
-| --------------- | -------------------------------------------------------------------- | --------------------------------------------------- |
-| `enabled`       | `true`                                                               | `false` is the same as `attachments: false`         |
-| `maxFiles`      | `5`                                                                  | Files per message                                   |
-| `maxFileBytes`  | per kind: 5 MB image, 10 MB PDF, 1 MB text, 10 MB data, 10 MB office | One file, the smaller of this and the kind cap wins |
-| `maxTotalBytes` | 20 MB                                                                | All files on one message                            |
-| `accept`        | everything supported                                                 | MIME types or `type/*` patterns, e.g. `["image/*"]` |
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `true` | `false` is the same as `attachments: false` |
+| `maxFiles` | `5` | Files per message |
+| `maxFileBytes` | per kind: 5 MB image, 10 MB PDF, 1 MB text, 10 MB data, 10 MB office | One file, the smaller of this and the kind cap wins |
+| `maxTotalBytes` | 20 MB | All files on one message |
+| `accept` | everything supported | MIME types or `type/*` patterns, e.g. `["image/*"]` |
 
 ## Supported files
 
-| Kind     | Formats                                                  | How the agent reads it                                 |
-| -------- | -------------------------------------------------------- | ------------------------------------------------------ |
-| `image`  | PNG, JPEG, WebP, GIF                                     | Directly, it is one of the model's own modalities      |
-| `pdf`    | PDF                                                      | Directly, as a document input                          |
-| `text`   | Markdown, JSON, YAML, CSS, HTML, SVG, source files, logs | `read_attachment`, a page at a time                    |
-| `data`   | CSV, TSV, Parquet, SQLite                                | Column profile with the text, then code in the sandbox |
-| `office` | Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`)    | Extracted text and sheet profiles, then the file       |
+| Kind | Formats | How the agent reads it |
+| --- | --- | --- |
+| `image` | PNG, JPEG, WebP, GIF | Directly, it is one of the model's own modalities |
+| `pdf` | PDF | Directly, as a document input |
+| `text` | Markdown, JSON, YAML, CSS, HTML, SVG, source files, logs | `read_attachment`, a page at a time |
+| `data` | CSV, TSV, Parquet, SQLite | Column profile with the text, then code in the sandbox |
+| `office` | Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`) | Extracted text and sheet profiles, then the file |
 
 ## How a file reaches the agent
 

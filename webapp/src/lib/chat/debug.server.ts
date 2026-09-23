@@ -15,9 +15,7 @@ export function createDebugLog(runId: string): DebugLog {
   return (category, summary, data) => {
     const color = DEBUG_ANSI_BY_CATEGORY[category] ?? ""
     console.log(
-      `${DEBUG_ANSI_BADGE} ${APP_HANDLE} ${DEBUG_ANSI_RESET} ${DEBUG_ANSI_DIM}${
-        new Date().toISOString()
-      } run=${runId}${DEBUG_ANSI_RESET} ${color}${category}${DEBUG_ANSI_RESET} ${summary}`,
+      `${DEBUG_ANSI_BADGE} ${APP_HANDLE} ${DEBUG_ANSI_RESET} ${DEBUG_ANSI_DIM}${new Date().toISOString()} run=${runId}${DEBUG_ANSI_RESET} ${color}${category}${DEBUG_ANSI_RESET} ${summary}`,
     )
     if (data !== undefined) console.dir(data, { depth: null, colors: true })
   }

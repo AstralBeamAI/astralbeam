@@ -19,15 +19,17 @@ function restBoundaryFailure(cause: Cause.Cause<unknown>, operation: string) {
     if (error.kind === "Body" || error.kind === "ResponseHeaders") {
       return restErrorResponse(error, operation)
     }
-    const issues = SchemaIssue.makeFormatterStandardSchemaV1()(error.cause.issue).issues.map((
-      issue,
-    ) => ({
-      path: [
-        body ? "body" : "parameters",
-        ...(issue.path ?? []).map((segment) => typeof segment === "object" ? segment.key : segment),
-      ].join("."),
-      message: issue.message,
-    }))
+    const issues = SchemaIssue.makeFormatterStandardSchemaV1()(error.cause.issue).issues.map(
+      (issue) => ({
+        path: [
+          body ? "body" : "parameters",
+          ...(issue.path ?? []).map((segment) =>
+            typeof segment === "object" ? segment.key : segment,
+          ),
+        ].join("."),
+        message: issue.message,
+      }),
+    )
     return restErrorResponse(
       restFault(body ? 422 : 400, body ? "Invalid request body." : "Invalid request parameters.", {
         issues,
@@ -36,45 +38,41 @@ function restBoundaryFailure(cause: Cause.Cause<unknown>, operation: string) {
   }
   return restErrorResponse(error, operation)
 }
-const RestAuthorizationLive = Layer.succeed(
-  RestAuthorization,
-  (httpEffect) =>
-    Effect.gen(function* () {
-      const request = yield* HttpServerRequest.HttpServerRequest
-      const native = yield* HttpServerRequest.toWeb(request)
-      const scope = yield* authenticateRestRequest(native)
-      return yield* httpEffect.pipe(Effect.provideService(restScope, scope))
-    }).pipe(restBoundaryErrors("authentication")),
+const RestAuthorizationLive = Layer.succeed(RestAuthorization, (httpEffect) =>
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest
+    const native = yield* HttpServerRequest.toWeb(request)
+    const scope = yield* authenticateRestRequest(native)
+    return yield* httpEffect.pipe(Effect.provideService(restScope, scope))
+  }).pipe(restBoundaryErrors("authentication")),
 )
 
-const ApiBoundaryLive = Layer.succeed(
-  ApiBoundary,
-  (httpEffect, { endpoint }) =>
-    Effect.gen(function* () {
-      const request = yield* HttpServerRequest.HttpServerRequest
-      if (!endpoint.query && new URL(request.url, "http://localhost").search) {
-        return yield* Effect.fail(restFault(400, "This endpoint does not accept query parameters."))
+const ApiBoundaryLive = Layer.succeed(ApiBoundary, (httpEffect, { endpoint }) =>
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest
+    if (!endpoint.query && new URL(request.url, "http://localhost").search) {
+      return yield* Effect.fail(restFault(400, "This endpoint does not accept query parameters."))
+    }
+    if (endpoint.payload.size > 0) {
+      if (
+        request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !== "application/json"
+      ) {
+        return yield* Effect.fail(restFault(415, "Use application/json."))
       }
-      if (endpoint.payload.size > 0) {
-        if (
-          request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !==
-            "application/json"
-        ) {
-          return yield* Effect.fail(restFault(415, "Use application/json."))
-        }
-        if (
-          request.headers["content-encoding"] && request.headers["content-encoding"] !== "identity"
-        ) {
-          return yield* Effect.fail(restFault(415, "Content encoding is not supported."))
-        }
+      if (
+        request.headers["content-encoding"] &&
+        request.headers["content-encoding"] !== "identity"
+      ) {
+        return yield* Effect.fail(restFault(415, "Content encoding is not supported."))
       }
-      return yield* httpEffect
-    }).pipe(restBoundaryErrors(endpoint.identifier)),
+    }
+    return yield* httpEffect
+  }).pipe(restBoundaryErrors(endpoint.identifier)),
 )
 
 function restBoundaryErrors(operation: string) {
   return Effect.catchCause((cause) =>
-    Effect.sync(() => HttpServerResponse.fromWeb(restBoundaryFailure(cause, operation)))
+    Effect.sync(() => HttpServerResponse.fromWeb(restBoundaryFailure(cause, operation))),
   )
 }
 

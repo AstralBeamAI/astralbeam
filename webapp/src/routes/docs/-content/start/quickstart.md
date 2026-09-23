@@ -91,13 +91,13 @@ The system prompt lives with the agent, so an embedding application cannot overr
 
 ## Troubleshooting
 
-| Symptom                                        | Cause                                                                                        |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Composer disabled with a retry link            | The token fetch failed or returned something other than `{ token }`                          |
-| `401` from your own endpoint                   | No application session on the request                                                        |
-| `503` from your own endpoint                   | The API key is missing from the server environment                                           |
-| Chat requests fail on a self-hosted deployment | The deployment has no model provider key configured yet                                      |
-| Attachments refused                            | The agent does not allow them, and the chat endpoint enforces that whatever the client sends |
+| Symptom | Cause |
+| --- | --- |
+| Composer disabled with a retry link | The token fetch failed or returned something other than `{ token }` |
+| `401` from your own endpoint | No application session on the request |
+| `503` from your own endpoint | The API key is missing from the server environment |
+| Chat requests fail on a self-hosted deployment | The deployment has no model provider key configured yet |
+| Attachments refused | The agent does not allow them, and the chat endpoint enforces that whatever the client sends |
 
 ## Next
 

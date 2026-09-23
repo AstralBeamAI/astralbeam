@@ -7,7 +7,12 @@ import { dockerDaemonAvailable } from "../../worktree.ts"
  * which creates, uses, and destroys a real container and may pull its image first.
  */
 
-test("saving a Docker provider passes its real connection test", async ({ page, baseline, sandboxes, shell }) => {
+test("saving a Docker provider passes its real connection test", async ({
+  page,
+  baseline,
+  sandboxes,
+  shell,
+}) => {
   expect(
     dockerDaemonAvailable(),
     "E2E_SANDBOX=docker is set, but no Docker daemon answered on the pinned endpoint",

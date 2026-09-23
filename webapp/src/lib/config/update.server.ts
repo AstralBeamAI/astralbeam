@@ -77,9 +77,13 @@ function generateMissingValues(
   const storedKeys = new Set((state.rows ?? []).map((row) => row.key))
   for (const definition of CONFIG_DEFINITIONS) {
     if (
-      !definition.required || !definition.generate || state.values[definition.key] ||
-      storedKeys.has(definition.key) || changedKeys.has(definition.key)
-    ) continue
+      !definition.required ||
+      !definition.generate ||
+      state.values[definition.key] ||
+      storedKeys.has(definition.key) ||
+      changedKeys.has(definition.key)
+    )
+      continue
     try {
       values.push({ key: definition.key, value: definition.decode(definition.generate()) })
     } catch (error) {

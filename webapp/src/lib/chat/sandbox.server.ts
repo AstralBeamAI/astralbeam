@@ -161,12 +161,14 @@ async function writeChatSandboxUploads(
   const directory = `${resolveHarnessCwd(handle)}/${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}`
   // One level below a workspace that already exists, so this needs no recursive `mkdir`.
   await requireSandboxOperation(handle.fs.mkdir(directory), CHAT_SANDBOX_FILE_TIMEOUT_MS)
-  await Promise.all(uploads.map((upload) =>
-    requireSandboxOperation(
-      handle.fs.write(`${directory}/${upload.handle}`, upload.bytes),
-      CHAT_SANDBOX_FILE_TIMEOUT_MS,
-    )
-  ))
+  await Promise.all(
+    uploads.map((upload) =>
+      requireSandboxOperation(
+        handle.fs.write(`${directory}/${upload.handle}`, upload.bytes),
+        CHAT_SANDBOX_FILE_TIMEOUT_MS,
+      ),
+    ),
+  )
 }
 
 export const SANDBOX_TIMEOUT = Symbol("sandbox-timeout")
@@ -206,9 +208,10 @@ export async function requireSandboxOperation<Value>(
  * an organization, tenant, and tenant-user scope taken from the verified token means a forged or
  * colliding thread can only ever reach that principal's own sandboxes.
  */
-function chatSandboxInstanceStore(
-  input: { readonly scope: string; readonly provider: SandboxProvider },
-): SandboxInstanceStore {
+function chatSandboxInstanceStore(input: {
+  readonly scope: string
+  readonly provider: SandboxProvider
+}): SandboxInstanceStore {
   const scoped = (key: string) => `${input.scope}\0${key}`
   return {
     get: (key) => Promise.resolve(chatSandboxLeases.get(scoped(key))?.record ?? null),
@@ -229,9 +232,9 @@ function chatSandboxInstanceStore(
 async function sweepIdleChatSandboxes(): Promise<void> {
   const cutoff = Date.now() - CHAT_SANDBOX_IDLE_TTL_MS
   await Promise.all(
-    [...chatSandboxLeases].filter(([, lease]) => lease.record.updatedAt <= cutoff).map((
-      [key],
-    ) => destroyChatSandboxLease(key)),
+    [...chatSandboxLeases]
+      .filter(([, lease]) => lease.record.updatedAt <= cutoff)
+      .map(([key]) => destroyChatSandboxLease(key)),
   )
   if (chatSandboxLeases.size === 0 && chatSandboxSweepTimer !== undefined) {
     clearInterval(chatSandboxSweepTimer)
@@ -243,10 +246,9 @@ async function sweepIdleChatSandboxes(): Promise<void> {
 // billed sandboxes as it had threads. The least recently used goes first.
 function evictExcessChatSandboxes(): void {
   if (chatSandboxLeases.size <= CHAT_SANDBOX_MAX_LIVE) return
-  const byAge = [...chatSandboxLeases].sort((
-    [, first],
-    [, second],
-  ) => first.record.updatedAt - second.record.updatedAt)
+  const byAge = [...chatSandboxLeases].sort(
+    ([, first], [, second]) => first.record.updatedAt - second.record.updatedAt,
+  )
   for (const [key] of byAge.slice(0, chatSandboxLeases.size - CHAT_SANDBOX_MAX_LIVE)) {
     // Not awaited: a destroy is a vendor round trip, and the run that triggered the eviction is
     // not the one that should wait for it.

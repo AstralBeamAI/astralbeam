@@ -19,8 +19,7 @@ export const steps: Step[] = [
   {
     index: "01",
     title: "ADD THE FRONTEND SDK",
-    desc:
-      "Install one package and mount one component. You get a complete agent sidebar that already streams, retries, reads files, and matches your product.",
+    desc: "Install one package and mount one component. You get a complete agent sidebar that already streams, retries, reads files, and matches your product.",
     file: "sidebar.tsx",
     code: `$ npm install @astralbeam/sdk
 + added 1 package
@@ -46,33 +45,27 @@ export function Sidebar() {
     benefits: [
       {
         name: "Cursor-style agentic chat",
-        desc:
-          "Streaming replies, visible tool calls, and follow-up questions. A React component, or a one-line mount anywhere else.",
+        desc: "Streaming replies, visible tool calls, and follow-up questions. A React component, or a one-line mount anywhere else.",
       },
       {
         name: "Managed backend",
-        desc:
-          "Model calls, tool orchestration, and file handling run on AstralBeam. Nothing for you to deploy or scale.",
+        desc: "Model calls, tool orchestration, and file handling run on AstralBeam. Nothing for you to deploy or scale.",
       },
       {
         name: "Fully customizable",
-        desc:
-          "Your title, copy, color scheme, and design tokens, or swap the header and empty state for your own components.",
+        desc: "Your title, copy, color scheme, and design tokens, or swap the header and empty state for your own components.",
       },
       {
         name: "Users' files",
-        desc:
-          "Users drop in screenshots, PDFs, spreadsheets, and code. The agent reads them and answers from them.",
+        desc: "Users drop in screenshots, PDFs, spreadsheets, and code. The agent reads them and answers from them.",
       },
       {
         name: "Sandboxes and artifacts",
-        desc:
-          "Give the agent a sandbox to run code against uploaded data. The files it produces arrive as signed downloads.",
+        desc: "Give the agent a sandbox to run code against uploaded data. The files it produces arrive as signed downloads.",
       },
       {
         name: "Resumable streaming",
-        desc:
-          "Reload mid-answer and the stream picks up where it left off, on the same device or another one.",
+        desc: "Reload mid-answer and the stream picks up where it left off, on the same device or another one.",
         soon: true,
       },
     ],
@@ -80,8 +73,7 @@ export function Sidebar() {
   {
     index: "02",
     title: "IDENTIFY YOUR USERS",
-    desc:
-      "Your server already knows who is signed in. Mint a short-lived token that carries the user and their tenant, and the widget picks it up. API keys never reach the browser.",
+    desc: "Your server already knows who is signed in. Mint a short-lived token that carries the user and their tenant, and the widget picks it up. API keys never reach the browser.",
     file: "api/astralbeam/token.ts",
     code: `import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
@@ -103,8 +95,7 @@ export async function POST(request: Request) {
     benefits: [
       {
         name: "Conversation history",
-        desc:
-          "Every user picks up their own threads, on any device, without you storing a message.",
+        desc: "Every user picks up their own threads, on any device, without you storing a message.",
         soon: true,
       },
       {
@@ -128,16 +119,14 @@ export async function POST(request: Request) {
       },
       {
         name: "Tenant isolation",
-        desc:
-          "Organization and tenant boundaries are enforced in the database, not only at the API.",
+        desc: "Organization and tenant boundaries are enforced in the database, not only at the API.",
       },
     ],
   },
   {
     index: "03",
     title: "CONNECT TOOLS & WIDGETS",
-    desc:
-      "Declare what the agent can do and what it can draw. Tools run in your page against your own state. Widgets render your components inside the reply.",
+    desc: "Declare what the agent can do and what it can draw. Tools run in your page against your own state. Widgets render your components inside the reply.",
     file: "sidebar.tsx",
     code: `<AstralBeamChat
   tools={{
@@ -158,13 +147,11 @@ export async function POST(request: Request) {
     benefits: [
       {
         name: "Read user data",
-        desc:
-          "Tools run in the page with the user's own session, so the agent sees exactly what they see.",
+        desc: "Tools run in the page with the user's own session, so the agent sees exactly what they see.",
       },
       {
         name: "Take actions",
-        desc:
-          "Refund, create, assign, send. The agent does the work inside your app, behind your permission checks.",
+        desc: "Refund, create, assign, send. The agent does the work inside your app, behind your permission checks.",
       },
       {
         name: "Interactive widgets",
@@ -176,13 +163,11 @@ export async function POST(request: Request) {
       },
       {
         name: "Typed and validated",
-        desc:
-          "Zod, Valibot, ArkType, or plain JSON Schema. Input is validated before your code runs.",
+        desc: "Zod, Valibot, ArkType, or plain JSON Schema. Input is validated before your code runs.",
       },
       {
         name: "Your app as an MCP server",
-        desc:
-          "Expose the same tools over MCP, so users can drive your app from Claude, ChatGPT, or Cursor.",
+        desc: "Expose the same tools over MCP, so users can drive your app from Claude, ChatGPT, or Cursor.",
         soon: true,
       },
     ],
@@ -247,8 +232,18 @@ function highlightTokens(line: string) {
     if (match.index > cursor) nodes.push(line.slice(cursor, match.index))
     cursor = match.index + text.length
 
-    if (str) nodes.push(<span className="t-str" key={key}>{str}</span>)
-    else if (keyword) nodes.push(<span className="t-kw" key={key}>{keyword}</span>)
+    if (str)
+      nodes.push(
+        <span className="t-str" key={key}>
+          {str}
+        </span>,
+      )
+    else if (keyword)
+      nodes.push(
+        <span className="t-kw" key={key}>
+          {keyword}
+        </span>,
+      )
     else if (tag) {
       nodes.push(
         <Fragment key={key}>
@@ -256,7 +251,12 @@ function highlightTokens(line: string) {
           <span className="t-tag">{tag}</span>
         </Fragment>,
       )
-    } else if (fn) nodes.push(<span className="t-fn" key={key}>{fn}</span>)
+    } else if (fn)
+      nodes.push(
+        <span className="t-fn" key={key}>
+          {fn}
+        </span>,
+      )
     else nodes.push(text)
   }
 
@@ -278,8 +278,16 @@ export function highlight(code: string) {
       )
     }
     if (line.startsWith("+ ")) {
-      return <span className="t-line" data-type="out" key={key}>{line}</span>
+      return (
+        <span className="t-line" data-type="out" key={key}>
+          {line}
+        </span>
+      )
     }
-    return <span className="t-line" key={key}>{line === "" ? " " : highlightTokens(line)}</span>
+    return (
+      <span className="t-line" key={key}>
+        {line === "" ? " " : highlightTokens(line)}
+      </span>
+    )
   })
 }

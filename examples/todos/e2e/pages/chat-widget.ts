@@ -101,9 +101,9 @@ export function chatWidget(page: Page) {
         let recoveries = 0
         let deadline = Date.now() + CHAT_IDLE_TIMEOUT_MS
         while (Date.now() < deadline) {
-          if (await this.assistantMessages().count() > previousCount) return
+          if ((await this.assistantMessages().count()) > previousCount) return
           const alert = this.errorAlert()
-          if (await alert.count() > 0) {
+          if ((await alert.count()) > 0) {
             const message = await alert.first().innerText()
             if (!message.includes("429")) {
               throw new Error(`The chat request failed: ${message.replaceAll("\n", " ")}`)
@@ -112,10 +112,8 @@ export function chatWidget(page: Page) {
               throw new Error("The chat endpoint kept rate limiting this tenant user")
             }
             recoveries += 1
-            await test.step(
-              `rate limited (429), waiting out the ${CHAT_RATE_LIMIT_COOLDOWN_MS / 1000}s window`,
-              () => page.waitForTimeout(CHAT_RATE_LIMIT_COOLDOWN_MS),
-            )
+            await test.step(`rate limited (429), waiting out the ${CHAT_RATE_LIMIT_COOLDOWN_MS / 1000}s window`, () =>
+              page.waitForTimeout(CHAT_RATE_LIMIT_COOLDOWN_MS))
             await alert.first().getByRole("button", { name: "Retry" }).click()
             deadline = Date.now() + CHAT_IDLE_TIMEOUT_MS
             continue

@@ -43,14 +43,7 @@ export function ProviderButton({
   className,
   ...props
 }: ProviderButtonProps) {
-  const {
-    authClient,
-    basePaths,
-    baseURL,
-    localization,
-    redirectTo,
-    viewPaths,
-  } = useAuth()
+  const { authClient, basePaths, baseURL, localization, redirectTo, viewPaths } = useAuth()
 
   const { mutate: signInSocial, isPending: signInSocialPending } = useSignInSocial(authClient)
 
@@ -69,17 +62,15 @@ export function ProviderButton({
   const handleSignIn = () => {
     if (isDisabled || (view === "signUp" && termsAccepted === false)) return
 
-    const safeRedirectTo = getSafeRedirectTo(
-      redirectTo,
-      globalThis.location.origin,
-    )
+    const safeRedirectTo = getSafeRedirectTo(redirectTo, globalThis.location.origin)
 
-    const signUpOptions = view === "signUp"
-      ? {
-        ...(termsAccepted && { additionalData: { termsAccepted: true } }),
-        requestSignUp: true,
-      }
-      : {}
+    const signUpOptions =
+      view === "signUp"
+        ? {
+            ...(termsAccepted && { additionalData: { termsAccepted: true } }),
+            requestSignUp: true,
+          }
+        : {}
 
     signInSocial({
       provider: providerId,
@@ -105,13 +96,10 @@ export function ProviderButton({
       {signInSocialPending ? <Spinner /> : providerIcon}
 
       {display === "full"
-        ? localization.auth.continueWith.replace(
-          "{{provider}}",
-          getProviderName(provider),
-        )
+        ? localization.auth.continueWith.replace("{{provider}}", getProviderName(provider))
         : display === "name"
-        ? getProviderName(provider)
-        : null}
+          ? getProviderName(provider)
+          : null}
 
       {display === "icon" && <span className="sr-only">{getProviderName(provider)}</span>}
     </Button>

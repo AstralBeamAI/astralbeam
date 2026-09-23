@@ -14,7 +14,7 @@
       "read": true,
       "run": true,
       "sys": true,
-      "write": true
-    }
-  }
+      "write": true,
+    },
+  },
 }

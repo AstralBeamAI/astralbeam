@@ -30,12 +30,7 @@ export type UserAvatarProps = {
  * @param fallback - Node to render inside the avatar fallback area before initials or the default icon
  * @returns The avatar element to render (JSX)
  */
-export function UserAvatar({
-  className,
-  user,
-  isPending,
-  fallback,
-}: UserAvatarProps) {
+export function UserAvatar({ className, user, isPending, fallback }: UserAvatarProps) {
   const { authClient } = useAuth()
   const { data: session, isPending: sessionPending } = useSession(authClient, {
     enabled: !user && !isPending,
@@ -50,11 +45,13 @@ export function UserAvatar({
     const email = resolvedUser?.email
     if (resolvedUser?.image || !email) return
 
-    void getGravatarAvatarUrl(email).then((url) => {
-      if (active) setGravatar({ email, url })
-    }).catch(() => {
-      // Initials remain available when the browser cannot create the fallback URL.
-    })
+    void getGravatarAvatarUrl(email)
+      .then((url) => {
+        if (active) setGravatar({ email, url })
+      })
+      .catch(() => {
+        // Initials remain available when the browser cannot create the fallback URL.
+      })
 
     return () => {
       active = false
@@ -65,17 +62,10 @@ export function UserAvatar({
     return <Skeleton className={cn("size-8 rounded-full", className)} />
   }
 
-  const initials = (resolvedUser?.name || resolvedUser?.email)
-    ?.slice(0, 2)
-    .toUpperCase()
+  const initials = (resolvedUser?.name || resolvedUser?.email)?.slice(0, 2).toUpperCase()
 
   return (
-    <Avatar
-      className={cn(
-        "size-8 bg-muted text-foreground text-sm rounded-full",
-        className,
-      )}
-    >
+    <Avatar className={cn("size-8 bg-muted text-foreground text-sm rounded-full", className)}>
       <AvatarImage
         src={resolvedUser?.image ?? gravatarImage}
         alt={resolvedUser?.name || resolvedUser?.email}

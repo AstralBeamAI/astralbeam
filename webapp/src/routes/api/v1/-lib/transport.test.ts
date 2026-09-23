@@ -112,7 +112,7 @@ vi.mock("@/db/organization-openai-api-key.server", () => ({
 }))
 vi.mock("@/lib/chat/agent.server", () => ({ resolveChatAgent: restTestState.agent }))
 vi.mock("@tanstack/ai", async (original) => ({
-  ...await original<typeof import("@tanstack/ai")>(),
+  ...(await original<typeof import("@tanstack/ai")>()),
   chat: restTestState.run,
 }))
 vi.mock("@/db/organization-sandbox-provider.server", () => ({
@@ -170,7 +170,11 @@ function restRequest(path: string, init: RequestInit = {}) {
 async function restJson<S extends Schema.Constraint>(
   schema: S,
   path: string,
-  { query, json, ...init }: RequestInit & {
+  {
+    query,
+    json,
+    ...init
+  }: RequestInit & {
     query?: Record<string, string | number>
     json?: unknown
   } = {},
@@ -180,10 +184,12 @@ async function restJson<S extends Schema.Constraint>(
     : undefined
   const response = await restRequest(path + (search?.size ? `?${search}` : ""), {
     ...init,
-    ...(json === undefined ? {} : {
-      body: JSON.stringify(json),
-      headers: { "X-API-Key": restTestApiKey, "Content-Type": "application/json" },
-    }),
+    ...(json === undefined
+      ? {}
+      : {
+          body: JSON.stringify(json),
+          headers: { "X-API-Key": restTestApiKey, "Content-Type": "application/json" },
+        }),
   })
   const body: unknown = await response.json()
   if (!response.ok) {
@@ -266,9 +272,11 @@ describe("REST API through the Effect Fetch handler", () => {
   })
 
   test("current-user rejects invalid credentials before writes", async () => {
-    for (
-      const headers of [{ "x-api-key": restTestApiKey }, { authorization: "Bearer malformed" }, {}]
-    ) {
+    for (const headers of [
+      { "x-api-key": restTestApiKey },
+      { authorization: "Bearer malformed" },
+      {},
+    ]) {
       const response = await restRequest("/me", {
         method: "POST",
         headers,
@@ -292,16 +300,18 @@ describe("REST API through the Effect Fetch handler", () => {
       headers: { authorization: `Bearer ${restTenantJwt}` },
     }
     expect((await restRequest("/me?tenant=other", options)).status).toBe(400)
-    restTestState.consume.mockReturnValue(Effect.fail(
-      new RateLimiter.RateLimiterError({
-        reason: new RateLimiter.RateLimitExceeded({
-          key: "current-user:test",
-          limit: 100,
-          remaining: 0,
-          retryAfter: Duration.millis(1500),
+    restTestState.consume.mockReturnValue(
+      Effect.fail(
+        new RateLimiter.RateLimiterError({
+          reason: new RateLimiter.RateLimitExceeded({
+            key: "current-user:test",
+            limit: 100,
+            remaining: 0,
+            retryAfter: Duration.millis(1500),
+          }),
         }),
-      }),
-    ))
+      ),
+    )
     const response = await restRequest("/me", options)
     expect(response.status).toBe(429)
     expect(response.headers.get("retry-after")).toBe("2")
@@ -353,28 +363,37 @@ describe("REST API through the Effect Fetch handler", () => {
       sandboxProviderId: null,
     })
     let stopped = false
-    restTestState.run.mockImplementation(
-      async function* ({ abortController }: { abortController: AbortController }) {
-        yield { type: "RUN_STARTED", threadId: "thread", runId: "run" }
-        await new Promise<void>((resolve) =>
-          abortController.signal.addEventListener("abort", () => {
+    restTestState.run.mockImplementation(async function* ({
+      abortController,
+    }: {
+      abortController: AbortController
+    }) {
+      yield { type: "RUN_STARTED", threadId: "thread", runId: "run" }
+      await new Promise<void>((resolve) =>
+        abortController.signal.addEventListener(
+          "abort",
+          () => {
             stopped = true
             resolve()
-          }, { once: true })
-        )
+          },
+          { once: true },
+        ),
+      )
+    })
+    const response = await sdkRunChat(
+      {
+        threadId: "thread",
+        runId: "run",
+        messages: [],
+        tools: [],
+        context: [],
+      },
+      {
+        astralBeamToken: restTenantJwt,
+        apiUrl: "http://localhost/api",
+        fetchClient: restSdkFetch,
       },
     )
-    const response = await sdkRunChat({
-      threadId: "thread",
-      runId: "run",
-      messages: [],
-      tools: [],
-      context: [],
-    }, {
-      astralBeamToken: restTenantJwt,
-      apiUrl: "http://localhost/api",
-      fetchClient: restSdkFetch,
-    })
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toContain("text/event-stream")
     expect(response.headers.get("cache-control")).toContain("no-store")
@@ -393,13 +412,11 @@ describe("REST API through the Effect Fetch handler", () => {
 
   test("chat HTTP failures share v1 errors, CORS, challenges, and retry information", async () => {
     const headers = { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" }
-    for (
-      const [body, extra, status] of [
-        ["{", {}, 400],
-        ["{}", { "content-length": String(33 * 1024 * 1024) }, 413],
-        ["{}", { "content-type": "text/plain" }, 415],
-      ] as const
-    ) {
+    for (const [body, extra, status] of [
+      ["{", {}, 400],
+      ["{}", { "content-length": String(33 * 1024 * 1024) }, 413],
+      ["{}", { "content-type": "text/plain" }, 415],
+    ] as const) {
       const response = await restRequest("/chat", {
         method: "POST",
         headers: { ...headers, ...extra },
@@ -420,16 +437,18 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(unauthorized.headers.get("www-authenticate")).toContain("Bearer")
     expect(await unauthorized.text()).not.toContain("private")
     restTestState.chat.mockResolvedValue(restPrincipal)
-    restTestState.consume.mockReturnValue(Effect.fail(
-      new RateLimiter.RateLimiterError({
-        reason: new RateLimiter.RateLimitExceeded({
-          key: "chat:test",
-          limit: 20,
-          remaining: 0,
-          retryAfter: Duration.millis(1500),
+    restTestState.consume.mockReturnValue(
+      Effect.fail(
+        new RateLimiter.RateLimiterError({
+          reason: new RateLimiter.RateLimitExceeded({
+            key: "chat:test",
+            limit: 20,
+            remaining: 0,
+            retryAfter: Duration.millis(1500),
+          }),
         }),
-      }),
-    ))
+      ),
+    )
     const limited = await restRequest("/chat", { method: "POST", headers, body: "{}" })
     expect(limited.status).toBe(429)
     expect(limited.headers.get("retry-after")).toBe("2")
@@ -449,10 +468,13 @@ describe("REST API through the Effect Fetch handler", () => {
       size: bytes.length,
       sha256: await artifactContentDigest(bytes),
     })
-    const response = await sdkGetChatFile({ ticket }, {
-      apiUrl: "http://localhost/api",
-      fetchClient: restSdkFetch,
-    })
+    const response = await sdkGetChatFile(
+      { ticket },
+      {
+        apiUrl: "http://localhost/api",
+        fetchClient: restSdkFetch,
+      },
+    )
     expect(response.status).toBe(200)
     expect(await response.text()).toBe("A published report")
     expect(response.headers.get("content-disposition")).toContain("report.txt")
@@ -485,17 +507,24 @@ describe("REST API through the Effect Fetch handler", () => {
   test.each([false, true])(
     "database page streams advance lazily (backward: %s)",
     async (backward) => {
-      const rows = [restTenantRow, { ...restTenantRow, id: restUserId }, {
-        ...restTenantRow,
-        id: restOtherId,
-      }]
+      const rows = [
+        restTenantRow,
+        { ...restTenantRow, id: restUserId },
+        {
+          ...restTenantRow,
+          id: restOtherId,
+        },
+      ]
       const ordered = backward ? rows.toReversed() : rows
       restTestState.rows.push(ordered, [ordered[2]!])
       const pages = await runDatabaseEffect(
-        listTenants({ organizationId: restOrgId }, {
-          pageSize: 2,
-          backward,
-        }).pipe(Stream.toAsyncIterableEffect),
+        listTenants(
+          { organizationId: restOrgId },
+          {
+            pageSize: 2,
+            backward,
+          },
+        ).pipe(Stream.toAsyncIterableEffect),
       )
       expect(restTestState.limits).toEqual([])
       const collected = []
@@ -557,11 +586,15 @@ describe("REST API through the Effect Fetch handler", () => {
     restTestState.rows.push([restTenantRow], [restTenantRow], [restUserRow])
     await sdkListTenants({ q: "  東京_%\\  " }, options)
     expect(restLastPredicate().params).toEqual([restOrgId, "%東京\\_\\%\\\\%", "%東京\\_\\%\\\\%"])
-    await sdkListUsers(restTenantId, {
-      q: "Ada",
-      "filter[admin]": "false",
-      "filter[external_id]": "u",
-    }, options)
+    await sdkListUsers(
+      restTenantId,
+      {
+        q: "Ada",
+        "filter[admin]": "false",
+        "filter[external_id]": "u",
+      },
+      options,
+    )
     expect(restLastPredicate().params).toEqual([
       restOrgId,
       restTenantId,
@@ -571,15 +604,13 @@ describe("REST API through the Effect Fetch handler", () => {
       false,
     ])
     expect(restLastPredicate().sql).toContain(" ilike ")
-    for (
-      const path of [
-        "/tenants?filter[admin]=true",
-        `/tenants/${restTenantId}/tenant_users?filter[admin]=1`,
-        `/tenants?q=${"a".repeat(256)}`,
-        "/tenants?q=%00",
-        `/tenants/${restTenantId}/tenant_users?q=%00`,
-      ]
-    ) {
+    for (const path of [
+      "/tenants?filter[admin]=true",
+      `/tenants/${restTenantId}/tenant_users?filter[admin]=1`,
+      `/tenants?q=${"a".repeat(256)}`,
+      "/tenants?q=%00",
+      `/tenants/${restTenantId}/tenant_users?q=%00`,
+    ]) {
       expect((await restRequest(path)).status).toBe(400)
     }
   })
@@ -593,34 +624,36 @@ describe("REST API through the Effect Fetch handler", () => {
     }
     const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
     const headers = { Authorization: `Bearer ${jwt}` }
-    for (
-      const scope of [
-        { organizationId: restOrgId, currentUser },
-        {
-          organizationId: restOrgId,
-          currentUser: { ...currentUser, email: "renamed@example.com" },
-        },
-        { organizationId: restOtherId, currentUser },
-      ]
-    ) {
+    for (const scope of [
+      { organizationId: restOrgId, currentUser },
+      {
+        organizationId: restOrgId,
+        currentUser: { ...currentUser, email: "renamed@example.com" },
+      },
+      { organizationId: restOtherId, currentUser },
+    ]) {
       restTestState.organizationAuth.mockReturnValue(Effect.succeed(scope))
       restTestState.rows.push([])
       expect((await restRequest("/tenants", { headers })).status).toBe(200)
       expect(restLastPredicate().params).toEqual([scope.organizationId])
     }
-    await expect(runDatabaseEffect(authenticateRestRequest(
-      new Request("https://example.test/api/v1/tenants", { headers }),
-    ))).resolves.toEqual({ organizationId: restOtherId, currentUser })
+    await expect(
+      runDatabaseEffect(
+        authenticateRestRequest(new Request("https://example.test/api/v1/tenants", { headers })),
+      ),
+    ).resolves.toEqual({ organizationId: restOtherId, currentUser })
     expect(restTestState.chat).not.toHaveBeenCalled()
     const buckets = restTestState.consume.mock.calls.map(([call]) => call.key)
     expect(buckets[1]).toBe(buckets[0])
     expect(buckets[2]).not.toBe(buckets[0])
     await expect(
-      runDatabaseEffect(authenticateRestRequest(
-        new Request("https://example.test/api/v1/tenants", {
-          headers: { "X-API-Key": restTestApiKey },
-        }),
-      )),
+      runDatabaseEffect(
+        authenticateRestRequest(
+          new Request("https://example.test/api/v1/tenants", {
+            headers: { "X-API-Key": restTestApiKey },
+          }),
+        ),
+      ),
     ).resolves.toEqual({ organizationId: restOrgId })
   })
 
@@ -634,38 +667,42 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.consume).not.toHaveBeenCalled()
   })
 
-  test.each(
-    [
-      ["owner", 200, 201],
-      ["developer", 200, 201],
-      ["viewer", 200, 403],
-      ["viewer,developer", 200, 201],
-      ["unknown", 403, 403],
-    ] as const,
-  )(
+  test.each([
+    ["owner", 200, 201],
+    ["developer", 200, 201],
+    ["viewer", 200, 403],
+    ["viewer,developer", 200, 201],
+    ["unknown", 403, 403],
+  ] as const)(
     "organization role %s gates resource reads and writes",
     async (role, readStatus, writeStatus) => {
-      restTestState.organizationAuth.mockReturnValue(Effect.succeed({
-        organizationId: restOrgId,
-        currentUser: { id: restUserId, name: "Operator", email: "operator@example.com", role },
-      }))
+      restTestState.organizationAuth.mockReturnValue(
+        Effect.succeed({
+          organizationId: restOrgId,
+          currentUser: { id: restUserId, name: "Operator", email: "operator@example.com", role },
+        }),
+      )
       const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
       const headers = { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" }
       restTestState.rows.push([restTenantRow], [restTenantRow], [restUserRow])
       expect((await restRequest("/tenants", { headers })).status).toBe(readStatus)
       expect(
-        (await restRequest("/tenants", {
-          headers,
-          method: "POST",
-          body: JSON.stringify({ external_id: "new" }),
-        })).status,
+        (
+          await restRequest("/tenants", {
+            headers,
+            method: "POST",
+            body: JSON.stringify({ external_id: "new" }),
+          })
+        ).status,
       ).toBe(writeStatus)
       expect(
-        (await restRequest(`/tenants/${restTenantId}/tenant_users/${restUserId}`, {
-          headers,
-          method: "PATCH",
-          body: JSON.stringify({ name: "Updated" }),
-        })).status,
+        (
+          await restRequest(`/tenants/${restTenantId}/tenant_users/${restUserId}`, {
+            headers,
+            method: "PATCH",
+            body: JSON.stringify({ name: "Updated" }),
+          })
+        ).status,
       ).toBe(writeStatus === 201 ? 200 : 403)
       expect(restTestState.writes).toHaveLength(writeStatus === 201 ? 2 : 0)
       expect(restTestState.consume).toHaveBeenCalledTimes(3)
@@ -737,20 +774,17 @@ describe("REST API through the Effect Fetch handler", () => {
     ).rejects.toMatchObject({
       body: { issues: [{ path: "body.admin", message: "Expected boolean" }] },
     })
-    for (
-      const constraint of [
-        "tenant_organization_id_external_id_uidx",
-        "tenant_user_organization_id_tenant_id_external_id_uidx",
-      ]
-    ) {
+    for (const constraint of [
+      "tenant_organization_id_external_id_uidx",
+      "tenant_user_organization_id_tenant_id_external_id_uidx",
+    ]) {
       restTestState.failure = { constraint }
       await expect(
         restJson(TenantUserRecordSchema, `/tenants/${restTenantId}/tenant_users/${restUserId}`, {
           method: "PATCH",
           json: { name: "value" },
         }),
-      )
-        .rejects.toMatchObject({ status: 409 })
+      ).rejects.toMatchObject({ status: 409 })
     }
     const logged = vi.spyOn(console, "error").mockImplementation(() => {})
     restTestState.failure = Object.assign(new Error("private database details"), { code: "42P01" })
@@ -784,16 +818,17 @@ describe("REST API through the Effect Fetch handler", () => {
         method: "POST",
         json: { external_id: row.externalId },
       }),
-    )
-      .rejects.toMatchObject({ status: 422 })
+    ).rejects.toMatchObject({ status: 422 })
   })
 
   test("key verification runs once and decorated ownership is cross-checked", async () => {
     restTestState.rows.push([], [])
     expect((await restRequest("/tenants")).status).toBe(200)
-    await expect(restRequest("/tenants", {
-      headers: { Authorization: `Bearer ${restTestApiKey}` },
-    })).resolves.toMatchObject({ status: 200 })
+    await expect(
+      restRequest("/tenants", {
+        headers: { Authorization: `Bearer ${restTestApiKey}` },
+      }),
+    ).resolves.toMatchObject({ status: 200 })
     expect(restTestState.verify).toHaveBeenCalledTimes(2)
     expect(restTestState.verify).toHaveBeenLastCalledWith({
       body: { key: `abo_${"A".repeat(64)}` },
@@ -801,11 +836,14 @@ describe("REST API through the Effect Fetch handler", () => {
     const ownership = new PgDialect().sqlToQuery(restTestState.predicates[0]!)
     expect(ownership.params).toEqual([restOrgId, restOrgId, restOtherId, restOtherId, "default"])
     restTestState.rows.push([], [])
-    await expect(restRequest("/tenants", {
-      headers: { "X-API-Key": restTestApiKey, Authorization: "Bearer other" },
-    })).resolves.toMatchObject({ status: 200 })
-    await expect(restRequest("/tenants", { headers: { Cookie: "session=not-a-credential" } }))
-      .resolves.toMatchObject({ status: 401 })
+    await expect(
+      restRequest("/tenants", {
+        headers: { "X-API-Key": restTestApiKey, Authorization: "Bearer other" },
+      }),
+    ).resolves.toMatchObject({ status: 200 })
+    await expect(
+      restRequest("/tenants", { headers: { Cookie: "session=not-a-credential" } }),
+    ).resolves.toMatchObject({ status: 401 })
     expect(restTestState.verify).toHaveBeenCalledTimes(3)
     restTestState.keyRows = []
     expect((await restRequest("/tenants")).status).toBe(401)
@@ -825,19 +863,21 @@ describe("REST API through the Effect Fetch handler", () => {
     const headers = { Authorization: `Bearer ${restTenantJwt}` }
     restTestState.rows.push([{ id: restTenantId }], [restUserRow])
     expect(
-      (await restRequest(`/tenants/${restTenantId}/tenant_users?filter[external_id]=user`, {
-        headers,
-      })).status,
-    ).toBe(
-      200,
-    )
+      (
+        await restRequest(`/tenants/${restTenantId}/tenant_users?filter[external_id]=user`, {
+          headers,
+        })
+      ).status,
+    ).toBe(200)
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restTenantId, "user"])
     restTestState.rows.push([{ id: restTenantId }])
-    await expect(restRequest(`/tenants/${restTenantId}`, {
-      method: "PATCH",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: '{"name":"denied"}',
-    })).resolves.toMatchObject({ status: 403 })
+    await expect(
+      restRequest(`/tenants/${restTenantId}`, {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: '{"name":"denied"}',
+      }),
+    ).resolves.toMatchObject({ status: 403 })
     restTestState.chat.mockResolvedValue({
       ...restPrincipal,
       tenantUser: { ...restPrincipal.tenantUser, admin: false },
@@ -853,8 +893,9 @@ describe("REST API through the Effect Fetch handler", () => {
       page_after: null,
     })
     expect(restLastPredicate().sql).toContain("false")
-    await expect(restRequest(`/tenants/${restOtherId}/tenant_users`, { headers }))
-      .resolves.toMatchObject({ status: 404 })
+    await expect(
+      restRequest(`/tenants/${restOtherId}/tenant_users`, { headers }),
+    ).resolves.toMatchObject({ status: 404 })
     expect(restTestState.verify).not.toHaveBeenCalled()
     restTestState.chat.mockRejectedValue(
       Object.assign(new Error("invalid signature"), { name: "ChatAuthenticationError" }),
@@ -881,22 +922,24 @@ describe("REST API through the Effect Fetch handler", () => {
       restTestState.rows.push([], [])
       await restRequest("/tenants", { headers: { Authorization: `Bearer ${restTenantJwt}` } })
     }
-    const [first, second] = restTestState.consume.mock.calls.map(([options]) =>
-      options as { key: string; limit: number; window: Duration.Duration }
+    const [first, second] = restTestState.consume.mock.calls.map(
+      ([options]) => options as { key: string; limit: number; window: Duration.Duration },
     )
     expect(first!.key).not.toBe(second!.key)
     expect(first!.limit).toBe(100)
     expect(Duration.toMillis(first!.window)).toBe(300000)
-    restTestState.consume.mockReturnValue(Effect.fail(
-      new RateLimiter.RateLimiterError({
-        reason: new RateLimiter.RateLimitExceeded({
-          key: "test",
-          limit: 100,
-          remaining: 0,
-          retryAfter: Duration.seconds(2),
+    restTestState.consume.mockReturnValue(
+      Effect.fail(
+        new RateLimiter.RateLimiterError({
+          reason: new RateLimiter.RateLimitExceeded({
+            key: "test",
+            limit: 100,
+            remaining: 0,
+            retryAfter: Duration.seconds(2),
+          }),
         }),
-      }),
-    ))
+      ),
+    )
     const limited = await restRequest("/tenants", {
       headers: { Authorization: `Bearer ${restTenantJwt}` },
     })
@@ -929,14 +972,18 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.limits.slice(-2)).toEqual([101, 1])
     expect(restLastPredicate().sql).toContain('"tenant_user"."id" >')
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserId])
-    expect(restTestState.order.map((order) => new PgDialect().sqlToQuery(order).sql))
-      .toEqual(['"tenant_user"."id" asc'])
+    expect(restTestState.order.map((order) => new PgDialect().sqlToQuery(order).sql)).toEqual([
+      '"tenant_user"."id" asc',
+    ])
     restTestState.rows.push(
       [restTenantRow],
-      [{ ...restUserRow, id: restOtherId }, {
-        ...restUserRow,
-        id: "019a0000-0000-7000-8000-000000000005",
-      }],
+      [
+        { ...restUserRow, id: restOtherId },
+        {
+          ...restUserRow,
+          id: "019a0000-0000-7000-8000-000000000005",
+        },
+      ],
       [restUserRow],
     )
     const middle = await restRequest(
@@ -951,8 +998,7 @@ describe("REST API through the Effect Fetch handler", () => {
       restJson(tenantUserRestPage, `/tenants/${restOtherId}/tenant_users`, {
         query: { page_after: first.page_after! },
       }),
-    )
-      .rejects.toMatchObject({ status: 400 })
+    ).rejects.toMatchObject({ status: 400 })
     restTestState.rows.push([])
     expect(await restJson(tenantRestPage, "/tenants", { query: {} })).toEqual({
       items: [],
@@ -970,7 +1016,6 @@ describe("REST request boundaries", () => {
     const document = OpenApi.fromApi(ApiV1)
     expect(
       Object.keys(document.components.schemas).filter((name) => name.startsWith("TenantRecord")),
-    )
-      .toEqual(["TenantRecordEncoded"])
+    ).toEqual(["TenantRecordEncoded"])
   })
 })

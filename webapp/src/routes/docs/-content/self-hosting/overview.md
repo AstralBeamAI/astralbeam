@@ -40,17 +40,17 @@ Nothing else is required. There is no object storage, no queue, and no separate 
 
 Everything is a row in the one PostgreSQL database, so a backup of that database is a backup of the deployment.
 
-| Tables                                       | State                                                    |
-| -------------------------------------------- | -------------------------------------------------------- |
-| `user`, `account`, `session`, `verification` | Dashboard identity and authentication                    |
-| `organization`, `member`, `invitation`       | Customer organizations and their employees' access       |
-| `api_key`                                    | Organization API key digests, lifecycle, and quotas      |
-| `agent`, `organization_configuration`        | Agent definitions, default agent, and OpenAI API key     |
-| `sandbox_provider`                           | Named sandbox providers and their encrypted credentials  |
-| `tenant`, `tenant_user`                      | Your customers' external identities and metadata         |
-| `config`                                     | Encrypted deployment settings edited at `/configure`     |
-| `rate_limit`                                 | Shared authentication, operator login, and chat counters |
-| `drizzle.__drizzle_migrations`               | Which migrations have been applied                       |
+| Tables | State |
+| --- | --- |
+| `user`, `account`, `session`, `verification` | Dashboard identity and authentication |
+| `organization`, `member`, `invitation` | Customer organizations and their employees' access |
+| `api_key` | Organization API key digests, lifecycle, and quotas |
+| `agent`, `organization_configuration` | Agent definitions, default agent, and OpenAI API key |
+| `sandbox_provider` | Named sandbox providers and their encrypted credentials |
+| `tenant`, `tenant_user` | Your customers' external identities and metadata |
+| `config` | Encrypted deployment settings edited at `/configure` |
+| `rate_limit` | Shared authentication, operator login, and chat counters |
+| `drizzle.__drizzle_migrations` | Which migrations have been applied |
 
 `config.value`, `sandbox_provider.credentials`, and `organization_configuration.openai_api_key` hold ciphertext encrypted with keys derived from `DATABASE_ENCRYPTION_KEY`, so a database dump is unusable without that value.
 

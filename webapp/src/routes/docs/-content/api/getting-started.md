@@ -54,10 +54,10 @@ The response is `200 OK` with an `items` array. Pass the returned `page_after` a
 
 On creation, omitted `name` defaults to `null`, `metadata` to `{}`, and TenantUser `admin` to `false`. On PATCH, omitted fields stay unchanged. Metadata updates replace the whole object, not individual keys. `{}` clears it and `null` is rejected. `name: null` clears a name. Stored `admin` is data, not permission to issue privileged JWTs.
 
-| Your identity        | API field                             | Chat token field                     |
-| -------------------- | ------------------------------------- | ------------------------------------ |
-| Customer ID          | Tenant `external_id`                  | `tenant.id`                          |
-| Tenant-local user ID | TenantUser `external_id`              | `user.id`                            |
+| Your identity | API field | Chat token field |
+| --- | --- | --- |
+| Customer ID | Tenant `external_id` | `tenant.id` |
+| Tenant-local user ID | TenantUser `external_id` | `user.id` |
 | Returned internal ID | Response `id`, used in resource paths | Do not use as your external identity |
 
 Minting a chat token does not provision these records. API calls do not mint tokens. For embedded chat, follow the separate [token endpoint guide](/docs/sdk/authentication).

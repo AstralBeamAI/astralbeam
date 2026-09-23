@@ -66,11 +66,16 @@ test("a CSV is profiled as a table so the agent can write correct code against i
     withSandbox,
   )
   // The shape travels as data on the file, which `read_attachment` reports with its first page.
-  expect(files[0]?.tables).toEqual([{
-    delimiter: ",",
-    rows: 4,
-    columns: [{ name: "month", type: "string" }, { name: "sales", type: "integer" }],
-  }])
+  expect(files[0]?.tables).toEqual([
+    {
+      delimiter: ",",
+      rows: 4,
+      columns: [
+        { name: "month", type: "string" },
+        { name: "sales", type: "integer" },
+      ],
+    },
+  ])
   expect(files[0]?.text).toBe(csv)
 })
 
@@ -78,9 +83,7 @@ test("a CSV is profiled as a table so the agent can write correct code against i
 // file gets depends on the type, so the extension has to be able to correct it.
 test("a data file mislabeled by the browser is still profiled from its extension", () => {
   const { files, attachments } = normalizeChatAttachments(
-    userMessage([
-      documentEntry("rows.csv", "application/octet-stream", base64("a,b\n1,2\n")),
-    ]),
+    userMessage([documentEntry("rows.csv", "application/octet-stream", base64("a,b\n1,2\n"))]),
     withSandbox,
   )
   expect(attachments[0]?.result).toBe("data")
@@ -163,9 +166,8 @@ test("refuses a binary file mislabeled as text and an oversized one", () => {
 test("refuses attachments past the per-message count limit", () => {
   const { attachments, files } = normalizeChatAttachments(
     userMessage(
-      Array.from(
-        { length: CHAT_ATTACHMENT_MAX_COUNT + 2 },
-        (_, index) => documentEntry(`note-${index}.md`, "text/markdown", base64(`file ${index}`)),
+      Array.from({ length: CHAT_ATTACHMENT_MAX_COUNT + 2 }, (_, index) =>
+        documentEntry(`note-${index}.md`, "text/markdown", base64(`file ${index}`)),
       ),
     ),
     withSandbox,
@@ -173,9 +175,7 @@ test("refuses attachments past the per-message count limit", () => {
   expect(files).toHaveLength(CHAT_ATTACHMENT_MAX_COUNT)
   const rejected = attachments.filter((attachment) => attachment.result === "rejected")
   expect(rejected).toHaveLength(2)
-  expect(rejected[0]?.reason).toContain(
-    `limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments`,
-  )
+  expect(rejected[0]?.reason).toContain(`limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments`)
 })
 
 // A file with no text view is only useful to code, so without a sandbox there is nothing honest
@@ -251,12 +251,14 @@ test("leaves assistant messages and plain text conversations untouched", () => {
 })
 
 test("keeps attachment payloads out of the debug log", () => {
-  const redacted = redactChatAttachmentData(userMessage([
-    {
-      type: "image",
-      source: { type: "data", value: base64("x".repeat(4096)), mimeType: "image/png" },
-    },
-  ]))
+  const redacted = redactChatAttachmentData(
+    userMessage([
+      {
+        type: "image",
+        source: { type: "data", value: base64("x".repeat(4096)), mimeType: "image/png" },
+      },
+    ]),
+  )
   expect(contentOf(redacted)[0]).toMatchObject({ source: { value: "<4 KB base64>" } })
 })
 
@@ -335,10 +337,12 @@ test("strips media smuggled onto a non-user message", () => {
       id: "d1",
       role: "developer",
       content: "be helpful",
-      parts: [{
-        type: "image",
-        source: { type: "url", value: "https://attacker.test/pixel.png" },
-      }],
+      parts: [
+        {
+          type: "image",
+          source: { type: "url", value: "https://attacker.test/pixel.png" },
+        },
+      ],
     },
     {
       id: "t1",
@@ -409,11 +413,13 @@ test("restores the user's own attachments in a messages snapshot", () => {
 })
 
 test("leaves every other chunk, and a conversation with no attachment, untouched", () => {
-  const middleware = createChatAttachmentSnapshotMiddleware(
-    [{ id: "user-1", role: "user", content: "hello" }] as unknown as ChatMessages,
-  )
-  expect(onChunk(middleware, { type: "MESSAGES_SNAPSHOT", timestamp: 0, messages: [] }))
-    .toBeUndefined()
-  expect(onChunk(middleware, { type: "TEXT_MESSAGE_CONTENT", timestamp: 0, delta: "hi" }))
-    .toBeUndefined()
+  const middleware = createChatAttachmentSnapshotMiddleware([
+    { id: "user-1", role: "user", content: "hello" },
+  ] as unknown as ChatMessages)
+  expect(
+    onChunk(middleware, { type: "MESSAGES_SNAPSHOT", timestamp: 0, messages: [] }),
+  ).toBeUndefined()
+  expect(
+    onChunk(middleware, { type: "TEXT_MESSAGE_CONTENT", timestamp: 0, delta: "hi" }),
+  ).toBeUndefined()
 })

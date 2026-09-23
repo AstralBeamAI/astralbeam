@@ -36,10 +36,7 @@ export function encryptCompactJwe(options: {
       authTagLength: TAG_LENGTH,
     })
     cipher.setAAD(Buffer.from(protectedHeader, "ascii"))
-    const ciphertext = Buffer.concat([
-      cipher.update(options.plaintext),
-      cipher.final(),
-    ])
+    const ciphertext = Buffer.concat([cipher.update(options.plaintext), cipher.final()])
     const authenticationTag = cipher.getAuthTag()
     const compactJwe = [
       protectedHeader,
@@ -79,10 +76,7 @@ export function decryptCompactJwe(options: {
     })
     decipher.setAAD(Buffer.from(parts[0], "ascii"))
     decipher.setAuthTag(authenticationTag)
-    const plaintext = Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final(),
-    ])
+    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()])
     return { plaintext: Uint8Array.from(plaintext), protectedHeader }
   } catch {
     throw new CompactJweError()
@@ -110,11 +104,17 @@ function parseProtectedHeader(value: string): CompactJweProtectedHeader {
 
 function assertSupportedHeader(value: unknown): asserts value is CompactJweProtectedHeader {
   if (
-    typeof value !== "object" || value === null || Array.isArray(value) ||
-    !("alg" in value) || value.alg !== ALGORITHM ||
-    !("enc" in value) || value.enc !== CONTENT_ENCRYPTION ||
-    "crit" in value || "zip" in value
-  ) throw new Error()
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    !("alg" in value) ||
+    value.alg !== ALGORITHM ||
+    !("enc" in value) ||
+    value.enc !== CONTENT_ENCRYPTION ||
+    "crit" in value ||
+    "zip" in value
+  )
+    throw new Error()
 }
 
 function splitCompactJwe(value: string): [string, string, string, string, string] {

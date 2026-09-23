@@ -32,8 +32,7 @@ export function ResetLinkSent({ className }: ResetLinkSentProps) {
   const { basePaths, localization, redirectTo, viewPaths, Link } = useAuth()
 
   const isHydrated = useIsHydrated()
-  const email = (isHydrated && globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY)) ||
-    ""
+  const email = (isHydrated && globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY)) || ""
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -58,10 +57,7 @@ export function ResetLinkSent({ className }: ResetLinkSentProps) {
           <FieldDescription className="text-center">
             {localization.auth.rememberYourPassword}{" "}
             <Link
-              href={getAuthLinkURL(
-                `${basePaths.auth}/${viewPaths.auth.signIn}`,
-                redirectTo,
-              )}
+              href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)}
               className="underline underline-offset-4"
             >
               {localization.auth.signIn}

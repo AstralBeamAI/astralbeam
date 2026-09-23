@@ -26,9 +26,9 @@ export async function getSessionAccessDecisionForRequest(
     const access = await reconcileSessionAccess(
       session
         ? {
-          userId: session.user.id,
-          activeOrganizationId: session.session.activeOrganizationId ?? null,
-        }
+            userId: session.user.id,
+            activeOrganizationId: session.session.activeOrganizationId ?? null,
+          }
         : null,
       {
         listOrganizations: () => auth.api.listOrganizations({ headers }),
@@ -62,10 +62,7 @@ export async function getSessionAccessDecisionForRequest(
 
     return access
   } catch (error) {
-    console.error(
-      SESSION_ACCESS_ERROR,
-      error instanceof Error ? error.name : "UnknownError",
-    )
+    console.error(SESSION_ACCESS_ERROR, error instanceof Error ? error.name : "UnknownError")
     throw new Error(SESSION_ACCESS_ERROR)
   }
 }

@@ -29,7 +29,9 @@ export const session = snakeCase.table(
     token: text().notNull(),
     ipAddress: text(),
     userAgent: text(),
-    userId: uuid().notNull().references(() => user.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     // Better Auth defines the active organization as a nullable session selector without a foreign key; memberships stay authoritative and stale selections are reconciled on access. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/schema.ts#L212-L218
     activeOrganizationId: uuid(),
     ...timestamps(),
@@ -47,7 +49,9 @@ export const account = snakeCase.table(
     issuer: text().notNull(),
     accountId: text().notNull(),
     providerId: text().notNull(),
-    userId: uuid().notNull().references(() => user.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     accessToken: text(),
     refreshToken: text(),
     idToken: text(),

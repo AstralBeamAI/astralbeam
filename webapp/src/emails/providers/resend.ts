@@ -25,8 +25,8 @@ export const sendResendEmail: SendProviderEmail = async (input) => {
     to: input.to,
     subject: input.subject,
     html: input.html,
-    ...input.text ? { text: input.text } : {},
-    ...input.replyTo.length > 0 ? { replyTo: input.replyTo } : {},
+    ...(input.text ? { text: input.text } : {}),
+    ...(input.replyTo.length > 0 ? { replyTo: input.replyTo } : {}),
     attachments: input.attachments.map(({ filename, contentType, content }) => ({
       filename,
       contentType,

@@ -31,12 +31,7 @@ export type NewApiKeyDialogProps = {
   apiKey: string | null
 }
 
-export function NewApiKeyDialog({
-  open,
-  onOpenChange,
-  name,
-  apiKey,
-}: NewApiKeyDialogProps) {
+export function NewApiKeyDialog({ open, onOpenChange, name, apiKey }: NewApiKeyDialogProps) {
   const { localization } = useAuth()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
 
@@ -79,9 +74,7 @@ export function NewApiKeyDialog({
             {apiKeyLocalization.newApiKey}
           </DialogTitle>
 
-          <DialogDescription>
-            {apiKeyLocalization.newApiKeyWarning}
-          </DialogDescription>
+          <DialogDescription>{apiKeyLocalization.newApiKeyWarning}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -99,9 +92,8 @@ export function NewApiKeyDialog({
 
           <p className="text-xs text-muted-foreground">
             Use this key only with{" "}
-            <code className="font-mono text-foreground">createAstralBeamToken</code>{" "}
-            on your server, to mint chat auth tokens for your tenant users. Never expose it in
-            browser code.
+            <code className="font-mono text-foreground">createAstralBeamToken</code> on your server,
+            to mint chat auth tokens for your tenant users. Never expose it in browser code.
           </p>
         </div>
 
@@ -136,12 +128,7 @@ function ApiKeyCopyField({
     <div className="flex flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
       <InputGroup>
-        <InputGroupInput
-          id={id}
-          value={value ?? ""}
-          readOnly
-          className="font-mono text-xs"
-        />
+        <InputGroupInput id={id} value={value ?? ""} readOnly className="font-mono text-xs" />
         <InputGroupAddon align="inline-end">
           <InputGroupButton
             size="icon-xs"

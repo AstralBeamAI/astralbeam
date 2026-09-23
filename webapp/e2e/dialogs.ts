@@ -17,6 +17,5 @@ export function openAlertDialog(page: Page): Locator {
  * again afterwards, so only the toast tells a caller the write actually landed.
  */
 export async function expectToast(page: Page, title: string): Promise<void> {
-  await expect(page.locator('[data-slot="toast-title"]').filter({ hasText: title }))
-    .toBeVisible()
+  await expect(page.locator('[data-slot="toast-title"]').filter({ hasText: title })).toBeVisible()
 }

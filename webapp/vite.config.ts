@@ -74,32 +74,34 @@ const viteConfig = defineConfig(({ mode }) => {
         },
       },
       devtools(),
-      ...(mode === "test" ? [] : nitro({
-        // Nitro prerenders before indexing static assets, including their content-based ETags.
-        // https://nitro.build/docs/prerender
-        prerender: {
-          routes: ["/docs"],
-          crawlLinks: true,
-          ignore: [(path) => path !== "/docs" && !path.startsWith("/docs/")],
-          failOnError: true,
-        },
-        hooks: {
-          // A bare /docs/<section> URL redirects to the section's first page, and Nitro writes an
-          // extensionless response body over the directory holding that section's own pages.
-          "prerender:generate": (route) => {
-            if (!extname(route.fileName ?? "")) route.skip = true
-          },
-          "prerender:config": (config) => {
-            // Shared route imports create lazy pools. Only the prerender bundle gets this URL.
-            // https://nitro.build/config#hooks
-            config.replace = {
-              ...config.replace,
-              "process.env.DATABASE_URL": JSON.stringify("postgres://127.0.0.1:1/prerender"),
-            }
-          },
-        },
-        plugins: ["./src/lib/response-headers.server.ts"],
-      })),
+      ...(mode === "test"
+        ? []
+        : nitro({
+            // Nitro prerenders before indexing static assets, including their content-based ETags.
+            // https://nitro.build/docs/prerender
+            prerender: {
+              routes: ["/docs"],
+              crawlLinks: true,
+              ignore: [(path) => path !== "/docs" && !path.startsWith("/docs/")],
+              failOnError: true,
+            },
+            hooks: {
+              // A bare /docs/<section> URL redirects to the section's first page, and Nitro writes an
+              // extensionless response body over the directory holding that section's own pages.
+              "prerender:generate": (route) => {
+                if (!extname(route.fileName ?? "")) route.skip = true
+              },
+              "prerender:config": (config) => {
+                // Shared route imports create lazy pools. Only the prerender bundle gets this URL.
+                // https://nitro.build/config#hooks
+                config.replace = {
+                  ...config.replace,
+                  "process.env.DATABASE_URL": JSON.stringify("postgres://127.0.0.1:1/prerender"),
+                }
+              },
+            },
+            plugins: ["./src/lib/response-headers.server.ts"],
+          })),
       tailwindcss(),
       tanstackStart(),
       viteReact(),

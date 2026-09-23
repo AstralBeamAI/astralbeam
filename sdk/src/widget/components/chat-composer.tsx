@@ -42,28 +42,26 @@ interface ChatComposerProps {
   onRemoveAttachment: (id: string) => void
 }
 
-export function ChatComposer(
-  {
-    title,
-    actionsSlot,
-    draft,
-    onDraftChange,
-    onSend,
-    onStop,
-    onRetry,
-    showError,
-    error,
-    streamBusy,
-    isBusy,
-    authPending,
-    authError,
-    onAuthRetry,
-    attachments,
-    attachmentLimits,
-    onAddFiles,
-    onRemoveAttachment,
-  }: ChatComposerProps,
-) {
+export function ChatComposer({
+  title,
+  actionsSlot,
+  draft,
+  onDraftChange,
+  onSend,
+  onStop,
+  onRetry,
+  showError,
+  error,
+  streamBusy,
+  isBusy,
+  authPending,
+  authError,
+  onAuthRetry,
+  attachments,
+  attachmentLimits,
+  onAddFiles,
+  onRemoveAttachment,
+}: ChatComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [dropTarget, setDropTarget] = useState(false)
   const blocked = authPending || authError !== undefined
@@ -72,7 +70,7 @@ export function ChatComposer(
   const sendable = attachments.some((attachment) => attachment.status === "ready")
   const attachmentsFull =
     attachments.filter((attachment) => attachment.status !== "error").length >=
-      attachmentLimits.maxFiles
+    attachmentLimits.maxFiles
   const canAttach = attachmentLimits.enabled && !blocked
   const sendDisabled = isBusy || blocked || reading || (draft.trim().length === 0 && !sendable)
 
@@ -168,11 +166,13 @@ export function ChatComposer(
         <InputGroupTextarea
           aria-label="Message"
           className="max-h-24 min-h-9"
-          placeholder={authPending
-            ? "Verifying your session…"
-            : dropTarget
-            ? "Drop files to attach…"
-            : `Message ${title}…`}
+          placeholder={
+            authPending
+              ? "Verifying your session…"
+              : dropTarget
+                ? "Drop files to attach…"
+                : `Message ${title}…`
+          }
           disabled={blocked}
           value={draft}
           onChange={(event) => onDraftChange(event.currentTarget.value)}
@@ -195,45 +195,43 @@ export function ChatComposer(
               type="button"
               size="icon-sm"
               aria-label="Attach files"
-              title={attachmentsFull
-                ? `Up to ${attachmentLimits.maxFiles} files per message`
-                : "Attach images, PDFs, documents, spreadsheets, data, or text files"}
+              title={
+                attachmentsFull
+                  ? `Up to ${attachmentLimits.maxFiles} files per message`
+                  : "Attach images, PDFs, documents, spreadsheets, data, or text files"
+              }
               disabled={blocked || attachmentsFull}
               onClick={() => fileInput.current?.click()}
             >
               <PaperclipIcon />
             </InputGroupButton>
           )}
-          {
-            /* Host controls project here in the host page's own style; the slot lays out as
-            display: contents, so each projected child is a flex item of this row. */
-          }
+          {/* Host controls project here in the host page's own style; the slot lays out as
+            display: contents, so each projected child is a flex item of this row. */}
           {actionsSlot && <slot name={actionsSlot} />}
-          {streamBusy
-            ? (
-              <InputGroupButton
-                type="button"
-                variant="default"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onStop}
-              >
-                <StopIcon />
-                <span className="sr-only">Stop</span>
-              </InputGroupButton>
-            )
-            : (
-              <InputGroupButton
-                type="submit"
-                variant="default"
-                size="icon-sm"
-                className="ml-auto"
-                disabled={sendDisabled}
-              >
-                <ArrowUpIcon />
-                <span className="sr-only">Send</span>
-              </InputGroupButton>
-            )}
+          {streamBusy ? (
+            <InputGroupButton
+              type="button"
+              variant="default"
+              size="icon-sm"
+              className="ml-auto"
+              onClick={onStop}
+            >
+              <StopIcon />
+              <span className="sr-only">Stop</span>
+            </InputGroupButton>
+          ) : (
+            <InputGroupButton
+              type="submit"
+              variant="default"
+              size="icon-sm"
+              className="ml-auto"
+              disabled={sendDisabled}
+            >
+              <ArrowUpIcon />
+              <span className="sr-only">Send</span>
+            </InputGroupButton>
+          )}
         </InputGroupAddon>
       </InputGroup>
     </form>

@@ -29,8 +29,8 @@ function tenantUserWhere(scope: TenantScope, tenantId?: string, id?: string) {
     scope.tenantId === undefined
       ? undefined
       : scope.tenantId === null
-      ? sql`false`
-      : eq(tenantUser.tenantId, scope.tenantId),
+        ? sql`false`
+        : eq(tenantUser.tenantId, scope.tenantId),
     tenantId === undefined ? undefined : eq(tenantUser.tenantId, tenantId),
     id === undefined ? undefined : eq(tenantUser.id, id),
   )
@@ -42,41 +42,45 @@ export function listTenantUsers(
   options: TenantListOptions & { admin?: boolean | undefined } = {},
 ) {
   const { externalId, search, admin } = options
-  return Stream.unwrap(Effect.gen(function* () {
-    yield* requireTenant(scope, tenantId)
-    return databasePages(options, (position, limit, backward) =>
-      Effect.gen(function* () {
-        const database = yield* effectDatabase
-        return yield* database.select().from(tenantUser).where(
-          and(
-            tenantUserWhere(scope, tenantId),
-            externalId === undefined ? undefined : eq(tenantUser.externalId, externalId),
-            search
-              ? or(
-                ilike(tenantUser.name, tenantSearchPattern(search)),
-                ilike(tenantUser.externalId, tenantSearchPattern(search)),
-              )
-              : undefined,
-            admin === undefined ? undefined : eq(tenantUser.admin, admin),
-            position ? (backward ? lt : gt)(tenantUser.id, position.id) : undefined,
-          ),
-        )
-          .orderBy((backward ? desc : asc)(tenantUser.id))
-          .limit(limit)
-      }).pipe(Effect.mapError(tenantDatabaseError)))
-  }))
+  return Stream.unwrap(
+    Effect.gen(function* () {
+      yield* requireTenant(scope, tenantId)
+      return databasePages(options, (position, limit, backward) =>
+        Effect.gen(function* () {
+          const database = yield* effectDatabase
+          return yield* database
+            .select()
+            .from(tenantUser)
+            .where(
+              and(
+                tenantUserWhere(scope, tenantId),
+                externalId === undefined ? undefined : eq(tenantUser.externalId, externalId),
+                search
+                  ? or(
+                      ilike(tenantUser.name, tenantSearchPattern(search)),
+                      ilike(tenantUser.externalId, tenantSearchPattern(search)),
+                    )
+                  : undefined,
+                admin === undefined ? undefined : eq(tenantUser.admin, admin),
+                position ? (backward ? lt : gt)(tenantUser.id, position.id) : undefined,
+              ),
+            )
+            .orderBy((backward ? desc : asc)(tenantUser.id))
+            .limit(limit)
+        }).pipe(Effect.mapError(tenantDatabaseError)),
+      )
+    }),
+  )
 }
 
-export function getTenantUser(
-  scope: TenantScope,
-  tenantId: string,
-  id: string,
-) {
+export function getTenantUser(scope: TenantScope, tenantId: string, id: string) {
   return Effect.gen(function* () {
     const database = yield* effectDatabase
-    const rows = yield* database.select().from(tenantUser).where(
-      tenantUserWhere(scope, tenantId, id),
-    ).limit(1)
+    const rows = yield* database
+      .select()
+      .from(tenantUser)
+      .where(tenantUserWhere(scope, tenantId, id))
+      .limit(1)
     return rows[0]
   }).pipe(
     Effect.mapError(tenantDatabaseError),
@@ -91,11 +95,15 @@ export function createTenantUser(scope: TenantScope, tenantId: string, input: Te
   return Effect.gen(function* () {
     yield* requireTenant(scope, tenantId)
     const database = yield* effectDatabase
-    const [row] = yield* database.insert(tenantUser).values({
-      ...input,
-      organizationId: scope.organizationId,
-      tenantId,
-    }).returning().pipe(Effect.mapError(tenantDatabaseError))
+    const [row] = yield* database
+      .insert(tenantUser)
+      .values({
+        ...input,
+        organizationId: scope.organizationId,
+        tenantId,
+      })
+      .returning()
+      .pipe(Effect.mapError(tenantDatabaseError))
     return row!
   })
 }
@@ -108,9 +116,11 @@ export function updateTenantUser(
 ) {
   return Effect.gen(function* () {
     const database = yield* effectDatabase
-    const rows = yield* database.update(tenantUser).set(patch).where(
-      tenantUserWhere(scope, tenantId, id),
-    ).returning()
+    const rows = yield* database
+      .update(tenantUser)
+      .set(patch)
+      .where(tenantUserWhere(scope, tenantId, id))
+      .returning()
     return rows[0]
   }).pipe(
     Effect.mapError(tenantDatabaseError),

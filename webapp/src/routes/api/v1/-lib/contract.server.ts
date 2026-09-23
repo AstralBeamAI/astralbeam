@@ -7,18 +7,22 @@ import { tenantUserApi } from "./tenant-user.server"
 
 import { currentUserApi } from "./current-user.server"
 
-export const ApiV1 = HttpApi.make("ApiV1").add(
-  tenantApi.annotate(HttpApi.ParseOptions, { onExcessProperty: "error" }).middleware(
-    RestAuthorization,
-  ),
-  tenantUserApi.annotate(HttpApi.ParseOptions, { onExcessProperty: "error" }).middleware(
-    RestAuthorization,
-  ),
-  chatApi,
-  currentUserApi,
-)
-  .prefix("/api/v1").middleware(ApiBoundary).annotate(OpenApi.Title, `${APP_NAME} API`)
-  .annotate(OpenApi.Version, "1.0.0").annotate(OpenApi.Transform, customizeOpenApi)
+export const ApiV1 = HttpApi.make("ApiV1")
+  .add(
+    tenantApi
+      .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
+      .middleware(RestAuthorization),
+    tenantUserApi
+      .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
+      .middleware(RestAuthorization),
+    chatApi,
+    currentUserApi,
+  )
+  .prefix("/api/v1")
+  .middleware(ApiBoundary)
+  .annotate(OpenApi.Title, `${APP_NAME} API`)
+  .annotate(OpenApi.Version, "1.0.0")
+  .annotate(OpenApi.Transform, customizeOpenApi)
 
 function customizeOpenApi(document: Record<string, unknown>): Record<string, unknown> {
   const api = document as unknown as OpenApi.OpenAPISpec

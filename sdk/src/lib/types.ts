@@ -17,9 +17,8 @@ export interface StandardSchemaV1<Input = unknown, Output = Input> {
  * Input type `defineTool`/`defineWidget` derive from a `parameters` schema: a Standard Schema's
  * validated output, or untyped props for a plain JSON Schema, which nothing validates in the browser.
  */
-export type InferParameters<S extends ParametersSchema> = S extends StandardSchemaV1<unknown, infer O>
-  ? O
-  : Record<string, unknown>
+export type InferParameters<S extends ParametersSchema> =
+  S extends StandardSchemaV1<unknown, infer O> ? O : Record<string, unknown>
 
 /** A plain JSON Schema object, the same shape tool definitions use for their parameters. */
 export interface JsonSchemaObject {

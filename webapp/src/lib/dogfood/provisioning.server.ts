@@ -34,10 +34,12 @@ function ownerProvisioningApi<A>(operation: () => Promise<A>, message: string) {
 }
 
 function savePendingOwner(pending: PendingOnboarding) {
-  return applyDatabaseConfigChangesEffect([{
-    key: "dogfood_pending_setup",
-    value: JSON.stringify(pending),
-  }]).pipe(Effect.tap(() => Effect.sync(invalidateGlobalConfig)))
+  return applyDatabaseConfigChangesEffect([
+    {
+      key: "dogfood_pending_setup",
+      value: JSON.stringify(pending),
+    },
+  ]).pipe(Effect.tap(() => Effect.sync(invalidateGlobalConfig)))
 }
 
 function prepareOwnerOnboarding(input: OwnerOnboarding, state: DatabaseConfigState) {
@@ -48,9 +50,9 @@ function prepareOwnerOnboarding(input: OwnerOnboarding, state: DatabaseConfigSta
         Effect.mapError(() => ownerOnboardingFailure("Pending onboarding is invalid")),
       )
       if (
-        (pending.organizationId &&
-          (pending.organizationName !== input.organizationName ||
-            pending.organizationSlug !== input.organizationSlug))
+        pending.organizationId &&
+        (pending.organizationName !== input.organizationName ||
+          pending.organizationSlug !== input.organizationSlug)
       ) {
         return yield* Effect.fail(
           ownerOnboardingFailure(
@@ -99,10 +101,12 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
       )
     }
     if (
-      state.rows?.some((row) =>
-        (row.key === "dogfood_organization_id" || row.key === "dogfood_api_key" ||
-          row.key === "dogfood_pending_setup") &&
-        row.storageStatus === "unreadable"
+      state.rows?.some(
+        (row) =>
+          (row.key === "dogfood_organization_id" ||
+            row.key === "dogfood_api_key" ||
+            row.key === "dogfood_pending_setup") &&
+          row.storageStatus === "unreadable",
       )
     ) {
       return yield* Effect.fail(
@@ -173,7 +177,7 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
                 email: pending.email,
                 redirectTo: new URL("/auth/reset-password", baseUrl).href,
               },
-            })
+            }),
           ),
         "The owner onboarding email could not be sent. Check email settings and save again.",
       )

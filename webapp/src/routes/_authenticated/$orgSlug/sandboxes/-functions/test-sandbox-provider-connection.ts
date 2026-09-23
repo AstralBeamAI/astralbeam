@@ -36,13 +36,15 @@ export const testSandboxProviderConnection = createServerFn({ method: "POST" })
           lockVersion: data.lockVersion,
           status: connection.status,
           testedAt: connection.testedAt,
-          ...connection.errorCode && { errorCode: connection.errorCode },
+          ...(connection.errorCode && { errorCode: connection.errorCode }),
         })
-        return connection.status === "success" ? { ok: true as const } : {
-          ok: false as const,
-          code: connection.errorCode ?? "provider_error",
-          message: "The provider connection test failed",
-        }
+        return connection.status === "success"
+          ? { ok: true as const }
+          : {
+              ok: false as const,
+              code: connection.errorCode ?? "provider_error",
+              message: "The provider connection test failed",
+            }
       }).pipe(
         catchOptimisticLockConflict("Reload before testing again"),
         Effect.catchTags({
@@ -54,5 +56,5 @@ export const testSandboxProviderConnection = createServerFn({ method: "POST" })
             }),
         }),
       ),
-    )
+    ),
   )

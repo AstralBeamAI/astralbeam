@@ -25,10 +25,7 @@ export function OrganizationViewSkeleton({
   ...props
 }: OrganizationViewSkeletonProps & ComponentProps<"div">) {
   return (
-    <div
-      className={cn("flex min-w-0 items-center gap-2", className)}
-      {...props}
-    >
+    <div className={cn("flex min-w-0 items-center gap-2", className)} {...props}>
       <OrganizationLogo
         isPending
         className={size === "sm" ? "size-5" : ""}

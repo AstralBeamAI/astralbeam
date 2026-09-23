@@ -42,9 +42,8 @@ export interface AstralBeamListingHandle<
 }
 
 export type AstralBeamTenantListHandle = AstralBeamListingHandle<MountAstralBeamTenantListOptions>
-export type AstralBeamTenantUserListHandle = AstralBeamListingHandle<
-  MountAstralBeamTenantUserListOptions
->
+export type AstralBeamTenantUserListHandle =
+  AstralBeamListingHandle<MountAstralBeamTenantUserListOptions>
 
 type ListingOptions = MountAstralBeamTenantListOptions & MountAstralBeamTenantUserListOptions
 type ListingRuntime = typeof import("../widget/listings/index.tsx")

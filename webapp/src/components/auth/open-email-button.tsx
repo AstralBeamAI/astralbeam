@@ -37,11 +37,7 @@ export type OpenEmailButtonProps = {
  * @param variant - Button variant. Defaults to the primary style.
  * @returns The open-email button, or `null` when no provider matches.
  */
-export function OpenEmailButton({
-  email,
-  className,
-  variant,
-}: OpenEmailButtonProps) {
+export function OpenEmailButton({ email, className, variant }: OpenEmailButtonProps) {
   const { localization } = useAuth()
 
   const provider = getEmailProviderLink(email)
@@ -65,16 +61,10 @@ export function OpenEmailButton({
           className={cn(buttonVariants({ variant }), "w-full", className)}
           onClick={() => globalThis.open(provider.loginUrl, "_blank", "noopener,noreferrer")}
         >
-          {localization.auth.openEmailProvider.replace(
-            "{{provider}}",
-            provider.companyProvider,
-          )}
+          {localization.auth.openEmailProvider.replace("{{provider}}", provider.companyProvider)}
           <QrCode data-icon="inline-end" />
         </TooltipTrigger>
-        <TooltipContent
-          sideOffset={8}
-          className="flex-col items-center gap-2 p-3"
-        >
+        <TooltipContent sideOffset={8} className="flex-col items-center gap-2 p-3">
           <svg
             viewBox={`0 0 ${qrCode.size} ${qrCode.size}`}
             aria-hidden="true"

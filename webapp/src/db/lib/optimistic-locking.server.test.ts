@@ -55,8 +55,7 @@ describe("optimistic locking", () => {
     })
     expect(toQuery(calls[0]?.where)).toEqual({
       params: [updated.id, "current", 3],
-      sql:
-        '(("locked_record"."id" = $1) and ("locked_record"."name" = $2) and ("locked_record"."lock_version" = $3))',
+      sql: '(("locked_record"."id" = $1) and ("locked_record"."name" = $2) and ("locked_record"."lock_version" = $3))',
     })
   })
 
@@ -100,14 +99,12 @@ describe("optimistic locking", () => {
           set: { name: "stale" },
         }),
       ),
-    ).rejects.toMatchObject(
-      {
-        expectedLockVersion: 2,
-        name: "OptimisticLockError",
-        reason: "conflict",
-        tableName: "locked_record",
-      } satisfies Partial<OptimisticLockError>,
-    )
+    ).rejects.toMatchObject({
+      expectedLockVersion: 2,
+      name: "OptimisticLockError",
+      reason: "conflict",
+      tableName: "locked_record",
+    } satisfies Partial<OptimisticLockError>)
   })
 })
 

@@ -41,10 +41,7 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
     if (view) return view
     if (!path) return undefined
 
-    const match = [
-      viewPaths.settings,
-      ...plugins.map((plugin) => plugin.viewPaths?.settings),
-    ]
+    const match = [viewPaths.settings, ...plugins.map((plugin) => plugin.viewPaths?.settings)]
       .flatMap((source) => Object.entries(source ?? {}))
       .find(([, segment]) => segment === path)
 
@@ -52,10 +49,7 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
   }, [view, path, viewPaths.settings, plugins])
 
   if (!currentView) {
-    const validPaths = [
-      viewPaths.settings,
-      ...plugins.map((plugin) => plugin.viewPaths?.settings),
-    ]
+    const validPaths = [viewPaths.settings, ...plugins.map((plugin) => plugin.viewPaths?.settings)]
       .flatMap((source): unknown[] => Object.values(source ?? {}))
       .join(", ")
     throw new Error(
@@ -64,10 +58,7 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
   }
 
   return (
-    <Tabs
-      value={currentView}
-      className={cn("w-full gap-4 md:gap-6", className)}
-    >
+    <Tabs value={currentView} className={cn("w-full gap-4 md:gap-6", className)}>
       <div className={cn(hideNav && "hidden")}>
         <TabsList aria-label={localization.settings.settings}>
           <TabsTrigger
@@ -76,7 +67,8 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
             onClick={() =>
               navigate({
                 to: `${basePaths.settings}/${viewPaths.settings.account}`,
-              })}
+              })
+            }
           >
             <User2 className="text-muted-foreground" />
 
@@ -89,7 +81,8 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
             onClick={() =>
               navigate({
                 to: `${basePaths.settings}/${viewPaths.settings.security}`,
-              })}
+              })
+            }
           >
             <Shield className="text-muted-foreground" />
 
@@ -106,7 +99,8 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
                   onClick={() =>
                     navigate({
                       to: `${basePaths.settings}/${plugin.viewPaths?.settings?.[settingsTab.view]}`,
-                    })}
+                    })
+                  }
                 >
                   {settingsTab.label}
                 </TabsTrigger>
@@ -132,7 +126,7 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
           >
             <settingsTab.component />
           </TabsContent>
-        ))
+        )),
       )}
     </Tabs>
   )

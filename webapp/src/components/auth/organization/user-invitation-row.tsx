@@ -56,9 +56,7 @@ export function UserInvitationRow({ invitation, onInvitationAction }: UserInvita
       <ItemContent>
         <ItemTitle>
           {invitation.organizationName}
-          <Badge variant="secondary">
-            {memberRoleLabels(invitation.role, roles).join(", ")}
-          </Badge>
+          <Badge variant="secondary">{memberRoleLabels(invitation.role, roles).join(", ")}</Badge>
         </ItemTitle>
         <ItemDescription>
           {new Date(invitation.createdAt).toLocaleString(undefined, {

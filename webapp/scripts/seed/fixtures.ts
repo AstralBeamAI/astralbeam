@@ -228,14 +228,11 @@ export const SEED_TODOS_TARGET = {
   organizationId: SEED_ORGANIZATION_IDS.acme,
   apiKeyId: SEED_API_KEY_IDS.todos,
   agentId: `agent_${SEED_ORGANIZATION_IDS.acme}_${SEED_AGENT_IDS.acmeTodos}`,
-  apiKey:
-    `key_${SEED_ORGANIZATION_IDS.acme}_${SEED_API_KEY_IDS.todos}_${SEED_API_KEY_SECRETS.todos}`,
+  apiKey: `key_${SEED_ORGANIZATION_IDS.acme}_${SEED_API_KEY_IDS.todos}_${SEED_API_KEY_SECRETS.todos}`,
   /** Disabled key: `/api/v1/chat` must reject a token signed with it. */
-  revokedApiKey:
-    `key_${SEED_ORGANIZATION_IDS.acme}_${SEED_API_KEY_IDS.revoked}_${SEED_API_KEY_SECRETS.revoked}`,
+  revokedApiKey: `key_${SEED_ORGANIZATION_IDS.acme}_${SEED_API_KEY_IDS.revoked}_${SEED_API_KEY_SECRETS.revoked}`,
   /** Another organization's key: its tokens must not reach an `acme` agent. */
-  foreignApiKey:
-    `key_${SEED_ORGANIZATION_IDS.globex}_${SEED_API_KEY_IDS.globex}_${SEED_API_KEY_SECRETS.globex}`,
+  foreignApiKey: `key_${SEED_ORGANIZATION_IDS.globex}_${SEED_API_KEY_IDS.globex}_${SEED_API_KEY_SECRETS.globex}`,
   /** Matches DEMO_CHAT_TENANT and DEMO_CHAT_USER in `examples/todos/src/lib/constants.server.ts`. */
   tenant: { id: SEED_NAMES.todosTenant, name: "Todos Example" },
   user: {

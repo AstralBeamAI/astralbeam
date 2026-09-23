@@ -59,12 +59,12 @@ Point `DATABASE_URL` at a transaction-pooling pooler rather than at PostgreSQL d
 
 Only two variables are required. Both are read once per process, so changing either needs a restart.
 
-| Variable                  | Required | Notes                                                                                                                                               |
-| ------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | Yes      | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database`                                                              |
-| `DATABASE_ENCRYPTION_KEY` | Yes      | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
-| `PORT`                    | No       | TCP port to listen on                                                                                                                               |
-| `APP_BASE_URL`            | No       | Environment override for the base URL setting, which can otherwise be set at `/configure`                                                           |
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
+| `DATABASE_ENCRYPTION_KEY` | Yes | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
+| `PORT` | No | TCP port to listen on |
+| `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
 
 Run this command to generate a high-entropy encryption value:
 
@@ -146,12 +146,12 @@ Sessions last 15 minutes and sign-in is throttled to 5 attempts per minute, so k
 
 Run each of these against the public origin:
 
-| Check                                        | Expected                                                               |
-| -------------------------------------------- | ---------------------------------------------------------------------- |
-| `curl -i https://your-host/api/status`       | `200` with `{"status":"ok"}` and `X-Content-Type-Options: nosniff`     |
-| `curl -sI https://your-host/docs`            | `200` with `Cache-Control: public, no-cache` and an `ETag`             |
-| `curl -s https://your-host/api/openapi.json` | The OpenAPI document, including the `/api/v1/tenants` path             |
-| `curl -i https://your-host/api/v1/tenants`   | `401` once setup is complete, `503` with `Retry-After` while it is not |
+| Check | Expected |
+| --- | --- |
+| `curl -i https://your-host/api/status` | `200` with `{"status":"ok"}` and `X-Content-Type-Options: nosniff` |
+| `curl -sI https://your-host/docs` | `200` with `Cache-Control: public, no-cache` and an `ETag` |
+| `curl -s https://your-host/api/openapi.json` | The OpenAPI document, including the `/api/v1/tenants` path |
+| `curl -i https://your-host/api/v1/tenants` | `401` once setup is complete, `503` with `Retry-After` while it is not |
 
 `/api/status` counts organization rows and answers `{"status":"ok"}` when that query succeeds. A database failure returns `503` with an `error` field, without the count. There is no separate readiness endpoint, so to check API readiness, call an API route and treat `503` as not ready.
 

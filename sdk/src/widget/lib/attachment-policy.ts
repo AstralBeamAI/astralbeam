@@ -15,12 +15,7 @@ export const MAX_ATTACHMENT_BYTES_BY_KIND = {
 } as const
 
 /** Image types the chat endpoint's model reads natively; SVG is text, so it is not one of them. */
-export const ATTACHMENT_IMAGE_MIME_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-]
+export const ATTACHMENT_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"]
 
 /** The one document type the model reads natively; every other document is read as text. */
 export const ATTACHMENT_PDF_MIME_TYPE = "application/pdf"

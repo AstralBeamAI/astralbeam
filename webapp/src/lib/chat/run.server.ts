@@ -22,10 +22,7 @@ import { createChatSandboxTools } from "./sandbox-tools.server"
 import type { ChatParams, ChatPrincipal } from "./types"
 import { chatError } from "./errors.server"
 
-export async function createChatRun(
-  params: ChatParams,
-  principal: ChatPrincipal,
-) {
+export async function createChatRun(params: ChatParams, principal: ChatPrincipal) {
   const openaiApiKey = await runDatabaseEffect(
     readOrganizationOpenaiApiKey(principal.organization.id),
   )
@@ -84,14 +81,16 @@ export async function createChatRun(
   let sandboxTools: AnyServerTool[] = []
   if (selectedAgent.sandboxProviderId) {
     try {
-      const session = await runDatabaseEffect(resolveChatSandboxSession({
-        sandboxProviderId: selectedAgent.sandboxProviderId,
-        agentId: selectedAgent.id,
-        principal,
-        threadId: params.threadId,
-        runId: params.runId,
-        uploads: files,
-      }))
+      const session = await runDatabaseEffect(
+        resolveChatSandboxSession({
+          sandboxProviderId: selectedAgent.sandboxProviderId,
+          agentId: selectedAgent.id,
+          principal,
+          threadId: params.threadId,
+          runId: params.runId,
+          uploads: files,
+        }),
+      )
       sandboxTools = createChatSandboxTools({
         session,
         log,

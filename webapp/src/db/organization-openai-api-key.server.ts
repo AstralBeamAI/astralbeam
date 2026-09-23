@@ -8,9 +8,9 @@ import { organizationConfiguration } from "@/db/schema/organizations.server"
 /** How much of a stored key may leave the server, which is what names it without revealing it. */
 const OPENAI_API_KEY_HINT_LENGTH = 4
 
-class OrganizationOpenaiApiKeyError extends Data.TaggedError(
-  "OrganizationOpenaiApiKeyError",
-)<{ readonly message: string }> {}
+class OrganizationOpenaiApiKeyError extends Data.TaggedError("OrganizationOpenaiApiKeyError")<{
+  readonly message: string
+}> {}
 
 /** Whether the organization has a key, tested in SQL so the common page read decrypts nothing. */
 export function readOrganizationOpenaiApiKeyConfigured(organizationId: string) {
@@ -61,30 +61,33 @@ export function readOrganizationOpenaiApiKey(organizationId: string) {
  * key, and the key itself never leaves the server.
  */
 export function readOrganizationOpenaiApiKeyHint(organizationId: string) {
-  return Effect.map(
-    readOrganizationOpenaiApiKey(organizationId),
-    (apiKey) => apiKey === null ? null : apiKey.slice(-OPENAI_API_KEY_HINT_LENGTH),
+  return Effect.map(readOrganizationOpenaiApiKey(organizationId), (apiKey) =>
+    apiKey === null ? null : apiKey.slice(-OPENAI_API_KEY_HINT_LENGTH),
   )
 }
 
 /** Replaces or clears the key, creating the configuration row on demand. */
-export function writeOrganizationOpenaiApiKey(
-  input: { organizationId: string; apiKey: string | null },
-) {
-  const openaiApiKey = input.apiKey === null
-    ? null
-    : { organizationId: input.organizationId, apiKey: input.apiKey }
+export function writeOrganizationOpenaiApiKey(input: {
+  organizationId: string
+  apiKey: string | null
+}) {
+  const openaiApiKey =
+    input.apiKey === null ? null : { organizationId: input.organizationId, apiKey: input.apiKey }
   return Effect.flatMap(effectDatabase, (db) =>
-    db.insert(organizationConfiguration).values({
-      organizationId: input.organizationId,
-      openaiApiKey,
-    }).onConflictDoUpdate({
-      target: organizationConfiguration.organizationId,
-      set: {
+    db
+      .insert(organizationConfiguration)
+      .values({
+        organizationId: input.organizationId,
         openaiApiKey,
-        lockVersion: sql`${organizationConfiguration.lockVersion} + 1`,
-        // Drizzle's `updatedAt` hook runs for update statements, not for a conflict clause.
-        updatedAt: sql`now()`,
-      },
-    }))
+      })
+      .onConflictDoUpdate({
+        target: organizationConfiguration.organizationId,
+        set: {
+          openaiApiKey,
+          lockVersion: sql`${organizationConfiguration.lockVersion} + 1`,
+          // Drizzle's `updatedAt` hook runs for update statements, not for a conflict clause.
+          updatedAt: sql`now()`,
+        },
+      }),
+  )
 }

@@ -39,11 +39,13 @@ test("HTTP errors reach chat state and callbacks with their API details", async 
   try {
     await chat.sendMessage("Hello")
     expect(chat.getState().error?.message).toBe(problem.detail)
-    expect(onError).toHaveBeenCalledWith(expect.objectContaining({
-      name: "AstralBeamApiError",
-      message: problem.detail,
-      status: 429,
-    }))
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "AstralBeamApiError",
+        message: problem.detail,
+        status: 429,
+      }),
+    )
   } finally {
     chat.dispose()
   }
@@ -91,14 +93,10 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
 // attachment grant the composer reads must be the current agent's.
 test("a capability response for a superseded agent does not overwrite the current grant", async () => {
   const requests: Array<{ url: string; answer: (attachments: boolean) => void }> = []
-  vi.stubGlobal(
-    "fetch",
-    (input: URL) =>
-      String(input).endsWith("/me")
-        ? Promise.resolve(
-          Response.json(currentUser),
-        )
-        : new Promise<Response>((resolve) => {
+  vi.stubGlobal("fetch", (input: URL) =>
+    String(input).endsWith("/me")
+      ? Promise.resolve(Response.json(currentUser))
+      : new Promise<Response>((resolve) => {
           requests.push({
             url: String(input),
             answer: (attachments) =>
@@ -131,7 +129,7 @@ test("a rejected capability request renews once without a refresh notification l
       String(input).endsWith("/me")
         ? Response.json(currentUser)
         : new Response(null, { status: 401 }),
-    )
+    ),
   )
   vi.stubGlobal("fetch", fetch)
   const source = vi.fn(chatAuthToken)

@@ -40,36 +40,32 @@ function ConfigurePage() {
           </p>
         </div>
         {state.status === "ready" && (
-          <OperatorSessionStatus
-            sessionExpiresAt={state.sessionExpiresAt}
-          />
+          <OperatorSessionStatus sessionExpiresAt={state.sessionExpiresAt} />
         )}
       </header>
 
-      {state.status === "signed-out"
-        ? <OperatorLoginForm onLoggedIn={refresh} />
-        : state.migrations.pending.length > 0
-        ? (
-          <>
-            <ConfigureActions setupComplete={state.setupComplete} />
-            <PendingMigrationsCard
-              pending={state.migrations.pending}
-              appliedCount={state.migrations.appliedCount}
-              onApplied={refresh}
-            />
-            <ConfigureActions setupComplete={state.setupComplete} />
-          </>
-        )
-        : (
-          <ConfigEditor
-            onboarding={state.onboarding}
-            fields={state.fields}
-            issues={state.issues}
-            setupComplete={state.setupComplete}
-            fallbackEncryptionKeyCount={state.fallbackEncryptionKeyCount}
-            onChanged={refresh}
+      {state.status === "signed-out" ? (
+        <OperatorLoginForm onLoggedIn={refresh} />
+      ) : state.migrations.pending.length > 0 ? (
+        <>
+          <ConfigureActions setupComplete={state.setupComplete} />
+          <PendingMigrationsCard
+            pending={state.migrations.pending}
+            appliedCount={state.migrations.appliedCount}
+            onApplied={refresh}
           />
-        )}
+          <ConfigureActions setupComplete={state.setupComplete} />
+        </>
+      ) : (
+        <ConfigEditor
+          onboarding={state.onboarding}
+          fields={state.fields}
+          issues={state.issues}
+          setupComplete={state.setupComplete}
+          fallbackEncryptionKeyCount={state.fallbackEncryptionKeyCount}
+          onChanged={refresh}
+        />
+      )}
     </main>
   )
 }
@@ -82,9 +78,7 @@ function BootstrapErrorPage({
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Configure {APP_NAME}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Configure {APP_NAME}</h1>
         <p className="text-sm text-muted-foreground">
           Set the required server environment before configuring the application.
         </p>
@@ -106,16 +100,14 @@ function BootstrapErrorPage({
           </ul>
           {issues.includes("DATABASE_URL") && (
             <p>
-              Set <code>DATABASE_URL</code>{" "}
-              to the PostgreSQL connection URL supplied by your database provider, such as{" "}
-              <code>postgresql://user:password@host:5432/database</code>.
+              Set <code>DATABASE_URL</code> to the PostgreSQL connection URL supplied by your
+              database provider, such as <code>postgresql://user:password@host:5432/database</code>.
             </p>
           )}
           {issues.includes("DATABASE_ENCRYPTION_KEY") && (
             <p>
-              Generate a high-entropy encryption key with{" "}
-              <code>openssl rand -base64 32</code>, then set its output as{" "}
-              <code>DATABASE_ENCRYPTION_KEY</code>.
+              Generate a high-entropy encryption key with <code>openssl rand -base64 32</code>, then
+              set its output as <code>DATABASE_ENCRYPTION_KEY</code>.
             </p>
           )}
           <p>

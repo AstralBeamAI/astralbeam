@@ -4,21 +4,21 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 
 ## Options
 
-| Option                           | Default                            | Meaning                                                                           |
-| -------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- |
-| `agentId`                        | organization's default agent       | `agent_<orgId>_<id>`, copied from the dashboard                                   |
-| `apiUrl`                         | `https://app.astralbeam.ai/api`    | Base URL of the AstralBeam API, the widget streams from `/v1/chat`                |
-| `fetchAstralBeamToken`           | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
-| `title`                          | `"AstralBeam"`                     | Name in the widget's header                                                       |
-| `showHeader`                     | `true`                             | `false` hides the header and its reset button                                     |
-| `emptyTitle`, `emptyDescription` | generic copy                       | Headline and subtitle of the empty transcript                                     |
-| `colorScheme`                    | `"system"`                         | `"light"`, `"dark"`, or follow the OS setting live                                |
-| `theme`                          | built-in palette                   | `{ light, dark }` CSS token overrides, see [Theming](./theming.md)                |
-| `customCss`                      | None                               | Trusted CSS inside the widget's Shadow DOM, updated without resetting chat        |
-| `attachments`                    | `true`                             | `false` disables, an object narrows limits. See [Attachments](./attachments.md)   |
-| `sandboxPanel`                   | `false`                            | Shows the collected sandbox panel, see [Sandbox](./sandbox.md)                    |
-| `tools`, `widgets`               | none                               | See [Tools and widgets](./tools-and-widgets.md)                                   |
-| `debug`                          | `false`                            | Log SDK actions in the browser, with server logs in development only              |
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `agentId` | organization's default agent | `agent_<orgId>_<id>`, copied from the dashboard |
+| `apiUrl` | `https://app.astralbeam.ai/api` | Base URL of the AstralBeam API, the widget streams from `/v1/chat` |
+| `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
+| `title` | `"AstralBeam"` | Name in the widget's header |
+| `showHeader` | `true` | `false` hides the header and its reset button |
+| `emptyTitle`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
+| `colorScheme` | `"system"` | `"light"`, `"dark"`, or follow the OS setting live |
+| `theme` | built-in palette | `{ light, dark }` CSS token overrides, see [Theming](./theming.md) |
+| `customCss` | None | Trusted CSS inside the widget's Shadow DOM, updated without resetting chat |
+| `attachments` | `true` | `false` disables, an object narrows limits. See [Attachments](./attachments.md) |
+| `sandboxPanel` | `false` | Shows the collected sandbox panel, see [Sandbox](./sandbox.md) |
+| `tools`, `widgets` | none | See [Tools and widgets](./tools-and-widgets.md) |
+| `debug` | `false` | Log SDK actions in the browser, with server logs in development only |
 
 - For self-hosting, set `apiUrl` to your deployment’s `/api` base. Send tokens only to the deployment that issued the API key.
 - `apiUrl` is a base, not a route: the widget appends `/v1/chat` for the stream and its subroutes for the agent handshake and artifact downloads.

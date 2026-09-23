@@ -22,21 +22,20 @@ export function databasePages<T extends { id: string }, E, R>(
     backward: boolean,
   ) => Effect.Effect<T[], E, R>,
 ) {
-  return Stream.paginate(
-    position,
-    (position) =>
-      Effect.gen(function* () {
-        const rows = yield* fetchPage(position, pageSize + 1, backward)
-        const items = rows.slice(0, pageSize)
-        const nextPosition = rows.length > pageSize ? { id: items.at(-1)!.id } : null
-        const boundary = items[0]
-        const previousPosition = !includePrevious ? undefined : position && boundary &&
-            (yield* fetchPage({ id: boundary.id }, 1, !backward)).length > 0
+  return Stream.paginate(position, (position) =>
+    Effect.gen(function* () {
+      const rows = yield* fetchPage(position, pageSize + 1, backward)
+      const items = rows.slice(0, pageSize)
+      const nextPosition = rows.length > pageSize ? { id: items.at(-1)!.id } : null
+      const boundary = items[0]
+      const previousPosition = !includePrevious
+        ? undefined
+        : position && boundary && (yield* fetchPage({ id: boundary.id }, 1, !backward)).length > 0
           ? { id: boundary.id }
           : null
-        if (backward) items.reverse()
-        const page: DatabasePage<T> = { items, nextPosition, previousPosition }
-        return [[page], Option.fromNullishOr(nextPosition)] as const
-      }),
+      if (backward) items.reverse()
+      const page: DatabasePage<T> = { items, nextPosition, previousPosition }
+      return [[page], Option.fromNullishOr(nextPosition)] as const
+    }),
   )
 }

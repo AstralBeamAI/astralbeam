@@ -101,15 +101,13 @@ async function loadMigrationState(): Promise<MigrationState> {
 }
 
 export function getDatabaseMigrationState(): Promise<MigrationState> {
-  return cachedMigrationState ??= loadMigrationState().catch((error) => {
+  return (cachedMigrationState ??= loadMigrationState().catch((error) => {
     cachedMigrationState = undefined
     throw error
-  })
+  }))
 }
 
-type ApplyMigrationsResult =
-  | { ok: true; applied: string[] }
-  | { ok: false; error: string }
+type ApplyMigrationsResult = { ok: true; applied: string[] } | { ok: false; error: string }
 
 export async function runWithMigrationAdvisoryLock(
   database: Pick<typeof db, "transaction">,
@@ -158,15 +156,17 @@ export async function applyApprovedMigrations(
       if (appliedNames === null) {
         // Same bookkeeping DDL as drizzle-orm's migrator, so the drizzle-kit CLI remains usable.
         await db.execute(sql`CREATE SCHEMA IF NOT EXISTS drizzle`)
-        await db.execute(sql.raw(
-          `CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+        await db.execute(
+          sql.raw(
+            `CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
             id SERIAL PRIMARY KEY,
             hash text NOT NULL,
             created_at bigint,
             name text,
             applied_at timestamp with time zone DEFAULT now()
           )`,
-        ))
+          ),
+        )
       }
       const applied: string[] = []
       for (const migration of pending) {

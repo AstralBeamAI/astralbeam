@@ -27,8 +27,9 @@ const decodeChatAuthTokenPayload = Schema.decodeUnknownSync(ChatAuthTokenPayload
 })
 
 export function isChatAuthenticationError(error: unknown): error is ChatAuthenticationError {
-  return error instanceof Error &&
-    (error as Partial<ChatAuthenticationError>).code === "invalid_token"
+  return (
+    error instanceof Error && (error as Partial<ChatAuthenticationError>).code === "invalid_token"
+  )
 }
 
 /**
@@ -41,10 +42,8 @@ export function isChatAuthenticationError(error: unknown): error is ChatAuthenti
  */
 export async function authenticateChatRequest(request: Request): Promise<ChatPrincipal> {
   const result = await runDatabaseEffect(
-    authenticateOrganizationIssuedToken(
-      request,
-      (token, verifier, apiKeyId) =>
-        Effect.tryPromise(() => verifyChatAuthToken(token, verifier, apiKeyId)),
+    authenticateOrganizationIssuedToken(request, (token, verifier, apiKeyId) =>
+      Effect.tryPromise(() => verifyChatAuthToken(token, verifier, apiKeyId)),
     ),
   )
   return { organization: { id: result.organizationId }, tenantUser: result.identity }
@@ -67,33 +66,36 @@ export function authenticateOrganizationIssuedToken<T, E>(
         isChatAuthenticationError(cause) ? cause : invalidToken("Malformed token header", cause),
     })
     const db = yield* effectDatabase
-    const [initial] = yield* db.select({
-      id: apiKey.id,
-      digest: apiKey.key,
-      organizationId: organization.id,
-    }).from(organization).innerJoin(
-      apiKey,
-      and(
-        eq(apiKey.organizationId, organization.id),
-        eq(apiKey.id, id),
-        eq(apiKey.configId, API_KEY_CONFIG_ID),
-      ),
-    ).where(eq(organization.id, organizationId)).limit(1)
+    const [initial] = yield* db
+      .select({
+        id: apiKey.id,
+        digest: apiKey.key,
+        organizationId: organization.id,
+      })
+      .from(organization)
+      .innerJoin(
+        apiKey,
+        and(
+          eq(apiKey.organizationId, organization.id),
+          eq(apiKey.id, id),
+          eq(apiKey.configId, API_KEY_CONFIG_ID),
+        ),
+      )
+      .where(eq(organization.id, organizationId))
+      .limit(1)
     if (!initial) return yield* Effect.fail(invalidToken("API key not found"))
 
     const verifier = textEncoder.encode(initial.digest)
     const identity = yield* verify(token, verifier, apiKeyId).pipe(
       Effect.mapError((cause) =>
-        isChatAuthenticationError(cause) ? cause : invalidToken("Invalid bearer token", cause)
+        isChatAuthenticationError(cause) ? cause : invalidToken("Invalid bearer token", cause),
       ),
     )
-    const [current] = yield* db.select({ enabled: apiKey.enabled, expiresAt: apiKey.expiresAt })
-      .from(apiKey).where(
-        and(
-          eq(apiKey.id, initial.id),
-          eq(apiKey.organizationId, initial.organizationId),
-        ),
-      ).limit(1)
+    const [current] = yield* db
+      .select({ enabled: apiKey.enabled, expiresAt: apiKey.expiresAt })
+      .from(apiKey)
+      .where(and(eq(apiKey.id, initial.id), eq(apiKey.organizationId, initial.organizationId)))
+      .limit(1)
     if (!current?.enabled || (current.expiresAt?.getTime() ?? Infinity) <= Date.now()) {
       return yield* Effect.fail(invalidToken("API key is unavailable"))
     }

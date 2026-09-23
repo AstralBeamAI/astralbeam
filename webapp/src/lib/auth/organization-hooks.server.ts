@@ -19,30 +19,32 @@ const isOrganizationSlug = Schema.is(SlugSchema)
 export const organizationApiKeyPlugin = {
   id: "organization-api-key",
   hooks: {
-    before: [{
-      matcher: (context) => context.path === "/api-key/create",
-      handler: createAuthMiddleware(async (context) => {
-        await freshSessionMiddleware(
-          context as Parameters<typeof freshSessionMiddleware>[0],
-        )
-        const body = context.body as { prefix?: unknown } | undefined
-        if (body?.prefix !== undefined && body.prefix !== ORGANIZATION_API_KEY_PREFIX) {
-          throw new APIError("BAD_REQUEST", {
-            code: "INVALID_API_KEY_PREFIX",
-            message: "API key prefix is invalid",
-          })
-        }
-      }),
-    }],
+    before: [
+      {
+        matcher: (context) => context.path === "/api-key/create",
+        handler: createAuthMiddleware(async (context) => {
+          await freshSessionMiddleware(context as Parameters<typeof freshSessionMiddleware>[0])
+          const body = context.body as { prefix?: unknown } | undefined
+          if (body?.prefix !== undefined && body.prefix !== ORGANIZATION_API_KEY_PREFIX) {
+            throw new APIError("BAD_REQUEST", {
+              code: "INVALID_API_KEY_PREFIX",
+              message: "API key prefix is invalid",
+            })
+          }
+        }),
+      },
+    ],
   },
 } satisfies BetterAuthPlugin
 
 function assertConfiguredOrganizationRoles(role: string): void {
   const roles = role.split(",")
   if (
-    roles.some((value) =>
-      value.length === 0 || value !== value.trim() || !Object.hasOwn(organizationRoles, value)
-    ) || new Set(roles).size !== roles.length
+    roles.some(
+      (value) =>
+        value.length === 0 || value !== value.trim() || !Object.hasOwn(organizationRoles, value),
+    ) ||
+    new Set(roles).size !== roles.length
   ) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_ORGANIZATION_ROLE",
@@ -88,11 +90,13 @@ export const organizationProvisioningHooks = {
   afterCreateOrganization: async ({ organization }) => {
     try {
       const openaiApiKey = import.meta.env.DEV ? process.env.OPENAI_API_KEY?.trim() : undefined
-      await runDatabaseEffect(provisionOrganizationDefaultAgent({
-        organizationId: organization.id,
-        organizationName: organization.name,
-        openaiApiKey: isValidOpenaiApiKey(openaiApiKey) ? openaiApiKey : undefined,
-      }))
+      await runDatabaseEffect(
+        provisionOrganizationDefaultAgent({
+          organizationId: organization.id,
+          organizationName: organization.name,
+          openaiApiKey: isValidOpenaiApiKey(openaiApiKey) ? openaiApiKey : undefined,
+        }),
+      )
     } catch {
       // The organization is already created and its owner can add an agent by hand, so a failure
       // here must not fail the request that created it.

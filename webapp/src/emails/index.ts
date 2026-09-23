@@ -275,7 +275,14 @@ function sanitizeSubjectPart(value: string): string {
 }
 
 function formatInvitationRoles(value: string): string {
-  const roles = [...new Set(value.split(",").map((role) => role.trim()).filter(Boolean))]
+  const roles = [
+    ...new Set(
+      value
+        .split(",")
+        .map((role) => role.trim())
+        .filter(Boolean),
+    ),
+  ]
   return new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(
     roles.length > 0 ? roles : ["member"],
   )

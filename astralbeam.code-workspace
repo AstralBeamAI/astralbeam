@@ -2,21 +2,21 @@
   "folders": [
     {
       "name": "root",
-      "path": "."
+      "path": ".",
     },
     {
       "name": "webapp",
-      "path": "webapp"
+      "path": "webapp",
     },
     {
       "name": "www",
-      "path": "www"
-    }
+      "path": "www",
+    },
   ],
   "settings": {
     "files.exclude": {
       "webapp": true,
-      "www": true
-    }
-  }
+      "www": true,
+    },
+  },
 }

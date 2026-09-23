@@ -20,11 +20,7 @@ function isDisabledRule(rule: DummyRule): boolean {
   return severity === "allow" || severity === "off" || severity === 0
 }
 
-function aliasPresetRules(
-  preset: unknown,
-  sourcePrefix: string,
-  aliasPrefix: string,
-): RuleMap {
+function aliasPresetRules(preset: unknown, sourcePrefix: string, aliasPrefix: string): RuleMap {
   const rules = (preset as { rules?: RuleMap }).rules ?? {}
   return Object.fromEntries(
     Object.entries(rules)
@@ -63,17 +59,9 @@ const recommendedRules = {
   // Source: https://github.com/vitest-dev/eslint-plugin-vitest/blob/main/src/index.ts
   vitest: aliasPresetRules(vitestPlugin.configs.recommended, "vitest/", "vitest-js/"),
   // Source: https://github.com/es-tooling/eslint-plugin-jsx-a11y-x/blob/main/src/index.js
-  jsxA11y: aliasPresetRules(
-    jsxA11yPlugin.configs.recommended,
-    "jsx-a11y-x/",
-    "jsx-a11y-x-js/",
-  ),
+  jsxA11y: aliasPresetRules(jsxA11yPlugin.configs.recommended, "jsx-a11y-x/", "jsx-a11y-x-js/"),
   // Source: https://github.com/Rel1cx/eslint-react/blob/main/plugins/eslint-plugin-react-dom/src/configs/recommended.ts
-  reactDom: aliasPresetRules(
-    reactDomPlugin.configs.recommended,
-    "react-dom/",
-    "react-dom-js/",
-  ),
+  reactDom: aliasPresetRules(reactDomPlugin.configs.recommended, "react-dom/", "react-dom-js/"),
   // Source: https://github.com/facebook/react/blob/main/packages/eslint-plugin-react-hooks/src/index.ts
   reactHooks: aliasPresetRules(
     reactHooksPlugin.configs.flat.recommended,
@@ -81,11 +69,7 @@ const recommendedRules = {
     "react-hooks-js/",
   ),
   // Source: https://github.com/Rel1cx/eslint-react/blob/main/plugins/eslint-plugin-react-jsx/src/configs/recommended.ts
-  reactJsx: aliasPresetRules(
-    reactJsxPlugin.configs.recommended,
-    "react-jsx/",
-    "react-jsx-js/",
-  ),
+  reactJsx: aliasPresetRules(reactJsxPlugin.configs.recommended, "react-jsx/", "react-jsx-js/"),
   // Source: https://github.com/Rel1cx/eslint-react/blob/main/plugins/eslint-plugin-react-web-api/src/configs/recommended.ts
   reactWebApi: aliasPresetRules(
     reactWebApiPlugin.configs.recommended,

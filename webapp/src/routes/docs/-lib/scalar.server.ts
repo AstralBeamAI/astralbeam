@@ -7,8 +7,10 @@ import docsHeaderStyles from "./header.css?inline"
 import { APP_LOGO_LIGHT_SVG_URL, APP_NAME } from "../../../lib/constants"
 
 // Reuse the compiler's output without importing Tailwind resets or running the compiler at runtime.
-const apiDocsTheme = appStyles.split("/* Generated theme variables: start */")[1]!
-  .split("/* Generated theme variables: end */")[0]!.replaceAll(".dark", ".dark-mode")
+const apiDocsTheme = appStyles
+  .split("/* Generated theme variables: start */")[1]!
+  .split("/* Generated theme variables: end */")[0]!
+  .replaceAll(".dark", ".dark-mode")
 
 const apiDocsStyles = `${apiDocsTheme}\n${scalarStyles}\n${docsHeaderStyles}`
 
@@ -133,8 +135,11 @@ export function apiDocsHtml() {
         }
       }
     }
-    Scalar.createApiReference('#api-reference-container', { ...${
-    JSON.stringify(apiDocsScalarOptions).replaceAll("<", "\\u003c")
-  }, content, baseServerURL: window.location.origin, generateTagSlug: ({ name }) => name })</script>
+    Scalar.createApiReference('#api-reference-container', { ...${JSON.stringify(
+      apiDocsScalarOptions,
+    ).replaceAll(
+      "<",
+      "\\u003c",
+    )}, content, baseServerURL: window.location.origin, generateTagSlug: ({ name }) => name })</script>
     </body></html>`
 }

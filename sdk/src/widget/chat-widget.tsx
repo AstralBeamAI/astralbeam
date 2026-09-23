@@ -44,13 +44,15 @@ import { useWidgetRenders } from "./use-widget-renders.ts"
 // a fresh `{}` would rebuild the memoized session options (and push them through the session).
 const NO_WIDGETS: Record<string, WidgetDefinition> = {}
 
-export function ChatWidget(
-  { options, host, controller }: {
-    options: MountAstralBeamChatOptions
-    host: HTMLElement
-    controller: RefObject<ChatController | null>
-  },
-) {
+export function ChatWidget({
+  options,
+  host,
+  controller,
+}: {
+  options: MountAstralBeamChatOptions
+  host: HTMLElement
+  controller: RefObject<ChatController | null>
+}) {
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
   const { activeSlots, renderWidget } = useWidgetRenders(widgets, host, debug)
@@ -58,25 +60,28 @@ export function ChatWidget(
   const streamCallbacks = useMemo(() => createDebugCallbacks(debug), [debug])
   // Everything the headless session owns: authentication, transport, the tool protocol, and
   // transcript state. Memoized because the update effect below keys off it.
-  const sessionOptions = useMemo<AstralBeamChatCoreOptions>(() => ({
-    agentId: options.agentId,
-    apiUrl: options.apiUrl,
-    fetchAstralBeamToken: options.fetchAstralBeamToken,
-    tools: options.tools,
-    widgets,
-    onRenderWidget: renderWidget,
-    streamCallbacks,
-    debug: options.debug,
-  }), [
-    options.agentId,
-    options.apiUrl,
-    options.fetchAstralBeamToken,
-    options.tools,
-    options.debug,
-    widgets,
-    renderWidget,
-    streamCallbacks,
-  ])
+  const sessionOptions = useMemo<AstralBeamChatCoreOptions>(
+    () => ({
+      agentId: options.agentId,
+      apiUrl: options.apiUrl,
+      fetchAstralBeamToken: options.fetchAstralBeamToken,
+      tools: options.tools,
+      widgets,
+      onRenderWidget: renderWidget,
+      streamCallbacks,
+      debug: options.debug,
+    }),
+    [
+      options.agentId,
+      options.apiUrl,
+      options.fetchAstralBeamToken,
+      options.tools,
+      options.debug,
+      widgets,
+      renderWidget,
+      streamCallbacks,
+    ],
+  )
   // One session per committed mount, retuned in place, though Strict Mode's render probe can
   // still build a discarded second.
   const [chat] = useState(() => createAstralBeamChat(sessionOptions, true))
@@ -129,8 +134,8 @@ export function ChatWidget(
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = auth.status === "loading"
   const authError = auth.status === "error" ? auth.error : undefined
-  const isBusy = authPending || authError !== undefined || streamBusy ||
-    hasPendingToolRun(messages, toolNames)
+  const isBusy =
+    authPending || authError !== undefined || streamBusy || hasPendingToolRun(messages, toolNames)
 
   // Every picked file becomes a chip, a rejected one included, so a file the limits turn away
   // says why instead of vanishing. Reads are per file: one unreadable file must not lose the rest.
@@ -145,8 +150,8 @@ export function ChatWidget(
     const settle = (id: string, update: Partial<DraftAttachment>) =>
       setAttachments((current) =>
         current.map((attachment) =>
-          attachment.id === id ? { ...attachment, ...update } : attachment
-        )
+          attachment.id === id ? { ...attachment, ...update } : attachment,
+        ),
       )
     for (const { draft: pick, file } of picked) {
       if (pick.status === "error") {
@@ -187,20 +192,28 @@ export function ChatWidget(
     debug?.(
       "send",
       text.length > 0 ? text : `${parts.length} attachment(s), no message text`,
-      parts.length === 0 ? undefined : {
-        attachments: attachments.filter((attachment) => attachment.status === "ready").map((
-          attachment,
-        ) => ({ name: attachment.name, kind: attachment.kind, size: attachment.size })),
-      },
+      parts.length === 0
+        ? undefined
+        : {
+            attachments: attachments
+              .filter((attachment) => attachment.status === "ready")
+              .map((attachment) => ({
+                name: attachment.name,
+                kind: attachment.kind,
+                size: attachment.size,
+              })),
+          },
     )
     // The session settles dangling tool calls before the send, so the run can proceed.
     void chat.sendMessage(
-      parts.length === 0 ? text : {
-        content: [
-          ...parts,
-          ...(text.length > 0 ? [{ type: "text" as const, content: text }] : []),
-        ],
-      },
+      parts.length === 0
+        ? text
+        : {
+            content: [
+              ...parts,
+              ...(text.length > 0 ? [{ type: "text" as const, content: text }] : []),
+            ],
+          },
     )
     setDraft("")
     setAttachments([])
@@ -241,25 +254,25 @@ export function ChatWidget(
     >
       {showHeader && (
         <CardHeader className="gap-1 border-b">
-          {hostSlots.has("header")
+          {hostSlots.has("header") ? (
             // The host's own header content, projected in the host page's style.
-            ? <slot name={hostSlotName("header")} />
-            : (
-              <>
-                <CardTitle>{options.title ?? DEFAULT_TITLE}</CardTitle>
-                <CardAction>
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label="Reset conversation"
-                    disabled={streamBusy || messages.length === 0}
-                    onClick={resetConversation}
-                  >
-                    <ArrowCounterClockwiseIcon />
-                  </Button>
-                </CardAction>
-              </>
-            )}
+            <slot name={hostSlotName("header")} />
+          ) : (
+            <>
+              <CardTitle>{options.title ?? DEFAULT_TITLE}</CardTitle>
+              <CardAction>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Reset conversation"
+                  disabled={streamBusy || messages.length === 0}
+                  onClick={resetConversation}
+                >
+                  <ArrowCounterClockwiseIcon />
+                </Button>
+              </CardAction>
+            </>
+          )}
         </CardHeader>
       )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
@@ -277,18 +290,16 @@ export function ChatWidget(
           onQuestionnaireAnswers={submitQuestionnaireAnswers}
         />
       </CardContent>
-      {
-        /* No border, bg-muted band, or full top padding on the composer: the scroller already
-          fades messages at the edge, so the footer needs no separation of its own. */
-      }
+      {/* No border, bg-muted band, or full top padding on the composer: the scroller already
+          fades messages at the edge, so the footer needs no separation of its own. */}
       <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
         {sandboxStatus !== undefined && <SandboxStatusPill status={sandboxStatus} />}
         {options.sandboxPanel === true && sandboxHasWork && <SandboxPanel activity={sandbox} />}
         <ChatComposer
           title={options.title ?? DEFAULT_TITLE}
-          actionsSlot={hostSlots.has("composerActions")
-            ? hostSlotName("composerActions")
-            : undefined}
+          actionsSlot={
+            hostSlots.has("composerActions") ? hostSlotName("composerActions") : undefined
+          }
           draft={draft}
           onDraftChange={setDraft}
           onSend={sendDraft}

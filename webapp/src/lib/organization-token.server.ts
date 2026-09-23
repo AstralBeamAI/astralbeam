@@ -40,14 +40,16 @@ export function verifyOrganizationToken(token: string, verifier: Uint8Array, key
         requiredClaims: ["iss", "aud", "email", "organization_id", "iat", "exp"],
         clockTolerance: 30,
         maxTokenAge: 600,
-      })
+      }),
     )
     const claims = yield* Schema.decodeUnknownEffect(organizationTokenClaims, {
       onExcessProperty: "error",
     })(payload)
     if (
-      protectedHeader.kid !== keyId || claims.organization_id !== issuer ||
-      claims.exp - claims.iat < 60 || claims.exp - claims.iat > 600
+      protectedHeader.kid !== keyId ||
+      claims.organization_id !== issuer ||
+      claims.exp - claims.iat < 60 ||
+      claims.exp - claims.iat > 600
     ) {
       return yield* Effect.fail(new errors.JWTInvalid("Invalid organization token claims"))
     }
@@ -59,12 +61,13 @@ export function authenticateOrganizationRequest(request: Request) {
   return Effect.gen(function* () {
     const principal = yield* authenticateOrganizationIssuedToken(request, verifyOrganizationToken)
     const database = yield* effectDatabase
-    const [currentUser] = yield* database.select({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: member.role,
-    })
+    const [currentUser] = yield* database
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: member.role,
+      })
       .from(user)
       .innerJoin(
         member,

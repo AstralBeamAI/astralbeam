@@ -72,13 +72,13 @@ describe("organization membership authorization", () => {
     accessState.membership = OWNER_MEMBERSHIP
     accessState.responseHeader.mockReset()
     accessState.responseStatus.mockReset()
-    accessState.getSession.mockReset().mockImplementation(() =>
-      Promise.resolve(accessState.session)
-    )
+    accessState.getSession
+      .mockReset()
+      .mockImplementation(() => Promise.resolve(accessState.session))
     accessState.setActiveOrganization.mockReset().mockResolvedValue({ id: "organization-a" })
-    accessState.readOrganizationMembership.mockReset().mockImplementation(() =>
-      Effect.succeed(accessState.membership)
-    )
+    accessState.readOrganizationMembership
+      .mockReset()
+      .mockImplementation(() => Effect.succeed(accessState.membership))
   })
 
   it("derives the organization and its permissions from the slug input alone", async () => {

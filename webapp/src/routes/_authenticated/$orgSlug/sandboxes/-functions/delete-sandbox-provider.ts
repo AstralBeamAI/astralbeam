@@ -25,7 +25,8 @@ export const deleteSandboxProvider = createServerFn({ method: "POST" })
             ok: false as const,
             code: "in_use" as const,
             message: error.message,
-          })),
+          }),
+        ),
       ),
-    )
+    ),
   )

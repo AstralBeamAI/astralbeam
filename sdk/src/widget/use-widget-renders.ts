@@ -51,17 +51,20 @@ export function useWidgetRenders(
     return dropped
   }, [])
   // Also drops the slots, so their transcript entries fall back to a summary marker.
-  const discardRenders = useCallback((discard: (render: ActiveWidgetRender) => boolean) => {
-    const dropped = disposeRenders(discard)
-    if (dropped.length > 0) {
-      setActiveSlots((current) => {
-        const next = new Map(current)
-        for (const slot of dropped) next.delete(slot)
-        return next
-      })
-    }
-    return dropped.length
-  }, [disposeRenders])
+  const discardRenders = useCallback(
+    (discard: (render: ActiveWidgetRender) => boolean) => {
+      const dropped = disposeRenders(discard)
+      if (dropped.length > 0) {
+        setActiveSlots((current) => {
+          const next = new Map(current)
+          for (const slot of dropped) next.delete(slot)
+          return next
+        })
+      }
+      return dropped.length
+    },
+    [disposeRenders],
+  )
   const mounted = useRef(true)
   useEffect(() => {
     mounted.current = true

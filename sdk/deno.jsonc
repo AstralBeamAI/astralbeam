@@ -5,6 +5,6 @@
     "npm:@parcel/watcher@2.5.1",
     "npm:esbuild",
     "npm:fsevents@2.3.3",
-    "npm:msgpackr-extract@3.0.4"
-  ]
+    "npm:msgpackr-extract@3.0.4",
+  ],
 }

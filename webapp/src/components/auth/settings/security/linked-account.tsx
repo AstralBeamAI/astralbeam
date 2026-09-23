@@ -55,26 +55,13 @@ export type LinkedAccountProps = {
  * @param provider - The provider id
  * @returns A JSX element containing the linked account row
  */
-export function LinkedAccount({
-  account,
-  canUnlink = true,
-  provider,
-}: LinkedAccountProps) {
-  const {
-    authClient,
-    basePaths,
-    baseURL,
-    localization,
-    viewPaths,
-  } = useAuth()
+export function LinkedAccount({ account, canUnlink = true, provider }: LinkedAccountProps) {
+  const { authClient, basePaths, baseURL, localization, viewPaths } = useAuth()
 
-  const { data: accountInfo, isPending: isLoadingInfo } = useAccountInfo(
-    authClient,
-    {
-      query: { accountId: account?.id ?? "" },
-      enabled: Boolean(account),
-    },
-  )
+  const { data: accountInfo, isPending: isLoadingInfo } = useAccountInfo(authClient, {
+    query: { accountId: account?.id ?? "" },
+    enabled: Boolean(account),
+  })
 
   const { mutate: linkSocial, isPending: isLinking } = useLinkSocial(authClient)
 
@@ -87,7 +74,8 @@ export function LinkedAccount({
   const providerName = getProviderName(provider)
   const accountData: { login?: string; username?: string } | undefined = accountInfo?.data
 
-  const displayName = accountData?.login ||
+  const displayName =
+    accountData?.login ||
     accountData?.username ||
     accountInfo?.user?.email ||
     accountInfo?.user?.name ||
@@ -103,63 +91,57 @@ export function LinkedAccount({
         </ItemMedia>
         <ItemContent>
           <ItemTitle>{providerName}</ItemTitle>
-          {account && isLoadingInfo ? <Skeleton className="my-0.5 h-3 w-24" /> : (
+          {account && isLoadingInfo ? (
+            <Skeleton className="my-0.5 h-3 w-24" />
+          ) : (
             <ItemDescription>
-              {account ? displayName : localization.settings.linkProvider.replace(
-                "{{provider}}",
-                providerName,
-              )}
+              {account
+                ? displayName
+                : localization.settings.linkProvider.replace("{{provider}}", providerName)}
             </ItemDescription>
           )}
         </ItemContent>
         <ItemActions>
-          {account
-            ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => unlinkAccount.mutate({ accountId: account.id })}
-                disabled={unlinkAccount.isPending || !canUnlink}
-                title={canUnlink ? undefined : localization.settings.lastAccountUnlinkingDisabled}
-                aria-label={localization.settings.unlinkProvider.replace(
-                  "{{provider}}",
-                  providerName,
-                )}
-              >
-                {unlinkAccount.isPending ? <Spinner /> : <Link2Off />}
-                {localization.settings.unlinkProvider
-                  .replace("{{provider}}", "")
-                  .trim()}
-              </Button>
-            )
-            : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const safeReturnPath = getSafeRedirectTo(
-                    globalThis.location.pathname,
-                    globalThis.location.origin,
-                  )
-                  linkSocial({
-                    provider: providerId,
-                    callbackURL: `${baseURL}${safeReturnPath}`,
-                    errorCallbackURL: getAuthLinkURL(
-                      `${baseURL}${basePaths.auth}/${viewPaths.auth.error}`,
-                      safeReturnPath,
-                    ),
-                  })
-                }}
-                disabled={isLinking}
-                aria-label={localization.settings.linkProvider.replace(
-                  "{{provider}}",
-                  providerName,
-                )}
-              >
-                {isLinking ? <Spinner /> : <Link2 />}
-                {localization.settings.link}
-              </Button>
-            )}
+          {account ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => unlinkAccount.mutate({ accountId: account.id })}
+              disabled={unlinkAccount.isPending || !canUnlink}
+              title={canUnlink ? undefined : localization.settings.lastAccountUnlinkingDisabled}
+              aria-label={localization.settings.unlinkProvider.replace(
+                "{{provider}}",
+                providerName,
+              )}
+            >
+              {unlinkAccount.isPending ? <Spinner /> : <Link2Off />}
+              {localization.settings.unlinkProvider.replace("{{provider}}", "").trim()}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const safeReturnPath = getSafeRedirectTo(
+                  globalThis.location.pathname,
+                  globalThis.location.origin,
+                )
+                linkSocial({
+                  provider: providerId,
+                  callbackURL: `${baseURL}${safeReturnPath}`,
+                  errorCallbackURL: getAuthLinkURL(
+                    `${baseURL}${basePaths.auth}/${viewPaths.auth.error}`,
+                    safeReturnPath,
+                  ),
+                })
+              }}
+              disabled={isLinking}
+              aria-label={localization.settings.linkProvider.replace("{{provider}}", providerName)}
+            >
+              {isLinking ? <Spinner /> : <Link2 />}
+              {localization.settings.link}
+            </Button>
+          )}
         </ItemActions>
       </Item>
       {account && (
@@ -175,9 +157,7 @@ export function LinkedAccount({
                 {localization.settings.freshSessionTitle}
               </DialogTitle>
             </DialogHeader>
-            <FreshSessionPrompt
-              onFresh={() => unlinkAccount.mutate({ accountId: account.id })}
-            />
+            <FreshSessionPrompt onFresh={() => unlinkAccount.mutate({ accountId: account.id })} />
           </DialogContent>
         </Dialog>
       )}

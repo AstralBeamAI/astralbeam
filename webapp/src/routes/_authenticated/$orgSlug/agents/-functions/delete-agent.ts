@@ -21,5 +21,5 @@ export const deleteAgent = createServerFn({ method: "POST" })
         Effect.as({ ok: true as const }),
         catchOptimisticLockConflict("Reload before deleting this agent"),
       ),
-    )
+    ),
   )

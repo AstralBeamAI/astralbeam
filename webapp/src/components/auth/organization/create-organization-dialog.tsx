@@ -156,8 +156,12 @@ export function CreateOrganizationDialog({
 
             <Button
               type="submit"
-              disabled={isPending || slugAvailability === "checking" ||
-                slugAvailability === "invalid" || slugAvailability === "unavailable"}
+              disabled={
+                isPending ||
+                slugAvailability === "checking" ||
+                slugAvailability === "invalid" ||
+                slugAvailability === "unavailable"
+              }
             >
               {isPending && <Spinner />}
 

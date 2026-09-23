@@ -14,7 +14,7 @@ test("the todos token route mints a token for the seeded API key", async ({ requ
     response.status(),
     "The token route did not answer 200. A 503 means ASTRALBEAM_API_KEY never reached the server, usually a stale examples/todos/.env overriding it.",
   ).toBe(200)
-  const { token } = await response.json() as { token?: string }
+  const { token } = (await response.json()) as { token?: string }
   expect(token, "The token route returned no token").toBeTruthy()
 
   // The key ID rides in the JWT header, so this catches a server signing with a different key.
@@ -25,7 +25,9 @@ test("the todos token route mints a token for the seeded API key", async ({ requ
   ).toBe(`key_${seedTarget.organizationId}_${seedTarget.apiKeyId}`)
 })
 
-test("the webapp accepts a seeded chat auth token and resolves the seeded agent", async ({ request }) => {
+test("the webapp accepts a seeded chat auth token and resolves the seeded agent", async ({
+  request,
+}) => {
   const token = await mintSeedChatAuthToken(seedTarget.apiKey)
   const response = await request.get(
     `${webappUrl}/api/v1/chat/config?agentId=${seedTarget.agentId}`,
@@ -33,8 +35,7 @@ test("the webapp accepts a seeded chat auth token and resolves the seeded agent"
   )
   expect(
     response.status(),
-    `The webapp rejected the seeded API key or agent. Run \`deno task db-seed\` from \`webapp\` against the database this server uses (${response.status()} ${await response
-      .text()}).`,
+    `The webapp rejected the seeded API key or agent. Run \`deno task db-seed\` from \`webapp\` against the database this server uses (${response.status()} ${await response.text()}).`,
   ).toBe(200)
   expect(await response.json()).toEqual({ capabilities: { attachments: true } })
 })

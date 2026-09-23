@@ -35,14 +35,18 @@ describe("sandbox artifact tickets", () => {
   it("rejects a tampered ticket", async () => {
     const token = await mintSandboxArtifactTicket(ticket)
     const [header = "", payload = "", signature = ""] = token.split(".")
-    const forged = JSON.parse(
-      atob(payload.replaceAll("-", "+").replaceAll("_", "/")),
-    ) as Record<string, unknown>
+    const forged = JSON.parse(atob(payload.replaceAll("-", "+").replaceAll("_", "/"))) as Record<
+      string,
+      unknown
+    >
     forged["path"] = "/workspace/../etc/passwd"
-    const forgedPayload = btoa(JSON.stringify(forged)).replaceAll("+", "-").replaceAll("/", "_")
+    const forgedPayload = btoa(JSON.stringify(forged))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
       .replace(/=+$/, "")
-    await expect(verifySandboxArtifactTicket(`${header}.${forgedPayload}.${signature}`))
-      .resolves.toBeUndefined()
+    await expect(
+      verifySandboxArtifactTicket(`${header}.${forgedPayload}.${signature}`),
+    ).resolves.toBeUndefined()
   })
 
   it("rejects garbage and tickets missing required identity or content claims", async () => {
@@ -58,12 +62,15 @@ describe("sandbox artifact tickets", () => {
 
 describe("detectSandboxArtifactMimeType", () => {
   it("sniffs raster images and PDFs from magic bytes", () => {
-    expect(detectSandboxArtifactMimeType(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a])))
-      .toBe("image/png")
-    expect(detectSandboxArtifactMimeType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])))
-      .toBe("image/jpeg")
-    expect(detectSandboxArtifactMimeType(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])))
-      .toBe("application/pdf")
+    expect(
+      detectSandboxArtifactMimeType(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a])),
+    ).toBe("image/png")
+    expect(detectSandboxArtifactMimeType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe(
+      "image/jpeg",
+    )
+    expect(detectSandboxArtifactMimeType(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]))).toBe(
+      "application/pdf",
+    )
   })
 
   it("treats valid UTF-8 as plain text, so SVG can never be served as an image", () => {
@@ -73,17 +80,20 @@ describe("detectSandboxArtifactMimeType", () => {
   })
 
   it("treats NUL-bearing and invalid UTF-8 content as an opaque download", () => {
-    expect(detectSandboxArtifactMimeType(new Uint8Array([0x00, 0x01, 0x02])))
-      .toBe("application/octet-stream")
-    expect(detectSandboxArtifactMimeType(new Uint8Array([0xc3, 0x28])))
-      .toBe("application/octet-stream")
+    expect(detectSandboxArtifactMimeType(new Uint8Array([0x00, 0x01, 0x02]))).toBe(
+      "application/octet-stream",
+    )
+    expect(detectSandboxArtifactMimeType(new Uint8Array([0xc3, 0x28]))).toBe(
+      "application/octet-stream",
+    )
   })
 })
 
 describe("artifactContentDisposition", () => {
   it("keeps ASCII names in both parameters", () => {
-    expect(artifactContentDisposition("attachment", "/workspace/out/report v2.pdf"))
-      .toBe(`attachment; filename="report v2.pdf"; filename*=UTF-8''report%20v2.pdf`)
+    expect(artifactContentDisposition("attachment", "/workspace/out/report v2.pdf")).toBe(
+      `attachment; filename="report v2.pdf"; filename*=UTF-8''report%20v2.pdf`,
+    )
   })
 
   it("keeps header values ByteString-safe for non-ASCII names", () => {
@@ -94,9 +104,9 @@ describe("artifactContentDisposition", () => {
   })
 
   it("strips header-breaking characters and never emits an empty filename", () => {
-    expect(artifactContentDisposition("attachment", '/workspace/a"b\r\n.txt'))
-      .toContain('filename="a_b__.txt"')
-    expect(artifactContentDisposition("attachment", "/workspace/"))
-      .toContain('filename="artifact"')
+    expect(artifactContentDisposition("attachment", '/workspace/a"b\r\n.txt')).toContain(
+      'filename="a_b__.txt"',
+    )
+    expect(artifactContentDisposition("attachment", "/workspace/")).toContain('filename="artifact"')
   })
 })

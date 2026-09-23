@@ -66,9 +66,8 @@ export function OrganizationSwitcher({
   organization: routeOrganization,
   trigger,
 }: OrganizationSwitcherProps) {
-  const { authClient, navigate, basePaths, localization, viewPaths, Link } = useAuth<
-    OrganizationAuthClient
-  >()
+  const { authClient, navigate, basePaths, localization, viewPaths, Link } =
+    useAuth<OrganizationAuthClient>()
   const { data: session, isPending: sessionPending } = useSession(authClient)
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
 
@@ -78,15 +77,15 @@ export function OrganizationSwitcher({
 
   const { data: organizations, isPending: organizationsPending } = useListOrganizations(authClient)
 
-  const isPending = sessionPending ||
+  const isPending =
+    sessionPending ||
     (!!session && (organizationsPending || (!routeOrganization && sessionOrganizationPending)))
 
   const [createOpen, setCreateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  const otherOrganizations = organizations?.filter(
-    (organization) => organization.id !== activeOrganization?.id,
-  ) ?? []
+  const otherOrganizations =
+    organizations?.filter((organization) => organization.id !== activeOrganization?.id) ?? []
 
   const hasOtherEntries = otherOrganizations.length > 0 || (!!activeOrganization && !hidePersonal)
 
@@ -116,25 +115,19 @@ export function OrganizationSwitcher({
             )}
             disabled={!session || isPending}
           >
-            {isPending
-              ? <OrganizationView isPending hideRole hideSlug={hideSlug} />
-              : activeOrganization
-              ? (
-                <OrganizationView
-                  hideRole
-                  hideSlug={hideSlug}
-                  organization={activeOrganization}
-                />
-              )
-              : session && !hidePersonal
-              ? <UserView hideSubtitle={hideSlug} />
-              : (
-                <OrganizationView
-                  hideRole
-                  hideSlug={hideSlug}
-                  organization={{ name: organizationLocalization.organization }}
-                />
-              )}
+            {isPending ? (
+              <OrganizationView isPending hideRole hideSlug={hideSlug} />
+            ) : activeOrganization ? (
+              <OrganizationView hideRole hideSlug={hideSlug} organization={activeOrganization} />
+            ) : session && !hidePersonal ? (
+              <UserView hideSubtitle={hideSlug} />
+            ) : (
+              <OrganizationView
+                hideRole
+                hideSlug={hideSlug}
+                organization={{ name: organizationLocalization.organization }}
+              />
+            )}
 
             <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
           </DropdownMenuTrigger>
@@ -146,49 +139,37 @@ export function OrganizationSwitcher({
           sideOffset={sideOffset}
           className="min-w-64 max-w-svw"
         >
-          {activeOrganization
-            ? (
-              <div className="flex items-center justify-between gap-4 px-2 py-2">
-                <OrganizationView
-                  hideRole
-                  hideSlug={hideSlug}
-                  organization={activeOrganization}
-                />
+          {activeOrganization ? (
+            <div className="flex items-center justify-between gap-4 px-2 py-2">
+              <OrganizationView hideRole hideSlug={hideSlug} organization={activeOrganization} />
 
-                {!hideSettings && (
-                  <Link
-                    href={`/${activeOrganization.slug}/settings`}
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "sm" }),
-                    )}
-                  >
-                    <SettingsIcon className="text-muted-foreground" />
+              {!hideSettings && (
+                <Link
+                  href={`/${activeOrganization.slug}/settings`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  <SettingsIcon className="text-muted-foreground" />
 
-                    {organizationLocalization.manage}
-                  </Link>
-                )}
-              </div>
-            )
-            : !isPending && session?.user && !hidePersonal
-            ? (
-              <div className="flex items-center justify-between gap-4 px-2 py-2">
-                <UserView hideSubtitle={hideSlug} />
+                  {organizationLocalization.manage}
+                </Link>
+              )}
+            </div>
+          ) : !isPending && session?.user && !hidePersonal ? (
+            <div className="flex items-center justify-between gap-4 px-2 py-2">
+              <UserView hideSubtitle={hideSlug} />
 
-                {!hideSettings && (
-                  <Link
-                    href={`${basePaths.settings}/${viewPaths.settings.account}`}
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "sm" }),
-                    )}
-                  >
-                    <SettingsIcon className="text-muted-foreground" />
+              {!hideSettings && (
+                <Link
+                  href={`${basePaths.settings}/${viewPaths.settings.account}`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  <SettingsIcon className="text-muted-foreground" />
 
-                    {localization.settings.settings}
-                  </Link>
-                )}
-              </div>
-            )
-            : null}
+                  {localization.settings.settings}
+                </Link>
+              )}
+            </div>
+          ) : null}
 
           <DropdownMenuSeparator />
 
@@ -199,15 +180,8 @@ export function OrganizationSwitcher({
           )}
 
           {otherOrganizations.map((organization) => (
-            <DropdownMenuItem
-              key={organization.id}
-              onClick={() => handleSetActive(organization)}
-            >
-              <OrganizationView
-                hideRole
-                hideSlug={hideSlug}
-                organization={organization}
-              />
+            <DropdownMenuItem key={organization.id} onClick={() => handleSetActive(organization)}>
+              <OrganizationView hideRole hideSlug={hideSlug} organization={organization} />
             </DropdownMenuItem>
           ))}
 

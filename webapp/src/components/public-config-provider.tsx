@@ -4,9 +4,13 @@ import type { PublicConfig } from "@/lib/types"
 
 const PublicConfigContext = createContext<PublicConfig | null>(null)
 
-export function PublicConfigProvider(
-  { value, children }: { value: PublicConfig; children: ReactNode },
-) {
+export function PublicConfigProvider({
+  value,
+  children,
+}: {
+  value: PublicConfig
+  children: ReactNode
+}) {
   return <PublicConfigContext.Provider value={value}>{children}</PublicConfigContext.Provider>
 }
 

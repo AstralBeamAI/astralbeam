@@ -51,10 +51,10 @@ export async function openVanillaDirectories(
         ),
       ),
       contentType: "text/javascript",
-    }))
-  await page.route(
-    "**/*",
-    (route) => route.request().resourceType() === "script" ? route.abort() : route.continue(),
+    }),
+  )
+  await page.route("**/*", (route) =>
+    route.request().resourceType() === "script" ? route.abort() : route.continue(),
   )
   await page.goto("/")
   await page.unroute("**/*")
@@ -63,9 +63,9 @@ export async function openVanillaDirectories(
         <button id="remount">Remount</button><div id="tenants"></div><div id="users"></div>
         <script type="module">
           import { mountAstralBeamTenantList, mountAstralBeamTenantUserList } from '/__listing-sdk/client.js';
-          const options = { apiUrl: ${
-    JSON.stringify(`${webappUrl}/api`)
-  }, fetchAstralBeamToken: { url: '/__listing-token' }, ...${JSON.stringify(options)} };
+          const options = { apiUrl: ${JSON.stringify(
+            `${webappUrl}/api`,
+          )}, fetchAstralBeamToken: { url: '/__listing-token' }, ...${JSON.stringify(options)} };
           const mount = () => [
             mountAstralBeamTenantList(document.getElementById('tenants'), options),
             mountAstralBeamTenantUserList(document.getElementById('users'), options),

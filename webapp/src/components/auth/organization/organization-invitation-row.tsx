@@ -39,10 +39,7 @@ export function OrganizationInvitationRow({
   canCancelInvitation,
 }: OrganizationInvitationRowProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
-  const {
-    localization: organizationLocalization,
-    roles,
-  } = useAuthPlugin(organizationPlugin)
+  const { localization: organizationLocalization, roles } = useAuthPlugin(organizationPlugin)
 
   const { mutate: cancelInvitation, isPending: cancelPending } = useCancelInvitation(authClient)
 
@@ -56,9 +53,9 @@ export function OrganizationInvitationRow({
 
   const roleLabel = memberRoleLabels(invitation.role, roles).join(", ")
 
-  const statusLabel = organizationLocalization[
-    invitation.status as keyof typeof organizationLocalization
-  ] ?? invitation.status
+  const statusLabel =
+    organizationLocalization[invitation.status as keyof typeof organizationLocalization] ??
+    invitation.status
 
   const isPending = invitation.status === "pending"
 
@@ -78,10 +75,7 @@ export function OrganizationInvitationRow({
       <TableCell className="text-sm">{roleLabel}</TableCell>
 
       <TableCell className="text-sm">
-        <Badge
-          variant="secondary"
-          className={cn(statusBadgeClasses[invitation.status])}
-        >
+        <Badge variant="secondary" className={cn(statusBadgeClasses[invitation.status])}>
           {String(statusLabel)}
         </Badge>
       </TableCell>
@@ -100,7 +94,8 @@ export function OrganizationInvitationRow({
                   organizationId: invitation.organizationId,
                   role: invitation.role,
                   resend: true,
-                })}
+                })
+              }
               aria-label={organizationLocalization.resendInvitation}
               title={organizationLocalization.resendInvitation}
             >

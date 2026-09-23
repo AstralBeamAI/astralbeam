@@ -9,7 +9,9 @@ function Authentication() {
   const [errors, setErrors] = useState(0)
   return (
     <>
-      <button type="button" onClick={() => directory.current?.refresh()}>Refresh from host</button>
+      <button type="button" onClick={() => directory.current?.refresh()}>
+        Refresh from host
+      </button>
       <output aria-label="Host errors">{errors}</output>
       <AstralBeamTenantUserList
         ref={directory}

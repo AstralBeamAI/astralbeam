@@ -3,9 +3,9 @@ import { getChatConfig, getChatFile, listTenants, updateTenant } from "./index.t
 import { isAstralBeamApiError } from "./api.ts"
 
 test("typed credentials own authentication, preserving custom bases and queries", async () => {
-  const fetchClient = vi.fn<typeof fetch>().mockImplementation(() =>
-    Promise.resolve(Response.json({}))
-  )
+  const fetchClient = vi
+    .fn<typeof fetch>()
+    .mockImplementation(() => Promise.resolve(Response.json({})))
   const signal = new AbortController().signal
   const options = {
     apiKey: "organization-key",
@@ -37,10 +37,14 @@ test("typed credentials own authentication, preserving custom bases and queries"
 })
 
 test("non-JSON HTTP errors preserve status and headers without retrying", async () => {
-  const fetchClient = vi.fn<typeof fetch>().mockResolvedValue(
-    new Response("<html>gateway</html>", { status: 429, headers: { "Retry-After": "2" } }),
+  const fetchClient = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(
+      new Response("<html>gateway</html>", { status: 429, headers: { "Retry-After": "2" } }),
+    )
+  const error = await listTenants({}, { apiKey: "key", fetchClient }).catch(
+    (error: unknown) => error,
   )
-  const error = await listTenants({}, { apiKey: "key", fetchClient }).catch((error: unknown) => error)
   assert(isAstralBeamApiError(error))
   expect(error.status).toBe(429)
   expect(error.headers.get("Retry-After")).toBe("2")

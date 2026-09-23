@@ -36,7 +36,9 @@ function DocsLayout() {
               </Link>
             </li>
             <li>
-              <Link to="/docs" aria-current={section ? undefined : "page"}>Docs</Link>
+              <Link to="/docs" aria-current={section ? undefined : "page"}>
+                Docs
+              </Link>
             </li>
             {section && (
               <li>

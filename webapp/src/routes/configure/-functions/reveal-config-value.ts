@@ -6,9 +6,7 @@ const RevealConfigValueInput = Schema.Struct({
   key: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(128))),
 })
 
-type RevealConfigValueResult =
-  | { ok: true; value: string | null }
-  | { ok: false; error: string }
+type RevealConfigValueResult = { ok: true; value: string | null } | { ok: false; error: string }
 
 /**
  * Returns one decrypted secret. A read, but POST so `requireConfigureRequest`, which exempts safe
@@ -25,9 +23,8 @@ export const revealConfigValue = createServerFn({ method: "POST" })
     if (!definition || definition.systemManaged || definition.kind !== "secret") {
       return { ok: false, error: "This configuration value cannot be revealed" }
     }
-    const value = await withConfigureError(
-      "The configuration value could not be read",
-      () => getGlobalConfig(definition.key),
+    const value = await withConfigureError("The configuration value could not be read", () =>
+      getGlobalConfig(definition.key),
     )
     return { ok: true, value: value ?? null }
   })

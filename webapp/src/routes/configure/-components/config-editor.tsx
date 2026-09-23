@@ -59,8 +59,8 @@ export function ConfigEditor({
   const [emailProviderTestResult, setEmailProviderTestResult] = useState<
     { ok: boolean; message: string } | undefined
   >()
-  const hasMissingGeneratedValue = fields.some((field) =>
-    field.source === "database" && field.required && field.canGenerate && !field.isSet
+  const hasMissingGeneratedValue = fields.some(
+    (field) => field.source === "database" && field.required && field.canGenerate && !field.isSet,
   )
 
   const storedValue = (field: ConfigureField) => revealedValues[field.key] ?? field.value
@@ -99,10 +99,7 @@ export function ConfigEditor({
 
   const emailProvider = decodeEmailProvider(currentValue("email_provider", "smtp"))
   const settings = Object.fromEntries(
-    EMAIL_PROVIDER_SETTING_KEYS[emailProvider].map((key) => [
-      key,
-      currentValue(key) || undefined,
-    ]),
+    EMAIL_PROVIDER_SETTING_KEYS[emailProvider].map((key) => [key, currentValue(key) || undefined]),
   )
   const emailProviderConnectionInput = decodeEmailProviderConnectionInput({
     provider: emailProvider,
@@ -131,9 +128,9 @@ export function ConfigEditor({
       setRevealedValues({})
       return true
     }
-    setFieldErrors(Object.fromEntries(
-      result.fieldErrors.map((issue) => [issue.key, issue.message]),
-    ))
+    setFieldErrors(
+      Object.fromEntries(result.fieldErrors.map((issue) => [issue.key, issue.message])),
+    )
     toast.add({
       title: result.error ?? "Some values could not be saved",
       type: "error",
@@ -144,7 +141,7 @@ export function ConfigEditor({
 
   const handleSave = () =>
     run(async () => {
-      if (!await savePendingUpdates()) return
+      if (!(await savePendingUpdates())) return
       toast.add({ title: "Configuration saved", type: "success" })
       onChanged()
     })
@@ -188,13 +185,14 @@ export function ConfigEditor({
         setEmailProviderTestResult(
           result.ok
             ? {
-              ok: true,
-              message: emailProvider === "smtp"
-                ? "DNS, SMTP, the selected security mode, and authentication passed. No email was sent."
-                : emailProvider === "resend"
-                ? "The Resend API accepted the configured API key. No email was sent."
-                : "Amazon SES accepted the configured region and credentials, and account sending is enabled. No email was sent.",
-            }
+                ok: true,
+                message:
+                  emailProvider === "smtp"
+                    ? "DNS, SMTP, the selected security mode, and authentication passed. No email was sent."
+                    : emailProvider === "resend"
+                      ? "The Resend API accepted the configured API key. No email was sent."
+                      : "Amazon SES accepted the configured region and credentials, and account sending is enabled. No email was sent.",
+              }
             : { ok: false, message: result.error },
         )
       } finally {
@@ -207,10 +205,13 @@ export function ConfigEditor({
       setupComplete={setupComplete}
       busy={busy}
       onSave={() => void handleSave()}
-      saveDisabled={onboarding
-        ? !Schema.is(OwnerOnboardingInput)(owner)
-        : pendingUpdates.length === 0 && !hasMissingGeneratedValue &&
-          fallbackEncryptionKeyCount === 0}
+      saveDisabled={
+        onboarding
+          ? !Schema.is(OwnerOnboardingInput)(owner)
+          : pendingUpdates.length === 0 &&
+            !hasMissingGeneratedValue &&
+            fallbackEncryptionKeyCount === 0
+      }
     />
   )
 
@@ -223,26 +224,30 @@ export function ConfigEditor({
           className="space-y-4 rounded-xl border p-5"
           aria-labelledby="owner-onboarding-title"
         >
-          <h2 id="owner-onboarding-title" className="text-lg font-semibold">Owner onboarding</h2>
+          <h2 id="owner-onboarding-title" className="text-lg font-semibold">
+            Owner onboarding
+          </h2>
           <p className="text-sm text-muted-foreground">
             A new owner receives a password-reset email. Setup stays incomplete until sending
             succeeds. Existing verified accounts are reused without another email.
           </p>
-          {([
-            ["email", "Owner email (required)", "Enter a valid email address."],
+          {(
             [
-              "organizationName",
-              "Dogfood Organization name",
-              "Use 1–100 characters without leading or trailing spaces.",
-            ],
-            [
-              "organizationSlug",
-              "Dogfood Organization slug",
-              "Use 1–63 lowercase letters, numbers, or hyphens, and avoid reserved names.",
-            ],
-          ] as const).map(([key, label, message]) => {
-            const invalid = owner[key] !== "" &&
-              !Schema.is(OwnerOnboardingInput.fields[key])(owner[key])
+              ["email", "Owner email (required)", "Enter a valid email address."],
+              [
+                "organizationName",
+                "Dogfood Organization name",
+                "Use 1–100 characters without leading or trailing spaces.",
+              ],
+              [
+                "organizationSlug",
+                "Dogfood Organization slug",
+                "Use 1–63 lowercase letters, numbers, or hyphens, and avoid reserved names.",
+              ],
+            ] as const
+          ).map(([key, label, message]) => {
+            const invalid =
+              owner[key] !== "" && !Schema.is(OwnerOnboardingInput.fields[key])(owner[key])
             return (
               <div key={key} className="space-y-2">
                 <Label htmlFor={`owner-${key}`}>{label}</Label>

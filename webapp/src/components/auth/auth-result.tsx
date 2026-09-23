@@ -39,10 +39,7 @@ function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
     if (result.reason === "signupDisabled") {
       return {
         label: localization.auth.signUp,
-        to: getAuthLinkURL(
-          `${basePaths.auth}/${viewPaths.auth.signUp}`,
-          redirectTo,
-        ),
+        to: getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signUp}`, redirectTo),
       }
     }
 
@@ -79,11 +76,12 @@ function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
         }
     }
   })()
-  const Icon = result.intent === "success"
-    ? CircleCheckIcon
-    : result.intent === "warning"
-    ? TriangleAlertIcon
-    : CircleXIcon
+  const Icon =
+    result.intent === "success"
+      ? CircleCheckIcon
+      : result.intent === "warning"
+        ? TriangleAlertIcon
+        : CircleXIcon
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -95,8 +93,8 @@ function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
             result.intent === "success"
               ? "text-primary"
               : result.intent === "warning"
-              ? "text-warning"
-              : "text-destructive",
+                ? "text-warning"
+                : "text-destructive",
           )}
         />
         <CardTitle className="text-xl">

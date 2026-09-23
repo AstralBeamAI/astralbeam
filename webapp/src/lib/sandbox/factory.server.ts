@@ -24,7 +24,7 @@ const factories: {
   daytona: (configuration: ProviderConfiguration<"daytona">) =>
     loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-daytona")).pipe(
       Effect.map(({ daytonaSandbox }) =>
-        daytonaSandbox({ ...configuration.options, ...configuration.credentials })
+        daytonaSandbox({ ...configuration.options, ...configuration.credentials }),
       ),
     ),
   docker: (configuration: ProviderConfiguration<"docker">) =>
@@ -34,13 +34,13 @@ const factories: {
   sprites: (configuration: ProviderConfiguration<"sprites">) =>
     loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-sprites")).pipe(
       Effect.map(({ spritesSandbox }) =>
-        spritesSandbox({ ...configuration.options, ...configuration.credentials })
+        spritesSandbox({ ...configuration.options, ...configuration.credentials }),
       ),
     ),
   vercel: (configuration: ProviderConfiguration<"vercel">) =>
     loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-vercel")).pipe(
       Effect.map(({ vercelSandbox }) =>
-        vercelSandbox({ ...configuration.options, ...configuration.credentials })
+        vercelSandbox({ ...configuration.options, ...configuration.credentials }),
       ),
     ),
 }

@@ -9,7 +9,7 @@ import {
 } from "./listings.ts"
 
 vi.mock("../api/generated/api.ts", async (original) => ({
-  ...await original<typeof import("../api/generated/api.ts")>(),
+  ...(await original<typeof import("../api/generated/api.ts")>()),
   getCurrentUser: ({ astralBeamToken }: { astralBeamToken: string }) => {
     const payload = JSON.parse(atob(astralBeamToken.split(".")[1]!)) as {
       email?: string
@@ -21,16 +21,16 @@ vi.mock("../api/generated/api.ts", async (original) => ({
     return Promise.resolve(
       payload.email
         ? {
-          scope: "organization",
-          organization: { id: payload.organization_id },
-          user: { id: payload.email, email: payload.email, role: "owner" },
-        }
+            scope: "organization",
+            organization: { id: payload.organization_id },
+            user: { id: payload.email, email: payload.email, role: "owner" },
+          }
         : {
-          scope: "tenant",
-          organization: { id: payload.iss },
-          tenant: { id: payload.tenant.id },
-          user: { id: payload.user.id, admin: payload.user.admin },
-        },
+            scope: "tenant",
+            organization: { id: payload.iss },
+            tenant: { id: payload.tenant.id },
+            user: { id: payload.user.id, admin: payload.user.admin },
+          },
     )
   },
 }))
@@ -68,11 +68,14 @@ describe("listing authentication lifecycle", () => {
     const onError = vi.fn()
     const source = vi.fn().mockResolvedValue({ token: token() })
     const nextSource = vi.fn().mockResolvedValue({ token: token() })
-    const session = listingSession({
-      scope: "organization",
-      fetchAstralBeamToken: source,
-      onError: oldError,
-    }, vi.fn())
+    const session = listingSession(
+      {
+        scope: "organization",
+        fetchAstralBeamToken: source,
+        onError: oldError,
+      },
+      vi.fn(),
+    )
     const signal = new AbortController().signal
     await listingRequest(session, signal, () => Promise.resolve("rows"))
     session.options = { ...session.options, fetchAstralBeamToken: nextSource, onError }
@@ -94,16 +97,21 @@ describe("listing authentication lifecycle", () => {
   test("a late 401 reuses the token another request already refreshed", async () => {
     const original = token()
     const refreshed = `${original}-refreshed`
-    const source = vi.fn().mockResolvedValueOnce({ token: original })
+    const source = vi
+      .fn()
+      .mockResolvedValueOnce({ token: original })
       .mockResolvedValue({ token: refreshed })
     const session = listingSession({ scope: "organization", fetchAstralBeamToken: source }, vi.fn())
     const signal = new AbortController().signal
     const response = Promise.withResolvers<string>()
     const started = Promise.withResolvers<void>()
-    const delayed = vi.fn().mockImplementationOnce(() => {
-      started.resolve()
-      return response.promise
-    }).mockResolvedValue("rows")
+    const delayed = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        started.resolve()
+        return response.promise
+      })
+      .mockResolvedValue("rows")
     const pending = listingRequest(session, signal, delayed)
     await started.promise
     await listingRequest(
@@ -123,11 +131,14 @@ describe("listing authentication lifecycle", () => {
   test("cancelled requests neither acquire tokens nor report errors to the host", async () => {
     const onError = vi.fn()
     const source = vi.fn(() => Promise.resolve({ token: token() }))
-    const session = listingSession({
-      scope: "organization",
-      fetchAstralBeamToken: source,
-      onError,
-    }, vi.fn())
+    const session = listingSession(
+      {
+        scope: "organization",
+        fetchAstralBeamToken: source,
+        onError,
+      },
+      vi.fn(),
+    )
     const controller = new AbortController()
     controller.abort()
     await expect(listingRequest(session, controller.signal, vi.fn())).rejects.toMatchObject({
@@ -140,19 +151,25 @@ describe("listing authentication lifecycle", () => {
 
   test("resolves exact external IDs without normalizing them and prefers an internal ID", async () => {
     const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ items: [] }))
-    const session = listingSession({
-      tenantExternalId: " NorthWind ",
-      fetchAstralBeamToken: () => Promise.resolve({ token: token() }),
-    }, vi.fn())
+    const session = listingSession(
+      {
+        tenantExternalId: " NorthWind ",
+        fetchAstralBeamToken: () => Promise.resolve({ token: token() }),
+      },
+      vi.fn(),
+    )
     const signal = new AbortController().signal
     try {
       expect(await resolveListingTenant(session, signal)).toBeNull()
-      expect(new URL(new Request(fetch.mock.calls[0]![0]).url).searchParams.get("filter[external_id]"))
-        .toBe(" NorthWind ")
+      expect(
+        new URL(new Request(fetch.mock.calls[0]![0]).url).searchParams.get("filter[external_id]"),
+      ).toBe(" NorthWind ")
       session.options = { ...session.options, tenantId: "internal-id" }
       fetch.mockResolvedValue(Response.json({ id: "internal-id" }))
       expect(await resolveListingTenant(session, signal)).toMatchObject({ id: "internal-id" })
-      expect(new URL(new Request(fetch.mock.calls[1]![0]).url).pathname).toBe("/api/v1/tenants/internal-id")
+      expect(new URL(new Request(fetch.mock.calls[1]![0]).url).pathname).toBe(
+        "/api/v1/tenants/internal-id",
+      )
     } finally {
       disposeListingSession(session)
       fetch.mockRestore()
@@ -160,13 +177,16 @@ describe("listing authentication lifecycle", () => {
   })
 
   test("loads cursor pages without a framework and rejects users without a selected tenant", async () => {
-    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      Response.json({ items: [], page_after: null, page_before: "previous" }),
+    const fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ items: [], page_after: null, page_before: "previous" }))
+    const session = listingSession(
+      {
+        scope: "organization",
+        fetchAstralBeamToken: () => Promise.resolve({ token: token() }),
+      },
+      vi.fn(),
     )
-    const session = listingSession({
-      scope: "organization",
-      fetchAstralBeamToken: () => Promise.resolve({ token: token() }),
-    }, vi.fn())
     const page = {
       kind: "users" as const,
       tenantId: "internal-id",
@@ -188,8 +208,9 @@ describe("listing authentication lifecycle", () => {
         page_size: "20",
         page_after: "opaque-cursor",
       })
-      await expect(loadListingPage(session, { ...page, tenantId: undefined }, signal)).rejects
-        .toThrow("Select a tenant")
+      await expect(
+        loadListingPage(session, { ...page, tenantId: undefined }, signal),
+      ).rejects.toThrow("Select a tenant")
       expect(fetch).toHaveBeenCalledOnce()
     } finally {
       disposeListingSession(session)
@@ -201,8 +222,9 @@ describe("listing authentication lifecycle", () => {
     const source = vi.fn(() => Promise.resolve({ token: token() }))
     const session = listingSession({ scope: "organization", fetchAstralBeamToken: source }, vi.fn())
     const request = vi.fn(() => Promise.reject(apiError(status)))
-    await expect(listingRequest(session, new AbortController().signal, request)).rejects
-      .toMatchObject({ status })
+    await expect(
+      listingRequest(session, new AbortController().signal, request),
+    ).rejects.toMatchObject({ status })
     expect(source).toHaveBeenCalledTimes(1)
     expect(request).toHaveBeenCalledTimes(1)
     disposeChatAuthentication(session.auth)
@@ -213,15 +235,18 @@ describe("listing authentication lifecycle", () => {
     token("first@example.com", true, "another-organization"),
   ])("clears the renderer before requesting rows under a changed identity", async (nextToken) => {
     const reset = vi.fn()
-    const source = vi.fn().mockResolvedValueOnce({ token: token("first@example.com") })
+    const source = vi
+      .fn()
+      .mockResolvedValueOnce({ token: token("first@example.com") })
       .mockResolvedValueOnce({
         token: nextToken,
       })
     const session = listingSession({ scope: "organization", fetchAstralBeamToken: source }, reset)
     const request = vi.fn().mockResolvedValueOnce("first rows").mockRejectedValueOnce(apiError(401))
     await listingRequest(session, new AbortController().signal, request)
-    await expect(listingRequest(session, new AbortController().signal, request)).rejects
-      .toMatchObject({ name: "AbortError" })
+    await expect(
+      listingRequest(session, new AbortController().signal, request),
+    ).rejects.toMatchObject({ name: "AbortError" })
     expect(reset).toHaveBeenCalledOnce()
     expect(request).toHaveBeenCalledTimes(2)
     disposeChatAuthentication(session.auth)
@@ -229,10 +254,13 @@ describe("listing authentication lifecycle", () => {
 
   test("aborting or disposing a session cannot deliver a late request", async () => {
     const source = Promise.withResolvers<{ token: string }>()
-    const session = listingSession({
-      scope: "organization",
-      fetchAstralBeamToken: () => source.promise,
-    }, vi.fn())
+    const session = listingSession(
+      {
+        scope: "organization",
+        fetchAstralBeamToken: () => source.promise,
+      },
+      vi.fn(),
+    )
     const request = vi.fn()
     const pending = listingRequest(session, new AbortController().signal, request)
     disposeChatAuthentication(session.auth)
@@ -243,10 +271,13 @@ describe("listing authentication lifecycle", () => {
 
   test("scope options never broaden tenant credentials or default organization tokens to all tenants", async () => {
     const request = vi.fn()
-    const tenant = listingSession({
-      scope: "organization",
-      fetchAstralBeamToken: () => Promise.resolve({ token: token("user", false) }),
-    }, vi.fn())
+    const tenant = listingSession(
+      {
+        scope: "organization",
+        fetchAstralBeamToken: () => Promise.resolve({ token: token("user", false) }),
+      },
+      vi.fn(),
+    )
     await expect(listingRequest(tenant, new AbortController().signal, request)).rejects.toThrow(
       "Organization mode requires",
     )
@@ -254,13 +285,15 @@ describe("listing authentication lifecycle", () => {
       { fetchAstralBeamToken: () => Promise.resolve({ token: token() }) },
       vi.fn(),
     )
-    await expect(listingRequest(organization, new AbortController().signal, request)).rejects
-      .toThrow("tenantId or tenantExternalId is required")
+    await expect(
+      listingRequest(organization, new AbortController().signal, request),
+    ).rejects.toThrow("tenantId or tenantExternalId is required")
     expect(request).not.toHaveBeenCalled()
     tenant.options.scope = "tenant"
     request.mockResolvedValue("tenant rows")
-    await expect(listingRequest(tenant, new AbortController().signal, request))
-      .resolves.toBe("tenant rows")
+    await expect(listingRequest(tenant, new AbortController().signal, request)).resolves.toBe(
+      "tenant rows",
+    )
     disposeChatAuthentication(tenant.auth)
     disposeChatAuthentication(organization.auth)
   })
@@ -269,10 +302,13 @@ describe("listing authentication lifecycle", () => {
     "discards a late %s response after disposal without refreshing",
     async (result) => {
       const source = vi.fn(() => Promise.resolve({ token: token() }))
-      const session = listingSession({
-        scope: "organization",
-        fetchAstralBeamToken: source,
-      }, vi.fn())
+      const session = listingSession(
+        {
+          scope: "organization",
+          fetchAstralBeamToken: source,
+        },
+        vi.fn(),
+      )
       const response = Promise.withResolvers<string>()
       const started = Promise.withResolvers<void>()
       const pending = listingRequest(session, new AbortController().signal, () => {
@@ -293,10 +329,7 @@ test("authentication failures notify once even with waiting requests", async () 
   const onError = vi.fn()
   const failure = new Error("Host session expired")
   const source = Promise.withResolvers<{ token: string }>()
-  const session = listingSession(
-    { fetchAstralBeamToken: () => source.promise, onError },
-    vi.fn(),
-  )
+  const session = listingSession({ fetchAstralBeamToken: () => source.promise, onError }, vi.fn())
   try {
     const authentication = getValidChatAuthToken(session.auth)
     const request = listingRequest(session, new AbortController().signal, vi.fn())

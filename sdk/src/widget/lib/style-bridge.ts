@@ -6,8 +6,7 @@ export const WIDGET_SLOT_PREFIX = "astralbeam-widget-"
 export const HOST_SLOT_PREFIX = "astralbeam-slot-"
 // One selector covers widget renders and chrome slots: both project host content that
 // should read in the host page's own style.
-export const WIDGET_SLOT_SELECTOR =
-  `slot[name^="${WIDGET_SLOT_PREFIX}"], slot[name^="${HOST_SLOT_PREFIX}"]`
+export const WIDGET_SLOT_SELECTOR = `slot[name^="${WIDGET_SLOT_PREFIX}"], slot[name^="${HOST_SLOT_PREFIX}"]`
 
 /**
  * Every inherited CSS property, bridged from the host page onto the widget slots. Longhands are

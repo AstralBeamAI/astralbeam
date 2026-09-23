@@ -19,7 +19,8 @@ export const setDefaultAgent = createServerFn({ method: "POST" })
             ok: false as const,
             code: "invalid_agent" as const,
             message: error.message,
-          })),
+          }),
+        ),
       ),
-    )
+    ),
   )

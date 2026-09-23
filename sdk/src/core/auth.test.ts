@@ -26,7 +26,7 @@ function authentication() {
     fetchAstralBeamToken: { url: "/auth" },
   })
   const fetch = vi.fn<typeof globalThis.fetch>((input) =>
-    Promise.resolve(Response.json(input === "/auth" ? { token: jwt() } : currentUser))
+    Promise.resolve(Response.json(input === "/auth" ? { token: jwt() } : currentUser)),
   )
   auth.fetchClient = fetch
   return { auth, fetch }
@@ -48,7 +48,7 @@ test("coalesces token acquisition and /me, publishing only a synchronized identi
   const { auth, fetch } = authentication()
   const response = Promise.withResolvers<Response>()
   fetch.mockImplementation((input) =>
-    input === "/auth" ? Promise.resolve(Response.json({ token: jwt() })) : response.promise
+    input === "/auth" ? Promise.resolve(Response.json({ token: jwt() })) : response.promise,
   )
   const first = getValidChatAuthToken(auth)
   const second = getValidChatAuthToken(auth)
@@ -114,12 +114,13 @@ test("only a 401 retries initial /me, and a rejected resource has one renewal bu
   let count = 0
   const source = vi.fn(() => ({ token: jwt(String(count++)) }))
   auth.fetchAstralBeamToken = source
-  fetch.mockResolvedValueOnce(new Response(null, { status: 401 })).mockResolvedValue(
-    Response.json(currentUser),
-  )
+  fetch
+    .mockResolvedValueOnce(new Response(null, { status: 401 }))
+    .mockResolvedValue(Response.json(currentUser))
   await getValidChatAuthToken(auth)
   expect(source).toHaveBeenCalledTimes(2)
-  fetch.mockResolvedValueOnce(new Response(null, { status: 401 }))
+  fetch
+    .mockResolvedValueOnce(new Response(null, { status: 401 }))
     .mockResolvedValueOnce(Response.json(currentUser))
     .mockResolvedValueOnce(new Response(null, { status: 401 }))
   await expect(
@@ -215,9 +216,11 @@ test.each([false, true])(
     await initializeChatAuthentication(auth)
     const token = auth.session.cached!.value
     const response = Promise.withResolvers<Response>()
-    fetch.mockReturnValueOnce(response.promise).mockResolvedValue(
-      Response.json({ ...currentUser, user: { ...currentUser.user, id: "other" } }),
-    )
+    fetch
+      .mockReturnValueOnce(response.promise)
+      .mockResolvedValue(
+        Response.json({ ...currentUser, user: { ...currentUser.user, id: "other" } }),
+      )
     auth.fetchAstralBeamToken = () => ({ token: jwt("other") })
     const request = fetchAuthenticatedChat({
       ...auth,
@@ -251,7 +254,7 @@ test("transient synchronization retries honor Retry-After and stop after three a
   const { auth, fetch } = authentication()
   auth.fetchAstralBeamToken = () => ({ token: jwt() })
   fetch.mockImplementation(() =>
-    Promise.resolve(new Response(null, { status: 429, headers: { "Retry-After": "10" } }))
+    Promise.resolve(new Response(null, { status: 429, headers: { "Retry-After": "10" } })),
   )
   const stop = startAuthentication(auth)
   await vi.advanceTimersByTimeAsync(9_999)

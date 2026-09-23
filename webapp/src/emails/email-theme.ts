@@ -18,13 +18,7 @@ const emailTheme = {
     primaryForeground: "#f7fcfb",
   },
   containerWidth: "600px",
-  fontFamily: [
-    "-apple-system",
-    "BlinkMacSystemFont",
-    '"Segoe UI"',
-    "Arial",
-    "sans-serif",
-  ],
+  fontFamily: ["-apple-system", "BlinkMacSystemFont", '"Segoe UI"', "Arial", "sans-serif"],
   radius: "7px",
 } as const
 

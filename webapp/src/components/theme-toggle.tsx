@@ -17,17 +17,15 @@ const themeToggleOptions = [
   { value: "dark", label: "Dark", icon: MoonIcon },
 ] as const
 
-function isThemeToggleValue(
-  value: unknown,
-): value is (typeof themeToggleOptions)[number]["value"] {
+function isThemeToggleValue(value: unknown): value is (typeof themeToggleOptions)[number]["value"] {
   return themeToggleOptions.some((option) => option.value === value)
 }
 
 export function ThemeToggle({ className }: { className?: string }) {
   const { theme, setTheme, mounted } = useTheme()
   const current = mounted ? theme : "system"
-  const CurrentIcon = themeToggleOptions.find((option) => option.value === current)?.icon ??
-    MonitorIcon
+  const CurrentIcon =
+    themeToggleOptions.find((option) => option.value === current)?.icon ?? MonitorIcon
 
   return (
     <DropdownMenu>

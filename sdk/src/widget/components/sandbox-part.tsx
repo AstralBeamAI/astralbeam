@@ -35,9 +35,7 @@ type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
  * a host tool the widget knows exactly what their input and output mean and can show the file it
  * wrote as a file and the command it ran as a terminal, instead of both as pretty-printed JSON.
  */
-export function SandboxPart(
-  { part, apiUrl }: { part: ToolCallPart; apiUrl: string },
-) {
+export function SandboxPart({ part, apiUrl }: { part: ToolCallPart; apiUrl: string }) {
   // Published artifacts have their own rendering: inline image or download row.
   if (part.name === SANDBOX_PUBLISH_ARTIFACT_TOOL) {
     return <SandboxArtifactPart part={part} apiUrl={apiUrl} />
@@ -45,18 +43,19 @@ export function SandboxPart(
   const failed = part.state === "error"
   const refusal = sandboxRefusal(part)
   const running = !failed && !isSettledToolCall(part)
-  const icon = failed
-    ? <WarningCircleIcon />
-    : running
-    ? <Spinner />
-    : SANDBOX_ICONS[part.name] ?? <TerminalWindowIcon />
-  const detail = refusal !== undefined || failed
-    ? (
+  const icon = failed ? (
+    <WarningCircleIcon />
+  ) : running ? (
+    <Spinner />
+  ) : (
+    (SANDBOX_ICONS[part.name] ?? <TerminalWindowIcon />)
+  )
+  const detail =
+    refusal !== undefined || failed ? (
       <span className="block text-muted-foreground">
         {refusal ?? readSandboxToolError(part) ?? "The sandbox step did not finish."}
       </span>
-    )
-    : undefined
+    ) : undefined
 
   const command = readSandboxCommandRun(part)
   if (command) {
@@ -92,8 +91,7 @@ export function SandboxPart(
         running={running}
         label={
           <>
-            {running ? "Writing" : failed || refusal !== undefined ? "Could not write" : "Wrote"}
-            {" "}
+            {running ? "Writing" : failed || refusal !== undefined ? "Could not write" : "Wrote"}{" "}
             <Code>{write.label}</Code>
             {write.written && (
               <span className="text-muted-foreground">
@@ -171,19 +169,18 @@ function readSandboxToolError(part: ToolCallPart): string | undefined {
  * line with directories marked, which is far easier to scan than the JSON array behind it.
  */
 function readSandboxOutputText(part: ToolCallPart): string {
-  const output = part.output as
-    | { content?: unknown; entries?: unknown }
-    | null
-    | undefined
+  const output = part.output as { content?: unknown; entries?: unknown } | null | undefined
   if (output == null) return ""
   if (typeof output.content === "string") return output.content
   if (Array.isArray(output.entries)) {
     if (output.entries.length === 0) return "(empty directory)"
-    return output.entries.map((entry) => {
-      const { name, type } = entry as { name?: unknown; type?: unknown }
-      const label = typeof name === "string" ? name : formatToolJson(entry)
-      return type === "dir" ? `${label}/` : label
-    }).join("\n")
+    return output.entries
+      .map((entry) => {
+        const { name, type } = entry as { name?: unknown; type?: unknown }
+        const label = typeof name === "string" ? name : formatToolJson(entry)
+        return type === "dir" ? `${label}/` : label
+      })
+      .join("\n")
   }
   return formatToolJson(output)
 }

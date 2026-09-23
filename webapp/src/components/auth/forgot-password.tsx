@@ -45,27 +45,21 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
-  const { mutate: requestPasswordReset, isPending } = useRequestPasswordReset(
-    authClient,
-    {
-      onError: () => {
-        resetFetchOptions()
-      },
-      onSuccess: (_data, { email }) => {
-        try {
-          globalThis.sessionStorage.setItem(RESET_LINK_SENT_STORAGE_KEY, email)
-        } catch {
-          // The stored email is only a convenience for the confirmation view.
-        }
-        navigate({
-          to: getAuthLinkURL(
-            `${basePaths.auth}/${viewPaths.auth.resetLinkSent}`,
-            redirectTo,
-          ),
-        })
-      },
+  const { mutate: requestPasswordReset, isPending } = useRequestPasswordReset(authClient, {
+    onError: () => {
+      resetFetchOptions()
     },
-  )
+    onSuccess: (_data, { email }) => {
+      try {
+        globalThis.sessionStorage.setItem(RESET_LINK_SENT_STORAGE_KEY, email)
+      } catch {
+        // The stored email is only a convenience for the confirmation view.
+      }
+      navigate({
+        to: getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.resetLinkSent}`, redirectTo),
+      })
+    },
+  })
 
   function submitPasswordResetRequest(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -73,11 +67,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
     requestPasswordReset({
       email: formData.get("email") as string,
       redirectTo: getAuthLinkURL(
-        getViewURL(
-          baseURL,
-          basePaths.auth,
-          viewPaths.auth.resetPassword,
-        ),
+        getViewURL(baseURL, basePaths.auth, viewPaths.auth.resetPassword),
         redirectTo,
       ),
       fetchOptions,
@@ -152,10 +142,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
           <FieldDescription className="text-center">
             {localization.auth.rememberYourPassword}{" "}
             <Link
-              href={getAuthLinkURL(
-                `${basePaths.auth}/${viewPaths.auth.signIn}`,
-                redirectTo,
-              )}
+              href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)}
               className="underline underline-offset-4"
             >
               {localization.auth.signIn}

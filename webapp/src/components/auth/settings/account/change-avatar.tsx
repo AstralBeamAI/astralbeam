@@ -70,26 +70,27 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
     updateUser(
       { image: null },
       {
-        onSuccess: () => void (async () => {
-          let cleanupFailed = false
-          if (currentImage) {
-            setIsDeleting(true)
-            try {
-              await avatar.delete?.(currentImage)
-            } catch {
-              cleanupFailed = true
-            } finally {
-              setIsDeleting(false)
+        onSuccess: () =>
+          void (async () => {
+            let cleanupFailed = false
+            if (currentImage) {
+              setIsDeleting(true)
+              try {
+                await avatar.delete?.(currentImage)
+              } catch {
+                cleanupFailed = true
+              } finally {
+                setIsDeleting(false)
+              }
             }
-          }
 
-          toast.add({
-            title: cleanupFailed
-              ? "Your avatar was removed, but its previous file could not be deleted."
-              : localization.settings.avatarDeletedSuccess,
-            type: cleanupFailed ? "warning" : "success",
-          })
-        })(),
+            toast.add({
+              title: cleanupFailed
+                ? "Your avatar was removed, but its previous file could not be deleted."
+                : localization.settings.avatarDeletedSuccess,
+              type: cleanupFailed ? "warning" : "success",
+            })
+          })(),
       },
     )
   }

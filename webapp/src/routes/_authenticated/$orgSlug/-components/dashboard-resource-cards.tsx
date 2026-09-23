@@ -13,14 +13,17 @@ export type DashboardResourceCardsProps = {
 
 const CARD_CLASS_NAME = "transition-colors hover:border-primary/40"
 
-function ResourceCardBody(
-  { count, description, icon: ResourceIcon, label }: {
-    count: number
-    description: string
-    icon: Icon
-    label: string
-  },
-): ReactNode {
+function ResourceCardBody({
+  count,
+  description,
+  icon: ResourceIcon,
+  label,
+}: {
+  count: number
+  description: string
+  icon: Icon
+  label: string
+}): ReactNode {
   return (
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
@@ -33,10 +36,7 @@ function ResourceCardBody(
   )
 }
 
-export function DashboardResourceCards({
-  organizationSlug,
-  counts,
-}: DashboardResourceCardsProps) {
+export function DashboardResourceCards({ organizationSlug, counts }: DashboardResourceCardsProps) {
   const params = { orgSlug: organizationSlug }
 
   return (

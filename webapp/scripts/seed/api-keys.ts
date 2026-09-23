@@ -36,9 +36,7 @@ export function hashSeedApiKeySecret(secret: string): string {
  * Quota and rate-limit columns are left to their schema defaults, which already carry the
  * product's configured window, and `expiresAt` stays null to match the dashboard's Never default.
  */
-export async function seedApiKeys(
-  transaction: SeedTransaction,
-): Promise<SeedApiKeySummary[]> {
+export async function seedApiKeys(transaction: SeedTransaction): Promise<SeedApiKeySummary[]> {
   const summaries: SeedApiKeySummary[] = []
   for (const seedOrganization of SEED_ORGANIZATIONS) {
     const organizationId = seedOrganization.id
@@ -74,7 +72,8 @@ export async function seedApiKeys(
             updatedAt: sql`now()`,
           },
           setWhere: eq(apiKey.organizationId, organizationId),
-        }).returning({ id: apiKey.id })
+        })
+        .returning({ id: apiKey.id })
       if (!saved) throw new Error(`Seed API key '${seedApiKey.id}' belongs to another organization`)
       summaries.push({
         value: `key_${organizationId}_${seedApiKey.id}_${seedApiKey.secret}`,

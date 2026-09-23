@@ -19,5 +19,5 @@ export const getSandboxesPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         }),
       ),
-    )
+    ),
   )

@@ -4,12 +4,12 @@ Organization owners and developers can choose Daytona, Docker, Sprites, or Verce
 
 Each organization can store multiple named sandbox providers, including multiple configurations for the same vendor. Public initializer options remain readable for editing, credentials are encrypted separately, and the factory passes both to the corresponding TanStack initializer without renaming or reinterpretation.
 
-| Provider | Package                                                                                      | Stored initializer options       | Encrypted credential |
-| -------- | -------------------------------------------------------------------------------------------- | -------------------------------- | -------------------- |
-| Daytona  | [`@tanstack/ai-sandbox-daytona`](https://www.npmjs.com/package/@tanstack/ai-sandbox-daytona) | `target`, `snapshot`             | `apiKey`             |
-| Docker   | [`@tanstack/ai-sandbox-docker`](https://www.npmjs.com/package/@tanstack/ai-sandbox-docker)   | `image`                          | None                 |
-| Sprites  | [`@tanstack/ai-sandbox-sprites`](https://www.npmjs.com/package/@tanstack/ai-sandbox-sprites) | None                             | `apiKey`             |
-| Vercel   | [`@tanstack/ai-sandbox-vercel`](https://www.npmjs.com/package/@tanstack/ai-sandbox-vercel)   | `teamId`, `projectId`, `runtime` | `token`              |
+| Provider | Package | Stored initializer options | Encrypted credential |
+| --- | --- | --- | --- |
+| Daytona | [`@tanstack/ai-sandbox-daytona`](https://www.npmjs.com/package/@tanstack/ai-sandbox-daytona) | `target`, `snapshot` | `apiKey` |
+| Docker | [`@tanstack/ai-sandbox-docker`](https://www.npmjs.com/package/@tanstack/ai-sandbox-docker) | `image` | None |
+| Sprites | [`@tanstack/ai-sandbox-sprites`](https://www.npmjs.com/package/@tanstack/ai-sandbox-sprites) | None | `apiKey` |
+| Vercel | [`@tanstack/ai-sandbox-vercel`](https://www.npmjs.com/package/@tanstack/ai-sandbox-vercel) | `teamId`, `projectId`, `runtime` | `token` |
 
 Defaults only populate a new organization form. Once saved, the database values are authoritative and are not replaced or remapped by the factory.
 

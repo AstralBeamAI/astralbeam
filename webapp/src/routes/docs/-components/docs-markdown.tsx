@@ -25,8 +25,7 @@ const docsTagClasses: Record<string, string> = {
   blockquote: "my-3 border-s-2 ps-4 text-muted-foreground italic",
   code: "rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[0.85em]",
   // A fenced block nests a `code` element, whose chip styling is undone so only the block paints.
-  pre:
-    "my-4 overflow-x-auto rounded-lg border p-4 font-mono text-sm [&_code]:bg-transparent [&_code]:p-0",
+  pre: "my-4 overflow-x-auto rounded-lg border p-4 font-mono text-sm [&_code]:bg-transparent [&_code]:p-0",
   hr: "my-6",
   thead: "border-b",
   th: "px-3 py-2 text-start font-medium",
@@ -57,9 +56,7 @@ function DocsMarkdownTable(props: MarkdownComponentProps<"table">) {
  * Renders one docs page. Same-folder `./page.md` links, the form the Markdown sources use so
  * they stay readable on GitHub, are routed to the page's docs URL instead.
  */
-export function DocsMarkdown(
-  { markdown, sectionSlug }: { markdown: string; sectionSlug: string },
-) {
+export function DocsMarkdown({ markdown, sectionSlug }: { markdown: string; sectionSlug: string }) {
   const components: MarkdownComponents = {
     ...docsStyledTags,
     table: DocsMarkdownTable,

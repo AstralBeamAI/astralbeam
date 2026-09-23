@@ -36,20 +36,13 @@ const RESEND_COOLDOWN_SECONDS = 60
  * @returns The verify-email card React element
  */
 export function VerifyEmail({ className }: VerifyEmailProps) {
-  const {
-    authClient,
-    basePaths,
-    baseURL,
-    localization,
-    plugins,
-    redirectTo,
-    viewPaths,
-    Link,
-  } = useAuth()
+  const { authClient, basePaths, baseURL, localization, plugins, redirectTo, viewPaths, Link } =
+    useAuth()
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
   const isHydrated = useIsHydrated()
-  const email = (isHydrated && globalThis.sessionStorage.getItem("better-auth-ui.verify-email")) || ""
+  const email =
+    (isHydrated && globalThis.sessionStorage.getItem("better-auth-ui.verify-email")) || ""
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS)
 
   useEffect(() => {
@@ -62,19 +55,16 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
     return () => clearInterval(interval)
   }, [cooldown, email])
 
-  const { mutate: sendVerificationEmail, isPending } = useSendVerificationEmail(
-    authClient,
-    {
-      onError: () => {
-        resetFetchOptions()
-      },
-      onSuccess: () => {
-        resetFetchOptions()
-        toast.add({ title: localization.auth.verificationEmailSent, type: "success" })
-        setCooldown(RESEND_COOLDOWN_SECONDS)
-      },
+  const { mutate: sendVerificationEmail, isPending } = useSendVerificationEmail(authClient, {
+    onError: () => {
+      resetFetchOptions()
     },
-  )
+    onSuccess: () => {
+      resetFetchOptions()
+      toast.add({ title: localization.auth.verificationEmailSent, type: "success" })
+      setCooldown(RESEND_COOLDOWN_SECONDS)
+    },
+  })
 
   const isCoolingDown = cooldown > 0
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
@@ -90,9 +80,7 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
 
       <CardContent>
         <div className="flex flex-col gap-4">
-          <FieldDescription>
-            {localization.auth.checkYourEmail}
-          </FieldDescription>
+          <FieldDescription>{localization.auth.checkYourEmail}</FieldDescription>
 
           {email && (
             <div className="flex flex-col gap-3">
@@ -107,15 +95,13 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
                     email,
                     callbackURL: `${baseURL}${redirectTo}`,
                     fetchOptions,
-                  })}
+                  })
+                }
               >
                 {isPending && <Spinner />}
 
                 {isCoolingDown
-                  ? localization.auth.resendIn.replace(
-                    "{{seconds}}",
-                    String(cooldown),
-                  )
+                  ? localization.auth.resendIn.replace("{{seconds}}", String(cooldown))
                   : localization.auth.resend}
               </Button>
 
@@ -128,10 +114,7 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
           <FieldDescription className="text-center">
             {localization.auth.alreadyVerifiedYourEmail}{" "}
             <Link
-              href={getAuthLinkURL(
-                `${basePaths.auth}/${viewPaths.auth.signIn}`,
-                redirectTo,
-              )}
+              href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)}
               className="underline underline-offset-4"
             >
               {localization.auth.signIn}

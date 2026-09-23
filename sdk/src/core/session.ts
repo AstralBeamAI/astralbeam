@@ -58,11 +58,10 @@ export interface ChatStreamCallbacks {
  * The transport and tool options of the drop-in widget, minus everything about its UI, plus this
  * session's own rendering hooks. The shared options are documented on `MountAstralBeamChatOptions`.
  */
-export interface AstralBeamChatCoreOptions extends
-  Pick<
-    MountAstralBeamChatOptions,
-    "agentId" | "apiUrl" | "fetchAstralBeamToken" | "tools" | "debug"
-  > {
+export interface AstralBeamChatCoreOptions extends Pick<
+  MountAstralBeamChatOptions,
+  "agentId" | "apiUrl" | "fetchAstralBeamToken" | "tools" | "debug"
+> {
   /** Widgets declared to the agent, without a `render`; `onRenderWidget` is asked to draw them. */
   widgets?: Record<string, WidgetDeclaration> | undefined
   /** Draws an agent-requested widget however the host wants; may return a cleanup. */
@@ -73,18 +72,18 @@ export interface AstralBeamChatCoreOptions extends
 
 // Every option this session reads per request, so a consumer that watches option changes (the
 // React hook) cannot forget one: a missing or unknown key fails the typecheck below.
-export const CORE_OPTION_KEYS = Object.keys(
-  {
-    agentId: true,
-    apiUrl: true,
-    fetchAstralBeamToken: true,
-    tools: true,
-    widgets: true,
-    onRenderWidget: true,
-    streamCallbacks: true,
-    debug: true,
-  } satisfies Record<keyof AstralBeamChatCoreOptions, true>,
-) as ReadonlyArray<keyof AstralBeamChatCoreOptions>
+export const CORE_OPTION_KEYS = Object.keys({
+  agentId: true,
+  apiUrl: true,
+  fetchAstralBeamToken: true,
+  tools: true,
+  widgets: true,
+  onRenderWidget: true,
+  streamCallbacks: true,
+  debug: true,
+} satisfies Record<keyof AstralBeamChatCoreOptions, true>) as ReadonlyArray<
+  keyof AstralBeamChatCoreOptions
+>
 
 /** One tool as declared to the agent: its name, and the `metadata.title` that labels it. */
 export interface AgentToolInfo {
@@ -96,10 +95,12 @@ function sameAgentTools(
   current: readonly AgentToolInfo[],
   next: readonly AgentToolInfo[],
 ): boolean {
-  return current.length === next.length &&
-    current.every((tool, index) =>
-      tool.name === next[index]?.name && tool.title === next[index]?.title
+  return (
+    current.length === next.length &&
+    current.every(
+      (tool, index) => tool.name === next[index]?.name && tool.title === next[index]?.title,
     )
+  )
 }
 
 export interface AstralBeamChatState {

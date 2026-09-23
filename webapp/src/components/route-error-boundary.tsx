@@ -49,21 +49,13 @@ export function RouteErrorBoundary() {
         <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
           {APP_NAME}
         </p>
-        <h1
-          id="route-error-title"
-          className="mt-2 text-xl font-semibold tracking-tight"
-        >
+        <h1 id="route-error-title" className="mt-2 text-xl font-semibold tracking-tight">
           Something went wrong
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           We couldn&apos;t load this page. Try again in a moment.
         </p>
-        <Button
-          type="button"
-          className="mt-5"
-          disabled={isRetrying}
-          onClick={() => void retry()}
-        >
+        <Button type="button" className="mt-5" disabled={isRetrying} onClick={() => void retry()}>
           <ArrowClockwiseIcon
             aria-hidden="true"
             className={isRetrying ? "animate-spin" : undefined}

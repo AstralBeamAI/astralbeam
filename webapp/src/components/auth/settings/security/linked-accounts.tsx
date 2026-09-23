@@ -33,26 +33,23 @@ export function LinkedAccounts({ className }: LinkedAccountsProps) {
 
   const { data: accounts, isPending } = useListAccounts(authClient)
 
-  const linkedAccounts = accounts?.filter(
-    (account) => account.providerId !== "credential",
-  )
+  const linkedAccounts = accounts?.filter((account) => account.providerId !== "credential")
   const canUnlink = allowUnlinkingAllAccounts === true || (accounts?.length ?? 0) > 1
 
   const linkedProviderIds = new Set(linkedAccounts?.map((a) => a.providerId))
 
-  const availableProviders = multipleAccountsPerProvider === false
-    ? socialProviders?.filter(
-      (provider) => !linkedProviderIds.has(getProviderId(provider)),
-    )
-    : socialProviders
+  const availableProviders =
+    multipleAccountsPerProvider === false
+      ? socialProviders?.filter((provider) => !linkedProviderIds.has(getProviderId(provider)))
+      : socialProviders
 
   const allRows = [
     ...(linkedAccounts?.map((account) => ({
       key: account.id,
       account,
-      provider: socialProviders?.find(
-        (provider) => getProviderId(provider) === account.providerId,
-      ) ?? account.providerId,
+      provider:
+        socialProviders?.find((provider) => getProviderId(provider) === account.providerId) ??
+        account.providerId,
     })) ?? []),
     ...(availableProviders?.map((provider) => ({
       key: getProviderId(provider),
@@ -63,30 +60,28 @@ export function LinkedAccounts({ className }: LinkedAccountsProps) {
 
   return (
     <div>
-      <h2 className="text-sm font-semibold mb-3">
-        {localization.settings.linkedAccounts}
-      </h2>
+      <h2 className="text-sm font-semibold mb-3">{localization.settings.linkedAccounts}</h2>
 
       <Card className={cn("p-0", className)}>
         <CardContent className="p-0">
           <ItemGroup className="gap-0">
             {isPending
               ? socialProviders?.map((provider, index) => (
-                <Fragment key={getProviderId(provider)}>
-                  {index > 0 && <ItemSeparator />}
-                  <AccountRowSkeleton />
-                </Fragment>
-              ))
+                  <Fragment key={getProviderId(provider)}>
+                    {index > 0 && <ItemSeparator />}
+                    <AccountRowSkeleton />
+                  </Fragment>
+                ))
               : allRows.map((row, index) => (
-                <Fragment key={row.key}>
-                  {index > 0 && <ItemSeparator />}
-                  <LinkedAccount
-                    account={row.account}
-                    canUnlink={canUnlink}
-                    provider={row.provider}
-                  />
-                </Fragment>
-              ))}
+                  <Fragment key={row.key}>
+                    {index > 0 && <ItemSeparator />}
+                    <LinkedAccount
+                      account={row.account}
+                      canUnlink={canUnlink}
+                      provider={row.provider}
+                    />
+                  </Fragment>
+                ))}
           </ItemGroup>
         </CardContent>
       </Card>

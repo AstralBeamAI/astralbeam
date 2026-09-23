@@ -38,13 +38,16 @@ describe("response security headers", () => {
   })
 
   test("HSTS is sent only for requests that arrived over TLS", () => {
-    expect(securityHeaders("https://app.example/", "/").get("strict-transport-security"))
-      .toContain("includeSubDomains")
+    expect(securityHeaders("https://app.example/", "/").get("strict-transport-security")).toContain(
+      "includeSubDomains",
+    )
     expect(
-      securityHeaders("http://app.example/", "/", { "x-forwarded-proto": "https" })
-        .get("strict-transport-security"),
+      securityHeaders("http://app.example/", "/", { "x-forwarded-proto": "https" }).get(
+        "strict-transport-security",
+      ),
     ).toContain("includeSubDomains")
-    expect(securityHeaders("http://localhost:4500/", "/").get("strict-transport-security"))
-      .toBeNull()
+    expect(
+      securityHeaders("http://localhost:4500/", "/").get("strict-transport-security"),
+    ).toBeNull()
   })
 })
