@@ -1,6 +1,5 @@
 import { Cause, Context, Duration, Effect, Fiber, Layer, Schedule } from "effect"
 import { Sharding, ShardingConfig } from "effect/unstable/cluster"
-import { SqlClient } from "effect/unstable/sql"
 
 import { sqlState } from "../db/lib/sqlstate.server.ts"
 import { databaseResources, effectDatabaseLayer } from "../db/index.ts"
@@ -24,13 +23,11 @@ const superviseClusterRunner = Effect.gen(function* () {
   const context = yield* Layer.build(
     registeredWorkflowLayers.pipe(Layer.provideMerge(engine), Layer.provide(effectDatabaseLayer)),
   )
-  const sql = yield* SqlClient.SqlClient
   const sharding = Context.get(context, Sharding.Sharding)
   const config = Context.get(context, ShardingConfig.ShardingConfig)
   clusterRuntimeState.unavailable = undefined
   yield* Effect.logInfo("Cluster runner ready", { address: config.runnerAddress })
   yield* Effect.gen(function* () {
-    yield* sql`select 1`.pipe(Effect.timeout("5 seconds"))
     if (yield* sharding.isShutdown) return yield* Effect.fail(new Error("Cluster runner stopped"))
   }).pipe(Effect.repeat(Schedule.spaced("5 seconds")))
 }).pipe(
