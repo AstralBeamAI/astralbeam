@@ -19,6 +19,8 @@ The repository holds four independent Deno projects that do not form a package-m
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
 - `examples/todos`, a standalone application that consumes the built SDK.
 
+`examples/todos-rails` is a Ruby on Rails consumer of the published SDK outside the Deno toolchain. Validate it with `bin/ci` from its directory, which CI runs too.
+
 Each owns its dependencies, lockfile, and tooling. [ARCHITECTURE.md](ARCHITECTURE.md) explains how they fit together, and [AGENTS.md](AGENTS.md) holds the implementation rules that reviews apply.
 
 ## Validate your change

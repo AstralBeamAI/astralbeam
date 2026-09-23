@@ -45,6 +45,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     description: "Embed the agent chat sidebar in your application.",
     pages: [
       { slug: "getting-started", title: "Getting started" },
+      { slug: "script-tag", title: "Script tag" },
       { slug: "authentication", title: "Authentication" },
       { slug: "api", title: "API client" },
       { slug: "listings", title: "Tenant directories" },

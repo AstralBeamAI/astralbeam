@@ -1,0 +1,54 @@
+<% content_for :title, "Todos" %>
+<% content_for :javascript_module, "todos" %>
+
+<%= tag.div id: "app", class: "app", data: {
+      color_scheme: "system",
+      api_url: Rails.configuration.x.astralbeam.api_url,
+      agent_id: Rails.configuration.x.astralbeam.agent_id,
+      todos: @todos.to_json(only: %i[ id text completed ])
+    } do %>
+  <main class="todos">
+    <header class="todos-header">
+      <h1>Todos</h1>
+      <nav aria-label="Example pages">
+        <%= link_to "Tenant users", tenant_users_path %>
+      </nav>
+    </header>
+
+    <form id="new-todo" class="todos-form">
+      <input name="text" placeholder="Add a todo…" required aria-label="New todo">
+      <button type="submit">Add</button>
+    </form>
+
+    <ul id="todos" class="todos-list"></ul>
+
+    <div class="todos-actions">
+      <button type="button" id="theme">Theme: system</button>
+      <button type="button" id="custom-theme">Custom theme: on</button>
+      <button type="button" id="assistant">Hide assistant</button>
+      <button type="button" id="debug">Debug: off</button>
+    </div>
+  </main>
+
+  <aside id="chat-sidebar" class="chat-sidebar">
+    <div id="astralbeam-chat" class="widget"></div>
+  </aside>
+
+  <template id="todo-item">
+    <li>
+      <label>
+        <input type="checkbox">
+        <span></span>
+      </label>
+    </li>
+  </template>
+
+  <template id="todo-card">
+    <div class="todo-card">
+      <label class="todo-card-row">
+        <input type="checkbox">
+        <span></span>
+      </label>
+    </div>
+  </template>
+<% end %>

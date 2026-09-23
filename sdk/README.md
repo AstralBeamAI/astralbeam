@@ -25,6 +25,16 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 // Update with handle.update({ colorScheme: "dark" }), then clean up with handle.unmount().
 ```
 
+Without npm or a bundler, import the same entry from jsDelivr in a module script. Pin an exact version and the full `/dist/client.js` path, because the loader imports its lazy chunks relative to itself. See [Script tag](https://app.astralbeam.ai/docs/sdk/script-tag).
+
+```html
+<script type="module">
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.12.0/dist/client.js"
+
+  mountAstralBeamChat(document.getElementById("sidebar"), {})
+</script>
+```
+
 - The widget fills its container, so give it a parent with a definite height (`min-h-0` in a flex column).
 - Chat uses the hosted cloud by default. Tokens come from your application. For self-hosting, set `apiUrl` to your deployment’s `/api` base.
 - `@astralbeam/sdk/client` ships no React. The chat loads as a lazy chunk with its own bundled copy.
@@ -126,7 +136,8 @@ widgets: {
 | --- | --- |
 | [API client](https://app.astralbeam.ai/docs/sdk/api) | Typed resource and chat requests with API keys or JWTs. |
 | [Getting started](https://app.astralbeam.ai/docs/sdk/getting-started) | install, mount, layout requirements. |
-| [Authentication](https://app.astralbeam.ai/docs/sdk/authentication) | the token endpoint and its security rules. |
+| [Script tag](https://app.astralbeam.ai/docs/sdk/script-tag) | loading from jsDelivr without a bundler, and Ruby on Rails. |
+| [Authentication](https://app.astralbeam.ai/docs/sdk/authentication) | the token endpoint, its security rules, and minting in other languages. |
 | [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings) | provisioning, tenant-user and Tenant listings, lifecycle, and options. |
 | [Configuration](https://app.astralbeam.ai/docs/sdk/configuration) | every option, and what `update` can change. |
 | [Theming](https://app.astralbeam.ai/docs/sdk/theming) | color schemes, CSS tokens, the shadow-root boundary. |
@@ -156,6 +167,8 @@ Types resolve under every TypeScript module resolution mode, including classic `
 ## Example
 
 [`examples/todos`](../examples/todos) embeds the sidebar and a tenant-scoped user listing in a minimal TanStack Start app. Both use the same demo token route. The app also demonstrates host tools over live React state and a `todoCard` widget, with no Tailwind or shadcn/ui of its own.
+
+[`examples/todos-rails`](../examples/todos-rails) is the same app in Ruby on Rails 8. It loads the SDK from jsDelivr through an import map, mounts it from a plain ES module, mints tokens with the `jwt` gem, and gives the agent tools over the app's JSON API.
 
 ## License
 

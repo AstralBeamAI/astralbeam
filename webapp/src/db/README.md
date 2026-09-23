@@ -85,7 +85,7 @@ deno task --cwd webapp db-seed
 
 The seed runs in one transaction and can be rerun to restore fixture values. It identifies organizations by UUID and preserves edited URL slugs. It accepts only loopback database hosts because it writes fixed development credentials.
 
-It prints every account with its password, each agent's public ID, each API key's full value, and a ready-to-paste block for `examples/todos/.env`. `scripts/seed/fixtures.ts` is the single source of those values, and `examples/todos/e2e` imports it directly.
+It prints every account with its password, each agent's public ID, each API key's full value, and ready-to-paste blocks for `examples/todos/.env` and `examples/todos-rails/.env`. `scripts/seed/fixtures.ts` is the single source of those values, and `examples/todos/e2e` imports it directly.
 
 The seed skips configuration keys with an uppercase environment override, and writes `OPENAI_API_KEY` as every seeded organization's own encrypted key, because `/api/v1/chat` streams on the organization's key rather than a deployment one. Put the OpenAI key in `webapp/.env.local`, which `scripts/copy-worktree-env.sh` copies into every worktree. See [environment configuration](../../../SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
 

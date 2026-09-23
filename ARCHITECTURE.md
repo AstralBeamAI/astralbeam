@@ -12,6 +12,7 @@ Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific cou
 | `sdk` | Widget, headless session, React bindings, and token minting | `@astralbeam/sdk` npm package |
 | `www` | Prerendered TanStack Start website | Cloudflare assets |
 | `examples/todos` | Standalone SDK consumer and browser tests | Demo application |
+| `examples/todos-rails` | Rails consumer of the SDK from jsDelivr, outside the Deno toolchain | Demo application |
 
 Each project owns its dependencies, lockfile, and tooling because they ship independently. The root shares compiler defaults in `tsconfig.base.json` and launches `install`, `dev`, and `build` tasks.
 

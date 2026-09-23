@@ -113,7 +113,7 @@ Install dependencies, migrate, seed local data, and build the SDK:
 ./scripts/setup.sh
 ```
 
-The [seed](webapp/src/db/README.md#seed-sample-data) creates local accounts and credentials and writes `examples/todos/.env` only when absent. Bootstrap defaults are in [`webapp/.env.development`](webapp/.env.development). Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value.
+The [seed](webapp/src/db/README.md#seed-sample-data) creates local accounts and credentials and writes `examples/todos/.env` and `examples/todos-rails/.env` only when absent. Bootstrap defaults are in [`webapp/.env.development`](webapp/.env.development). Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value.
 
 ### Chat credentials
 
@@ -134,6 +134,8 @@ This starts the three dev servers and the SDK watcher together:
 - <http://localhost:4500>, the product application and its `/api/v1/chat` agent endpoint
 - <http://localhost:4600>, the public website
 - <http://localhost:4700>, the todos example with the embedded widget. See [`examples/todos/README.md`](examples/todos/README.md) for what to try
+
+The Ruby on Rails version of the example runs separately with `bin/setup` from `examples/todos-rails` and opens on <http://localhost:3000>. See [`examples/todos-rails/README.md`](examples/todos-rails/README.md).
 
 Reload the page after changing SDK sources: the watcher rewrites the `sdk/dist` output the example imports.
 

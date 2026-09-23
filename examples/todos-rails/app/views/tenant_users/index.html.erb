@@ -1,0 +1,36 @@
+<% content_for :title, "Tenant users" %>
+<% content_for :javascript_module, "tenant_users" %>
+
+<%= tag.div id: "app", class: "app", data: { color_scheme: "system", api_url: Rails.configuration.x.astralbeam.api_url } do %>
+  <main class="todos directories">
+    <header class="todos-header">
+      <div>
+        <nav aria-label="Example pages">
+          <%= link_to "Todos", todos_path %>
+          <%= link_to "Tenant users", tenant_users_path %>
+        </nav>
+        <h1>Tenant users</h1>
+      </div>
+      <span>AstralBeam Todos</span>
+    </header>
+
+    <p>Browse and filter the users in your tenant.</p>
+
+    <div class="todos-actions">
+      <button type="button" id="theme">Theme: system</button>
+      <button type="button" id="custom-theme">Custom theme: on</button>
+    </div>
+
+    <label>
+      <input type="checkbox" id="show-admin">
+      Show stored admin fields
+    </label>
+
+    <div id="directory-error" role="alert" hidden>
+      <p></p>
+      <button type="button">Dismiss error</button>
+    </div>
+
+    <div id="astralbeam-tenant-users"></div>
+  </main>
+<% end %>
