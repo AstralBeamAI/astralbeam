@@ -7,6 +7,6 @@
   // explicitly; its spec files and setup are the execution roots. https://knip.dev/reference/plugins/playwright
   "playwright": {
     "config": ["e2e/playwright.config.ts"],
-    "entry": ["e2e/preflight.setup.ts", "e2e/specs/**/*.spec.ts"]
-  }
+    "entry": ["e2e/preflight.setup.ts", "e2e/specs/**/*.spec.ts"],
+  },
 }

@@ -1,5 +1,5 @@
 // Added with: deno task ui add sidebar
-// Local changes: Use browser-safe globalThis access for Deno lint compatibility and add a hover title to the icon-only trigger.
+// Local changes: Add a hover title to the icon-only trigger.
 
 "use client"
 
@@ -86,7 +86,7 @@ function SidebarProvider({
       }
 
       // This sets the cookie to keep the sidebar state.
-      globalThis.document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
     [setOpenProp, open]
   )
@@ -108,8 +108,8 @@ function SidebarProvider({
       }
     }
 
-    globalThis.addEventListener("keydown", handleKeyDown)
-    return () => globalThis.removeEventListener("keydown", handleKeyDown)
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSidebar])
 
   // We add a state so that we can do data-state="expanded" or "collapsed".

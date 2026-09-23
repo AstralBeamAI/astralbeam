@@ -6,10 +6,7 @@ import { getRouteSessionAccessDecision } from "@/lib/auth/session"
 import { normalizeReturnPath, normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
 import { AUTH_ALLOWED_RETURN_PATHS, INERT_REDIRECT_ORIGIN } from "@/lib/constants"
 
-const AUTH_PATHS = new Set([
-  ...Object.values(viewPaths.auth),
-  "accept-invitation",
-])
+const AUTH_PATHS = new Set([...Object.values<string>({ ...viewPaths.auth }), "accept-invitation"])
 const AUTHENTICATED_AUTH_VIEWS = new Set([
   "accept-invitation",
   "callback",
@@ -57,8 +54,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
     }
 
     const search = new URLSearchParams(location.searchStr)
-    const isFreshSignIn = params.path === "sign-in" &&
-      search.get("fresh") === "true"
+    const isFreshSignIn = params.path === "sign-in" && search.get("fresh") === "true"
     if (isFreshSignIn || AUTHENTICATED_AUTH_VIEWS.has(params.path)) return
 
     throw redirect({

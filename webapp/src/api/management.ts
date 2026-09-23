@@ -63,9 +63,7 @@ export const TenantUserWriteSchema = Schema.Struct({
   ...tenantUserMutableFields,
 })
 
-export const TenantPatchSchema = Schema.Struct(tenantMutableFields).check(
-  Schema.isMinProperties(1),
-)
+export const TenantPatchSchema = Schema.Struct(tenantMutableFields).check(Schema.isMinProperties(1))
 
 export const TenantUserPatchSchema = Schema.Struct(tenantUserMutableFields).check(
   Schema.isMinProperties(1),

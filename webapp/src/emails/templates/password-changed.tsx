@@ -29,8 +29,8 @@ export default function PasswordChangedEmail({
         Password changed successfully
       </Heading>
       <Text className="m-0 text-base leading-6 text-foreground">
-        The password for your {appName} account <EmailAddressLink email={email} />{" "}
-        has been changed successfully.
+        The password for your {appName} account <EmailAddressLink email={email} /> has been changed
+        successfully.
       </Text>
 
       <Section className="my-8 rounded-brand border border-solid border-border bg-muted px-5 py-4">

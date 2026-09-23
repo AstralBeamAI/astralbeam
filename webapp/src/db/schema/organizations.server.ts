@@ -47,7 +47,7 @@ export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
 }).pipe(
   Schema.check(
     Schema.makeFilter((payload) =>
-      isProviderCredentials(payload.providerType, payload.credentials)
+      isProviderCredentials(payload.providerType, payload.credentials),
     ),
   ),
 )
@@ -80,9 +80,11 @@ export const apiKey = snakeCase.table(
     configId: text().default("default").notNull(),
     name: text().notNull(),
     start: text(),
-    organizationId: uuid().notNull().references(() => organization.id, {
-      onDelete: "cascade",
-    }),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     prefix: text(),
     // Better Auth stores a SHA-256 digest, not the bearer key. https://better-auth.com/docs/plugins/api-key/reference#schema
     key: text().notNull(),
@@ -113,9 +115,11 @@ export const sandboxProvider = snakeCase.table(
   "sandbox_provider",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull().references(() => organization.id, {
-      onDelete: "cascade",
-    }),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     name: caseInsensitiveText().notNull(),
     providerType: text().$type<SandboxProviderId>().notNull(),
     options: jsonb().$type<SandboxProviderOptions[SandboxProviderId]>().notNull(),
@@ -129,10 +133,7 @@ export const sandboxProvider = snakeCase.table(
       name: "sandbox_provider_pkey",
       columns: [table.organizationId, table.id],
     }),
-    uniqueIndex("sandbox_provider_organization_id_name_uidx").on(
-      table.organizationId,
-      table.name,
-    ),
+    uniqueIndex("sandbox_provider_organization_id_name_uidx").on(table.organizationId, table.name),
   ],
 )
 
@@ -140,9 +141,11 @@ export const agent = snakeCase.table(
   "agent",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull().references(() => organization.id, {
-      onDelete: "cascade",
-    }),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     name: caseInsensitiveText().notNull(),
     systemPrompt: text().notNull(),
     // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
@@ -187,9 +190,11 @@ export const organizationConfiguration = snakeCase.table(
   "organization_configuration",
   {
     id: uuidV7(),
-    organizationId: uuid().notNull().references(() => organization.id, {
-      onDelete: "cascade",
-    }),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     defaultAgentId: uuid(),
     // Every chat run streams on the organization's own key; the deployment holds none.
     openaiApiKey: encryptedJson({ decode: decodeOrganizationOpenaiApiKeyPayload }),
@@ -216,9 +221,11 @@ export const organizationConfiguration = snakeCase.table(
 export const tenant = snakeCase.table(
   "tenant",
   {
-    organizationId: uuid().notNull().references(() => organization.id, {
-      onDelete: "cascade",
-    }),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     id: uuidV7(),
     externalId: text().notNull(),
     name: text(),
@@ -259,10 +266,7 @@ export const tenantUser = snakeCase.table(
       table.tenantId,
       table.externalId,
     ),
-    check(
-      "tenant_user_metadata_object_check",
-      sql`jsonb_typeof(${table.metadata}) = 'object'`,
-    ),
+    check("tenant_user_metadata_object_check", sql`jsonb_typeof(${table.metadata}) = 'object'`),
     index("tenant_user_name_trgm_idx").using("gin", table.name.op("gin_trgm_ops")),
     index("tenant_user_external_id_trgm_idx").using("gin", table.externalId.op("gin_trgm_ops")),
     foreignKey({
@@ -277,10 +281,14 @@ export const member = snakeCase.table(
   "member",
   {
     id: uuidV7PrimaryKey(),
-    organizationId: uuid().notNull().references(() => organization.id, {
-      onDelete: "cascade",
-    }),
-    userId: uuid().notNull().references(() => user.id, { onDelete: "cascade" }),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     role: text().default("viewer").notNull(),
     ...timestamps(),
   },
@@ -295,14 +303,18 @@ export const invitation = snakeCase.table(
   "invitation",
   {
     id: uuidV7PrimaryKey(),
-    organizationId: uuid().notNull().references(() => organization.id, {
-      onDelete: "cascade",
-    }),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     email: caseInsensitiveText().notNull(),
     role: text(),
     status: text().default("pending").notNull(),
     expiresAt: timestampWithTimeZone().notNull(),
-    inviterId: uuid().notNull().references(() => user.id, { onDelete: "cascade" }),
+    inviterId: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     ...timestamps(),
   },
   (table) => [

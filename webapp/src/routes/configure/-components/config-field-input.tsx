@@ -46,7 +46,7 @@ export function ConfigFieldInput({
   footer?: ReactNode
   disabled: boolean
 }) {
-  const currentValue = draft.kind === "set" ? draft.value : field.value ?? ""
+  const currentValue = draft.kind === "set" ? draft.value : (field.value ?? "")
   const items = enumItems(field.options)
 
   return (
@@ -59,55 +59,53 @@ export function ConfigFieldInput({
           {field.source === "environment" ? "Environment" : "Database"}
         </Badge>
       </FieldLabel>
-      {field.kind === "enum"
-        ? (
-          <Select
-            // Base UI renders the raw value in the trigger unless it knows each option's label.
-            // https://base-ui.com/react/components/select#value
-            items={items}
-            value={currentValue === "" ? UNSET_OPTION : currentValue}
-            onValueChange={(value) =>
-              onDraftChange({ kind: "set", value: value === UNSET_OPTION ? "" : String(value) })}
+      {field.kind === "enum" ? (
+        <Select
+          // Base UI renders the raw value in the trigger unless it knows each option's label.
+          // https://base-ui.com/react/components/select#value
+          items={items}
+          value={currentValue === "" ? UNSET_OPTION : currentValue}
+          onValueChange={(value) =>
+            onDraftChange({ kind: "set", value: value === UNSET_OPTION ? "" : String(value) })
+          }
+        >
+          <SelectTrigger
+            id={`config-${field.key}`}
+            disabled={disabled || field.source === "environment"}
           >
-            <SelectTrigger
-              id={`config-${field.key}`}
-              disabled={disabled || field.source === "environment"}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {items.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )
-        : (
-          <ConfigValueInput
-            field={field}
-            draft={draft}
-            revealedValue={revealedValue}
-            onDraftChange={onDraftChange}
-            onGenerate={onGenerate}
-            onReveal={onReveal}
-            footer={footer}
-            disabled={disabled}
-          />
-        )}
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {items.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <ConfigValueInput
+          field={field}
+          draft={draft}
+          revealedValue={revealedValue}
+          onDraftChange={onDraftChange}
+          onGenerate={onGenerate}
+          onReveal={onReveal}
+          footer={footer}
+          disabled={disabled}
+        />
+      )}
       <FieldDescription>
-        {field.description} {field.source === "environment"
-          ? (
-            <>
-              Read-only value from <code>{field.environmentVariable}</code>.
-            </>
-          )
-          : (
-            <>
-              Override with <code>{field.environmentVariable}</code>.
-            </>
-          )}
+        {field.description}{" "}
+        {field.source === "environment" ? (
+          <>
+            Read-only value from <code>{field.environmentVariable}</code>.
+          </>
+        ) : (
+          <>
+            Override with <code>{field.environmentVariable}</code>.
+          </>
+        )}
       </FieldDescription>
       {error && <FieldError>{error}</FieldError>}
     </Field>

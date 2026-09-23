@@ -26,10 +26,7 @@ export function AccountSettings({
   const { plugins } = useAuth()
 
   return (
-    <div
-      className={cn("flex w-full flex-col gap-4 md:gap-6", className)}
-      {...props}
-    >
+    <div className={cn("flex w-full flex-col gap-4 md:gap-6", className)} {...props}>
       <UserProfile />
       {plugins.flatMap(
         (plugin) =>

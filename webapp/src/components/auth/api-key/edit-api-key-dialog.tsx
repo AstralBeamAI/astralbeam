@@ -69,9 +69,7 @@ export function EditApiKeyDialog({
           </DialogHeader>
           <FieldGroup>
             <Field data-invalid={!!nameError}>
-              <FieldLabel htmlFor={`api-key-name-${apiKey.id}`}>
-                {labels.name}
-              </FieldLabel>
+              <FieldLabel htmlFor={`api-key-name-${apiKey.id}`}>{labels.name}</FieldLabel>
               <Input
                 key={new Date(apiKey.updatedAt).getTime()}
                 id={`api-key-name-${apiKey.id}`}

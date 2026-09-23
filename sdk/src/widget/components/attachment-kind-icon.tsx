@@ -23,9 +23,13 @@ function OfficeIcon({ mimeType }: { mimeType: string | undefined }) {
 }
 
 /** The icon standing in for a file, in the composer chip and in the transcript alike. */
-export function AttachmentKindIcon(
-  { kind, mimeType }: { kind: AttachmentKind | undefined; mimeType?: string | undefined },
-) {
+export function AttachmentKindIcon({
+  kind,
+  mimeType,
+}: {
+  kind: AttachmentKind | undefined
+  mimeType?: string | undefined
+}) {
   if (kind === "image") return <ImageIcon />
   if (kind === "pdf") return <FilePdfIcon />
   if (kind === "office") return <OfficeIcon mimeType={mimeType} />

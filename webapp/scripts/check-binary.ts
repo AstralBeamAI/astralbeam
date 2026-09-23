@@ -26,7 +26,7 @@ async function reserveBinaryCheckPort() {
   }
   const port = address.port
   await new Promise<void>((resolve, reject) => {
-    server.close((error) => error ? reject(error) : resolve())
+    server.close((error) => (error ? reject(error) : resolve()))
   })
   return port
 }
@@ -70,10 +70,7 @@ function signalBinaryCheckProcess(binaryProcess: ChildProcess, signal: NodeJS.Si
   killProcess(processId, signal)
 }
 
-async function stopBinaryCheckProcess(
-  binaryProcess: ChildProcess,
-  status: Promise<void>,
-) {
+async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promise<void>) {
   signalBinaryCheckProcess(binaryProcess, "SIGTERM")
   const stopped = await Promise.race([
     status.then(() => true),
@@ -91,9 +88,7 @@ async function runBinaryCheck() {
   const binaryInfo = await stat(binaryPath)
   const binarySizeMiB = binaryInfo.size / 1024 / 1024
   if (binaryInfo.size > BINARY_CHECK_MAX_BYTES) {
-    throw new Error(
-      `Binary is ${binarySizeMiB.toFixed(1)} MiB; expected at most 200 MiB`,
-    )
+    throw new Error(`Binary is ${binarySizeMiB.toFixed(1)} MiB; expected at most 200 MiB`)
   }
 
   const publicAssetsDirectory = join(webappDirectory, ".output", "public", "assets")
@@ -130,11 +125,12 @@ async function runBinaryCheck() {
 
     const docsUrl = new URL("/docs/sdk/getting-started", baseUrl)
     const openapi = await fetchBinaryCheckResponse(new URL("/api/openapi.json", baseUrl))
-    const specification = await openapi.json() as { paths: Record<string, unknown> }
+    const specification = (await openapi.json()) as { paths: Record<string, unknown> }
     if (
       openapi.headers.get("access-control-allow-origin") !== "*" ||
       openapi.headers.get("cache-control") !== "public, no-cache" ||
-      !openapi.headers.get("etag") || !specification.paths["/api/v1/tenants"]
+      !openapi.headers.get("etag") ||
+      !specification.paths["/api/v1/tenants"]
     ) {
       throw new Error("Binary did not serve the canonical OpenAPI asset with cache/CORS headers")
     }
@@ -142,7 +138,8 @@ async function runBinaryCheck() {
     const etag = docs.headers.get("etag")
     await docs.body?.cancel()
     if (
-      !etag || docs.headers.get("cache-control") !== "public, no-cache" ||
+      !etag ||
+      docs.headers.get("cache-control") !== "public, no-cache" ||
       docs.headers.get("x-content-type-options") !== "nosniff" ||
       docs.headers.get("content-security-policy") !== "frame-ancestors 'none'"
     ) {

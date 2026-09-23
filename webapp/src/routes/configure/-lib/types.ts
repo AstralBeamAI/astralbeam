@@ -19,10 +19,7 @@ export interface ConfigureField {
   value: string | null
 }
 
-export type FieldDraft =
-  | { kind: "unchanged" }
-  | { kind: "set"; value: string }
-  | { kind: "clear" }
+export type FieldDraft = { kind: "unchanged" } | { kind: "set"; value: string } | { kind: "clear" }
 
 export interface PendingMigration {
   name: string
@@ -37,18 +34,18 @@ export interface ConfigureFieldError {
 
 export type ConfigurePageState =
   | {
-    status: "unavailable"
-    bootstrapIssues: readonly ("DATABASE_URL" | "DATABASE_ENCRYPTION_KEY")[]
-  }
+      status: "unavailable"
+      bootstrapIssues: readonly ("DATABASE_URL" | "DATABASE_ENCRYPTION_KEY")[]
+    }
   | { status: "signed-out" }
   | {
-    status: "ready"
-    onboarding: OwnerOnboarding | null
-    /** ISO instant the operator session expires at, for the live countdown. */
-    sessionExpiresAt: string
-    fallbackEncryptionKeyCount: number
-    setupComplete: boolean
-    migrations: { pending: PendingMigration[]; appliedCount: number }
-    fields: ConfigureField[]
-    issues: ConfigIssue[]
-  }
+      status: "ready"
+      onboarding: OwnerOnboarding | null
+      /** ISO instant the operator session expires at, for the live countdown. */
+      sessionExpiresAt: string
+      fallbackEncryptionKeyCount: number
+      setupComplete: boolean
+      migrations: { pending: PendingMigration[]; appliedCount: number }
+      fields: ConfigureField[]
+      issues: ConfigIssue[]
+    }

@@ -51,15 +51,12 @@ export function OrganizationMemberRow({
 
   const roleLabel = memberRoleLabels(member.role, roles).join(", ")
 
-  const assignableRoles = Object.entries(roles).filter(
-    ([key]) => isOwner || key !== creatorRole,
-  )
+  const assignableRoles = Object.entries(roles).filter(([key]) => isOwner || key !== creatorRole)
 
   const isCurrentUser = session?.user.id === member.userId
   const targetIsOwner = hasMemberRole(member.role, creatorRole)
   const canManageTarget = isOwner || !targetIsOwner
-  const onlyOwnerActionDisabled = targetIsOwner &&
-    (ownerCount === undefined || ownerCount <= 1)
+  const onlyOwnerActionDisabled = targetIsOwner && (ownerCount === undefined || ownerCount <= 1)
 
   const [removeOpen, setRemoveOpen] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
@@ -100,60 +97,54 @@ export function OrganizationMemberRow({
             />
           )}
 
-          {isCurrentUser
-            ? (
-              <Button
-                size="icon"
-                variant="outline"
-                className="size-8 text-destructive"
-                aria-label={organizationLocalization.leaveOrganization}
-                disabled={onlyOwnerActionDisabled}
-                title={onlyOwnerActionDisabled
+          {isCurrentUser ? (
+            <Button
+              size="icon"
+              variant="outline"
+              className="size-8 text-destructive"
+              aria-label={organizationLocalization.leaveOrganization}
+              disabled={onlyOwnerActionDisabled}
+              title={
+                onlyOwnerActionDisabled
                   ? organizationLocalization.onlyOwnerActionDisabled
-                  : organizationLocalization.leaveOrganization}
-                onClick={() => setLeaveOpen(true)}
-              >
-                <LogOut />
-              </Button>
-            )
-            : canManageTarget && canRemoveMember
-            ? (
-              <Button
-                size="icon"
-                variant="outline"
-                className="size-8 text-destructive"
-                aria-label={organizationLocalization.removeMember}
-                disabled={onlyOwnerActionDisabled}
-                title={onlyOwnerActionDisabled
+                  : organizationLocalization.leaveOrganization
+              }
+              onClick={() => setLeaveOpen(true)}
+            >
+              <LogOut />
+            </Button>
+          ) : canManageTarget && canRemoveMember ? (
+            <Button
+              size="icon"
+              variant="outline"
+              className="size-8 text-destructive"
+              aria-label={organizationLocalization.removeMember}
+              disabled={onlyOwnerActionDisabled}
+              title={
+                onlyOwnerActionDisabled
                   ? organizationLocalization.onlyOwnerActionDisabled
-                  : organizationLocalization.removeMember}
-                onClick={() => setRemoveOpen(true)}
-              >
-                <Trash2 />
-              </Button>
-            )
-            : null}
+                  : organizationLocalization.removeMember
+              }
+              onClick={() => setRemoveOpen(true)}
+            >
+              <Trash2 />
+            </Button>
+          ) : null}
         </div>
 
-        {isCurrentUser && organization && !onlyOwnerActionDisabled
-          ? (
-            <LeaveOrganizationDialog
-              open={leaveOpen}
-              onOpenChange={setLeaveOpen}
-              organization={organization}
-            />
+        {isCurrentUser && organization && !onlyOwnerActionDisabled ? (
+          <LeaveOrganizationDialog
+            open={leaveOpen}
+            onOpenChange={setLeaveOpen}
+            organization={organization}
+          />
+        ) : (
+          canManageTarget &&
+          canRemoveMember &&
+          !onlyOwnerActionDisabled && (
+            <RemoveMemberDialog open={removeOpen} onOpenChange={setRemoveOpen} member={member} />
           )
-          : (
-            canManageTarget &&
-            canRemoveMember &&
-            !onlyOwnerActionDisabled && (
-              <RemoveMemberDialog
-                open={removeOpen}
-                onOpenChange={setRemoveOpen}
-                member={member}
-              />
-            )
-          )}
+        )}
       </TableCell>
     </TableRow>
   )

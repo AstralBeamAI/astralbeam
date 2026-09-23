@@ -25,9 +25,7 @@ export function applyResponseSecurityHeaders(
     headers.set("Cache-Control", "public, no-cache")
     headers.set("Access-Control-Allow-Origin", "*")
   }
-  if (
-    (pathname === "/docs" || pathname.startsWith("/docs/")) && !headers.has("Cache-Control")
-  ) {
+  if ((pathname === "/docs" || pathname.startsWith("/docs/")) && !headers.has("Cache-Control")) {
     headers.set("Cache-Control", "public, no-cache")
   }
   if (isSecureRequest(request)) headers.set("Strict-Transport-Security", STRICT_TRANSPORT_SECURITY)

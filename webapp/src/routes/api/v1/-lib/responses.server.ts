@@ -82,15 +82,15 @@ export function restErrorResponse(error: unknown, stage = "dispatch"): Response 
 
 export function restHandleErrors(operation: string) {
   return Effect.catch((error: unknown) =>
-    Effect.sync(() => HttpServerResponse.fromWeb(restErrorResponse(error, operation)))
+    Effect.sync(() => HttpServerResponse.fromWeb(restErrorResponse(error, operation))),
   )
 }
 
 export function restRateLimitFault(error: RateLimiter.RateLimiterError): RestFault {
   return error.reason._tag === "RateLimitExceeded"
     ? restFault(429, "Request limit exceeded.", {
-      retryAfter: Math.max(1, Math.ceil(Duration.toMillis(error.reason.retryAfter) / 1000)),
-    })
+        retryAfter: Math.max(1, Math.ceil(Duration.toMillis(error.reason.retryAfter) / 1000)),
+      })
     : restFault(500, "Request limit could not be checked.")
 }
 

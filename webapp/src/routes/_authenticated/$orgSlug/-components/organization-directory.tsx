@@ -80,7 +80,7 @@ export function OrganizationDirectory({ kind }: { kind: "tenants" | "tenant-user
               scope: "organization",
             }),
           })
-          const result = await response.json() as { token: string; error?: string; code?: string }
+          const result = (await response.json()) as { token: string; error?: string; code?: string }
           if (!response.ok) {
             setMissingApiKeys(result.code === "NO_API_KEYS")
             throw new Error(result.error ?? "Organization token could not be issued")

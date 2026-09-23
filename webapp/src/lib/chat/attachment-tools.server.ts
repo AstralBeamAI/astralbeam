@@ -17,31 +17,33 @@ import type { ChatAttachmentFile, DebugLog } from "./types"
  */
 
 const ReadAttachmentInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(Schema.Struct({
-    file: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
-      description: "Name of the attached file, exactly as the user's message gives it.",
+  Schema.toStandardSchemaV1(
+    Schema.Struct({
+      file: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
+        description: "Name of the attached file, exactly as the user's message gives it.",
+      }),
+      offset: Schema.optionalKey(
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
+          description: "Character to start at. Defaults to the beginning of the file.",
+        }),
+      ),
+      limit: Schema.optionalKey(
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({
+          description: `Characters to read, up to ${CHAT_ATTACHMENT_READ_MAX_CHARACTERS}, which is the default.`,
+        }),
+      ),
     }),
-    offset: Schema.optionalKey(
-      Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
-        description: "Character to start at. Defaults to the beginning of the file.",
-      }),
-    ),
-    limit: Schema.optionalKey(
-      Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({
-        description:
-          `Characters to read, up to ${CHAT_ATTACHMENT_READ_MAX_CHARACTERS}, which is the default.`,
-      }),
-    ),
-  })),
+  ),
 )
 
 /**
  * Declares `read_attachment` over the files this run carries, or nothing when it carries none —
  * an agent should not be offered a tool with nothing to read.
  */
-export function createChatAttachmentTools(
-  input: { readonly files: readonly ChatAttachmentFile[]; readonly log?: DebugLog | undefined },
-): AnyServerTool[] {
+export function createChatAttachmentTools(input: {
+  readonly files: readonly ChatAttachmentFile[]
+  readonly log?: DebugLog | undefined
+}): AnyServerTool[] {
   const { files, log } = input
   if (files.length === 0) return []
   const byHandle = new Map(files.map((file) => [file.handle, file]))
@@ -58,18 +60,19 @@ export function createChatAttachmentTools(
     const file = byHandle.get(handle)
     if (!file) {
       return Promise.resolve({
-        refusal: `There is no attached file with the handle "${handle}". The attached files are: ${
-          files.map((candidate) => `"${candidate.handle}"`).join(", ")
-        }.`,
+        refusal: `There is no attached file with the handle "${handle}". The attached files are: ${files
+          .map((candidate) => `"${candidate.handle}"`)
+          .join(", ")}.`,
       })
     }
     if (file.text === undefined) {
       return Promise.resolve({
-        refusal: file.sandboxPath === undefined
-          ? `"${handle}" is a ${file.mimeType} file with no text to read, and this agent has no ` +
-            "sandbox to open it in. Tell the user you cannot read that file."
-          : `"${handle}" is a ${file.mimeType} file with no text to read. Open it with code in ` +
-            `the sandbox at ${file.sandboxPath} instead.`,
+        refusal:
+          file.sandboxPath === undefined
+            ? `"${handle}" is a ${file.mimeType} file with no text to read, and this agent has no ` +
+              "sandbox to open it in. Tell the user you cannot read that file."
+            : `"${handle}" is a ${file.mimeType} file with no text to read. Open it with code in ` +
+              `the sandbox at ${file.sandboxPath} instead.`,
       })
     }
     // A page is bounded whatever the agent asks for: the limit is model context, not a preference.

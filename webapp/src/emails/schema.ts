@@ -26,35 +26,41 @@ export const SMTP_DEFAULTS = {
   security: "none",
 } as const
 
-export const SmtpSecuritySchema = Schema.Literals(["none", "auto", "starttls", "tls"])
-  .annotate({
-    title: "SMTP security",
-    description: "TLS policy used for the SMTP connection.",
-    message: "SMTP security must be 'none', 'auto', 'starttls', or 'tls'",
-  })
-
-export const SmtpPortSchema = Schema.Union([Schema.Number, Schema.NumberFromString]).pipe(
-  Schema.check(
-    Schema.isInt({ message: "SMTP port must be between 1 and 65535" }),
-    Schema.isBetween({ minimum: 1, maximum: 65_535 }, {
-      message: "SMTP port must be between 1 and 65535",
-    }),
-  ),
-  Schema.optional,
-  Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.port)),
-).annotate({
-  title: "SMTP Port",
-  description: "TCP port exposed by the SMTP server.",
+export const SmtpSecuritySchema = Schema.Literals(["none", "auto", "starttls", "tls"]).annotate({
+  title: "SMTP security",
+  description: "TLS policy used for the SMTP connection.",
+  message: "SMTP security must be 'none', 'auto', 'starttls', or 'tls'",
 })
+
+export const SmtpPortSchema = Schema.Union([Schema.Number, Schema.NumberFromString])
+  .pipe(
+    Schema.check(
+      Schema.isInt({ message: "SMTP port must be between 1 and 65535" }),
+      Schema.isBetween(
+        { minimum: 1, maximum: 65_535 },
+        {
+          message: "SMTP port must be between 1 and 65535",
+        },
+      ),
+    ),
+    Schema.optional,
+    Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.port)),
+  )
+  .annotate({
+    title: "SMTP Port",
+    description: "TCP port exposed by the SMTP server.",
+  })
 
 export const SmtpProviderSettingsSchema = Schema.Struct({
   smtp_host: Schema.NonEmptyString.pipe(
     Schema.optional,
     Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.host)),
-  ).annotate({ message: "SMTP host must not be empty" }).annotateKey({
-    title: "SMTP Host",
-    description: "Hostname or IP address of the SMTP server.",
-  }),
+  )
+    .annotate({ message: "SMTP host must not be empty" })
+    .annotateKey({
+      title: "SMTP Host",
+      description: "Hostname or IP address of the SMTP server.",
+    }),
   smtp_port: SmtpPortSchema,
   smtp_security: SmtpSecuritySchema.pipe(
     Schema.optional,
@@ -77,21 +83,23 @@ export const SmtpProviderSettingsSchema = Schema.Struct({
     title: "SMTP Password",
     description: "Optional SMTP password; it must be paired with a username.",
   }),
-}).pipe(
-  Schema.check(
-    Schema.makeFilter((settings) => {
-      if (Boolean(settings.smtp_username) === Boolean(settings.smtp_password)) return
-      const missing = settings.smtp_username ? "smtp_password" : "smtp_username"
-      return {
-        path: [missing],
-        issue: "SMTP username and password must be configured together",
-      }
-    }),
-  ),
-).annotate({
-  title: "SMTP connection settings",
-  description: "Settings used to verify an SMTP server without sending email.",
 })
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((settings) => {
+        if (Boolean(settings.smtp_username) === Boolean(settings.smtp_password)) return
+        const missing = settings.smtp_username ? "smtp_password" : "smtp_username"
+        return {
+          path: [missing],
+          issue: "SMTP username and password must be configured together",
+        }
+      }),
+    ),
+  )
+  .annotate({
+    title: "SMTP connection settings",
+    description: "Settings used to verify an SMTP server without sending email.",
+  })
 export type SmtpProviderSettings = Schema.Schema.Type<typeof SmtpProviderSettingsSchema>
 
 const ResendProviderSettingsSchema = Schema.Struct({
@@ -126,21 +134,23 @@ const SesProviderSettingsSchema = Schema.Struct({
     description: "Optional static secret key; it must be paired with an access key ID.",
     messageMissingKey: "AWS secret access key is required",
   }),
-}).pipe(
-  Schema.check(
-    Schema.makeFilter((settings) => {
-      if (Boolean(settings.aws_access_key_id) === Boolean(settings.aws_secret_access_key)) return
-      const missing = settings.aws_access_key_id ? "aws_secret_access_key" : "aws_access_key_id"
-      return {
-        path: [missing],
-        issue: "AWS access key ID and secret access key must be configured together",
-      }
-    }),
-  ),
-).annotate({
-  title: "Amazon SES connection settings",
-  description: "Settings used to verify access to Amazon SES.",
 })
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((settings) => {
+        if (Boolean(settings.aws_access_key_id) === Boolean(settings.aws_secret_access_key)) return
+        const missing = settings.aws_access_key_id ? "aws_secret_access_key" : "aws_access_key_id"
+        return {
+          path: [missing],
+          issue: "AWS access key ID and secret access key must be configured together",
+        }
+      }),
+    ),
+  )
+  .annotate({
+    title: "Amazon SES connection settings",
+    description: "Settings used to verify access to Amazon SES.",
+  })
 export type SesProviderSettings = Schema.Schema.Type<typeof SesProviderSettingsSchema>
 
 const EmailProviderConnectionResultSchema = Schema.Union([
@@ -150,9 +160,7 @@ const EmailProviderConnectionResultSchema = Schema.Union([
   title: "Email provider connection result",
   description: "Result of verifying provider settings without sending email.",
 })
-type EmailProviderConnectionResult = Schema.Schema.Type<
-  typeof EmailProviderConnectionResultSchema
->
+type EmailProviderConnectionResult = Schema.Schema.Type<typeof EmailProviderConnectionResultSchema>
 
 export type TestConnection<Settings> = (
   settings: Settings,

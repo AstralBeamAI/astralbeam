@@ -24,5 +24,5 @@ export async function validateParameters(
     value?: Record<string, unknown>
     issues?: unknown
   }
-  return result.issues ? null : result.value ?? {}
+  return result.issues ? null : (result.value ?? {})
 }

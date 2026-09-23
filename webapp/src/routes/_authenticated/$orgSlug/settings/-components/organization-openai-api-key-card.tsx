@@ -117,8 +117,8 @@ export function OrganizationOpenaiApiKeyCard({
                 {trimmedApiKey.length > 0 && !isValidOpenaiApiKey(trimmedApiKey)
                   ? OPENAI_API_KEY_VALIDATION_MESSAGE
                   : configured
-                  ? "Saving a new key replaces the configured one."
-                  : "Create a key in the OpenAI dashboard and paste it here."}
+                    ? "Saving a new key replaces the configured one."
+                    : "Create a key in the OpenAI dashboard and paste it here."}
               </FieldDescription>
             </Field>
           </FieldGroup>

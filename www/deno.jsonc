@@ -14,27 +14,7 @@
       "read": true,
       "run": true,
       "sys": true,
-      "write": true
-    }
-  },
-  "fmt": {
-    "lineWidth": 100,
-    "semiColons": false,
-    "proseWrap": "never",
-    "exclude": ["deno.lock", "src/routeTree.gen.ts"]
-  },
-  "lint": {
-    "rules": {
-      "tags": ["recommended", "jsx", "react"],
-      // The mono eyebrows above the hero and legal titles literally read `// ERROR 404` and
-      // `// LEGAL`, which jsx-no-comment-text-nodes and jsx-curly-braces cannot both accept.
-      "exclude": [
-        "jsx-no-comment-text-nodes",
-        "no-sloppy-imports",
-        "no-window",
-        "no-window-prefix"
-      ]
+      "write": true,
     },
-    "exclude": ["src/routeTree.gen.ts"]
-  }
+  },
 }

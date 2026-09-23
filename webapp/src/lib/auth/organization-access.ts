@@ -32,9 +32,7 @@ export const organizationRoles = {
   }),
 } as const
 
-export type OrganizationPermissionRequest = Parameters<
-  typeof organizationRoles.owner.authorize
->[0]
+export type OrganizationPermissionRequest = Parameters<typeof organizationRoles.owner.authorize>[0]
 
 /** Every organization permission a page or its navigation entry depends on. */
 export interface OrganizationPermissions {
@@ -59,10 +57,13 @@ export function authorizeOrganizationRole(
   role: string,
   permissions: OrganizationPermissionRequest,
 ): boolean {
-  return role.split(",").some((value) =>
-    Object.hasOwn(organizationRoles, value) &&
-    organizationRoles[value as keyof typeof organizationRoles].authorize(permissions).success
-  )
+  return role
+    .split(",")
+    .some(
+      (value) =>
+        Object.hasOwn(organizationRoles, value) &&
+        organizationRoles[value as keyof typeof organizationRoles].authorize(permissions).success,
+    )
 }
 
 export function deriveOrganizationPermissions(role: string): OrganizationPermissions {

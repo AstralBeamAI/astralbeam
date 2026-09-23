@@ -20,11 +20,7 @@ function isDisabledRule(rule: DummyRule): boolean {
   return severity === "allow" || severity === "off" || severity === 0
 }
 
-function aliasPresetRules(
-  preset: unknown,
-  sourcePrefix: string,
-  aliasPrefix: string,
-): RuleMap {
+function aliasPresetRules(preset: unknown, sourcePrefix: string, aliasPrefix: string): RuleMap {
   const rules = (preset as { rules?: RuleMap }).rules ?? {}
   return Object.fromEntries(
     Object.entries(rules)
@@ -33,7 +29,8 @@ function aliasPresetRules(
         ruleName.startsWith(sourcePrefix)
           ? `${aliasPrefix}${ruleName.slice(sourcePrefix.length)}`
           : ruleName,
-        rule,
+        // Every finding blocks; imported presets often default to "warn".
+        Array.isArray(rule) ? ["error", ...rule.slice(1)] : "error",
       ]),
   )
 }
@@ -62,17 +59,9 @@ const recommendedRules = {
   // Source: https://github.com/vitest-dev/eslint-plugin-vitest/blob/main/src/index.ts
   vitest: aliasPresetRules(vitestPlugin.configs.recommended, "vitest/", "vitest-js/"),
   // Source: https://github.com/es-tooling/eslint-plugin-jsx-a11y-x/blob/main/src/index.js
-  jsxA11y: aliasPresetRules(
-    jsxA11yPlugin.configs.recommended,
-    "jsx-a11y-x/",
-    "jsx-a11y-x-js/",
-  ),
+  jsxA11y: aliasPresetRules(jsxA11yPlugin.configs.recommended, "jsx-a11y-x/", "jsx-a11y-x-js/"),
   // Source: https://github.com/Rel1cx/eslint-react/blob/main/plugins/eslint-plugin-react-dom/src/configs/recommended.ts
-  reactDom: aliasPresetRules(
-    reactDomPlugin.configs.recommended,
-    "react-dom/",
-    "react-dom-js/",
-  ),
+  reactDom: aliasPresetRules(reactDomPlugin.configs.recommended, "react-dom/", "react-dom-js/"),
   // Source: https://github.com/facebook/react/blob/main/packages/eslint-plugin-react-hooks/src/index.ts
   reactHooks: aliasPresetRules(
     reactHooksPlugin.configs.flat.recommended,
@@ -80,11 +69,7 @@ const recommendedRules = {
     "react-hooks-js/",
   ),
   // Source: https://github.com/Rel1cx/eslint-react/blob/main/plugins/eslint-plugin-react-jsx/src/configs/recommended.ts
-  reactJsx: aliasPresetRules(
-    reactJsxPlugin.configs.recommended,
-    "react-jsx/",
-    "react-jsx-js/",
-  ),
+  reactJsx: aliasPresetRules(reactJsxPlugin.configs.recommended, "react-jsx/", "react-jsx-js/"),
   // Source: https://github.com/Rel1cx/eslint-react/blob/main/plugins/eslint-plugin-react-web-api/src/configs/recommended.ts
   reactWebApi: aliasPresetRules(
     reactWebApiPlugin.configs.recommended,
@@ -98,7 +83,7 @@ const recommendedRules = {
 // Selected type-aware rules plus core companions; other correctness rules come from the category.
 // TODO: Remove this list if type-aware mode gains a recommended preset for these rules.
 // https://github.com/oxc-project/tsgolint#implemented-rules
-// https://github.com/oxc-project/oxc/blob/oxlint_v1.80.0/crates/oxc_linter/src/rules.rs
+// https://github.com/oxc-project/oxc/blob/oxlint_v1.85.0/crates/oxc_linter/src/rules.rs
 const typeAwareRules: RuleMap = {
   "no-var": "error",
   "prefer-const": "error",
@@ -112,10 +97,44 @@ const typeAwareRules: RuleMap = {
   "typescript/no-unsafe-enum-comparison": "error",
   "typescript/no-unsafe-member-access": "error",
   "typescript/no-unsafe-return": "error",
-  "typescript/only-throw-error": "error",
+  // TanStack Router throws redirect() and notFound() values for control flow.
+  // https://tanstack.com/router/latest/docs/guide/not-found-errors
+  "typescript/only-throw-error": [
+    "error",
+    {
+      allow: [
+        { from: "package", package: "@tanstack/router-core", name: ["NotFoundError", "Redirect"] },
+      ],
+    },
+  ],
   "typescript/prefer-promise-reject-errors": "error",
   "typescript/require-await": "error",
   "typescript/restrict-plus-operands": "error",
+}
+
+// Deno lint's former recommended and jsx rules without a JS preset or correctness-category owner.
+// https://docs.deno.com/lint/
+const denoRecommendedRules: RuleMap = {
+  "no-array-constructor": "error",
+  "no-case-declarations": "error",
+  "no-empty": "error",
+  "no-fallthrough": "error",
+  "no-inner-declarations": "error",
+  "no-prototype-builtins": "error",
+  "no-redeclare": "error",
+  "typescript/adjacent-overload-signatures": "error",
+  "typescript/ban-ts-comment": "error",
+  "typescript/no-empty-interface": "error",
+  "typescript/no-explicit-any": "error",
+  "typescript/no-namespace": "error",
+  "react/button-has-type": "error",
+  "react/jsx-boolean-value": "error",
+  "react/jsx-curly-brace-presence": "error",
+  "react/jsx-key": "error",
+  "react/jsx-no-duplicate-props": "error",
+  "react/jsx-no-useless-fragment": "error",
+  "react/jsx-props-no-spread-multi": "error",
+  "react/no-unescaped-entities": "error",
 }
 
 const baseRules: RuleMap = {
@@ -129,38 +148,44 @@ const baseRules: RuleMap = {
   ...recommendedRules.reactWebApi,
   ...recommendedRules.regexp,
   ...typeAwareRules,
-  // Deno's no-empty/ban-types and regexp-js own the broader or specialized equivalents.
-  // Sources: https://github.com/denoland/deno_lint/blob/main/src/rules.rs
-  //          https://github.com/ota-meshi/eslint-plugin-regexp/blob/master/lib/configs/flat/recommended.ts
-  //          https://github.com/oxc-project/oxc/blob/main/crates/oxc_linter/src/rules.rs
-  "no-empty-static-block": "off",
-  "typescript/no-wrapper-object-types": "off",
+  ...denoRecommendedRules,
+  // regexp-js owns these specialized equivalents.
+  // https://github.com/ota-meshi/eslint-plugin-regexp/blob/master/lib/configs/flat/recommended.ts
   "no-empty-character-class": "off",
   "no-invalid-regexp": "off",
   "no-useless-backreference": "off",
+  // The react-hooks, react-jsx, and react-dom JS presets own these native react correctness rules.
+  "react/error-boundaries": "off",
+  "react/exhaustive-deps": "off",
+  "react/globals": "off",
+  "react/immutability": "off",
+  "react/incompatible-library": "off",
+  "react/no-children-prop": "off",
+  "react/no-danger-with-children": "off",
+  "react/no-find-dom-node": "off",
+  "react/no-render-return-value": "off",
+  "react/preserve-manual-memoization": "off",
+  "react/purity": "off",
+  "react/refs": "off",
+  "react/set-state-in-effect": "off",
+  "react/set-state-in-render": "off",
+  "react/static-components": "off",
+  "react/use-memo": "off",
+  "react/void-dom-elements-no-children": "off",
   // TODO: Re-enable these rules when Oxlint JS plugins provide parser services.
   // https://github.com/oxc-project/oxc/issues/19596
   "tanstack-query-js/no-void-query-fn": "off",
   "tanstack-start-js/no-async-client-component": "off",
   "tanstack-start-js/no-client-code-in-server-component": "off",
-  // TODO: Re-enable when Oxc preserves RegExp flag order in these compatibility cases.
-  // https://github.com/oxc-project/oxc/issues/20609
-  "regexp-js/sort-flags": "off",
-}
-
-function disabledRuleOverrides(ruleFiles: Record<string, string | string[]>) {
-  return Object.entries(ruleFiles).map(([rule, filePatterns]) => ({
-    files: typeof filePatterns === "string" ? [filePatterns] : filePatterns,
-    rules: { [rule]: "off" as const },
-  }))
 }
 
 export default defineConfig({
+  plugins: ["eslint", "typescript", "unicorn", "oxc", "react"],
   categories: { correctness: "error" },
-  options: { typeAware: true },
+  // Keeps Deno's ban-unused-ignore gate, so a stale disable directive fails lint.
+  options: { typeAware: true, denyWarnings: true, reportUnusedDisableDirectives: "error" },
   ignorePatterns: [
-    // TODO: Remove each generated-source ignore when its output becomes lint-clean and fixer-safe.
-    // https://github.com/AstralBeamAI/astralbeam/pull/57#discussion_r3888132311
+    // Generated and registry-vendored sources, which regeneration would overwrite.
     "src/components/ui/**",
     "src/routeTree.gen.ts",
   ],
@@ -186,104 +211,5 @@ export default defineConfig({
       files: ["**/*.test.{ts,tsx}"],
       rules: recommendedRules.vitest,
     },
-    // TODO(oxlint-rollout): Delete this map after resolving its 52 findings across 32 files.
-    // Sources: https://github.com/es-tooling/eslint-plugin-jsx-a11y-x/blob/main/src/index.js
-    //          https://github.com/facebook/react/blob/main/packages/eslint-plugin-react-hooks/src/index.ts
-    //          https://github.com/oxc-project/tsgolint#implemented-rules
-    //          https://github.com/oxc-project/oxc/blob/main/crates/oxc_linter/src/rules.rs
-    ...disabledRuleOverrides({
-      // TODO: Remove intentional autofocus from 2 dialogs without regressing focus placement.
-      "jsx-a11y-x-js/no-autofocus": [
-        "src/components/auth/organization/create-organization-dialog.tsx",
-        "src/components/auth/organization/invite-member-dialog.tsx",
-      ],
-      // TODO: Stabilize or include the missing dependencies in 2 files.
-      "react-hooks-js/exhaustive-deps": [
-        "src/components/auth/organization/slug-field.tsx",
-        "src/components/auth/sign-out.tsx",
-      ],
-      // TODO: Rework memoization in 1 file so React Compiler can preserve it.
-      "react-hooks-js/preserve-manual-memoization": "src/components/auth/open-email-button.tsx",
-      // TODO: Remove 13 synchronous state updates from effects across these 11 files.
-      "react-hooks-js/set-state-in-effect": [
-        "src/components/auth/auth-result.tsx",
-        "src/components/auth/organization/create-organization-dialog.tsx",
-        "src/components/auth/organization/edit-member-roles-dialog.tsx",
-        "src/components/auth/organization/invite-member-dialog.tsx",
-        "src/components/auth/organization/organization-members.tsx",
-        "src/components/auth/organization/slug-field.tsx",
-        "src/components/auth/reset-link-sent.tsx",
-        "src/components/auth/theme/appearance.tsx",
-        "src/components/auth/user/user-avatar.tsx",
-        "src/components/auth/verify-email.tsx",
-        "src/hooks/use-mobile.ts",
-      ],
-      // TODO: Adapt 4 promise-returning handlers across these 3 files to void callback contracts.
-      "typescript/no-misused-promises": [
-        "src/components/auth/settings/account/change-avatar.tsx",
-        "src/routes/__root.tsx",
-        "src/routes/configure/-components/operator-login-form.tsx",
-      ],
-      // TODO: Preserve the documented provider names without a redundant string union in 1 file.
-      "typescript/no-redundant-type-constituents":
-        "src/components/auth/settings/security/linked-account.tsx",
-      // TODO: Recheck all 3 files after the upstream regression is fixed.
-      // https://github.com/oxc-project/tsgolint/issues/1122
-      "typescript/no-unnecessary-type-assertion": [
-        "src/components/auth/settings/security/linked-account.tsx",
-        "src/db/migration-runner.server.ts",
-        "src/lib/auth/organization-plugin.tsx",
-      ],
-      // TODO: Type the decoded fixture before passing it onward in 1 file.
-      "typescript/no-unsafe-argument": "src/db/lib/encryption.server.test.ts",
-      // TODO: Type external and mocked values before 5 assignments across these 5 files.
-      "typescript/no-unsafe-assignment": [
-        "src/db/lib/encryption.server.test.ts",
-        "src/db/migration-runner.server.test.ts",
-        "src/lib/config.server.test.ts",
-        "src/routes/(authentication)/auth/$path.tsx",
-        "src/routes/api/status.ts",
-      ],
-      // TODO: Type the migration mock before its 2 calls in 1 file.
-      "typescript/no-unsafe-call": "src/db/migration-runner.server.test.ts",
-      // TODO: Narrow unknown values before 3 property accesses across these 3 files.
-      "typescript/no-unsafe-member-access": [
-        "src/components/auth/sign-in.tsx",
-        "src/db/migration-runner.server.test.ts",
-        "src/routes/api/status.ts",
-      ],
-      // TODO: Type library and mock boundary returns in these 2 files.
-      "typescript/no-unsafe-return": [
-        "src/components/auth/settings/settings.tsx",
-        "src/db/migration-runner.server.test.ts",
-      ],
-      // TODO: Recheck the generated default after the upstream prop contract changes.
-      "typescript/no-useless-default-assignment": [
-        "src/components/auth/theme/appearance.tsx",
-      ],
-      // TanStack Router intentionally throws redirect() and notFound() control-flow values.
-      // TODO: Reconcile 27 control-flow throws across these 18 files with Error-only throws.
-      // https://github.com/TanStack/router/discussions/2168
-      "typescript/only-throw-error": [
-        "src/routes/(authentication)/auth/$path.tsx",
-        "src/routes/__root.tsx",
-        "src/routes/_authenticated/$orgSlug/agents/$agentId/index.tsx",
-        "src/routes/_authenticated/$orgSlug/agents/index.tsx",
-        "src/routes/_authenticated/$orgSlug/agents/new/index.tsx",
-        "src/routes/_authenticated/$orgSlug/api-keys/index.tsx",
-        "src/routes/_authenticated/$orgSlug/route.tsx",
-        "src/routes/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/index.tsx",
-        "src/routes/_authenticated/$orgSlug/sandboxes/index.tsx",
-        "src/routes/_authenticated/$orgSlug/sandboxes/new/index.tsx",
-        "src/routes/_authenticated/$orgSlug/settings/index.tsx",
-        "src/routes/_authenticated/index.tsx",
-        "src/routes/_authenticated/onboarding/index.tsx",
-        "src/routes/_authenticated/route.tsx",
-        "src/routes/_authenticated/settings/route.tsx",
-        "src/routes/configure/-lib/configure-request.server.ts",
-        "src/routes/docs/$section/$page/index.tsx",
-        "src/routes/docs/$section/index.tsx",
-      ],
-    }),
   ],
 })

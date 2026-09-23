@@ -28,26 +28,32 @@ describe("sandbox provider factory", () => {
 
   it("passes validated database values directly to official initializers", async () => {
     const daytonaOptions = { target: "eu", snapshot: "daytona-medium" }
-    await Effect.runPromise(createSandboxProvider("daytona", {
-      options: daytonaOptions,
-      credentials: { apiKey: "daytona-key" },
-    }))
+    await Effect.runPromise(
+      createSandboxProvider("daytona", {
+        options: daytonaOptions,
+        credentials: { apiKey: "daytona-key" },
+      }),
+    )
     expect(sandboxFactoryMocks.daytonaSandbox).toHaveBeenCalledWith({
       ...daytonaOptions,
       apiKey: "daytona-key",
     })
 
     const dockerOptions = { image: "custom/image:tag" }
-    await Effect.runPromise(createSandboxProvider("docker", {
-      options: dockerOptions,
-      credentials: {},
-    }))
+    await Effect.runPromise(
+      createSandboxProvider("docker", {
+        options: dockerOptions,
+        credentials: {},
+      }),
+    )
     expect(sandboxFactoryMocks.dockerSandbox).toHaveBeenCalledWith(dockerOptions)
 
-    await Effect.runPromise(createSandboxProvider("sprites", {
-      options: {},
-      credentials: { apiKey: "sprites-key" },
-    }))
+    await Effect.runPromise(
+      createSandboxProvider("sprites", {
+        options: {},
+        credentials: { apiKey: "sprites-key" },
+      }),
+    )
     expect(sandboxFactoryMocks.spritesSandbox).toHaveBeenCalledWith({ apiKey: "sprites-key" })
 
     const vercelOptions = {
@@ -55,10 +61,12 @@ describe("sandbox provider factory", () => {
       projectId: "project-id",
       runtime: "node24",
     } as const
-    await Effect.runPromise(createSandboxProvider("vercel", {
-      options: vercelOptions,
-      credentials: { token: "vercel-token" },
-    }))
+    await Effect.runPromise(
+      createSandboxProvider("vercel", {
+        options: vercelOptions,
+        credentials: { token: "vercel-token" },
+      }),
+    )
     expect(sandboxFactoryMocks.vercelSandbox).toHaveBeenCalledWith({
       ...vercelOptions,
       token: "vercel-token",

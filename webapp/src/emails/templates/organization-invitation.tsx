@@ -39,10 +39,8 @@ export default function OrganizationInvitationEmail({
         You&apos;re invited to {organizationName}
       </Heading>
       <Text className="m-0 break-words text-base leading-6 text-foreground">
-        <strong>{inviterName}</strong>{" "}
-        (<EmailAddressLink email={inviterEmail} />) has invited you to join {organizationName} on
-        {" "}
-        {appName} with {role} access.
+        <strong>{inviterName}</strong> (<EmailAddressLink email={inviterEmail} />) has invited you
+        to join {organizationName} on {appName} with {role} access.
       </Text>
 
       <EmailAction href={url} label="Accept invitation" />

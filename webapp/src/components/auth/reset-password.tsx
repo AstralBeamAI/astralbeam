@@ -45,10 +45,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
     viewPaths,
     Link,
   } = useAuth()
-  const signInURL = getAuthLinkURL(
-    `${basePaths.auth}/${viewPaths.auth.signIn}`,
-    redirectTo,
-  )
+  const signInURL = getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)
 
   const { mutate: resetPassword, isPending } = useResetPassword(authClient, {
     onError: (error) => {
@@ -122,9 +119,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
         <form onSubmit={submitPasswordReset}>
           <FieldGroup>
             <Field data-invalid={!!fieldErrors.password}>
-              <FieldLabel htmlFor="password">
-                {localization.auth.password}
-              </FieldLabel>
+              <FieldLabel htmlFor="password">{localization.auth.password}</FieldLabel>
 
               <InputGroup>
                 <InputGroupInput
@@ -153,14 +148,8 @@ export function ResetPassword({ className }: ResetPasswordProps) {
                     const msg = el.validity.valueMissing
                       ? localization.auth.fieldRequired
                       : el.validity.tooShort
-                      ? localization.auth.tooShort.replace(
-                        "{{min}}",
-                        String(min),
-                      )
-                      : localization.auth.tooLong.replace(
-                        "{{max}}",
-                        String(max),
-                      )
+                        ? localization.auth.tooShort.replace("{{min}}", String(min))
+                        : localization.auth.tooLong.replace("{{max}}", String(max))
 
                     setFieldErrors((prev) => ({
                       ...prev,
@@ -173,12 +162,16 @@ export function ResetPassword({ className }: ResetPasswordProps) {
                 <InputGroupAddon align="inline-end">
                   <InputGroupButton
                     size="icon-xs"
-                    aria-label={isPasswordVisible
-                      ? localization.auth.hidePassword
-                      : localization.auth.showPassword}
-                    title={isPasswordVisible
-                      ? localization.auth.hidePassword
-                      : localization.auth.showPassword}
+                    aria-label={
+                      isPasswordVisible
+                        ? localization.auth.hidePassword
+                        : localization.auth.showPassword
+                    }
+                    title={
+                      isPasswordVisible
+                        ? localization.auth.hidePassword
+                        : localization.auth.showPassword
+                    }
                     onClick={() => {
                       setIsPasswordVisible((visible) => !visible)
                     }}
@@ -224,14 +217,8 @@ export function ResetPassword({ className }: ResetPasswordProps) {
                       const msg = el.validity.valueMissing
                         ? localization.auth.fieldRequired
                         : el.validity.tooShort
-                        ? localization.auth.tooShort.replace(
-                          "{{min}}",
-                          String(min),
-                        )
-                        : localization.auth.tooLong.replace(
-                          "{{max}}",
-                          String(max),
-                        )
+                          ? localization.auth.tooShort.replace("{{min}}", String(min))
+                          : localization.auth.tooLong.replace("{{max}}", String(max))
 
                       setFieldErrors((prev) => ({
                         ...prev,
@@ -244,16 +231,18 @@ export function ResetPassword({ className }: ResetPasswordProps) {
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton
                       size="icon-xs"
-                      aria-label={isConfirmPasswordVisible
-                        ? localization.auth.hidePassword
-                        : localization.auth.showPassword}
-                      title={isConfirmPasswordVisible
-                        ? localization.auth.hidePassword
-                        : localization.auth.showPassword}
+                      aria-label={
+                        isConfirmPasswordVisible
+                          ? localization.auth.hidePassword
+                          : localization.auth.showPassword
+                      }
+                      title={
+                        isConfirmPasswordVisible
+                          ? localization.auth.hidePassword
+                          : localization.auth.showPassword
+                      }
                       onClick={() => {
-                        setIsConfirmPasswordVisible((visible) =>
-                          !visible
-                        )
+                        setIsConfirmPasswordVisible((visible) => !visible)
                       }}
                     >
                       {isConfirmPasswordVisible ? <EyeOff /> : <Eye />}
@@ -279,10 +268,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
           <FieldDescription className="text-center">
             {localization.auth.rememberYourPassword}{" "}
             <Link
-              href={getAuthLinkURL(
-                `${basePaths.auth}/${viewPaths.auth.signIn}`,
-                redirectTo,
-              )}
+              href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)}
               className="underline underline-offset-4"
             >
               {localization.auth.signIn}

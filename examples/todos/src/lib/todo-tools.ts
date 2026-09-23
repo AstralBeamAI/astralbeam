@@ -12,20 +12,29 @@ function findTodo({ id, todos }: { id: number; todos: Todo[] }) {
   return todo
 }
 
-export function createTodoFromToolInput(
-  { id, input }: { id: number; input: Record<string, unknown> },
-) {
-  const text = String(input.text ?? "").trim()
+export function createTodoFromToolInput({
+  id,
+  input,
+}: {
+  id: number
+  input: Record<string, unknown>
+}) {
+  const text = typeof input.text === "string" ? input.text.trim() : ""
   if (!text) throw new Error("A todo needs a non-empty text")
   return { id, text, completed: input.completed === true } satisfies Todo
 }
 
-export function updateTodoFromToolInput(
-  { input, todos }: { input: Record<string, unknown>; todos: Todo[] },
-) {
+export function updateTodoFromToolInput({
+  input,
+  todos,
+}: {
+  input: Record<string, unknown>
+  todos: Todo[]
+}) {
   const todo = findTodo({ id: readTodoId(input), todos })
   // Missing and explicit null both mean "unchanged"; coercing null would corrupt the todo.
-  const text = input.text == null ? todo.text : String(input.text).trim()
+  const text =
+    input.text == null ? todo.text : typeof input.text === "string" ? input.text.trim() : ""
   if (!text) throw new Error("A todo needs a non-empty text")
   return {
     ...todo,
@@ -34,8 +43,12 @@ export function updateTodoFromToolInput(
   } satisfies Todo
 }
 
-export function deleteTodoFromToolInput(
-  { input, todos }: { input: Record<string, unknown>; todos: Todo[] },
-) {
+export function deleteTodoFromToolInput({
+  input,
+  todos,
+}: {
+  input: Record<string, unknown>
+  todos: Todo[]
+}) {
   return findTodo({ id: readTodoId(input), todos })
 }

@@ -62,10 +62,13 @@ interface MediaEntry {
 const MEDIA_TYPES = new Set(["image", "audio", "video", "document"])
 
 function isMediaEntry(entry: unknown): entry is MediaEntry {
-  return typeof entry === "object" && entry !== null &&
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
     MEDIA_TYPES.has((entry as { type?: unknown }).type as string) &&
     typeof (entry as { source?: unknown }).source === "object" &&
     (entry as { source: unknown }).source !== null
+  )
 }
 
 function textEntry(shape: ContentShape, text: string) {
@@ -78,8 +81,12 @@ function normalizeMimeType(value: unknown): string {
 }
 
 function isTextualMimeType(mimeType: string): boolean {
-  return mimeType.startsWith("text/") || CHAT_ATTACHMENT_TEXT_MIME_TYPES.includes(mimeType) ||
-    mimeType.endsWith("+json") || mimeType.endsWith("+xml")
+  return (
+    mimeType.startsWith("text/") ||
+    CHAT_ATTACHMENT_TEXT_MIME_TYPES.includes(mimeType) ||
+    mimeType.endsWith("+json") ||
+    mimeType.endsWith("+xml")
+  )
 }
 
 // The filename is client-supplied and lands in the prompt, in the provider request, and in a
@@ -107,7 +114,8 @@ function fileExtension(filename: string): string {
 function resolveMimeType(declared: string, filename: string): string {
   const byExtension = CHAT_ATTACHMENT_MIME_TYPE_BY_EXTENSION[fileExtension(filename)]
   if (byExtension === undefined) return declared
-  const trusted = isOfficeMimeType(declared) ||
+  const trusted =
+    isOfficeMimeType(declared) ||
     CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(declared) ||
     CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(declared)
   return trusted ? declared : byExtension
@@ -120,7 +128,8 @@ function attachmentKind(mimeType: string): ChatAttachmentKind | undefined {
   if (
     CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(mimeType) ||
     CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(mimeType)
-  ) return "data"
+  )
+    return "data"
   if (isTextualMimeType(mimeType)) return "text"
   return undefined
 }
@@ -173,7 +182,7 @@ function hasDeclaredFileSignature(value: string, mimeType: string): boolean {
   const bytes = decodeAttachmentBytes(aligned)
   if (bytes === undefined) return false
   return signatures.every(({ offset, bytes: expected }) =>
-    expected.every((byte, index) => bytes[offset + index] === byte)
+    expected.every((byte, index) => bytes[offset + index] === byte),
   )
 }
 
@@ -233,8 +242,11 @@ function refusalText(filename: string, mimeType: string, reason: string): string
  * `read_attachment` and the basename of the sandbox path, so it is one name for both.
  */
 function attachmentHandle(filename: string, taken: Set<string>): string {
-  const cleaned = filename.replace(/[^\w.-]+/g, "_").replace(/^[._]+/, "").slice(0, 80) ||
-    "attachment"
+  const cleaned =
+    filename
+      .replace(/[^\w.-]+/g, "_")
+      .replace(/^[._]+/, "")
+      .slice(0, 80) || "attachment"
   const dot = cleaned.lastIndexOf(".")
   const stem = dot > 0 ? cleaned.slice(0, dot) : cleaned
   const suffix = dot > 0 ? cleaned.slice(dot) : ""
@@ -267,25 +279,25 @@ export function normalizeChatAttachments(
     shape: ContentShape,
     position: number,
   ): { entry: unknown } | { file: ChatAttachmentFile } => {
-    const metadata = typeof entry.metadata === "object" && entry.metadata !== null
-      ? entry.metadata as { filename?: unknown }
-      : {}
+    const metadata =
+      typeof entry.metadata === "object" && entry.metadata !== null
+        ? (entry.metadata as { filename?: unknown })
+        : {}
     const declared = normalizeMimeType(entry.source.mimeType)
     const filename = sanitizeAttachmentFilename(
       metadata.filename,
       declared === CHAT_ATTACHMENT_PDF_MIME_TYPE
         ? "document.pdf"
         : entry.type === "image"
-        ? "image"
-        : "attachment",
+          ? "image"
+          : "attachment",
     )
     const mimeType = resolveMimeType(declared, filename)
     // The kind follows the MIME type rather than the part type, so a PNG labeled as a document
     // (or a PDF labeled as an image) is repaired here instead of reaching the provider adapter
     // as a part it refuses. Audio and video have no kind at all.
-    const kind = entry.type === "image" || entry.type === "document"
-      ? attachmentKind(mimeType)
-      : undefined
+    const kind =
+      entry.type === "image" || entry.type === "document" ? attachmentKind(mimeType) : undefined
     const refuse = (reason: string) => {
       attachments.push({ filename, mimeType, bytes: 0, result: "rejected", reason })
       return { entry: textEntry(shape, refusalText(filename, mimeType, reason)) }
@@ -305,9 +317,7 @@ export function normalizeChatAttachments(
       )
     }
     if (position > CHAT_ATTACHMENT_MAX_COUNT) {
-      return refuse(
-        `the message went over the limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments.`,
-      )
+      return refuse(`the message went over the limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments.`)
     }
     const size = base64ByteLength(entry.source.value)
     const limit = CHAT_ATTACHMENT_MAX_BYTES_BY_KIND[kind]
@@ -316,9 +326,9 @@ export function normalizeChatAttachments(
     }
     if (totalBytes + size > CHAT_ATTACHMENT_MAX_TOTAL_BYTES) {
       return refuse(
-        `the message went over the ${
-          formatBytes(CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
-        } attachment limit.`,
+        `the message went over the ${formatBytes(
+          CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
+        )} attachment limit.`,
       )
     }
     if (!hasDeclaredFileSignature(entry.source.value, mimeType)) {
@@ -402,9 +412,10 @@ export function normalizeChatAttachments(
   const stripMedia = (entries: unknown[]) =>
     entries.filter((entry) => {
       if (!isMediaEntry(entry)) return true
-      const metadata = typeof entry.metadata === "object" && entry.metadata !== null
-        ? entry.metadata as { filename?: unknown }
-        : {}
+      const metadata =
+        typeof entry.metadata === "object" && entry.metadata !== null
+          ? (entry.metadata as { filename?: unknown })
+          : {}
       attachments.push({
         filename: sanitizeAttachmentFilename(metadata.filename, "attachment"),
         mimeType: normalizeMimeType(entry.source.mimeType),
@@ -452,13 +463,13 @@ export function redactChatAttachmentData(messages: ChatMessages): ChatMessages {
     entries.map((entry) =>
       isMediaEntry(entry) && typeof entry.source.value === "string"
         ? {
-          ...entry,
-          source: {
-            ...entry.source,
-            value: `<${formatBytes(base64ByteLength(entry.source.value))} base64>`,
-          },
-        }
-        : entry
+            ...entry,
+            source: {
+              ...entry.source,
+              value: `<${formatBytes(base64ByteLength(entry.source.value))} base64>`,
+            },
+          }
+        : entry,
     )
   return messages.map((message) => {
     if (message.role !== "user") return message

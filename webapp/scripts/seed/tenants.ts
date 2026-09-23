@@ -13,9 +13,7 @@ import { SEED_ORGANIZATIONS } from "./fixtures.ts"
  * chat flow depends on. The seeded `acme` tenant deliberately matches the identity
  * `examples/todos` mints, so the two views line up once chat does start writing them.
  */
-export async function seedTenants(
-  transaction: SeedTransaction,
-): Promise<number> {
+export async function seedTenants(transaction: SeedTransaction): Promise<number> {
   let tenantUserCount = 0
   for (const seedOrganization of SEED_ORGANIZATIONS) {
     const organizationId = seedOrganization.id

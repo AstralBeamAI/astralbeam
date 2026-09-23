@@ -84,12 +84,7 @@ export function AgentActions({
   return (
     <div className="flex flex-wrap gap-2">
       {canSetDefault && !isDefault && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={() => void makeDefault()}
-        >
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void makeDefault()}>
           <StarIcon aria-hidden="true" />
           Set as default
         </Button>

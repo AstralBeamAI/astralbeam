@@ -26,8 +26,7 @@ const tagClasses: Record<string, string> = {
   blockquote: "my-2 border-s-2 ps-3 text-muted-foreground italic",
   code: "rounded-sm bg-muted px-1 py-0.5 font-mono text-xs",
   // A fenced block nests a `code` element, whose chip styling is undone so only the block paints.
-  pre:
-    "my-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs [&_code]:bg-transparent [&_code]:p-0",
+  pre: "my-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs [&_code]:bg-transparent [&_code]:p-0",
   hr: "my-3",
   thead: "border-b",
   th: "px-2 py-1 text-start font-medium",
@@ -48,7 +47,7 @@ const styledTags = Object.fromEntries(
 
 // Executable protocols are stripped by the parser; an outbound link still opens away from the
 // host page and carries no referrer or ranking signal, since the agent chose it.
-function MarkdownLink({ href, ...props }: MarkdownComponentProps<"a">) {
+function MarkdownLink({ href, children, ...props }: MarkdownComponentProps<"a">) {
   const external = /^https?:\/\//i.test(href ?? "")
   return (
     <a
@@ -58,7 +57,9 @@ function MarkdownLink({ href, ...props }: MarkdownComponentProps<"a">) {
       {...(external
         ? { target: "_blank", rel: "nofollow noopener noreferrer", referrerPolicy: "no-referrer" }
         : {})}
-    />
+    >
+      {children}
+    </a>
   )
 }
 

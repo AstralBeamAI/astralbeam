@@ -29,12 +29,7 @@ export type UserViewProps = {
  * @param user - Optional user object to display; when omitted the current session user is used
  * @returns A React element showing the user's avatar with their identifying information
  */
-export function UserView({
-  className,
-  isPending,
-  hideSubtitle = false,
-  user,
-}: UserViewProps) {
+export function UserView({ className, isPending, hideSubtitle = false, user }: UserViewProps) {
   const { authClient } = useAuth()
   const { data: session, isPending: sessionPending } = useSession(authClient, {
     enabled: !user && !isPending,
@@ -65,11 +60,8 @@ export function UserView({
           {resolvedUser?.name || resolvedUser?.email}
         </span>
 
-        {!hideSubtitle &&
-          resolvedUser?.name && (
-          <span className="text-muted-foreground truncate text-xs">
-            {resolvedUser?.email}
-          </span>
+        {!hideSubtitle && resolvedUser?.name && (
+          <span className="text-muted-foreground truncate text-xs">{resolvedUser?.email}</span>
         )}
       </div>
     </div>

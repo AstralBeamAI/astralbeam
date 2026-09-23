@@ -23,7 +23,10 @@ test("the owner reaches every organization section directly by URL", async ({ pa
 test.describe("signed out", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test("an organization page sends a visitor to sign-in with its return path", async ({ page, baseline }) => {
+  test("an organization page sends a visitor to sign-in with its return path", async ({
+    page,
+    baseline,
+  }) => {
     const guarded = `/${baseline.organizationSlug}/api-keys`
     await page.goto(guarded)
     await page.waitForURL(/\/auth\/sign-in/)

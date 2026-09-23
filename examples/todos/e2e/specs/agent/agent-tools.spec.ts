@@ -47,7 +47,10 @@ test("creates, updates, and deletes a todo through the host tools", async ({ tod
   })
 })
 
-test("resetting the conversation clears the transcript but not host state", async ({ todos, chat }) => {
+test("resetting the conversation clears the transcript but not host state", async ({
+  todos,
+  chat,
+}) => {
   await test.step("create a todo through the agent", async () => {
     await chat.sendAndWait('Add a todo that says exactly "Sharpen the pencils".')
     await expect(todos.item("Sharpen the pencils")).toBeVisible()

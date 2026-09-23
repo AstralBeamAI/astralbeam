@@ -41,10 +41,7 @@ export async function acceptedAtForUserCreation(
 
   if (context?.path === "/callback/:id") {
     const state = await readOAuthState()
-    if (
-      state?.requestSignUp === true &&
-      recordValue(state.serverContext)?.termsAccepted === true
-    ) {
+    if (state?.requestSignUp === true && recordValue(state.serverContext)?.termsAccepted === true) {
       return new Date()
     }
   }

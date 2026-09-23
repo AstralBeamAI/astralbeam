@@ -30,28 +30,26 @@ interface ChatTranscriptProps {
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
-  activeSlots: ReadonlySet<string>
+  activeSlots: ReadonlyMap<string, string>
   isBusy: boolean
   /** The stream is busy but nothing visible has progressed yet; shows the "Thinking…" marker. */
   awaitingReply: boolean
   onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
 }
 
-export function ChatTranscript(
-  {
-    messages,
-    apiUrl,
-    emptySlot,
-    emptyTitle,
-    emptyDescription,
-    widgets,
-    toolTitles,
-    activeSlots,
-    isBusy,
-    awaitingReply,
-    onQuestionnaireAnswers,
-  }: ChatTranscriptProps,
-) {
+export function ChatTranscript({
+  messages,
+  apiUrl,
+  emptySlot,
+  emptyTitle,
+  emptyDescription,
+  widgets,
+  toolTitles,
+  activeSlots,
+  isBusy,
+  awaitingReply,
+  onQuestionnaireAnswers,
+}: ChatTranscriptProps) {
   if (messages.length === 0) {
     if (emptySlot) {
       // The host's own empty state; the wrapper gives the projected content the full height.
@@ -83,9 +81,10 @@ export function ChatTranscript(
               <MessageScrollerItem key={message.id} messageId={message.id}>
                 <Message align={message.role === "user" ? "end" : "start"}>
                   <MessageContent>
-                    {message.role === "user"
-                      ? <UserMessageBody message={message} />
-                      : message.parts.map((part, partIndex) => (
+                    {message.role === "user" ? (
+                      <UserMessageBody message={message} />
+                    ) : (
+                      message.parts.map((part, partIndex) => (
                         <PartErrorBoundary key={partIndex}>
                           <AssistantPart
                             part={part}
@@ -96,7 +95,8 @@ export function ChatTranscript(
                             onQuestionnaireAnswers={onQuestionnaireAnswers}
                           />
                         </PartErrorBoundary>
-                      ))}
+                      ))
+                    )}
                   </MessageContent>
                 </Message>
               </MessageScrollerItem>

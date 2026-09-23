@@ -23,40 +23,52 @@ describe("organization OpenAI API key", () => {
   it.effect("reveals the organization's own key and nothing when none is stored", () =>
     Effect.gen(function* () {
       const stored = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
-        Effect.provide(Layer.succeed(
-          effectDatabase,
-          configurationDatabase([{
-            organizationId: ORGANIZATION_ID,
-            openaiApiKey: storedApiKey(ORGANIZATION_ID),
-          }]),
-        )),
+        Effect.provide(
+          Layer.succeed(
+            effectDatabase,
+            configurationDatabase([
+              {
+                organizationId: ORGANIZATION_ID,
+                openaiApiKey: storedApiKey(ORGANIZATION_ID),
+              },
+            ]),
+          ),
+        ),
       )
       assert.strictEqual(stored, TEST_API_KEY)
 
       const missing = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
-        Effect.provide(Layer.succeed(
-          effectDatabase,
-          configurationDatabase([{ organizationId: ORGANIZATION_ID, openaiApiKey: null }]),
-        )),
+        Effect.provide(
+          Layer.succeed(
+            effectDatabase,
+            configurationDatabase([{ organizationId: ORGANIZATION_ID, openaiApiKey: null }]),
+          ),
+        ),
       )
       assert.strictEqual(missing, null)
-    }))
+    }),
+  )
 
   it.effect("refuses a key encrypted for another organization", () =>
     Effect.gen(function* () {
       const error = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
-        Effect.provide(Layer.succeed(
-          effectDatabase,
-          // The row is this organization's, the ciphertext in it is not.
-          configurationDatabase([{
-            organizationId: ORGANIZATION_ID,
-            openaiApiKey: storedApiKey(OTHER_ORGANIZATION_ID),
-          }]),
-        )),
+        Effect.provide(
+          Layer.succeed(
+            effectDatabase,
+            // The row is this organization's, the ciphertext in it is not.
+            configurationDatabase([
+              {
+                organizationId: ORGANIZATION_ID,
+                openaiApiKey: storedApiKey(OTHER_ORGANIZATION_ID),
+              },
+            ]),
+          ),
+        ),
         Effect.flip,
       )
       assert.strictEqual(error._tag, "OrganizationOpenaiApiKeyError")
-    }))
+    }),
+  )
 })
 
 type ConfigurationRow = {

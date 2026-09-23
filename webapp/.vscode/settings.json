@@ -8,7 +8,6 @@
   "files.readonlyInclude": {
     "**/routeTree.gen.ts": true
   },
-  "oxc.enable.oxfmt": false,
   "oxc.requireConfig": true,
   "oxc.useExecPath": true
 }

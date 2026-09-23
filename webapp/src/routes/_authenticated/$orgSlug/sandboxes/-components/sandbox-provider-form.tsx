@@ -87,14 +87,20 @@ export function SandboxProviderForm({
   const configurationValid = (() => {
     try {
       decodeProviderOptions(providerType, options)
-      return name.trim().length > 0 && name === name.trim() &&
+      return (
+        name.trim().length > 0 &&
+        name === name.trim() &&
         name.length <= SANDBOX_PROVIDER_NAME_MAX_LENGTH
+      )
     } catch {
       return false
     }
   })()
-  const requiresConnectionTest = !existing || existing.providerType !== providerType ||
-    JSON.stringify(existing.options) !== JSON.stringify(options) || secret.trim() !== initialSecret
+  const requiresConnectionTest =
+    !existing ||
+    existing.providerType !== providerType ||
+    JSON.stringify(existing.options) !== JSON.stringify(options) ||
+    secret.trim() !== initialSecret
   const disabled = saving || readOnly
 
   const save = async () => {
@@ -107,11 +113,12 @@ export function SandboxProviderForm({
           name,
           providerType,
           options,
-          credentials: providerType === "docker"
-            ? {}
-            : providerType === "vercel"
-            ? { token: normalizedSecret }
-            : { apiKey: normalizedSecret },
+          credentials:
+            providerType === "docker"
+              ? {}
+              : providerType === "vercel"
+                ? { token: normalizedSecret }
+                : { apiKey: normalizedSecret },
           id: existing?.id ?? null,
           lockVersion: existing?.lockVersion ?? null,
         },
@@ -177,7 +184,9 @@ export function SandboxProviderForm({
               </SelectTrigger>
               <SelectContent>
                 {sandboxProviderDescriptors.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -193,7 +202,8 @@ export function SandboxProviderForm({
             options={options}
             disabled={disabled}
             onChange={(patch) =>
-              setOptions({ ...options, ...patch } as SandboxProviderOptions[SandboxProviderId])}
+              setOptions({ ...options, ...patch } as SandboxProviderOptions[SandboxProviderId])
+            }
           />
 
           {!configurationValid && (
@@ -227,9 +237,11 @@ export function SandboxProviderForm({
                     disabled={disabled || !secret}
                     onClick={() => setSecretVisible((visible) => !visible)}
                   >
-                    {secretVisible
-                      ? <EyeSlashIcon aria-hidden="true" />
-                      : <EyeIcon aria-hidden="true" />}
+                    {secretVisible ? (
+                      <EyeSlashIcon aria-hidden="true" />
+                    ) : (
+                      <EyeIcon aria-hidden="true" />
+                    )}
                   </InputGroupButton>
                 </InputGroupAddon>
               </InputGroup>
@@ -250,10 +262,12 @@ export function SandboxProviderForm({
             onClick={() => void save()}
           >
             {saving
-              ? requiresConnectionTest ? "Testing and saving…" : "Saving…"
+              ? requiresConnectionTest
+                ? "Testing and saving…"
+                : "Saving…"
               : requiresConnectionTest
-              ? "Test and save"
-              : "Save"}
+                ? "Test and save"
+                : "Save"}
           </Button>
           {requiresConnectionTest && (
             <span className="text-xs text-muted-foreground">

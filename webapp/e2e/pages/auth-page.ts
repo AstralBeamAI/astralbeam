@@ -42,7 +42,7 @@ export function authPage(page: Page) {
       await page.locator("#confirmPassword").fill(password)
       // Only rendered when a legal policy URL is configured.
       const acceptLegal = page.getByRole("checkbox")
-      if (await acceptLegal.count() > 0) await acceptLegal.click()
+      if ((await acceptLegal.count()) > 0) await acceptLegal.click()
       await submitWhenReady(submitButton(/^sign up$/i))
     },
 

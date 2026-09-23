@@ -1,3 +1,4 @@
+import { createRef } from "react"
 import { createRoot } from "react-dom/client"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
@@ -12,13 +13,10 @@ export interface ChatHandle {
   dispose: () => void
 }
 
-/**
- * The widget's imperative surface, registered by ChatWidget from an effect. Plain mutable data
- * rather than a React ref so the loader can hold it before the first render commits.
- */
+/** The widget's imperative surface, attached by ChatWidget through `useImperativeHandle`. */
 export interface ChatController {
-  reset?: (() => void) | undefined
-  stop?: (() => void) | undefined
+  reset: () => void
+  stop: () => void
 }
 
 export function renderChat(
@@ -37,7 +35,7 @@ export function renderChat(
   let live = options
   const disposeHostStyle = bridgeHostStyle(shadowRoot, () => createDebugLogger(live.debug))
   const root = createRoot(container)
-  const controller: ChatController = {}
+  const controller = createRef<ChatController>()
   // The mount target (an HTMLElement per mountAstralBeamChat) hosts the slotted widget renders.
   const render = (nextOptions: MountAstralBeamChatOptions) => {
     if (live.customCss !== nextOptions.customCss) {
@@ -57,8 +55,8 @@ export function renderChat(
     // Rendering the same element type into the same root updates it in place, so the transcript,
     // the chat session, and live widget renders all survive an update.
     update: render,
-    reset: () => controller.reset?.(),
-    stop: () => controller.stop?.(),
+    reset: () => controller.current?.reset(),
+    stop: () => controller.current?.stop(),
     dispose: () => {
       root.unmount()
       disposeHostStyle()

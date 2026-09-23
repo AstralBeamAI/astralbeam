@@ -42,9 +42,7 @@ function loadState(): Promise<GlobalConfigState> {
   return promise
 }
 
-export async function getGlobalConfig<Key extends ConfigKey>(
-  key: Key,
-): Promise<ConfigValues[Key]> {
+export async function getGlobalConfig<Key extends ConfigKey>(key: Key): Promise<ConfigValues[Key]> {
   return (await loadState()).values[key]
 }
 

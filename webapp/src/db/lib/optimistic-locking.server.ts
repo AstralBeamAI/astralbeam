@@ -45,9 +45,7 @@ export function optimisticLockConflict(message: string) {
 }
 
 export function catchOptimisticLockConflict(message: string) {
-  return <Success, Failure, Requirements>(
-    effect: Effect.Effect<Success, Failure, Requirements>,
-  ) =>
+  return <Success, Failure, Requirements>(effect: Effect.Effect<Success, Failure, Requirements>) =>
     Effect.catchIf(
       effect,
       (error): error is Failure & OptimisticLockError =>
@@ -56,16 +54,11 @@ export function catchOptimisticLockConflict(message: string) {
     )
 }
 
-export function updateWithOptimisticLock<
-  TTable extends LockedTable,
->(
+export function updateWithOptimisticLock<TTable extends LockedTable>(
   options: OptimisticLockOptions<TTable> & {
     set: LockedUpdateSet<TTable>
   },
-): Effect.Effect<
-  InferSelectModel<TTable>,
-  OptimisticLockError
-> {
+): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError> {
   return validateLockVersion(options).pipe(
     Effect.andThen(
       options.executor
@@ -75,41 +68,35 @@ export function updateWithOptimisticLock<
           lockVersion: sql`${options.table.lockVersion} + 1`,
         })
         .where(lockedWhere(options))
-        .returning().pipe(
-          Effect.mapError((cause) => optimisticLockError("database", options, cause)),
-        ),
+        .returning()
+        .pipe(Effect.mapError((cause) => optimisticLockError("database", options, cause))),
     ),
     Effect.flatMap((rows) => mutationResult(rows, options)),
   )
 }
 
-export function deleteWithOptimisticLock<
-  TTable extends LockedTable,
->(
+export function deleteWithOptimisticLock<TTable extends LockedTable>(
   options: OptimisticLockOptions<TTable>,
-): Effect.Effect<
-  InferSelectModel<TTable>,
-  OptimisticLockError
-> {
+): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError> {
   return validateLockVersion(options).pipe(
     Effect.andThen(
       options.executor
         .delete(options.table)
         .where(lockedWhere(options))
-        .returning().pipe(
-          Effect.mapError((cause) => optimisticLockError("database", options, cause)),
-        ),
+        .returning()
+        .pipe(Effect.mapError((cause) => optimisticLockError("database", options, cause))),
     ),
     Effect.flatMap((rows) => mutationResult(rows, options)),
   )
 }
 
-function validateLockVersion<TTable extends LockedTable>(
-  options: { expectedLockVersion: number; table: TTable },
-): Effect.Effect<void, OptimisticLockError> {
-  return Schema.is(LockVersionSchema)(options.expectedLockVersion) ? Effect.void : Effect.fail(
-    optimisticLockError("invalid-version", options),
-  )
+function validateLockVersion<TTable extends LockedTable>(options: {
+  expectedLockVersion: number
+  table: TTable
+}): Effect.Effect<void, OptimisticLockError> {
+  return Schema.is(LockVersionSchema)(options.expectedLockVersion)
+    ? Effect.void
+    : Effect.fail(optimisticLockError("invalid-version", options))
 }
 
 function optimisticLockError<TTable extends LockedTable>(
@@ -125,14 +112,12 @@ function optimisticLockError<TTable extends LockedTable>(
   })
 }
 
-function lockedWhere<TTable extends LockedTable>(
-  options: {
-    expectedLockVersion: number
-    id: InferSelectModel<TTable>["id"]
-    scope?: SQL
-    table: TTable
-  },
-) {
+function lockedWhere<TTable extends LockedTable>(options: {
+  expectedLockVersion: number
+  id: InferSelectModel<TTable>["id"]
+  scope?: SQL
+  table: TTable
+}) {
   return and(
     eq(options.table.id, options.id),
     options.scope,
@@ -149,9 +134,7 @@ function mutationResult<TTable extends LockedTable>(
 ): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError> {
   const row = rows[0]
   if (!row) {
-    return Effect.fail(
-      optimisticLockError("conflict", options),
-    )
+    return Effect.fail(optimisticLockError("conflict", options))
   }
   const rowSchema = createSelectSchema(options.table).pipe(
     Schema.fieldsAssign({ lockVersion: LockVersionSchema }),

@@ -45,9 +45,9 @@ export function Organizations({ className }: OrganizationsProps) {
   const [createOpen, setCreateOpen] = useState(false)
 
   const { data: organizations, isPending: organizationsPending } = useListOrganizations(authClient)
-  const canCreate = allowOrganizationCreation &&
-    (organizationLimit === undefined ||
-      (organizations?.length ?? 0) < organizationLimit)
+  const canCreate =
+    allowOrganizationCreation &&
+    (organizationLimit === undefined || (organizations?.length ?? 0) < organizationLimit)
 
   return (
     <>
@@ -72,42 +72,33 @@ export function Organizations({ className }: OrganizationsProps) {
 
           <Card className="p-0">
             <CardContent className="p-0">
-              {organizationsPending
-                ? (
-                  <ItemGroup>
-                    <Item>
-                      <OrganizationViewSkeleton />
-                    </Item>
-                  </ItemGroup>
-                )
-                : !organizations?.length
-                ? (
-                  <OrganizationsEmpty
-                    canCreate={canCreate}
-                    onCreatePress={() => setCreateOpen(true)}
-                  />
-                )
-                : (
-                  <ItemGroup className="gap-0">
-                    {organizations.map((organization, index) => (
-                      <Fragment key={organization.id}>
-                        {index > 0 && <ItemSeparator />}
-                        <OrganizationRow organization={organization} />
-                      </Fragment>
-                    ))}
-                  </ItemGroup>
-                )}
+              {organizationsPending ? (
+                <ItemGroup>
+                  <Item>
+                    <OrganizationViewSkeleton />
+                  </Item>
+                </ItemGroup>
+              ) : !organizations?.length ? (
+                <OrganizationsEmpty
+                  canCreate={canCreate}
+                  onCreatePress={() => setCreateOpen(true)}
+                />
+              ) : (
+                <ItemGroup className="gap-0">
+                  {organizations.map((organization, index) => (
+                    <Fragment key={organization.id}>
+                      {index > 0 && <ItemSeparator />}
+                      <OrganizationRow organization={organization} />
+                    </Fragment>
+                  ))}
+                </ItemGroup>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {canCreate && (
-        <CreateOrganizationDialog
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-        />
-      )}
+      {canCreate && <CreateOrganizationDialog open={createOpen} onOpenChange={setCreateOpen} />}
     </>
   )
 }
@@ -128,9 +119,7 @@ function OrganizationsEmpty({
           <Briefcase />
         </EmptyMedia>
         <EmptyTitle>{organizationLocalization.noOrganizations}</EmptyTitle>
-        <EmptyDescription>
-          {organizationLocalization.organizationsDescription}
-        </EmptyDescription>
+        <EmptyDescription>{organizationLocalization.organizationsDescription}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <Button size="sm" disabled={!canCreate} onClick={onCreatePress}>

@@ -15,12 +15,16 @@ interface SandboxCodeBlockProps {
  * wrapping: a wrapped line of code or of a stack trace is harder to read than a scrolled one, and
  * Tailwind's preflight does not preserve the browser's own `pre` white-space handling here.
  */
-export function SandboxCodeBlock(
-  { children, tone = "default", emptyLabel, caption }: SandboxCodeBlockProps,
-) {
-  const captionLine = caption === undefined
-    ? null
-    : <p className="mb-1 font-mono text-xs text-muted-foreground wrap-anywhere">{caption}</p>
+export function SandboxCodeBlock({
+  children,
+  tone = "default",
+  emptyLabel,
+  caption,
+}: SandboxCodeBlockProps) {
+  const captionLine =
+    caption === undefined ? null : (
+      <p className="mb-1 font-mono text-xs text-muted-foreground wrap-anywhere">{caption}</p>
+    )
   if (children.length === 0 && emptyLabel) {
     return (
       <>

@@ -272,8 +272,7 @@ const DEMO_REPLIES: Array<{ tool?: [string, string]; text: string }> = [
   },
   { text: "Her plan renews on the 14th. I can pause it if she would rather wait." },
   {
-    text:
-      "I only see the last four digits of the card, so payment details are out of scope for me.",
+    text: "I only see the last four digits of the card, so payment details are out of scope for me.",
   },
   { tool: ["draftEmail", "reply"], text: "Drafted a reply for you to approve before it goes out." },
   { text: "Nothing else is outstanding on this account right now." },

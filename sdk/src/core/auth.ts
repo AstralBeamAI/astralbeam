@@ -154,7 +154,9 @@ export function authenticationIdentity(current: CurrentUser, tenantAdmin?: boole
     current.scope === "tenant" ? current.tenant.id : null,
     current.user.id,
     tenantAdmin !== undefined
-      ? (current.scope === "tenant" ? tenantAdmin : current.user.role)
+      ? current.scope === "tenant"
+        ? tenantAdmin
+        : current.user.role
       : null,
   ])
 }
@@ -162,9 +164,10 @@ export function authenticationIdentity(current: CurrentUser, tenantAdmin?: boole
 async function loadChatAuthToken(options: GetValidChatAuthTokenOptions): Promise<string> {
   const { session, debug, apiUrl } = options
   const { signal } = session.abortController
-  const source = typeof options.fetchAstralBeamToken === "function"
-    ? "fetchAstralBeamToken"
-    : "Authentication endpoint"
+  const source =
+    typeof options.fetchAstralBeamToken === "function"
+      ? "fetchAstralBeamToken"
+      : "Authentication endpoint"
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
       const token = await requestChatAuthToken(options, signal)
@@ -173,7 +176,9 @@ async function loadChatAuthToken(options: GetValidChatAuthTokenOptions): Promise
       const { expiresAt, refreshAt, tenantAdmin } = tokenTiming(token)
       if (expiresAt <= Date.now()) throw new Error(`${source} returned an expired token`)
       if (
-        !Number.isFinite(refreshAt) || refreshAt <= Date.now() || expiresAt - Date.now() < 5_000
+        !Number.isFinite(refreshAt) ||
+        refreshAt <= Date.now() ||
+        expiresAt - Date.now() < 5_000
       ) {
         throw new Error(`${source} returned a token too close to expiry`)
       }
@@ -189,9 +194,12 @@ async function loadChatAuthToken(options: GetValidChatAuthTokenOptions): Promise
         })
       } catch (error) {
         if (
-          !attempt && options.retryUnauthorized !== false && isAstralBeamApiError(error) &&
+          !attempt &&
+          options.retryUnauthorized !== false &&
+          isAstralBeamApiError(error) &&
           error.status === 401
-        ) continue
+        )
+          continue
         throw error
       }
       signal.throwIfAborted()
@@ -257,9 +265,9 @@ export async function initializeChatAuthentication(
   await getValidChatAuthToken(options)
 }
 
-export function disposeChatAuthentication(
-  { session }: Pick<ChatAuthenticationOptions, "session">,
-): void {
+export function disposeChatAuthentication({
+  session,
+}: Pick<ChatAuthenticationOptions, "session">): void {
   session.abortController.abort()
   session.refreshPromise = undefined
   session.cached = undefined
@@ -281,9 +289,11 @@ export async function fetchAuthenticatedChat(
   const token = await refreshRejectedAuthentication(options, usedToken)
   const current = authenticationState(options)
   if (
-    previous.status !== "ready" || current.status !== "ready" ||
+    previous.status !== "ready" ||
+    current.status !== "ready" ||
     authenticationIdentity(previous.currentUser) !== authenticationIdentity(current.currentUser)
-  ) throw new DOMException("Identity changed", "AbortError")
+  )
+    throw new DOMException("Identity changed", "AbortError")
   init?.signal?.throwIfAborted()
   headers.set("authorization", `Bearer ${token}`)
   return await fetchClient(input, { ...init, headers })

@@ -111,42 +111,40 @@ interface ResolvedThemeColor {
   readonly srgbHex: `#${string}`
 }
 
-const themePalettePropertyByToken = Object.freeze(
-  {
-    background: "background",
-    foreground: "foreground",
-    card: "card",
-    "card-foreground": "cardForeground",
-    popover: "popover",
-    "popover-foreground": "popoverForeground",
-    primary: "primary",
-    "primary-foreground": "primaryForeground",
-    secondary: "secondary",
-    "secondary-foreground": "secondaryForeground",
-    muted: "muted",
-    "muted-foreground": "mutedForeground",
-    accent: "accent",
-    "accent-foreground": "accentForeground",
-    destructive: "destructive",
-    warning: "warning",
-    border: "border",
-    input: "input",
-    ring: "ring",
-    "chart-1": "chart1",
-    "chart-2": "chart2",
-    "chart-3": "chart3",
-    "chart-4": "chart4",
-    "chart-5": "chart5",
-    sidebar: "sidebar",
-    "sidebar-foreground": "sidebarForeground",
-    "sidebar-primary": "sidebarPrimary",
-    "sidebar-primary-foreground": "sidebarPrimaryForeground",
-    "sidebar-accent": "sidebarAccent",
-    "sidebar-accent-foreground": "sidebarAccentForeground",
-    "sidebar-border": "sidebarBorder",
-    "sidebar-ring": "sidebarRing",
-  } as const satisfies Readonly<Record<ThemeToken, string>>,
-)
+const themePalettePropertyByToken = Object.freeze({
+  background: "background",
+  foreground: "foreground",
+  card: "card",
+  "card-foreground": "cardForeground",
+  popover: "popover",
+  "popover-foreground": "popoverForeground",
+  primary: "primary",
+  "primary-foreground": "primaryForeground",
+  secondary: "secondary",
+  "secondary-foreground": "secondaryForeground",
+  muted: "muted",
+  "muted-foreground": "mutedForeground",
+  accent: "accent",
+  "accent-foreground": "accentForeground",
+  destructive: "destructive",
+  warning: "warning",
+  border: "border",
+  input: "input",
+  ring: "ring",
+  "chart-1": "chart1",
+  "chart-2": "chart2",
+  "chart-3": "chart3",
+  "chart-4": "chart4",
+  "chart-5": "chart5",
+  sidebar: "sidebar",
+  "sidebar-foreground": "sidebarForeground",
+  "sidebar-primary": "sidebarPrimary",
+  "sidebar-primary-foreground": "sidebarPrimaryForeground",
+  "sidebar-accent": "sidebarAccent",
+  "sidebar-accent-foreground": "sidebarAccentForeground",
+  "sidebar-border": "sidebarBorder",
+  "sidebar-ring": "sidebarRing",
+} as const satisfies Readonly<Record<ThemeToken, string>>)
 
 type ThemePaletteProperty = (typeof themePalettePropertyByToken)[ThemeToken]
 
@@ -211,9 +209,7 @@ const themeDocumentEffectSchema = Schema.Struct({
     dark: themeColorMapSchema,
   }),
   geometry: Schema.Struct({ radius: themeRadiusSchema }),
-}).pipe(
-  Schema.check(Schema.makeFilter(findSemanticContrastIssues)),
-)
+}).pipe(Schema.check(Schema.makeFilter(findSemanticContrastIssues)))
 
 const lightThemeDefinitionSchema = Schema.Struct({
   ...optionalThemeColorEntries,
@@ -318,9 +314,9 @@ function resolveThemeColor(
   const green = Math.round(rawGreen)
   const blue = Math.round(rawBlue)
   const srgb = Object.freeze([red, green, blue] as const)
-  const srgbHex = `#${
-    srgb.map((channel) => channel.toString(16).padStart(2, "0")).join("")
-  }` as const
+  const srgbHex = `#${srgb
+    .map((channel) => channel.toString(16).padStart(2, "0"))
+    .join("")}` as const
 
   return Object.freeze({
     css,
@@ -350,7 +346,7 @@ function hasEveryThemePaletteProperty(
   palette: Partial<Record<ThemePaletteProperty, ResolvedThemeColor>>,
 ): palette is Record<ThemePaletteProperty, ResolvedThemeColor> {
   return themeTokenNames.every((token) =>
-    Object.hasOwn(palette, themePalettePropertyByToken[token])
+    Object.hasOwn(palette, themePalettePropertyByToken[token]),
   )
 }
 
@@ -477,16 +473,16 @@ const darkThemeDerivations = {
   "card-foreground": (theme) =>
     !isLightTokenAuthored(theme, "card-foreground")
       ? deriveAccessibleForeground(
-        getThemeColor(theme.colors, "card"),
-        getThemeColor(theme.colors, "foreground"),
-      )
+          getThemeColor(theme.colors, "card"),
+          getThemeColor(theme.colors, "foreground"),
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "card"),
-        theme.light["card-foreground"],
-        0.94,
-        0.55,
-        0.05,
-      ),
+          getThemeColor(theme.colors, "card"),
+          theme.light["card-foreground"],
+          0.94,
+          0.55,
+          0.05,
+        ),
   popover: (theme) =>
     !isLightTokenAuthored(theme, "popover")
       ? getThemeColor(theme.colors, "card")
@@ -494,30 +490,30 @@ const darkThemeDerivations = {
   "popover-foreground": (theme) =>
     !isLightTokenAuthored(theme, "popover-foreground")
       ? deriveAccessibleForeground(
-        getThemeColor(theme.colors, "popover"),
-        getThemeColor(theme.colors, "card-foreground"),
-      )
+          getThemeColor(theme.colors, "popover"),
+          getThemeColor(theme.colors, "card-foreground"),
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "popover"),
-        theme.light["popover-foreground"],
-        0.94,
-        0.55,
-        0.05,
-      ),
+          getThemeColor(theme.colors, "popover"),
+          theme.light["popover-foreground"],
+          0.94,
+          0.55,
+          0.05,
+        ),
   primary: ({ light }) => deriveOklchTone(light.primary, 0.78, 1.4, 0.22),
   "primary-foreground": (theme) =>
     !isLightTokenAuthored(theme, "primary-foreground")
       ? deriveAccessibleForeground(
-        getThemeColor(theme.colors, "primary"),
-        getThemeColor(theme.colors, "background"),
-      )
+          getThemeColor(theme.colors, "primary"),
+          getThemeColor(theme.colors, "background"),
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "primary"),
-        theme.light["primary-foreground"],
-        0.18,
-        0.6,
-        0.06,
-      ),
+          getThemeColor(theme.colors, "primary"),
+          theme.light["primary-foreground"],
+          0.18,
+          0.6,
+          0.06,
+        ),
   secondary: (theme) =>
     !isLightTokenAuthored(theme, "secondary")
       ? deriveElevatedDarkSurface(getThemeColor(theme.colors, "background"), 0.08)
@@ -525,16 +521,16 @@ const darkThemeDerivations = {
   "secondary-foreground": (theme) =>
     !isLightTokenAuthored(theme, "secondary-foreground")
       ? deriveAccessibleForeground(
-        getThemeColor(theme.colors, "secondary"),
-        getThemeColor(theme.colors, "foreground"),
-      )
+          getThemeColor(theme.colors, "secondary"),
+          getThemeColor(theme.colors, "foreground"),
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "secondary"),
-        theme.light["secondary-foreground"],
-        0.94,
-        0.6,
-        0.06,
-      ),
+          getThemeColor(theme.colors, "secondary"),
+          theme.light["secondary-foreground"],
+          0.94,
+          0.6,
+          0.06,
+        ),
   muted: (theme) =>
     !isLightTokenAuthored(theme, "muted")
       ? getThemeColor(theme.colors, "secondary")
@@ -542,17 +538,17 @@ const darkThemeDerivations = {
   "muted-foreground": (theme) =>
     !isLightTokenAuthored(theme, "muted-foreground")
       ? findMutedForeground(
-        getThemeColor(theme.colors, "muted"),
-        getThemeColor(theme.colors, "foreground"),
-        0.73,
-      )
+          getThemeColor(theme.colors, "muted"),
+          getThemeColor(theme.colors, "foreground"),
+          0.73,
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "muted"),
-        theme.light["muted-foreground"],
-        0.76,
-        0.75,
-        0.08,
-      ),
+          getThemeColor(theme.colors, "muted"),
+          theme.light["muted-foreground"],
+          0.76,
+          0.75,
+          0.08,
+        ),
   accent: (theme) =>
     !isLightTokenAuthored(theme, "accent")
       ? getThemeColor(theme.colors, "secondary")
@@ -560,16 +556,16 @@ const darkThemeDerivations = {
   "accent-foreground": (theme) =>
     !isLightTokenAuthored(theme, "accent-foreground")
       ? deriveAccessibleForeground(
-        getThemeColor(theme.colors, "accent"),
-        getThemeColor(theme.colors, "foreground"),
-      )
+          getThemeColor(theme.colors, "accent"),
+          getThemeColor(theme.colors, "foreground"),
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "accent"),
-        theme.light["accent-foreground"],
-        0.94,
-        0.6,
-        0.06,
-      ),
+          getThemeColor(theme.colors, "accent"),
+          theme.light["accent-foreground"],
+          0.94,
+          0.6,
+          0.06,
+        ),
   destructive: ({ colors, light }) =>
     deriveAccessibleForeground(
       getThemeColor(colors, "background"),
@@ -610,16 +606,16 @@ const darkThemeDerivations = {
   "sidebar-foreground": (theme) =>
     !isLightTokenAuthored(theme, "sidebar-foreground")
       ? deriveAccessibleForeground(
-        getThemeColor(theme.colors, "sidebar"),
-        getThemeColor(theme.colors, "foreground"),
-      )
+          getThemeColor(theme.colors, "sidebar"),
+          getThemeColor(theme.colors, "foreground"),
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "sidebar"),
-        theme.light["sidebar-foreground"],
-        0.94,
-        0.55,
-        0.05,
-      ),
+          getThemeColor(theme.colors, "sidebar"),
+          theme.light["sidebar-foreground"],
+          0.94,
+          0.55,
+          0.05,
+        ),
   "sidebar-primary": (theme) =>
     !isLightTokenAuthored(theme, "sidebar-primary")
       ? getThemeColor(theme.colors, "primary")
@@ -627,16 +623,16 @@ const darkThemeDerivations = {
   "sidebar-primary-foreground": (theme) =>
     !isLightTokenAuthored(theme, "sidebar-primary-foreground")
       ? deriveAccessibleForeground(
-        getThemeColor(theme.colors, "sidebar-primary"),
-        getThemeColor(theme.colors, "card"),
-      )
+          getThemeColor(theme.colors, "sidebar-primary"),
+          getThemeColor(theme.colors, "card"),
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "sidebar-primary"),
-        theme.light["sidebar-primary-foreground"],
-        0.18,
-        0.6,
-        0.06,
-      ),
+          getThemeColor(theme.colors, "sidebar-primary"),
+          theme.light["sidebar-primary-foreground"],
+          0.18,
+          0.6,
+          0.06,
+        ),
   "sidebar-accent": (theme) =>
     !isLightTokenAuthored(theme, "sidebar-accent")
       ? getThemeColor(theme.colors, "accent")
@@ -644,16 +640,16 @@ const darkThemeDerivations = {
   "sidebar-accent-foreground": (theme) =>
     !isLightTokenAuthored(theme, "sidebar-accent-foreground")
       ? deriveAccessibleForeground(
-        getThemeColor(theme.colors, "sidebar-accent"),
-        getThemeColor(theme.colors, "accent-foreground"),
-      )
+          getThemeColor(theme.colors, "sidebar-accent"),
+          getThemeColor(theme.colors, "accent-foreground"),
+        )
       : deriveDarkForeground(
-        getThemeColor(theme.colors, "sidebar-accent"),
-        theme.light["sidebar-accent-foreground"],
-        0.94,
-        0.6,
-        0.06,
-      ),
+          getThemeColor(theme.colors, "sidebar-accent"),
+          theme.light["sidebar-accent-foreground"],
+          0.94,
+          0.6,
+          0.06,
+        ),
   "sidebar-border": (theme) =>
     !isLightTokenAuthored(theme, "sidebar-border")
       ? getThemeColor(theme.colors, "border")
@@ -972,8 +968,7 @@ function findSemanticContrastIssues(document: {
         if (contrastRatio(colors[surface], colors[foreground]) < minimumTextContrast) {
           issues.push({
             path: ["colors", mode, foreground],
-            issue:
-              `${mode}.${foreground} must have at least ${minimumTextContrast}:1 contrast against ${mode}.${surface}`,
+            issue: `${mode}.${foreground} must have at least ${minimumTextContrast}:1 contrast against ${mode}.${surface}`,
           })
         }
       }
@@ -982,8 +977,7 @@ function findSemanticContrastIssues(document: {
         if (contrastRatio(colors[surface], colors[indicator]) < minimumNonTextContrast) {
           issues.push({
             path: ["colors", mode, indicator],
-            issue:
-              `${mode}.${indicator} focus indicators must have at least ${minimumNonTextContrast}:1 contrast against ${mode}.${surface}`,
+            issue: `${mode}.${indicator} focus indicators must have at least ${minimumNonTextContrast}:1 contrast against ${mode}.${surface}`,
           })
         }
       }
@@ -1077,7 +1071,7 @@ function clipOklchToSrgb(
   hue: number,
 ): readonly [number, number, number] {
   const [red, green, blue] = oklchToLinearSrgb(lightness, chroma, hue).map((channel) =>
-    linearSrgbToSrgb(clamp(channel, 0, 1))
+    linearSrgbToSrgb(clamp(channel, 0, 1)),
   )
   const [clippedLightness, clippedChroma, clippedHue] = toOklch(
     `color(srgb ${red} ${green} ${blue})`,
@@ -1181,9 +1175,8 @@ function generateColorDeclarations(colors: ThemeColorMap): string {
 }
 
 function normalizeValidationPathSegment(segment: unknown): string | number {
-  const key = typeof segment === "object" && segment !== null && "key" in segment
-    ? segment.key
-    : segment
+  const key =
+    typeof segment === "object" && segment !== null && "key" in segment ? segment.key : segment
 
   if (typeof key === "string" || typeof key === "number") return key
   return String(key)
@@ -1234,9 +1227,10 @@ function colorDataToSrgb(parsed: ColorData): readonly [number, number, number] {
 }
 
 function colorDataToOklch(parsed: ColorData): [number, number, number] {
-  const [lightness, chroma, convertedHue] = parsed.colorNotation === ColorNotation.OKLCH
-    ? parsed.channels
-    : XYZ_D65_to_OKLCH(colorDataToXyzD65(parsed))
+  const [lightness, chroma, convertedHue] =
+    parsed.colorNotation === ColorNotation.OKLCH
+      ? parsed.channels
+      : XYZ_D65_to_OKLCH(colorDataToXyzD65(parsed))
   const hue = Number.isFinite(convertedHue) ? convertedHue : chroma <= 0.000_004 ? 0 : Number.NaN
 
   if (![lightness, chroma, hue].every(Number.isFinite)) {

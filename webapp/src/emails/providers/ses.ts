@@ -17,18 +17,19 @@ async function getClient(settings?: SesProviderSettings): Promise<SESv2Client> {
   const [region, accessKeyId, secretAccessKey] = settings
     ? [settings.aws_region, settings.aws_access_key_id, settings.aws_secret_access_key]
     : await Promise.all([
-      getGlobalConfig("aws_region"),
-      getGlobalConfig("aws_access_key_id"),
-      getGlobalConfig("aws_secret_access_key"),
-    ])
+        getGlobalConfig("aws_region"),
+        getGlobalConfig("aws_access_key_id"),
+        getGlobalConfig("aws_secret_access_key"),
+      ])
   if (!region) {
     throw new Error("SES is the selected email provider but no AWS region is configured")
   }
   // Standard AWS environment credentials belong to the SDK chain so temporary credentials retain
   // AWS_SESSION_TOKEN. Only database-backed static credentials are passed explicitly.
-  const credentials = !process.env.AWS_ACCESS_KEY_ID && accessKeyId && secretAccessKey
-    ? { accessKeyId, secretAccessKey }
-    : null
+  const credentials =
+    !process.env.AWS_ACCESS_KEY_ID && accessKeyId && secretAccessKey
+      ? { accessKeyId, secretAccessKey }
+      : null
   const cacheKey = `${region}:${credentials?.accessKeyId ?? ""}:${
     credentials?.secretAccessKey ?? ""
   }`
@@ -57,22 +58,27 @@ export const testConnection: TestConnection<SesProviderSettings> = (settings) =>
   })
 
 export const sendSesEmail: SendProviderEmail = async (input) => {
-  const response = await (await getClient()).send(
+  const response = await (
+    await getClient()
+  ).send(
     new SendEmailCommand({
       FromEmailAddress: input.from,
       Destination: { ToAddresses: input.to },
-      ...input.replyTo.length > 0 ? { ReplyToAddresses: input.replyTo } : {},
+      ...(input.replyTo.length > 0 ? { ReplyToAddresses: input.replyTo } : {}),
       // SESv2 Simple content cannot carry attachments, so those sends go out as raw MIME.
       // https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_EmailContent.html
-      Content: input.attachments.length > 0 ? { Raw: { Data: buildMimeMessage(input) } } : {
-        Simple: {
-          Subject: { Data: input.subject, Charset: "UTF-8" },
-          Body: {
-            Html: { Data: input.html, Charset: "UTF-8" },
-            ...input.text ? { Text: { Data: input.text, Charset: "UTF-8" } } : {},
-          },
-        },
-      },
+      Content:
+        input.attachments.length > 0
+          ? { Raw: { Data: buildMimeMessage(input) } }
+          : {
+              Simple: {
+                Subject: { Data: input.subject, Charset: "UTF-8" },
+                Body: {
+                  Html: { Data: input.html, Charset: "UTF-8" },
+                  ...(input.text ? { Text: { Data: input.text, Charset: "UTF-8" } } : {}),
+                },
+              },
+            },
     }),
   )
   return { messageId: response.MessageId }
@@ -83,7 +89,7 @@ function buildMimeMessage(input: ProviderEmailInput): Uint8Array {
   const headers = [
     `From: ${input.from}`,
     `To: ${input.to.join(", ")}`,
-    ...input.replyTo.length > 0 ? [`Reply-To: ${input.replyTo.join(", ")}`] : [],
+    ...(input.replyTo.length > 0 ? [`Reply-To: ${input.replyTo.join(", ")}`] : []),
     `Subject: ${encodeHeaderValue(input.subject)}`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
@@ -92,8 +98,8 @@ function buildMimeMessage(input: ProviderEmailInput): Uint8Array {
   const parts = [
     `--${mixedBoundary}`,
     buildBodyPart(input),
-    ...input.attachments.map((attachment) =>
-      `--${mixedBoundary}\r\n${buildAttachmentPart(attachment)}`
+    ...input.attachments.map(
+      (attachment) => `--${mixedBoundary}\r\n${buildAttachmentPart(attachment)}`,
     ),
     `--${mixedBoundary}--`,
   ]

@@ -54,8 +54,9 @@ export type SandboxProviderOptions = {
 }
 
 export type SandboxProviderCredentials = {
-  [Provider in SandboxProviderId]:
-    (typeof SANDBOX_PROVIDER_SCHEMAS)[Provider]["credentials"]["Type"]
+  [
+    Provider in SandboxProviderId
+  ]: (typeof SANDBOX_PROVIDER_SCHEMAS)[Provider]["credentials"]["Type"]
 }
 
 const sandboxProviderOptionDecoders: {
@@ -102,10 +103,12 @@ export type SandboxConnectionErrorCode = (typeof SANDBOX_CONNECTION_ERROR_CODES)
 
 const SandboxConnectionErrorCodeSchema = Schema.Literals(SANDBOX_CONNECTION_ERROR_CODES)
 const SandboxTestedAtSchema = Schema.String.pipe(
-  Schema.check(Schema.makeFilter((value) => {
-    const parsed = new Date(value)
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value
-  })),
+  Schema.check(
+    Schema.makeFilter((value) => {
+      const parsed = new Date(value)
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value
+    }),
+  ),
 )
 export const SandboxTestMetadataSchema = Schema.Struct({
   status: Schema.Literals(["success", "failure"]),
@@ -119,10 +122,7 @@ export function decodeProviderOptions<Provider extends SandboxProviderId>(
   provider: Provider,
   value: unknown,
 ): SandboxProviderOptions[Provider] {
-  return sandboxProviderOptionDecoders[provider](
-    value,
-    `Invalid ${provider} sandbox settings`,
-  )
+  return sandboxProviderOptionDecoders[provider](value, `Invalid ${provider} sandbox settings`)
 }
 
 export function decodeProviderCredentials<Provider extends SandboxProviderId>(
@@ -151,10 +151,11 @@ function decodeStrict<A>(schema: Schema.Codec<A, unknown>, value: unknown, messa
   }
 }
 
-export class SandboxConfigurationValidationError
-  extends Data.TaggedError("SandboxConfigurationValidationError")<{
-    readonly message: string
-  }> {
+export class SandboxConfigurationValidationError extends Data.TaggedError(
+  "SandboxConfigurationValidationError",
+)<{
+  readonly message: string
+}> {
   constructor(input: string | { readonly message: string }) {
     super(typeof input === "string" ? { message: input } : input)
   }

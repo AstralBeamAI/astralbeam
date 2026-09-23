@@ -13,13 +13,7 @@ import {
  * coordinates and a delimited file's separators are chosen by whoever made the file.
  */
 
-type AttachmentColumnType =
-  | "integer"
-  | "number"
-  | "boolean"
-  | "date"
-  | "string"
-  | "empty"
+type AttachmentColumnType = "integer" | "number" | "boolean" | "date" | "string" | "empty"
 
 interface AttachmentColumn {
   name: string
@@ -187,8 +181,10 @@ function columnType(values: readonly string[]): AttachmentColumnType {
     if (resolved === "empty") resolved = type
     else if (resolved === type) continue
     else if (
-      (resolved === "integer" && type === "number") || (resolved === "number" && type === "integer")
-    ) resolved = "number"
+      (resolved === "integer" && type === "number") ||
+      (resolved === "number" && type === "integer")
+    )
+      resolved = "number"
     else return "string"
   }
   return resolved
@@ -210,15 +206,13 @@ function isHeaderRow(row: readonly string[]): boolean {
  * Profiles rows already in memory — a parsed sheet, or the rows kept from a delimited scan. Rows
  * may be ragged; `total` is the row count of the whole file, which may exceed what was kept.
  */
-export function profileRows(
-  input: {
-    rows: readonly string[][]
-    total: number
-    name?: string
-    delimiter?: string
-    columnsTruncated?: boolean
-  },
-): AttachmentTable {
+export function profileRows(input: {
+  rows: readonly string[][]
+  total: number
+  name?: string
+  delimiter?: string
+  columnsTruncated?: boolean
+}): AttachmentTable {
   const [first, ...rest] = input.rows
   const header = first !== undefined && isHeaderRow(first)
   const dataRows = (header ? rest : input.rows).slice(0, CHAT_ATTACHMENT_PROFILE_TYPED_ROWS)

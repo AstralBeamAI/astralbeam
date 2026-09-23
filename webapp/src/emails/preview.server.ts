@@ -52,14 +52,15 @@ const EMAIL_PREVIEWS = [
 }>
 
 function emailPreviewIndex(): Response {
-  const links = EMAIL_PREVIEWS.map(({ label, name }) =>
-    `<li class="flex flex-col gap-4 rounded-lg border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+  const links = EMAIL_PREVIEWS.map(
+    ({ label, name }) =>
+      `<li class="flex flex-col gap-4 rounded-lg border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <span class="font-medium">${label}</span>
       <span class="flex gap-2">
         <a class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90" href="/dev/emails/${name}">Preview</a>
         <a class="inline-flex h-8 items-center rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent" href="/dev/emails/${name}?text=1">Plain text</a>
       </span>
-    </li>`
+    </li>`,
   ).join("")
   return new Response(
     `<!doctype html>

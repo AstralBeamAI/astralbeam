@@ -54,14 +54,16 @@ export default defineConfig({
       use: { storageState: baselineStatePath },
     },
     ...(sandboxSpecsEnabled
-      ? [{
-        name: "sandbox",
-        testDir: "./specs/sandbox",
-        dependencies: ["journey"],
-        use: { storageState: baselineStatePath },
-        // Generous, because a first run pulls the image before the container starts.
-        timeout: 300_000,
-      }]
+      ? [
+          {
+            name: "sandbox",
+            testDir: "./specs/sandbox",
+            dependencies: ["journey"],
+            use: { storageState: baselineStatePath },
+            // Generous, because a first run pulls the image before the container starts.
+            timeout: 300_000,
+          },
+        ]
       : []),
   ],
   webServer: e2eWebServers(),

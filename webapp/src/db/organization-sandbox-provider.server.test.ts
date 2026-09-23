@@ -48,19 +48,21 @@ describe("organization sandbox provider credentials", () => {
   })
 
   it("rejects credentials copied to another provider row", async () => {
-    await expect(runDatabaseEffect(resolveOrganizationSandboxProviderConfiguration(
-      ORGANIZATION_ID,
-      SANDBOX_PROVIDER_ID,
-    ))).resolves.toMatchObject({ credentials: { apiKey: "secret" } })
+    await expect(
+      runDatabaseEffect(
+        resolveOrganizationSandboxProviderConfiguration(ORGANIZATION_ID, SANDBOX_PROVIDER_ID),
+      ),
+    ).resolves.toMatchObject({ credentials: { apiKey: "secret" } })
 
     repositoryState.row = {
       ...repositoryState.row!,
       id: "01992a80-1d71-7f24-a150-f1177e3f6421",
     }
-    await expect(runDatabaseEffect(resolveOrganizationSandboxProviderConfiguration(
-      ORGANIZATION_ID,
-      repositoryState.row.id,
-    ))).rejects.toMatchObject({
+    await expect(
+      runDatabaseEffect(
+        resolveOrganizationSandboxProviderConfiguration(ORGANIZATION_ID, repositoryState.row.id),
+      ),
+    ).rejects.toMatchObject({
       _tag: "OrganizationSandboxProviderRepositoryError",
     })
   })

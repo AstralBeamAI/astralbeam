@@ -174,25 +174,27 @@ export interface ChatConfiguration {
   capabilities: ChatConfigurationCapabilities
 }
 
-export type CurrentUser = {
-  scope: "tenant"
-  organization: {
-    id: string
-  }
-  tenant: TenantRecordEncoded
-  user: TenantUserRecordEncoded
-} | {
-  scope: "organization"
-  organization: {
-    id: string
-  }
-  user: {
-    id: string
-    name: string
-    email: string
-    role: string
-  }
-}
+export type CurrentUser =
+  | {
+      scope: "tenant"
+      organization: {
+        id: string
+      }
+      tenant: TenantRecordEncoded
+      user: TenantUserRecordEncoded
+    }
+  | {
+      scope: "organization"
+      organization: {
+        id: string
+      }
+      user: {
+        id: string
+        name: string
+        email: string
+        role: string
+      }
+    }
 
 export type ListTenantsParams = {
   /**
@@ -256,7 +258,7 @@ export type ListUsersForTenantParams = {
 }
 
 export type ListUsersForTenantFilterAdmin =
-  typeof ListUsersForTenantFilterAdmin[keyof typeof ListUsersForTenantFilterAdmin]
+  (typeof ListUsersForTenantFilterAdmin)[keyof typeof ListUsersForTenantFilterAdmin]
 
 export const ListUsersForTenantFilterAdmin = {
   true: "true",
@@ -465,9 +467,7 @@ export const createTenantUser = (
 }
 
 export const getGetTenantUserUrl = (tenantId: string, id: string) => {
-  return `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/tenant_users/${
-    encodeURIComponent(String(id))
-  }`
+  return `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/tenant_users/${encodeURIComponent(String(id))}`
 }
 
 /**
@@ -486,9 +486,7 @@ export const getTenantUser = (
 }
 
 export const getUpdateTenantUserUrl = (tenantId: string, id: string) => {
-  return `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/tenant_users/${
-    encodeURIComponent(String(id))
-  }`
+  return `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/tenant_users/${encodeURIComponent(String(id))}`
 }
 
 /**

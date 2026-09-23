@@ -24,10 +24,9 @@ describe("opaque pagination cursors", () => {
       cursorOldKeyring,
     )
     expect(cursor.length).toBeLessThanOrEqual(2048)
-    expect(await decodeRestCursor(cursor, "tenant_users", cursorScope, cursorRotatedKeyring))
-      .toEqual(
-        cursorPosition,
-      )
+    expect(
+      await decodeRestCursor(cursor, "tenant_users", cursorScope, cursorRotatedKeyring),
+    ).toEqual(cursorPosition)
     await expect(
       decodeRestCursor(
         cursor,
@@ -47,24 +46,25 @@ describe("opaque pagination cursors", () => {
     const parts = cursor.split(".")
     parts[2] = (parts[2]![0] === "A" ? "B" : "A") + parts[2]!.slice(1)
     for (const invalid of ["not-a-jws", parts.join(".")]) {
-      await expect(decodeRestCursor(invalid, "tenant_users", cursorScope, cursorOldKeyring))
-        .rejects.toThrow("Invalid pagination cursor")
+      await expect(
+        decodeRestCursor(invalid, "tenant_users", cursorScope, cursorOldKeyring),
+      ).rejects.toThrow("Invalid pagination cursor")
     }
-    await expect(decodeRestCursor(cursor, "tenants", cursorScope, cursorOldKeyring)).rejects
-      .toThrow()
-    for (
-      const scope of [
-        { ...cursorScope, organizationId: cursorPosition.id },
-        { ...cursorScope, externalTenantId: "other" },
-        { organizationId: cursorScope.organizationId },
-        { ...cursorScope, externalId: "added-filter" },
-        { ...cursorScope, tenantFilter: cursorPosition.id },
-        { ...cursorScope, search: "name" },
-        { ...cursorScope, admin: false },
-      ]
-    ) {
-      await expect(decodeRestCursor(cursor, "tenant_users", scope, cursorOldKeyring)).rejects
-        .toThrow()
+    await expect(
+      decodeRestCursor(cursor, "tenants", cursorScope, cursorOldKeyring),
+    ).rejects.toThrow()
+    for (const scope of [
+      { ...cursorScope, organizationId: cursorPosition.id },
+      { ...cursorScope, externalTenantId: "other" },
+      { organizationId: cursorScope.organizationId },
+      { ...cursorScope, externalId: "added-filter" },
+      { ...cursorScope, tenantFilter: cursorPosition.id },
+      { ...cursorScope, search: "name" },
+      { ...cursorScope, admin: false },
+    ]) {
+      await expect(
+        decodeRestCursor(cursor, "tenant_users", scope, cursorOldKeyring),
+      ).rejects.toThrow()
     }
   })
   test("binds search and admin filters even when admin is false", async () => {
@@ -74,8 +74,9 @@ describe("opaque pagination cursors", () => {
       cursorPosition,
     )
     for (const changed of [{ ...scope, search: "東京" }, { ...scope, admin: true }, cursorScope]) {
-      await expect(decodeRestCursor(cursor, "tenant_users", changed, cursorOldKeyring)).rejects
-        .toThrow("Invalid pagination cursor")
+      await expect(
+        decodeRestCursor(cursor, "tenant_users", changed, cursorOldKeyring),
+      ).rejects.toThrow("Invalid pagination cursor")
     }
   })
 })

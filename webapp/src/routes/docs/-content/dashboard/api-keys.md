@@ -11,12 +11,12 @@ Signing happens offline: your server mints a token from the key, and the endpoin
 
 ## What a key looks like
 
-| Part                  | Value                                                                      |
-| --------------------- | -------------------------------------------------------------------------- |
-| Full value            | `key_<organizationId>_<id>_abo_<secret>`                                   |
-| Name                  | Required, up to 32 characters, for your own bookkeeping                    |
-| Expiration            | 30 days, 90 days, or never, and never is the default                       |
-| Requests              | 100 management API requests per 5 minutes, per key                         |
+| Part | Value |
+| --- | --- |
+| Full value | `key_<organizationId>_<id>_abo_<secret>` |
+| Name | Required, up to 32 characters, for your own bookkeeping |
+| Expiration | 30 days, 90 days, or never, and never is the default |
+| Requests | 100 management API requests per 5 minutes, per key |
 | Tokens signed with it | 60 to 600 seconds of life, 300 by default. See [Limits](/docs/sdk/limits). |
 
 The full value is shown once, at creation, and only a hash of it is stored afterwards, so nobody can recover it later, not even an owner. If you lose it, create a replacement and delete the old key.

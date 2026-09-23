@@ -91,7 +91,9 @@ export function SessionActions(props: { hasOtherSessions: boolean }) {
             </AlertDialogCancel>
             <Button
               disabled={isPending}
-              onClick={() => isEverywhere ? revokeSessions.mutate() : revokeOtherSessions.mutate()}
+              onClick={() =>
+                isEverywhere ? revokeSessions.mutate() : revokeOtherSessions.mutate()
+              }
               type="button"
               variant={isEverywhere ? "destructive" : "default"}
             >

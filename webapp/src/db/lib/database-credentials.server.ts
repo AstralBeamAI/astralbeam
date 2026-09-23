@@ -9,10 +9,7 @@ export type DatabaseKeyringEntry = {
   readonly root: Uint8Array
 }
 
-export type DatabaseEncryptionKeyring = readonly [
-  DatabaseKeyringEntry,
-  ...DatabaseKeyringEntry[],
-]
+export type DatabaseEncryptionKeyring = readonly [DatabaseKeyringEntry, ...DatabaseKeyringEntry[]]
 
 const decodeDatabaseUrl = Schema.decodeUnknownSync(Schema.NonEmptyString)
 
@@ -21,7 +18,7 @@ let databaseUrl: string | undefined
 export function getDatabaseUrl(): string {
   if (databaseUrl) return databaseUrl
   try {
-    return databaseUrl = decodeDatabaseUrl(process.env.DATABASE_URL)
+    return (databaseUrl = decodeDatabaseUrl(process.env.DATABASE_URL))
   } catch (error) {
     if (!Schema.isSchemaError(error)) throw error
     throw new Error("'DATABASE_URL' environment variable is not set")
@@ -63,7 +60,7 @@ let keyring: DatabaseEncryptionKeyring | undefined
 
 // Environment changes require a restart; key metadata is derived only once per process.
 export function getDatabaseEncryptionKeyring(): DatabaseEncryptionKeyring {
-  return keyring ??= parseDatabaseEncryptionKeyring(process.env.DATABASE_ENCRYPTION_KEY)
+  return (keyring ??= parseDatabaseEncryptionKeyring(process.env.DATABASE_ENCRYPTION_KEY))
 }
 
 export function getActiveDatabaseEncryptionRoot(): Uint8Array {
@@ -86,5 +83,5 @@ export function getDatabaseBootstrapIssues(): readonly DatabaseBootstrapVariable
   } catch {
     issues.push("DATABASE_ENCRYPTION_KEY")
   }
-  return bootstrapIssues = issues
+  return (bootstrapIssues = issues)
 }

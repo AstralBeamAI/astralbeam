@@ -40,19 +40,20 @@ export function authenticateRestRequest(
           error instanceof OrganizationMembershipError
             ? restFault(403, "Organization membership is required.")
             : isChatAuthenticationError(error)
-            ? restFault(401, "Invalid credentials.")
-            : restFault(500, "Authentication could not be completed.", { cause: error })
+              ? restFault(401, "Invalid credentials.")
+              : restFault(500, "Authentication could not be completed.", { cause: error }),
         ),
       )
-      const identity = createHash("sha256").update(JSON.stringify([
-        principal.organizationId,
-        principal.currentUser.id,
-      ])).digest("base64url")
-      yield* databaseRateLimiter.consume({
-        key: `organization-rest:${identity}`,
-        limit: 100,
-        window: Duration.minutes(5),
-      }).pipe(Effect.mapError(restRateLimitFault))
+      const identity = createHash("sha256")
+        .update(JSON.stringify([principal.organizationId, principal.currentUser.id]))
+        .digest("base64url")
+      yield* databaseRateLimiter
+        .consume({
+          key: `organization-rest:${identity}`,
+          limit: 100,
+          window: Duration.minutes(5),
+        })
+        .pipe(Effect.mapError(restRateLimitFault))
       if (
         !authorizeOrganizationRole(principal.currentUser.role, {
           tenantManagement: [
@@ -81,16 +82,16 @@ export function authenticateRestRequest(
     }
     const organizationId = principal.organization.id
     const externalTenantId = principal.tenantUser.tenant.id
-    const identity = createHash("sha256").update(
-      JSON.stringify([organizationId, externalTenantId, principal.tenantUser.id]),
-    ).digest("base64url")
-    yield* databaseRateLimiter.consume({
-      key: `tenant-rest:${identity}`,
-      limit: 100,
-      window: Duration.minutes(5),
-    }).pipe(
-      Effect.mapError(restRateLimitFault),
-    )
+    const identity = createHash("sha256")
+      .update(JSON.stringify([organizationId, externalTenantId, principal.tenantUser.id]))
+      .digest("base64url")
+    yield* databaseRateLimiter
+      .consume({
+        key: `tenant-rest:${identity}`,
+        limit: 100,
+        window: Duration.minutes(5),
+      })
+      .pipe(Effect.mapError(restRateLimitFault))
     const tenantId = yield* resolveTenant(organizationId, externalTenantId)
     return { organizationId, tenantId, externalTenantId } satisfies RestScope
   })
@@ -98,8 +99,9 @@ export function authenticateRestRequest(
 function authenticateRestApiKey(credential: string) {
   return Effect.gen(function* () {
     const parts =
-      /^key_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_(abo_[A-Za-z]{64})$/
-        .exec(credential)
+      /^key_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_(abo_[A-Za-z]{64})$/.exec(
+        credential,
+      )
     if (!parts) return yield* Effect.fail(restFault(401, "Invalid credentials."))
     const verified = yield* Effect.tryPromise({
       try: async () => (await getAuth()).api.verifyApiKey({ body: { key: parts[3]! } }),
@@ -111,27 +113,31 @@ function authenticateRestApiKey(credential: string) {
         const milliseconds = details.details?.tryAgainIn
         return yield* Effect.fail(
           restFault(429, "Request limit exceeded.", {
-            retryAfter: typeof milliseconds === "number" && Number.isFinite(milliseconds)
-              ? Math.max(1, Math.ceil(milliseconds / 1000))
-              : 300,
+            retryAfter:
+              typeof milliseconds === "number" && Number.isFinite(milliseconds)
+                ? Math.max(1, Math.ceil(milliseconds / 1000))
+                : 300,
           }),
         )
       }
       return yield* Effect.fail(restFault(401, "Invalid credentials."))
     }
     const database = yield* effectDatabase
-    const rows = yield* database.select({ id: organization.id }).from(organization).innerJoin(
-      apiKey,
-      eq(apiKey.organizationId, organization.id),
-    ).where(and(
-      eq(organization.id, verified.key.referenceId),
-      eq(organization.id, parts[1]!),
-      eq(apiKey.id, verified.key.id),
-      eq(apiKey.id, parts[2]!),
-      eq(apiKey.configId, "default"),
-    )).limit(1).pipe(
-      Effect.mapError(() => restFault(500, "Authentication could not be completed.")),
-    )
+    const rows = yield* database
+      .select({ id: organization.id })
+      .from(organization)
+      .innerJoin(apiKey, eq(apiKey.organizationId, organization.id))
+      .where(
+        and(
+          eq(organization.id, verified.key.referenceId),
+          eq(organization.id, parts[1]!),
+          eq(apiKey.id, verified.key.id),
+          eq(apiKey.id, parts[2]!),
+          eq(apiKey.configId, "default"),
+        ),
+      )
+      .limit(1)
+      .pipe(Effect.mapError(() => restFault(500, "Authentication could not be completed.")))
     if (!rows[0]) return yield* Effect.fail(restFault(401, "Invalid credentials."))
     return { organizationId: rows[0].id } satisfies RestScope
   })

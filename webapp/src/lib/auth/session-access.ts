@@ -49,8 +49,9 @@ export async function reconcileSessionAccess(
     }
   }
 
-  const organization =
-    organizations.toSorted((left, right) => compareOrganizationIds(left.id, right.id))[0]
+  const organization = organizations.toSorted((left, right) =>
+    compareOrganizationIds(left.id, right.id),
+  )[0]
 
   if (!organization) {
     return { status: "onboarding", userId: session.userId }

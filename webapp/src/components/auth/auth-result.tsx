@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use Phosphor icons and semantic shadcn colors, and route OAuth signup-disabled results to signup while preserving the return path.
+// Local changes: Use Phosphor icons and semantic shadcn colors, and route OAuth signup-disabled results to signup while preserving the return path, and parse the result during render once hydrated.
 
 "use client"
 
@@ -15,11 +15,11 @@ import {
   WarningIcon as TriangleAlertIcon,
   XCircleIcon as CircleXIcon,
 } from "@phosphor-icons/react"
-import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "cn"
+import { useIsHydrated } from "./use-is-hydrated"
 
 type AuthResultProps = {
   className?: string
@@ -28,21 +28,18 @@ type AuthResultProps = {
 
 function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
   const { basePaths, localization, navigate, redirectTo, viewPaths } = useAuth()
-  const [result, setResult] = useState<AuthResult>(() => parseAuthResult("", fallbackIntent))
-
-  useEffect(() => {
-    setResult(parseAuthResult(globalThis.location.search, fallbackIntent))
-  }, [fallbackIntent])
+  const isHydrated = useIsHydrated()
+  const result: AuthResult = parseAuthResult(
+    isHydrated ? globalThis.location.search : "",
+    fallbackIntent,
+  )
 
   const message = getAuthResultMessage(result, localization)
   const action = (() => {
     if (result.reason === "signupDisabled") {
       return {
         label: localization.auth.signUp,
-        to: getAuthLinkURL(
-          `${basePaths.auth}/${viewPaths.auth.signUp}`,
-          redirectTo,
-        ),
+        to: getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signUp}`, redirectTo),
       }
     }
 
@@ -79,11 +76,12 @@ function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
         }
     }
   })()
-  const Icon = result.intent === "success"
-    ? CircleCheckIcon
-    : result.intent === "warning"
-    ? TriangleAlertIcon
-    : CircleXIcon
+  const Icon =
+    result.intent === "success"
+      ? CircleCheckIcon
+      : result.intent === "warning"
+        ? TriangleAlertIcon
+        : CircleXIcon
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -95,8 +93,8 @@ function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
             result.intent === "success"
               ? "text-primary"
               : result.intent === "warning"
-              ? "text-warning"
-              : "text-destructive",
+                ? "text-warning"
+                : "text-destructive",
           )}
         />
         <CardTitle className="text-xl">

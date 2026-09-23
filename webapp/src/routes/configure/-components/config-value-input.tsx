@@ -46,7 +46,7 @@ export function ConfigValueInput({
   const [visible, setVisible] = useState(false)
   const [revealing, setRevealing] = useState(false)
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
-  const value = draft.kind === "set" ? draft.value : revealedValue ?? field.value ?? ""
+  const value = draft.kind === "set" ? draft.value : (revealedValue ?? field.value ?? "")
   const readOnly = field.source === "environment"
   const valueVisible = field.kind !== "secret" || visible
 
@@ -64,11 +64,12 @@ export function ConfigValueInput({
       setRevealing(false)
     }
   }
-  const storageMessage = field.storageStatus === "fallback-key"
-    ? "Encrypted with a fallback key; replace and save it to use the active key."
-    : field.storageStatus === "unreadable"
-    ? "The stored value cannot be read; enter and save a replacement."
-    : null
+  const storageMessage =
+    field.storageStatus === "fallback-key"
+      ? "Encrypted with a fallback key; replace and save it to use the active key."
+      : field.storageStatus === "unreadable"
+        ? "The stored value cannot be read; enter and save a replacement."
+        : null
 
   return (
     <div className="flex flex-col gap-2">
@@ -102,9 +103,11 @@ export function ConfigValueInput({
       </InputGroup>
       {storageMessage && (
         <span
-          className={field.storageStatus === "unreadable"
-            ? "text-sm text-destructive"
-            : "text-sm text-muted-foreground"}
+          className={
+            field.storageStatus === "unreadable"
+              ? "text-sm text-destructive"
+              : "text-sm text-muted-foreground"
+          }
         >
           {storageMessage}
         </span>

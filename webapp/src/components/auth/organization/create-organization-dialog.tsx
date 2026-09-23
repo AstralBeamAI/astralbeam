@@ -1,12 +1,12 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, and omit unsupported organization model fields while retaining the official create flow.
+// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, omit unsupported organization model fields while retaining the official create flow, focus the name through the dialog's initialFocus, and reset closed-dialog state during render.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useCheckSlug, useCreateOrganization } from "@better-auth-ui/react/plugins/organization"
 import { BriefcaseIcon as Briefcase } from "@phosphor-icons/react"
 import type { Organization } from "better-auth/client"
-import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from "react"
+import { type SyntheticEvent, useCallback, useRef, useState } from "react"
 import { GeneratedSlugField } from "@/components/generated-slug-field"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -47,6 +47,7 @@ export function CreateOrganizationDialog({
   >("idle")
   const [nameError, setNameError] = useState<string>()
   const submissionLocked = useRef(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   const { mutate: createOrganization, isPending: isCreating } = useCreateOrganization(authClient, {
     onSuccess: (organization) => {
@@ -77,17 +78,21 @@ export function CreateOrganizationDialog({
 
   const isPending = isCreating
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevInitialName, setPrevInitialName] = useState(initialName)
+  if (open !== prevOpen || initialName !== prevInitialName) {
+    setPrevOpen(open)
+    setPrevInitialName(initialName)
     if (!open) {
       setName(initialName?.trim() ?? "")
       setSlugAvailability("idle")
       setNameError(undefined)
     }
-  }, [initialName, open])
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent initialFocus={nameInputRef}>
         <form onSubmit={submitOrganizationCreation} className="flex flex-col gap-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -109,7 +114,7 @@ export function CreateOrganizationDialog({
               <Input
                 id="create-organization-name"
                 name="name"
-                autoFocus
+                ref={nameInputRef}
                 required
                 placeholder={organizationLocalization.namePlaceholder}
                 value={name}
@@ -151,8 +156,12 @@ export function CreateOrganizationDialog({
 
             <Button
               type="submit"
-              disabled={isPending || slugAvailability === "checking" ||
-                slugAvailability === "invalid" || slugAvailability === "unavailable"}
+              disabled={
+                isPending ||
+                slugAvailability === "checking" ||
+                slugAvailability === "invalid" ||
+                slugAvailability === "unavailable"
+              }
             >
               {isPending && <Spinner />}
 

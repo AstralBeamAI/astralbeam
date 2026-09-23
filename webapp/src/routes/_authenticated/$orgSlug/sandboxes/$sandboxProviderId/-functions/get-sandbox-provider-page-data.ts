@@ -14,8 +14,8 @@ export const getSandboxProviderPageData = createServerFn({ method: "GET" })
     runDatabaseEffect(
       readOrganizationSandboxProvider(context.organizationId, data.sandboxProviderId).pipe(
         Effect.map((provider) =>
-          provider === null ? null : { data: { provider }, permissions: context.permissions }
+          provider === null ? null : { data: { provider }, permissions: context.permissions },
         ),
       ),
-    )
+    ),
   )

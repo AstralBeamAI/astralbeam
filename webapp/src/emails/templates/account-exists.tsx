@@ -28,9 +28,8 @@ export default function AccountExistsEmail({
         You already have an account
       </Heading>
       <Text className="m-0 text-base leading-6 text-foreground">
-        Someone just tried to sign up for {appName} with{" "}
-        <EmailAddressLink email={email} />, but this address is already registered. Sign in instead
-        of signing up again.
+        Someone just tried to sign up for {appName} with <EmailAddressLink email={email} />, but
+        this address is already registered. Sign in instead of signing up again.
       </Text>
 
       <EmailAction href={signInURL} label="Sign in" />
@@ -40,7 +39,8 @@ export default function AccountExistsEmail({
         Forgot your password? Reset it at{" "}
         <a className="text-primary underline" href={recoverAccountURL}>
           {recoverAccountURL}
-        </a>.
+        </a>
+        .
       </Text>
       <Text className="m-0 text-sm leading-6 text-muted-foreground">
         If this was not you, no action is needed: your password was not changed and no new account

@@ -17,14 +17,11 @@ export async function seedDogfood(
   transaction: SeedTransaction,
   userIdsByEmail: ReadonlyMap<string, string>,
 ): Promise<void> {
-  const managedKeys = [
-    "dogfood_organization_id",
-    "dogfood_api_key",
-    "dogfood_pending_setup",
-  ]
-  const existing = await transaction.select({ key: configTable.key }).from(configTable).where(
-    inArray(configTable.key, managedKeys),
-  )
+  const managedKeys = ["dogfood_organization_id", "dogfood_api_key", "dogfood_pending_setup"]
+  const existing = await transaction
+    .select({ key: configTable.key })
+    .from(configTable)
+    .where(inArray(configTable.key, managedKeys))
   if (existing.length > 0) return
   const fixture = SEED_DOGFOOD
   const ownerId = userIdsByEmail.get(fixture.ownerEmail)
@@ -58,12 +55,10 @@ export async function seedDogfood(
     start: fixture.secret.slice(0, 10),
     key: hashSeedApiKeySecret(fixture.secret),
   })
-  for (
-    const [key, value] of Object.entries({
-      dogfood_organization_id: fixture.organizationId,
-      dogfood_api_key: `key_${fixture.organizationId}_${fixture.apiKeyId}_${fixture.secret}`,
-    })
-  ) {
+  for (const [key, value] of Object.entries({
+    dogfood_organization_id: fixture.organizationId,
+    dogfood_api_key: `key_${fixture.organizationId}_${fixture.apiKeyId}_${fixture.secret}`,
+  })) {
     await transaction.insert(configTable).values({ key, value: { key, value } })
   }
 }

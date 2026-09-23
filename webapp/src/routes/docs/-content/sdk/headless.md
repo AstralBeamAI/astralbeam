@@ -13,7 +13,9 @@ function MyChat() {
   const chat = useAstralBeamChat({ tools, widgets, onRenderWidget })
   return (
     <div>
-      {chat.messages.map((message) => <MyMessage key={message.id} message={message} />)}
+      {chat.messages.map((message) => (
+        <MyMessage key={message.id} message={message} />
+      ))}
       <MyComposer
         disabled={chat.auth.status !== "ready" || chat.status !== "ready"}
         onSend={(text) => void chat.sendMessage(text)}

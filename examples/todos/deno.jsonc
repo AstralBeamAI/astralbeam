@@ -6,19 +6,7 @@
     "runtime": {
       "env": true,
       "net": true,
-      "read": true
-    }
-  },
-  "fmt": {
-    "lineWidth": 100,
-    "semiColons": false,
-    "proseWrap": "never",
-    "exclude": ["deno.lock", "src/routeTree.gen.ts"]
-  },
-  "lint": {
-    "rules": {
-      "tags": ["recommended", "jsx", "react"]
+      "read": true,
     },
-    "exclude": ["src/routeTree.gen.ts"]
-  }
+  },
 }

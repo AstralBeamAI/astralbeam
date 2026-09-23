@@ -56,10 +56,7 @@ class OfficeArchiveTooLargeError extends Error {
  * Every entry is counted before `wanted` runs: those two caps describe only the parts that are
  * kept, so an archive declaring entries that match nothing would be walked with neither firing.
  */
-function readParts(
-  bytes: Uint8Array,
-  wanted: (name: string) => boolean,
-): Record<string, string> {
+function readParts(bytes: Uint8Array, wanted: (name: string) => boolean): Record<string, string> {
   let visited = 0
   let selected = 0
   let declared = 0
@@ -98,9 +95,10 @@ const XML_ENTITIES: Record<string, string> = {
 function decodeXml(value: string): string {
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code: string) => {
     if (code.startsWith("#")) {
-      const point = code[1] === "x" || code[1] === "X"
-        ? Number.parseInt(code.slice(2), 16)
-        : Number.parseInt(code.slice(1), 10)
+      const point =
+        code[1] === "x" || code[1] === "X"
+          ? Number.parseInt(code.slice(2), 16)
+          : Number.parseInt(code.slice(1), 10)
       return Number.isFinite(point) && point >= 0 && point <= 0x10ffff
         ? String.fromCodePoint(point)
         : match
@@ -156,7 +154,10 @@ const TAB_TOKEN = new RegExp(`^<${NAME}tab|^</${NAME}tc>`)
 
 /** Collapses the runs of whitespace paragraph-per-line extraction leaves behind. */
 function tidy(text: string): string {
-  return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()
+  return text
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
 }
 
 // `truncated?: true` rather than `truncated: boolean`, so a caller can relay the result whole
@@ -220,13 +221,14 @@ function extractDocx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
 
 function extractPptx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFailure {
   const parts = readParts(bytes, (name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
-  const slides = Object.keys(parts).sort((first, second) =>
-    slideNumber(first) - slideNumber(second)
+  const slides = Object.keys(parts).sort(
+    (first, second) => slideNumber(first) - slideNumber(second),
   )
   if (slides.length === 0) return { reason: "it holds no PowerPoint slides." }
   return {
     ...clampText(
-      slides.map((name, index) => `## Slide ${index + 1}\n${pptxSlideText(parts[name] ?? "")}`)
+      slides
+        .map((name, index) => `## Slide ${index + 1}\n${pptxSlideText(parts[name] ?? "")}`)
         .join("\n\n"),
     ),
     sections: { label: "slide", count: slides.length },
@@ -242,20 +244,7 @@ function sharedStrings(xml: string | undefined): string[] {
 }
 
 // Built-in number formats that mean "date" or "time", per ECMA-376 Part 1 §18.8.30.
-const BUILTIN_DATE_FORMATS = new Set([
-  14,
-  15,
-  16,
-  17,
-  18,
-  19,
-  20,
-  21,
-  22,
-  45,
-  46,
-  47,
-])
+const BUILTIN_DATE_FORMATS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47])
 
 /**
  * Which cell styles render as dates. Without this a date column reads as five-digit serial
@@ -264,15 +253,16 @@ const BUILTIN_DATE_FORMATS = new Set([
 function dateStyles(xml: string | undefined): Set<number> {
   if (xml === undefined) return new Set()
   const custom = new Set<number>()
-  for (const [, tag] of (xml.matchAll(/<(?:[A-Za-z_][\w.-]*:)?numFmt\b([^>]*)\/>/g))) {
+  for (const [, tag] of xml.matchAll(/<(?:[A-Za-z_][\w.-]*:)?numFmt\b([^>]*)\/>/g)) {
     const id = Number(attribute(tag ?? "", "numFmtId"))
     const code = attribute(tag ?? "", "formatCode") ?? ""
     // A date format is built from y/m/d/h tokens; strip quoted literals so a label cannot match.
     if (Number.isFinite(id) && /[ymdh]/i.test(code.replace(/"[^"]*"/g, ""))) custom.add(id)
   }
   const cellXfs =
-    /<(?:[A-Za-z_][\w.-]*:)?cellXfs\b[^>]*>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?cellXfs>/.exec(xml)
-      ?.[1] ?? ""
+    /<(?:[A-Za-z_][\w.-]*:)?cellXfs\b[^>]*>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?cellXfs>/.exec(
+      xml,
+    )?.[1] ?? ""
   const styles = new Set<number>()
   let index = 0
   for (const [, tag] of cellXfs.matchAll(/<(?:[A-Za-z_][\w.-]*:)?xf\b([^>]*?)\/?>/g)) {
@@ -330,8 +320,11 @@ function sheetRows(
     // A cell's coordinate is whatever the file says, and `XFD1048576` is a valid one, so a lone
     // value out there must not decide how big the grid is.
     if (
-      !Number.isInteger(row) || row < 0 || row >= CHAT_ATTACHMENT_MAX_TABLE_ROWS ||
-      column < 0 || column >= CHAT_ATTACHMENT_MAX_TABLE_COLUMNS
+      !Number.isInteger(row) ||
+      row < 0 ||
+      row >= CHAT_ATTACHMENT_MAX_TABLE_ROWS ||
+      column < 0 ||
+      column >= CHAT_ATTACHMENT_MAX_TABLE_COLUMNS
     ) {
       truncated = true
       continue
@@ -339,8 +332,7 @@ function sheetRows(
     highest = Math.max(highest, row + 1)
     const type = attribute(attributes, "t")
     const raw = decodeXml(
-      /<(?:[A-Za-z_][\w.-]*:)?v>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?v>/.exec(inner)?.[1] ??
-        "",
+      /<(?:[A-Za-z_][\w.-]*:)?v>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?v>/.exec(inner)?.[1] ?? "",
     )
     let value: string
     if (type === "s") value = strings[Number(raw)] ?? ""
@@ -351,14 +343,13 @@ function sheetRows(
       value = excelSerialToIso(Number(raw))
     } else value = raw
     if (value.length === 0) continue
-    const target = rows[row] ??= []
+    const target = (rows[row] ??= [])
     target[column] = value
   }
   // A `dimension` covers rows whose cells were all empty, so it beats the highest cell seen. It is
   // only ever reported as a count, never allocated from, but it is clamped for the same reason.
   const declared = Number(
-    /<(?:[A-Za-z_][\w.-]*:)?dimension\s[^>]*?ref="[A-Z]+\d+:[A-Z]+(\d+)"/.exec(xml)
-      ?.[1] ?? 0,
+    /<(?:[A-Za-z_][\w.-]*:)?dimension\s[^>]*?ref="[A-Z]+\d+:[A-Z]+(\d+)"/.exec(xml)?.[1] ?? 0,
   )
   const total = Math.min(
     Math.max(highest, Number.isFinite(declared) ? declared : 0),
@@ -382,8 +373,11 @@ function extractXlsx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
   const parts = readParts(
     bytes,
     (name) =>
-      name === "xl/workbook.xml" || name === "xl/sharedStrings.xml" || name === "xl/styles.xml" ||
-      name === "xl/_rels/workbook.xml.rels" || /^xl\/worksheets\/[^/]+\.xml$/.test(name),
+      name === "xl/workbook.xml" ||
+      name === "xl/sharedStrings.xml" ||
+      name === "xl/styles.xml" ||
+      name === "xl/_rels/workbook.xml.rels" ||
+      /^xl\/worksheets\/[^/]+\.xml$/.test(name),
   )
   const workbook = parts["xl/workbook.xml"]
   if (workbook === undefined) return { reason: "it holds no Excel workbook part." }
@@ -392,16 +386,13 @@ function extractXlsx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
   // Sheet order and names live in the workbook, but the part each one points at is a relationship,
   // so a workbook whose sheets are not `sheet1..N` in order still resolves correctly.
   const targets = new Map(
-    [...(parts["xl/_rels/workbook.xml.rels"] ?? "").matchAll(
-      /<(?:[A-Za-z_][\w.-]*:)?Relationship\b([^>]*)\/>/g,
-    )].map((
-      [, tag],
-    ) => [
-      attribute(tag ?? "", "Id") ?? "",
-      (attribute(tag ?? "", "Target") ?? "").replace(
-        /^\/?xl\//,
-        "",
+    [
+      ...(parts["xl/_rels/workbook.xml.rels"] ?? "").matchAll(
+        /<(?:[A-Za-z_][\w.-]*:)?Relationship\b([^>]*)\/>/g,
       ),
+    ].map(([, tag]) => [
+      attribute(tag ?? "", "Id") ?? "",
+      (attribute(tag ?? "", "Target") ?? "").replace(/^\/?xl\//, ""),
     ]),
   )
   const tables: AttachmentTable[] = []
@@ -416,7 +407,7 @@ function extractXlsx(bytes: Uint8Array): OfficeExtraction | OfficeExtractionFail
     // The rows are ragged, so each one is padded to the sheet's width only while it is rendered.
     const width = rows.reduce((widest, row) => Math.max(widest, row.length), 0)
     const lines = rows.map((row) =>
-      Array.from({ length: width }, (_, index) => csvValue(row[index] ?? "")).join(",")
+      Array.from({ length: width }, (_, index) => csvValue(row[index] ?? "")).join(","),
     )
     rendered.push(`# Sheet: ${name}\n${lines.join("\n")}`)
   }

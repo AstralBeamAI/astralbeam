@@ -23,8 +23,4 @@ type SettingsViewProps = {
 }
 
 /** Shadcn plugin type registered with Better Auth UI's module augmentation. */
-type AuthPlugin = AuthPluginPrimitive<
-  AuthPluginComponents,
-  AuthViewProps,
-  SettingsViewProps
->
+type AuthPlugin = AuthPluginPrimitive<AuthPluginComponents, AuthViewProps, SettingsViewProps>

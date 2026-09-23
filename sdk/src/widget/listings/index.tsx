@@ -62,27 +62,21 @@ function renderListingState(state: ListingRenderer) {
   const auth = authenticationState(state.session.auth)
   state.root.render(
     <QueryClientProvider client={state.client}>
-      {auth.status === "error"
-        ? (
-          <div role="alert" className="p-4 text-sm">
-            <p>{auth.error.message}</p>
-            <button
-              type="button"
-              className="underline"
-              onClick={() => refreshListing(state)}
-            >
-              Retry authentication
-            </button>
-          </div>
-        )
-        : (
-          <ListingWidget
-            key={state.revision}
-            options={state.options}
-            kind={state.kind}
-            session={state.session}
-          />
-        )}
+      {auth.status === "error" ? (
+        <div role="alert" className="p-4 text-sm">
+          <p>{auth.error.message}</p>
+          <button type="button" className="underline" onClick={() => refreshListing(state)}>
+            Retry authentication
+          </button>
+        </div>
+      ) : (
+        <ListingWidget
+          key={state.revision}
+          options={state.options}
+          kind={state.kind}
+          session={state.session}
+        />
+      )}
     </QueryClientProvider>,
   )
 }
@@ -120,7 +114,8 @@ export function updateListing(state: ListingRenderer, next: Options) {
     fetchAstralBeamToken: next.fetchAstralBeamToken,
   })
   if (
-    previous.scope !== next.scope || previous.tenantId !== next.tenantId ||
+    previous.scope !== next.scope ||
+    previous.tenantId !== next.tenantId ||
     previous.tenantExternalId !== next.tenantExternalId
   ) {
     state.client.clear()

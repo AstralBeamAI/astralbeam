@@ -13,7 +13,20 @@ import { mailboxSmtpPort, operatorKey, webappUrl } from "../../worktree.ts"
  * This is also the suite's setup project. It ends by recording the configured deployment and the
  * signed-in owner, which every spec under `specs/features` depends on.
  */
-test("an operator configures the deployment and an owner runs the dashboard end to end", async ({ page, agents, apiKeys, auth, configure, members, onboarding, organizationDialog, organizationSettings, sandboxes, shell, userSettings }) => {
+test("an operator configures the deployment and an owner runs the dashboard end to end", async ({
+  page,
+  agents,
+  apiKeys,
+  auth,
+  configure,
+  members,
+  onboarding,
+  organizationDialog,
+  organizationSettings,
+  sandboxes,
+  shell,
+  userSettings,
+}) => {
   const identity = makeRunIdentity()
   const ownerEmail = `owner-${identity.runId}@example.com`
   const renamedOrganization = `${identity.organizationName} Renamed`
@@ -67,8 +80,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await onboarding.openCreateOrganization()
     await organizationDialog.create(identity.organizationName, identity.organizationSlug)
     await page.waitForURL(`**/${identity.organizationSlug}`)
-    await expect(page.getByRole("heading", { level: 1, name: identity.organizationName }))
-      .toBeVisible()
+    await expect(
+      page.getByRole("heading", { level: 1, name: identity.organizationName }),
+    ).toBeVisible()
     await captureMilestone(page, "04-dashboard")
   })
 
@@ -82,6 +96,8 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       "Sandboxes",
       "API keys",
       "Members",
+      "Tenants",
+      "Tenant users",
       "Settings",
     ])
   })
@@ -124,14 +140,18 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await captureMilestone(page, "06-sandboxes")
   })
 
-  await test.step("the owner issues an API key and then revokes it", async () => {
+  await test.step("the owner issues API keys and revokes all but the last", async () => {
     await shell.openSection("API keys", "API keys")
     const keyName = `Journey key ${identity.runId}`
+    const lastKeyName = `Journey last key ${identity.runId}`
     const credential = await apiKeys.createKey(keyName)
     // The one-time credential is assembled from database IDs: key_<organization>_<id>_<secret>.
     expect(credential).toMatch(/^key_[0-9a-f-]{36}_[0-9a-f-]{36}_abo_[A-Za-z0-9]+$/)
+    await apiKeys.createKey(lastKeyName)
     await captureMilestone(page, "07-api-keys")
     await apiKeys.deleteKey(keyName)
+    // An organization must keep one key, so the UI disables deleting the last.
+    await expect(apiKeys.deleteButton(lastKeyName)).toBeDisabled()
   })
 
   await test.step("the owner invites a member, which sends a real invitation email", async () => {

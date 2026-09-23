@@ -13,10 +13,10 @@ export function isSettledToolCall(part: { state: string; output?: unknown }): bo
 export function lastPartInProgress(messages: UIMessage[]): boolean {
   const lastMessage = messages.at(-1)
   const lastPart = lastMessage?.role === "assistant" ? lastMessage.parts.at(-1) : undefined
-  return lastPart != null && (
-    ((lastPart.type === "text" || lastPart.type === "thinking") &&
-      lastPart.content.length > 0) ||
-    (lastPart.type === "tool-call" && !isSettledToolCall(lastPart))
+  return (
+    lastPart != null &&
+    (((lastPart.type === "text" || lastPart.type === "thinking") && lastPart.content.length > 0) ||
+      (lastPart.type === "tool-call" && !isSettledToolCall(lastPart)))
   )
 }
 
@@ -25,14 +25,14 @@ export function lastPartInProgress(messages: UIMessage[]): boolean {
 // the message goes unanswered, and the redelivered call can re-execute a side-effecting
 // tool — so those windows count as busy too. Questionnaires and calls to tools this mount
 // never implemented stay interactive: the pre-send settle resolves them.
-export function hasPendingToolRun(
-  messages: UIMessage[],
-  toolNames: ReadonlySet<string>,
-): boolean {
+export function hasPendingToolRun(messages: UIMessage[], toolNames: ReadonlySet<string>): boolean {
   return messages.some((message) =>
-    message.parts.some((part) =>
-      part.type === "tool-call" && !isSettledToolCall(part) &&
-      part.name !== ASK_QUESTIONNAIRE_TOOL && toolNames.has(part.name)
-    )
+    message.parts.some(
+      (part) =>
+        part.type === "tool-call" &&
+        !isSettledToolCall(part) &&
+        part.name !== ASK_QUESTIONNAIRE_TOOL &&
+        toolNames.has(part.name),
+    ),
   )
 }

@@ -27,10 +27,7 @@ describe("session organization access", () => {
     const api = dependencies([])
 
     await expect(
-      reconcileSessionAccess(
-        { userId: "user-a", activeOrganizationId: null },
-        api,
-      ),
+      reconcileSessionAccess({ userId: "user-a", activeOrganizationId: null }, api),
     ).resolves.toEqual({ status: "onboarding", userId: "user-a" })
     expect(api.listOrganizations).toHaveBeenCalledOnce()
     expect(api.setActiveOrganization).not.toHaveBeenCalled()
@@ -43,10 +40,7 @@ describe("session organization access", () => {
     ])
 
     await expect(
-      reconcileSessionAccess(
-        { userId: "user-a", activeOrganizationId: "organization-b" },
-        api,
-      ),
+      reconcileSessionAccess({ userId: "user-a", activeOrganizationId: "organization-b" }, api),
     ).resolves.toEqual({
       status: "ready",
       userId: "user-a",
@@ -66,10 +60,7 @@ describe("session organization access", () => {
       ])
 
       await expect(
-        reconcileSessionAccess(
-          { userId: "user-a", activeOrganizationId },
-          api,
-        ),
+        reconcileSessionAccess({ userId: "user-a", activeOrganizationId }, api),
       ).resolves.toEqual({
         status: "ready",
         userId: "user-a",
@@ -77,9 +68,7 @@ describe("session organization access", () => {
         organizationSlug: "organizationa",
       })
       expect(api.listOrganizations).toHaveBeenCalledOnce()
-      expect(api.setActiveOrganization).toHaveBeenCalledExactlyOnceWith(
-        "organization-a",
-      )
+      expect(api.setActiveOrganization).toHaveBeenCalledExactlyOnceWith("organization-a")
     },
   )
 
@@ -88,10 +77,7 @@ describe("session organization access", () => {
     api.setActiveOrganization.mockRejectedValueOnce(new Error("concurrent removal"))
 
     await expect(
-      reconcileSessionAccess(
-        { userId: "user-a", activeOrganizationId: null },
-        api,
-      ),
+      reconcileSessionAccess({ userId: "user-a", activeOrganizationId: null }, api),
     ).rejects.toThrow("concurrent removal")
   })
 })

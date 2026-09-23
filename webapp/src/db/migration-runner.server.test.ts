@@ -4,13 +4,11 @@ import { describe, expect, test, vi } from "vitest"
 
 import { runWithMigrationAdvisoryLock } from "./migration-runner.server.ts"
 
-function lockClient(locked: boolean): {
-  database: Parameters<typeof runWithMigrationAdvisoryLock>[0]
-  execute: ReturnType<typeof vi.fn>
-} {
-  const execute = vi.fn(() => Promise.resolve({ rows: [{ locked }] }))
+function lockClient(locked: boolean) {
+  const execute = vi.fn((_query: SQL) => Promise.resolve({ rows: [{ locked }] }))
   const database = {
-    transaction: vi.fn(async (callback) => await callback({ execute })),
+    transaction: (callback: (transaction: { execute: typeof execute }) => Promise<unknown>) =>
+      callback({ execute }),
   } as unknown as Parameters<typeof runWithMigrationAdvisoryLock>[0]
   return { database, execute }
 }
@@ -18,7 +16,7 @@ function lockClient(locked: boolean): {
 describe("migration advisory lock", () => {
   test("runs migrations while the transaction-scoped lock is held", async () => {
     const applyMigrations = vi.fn(() =>
-      Promise.resolve({ ok: true as const, applied: ["migration"] })
+      Promise.resolve({ ok: true as const, applied: ["migration"] }),
     )
     const locking = lockClient(true)
 
@@ -26,7 +24,7 @@ describe("migration advisory lock", () => {
       ok: true,
       applied: ["migration"],
     })
-    const lockQuery = locking.execute.mock.calls.at(0)?.at(0) as SQL | undefined
+    const lockQuery = locking.execute.mock.calls.at(0)?.at(0)
     if (!lockQuery) throw new Error("Expected an advisory-lock query")
     expect(new PgDialect().sqlToQuery(lockQuery).sql).toContain("pg_try_advisory_xact_lock")
     expect(applyMigrations).toHaveBeenCalledOnce()

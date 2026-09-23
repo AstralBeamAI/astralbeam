@@ -19,14 +19,18 @@ test("organization verification accepts SDK-issued tokens", async () => {
     organizationId,
   }
   // Each project owns its Deno dependencies. Mint through the SDK's own runtime configuration.
-  const token = execFileSync("deno", [
-    "eval",
-    "--frozen",
-    "--node-modules-dir=none",
-    `import { createAstralBeamOrganizationToken as mint } from "./src/server/index.ts";
+  const token = execFileSync(
+    "deno",
+    [
+      "eval",
+      "--frozen",
+      "--node-modules-dir=none",
+      `import { createAstralBeamOrganizationToken as mint } from "./src/server/index.ts";
     const options = ${JSON.stringify(options)};
     console.log(await mint(options));`,
-  ], { cwd: fileURLToPath(new URL("../../../sdk", import.meta.url)), encoding: "utf8" }).trim()
+    ],
+    { cwd: fileURLToPath(new URL("../../../sdk", import.meta.url)), encoding: "utf8" },
+  ).trim()
   await expect(Effect.runPromise(verifyOrganizationToken(token, key, keyId))).resolves.toEqual({
     email: "operator@example.com",
     organizationId,

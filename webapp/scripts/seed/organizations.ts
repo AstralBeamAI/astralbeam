@@ -50,16 +50,18 @@ export async function seedOrganizations(
         .where(and(eq(member.organizationId, organizationId), eq(member.userId, userId)))
         .limit(1)
       if (existing) {
-        await transaction.update(member).set({ role: seedMember.role }).where(
-          eq(member.id, existing.id),
-        )
+        await transaction
+          .update(member)
+          .set({ role: seedMember.role })
+          .where(eq(member.id, existing.id))
         continue
       }
       await transaction.insert(member).values({ organizationId, userId, role: seedMember.role })
     }
 
-    const inviterEmail = seedOrganization.members.find((candidate) => candidate.role === "owner")
-      ?.email
+    const inviterEmail = seedOrganization.members.find(
+      (candidate) => candidate.role === "owner",
+    )?.email
     for (const seedInvitation of seedOrganization.invitations) {
       if (!inviterEmail) {
         throw new Error(`Organization '${seedOrganization.id}' needs an owner to invite members`)

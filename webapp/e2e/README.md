@@ -35,24 +35,24 @@ Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `c
 
 ## Layout
 
-| File                   | Owns                                                                         |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `playwright.config.ts` | Projects, timeouts, capture settings, and the two servers                    |
-| `worktree.ts`          | Paths, ports, the suite's database URL, and the environment each server gets |
-| `prepare-database.ts`  | Drops, recreates, and migrates the suite's database before the server starts |
-| `mailbox-server.ts`    | The SMTP sink and its read-only HTTP API                                     |
-| `mailbox.ts`           | Reading captured email and pulling links out of it                           |
-| `preflight.setup.ts`   | Fails once with an actionable message when the environment is not ready      |
-| `baseline.ts`          | The configured deployment and signed-in owner the journey hands to features  |
-| `fixtures.ts`          | The `test` a spec imports, with every page object attached as a fixture      |
-| `identity.ts`          | Unique per-run names, emails, and slugs                                      |
-| `hydration.ts`         | Waiting for React to attach before a click or a fill                         |
-| `dialogs.ts`           | Locating a dialog without matching a toast                                   |
-| `capture.ts`           | Attaching a named screenshot to the report                                   |
-| `pages/`               | Selectors and actions, one module per surface                                |
-| `specs/journey/`       | The full cold-start journey, which is also the suite's setup project         |
-| `specs/features/`      | Focused specs, which start from the journey's baseline                       |
-| `specs/sandbox/`       | Specs that run real containers, present only under `E2E_SANDBOX=docker`      |
+| File | Owns |
+| --- | --- |
+| `playwright.config.ts` | Projects, timeouts, capture settings, and the two servers |
+| `worktree.ts` | Paths, ports, the suite's database URL, and the environment each server gets |
+| `prepare-database.ts` | Drops, recreates, and migrates the suite's database before the server starts |
+| `mailbox-server.ts` | The SMTP sink and its read-only HTTP API |
+| `mailbox.ts` | Reading captured email and pulling links out of it |
+| `preflight.setup.ts` | Fails once with an actionable message when the environment is not ready |
+| `baseline.ts` | The configured deployment and signed-in owner the journey hands to features |
+| `fixtures.ts` | The `test` a spec imports, with every page object attached as a fixture |
+| `identity.ts` | Unique per-run names, emails, and slugs |
+| `hydration.ts` | Waiting for React to attach before a click or a fill |
+| `dialogs.ts` | Locating a dialog without matching a toast |
+| `capture.ts` | Attaching a named screenshot to the report |
+| `pages/` | Selectors and actions, one module per surface |
+| `specs/journey/` | The full cold-start journey, which is also the suite's setup project |
+| `specs/features/` | Focused specs, which start from the journey's baseline |
+| `specs/sandbox/` | Specs that run real containers, present only under `E2E_SANDBOX=docker` |
 
 ## Projects, and the baseline between them
 

@@ -27,48 +27,61 @@ const chatRunInput = Schema.Struct({
   identifier: "ChatRunInput",
   description:
     "AG-UI RunAgentInput, validated by TanStack AI. Messages, tools, context, and resume entries follow AG-UI. forwardedProps accepts agentId and development-only debug. systemPrompt is rejected. Maximum request size: 32 MiB.",
-  examples: [{
-    threadId: "conversation-42",
-    runId: "run-7",
-    messages: [{ id: "message-1", role: "user", content: "Hello!" }],
-    tools: [],
-    context: [],
-  }],
+  examples: [
+    {
+      threadId: "conversation-42",
+      runId: "run-7",
+      messages: [{ id: "message-1", role: "user", content: "Hello!" }],
+      tools: [],
+      context: [],
+    },
+  ],
 })
 
-export const chatApi = HttpApiGroup.make("chat", { topLevel: true }).add(
-  HttpApiEndpoint.post("runChat", "/chat", {
-    payload: chatRunInput,
-    success: HttpApiSchema.StreamUint8Array({ contentType: "text/event-stream" }),
-  }).annotate(OpenApi.Summary, "Run chat").annotate(
-    OpenApi.Description,
-    "Stream an AG-UI agent run using a tenant user JWT. No admin claim required. HTTP failures before streaming use AstralBeamApiError. Once streaming starts, failures use RUN_ERROR events. Tool results continue in a subsequent request. Disconnecting cancels the run. Limited to 20 requests per minute per organization, tenant, and user.",
-  ),
-  HttpApiEndpoint.get("getChatConfig", "/chat/config", {
-    query: Schema.Struct({ agentId: Schema.optionalKey(Schema.String) }),
-    success: Schema.Struct({ capabilities: Schema.Struct({ attachments: Schema.Boolean }) })
-      .annotate({ identifier: "ChatConfiguration" }),
-  }).annotate(OpenApi.Summary, "Get chat capabilities").annotate(
-    OpenApi.Description,
-    "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
-  ),
-).annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] }).add(
-  HttpApiEndpoint.get("getChatFile", "/chat/files", {
-    query: Schema.Struct({ ticket: Schema.String }),
-    success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
-      "Content-Disposition": Schema.String,
-      "Content-Length": Schema.String,
-    }),
-  }).annotate(OpenApi.Summary, "Download a chat artifact").annotate(
-    OpenApi.Description,
-    "Use the signed ticket returned when chat publishes an artifact. No bearer token is required. Returns the original bytes with a content-sniffed Content-Type and Content-Disposition filename. Invalid or expired tickets, a missing sandbox, and rejected artifact checks return 404. Provider or file-read failures return 500.",
-  ).annotate(OpenApi.Override, { security: [{ ArtifactTicket: [] }] }),
-)
+export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
+  .add(
+    HttpApiEndpoint.post("runChat", "/chat", {
+      payload: chatRunInput,
+      success: HttpApiSchema.StreamUint8Array({ contentType: "text/event-stream" }),
+    })
+      .annotate(OpenApi.Summary, "Run chat")
+      .annotate(
+        OpenApi.Description,
+        "Stream an AG-UI agent run using a tenant user JWT. No admin claim required. HTTP failures before streaming use AstralBeamApiError. Once streaming starts, failures use RUN_ERROR events. Tool results continue in a subsequent request. Disconnecting cancels the run. Limited to 20 requests per minute per organization, tenant, and user.",
+      ),
+    HttpApiEndpoint.get("getChatConfig", "/chat/config", {
+      query: Schema.Struct({ agentId: Schema.optionalKey(Schema.String) }),
+      success: Schema.Struct({
+        capabilities: Schema.Struct({ attachments: Schema.Boolean }),
+      }).annotate({ identifier: "ChatConfiguration" }),
+    })
+      .annotate(OpenApi.Summary, "Get chat capabilities")
+      .annotate(
+        OpenApi.Description,
+        "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
+      ),
+  )
+  .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
+  .add(
+    HttpApiEndpoint.get("getChatFile", "/chat/files", {
+      query: Schema.Struct({ ticket: Schema.String }),
+      success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
+        "Content-Disposition": Schema.String,
+        "Content-Length": Schema.String,
+      }),
+    })
+      .annotate(OpenApi.Summary, "Download a chat artifact")
+      .annotate(
+        OpenApi.Description,
+        "Use the signed ticket returned when chat publishes an artifact. No bearer token is required. Returns the original bytes with a content-sniffed Content-Type and Content-Disposition filename. Invalid or expired tickets, a missing sandbox, and rejected artifact checks return 404. Provider or file-read failures return 500.",
+      )
+      .annotate(OpenApi.Override, { security: [{ ArtifactTicket: [] }] }),
+  )
 
 function chatAuthenticate(request: HttpServerRequest.HttpServerRequest) {
   return Effect.gen(function* () {
-    const { authenticateChatRequest, isChatAuthenticationError } = yield* Effect.promise(() =>
-      import("@/lib/chat/auth.server")
+    const { authenticateChatRequest, isChatAuthenticationError } = yield* Effect.promise(
+      () => import("@/lib/chat/auth.server"),
     )
     const native = yield* HttpServerRequest.toWeb(request)
     return yield* Effect.tryPromise({
@@ -88,8 +101,8 @@ export function chatHandlers(api: typeof ApiV1) {
         "runChat",
         Effect.fn(function* ({ request }) {
           const principal = yield* chatAuthenticate(request)
-          const { consumeChatRateLimit } = yield* Effect.promise(() =>
-            import("@/lib/chat/rate-limit.server")
+          const { consumeChatRateLimit } = yield* Effect.promise(
+            () => import("@/lib/chat/rate-limit.server"),
           )
           yield* consumeChatRateLimit(principal).pipe(Effect.mapError(restRateLimitFault))
           const { runChatRequest } = yield* Effect.promise(() => import("./run.server"))
@@ -105,8 +118,8 @@ export function chatHandlers(api: typeof ApiV1) {
         "getChatConfig",
         Effect.fn(function* ({ query, request }) {
           const principal = yield* chatAuthenticate(request)
-          const { resolveChatAgent } = yield* Effect.promise(() =>
-            import("@/lib/chat/agent.server")
+          const { resolveChatAgent } = yield* Effect.promise(
+            () => import("@/lib/chat/agent.server"),
           )
           const agent = yield* Effect.tryPromise({
             try: () => resolveChatAgent(query.agentId, principal.organization.id),
@@ -127,5 +140,6 @@ export function chatHandlers(api: typeof ApiV1) {
             }),
           )
         }, restHandleErrors("getChatFile")),
-      ))
+      ),
+  )
 }

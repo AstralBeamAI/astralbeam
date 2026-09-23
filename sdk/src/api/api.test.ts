@@ -1,11 +1,11 @@
-import { expect, expectTypeOf, test, vi } from "vitest"
+import { assert, expect, expectTypeOf, test, vi } from "vitest"
 import { getChatConfig, getChatFile, listTenants, updateTenant } from "./index.ts"
 import { isAstralBeamApiError } from "./api.ts"
 
 test("typed credentials own authentication, preserving custom bases and queries", async () => {
-  const fetchClient = vi.fn<typeof fetch>().mockImplementation(() =>
-    Promise.resolve(Response.json({}))
-  )
+  const fetchClient = vi
+    .fn<typeof fetch>()
+    .mockImplementation(() => Promise.resolve(Response.json({})))
   const signal = new AbortController().signal
   const options = {
     apiKey: "organization-key",
@@ -18,12 +18,14 @@ test("typed credentials own authentication, preserving custom bases and queries"
     { "filter[external_id]": "東京 / +", page_before: "cursor", page_size: 2 },
     options,
   )
-  const [url, init] = fetchClient.mock.calls[0]!
-  expect(new URL(String(url)).pathname).toBe("/prefix/api/v1/tenants")
-  expect(new URL(String(url)).searchParams.get("filter[external_id]")).toBe("東京 / +")
-  expect(new URL(String(url)).searchParams.get("page_before")).toBe("cursor")
+  const [input, init] = fetchClient.mock.calls[0]!
+  const request = new Request(input, init)
+  const url = new URL(request.url)
+  expect(url.pathname).toBe("/prefix/api/v1/tenants")
+  expect(url.searchParams.get("filter[external_id]")).toBe("東京 / +")
+  expect(url.searchParams.get("page_before")).toBe("cursor")
   expect(init).toMatchObject({ signal })
-  expect(new Request(String(url), init).redirect).toBe("follow")
+  expect(request.redirect).toBe("follow")
   expect(new Headers(init?.headers).get("x-api-key")).toBe("organization-key")
   expect(new Headers(init?.headers).has("authorization")).toBe(false)
 
@@ -35,11 +37,15 @@ test("typed credentials own authentication, preserving custom bases and queries"
 })
 
 test("non-JSON HTTP errors preserve status and headers without retrying", async () => {
-  const fetchClient = vi.fn<typeof fetch>().mockResolvedValue(
-    new Response("<html>gateway</html>", { status: 429, headers: { "Retry-After": "2" } }),
+  const fetchClient = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(
+      new Response("<html>gateway</html>", { status: 429, headers: { "Retry-After": "2" } }),
+    )
+  const error = await listTenants({}, { apiKey: "key", fetchClient }).catch(
+    (error: unknown) => error,
   )
-  const error = await listTenants({}, { apiKey: "key", fetchClient }).catch((error) => error)
-  expect(isAstralBeamApiError(error)).toBe(true)
+  assert(isAstralBeamApiError(error))
   expect(error.status).toBe(429)
   expect(error.headers.get("Retry-After")).toBe("2")
   expect(error.body).toBeUndefined()
@@ -57,7 +63,8 @@ test("invalid JSON successes and native abort errors propagate", async () => {
   expect(fetchClient).toHaveBeenCalledTimes(1)
 })
 
-test("generated authentication types distinguish resources, chat and tickets", () => {
+// Generated authentication types distinguish resources, chat and tickets, checked by `typecheck`.
+{
   type ResourceOptions = NonNullable<Parameters<typeof listTenants>[1]>
   type ChatOptions = NonNullable<Parameters<typeof getChatConfig>[1]>
   type DownloadOptions = NonNullable<Parameters<typeof getChatFile>[1]>
@@ -68,4 +75,4 @@ test("generated authentication types distinguish resources, chat and tickets", (
   expectTypeOf<{ astralBeamToken: string }>().not.toExtend<DownloadOptions>()
   expectTypeOf<[Record<string, never>]>().not.toExtend<Parameters<typeof listTenants>>()
   expectTypeOf<[Record<string, never>]>().not.toExtend<Parameters<typeof getChatConfig>>()
-})
+}

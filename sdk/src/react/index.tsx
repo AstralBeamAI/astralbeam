@@ -97,16 +97,18 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
  * state stay live and nothing needs a remount.
  */
 export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
-  // https://react.dev/reference/react/useRef#caveats — one session per committed mount, built on
-  // first render, not a `useState` initializer; Strict Mode's render probe can still make a second.
-  const coreRef = useRef<AstralBeamChatCore | null>(null)
-  coreRef.current ??= createAstralBeamChat(options, true)
-  const core = coreRef.current
-  // Keyed off every core option, `streamCallbacks` included: the session reads them per event, so
+  // One session per committed mount; Strict Mode's render probe can still build a discarded second.
+  const [core] = useState(() => createAstralBeamChat(options, true))
+  // Compares every core option, `streamCallbacks` included: the session reads them per event, so
   // a change that never reaches `updateOptions` would leave it calling the previous closures.
+  const watched = CORE_OPTION_KEYS.map((key) => options[key])
+  const watchedRef = useRef<unknown[] | undefined>(undefined)
   useEffect(() => {
+    const previous = watchedRef.current
+    watchedRef.current = watched
+    if (previous?.every((value, index) => Object.is(value, watched[index]))) return
     core.updateOptions(options)
-  }, [core, ...CORE_OPTION_KEYS.map((key) => options[key])])
+  })
   useEffect(() => {
     core.start()
     return () => core.dispose()
@@ -182,13 +184,15 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
   ) {
     const targetRef = useRef<HTMLDivElement>(null)
     const handleRef = useRef<AstralBeamChatHandle | null>(null)
-    const [activeRenders, setActiveRenders] = useState<ReadonlyMap<string, ActiveRender>>(
-      new Map(),
+    const [activeRenders, setActiveRenders] = useState<ReadonlyMap<string, ActiveRender>>(new Map())
+    useImperativeHandle(
+      ref,
+      () => ({
+        reset: () => handleRef.current?.reset(),
+        stop: () => handleRef.current?.stop(),
+      }),
+      [],
     )
-    useImperativeHandle(ref, () => ({
-      reset: () => handleRef.current?.reset(),
-      stop: () => handleRef.current?.stop(),
-    }), [])
     // The chat calls tools long after mount, so route execution through the latest prop value —
     // otherwise every execute would close over the first render's host state.
     const toolsRef = useRef(tools)
@@ -200,41 +204,44 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     const nextRenderKey = useRef(0)
     // Memoized on the props they adapt: the update effect below ships them to the chat, and a fresh
     // object every render would rebuild the declared tool set on every render along with it.
-    const hostTools = useMemo(
-      () =>
-        Object.fromEntries(
-          Object.entries(tools ?? {}).map(([name, definition]) => [name, {
-            ...definition,
-            execute: (input: Record<string, unknown>) => {
-              const current = toolsRef.current?.[name]
-              if (!current) throw new Error(`Tool "${name}" is no longer registered`)
-              return current.execute(input)
-            },
-          }]),
-        ),
-      [tools],
-    )
+    const hostTools = useMemo(() => {
+      const adapted: Record<string, ToolDefinition> = {}
+      for (const [name, definition] of Object.entries(tools ?? {})) {
+        adapted[name] = {
+          ...definition,
+          execute: (input: Record<string, unknown>) => {
+            const current = toolsRef.current?.[name]
+            if (!current) throw new Error(`Tool "${name}" is no longer registered`)
+            return current.execute(input)
+          },
+        }
+      }
+      return adapted
+    }, [tools])
     const hostWidgets = useMemo(
       () =>
         Object.fromEntries(
-          Object.entries(widgets).map(([name, definition]) => [name, {
-            ...definition,
-            // The chat provides a slotted container; record it and portal the JSX into it below,
-            // so the widget renders in the host's React tree with working state and context.
-            render: (props: Record<string, unknown>, container: HTMLElement) => {
-              const key = `astralbeam-render-${nextRenderKey.current++}`
-              setActiveRenders((previous) =>
-                new Map(previous).set(key, { widget: name, container, props })
-              )
-              return () => {
-                setActiveRenders((previous) => {
-                  const next = new Map(previous)
-                  next.delete(key)
-                  return next
-                })
-              }
+          Object.entries(widgets).map(([name, definition]) => [
+            name,
+            {
+              ...definition,
+              // The chat provides a slotted container; record it and portal the JSX into it below,
+              // so the widget renders in the host's React tree with working state and context.
+              render: (props: Record<string, unknown>, container: HTMLElement) => {
+                const key = `astralbeam-render-${nextRenderKey.current++}`
+                setActiveRenders((previous) =>
+                  new Map(previous).set(key, { widget: name, container, props }),
+                )
+                return () => {
+                  setActiveRenders((previous) => {
+                    const next = new Map(previous)
+                    next.delete(key)
+                    return next
+                  })
+                }
+              },
             },
-          }]),
+          ]),
         ),
       [widgets],
     )
@@ -248,16 +255,18 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     const hasEmpty = empty !== undefined
     const hasComposerActions = composerActions !== undefined
     const chromeSlots = useMemo(() => {
-      const build = (name: ChromeSlotName): AstralBeamChatSlotRenderer => (container) => {
-        setChromeContainers((previous) => new Map(previous).set(name, container))
-        return () => {
-          setChromeContainers((previous) => {
-            const next = new Map(previous)
-            next.delete(name)
-            return next
-          })
+      const build =
+        (name: ChromeSlotName): AstralBeamChatSlotRenderer =>
+        (container) => {
+          setChromeContainers((previous) => new Map(previous).set(name, container))
+          return () => {
+            setChromeContainers((previous) => {
+              const next = new Map(previous)
+              next.delete(name)
+              return next
+            })
+          }
         }
-      }
       return {
         ...(hasHeader ? { header: build("header") } : {}),
         ...(hasEmpty ? { empty: build("empty") } : {}),
@@ -305,7 +314,9 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       ],
     )
     const liveRef = useRef(live)
-    liveRef.current = live
+    useEffect(() => {
+      liveRef.current = live
+    })
     useEffect(() => {
       if (!targetRef.current) return
       const handle = mountAstralBeamChat(targetRef.current, liveRef.current)
@@ -333,7 +344,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
           return definition ? createPortal(definition.render(props), container, key) : null
         })}
         {[...chromeContainers].map(([name, container]) =>
-          createPortal(chromeContent[name], container, `astralbeam-chrome-${name}`)
+          createPortal(chromeContent[name], container, `astralbeam-chrome-${name}`),
         )}
       </div>
     )

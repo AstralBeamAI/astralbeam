@@ -166,9 +166,7 @@ export function OrganizationInvitations({
 
   return (
     <div className={cn("flex flex-col gap-3", className)} {...props}>
-      <h3 className="truncate text-sm font-semibold">
-        {organizationLocalization.invitations}
-      </h3>
+      <h3 className="truncate text-sm font-semibold">{organizationLocalization.invitations}</h3>
 
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -201,10 +199,7 @@ export function OrganizationInvitations({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="start">
-              <DropdownMenuRadioGroup
-                value={roleFilter}
-                onValueChange={setRoleFilter}
-              >
+              <DropdownMenuRadioGroup value={roleFilter} onValueChange={setRoleFilter}>
                 <DropdownMenuRadioItem value="all">
                   {organizationLocalization.all}
                 </DropdownMenuRadioItem>
@@ -232,23 +227,16 @@ export function OrganizationInvitations({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="start">
-              <DropdownMenuRadioGroup
-                value={statusFilter}
-                onValueChange={setStatusFilter}
-              >
+              <DropdownMenuRadioGroup value={statusFilter} onValueChange={setStatusFilter}>
                 <DropdownMenuRadioItem value="all">
                   {organizationLocalization.all}
                 </DropdownMenuRadioItem>
 
-                {(["pending", "accepted", "rejected", "canceled"] as const).map(
-                  (status) => (
-                    <DropdownMenuRadioItem key={status} value={status}>
-                      {organizationLocalization[
-                        status as keyof OrganizationLocalization
-                      ] ?? status}
-                    </DropdownMenuRadioItem>
-                  ),
-                )}
+                {(["pending", "accepted", "rejected", "canceled"] as const).map((status) => (
+                  <DropdownMenuRadioItem key={status} value={status}>
+                    {organizationLocalization[status as keyof OrganizationLocalization] ?? status}
+                  </DropdownMenuRadioItem>
+                ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -259,9 +247,7 @@ export function OrganizationInvitations({
             {roleFilter !== "all" && (
               <Badge variant="secondary" className="gap-1">
                 {organizationLocalization.role}:{" "}
-                <span className="capitalize">
-                  {roles?.[roleFilter] ?? roleFilter}
-                </span>
+                <span className="capitalize">{roles?.[roleFilter] ?? roleFilter}</span>
                 <Button
                   aria-label={organizationLocalization.clear}
                   title={organizationLocalization.clear}
@@ -278,9 +264,9 @@ export function OrganizationInvitations({
 
             {statusFilter !== "all" && (
               <Badge variant="secondary" className="gap-1">
-                {organizationLocalization.status}: {organizationLocalization[
-                  statusFilter as keyof OrganizationLocalization
-                ] ?? statusFilter}
+                {organizationLocalization.status}:{" "}
+                {organizationLocalization[statusFilter as keyof OrganizationLocalization] ??
+                  statusFilter}
                 <Button
                   aria-label={organizationLocalization.clear}
                   title={organizationLocalization.clear}
@@ -302,70 +288,66 @@ export function OrganizationInvitations({
             <TableHeader>
               <TableRow>
                 <InvitationSortableTableHead
-                  sortDirection={sortDescriptor?.column === "email"
-                    ? sortDescriptor.direction
-                    : undefined}
+                  sortDirection={
+                    sortDescriptor?.column === "email" ? sortDescriptor.direction : undefined
+                  }
                   onClick={() => toggleInvitationSort("email")}
                 >
                   {localization.auth.email}
                 </InvitationSortableTableHead>
 
                 <InvitationSortableTableHead
-                  sortDirection={sortDescriptor?.column === "createdAt"
-                    ? sortDescriptor.direction
-                    : undefined}
+                  sortDirection={
+                    sortDescriptor?.column === "createdAt" ? sortDescriptor.direction : undefined
+                  }
                   onClick={() => toggleInvitationSort("createdAt")}
                 >
                   {organizationLocalization.invitedAt}
                 </InvitationSortableTableHead>
 
                 <InvitationSortableTableHead
-                  sortDirection={sortDescriptor?.column === "role"
-                    ? sortDescriptor.direction
-                    : undefined}
+                  sortDirection={
+                    sortDescriptor?.column === "role" ? sortDescriptor.direction : undefined
+                  }
                   onClick={() => toggleInvitationSort("role")}
                 >
                   {organizationLocalization.role}
                 </InvitationSortableTableHead>
 
                 <InvitationSortableTableHead
-                  sortDirection={sortDescriptor?.column === "status"
-                    ? sortDescriptor.direction
-                    : undefined}
+                  sortDirection={
+                    sortDescriptor?.column === "status" ? sortDescriptor.direction : undefined
+                  }
                   onClick={() => toggleInvitationSort("status")}
                 >
                   {organizationLocalization.status}
                 </InvitationSortableTableHead>
 
-                <TableHead className="text-end">
-                  {organizationLocalization.actions}
-                </TableHead>
+                <TableHead className="text-end">{organizationLocalization.actions}</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {isPending
-                ? <OrganizationInvitationRowSkeleton />
-                : !sortedInvitations?.length
-                ? (
-                  <TableRow>
-                    <TableCell colSpan={5}>
-                      <OrganizationInvitationsEmpty
-                        {...(canInvite ? { onInvitePress: () => setInviteOpen(true) } : {})}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )
-                : (
-                  sortedInvitations.map((invitation) => (
-                    <OrganizationInvitationRow
-                      key={invitation.id}
-                      invitation={invitation}
-                      canInvite={canInvite}
-                      canCancelInvitation={canCancelInvitation}
+              {isPending ? (
+                <OrganizationInvitationRowSkeleton />
+              ) : !sortedInvitations?.length ? (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <OrganizationInvitationsEmpty
+                      {...(canInvite ? { onInvitePress: () => setInviteOpen(true) } : {})}
                     />
-                  ))
-                )}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedInvitations.map((invitation) => (
+                  <OrganizationInvitationRow
+                    key={invitation.id}
+                    invitation={invitation}
+                    canInvite={canInvite}
+                    canCancelInvitation={canCancelInvitation}
+                  />
+                ))
+              )}
             </TableBody>
           </Table>
         </Card>

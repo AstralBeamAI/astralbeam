@@ -9,8 +9,7 @@ const IPV4_MAPPED_LOOPBACK_ADDRESS = "::ffff:127.0.0.1"
 /** Whether the request's own peer is the loopback reverse proxy rather than a remote caller. */
 export function isLoopbackProxyAddress(address: string | undefined): boolean {
   if (address === undefined) return false
-  return LOOPBACK_PROXY_ADDRESSES.includes(address) ||
-    address === IPV4_MAPPED_LOOPBACK_ADDRESS
+  return LOOPBACK_PROXY_ADDRESSES.includes(address) || address === IPV4_MAPPED_LOOPBACK_ADDRESS
 }
 
 /** The deployment's public origin, for the absolute URLs crawlers require. */

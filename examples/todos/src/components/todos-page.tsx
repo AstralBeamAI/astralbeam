@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { AstralBeamChatColorScheme, ToolDefinition } from "@astralbeam/sdk/react"
 
 import { TodoList } from "@/components/todo-list.tsx"
@@ -21,12 +21,14 @@ export function TodosPage() {
   const [colorScheme, setColorScheme] = useState<AstralBeamChatColorScheme>("system")
   const [customTheme, setCustomTheme] = useState(true)
   const todosRef = useRef(todos)
-  todosRef.current = todos
+  useEffect(() => {
+    todosRef.current = todos
+  }, [todos])
   const nextTodoId = useRef(Math.max(0, ...INITIAL_TODOS.map((todo) => todo.id)) + 1)
 
   const toggleTodo = (id: number) =>
     setTodos((current) =>
-      current.map((todo) => todo.id === id ? { ...todo, completed: !todo.completed } : todo)
+      current.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
     )
 
   const addTodo = () => {
@@ -54,7 +56,7 @@ export function TodosPage() {
       execute: (input) => {
         const updated = updateTodoFromToolInput({ input, todos: todosRef.current })
         setTodos((current) =>
-          current.map((candidate) => candidate.id === updated.id ? updated : candidate)
+          current.map((candidate) => (candidate.id === updated.id ? updated : candidate)),
         )
         return { updated }
       },
@@ -71,10 +73,9 @@ export function TodosPage() {
 
   const dark = colorScheme === "dark" || (colorScheme === "system" && systemIsDark)
   const cycleColorScheme = () =>
-    setColorScheme((current) =>
-      COLOR_SCHEME_CYCLE[
-        (COLOR_SCHEME_CYCLE.indexOf(current) + 1) % COLOR_SCHEME_CYCLE.length
-      ]!
+    setColorScheme(
+      (current) =>
+        COLOR_SCHEME_CYCLE[(COLOR_SCHEME_CYCLE.indexOf(current) + 1) % COLOR_SCHEME_CYCLE.length]!,
     )
 
   return (

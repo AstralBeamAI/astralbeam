@@ -19,14 +19,8 @@ interface RateLimitConsumeOptions {
 interface DatabaseRateLimiter {
   readonly consume: (
     options: RateLimitConsumeOptions,
-  ) => Effect.Effect<
-    RateLimiter.ConsumeResult,
-    RateLimiter.RateLimiterError,
-    EffectDatabase
-  >
-  readonly reset: (
-    key: string,
-  ) => Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase>
+  ) => Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError, EffectDatabase>
+  readonly reset: (key: string) => Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase>
 }
 
 interface ValidatedOptions {
@@ -37,9 +31,10 @@ interface ValidatedOptions {
 }
 
 function storeError(message: string, cause?: unknown): RateLimiter.RateLimiterError {
-  const reason = cause === undefined
-    ? new RateLimiter.RateLimitStoreError({ message })
-    : new RateLimiter.RateLimitStoreError({ message, cause })
+  const reason =
+    cause === undefined
+      ? new RateLimiter.RateLimitStoreError({ message })
+      : new RateLimiter.RateLimitStoreError({ message, cause })
   return new RateLimiter.RateLimiterError({ reason })
 }
 
@@ -53,7 +48,8 @@ function validateOptions(
       const windowMilliseconds = Math.ceil(Duration.toMillis(window))
       if (options.key.length === 0) throw new Error("key must not be empty")
       if (
-        !Number.isSafeInteger(options.limit) || options.limit <= 0 ||
+        !Number.isSafeInteger(options.limit) ||
+        options.limit <= 0 ||
         options.limit >= POSTGRES_INTEGER_MAX
       ) {
         throw new Error(
@@ -99,19 +95,15 @@ function exceededError(
 // https://github.com/Effect-TS/effect-smol/blob/main/packages/effect/src/unstable/persistence/RateLimiter.ts
 function consume(
   options: RateLimitConsumeOptions,
-): Effect.Effect<
-  RateLimiter.ConsumeResult,
-  RateLimiter.RateLimiterError,
-  EffectDatabase
-> {
+): Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError, EffectDatabase> {
   return Effect.gen(function* () {
     const validated = yield* validateOptions(options)
     const db = yield* effectDatabase
     const persistedKey = `${DATABASE_RATE_LIMIT_KEY_PREFIX}${validated.key}`
     const maximumCount = validated.limit + 1
     const insertedCount = Math.min(validated.tokens, maximumCount)
-    const now = sql<number>`floor(extract(epoch from statement_timestamp()) * 1000)::bigint`
-      .mapWith(Number)
+    const now =
+      sql<number>`floor(extract(epoch from statement_timestamp()) * 1000)::bigint`.mapWith(Number)
     const windowExpiresAt = sql<number>`${now} + ${validated.windowMilliseconds}`
     const rows = yield* db
       .insert(rateLimit)
@@ -126,12 +118,8 @@ function consume(
       .onConflictDoUpdate({
         target: rateLimit.key,
         set: {
-          count: sql<
-            number
-          >`case when ${rateLimit.lastRequest} <= ${now} then ${insertedCount} else least(${rateLimit.count}::bigint + ${validated.tokens}, ${maximumCount})::integer end`,
-          lastRequest: sql<
-            number
-          >`case when ${rateLimit.lastRequest} <= ${now} then ${windowExpiresAt} else ${rateLimit.lastRequest} end`,
+          count: sql<number>`case when ${rateLimit.lastRequest} <= ${now} then ${insertedCount} else least(${rateLimit.count}::bigint + ${validated.tokens}, ${maximumCount})::integer end`,
+          lastRequest: sql<number>`case when ${rateLimit.lastRequest} <= ${now} then ${windowExpiresAt} else ${rateLimit.lastRequest} end`,
           updatedAt: sql`now()`,
         },
       })
@@ -140,16 +128,11 @@ function consume(
         currentTime: now,
         windowExpiresAt: rateLimit.lastRequest,
       })
-      .pipe(
-        Effect.mapError((cause) => storeError("Rate-limit database operation failed", cause)),
-      )
+      .pipe(Effect.mapError((cause) => storeError("Rate-limit database operation failed", cause)))
     const row = rows[0]
     if (!row) return yield* Effect.fail(storeError("Rate-limit update returned no row"))
 
-    const resetAfter = Duration.millis(Math.max(
-      0,
-      row.windowExpiresAt - row.currentTime,
-    ))
+    const resetAfter = Duration.millis(Math.max(0, row.windowExpiresAt - row.currentTime))
     const remaining = validated.limit - row.count
     if (remaining < 0) {
       return yield* Effect.fail(exceededError(validated, resetAfter))
@@ -163,18 +146,14 @@ function consume(
   })
 }
 
-function reset(
-  key: string,
-): Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase> {
+function reset(key: string): Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase> {
   if (key.length === 0) return Effect.fail(storeError("Rate-limit key must not be empty"))
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     yield* db
       .delete(rateLimit)
       .where(eq(rateLimit.key, `${DATABASE_RATE_LIMIT_KEY_PREFIX}${key}`))
-      .pipe(
-        Effect.mapError((cause) => storeError("Rate-limit database operation failed", cause)),
-      )
+      .pipe(Effect.mapError((cause) => storeError("Rate-limit database operation failed", cause)))
   })
 }
 

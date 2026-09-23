@@ -33,18 +33,20 @@ export function buildAgentTools(
 
 // Declares the registered widgets to the agent as one `render_widget` tool whose
 // description carries the per-widget catalog; `render` is the chat widget's DOM side.
-function buildRenderWidgetTool(
-  widgets: Record<string, WidgetDeclaration>,
-  render: RenderWidget,
-) {
-  const catalog = Object.entries(widgets).map(([name, { description, parameters }]) =>
-    `- ${name}: ${description} Props schema: ${JSON.stringify(toJsonSchema(parameters))}`
-  ).join("\n")
+function buildRenderWidgetTool(widgets: Record<string, WidgetDeclaration>, render: RenderWidget) {
+  const catalog = Object.entries(widgets)
+    .map(
+      ([name, { description, parameters }]) =>
+        `- ${name}: ${description} Props schema: ${JSON.stringify(toJsonSchema(parameters))}`,
+    )
+    .join("\n")
   return toolDefinition({
     name: RENDER_WIDGET_TOOL,
-    description: "Render one of the host application's own UI widgets inline in the " +
+    description:
+      "Render one of the host application's own UI widgets inline in the " +
       "conversation. The widget appears in the transcript at the point of the call, so prefer " +
-      "it over describing the same information in text. Available widgets:\n" + catalog,
+      "it over describing the same information in text. Available widgets:\n" +
+      catalog,
     inputSchema: {
       type: "object",
       properties: {
@@ -68,7 +70,8 @@ function buildRenderWidgetTool(
 function buildAskQuestionnaireTool() {
   return toolDefinition({
     name: ASK_QUESTIONNAIRE_TOOL,
-    description: "Ask the user a short structured questionnaire rendered inline in the chat. " +
+    description:
+      "Ask the user a short structured questionnaire rendered inline in the chat. " +
       "Use it when the next step genuinely depends on their choices instead of asking in prose. " +
       "The call stays pending until the user submits; their answers arrive as the tool output. " +
       "Skipped optional questions come back with an empty answers array. An output with " +
@@ -132,7 +135,7 @@ function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: Debug
       description: tool.description,
       inputSchema: toJsonSchema(tool.parameters) as SchemaInput,
       ...(tool.metadata ? { metadata: tool.metadata } : {}),
-    }).client(async (input) => {
+    }).client(async (input: unknown) => {
       debug?.("tool", `executing host tool "${name}"`, { input })
       const validated = await validateParameters(
         tool.parameters,
@@ -150,6 +153,6 @@ function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: Debug
         debug?.("error", `host tool "${name}" threw`, { error })
         throw error
       }
-    })
+    }),
   )
 }

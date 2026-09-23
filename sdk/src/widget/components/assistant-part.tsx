@@ -29,7 +29,7 @@ interface AssistantPartProps {
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
-  activeSlots: ReadonlySet<string>
+  activeSlots: ReadonlyMap<string, string>
   onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
 }
 
@@ -57,32 +57,52 @@ function ToolCallSection({ title, children }: { title: string; children: string 
   return (
     <div className="min-w-0">
       <div className="text-xs font-medium text-foreground">{title}</div>
-      <pre className="mt-0.5 max-h-40 overflow-auto font-mono text-xs whitespace-pre-wrap wrap-break-word">{children}</pre>
+      <pre className="mt-0.5 max-h-40 overflow-auto font-mono text-xs whitespace-pre-wrap wrap-break-word">
+        {children}
+      </pre>
     </div>
   )
 }
 
 // The panel is the only place a call's raw input and output are visible; sandbox tools are the
 // exception, because the widget knows what theirs mean (see `sandbox-part.tsx`).
-function ToolCallDisclosure(
-  { part, title, failed }: { part: ToolCallPart; title: string | undefined; failed: boolean },
-) {
+function ToolCallDisclosure({
+  part,
+  title,
+  failed,
+}: {
+  part: ToolCallPart
+  title: string | undefined
+  failed: boolean
+}) {
   const settled = isSettledToolCall(part)
   const running = !failed && !settled
   // A declared title is prose and reads as such; a bare registry name stays monospaced.
-  const label = title
-    ? <span>&ldquo;{title}&rdquo;</span>
-    : <span className="font-mono">{part.name}</span>
+  const label = title ? (
+    <span>&ldquo;{title}&rdquo;</span>
+  ) : (
+    <span className="font-mono">{part.name}</span>
+  )
   // Failed client executions store the thrown message as `{ error }` in the output.
   const detail = failed ? (part.output as { error?: string } | null | undefined)?.error : undefined
   return (
     <ToolDisclosure
       icon={failed ? <WarningCircleIcon /> : running ? <Spinner /> : <WrenchIcon />}
       running={running}
-      label={failed ? <>{label} failed</> : <>{running ? "Running" : "Ran"} {label}</>}
-      detail={typeof detail === "string" && detail.length > 0
-        ? <span className="block text-muted-foreground">{detail}</span>
-        : undefined}
+      label={
+        failed ? (
+          <>{label} failed</>
+        ) : (
+          <>
+            {running ? "Running" : "Ran"} {label}
+          </>
+        )
+      }
+      detail={
+        typeof detail === "string" && detail.length > 0 ? (
+          <span className="block text-muted-foreground">{detail}</span>
+        ) : undefined
+      }
     >
       <div className="mt-1 flex flex-col gap-2 rounded-md border border-border bg-muted p-2">
         <ToolCallSection title="Input">{formatToolJson(part.input) || "\u2014"}</ToolCallSection>
@@ -94,22 +114,21 @@ function ToolCallDisclosure(
   )
 }
 
-function WidgetCallPart(
-  { part, widgets, activeSlots }:
-    & Omit<
-      AssistantPartProps,
-      "apiUrl" | "onQuestionnaireAnswers" | "part" | "toolTitles"
-    >
-    & { part: ToolCallPart },
-) {
+function WidgetCallPart({
+  part,
+  widgets,
+  activeSlots,
+}: Omit<AssistantPartProps, "apiUrl" | "onQuestionnaireAnswers" | "part" | "toolTitles"> & {
+  part: ToolCallPart
+}) {
   const input = part.input as RenderWidgetInput | undefined
   const definition = input ? getWidget(widgets, input.widget) : undefined
   // While the agent still streams the call's input, the widget name may be absent or
   // partial; show progress rather than a blank transcript.
   if (!input || !definition) {
-    return isSettledToolCall(part)
-      ? null
-      : <ToolCallMarker running>Preparing a widget</ToolCallMarker>
+    return isSettledToolCall(part) ? null : (
+      <ToolCallMarker running>Preparing a widget</ToolCallMarker>
+    )
   }
   const slotName = slotNameForToolCall(part.id)
   // Renders coexist per tool call, but a call whose render was evicted past the active
@@ -129,11 +148,12 @@ function WidgetCallPart(
   return <slot name={slotName} />
 }
 
-function QuestionnaireCallPart(
-  { part, onQuestionnaireAnswers }: Pick<AssistantPartProps, "onQuestionnaireAnswers"> & {
-    part: ToolCallPart
-  },
-) {
+function QuestionnaireCallPart({
+  part,
+  onQuestionnaireAnswers,
+}: Pick<AssistantPartProps, "onQuestionnaireAnswers"> & {
+  part: ToolCallPart
+}) {
   if (part.output != null) {
     const skipped = (part.output as { skipped?: boolean }).skipped === true
     return (
@@ -161,9 +181,14 @@ function QuestionnaireCallPart(
   )
 }
 
-export function AssistantPart(
-  { part, apiUrl, widgets, toolTitles, activeSlots, onQuestionnaireAnswers }: AssistantPartProps,
-) {
+export function AssistantPart({
+  part,
+  apiUrl,
+  widgets,
+  toolTitles,
+  activeSlots,
+  onQuestionnaireAnswers,
+}: AssistantPartProps) {
   switch (part.type) {
     case "text":
       // Ghost, per the docs: assistant replies are unframed and take the container's full width.

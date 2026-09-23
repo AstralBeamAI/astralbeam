@@ -71,7 +71,7 @@ function parseApiKey(apiKey: string): {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null) return false
-  const prototype = Object.getPrototypeOf(value)
+  const prototype: unknown = Object.getPrototypeOf(value)
   return prototype === Object.prototype || prototype === null
 }
 
@@ -142,7 +142,9 @@ export async function createAstralBeamOrganizationToken({
   expiresInSeconds = CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
 }: CreateAstralBeamOrganizationTokenOptions): Promise<string> {
   if (
-    typeof email !== "string" || email.length > 320 || email.includes("\0") ||
+    typeof email !== "string" ||
+    email.length > 320 ||
+    email.includes("\0") ||
     !/^[^\s@]+@[^\s@]+$/.test(email)
   ) {
     throw new Error("email must be an email address of at most 320 characters")
@@ -175,7 +177,8 @@ export async function createAstralBeamToken<
   expiresInSeconds = CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
 }: CreateAstralBeamTokenOptions<TTenantUser, TTenant>): Promise<string> {
   if (
-    !Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 ||
+    !Number.isInteger(expiresInSeconds) ||
+    expiresInSeconds < 60 ||
     expiresInSeconds > CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS
   ) {
     throw new Error("chat auth tokens must live for 60-600 seconds")

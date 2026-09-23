@@ -41,38 +41,22 @@ export function OrganizationLogo({
   size = "sm",
   style,
   ...props
-}:
-  & OrganizationLogoProps
-  & Omit<ComponentProps<typeof Avatar>, "children" | "size" | "style">
-  & {
+}: OrganizationLogoProps &
+  Omit<ComponentProps<typeof Avatar>, "children" | "size" | "style"> & {
     style?: CSSProperties
   }) {
   if (isPending && !organization) {
-    return (
-      <Skeleton
-        className={cn("rounded-full", sizeClasses[size], className)}
-        style={style}
-      />
-    )
+    return <Skeleton className={cn("rounded-full", sizeClasses[size], className)} style={style} />
   }
 
   const initials = organization?.name?.slice(0, 2).toUpperCase()
   const normalizedLogo = organization?.logo?.trim() || undefined
 
   return (
-    <Avatar
-      className={cn("rounded-full", sizeClasses[size], className)}
-      style={style}
-      {...props}
-    >
-      <AvatarImage
-        alt={organization?.name ?? "Organization"}
-        src={normalizedLogo}
-      />
+    <Avatar className={cn("rounded-full", sizeClasses[size], className)} style={style} {...props}>
+      <AvatarImage alt={organization?.name ?? "Organization"} src={normalizedLogo} />
 
-      <AvatarFallback
-        className={cn("text-muted-foreground!", fallbackTextClasses[size])}
-      >
+      <AvatarFallback className={cn("text-muted-foreground!", fallbackTextClasses[size])}>
         {fallback || initials || <Briefcase className="size-4" />}
       </AvatarFallback>
     </Avatar>

@@ -17,9 +17,7 @@ function withTrustedForwardedFor(request: Request): Request {
 }
 
 async function handleAuthRequest(request: Request): Promise<Response> {
-  const { getDatabaseBootstrapIssues } = await import(
-    "@/db/lib/database-credentials.server"
-  )
+  const { getDatabaseBootstrapIssues } = await import("@/db/lib/database-credentials.server")
   if (getDatabaseBootstrapIssues().length > 0) {
     return new Response("Server configuration required", { status: 503 })
   }

@@ -30,9 +30,9 @@ export function startAuthentication(options: ChatAuthenticationOptions): () => v
       if (error.status === undefined && !(error instanceof TypeError)) return
       const retryAfter = error.headers?.get("retry-after")
       const delay = retryAfter
-        ? (/^\d+$/.test(retryAfter)
+        ? /^\d+$/.test(retryAfter)
           ? Number(retryAfter) * 1_000
-          : Date.parse(retryAfter) - Date.now())
+          : Date.parse(retryAfter) - Date.now()
         : 0
       timer = setTimeout(
         refresh,

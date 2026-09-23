@@ -68,20 +68,8 @@ export function ErrorToaster() {
     const mutationCache = queryClient.getMutationCache()
     const previousMutationOnError = mutationCache.config.onError
 
-    mutationCache.config.onError = (
-      error,
-      variables,
-      onMutateResult,
-      mutation,
-      context,
-    ) => {
-      previousMutationOnError?.(
-        error,
-        variables,
-        onMutateResult,
-        mutation,
-        context,
-      )
+    mutationCache.config.onError = (error, variables, onMutateResult, mutation, context) => {
+      previousMutationOnError?.(error, variables, onMutateResult, mutation, context)
 
       if (!matchMutation({ mutationKey: authMutationKeys.all }, mutation)) {
         return

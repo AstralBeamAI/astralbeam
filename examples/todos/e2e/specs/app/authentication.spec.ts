@@ -7,9 +7,8 @@ import type { Page } from "@playwright/test"
 async function openAuthentication(page: Page) {
   const fixture = new URL("../../fixtures/authentication.tsx", import.meta.url)
   const fixturePath = fixture.pathname.slice(new URL("../../../", import.meta.url).pathname.length)
-  await page.route(
-    "**/*",
-    (route) => route.request().resourceType() === "script" ? route.abort() : route.continue(),
+  await page.route("**/*", (route) =>
+    route.request().resourceType() === "script" ? route.abort() : route.continue(),
   )
   await page.goto("/")
   await page.unroute("**/*")
@@ -18,7 +17,9 @@ async function openAuthentication(page: Page) {
   )
 }
 
-test("standalone function props synchronize current user and refresh on rejection", async ({ page }) => {
+test("standalone function props synchronize current user and refresh on rejection", async ({
+  page,
+}) => {
   let admin: boolean | undefined = true
   let issued = 0
   let synchronized = 0
@@ -49,16 +50,19 @@ test("standalone function props synchronize current user and refresh on rejectio
       times: 1,
     },
   )
-  const refreshed = page.waitForResponse((response) =>
-    response.url().endsWith("/api/v1/me") && response.ok()
+  const refreshed = page.waitForResponse(
+    (response) => response.url().endsWith("/api/v1/me") && response.ok(),
   )
   await page.getByRole("button", { name: "Refresh directory", exact: true }).click()
-  expect((await (await refreshed).json()).user.admin).toBe(true)
+  const currentUser = (await (await refreshed).json()) as { user: { admin?: boolean } }
+  expect(currentUser.user.admin).toBe(true)
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(page.getByRole("button", { name: seedTarget.user.name, exact: true })).toHaveCount(0)
 })
 
-test("host callbacks and refresh recover initial and background authentication failures", async ({ page }) => {
+test("host callbacks and refresh recover initial and background authentication failures", async ({
+  page,
+}) => {
   await page.clock.install()
   let denied = true
   await page.route("**/__authentication-token", async (route) => {
@@ -69,9 +73,8 @@ test("host callbacks and refresh recover initial and background authentication f
     })
     await route.fulfill({ json: { token } })
   })
-  await page.route(
-    "**/api/v1/me",
-    (route) => denied ? route.fulfill({ status: 403, json: {} }) : route.continue(),
+  await page.route("**/api/v1/me", (route) =>
+    denied ? route.fulfill({ status: 403, json: {} }) : route.continue(),
   )
   await openAuthentication(page)
   const row = page.getByRole("button", { name: seedTarget.user.name, exact: true })

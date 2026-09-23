@@ -17,8 +17,8 @@ const decodeDashboardTokenRequest = Schema.decodeUnknownSync(
 )
 const dashboardTokenHeaders = {
   "Cache-Control": "private, no-store",
-  "Pragma": "no-cache",
-  "Vary": "Cookie",
+  Pragma: "no-cache",
+  Vary: "Cookie",
 }
 
 function dashboardTokenErrorResponse(error: string, status: number, code?: string) {
@@ -29,12 +29,13 @@ async function handleDashboardTokenRequest(request: Request): Promise<Response> 
   try {
     const baseUrl = await getGlobalConfig("app_base_url")
     if (
-      !baseUrl || request.headers.get("origin") !== new URL(baseUrl).origin ||
+      !baseUrl ||
+      request.headers.get("origin") !== new URL(baseUrl).origin ||
       !request.headers.get("content-type")?.startsWith("application/json")
     ) {
       return dashboardTokenErrorResponse("Forbidden", 403)
     }
-    if (!await isSetupComplete()) {
+    if (!(await isSetupComplete())) {
       return dashboardTokenErrorResponse("Application is not configured", 503)
     }
     let input: ReturnType<typeof decodeDashboardTokenRequest>
@@ -50,9 +51,8 @@ async function handleDashboardTokenRequest(request: Request): Promise<Response> 
       issueDashboardToken({ ...input, headers: request.headers }).pipe(
         Effect.map((result) => Response.json(result, { headers: dashboardTokenHeaders })),
         Effect.catchTag("DashboardTokenError", (error) =>
-          Effect.succeed(
-            dashboardTokenErrorResponse(error.message, error.status, error.code),
-          )),
+          Effect.succeed(dashboardTokenErrorResponse(error.message, error.status, error.code)),
+        ),
       ),
     )
   } catch {

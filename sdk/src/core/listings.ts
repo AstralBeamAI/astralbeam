@@ -78,10 +78,13 @@ export function resolveListingTenant(session: ListingSession, signal: AbortSigna
   return listingRequest(session, signal, async (auth) => {
     const { tenantId, tenantExternalId } = session.options
     if (tenantId !== undefined) return getTenant(tenantId, auth)
-    const page = await listTenants({
-      page_size: 1,
-      ...(tenantExternalId !== undefined ? { "filter[external_id]": tenantExternalId } : {}),
-    }, auth)
+    const page = await listTenants(
+      {
+        page_size: 1,
+        ...(tenantExternalId !== undefined ? { "filter[external_id]": tenantExternalId } : {}),
+      },
+      auth,
+    )
     return page.items[0] ?? null
   })
 }
@@ -113,16 +116,21 @@ export function loadListingPage(
     const params = { q, page_size: size, ...cursor }
     if (kind === "users") {
       if (!tenantId) throw new Error("Select a tenant before listing its users.")
-      return listUsersForTenant(tenantId, {
-        ...params,
-        ...(admin === "all" ? {} : { "filter[admin]": admin }),
-      }, auth)
+      return listUsersForTenant(
+        tenantId,
+        {
+          ...params,
+          ...(admin === "all" ? {} : { "filter[admin]": admin }),
+        },
+        auth,
+      )
     }
     if (tenantId) {
       const row = await getTenant(tenantId, auth)
-      const matches = !q ||
+      const matches =
+        !q ||
         [row.name ?? "", row.external_id].some((value) =>
-          value.toLocaleLowerCase().includes(q.toLocaleLowerCase())
+          value.toLocaleLowerCase().includes(q.toLocaleLowerCase()),
         )
       return { items: matches ? [row] : [], page_after: null, page_before: null }
     }
@@ -140,7 +148,8 @@ export function listingRequest<T>(
     const auth = authenticationState(session.auth)
     if (
       !(auth.status === "error" && auth.error === error) &&
-      !session.abortController.signal.aborted && !signal.aborted &&
+      !session.abortController.signal.aborted &&
+      !signal.aborted &&
       !session.auth.session.abortController.signal.aborted &&
       !(error instanceof Error && error.name === "AbortError")
     ) {
@@ -184,8 +193,10 @@ async function requestListing<T>(
       throw new Error("Organization mode requires an organization-management token.")
     }
     if (
-      (session.options.scope ?? "tenant") === "tenant" && organization &&
-      !session.options.tenantId && session.options.tenantExternalId === undefined
+      (session.options.scope ?? "tenant") === "tenant" &&
+      organization &&
+      !session.options.tenantId &&
+      session.options.tenantExternalId === undefined
     ) {
       throw new Error(
         "tenantId or tenantExternalId is required for a tenant view using an organization token.",

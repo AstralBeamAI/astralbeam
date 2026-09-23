@@ -34,9 +34,7 @@ export const restExampleTenant = {
   updated_at: "2026-06-22T09:30:00.000Z",
 }
 // Name decoded schemas so list and member responses share one encoded model. https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/SchemaRepresentation.ts
-export const TenantRecordSchema = Schema.Struct(
-  ManagementTenantRecordSchema.fields,
-).pipe(
+export const TenantRecordSchema = Schema.Struct(ManagementTenantRecordSchema.fields).pipe(
   Schema.annotate({ identifier: "TenantRecord" }),
   Schema.encodeKeys(tenantRestKeys),
   Schema.annotateEncoded({
@@ -45,81 +43,92 @@ export const TenantRecordSchema = Schema.Struct(
     examples: [restExampleTenant],
   }),
 )
-const CreateTenantSchema = TenantWriteSchema.pipe(Schema.encodeKeys({ externalId: "external_id" }))
-  .pipe(
-    Schema.annotateEncoded({
-      identifier: "CreateTenantInput",
-      examples: [
-        {
-          external_id: restExampleTenant.external_id,
-          name: restExampleTenant.name,
-          metadata: restExampleTenant.metadata,
-        },
-        { external_id: restExampleTenant.external_id },
-      ],
-    }),
-  )
+const CreateTenantSchema = TenantWriteSchema.pipe(
+  Schema.encodeKeys({ externalId: "external_id" }),
+).pipe(
+  Schema.annotateEncoded({
+    identifier: "CreateTenantInput",
+    examples: [
+      {
+        external_id: restExampleTenant.external_id,
+        name: restExampleTenant.name,
+        metadata: restExampleTenant.metadata,
+      },
+      { external_id: restExampleTenant.external_id },
+    ],
+  }),
+)
 const UpdateTenantSchema = TenantPatchSchema.annotate({ identifier: "UpdateTenantInput" }).pipe(
   Schema.annotateEncoded({
-    examples: [{ metadata: { plan: "enterprise", region: "eu-west-1" } }, {
-      name: null,
-      metadata: {},
-    }],
+    examples: [
+      { metadata: { plan: "enterprise", region: "eu-west-1" } },
+      {
+        name: null,
+        metadata: {},
+      },
+    ],
   }),
 )
 export const tenantRestPage = Schema.Struct({
   items: Schema.Array(TenantRecordSchema),
   ...restPageFields,
-})
-  .pipe(Schema.annotateEncoded({
+}).pipe(
+  Schema.annotateEncoded({
     identifier: "TenantPage",
     examples: [{ items: [restExampleTenant], ...restExamplePageCursors }, restEmptyPage],
     description:
       "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
-  }))
+  }),
+)
 export const restMemberParams = { id: ApiUuidSchema.annotate({ examples: [restExampleTenant.id] }) }
 
-export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true }).annotate(
-  OpenApi.Override,
-  {
+export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true })
+  .annotate(OpenApi.Override, {
     "x-displayName": "Tenants",
-  },
-).add(
-  HttpApiEndpoint.get("listTenants", "/tenants", {
-    query: restPageQuery,
-    success: HttpApiSchema.WithHeaders(tenantRestPage, restPageHeaders),
-  }).annotate(OpenApi.Summary, "List Tenants").annotate(
+  })
+  .add(
+    HttpApiEndpoint.get("listTenants", "/tenants", {
+      query: restPageQuery,
+      success: HttpApiSchema.WithHeaders(tenantRestPage, restPageHeaders),
+    })
+      .annotate(OpenApi.Summary, "List Tenants")
+      .annotate(
+        OpenApi.Description,
+        "List Tenants in internal ID order. q searches name or external ID as a case-insensitive literal substring. filter[external_id] adds an exact match. Organization keys and organization-management JWTs see their organization; admin tenant JWTs see only their signed Tenant. Keep filters unchanged when reusing cursors. Live listing, not a snapshot.",
+      ),
+    HttpApiEndpoint.post("createTenant", "/tenants", {
+      payload: CreateTenantSchema,
+      success: HttpApiSchema.WithHeaders(TenantRecordSchema, {
+        Location: Schema.String,
+      }).pipe(HttpApiSchema.status(201)),
+    })
+      .annotate(OpenApi.Summary, "Create a Tenant")
+      .annotate(
+        OpenApi.Description,
+        "Create a Tenant with an exact customer-provided external_id. Requires an organization API key or organization-management JWT with a current owner/developer role. An external_id already used in this organization returns 409; creation never upserts.",
+      ),
+    HttpApiEndpoint.get("getTenant", "/tenants/:id", {
+      params: restMemberParams,
+      success: TenantRecordSchema,
+    })
+      .annotate(OpenApi.Summary, "Get a Tenant")
+      .annotate(OpenApi.Description, "Get a Tenant by internal UUID, not external_id."),
+    HttpApiEndpoint.patch("updateTenant", "/tenants/:id", {
+      params: restMemberParams,
+      payload: UpdateTenantSchema,
+      success: TenantRecordSchema,
+    })
+      .annotate(OpenApi.Summary, "Update a Tenant")
+      .annotate(
+        OpenApi.Description,
+        "Update supplied name/metadata fields only. Requires an organization API key or organization-management JWT with a current owner/developer role. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.",
+      ),
+  )
+  .annotateEndpoints(OpenApi.Override, restResourceSecurity)
+  .annotate(
     OpenApi.Description,
-    "List Tenants in internal ID order. q searches name or external ID as a case-insensitive literal substring. filter[external_id] adds an exact match. Organization keys and organization-management JWTs see their organization; admin tenant JWTs see only their signed Tenant. Keep filters unchanged when reusing cursors. Live listing, not a snapshot.",
-  ),
-  HttpApiEndpoint.post("createTenant", "/tenants", {
-    payload: CreateTenantSchema,
-    success: HttpApiSchema.WithHeaders(TenantRecordSchema, {
-      Location: Schema.String,
-    }).pipe(HttpApiSchema.status(201)),
-  }).annotate(OpenApi.Summary, "Create a Tenant").annotate(
-    OpenApi.Description,
-    "Create a Tenant with an exact customer-provided external_id. Requires an organization API key or organization-management JWT with a current owner/developer role. An external_id already used in this organization returns 409; creation never upserts.",
-  ),
-  HttpApiEndpoint.get("getTenant", "/tenants/:id", {
-    params: restMemberParams,
-    success: TenantRecordSchema,
-  }).annotate(OpenApi.Summary, "Get a Tenant").annotate(
-    OpenApi.Description,
-    "Get a Tenant by internal UUID, not external_id.",
-  ),
-  HttpApiEndpoint.patch("updateTenant", "/tenants/:id", {
-    params: restMemberParams,
-    payload: UpdateTenantSchema,
-    success: TenantRecordSchema,
-  }).annotate(OpenApi.Summary, "Update a Tenant").annotate(
-    OpenApi.Description,
-    "Update supplied name/metadata fields only. Requires an organization API key or organization-management JWT with a current owner/developer role. name:null clears the name; metadata replaces the object. Last-write-wins; no upsert.",
-  ),
-).annotateEndpoints(OpenApi.Override, restResourceSecurity).annotate(
-  OpenApi.Description,
-  "A Tenant is one of your Organization's customers. Use internal UUID IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
-)
+    "A Tenant is one of your Organization's customers. Use internal UUID IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
+  )
 
 function toTenantResponse(row: typeof TenantRecordSchema.Type): typeof TenantRecordSchema.Type {
   return {
@@ -133,62 +142,58 @@ function toTenantResponse(row: typeof TenantRecordSchema.Type): typeof TenantRec
 }
 
 export function tenantHandlers(api: typeof ApiV1) {
-  return HttpApiBuilder.group(
-    api,
-    "tenants",
-    (handlers) =>
-      Effect.gen(function* () {
-        const { createTenant, getTenant, listTenants, updateTenant } = yield* Effect.promise(() =>
-          import("@/db/tenant.server")
-        )
-        const { restPage, restPageOptions } = yield* Effect.promise(() =>
-          import("./pagination.server")
-        )
-        return handlers.handleAll({
-          listTenants: Effect.fn(function* ({ query, request }) {
-            const scope = yield* restScope
-            const { pageSize, backward, cursor, externalId, search } = yield* restPageOptions(
-              query,
-              "tenants",
-              scope,
-            )
-            const page = yield* listTenants(scope, {
-              pageSize,
-              position: cursor,
-              backward,
-              externalId,
-              search,
-              includePrevious: true,
-            })
-              .pipe(
-                Stream.runHead,
-                Effect.map(Option.getOrThrow),
-              )
-            return yield* Effect.promise(() =>
-              restPage({ ...page, items: page.items.map((row) => toTenantResponse(row)) }, {
+  return HttpApiBuilder.group(api, "tenants", (handlers) =>
+    Effect.gen(function* () {
+      const { createTenant, getTenant, listTenants, updateTenant } = yield* Effect.promise(
+        () => import("@/db/tenant.server"),
+      )
+      const { restPage, restPageOptions } = yield* Effect.promise(
+        () => import("./pagination.server"),
+      )
+      return handlers.handleAll({
+        listTenants: Effect.fn(function* ({ query, request }) {
+          const scope = yield* restScope
+          const { pageSize, backward, cursor, externalId, search } = yield* restPageOptions(
+            query,
+            "tenants",
+            scope,
+          )
+          const page = yield* listTenants(scope, {
+            pageSize,
+            position: cursor,
+            backward,
+            externalId,
+            search,
+            includePrevious: true,
+          }).pipe(Stream.runHead, Effect.map(Option.getOrThrow))
+          return yield* Effect.promise(() =>
+            restPage(
+              { ...page, items: page.items.map((row) => toTenantResponse(row)) },
+              {
                 collection: "tenants",
                 scope,
                 url: request.url,
                 backward,
                 externalId,
                 search,
-              })
-            )
-          }, restHandleErrors("listTenants")),
-          getTenant: Effect.fn(function* ({ params }) {
-            return toTenantResponse(yield* getTenant(yield* restScope, params.id))
-          }, restHandleErrors("getTenant")),
-          createTenant: Effect.fn(function* ({ payload }) {
-            const row = yield* createTenant(yield* restScope, payload)
-            return HttpApiSchema.withHeaders({
-              body: toTenantResponse(row),
-              headers: { Location: `/api/v1/tenants/${row.id}` },
-            })
-          }, restHandleErrors("createTenant")),
-          updateTenant: Effect.fn(function* ({ params, payload }) {
-            return toTenantResponse(yield* updateTenant(yield* restScope, params.id, payload))
-          }, restHandleErrors("updateTenant")),
-        })
-      }),
+              },
+            ),
+          )
+        }, restHandleErrors("listTenants")),
+        getTenant: Effect.fn(function* ({ params }) {
+          return toTenantResponse(yield* getTenant(yield* restScope, params.id))
+        }, restHandleErrors("getTenant")),
+        createTenant: Effect.fn(function* ({ payload }) {
+          const row = yield* createTenant(yield* restScope, payload)
+          return HttpApiSchema.withHeaders({
+            body: toTenantResponse(row),
+            headers: { Location: `/api/v1/tenants/${row.id}` },
+          })
+        }, restHandleErrors("createTenant")),
+        updateTenant: Effect.fn(function* ({ params, payload }) {
+          return toTenantResponse(yield* updateTenant(yield* restScope, params.id, payload))
+        }, restHandleErrors("updateTenant")),
+      })
+    }),
   )
 }

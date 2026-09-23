@@ -13,11 +13,10 @@ test("cross-organization dogfood credentials cannot complete setup", () => {
   const credential = `key_${organizationId}_${keyId}_abo_${"A".repeat(64)}`
   expect(
     validateConfigCompleteness({ dogfood_organization_id: keyId, dogfood_api_key: credential }),
-  )
-    .toContainEqual({
-      key: "dogfood_api_key",
-      message: "Embedded assistant credential ownership is invalid",
-    })
+  ).toContainEqual({
+    key: "dogfood_api_key",
+    message: "Embedded assistant credential ownership is invalid",
+  })
 })
 
 test.each([

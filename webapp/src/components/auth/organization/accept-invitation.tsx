@@ -79,7 +79,8 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
       onSuccess: returnToApplication,
     },
   )
-  const isLoading = !isHydrated ||
+  const isLoading =
+    !isHydrated ||
     session.isPending ||
     !session.data ||
     (Boolean(invitationId) && invitationQuery.isPending)
@@ -97,7 +98,9 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
         </div>
 
         <CardTitle className="text-xl font-semibold">
-          {isLoading ? <Skeleton className="h-6 w-48" /> : (
+          {isLoading ? (
+            <Skeleton className="h-6 w-48" />
+          ) : (
             <h1>
               {isAvailable
                 ? localization.acceptInvitationTitle
@@ -108,78 +111,62 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        {isLoading
-          ? (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          )
-          : isAvailable
-          ? (
-            <>
-              <FieldDescription>
-                {localization.acceptInvitationDescription
-                  .replace("{{organization}}", organizationName)
-                  .replace("{{role}}", role)}
-              </FieldDescription>
-
-              <div className="flex items-center gap-3 rounded-md bg-muted p-3">
-                <div className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {organizationName}
-                </div>
-                <Badge variant="secondary">{role}</Badge>
-              </div>
-            </>
-          )
-          : (
+        {isLoading ? (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        ) : isAvailable ? (
+          <>
             <FieldDescription>
-              {localization.invitationUnavailableDescription}
+              {localization.acceptInvitationDescription
+                .replace("{{organization}}", organizationName)
+                .replace("{{role}}", role)}
             </FieldDescription>
-          )}
+
+            <div className="flex items-center gap-3 rounded-md bg-muted p-3">
+              <div className="min-w-0 flex-1 truncate text-sm font-medium">{organizationName}</div>
+              <Badge variant="secondary">{role}</Badge>
+            </div>
+          </>
+        ) : (
+          <FieldDescription>{localization.invitationUnavailableDescription}</FieldDescription>
+        )}
 
         <div className="flex gap-2">
-          {isLoading
-            ? (
-              <>
-                <Skeleton className="h-9 flex-1" />
-                <Skeleton className="h-9 flex-1" />
-              </>
-            )
-            : isAvailable && invitation
-            ? (
-              <>
-                <Button
-                  className="flex-1"
-                  type="button"
-                  variant="outline"
-                  disabled={isAccepting || isRejecting}
-                  onClick={() => rejectInvitation({ invitationId: invitation.id })}
-                >
-                  {isRejecting ? <Spinner /> : <X />}
-                  {localization.rejectInvitation}
-                </Button>
-
-                <Button
-                  className="flex-1"
-                  type="button"
-                  disabled={isAccepting || isRejecting}
-                  onClick={() => acceptInvitation({ invitationId: invitation.id })}
-                >
-                  {isAccepting ? <Spinner /> : <Check />}
-                  {localization.accept}
-                </Button>
-              </>
-            )
-            : (
+          {isLoading ? (
+            <>
+              <Skeleton className="h-9 flex-1" />
+              <Skeleton className="h-9 flex-1" />
+            </>
+          ) : isAvailable && invitation ? (
+            <>
               <Button
-                className="w-full"
+                className="flex-1"
                 type="button"
-                onClick={returnToApplication}
+                variant="outline"
+                disabled={isAccepting || isRejecting}
+                onClick={() => rejectInvitation({ invitationId: invitation.id })}
               >
-                {localization.return}
+                {isRejecting ? <Spinner /> : <X />}
+                {localization.rejectInvitation}
               </Button>
-            )}
+
+              <Button
+                className="flex-1"
+                type="button"
+                disabled={isAccepting || isRejecting}
+                onClick={() => acceptInvitation({ invitationId: invitation.id })}
+              >
+                {isAccepting ? <Spinner /> : <Check />}
+                {localization.accept}
+              </Button>
+            </>
+          ) : (
+            <Button className="w-full" type="button" onClick={returnToApplication}>
+              {localization.return}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

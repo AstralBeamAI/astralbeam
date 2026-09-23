@@ -17,14 +17,18 @@ function ids() {
 }
 
 test("classifies the file types the chat endpoint can read", () => {
-  expect(classifyAttachmentFile({ name: "shot.png", type: "image/png", size: 10 }, limits))
-    .toEqual({ kind: "image", mimeType: "image/png" })
-  expect(classifyAttachmentFile({ name: "spec.pdf", type: "application/pdf", size: 10 }, limits))
-    .toEqual({ kind: "pdf", mimeType: "application/pdf" })
-  expect(classifyAttachmentFile({ name: "notes.md", type: "text/markdown", size: 10 }, limits))
-    .toEqual({ kind: "text", mimeType: "text/markdown" })
-  expect(classifyAttachmentFile({ name: "clip.mp3", type: "audio/mpeg", size: 10 }, limits))
-    .toEqual({ error: "Unsupported file type" })
+  expect(classifyAttachmentFile({ name: "shot.png", type: "image/png", size: 10 }, limits)).toEqual(
+    { kind: "image", mimeType: "image/png" },
+  )
+  expect(
+    classifyAttachmentFile({ name: "spec.pdf", type: "application/pdf", size: 10 }, limits),
+  ).toEqual({ kind: "pdf", mimeType: "application/pdf" })
+  expect(
+    classifyAttachmentFile({ name: "notes.md", type: "text/markdown", size: 10 }, limits),
+  ).toEqual({ kind: "text", mimeType: "text/markdown" })
+  expect(
+    classifyAttachmentFile({ name: "clip.mp3", type: "audio/mpeg", size: 10 }, limits),
+  ).toEqual({ error: "Unsupported file type" })
 })
 
 // A data or office file's kind decides its size cap and its icon, and the endpoint keys its whole
@@ -37,8 +41,10 @@ test("classifies data and office files by extension, whatever the browser report
     ["app.sqlite", "", "application/vnd.sqlite3"],
   ]
   for (const [name, type, mimeType] of expected) {
-    expect(classifyAttachmentFile({ name, type, size: 10 }, limits))
-      .toEqual({ kind: "data", mimeType })
+    expect(classifyAttachmentFile({ name, type, size: 10 }, limits)).toEqual({
+      kind: "data",
+      mimeType,
+    })
   }
   const office: Array<[string, string]> = [
     ["brief.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
@@ -46,11 +52,15 @@ test("classifies data and office files by extension, whatever the browser report
     ["q3.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
   ]
   for (const [name, mimeType] of office) {
-    expect(classifyAttachmentFile({ name, type: mimeType, size: 10 }, limits))
-      .toEqual({ kind: "office", mimeType })
+    expect(classifyAttachmentFile({ name, type: mimeType, size: 10 }, limits)).toEqual({
+      kind: "office",
+      mimeType,
+    })
     // Some browsers report nothing for an office file dropped rather than picked.
-    expect(classifyAttachmentFile({ name, type: "", size: 10 }, limits))
-      .toEqual({ kind: "office", mimeType })
+    expect(classifyAttachmentFile({ name, type: "", size: 10 }, limits)).toEqual({
+      kind: "office",
+      mimeType,
+    })
   }
 })
 
@@ -72,30 +82,36 @@ test("holds a data file to its own size cap, not a text file's", () => {
 // Chrome reports `.ts` as `video/mp2t` and leaves `.tsx` empty, which would send a source file
 // as an unreadable video part or reject it outright.
 test("corrects the browser's MIME guess for source files", () => {
-  expect(classifyAttachmentFile({ name: "agent.ts", type: "video/mp2t", size: 10 }, limits))
-    .toEqual({ kind: "text", mimeType: "text/plain" })
-  expect(classifyAttachmentFile({ name: "widget.tsx", type: "", size: 10 }, limits))
-    .toEqual({ kind: "text", mimeType: "text/plain" })
+  expect(
+    classifyAttachmentFile({ name: "agent.ts", type: "video/mp2t", size: 10 }, limits),
+  ).toEqual({ kind: "text", mimeType: "text/plain" })
+  expect(classifyAttachmentFile({ name: "widget.tsx", type: "", size: 10 }, limits)).toEqual({
+    kind: "text",
+    mimeType: "text/plain",
+  })
 })
 
 // A repo file with no extension has nothing but its name to go by, and browsers report no type.
 test("recognizes text files that carry no extension", () => {
   for (const name of ["Dockerfile", "LICENSE", "Makefile", ".gitignore", ".env.production"]) {
-    expect(classifyAttachmentFile({ name, type: "", size: 10 }, limits))
-      .toEqual({ kind: "text", mimeType: "text/plain" })
+    expect(classifyAttachmentFile({ name, type: "", size: 10 }, limits)).toEqual({
+      kind: "text",
+      mimeType: "text/plain",
+    })
   }
-  expect(classifyAttachmentFile({ name: "photo", type: "", size: 10 }, limits))
-    .toEqual({ error: "Unsupported file type" })
+  expect(classifyAttachmentFile({ name: "photo", type: "", size: 10 }, limits)).toEqual({
+    error: "Unsupported file type",
+  })
 })
 
 test("honors a host-narrowed accept list", () => {
   const imagesOnly = resolveAttachmentOptions({ accept: ["image/*"] })
-  expect(classifyAttachmentFile({ name: "shot.png", type: "image/png", size: 10 }, imagesOnly))
-    .toEqual({ kind: "image", mimeType: "image/png" })
+  expect(
+    classifyAttachmentFile({ name: "shot.png", type: "image/png", size: 10 }, imagesOnly),
+  ).toEqual({ kind: "image", mimeType: "image/png" })
   expect(
     classifyAttachmentFile({ name: "spec.pdf", type: "application/pdf", size: 10 }, imagesOnly),
-  )
-    .toEqual({ error: "This chat does not accept that file type" })
+  ).toEqual({ error: "This chat does not accept that file type" })
 })
 
 test("rejects files past the count, per-file, and total limits", () => {

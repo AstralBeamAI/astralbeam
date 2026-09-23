@@ -20,7 +20,7 @@ import {
 let artifactTicketKeyPromise: Promise<Uint8Array> | undefined
 
 function artifactTicketKey(): Promise<Uint8Array> {
-  return artifactTicketKeyPromise ??= deriveArtifactTicketKey()
+  return (artifactTicketKeyPromise ??= deriveArtifactTicketKey())
 }
 
 async function deriveArtifactTicketKey(): Promise<Uint8Array> {
@@ -67,9 +67,7 @@ export interface SandboxArtifactTicket {
   readonly sha256: string
 }
 
-export async function mintSandboxArtifactTicket(
-  ticket: SandboxArtifactTicket,
-): Promise<string> {
+export async function mintSandboxArtifactTicket(ticket: SandboxArtifactTicket): Promise<string> {
   return await new SignJWT({ ...ticket })
     .setProtectedHeader({ alg: "HS256", typ: CHAT_ARTIFACT_TICKET_TYPE })
     .setAudience(CHAT_ARTIFACT_TICKET_AUDIENCE)
@@ -99,10 +97,14 @@ export async function verifySandboxArtifactTicket(
     } = payload as Partial<SandboxArtifactTicket>
     const size = payload["size"]
     if (
-      typeof organizationId !== "string" || typeof tenantId !== "string" ||
+      typeof organizationId !== "string" ||
+      typeof tenantId !== "string" ||
       typeof tenantUserId !== "string" ||
-      typeof sandboxProviderId !== "string" || typeof providerSandboxId !== "string" ||
-      typeof path !== "string" || typeof mimeType !== "string" || typeof size !== "number" ||
+      typeof sandboxProviderId !== "string" ||
+      typeof providerSandboxId !== "string" ||
+      typeof path !== "string" ||
+      typeof mimeType !== "string" ||
+      typeof size !== "number" ||
       typeof sha256 !== "string"
     ) {
       return undefined
@@ -128,7 +130,7 @@ function matchesMagicBytes(
   signature: ReadonlyArray<{ offset: number; bytes: readonly number[] }>,
 ): boolean {
   return signature.every(({ offset, bytes: expected }) =>
-    expected.every((value, index) => bytes[offset + index] === value)
+    expected.every((value, index) => bytes[offset + index] === value),
   )
 }
 
@@ -173,9 +175,8 @@ export function artifactContentDisposition(disposition: string, path: string): s
   let ascii = ""
   for (let index = 0; index < base.length; index += 1) {
     const code = base.charCodeAt(index)
-    ascii += code < 0x20 || code > 0x7e || base[index] === '"' || base[index] === "\\"
-      ? "_"
-      : base[index]
+    ascii +=
+      code < 0x20 || code > 0x7e || base[index] === '"' || base[index] === "\\" ? "_" : base[index]
   }
   const fallback = ascii.length > 0 ? ascii : "artifact"
   // encodeURIComponent leaves RFC 5987 attr-char specials like * ' ( ) unescaped; fix them up.

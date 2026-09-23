@@ -10,12 +10,8 @@ type TestSession = {
 const mocks = vi.hoisted(() => ({
   getRequest: vi.fn(() => new Request("https://app.example.test/")),
   getSession: vi.fn((): Promise<TestSession> => Promise.resolve(null)),
-  ensureSessionServer: vi.fn(
-    (): Promise<TestSession> => Promise.resolve(null),
-  ),
-  listOrganizations: vi.fn(
-    (): Promise<Array<{ id: string; slug: string }>> => Promise.resolve([]),
-  ),
+  ensureSessionServer: vi.fn((): Promise<TestSession> => Promise.resolve(null)),
+  listOrganizations: vi.fn((): Promise<Array<{ id: string; slug: string }>> => Promise.resolve([])),
   setActiveOrganization: vi.fn(),
   setResponseHeader: vi.fn(),
 }))
@@ -52,16 +48,8 @@ describe("session access response boundary", () => {
       status: "signed-out",
     })
 
-    expect(mocks.setResponseHeader).toHaveBeenNthCalledWith(
-      1,
-      "Cache-Control",
-      "no-store",
-    )
-    expect(mocks.setResponseHeader).toHaveBeenNthCalledWith(
-      2,
-      "Vary",
-      "Cookie, Authorization",
-    )
+    expect(mocks.setResponseHeader).toHaveBeenNthCalledWith(1, "Cache-Control", "no-store")
+    expect(mocks.setResponseHeader).toHaveBeenNthCalledWith(2, "Vary", "Cookie, Authorization")
   })
 
   test("seeds the shared session query during server-side route resolution", async () => {
@@ -70,13 +58,9 @@ describe("session access response boundary", () => {
       session: { activeOrganizationId: "organization-a" },
       user: { id: "user-a" },
     })
-    mocks.listOrganizations.mockResolvedValueOnce([
-      { id: "organization-a", slug: "organizationa" },
-    ])
+    mocks.listOrganizations.mockResolvedValueOnce([{ id: "organization-a", slug: "organizationa" }])
 
-    await expect(
-      getSessionAccessDecisionForRequest(queryClient),
-    ).resolves.toEqual({
+    await expect(getSessionAccessDecisionForRequest(queryClient)).resolves.toEqual({
       status: "ready",
       userId: "user-a",
       organizationId: "organization-a",
@@ -93,14 +77,10 @@ describe("session access response boundary", () => {
       session: { activeOrganizationId: null },
       user: { id: "user-a" },
     })
-    mocks.listOrganizations.mockResolvedValueOnce([
-      { id: "organization-a", slug: "organizationa" },
-    ])
+    mocks.listOrganizations.mockResolvedValueOnce([{ id: "organization-a", slug: "organizationa" }])
     mocks.setActiveOrganization.mockResolvedValueOnce({ id: "organization-a" })
 
-    await expect(
-      getSessionAccessDecisionForRequest(queryClient),
-    ).resolves.toEqual({
+    await expect(getSessionAccessDecisionForRequest(queryClient)).resolves.toEqual({
       status: "ready",
       userId: "user-a",
       organizationId: "organization-a",
@@ -123,10 +103,7 @@ describe("session access response boundary", () => {
       "Unable to determine organization access",
     )
 
-    expect(log).toHaveBeenCalledWith(
-      "Unable to determine organization access",
-      "Error",
-    )
+    expect(log).toHaveBeenCalledWith("Unable to determine organization access", "Error")
     expect(JSON.stringify(log.mock.calls)).not.toContain("secret")
     log.mockRestore()
   })

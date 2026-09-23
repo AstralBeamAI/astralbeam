@@ -39,8 +39,7 @@ export function normalizeReturnPath(
   if (
     pathname === "/api" ||
     pathname.startsWith("/api/") ||
-    (!isAllowedAuthPath &&
-      (pathname === "/auth" || pathname.startsWith("/auth/")))
+    (!isAllowedAuthPath && (pathname === "/auth" || pathname.startsWith("/auth/")))
   ) {
     return "/"
   }

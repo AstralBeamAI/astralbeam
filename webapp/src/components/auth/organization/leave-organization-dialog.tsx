@@ -40,17 +40,14 @@ export function LeaveOrganizationDialog({
   const { authClient, localization, navigate } = useAuth<OrganizationAuthClient>()
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
 
-  const { mutate: leaveOrganization, isPending } = useLeaveOrganization(
-    authClient,
-    {
-      onSuccess: () => {
-        onOpenChange(false)
-        toast.add({ title: organizationLocalization.leftOrganization, type: "success" })
+  const { mutate: leaveOrganization, isPending } = useLeaveOrganization(authClient, {
+    onSuccess: () => {
+      onOpenChange(false)
+      toast.add({ title: organizationLocalization.leftOrganization, type: "success" })
 
-        navigate({ to: "/organizations", replace: true })
-      },
+      navigate({ to: "/organizations", replace: true })
     },
-  )
+  })
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -60,9 +57,7 @@ export function LeaveOrganizationDialog({
             <LogOut />
           </AlertDialogMedia>
 
-          <AlertDialogTitle>
-            {organizationLocalization.leaveOrganization}
-          </AlertDialogTitle>
+          <AlertDialogTitle>{organizationLocalization.leaveOrganization}</AlertDialogTitle>
 
           <AlertDialogDescription>
             {organizationLocalization.leaveOrganizationDescription}
@@ -76,9 +71,7 @@ export function LeaveOrganizationDialog({
         </Card>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>
-            {localization.settings.cancel}
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>{localization.settings.cancel}</AlertDialogCancel>
 
           <Button
             variant="destructive"

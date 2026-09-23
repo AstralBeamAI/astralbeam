@@ -9,9 +9,11 @@ vi.mock("@/db/lib/database-credentials.server", () => ({ getDatabaseBootstrapIss
 vi.mock("@/lib/config/state.server", () => ({ setupGateResponse: vi.fn() }))
 vi.mock("./transport.server", () => ({ dispatchRestRequest: vi.fn() }))
 
-const routeHandler = (Route.options.server!.handlers as {
-  ANY: (context: { request: Request }) => Promise<Response>
-}).ANY
+const routeHandler = (
+  Route.options.server!.handlers as {
+    ANY: (context: { request: Request }) => Promise<Response>
+  }
+).ANY
 
 describe("v1 setup boundary", () => {
   afterEach(() => vi.restoreAllMocks())

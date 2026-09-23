@@ -5,9 +5,7 @@ import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./slug.ts"
 export const UuidV7Schema = Schema.String.pipe(Schema.check(Schema.isUUID(7)))
 
 const AGENT_ID_UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
-const AGENT_ID_PATTERN = new RegExp(
-  `^agent_(${AGENT_ID_UUID_PATTERN})_(${AGENT_ID_UUID_PATTERN})$`,
-)
+const AGENT_ID_PATTERN = new RegExp(`^agent_(${AGENT_ID_UUID_PATTERN})_(${AGENT_ID_UUID_PATTERN})$`)
 
 export function generateAgentSlug(input: { organizationId: string; id: string }): string {
   return `agent_${input.organizationId}_${input.id}`

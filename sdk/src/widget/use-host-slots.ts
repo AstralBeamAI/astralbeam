@@ -60,14 +60,17 @@ export function useHostSlots(
       return next
     })
   }, [slots, host, debug])
-  useEffect(() =>
-  // Unmount only: the per-slot effect above owns replacement during the widget's lifetime.
-  () => {
-    for (const slot of rendered.current.values()) {
-      slot.cleanup?.()
-      slot.container.remove()
-    }
-    rendered.current.clear()
-  }, [])
+  useEffect(
+    () =>
+      // Unmount only: the per-slot effect above owns replacement during the widget's lifetime.
+      () => {
+        for (const slot of rendered.current.values()) {
+          slot.cleanup?.()
+          slot.container.remove()
+        }
+        rendered.current.clear()
+      },
+    [],
+  )
   return active
 }

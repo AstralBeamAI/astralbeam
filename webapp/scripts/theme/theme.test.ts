@@ -45,11 +45,11 @@ function createColorMap(surface: string, foreground: string) {
     themeTokenNames.map((token) => [
       token,
       token === "foreground" ||
-        token === "destructive" ||
-        token === "ring" ||
-        token === "sidebar-ring" ||
-        token === "warning" ||
-        token.endsWith("-foreground")
+      token === "destructive" ||
+      token === "ring" ||
+      token === "sidebar-ring" ||
+      token === "warning" ||
+      token.endsWith("-foreground")
         ? foreground
         : surface,
     ]),
@@ -66,7 +66,7 @@ describe("theme document schema", () => {
       parseThemeDocument({
         ...organizationTheme,
         colors: { ...organizationTheme.colors, light: missingToken },
-      })
+      }),
     ).toThrow(/background/u)
 
     const documentsWithExtras = [
@@ -106,7 +106,7 @@ describe("theme document schema", () => {
           ...organizationTheme.colors,
           dark: { ...organizationTheme.colors.dark, "organization-only": "#000000" },
         },
-      })
+      }),
     ).toThrow(/organization-only/u)
   })
 
@@ -114,10 +114,10 @@ describe("theme document schema", () => {
     const organizationTheme = createOrganizationTheme()
 
     expect(() =>
-      parseThemeDocument({ ...organizationTheme, geometry: { radius: "calc(1rem + 1px)" } })
+      parseThemeDocument({ ...organizationTheme, geometry: { radius: "calc(1rem + 1px)" } }),
     ).toThrow("Theme radius must be zero or a nonnegative px, rem, em, or percentage length")
     expect(() =>
-      parseThemeDocument({ ...organizationTheme, geometry: { radius: "1rem; color: red" } })
+      parseThemeDocument({ ...organizationTheme, geometry: { radius: "1rem; color: red" } }),
     ).toThrow("Theme radius must be zero or a nonnegative px, rem, em, or percentage length")
   })
 
@@ -143,7 +143,7 @@ describe("theme document schema", () => {
           ...organizationTheme.colors,
           light: { ...organizationTheme.colors.light, primary: "not-a-color" },
         },
-      })
+      }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
     expect(() =>
       parseThemeDocument({
@@ -152,7 +152,7 @@ describe("theme document schema", () => {
           ...organizationTheme.colors,
           dark: { ...organizationTheme.colors.dark, primary: "rgb(0 0 0 / 50%)" },
         },
-      })
+      }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
     expect(() =>
       parseThemeDocument({
@@ -161,7 +161,7 @@ describe("theme document schema", () => {
           ...organizationTheme.colors,
           dark: { ...organizationTheme.colors.dark, primary: "rgb(0 0 0 / 99.95%)" },
         },
-      })
+      }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
     expect(() =>
       parseThemeDocument({
@@ -173,7 +173,7 @@ describe("theme document schema", () => {
             primary: "color-mix(in srgb, transparent 0.05%, black)",
           },
         },
-      })
+      }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
   })
 
@@ -206,7 +206,7 @@ describe("theme document schema", () => {
               [token]: organizationTheme.colors.light.background,
             },
           },
-        })
+        }),
       ).toThrow(/contrast/u)
     }
 
@@ -220,7 +220,7 @@ describe("theme document schema", () => {
             ring: organizationTheme.colors.light.background,
           },
         },
-      })
+      }),
     ).toThrow(/focus indicators/u)
   })
 })
@@ -246,7 +246,7 @@ describe("theme CSS generation", () => {
       generateThemeCss({
         ...organizationTheme,
         geometry: { radius: "1rem; } body { color: lime" },
-      })
+      }),
     ).toThrow("Theme radius must be zero or a nonnegative px, rem, em, or percentage length")
   })
 })
@@ -333,7 +333,7 @@ describe("theme definitions", () => {
       resolveThemeDefinition(definition),
     )
     expect(() =>
-      resolveThemeDefinition({ $schema: "https://example.com/theme.json", ...definition })
+      resolveThemeDefinition({ $schema: "https://example.com/theme.json", ...definition }),
     ).toThrow(/\$schema/u)
     expect(() => resolveThemeDefinition({ ...definition, metadata: "organization-seed" })).toThrow(
       /metadata/u,
@@ -345,13 +345,13 @@ describe("theme definitions", () => {
         colors: {
           light: { ...definition.colors.light, customization: { ring: "#008f88" } },
         },
-      })
+      }),
     ).toThrow(/customization/u)
     expect(() =>
       resolveThemeDefinition({
         ...definition,
         colors: { ...definition.colors, dark: { primary: "#ffcc00", ring: "#ffcc00" } },
-      })
+      }),
     ).toThrow(/ring/u)
   })
 
@@ -391,13 +391,13 @@ describe("theme definitions", () => {
         colors: {
           light: { ...definition.colors.light, primary: "not-a-color" },
         },
-      })
+      }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
     expect(() =>
       resolveThemeDefinition({
         ...definition,
         colors: { light: { ...definition.colors.light, primary: " #006b66 " } },
-      })
+      }),
     ).toThrow("Theme colors must not have surrounding whitespace")
     expect(() =>
       resolveThemeDefinition({
@@ -405,14 +405,14 @@ describe("theme definitions", () => {
         colors: {
           light: { ...definition.colors.light, primary: `red${" ".repeat(254)}` },
         },
-      })
+      }),
     ).toThrow(`Theme colors must be at most 256 characters`)
     for (const primary of ["oklch(none none none)", "oklch(0.5 none 120)", "oklch(0.5 0 none)"]) {
       expect(() =>
         resolveThemeDefinition({
           ...definition,
           colors: { light: { ...definition.colors.light, primary } },
-        })
+        }),
       ).toThrow("Theme colors must be valid opaque CSS colors")
     }
     expect(() =>
@@ -421,7 +421,7 @@ describe("theme definitions", () => {
         colors: {
           light: { ...definition.colors.light, primary: "rgb(0 0 0 / 99.95%)" },
         },
-      })
+      }),
     ).toThrow("Theme colors must be valid opaque CSS colors")
     expect(() =>
       resolveThemeDefinition({
@@ -429,7 +429,7 @@ describe("theme definitions", () => {
         colors: {
           light: { ...definition.colors.light, foreground: "#aaaaaa" },
         },
-      })
+      }),
     ).toThrow(/contrast/u)
     expect(() =>
       resolveThemeDefinition({
@@ -440,7 +440,7 @@ describe("theme definitions", () => {
             "primary-foreground": definition.colors.light.primary,
           },
         },
-      })
+      }),
     ).toThrow(/contrast/u)
   })
 
@@ -461,7 +461,7 @@ describe("theme definitions", () => {
           },
         },
         geometry: {},
-      })
+      }),
     ).toThrow(/contrast/u)
   })
 
@@ -489,7 +489,7 @@ describe("theme definitions", () => {
           },
         },
         geometry: {},
-      })
+      }),
     ).toThrow(/focus indicators/u)
   })
 

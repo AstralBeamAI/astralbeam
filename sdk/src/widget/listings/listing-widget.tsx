@@ -77,19 +77,22 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
     >
       {options.showHeader !== false && (
         <header data-slot="directory-header" className="flex items-center gap-3">
-          {kind === "tenants"
-            ? <BuildingsIcon size={22} aria-hidden />
-            : <UsersIcon size={22} aria-hidden />}
+          {kind === "tenants" ? (
+            <BuildingsIcon size={22} aria-hidden />
+          ) : (
+            <UsersIcon size={22} aria-hidden />
+          )}
           <div>
             <h2 className="font-heading text-lg font-semibold">{title}</h2>
             <p className="text-sm text-muted-foreground">
               {currentTenant
                 ? `${
-                  currentTenant.name || currentTenant.external_id
-                } · ${currentTenant.external_id}`
+                    currentTenant.name || currentTenant.external_id
+                  } · ${currentTenant.external_id}`
                 : scope === "tenant"
-                ? "Current tenant"
-                : "Current organization"} · Read-only directory
+                  ? "Current tenant"
+                  : "Current organization"}{" "}
+              · Read-only directory
             </p>
           </div>
         </header>
@@ -136,7 +139,9 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
             onChange={(e) => setSize(Number(e.target.value) as typeof size)}
           >
             {[20, 50, 100].map((value) => (
-              <NativeSelectOption key={value} value={value}>{value} per page</NativeSelectOption>
+              <NativeSelectOption key={value} value={value}>
+                {value} per page
+              </NativeSelectOption>
             ))}
           </NativeSelect>
           <Button
@@ -154,53 +159,48 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           </Button>
         </div>
       </div>
-      {resolve && tenant.isError
-        ? (
-          <ListingError
-            error={tenant.error}
-            retry={() => void tenant.refetch()}
-          />
-        )
-        : resolve && tenant.isPending
-        ? <ListingLoading />
-        : awaitingTenant
-        ? (
-          <div
-            data-slot="directory-empty"
-            className="space-y-3 rounded-lg border border-foreground/10 bg-card p-8 text-center text-card-foreground"
-          >
-            <p role="status" className="text-muted-foreground">
-              {needsPicker
-                ? "Select a tenant to view its users."
-                : "No persisted tenant found. Create the tenant, then refresh."}
-            </p>
-          </div>
-        )
-        : (
-          <DirectoryPage
-            key={JSON.stringify([tenantId, q, adminFilter, size])}
-            admin={adminFilter}
-            {...{
-              options,
-              kind,
-              session,
-              tenantId,
-              q,
-              size,
-            }}
-          />
-        )}
+      {resolve && tenant.isError ? (
+        <ListingError error={tenant.error} retry={() => void tenant.refetch()} />
+      ) : resolve && tenant.isPending ? (
+        <ListingLoading />
+      ) : awaitingTenant ? (
+        <div
+          data-slot="directory-empty"
+          className="space-y-3 rounded-lg border border-foreground/10 bg-card p-8 text-center text-card-foreground"
+        >
+          <p role="status" className="text-muted-foreground">
+            {needsPicker
+              ? "Select a tenant to view its users."
+              : "No persisted tenant found. Create the tenant, then refresh."}
+          </p>
+        </div>
+      ) : (
+        <DirectoryPage
+          key={JSON.stringify([tenantId, q, adminFilter, size])}
+          admin={adminFilter}
+          {...{
+            options,
+            kind,
+            session,
+            tenantId,
+            q,
+            size,
+          }}
+        />
+      )}
     </section>
   )
 }
 
-function TenantPicker(
-  { session, selected, onSelect }: {
-    session: ListingSession
-    selected: TenantRecordEncoded | null
-    onSelect: (tenant: TenantRecordEncoded | null) => void
-  },
-) {
+function TenantPicker({
+  session,
+  selected,
+  onSelect,
+}: {
+  session: ListingSession
+  selected: TenantRecordEncoded | null
+  onSelect: (tenant: TenantRecordEncoded | null) => void
+}) {
   const inputId = useId()
   const [text, setText] = useState("")
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
@@ -282,11 +282,20 @@ function TenantPicker(
   )
 }
 
-function DirectoryPage(
-  { options, kind, session, tenantId, q, admin, size }:
-    & WidgetProps
-    & { tenantId: string | undefined; q: string; admin: "all" | "true" | "false"; size: number },
-) {
+function DirectoryPage({
+  options,
+  kind,
+  session,
+  tenantId,
+  q,
+  admin,
+  size,
+}: WidgetProps & {
+  tenantId: string | undefined
+  q: string
+  admin: "all" | "true" | "false"
+  size: number
+}) {
   const [cursor, setCursor] = useState<Cursor>({})
   const query = useQuery<TenantPage | TenantUserPage>({
     queryKey: [kind, tenantId, q, admin, size, cursor],
@@ -295,29 +304,24 @@ function DirectoryPage(
   })
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
-      {query.isError
-        ? (
-          <ListingError
-            error={query.error}
-            retry={() => void query.refetch()}
+      {query.isError ? (
+        <ListingError error={query.error} retry={() => void query.refetch()} />
+      ) : query.isPending ? (
+        <ListingLoading />
+      ) : (
+        <div
+          data-slot="directory-table"
+          className="overflow-hidden rounded-lg border border-foreground/10 bg-card text-card-foreground"
+        >
+          <DirectoryTable
+            key={JSON.stringify(cursor)}
+            rows={query.data.items}
+            kind={kind}
+            options={options}
+            filtered={!!q || admin !== "all"}
           />
-        )
-        : query.isPending
-        ? <ListingLoading />
-        : (
-          <div
-            data-slot="directory-table"
-            className="overflow-hidden rounded-lg border border-foreground/10 bg-card text-card-foreground"
-          >
-            <DirectoryTable
-              key={JSON.stringify(cursor)}
-              rows={query.data.items}
-              kind={kind}
-              options={options}
-              filtered={!!q || admin !== "all"}
-            />
-          </div>
-        )}
+        </div>
+      )}
       <div data-slot="directory-pagination">
         <PageNavigation
           page={query.isError ? undefined : query.data}
@@ -329,13 +333,15 @@ function DirectoryPage(
   )
 }
 
-function PageNavigation(
-  { page, busy, onPage }: {
-    page: TenantPage | TenantUserPage | undefined
-    busy: boolean
-    onPage: (cursor: Cursor) => void
-  },
-) {
+function PageNavigation({
+  page,
+  busy,
+  onPage,
+}: {
+  page: TenantPage | TenantUserPage | undefined
+  busy: boolean
+  onPage: (cursor: Cursor) => void
+}) {
   return (
     <nav aria-label="Directory pages" className="grid grid-cols-2 justify-end gap-2 sm:flex">
       <Button
@@ -361,7 +367,9 @@ function PageNavigation(
 function ListingLoading() {
   return (
     <div role="status" aria-label="Loading directory" className="space-y-3 p-4">
-      {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+      {[0, 1, 2].map((i) => (
+        <Skeleton key={i} className="h-10 w-full" />
+      ))}
     </div>
   )
 }
@@ -382,7 +390,9 @@ function ListingError({ error, retry }: { error: Error; retry: () => void }) {
       <AlertDescription>
         {status === 429 ? `Please retry after ${retryAfter ?? "a few"} seconds.` : error.message}
       </AlertDescription>
-      <Button variant="outline" size="sm" onClick={retry}>Retry</Button>
+      <Button variant="outline" size="sm" onClick={retry}>
+        Retry
+      </Button>
     </Alert>
   )
 }

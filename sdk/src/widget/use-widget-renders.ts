@@ -29,12 +29,12 @@ export function useWidgetRenders(
   host: HTMLElement,
   debug: DebugLogger | undefined,
 ) {
-  const [activeSlots, setActiveSlots] = useState<ReadonlySet<string>>(new Set())
+  // Maps each live slot to its widget, so a widget update can drop orphaned slots during render.
+  const [activeSlots, setActiveSlots] = useState<ReadonlyMap<string, string>>(new Map())
   const activeRenders = useRef(new Map<string, ActiveWidgetRender>())
   // Reset, the active-render cap, and cleanup after a widget is unregistered differ only in which
-  // renders they select, so they share one path: dispose, forget, and drop the slot so the
-  // transcript entry falls back to a summary marker. Returns how many went.
-  const discardRenders = (discard: (render: ActiveWidgetRender) => boolean) => {
+  // renders they select, so they share one path: dispose, forget, and return the dropped slots.
+  const disposeRenders = useCallback((discard: (render: ActiveWidgetRender) => boolean) => {
     const dropped: string[] = []
     // Deleting the current entry while iterating a Map is well defined, and insertion order makes
     // a size-based predicate discard oldest-first.
@@ -48,15 +48,23 @@ export function useWidgetRenders(
       activeRenders.current.delete(toolCallId)
       dropped.push(slotNameForToolCall(toolCallId))
     }
-    if (dropped.length > 0) {
-      setActiveSlots((current) => {
-        const next = new Set(current)
-        for (const slot of dropped) next.delete(slot)
-        return next
-      })
-    }
-    return dropped.length
-  }
+    return dropped
+  }, [])
+  // Also drops the slots, so their transcript entries fall back to a summary marker.
+  const discardRenders = useCallback(
+    (discard: (render: ActiveWidgetRender) => boolean) => {
+      const dropped = disposeRenders(discard)
+      if (dropped.length > 0) {
+        setActiveSlots((current) => {
+          const next = new Map(current)
+          for (const slot of dropped) next.delete(slot)
+          return next
+        })
+      }
+      return dropped.length
+    },
+    [disposeRenders],
+  )
   const mounted = useRef(true)
   useEffect(() => {
     mounted.current = true
@@ -64,15 +72,17 @@ export function useWidgetRenders(
       mounted.current = false
       discardRenders(() => true)
     }
-  }, [])
+  }, [discardRenders])
 
   // `renderWidget` has to stay referentially stable or the session built on it would rebuild its
   // tool set on every render, so it reads the widgets and the logger through refs instead of
   // capturing them: a render can be requested many turns after the update that declared it.
   const widgetsRef = useRef(widgets)
-  widgetsRef.current = widgets
   const debugRef = useRef(debug)
-  debugRef.current = debug
+  useEffect(() => {
+    widgetsRef.current = widgets
+    debugRef.current = debug
+  })
 
   const renderWidget = useCallback(
     ({ widget, props, toolCallId, release }: WidgetRenderRequest) => {
@@ -111,23 +121,31 @@ export function useWidgetRenders(
           cap: MAX_ACTIVE_WIDGET_RENDERS,
         })
       }
-      setActiveSlots((current) => new Set(current).add(slotName))
+      setActiveSlots((current) => new Map(current).set(slotName, widget))
       debug?.("widget", `widget "${widget}" rendered`, { slotName })
       // Selected by identity, so disposing a render this hook already evicted or replaced is a no-op.
       return () => discardRenders((render) => render === active)
     },
-    [host],
+    [host, discardRenders],
   )
 
-  // A widget dropped by an update leaves its render unreachable: the transcript can no longer
-  // resolve the definition, so the container would linger in the host's DOM behind a slot that
-  // is never rendered. Those entries fall back to the summary marker instead.
+  // A widget dropped by an update leaves its renders unreachable, so their slots fall back to the
+  // summary marker. https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [slotWidgets, setSlotWidgets] = useState(widgets)
+  if (slotWidgets !== widgets) {
+    setSlotWidgets(widgets)
+    setActiveSlots((current) => {
+      const next = new Map([...current].filter(([, widget]) => getWidget(widgets, widget)))
+      return next.size === current.size ? current : next
+    })
+  }
+  // Their containers would otherwise linger in the host's DOM behind a slot that is never rendered.
   useEffect(() => {
-    const orphaned = discardRenders((render) => !getWidget(widgets, render.widget))
+    const orphaned = disposeRenders((render) => !getWidget(widgets, render.widget)).length
     if (orphaned > 0) {
       debug?.("widget", `disposed ${orphaned} render(s) of widgets no longer registered`)
     }
-  }, [widgets, debug])
+  }, [widgets, debug, disposeRenders])
 
   return { activeSlots, renderWidget }
 }

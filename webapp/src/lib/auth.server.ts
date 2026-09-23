@@ -166,7 +166,7 @@ function buildAuth(config: AuthConfig) {
             user,
             url,
             expiresInSeconds: PASSWORD_RESET_EXPIRY_SECONDS,
-          })
+          }),
         ),
       // Better Auth answers a duplicate sign-up with a synthetic user so the response cannot
       // confirm the address exists, which otherwise leaves the address's real owner on a "check
@@ -199,7 +199,7 @@ function buildAuth(config: AuthConfig) {
             user,
             url,
             expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
-          })
+          }),
         ),
     },
     socialProviders: {
@@ -297,7 +297,9 @@ function buildAuth(config: AuthConfig) {
         const body = recordValue(context.body)
         if (context.path === "/api-key/delete" && typeof body?.keyId === "string") {
           // Authorize reading the key before disclosing why it cannot be deleted.
-          await (await getAuth()).api.getApiKey({
+          await (
+            await getAuth()
+          ).api.getApiKey({
             headers: context.headers ?? new Headers(),
             query: { id: body.keyId },
           })
@@ -384,7 +386,7 @@ function buildAuth(config: AuthConfig) {
             sendOrganizationInvitationEmail({
               ...data,
               expiresInSeconds: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
-            })
+            }),
           ),
       }),
       organizationApiKeyPlugin,
@@ -443,12 +445,14 @@ export async function getAuth(): Promise<AppAuth> {
   const config: AuthConfig = {
     appBaseUrl,
     betterAuthSecret,
-    google: googleClientId && googleClientSecret
-      ? { clientId: googleClientId, clientSecret: googleClientSecret }
-      : null,
-    github: githubClientId && githubClientSecret
-      ? { clientId: githubClientId, clientSecret: githubClientSecret }
-      : null,
+    google:
+      googleClientId && googleClientSecret
+        ? { clientId: googleClientId, clientSecret: googleClientSecret }
+        : null,
+    github:
+      githubClientId && githubClientSecret
+        ? { clientId: githubClientId, clientSecret: githubClientSecret }
+        : null,
     legalAcceptanceRequired: Boolean(privacyPolicyUrl || termsOfServiceUrl),
     turnstileSecretKey,
   }

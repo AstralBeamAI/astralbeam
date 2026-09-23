@@ -60,7 +60,7 @@ function readWebappEnvFiles(): Record<string, string> {
     const path = join(webappDirectory, fileName)
     if (!existsSync(path)) continue
     for (const line of readFileSync(path, "utf8").split("\n")) {
-      const match = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i.exec(line)
+      const match = /^\s*([A-Z_]\w*)\s*=(.*)$/i.exec(line)
       if (!match?.[1]) continue
       values[match[1]] = (match[2] ?? "").trim().replace(/^["'](.*)["']$/, "$1")
     }
@@ -140,31 +140,39 @@ function forwardedWebappEnv(): Record<string, string> {
 /** Playwright `webServer` entries. Empty for a server the operator is already running. */
 export function e2eWebServers() {
   return [
-    ...(externalWebappUrl ? [] : [{
-      command: "deno task dev",
-      cwd: webappDirectory,
-      url: `${webappUrl}/api/status`,
-      env: forwardedWebappEnv(),
-      reuseExistingServer: false,
-      timeout: 180_000,
-      stdout: "pipe" as const,
-      stderr: "pipe" as const,
-    }]),
-    ...(externalTodosUrl ? [] : [{
-      command: "deno task dev",
-      cwd: todosDirectory,
-      url: todosUrl,
-      env: {
-        PORT: String(todosPort),
-        // The confidential key the token route signs with, and the browser-safe agent it targets.
-        ASTRALBEAM_API_KEY: seedTarget.apiKey,
-        VITE_ASTRALBEAM_AGENT_ID: seedTarget.agentId,
-        VITE_ASTRALBEAM_API_URL: `${webappUrl}/api`,
-      },
-      reuseExistingServer: false,
-      timeout: 180_000,
-      stdout: "pipe" as const,
-      stderr: "pipe" as const,
-    }]),
+    ...(externalWebappUrl
+      ? []
+      : [
+          {
+            command: "deno task dev",
+            cwd: webappDirectory,
+            url: `${webappUrl}/api/status`,
+            env: forwardedWebappEnv(),
+            reuseExistingServer: false,
+            timeout: 180_000,
+            stdout: "pipe" as const,
+            stderr: "pipe" as const,
+          },
+        ]),
+    ...(externalTodosUrl
+      ? []
+      : [
+          {
+            command: "deno task dev",
+            cwd: todosDirectory,
+            url: todosUrl,
+            env: {
+              PORT: String(todosPort),
+              // The confidential key the token route signs with, and the browser-safe agent it targets.
+              ASTRALBEAM_API_KEY: seedTarget.apiKey,
+              VITE_ASTRALBEAM_AGENT_ID: seedTarget.agentId,
+              VITE_ASTRALBEAM_API_URL: `${webappUrl}/api`,
+            },
+            reuseExistingServer: false,
+            timeout: 180_000,
+            stdout: "pipe" as const,
+            stderr: "pipe" as const,
+          },
+        ]),
   ]
 }

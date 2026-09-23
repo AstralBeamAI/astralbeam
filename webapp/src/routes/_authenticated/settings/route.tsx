@@ -16,10 +16,10 @@ export const Route = createFileRoute("/_authenticated/settings")({
   loader: async ({ context: { access } }) =>
     access.status === "ready"
       ? {
-        organization: await getOrganizationRouteContext({
-          data: { organizationSlug: access.organizationSlug },
-        }),
-      }
+          organization: await getOrganizationRouteContext({
+            data: { organizationSlug: access.organizationSlug },
+          }),
+        }
       : { organization: null },
   component: SettingsLayout,
 })

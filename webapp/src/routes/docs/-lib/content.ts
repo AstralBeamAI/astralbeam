@@ -4,10 +4,10 @@
 // Bodies load per page, so /docs and each article ship only the Markdown they render. The api
 // directory is excluded because it feeds the OpenAPI description, not a route of its own.
 // https://vite.dev/guide/features#glob-import
-const docsMarkdownByPath = import.meta.glob<string>([
-  "/src/routes/docs/-content/*/*.md",
-  "!/src/routes/docs/-content/api/*.md",
-], { query: "?raw", import: "default" })
+const docsMarkdownByPath = import.meta.glob<string>(
+  ["/src/routes/docs/-content/*/*.md", "!/src/routes/docs/-content/api/*.md"],
+  { query: "?raw", import: "default" },
+)
 
 export interface DocsPage {
   slug: string
@@ -121,7 +121,7 @@ export function docsSitemapPaths(): string[] {
     ...DOCS_SECTIONS.filter((section) => !section.draft).flatMap((section) =>
       section.href
         ? [section.href]
-        : publishedDocsPages(section).map((page) => `/docs/${section.slug}/${page.slug}`)
+        : publishedDocsPages(section).map((page) => `/docs/${section.slug}/${page.slug}`),
     ),
   ]
 }

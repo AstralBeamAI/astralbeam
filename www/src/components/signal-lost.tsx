@@ -9,7 +9,7 @@ export function SignalLost() {
       <div className="fx-vignette" aria-hidden="true"></div>
       <main className="hero" style={fullHeight}>
         <div className="hero-inner">
-          <p className="eyebrow">// ERROR 404</p>
+          <p className="eyebrow">&#47;&#47; ERROR 404</p>
           <h1
             className="display hero-title beam-text"
             style={{ fontSize: "clamp(3rem, 10vw, 7rem)" }}
@@ -20,7 +20,9 @@ export function SignalLost() {
             This sector is uncharted. The page you requested does not exist.
           </p>
           <div className="hero-ctas">
-            <a className="btn btn-primary btn-lg" href="/">RETURN TO BASE</a>
+            <a className="btn btn-primary btn-lg" href="/">
+              RETURN TO BASE
+            </a>
           </div>
         </div>
       </main>

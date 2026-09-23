@@ -19,7 +19,7 @@ async function listMailboxMessages(recipient?: string): Promise<MailboxMessage[]
   if (recipient) url.searchParams.set("to", recipient)
   const response = await fetch(url)
   if (!response.ok) throw new Error(`The mailbox answered ${response.status}`)
-  return (await response.json() as { messages: MailboxMessage[] }).messages
+  return ((await response.json()) as { messages: MailboxMessage[] }).messages
 }
 
 /**
@@ -39,8 +39,9 @@ export async function waitForEmail(
     if (candidates[0]) return candidates[0]
     await new Promise((resolve) => setTimeout(resolve, MAILBOX_POLL_MS))
   }
-  const seen = (await listMailboxMessages())
-    .map((message) => `${message.to.join(", ")} ${message.subject}`)
+  const seen = (await listMailboxMessages()).map(
+    (message) => `${message.to.join(", ")} ${message.subject}`,
+  )
   throw new Error(
     `No email to ${recipient} arrived within the timeout. Mailbox held: ${
       seen.join("; ") || "nothing"

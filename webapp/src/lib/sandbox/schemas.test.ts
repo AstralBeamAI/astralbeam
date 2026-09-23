@@ -9,7 +9,7 @@ describe("sandbox provider schemas", () => {
         target: "us",
         snapshot: "daytona-medium",
         apiKey: "leak",
-      })
+      }),
     ).toThrow()
     expect(() => decodeProviderCredentials("docker", { apiKey: "token" })).toThrow()
   })

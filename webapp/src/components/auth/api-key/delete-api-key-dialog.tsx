@@ -36,15 +36,12 @@ export function DeleteApiKeyDialog({
 }: DeleteApiKeyDialogProps) {
   const { authClient, localization } = useAuth<ApiKeyAuthClient>()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
-  const { mutate: deleteApiKey, isPending: isDeleting } = useDeleteApiKey(
-    authClient,
-    {
-      onSuccess: () => {
-        onOpenChange(false)
-        onDeleted?.()
-      },
+  const { mutate: deleteApiKey, isPending: isDeleting } = useDeleteApiKey(authClient, {
+    onSuccess: () => {
+      onOpenChange(false)
+      onDeleted?.()
     },
-  )
+  })
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -56,9 +53,7 @@ export function DeleteApiKeyDialog({
 
           <AlertDialogTitle>{apiKeyLocalization.deleteApiKey}</AlertDialogTitle>
 
-          <AlertDialogDescription>
-            {apiKeyLocalization.deleteApiKeyWarning}
-          </AlertDialogDescription>
+          <AlertDialogDescription>{apiKeyLocalization.deleteApiKeyWarning}</AlertDialogDescription>
         </AlertDialogHeader>
 
         <AlertDialogFooter>
@@ -73,7 +68,8 @@ export function DeleteApiKeyDialog({
             onClick={() =>
               deleteApiKey({
                 keyId: apiKey.id,
-              })}
+              })
+            }
           >
             {isDeleting && <Spinner />}
 

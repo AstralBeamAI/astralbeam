@@ -81,7 +81,7 @@ function testOrganizationSandboxHandle(
   return sandboxProviderPromiseEffect(() =>
     handle.process.exec("printf sandbox-connection-ok", {
       signal: AbortSignal.timeout(15_000),
-    })
+    }),
   ).pipe(
     Effect.filterOrFail(
       (result) => result.exitCode === 0 && result.stdout === "sandbox-connection-ok",
@@ -102,7 +102,7 @@ function destroyOrganizationSandboxTestHandle(
     Effect.mapError((cause) =>
       cause instanceof OrganizationSandboxProviderOperationError
         ? cause
-        : new OrganizationSandboxProviderOperationError({ cause })
+        : new OrganizationSandboxProviderOperationError({ cause }),
     ),
   )
 }
@@ -132,9 +132,7 @@ function failedOrganizationSandboxConnectionTest(
   return { status: "failure", testedAt, errorCode }
 }
 
-function sanitizeOrganizationSandboxProviderError(
-  error: unknown,
-): SandboxConnectionErrorCode {
+function sanitizeOrganizationSandboxProviderError(error: unknown): SandboxConnectionErrorCode {
   if (error instanceof DOMException && error.name === "AbortError") return "cancelled"
   if (!(error instanceof Error)) return "provider_error"
   let current: unknown = error

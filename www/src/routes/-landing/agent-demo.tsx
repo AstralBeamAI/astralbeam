@@ -100,7 +100,9 @@ export function AgentDemo() {
             <FileIcon />
             <span className="artifact-name">unpaid-returns.xlsx</span>
             <span className="artifact-size">17 KB</span>
-            <span className="artifact-download" aria-hidden="true">↓</span>
+            <span className="artifact-download" aria-hidden="true">
+              ↓
+            </span>
           </a>
           <p className="agent-stream" data-stream="">
             3 of 41 returns are still unpaid, $612 in total. The spreadsheet is ready to download.
@@ -140,7 +142,9 @@ export function AgentDemo() {
               ))}
             </div>
             <ul className="chart-ticks mono">
-              {chartColumns.map((column) => <li key={column.week}>{column.week}</li>)}
+              {chartColumns.map((column) => (
+                <li key={column.week}>{column.week}</li>
+              ))}
             </ul>
           </figure>
           <p className="agent-stream" data-stream="">
@@ -158,7 +162,9 @@ export function AgentDemo() {
           aria-label="Ask the demo agent"
           data-input=""
         />
-        <button className="agent-send" type="submit" aria-label="Send message">↑</button>
+        <button className="agent-send" type="submit" aria-label="Send message">
+          ↑
+        </button>
       </form>
     </aside>
   )

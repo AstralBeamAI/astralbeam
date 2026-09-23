@@ -33,9 +33,11 @@ export function SandboxProviderListCard({
         <CardDescription>{descriptor?.label ?? provider.providerType}</CardDescription>
       </CardHeader>
       <CardContent>
-        {provider.lastTest
-          ? <SandboxConnectionStatus metadata={provider.lastTest} />
-          : <p className="text-sm text-muted-foreground">Not tested yet</p>}
+        {provider.lastTest ? (
+          <SandboxConnectionStatus metadata={provider.lastTest} />
+        ) : (
+          <p className="text-sm text-muted-foreground">Not tested yet</p>
+        )}
       </CardContent>
     </Card>
   )

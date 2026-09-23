@@ -9,13 +9,15 @@ export const configureMiddleware = createMiddleware({ type: "function" }).server
     const { withDogfoodProvisioningLock } = await import("@/db/dogfood.server")
     const { Effect, Predicate } = await import("effect")
     requireConfigureRequest()
-    if (!await getOperatorSession()) {
+    if (!(await getOperatorSession())) {
       setResponseStatus(403)
       throw new Error("Operator authentication required")
     }
-    return runDatabaseEffect(withDogfoodProvisioningLock(
-      Effect.tryPromise({ try: () => next(), catch: (error) => error }),
-    )).catch((error: unknown) => {
+    return runDatabaseEffect(
+      withDogfoodProvisioningLock(
+        Effect.tryPromise({ try: () => next(), catch: (error) => error }),
+      ),
+    ).catch((error: unknown) => {
       if (Predicate.isTagged(error, "OwnerOnboardingError")) {
         setResponseStatus(409)
         throw new Error("Configuration is busy. Try again shortly.")

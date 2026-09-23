@@ -72,14 +72,14 @@ export function CreateApiKeyDialog({
   )
   const expirationItems = keyExpiration
     ? [
-      ...keyExpiration.intervals.map((days) => ({
-        label: `${days.toLocaleString()} ${
-          days === 1 ? apiKeyLocalization.day : apiKeyLocalization.days
-        }`,
-        value: String(days),
-      })),
-      ...(keyExpiration.allowNever ? [{ label: apiKeyLocalization.never, value: "never" }] : []),
-    ]
+        ...keyExpiration.intervals.map((days) => ({
+          label: `${days.toLocaleString()} ${
+            days === 1 ? apiKeyLocalization.day : apiKeyLocalization.days
+          }`,
+          value: String(days),
+        })),
+        ...(keyExpiration.allowNever ? [{ label: apiKeyLocalization.never, value: "never" }] : []),
+      ]
     : []
   const needsFreshSession = isSessionNotFreshError(createApiKeyError)
 
@@ -117,9 +117,8 @@ export function CreateApiKeyDialog({
     setNameError(undefined)
 
     const expiration = formData.get("expiration")
-    const expirationDays = typeof expiration === "string" && expiration !== "never"
-      ? Number(expiration)
-      : undefined
+    const expirationDays =
+      typeof expiration === "string" && expiration !== "never" ? Number(expiration) : undefined
     const expiresIn = expirationDays ? apiKeyExpirationDaysToSeconds(expirationDays) : undefined
 
     const configIdValue = formData.get("configId")
@@ -161,9 +160,7 @@ export function CreateApiKeyDialog({
           {needsFreshSession && (
             <>
               <DialogHeader>
-                <DialogTitle>
-                  {localization.settings.freshSessionTitle}
-                </DialogTitle>
+                <DialogTitle>{localization.settings.freshSessionTitle}</DialogTitle>
                 <DialogDescription>
                   {localization.settings.freshSessionDescription}
                 </DialogDescription>
@@ -175,27 +172,19 @@ export function CreateApiKeyDialog({
               </DialogFooter>
             </>
           )}
-          <form
-            onSubmit={handleSubmit}
-            className="flex flex-col gap-6"
-            hidden={needsFreshSession}
-          >
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6" hidden={needsFreshSession}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <KeyIcon aria-hidden="true" />
                 {apiKeyLocalization.createApiKey}
               </DialogTitle>
 
-              <DialogDescription>
-                {apiKeyLocalization.apiKeysDescription}
-              </DialogDescription>
+              <DialogDescription>{apiKeyLocalization.apiKeysDescription}</DialogDescription>
             </DialogHeader>
 
             <FieldGroup>
               <Field data-invalid={!!nameError}>
-                <FieldLabel htmlFor="api-key-name">
-                  {apiKeyLocalization.name}
-                </FieldLabel>
+                <FieldLabel htmlFor="api-key-name">{apiKeyLocalization.name}</FieldLabel>
 
                 <Input
                   id="api-key-name"
@@ -233,19 +222,13 @@ export function CreateApiKeyDialog({
                     defaultValue={availableConfigurations[0]?.id}
                     disabled={isCreating}
                   >
-                    <SelectTrigger
-                      id="api-key-configuration"
-                      className="w-full"
-                    >
+                    <SelectTrigger id="api-key-configuration" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
                         {availableConfigurations.map((configuration) => (
-                          <SelectItem
-                            key={configuration.id}
-                            value={configuration.id}
-                          >
+                          <SelectItem key={configuration.id} value={configuration.id}>
                             {configuration.label}
                           </SelectItem>
                         ))}
@@ -255,38 +238,38 @@ export function CreateApiKeyDialog({
                 </Field>
               )}
 
-              {keyExpiration
-                ? (
-                  <Field>
-                    <FieldLabel htmlFor="api-key-expiration">
-                      {apiKeyLocalization.expiration}
-                    </FieldLabel>
+              {keyExpiration ? (
+                <Field>
+                  <FieldLabel htmlFor="api-key-expiration">
+                    {apiKeyLocalization.expiration}
+                  </FieldLabel>
 
-                    <Select
-                      items={expirationItems}
-                      name="expiration"
-                      defaultValue={keyExpiration.defaultInterval === null
+                  <Select
+                    items={expirationItems}
+                    name="expiration"
+                    defaultValue={
+                      keyExpiration.defaultInterval === null
                         ? "never"
-                        : String(keyExpiration.defaultInterval)}
-                      disabled={isCreating}
-                    >
-                      <SelectTrigger id="api-key-expiration" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
+                        : String(keyExpiration.defaultInterval)
+                    }
+                    disabled={isCreating}
+                  >
+                    <SelectTrigger id="api-key-expiration" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
 
-                      <SelectContent>
-                        <SelectGroup>
-                          {expirationItems.map((item) => (
-                            <SelectItem key={item.value} value={item.value}>
-                              {item.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )
-                : null}
+                    <SelectContent>
+                      <SelectGroup>
+                        {expirationItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ) : null}
             </FieldGroup>
 
             <DialogFooter>
@@ -298,10 +281,7 @@ export function CreateApiKeyDialog({
                 {localization.settings.cancel}
               </DialogClose>
 
-              <Button
-                type="submit"
-                disabled={isCreating}
-              >
+              <Button type="submit" disabled={isCreating}>
                 {isCreating && <Spinner />}
 
                 {apiKeyLocalization.createApiKey}

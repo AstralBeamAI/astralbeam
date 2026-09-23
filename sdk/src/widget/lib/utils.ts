@@ -46,7 +46,7 @@ export function slotNameForToolCall(toolCallId: string): string {
 }
 
 export function getMessageText(message: UIMessage): string {
-  return message.parts.map((part) => part.type === "text" ? part.content : "").join("")
+  return message.parts.map((part) => (part.type === "text" ? part.content : "")).join("")
 }
 
 // Questionnaire items arrive from the agent unvalidated, so malformed ones degrade to
@@ -58,14 +58,14 @@ export function sanitizeQuestionnaireItems(rawInput: unknown): QuestionnaireItem
   for (const item of items as Partial<QuestionnaireItemSpec>[]) {
     if (typeof item?.name !== "string" || typeof item.title !== "string") continue
     const choices = Array.isArray(item.choices)
-      ? item.choices.filter((choice) =>
-        typeof choice?.value === "string" && typeof choice.label === "string"
-      )
+      ? item.choices.filter(
+          (choice) => typeof choice?.value === "string" && typeof choice.label === "string",
+        )
       : []
-    const freeform = typeof item.input?.label === "string" &&
-        typeof item.input.placeholder === "string"
-      ? item.input
-      : undefined
+    const freeform =
+      typeof item.input?.label === "string" && typeof item.input.placeholder === "string"
+        ? item.input
+        : undefined
     if (choices.length === 0 && !freeform) continue
     sanitized.push({
       name: item.name,
@@ -115,7 +115,9 @@ export function collectCustomPropertyNames(): string[] {
       } else if (rule instanceof CSSImportRule) {
         try {
           if (rule.styleSheet) visit(rule.styleSheet.cssRules)
-        } catch { /* cross-origin import */ }
+        } catch {
+          /* cross-origin import */
+        }
       } else if (rule instanceof CSSGroupingRule) {
         visit(rule.cssRules)
       }
@@ -124,7 +126,9 @@ export function collectCustomPropertyNames(): string[] {
   for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) {
     try {
       visit(sheet.cssRules)
-    } catch { /* cross-origin sheet */ }
+    } catch {
+      /* cross-origin sheet */
+    }
   }
   return [...names]
 }

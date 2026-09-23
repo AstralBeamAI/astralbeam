@@ -20,18 +20,21 @@ const OrganizationMembershipSchema = Schema.Struct({
   role: Schema.String,
 })
 
-const decodeOrganizationMembership = Schema.decodeUnknownEffect(
-  OrganizationMembershipSchema,
-  { onExcessProperty: "error" },
-)
+const decodeOrganizationMembership = Schema.decodeUnknownEffect(OrganizationMembershipSchema, {
+  onExcessProperty: "error",
+})
 
 export function isLastOrganizationApiKey(keyId: string) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
-    const [key] = yield* db.select({ organizationId: apiKey.organizationId }).from(apiKey)
+    const [key] = yield* db
+      .select({ organizationId: apiKey.organizationId })
+      .from(apiKey)
       .where(eq(apiKey.id, keyId))
     if (!key) return false
-    const [row] = yield* db.select({ count: count() }).from(apiKey)
+    const [row] = yield* db
+      .select({ count: count() })
+      .from(apiKey)
       .where(eq(apiKey.organizationId, key.organizationId))
     return row?.count === 1
   })
@@ -84,9 +87,14 @@ export function readOrganizationResourceCounts(input: {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const countRows = (table: OrganizationOwnedTable) =>
-      db.select({ value: count() }).from(table).where(
-        eq(table.organizationId, input.organizationId),
-      ).pipe(Effect.map((rows) => rows[0]?.value ?? 0), Effect.orDie)
+      db
+        .select({ value: count() })
+        .from(table)
+        .where(eq(table.organizationId, input.organizationId))
+        .pipe(
+          Effect.map((rows) => rows[0]?.value ?? 0),
+          Effect.orDie,
+        )
     const countIf = (allowed: boolean, table: OrganizationOwnedTable) =>
       allowed ? countRows(table) : Effect.succeed(null)
 

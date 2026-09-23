@@ -26,5 +26,5 @@ export const getOrganizationSettingsPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         })),
       ),
-    )
+    ),
   )

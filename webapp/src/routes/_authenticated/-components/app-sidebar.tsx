@@ -82,11 +82,7 @@ function organizationPath(slug: string, segment: string): string {
 }
 
 /** Keeps the visited section when its path exists under the organization being switched to. */
-function organizationSwitchPath(
-  pathname: string,
-  currentSlug: string,
-  nextSlug: string,
-): string {
+function organizationSwitchPath(pathname: string, currentSlug: string, nextSlug: string): string {
   const relative = pathname.startsWith(`/${currentSlug}/`)
     ? pathname.slice(currentSlug.length + 2)
     : ""
@@ -122,15 +118,15 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
           side={isMobile ? "bottom" : "right"}
           hidePersonal
           hideSettings
-          {...organization
+          {...(organization
             ? {
-              organization: {
-                id: organization.organizationId,
-                name: organization.organizationName,
-                slug: organization.organizationSlug,
-              },
-            }
-            : {}}
+                organization: {
+                  id: organization.organizationId,
+                  name: organization.organizationName,
+                  slug: organization.organizationSlug,
+                },
+              }
+            : {})}
           setActive={switchOrganization}
           onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}` })}
           className="w-full justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
@@ -147,9 +143,10 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
                   {organizationNavigation.map((item) => {
                     if (item.permission && !organization.permissions[item.permission]) return null
                     const href = organizationPath(organization.organizationSlug, item.segment)
-                    const isActive = item.segment === ""
-                      ? pathname === href
-                      : pathname === href || pathname.startsWith(`${href}/`)
+                    const isActive =
+                      item.segment === ""
+                        ? pathname === href
+                        : pathname === href || pathname.startsWith(`${href}/`)
 
                     return (
                       <SidebarMenuItem key={item.segment}>

@@ -24,15 +24,19 @@ type RestCursorScope = RestScope & {
 }
 
 function restCursorBinding(collection: RestCollection, scope: RestCursorScope) {
-  return createHash("sha256").update(JSON.stringify([
-    collection,
-    scope.organizationId,
-    scope.externalTenantId ?? null,
-    scope.tenantFilter ?? null,
-    scope.externalId ?? null,
-    scope.search ?? null,
-    scope.admin ?? null,
-  ])).digest("base64url")
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        collection,
+        scope.organizationId,
+        scope.externalTenantId ?? null,
+        scope.tenantFilter ?? null,
+        scope.externalId ?? null,
+        scope.search ?? null,
+        scope.admin ?? null,
+      ]),
+    )
+    .digest("base64url")
 }
 
 export async function encodeRestCursor(
@@ -61,11 +65,7 @@ export async function decodeRestCursor(
     if (header.typ !== "pagination+jws" || header.alg !== "HS256") throw new Error()
     const key = keys.find((entry) => entry.kid === header.kid)
     if (!key) throw new Error()
-    const { payload: encoded } = await compactVerify(
-      cursor,
-      key.root,
-      { algorithms: ["HS256"] },
-    )
+    const { payload: encoded } = await compactVerify(cursor, key.root, { algorithms: ["HS256"] })
     const payload = Schema.decodeUnknownSync(Schema.fromJsonString(restCursorSchema), {
       onExcessProperty: "error",
     })(new TextDecoder().decode(encoded))
@@ -105,7 +105,15 @@ export function restPageOptions(
 
 export async function restPage<T extends { id: string }>(
   page: DatabasePage<T>,
-  { collection, scope, url, backward, externalId, search, admin }: {
+  {
+    collection,
+    scope,
+    url,
+    backward,
+    externalId,
+    search,
+    admin,
+  }: {
     collection: RestCollection
     scope: RestScope
     url: string
@@ -121,12 +129,10 @@ export async function restPage<T extends { id: string }>(
   const page_after = await cursorFor(backward ? previousPosition : nextPosition)
   const page_before = await cursorFor(backward ? nextPosition : previousPosition)
   const links = []
-  for (
-    const [parameter, cursor, relation] of [
-      ["page_after", page_after, "next"],
-      ["page_before", page_before, "prev"],
-    ] as const
-  ) {
+  for (const [parameter, cursor, relation] of [
+    ["page_after", page_after, "next"],
+    ["page_before", page_before, "prev"],
+  ] as const) {
     if (!cursor) continue
     const next = new URL(url, "http://localhost")
     next.searchParams.delete("page_after")

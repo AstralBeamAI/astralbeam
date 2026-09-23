@@ -46,43 +46,67 @@ function useListingMount<
 ) {
   const target = useRef<HTMLDivElement>(null)
   const handle = useRef<AstralBeamListingHandle<T> | null>(null)
-  const live = useMemo(() => ({
-    apiUrl: undefined,
-    scope: undefined,
-    tenantId: undefined,
-    tenantExternalId: undefined,
-    showAdmin: undefined,
-    pageSize: undefined,
-    title: undefined,
-    showHeader: undefined,
-    customCss: undefined,
-    colorScheme: undefined,
-    theme: undefined,
-    onError: undefined,
-    onTenantChange: undefined,
-    onTenantSelect: undefined,
-    onTenantUserSelect: undefined,
-    ...options,
-  }), [
-    options.apiUrl,
-    options.fetchAstralBeamToken,
-    options.scope,
-    options.tenantId,
-    options.tenantExternalId,
-    options.showAdmin,
-    options.pageSize,
-    options.title,
-    options.showHeader,
-    options.customCss,
-    options.colorScheme,
-    options.theme,
-    options.onError,
-    options.onTenantChange,
-    options.onTenantSelect,
-    options.onTenantUserSelect,
-  ])
+  const {
+    apiUrl,
+    fetchAstralBeamToken,
+    scope,
+    tenantId,
+    tenantExternalId,
+    showAdmin,
+    pageSize,
+    title,
+    showHeader,
+    customCss,
+    colorScheme,
+    theme,
+    onError,
+    onTenantChange,
+    onTenantSelect,
+    onTenantUserSelect,
+  } = options
+  const live = useMemo(
+    () =>
+      ({
+        apiUrl,
+        fetchAstralBeamToken,
+        scope,
+        tenantId,
+        tenantExternalId,
+        showAdmin,
+        pageSize,
+        title,
+        showHeader,
+        customCss,
+        colorScheme,
+        theme,
+        onError,
+        onTenantChange,
+        onTenantSelect,
+        onTenantUserSelect,
+      }) as T,
+    [
+      apiUrl,
+      fetchAstralBeamToken,
+      scope,
+      tenantId,
+      tenantExternalId,
+      showAdmin,
+      pageSize,
+      title,
+      showHeader,
+      customCss,
+      colorScheme,
+      theme,
+      onError,
+      onTenantChange,
+      onTenantSelect,
+      onTenantUserSelect,
+    ],
+  )
   const liveRef = useRef(live)
-  liveRef.current = live
+  useEffect(() => {
+    liveRef.current = live
+  })
   useEffect(() => {
     const mounted = mount(target.current!, liveRef.current)
     handle.current = mounted
@@ -94,11 +118,15 @@ function useListingMount<
   useEffect(() => {
     handle.current?.update(live)
   }, [live])
-  useImperativeHandle(ref, () => ({
-    update: (next) => handle.current?.update(next),
-    refresh: () => handle.current?.refresh(),
-    reset: () => handle.current?.reset(),
-    unmount: () => handle.current?.unmount(),
-  }), [])
+  useImperativeHandle(
+    ref,
+    () => ({
+      update: (next) => handle.current?.update(next),
+      refresh: () => handle.current?.refresh(),
+      reset: () => handle.current?.reset(),
+      unmount: () => handle.current?.unmount(),
+    }),
+    [],
+  )
   return target
 }

@@ -16,11 +16,11 @@ function createSmtpTransport(settings: SmtpProviderSettings) {
     host: settings.smtp_host,
     port: settings.smtp_port,
     secure: settings.smtp_security === "tls",
-    ...settings.smtp_security === "none" ? { ignoreTLS: true } : {},
-    ...settings.smtp_security === "starttls" ? { requireTLS: true } : {},
-    ...settings.smtp_username && settings.smtp_password
+    ...(settings.smtp_security === "none" ? { ignoreTLS: true } : {}),
+    ...(settings.smtp_security === "starttls" ? { requireTLS: true } : {}),
+    ...(settings.smtp_username && settings.smtp_password
       ? { auth: { user: settings.smtp_username, pass: settings.smtp_password } }
-      : {},
+      : {}),
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 30_000,
@@ -46,7 +46,10 @@ export const sendSmtpEmail: SendProviderEmail = async (input) => {
     getGlobalConfig("smtp_username"),
     getGlobalConfig("smtp_password"),
   ])
-  const settings = Schema.decodeUnknownSync(SmtpProviderSettingsSchema, emailProviderParseOptions)({
+  const settings = Schema.decodeUnknownSync(
+    SmtpProviderSettingsSchema,
+    emailProviderParseOptions,
+  )({
     smtp_host,
     smtp_port,
     smtp_security,

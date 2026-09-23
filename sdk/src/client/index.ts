@@ -97,7 +97,7 @@ export function mountAstralBeamChat(
 
   let unmounted = false
   let chat: ChatHandle | undefined
-  import("../widget/index.tsx").then(({ renderChat }) => {
+  void import("../widget/index.tsx").then(({ renderChat }) => {
     debug?.("mount", "chat chunk loaded")
     if (!unmounted) chat = renderChat(shadowRoot, container, live)
   })

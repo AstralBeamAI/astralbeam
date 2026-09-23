@@ -15,8 +15,7 @@ interface OperatorLoginRateLimitDecision {
 }
 
 function isMissingRateLimitTable(error: RateLimiter.RateLimiterError): boolean {
-  return error.reason._tag === "RateLimitStoreError" &&
-    sqlState(error.reason.cause) === "42P01"
+  return error.reason._tag === "RateLimitStoreError" && sqlState(error.reason.cause) === "42P01"
 }
 
 function isRateLimitExceeded(error: RateLimiter.RateLimiterError): boolean {
@@ -34,29 +33,30 @@ function operatorLoginDecision(
 }
 
 export function consumeOperatorLoginRateLimit() {
-  return databaseRateLimiter.consume({
-    key: OPERATOR_LOGIN_RATE_LIMIT_KEY,
-    limit: OPERATOR_LOGIN_MAX_ATTEMPTS,
-    window: OPERATOR_LOGIN_WINDOW,
-  }).pipe(
-    Effect.map((result) => operatorLoginDecision(true, result.resetAfter)),
-    Effect.catchIf(
-      isMissingRateLimitTable,
-      () => Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
-    ),
-    Effect.catchIf(
-      isRateLimitExceeded,
-      (error) =>
-        Effect.succeed(operatorLoginDecision(
-          false,
-          error.reason._tag === "RateLimitExceeded" ? error.reason.retryAfter : Duration.zero,
-        )),
-    ),
-  )
+  return databaseRateLimiter
+    .consume({
+      key: OPERATOR_LOGIN_RATE_LIMIT_KEY,
+      limit: OPERATOR_LOGIN_MAX_ATTEMPTS,
+      window: OPERATOR_LOGIN_WINDOW,
+    })
+    .pipe(
+      Effect.map((result) => operatorLoginDecision(true, result.resetAfter)),
+      Effect.catchIf(isMissingRateLimitTable, () =>
+        Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
+      ),
+      Effect.catchIf(isRateLimitExceeded, (error) =>
+        Effect.succeed(
+          operatorLoginDecision(
+            false,
+            error.reason._tag === "RateLimitExceeded" ? error.reason.retryAfter : Duration.zero,
+          ),
+        ),
+      ),
+    )
 }
 
 export function clearOperatorLoginRateLimit() {
-  return databaseRateLimiter.reset(OPERATOR_LOGIN_RATE_LIMIT_KEY).pipe(
-    Effect.catchIf(isMissingRateLimitTable, () => Effect.void),
-  )
+  return databaseRateLimiter
+    .reset(OPERATOR_LOGIN_RATE_LIMIT_KEY)
+    .pipe(Effect.catchIf(isMissingRateLimitTable, () => Effect.void))
 }

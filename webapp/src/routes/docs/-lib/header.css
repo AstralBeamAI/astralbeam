@@ -11,7 +11,9 @@
   padding: 0 20px;
   background: var(--background);
   border-bottom: 1px solid var(--border);
-  font: 500 14px "Inter Variable", sans-serif;
+  font:
+    500 14px "Inter Variable",
+    sans-serif;
 }
 
 .docs-header nav,

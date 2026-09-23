@@ -82,47 +82,55 @@ describe("organization API key authorization", () => {
   })
 
   test("validates editable organization slugs", async () => {
-    await expect(fixture.auth.api.createOrganization({
-      body: {
-        name: "Invalid Slug",
-        slug: "invalid_slug",
-      },
-      headers: fixture.headers.owner,
-    })).rejects.toMatchObject({
+    await expect(
+      fixture.auth.api.createOrganization({
+        body: {
+          name: "Invalid Slug",
+          slug: "invalid_slug",
+        },
+        headers: fixture.headers.owner,
+      }),
+    ).rejects.toMatchObject({
       status: "BAD_REQUEST",
       body: { code: "INVALID_ORGANIZATION_SLUG" },
     })
 
     // Organization pages sit at the root of the URL space, so a reserved segment cannot be a slug.
-    await expect(fixture.auth.api.createOrganization({
-      body: {
-        name: "Docs",
-        slug: "docs",
-      },
-      headers: fixture.headers.owner,
-    })).rejects.toMatchObject({
+    await expect(
+      fixture.auth.api.createOrganization({
+        body: {
+          name: "Docs",
+          slug: "docs",
+        },
+        headers: fixture.headers.owner,
+      }),
+    ).rejects.toMatchObject({
       status: "BAD_REQUEST",
       body: { code: "RESERVED_ORGANIZATION_SLUG" },
     })
 
-    await expect(fixture.auth.api.updateOrganization({
-      body: {
-        organizationId: fixture.organizationId,
-        data: { slug: "docs" },
-      },
-      headers: fixture.headers.owner,
-    })).rejects.toMatchObject({
+    await expect(
+      fixture.auth.api.updateOrganization({
+        body: {
+          organizationId: fixture.organizationId,
+          data: { slug: "docs" },
+        },
+        headers: fixture.headers.owner,
+      }),
+    ).rejects.toMatchObject({
       status: "BAD_REQUEST",
       body: { code: "RESERVED_ORGANIZATION_SLUG" },
     })
 
-    await expect(fixture.auth.api.updateOrganization({
-      body: {
-        organizationId: fixture.organizationId,
-        data: { name: "Renamed organization", slug: "renamed-organization" },
-      },
-      headers: fixture.headers.owner,
-    })).resolves.toMatchObject({
+    await expect(
+      fixture.auth.api.updateOrganization({
+        body: {
+          organizationId: fixture.organizationId,
+          data: { name: "Renamed organization", slug: "renamed-organization" },
+        },
+        headers: fixture.headers.owner,
+      }),
+    ).resolves.toMatchObject({
       name: "Renamed organization",
       id: fixture.organizationId,
       slug: "renamed-organization",
@@ -168,14 +176,16 @@ describe("organization API key authorization", () => {
       body: { code: API_KEY_ERROR_CODES.SERVER_ONLY_PROPERTY.code },
     }
 
-    await expect(fixture.auth.api.createApiKey({
-      body: {
-        organizationId: fixture.organizationId,
-        name: "Custom rate limit",
-        ...serverOnlyRateLimit,
-      },
-      headers: fixture.headers.owner,
-    })).rejects.toMatchObject(denied)
+    await expect(
+      fixture.auth.api.createApiKey({
+        body: {
+          organizationId: fixture.organizationId,
+          name: "Custom rate limit",
+          ...serverOnlyRateLimit,
+        },
+        headers: fixture.headers.owner,
+      }),
+    ).rejects.toMatchObject(denied)
 
     const existing = await fixture.auth.api.createApiKey({
       body: {
@@ -184,13 +194,15 @@ describe("organization API key authorization", () => {
       },
       headers: fixture.headers.owner,
     })
-    await expect(fixture.auth.api.updateApiKey({
-      body: {
-        keyId: existing.id,
-        ...serverOnlyRateLimit,
-      },
-      headers: fixture.headers.owner,
-    })).rejects.toMatchObject(denied)
+    await expect(
+      fixture.auth.api.updateApiKey({
+        body: {
+          keyId: existing.id,
+          ...serverOnlyRateLimit,
+        },
+        headers: fixture.headers.owner,
+      }),
+    ).rejects.toMatchObject(denied)
   })
 
   test("rejects viewer access at every API key management endpoint", async () => {
@@ -206,39 +218,49 @@ describe("organization API key authorization", () => {
       body: { code: API_KEY_ERROR_CODES.INSUFFICIENT_API_KEY_PERMISSIONS.code },
     }
 
-    await expect(fixture.auth.api.createApiKey({
-      body: {
-        organizationId: fixture.organizationId,
-        name: "Viewer key",
-      },
-      headers: fixture.headers.viewer,
-    })).rejects.toMatchObject(denied)
-    await expect(fixture.auth.api.listApiKeys({
-      query: {
-        organizationId: fixture.organizationId,
-      },
-      headers: fixture.headers.viewer,
-    })).rejects.toMatchObject(denied)
-    await expect(fixture.auth.api.updateApiKey({
-      body: {
-        keyId: existing.id,
-        name: "Viewer renamed key",
-      },
-      headers: fixture.headers.viewer,
-    })).rejects.toMatchObject(denied)
-    await expect(fixture.auth.api.deleteApiKey({
-      body: {
-        keyId: existing.id,
-      },
-      headers: fixture.headers.viewer,
-    })).rejects.toMatchObject(denied)
+    await expect(
+      fixture.auth.api.createApiKey({
+        body: {
+          organizationId: fixture.organizationId,
+          name: "Viewer key",
+        },
+        headers: fixture.headers.viewer,
+      }),
+    ).rejects.toMatchObject(denied)
+    await expect(
+      fixture.auth.api.listApiKeys({
+        query: {
+          organizationId: fixture.organizationId,
+        },
+        headers: fixture.headers.viewer,
+      }),
+    ).rejects.toMatchObject(denied)
+    await expect(
+      fixture.auth.api.updateApiKey({
+        body: {
+          keyId: existing.id,
+          name: "Viewer renamed key",
+        },
+        headers: fixture.headers.viewer,
+      }),
+    ).rejects.toMatchObject(denied)
+    await expect(
+      fixture.auth.api.deleteApiKey({
+        body: {
+          keyId: existing.id,
+        },
+        headers: fixture.headers.viewer,
+      }),
+    ).rejects.toMatchObject(denied)
   })
 
   test("rejects a custom secret prefix", async () => {
-    await expect(fixture.auth.api.createApiKey({
-      body: { organizationId: fixture.organizationId, name: "Invalid prefix", prefix: "other_" },
-      headers: fixture.headers.owner,
-    })).rejects.toMatchObject({ status: "BAD_REQUEST", body: { code: "INVALID_API_KEY_PREFIX" } })
+    await expect(
+      fixture.auth.api.createApiKey({
+        body: { organizationId: fixture.organizationId, name: "Invalid prefix", prefix: "other_" },
+        headers: fixture.headers.owner,
+      }),
+    ).rejects.toMatchObject({ status: "BAD_REQUEST", body: { code: "INVALID_API_KEY_PREFIX" } })
   })
 
   test("stores only the API key digest", async () => {
@@ -257,17 +279,21 @@ describe("organization API key authorization", () => {
     expect(created.key).toMatch(/^abo_[A-Za-z]{64}$/)
     expect(stored?.key).toBe(createHash("sha256").update(created.key).digest("base64url"))
     expect(stored?.lastRequest).toBeNull()
-    await expect(fixture.auth.api.verifyApiKey({
-      body: { key: created.key },
-    })).resolves.toMatchObject({ valid: true, key: { id: created.id } })
+    await expect(
+      fixture.auth.api.verifyApiKey({
+        body: { key: created.key },
+      }),
+    ).resolves.toMatchObject({ valid: true, key: { id: created.id } })
     const listed = await fixture.auth.api.listApiKeys({
       query: { organizationId: fixture.organizationId },
       headers: fixture.headers.owner,
     })
     expect(listed.apiKeys.find((key) => key.id === created.id)?.lastRequest).toBeInstanceOf(Date)
-    await expect(fixture.auth.api.verifyApiKey({
-      body: { key: stored!.key },
-    })).resolves.toMatchObject({ valid: false, key: null })
+    await expect(
+      fixture.auth.api.verifyApiKey({
+        body: { key: stored!.key },
+      }),
+    ).resolves.toMatchObject({ valid: false, key: null })
   })
 
   test("requires a fresh session to create an organization API key", async () => {
@@ -277,13 +303,15 @@ describe("organization API key authorization", () => {
       update: { createdAt: new Date(0) },
     })
 
-    await expect(fixture.auth.api.createApiKey({
-      body: {
-        organizationId: fixture.organizationId,
-        name: "Stale session key",
-      },
-      headers: fixture.headers.owner,
-    })).rejects.toMatchObject({
+    await expect(
+      fixture.auth.api.createApiKey({
+        body: {
+          organizationId: fixture.organizationId,
+          name: "Stale session key",
+        },
+        headers: fixture.headers.owner,
+      }),
+    ).rejects.toMatchObject({
       status: "FORBIDDEN",
       body: { code: "SESSION_NOT_FRESH" },
     })

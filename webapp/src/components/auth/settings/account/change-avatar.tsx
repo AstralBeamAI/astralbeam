@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, preserve database success when remote cleanup fails, label the avatar action, and apply strict lint compatibility.
+// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, preserve database success when remote cleanup fails, label the avatar action, and apply strict lint compatibility, including explicitly voided async handlers.
 
 import { fileToAvatarDataUrl } from "@better-auth-ui/core"
 import { useAuth, useSession, useUpdateUser } from "@better-auth-ui/react"
@@ -70,26 +70,27 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
     updateUser(
       { image: null },
       {
-        onSuccess: async () => {
-          let cleanupFailed = false
-          if (currentImage) {
-            setIsDeleting(true)
-            try {
-              await avatar.delete?.(currentImage)
-            } catch {
-              cleanupFailed = true
-            } finally {
-              setIsDeleting(false)
+        onSuccess: () =>
+          void (async () => {
+            let cleanupFailed = false
+            if (currentImage) {
+              setIsDeleting(true)
+              try {
+                await avatar.delete?.(currentImage)
+              } catch {
+                cleanupFailed = true
+              } finally {
+                setIsDeleting(false)
+              }
             }
-          }
 
-          toast.add({
-            title: cleanupFailed
-              ? "Your avatar was removed, but its previous file could not be deleted."
-              : localization.settings.avatarDeletedSuccess,
-            type: cleanupFailed ? "warning" : "success",
-          })
-        },
+            toast.add({
+              title: cleanupFailed
+                ? "Your avatar was removed, but its previous file could not be deleted."
+                : localization.settings.avatarDeletedSuccess,
+              type: cleanupFailed ? "warning" : "success",
+            })
+          })(),
       },
     )
   }
@@ -103,7 +104,7 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={handleFileChange}
+        onChange={(e) => void handleFileChange(e)}
       />
 
       <div className="flex items-center gap-4">

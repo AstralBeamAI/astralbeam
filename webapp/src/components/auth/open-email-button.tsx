@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use Phosphor icons and browser-safe globals.
+// Local changes: Use Phosphor icons and browser-safe globals, and memoize the QR code by email for the React Compiler lint.
 
 import { createQrCodeSvgData, getEmailProviderLink } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
@@ -37,19 +37,14 @@ export type OpenEmailButtonProps = {
  * @param variant - Button variant. Defaults to the primary style.
  * @returns The open-email button, or `null` when no provider matches.
  */
-export function OpenEmailButton({
-  email,
-  className,
-  variant,
-}: OpenEmailButtonProps) {
+export function OpenEmailButton({ email, className, variant }: OpenEmailButtonProps) {
   const { localization } = useAuth()
 
   const provider = getEmailProviderLink(email)
-  const loginUrl = provider?.loginUrl
-  const qrCode = useMemo(
-    () => (loginUrl ? createQrCodeSvgData(loginUrl) : null),
-    [loginUrl],
-  )
+  const qrCode = useMemo(() => {
+    const loginUrl = getEmailProviderLink(email)?.loginUrl
+    return loginUrl ? createQrCodeSvgData(loginUrl) : null
+  }, [email])
 
   if (!provider || !qrCode) return null
 
@@ -66,16 +61,10 @@ export function OpenEmailButton({
           className={cn(buttonVariants({ variant }), "w-full", className)}
           onClick={() => globalThis.open(provider.loginUrl, "_blank", "noopener,noreferrer")}
         >
-          {localization.auth.openEmailProvider.replace(
-            "{{provider}}",
-            provider.companyProvider,
-          )}
+          {localization.auth.openEmailProvider.replace("{{provider}}", provider.companyProvider)}
           <QrCode data-icon="inline-end" />
         </TooltipTrigger>
-        <TooltipContent
-          sideOffset={8}
-          className="flex-col items-center gap-2 p-3"
-        >
+        <TooltipContent sideOffset={8} className="flex-col items-center gap-2 p-3">
           <svg
             viewBox={`0 0 ${qrCode.size} ${qrCode.size}`}
             aria-hidden="true"

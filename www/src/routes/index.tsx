@@ -86,7 +86,9 @@ function LandingPage() {
             <a href={docsUrl}>DOCS</a>
             <a href={logInUrl}>SIGN IN</a>
           </nav>
-          <a className="btn btn-primary hud-cta" href={signUpUrl}>GET STARTED</a>
+          <a className="btn btn-primary hud-cta" href={signUpUrl}>
+            GET STARTED
+          </a>
           <button
             className="hud-menu"
             type="button"
@@ -113,7 +115,9 @@ function LandingPage() {
                 OPEN SOURCE · <span>SELF-HOSTED</span> OR MANAGED
               </p>
               <h1 className="display hero-title">
-                <span className="reveal scramble" data-text="ADD AN AGENT">ADD AN AGENT</span>
+                <span className="reveal scramble" data-text="ADD AN AGENT">
+                  ADD AN AGENT
+                </span>
                 <br />
                 <span
                   className="reveal scramble beam-text"
@@ -133,10 +137,12 @@ function LandingPage() {
               </h1>
               <p className="hero-sub reveal" style={cssVars({ "--reveal-delay": ".36s" })}>
                 Drop a Cursor-style agent into your product. It answers queries, interacts with your
-                app, renders your UI components, and works with users' files.
+                app, renders your UI components, and works with users&apos; files.
               </p>
               <div className="hero-ctas reveal" style={cssVars({ "--reveal-delay": ".48s" })}>
-                <a className="btn btn-primary btn-lg" href={signUpUrl}>GET STARTED</a>
+                <a className="btn btn-primary btn-lg" href={signUpUrl}>
+                  GET STARTED
+                </a>
                 <a
                   className="btn btn-ghost btn-lg"
                   href={githubUrl}
@@ -252,8 +258,7 @@ function LandingPage() {
               <path
                 transform="rotate(22)"
                 d="M 0 -56 C 4 -50 6.5 -42 6.5 -31 L 6.5 31 C 6.5 42 4 50 0 56 C -4 50 -6.5 42 -6.5 31 L -6.5 -31 C -6.5 -42 -4 -50 0 -56 Z"
-              >
-              </path>
+              ></path>
             </g>
           </svg>
 
@@ -322,7 +327,9 @@ function LandingPage() {
             Get started with a few lines of code, <span>or come talk to us on Discord.</span>
           </p>
           <div className="launch-ctas reveal" style={cssVars({ "--reveal-delay": ".2s" })}>
-            <a className="btn btn-primary btn-xl" href={signUpUrl}>GET STARTED</a>
+            <a className="btn btn-primary btn-xl" href={signUpUrl}>
+              GET STARTED
+            </a>
             <a
               className="btn btn-ghost btn-xl"
               href={discordUrl}
@@ -339,8 +346,12 @@ function LandingPage() {
       <footer className="site-footer mono">
         <span>© 2026 ASTRALBEAM</span>
         <a href={docsUrl}>DOCS</a>
-        <a href={githubUrl} target="_blank" rel="noopener noreferrer">GITHUB</a>
-        <a href={discordUrl} target="_blank" rel="noopener noreferrer">DISCORD</a>
+        <a href={githubUrl} target="_blank" rel="noopener noreferrer">
+          GITHUB
+        </a>
+        <a href={discordUrl} target="_blank" rel="noopener noreferrer">
+          DISCORD
+        </a>
         <a href="mailto:hello@astralbeam.ai">
           <span className="mail-full">HELLO@ASTRALBEAM.AI</span>
           <span className="mail-short">CONTACT</span>

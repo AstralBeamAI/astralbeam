@@ -40,60 +40,54 @@ function AgentsPage() {
             Set the default instructions for each chat experience.
           </p>
           <p className="text-sm text-muted-foreground">
-            Copy an agent's browser-safe ID into the SDK's{" "}
-            <code className="font-mono text-foreground">agentId</code>{" "}
-            option, or omit that option to use the default agent.
+            Copy an agent&apos;s browser-safe ID into the SDK&apos;s{" "}
+            <code className="font-mono text-foreground">agentId</code> option, or omit that option
+            to use the default agent.
           </p>
         </div>
         {permissions.updateConfiguration && (
-          <Link
-            to="/$orgSlug/agents/new"
-            params={{ orgSlug }}
-            className={buttonVariants()}
-          >
+          <Link to="/$orgSlug/agents/new" params={{ orgSlug }} className={buttonVariants()}>
             <PlusIcon aria-hidden="true" />
             Add agent
           </Link>
         )}
       </div>
 
-      {data.agents.length === 0
-        ? (
-          <Empty className="max-w-4xl">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <RobotIcon aria-hidden="true" />
-              </EmptyMedia>
-              <EmptyTitle>No agents yet</EmptyTitle>
-              <EmptyDescription>
-                Every embedded chat runs an agent. Add one to give it a name and a system prompt.
-              </EmptyDescription>
-            </EmptyHeader>
-            {permissions.updateConfiguration && (
-              <EmptyContent>
-                <Link
-                  to="/$orgSlug/agents/new"
-                  params={{ orgSlug }}
-                  className={buttonVariants({ size: "sm" })}
-                >
-                  Add agent
-                </Link>
-              </EmptyContent>
-            )}
-          </Empty>
-        )
-        : (
-          <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
-            {data.agents.map((agent) => (
-              <AgentListCard
-                key={agent.id}
-                organizationSlug={orgSlug}
-                agent={agent}
-                isDefault={agent.id === data.defaultAgentId}
-              />
-            ))}
-          </div>
-        )}
+      {data.agents.length === 0 ? (
+        <Empty className="max-w-4xl">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <RobotIcon aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No agents yet</EmptyTitle>
+            <EmptyDescription>
+              Every embedded chat runs an agent. Add one to give it a name and a system prompt.
+            </EmptyDescription>
+          </EmptyHeader>
+          {permissions.updateConfiguration && (
+            <EmptyContent>
+              <Link
+                to="/$orgSlug/agents/new"
+                params={{ orgSlug }}
+                className={buttonVariants({ size: "sm" })}
+              >
+                Add agent
+              </Link>
+            </EmptyContent>
+          )}
+        </Empty>
+      ) : (
+        <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
+          {data.agents.map((agent) => (
+            <AgentListCard
+              key={agent.id}
+              organizationSlug={orgSlug}
+              agent={agent}
+              isDefault={agent.id === data.defaultAgentId}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

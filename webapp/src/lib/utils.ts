@@ -9,9 +9,8 @@ export async function getGravatarAvatarUrl(email: string): Promise<string | unde
     "SHA-256",
     new TextEncoder().encode(normalizedEmail),
   )
-  const hash = Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, "0"),
+  const hash = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
   ).join("")
   const url = new URL(`https://gravatar.com/avatar/${hash}`)
   url.searchParams.set("d", "404")

@@ -8,10 +8,9 @@ const configValuePayloadSchema = Schema.Struct({
   value: Schema.String,
 })
 
-export const decodeConfigValuePayload = Schema.decodeUnknownSync(
-  configValuePayloadSchema,
-  { onExcessProperty: "error" },
-)
+export const decodeConfigValuePayload = Schema.decodeUnknownSync(configValuePayloadSchema, {
+  onExcessProperty: "error",
+})
 
 // Global control-plane tables without an organizationId exist before any organization does.
 export const configTable = snakeCase.table(

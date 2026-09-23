@@ -60,12 +60,12 @@ Then start the application with that `DATABASE_URL` and the encryption keyring t
 
 ## Health checks
 
-| Endpoint      | Behavior                                                                                                                                             |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Endpoint | Behavior |
+| --- | --- |
 | `/api/status` | Counts organization rows. `200` with `{"status":"ok"}` when that query succeeds, otherwise `503` with an `error` field. It does not read the request |
-| `/api/v1/*`   | `503` with `Retry-After: 10` and a problem document whose detail is `Server configuration required.` while setup is incomplete                       |
-| `/api/auth/*` | `503` with `{"error":"Application is not configured"}` while setup is incomplete                                                                     |
-| Page routes   | Redirect to `/configure` while setup is incomplete                                                                                                   |
+| `/api/v1/*` | `503` with `Retry-After: 10` and a problem document whose detail is `Server configuration required.` while setup is incomplete |
+| `/api/auth/*` | `503` with `{"error":"Application is not configured"}` while setup is incomplete |
+| Page routes | Redirect to `/configure` while setup is incomplete |
 
 Point a process supervisor or load balancer probe at `/api/status`. It counts organization rows and reports `{"status":"ok"}` only when that query succeeds, so a database outage returns `503` with an `error` field. There is no separate readiness endpoint. For API readiness, probe an API route and treat `503` as not ready and `401` as ready.
 
@@ -89,13 +89,13 @@ Size the pooler's own limits for the number of replicas you run, and remember th
 
 Counters live in the shared `rate_limit` table, so every replica enforces the same window.
 
-| Bucket                                                               | Limit                 | Scope                                                 |
-| -------------------------------------------------------------------- | --------------------- | ----------------------------------------------------- |
-| Operator sign-in at `/configure`                                     | 5 per minute          | The whole deployment. Cleared by a successful sign-in |
-| Chat requests                                                        | 20 per 60 seconds     | Organization, Tenant, and tenant user combined        |
-| Sign-up, password reset, verification email, and organization invite | 5 per 60 seconds each | The requesting client address                         |
-| Management API with an API key                                       | 100 per 5 minutes     | The API key                                           |
-| Management API with a chat token                                     | 100 per 5 minutes     | The token's identity                                  |
+| Bucket | Limit | Scope |
+| --- | --- | --- |
+| Operator sign-in at `/configure` | 5 per minute | The whole deployment. Cleared by a successful sign-in |
+| Chat requests | 20 per 60 seconds | Organization, Tenant, and tenant user combined |
+| Sign-up, password reset, verification email, and organization invite | 5 per 60 seconds each | The requesting client address |
+| Management API with an API key | 100 per 5 minutes | The API key |
+| Management API with a chat token | 100 per 5 minutes | The token's identity |
 
 Exceeding a limit returns `429` with a `Retry-After` header. Before the first migration the `rate_limit` table does not exist yet, and the two callers behave differently: operator sign-in lets the attempt through so first boot is possible, while the chat endpoint answers `500` with `Request limit could not be checked.`. Apply the migrations and the counters start working.
 

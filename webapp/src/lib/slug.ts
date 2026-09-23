@@ -22,9 +22,8 @@ export function generateSlugSuggestion(
     0,
     baseMaximumLength,
   )
-  const randomBytes = suffixBytes ?? globalThis.crypto.getRandomValues(
-    new Uint8Array(SLUG_RANDOM_SUFFIX_LENGTH),
-  )
+  const randomBytes =
+    suffixBytes ?? globalThis.crypto.getRandomValues(new Uint8Array(SLUG_RANDOM_SUFFIX_LENGTH))
   if (randomBytes.length !== SLUG_RANDOM_SUFFIX_LENGTH) {
     throw new TypeError(`Slug suffix requires ${SLUG_RANDOM_SUFFIX_LENGTH} random bytes`)
   }

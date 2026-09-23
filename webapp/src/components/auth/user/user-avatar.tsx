@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: remove username-plugin fields, use Phosphor icons, and prefer SSO photos with a Gravatar fallback.
+// Local changes: remove username-plugin fields, use Phosphor icons, and prefer SSO photos with a Gravatar fallback keyed to the email it was resolved for.
 
 import { useAuth, useSession } from "@better-auth-ui/react"
 import type { User } from "better-auth"
@@ -30,30 +30,28 @@ export type UserAvatarProps = {
  * @param fallback - Node to render inside the avatar fallback area before initials or the default icon
  * @returns The avatar element to render (JSX)
  */
-export function UserAvatar({
-  className,
-  user,
-  isPending,
-  fallback,
-}: UserAvatarProps) {
+export function UserAvatar({ className, user, isPending, fallback }: UserAvatarProps) {
   const { authClient } = useAuth()
   const { data: session, isPending: sessionPending } = useSession(authClient, {
     enabled: !user && !isPending,
   })
   const resolvedUser = user ?? session?.user
-  const [gravatarImage, setGravatarImage] = useState<string>()
+  const [gravatar, setGravatar] = useState<{ email: string; url: string | undefined }>()
+  const gravatarImage = gravatar?.email === resolvedUser?.email ? gravatar?.url : undefined
 
   useEffect(() => {
     let active = true
-    setGravatarImage(undefined)
 
-    if (resolvedUser?.image || !resolvedUser?.email) return
+    const email = resolvedUser?.email
+    if (resolvedUser?.image || !email) return
 
-    void getGravatarAvatarUrl(resolvedUser.email).then((url) => {
-      if (active) setGravatarImage(url)
-    }).catch(() => {
-      // Initials remain available when the browser cannot create the fallback URL.
-    })
+    void getGravatarAvatarUrl(email)
+      .then((url) => {
+        if (active) setGravatar({ email, url })
+      })
+      .catch(() => {
+        // Initials remain available when the browser cannot create the fallback URL.
+      })
 
     return () => {
       active = false
@@ -64,17 +62,10 @@ export function UserAvatar({
     return <Skeleton className={cn("size-8 rounded-full", className)} />
   }
 
-  const initials = (resolvedUser?.name || resolvedUser?.email)
-    ?.slice(0, 2)
-    .toUpperCase()
+  const initials = (resolvedUser?.name || resolvedUser?.email)?.slice(0, 2).toUpperCase()
 
   return (
-    <Avatar
-      className={cn(
-        "size-8 bg-muted text-foreground text-sm rounded-full",
-        className,
-      )}
-    >
+    <Avatar className={cn("size-8 bg-muted text-foreground text-sm rounded-full", className)}>
       <AvatarImage
         src={resolvedUser?.image ?? gravatarImage}
         alt={resolvedUser?.name || resolvedUser?.email}

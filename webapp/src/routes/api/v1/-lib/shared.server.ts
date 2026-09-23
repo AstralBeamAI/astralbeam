@@ -33,11 +33,10 @@ const restErrorSchemas = [400, 401, 403, 404, 409, 413, 415, 422, 429, 500, 503]
   HttpApiSchema.WithHeaders(RestApiErrorSchema, {
     "Retry-After": Schema.optionalKey(Schema.String),
     "WWW-Authenticate": Schema.optionalKey(Schema.String),
-  })
-    .pipe(
-      HttpApiSchema.status(status),
-      HttpApiSchema.asJson({ contentType: "application/problem+json" }),
-    )
+  }).pipe(
+    HttpApiSchema.status(status),
+    HttpApiSchema.asJson({ contentType: "application/problem+json" }),
+  ),
 )
 export interface RestScope extends TenantScope {
   currentUser?: OrganizationCurrentUser
@@ -45,10 +44,9 @@ export interface RestScope extends TenantScope {
   tenantFilter?: string
 }
 export const restScope = Context.Service<RestScope>("RestScope")
-export class ApiBoundary extends HttpApiMiddleware.Service<ApiBoundary>()(
-  "ApiBoundary",
-  { error: restErrorSchemas },
-) {}
+export class ApiBoundary extends HttpApiMiddleware.Service<ApiBoundary>()("ApiBoundary", {
+  error: restErrorSchemas,
+}) {}
 
 export class RestAuthorization extends HttpApiMiddleware.Service<
   RestAuthorization,
@@ -69,10 +67,12 @@ export const restPageQuery = Schema.Struct({
         "Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.",
     }),
   ),
-  "filter[external_id]": Schema.optionalKey(TenantExternalIdSchema.annotate({
-    description:
-      "Exact, case-sensitive external ID; whitespace is preserved. Returns zero or one item.",
-  })),
+  "filter[external_id]": Schema.optionalKey(
+    TenantExternalIdSchema.annotate({
+      description:
+        "Exact, case-sensitive external ID; whitespace is preserved. Returns zero or one item.",
+    }),
+  ),
   page_size: Schema.optionalKey(
     Schema.String.check(Schema.isPattern(/^0*[1-9]\d*$/)).pipe(
       Schema.decodeTo(Schema.Number, {

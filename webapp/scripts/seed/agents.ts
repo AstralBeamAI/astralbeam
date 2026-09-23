@@ -21,9 +21,7 @@ export type SeedAgentSummary = {
  * real organization, by hand: that function is written as an Effect program against the
  * server-only database service and cannot be reached from a plain script.
  */
-export async function seedAgents(
-  transaction: SeedTransaction,
-): Promise<SeedAgentSummary[]> {
+export async function seedAgents(transaction: SeedTransaction): Promise<SeedAgentSummary[]> {
   const summaries: SeedAgentSummary[] = []
   for (const seedOrganization of SEED_ORGANIZATIONS) {
     const organizationId = seedOrganization.id
@@ -59,9 +57,10 @@ export async function seedAgents(
 
     const seededAgentIds = new Set<string>()
     for (const seedAgent of seedOrganization.agents) {
-      const sandboxProviderId = seedAgent.sandboxProviderName === null
-        ? null
-        : providerIdsByName.get(seedAgent.sandboxProviderName) ?? null
+      const sandboxProviderId =
+        seedAgent.sandboxProviderName === null
+          ? null
+          : (providerIdsByName.get(seedAgent.sandboxProviderName) ?? null)
       if (seedAgent.sandboxProviderName !== null && sandboxProviderId === null) {
         throw new Error(
           `Agent '${seedAgent.name}' references unseeded provider '${seedAgent.sandboxProviderName}'`,

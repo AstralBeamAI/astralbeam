@@ -75,8 +75,7 @@ const WORKBOOK_PARTS = {
     <Relationship Id="rId1" Target="worksheets/sheet7.xml"/>
     <Relationship Id="rId2" Target="worksheets/sheet2.xml"/>
   </Relationships>`,
-  "xl/sharedStrings.xml":
-    `<sst><si><t>month</t></si><si><t>sales</t></si><si><r><t>Ja</t></r><r><t>n</t></r></si></sst>`,
+  "xl/sharedStrings.xml": `<sst><si><t>month</t></si><si><t>sales</t></si><si><r><t>Ja</t></r><r><t>n</t></r></si></sst>`,
   "xl/styles.xml": `<styleSheet>
     <numFmts><numFmt numFmtId="164" formatCode="yyyy\\-mm\\-dd"/></numFmts>
     <cellXfs count="2"><xf numFmtId="0"/><xf numFmtId="164"/></cellXfs>
@@ -170,19 +169,19 @@ test("reads a workbook whose SpreadsheetML elements use namespace prefixes", () 
   expect(tables?.[0]).toMatchObject({
     name: "Budget",
     rows: 1,
-    columns: [{ name: "item", type: "string" }, { name: "amount_usd", type: "integer" }],
+    columns: [
+      { name: "item", type: "string" },
+      { name: "amount_usd", type: "integer" },
+    ],
   })
 })
 
 /** A workbook of one sheet, so a test only has to supply the cells it cares about. */
 function workbook(cells: string, dimension = "A1:B2"): Uint8Array {
   return container({
-    "xl/workbook.xml":
-      `<workbook><sheets><sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-    "xl/_rels/workbook.xml.rels":
-      `<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>`,
-    "xl/worksheets/sheet1.xml":
-      `<worksheet><dimension ref="${dimension}"/><sheetData>${cells}</sheetData></worksheet>`,
+    "xl/workbook.xml": `<workbook><sheets><sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    "xl/_rels/workbook.xml.rels": `<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>`,
+    "xl/worksheets/sheet1.xml": `<worksheet><dimension ref="${dimension}"/><sheetData>${cells}</sheetData></worksheet>`,
   })
 }
 
@@ -232,10 +231,10 @@ test("refuses an archive whose declared parts exceed the whole-archive budget", 
 // entry the filter has to visit, so the count has to be bounded before `wanted` narrows it.
 test("refuses an archive that declares more entries than it will walk", () => {
   const junk = Object.fromEntries(
-    Array.from(
-      { length: CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES + 1 },
-      (_, index) => [`junk/${index}.bin`, strToU8("x")],
-    ),
+    Array.from({ length: CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES + 1 }, (_, index) => [
+      `junk/${index}.bin`,
+      strToU8("x"),
+    ]),
   )
   // Not one entry matches a Word part, so the selected-entry and declared-byte caps stay at zero.
   const bytes = zipSync(junk)

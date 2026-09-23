@@ -39,12 +39,14 @@ test("maps SMTP defaults, security, and optional authentication", async () => {
     attachments: [],
   }
   await sendSmtpEmail(input)
-  expect(smtpTest.createTransport).toHaveBeenLastCalledWith(expect.objectContaining({
-    host: "127.0.0.1",
-    port: 1025,
-    secure: false,
-    ignoreTLS: true,
-  }))
+  expect(smtpTest.createTransport).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      host: "127.0.0.1",
+      port: 1025,
+      secure: false,
+      ignoreTLS: true,
+    }),
+  )
   expect(smtpTest.createTransport.mock.lastCall?.[0]).not.toHaveProperty("auth")
 
   smtpTest.config = {
@@ -55,13 +57,15 @@ test("maps SMTP defaults, security, and optional authentication", async () => {
     smtp_password: "secret",
   }
   await sendSmtpEmail(input)
-  expect(smtpTest.createTransport).toHaveBeenLastCalledWith(expect.objectContaining({
-    host: "smtp.example.com",
-    port: 587,
-    secure: false,
-    requireTLS: true,
-    auth: { user: "mailer", pass: "secret" },
-  }))
+  expect(smtpTest.createTransport).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      host: "smtp.example.com",
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      auth: { user: "mailer", pass: "secret" },
+    }),
+  )
 
   await testConnection({
     smtp_host: "127.0.0.1",

@@ -1,9 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use browser-safe globals and a semantic page heading.
+// Local changes: Use browser-safe globals and a semantic page heading, and read the stored email during render once hydrated.
 
 import { getAuthLinkURL } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
-import { useEffect, useState } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldDescription } from "@/components/ui/field"
@@ -33,17 +32,7 @@ export function ResetLinkSent({ className }: ResetLinkSentProps) {
   const { basePaths, localization, redirectTo, viewPaths, Link } = useAuth()
 
   const isHydrated = useIsHydrated()
-  const [email, setEmail] = useState(
-    (isHydrated &&
-      globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY)) ||
-      "",
-  )
-
-  useEffect(() => {
-    setEmail(
-      globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY) ?? "",
-    )
-  }, [])
+  const email = (isHydrated && globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY)) || ""
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -68,10 +57,7 @@ export function ResetLinkSent({ className }: ResetLinkSentProps) {
           <FieldDescription className="text-center">
             {localization.auth.rememberYourPassword}{" "}
             <Link
-              href={getAuthLinkURL(
-                `${basePaths.auth}/${viewPaths.auth.signIn}`,
-                redirectTo,
-              )}
+              href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)}
               className="underline underline-offset-4"
             >
               {localization.auth.signIn}

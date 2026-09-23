@@ -71,8 +71,10 @@ try {
 
   console.log("\nAgents")
   for (const seededAgent of summary.agents) {
-    const labels = [seededAgent.isDefault ? "default" : null, seededAgent.sandboxProviderName]
-      .filter((label) => label !== null)
+    const labels = [
+      seededAgent.isDefault ? "default" : null,
+      seededAgent.sandboxProviderName,
+    ].filter((label) => label !== null)
     const suffix = labels.length > 0 ? `  [${labels.join(", ")}]` : ""
     console.log(`  ${seededAgent.id}  ${seededAgent.name}${suffix}`)
   }
@@ -84,8 +86,7 @@ try {
 
   console.log(`\nTenant users: ${summary.tenantUserCount}`)
 
-  const todosEnv =
-    `ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}\nVITE_ASTRALBEAM_AGENT_ID=${SEED_TODOS_TARGET.agentId}\n`
+  const todosEnv = `ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}\nVITE_ASTRALBEAM_AGENT_ID=${SEED_TODOS_TARGET.agentId}\n`
   // Both values are self-describing local-only fixtures and the file is gitignored, but an
   // existing one may hold a real key, so it is never overwritten.
   if (existsSync(todosEnvFile)) {

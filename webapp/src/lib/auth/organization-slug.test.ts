@@ -30,8 +30,9 @@ function readTopLevelRouteSegments(directory: URL): string[] {
 
 describe("reserved organization slugs", () => {
   test("covers every top-level route segment", () => {
-    const segments = readTopLevelRouteSegments(routesDirectory)
-      .filter((segment) => segment !== ORGANIZATION_SLUG_SEGMENT)
+    const segments = readTopLevelRouteSegments(routesDirectory).filter(
+      (segment) => segment !== ORGANIZATION_SLUG_SEGMENT,
+    )
 
     expect(segments.length).toBeGreaterThan(0)
     expect(segments.filter((segment) => !isReservedOrganizationSlug(segment))).toEqual([])

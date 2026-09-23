@@ -17,8 +17,7 @@ declare module "@better-auth-ui/core" {
      */
     Link: ComponentType<
       PropsWithChildren<
-        & { className?: string; href: string; to?: string }
-        & Pick<
+        { className?: string; href: string; to?: string } & Pick<
           ComponentPropsWithoutRef<"a">,
           "aria-disabled" | "tabIndex" | "onClick"
         >

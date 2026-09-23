@@ -1,22 +1,20 @@
 // Added with: deno task ui add sidebar
-// Local changes: Use browser-safe globalThis access for Deno lint compatibility.
+// Local changes: Read the breakpoint through useSyncExternalStore instead of setting state in an effect.
 
 import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
 
+function subscribeToMobileBreakpoint(onChange: () => void) {
+  const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+  mql.addEventListener("change", onChange)
+  return () => mql.removeEventListener("change", onChange)
+}
+
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
-
-  React.useEffect(() => {
-    const mql = globalThis.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsMobile(globalThis.innerWidth < MOBILE_BREAKPOINT)
-    }
-    mql.addEventListener("change", onChange)
-    setIsMobile(globalThis.innerWidth < MOBILE_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
-  }, [])
-
-  return !!isMobile
+  return React.useSyncExternalStore(
+    subscribeToMobileBreakpoint,
+    () => window.innerWidth < MOBILE_BREAKPOINT,
+    () => false,
+  )
 }

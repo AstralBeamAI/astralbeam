@@ -45,11 +45,7 @@ export type SignInProps = {
  * @param socialPosition - Position of social provider buttons; `"top"` or `"bottom"`. Defaults to `"bottom"`.
  * @returns The rendered sign-in UI as a JSX element
  */
-export function SignIn({
-  className,
-  socialLayout,
-  socialPosition = "bottom",
-}: SignInProps) {
+export function SignIn({ className, socialLayout, socialPosition = "bottom" }: SignInProps) {
   const {
     authClient,
     basePaths,
@@ -67,34 +63,25 @@ export function SignIn({
 
   const [password, setPassword] = useState("")
 
-  const { mutate: signInEmail, isPending: signInEmailPending } = useSignInEmail(
-    authClient,
-    {
-      onError: (error, { email }) => {
-        setPassword("")
+  const { mutate: signInEmail, isPending: signInEmailPending } = useSignInEmail(authClient, {
+    onError: (error, { email }) => {
+      setPassword("")
 
-        if (error.error?.code === "EMAIL_NOT_VERIFIED") {
-          try {
-            globalThis.sessionStorage.setItem(
-              "better-auth-ui.verify-email",
-              email,
-            )
-          } catch {
-            // The stored email is only a convenience for the verification view.
-          }
-          navigate({
-            to: getAuthLinkURL(
-              `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
-              redirectTo,
-            ),
-          })
+      if ((error.error as { code?: unknown } | undefined)?.code === "EMAIL_NOT_VERIFIED") {
+        try {
+          globalThis.sessionStorage.setItem("better-auth-ui.verify-email", email)
+        } catch {
+          // The stored email is only a convenience for the verification view.
         }
+        navigate({
+          to: getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.verifyEmail}`, redirectTo),
+        })
+      }
 
-        resetFetchOptions()
-      },
-      onSuccess: () => navigate({ to: redirectTo }),
+      resetFetchOptions()
     },
-  )
+    onSuccess: () => navigate({ to: redirectTo }),
+  })
 
   const signInMutating = useIsMutating({
     mutationKey: authMutationKeys.signIn.all,
@@ -161,9 +148,7 @@ export function SignIn({
             <form onSubmit={submitSignIn}>
               <FieldGroup>
                 <Field data-invalid={!!fieldErrors.email}>
-                  <FieldLabel htmlFor="email">
-                    {localization.auth.email}
-                  </FieldLabel>
+                  <FieldLabel htmlFor="email">{localization.auth.email}</FieldLabel>
 
                   <Input
                     id="email"
@@ -198,9 +183,7 @@ export function SignIn({
                 </Field>
 
                 <Field data-invalid={!!fieldErrors.password}>
-                  <FieldLabel htmlFor="password">
-                    {localization.auth.password}
-                  </FieldLabel>
+                  <FieldLabel htmlFor="password">{localization.auth.password}</FieldLabel>
 
                   <InputGroup>
                     <InputGroupInput
@@ -230,14 +213,8 @@ export function SignIn({
                         const msg = el.validity.valueMissing
                           ? localization.auth.fieldRequired
                           : el.validity.tooShort
-                          ? localization.auth.tooShort.replace(
-                            "{{min}}",
-                            String(min),
-                          )
-                          : localization.auth.tooLong.replace(
-                            "{{max}}",
-                            String(max),
-                          )
+                            ? localization.auth.tooShort.replace("{{min}}", String(min))
+                            : localization.auth.tooLong.replace("{{max}}", String(max))
 
                         setFieldErrors((prev) => ({
                           ...prev,
@@ -250,12 +227,16 @@ export function SignIn({
                     <InputGroupAddon align="inline-end">
                       <InputGroupButton
                         size="icon-xs"
-                        aria-label={isPasswordVisible
-                          ? localization.auth.hidePassword
-                          : localization.auth.showPassword}
-                        title={isPasswordVisible
-                          ? localization.auth.hidePassword
-                          : localization.auth.showPassword}
+                        aria-label={
+                          isPasswordVisible
+                            ? localization.auth.hidePassword
+                            : localization.auth.showPassword
+                        }
+                        title={
+                          isPasswordVisible
+                            ? localization.auth.hidePassword
+                            : localization.auth.showPassword
+                        }
                         onClick={() => {
                           setIsPasswordVisible((visible) => !visible)
                         }}
@@ -271,11 +252,7 @@ export function SignIn({
                 {emailAndPassword.rememberMe && (
                   <Field className="my-1">
                     <div className="flex items-center gap-3">
-                      <Checkbox
-                        id="rememberMe"
-                        name="rememberMe"
-                        disabled={isPending}
-                      />
+                      <Checkbox id="rememberMe" name="rememberMe" disabled={isPending} />
 
                       <FieldLabel
                         htmlFor="rememberMe"
@@ -290,10 +267,7 @@ export function SignIn({
                 {captchaComponent}
 
                 <div className="flex flex-col gap-3">
-                  <Button
-                    type="submit"
-                    disabled={isPending || !captchaReady}
-                  >
+                  <Button type="submit" disabled={isPending || !captchaReady}>
                     {signInEmailPending && <Spinner />}
 
                     {localization.auth.signIn}
@@ -335,10 +309,7 @@ export function SignIn({
             <FieldDescription className="text-center">
               {localization.auth.needToCreateAnAccount}{" "}
               <Link
-                href={getAuthLinkURL(
-                  `${basePaths.auth}/${viewPaths.auth.signUp}`,
-                  redirectTo,
-                )}
+                href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signUp}`, redirectTo)}
                 className="underline underline-offset-4"
               >
                 {localization.auth.signUp}

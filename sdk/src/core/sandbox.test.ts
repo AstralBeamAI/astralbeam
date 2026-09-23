@@ -4,20 +4,26 @@ import { describe, expect, it } from "vitest"
 import { SANDBOX_RUN_COMMAND_TOOL, SANDBOX_WRITE_FILE_TOOL } from "./protocol.ts"
 import { collectSandboxActivity, describeSandboxCommandRun } from "./sandbox.ts"
 
-function toolCall(
-  input: { id: string; name: string; input?: unknown; output?: unknown; state?: string },
-): UIMessage {
+function toolCall(input: {
+  id: string
+  name: string
+  input?: unknown
+  output?: unknown
+  state?: string
+}): UIMessage {
   return {
     id: `message-${input.id}`,
     role: "assistant",
-    parts: [{
-      type: "tool-call",
-      id: input.id,
-      name: input.name,
-      state: input.state ?? "complete",
-      input: input.input,
-      output: input.output,
-    }],
+    parts: [
+      {
+        type: "tool-call",
+        id: input.id,
+        name: input.name,
+        state: input.state ?? "complete",
+        input: input.input,
+        output: input.output,
+      },
+    ],
   } as unknown as UIMessage
 }
 
@@ -111,29 +117,33 @@ describe("collectSandboxActivity", () => {
 
 describe("describeSandboxCommandRun", () => {
   it("summarizes the exit code, the duration, and a truncated log", () => {
-    expect(describeSandboxCommandRun({
-      toolCallId: "1",
-      command: "npm test",
-      stdout: "",
-      stderr: "",
-      exitCode: 1,
-      durationMs: 2400,
-      timedOut: false,
-      truncated: true,
-      finished: true,
-    })).toBe("exit 1 · 2.4s · output truncated")
+    expect(
+      describeSandboxCommandRun({
+        toolCallId: "1",
+        command: "npm test",
+        stdout: "",
+        stderr: "",
+        exitCode: 1,
+        durationMs: 2400,
+        timedOut: false,
+        truncated: true,
+        finished: true,
+      }),
+    ).toBe("exit 1 · 2.4s · output truncated")
   })
 
   it("reports a timeout instead of an exit code it never got", () => {
-    expect(describeSandboxCommandRun({
-      toolCallId: "1",
-      command: "sleep 999",
-      stdout: "",
-      stderr: "",
-      durationMs: 120_000,
-      timedOut: true,
-      truncated: false,
-      finished: true,
-    })).toBe("timed out · 120.0s")
+    expect(
+      describeSandboxCommandRun({
+        toolCallId: "1",
+        command: "sleep 999",
+        stdout: "",
+        stderr: "",
+        durationMs: 120_000,
+        timedOut: true,
+        truncated: false,
+        finished: true,
+      }),
+    ).toBe("timed out · 120.0s")
   })
 })

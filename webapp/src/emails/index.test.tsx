@@ -10,9 +10,9 @@ const authEmailIndexTestState = vi.hoisted(() => ({
     email_from_address: "Example App <auth@example.test>",
     email_provider: "resend",
   },
-  sendProviderEmail: vi.fn<
-    (input: ProviderEmailInput) => Promise<{ messageId: string }>
-  >(() => Promise.resolve({ messageId: "test-message" })),
+  sendProviderEmail: vi.fn<(input: ProviderEmailInput) => Promise<{ messageId: string }>>(() =>
+    Promise.resolve({ messageId: "test-message" }),
+  ),
 }))
 
 vi.mock("@/lib/config", () => ({
@@ -45,7 +45,7 @@ describe("authentication email delivery logging", () => {
           user: { email: "member@example.test" },
           url: "https://app.example.test/api/auth/verify-email?token=secret-token",
           expiresInSeconds: 3600,
-        })
+        }),
       )
 
       const logged = info.mock.calls.flat().join(" ")
@@ -70,7 +70,7 @@ describe("authentication email delivery logging", () => {
             user: { email: "member@example.test" },
             url: "https://app.example.test/api/auth/reset-password/secret-token",
             expiresInSeconds: 3600,
-          })
+          }),
         ),
       ).rejects.toThrow("Unable to deliver authentication email")
 
@@ -98,7 +98,7 @@ describe("authentication email wrappers", () => {
         user: { email: "member@example.test" },
         url: verificationURL,
         expiresInSeconds: 45 * 60,
-      })
+      }),
     )
 
     const verificationInput = latestAuthEmailProviderInput()
@@ -113,7 +113,7 @@ describe("authentication email wrappers", () => {
         user: { email: "member@example.test" },
         url: resetURL,
         expiresInSeconds: 75 * 60,
-      })
+      }),
     )
 
     const resetInput = latestAuthEmailProviderInput()
@@ -123,10 +123,7 @@ describe("authentication email wrappers", () => {
 
   test("links invitations directly by their encoded Better Auth ID", async () => {
     const invitationId = "invite/id +?"
-    const expectedInvitationURL = new URL(
-      "/auth/accept-invitation",
-      "https://app.example.test",
-    )
+    const expectedInvitationURL = new URL("/auth/accept-invitation", "https://app.example.test")
     expectedInvitationURL.searchParams.set("invitationId", invitationId)
 
     await runAuthEmailWithMockDelivery(() =>
@@ -141,7 +138,7 @@ describe("authentication email wrappers", () => {
         inviter: {
           user: { name: "Alex Morgan", email: "owner@example.test" },
         },
-      })
+      }),
     )
 
     const invitationInput = latestAuthEmailProviderInput()
@@ -155,7 +152,7 @@ describe("authentication email wrappers", () => {
       sendPasswordChangedEmail({
         user: { email: "member@example.test" },
         changedAt: new Date("2026-08-27T10:00:00.000Z"),
-      })
+      }),
     )
 
     const passwordChangedInput = latestAuthEmailProviderInput()

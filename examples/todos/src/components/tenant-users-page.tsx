@@ -34,7 +34,8 @@ export function TenantUsersPage() {
                 COLOR_SCHEME_CYCLE[
                   (COLOR_SCHEME_CYCLE.indexOf(colorScheme) + 1) % COLOR_SCHEME_CYCLE.length
                 ]!,
-              )}
+              )
+            }
           >
             Theme: {colorScheme}
           </button>
@@ -53,7 +54,9 @@ export function TenantUsersPage() {
         {error && (
           <div role="alert">
             <p>Directory error: {error.message}</p>
-            <button type="button" onClick={() => setError(null)}>Dismiss error</button>
+            <button type="button" onClick={() => setError(null)}>
+              Dismiss error
+            </button>
           </div>
         )}
         <AstralBeamTenantUserList

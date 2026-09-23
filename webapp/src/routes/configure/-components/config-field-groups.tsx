@@ -45,12 +45,14 @@ export function ConfigFieldGroups({
   const providerKeys = new Set<string>(EMAIL_PROVIDER_SETTING_KEYS[emailProvider])
 
   return [...fieldsByGroup].map(([group, groupFields]) => {
-    const visibleFields = group === "Email Delivery"
-      ? groupFields.filter((field) =>
-        ["email_provider", "email_from_address"].includes(field.key) ||
-        providerKeys.has(field.key)
-      )
-      : groupFields
+    const visibleFields =
+      group === "Email Delivery"
+        ? groupFields.filter(
+            (field) =>
+              ["email_provider", "email_from_address"].includes(field.key) ||
+              providerKeys.has(field.key),
+          )
+        : groupFields
     return (
       <Card key={group}>
         <CardHeader>
@@ -68,8 +70,8 @@ export function ConfigFieldGroups({
               onDraftChange={(draft) => onDraftChange(field.key, draft)}
               onGenerate={field.canGenerate ? () => onGenerate(field.key) : undefined}
               onReveal={field.kind === "secret" ? () => onReveal(field.key) : undefined}
-              footer={field.source === "database" && field.key === "app_base_url"
-                ? (
+              footer={
+                field.source === "database" && field.key === "app_base_url" ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -78,13 +80,14 @@ export function ConfigFieldGroups({
                     disabled={disabled}
                     // Reading location in the handler keeps it out of the server render.
                     onClick={() =>
-                      onDraftChange(field.key, { kind: "set", value: globalThis.location.origin })}
+                      onDraftChange(field.key, { kind: "set", value: globalThis.location.origin })
+                    }
                   >
                     <GlobeIcon aria-hidden="true" />
                     Use current origin
                   </Button>
-                )
-                : undefined}
+                ) : undefined
+              }
             />
           ))}
           {group === "Email Delivery" && (
@@ -95,8 +98,8 @@ export function ConfigFieldGroups({
                   {emailProvider === "smtp"
                     ? "Checks the SMTP server, security mode, and optional authentication."
                     : emailProvider === "resend"
-                    ? "Checks that Resend accepts the API key, including sending-only keys."
-                    : "Checks the AWS region, credentials, SES access, and account sending status. Requires ses:GetAccount permission."}
+                      ? "Checks that Resend accepts the API key, including sending-only keys."
+                      : "Checks the AWS region, credentials, SES access, and account sending status. Requires ses:GetAccount permission."}
                   {"  "}Uses the current values without saving them or sending an email.
                 </p>
               </div>

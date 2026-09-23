@@ -9,11 +9,8 @@ import {
 
 import { Appearance } from "@/components/auth/theme/appearance"
 
-export const themePlugin = createAuthPlugin(
-  coreThemePlugin.id,
-  (options: ThemePluginOptions) => ({
-    ...coreThemePlugin(options),
-    userMenuItems: [],
-    accountCards: [Appearance],
-  }),
-)
+export const themePlugin = createAuthPlugin(coreThemePlugin.id, (options: ThemePluginOptions) => ({
+  ...coreThemePlugin(options),
+  userMenuItems: [],
+  accountCards: [Appearance],
+}))

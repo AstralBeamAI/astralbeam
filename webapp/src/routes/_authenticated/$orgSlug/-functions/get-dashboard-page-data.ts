@@ -30,5 +30,5 @@ export const getDashboardPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         }
       }),
-    )
+    ),
   )

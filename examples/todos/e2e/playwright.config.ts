@@ -45,15 +45,17 @@ export default defineConfig({
     { name: "preflight", testMatch: /preflight\.setup\.ts/ },
     { name: "app", testDir: "./specs/app", dependencies: ["preflight"], retries: 0 },
     ...(agentSpecsEnabled
-      ? [{
-        name: "agent",
-        testDir: "./specs/agent",
-        dependencies: ["preflight"],
-        // Model output varies between runs, so one retry absorbs a reply that skipped a tool.
-        retries: 1,
-        // Generous, because a throttled turn waits out the endpoint's one-minute window.
-        timeout: 300_000,
-      }]
+      ? [
+          {
+            name: "agent",
+            testDir: "./specs/agent",
+            dependencies: ["preflight"],
+            // Model output varies between runs, so one retry absorbs a reply that skipped a tool.
+            retries: 1,
+            // Generous, because a throttled turn waits out the endpoint's one-minute window.
+            timeout: 300_000,
+          },
+        ]
       : []),
   ],
   webServer: e2eWebServers(),

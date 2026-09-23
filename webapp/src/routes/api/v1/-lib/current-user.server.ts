@@ -30,25 +30,23 @@ const CurrentUserSchema = Schema.Union([
 export const currentUserApi = HttpApiGroup.make("currentUser", { topLevel: true }).add(
   HttpApiEndpoint.post("getCurrentUser", "/me", {
     success: CurrentUserSchema,
-  }).annotate(OpenApi.Summary, "Get the current user").annotate(
-    OpenApi.Description,
-    "Use a tenant JWT to upsert its own Tenant and TenantUser atomically, without requiring admin authority. Supplied names and metadata replace stored values, omitted profile fields and admin are preserved, and an explicit admin claim updates stored admin. An organization JWT returns existing user membership and the current database role without provisioning identities. API keys and cookies are not accepted. Limited to 100 requests per five minutes per identity.",
-  ).annotate(OpenApi.Override, { security: [{ astralBeamToken: [] }, { organizationToken: [] }] }),
+  })
+    .annotate(OpenApi.Summary, "Get the current user")
+    .annotate(
+      OpenApi.Description,
+      "Use a tenant JWT to upsert its own Tenant and TenantUser atomically, without requiring admin authority. Supplied names and metadata replace stored values, omitted profile fields and admin are preserved, and an explicit admin claim updates stored admin. An organization JWT returns existing user membership and the current database role without provisioning identities. API keys and cookies are not accepted. Limited to 100 requests per five minutes per identity.",
+    )
+    .annotate(OpenApi.Override, { security: [{ astralBeamToken: [] }, { organizationToken: [] }] }),
 )
 
 export function currentUserHandlers(api: typeof ApiV1) {
-  return HttpApiBuilder.group(
-    api,
-    "currentUser",
-    (handlers) =>
-      handlers.handle(
-        "getCurrentUser",
-        Effect.fn(function* ({ request }) {
-          const { getCurrentUser } = yield* Effect.promise(() =>
-            import("./current-user-auth.server")
-          )
-          return yield* getCurrentUser(yield* HttpServerRequest.toWeb(request))
-        }, restHandleErrors("getCurrentUser")),
-      ),
+  return HttpApiBuilder.group(api, "currentUser", (handlers) =>
+    handlers.handle(
+      "getCurrentUser",
+      Effect.fn(function* ({ request }) {
+        const { getCurrentUser } = yield* Effect.promise(() => import("./current-user-auth.server"))
+        return yield* getCurrentUser(yield* HttpServerRequest.toWeb(request))
+      }, restHandleErrors("getCurrentUser")),
+    ),
   )
 }

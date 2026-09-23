@@ -28,33 +28,29 @@ describe("legal acceptance for user creation", () => {
 
   test("requires the protected OAuth server context instead of client-authored state", async () => {
     await expect(
-      acceptedAtForUserCreation(
-        { path: "/callback/:id" },
-        () =>
-          Promise.resolve({
-            requestSignUp: true,
-            termsAccepted: true,
-          }),
+      acceptedAtForUserCreation({ path: "/callback/:id" }, () =>
+        Promise.resolve({
+          requestSignUp: true,
+          termsAccepted: true,
+        }),
       ),
     ).rejects.toMatchObject({ body: { code: "legal_acceptance_required" } })
   })
 
   test("accepts the protected OAuth signup marker", async () => {
     await expect(
-      acceptedAtForUserCreation(
-        { path: "/callback/:id" },
-        () =>
-          Promise.resolve({
-            requestSignUp: true,
-            serverContext: { termsAccepted: true },
-          }),
+      acceptedAtForUserCreation({ path: "/callback/:id" }, () =>
+        Promise.resolve({
+          requestSignUp: true,
+          serverContext: { termsAccepted: true },
+        }),
       ),
     ).resolves.toBeInstanceOf(Date)
   })
 
   test("rejects user creation outside supported signup endpoints", async () => {
-    await expect(
-      acceptedAtForUserCreation({ path: "/admin/create-user" }),
-    ).rejects.toMatchObject({ body: { code: "legal_acceptance_required" } })
+    await expect(acceptedAtForUserCreation({ path: "/admin/create-user" })).rejects.toMatchObject({
+      body: { code: "legal_acceptance_required" },
+    })
   })
 })

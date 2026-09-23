@@ -142,18 +142,18 @@ export function SandboxPanel({ activity }: { activity: SandboxActivity }) {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="files" className="min-h-0 overflow-y-auto p-2">
-              {files === 0
-                ? <PanelEmpty>The agent has not written any files yet.</PanelEmpty>
-                : activity.files.map((file) => (
-                  <SandboxFileRow key={file.toolCallId} file={file} />
-                ))}
+              {files === 0 ? (
+                <PanelEmpty>The agent has not written any files yet.</PanelEmpty>
+              ) : (
+                activity.files.map((file) => <SandboxFileRow key={file.toolCallId} file={file} />)
+              )}
             </TabsContent>
             <TabsContent value="log" className="min-h-0 overflow-y-auto p-2">
-              {commands === 0
-                ? <PanelEmpty>The agent has not run any commands yet.</PanelEmpty>
-                : activity.commands.map((run) => (
-                  <SandboxCommandRow key={run.toolCallId} run={run} />
-                ))}
+              {commands === 0 ? (
+                <PanelEmpty>The agent has not run any commands yet.</PanelEmpty>
+              ) : (
+                activity.commands.map((run) => <SandboxCommandRow key={run.toolCallId} run={run} />)
+              )}
             </TabsContent>
           </Tabs>
         </div>

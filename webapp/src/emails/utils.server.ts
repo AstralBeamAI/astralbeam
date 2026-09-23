@@ -33,10 +33,7 @@ export type SendProviderEmail = (
  * the literal specifiers stay statically analyzable for bundling and unused-file detection. It
  * doubles as the set of provider names `resolveProvider` accepts.
  */
-export const providerLoaders: Record<
-  EmailProvider,
-  () => Promise<SendProviderEmail>
-> = {
+export const providerLoaders: Record<EmailProvider, () => Promise<SendProviderEmail>> = {
   smtp: async () => (await import("./providers/smtp.ts")).sendSmtpEmail,
   resend: async () => (await import("./providers/resend.ts")).sendResendEmail,
   ses: async () => (await import("./providers/ses.ts")).sendSesEmail,
@@ -80,7 +77,7 @@ export function nodemailerMessage(input: ProviderEmailInput): SendMailOptions {
     to: input.to,
     subject: input.subject,
     html: input.html,
-    ...input.text ? { text: input.text } : {},
+    ...(input.text ? { text: input.text } : {}),
     replyTo: input.replyTo,
     attachments: input.attachments.map(({ filename, contentType, content }) => ({
       filename,
@@ -106,7 +103,7 @@ export async function buildProviderEmailInput(
     throw new Error("No 'from' address given and no default from address is configured")
   }
 
-  const text = options.text ?? (react ? rendered?.text ?? renderEmailPlainText(html) : undefined)
+  const text = options.text ?? (react ? (rendered?.text ?? renderEmailPlainText(html)) : undefined)
   const replyTo = toArray(options.replyTo)
 
   return {
@@ -114,7 +111,7 @@ export async function buildProviderEmailInput(
     from,
     subject: options.subject,
     html,
-    ...text ? { text } : {},
+    ...(text ? { text } : {}),
     replyTo: replyTo.length > 0 ? replyTo : [from],
     attachments: await Promise.all((options.attachments ?? []).map(resolveAttachment)),
   }

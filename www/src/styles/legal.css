@@ -4,8 +4,11 @@
 .legal-shell {
   min-height: 100svh;
   background:
-    linear-gradient(to bottom, color-mix(in srgb, var(--primary) 7%, transparent), transparent
-    22rem),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--primary) 7%, transparent),
+      transparent 22rem
+    ),
     var(--background);
 }
 

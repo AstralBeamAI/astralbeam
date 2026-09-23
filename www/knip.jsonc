@@ -13,6 +13,6 @@
   "ignoreDependencies": [
     "@fontsource-variable/space-grotesk",
     "@fontsource/anton",
-    "@fontsource/jetbrains-mono"
-  ]
+    "@fontsource/jetbrains-mono",
+  ],
 }

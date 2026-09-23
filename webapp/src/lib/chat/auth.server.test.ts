@@ -117,9 +117,7 @@ async function token(overrides: TokenOverrides = {}) {
     .setIssuer(overrides.issuer ?? "01990a5d-ac96-774b-b942-6b13c85384ca")
     .setAudience(overrides.audience ?? CHAT_AUTH_TOKEN_AUDIENCE)
     .setIssuedAt(issuedAt)
-    .setExpirationTime(
-      overrides.expiresAt ?? issuedAt + (overrides.expiresInSeconds ?? 300),
-    )
+    .setExpirationTime(overrides.expiresAt ?? issuedAt + (overrides.expiresInSeconds ?? 300))
   if (overrides.subject !== undefined) jwt = jwt.setSubject(overrides.subject)
   return await jwt.sign(signingKey(overrides.signingSecret))
 }
@@ -147,13 +145,16 @@ describe("organization API-key chat JWTs", () => {
       claims: { email: identity.email, organization_id: identity.organizationId },
     })
     await expect(verifyChatAuthToken(jwt, signingKey(), apiKeyId)).rejects.toThrow()
-    await expect(Effect.runPromise(verifyOrganizationToken(await token(), signingKey(), apiKeyId)))
-      .rejects.toThrow()
-    const keyRow = [{
-      id: apiKeyId.split("_")[2],
-      digest: createHash("sha256").update(rawApiKey).digest("base64url"),
-      organizationId: identity.organizationId,
-    }]
+    await expect(
+      Effect.runPromise(verifyOrganizationToken(await token(), signingKey(), apiKeyId)),
+    ).rejects.toThrow()
+    const keyRow = [
+      {
+        id: apiKeyId.split("_")[2],
+        digest: createHash("sha256").update(rawApiKey).digest("base64url"),
+        organizationId: identity.organizationId,
+      },
+    ]
     databaseState.rows = [
       keyRow,
       [{ enabled: true, expiresAt: null }],
@@ -180,9 +181,7 @@ describe("organization API-key chat JWTs", () => {
     const join = query(databaseState.joinPredicates.at(-1)!)
     expect(join.sql).toContain('"member"."user_id" = "user"."id"')
     expect(join.params).toEqual([identity.organizationId])
-    expect(query(databaseState.wherePredicates.at(-1)!).params).toEqual([
-      identity.email,
-    ])
+    expect(query(databaseState.wherePredicates.at(-1)!).params).toEqual([identity.email])
     await expect(runDatabaseEffect(authentication)).resolves.toMatchObject({
       currentUser: { ...currentUser, role: "viewer" },
     })
@@ -199,26 +198,24 @@ describe("organization API-key chat JWTs", () => {
       version: 1,
       claims: { email: "operator@example.com", organization_id: apiKeyId.split("_")[1]! },
     }
-    for (
-      const override of [
-        { version: 2 },
-        { expiresInSeconds: 601 },
-        { expiresInSeconds: 59 },
-        { issuedAt: 1 },
-        { issuer: "another-org" },
-        { audience: "chat" },
-        { claims: { ...defaults.claims, tenant: { id: "t" } } },
-        { claims: { ...defaults.claims, role: "owner" } },
-        { claims: { ...defaults.claims, organization_id: "another-org" } },
-        { claims: { ...defaults.claims, email: "invalid" } },
-        { claims: { ...defaults.claims, email: "owner\u0000@example.com" } },
-        { claims: { organization_id: defaults.claims.organization_id } },
-        { claims: { email: defaults.claims.email } },
-        { subject: "old-user-id" },
-        { algorithm: "HS384" as const },
-        { signingSecret: "wrong" },
-      ]
-    ) {
+    for (const override of [
+      { version: 2 },
+      { expiresInSeconds: 601 },
+      { expiresInSeconds: 59 },
+      { issuedAt: 1 },
+      { issuer: "another-org" },
+      { audience: "chat" },
+      { claims: { ...defaults.claims, tenant: { id: "t" } } },
+      { claims: { ...defaults.claims, role: "owner" } },
+      { claims: { ...defaults.claims, organization_id: "another-org" } },
+      { claims: { ...defaults.claims, email: "invalid" } },
+      { claims: { ...defaults.claims, email: "owner\u0000@example.com" } },
+      { claims: { organization_id: defaults.claims.organization_id } },
+      { claims: { email: defaults.claims.email } },
+      { subject: "old-user-id" },
+      { algorithm: "HS384" as const },
+      { signingSecret: "wrong" },
+    ]) {
       const jwt = await token({ ...defaults, ...override })
       await expect(
         Effect.runPromise(verifyOrganizationToken(jwt, signingKey(), apiKeyId)),
@@ -228,11 +225,13 @@ describe("organization API-key chat JWTs", () => {
 
   test("authenticates through a lifecycle reread without consuming API-key usage", async () => {
     databaseState.rows = [
-      [{
-        id: "01990a5d-ac96-774b-b942-6b13c85384c9",
-        digest: createHash("sha256").update(rawApiKey).digest("base64url"),
-        organizationId: "01990a5d-ac96-774b-b942-6b13c85384ca",
-      }],
+      [
+        {
+          id: "01990a5d-ac96-774b-b942-6b13c85384c9",
+          digest: createHash("sha256").update(rawApiKey).digest("base64url"),
+          organizationId: "01990a5d-ac96-774b-b942-6b13c85384ca",
+        },
+      ],
       [{ enabled: true, expiresAt: null }],
     ]
 
@@ -270,11 +269,13 @@ describe("organization API-key chat JWTs", () => {
     ["expired", { enabled: true, expiresAt: new Date(0) }],
   ])("rejects a %s API key during the lifecycle reread", async (_name, current) => {
     databaseState.rows = [
-      [{
-        id: "01990a5d-ac96-774b-b942-6b13c85384c9",
-        digest: createHash("sha256").update(rawApiKey).digest("base64url"),
-        organizationId: "01990a5d-ac96-774b-b942-6b13c85384ca",
-      }],
+      [
+        {
+          id: "01990a5d-ac96-774b-b942-6b13c85384c9",
+          digest: createHash("sha256").update(rawApiKey).digest("base64url"),
+          organizationId: "01990a5d-ac96-774b-b942-6b13c85384ca",
+        },
+      ],
       current ? [current] : [],
     ]
 
@@ -314,26 +315,23 @@ describe("organization API-key chat JWTs", () => {
     ["too long", { expiresInSeconds: 601 }],
     ["missing user ID", { user: {} }],
     ["missing tenant ID", { tenant: {} }],
-    [
-      "user fields outside metadata",
-      { user: { ...defaultUser, role: "admin" } },
-    ],
-    [
-      "tenant fields outside metadata",
-      { tenant: { ...defaultTenant, plan: "enterprise" } },
-    ],
+    ["user fields outside metadata", { user: { ...defaultUser, role: "admin" } }],
+    ["tenant fields outside metadata", { tenant: { ...defaultTenant, plan: "enterprise" } }],
     ["legacy nested tenant user", { claims: { tenantUser: defaultTenantUser } }],
   ])("rejects %s", async (_name, overrides) => {
-    await expect(verifyChatAuthToken(await token(overrides), signingKey(), apiKeyId)).rejects
-      .toSatisfy(isChatAuthenticationError)
+    await expect(
+      verifyChatAuthToken(await token(overrides), signingKey(), apiKeyId),
+    ).rejects.toSatisfy(isChatAuthenticationError)
   })
 
   test("rejects legacy key IDs before querying", async () => {
-    await expect(authenticateChatRequest(
-      new Request("https://example.test/api/v1/chat", {
-        headers: { authorization: `Bearer ${await token({ apiKeyId: "key_acme_production" })}` },
-      }),
-    )).rejects.toSatisfy(isChatAuthenticationError)
+    await expect(
+      authenticateChatRequest(
+        new Request("https://example.test/api/v1/chat", {
+          headers: { authorization: `Bearer ${await token({ apiKeyId: "key_acme_production" })}` },
+        }),
+      ),
+    ).rejects.toSatisfy(isChatAuthenticationError)
     expect(databaseState.selectCalls).toBe(0)
   })
 

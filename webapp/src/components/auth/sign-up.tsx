@@ -92,44 +92,38 @@ export function SignUp({
   const [termsAccepted, setTermsAccepted] = useState(false)
   const legalAccepted = !legalAcceptanceRequired || termsAccepted
 
-  const { mutate: signUpEmail, isPending: signUpEmailPending } = useSignUpEmail(
-    authClient,
-    {
-      onError: (error) => {
-        // The haveIBeenPwned plugin rejects on the password itself,
-        // so it belongs against the field rather than in a toast.
-        if (isPasswordCompromisedError(error)) {
-          setFieldErrors((prev) => ({
-            ...prev,
-            password: localization.auth.passwordCompromised,
-          }))
-        }
+  const { mutate: signUpEmail, isPending: signUpEmailPending } = useSignUpEmail(authClient, {
+    onError: (error) => {
+      // The haveIBeenPwned plugin rejects on the password itself,
+      // so it belongs against the field rather than in a toast.
+      if (isPasswordCompromisedError(error)) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          password: localization.auth.passwordCompromised,
+        }))
+      }
 
-        setPassword("")
-        setConfirmPassword("")
-        resetFetchOptions()
-      },
-      onSuccess: (_data, { email }) => {
-        if (emailAndPassword?.requireEmailVerification) {
-          try {
-            globalThis.sessionStorage.setItem("better-auth-ui.verify-email", email)
-          } catch {
-            // The stored email is only a convenience for the verification view.
-          }
-          navigate({
-            to: getAuthLinkURL(
-              `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
-              redirectTo,
-            ),
-          })
-        } else if (onSignUpSuccess) {
-          onSignUpSuccess()
-        } else {
-          navigate({ to: redirectTo })
-        }
-      },
+      setPassword("")
+      setConfirmPassword("")
+      resetFetchOptions()
     },
-  )
+    onSuccess: (_data, { email }) => {
+      if (emailAndPassword?.requireEmailVerification) {
+        try {
+          globalThis.sessionStorage.setItem("better-auth-ui.verify-email", email)
+        } catch {
+          // The stored email is only a convenience for the verification view.
+        }
+        navigate({
+          to: getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.verifyEmail}`, redirectTo),
+        })
+      } else if (onSignUpSuccess) {
+        onSignUpSuccess()
+      } else {
+        navigate({ to: redirectTo })
+      }
+    },
+  })
 
   const signInMutating = useIsMutating({
     mutationKey: authMutationKeys.signIn.all,
@@ -169,31 +163,27 @@ export function SignUp({
       return
     }
 
-    signUpEmail(
-      {
-        name,
-        email,
-        password,
-        callbackURL: redirectTo,
-        fetchOptions,
-        ...(legalAcceptanceRequired && { termsAccepted: true as const }),
-      },
-    )
+    signUpEmail({
+      name,
+      email,
+      password,
+      callbackURL: redirectTo,
+      fetchOptions,
+      ...(legalAcceptanceRequired && { termsAccepted: true as const }),
+    })
   }
 
   const showSeparator = emailAndPassword?.enabled && socialProviders && socialProviders.length > 0
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
   const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
-  const providerButtons = socialProviders?.length
-    ? (
-      <ProviderButtons
-        disabled={!legalAccepted}
-        {...(socialLayout === undefined ? {} : { socialLayout })}
-        {...(legalAcceptanceRequired ? { termsAccepted } : {})}
-        view="signUp"
-      />
-    )
-    : null
+  const providerButtons = socialProviders?.length ? (
+    <ProviderButtons
+      disabled={!legalAccepted}
+      {...(socialLayout === undefined ? {} : { socialLayout })}
+      {...(legalAcceptanceRequired ? { termsAccepted } : {})}
+      view="signUp"
+    />
+  ) : null
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -223,9 +213,7 @@ export function SignUp({
               <FieldGroup>
                 {emailAndPassword.name !== false && (
                   <Field data-invalid={!!fieldErrors.name}>
-                    <FieldLabel htmlFor="name">
-                      {localization.auth.name}
-                    </FieldLabel>
+                    <FieldLabel htmlFor="name">{localization.auth.name}</FieldLabel>
 
                     <Input
                       id="name"
@@ -257,9 +245,7 @@ export function SignUp({
                 )}
 
                 <Field data-invalid={!!fieldErrors.email}>
-                  <FieldLabel htmlFor="email">
-                    {localization.auth.email}
-                  </FieldLabel>
+                  <FieldLabel htmlFor="email">{localization.auth.email}</FieldLabel>
 
                   <Input
                     id="email"
@@ -294,9 +280,7 @@ export function SignUp({
                 </Field>
 
                 <Field data-invalid={!!fieldErrors.password}>
-                  <FieldLabel htmlFor="password">
-                    {localization.auth.password}
-                  </FieldLabel>
+                  <FieldLabel htmlFor="password">{localization.auth.password}</FieldLabel>
 
                   <InputGroup>
                     <InputGroupInput
@@ -325,14 +309,8 @@ export function SignUp({
                         const msg = el.validity.valueMissing
                           ? localization.auth.fieldRequired
                           : el.validity.tooShort
-                          ? localization.auth.tooShort.replace(
-                            "{{min}}",
-                            String(min),
-                          )
-                          : localization.auth.tooLong.replace(
-                            "{{max}}",
-                            String(max),
-                          )
+                            ? localization.auth.tooShort.replace("{{min}}", String(min))
+                            : localization.auth.tooLong.replace("{{max}}", String(max))
 
                         setFieldErrors((prev) => ({
                           ...prev,
@@ -345,12 +323,16 @@ export function SignUp({
                     <InputGroupAddon align="inline-end">
                       <InputGroupButton
                         size="icon-xs"
-                        aria-label={isPasswordVisible
-                          ? localization.auth.hidePassword
-                          : localization.auth.showPassword}
-                        title={isPasswordVisible
-                          ? localization.auth.hidePassword
-                          : localization.auth.showPassword}
+                        aria-label={
+                          isPasswordVisible
+                            ? localization.auth.hidePassword
+                            : localization.auth.showPassword
+                        }
+                        title={
+                          isPasswordVisible
+                            ? localization.auth.hidePassword
+                            : localization.auth.showPassword
+                        }
                         onClick={() => {
                           setIsPasswordVisible((visible) => !visible)
                         }}
@@ -399,14 +381,8 @@ export function SignUp({
                           const msg = el.validity.valueMissing
                             ? localization.auth.fieldRequired
                             : el.validity.tooShort
-                            ? localization.auth.tooShort.replace(
-                              "{{min}}",
-                              String(min),
-                            )
-                            : localization.auth.tooLong.replace(
-                              "{{max}}",
-                              String(max),
-                            )
+                              ? localization.auth.tooShort.replace("{{min}}", String(min))
+                              : localization.auth.tooLong.replace("{{max}}", String(max))
 
                           setFieldErrors((prev) => ({
                             ...prev,
@@ -419,14 +395,17 @@ export function SignUp({
                       <InputGroupAddon align="inline-end">
                         <InputGroupButton
                           size="icon-xs"
-                          aria-label={isConfirmPasswordVisible
-                            ? localization.auth.hidePassword
-                            : localization.auth.showPassword}
-                          title={isConfirmPasswordVisible
-                            ? localization.auth.hidePassword
-                            : localization.auth.showPassword}
-                          onClick={() =>
-                            setIsConfirmPasswordVisible((visible) => !visible)}
+                          aria-label={
+                            isConfirmPasswordVisible
+                              ? localization.auth.hidePassword
+                              : localization.auth.showPassword
+                          }
+                          title={
+                            isConfirmPasswordVisible
+                              ? localization.auth.hidePassword
+                              : localization.auth.showPassword
+                          }
+                          onClick={() => setIsConfirmPasswordVisible((visible) => !visible)}
                         >
                           {isConfirmPasswordVisible ? <EyeOff /> : <Eye />}
                         </InputGroupButton>
@@ -500,10 +479,7 @@ export function SignUp({
             <FieldDescription className="text-center">
               {localization.auth.alreadyHaveAnAccount}{" "}
               <Link
-                href={getAuthLinkURL(
-                  `${basePaths.auth}/${viewPaths.auth.signIn}`,
-                  redirectTo,
-                )}
+                href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)}
                 className="underline underline-offset-4"
               >
                 {localization.auth.signIn}

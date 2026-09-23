@@ -31,9 +31,7 @@ export type DatabaseConfigState = {
   readonly values: ConfigValues
 }
 
-function readStoredConfigRows(
-  excludedKeys: readonly ConfigKey[],
-) {
+function readStoredConfigRows(excludedKeys: readonly ConfigKey[]) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const query = db
@@ -58,7 +56,10 @@ function readStoredConfigRows(
       }
     })
   }).pipe(
-    Effect.catchIf((error) => sqlState(error) === "42P01", () => Effect.succeed(null)),
+    Effect.catchIf(
+      (error) => sqlState(error) === "42P01",
+      () => Effect.succeed(null),
+    ),
   )
 }
 
@@ -98,15 +99,13 @@ function visibleStoredConfigRows(
       ...(definition && values[definition.key] === undefined
         ? { storageStatus: "unreadable" as const }
         : row.storage
-        ? { storageStatus: row.storage }
-        : {}),
+          ? { storageStatus: row.storage }
+          : {}),
     }
   })
 }
 
-function decodeStoredConfigRows(
-  rows: readonly StoredConfigRow[],
-): ConfigValues {
+function decodeStoredConfigRows(rows: readonly StoredConfigRow[]): ConfigValues {
   const values: ConfigValues = {}
   const rowsByKey = new Map(rows.map((row) => [row.key, row]))
   for (const definition of CONFIG_DEFINITIONS) {
@@ -118,9 +117,7 @@ function decodeStoredConfigRows(
   return values
 }
 
-export function getDatabaseConfigEffect(
-  excludedKeys: readonly ConfigKey[] = [],
-) {
+export function getDatabaseConfigEffect(excludedKeys: readonly ConfigKey[] = []) {
   return Effect.gen(function* () {
     const storedRows = yield* readStoredConfigRows(excludedKeys)
     const values = decodeStoredConfigRows(storedRows ?? [])
@@ -175,7 +172,7 @@ export function applyDatabaseConfigChangesEffect(
             .values(databaseConfigValue(generatedValue))
             .onConflictDoNothing({ target: configTable.key })
         }
-      })
+      }),
     )
   })
 }

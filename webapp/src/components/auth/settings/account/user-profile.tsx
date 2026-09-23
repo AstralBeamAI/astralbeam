@@ -49,9 +49,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
   return (
     <div>
-      <h2 className="text-sm font-semibold mb-3">
-        {localization.settings.userProfile}
-      </h2>
+      <h2 className="text-sm font-semibold mb-3">{localization.settings.userProfile}</h2>
 
       <form onSubmit={submitUserProfile}>
         <Card className={cn(className)}>
@@ -61,39 +59,37 @@ export function UserProfile({ className }: UserProfileProps) {
             <Field data-invalid={!!fieldErrors.name}>
               <FieldLabel htmlFor="name">{localization.auth.name}</FieldLabel>
 
-              {session
-                ? (
-                  <Input
-                    key={session?.user.name}
-                    id="name"
-                    name="name"
-                    autoComplete="name"
-                    defaultValue={session?.user.name}
-                    placeholder={localization.auth.name}
-                    disabled={isPending}
-                    required
-                    onChange={() => {
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        name: undefined,
-                      }))
-                    }}
-                    onInvalid={(e) => {
-                      e.preventDefault()
+              {session ? (
+                <Input
+                  key={session?.user.name}
+                  id="name"
+                  name="name"
+                  autoComplete="name"
+                  defaultValue={session?.user.name}
+                  placeholder={localization.auth.name}
+                  disabled={isPending}
+                  required
+                  onChange={() => {
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      name: undefined,
+                    }))
+                  }}
+                  onInvalid={(e) => {
+                    e.preventDefault()
 
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        name: (e.target as HTMLInputElement).validationMessage,
-                      }))
-                    }}
-                    aria-invalid={!!fieldErrors.name}
-                  />
-                )
-                : (
-                  <Skeleton>
-                    <Input className="invisible" />
-                  </Skeleton>
-                )}
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      name: (e.target as HTMLInputElement).validationMessage,
+                    }))
+                  }}
+                  aria-invalid={!!fieldErrors.name}
+                />
+              ) : (
+                <Skeleton>
+                  <Input className="invisible" />
+                </Skeleton>
+              )}
 
               <FieldError>{fieldErrors.name}</FieldError>
             </Field>

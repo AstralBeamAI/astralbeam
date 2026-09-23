@@ -6,12 +6,12 @@ The sandboxes run in your own account with the vendor, so that vendor bills you 
 
 ## Providers and their options
 
-| Provider | Options                                                                                         | Credential   |
-| -------- | ----------------------------------------------------------------------------------------------- | ------------ |
-| Daytona  | Target, `us` or `eu`, default `us`. Snapshot, default `daytona-medium`.                         | API key      |
-| Docker   | Image, default `node:22`.                                                                       | None         |
-| Sprites  | None.                                                                                           | API token    |
-| Vercel   | Team ID, Project ID, and Runtime, one of `node24`, `node22`, or `python3.13`, default `node24`. | Access token |
+| Provider | Options | Credential |
+| --- | --- | --- |
+| Daytona | Target, `us` or `eu`, default `us`. Snapshot, default `daytona-medium`. | API key |
+| Docker | Image, default `node:22`. | None |
+| Sprites | None. | API token |
+| Vercel | Team ID, Project ID, and Runtime, one of `node24`, `node22`, or `python3.13`, default `node24`. | Access token |
 
 Every configuration also carries a name, unique within the organization ignoring case. The name is how you tell two configurations of the same vendor apart when you select one on an agent, so name them for their purpose rather than for the vendor.
 

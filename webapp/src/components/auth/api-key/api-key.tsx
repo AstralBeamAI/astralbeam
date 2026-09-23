@@ -30,13 +30,7 @@ export type ApiKeyProps = {
   onDeleted?: (() => void) | undefined
 }
 
-export function ApiKey({
-  apiKey,
-  hideDelete,
-  deleteDisabled,
-  hideUpdate,
-  onDeleted,
-}: ApiKeyProps) {
+export function ApiKey({ apiKey, hideDelete, deleteDisabled, hideUpdate, onDeleted }: ApiKeyProps) {
   const { localization } = useAuth()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -50,38 +44,32 @@ export function ApiKey({
       <ItemContent>
         <ItemTitle>{apiKey.name || apiKeyLocalization.apiKey}</ItemTitle>
         <ItemDescription>
-          {apiKeyLocalization.created} {new Date(apiKey.createdAt).toLocaleString(undefined, {
+          {apiKeyLocalization.created}{" "}
+          {new Date(apiKey.createdAt).toLocaleString(undefined, {
             dateStyle: "medium",
             timeStyle: "short",
-          })} · {apiKey.expiresAt
-            ? `${apiKeyLocalization.expires} ${
-              new Date(
-                apiKey.expiresAt,
-              ).toLocaleString(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })
-            }`
-            : apiKeyLocalization.neverExpires} ·{" "}
-          {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
+          })}{" "}
+          ·{" "}
+          {apiKey.expiresAt
+            ? `${apiKeyLocalization.expires} ${new Date(apiKey.expiresAt).toLocaleString(
+                undefined,
+                {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                },
+              )}`
+            : apiKeyLocalization.neverExpires}{" "}
+          · {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
         </ItemDescription>
       </ItemContent>
       <ItemActions>
         {!hideUpdate && (
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditOpen(true)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
               <PencilSimpleIcon aria-hidden="true" />
               {apiKeyLocalization.editApiKey}
             </Button>
-            <EditApiKeyDialog
-              apiKey={apiKey}
-              open={editOpen}
-              onOpenChange={setEditOpen}
-            />
+            <EditApiKeyDialog apiKey={apiKey} open={editOpen} onOpenChange={setEditOpen} />
           </>
         )}
         {!hideDelete && (

@@ -25,16 +25,17 @@ function DashboardPage() {
           <WarningCircleIcon aria-hidden="true" />
           <AlertTitle>This organization has no OpenAI API key</AlertTitle>
           <AlertDescription>
-            Every embedded chat message is refused until one is set. {permissions.updateOrganization
-              ? (
-                <>
-                  <Link to="/$orgSlug/settings" params={{ orgSlug }}>
-                    Configure the OpenAI API key
-                  </Link>{" "}
-                  in the organization settings.
-                </>
-              )
-              : "Ask an owner to add one in the organization settings."}
+            Every embedded chat message is refused until one is set.{" "}
+            {permissions.updateOrganization ? (
+              <>
+                <Link to="/$orgSlug/settings" params={{ orgSlug }}>
+                  Configure the OpenAI API key
+                </Link>{" "}
+                in the organization settings.
+              </>
+            ) : (
+              "Ask an owner to add one in the organization settings."
+            )}
           </AlertDescription>
         </Alert>
       )}
