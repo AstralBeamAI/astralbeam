@@ -6,6 +6,8 @@ Install the package, mount the widget, and add the token endpoint. The widget st
 npm install @astralbeam/sdk
 ```
 
+**TIP**: Without npm or a bundler, as in Rails, Django, Laravel, or PHP apps, load the widget from jsDelivr with a [script tag](./script-tag.md).
+
 ## Mount in React
 
 `<AstralBeamChat>` is the whole integration. Every option is a prop.
@@ -51,6 +53,7 @@ The widget fills its container, so the container must have a real height.
 ## Next
 
 - [Authentication](./authentication.md), required before the widget will chat.
+- [Script tag](./script-tag.md), load from jsDelivr and wire into Ruby on Rails.
 - [Configuration](./configuration.md), every option.
 - [Tools and widgets](./tools-and-widgets.md), let the agent act on and draw in your app.
 - [Headless](./headless.md), own the whole chat UI on the same session.

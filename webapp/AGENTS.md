@@ -120,7 +120,7 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 
 ## Seed data
 
-- Keep `db-seed` rerunnable, transactional, loopback-only, and separate from reset/migration commands. It prepares local verification and writes `examples/todos/.env` only when absent. See the [seed runbook](src/db/README.md#seed-sample-data) for its inventory and commands.
+- Keep `db-seed` rerunnable, transactional, loopback-only, and separate from reset/migration commands. It prepares local verification and writes `examples/todos/.env` and `examples/todos-rails/.env` only when absent. See the [seed runbook](src/db/README.md#seed-sample-data) for its inventory and commands.
   - `scripts/seed/fixtures.ts` is the only source of seeded identities and is imported by `examples/todos/e2e` across the project boundary, so keep it free of imports and runtime dependencies.
   - Seed modules run under a plain `deno run`, which cannot resolve the `@/` alias. Import tables through the relative `src/db/schema.server.ts` path and never from `src/db/index.ts`, `agent.server.ts`, or `config.server.ts`.
   - The seed skips any config key whose uppercase environment variable is set, because the environment takes precedence and `/configure` renders those fields read-only. It writes `OPENAI_API_KEY` from `webapp/.env.local` as every seeded organization's own key, which is the only place a model key is stored.

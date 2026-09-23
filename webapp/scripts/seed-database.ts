@@ -23,14 +23,12 @@ import { seedUsers } from "./seed/users.ts"
 import { seedDogfood } from "./seed/dogfood.ts"
 
 // Resolved from this file, not the cwd, so the seed writes the same path from anywhere.
-const todosEnvFile = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "examples",
-  "todos",
-  ".env",
-)
+const examplesDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "examples")
+// Each example reads its browser-safe agent ID from a differently named variable.
+const exampleAgentIdVariables = {
+  todos: "VITE_ASTRALBEAM_AGENT_ID",
+  "todos-rails": "ASTRALBEAM_AGENT_ID",
+}
 
 loadSeedEnvironment()
 
@@ -86,16 +84,19 @@ try {
 
   console.log(`\nTenant users: ${summary.tenantUserCount}`)
 
-  const todosEnv = `ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}\nVITE_ASTRALBEAM_AGENT_ID=${SEED_TODOS_TARGET.agentId}\n`
-  // Both values are self-describing local-only fixtures and the file is gitignored, but an
-  // existing one may hold a real key, so it is never overwritten.
-  if (existsSync(todosEnvFile)) {
-    console.log("\nexamples/todos/.env already exists and was left alone; it should hold:\n")
-  } else {
-    writeFileSync(todosEnvFile, todosEnv)
-    console.log("\nWrote examples/todos/.env so the todos example points at this database:\n")
+  for (const [example, agentIdVariable] of Object.entries(exampleAgentIdVariables)) {
+    const envFile = join(examplesDirectory, example, ".env")
+    const env = `ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}\n${agentIdVariable}=${SEED_TODOS_TARGET.agentId}\n`
+    // Both values are self-describing local-only fixtures and the file is gitignored, but an
+    // existing one may hold a real key, so it is never overwritten.
+    if (existsSync(envFile)) {
+      console.log(`\nexamples/${example}/.env already exists and was left alone; it should hold:\n`)
+    } else {
+      writeFileSync(envFile, env)
+      console.log(`\nWrote examples/${example}/.env so the example points at this database:\n`)
+    }
+    for (const line of env.trimEnd().split("\n")) console.log(`  ${line}`)
   }
-  for (const line of todosEnv.trimEnd().split("\n")) console.log(`  ${line}`)
 
   if (summary.openaiApiKey === "written") {
     console.log("\nStored OPENAI_API_KEY as every seeded organization's own OpenAI API key.")

@@ -1,0 +1,60 @@
+<% content_for :title, "Todos" %>
+
+<%= tag.div class: "app", data: {
+      color_scheme: color_scheme,
+      controller: "astralbeam-chat",
+      astralbeam_chat_api_url_value: Rails.configuration.x.astralbeam.api_url,
+      astralbeam_chat_agent_id_value: Rails.configuration.x.astralbeam.agent_id,
+      astralbeam_chat_title_value: "Todos assistant",
+      astralbeam_chat_color_scheme_value: color_scheme,
+      astralbeam_chat_custom_theme_value: custom_theme?,
+      astralbeam_chat_debug_value: @debug,
+      astralbeam_chat_todos_value: @todos.to_json(only: %i[ id text completed ])
+    } do %>
+  <main class="todos">
+    <header class="todos-header">
+      <h1>Todos</h1>
+      <nav aria-label="Example pages">
+        <%= link_to "Tenant users", tenant_users_path %>
+      </nav>
+    </header>
+
+    <%= form_with model: Todo.new, class: "todos-form" do |form| %>
+      <%= form.text_field :text, placeholder: "Add a todo…", required: true, aria: { label: "New todo" } %>
+      <%= form.button "Add" %>
+    <% end %>
+
+    <ul class="todos-list">
+      <% @todos.each do |todo| %>
+        <li id="<%= dom_id todo %>">
+          <%= form_with model: todo, data: { controller: "auto-submit" } do |form| %>
+            <label>
+              <%= form.check_box :completed, id: dom_id(todo, :completed), data: { action: "auto-submit#submit" } %>
+              <%= tag.span todo.text, class: { "todo-done": todo.completed } %>
+            </label>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+
+    <div class="todos-actions">
+      <%= render "appearance_toggles" %>
+      <%= toggle_link @assistant_hidden ? "Show assistant" : "Hide assistant", assistant: (@assistant_hidden ? nil : "hidden") %>
+      <%= toggle_link "Debug: #{@debug ? "on" : "off"}", debug: (@debug ? nil : "on") %>
+    </div>
+  </main>
+
+  <%= tag.aside class: "chat-sidebar", hidden: @assistant_hidden do %>
+    <%# Permanent, so page refreshes leave the widget and the cards it renders here untouched. %>
+    <div id="astralbeam-chat" class="widget" data-turbo-permanent data-astralbeam-chat-target="sidebar"></div>
+  <% end %>
+
+  <template data-astralbeam-chat-target="todoCard">
+    <div class="todo-card">
+      <label class="todo-card-row">
+        <input type="checkbox">
+        <span></span>
+      </label>
+    </div>
+  </template>
+<% end %>

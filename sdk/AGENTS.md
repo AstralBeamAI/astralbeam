@@ -31,6 +31,14 @@ The chat widget must stay inside the client entry's lazy chunk so `dist/client.j
 - `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn), import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
 - `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`: keep framework imports confined to their entry points and validation hand-written.
 
+## CDN delivery
+
+Script-tag hosts import `dist/client.js` straight from jsDelivr, and it imports its lazy chunks relative to its own URL.
+
+- Keep `dist/client.js` and every chunk it imports free of bare import specifiers and Node globals such as `process`, so the files load in a browser unmodified.
+- Do not add `jsdelivr`, `unpkg`, or `browser` fields. A bare package URL would resolve the loader's relative chunk imports against the wrong directory.
+- Document the full `/dist/client.js` path at an exact version. Each version bump updates that pin in the docs, READMEs, and `examples/todos-rails/config/importmap.rb`.
+
 ## Styles
 
 The widget carries its compiled stylesheet as a string injected into its shadow root.

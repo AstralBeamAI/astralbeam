@@ -44,6 +44,66 @@ export async function POST(request: Request) {
 - Catch the minting error rather than forwarding it, because its message can describe the API key's expected shape.
 - `getApplicationSession` is your host application's authentication adapter, not an SDK function. Apply your framework's session and CSRF protections.
 
+## Mint tokens without JavaScript
+
+`createAstralBeamToken` produces a standard HS256 JWT, so a backend in any language can sign the same token with its own JWT library. Let's derive the signing key and claims from your API key:
+
+1. Split the API key at its last `_abo_`. The part before it, `key_<organizationId>_<id>`, is the key ID. The rest, starting with `abo_`, is the secret.
+2. Hash the whole secret, including `abo_`, with SHA-256 and encode the digest as unpadded base64url. The bytes of that ASCII string are the HMAC key, because AstralBeam stores only this digest.
+3. Sign with the protected header `{ "alg": "HS256", "typ": "astralbeam+jwt", "kid": "<key ID>" }` and these claims.
+
+| Claim        | Value                                                    |
+| ------------ | -------------------------------------------------------- |
+| `iss`        | The organization UUID from the API key                   |
+| `aud`        | `"astralbeam"`                                           |
+| `iat`, `exp` | Seconds since the epoch, 60 to 600 seconds apart         |
+| `ver`        | `4`                                                      |
+| `user`       | `{ id, name?, admin?, metadata? }`, with no other fields |
+| `tenant`     | `{ id, name?, metadata? }`, with no other fields         |
+
+- The `user` and `tenant` objects together must serialize to at most 8 KB of JSON, and the token to at most 16 KB.
+- AstralBeam allows 30 seconds of clock skew, so keep your server's clock synchronized.
+
+In Ruby, the [`jwt`](https://rubygems.org/gems/jwt) gem signs it in one call:
+
+```ruby
+module AstralBeam
+  UUID = /\h{8}-\h{4}-\h{4}-\h{4}-\h{12}/
+  API_KEY = /\A(?<key_id>key_(?<organization_id>#{UUID})_#{UUID})_(?<secret>abo_[A-Za-z]{64})\z/
+
+  def self.token(api_key:, user:, tenant:, expires_in: 5.minutes)
+    key = API_KEY.match(api_key) or raise ArgumentError, "api_key must match key_<organizationId>_<id>_abo_<secret>"
+    now = Time.now.to_i
+    payload = { ver: 4, user:, tenant:, iss: key[:organization_id], aud: "astralbeam", iat: now, exp: now + expires_in.to_i }
+    signing_key = Base64.urlsafe_encode64(Digest::SHA256.digest(key[:secret]), padding: false)
+    JWT.encode(payload, signing_key, "HS256", { typ: "astralbeam+jwt", kid: key[:key_id] })
+  end
+end
+```
+
+A Rails controller then applies the same rules as the handler above:
+
+```ruby
+class AstralBeamTokensController < ApplicationController
+  def create
+    no_store
+    api_key = ENV["ASTRALBEAM_API_KEY"]
+    return render json: { error: "Not configured" }, status: :service_unavailable unless api_key
+
+    token = AstralBeam.token(
+      api_key:,
+      user: { id: Current.user.id.to_s, name: Current.user.name },
+      tenant: { id: Current.user.account_id.to_s, name: Current.user.account.name }
+    )
+    render json: { token: }
+  rescue ArgumentError
+    render json: { error: "Token could not be issued" }, status: :internal_server_error
+  end
+end
+```
+
+`Current.user` comes from Rails' authentication generator, whose `Authentication` concern requires a signed-in session before this action runs. Substitute your own session and tenant lookup.
+
 ## Directory access
 
 The token above permits chat, not directory access. Only set `user.admin: true` after verifying the user's tenant-admin permissions in your application.

@@ -7,6 +7,7 @@
 ## Tooling and validation
 
 - Use Deno from the affected project directory (`webapp`, `www`, `sdk`, or `examples/todos`) with `deno task <script>`, or from the repository root with `deno task --cwd <project> <script>`. The projects do not form a package-manager workspace. Deno is the only supported repository JavaScript runtime and package manager. Vite and npm tooling run through its compatibility layer. SDK consumer examples may use the host application's package manager.
+- `examples/todos-rails` is a Ruby on Rails consumer outside the four Deno projects and their Oxlint, oxfmt, and Knip rules. Follow its `AGENTS.md` and validate it with its own `bin/ci`.
 - Keep every project's `check`, `test`, and `build` tasks meaning the same thing, and `ready` meaning `check`, `test`, and `build`. `www` alone runs `build` before `test`, because its test reads the build output.
 - Compose reusable validation gates in the affected project's `check` task so local and CI checks stay aligned. Keep workflow additions limited to environment provisioning and checks that require a distinct execution environment.
 - Root `tsconfig.base.json` holds only the compiler options all four projects share. Each `tsconfig.json` `extends` it and keeps its own `jsx`, `lib`, `types`, `paths`, and file globs.

@@ -1,0 +1,46 @@
+<% content_for :title, "Tenant users" %>
+
+<%= tag.div class: "app", data: {
+      color_scheme: color_scheme,
+      controller: "astralbeam-tenant-users",
+      astralbeam_tenant_users_api_url_value: Rails.configuration.x.astralbeam.api_url,
+      astralbeam_tenant_users_color_scheme_value: color_scheme,
+      astralbeam_tenant_users_custom_theme_value: custom_theme?,
+      astralbeam_tenant_users_show_admin_value: @show_admin
+    } do %>
+  <main class="todos directories">
+    <header class="todos-header">
+      <div>
+        <nav aria-label="Example pages">
+          <%= link_to "Todos", todos_path %>
+          <%= link_to "Tenant users", tenant_users_path %>
+        </nav>
+        <h1>Tenant users</h1>
+      </div>
+      <span>AstralBeam Todos</span>
+    </header>
+
+    <p>Browse and filter the users in your tenant.</p>
+
+    <div class="todos-actions">
+      <%= render "appearance_toggles" %>
+    </div>
+
+    <%= form_with url: tenant_users_path, method: :get, data: { controller: "auto-submit", turbo_action: "replace" } do %>
+      <% request.query_parameters.except("show_admin").each do |name, value| %>
+        <%= hidden_field_tag name, value, id: nil %>
+      <% end %>
+      <label>
+        <%= check_box_tag :show_admin, "on", @show_admin, data: { action: "auto-submit#submit" } %>
+        Show stored admin fields
+      </label>
+    <% end %>
+
+    <div role="alert" hidden data-astralbeam-tenant-users-target="error">
+      <p data-astralbeam-tenant-users-target="errorMessage"></p>
+      <button type="button" data-action="astralbeam-tenant-users#dismissError">Dismiss error</button>
+    </div>
+
+    <div id="astralbeam-tenant-users" data-turbo-permanent data-astralbeam-tenant-users-target="list"></div>
+  </main>
+<% end %>

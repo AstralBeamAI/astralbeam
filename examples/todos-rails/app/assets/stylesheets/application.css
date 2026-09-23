@@ -1,0 +1,217 @@
+/* Deliberately plain styling with a warm palette, so any style leaking across the widget's shadow
+   boundary in either direction is immediately visible. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* Widget cards sit in the widget's shadow tree, whose shadcn tokens such as --card would shadow
+   same-named ones, and whose slots keep stale inherited values, so [slot] containers match directly. */
+.app,
+.app [slot] {
+  --app-fg: #3d2f1e;
+  --app-bg: #faf6ef;
+  --app-border: #c9b892;
+  --app-surface: #f3e8d3;
+  --app-surface-hover: #e9d9bb;
+  --app-field: #fff;
+  --app-card: #fdf9f0;
+  --app-highlight: #b4762a;
+  color-scheme: light;
+}
+
+.app[data-color-scheme="dark"],
+.app[data-color-scheme="dark"] [slot] {
+  --app-fg: #ede3cf;
+  --app-bg: #201a11;
+  --app-border: #6b5a3e;
+  --app-surface: #3a3020;
+  --app-surface-hover: #4a3d28;
+  --app-field: #2b2416;
+  --app-card: #2b2416;
+  --app-highlight: #d99a45;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app[data-color-scheme="system"],
+  .app[data-color-scheme="system"] [slot] {
+    --app-fg: #ede3cf;
+    --app-bg: #201a11;
+    --app-border: #6b5a3e;
+    --app-surface: #3a3020;
+    --app-surface-hover: #4a3d28;
+    --app-field: #2b2416;
+    --app-card: #2b2416;
+    --app-highlight: #d99a45;
+    color-scheme: dark;
+  }
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+  background: var(--app-bg);
+  color: var(--app-fg);
+}
+
+.alert {
+  position: fixed;
+  inset: 0 0 auto;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  background: #a03c2e;
+  color: #fff;
+}
+
+.todos {
+  flex: 1;
+  min-width: 0;
+  padding: 2rem clamp(1rem, 4vw, 3rem);
+  overflow-y: auto;
+}
+
+.todos-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.todos-header a {
+  color: inherit;
+}
+
+.todos-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.todos-header h1 {
+  margin: 0 0 1rem;
+  font-size: 2.25rem;
+}
+
+.todos-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.directories {
+  display: grid;
+  align-content: start;
+  gap: 1.5rem;
+}
+
+.directories .todos-header nav {
+  margin-bottom: 1rem;
+}
+
+.directories .todos-header h1,
+.directories > p,
+.directories .todos-actions {
+  margin: 0;
+}
+
+.directories label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.directories label input {
+  margin: 0;
+}
+
+.todos button,
+.todos .button {
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--app-fg);
+  border-radius: 999px;
+  background: var(--app-surface);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.todos button:hover,
+.todos .button:hover {
+  background: var(--app-surface-hover);
+}
+
+.todos-form {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.todos-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-field);
+  font: inherit;
+}
+
+.todos-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todos-list li {
+  padding: 0.75rem 0.25rem;
+  border-bottom: 1px dotted var(--app-border);
+}
+
+.todos-list label,
+.todo-card-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.todo-done {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.chat-sidebar {
+  width: 380px;
+  flex-shrink: 0;
+  height: 100%;
+  border-left: 2px solid var(--app-border);
+}
+
+/* The widget fills its container, so the mount point needs a definite height. */
+.widget {
+  height: 100%;
+}
+
+/* The todo representation that the chat widget projects into the conversation. */
+.todo-card {
+  padding: 0.75rem;
+  border: 2px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-card);
+  color: var(--app-fg);
+}
+
+.todo-card-highlight {
+  border-color: var(--app-highlight);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-highlight) 20%, transparent);
+}
