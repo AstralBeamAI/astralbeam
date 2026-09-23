@@ -14,6 +14,9 @@ export default defineConfig({
   schema: "./src/db/schema.server.ts",
   out: "./src/db/migrations",
   schemaFilter: ["public"],
+  // Effect initializes and migrates its own tables. Exclude them from Drizzle pull introspection.
+  // https://effect.website/docs/v4/api/effect/unstable/cluster/SqlMessageStorage/
+  tablesFilter: ["!effect_*"],
   dbCredentials: {
     url: databaseUrl,
   },

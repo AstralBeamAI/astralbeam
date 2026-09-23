@@ -78,6 +78,8 @@ deno task dev                      # all apps and the SDK watcher
 
 Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](webapp/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
 
+The webapp starts one embedded Effect Cluster runner with automatic PostgreSQL storage initialization and an OS-assigned loopback port. No separate worker command is needed. See the [cluster guide](webapp/src/cluster/README.md) for database privileges, replica addresses and recovery, and the [workflow guide](webapp/src/workflows/README.md) for authoring.
+
 ## Cloud agent setup
 
 Codex Cloud runs on Ubuntu and uses `INSTALL_EXTRA=codex-db SKIP_DOCKER_COMPOSE=true` so the explicit setup extra installs and starts host PostgreSQL and Valkey without starting Docker Compose.

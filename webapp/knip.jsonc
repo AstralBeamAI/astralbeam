@@ -35,6 +35,7 @@
     "e2e/prepare-database.ts",
     "scripts/*.ts",
     "src/lib/response-headers.server.ts",
+    "src/cluster/plugin.server.ts",
     "src/router.tsx",
     "src/start.ts",
   ],

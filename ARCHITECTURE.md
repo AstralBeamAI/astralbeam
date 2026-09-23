@@ -88,6 +88,12 @@ New application logic uses Effect with typed failures, executed through the `Man
 
 The database module owns a `pg` pool for Promise and Better Auth queries and a separate native `@effect/sql-pg` pool for Effect queries. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](webapp/AGENTS.md#database) for the required pool lifecycle.
 
+## Durable workflow execution
+
+Each webapp process embeds `ClusterWorkflowEngine` and one Effect Cluster runner using private HTTP, PostgreSQL journals and SQL row leases compatible with PgBouncer transaction pooling. The runner shares the native Effect pool but has its own scope, keeping startup failures independent of `/configure` and ordinary database operations.
+
+Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](webapp/src/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](webapp/src/workflows/README.md) for authoring and recovery.
+
 ## SDK boundary
 
 The vanilla entry lazily loads a widget with its own React and styles. The React entry uses the host's React. Both build on the framework-free headless core, which owns authentication, transport, tool execution, and transcript state.

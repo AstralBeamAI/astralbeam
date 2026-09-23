@@ -36,7 +36,7 @@ function ConfigurePage() {
             Configure {APP_NAME}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Your {APP_NAME} deployment needs to be configured before others can use it.
+            Manage your {APP_NAME} deployment settings.
           </p>
         </div>
         {state.status === "ready" && (

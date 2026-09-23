@@ -76,7 +76,12 @@ async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promi
     status.then(() => true),
     new Promise<false>((resolve) => setTimeout(() => resolve(false), 5_000)),
   ])
-  if (stopped) return
+  if (stopped) {
+    if (binaryProcess.exitCode !== 0) {
+      throw new Error("Binary did not exit cleanly after SIGTERM")
+    }
+    return
+  }
   signalBinaryCheckProcess(binaryProcess, "SIGKILL")
   await status
   throw new Error("Binary did not exit within 5 seconds of SIGTERM")
@@ -108,6 +113,10 @@ async function runBinaryCheck() {
     cwd: temporaryDirectory,
     env: {
       ...processEnvironment,
+      // Exercise production shutdown. srvx skips signal handlers when CI or TEST is set.
+      // https://github.com/h3js/srvx/blob/v1.0.5/src/_plugins.ts
+      CI: "",
+      TEST: "",
       APP_BASE_URL: baseUrl.href,
       PORT: String(port),
     },

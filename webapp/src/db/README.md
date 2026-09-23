@@ -4,7 +4,7 @@ The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated
 
 ## Structure
 
-- `index.ts` is guarded as server-only and exports the Promise Drizzle client, native Effect database service, and framework bridge.
+- `index.ts` is guarded as server-only and owns the separate process-wide pools, managed runtime and idempotent shutdown. It exports the Promise Drizzle client, Effect database service and replaceable layer, and framework bridge through `@/db`.
 - `config.server.ts` validates decrypted values from the global `config` table and recovers unreadable rows for `/configure`. The Drizzle column codec owns encryption, while `src/lib/config` adds environment precedence and process-local caching through `getGlobalConfig`.
 - `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
@@ -103,7 +103,7 @@ Review the SQL and commit it with its matching snapshot and TypeScript schema ch
 - Reverse applied changes with a forward migration. There is no automatic rollback command, and migration history that may have reached a shared environment must never be rewritten.
 - Resolve rename prompts carefully to avoid accidental drop-and-create SQL.
 - Schema diffs cannot infer data backfills or transformations. Use `deno task --cwd webapp db generate --custom --name=backfill-projects` for data migrations or unsupported DDL.
-- `push` compares the TypeScript schema with a live database without creating migration files. Use `deno task --cwd webapp db push --explain` for disposable local experiments, and never use `push --force` against shared data.
+- Apply application schema changes only through reviewed, checked-in migration files with `migrate`. Effect initializes and migrates its own `effect_cluster_*` tables at runner startup, outside Drizzle schema management. See [cluster storage ownership](../cluster/README.md#storage-and-deployment) for privileges and upgrade requirements. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes.
 - This repository uses colocated migration folders, not root SQL files and `meta/_journal.json`.
 - `up` upgrades metadata on disk. `migrate` applies pending migrations to PostgreSQL.
 

@@ -37,7 +37,12 @@ const viteConfig = defineConfig(({ mode }) => {
     // would leave APP_BASE_URL, auth cookies, and email links pointing at another server.
     server: { port: Number(process.env.PORT ?? 4500), strictPort: true },
     // @tanstack/ai-sandbox-docker uses dockerode, whose optional SSH transport includes a native module that Vite cannot prebundle. https://github.com/apocas/dockerode#connecting-to-docker
-    optimizeDeps: { exclude: ["dockerode"] },
+    optimizeDeps: {
+      exclude: ["dockerode"],
+      // Prebundle lazy client imports to avoid a reload during initial hydration.
+      // https://vite.dev/config/dep-optimization-options.html#optimizedeps-include
+      include: ["jose/errors", "seroval"],
+    },
     build: {
       target: "es2025",
       // Generate exact client and server dependency license reports from each bundle graph.
@@ -73,6 +78,38 @@ const viteConfig = defineConfig(({ mode }) => {
           })
         },
       },
+      {
+        name: "cluster-development-close",
+        apply: "serve",
+        configureServer(server) {
+          // Nitro runs in a worker. Await its cleanup before Vite terminates that environment.
+          // https://vite.dev/guide/api-plugin.html#client-server-communication
+          const environment = server.environments.nitro
+          if (!environment) return
+          const close = environment.close.bind(environment)
+          let closing: Promise<void> | undefined
+          environment.close = () =>
+            (closing ??= (async () => {
+              try {
+                await new Promise<void>((resolve, reject) => {
+                  const timeout = setTimeout(() => {
+                    environment.hot.off("astralbeam:closed", closed)
+                    reject(new Error("Cluster development shutdown timed out"))
+                  }, 5_000)
+                  const closed = () => {
+                    clearTimeout(timeout)
+                    environment.hot.off("astralbeam:closed", closed)
+                    resolve()
+                  }
+                  environment.hot.on("astralbeam:closed", closed)
+                  environment.hot.send("astralbeam:close")
+                })
+              } finally {
+                await close()
+              }
+            })())
+        },
+      },
       devtools(),
       ...(mode === "test"
         ? []
@@ -100,7 +137,7 @@ const viteConfig = defineConfig(({ mode }) => {
                 }
               },
             },
-            plugins: ["./src/lib/response-headers.server.ts"],
+            plugins: ["./src/lib/response-headers.server.ts", "./src/cluster/plugin.server.ts"],
           })),
       tailwindcss(),
       tanstackStart(),

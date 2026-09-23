@@ -65,6 +65,13 @@ Only two variables are required. Both are read once per process, so changing eit
 | `DATABASE_ENCRYPTION_KEY` | Yes | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
 | `PORT` | No | TCP port to listen on |
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
+| `CLUSTER_RUNNER_HOST` | No | Private hostname or IP advertised to peer runners. Defaults to `127.0.0.1` |
+| `CLUSTER_RUNNER_PORT` | No | Private runner port. Defaults to `0`, which publishes an OS-assigned port after binding |
+| `CLUSTER_RUNNER_LISTEN_HOST` | No | Bind interface for the private runner listener. Defaults to `CLUSTER_RUNNER_HOST` |
+
+Each process starts an embedded cluster runner and lets Effect initialize or migrate its `effect_cluster_*` tables automatically. The runtime database role needs USAGE and CREATE on the target schema and ownership of existing cluster tables for upgrades. See [cluster operations](./operations.md#cluster-readiness-and-recovery). For replicas on different machines or isolated container networks, set an individually reachable private runner host and port for each process. Peers must reach that address directly. Use a fixed port where firewall rules or container mappings require one. A wildcard listen host such as `0.0.0.0` still needs an explicit, reachable advertised host.
+
+Keep runner ports on a trusted private network because they expose internal cluster RPCs. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
 
 Run this command to generate a high-entropy encryption value:
 

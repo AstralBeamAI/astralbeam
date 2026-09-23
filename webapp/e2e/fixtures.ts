@@ -1,4 +1,4 @@
-import { test as base } from "@playwright/test"
+import { expect, test as base } from "@playwright/test"
 
 import { type Baseline, readBaseline } from "./baseline.ts"
 
@@ -43,6 +43,12 @@ type Fixtures = {
  * React lint rules read a bare `use(...)` call as React's own hook.
  */
 export const test = base.extend<Fixtures>({
+  page: async ({ page }, provide) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    await provide(page)
+    expect(errors, "Unexpected browser errors").toEqual([])
+  },
   baseline: async ({ page }, provide) => {
     // Depends on `page` only because Playwright requires a destructured first argument.
     void page
