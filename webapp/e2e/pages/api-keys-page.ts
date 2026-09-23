@@ -12,6 +12,10 @@ export function apiKeysPage(page: Page) {
       return page.locator('[data-slot="item"]').filter({ hasText: name })
     },
 
+    deleteButton(name: string): Locator {
+      return this.row(name).getByRole("button", { name: /delete api key/i })
+    },
+
     async openCreateDialog(): Promise<void> {
       await page
         .getByRole("button", { name: /create api key/i })
@@ -36,9 +40,7 @@ export function apiKeysPage(page: Page) {
     },
 
     async deleteKey(name: string): Promise<void> {
-      await this.row(name)
-        .getByRole("button", { name: /delete api key/i })
-        .click()
+      await this.deleteButton(name).click()
       await openAlertDialog(page)
         .getByRole("button", { name: /delete api key/i })
         .click()
