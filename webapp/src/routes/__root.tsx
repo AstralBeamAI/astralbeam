@@ -167,7 +167,12 @@ export const Route = createRootRouteWithContext<{
 })
 
 function AppProviders({ children }: { children: ReactNode }) {
-  const navigate = useNavigate()
+  const routerNavigate = useNavigate()
+  // Better Auth UI expects a void callback and lists it in effect deps, so it must stay stable.
+  const navigate = useCallback(
+    (options: Parameters<typeof routerNavigate>[0]) => void routerNavigate(options),
+    [routerNavigate],
+  )
   const publicConfig = Route.useLoaderData()
   const { setTheme, theme } = useTheme()
   const setAppTheme = useCallback(
@@ -209,7 +214,7 @@ function AppProviders({ children }: { children: ReactNode }) {
           },
         }}
         multipleAccountsPerProvider={false}
-        navigate={(options) => void navigate(options)}
+        navigate={navigate}
         plugins={[
           captchaPlugin({ render: TurnstileCaptcha }),
           themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
