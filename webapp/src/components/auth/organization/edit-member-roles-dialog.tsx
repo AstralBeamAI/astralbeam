@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor icons, Base UI Toast, domain-specific function names, and composable static roles.
+// Local changes: Use Phosphor icons, Base UI Toast, domain-specific function names, and composable static roles, and reset the selection during render when the dialog opens.
 
 "use client"
 
@@ -8,7 +8,7 @@ import { parseMemberRoles } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useUpdateMemberRole } from "@better-auth-ui/react/plugins/organization"
 import { ShieldCheckIcon as ShieldCheck } from "@phosphor-icons/react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -58,9 +58,13 @@ export function EditMemberRolesDialog({
     },
   })
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevMemberRole, setPrevMemberRole] = useState(member.role)
+  if (open !== prevOpen || member.role !== prevMemberRole) {
+    setPrevOpen(open)
+    setPrevMemberRole(member.role)
     if (open) setSelectedRoles(parseMemberRoles(member.role))
-  }, [member.role, open])
+  }
 
   const toggleMemberRole = (role: string, checked: boolean) => {
     setSelectedRoles((current) =>

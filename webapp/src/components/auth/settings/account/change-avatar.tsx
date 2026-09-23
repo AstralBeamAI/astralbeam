@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, preserve database success when remote cleanup fails, label the avatar action, and apply strict lint compatibility.
+// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, preserve database success when remote cleanup fails, label the avatar action, and apply strict lint compatibility, including explicitly voided async handlers.
 
 import { fileToAvatarDataUrl } from "@better-auth-ui/core"
 import { useAuth, useSession, useUpdateUser } from "@better-auth-ui/react"
@@ -70,7 +70,7 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
     updateUser(
       { image: null },
       {
-        onSuccess: async () => {
+        onSuccess: () => void (async () => {
           let cleanupFailed = false
           if (currentImage) {
             setIsDeleting(true)
@@ -89,7 +89,7 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
               : localization.settings.avatarDeletedSuccess,
             type: cleanupFailed ? "warning" : "success",
           })
-        },
+        })(),
       },
     )
   }
@@ -103,7 +103,7 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={handleFileChange}
+        onChange={(e) => void handleFileChange(e)}
       />
 
       <div className="flex items-center gap-4">

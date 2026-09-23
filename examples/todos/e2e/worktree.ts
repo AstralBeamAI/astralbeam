@@ -60,7 +60,7 @@ function readWebappEnvFiles(): Record<string, string> {
     const path = join(webappDirectory, fileName)
     if (!existsSync(path)) continue
     for (const line of readFileSync(path, "utf8").split("\n")) {
-      const match = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i.exec(line)
+      const match = /^\s*([A-Z_]\w*)\s*=(.*)$/i.exec(line)
       if (!match?.[1]) continue
       values[match[1]] = (match[2] ?? "").trim().replace(/^["'](.*)["']$/, "$1")
     }

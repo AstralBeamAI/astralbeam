@@ -38,7 +38,7 @@ export function LegalPage({ title, effectiveDate, children }: LegalPageProps) {
 
       <main className="legal-main">
         <header className="legal-title">
-          <p className="mono">// LEGAL</p>
+          <p className="mono">&#47;&#47; LEGAL</p>
           <h1>{title}</h1>
           <p>Effective {effectiveDate}</p>
         </header>

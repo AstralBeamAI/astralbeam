@@ -12,7 +12,7 @@ export interface TypedToolDefinition<S extends ParametersSchema = JsonSchemaObje
   description: string
   metadata?: Record<string, unknown> | undefined
   parameters?: S
-  execute: (input: InferParameters<S>) => unknown | Promise<unknown>
+  execute: (input: InferParameters<S>) => unknown
 }
 
 export interface TypedWidgetDefinition<S extends ParametersSchema = JsonSchemaObject> {

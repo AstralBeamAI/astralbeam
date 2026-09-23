@@ -34,7 +34,7 @@ export function useWidgetRenders(
   const activeRenders = useRef(new Map<string, ActiveWidgetRender>())
   // Reset, the active-render cap, and cleanup after a widget is unregistered differ only in which
   // renders they select, so they share one path: dispose, forget, and return the dropped slots.
-  const disposeRenders = (discard: (render: ActiveWidgetRender) => boolean) => {
+  const disposeRenders = useCallback((discard: (render: ActiveWidgetRender) => boolean) => {
     const dropped: string[] = []
     // Deleting the current entry while iterating a Map is well defined, and insertion order makes
     // a size-based predicate discard oldest-first.
@@ -49,9 +49,9 @@ export function useWidgetRenders(
       dropped.push(slotNameForToolCall(toolCallId))
     }
     return dropped
-  }
+  }, [])
   // Also drops the slots, so their transcript entries fall back to a summary marker.
-  const discardRenders = (discard: (render: ActiveWidgetRender) => boolean) => {
+  const discardRenders = useCallback((discard: (render: ActiveWidgetRender) => boolean) => {
     const dropped = disposeRenders(discard)
     if (dropped.length > 0) {
       setActiveSlots((current) => {
@@ -61,7 +61,7 @@ export function useWidgetRenders(
       })
     }
     return dropped.length
-  }
+  }, [disposeRenders])
   const mounted = useRef(true)
   useEffect(() => {
     mounted.current = true
@@ -69,7 +69,7 @@ export function useWidgetRenders(
       mounted.current = false
       discardRenders(() => true)
     }
-  }, [])
+  }, [discardRenders])
 
   // `renderWidget` has to stay referentially stable or the session built on it would rebuild its
   // tool set on every render, so it reads the widgets and the logger through refs instead of
@@ -123,7 +123,7 @@ export function useWidgetRenders(
       // Selected by identity, so disposing a render this hook already evicted or replaced is a no-op.
       return () => discardRenders((render) => render === active)
     },
-    [host],
+    [host, discardRenders],
   )
 
   // A widget dropped by an update leaves its renders unreachable, so their slots fall back to the
@@ -142,7 +142,7 @@ export function useWidgetRenders(
     if (orphaned > 0) {
       debug?.("widget", `disposed ${orphaned} render(s) of widgets no longer registered`)
     }
-  }, [widgets, debug])
+  }, [widgets, debug, disposeRenders])
 
   return { activeSlots, renderWidget }
 }

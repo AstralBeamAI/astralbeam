@@ -1,6 +1,4 @@
 import queryPlugin from "@tanstack/eslint-plugin-query"
-import routerPlugin from "@tanstack/eslint-plugin-router"
-import startPlugin from "@tanstack/eslint-plugin-start"
 import vitestPlugin from "@vitest/eslint-plugin"
 import jsxA11yPlugin from "eslint-plugin-jsx-a11y-x"
 import reactDomPlugin from "eslint-plugin-react-dom"
@@ -47,18 +45,6 @@ const recommendedRules = {
     queryPlugin.configs.recommended,
     "@tanstack/query/",
     "tanstack-query-js/",
-  ),
-  // Source: https://github.com/TanStack/router/blob/main/packages/eslint-plugin-router/src/index.ts
-  router: aliasPresetRules(
-    routerPlugin.configs.recommended,
-    "@tanstack/router/",
-    "tanstack-router-js/",
-  ),
-  // Source: https://github.com/TanStack/router/blob/main/packages/eslint-plugin-start/src/index.ts
-  start: aliasPresetRules(
-    startPlugin.configs.recommended,
-    "@tanstack/start/",
-    "tanstack-start-js/",
   ),
   // Source: https://github.com/vitest-dev/eslint-plugin-vitest/blob/main/src/index.ts
   vitest: aliasPresetRules(vitestPlugin.configs.recommended, "vitest/", "vitest-js/"),
@@ -113,16 +99,7 @@ const typeAwareRules: RuleMap = {
   "typescript/no-unsafe-enum-comparison": "error",
   "typescript/no-unsafe-member-access": "error",
   "typescript/no-unsafe-return": "error",
-  // TanStack Router throws redirect() and notFound() values for control flow.
-  // https://tanstack.com/router/latest/docs/guide/not-found-errors
-  "typescript/only-throw-error": [
-    "error",
-    {
-      allow: [
-        { from: "package", package: "@tanstack/router-core", name: ["NotFoundError", "Redirect"] },
-      ],
-    },
-  ],
+  "typescript/only-throw-error": "error",
   "typescript/prefer-promise-reject-errors": "error",
   "typescript/require-await": "error",
   "typescript/restrict-plus-operands": "error",
@@ -155,8 +132,6 @@ const denoRecommendedRules: RuleMap = {
 
 const baseRules: RuleMap = {
   ...recommendedRules.query,
-  ...recommendedRules.router,
-  ...recommendedRules.start,
   ...recommendedRules.jsxA11y,
   ...recommendedRules.reactDom,
   ...recommendedRules.reactHooks,
@@ -165,6 +140,8 @@ const baseRules: RuleMap = {
   ...recommendedRules.regexp,
   ...typeAwareRules,
   ...denoRecommendedRules,
+  // The listing session holds the cached token, and replacing it clears the QueryClient.
+  "tanstack-query-js/exhaustive-deps": ["error", { allowlist: { variables: ["session"] } }],
   // regexp-js owns these specialized equivalents.
   // https://github.com/ota-meshi/eslint-plugin-regexp/blob/master/lib/configs/flat/recommended.ts
   "no-empty-character-class": "off",
@@ -191,8 +168,6 @@ const baseRules: RuleMap = {
   // TODO: Re-enable these rules when Oxlint JS plugins provide parser services.
   // https://github.com/oxc-project/oxc/issues/19596
   "tanstack-query-js/no-void-query-fn": "off",
-  "tanstack-start-js/no-async-client-component": "off",
-  "tanstack-start-js/no-client-code-in-server-component": "off",
 }
 
 export default defineConfig({
@@ -201,8 +176,9 @@ export default defineConfig({
   options: { typeAware: true },
   ignorePatterns: [
     // Generated and registry-vendored sources, which regeneration would overwrite.
-    "src/components/ui/**",
-    "src/routeTree.gen.ts",
+    "src/api/generated/**",
+    "src/widget/components/ui/**",
+    "src/widget/styles.generated.ts",
   ],
   // Aliases keep JS rules distinct from native implementations and make ownership explicit.
   // https://oxc.rs/docs/guide/usage/linter/js-plugins.html#plugin-aliases
@@ -210,8 +186,6 @@ export default defineConfig({
   // https://oxc.rs/docs/guide/usage/linter/plugins
   jsPlugins: [
     { name: "tanstack-query-js", specifier: "@tanstack/eslint-plugin-query" },
-    { name: "tanstack-router-js", specifier: "@tanstack/eslint-plugin-router" },
-    { name: "tanstack-start-js", specifier: "@tanstack/eslint-plugin-start" },
     { name: "vitest-js", specifier: "@vitest/eslint-plugin" },
     { name: "jsx-a11y-x-js", specifier: "eslint-plugin-jsx-a11y-x" },
     { name: "react-dom-js", specifier: "eslint-plugin-react-dom" },

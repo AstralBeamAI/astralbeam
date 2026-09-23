@@ -53,7 +53,8 @@ test("standalone function props synchronize current user and refresh on rejectio
     response.url().endsWith("/api/v1/me") && response.ok()
   )
   await page.getByRole("button", { name: "Refresh directory", exact: true }).click()
-  expect((await (await refreshed).json()).user.admin).toBe(true)
+  const currentUser = (await (await refreshed).json()) as { user: { admin?: boolean } }
+  expect(currentUser.user.admin).toBe(true)
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(page.getByRole("button", { name: seedTarget.user.name, exact: true })).toHaveCount(0)
 })

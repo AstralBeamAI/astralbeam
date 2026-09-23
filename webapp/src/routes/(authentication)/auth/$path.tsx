@@ -7,7 +7,7 @@ import { normalizeReturnPath, normalizeReturnPathFromSearch } from "@/lib/auth/r
 import { AUTH_ALLOWED_RETURN_PATHS, INERT_REDIRECT_ORIGIN } from "@/lib/constants"
 
 const AUTH_PATHS = new Set([
-  ...Object.values(viewPaths.auth),
+  ...Object.values<string>({ ...viewPaths.auth }),
   "accept-invitation",
 ])
 const AUTHENTICATED_AUTH_VIEWS = new Set([

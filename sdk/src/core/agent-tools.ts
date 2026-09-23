@@ -132,7 +132,7 @@ function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: Debug
       description: tool.description,
       inputSchema: toJsonSchema(tool.parameters) as SchemaInput,
       ...(tool.metadata ? { metadata: tool.metadata } : {}),
-    }).client(async (input) => {
+    }).client(async (input: unknown) => {
       debug?.("tool", `executing host tool "${name}"`, { input })
       const validated = await validateParameters(
         tool.parameters,

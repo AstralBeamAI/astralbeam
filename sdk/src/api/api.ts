@@ -77,7 +77,8 @@ async function apiResponse(path: string, options: ApiOptions | FileOptions): Pro
 }
 
 export async function astralBeamApiFetch<T>(path: string, options: ApiOptions): Promise<T> {
-  return await (await apiResponse(path, options)).json()
+  const response = await apiResponse(path, options)
+  return (await response.json()) as T
 }
 
 export function astralBeamJwtFetch<T>(path: string, options: JwtOptions): Promise<T> {

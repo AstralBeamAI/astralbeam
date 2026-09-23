@@ -1,4 +1,3 @@
-import queryPlugin from "@tanstack/eslint-plugin-query"
 import routerPlugin from "@tanstack/eslint-plugin-router"
 import startPlugin from "@tanstack/eslint-plugin-start"
 import vitestPlugin from "@vitest/eslint-plugin"
@@ -42,12 +41,6 @@ function aliasPresetRules(
 // TODO: Remove this importer when jsPlugins can apply plugin presets directly.
 // https://github.com/oxc-project/oxc/discussions/15277
 const recommendedRules = {
-  // Source: https://github.com/TanStack/query/blob/main/packages/eslint-plugin-query/src/index.ts
-  query: aliasPresetRules(
-    queryPlugin.configs.recommended,
-    "@tanstack/query/",
-    "tanstack-query-js/",
-  ),
   // Source: https://github.com/TanStack/router/blob/main/packages/eslint-plugin-router/src/index.ts
   router: aliasPresetRules(
     routerPlugin.configs.recommended,
@@ -154,7 +147,6 @@ const denoRecommendedRules: RuleMap = {
 }
 
 const baseRules: RuleMap = {
-  ...recommendedRules.query,
   ...recommendedRules.router,
   ...recommendedRules.start,
   ...recommendedRules.jsxA11y,
@@ -190,7 +182,6 @@ const baseRules: RuleMap = {
   "react/void-dom-elements-no-children": "off",
   // TODO: Re-enable these rules when Oxlint JS plugins provide parser services.
   // https://github.com/oxc-project/oxc/issues/19596
-  "tanstack-query-js/no-void-query-fn": "off",
   "tanstack-start-js/no-async-client-component": "off",
   "tanstack-start-js/no-client-code-in-server-component": "off",
 }
@@ -201,7 +192,6 @@ export default defineConfig({
   options: { typeAware: true },
   ignorePatterns: [
     // Generated and registry-vendored sources, which regeneration would overwrite.
-    "src/components/ui/**",
     "src/routeTree.gen.ts",
   ],
   // Aliases keep JS rules distinct from native implementations and make ownership explicit.
@@ -209,7 +199,6 @@ export default defineConfig({
   // TODO: Replace JS registrations one-by-one when native coverage matches each preset.
   // https://oxc.rs/docs/guide/usage/linter/plugins
   jsPlugins: [
-    { name: "tanstack-query-js", specifier: "@tanstack/eslint-plugin-query" },
     { name: "tanstack-router-js", specifier: "@tanstack/eslint-plugin-router" },
     { name: "tanstack-start-js", specifier: "@tanstack/eslint-plugin-start" },
     { name: "vitest-js", specifier: "@vitest/eslint-plugin" },

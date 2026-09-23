@@ -202,20 +202,20 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     const nextRenderKey = useRef(0)
     // Memoized on the props they adapt: the update effect below ships them to the chat, and a fresh
     // object every render would rebuild the declared tool set on every render along with it.
-    const hostTools = useMemo(
-      () =>
-        Object.fromEntries(
-          Object.entries(tools ?? {}).map(([name, definition]) => [name, {
-            ...definition,
-            execute: (input: Record<string, unknown>) => {
-              const current = toolsRef.current?.[name]
-              if (!current) throw new Error(`Tool "${name}" is no longer registered`)
-              return current.execute(input)
-            },
-          }]),
-        ),
-      [tools],
-    )
+    const hostTools = useMemo(() => {
+      const adapted: Record<string, ToolDefinition> = {}
+      for (const [name, definition] of Object.entries(tools ?? {})) {
+        adapted[name] = {
+          ...definition,
+          execute: (input: Record<string, unknown>) => {
+            const current = toolsRef.current?.[name]
+            if (!current) throw new Error(`Tool "${name}" is no longer registered`)
+            return current.execute(input)
+          },
+        }
+      }
+      return adapted
+    }, [tools])
     const hostWidgets = useMemo(
       () =>
         Object.fromEntries(

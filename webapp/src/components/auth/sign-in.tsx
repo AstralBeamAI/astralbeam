@@ -73,7 +73,7 @@ export function SignIn({
       onError: (error, { email }) => {
         setPassword("")
 
-        if (error.error?.code === "EMAIL_NOT_VERIFIED") {
+        if ((error.error as { code?: unknown } | undefined)?.code === "EMAIL_NOT_VERIFIED") {
           try {
             globalThis.sessionStorage.setItem(
               "better-auth-ui.verify-email",

@@ -70,8 +70,7 @@ function isMissingBookkeepingError(error: unknown): boolean {
 function appliedNameSet(rows: Iterable<object | undefined>): Set<string> {
   const names = new Set<string>()
   for (const row of rows) {
-    const name = (row as { name?: unknown } | undefined)?.name
-    if (typeof name === "string") names.add(name)
+    if (row && "name" in row && typeof row.name === "string") names.add(row.name)
   }
   return names
 }

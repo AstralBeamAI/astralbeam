@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; take the organization and its permissions as props from the page loader and scope every member query to its ID; omit disabled teams, support responsive controls/table and strict optional props, and colocate the private loading row.
+// Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; take the organization and its permissions as props from the page loader and scope every member query to its ID; omit disabled teams, support responsive controls/table and strict optional props, colocate the private loading row, and reset the page during render when its query changes.
 // Local changes: match directory pagination with a page-size selector, refresh icon, and right-aligned navigation.
 
 "use client"
@@ -18,7 +18,7 @@ import {
   MagnifyingGlassIcon as Search,
   XIcon as X,
 } from "@phosphor-icons/react"
-import { type ComponentProps, type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ComponentProps, type ReactNode, useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -218,10 +218,12 @@ export function OrganizationMembers({
   const atMembershipLimit = membershipLimit !== undefined && total >= membershipLimit
 
   // Any change to what the server is being asked for invalidates the cursor.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: resets on query change
-  useEffect(() => {
+  const pageQuery = [roleFilter, sortDescriptor, organization.id] as const
+  const [prevPageQuery, setPrevPageQuery] = useState(pageQuery)
+  if (pageQuery.some((value, index) => value !== prevPageQuery[index])) {
+    setPrevPageQuery(pageQuery)
     setPage(0)
-  }, [roleFilter, sortDescriptor, organization.id])
+  }
 
   const pageStart = page * (validatedPageSize ?? 0)
   const pageEnd = pageStart + (sortedMembers?.length ?? 0)

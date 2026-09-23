@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: remove username-plugin fields, use Phosphor icons, and prefer SSO photos with a Gravatar fallback.
+// Local changes: remove username-plugin fields, use Phosphor icons, and prefer SSO photos with a Gravatar fallback keyed to the email it was resolved for.
 
 import { useAuth, useSession } from "@better-auth-ui/react"
 import type { User } from "better-auth"
@@ -41,16 +41,17 @@ export function UserAvatar({
     enabled: !user && !isPending,
   })
   const resolvedUser = user ?? session?.user
-  const [gravatarImage, setGravatarImage] = useState<string>()
+  const [gravatar, setGravatar] = useState<{ email: string; url: string | undefined }>()
+  const gravatarImage = gravatar?.email === resolvedUser?.email ? gravatar?.url : undefined
 
   useEffect(() => {
     let active = true
-    setGravatarImage(undefined)
 
-    if (resolvedUser?.image || !resolvedUser?.email) return
+    const email = resolvedUser?.email
+    if (resolvedUser?.image || !email) return
 
-    void getGravatarAvatarUrl(resolvedUser.email).then((url) => {
-      if (active) setGravatarImage(url)
+    void getGravatarAvatarUrl(email).then((url) => {
+      if (active) setGravatar({ email, url })
     }).catch(() => {
       // Initials remain available when the browser cannot create the fallback URL.
     })

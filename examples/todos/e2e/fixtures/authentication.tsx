@@ -17,7 +17,7 @@ function Authentication() {
         onError={() => setErrors((count) => count + 1)}
         fetchAstralBeamToken={async () => {
           const response = await fetch("/__authentication-token")
-          return response.json()
+          return (await response.json()) as { token: string }
         }}
       />
     </>

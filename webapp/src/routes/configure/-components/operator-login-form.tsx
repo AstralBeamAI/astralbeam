@@ -44,7 +44,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submitOperatorLogin} className="flex flex-col gap-4">
+        <form onSubmit={(event) => void submitOperatorLogin(event)} className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
             Enter the first active value from <code>DATABASE_ENCRYPTION_KEY</code>.
           </p>

@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Keep failed sign-outs retryable with a non-sensitive inline error state.
+// Local changes: Keep failed sign-outs retryable with a non-sensitive inline error state, and destructure the mutate function for exhaustive effect dependencies.
 import { useAuth, useSignOut } from "@better-auth-ui/react"
 import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,7 @@ export function SignOut({ className }: SignOutProps) {
         replace: true,
       }),
   })
+  const { mutate: signOut } = signOutMutation
 
   const hasSignedOut = useRef(false)
 
@@ -34,8 +35,8 @@ export function SignOut({ className }: SignOutProps) {
     if (hasSignedOut.current) return
     hasSignedOut.current = true
 
-    signOutMutation.mutate()
-  }, [signOutMutation.mutate])
+    signOut()
+  }, [signOut])
 
   if (signOutMutation.error) {
     return (

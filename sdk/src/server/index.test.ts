@@ -27,16 +27,15 @@ test("organization token grants a separate, short-lived operator identity", asyn
     algorithms: ["HS256"],
     audience: "astralbeam",
   })
-  expect(payload).toEqual({
+  const { iat, exp, ...claims } = payload
+  expect(claims).toEqual({
     ver: 1,
     email: options.email,
     organization_id: options.organizationId,
     iss: options.organizationId,
     aud: "astralbeam",
-    iat: expect.any(Number),
-    exp: expect.any(Number),
   })
-  expect(payload.exp! - payload.iat!).toBe(300)
+  expect(exp! - iat!).toBe(300)
   for (const expiresInSeconds of [59, 601, 60.5]) {
     await expect(
       createAstralBeamOrganizationToken({ ...options, expiresInSeconds }),

@@ -48,7 +48,7 @@ const styledTags = Object.fromEntries(
 
 // Executable protocols are stripped by the parser; an outbound link still opens away from the
 // host page and carries no referrer or ranking signal, since the agent chose it.
-function MarkdownLink({ href, ...props }: MarkdownComponentProps<"a">) {
+function MarkdownLink({ href, children, ...props }: MarkdownComponentProps<"a">) {
   const external = /^https?:\/\//i.test(href ?? "")
   return (
     <a
@@ -58,7 +58,9 @@ function MarkdownLink({ href, ...props }: MarkdownComponentProps<"a">) {
       {...(external
         ? { target: "_blank", rel: "nofollow noopener noreferrer", referrerPolicy: "no-referrer" }
         : {})}
-    />
+    >
+      {children}
+    </a>
   )
 }
 

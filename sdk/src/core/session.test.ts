@@ -126,7 +126,7 @@ test("a capability response for a superseded agent does not overwrite the curren
 })
 
 test("a rejected capability request renews once without a refresh notification loop", async () => {
-  const fetch = vi.fn((input: RequestInfo | URL) =>
+  const fetch = vi.fn((input: string | URL) =>
     Promise.resolve(
       String(input).endsWith("/me")
         ? Response.json(currentUser)

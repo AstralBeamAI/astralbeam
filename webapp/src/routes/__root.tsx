@@ -217,7 +217,7 @@ function AppProviders({ children }: { children: ReactNode }) {
           },
         }}
         multipleAccountsPerProvider={false}
-        navigate={navigate}
+        navigate={(options) => void navigate(options)}
         plugins={[
           captchaPlugin({ render: TurnstileCaptcha }),
           themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),

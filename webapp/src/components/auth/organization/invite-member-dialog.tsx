@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; take the organization and creator role as props from the page loader and scope the invitation query to its ID; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; take the organization and creator role as props from the page loader and scope the invitation query to its ID; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields; focus the email through the dialog's initialFocus and adjust role and error state during render.
 
 "use client"
 
@@ -10,7 +10,7 @@ import {
   useListOrganizationInvitations,
 } from "@better-auth-ui/react/plugins/organization"
 import { CaretDownIcon as ChevronDown, UserPlusIcon as UserPlus } from "@phosphor-icons/react"
-import { type SyntheticEvent, useEffect, useMemo, useState } from "react"
+import { type SyntheticEvent, useMemo, useRef, useState } from "react"
 import { toast } from "@/components/ui/toast"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -82,7 +82,11 @@ export function InviteMemberDialog({
     value,
   }))
 
-  useEffect(() => {
+  const emailInputRef = useRef<HTMLInputElement>(null)
+
+  const [prevAssignableRoles, setPrevAssignableRoles] = useState(assignableRoles)
+  if (assignableRoles !== prevAssignableRoles) {
+    setPrevAssignableRoles(assignableRoles)
     setSelectedRoles((current) => {
       const keys = Object.keys(assignableRoles)
       const kept = current.filter((entry) => keys.includes(entry))
@@ -92,11 +96,13 @@ export function InviteMemberDialog({
       const fallback = pickDefaultRole(keys)
       return fallback ? [fallback] : []
     })
-  }, [assignableRoles])
+  }
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (!open) setEmailError(undefined)
-  }, [open])
+  }
 
   const { mutate: inviteMember, isPending: isInviting } = useInviteMember(
     authClient,
@@ -152,7 +158,7 @@ export function InviteMemberDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent initialFocus={emailInputRef}>
         <form onSubmit={submitMemberInvitation} className="flex flex-col gap-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -175,7 +181,7 @@ export function InviteMemberDialog({
                 id="invite-member-email"
                 name="email"
                 type="email"
-                autoFocus
+                ref={emailInputRef}
                 required
                 placeholder={localization.auth.email}
                 disabled={isInviting}

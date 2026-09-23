@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use Phosphor icons and browser-safe globals.
+// Local changes: Use Phosphor icons and browser-safe globals, and memoize the QR code by email for the React Compiler lint.
 
 import { createQrCodeSvgData, getEmailProviderLink } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
@@ -45,11 +45,10 @@ export function OpenEmailButton({
   const { localization } = useAuth()
 
   const provider = getEmailProviderLink(email)
-  const loginUrl = provider?.loginUrl
-  const qrCode = useMemo(
-    () => (loginUrl ? createQrCodeSvgData(loginUrl) : null),
-    [loginUrl],
-  )
+  const qrCode = useMemo(() => {
+    const loginUrl = getEmailProviderLink(email)?.loginUrl
+    return loginUrl ? createQrCodeSvgData(loginUrl) : null
+  }, [email])
 
   if (!provider || !qrCode) return null
 

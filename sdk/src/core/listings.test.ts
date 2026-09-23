@@ -11,7 +11,13 @@ import {
 vi.mock("../api/generated/api.ts", async (original) => ({
   ...await original<typeof import("../api/generated/api.ts")>(),
   getCurrentUser: ({ astralBeamToken }: { astralBeamToken: string }) => {
-    const payload = JSON.parse(atob(astralBeamToken.split(".")[1]!))
+    const payload = JSON.parse(atob(astralBeamToken.split(".")[1]!)) as {
+      email?: string
+      organization_id: string
+      iss: string
+      tenant: { id: string }
+      user: { id: string; admin: boolean }
+    }
     return Promise.resolve(
       payload.email
         ? {
@@ -141,12 +147,12 @@ describe("listing authentication lifecycle", () => {
     const signal = new AbortController().signal
     try {
       expect(await resolveListingTenant(session, signal)).toBeNull()
-      expect(new URL(String(fetch.mock.calls[0]![0])).searchParams.get("filter[external_id]"))
+      expect(new URL(new Request(fetch.mock.calls[0]![0]).url).searchParams.get("filter[external_id]"))
         .toBe(" NorthWind ")
       session.options = { ...session.options, tenantId: "internal-id" }
       fetch.mockResolvedValue(Response.json({ id: "internal-id" }))
       expect(await resolveListingTenant(session, signal)).toMatchObject({ id: "internal-id" })
-      expect(new URL(String(fetch.mock.calls[1]![0])).pathname).toBe("/api/v1/tenants/internal-id")
+      expect(new URL(new Request(fetch.mock.calls[1]![0]).url).pathname).toBe("/api/v1/tenants/internal-id")
     } finally {
       disposeListingSession(session)
       fetch.mockRestore()
@@ -174,7 +180,7 @@ describe("listing authentication lifecycle", () => {
       expect(await loadListingPage(session, page, signal)).toMatchObject({
         page_before: "previous",
       })
-      const url = new URL(String(fetch.mock.calls[0]![0]))
+      const url = new URL(new Request(fetch.mock.calls[0]![0]).url)
       expect(url.pathname).toBe("/api/v1/tenants/internal-id/tenant_users")
       expect(Object.fromEntries(url.searchParams)).toEqual({
         q: "a_%",

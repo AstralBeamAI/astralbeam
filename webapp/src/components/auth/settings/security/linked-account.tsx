@@ -1,8 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: Use Phosphor icons, Base UI Toast, safer OAuth callback/error URLs, strict typing, and skip account-info requests for unlinked providers.
+// Local changes: Use Phosphor icons, Base UI Toast, safer OAuth callback/error URLs, strict typing without redundant or unnecessary type constituents and assertions, and skip account-info requests for unlinked providers.
 
 import {
-  type AuthSocialProvider,
+  type CustomSocialProvider,
   getAuthLinkURL,
   getProviderId,
   getProviderName,
@@ -42,7 +42,7 @@ import { FreshSessionPrompt } from "./fresh-session-prompt"
 export type LinkedAccountProps = {
   account?: Account | undefined
   canUnlink?: boolean
-  provider: AuthSocialProvider | string
+  provider: CustomSocialProvider | string
 }
 
 /**
@@ -85,9 +85,7 @@ export function LinkedAccount({
   const providerId = getProviderId(provider)
   const providerIcon = renderProviderIcon(provider)
   const providerName = getProviderName(provider)
-  const accountData = accountInfo?.data as
-    | { login?: string; username?: string }
-    | undefined
+  const accountData: { login?: string; username?: string } | undefined = accountInfo?.data
 
   const displayName = accountData?.login ||
     accountData?.username ||

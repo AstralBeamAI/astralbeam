@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/theme
-// Local changes: Replace Lucide with Phosphor icons, consume the static theme API directly, and label the theme radio group.
+// Local changes: Replace Lucide with Phosphor icons, consume the static theme API directly, label the theme radio group, and gate hydration with useIsHydrated.
 
 import {
   ThemePreviewDark,
@@ -8,13 +8,13 @@ import {
   useAuthPlugin,
 } from "@better-auth-ui/react"
 import { MonitorIcon as Monitor, MoonIcon as Moon, SunIcon as Sun } from "@phosphor-icons/react"
-import { useEffect, useState } from "react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldContent, FieldLabel, FieldTitle } from "@/components/ui/field"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { themePlugin } from "@/lib/auth/theme-plugin"
 import { cn } from "cn"
+import { useIsHydrated } from "../use-is-hydrated"
 
 export type AppearanceProps = {
   className?: string
@@ -30,10 +30,9 @@ export type AppearanceProps = {
  * @returns A JSX element containing the theme selector card.
  */
 export function Appearance({ className }: AppearanceProps) {
-  const { localization, setTheme, theme, themes = [] } = useAuthPlugin(themePlugin)
+  const { localization, setTheme, theme, themes } = useAuthPlugin(themePlugin)
 
-  const [isMounted, setIsMounted] = useState(false)
-  useEffect(() => setIsMounted(true), [])
+  const isMounted = useIsHydrated()
 
   return (
     <div>

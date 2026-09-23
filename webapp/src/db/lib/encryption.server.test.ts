@@ -47,8 +47,7 @@ function rewriteProtectedHeader(
   rewrite: (header: Record<string, unknown>) => Record<string, unknown>,
 ): string {
   const parts = storedValue.split(".")
-  const header = JSON.parse(new TextDecoder().decode(base64url.decode(parts[0]!)))
-  parts[0] = base64url.encode(JSON.stringify(rewrite(header)))
+  parts[0] = base64url.encode(JSON.stringify(rewrite(decodeProtectedHeader(storedValue))))
   return parts.join(".")
 }
 

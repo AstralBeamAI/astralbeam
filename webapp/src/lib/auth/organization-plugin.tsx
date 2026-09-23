@@ -1,9 +1,8 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and drop the organizations settings tab, which lives at /organizations.
+// Local changes: use Phosphor and drop the organizations settings tab, which lives at /organizations, and drop the redundant `localization` assertion.
 
 import { createAuthPlugin } from "@better-auth-ui/core"
 import {
-  type OrganizationLocalization,
   organizationPlugin as coreOrganizationPlugin,
   type OrganizationPluginOptions,
 } from "@better-auth-ui/core/plugins/organization"
@@ -17,7 +16,6 @@ export const organizationPlugin = createAuthPlugin(
 
     return {
       ...core,
-      localization: core.localization as OrganizationLocalization,
       views: {
         auth: { acceptInvitation: AcceptInvitation },
       },

@@ -104,7 +104,7 @@ export function readSandboxCommandRun(part: ToolCallPart): SandboxCommandRun | u
   if (part.name !== SANDBOX_RUN_COMMAND_TOOL) return undefined
   const command = text(part.input, "command")
   if (command === undefined) return undefined
-  const output = part.output
+  const output: unknown = part.output
   return {
     toolCallId: part.id,
     command,

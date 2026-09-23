@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, and render a semantic page heading.
+// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and read the stored email during render once hydrated.
 
 "use client"
 
@@ -49,18 +49,8 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
   const isHydrated = useIsHydrated()
-  const [email, setEmail] = useState(
-    (isHydrated &&
-      globalThis.sessionStorage.getItem("better-auth-ui.verify-email")) ||
-      "",
-  )
+  const email = (isHydrated && globalThis.sessionStorage.getItem("better-auth-ui.verify-email")) || ""
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS)
-
-  useEffect(() => {
-    setEmail(
-      globalThis.sessionStorage.getItem("better-auth-ui.verify-email") ?? "",
-    )
-  }, [])
 
   useEffect(() => {
     if (cooldown <= 0 || !email) return

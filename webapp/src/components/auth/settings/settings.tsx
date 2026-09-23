@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons and activate typed application plugin settings tabs.
+// Local changes: use Phosphor icons and activate typed application plugin settings tabs, and type joined settings paths as unknown values.
 
 import type { SettingsView } from "@better-auth-ui/core"
 import { useAuth, useAuthenticate } from "@better-auth-ui/react"
@@ -56,7 +56,7 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
       viewPaths.settings,
       ...plugins.map((plugin) => plugin.viewPaths?.settings),
     ]
-      .flatMap((source) => Object.values(source ?? {}))
+      .flatMap((source): unknown[] => Object.values(source ?? {}))
       .join(", ")
     throw new Error(
       `[Better Auth UI] Unknown settings path "${path}". Valid paths are: ${validPaths}`,
