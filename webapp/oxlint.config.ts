@@ -98,7 +98,7 @@ const recommendedRules = {
 // Selected type-aware rules plus core companions; other correctness rules come from the category.
 // TODO: Remove this list if type-aware mode gains a recommended preset for these rules.
 // https://github.com/oxc-project/tsgolint#implemented-rules
-// https://github.com/oxc-project/oxc/blob/oxlint_v1.80.0/crates/oxc_linter/src/rules.rs
+// https://github.com/oxc-project/oxc/blob/oxlint_v1.85.0/crates/oxc_linter/src/rules.rs
 const typeAwareRules: RuleMap = {
   "no-var": "error",
   "prefer-const": "error",
@@ -118,6 +118,31 @@ const typeAwareRules: RuleMap = {
   "typescript/restrict-plus-operands": "error",
 }
 
+// Deno lint's former recommended and jsx rules without a JS preset or correctness-category owner.
+// https://docs.deno.com/lint/
+const denoRecommendedRules: RuleMap = {
+  "no-array-constructor": "error",
+  "no-case-declarations": "error",
+  "no-empty": "error",
+  "no-fallthrough": "error",
+  "no-inner-declarations": "error",
+  "no-prototype-builtins": "error",
+  "no-redeclare": "error",
+  "typescript/adjacent-overload-signatures": "error",
+  "typescript/ban-ts-comment": "error",
+  "typescript/no-empty-interface": "error",
+  "typescript/no-explicit-any": "error",
+  "typescript/no-namespace": "error",
+  "react/button-has-type": "error",
+  "react/jsx-boolean-value": "error",
+  "react/jsx-curly-brace-presence": "error",
+  "react/jsx-key": "error",
+  "react/jsx-no-duplicate-props": "error",
+  "react/jsx-no-useless-fragment": "error",
+  "react/jsx-props-no-spread-multi": "error",
+  "react/no-unescaped-entities": "error",
+}
+
 const baseRules: RuleMap = {
   ...recommendedRules.query,
   ...recommendedRules.router,
@@ -129,15 +154,30 @@ const baseRules: RuleMap = {
   ...recommendedRules.reactWebApi,
   ...recommendedRules.regexp,
   ...typeAwareRules,
-  // Deno's no-empty/ban-types and regexp-js own the broader or specialized equivalents.
-  // Sources: https://github.com/denoland/deno_lint/blob/main/src/rules.rs
-  //          https://github.com/ota-meshi/eslint-plugin-regexp/blob/master/lib/configs/flat/recommended.ts
-  //          https://github.com/oxc-project/oxc/blob/main/crates/oxc_linter/src/rules.rs
-  "no-empty-static-block": "off",
-  "typescript/no-wrapper-object-types": "off",
+  ...denoRecommendedRules,
+  // regexp-js owns these specialized equivalents.
+  // https://github.com/ota-meshi/eslint-plugin-regexp/blob/master/lib/configs/flat/recommended.ts
   "no-empty-character-class": "off",
   "no-invalid-regexp": "off",
   "no-useless-backreference": "off",
+  // The react-hooks, react-jsx, and react-dom JS presets own these native react correctness rules.
+  "react/error-boundaries": "off",
+  "react/exhaustive-deps": "off",
+  "react/globals": "off",
+  "react/immutability": "off",
+  "react/incompatible-library": "off",
+  "react/no-children-prop": "off",
+  "react/no-danger-with-children": "off",
+  "react/no-find-dom-node": "off",
+  "react/no-render-return-value": "off",
+  "react/preserve-manual-memoization": "off",
+  "react/purity": "off",
+  "react/refs": "off",
+  "react/set-state-in-effect": "off",
+  "react/set-state-in-render": "off",
+  "react/static-components": "off",
+  "react/use-memo": "off",
+  "react/void-dom-elements-no-children": "off",
   // TODO: Re-enable these rules when Oxlint JS plugins provide parser services.
   // https://github.com/oxc-project/oxc/issues/19596
   "tanstack-query-js/no-void-query-fn": "off",
@@ -156,6 +196,7 @@ function disabledRuleOverrides(ruleFiles: Record<string, string | string[]>) {
 }
 
 export default defineConfig({
+  plugins: ["eslint", "typescript", "unicorn", "oxc", "react"],
   categories: { correctness: "error" },
   options: { typeAware: true },
   ignorePatterns: [

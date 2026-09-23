@@ -29,7 +29,7 @@ interface AssistantPartProps {
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
-  activeSlots: ReadonlySet<string>
+  activeSlots: ReadonlyMap<string, string>
   onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
 }
 

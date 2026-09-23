@@ -2,15 +2,11 @@
   "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
   // Projects keep their own toolchains without a workspace. Delegated tasks use --cwd.
   // https://docs.deno.com/runtime/reference/cli/task/
-  "fmt": {
-    // Only format root files. Subprojects own their formatting configuration and checks.
-    // https://docs.deno.com/runtime/fundamentals/configuration/#formatting
-    "include": ["*"],
-    "proseWrap": "never"
-  },
   "tasks": {
-    "format": "deno fmt",
-    "format:check": "deno fmt --check",
+    // Nested project configs would override the root ignore of subdirectories.
+    // https://oxc.rs/docs/guide/usage/formatter/config.html
+    "format": "deno run -A npm:oxfmt@0.70.0 --disable-nested-config",
+    "format:check": "deno run -A npm:oxfmt@0.70.0 --disable-nested-config --check",
 
     "install:webapp": "cd webapp && deno install",
     "install:www": "cd www && deno install",

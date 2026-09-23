@@ -8,17 +8,5 @@
       "net": true,
       "read": true
     }
-  },
-  "fmt": {
-    "lineWidth": 100,
-    "semiColons": false,
-    "proseWrap": "never",
-    "exclude": ["deno.lock", "src/routeTree.gen.ts"]
-  },
-  "lint": {
-    "rules": {
-      "tags": ["recommended", "jsx", "react"]
-    },
-    "exclude": ["src/routeTree.gen.ts"]
   }
 }

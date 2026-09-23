@@ -1,0 +1,5 @@
+{
+  "proseWrap": "never",
+  // Only format root files. Subprojects own their formatting configuration and checks.
+  "ignorePatterns": ["*/**"]
+}

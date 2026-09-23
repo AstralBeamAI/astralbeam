@@ -97,16 +97,18 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
  * state stay live and nothing needs a remount.
  */
 export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstralBeamChatResult {
-  // https://react.dev/reference/react/useRef#caveats — one session per committed mount, built on
-  // first render, not a `useState` initializer; Strict Mode's render probe can still make a second.
-  const coreRef = useRef<AstralBeamChatCore | null>(null)
-  coreRef.current ??= createAstralBeamChat(options, true)
-  const core = coreRef.current
-  // Keyed off every core option, `streamCallbacks` included: the session reads them per event, so
+  // One session per committed mount; Strict Mode's render probe can still build a discarded second.
+  const [core] = useState(() => createAstralBeamChat(options, true))
+  // Compares every core option, `streamCallbacks` included: the session reads them per event, so
   // a change that never reaches `updateOptions` would leave it calling the previous closures.
+  const watched = CORE_OPTION_KEYS.map((key) => options[key])
+  const watchedRef = useRef<unknown[] | undefined>(undefined)
   useEffect(() => {
+    const previous = watchedRef.current
+    watchedRef.current = watched
+    if (previous?.every((value, index) => Object.is(value, watched[index]))) return
     core.updateOptions(options)
-  }, [core, ...CORE_OPTION_KEYS.map((key) => options[key])])
+  })
   useEffect(() => {
     core.start()
     return () => core.dispose()
@@ -305,7 +307,9 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       ],
     )
     const liveRef = useRef(live)
-    liveRef.current = live
+    useEffect(() => {
+      liveRef.current = live
+    })
     useEffect(() => {
       if (!targetRef.current) return
       const handle = mountAstralBeamChat(targetRef.current, liveRef.current)

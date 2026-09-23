@@ -9,7 +9,7 @@
 - Preserve imported lint preset rules, options, and severities with one owner for overlaps. Keep legacy findings in file-scoped TODOs with diagnostic and distinct-file counts.
 - When updating Oxlint or plugin lock entries, re-audit imported presets, recheck every linked compatibility issue, and smoke-test all plugin loaders.
 
-- `src/components/ui` contains registry-generated shadcn UI components. Keep it excluded from Oxlint, Deno lint, formatting, and automatic fixes. Make only intentional integration edits and record every divergence in the file's provenance header.
+- `src/components/ui` contains registry-generated shadcn UI components. Keep it excluded from Oxlint, oxfmt, and automatic fixes. Make only intentional integration edits and record every divergence in the file's provenance header.
   - Better Auth UI output under `src/components/auth` and `src/lib/auth`, and Emailcn output under `src/emails`, follow the same provenance rule: retain the registry command, source, and local changes. Preserve earlier provenance when replacing a source and centralize shared email changes outside imported templates.
 - Build shared components under `src/components` with shadcn/ui primitives.
 - Give icon-only controls an accessible name and hover explanation, usually `aria-label` and `title`. Use a Tooltip when richer content is needed.

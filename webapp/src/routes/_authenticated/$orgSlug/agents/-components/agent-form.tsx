@@ -168,7 +168,7 @@ export function AgentForm({
                 onChange={(event) => setSystemPrompt(event.target.value)}
               />
               <FieldDescription>
-                The agent's instructions. They are owned here; the SDK cannot override them.
+                The agent&apos;s instructions. They are owned here; the SDK cannot override them.
               </FieldDescription>
             </Field>
 
@@ -184,7 +184,7 @@ export function AgentForm({
               </FieldLabel>
             </Field>
             <FieldDescription>
-              Enforced by the chat endpoint; the SDK hides the composer's attach button when off.
+              Enforced by the chat endpoint; the SDK hides the composer&apos;s attach button when off.
             </FieldDescription>
 
             <Field>

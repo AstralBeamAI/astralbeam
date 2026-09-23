@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { AstralBeamChatColorScheme, ToolDefinition } from "@astralbeam/sdk/react"
 
 import { TodoList } from "@/components/todo-list.tsx"
@@ -21,7 +21,9 @@ export function TodosPage() {
   const [colorScheme, setColorScheme] = useState<AstralBeamChatColorScheme>("system")
   const [customTheme, setCustomTheme] = useState(true)
   const todosRef = useRef(todos)
-  todosRef.current = todos
+  useEffect(() => {
+    todosRef.current = todos
+  }, [todos])
   const nextTodoId = useRef(Math.max(0, ...INITIAL_TODOS.map((todo) => todo.id)) + 1)
 
   const toggleTodo = (id: number) =>

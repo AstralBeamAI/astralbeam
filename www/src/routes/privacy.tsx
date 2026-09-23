@@ -50,8 +50,8 @@ function PrivacyPage() {
           <li>
             <strong>Organization information:</strong>{" "}
             organization name, membership, role, invitations, settings, and related administrative
-            activity. If an organization invites someone, we collect the invitee's email address and
-            the inviter's account information before the invitee creates or joins an account.
+            activity. If an organization invites someone, we collect the invitee&apos;s email address and
+            the inviter&apos;s account information before the invitee creates or joins an account.
           </li>
           <li>
             <strong>Customer Content:</strong>{" "}
@@ -96,7 +96,7 @@ function PrivacyPage() {
           not be shared.
         </p>
         <p>
-          When you create, change, or reset a password, we screen it against Have I Been Pwned's
+          When you create, change, or reset a password, we screen it against Have I Been Pwned&apos;s
           Pwned Passwords service. The check sends only the first five characters of a SHA-1 hash
           derived from the password—not the password or its full hash—to retrieve a range of
           possible matches, which our authentication service checks locally. We use the result only
@@ -126,7 +126,7 @@ function PrivacyPage() {
           from Gravatar, Gravatar receives the hash and ordinary request information such as your IP
           address and browser details under{" "}
           <a href="https://automattic.com/privacy/" target="_blank" rel="noopener noreferrer">
-            Automattic's privacy policy
+            Automattic&apos;s privacy policy
           </a>.
         </p>
         <p>
@@ -134,7 +134,7 @@ function PrivacyPage() {
           scope so GitHub can provide a verified address, including when your primary address is
           private. This scope provides read-only access to your GitHub email addresses; AstralBeam
           uses the verified address for authentication and account linking, not to access repository
-          content. You can review GitHub's{" "}
+          content. You can review GitHub&apos;s{" "}
           <a
             href="https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps"
             target="_blank"
@@ -237,7 +237,7 @@ function PrivacyPage() {
         <p>
           You may update certain profile information, review or revoke active sessions, and manage
           linked sign-in methods through the Services where those controls are available. You can
-          also revoke AstralBeam's access through Google or GitHub, although doing so does not by
+          also revoke AstralBeam&apos;s access through Google or GitHub, although doing so does not by
           itself delete information already held by AstralBeam. Depending on where you live, you may
           have rights to access, correct, delete, restrict, object to, or receive a copy of personal
           information. Contact us to make a request. We may need to verify your identity and may

@@ -17,7 +17,7 @@ export interface StandardSchemaV1<Input = unknown, Output = Input> {
  * Input type `defineTool`/`defineWidget` derive from a `parameters` schema: a Standard Schema's
  * validated output, or untyped props for a plain JSON Schema, which nothing validates in the browser.
  */
-// deno-lint-ignore no-explicit-any -- `any` matches any schema input variance-free; `unknown` would not.
+// oxlint-disable-next-line typescript/no-explicit-any -- `any` matches any schema input variance-free; `unknown` would not.
 export type InferParameters<S extends ParametersSchema> = S extends StandardSchemaV1<any, infer O>
   ? O
   : Record<string, unknown>

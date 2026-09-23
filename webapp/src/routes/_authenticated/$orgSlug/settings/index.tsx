@@ -29,7 +29,7 @@ function OrganizationSettingsPage() {
           Organization settings
         </h1>
         <p className="text-sm text-muted-foreground">
-          Update this organization's name, URL slug, and model provider key.
+          Update this organization&apos;s name, URL slug, and model provider key.
         </p>
       </div>
       <OrganizationSettingsForm

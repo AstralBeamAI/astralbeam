@@ -9,23 +9,11 @@
     "**/routeTree.gen.ts": true
   },
   "deno.enable": true,
-  "deno.lint": true,
+  "deno.lint": false,
   "deno.codeLens.test": false,
   "vitest.runtime": "deno",
   "gitlens.blame.ignoreWhitespace": true,
-  "editor.defaultFormatter": "denoland.vscode-deno",
-  "[javascript]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  },
-  "[javascriptreact]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  },
-  "[typescript]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  },
+  "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.formatOnSave": true,
   "editor.formatOnSaveMode": "file"
 }

@@ -40,7 +40,7 @@ function AgentsPage() {
             Set the default instructions for each chat experience.
           </p>
           <p className="text-sm text-muted-foreground">
-            Copy an agent's browser-safe ID into the SDK's{" "}
+            Copy an agent&apos;s browser-safe ID into the SDK&apos;s{" "}
             <code className="font-mono text-foreground">agentId</code>{" "}
             option, or omit that option to use the default agent.
           </p>

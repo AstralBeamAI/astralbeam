@@ -56,7 +56,7 @@ export function RouteErrorBoundary() {
           Something went wrong
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          We couldn't load this page. Try again in a moment.
+          We couldn&apos;t load this page. Try again in a moment.
         </p>
         <Button
           type="button"

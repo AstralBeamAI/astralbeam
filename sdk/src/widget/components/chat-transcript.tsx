@@ -30,7 +30,7 @@ interface ChatTranscriptProps {
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
-  activeSlots: ReadonlySet<string>
+  activeSlots: ReadonlyMap<string, string>
   isBusy: boolean
   /** The stream is busy but nothing visible has progressed yet; shows the "Thinking…" marker. */
   awaitingReply: boolean

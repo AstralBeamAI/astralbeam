@@ -57,7 +57,7 @@ function TermsPage() {
         <p>
           Organization owners and administrators control membership, roles, invitations, and
           organization information through the controls available in the Services. If you invite
-          someone, you represent that you are authorized to provide the invitee's email address and
+          someone, you represent that you are authorized to provide the invitee&apos;s email address and
           grant the requested access. An invitee must authenticate with the invited email address
           before accepting access. You are responsible for the activity of users you authorize and
           for promptly removing access that is no longer appropriate.

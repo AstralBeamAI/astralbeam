@@ -1,5 +1,13 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import {
+  type RefObject,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
 import { Button } from "@/widget/components/ui/button"
 import {
   Card,
@@ -24,11 +32,7 @@ import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
 import { createDebugCallbacks } from "./lib/stream-debug.ts"
-import {
-  type AstralBeamChatCore,
-  type AstralBeamChatCoreOptions,
-  createAstralBeamChat,
-} from "../core/session.ts"
+import { type AstralBeamChatCoreOptions, createAstralBeamChat } from "../core/session.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { cn } from "cn"
 import { hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
@@ -44,7 +48,7 @@ export function ChatWidget(
   { options, host, controller }: {
     options: MountAstralBeamChatOptions
     host: HTMLElement
-    controller: ChatController
+    controller: RefObject<ChatController | null>
   },
 ) {
   const widgets = options.widgets ?? NO_WIDGETS
@@ -73,13 +77,9 @@ export function ChatWidget(
     renderWidget,
     streamCallbacks,
   ])
-  const sessionOptionsRef = useRef(sessionOptions)
-  sessionOptionsRef.current = sessionOptions
-  // One session per committed mount, retuned in place: built on first render rather than in a
-  // `useState` initializer, though Strict Mode's render probe can still build a discarded second.
-  const chatRef = useRef<AstralBeamChatCore | null>(null)
-  chatRef.current ??= createAstralBeamChat(sessionOptionsRef.current, true)
-  const chat = chatRef.current
+  // One session per committed mount, retuned in place, though Strict Mode's render probe can
+  // still build a discarded second.
+  const [chat] = useState(() => createAstralBeamChat(sessionOptions, true))
   // Re-applies the initial values harmlessly; afterwards, every option change retunes the session.
   useEffect(() => {
     chat.updateOptions(sessionOptions)
@@ -118,11 +118,13 @@ export function ChatWidget(
   // Ids only have to be unique within this composer, and `crypto.randomUUID` is undefined on a
   // host page served over plain HTTP. https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
   const nextAttachmentId = useRef(0)
-  // An update that turns attachments off must drop the picked files too; hiding the button alone
-  // would leave them sendable.
-  useEffect(() => {
+  // An update that turns attachments off must drop the picked files too, or they stay sendable.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [attachmentsEnabled, setAttachmentsEnabled] = useState(attachmentLimits.enabled)
+  if (attachmentsEnabled !== attachmentLimits.enabled) {
+    setAttachmentsEnabled(attachmentLimits.enabled)
     if (!attachmentLimits.enabled) setAttachments([])
-  }, [attachmentLimits.enabled])
+  }
   const streamBusy = status === "submitted" || status === "streaming"
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = auth.status === "loading"
@@ -222,14 +224,7 @@ export function ChatWidget(
   }
 
   // Re-registered every render so the loader's handle always calls the latest closures.
-  useEffect(() => {
-    controller.reset = resetConversation
-    controller.stop = chat.stop
-    return () => {
-      controller.reset = undefined
-      controller.stop = undefined
-    }
-  })
+  useImperativeHandle(controller, () => ({ reset: resetConversation, stop: chat.stop }))
 
   // The Card frame with a bordered header, an unpadded content area, and a footer composer is
   // shadcn's canonical chat assembly (docs/changelog/2026-06-chat-components). The host sizes and

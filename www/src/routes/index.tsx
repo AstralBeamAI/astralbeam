@@ -133,7 +133,7 @@ function LandingPage() {
               </h1>
               <p className="hero-sub reveal" style={cssVars({ "--reveal-delay": ".36s" })}>
                 Drop a Cursor-style agent into your product. It answers queries, interacts with your
-                app, renders your UI components, and works with users' files.
+                app, renders your UI components, and works with users&apos; files.
               </p>
               <div className="hero-ctas reveal" style={cssVars({ "--reveal-delay": ".48s" })}>
                 <a className="btn btn-primary btn-lg" href={signUpUrl}>GET STARTED</a>

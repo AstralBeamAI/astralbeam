@@ -29,6 +29,7 @@ export function DirectoryTable(
     filtered: boolean
   },
 ) {
+  const { onTenantSelect, onTenantUserSelect, showAdmin } = options
   const columns = useMemo<ColumnDef<typeof features, RecordRow>[]>(() => [
     {
       accessorKey: "external_id",
@@ -73,7 +74,7 @@ export function DirectoryTable(
         )
       },
     },
-    ...(kind === "users" && options.showAdmin
+    ...(kind === "users" && showAdmin
       ? [{
         id: "admin",
         header: "Stored admin",
@@ -127,7 +128,7 @@ export function DirectoryTable(
         </time>
       ),
     },
-    ...((kind === "users" ? options.onTenantUserSelect : options.onTenantSelect)
+    ...((kind === "users" ? onTenantUserSelect : onTenantSelect)
       ? [{
         id: "actions",
         header: "",
@@ -139,8 +140,8 @@ export function DirectoryTable(
               size="sm"
               onClick={() =>
                 "tenant_id" in record
-                  ? options.onTenantUserSelect?.(record)
-                  : options.onTenantSelect?.(record)}
+                  ? onTenantUserSelect?.(record)
+                  : onTenantSelect?.(record)}
               aria-label={`Open ${record.name || record.external_id}`}
               title="Open"
             >
@@ -150,7 +151,7 @@ export function DirectoryTable(
         },
       }]
       : []),
-  ], [kind, options.onTenantSelect, options.onTenantUserSelect, options.showAdmin])
+  ], [kind, onTenantSelect, onTenantUserSelect, showAdmin])
   const table = useTable({
     features,
     data: rows,
