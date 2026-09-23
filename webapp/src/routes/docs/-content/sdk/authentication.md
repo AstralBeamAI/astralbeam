@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 - The `user` and `tenant` objects together must serialize to at most 8 KB of JSON, and the token to at most 16 KB.
 - AstralBeam allows 30 seconds of clock skew, so keep your server's clock synchronized.
 
-In Ruby, the [`jwt`](https://rubygems.org/gems/jwt) gem signs it in one call:
+In Ruby, the [`jwt`](https://rubygems.org/gems/jwt) gem signs it in one call. This short version shows only the signing. For production, copy [`lib/astral_beam.rb`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos-rails/lib/astral_beam.rb) from the Rails example instead, because it also applies `createAstralBeamToken`'s lifetime, identity, and size checks, and AstralBeam rejects tokens that fail them.
 
 ```ruby
 module AstralBeam
