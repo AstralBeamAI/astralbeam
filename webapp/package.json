@@ -27,7 +27,7 @@
     "generate:theme": "deno run -P=tooling scripts/generate-theme.ts",
     "knip": "knip",
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen",
-    "lint": "oxlint --deny-warnings",
+    "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "preview": "vite preview",
     "ready": "deno task check && deno task test && deno task build",

@@ -15,7 +15,7 @@
     "format:check": "oxfmt --check",
     "knip": "knip",
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install --frozen",
-    "lint": "oxlint --deny-warnings",
+    "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "preview": "vite preview",
     "ready": "deno task check && deno task test && deno task build",

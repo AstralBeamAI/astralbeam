@@ -182,7 +182,8 @@ const baseRules: RuleMap = {
 export default defineConfig({
   plugins: ["eslint", "typescript", "unicorn", "oxc", "react"],
   categories: { correctness: "error" },
-  options: { typeAware: true },
+  // Keeps Deno's ban-unused-ignore gate, so a stale disable directive fails lint.
+  options: { typeAware: true, denyWarnings: true, reportUnusedDisableDirectives: "error" },
   ignorePatterns: [
     // Generated and registry-vendored sources, which regeneration would overwrite.
     "src/components/ui/**",
