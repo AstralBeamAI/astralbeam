@@ -156,6 +156,7 @@ export function e2eWebServers() {
       },
       reuseExistingServer: false,
       timeout: 240_000,
+      gracefulShutdown: { signal: "SIGTERM" as const, timeout: 8_000 },
       stdout: "pipe" as const,
       stderr: "pipe" as const,
     },

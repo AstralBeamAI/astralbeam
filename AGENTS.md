@@ -72,7 +72,7 @@
 - Define tables with `snakeCase.table`, keep TypeScript property names camel case, and omit redundant column-name arguments when Drizzle can derive the lower snake-case SQL name.
 - Keep required extension DDL such as `CREATE EXTENSION IF NOT EXISTS citext` in the generated migration because a Drizzle `customType` does not install its PostgreSQL extension. Regenerate an unmerged, unapplied migration when refining the same schema change, but never rewrite migration history that may have been applied by others.
 - Follow the applicable PostgreSQL [Don't Do This](https://wiki.postgresql.org/wiki/Don't_Do_This) guidance: keep identifiers lower snake case, use half-open timestamp ranges and `NOT EXISTS` where null-aware exclusion is needed, retain unconstrained `text`/`citext`, and avoid `timetz`, `CURRENT_TIME`, `char(n)`, default `varchar(n)`, `money`, `serial`, rules, table inheritance, and trust authentication over TCP/IP.
-- Use `migrate` for checked-in migrations. Reserve `push --explain` for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or `*.local` environment files.
+- Apply application database schema changes only through reviewed, checked-in migrations with `migrate`. Effect owns initialization and migrations for its `effect_cluster_*` tables, an explicit exception kept outside Drizzle schema management. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes. Use the provided `DATABASE_URL` and never commit credentials or `*.local` environment files.
 
 ## Cursor Cloud
 

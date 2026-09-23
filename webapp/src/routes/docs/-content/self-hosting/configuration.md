@@ -1,6 +1,6 @@
 # Configuration
 
-Every setting except the two bootstrap variables in [Deploy](./deploy.md) lives in the database and is edited in the browser.
+Application settings live in the database and are edited in the browser. The required bootstrap variables, HTTP listen port, and private cluster runner addresses are environment-only settings described in [Deploy](./deploy.md#3-set-the-bootstrap-environment).
 
 ## Where settings live
 

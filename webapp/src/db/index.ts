@@ -8,18 +8,20 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Redacted from "effect/Redacted"
+import type * as SqlClient from "effect/unstable/sql/SqlClient"
 import { Pool } from "pg"
 
-import { getDatabaseUrl } from "@/db/lib/database-credentials.server"
-import { databaseRelations } from "@/db/schema.server"
+import { getDatabaseUrl } from "./lib/database-credentials.server.ts"
+import { databaseRelations } from "./schema.server.ts"
 
 // Keep Better Auth and Effect connection lifecycles independent.
 // https://effect.website/docs/v4/api/sql-pg/PgClient/
-function createDatabasePool(applicationName: string, max: number): Pool {
+function createAuthDatabasePool(): Pool {
   const pool = new Pool({
     connectionString: getDatabaseUrl(),
-    application_name: applicationName,
-    max,
+    application_name: "astralbeam-webapp-auth",
+    max: 5,
+    connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
     // Recycle connections before a NAT or PgBouncer idle timeout can drop them silently, and let
     // TCP keepalives surface the ones that still die while checked in.
@@ -30,7 +32,7 @@ function createDatabasePool(applicationName: string, max: number): Pool {
   // An unhandled 'error' event on a pg pool terminates the process.
   pool.on("error", (error) => {
     console.error("Database pool idle client error", {
-      pool: applicationName,
+      pool: "astralbeam-webapp-auth",
       message: error.message,
       code: "code" in error && typeof error.code === "string" ? error.code : undefined,
       total: pool.totalCount,
@@ -41,8 +43,17 @@ function createDatabasePool(applicationName: string, max: number): Pool {
   return pool
 }
 
+// Nitro and TanStack SSR have separate module graphs in development. Share the pool owners.
+// https://vite.dev/guide/api-environment-runtimes.html
+const databaseResourcesKey = Symbol.for("webapp.databaseResources")
+const databaseProcess = globalThis as typeof globalThis & {
+  [databaseResourcesKey]?: ReturnType<typeof createDatabaseResources>
+}
+export const databaseResources = (databaseProcess[databaseResourcesKey] ??=
+  createDatabaseResources())
+
 export const db = drizzle({
-  client: createDatabasePool("astralbeam-webapp-auth", 5),
+  client: databaseResources.authPool,
   jit: true,
   relations: databaseRelations,
 })
@@ -56,17 +67,45 @@ export type EffectDatabase = Effect.Success<typeof makeEffectDatabase>
 
 export const effectDatabase = Context.Service<EffectDatabase>("@astralbeam/EffectDatabase")
 
-export const runDatabaseEffect = ManagedRuntime.make(
-  Layer.effect(effectDatabase, makeEffectDatabase).pipe(
-    Layer.provideMerge(
+export const effectDatabaseLayer = Layer.effect(effectDatabase, makeEffectDatabase)
+
+// Cache only this module's production adapter so schema reloads and independent layers stay isolated.
+// https://vite.dev/guide/api-hmr.html
+const productionDatabase = Effect.runSync(
+  Effect.cached(Effect.provide(effectDatabase, effectDatabaseLayer)),
+)
+
+function createDatabaseResources() {
+  return {
+    authPool: createAuthDatabasePool(),
+    runtime: ManagedRuntime.make(
       PgClient.layer({
         url: Redacted.make(getDatabaseUrl()),
         applicationName: "astralbeam-webapp",
         maxConnections: 10,
+        connectTimeout: "5 seconds",
         idleTimeout: "30 seconds",
         connectionTTL: "30 minutes",
         prepare: false,
       }),
     ),
-  ),
-).runPromise
+    shutdown: undefined as Promise<void> | undefined,
+  }
+}
+
+export function runDatabaseEffect<A, E>(
+  effect: Effect.Effect<A, E, EffectDatabase | PgClient.PgClient | SqlClient.SqlClient>,
+  options?: Effect.RunOptions,
+): Promise<A> {
+  return databaseResources.runtime.runPromise(
+    Effect.provideServiceEffect(effect, effectDatabase, productionDatabase),
+    options,
+  )
+}
+
+export function closeDatabase(): Promise<void> {
+  return (databaseResources.shutdown ??= Promise.all([
+    databaseResources.runtime.dispose(),
+    databaseResources.authPool.end(),
+  ]).then(() => undefined))
+}
