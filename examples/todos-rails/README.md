@@ -7,14 +7,14 @@ A Ruby on Rails 8 app that embeds the AstralBeam chat sidebar and tenant-user di
 | Piece | File |
 | --- | --- |
 | SDK loaded from jsDelivr through the import map | [`config/importmap.rb`](config/importmap.rb) |
-| Chat mount, host tools, and the `todoCard` widget | [`app/javascript/controllers/astralbeam_chat_controller.js`](app/javascript/controllers/astralbeam_chat_controller.js) |
-| Tenant-user directory mount | [`app/javascript/controllers/astralbeam_tenant_users_controller.js`](app/javascript/controllers/astralbeam_tenant_users_controller.js) |
+| Todo list, chat mount, host tools, and the `todoCard` widget | [`app/javascript/todos.js`](app/javascript/todos.js) |
+| Tenant-user directory mount | [`app/javascript/tenant_users.js`](app/javascript/tenant_users.js) |
 | Token minting with the `jwt` gem | [`lib/astral_beam.rb`](lib/astral_beam.rb) |
 | Token endpoint at `POST /astralbeam/token` | [`app/controllers/astral_beam_tokens_controller.rb`](app/controllers/astral_beam_tokens_controller.rb) |
-| JSON API the tools call | [`app/controllers/todos_controller.rb`](app/controllers/todos_controller.rb) |
+| JSON API the page and tools call | [`app/controllers/todos_controller.rb`](app/controllers/todos_controller.rb) |
 
 - The tools send Rails' CSRF token with every `fetch`, including the widget's token request.
-- After a tool changes a todo, the page refreshes with Turbo morphing. The chat mount point is `data-turbo-permanent`, so the transcript survives and the cards redraw from the refreshed list.
+- The app uses no Turbo or Stimulus. Each page is one plain ES module. After the page or a tool changes a todo, the module reloads the list from the JSON API and redraws it and any cards in place, so the chat transcript survives.
 - To copy the token minter into your own app, add `gem "jwt"` and `lib/astral_beam.rb`, then derive `user` and `tenant` from your session instead of the demo identity.
 
 ## Run
@@ -31,7 +31,7 @@ The pinned SDK version must already be published on npm. To try unreleased SDK c
 
 - Ask the assistant to add, complete, or delete todos, and watch the list update.
 - Ask it to show a todo as a card, then toggle the card's checkbox and confirm the list follows.
-- Toggle **Theme**, **Custom theme**, **Hide assistant**, and **Debug**. Each is a link that morphs the page, so the conversation stays put.
+- Toggle **Theme**, **Custom theme**, **Hide assistant**, and **Debug**. They update the widget in place, so the conversation stays put.
 - Open **Tenant users** to browse the current tenant's users with the SDK directory, and enable **Show stored admin fields**.
 
 The demo token endpoint hands a fixed identity to any caller and answers `503` in production. Before deploying, replace it with one that derives stable Tenant and tenant-local user IDs from your authenticated session. Follow the [SDK authentication guide](https://app.astralbeam.ai/docs/sdk/authentication).

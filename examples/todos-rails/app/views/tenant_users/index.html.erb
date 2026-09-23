@@ -1,13 +1,7 @@
 <% content_for :title, "Tenant users" %>
+<% content_for :javascript_module, "tenant_users" %>
 
-<%= tag.div class: "app", data: {
-      color_scheme: color_scheme,
-      controller: "astralbeam-tenant-users",
-      astralbeam_tenant_users_api_url_value: Rails.configuration.x.astralbeam.api_url,
-      astralbeam_tenant_users_color_scheme_value: color_scheme,
-      astralbeam_tenant_users_custom_theme_value: custom_theme?,
-      astralbeam_tenant_users_show_admin_value: @show_admin
-    } do %>
+<%= tag.div id: "app", class: "app", data: { color_scheme: "system", api_url: Rails.configuration.x.astralbeam.api_url } do %>
   <main class="todos directories">
     <header class="todos-header">
       <div>
@@ -23,24 +17,20 @@
     <p>Browse and filter the users in your tenant.</p>
 
     <div class="todos-actions">
-      <%= render "appearance_toggles" %>
+      <button type="button" id="theme">Theme: system</button>
+      <button type="button" id="custom-theme">Custom theme: on</button>
     </div>
 
-    <%= form_with url: tenant_users_path, method: :get, data: { controller: "auto-submit", turbo_action: "replace" } do %>
-      <% request.query_parameters.except("show_admin").each do |name, value| %>
-        <%= hidden_field_tag name, value, id: nil %>
-      <% end %>
-      <label>
-        <%= check_box_tag :show_admin, "on", @show_admin, data: { action: "auto-submit#submit" } %>
-        Show stored admin fields
-      </label>
-    <% end %>
+    <label>
+      <input type="checkbox" id="show-admin">
+      Show stored admin fields
+    </label>
 
-    <div role="alert" hidden data-astralbeam-tenant-users-target="error">
-      <p data-astralbeam-tenant-users-target="errorMessage"></p>
-      <button type="button" data-action="astralbeam-tenant-users#dismissError">Dismiss error</button>
+    <div id="directory-error" role="alert" hidden>
+      <p></p>
+      <button type="button">Dismiss error</button>
     </div>
 
-    <div id="astralbeam-tenant-users" data-turbo-permanent data-astralbeam-tenant-users-target="list"></div>
+    <div id="astralbeam-tenant-users"></div>
   </main>
 <% end %>

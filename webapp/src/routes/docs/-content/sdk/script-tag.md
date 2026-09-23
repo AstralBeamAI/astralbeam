@@ -42,43 +42,35 @@ mountAstralBeamChat(element, {
 
 ## Ruby on Rails
 
-Rails 8 loads JavaScript through import maps and attaches behavior with Stimulus. Let's wire the widget into both:
+Rails loads JavaScript through import maps, so the SDK needs no npm or bundler there either. Let's wire the widget into a Rails 8 app:
 
-1. Pin the SDK by URL in `config/importmap.rb`. Avoid `bin/importmap pin`, because it vendors one file and the loader's lazy chunks would be missing.
+1. Pin the SDK by URL in `config/importmap.rb`, next to a pin for the page's own module. Avoid `bin/importmap pin`, because it vendors one file and the loader's lazy chunks would be missing.
 
    ```ruby
+   pin "assistant"
    pin "@astralbeam/sdk/client", to: "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.12.0/dist/client.js"
    ```
 
-2. Mount the widget from a Stimulus controller in `app/javascript/controllers/astralbeam_chat_controller.js`:
+2. Mount the widget from that module in `app/javascript/assistant.js`:
 
    ```js
-   import { Controller } from "@hotwired/stimulus"
    import { mountAstralBeamChat } from "@astralbeam/sdk/client"
 
-   export default class extends Controller {
-     connect() {
-       const csrfToken = document.querySelector("meta[name=csrf-token]").content
-       this.chat = mountAstralBeamChat(this.element, {
-         fetchAstralBeamToken: { url: "/astralbeam/token", headers: { "X-CSRF-Token": csrfToken } },
-       })
-     }
-
-     disconnect() {
-       this.chat.unmount()
-     }
-   }
+   const csrfToken = document.querySelector("meta[name=csrf-token]").content
+   mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
+     fetchAstralBeamToken: { url: "/astralbeam/token", headers: { "X-CSRF-Token": csrfToken } },
+   })
    ```
 
-3. Render the mount point in a view. It needs an `id` and `data-turbo-permanent` so Turbo's morphing page refreshes leave the widget and its transcript alone.
+3. Render the mount point in a view and load the module with `javascript_importmap_tags "assistant"` in the layout's `<head>`.
 
    ```erb
-   <div id="astralbeam-chat" data-controller="astralbeam-chat" data-turbo-permanent style="height: 100vh"></div>
+   <div id="astralbeam-chat" style="height: 100vh"></div>
    ```
 
 4. Add `post "astralbeam/token" => "astral_beam_tokens#create"` to `config/routes.rb` and a controller that mints the token as shown in [Authentication](./authentication.md).
 
-- Tools that change server data can call your controllers with `fetch` and then refresh the page with `Turbo.visit(location.href, { action: "replace" })`. With `turbo_refreshes_with method: :morph` in the layout, the chat keeps its transcript.
+- A full page load discards the transcript. Tools and forms that change server data should call your controllers with `fetch` and update the page in place.
 - Widgets render into the mount point's light DOM, so your stylesheet styles them. Name your CSS custom properties distinctly, because the widget's own tokens such as `--card` and `--border` shadow same-named variables inside the conversation.
 
 **TIP**: The [`examples/todos-rails`](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/todos-rails) app is a complete Rails 8 integration with host tools over a JSON API, a `todoCard` widget, and the tenant-user directory.

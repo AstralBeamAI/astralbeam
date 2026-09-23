@@ -168,7 +168,7 @@ Types resolve under every TypeScript module resolution mode, including classic `
 
 [`examples/todos`](../examples/todos) embeds the sidebar and a tenant-scoped user listing in a minimal TanStack Start app. Both use the same demo token route. The app also demonstrates host tools over live React state and a `todoCard` widget, with no Tailwind or shadcn/ui of its own.
 
-[`examples/todos-rails`](../examples/todos-rails) is the same app in Ruby on Rails 8. It loads the SDK from jsDelivr through an import map, mounts it from Stimulus, mints tokens with the `jwt` gem, and gives the agent tools over the app's JSON API.
+[`examples/todos-rails`](../examples/todos-rails) is the same app in Ruby on Rails 8. It loads the SDK from jsDelivr through an import map, mounts it from a plain ES module, mints tokens with the `jwt` gem, and gives the agent tools over the app's JSON API.
 
 ## License
 

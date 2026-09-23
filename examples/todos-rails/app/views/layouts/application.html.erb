@@ -8,24 +8,18 @@
     <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-    <%# Morphing refreshes keep the page's widgets mounted. https://turbo.hotwired.dev/handbook/page_refreshes %>
-    <%= turbo_refreshes_with method: :morph, scroll: :preserve %>
-
-    <%= yield :head %>
 
     <link rel="icon" href="/icon.png" type="image/png">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon.png">
 
     <%# Includes all stylesheet files in app/assets/stylesheets %>
-    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
-    <%= javascript_importmap_tags %>
+    <%= stylesheet_link_tag :app %>
+    <%# Each page names its own module, which the import map resolves. %>
+    <%= javascript_importmap_tags yield(:javascript_module) %>
   </head>
 
   <body>
-    <% if alert %>
-      <p class="alert" role="alert"><%= alert %></p>
-    <% end %>
     <%= yield %>
   </body>
 </html>

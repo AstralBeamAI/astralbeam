@@ -10,10 +10,6 @@ gem "sqlite3", ">= 2.1"
 gem "puma", ">= 5.0"
 # Use JavaScript with ESM import maps [https://github.com/rails/importmap-rails]
 gem "importmap-rails"
-# Hotwire's SPA-like page accelerator [https://turbo.hotwired.dev]
-gem "turbo-rails"
-# Hotwire's modest JavaScript framework [https://stimulus.hotwired.dev]
-gem "stimulus-rails"
 # Signs AstralBeam chat tokens [https://github.com/jwt/ruby-jwt]
 gem "jwt", "~> 3.3"
 # Rails 8.1.3.1 breaks on json 3. Drop after a release carries https://github.com/rails/rails/pull/58601

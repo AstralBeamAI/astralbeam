@@ -1,15 +1,11 @@
 <% content_for :title, "Todos" %>
+<% content_for :javascript_module, "todos" %>
 
-<%= tag.div class: "app", data: {
-      color_scheme: color_scheme,
-      controller: "astralbeam-chat",
-      astralbeam_chat_api_url_value: Rails.configuration.x.astralbeam.api_url,
-      astralbeam_chat_agent_id_value: Rails.configuration.x.astralbeam.agent_id,
-      astralbeam_chat_title_value: "Todos assistant",
-      astralbeam_chat_color_scheme_value: color_scheme,
-      astralbeam_chat_custom_theme_value: custom_theme?,
-      astralbeam_chat_debug_value: @debug,
-      astralbeam_chat_todos_value: @todos.to_json(only: %i[ id text completed ])
+<%= tag.div id: "app", class: "app", data: {
+      color_scheme: "system",
+      api_url: Rails.configuration.x.astralbeam.api_url,
+      agent_id: Rails.configuration.x.astralbeam.agent_id,
+      todos: @todos.to_json(only: %i[ id text completed ])
     } do %>
   <main class="todos">
     <header class="todos-header">
@@ -19,37 +15,35 @@
       </nav>
     </header>
 
-    <%= form_with model: Todo.new, class: "todos-form" do |form| %>
-      <%= form.text_field :text, placeholder: "Add a todo…", required: true, aria: { label: "New todo" } %>
-      <%= form.button "Add" %>
-    <% end %>
+    <form id="new-todo" class="todos-form">
+      <input name="text" placeholder="Add a todo…" required aria-label="New todo">
+      <button type="submit">Add</button>
+    </form>
 
-    <ul class="todos-list">
-      <% @todos.each do |todo| %>
-        <li id="<%= dom_id todo %>">
-          <%= form_with model: todo, data: { controller: "auto-submit" } do |form| %>
-            <label>
-              <%= form.check_box :completed, id: dom_id(todo, :completed), data: { action: "auto-submit#submit" } %>
-              <%= tag.span todo.text, class: { "todo-done": todo.completed } %>
-            </label>
-          <% end %>
-        </li>
-      <% end %>
-    </ul>
+    <ul id="todos" class="todos-list"></ul>
 
     <div class="todos-actions">
-      <%= render "appearance_toggles" %>
-      <%= toggle_link @assistant_hidden ? "Show assistant" : "Hide assistant", assistant: (@assistant_hidden ? nil : "hidden") %>
-      <%= toggle_link "Debug: #{@debug ? "on" : "off"}", debug: (@debug ? nil : "on") %>
+      <button type="button" id="theme">Theme: system</button>
+      <button type="button" id="custom-theme">Custom theme: on</button>
+      <button type="button" id="assistant">Hide assistant</button>
+      <button type="button" id="debug">Debug: off</button>
     </div>
   </main>
 
-  <%= tag.aside class: "chat-sidebar", hidden: @assistant_hidden do %>
-    <%# Permanent, so page refreshes leave the widget and the cards it renders here untouched. %>
-    <div id="astralbeam-chat" class="widget" data-turbo-permanent data-astralbeam-chat-target="sidebar"></div>
-  <% end %>
+  <aside id="chat-sidebar" class="chat-sidebar">
+    <div id="astralbeam-chat" class="widget"></div>
+  </aside>
 
-  <template data-astralbeam-chat-target="todoCard">
+  <template id="todo-item">
+    <li>
+      <label>
+        <input type="checkbox">
+        <span></span>
+      </label>
+    </li>
+  </template>
+
+  <template id="todo-card">
     <div class="todo-card">
       <label class="todo-card-row">
         <input type="checkbox">

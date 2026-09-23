@@ -60,15 +60,6 @@ body {
   color: var(--app-fg);
 }
 
-.alert {
-  position: fixed;
-  inset: 0 0 auto;
-  margin: 0;
-  padding: 0.5rem 1rem;
-  background: #a03c2e;
-  color: #fff;
-}
-
 .todos {
   flex: 1;
   min-width: 0;
@@ -132,8 +123,7 @@ body {
   margin: 0;
 }
 
-.todos button,
-.todos .button {
+.todos button {
   padding: 0.5rem 1rem;
   border: 2px solid var(--app-fg);
   border-radius: 999px;
@@ -141,12 +131,10 @@ body {
   color: inherit;
   font: inherit;
   font-size: 0.9rem;
-  text-decoration: none;
   cursor: pointer;
 }
 
-.todos button:hover,
-.todos .button:hover {
+.todos button:hover {
   background: var(--app-surface-hover);
 }
 

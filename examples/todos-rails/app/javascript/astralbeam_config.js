@@ -7,8 +7,28 @@ export function tokenRequest() {
   return { url: "/astralbeam/token", headers: { "X-CSRF-Token": csrfToken() } }
 }
 
-export function appearance({ colorScheme, customTheme }) {
-  return { colorScheme, theme: customTheme ? WIDGET_THEME : undefined }
+// Wires the page's Theme and Custom theme buttons, reporting each change as widget options.
+export function bindAppearanceButtons(onChange) {
+  const app = document.getElementById("app")
+  const themeButton = document.getElementById("theme")
+  const customThemeButton = document.getElementById("custom-theme")
+  const state = { colorScheme: "system", customTheme: true }
+  const apply = () => {
+    app.dataset.colorScheme = state.colorScheme
+    themeButton.textContent = `Theme: ${state.colorScheme}`
+    customThemeButton.textContent = `Custom theme: ${state.customTheme ? "on" : "off"}`
+    onChange({ colorScheme: state.colorScheme, theme: state.customTheme ? WIDGET_THEME : undefined })
+  }
+  themeButton.addEventListener("click", () => {
+    const schemes = ["system", "light", "dark"]
+    state.colorScheme = schemes[(schemes.indexOf(state.colorScheme) + 1) % schemes.length]
+    apply()
+  })
+  customThemeButton.addEventListener("click", () => {
+    state.customTheme = !state.customTheme
+    apply()
+  })
+  apply()
 }
 
 const WIDGET_THEME = {
