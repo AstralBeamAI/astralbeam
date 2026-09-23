@@ -14,7 +14,7 @@ Creating one makes you its owner and provisions a starter agent, already set as 
 
 Owners and developers can create an organization API key. Its full value looks like `key_<organizationId>_<id>_abo_<secret>`, and the dashboard shows it exactly once, so copy it into your server's secret manager on the spot.
 
-The key does two jobs. It authenticates calls to the [management API](/docs/api), and its secret signs the chat tokens your server mints. Anyone who can read it can mint a token naming any tenant user in your organization, so keep it server side and never ship it to browser code.
+The key serves two purposes. It authenticates calls to the [management API](/docs/api), and its secret signs the chat tokens your server mints. Anyone who can read it can mint a token naming any tenant user in your organization, so keep it server side and never ship it to browser code.
 
 **NOTE**: Deleting a key invalidates both uses at once, including tokens already minted from it.
 

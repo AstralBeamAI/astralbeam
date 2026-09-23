@@ -2,6 +2,8 @@
 
 The Webapp owns its server-only PostgreSQL client, Drizzle schema, and generated migrations in this directory.
 
+The Promise and Effect clients use separate pools with a five-second connection timeout, 30-second idle timeout, and 30-minute connection lifetime. The Promise pool's timeout also bounds waiting for an available connection, while Effect's `connectTimeout` bounds connection establishment. TCP keepalive is enabled on the Promise pool with a ten-second initial delay. The installed [Effect rc.117 client configuration](https://github.com/Effect-TS/effect/blob/14a3f140095fdebbff9162944fe7d4ea83e054e6/packages/sql-pg/src/PgClient.ts) exposes no TCP keepalive setting, so the Effect pool retains its native socket behavior.
+
 ## Structure
 
 - `index.ts` is guarded as server-only and exports the Promise Drizzle client, native Effect database service, and framework bridge.

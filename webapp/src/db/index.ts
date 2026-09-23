@@ -13,13 +13,23 @@ import { Pool } from "pg"
 import { getDatabaseUrl } from "@/db/lib/database-credentials.server"
 import { databaseRelations } from "@/db/schema.server"
 
-// Keep Better Auth and Effect connection lifecycles independent.
-// https://effect.website/docs/v4/api/sql-pg/PgClient/
-function createDatabasePool(applicationName: string, max: number): Pool {
+const makeEffectDatabase = PgDrizzle.makeWithDefaults({
+  relations: databaseRelations,
+  jit: true,
+})
+
+export type EffectDatabase = Effect.Success<typeof makeEffectDatabase>
+
+export const effectDatabase = Context.Service<EffectDatabase>("@astralbeam/EffectDatabase")
+
+function createProcessDatabaseServices() {
+  const databaseUrl = getDatabaseUrl()
+  const databaseConnectTimeoutMs = 5_000
   const pool = new Pool({
-    connectionString: getDatabaseUrl(),
-    application_name: applicationName,
-    max,
+    connectionString: databaseUrl,
+    application_name: "astralbeam-webapp-auth",
+    max: 5,
+    connectionTimeoutMillis: databaseConnectTimeoutMs,
     idleTimeoutMillis: 30_000,
     // Recycle connections before a NAT or PgBouncer idle timeout can drop them silently, and let
     // TCP keepalives surface the ones that still die while checked in.
@@ -30,7 +40,7 @@ function createDatabasePool(applicationName: string, max: number): Pool {
   // An unhandled 'error' event on a pg pool terminates the process.
   pool.on("error", (error) => {
     console.error("Database pool idle client error", {
-      pool: applicationName,
+      pool: "astralbeam-webapp-auth",
       message: error.message,
       code: "code" in error && typeof error.code === "string" ? error.code : undefined,
       total: pool.totalCount,
@@ -38,35 +48,42 @@ function createDatabasePool(applicationName: string, max: number): Pool {
       waiting: pool.waitingCount,
     })
   })
-  return pool
+  const db = drizzle({ client: pool, jit: true, relations: databaseRelations })
+  // Keep Better Auth and Effect connection lifecycles independent.
+  // https://effect.website/docs/v4/api/sql-pg/PgClient/
+  const runtime = ManagedRuntime.make(
+    Layer.effect(effectDatabase, makeEffectDatabase).pipe(
+      Layer.provideMerge(
+        PgClient.layer({
+          url: Redacted.make(databaseUrl),
+          applicationName: "astralbeam-webapp",
+          maxConnections: 10,
+          connectTimeout: databaseConnectTimeoutMs,
+          idleTimeout: "30 seconds",
+          connectionTTL: "30 minutes",
+          prepare: false,
+        }),
+      ),
+    ),
+  )
+  return { db, runtime, closing: undefined as Promise<void> | undefined }
 }
 
-export const db = drizzle({
-  client: createDatabasePool("astralbeam-webapp-auth", 5),
-  jit: true,
-  relations: databaseRelations,
-})
+// Share clients and lifecycle state across Nitro and Vite SSR bundles in the same process.
+// https://github.com/nitrojs/nitro/blob/main/src/vite.ts
+const databaseKey = Symbol.for("astralbeam/database-services")
+const databaseGlobal = globalThis as typeof globalThis & {
+  [databaseKey]?: ReturnType<typeof createProcessDatabaseServices>
+}
+const databaseServices = (databaseGlobal[databaseKey] ??= createProcessDatabaseServices())
 
-const makeEffectDatabase = PgDrizzle.makeWithDefaults({
-  relations: databaseRelations,
-  jit: true,
-})
+export const db = databaseServices.db
+export const databaseRuntime = databaseServices.runtime
+export const runDatabaseEffect = databaseRuntime.runPromise
 
-export type EffectDatabase = Effect.Success<typeof makeEffectDatabase>
-
-export const effectDatabase = Context.Service<EffectDatabase>("@astralbeam/EffectDatabase")
-
-export const runDatabaseEffect = ManagedRuntime.make(
-  Layer.effect(effectDatabase, makeEffectDatabase).pipe(
-    Layer.provideMerge(
-      PgClient.layer({
-        url: Redacted.make(getDatabaseUrl()),
-        applicationName: "astralbeam-webapp",
-        maxConnections: 10,
-        idleTimeout: "30 seconds",
-        connectionTTL: "30 minutes",
-        prepare: false,
-      }),
-    ),
-  ),
-).runPromise
+export function closeProcessDatabaseServices(): Promise<void> {
+  return (databaseServices.closing ??= Promise.all([
+    databaseRuntime.dispose(),
+    db.$client.end(),
+  ]).then(() => undefined))
+}

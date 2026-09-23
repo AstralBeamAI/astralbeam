@@ -97,10 +97,11 @@ const viteConfig = defineConfig(({ mode }) => {
                 config.replace = {
                   ...config.replace,
                   "process.env.DATABASE_URL": JSON.stringify("postgres://127.0.0.1:1/prerender"),
+                  "process.env.CLUSTER_ENABLED": JSON.stringify("false"),
                 }
               },
             },
-            plugins: ["./src/lib/response-headers.server.ts"],
+            plugins: ["./src/lib/response-headers.server.ts", "./src/cluster/plugin.server.ts"],
           })),
       tailwindcss(),
       tanstackStart(),

@@ -76,6 +76,23 @@ Setup installs the Deno toolchain and frozen dependencies, then migrates, seeds,
 deno task dev                      # all apps and the SDK watcher
 ```
 
+For cluster process verification, stop webapp processes connected to the local worktree database, apply its migrations, and run the following from `webapp`. Every runner sharing that database must register the same handlers, so the synthetic test runners need the database to themselves.
+
+```sh
+CLUSTER_INTEGRATION=1 deno task --env-file=.env.development.local test scripts/cluster
+```
+
+The cluster defaults to the webapp port minus one. For multiple local processes, reserve port pairs such as `PORT=4500` and `PORT=4502`, or set `CLUSTER_PORT` explicitly.
+
+With a webapp process running against the migrated worktree database, exercise the synthetic workflow from `webapp`. Submission prints its execution ID. Reuse that ID for polling or interruption.
+
+```sh
+deno task workflows example unique-request-key
+deno task workflows example another-key 2027-01-01T00:00:00Z
+deno task workflows result system.example/v1 <execution-id>
+deno task workflows cancel system.example/v1 <execution-id>
+```
+
 Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](webapp/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
 
 ## Cloud agent setup

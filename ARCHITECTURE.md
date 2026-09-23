@@ -87,6 +87,8 @@ New application logic uses Effect with typed failures, executed through the `Man
 
 The database module owns a `pg` pool for Promise and Better Auth queries and a separate native `@effect/sql-pg` pool for Effect queries. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](webapp/AGENTS.md#database) for the required pool lifecycle.
 
+Each webapp process also hosts an Effect cluster runner on a private HTTP listener. PostgreSQL stores runner leases, persisted messages, and workflow checkpoints in the `cluster_*` tables. The same composition runs with one or many processes, using row leases through PgBouncer. Application migrations own the upstream-compatible schema, and cluster startup waits for that schema without blocking `/configure`. See the [cluster integration guide](webapp/src/cluster/README.md) for registration, addressing, and recovery semantics.
+
 ## SDK boundary
 
 The vanilla entry lazily loads a widget with its own React and styles. The React entry uses the host's React. Both build on the framework-free headless core, which owns authentication, transport, tool execution, and transcript state.

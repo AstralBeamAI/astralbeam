@@ -108,6 +108,10 @@ async function runBinaryCheck() {
     cwd: temporaryDirectory,
     env: {
       ...processEnvironment,
+      // srvx disables graceful shutdown under CI/TEST. Exercise the production signal handlers.
+      // https://github.com/h3js/srvx/blob/main/src/_plugins.ts
+      CI: "",
+      TEST: "",
       APP_BASE_URL: baseUrl.href,
       PORT: String(port),
     },
