@@ -4,14 +4,15 @@ Let's install AstralBeam on a Linux host, with PostgreSQL behind a connection po
 
 ## 1. Get a release binary
 
-Every tagged release publishes one prebuilt platform asset, `astralbeam-platform-v<version>-linux-x86_64`, built for Linux on x86_64. The `astralbeam-v<version>-*` assets beside it are the [CLI](/docs/cli/getting-started), not the server.
+Every tagged release from v0.12.0 publishes one prebuilt platform asset, `astralbeam-platform-v<version>-linux-x86_64`, built for Linux on x86_64. The `astralbeam-v<version>-*` assets beside it are the [CLI](/docs/cli/getting-started), not the server. Releases before v0.12.0 named the server asset `astralbeam-v<version>-linux-x86_64`.
 
-Run these commands to download that asset and install it as `astralbeam-platform`:
+Set `VERSION` to the [release](https://github.com/AstralBeamAI/astralbeam/releases) you want, then run these commands to download that asset and install it as `astralbeam-platform`:
 
 ```sh
-gh release download v0.1.0 --repo AstralBeamAI/astralbeam --pattern 'astralbeam-platform-*-linux-x86_64'
-chmod +x astralbeam-platform-v0.1.0-linux-x86_64
-mv astralbeam-platform-v0.1.0-linux-x86_64 /usr/local/bin/astralbeam-platform
+VERSION=0.12.0
+gh release download "v$VERSION" --repo AstralBeamAI/astralbeam --pattern "astralbeam-platform-v$VERSION-linux-x86_64"
+chmod +x "astralbeam-platform-v$VERSION-linux-x86_64"
+mv "astralbeam-platform-v$VERSION-linux-x86_64" /usr/local/bin/astralbeam-platform
 ```
 
 The release carries no checksum or signature file, so verify what you downloaded by running it. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests every release binary the same way, without the database-backed status check.

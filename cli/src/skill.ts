@@ -13,8 +13,10 @@ export function registerSkillCommands(program: Command): void {
   const skill = program
     .command("skill")
     .description("Print or install the Agent Skill that teaches coding agents this CLI")
-    .action(async () => {
-      stdout.write(await readFile(fileURLToPath(SKILL_URL), "utf8"))
+    .action(async (_options: object, command: Command) => {
+      const content = await readFile(fileURLToPath(SKILL_URL), "utf8")
+      if (globalOptions(command).json) printResult({ content }, true)
+      else stdout.write(content)
     })
 
   skill

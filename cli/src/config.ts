@@ -1,8 +1,8 @@
 import type { Command } from "commander"
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
-import { env, platform } from "node:process"
+import { env, pid, platform } from "node:process"
 
 export const DEFAULT_API_URL = "https://app.astralbeam.ai/api"
 const DEFAULT_PROFILE = "default"
@@ -55,12 +55,21 @@ export async function readConfig(): Promise<ConfigFile> {
   }
 }
 
+/** Writes a fresh owner-only file and renames it over the old one, so no reader sees a partial file. */
 export async function writeConfig(config: ConfigFile): Promise<void> {
   const path = configPath()
   await mkdir(dirname(path), { recursive: true, mode: 0o700 })
-  await writeFile(path, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
-  // The mode above applies only when the file is created.
-  await chmod(path, 0o600)
+  const temporaryPath = `${path}.${pid}.tmp`
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, {
+      mode: 0o600,
+      flag: "wx",
+    })
+    await rename(temporaryPath, path)
+  } catch (error) {
+    await rm(temporaryPath, { force: true })
+    throw error
+  }
 }
 
 interface GlobalOptions {

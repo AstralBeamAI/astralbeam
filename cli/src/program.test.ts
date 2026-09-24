@@ -62,6 +62,19 @@ test("API failures exit 1 with the problem body, and usage errors exit 2", async
   expect(await cli("tenants", "create", "--metadata", "[1]", "--external-id", "acme")).toBe(2)
 })
 
+test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
+  const usageError = async (...args: string[]) => {
+    stderr = ""
+    expect(await cli("--json", ...args)).toBe(2)
+    return (JSON.parse(stderr) as { error: { detail: string } }).error.detail
+  }
+
+  expect(await usageError("tenants", "create")).toMatch(/--external-id/)
+  expect(await usageError("tenants", "update", "id", "--metadata", "nope")).toMatch(/JSON object/)
+  // Following page_after from a page_before request would send both cursors.
+  expect(await usageError("tenants", "list", "--all", "--page-before", "c")).toMatch(/--all/)
+})
+
 test("an explicit profile overrides ASTRALBEAM_API_KEY and is stored owner-only", async () => {
   vi.stubEnv("ASTRALBEAM_API_URL", undefined)
   const stored = { api_url: "http://self-hosted.test/api", api_key: `${API_KEY.slice(0, -1)}b` }

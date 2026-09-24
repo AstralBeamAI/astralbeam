@@ -1,4 +1,4 @@
-import type { Command } from "commander"
+import { type Command, Option } from "commander"
 import { stderr } from "node:process"
 import { positiveInteger } from "./options.ts"
 import { printJson, printTable } from "./output.ts"
@@ -33,7 +33,12 @@ export function addListOptions(command: Command): Command {
     .option("--page-size <count>", "items per page, capped at 100 (default 20)", positiveInteger)
     .option("--page-after <cursor>", "continue after a previous page's page_after")
     .option("--page-before <cursor>", "go back from a previous page's page_before")
-    .option("--all", "follow page_after to the last page and return every item")
+    .addOption(
+      // The API rejects a request carrying both cursors, which following page_after would send.
+      new Option("--all", "follow page_after to the last page and return every item").conflicts(
+        "pageBefore",
+      ),
+    )
 }
 
 export function listParams(options: ListOptions): ListParams {

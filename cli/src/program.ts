@@ -21,7 +21,9 @@ Docs: https://app.astralbeam.ai/docs/cli/getting-started`
 
 /** Runs the CLI with Node-style argv and returns the process exit code. */
 export async function run(argv: readonly string[]): Promise<number> {
-  // exitOverride precedes the subcommands so each inherits it and throws instead of exiting.
+  // Known before parsing, so a usage error in JSON mode replaces Commander's text output.
+  const json = argv.includes("--json")
+  // exitOverride and configureOutput precede the subcommands so each inherits them.
   const program = new Command("astralbeam")
     .description(
       "Manage an AstralBeam organization's Tenants, TenantUsers, tokens, and agent chats.",
@@ -32,6 +34,7 @@ export async function run(argv: readonly string[]): Promise<number> {
     .addHelpText("after", HELP_FOOTER)
     .showHelpAfterError()
     .exitOverride()
+  if (json) program.configureOutput({ writeErr: () => undefined })
   registerAuthCommands(program)
   registerTenantCommands(program)
   registerTenantUserCommands(program)
@@ -42,8 +45,19 @@ export async function run(argv: readonly string[]): Promise<number> {
     await program.parseAsync(argv)
     return 0
   } catch (error) {
-    if (error instanceof CommanderError) return error.exitCode === 0 ? 0 : 2
-    printError(error, program.opts<{ json?: boolean }>().json === true)
-    return 1
+    if (!(error instanceof CommanderError)) {
+      printError(error, json)
+      return 1
+    }
+    if (error.exitCode === 0) return 0
+    if (json) {
+      // A bare command group reports its help as the error, with the message "(outputHelp)".
+      const detail =
+        error.code === "commander.help"
+          ? "Missing subcommand."
+          : error.message.replace(/^error: /, "")
+      printError(new Error(detail), true)
+    }
+    return 2
   }
 }
