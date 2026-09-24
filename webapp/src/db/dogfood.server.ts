@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import { defaultKeyHasher } from "@better-auth/api-key"
 import { generateRandomString } from "better-auth/crypto"
@@ -116,9 +116,23 @@ export function readDogfoodOrganization(input: { id?: string | undefined; slug: 
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     const rows = yield* db
-      .select({ id: organization.id, name: organization.name })
+      .select({
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        ownerEmail: user.email,
+      })
       .from(organization)
+      .leftJoin(
+        member,
+        and(
+          eq(member.organizationId, organization.id),
+          sql`'owner' = any(string_to_array(${member.role}, ','))`,
+        ),
+      )
+      .leftJoin(user, eq(user.id, member.userId))
       .where(input.id ? eq(organization.id, input.id) : eq(organization.slug, input.slug))
+      .orderBy(asc(member.id))
       .limit(1)
     return rows[0] ?? null
   })
@@ -140,12 +154,6 @@ export function replacePendingDogfoodOwner(pending: PendingOnboarding, input: Ow
     const db = yield* effectDatabase
     return yield* db.transaction((transaction) =>
       Effect.gen(function* () {
-        if (!pending.requiresResetEmail) {
-          return yield* Effect.fail({
-            _tag: "OwnerOnboardingError" as const,
-            message: "Finish onboarding with the existing owner account.",
-          })
-        }
         const previous = yield* readDogfoodOwner(pending.email)
         const customer = yield* readDogfoodOrganization({
           id: pending.organizationId,

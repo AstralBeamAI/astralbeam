@@ -32,20 +32,13 @@ export const saveConfigValues = createServerFn({ method: "POST" })
       async (): Promise<SaveConfigValuesResult> => {
         const { getGlobalConfig } = await import("@/lib/config")
         const needsOnboarding = !(await getGlobalConfig("dogfood_organization_id"))
-        if (needsOnboarding && !data.onboarding) {
-          return {
-            ok: false,
-            error: "Owner email and dogfood organization are required",
-            fieldErrors: [],
-          }
-        }
         const saved = await updateGlobalConfig(data.updates)
-        if (!saved.ok || !needsOnboarding) return saved
+        if (!saved.ok || !needsOnboarding || !data.onboarding) return saved
         const { provisionDogfoodResources } = await import("@/lib/dogfood/provisioning.server")
         const { runDatabaseEffect } = await import("@/db")
         const { Effect } = await import("effect")
         return runDatabaseEffect(
-          provisionDogfoodResources(data.onboarding!).pipe(
+          provisionDogfoodResources(data.onboarding).pipe(
             Effect.as({ ok: true } as const),
             Effect.catchTag("OwnerOnboardingError", (error) =>
               Effect.succeed({ ok: false, error: error.message, fieldErrors: [] } as const),

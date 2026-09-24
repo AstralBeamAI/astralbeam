@@ -71,6 +71,27 @@ export function configurePage(page: Page) {
       await expectToast(page, "Configuration saved")
     },
 
+    ownerEmail(): Locator {
+      return page.getByLabel("Owner email")
+    },
+
+    organizationName(): Locator {
+      return page.getByLabel("Dogfood Organization name")
+    },
+
+    organizationSlug(): Locator {
+      return page.getByLabel("Dogfood Organization slug")
+    },
+
+    inviteOwnerButton(): Locator {
+      return page.getByRole("button", { name: "Invite owner", exact: true })
+    },
+
+    async inviteOwner(error?: string): Promise<void> {
+      await this.inviteOwnerButton().click()
+      await expectToast(page, error ?? "Owner invitation sent")
+    },
+
     /** Ends the operator session and loads the application from the server. */
     async goToApp(): Promise<void> {
       // The actions row is rendered above and below the fields, so both copies match.

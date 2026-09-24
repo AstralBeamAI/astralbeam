@@ -3,11 +3,16 @@
 import { Option, Schema } from "effect"
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { FieldError } from "@/components/ui/field"
-import { type OwnerOnboarding, OwnerOnboardingInput } from "@/lib/dogfood/schema"
+import {
+  type DogfoodOnboarding,
+  type OwnerOnboarding,
+  OwnerOnboardingInput,
+} from "@/lib/dogfood/schema"
 import {
   EMAIL_PROVIDER_SETTING_KEYS,
   EmailProviderConnectionInputSchema,
@@ -42,14 +47,23 @@ export function ConfigEditor({
   fallbackEncryptionKeyCount,
   onChanged,
 }: {
-  onboarding: OwnerOnboarding | null
+  onboarding: DogfoodOnboarding | null
   fields: ConfigureField[]
   issues: ConfigIssue[]
   setupComplete: boolean
   fallbackEncryptionKeyCount: number
   onChanged: () => void
 }) {
-  const [owner, setOwner] = useState(onboarding)
+  const [ownerDrafts, setOwnerDrafts] = useState<Partial<OwnerOnboarding>>({})
+  const owner = onboarding && {
+    email: onboarding.complete ? onboarding.email : (ownerDrafts.email ?? onboarding.email),
+    organizationName: onboarding.organizationCreated
+      ? onboarding.organizationName
+      : (ownerDrafts.organizationName ?? onboarding.organizationName),
+    organizationSlug: onboarding.organizationCreated
+      ? onboarding.organizationSlug
+      : (ownerDrafts.organizationSlug ?? onboarding.organizationSlug),
+  }
   const [drafts, setDrafts] = useState<Record<string, FieldDraft>>({})
   // Secrets arrive as `null`, so a value an operator revealed is the only copy the page holds.
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>({})
@@ -118,13 +132,17 @@ export function ConfigEditor({
     }
   }
 
-  const savePendingUpdates = async () => {
+  const savePendingUpdates = async (inviteOwner = false) => {
     const result = await saveConfigValues({
-      data: { updates: pendingUpdates, ...(onboarding && owner ? { onboarding: owner } : {}) },
+      data: {
+        updates: pendingUpdates,
+        ...(inviteOwner && owner ? { onboarding: owner } : {}),
+      },
     })
     if (result.ok) {
       setFieldErrors({})
       setDrafts({})
+      if (inviteOwner) setOwnerDrafts({})
       setRevealedValues({})
       return true
     }
@@ -143,6 +161,13 @@ export function ConfigEditor({
     run(async () => {
       if (!(await savePendingUpdates())) return
       toast.add({ title: "Configuration saved", type: "success" })
+      onChanged()
+    })
+
+  const handleInviteOwner = () =>
+    run(async () => {
+      if (!(await savePendingUpdates(true))) return
+      toast.add({ title: "Owner invitation sent", type: "success" })
       onChanged()
     })
 
@@ -200,73 +225,25 @@ export function ConfigEditor({
       }
     })
 
+  const hasUnsavedConfiguration = pendingUpdates.length > 0 || hasMissingGeneratedValue
+  const configurationRequired =
+    hasUnsavedConfiguration ||
+    issues.some(
+      (issue) => issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
+    )
+
   const actions = (
     <ConfigureActions
       setupComplete={setupComplete}
       busy={busy}
       onSave={() => void handleSave()}
-      saveDisabled={
-        onboarding
-          ? !Schema.is(OwnerOnboardingInput)(owner)
-          : pendingUpdates.length === 0 &&
-            !hasMissingGeneratedValue &&
-            fallbackEncryptionKeyCount === 0
-      }
+      saveDisabled={!hasUnsavedConfiguration && fallbackEncryptionKeyCount === 0}
     />
   )
 
   return (
     <div className="flex flex-col gap-6">
       {actions}
-
-      {onboarding && owner && (
-        <section
-          className="space-y-4 rounded-xl border p-5"
-          aria-labelledby="owner-onboarding-title"
-        >
-          <h2 id="owner-onboarding-title" className="text-lg font-semibold">
-            Owner onboarding
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            A new owner receives a password-reset email. Setup stays incomplete until sending
-            succeeds. Existing verified accounts are reused without another email.
-          </p>
-          {(
-            [
-              ["email", "Owner email (required)", "Enter a valid email address."],
-              [
-                "organizationName",
-                "Dogfood Organization name",
-                "Use 1–100 characters without leading or trailing spaces.",
-              ],
-              [
-                "organizationSlug",
-                "Dogfood Organization slug",
-                "Use 1–63 lowercase letters, numbers, or hyphens, and avoid reserved names.",
-              ],
-            ] as const
-          ).map(([key, label, message]) => {
-            const invalid =
-              owner[key] !== "" && !Schema.is(OwnerOnboardingInput.fields[key])(owner[key])
-            return (
-              <div key={key} className="space-y-2">
-                <Label htmlFor={`owner-${key}`}>{label}</Label>
-                <Input
-                  id={`owner-${key}`}
-                  type={key === "email" ? "email" : "text"}
-                  required
-                  aria-invalid={invalid}
-                  aria-describedby={invalid ? `owner-${key}-error` : undefined}
-                  value={owner[key]}
-                  disabled={busy}
-                  onChange={(event) => setOwner({ ...owner, [key]: event.target.value })}
-                />
-                {invalid && <FieldError id={`owner-${key}-error`}>{message}</FieldError>}
-              </div>
-            )
-          })}
-        </section>
-      )}
 
       <SetupStatusAlert
         setupComplete={setupComplete}
@@ -291,6 +268,73 @@ export function ConfigEditor({
       />
 
       {actions}
+
+      {onboarding && owner && (
+        <section
+          className="space-y-4 rounded-xl border p-5"
+          aria-labelledby="owner-onboarding-title"
+        >
+          <h2 id="owner-onboarding-title" className="text-lg font-semibold">
+            Owner onboarding
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {onboarding.complete
+              ? "Invitation sent. The owner can use the email to set their password. Manage organization details in the dashboard."
+              : configurationRequired
+                ? "Save the application configuration before inviting the owner."
+                : "The owner receives an email to set their password."}
+          </p>
+          {(
+            [
+              ["email", "Owner email", "Enter a valid email address."],
+              [
+                "organizationName",
+                "Dogfood Organization name",
+                "Use 1–100 characters without leading or trailing spaces.",
+              ],
+              [
+                "organizationSlug",
+                "Dogfood Organization slug",
+                "Use 1–63 lowercase letters, numbers, or hyphens, and avoid reserved names.",
+              ],
+            ] as const
+          ).map(([key, label, message]) => {
+            const locked =
+              onboarding.complete || (key !== "email" && onboarding.organizationCreated)
+            const invalid =
+              !locked &&
+              owner[key] !== "" &&
+              !Schema.is(OwnerOnboardingInput.fields[key])(owner[key])
+            return (
+              <div key={key} className="space-y-2">
+                <Label htmlFor={`owner-${key}`}>{label}</Label>
+                <Input
+                  id={`owner-${key}`}
+                  type={key === "email" ? "email" : "text"}
+                  required
+                  aria-invalid={invalid}
+                  aria-describedby={invalid ? `owner-${key}-error` : undefined}
+                  value={owner[key]}
+                  disabled={busy || locked}
+                  onChange={(event) =>
+                    setOwnerDrafts({ ...ownerDrafts, [key]: event.target.value })
+                  }
+                />
+                {invalid && <FieldError id={`owner-${key}-error`}>{message}</FieldError>}
+              </div>
+            )
+          })}
+          {!onboarding.complete && (
+            <Button
+              type="button"
+              disabled={busy || configurationRequired || !Schema.is(OwnerOnboardingInput)(owner)}
+              onClick={() => void handleInviteOwner()}
+            >
+              Invite owner
+            </Button>
+          )}
+        </section>
+      )}
     </div>
   )
 }

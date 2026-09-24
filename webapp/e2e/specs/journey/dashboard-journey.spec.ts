@@ -3,7 +3,7 @@ import { captureMilestone } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 import { makeRunIdentity } from "../../identity.ts"
 import { emailLink, waitForEmail } from "../../mailbox.ts"
-import { mailboxSmtpPort, operatorKey, webappUrl } from "../../worktree.ts"
+import { mailboxSmtpPort, mailboxUrl, operatorKey, webappUrl } from "../../worktree.ts"
 
 /**
  * One continuous session over an empty deployment: configure it, create an account, verify its
@@ -41,11 +41,33 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       await configure.generateSecret("better_auth_secret")
     }
 
-    await page.getByLabel("Owner email (required)").fill(ownerEmail)
-    // Points the deployment at the suite's mail sink, which every later email step depends on.
     await configure.setValue("smtp_port", String(mailboxSmtpPort))
+    await expect(configure.inviteOwnerButton()).toBeDisabled()
     await configure.testEmailConnection()
+    // Saving application settings must not require an owner or send an invitation.
     await configure.save()
+    await expect(configure.setupStatus()).toHaveText("Configuration required")
+    await expect(configure.organizationName()).toBeEnabled()
+    await captureMilestone(page, "00-configuration-saved")
+
+    await configure.ownerEmail().fill(`undelivered-${identity.runId}@example.com`)
+    // The HTTP mailbox port is reachable but does not speak SMTP, so delivery must fail.
+    await configure.setValue("smtp_port", new URL(mailboxUrl).port)
+    await configure.save()
+    await configure.inviteOwner(
+      "The owner onboarding email could not be sent. Check email settings and try again.",
+    )
+    await expect(configure.ownerEmail()).toBeEnabled()
+    await expect(configure.organizationName()).toBeDisabled()
+    await expect(configure.organizationSlug()).toBeDisabled()
+    await captureMilestone(page, "00-pending-owner")
+
+    await configure.ownerEmail().fill(ownerEmail)
+    await configure.setValue("smtp_port", String(mailboxSmtpPort))
+    await configure.save()
+    await expect(configure.ownerEmail()).toHaveValue(ownerEmail)
+    await configure.inviteOwner()
+    await expect(configure.ownerEmail()).toBeDisabled()
 
     await expect(configure.setupStatus()).toHaveText("Configuration is complete")
     await captureMilestone(page, "01-configure-complete")
