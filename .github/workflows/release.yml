@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      RELEASE_ASSET: astralbeam-platform-v${{ needs.verify.outputs.version }}-linux-x86_64
+      PLATFORM_ASSET_PREFIX: astralbeam-platform-v${{ needs.verify.outputs.version }}
       CLI_ASSET_PREFIX: astralbeam-v${{ needs.verify.outputs.version }}
     steps:
       - name: Check out repository
@@ -100,8 +100,20 @@ jobs:
         working-directory: webapp
         run: deno task binary:check
 
-      - name: Name the binary after the release
-        run: mv webapp/.output/astralbeam-platform "$RELEASE_ASSET"
+      - name: Cross-compile the other Webapp binaries
+        # Ships the smoke-tested host binary as linux-x86_64 and repeats the `compile` task's flags
+        # for the other targets. https://docs.deno.com/runtime/reference/cli/compile/
+        working-directory: webapp
+        shell: bash
+        run: |
+          mkdir ../platform-binaries
+          mv .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
+          for pair in aarch64-unknown-linux-gnu:linux-arm64 x86_64-apple-darwin:macos-x86_64 \
+            aarch64-apple-darwin:macos-arm64 x86_64-pc-windows-msvc:windows-x86_64.exe; do
+            deno compile --no-check --node-modules-dir=none --exclude-unused-npm --include npm:busboy \
+              --config deno.jsonc -P=runtime --target "${pair%%:*}" \
+              --output "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}" .
+          done
 
       - name: Install CLI dependencies
         working-directory: cli
@@ -141,11 +153,11 @@ jobs:
           path: cli/dist
           if-no-files-found: error
 
-      - name: Upload the Webapp binary
+      - name: Upload the Webapp binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: webapp-binary
-          path: ${{ env.RELEASE_ASSET }}
+          name: webapp-binaries
+          path: platform-binaries
           if-no-files-found: error
 
       - name: Upload the SDK package output
@@ -165,10 +177,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download the Webapp binary
+      - name: Download the Webapp binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: webapp-binary
+          name: webapp-binaries
 
       - name: Download the CLI binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -179,9 +191,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_ASSET: astralbeam-platform-v${{ needs.verify.outputs.version }}-linux-x86_64
+          PLATFORM_ASSET_PREFIX: astralbeam-platform-v${{ needs.verify.outputs.version }}
           CLI_ASSET_PREFIX: astralbeam-v${{ needs.verify.outputs.version }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes "$RELEASE_ASSET" "$CLI_ASSET_PREFIX"-*
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes "$PLATFORM_ASSET_PREFIX"-* "$CLI_ASSET_PREFIX"-*
 
   stage-npm:
     name: Stage the SDK and CLI on npm

@@ -23,9 +23,9 @@ npm install --global @astralbeam/cli
 Each [GitHub release](https://github.com/AstralBeamAI/astralbeam/releases) also attaches standalone binaries that need no Node, named `astralbeam-v<version>-<platform>` for `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, and `windows-x86_64.exe`.
 
 ```sh
-gh release download v0.12.1 --repo AstralBeamAI/astralbeam --pattern 'astralbeam-v0.12.1-macos-arm64'
-chmod +x astralbeam-v0.12.1-macos-arm64
-mv astralbeam-v0.12.1-macos-arm64 /usr/local/bin/astralbeam
+gh release download v0.12.2 --repo AstralBeamAI/astralbeam --pattern 'astralbeam-v0.12.2-macos-arm64'
+chmod +x astralbeam-v0.12.2-macos-arm64
+mv astralbeam-v0.12.2-macos-arm64 /usr/local/bin/astralbeam
 ```
 
 **NOTE**: The binaries are not signed. On macOS, a binary downloaded through a browser needs `xattr -d com.apple.quarantine <file>` before its first run.
