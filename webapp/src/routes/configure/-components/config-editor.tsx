@@ -248,40 +248,6 @@ export function ConfigEditor({
     <div className="flex flex-col gap-6">
       {actions}
 
-      <SetupStatusAlert
-        setupComplete={setupComplete}
-        issues={
-          onboarding && !onboarding.complete
-            ? [
-                ...issues.filter(
-                  (issue) =>
-                    issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
-                ),
-                { key: "dogfood_organization_id", message: "Invite the owner to finish setup." },
-              ]
-            : issues
-        }
-        fallbackEncryptionKeyCount={fallbackEncryptionKeyCount}
-      />
-
-      <ConfigFieldGroups
-        fields={fields}
-        drafts={drafts}
-        revealedValues={revealedValues}
-        fieldErrors={fieldErrors}
-        disabled={busy}
-        onDraftChange={setDraft}
-        onGenerate={(key) => void handleGenerate(key)}
-        onReveal={handleReveal}
-        onTestEmailProvider={() => void handleTestEmailProvider()}
-        emailProvider={emailProvider}
-        canTestEmailProvider={canTestEmailProvider}
-        emailProviderTesting={emailProviderTesting}
-        emailProviderTestResult={emailProviderTestResult}
-      />
-
-      {actions}
-
       {onboarding && owner && (
         <section
           className="space-y-4 rounded-xl border p-5"
@@ -349,6 +315,40 @@ export function ConfigEditor({
           )}
         </section>
       )}
+
+      <SetupStatusAlert
+        setupComplete={setupComplete}
+        issues={
+          onboarding && !onboarding.complete
+            ? [
+                ...issues.filter(
+                  (issue) =>
+                    issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
+                ),
+                { key: "dogfood_organization_id", message: "Invite the owner to finish setup." },
+              ]
+            : issues
+        }
+        fallbackEncryptionKeyCount={fallbackEncryptionKeyCount}
+      />
+
+      <ConfigFieldGroups
+        fields={fields}
+        drafts={drafts}
+        revealedValues={revealedValues}
+        fieldErrors={fieldErrors}
+        disabled={busy}
+        onDraftChange={setDraft}
+        onGenerate={(key) => void handleGenerate(key)}
+        onReveal={handleReveal}
+        onTestEmailProvider={() => void handleTestEmailProvider()}
+        emailProvider={emailProvider}
+        canTestEmailProvider={canTestEmailProvider}
+        emailProviderTesting={emailProviderTesting}
+        emailProviderTestResult={emailProviderTestResult}
+      />
+
+      {actions}
     </div>
   )
 }
