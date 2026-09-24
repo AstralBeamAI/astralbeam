@@ -18,10 +18,11 @@ import {
 } from "./config.ts"
 import { printJson, printResult, printTable } from "./output.ts"
 
-// Reads a pasted key without echoing it, like a password prompt.
+// Reads a pasted key without echoing it, like a password prompt. Raw mode goes on before the
+// prompt appears, so a paste that arrives immediately is never echoed.
 function promptSecret(question: string): Promise<string> {
-  stderr.write(question)
   stdin.setRawMode(true)
+  stderr.write(question)
   stdin.setEncoding("utf8")
   stdin.resume()
   let value = ""

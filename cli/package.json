@@ -26,7 +26,7 @@
     "build": "tsdown",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno task lint:fix && deno task format && deno task knip:fix",
-    "compile": "deno task build && deno compile --no-check --config deno.jsonc -P=runtime --include skills --output .output/astralbeam dist/astralbeam.js",
+    "compile": "deno task build && deno compile --no-check --engine quickjs --config deno.jsonc -P=runtime --include skills --output .output/astralbeam dist/astralbeam.js",
     "dev": "deno run --node-modules-dir=manual --config deno.jsonc -P=runtime src/main.ts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
