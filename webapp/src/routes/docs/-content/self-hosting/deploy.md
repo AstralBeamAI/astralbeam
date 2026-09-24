@@ -4,20 +4,20 @@ Let's install AstralBeam on a Linux host, with PostgreSQL behind a connection po
 
 ## 1. Get a release binary
 
-Every tagged release from v0.12.0 publishes one prebuilt platform asset, `astralbeam-platform-v<version>-linux-x86_64`, built for Linux on x86_64. The `astralbeam-v<version>-*` assets beside it are the [CLI](/docs/cli/getting-started), not the server. Releases before v0.12.0 named the server asset `astralbeam-v<version>-linux-x86_64`.
+Every tagged release from v0.12.2 publishes prebuilt platform assets named `astralbeam-platform-v<version>-<target>`, where `<target>` is `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, or `windows-x86_64.exe`. Releases v0.12.0 and v0.12.1 published only `linux-x86_64`. The `astralbeam-v<version>-*` assets beside them are the [CLI](/docs/cli/getting-started), not the server. Releases before v0.12.0 named the server asset `astralbeam-v<version>-linux-x86_64`.
 
-Set `VERSION` to the [release](https://github.com/AstralBeamAI/astralbeam/releases) you want, then run these commands to download that asset and install it as `astralbeam-platform`:
+Set `VERSION` to the [release](https://github.com/AstralBeamAI/astralbeam/releases) you want, then run these commands to download the x86_64 asset and install it as `astralbeam-platform`. On an arm64 host, replace `linux-x86_64` with `linux-arm64`:
 
 ```sh
-VERSION=0.12.1
+VERSION=0.12.2
 gh release download "v$VERSION" --repo AstralBeamAI/astralbeam --pattern "astralbeam-platform-v$VERSION-linux-x86_64"
 chmod +x "astralbeam-platform-v$VERSION-linux-x86_64"
 mv "astralbeam-platform-v$VERSION-linux-x86_64" /usr/local/bin/astralbeam-platform
 ```
 
-The release carries no checksum or signature file, so verify what you downloaded by running it. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests every release binary the same way, without the database-backed status check.
+The release carries no checksum or signature file, so verify what you downloaded by running it. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
 
-For any other platform, and for a fork, we build the binary ourselves. Deno is the only supported toolchain.
+For a fork, or a target without a prebuilt asset, we build the binary ourselves. Deno is the only supported toolchain.
 
 Run these commands from the repository root to install the frozen dependencies, build, and compile:
 

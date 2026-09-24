@@ -20,7 +20,7 @@ Run this command to compile that output into `webapp/.output/astralbeam-platform
 deno task --cwd webapp compile
 ```
 
-`compile` embeds whatever the last `build` left in `.output`, so we must always build first. Each tagged release publishes one prebuilt Linux x86_64 platform binary, `astralbeam-platform-v<version>-linux-x86_64`, and that binary is the artifact to copy to a server.
+`compile` embeds whatever the last `build` left in `.output`, so we must always build first. Each tagged release publishes prebuilt platform binaries for Linux, macOS, and Windows, such as `astralbeam-platform-v<version>-linux-x86_64`, and the binary for your server's target is the artifact to copy to it.
 
 **NOTE**: There is no Dockerfile for the application and no published container image.
 
