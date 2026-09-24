@@ -120,6 +120,9 @@ test("keys are never sent to a remote plaintext URL", async () => {
   const fetch = vi.fn()
   vi.stubGlobal("fetch", fetch)
 
+  // A DNS name that merely starts like a loopback address is still remote.
+  vi.stubEnv("ASTRALBEAM_API_URL", "http://127.evil.com/api")
+  expect(await cli("tenants", "list")).toBe(1)
   vi.stubEnv("ASTRALBEAM_API_URL", "http://beam.example.com/api")
   expect(await cli("tenants", "list")).toBe(1)
   expect(await cli("auth", "login")).toBe(1)

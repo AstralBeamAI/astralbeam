@@ -1,5 +1,6 @@
 import type { Command } from "commander"
 import { mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
+import { isIPv4 } from "node:net"
 import { homedir } from "node:os"
 import { dirname, join, sep } from "node:path"
 import { cwd, env, pid, platform, stderr } from "node:process"
@@ -61,10 +62,7 @@ export function validatedApiUrl(value: string): string {
   }
   const host = url.hostname
   const loopback =
-    host === "localhost" ||
-    host.endsWith(".localhost") ||
-    host === "[::1]" ||
-    host.startsWith("127.")
+    host === "localhost" || host === "[::1]" || (isIPv4(host) && host.startsWith("127."))
   if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
     throw new Error(`The API URL "${value}" must use https://, or http:// only for localhost.`)
   }
