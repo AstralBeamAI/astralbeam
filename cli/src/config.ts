@@ -130,10 +130,12 @@ export interface OrganizationContext {
  * Per-run output state. In JSON mode, stderr must be one JSON object, so the context is held
  * here and written by `program.ts` with the result or the error instead of as a text line.
  */
-export const runState: { json: boolean; context: OrganizationContext | undefined } = {
-  json: false,
-  context: undefined,
-}
+export const runState: {
+  json: boolean
+  context: OrganizationContext | undefined
+  /** `<method> <url>` of the last request that got an error response. */
+  failedRequest: string | undefined
+} = { json: false, context: undefined, failedRequest: undefined }
 
 /** Records the run's organization, printing it first to stderr in human-readable mode. */
 export function reportOrganization(credentials: Credentials): void {

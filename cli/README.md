@@ -23,9 +23,9 @@ npm install --global @astralbeam/cli
 Each [GitHub release](https://github.com/AstralBeamAI/astralbeam/releases) also attaches standalone binaries that need no Node, named `astralbeam-v<version>-<platform>` for `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, and `windows-x86_64.exe`.
 
 ```sh
-gh release download v0.12.0 --repo AstralBeamAI/astralbeam --pattern 'astralbeam-v0.12.0-macos-arm64'
-chmod +x astralbeam-v0.12.0-macos-arm64
-mv astralbeam-v0.12.0-macos-arm64 /usr/local/bin/astralbeam
+gh release download v0.12.1 --repo AstralBeamAI/astralbeam --pattern 'astralbeam-v0.12.1-macos-arm64'
+chmod +x astralbeam-v0.12.1-macos-arm64
+mv astralbeam-v0.12.1-macos-arm64 /usr/local/bin/astralbeam
 ```
 
 **NOTE**: The binaries are not signed. On macOS, a binary downloaded through a browser needs `xattr -d com.apple.quarantine <file>` before its first run.
@@ -85,6 +85,8 @@ astralbeam chat --tenant customer-42 --user user-7 "What can you do?"
 ## Output and exit codes
 
 Human-readable tables and records go to stdout. With `--json`, stdout carries the API's JSON and stderr holds one JSON object: `{"context": {...}}` naming the organization on success, or `{"error": {...}, "context": {...}}` with the API's problem details on failure. Commands exit with `0` on success, `1` when the API or runtime fails, and `2` for invalid usage.
+
+When a command fails unexpectedly, rerun it with `--debug` to log each HTTP request's method, URL, status, and duration, plus the failure's stack trace, to stderr. It never logs headers, so keys and tokens stay out of the output, but it adds lines that break the single JSON object `--json` writes to stderr.
 
 ## Coding agents
 

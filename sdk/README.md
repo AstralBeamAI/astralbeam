@@ -29,7 +29,7 @@ Without npm or a bundler, import the same entry from jsDelivr in a module script
 
 ```html
 <script type="module">
-  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.12.0/dist/client.js"
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.12.1/dist/client.js"
 
   mountAstralBeamChat(document.getElementById("sidebar"), {})
 </script>

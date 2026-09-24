@@ -23,6 +23,7 @@ Docs: https://app.astralbeam.ai/docs/cli/getting-started`
 export async function run(argv: readonly string[]): Promise<number> {
   // Known before parsing, so a usage error in JSON mode replaces Commander's text output.
   const json = argv.includes("--json")
+  const debug = argv.includes("--debug")
   // exitOverride and configureOutput precede the subcommands so each inherits them.
   const program = new Command("astralbeam")
     .description(
@@ -30,6 +31,7 @@ export async function run(argv: readonly string[]): Promise<number> {
     )
     .version(packageJson.version)
     .option("--json", "print JSON to stdout, and failures as JSON to stderr")
+    .option("--debug", "log HTTP requests and failure stack traces to stderr, never headers")
     .addHelpText("after", HELP_FOOTER)
     .showHelpAfterError()
     .exitOverride()
@@ -40,14 +42,17 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerTokenCommands(program)
   registerChatCommand(program)
   registerSkillCommands(program)
-  Object.assign(runState, { json, context: undefined })
+  Object.assign(runState, { json, context: undefined, failedRequest: undefined })
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = tracedFetch(originalFetch, debug)
   try {
     await program.parseAsync(argv)
     if (json) stderr.write(`${JSON.stringify({ context: runState.context ?? null })}\n`)
     return 0
   } catch (error) {
     if (!(error instanceof CommanderError)) {
-      printError(error, json, runState.context)
+      if (debug && error instanceof Error) stderr.write(`[debug] ${error.stack}\n`)
+      printError(error, json, runState.context, runState.failedRequest)
       return 1
     }
     if (error.exitCode === 0) return 0
@@ -60,5 +65,33 @@ export async function run(argv: readonly string[]): Promise<number> {
       printError(new Error(detail), true, runState.context)
     }
     return 2
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+}
+
+/**
+ * Wraps fetch to remember the last failed request for error messages, name the URL when a request
+ * cannot be sent, and with --debug log each request's method, URL, status, and duration.
+ */
+function tracedFetch(fetch: typeof globalThis.fetch, debug: boolean): typeof globalThis.fetch {
+  return async (input, init) => {
+    const method = init?.method ?? (input instanceof Request ? input.method : "GET")
+    const url = input instanceof Request ? input.url : String(input)
+    const started = performance.now()
+    if (debug) stderr.write(`[debug] → ${method} ${url}\n`)
+    let response: Response
+    try {
+      response = await fetch(input, init)
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error
+      // Node and Deno put the network reason, such as ECONNREFUSED, in the cause.
+      const reason = error.cause instanceof Error ? error.cause.message : error.message
+      throw new Error(`Could not reach ${url}: ${reason}`, { cause: error })
+    }
+    const elapsed = Math.round(performance.now() - started)
+    if (debug) stderr.write(`[debug] ← ${response.status} ${response.statusText} (${elapsed} ms)\n`)
+    if (!response.ok) runState.failedRequest = `${method} ${url}`
+    return response
   }
 }

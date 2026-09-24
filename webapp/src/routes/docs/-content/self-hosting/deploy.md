@@ -9,7 +9,7 @@ Every tagged release from v0.12.0 publishes one prebuilt platform asset, `astral
 Set `VERSION` to the [release](https://github.com/AstralBeamAI/astralbeam/releases) you want, then run these commands to download that asset and install it as `astralbeam-platform`:
 
 ```sh
-VERSION=0.12.0
+VERSION=0.12.1
 gh release download "v$VERSION" --repo AstralBeamAI/astralbeam --pattern "astralbeam-platform-v$VERSION-linux-x86_64"
 chmod +x "astralbeam-platform-v$VERSION-linux-x86_64"
 mv "astralbeam-platform-v$VERSION-linux-x86_64" /usr/local/bin/astralbeam-platform

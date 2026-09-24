@@ -69,7 +69,7 @@ test("API failures exit 1 with the problem body, and usage errors exit 2", async
   stderr = ""
   expect(await cli("tenants", "create", "--external-id", "acme")).toBe(1)
   expect(stderr).toBe(
-    `▸ org ${ORGANIZATION_ID} · from ASTRALBEAM_API_KEY\nError: Taken. (HTTP 409)\n`,
+    `▸ org ${ORGANIZATION_ID} · from ASTRALBEAM_API_KEY\nError: Taken. (HTTP 409 from POST ${API_URL}/v1/tenants)\n`,
   )
 
   expect(await cli("tenants", "create", "--metadata", "[1]", "--external-id", "acme")).toBe(2)
@@ -125,6 +125,23 @@ test("the nearest bound directory supplies the key, and unbound directories fail
   expect(await cli("--json", "tenants", "list")).toBe(1)
   expect(stderr).toMatch(/No AstralBeam login covers/)
   expect(fetch).toHaveBeenCalledTimes(1)
+})
+
+test("errors name unserved endpoints and unreachable servers", async () => {
+  respondWith(
+    { type: "about:blank", title: "Not Found", status: 404, detail: "Resource not found." },
+    404,
+  )
+  expect(await cli("auth", "status")).toBe(1)
+  expect(stderr).toContain(
+    `(HTTP 404 from GET ${API_URL}/v1/organization)\nThis server does not serve that endpoint`,
+  )
+
+  vi.stubGlobal("fetch", () =>
+    Promise.reject(new TypeError("fetch failed", { cause: new Error("ECONNREFUSED") })),
+  )
+  expect(await cli("tenants", "list")).toBe(1)
+  expect(stderr).toContain(`Error: Could not reach ${API_URL}/v1/tenants: ECONNREFUSED`)
 })
 
 test("keys are never sent to a remote plaintext URL", async () => {
