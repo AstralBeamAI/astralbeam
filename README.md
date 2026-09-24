@@ -1,5 +1,7 @@
 # AstralBeam
 
+> **TEMPORARY**: Placeholder for the Better Auth stale transaction reproduction PR. Revert before merging.
+
 **Links:** [Website](https://astralbeam.ai) · [Docs](https://app.astralbeam.ai/docs) · [Discord](https://discord.gg/suehFycUvW) · [Cloud](https://app.astralbeam.ai)
 
 [AstralBeam](https://astralbeam.ai) is the agentic chat widget for your app. Drop a Cursor-style agent sidebar into your product. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use [AstralBeam Cloud](https://app.astralbeam.ai).
