@@ -24,3 +24,20 @@ export function FileIcon() {
     </svg>
   )
 }
+
+export function CopyIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="5.5" y="5.5" width="9" height="9" rx="1"></rect>
+      <path d="M10.5 5.5v-3a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h3"></path>
+    </svg>
+  )
+}
+
+export function CheckIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.5 8.5 6 12l7.5-8"></path>
+    </svg>
+  )
+}

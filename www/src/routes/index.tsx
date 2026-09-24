@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { type MouseEvent, useEffect } from "react"
 
 import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
-import { DiscordIcon, GithubIcon } from "@/components/icons"
+import { CheckIcon, CopyIcon, DiscordIcon, GithubIcon } from "@/components/icons"
 import { cssVars } from "@/lib/css-vars"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata } from "@/lib/site"
@@ -19,6 +19,17 @@ const {
   discord: discordUrl,
   github: githubUrl,
 } = siteMetadata.links
+
+const agentPrompt = `Add an AstralBeam agent sidebar to this app by following ${docsUrl}/start/quickstart. Install @astralbeam/sdk, add a server endpoint that mints a chat token with createAstralBeamToken for the signed-in user and their tenant, and mount <AstralBeamChat /> where the sidebar belongs. Read ASTRALBEAM_API_KEY from the server environment and never expose it to browser code.`
+
+// Toggles the label with a data attribute because nothing on this page re-renders.
+function copyPrompt(event: MouseEvent<HTMLButtonElement>) {
+  const button = event.currentTarget
+  void navigator.clipboard.writeText(agentPrompt).then(() => {
+    button.dataset.copied = ""
+    setTimeout(() => delete button.dataset.copied, 2000)
+  })
+}
 
 export const Route = createFileRoute("/")({
   head: () =>
@@ -136,22 +147,26 @@ function LandingPage() {
                 </span>
               </h1>
               <p className="hero-sub reveal" style={cssVars({ "--reveal-delay": ".36s" })}>
-                Drop a Cursor-style agent into your product. It answers queries, interacts with your
-                app, renders your UI components, and works with users&apos; files.
+                {siteMetadata.description}
               </p>
               <div className="hero-ctas reveal" style={cssVars({ "--reveal-delay": ".48s" })}>
                 <a className="btn btn-primary btn-lg" href={signUpUrl}>
                   GET STARTED
                 </a>
-                <a
-                  className="btn btn-ghost btn-lg"
-                  href={githubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-lg copy-prompt"
+                  onClick={copyPrompt}
                 >
-                  <GithubIcon />
-                  STAR ON GITHUB
-                </a>
+                  <span>
+                    <CopyIcon />
+                    COPY PROMPT
+                  </span>
+                  <span>
+                    <CheckIcon />
+                    COPIED
+                  </span>
+                </button>
               </div>
             </div>
 

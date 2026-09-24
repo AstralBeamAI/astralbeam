@@ -305,6 +305,17 @@ a[href] {
   flex: none;
 }
 
+.icon-stroke {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .blink-dot {
   display: inline-block;
   width: 6px;
@@ -331,6 +342,7 @@ a[href] {
   border: 0;
   font-family: var(--font-mono);
   font-weight: 700;
+  line-height: inherit;
   letter-spacing: 0.14em;
   white-space: nowrap;
   cursor: pointer;
@@ -374,6 +386,22 @@ a[href] {
 .btn-xl {
   padding: 1.15rem 2.6rem;
   font-size: 0.92rem;
+}
+
+/* Both labels share one grid cell, so the button keeps the wider one's width. */
+.copy-prompt {
+  display: inline-grid;
+}
+.copy-prompt > span {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+}
+.copy-prompt:not([data-copied]) > span:last-child,
+.copy-prompt[data-copied] > span:first-child {
+  visibility: hidden;
 }
 
 .hud-cta {
