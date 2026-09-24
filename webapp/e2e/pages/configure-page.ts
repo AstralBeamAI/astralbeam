@@ -71,6 +71,11 @@ export function configurePage(page: Page) {
       await expectToast(page, "Configuration saved")
     },
 
+    async inviteOwner(): Promise<void> {
+      await page.getByRole("button", { name: "Invite owner", exact: true }).click()
+      await expectToast(page, "Owner invitation sent")
+    },
+
     /** Ends the operator session and loads the application from the server. */
     async goToApp(): Promise<void> {
       // The actions row is rendered above and below the fields, so both copies match.

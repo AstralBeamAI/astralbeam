@@ -31,16 +31,6 @@ export async function loadPublicConfig(): Promise<PublicConfig | null> {
   return setupComplete ? publicConfigFromValues(config.values) : null
 }
 
-export async function isAuthConfigured(): Promise<boolean> {
-  const { values } = await getGlobalConfigState()
-  return Boolean(
-    values.app_base_url &&
-    values.better_auth_secret &&
-    values.turnstile_site_key &&
-    values.turnstile_secret_key,
-  )
-}
-
 // Derived only from provider-presence booleans and non-secret URLs; structurally secret-free.
 export function publicConfigFromValues(values: ConfigValues): PublicConfig {
   if (!values.turnstile_site_key) throw new Error("TURNSTILE_SITE_KEY is required")

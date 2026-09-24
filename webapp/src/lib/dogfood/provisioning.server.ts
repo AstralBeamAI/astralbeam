@@ -17,10 +17,38 @@ import {
 import { getAuth } from "@/lib/auth.server"
 import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
 import { withBlockingAuthEmailDelivery } from "@/lib/auth/email-delivery.server"
-import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
+import { getGlobalConfigState, invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { getGlobalConfig } from "@/lib/config"
-import { isAuthConfigured } from "@/lib/config/state.server"
-import { type OwnerOnboarding, type PendingOnboarding, PendingOwnerOnboardingJson } from "./schema"
+import type { ConfigValues } from "@/lib/types"
+import {
+  type DogfoodOnboarding,
+  type OwnerOnboarding,
+  type PendingOnboarding,
+  PendingOwnerOnboardingJson,
+} from "./schema"
+
+export function readDogfoodOnboarding(values: ConfigValues) {
+  return Effect.gen(function* () {
+    const pending = values.dogfood_pending_setup
+      ? yield* Schema.decodeUnknownEffect(PendingOwnerOnboardingJson)(values.dogfood_pending_setup)
+      : null
+    const organizationId = values.dogfood_organization_id ?? pending?.organizationId
+    const customer =
+      organizationId || pending
+        ? yield* readDogfoodOrganization({
+            id: organizationId,
+            slug: pending?.organizationSlug ?? "dogfood",
+          })
+        : null
+    return {
+      email: pending?.email ?? customer?.ownerEmail ?? "",
+      organizationName: customer?.name ?? pending?.organizationName ?? "dogfood",
+      organizationSlug: customer?.slug ?? pending?.organizationSlug ?? "dogfood",
+      organizationCreated: Boolean(organizationId || customer),
+      complete: Boolean(values.dogfood_organization_id),
+    } satisfies DogfoodOnboarding
+  })
+}
 
 function ownerOnboardingFailure(message: string) {
   return { _tag: "OwnerOnboardingError" as const, message }
@@ -49,40 +77,46 @@ function prepareOwnerOnboarding(input: OwnerOnboarding, state: DatabaseConfigSta
       const pending = yield* Schema.decodeUnknownEffect(PendingOwnerOnboardingJson)(stored).pipe(
         Effect.mapError(() => ownerOnboardingFailure("Pending onboarding is invalid")),
       )
-      if (
-        pending.organizationId &&
-        (pending.organizationName !== input.organizationName ||
-          pending.organizationSlug !== input.organizationSlug)
-      ) {
+      const customer = yield* readDogfoodOrganization({
+        id: pending.organizationId,
+        slug: pending.organizationSlug,
+      })
+      if (pending.organizationId && !customer) {
         return yield* Effect.fail(
-          ownerOnboardingFailure(
-            "Finish the pending onboarding with the original organization details.",
-          ),
+          ownerOnboardingFailure("The provisioned organization is unavailable"),
         )
       }
+      if (!customer && (yield* readDogfoodOrganization({ slug: input.organizationSlug }))) {
+        return yield* Effect.fail(
+          ownerOnboardingFailure("That organization slug is already in use."),
+        )
+      }
+      const updated = {
+        ...input,
+        organizationId: customer?.id ?? pending.organizationId,
+        organizationName: customer?.name ?? input.organizationName,
+        organizationSlug: customer?.slug ?? input.organizationSlug,
+      }
       if (pending.email !== input.email) {
-        return yield* replacePendingDogfoodOwner(pending, input).pipe(
+        return yield* replacePendingDogfoodOwner(pending, updated).pipe(
           Effect.tap(() => Effect.sync(invalidateGlobalConfig)),
         )
       }
-      return { ...pending, ...input }
+      return { ...pending, ...updated }
     }
     const existing = yield* readDogfoodOwner(input.email)
+    if (existing) {
+      return yield* Effect.fail(
+        ownerOnboardingFailure("Use an unused email address to invite the owner."),
+      )
+    }
     const customer = yield* readDogfoodOrganization({
       slug: input.organizationSlug,
     })
-    if (
-      customer &&
-      (!existing || !(yield* isDogfoodOwner({ organizationId: customer.id, userId: existing.id })))
-    ) {
-      return yield* Effect.fail(
-        ownerOnboardingFailure("That organization is not owned by the selected account"),
-      )
+    if (customer) {
+      return yield* Effect.fail(ownerOnboardingFailure("That organization slug is already in use."))
     }
-    const pending: PendingOnboarding = {
-      ...input,
-      requiresResetEmail: !existing,
-    }
+    const pending: PendingOnboarding = { ...input }
     yield* savePendingOwner(pending)
     return pending
   })
@@ -93,11 +127,17 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
   return Effect.gen(function* () {
     const state = yield* getDatabaseConfigEffect()
     if (state.values.dogfood_organization_id) return
+    const config = yield* ownerProvisioningApi(
+      getGlobalConfigState,
+      "Application settings are unavailable",
+    )
     if (
-      !(yield* ownerProvisioningApi(isAuthConfigured, "Authentication settings are unavailable"))
+      config.issues.some(
+        (issue) => issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
+      )
     ) {
       return yield* Effect.fail(
-        ownerOnboardingFailure("Complete the required authentication settings before onboarding"),
+        ownerOnboardingFailure("Complete the application configuration before inviting the owner"),
       )
     }
     if (
@@ -125,7 +165,7 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
     )
     const existing = yield* readDogfoodOwner(pending.email)
     const owner = existing ?? (yield* createDogfoodOwner(pending.email))
-    let customer = yield* readDogfoodOrganization({
+    let customer: { id: string; name: string } | null = yield* readDogfoodOrganization({
       id: pending.organizationId,
       slug: pending.organizationSlug,
     })
@@ -164,24 +204,22 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
       pending = yield* createDogfoodCredential({ ...pending, organizationId })
       yield* Effect.sync(invalidateGlobalConfig)
     }
-    if (pending.requiresResetEmail) {
-      const baseUrl = yield* ownerProvisioningApi(
-        () => getGlobalConfig("app_base_url"),
-        "Application URL is unavailable",
-      )
-      yield* ownerProvisioningApi(
-        () =>
-          withBlockingAuthEmailDelivery(() =>
-            auth.api.requestPasswordReset({
-              body: {
-                email: pending.email,
-                redirectTo: new URL("/auth/reset-password", baseUrl).href,
-              },
-            }),
-          ),
-        "The owner onboarding email could not be sent. Check email settings and save again.",
-      )
-    }
+    const baseUrl = yield* ownerProvisioningApi(
+      () => getGlobalConfig("app_base_url"),
+      "Application URL is unavailable",
+    )
+    yield* ownerProvisioningApi(
+      () =>
+        withBlockingAuthEmailDelivery(() =>
+          auth.api.requestPasswordReset({
+            body: {
+              email: pending.email,
+              redirectTo: new URL("/auth/reset-password", baseUrl).href,
+            },
+          }),
+        ),
+      "The owner onboarding email could not be sent. Check email settings and try again.",
+    )
     yield* applyDatabaseConfigChangesEffect([
       { key: "dogfood_organization_id", value: organizationId },
       { key: "dogfood_api_key", value: pending.apiKey! },

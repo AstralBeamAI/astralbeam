@@ -41,11 +41,12 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       await configure.generateSecret("better_auth_secret")
     }
 
-    await page.getByLabel("Owner email (required)").fill(ownerEmail)
     // Points the deployment at the suite's mail sink, which every later email step depends on.
     await configure.setValue("smtp_port", String(mailboxSmtpPort))
     await configure.testEmailConnection()
     await configure.save()
+    await page.getByLabel("Owner email").fill(ownerEmail)
+    await configure.inviteOwner()
 
     await expect(configure.setupStatus()).toHaveText("Configuration is complete")
     await captureMilestone(page, "01-configure-complete")

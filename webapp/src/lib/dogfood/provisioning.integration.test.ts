@@ -79,7 +79,7 @@ import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
 import { syncTenantCurrentUser } from "@/db/current-user.server"
 import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
-import { provisionDogfoodResources } from "./provisioning.server"
+import { provisionDogfoodResources, readDogfoodOnboarding } from "./provisioning.server"
 
 const ownerOnboardingFixture = {
   email: "provisioning-owner@example.com",
@@ -471,7 +471,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(sendResetPasswordEmail).not.toHaveBeenCalled()
     })
 
-    test("failed delivery retains provenance and retry reuses resources before a real password reset", async () => {
+    test("failed delivery retains provenance and retry reuses resources", async () => {
       dogfoodIntegration.failEmail = true
       await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
       expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
@@ -481,6 +481,10 @@ describe.skipIf(!dogfoodIntegration.url)(
       const keys = await db.select().from(apiKey)
       expect(keys).toHaveLength(1)
       expect(await db.select().from(agent)).toHaveLength(1)
+      await db.update(organization).set({ name: "Renamed dogfood", slug: "renamed-dogfood" })
+      expect(
+        await runDatabaseEffect(readDogfoodOnboarding((await getDatabaseConfig()).values)),
+      ).toMatchObject({ organizationCreated: true, complete: false })
       dogfoodIntegration.failEmail = false
       await provisionDogfood()
       expect(sendResetPasswordEmail).toHaveBeenCalledTimes(2)
@@ -489,24 +493,34 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select().from(agent)).toHaveLength(1)
       const { values } = await getDatabaseConfig()
       expect(values.dogfood_pending_setup).toBeUndefined()
+      expect(await runDatabaseEffect(readDogfoodOnboarding(values))).toMatchObject({
+        email: ownerOnboardingFixture.email,
+        organizationName: "Renamed dogfood",
+        organizationSlug: "renamed-dogfood",
+        complete: true,
+      })
       const prefix = `key_${keys[0]!.organizationId}_${keys[0]!.id}_`
       expect(values.dogfood_api_key).toMatch(new RegExp(`^${prefix}abo_[A-Za-z]{64}$`))
       expect(await defaultKeyHasher(values.dogfood_api_key!.slice(prefix.length))).toBe(
         keys[0]!.key,
       )
-      await completeOwnerPassword()
     })
 
-    test("an unverified account is rejected without changing it or trapping setup", async () => {
-      await db.insert(user).values({ email: ownerOnboardingFixture.email, name: "Existing owner" })
-      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
-      expect((await db.select().from(user))[0]?.emailVerified).toBe(false)
-      expect(await db.select().from(organization)).toHaveLength(0)
-      expect((await getDatabaseConfig()).values.dogfood_pending_setup).toBeUndefined()
-      expect(sendResetPasswordEmail).not.toHaveBeenCalled()
-      await provisionDogfood({ ...ownerOnboardingFixture, email: "different-owner@example.com" })
-      expect(await db.select().from(organization)).toHaveLength(1)
-    })
+    test.each([false, true])(
+      "an existing account (verified: %s) is rejected without changing it or trapping setup",
+      async (emailVerified) => {
+        await db
+          .insert(user)
+          .values({ email: ownerOnboardingFixture.email, name: "Existing owner", emailVerified })
+        await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+        expect((await db.select().from(user))[0]?.emailVerified).toBe(emailVerified)
+        expect(await db.select().from(organization)).toHaveLength(0)
+        expect((await getDatabaseConfig()).values.dogfood_pending_setup).toBeUndefined()
+        expect(sendResetPasswordEmail).not.toHaveBeenCalled()
+        await provisionDogfood({ ...ownerOnboardingFixture, email: "different-owner@example.com" })
+        expect(await db.select().from(organization)).toHaveLength(1)
+      },
+    )
 
     test("correcting a pending email removes only the old membership and keeps email required", async () => {
       dogfoodIntegration.failEmail = true
@@ -536,7 +550,6 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(pending.values.dogfood_organization_id).toBeUndefined()
       expect(JSON.parse(pending.values.dogfood_pending_setup!)).toMatchObject({
         email: corrected.email,
-        requiresResetEmail: true,
         organizationId: organizations[0]!.id,
       })
       const memberships = await db.select().from(member)
@@ -555,20 +568,15 @@ describe.skipIf(!dogfoodIntegration.url)(
       await completeOwnerPassword(corrected.email)
     })
 
-    test("concurrent provisioning reuses a verified account without sending email", async () => {
-      await db.insert(user).values({
-        email: ownerOnboardingFixture.email,
-        name: "Existing owner",
-        emailVerified: true,
-      })
+    test("concurrent provisioning invites one new owner", async () => {
       const concurrent = await Promise.allSettled(
         Array.from({ length: 3 }, () => provisionDogfood()),
       )
       expect(concurrent.some((result) => result.status === "fulfilled")).toBe(true)
       await provisionDogfood()
-      expect(sendResetPasswordEmail).not.toHaveBeenCalled()
+      expect(sendResetPasswordEmail).toHaveBeenCalledTimes(1)
       expect(await db.select().from(organization)).toHaveLength(1)
-      expect((await db.select().from(user))[0]?.emailVerified).toBe(true)
+      expect(await db.select().from(user)).toHaveLength(1)
     })
 
     test("an unrelated slug is rejected without taking ownership or trapping setup", async () => {

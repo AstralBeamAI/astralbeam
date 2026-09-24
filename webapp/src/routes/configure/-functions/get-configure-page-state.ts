@@ -62,24 +62,17 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
         value: definition.kind === "secret" ? null : (effectiveValues[definition.key] ?? null),
       }
     })
-    const { PendingOwnerOnboardingJson } = await import("@/lib/dogfood/schema")
-    const { Schema } = await import("effect")
-    const pending = effectiveValues.dogfood_pending_setup
-      ? await withConfigureError("Pending onboarding could not be read", () =>
-          Schema.decodeUnknownPromise(PendingOwnerOnboardingJson)(
-            effectiveValues.dogfood_pending_setup!,
-          ),
-        )
-      : null
+    const { readDogfoodOnboarding } = await import("@/lib/dogfood/provisioning.server")
+    const { runDatabaseEffect } = await import("@/db")
+    const onboarding =
+      migrationState.pending.length === 0
+        ? await withConfigureError("Owner onboarding could not be read", () =>
+            runDatabaseEffect(readDogfoodOnboarding(effectiveValues)),
+          )
+        : null
     return {
       status: "ready",
-      onboarding: effectiveValues.dogfood_organization_id
-        ? null
-        : {
-            email: pending?.email ?? "",
-            organizationName: pending?.organizationName ?? "dogfood",
-            organizationSlug: pending?.organizationSlug ?? "dogfood",
-          },
+      onboarding,
       sessionExpiresAt: session.expiresAt.toISOString(),
       fallbackEncryptionKeyCount: getDatabaseEncryptionKeyring().length - 1,
       setupComplete,

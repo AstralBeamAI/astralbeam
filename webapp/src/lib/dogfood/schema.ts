@@ -36,11 +36,14 @@ export const OwnerOnboardingInput = Schema.Struct({
 
 const PendingOwnerOnboarding = Schema.Struct({
   ...OwnerOnboardingInput.fields,
-  requiresResetEmail: Schema.Boolean,
   organizationId: Schema.optional(UuidV7Schema),
   apiKey: Schema.optional(DogfoodCredential),
 })
 
 export type OwnerOnboarding = typeof OwnerOnboardingInput.Type
+export type DogfoodOnboarding = OwnerOnboarding & {
+  organizationCreated: boolean
+  complete: boolean
+}
 export type PendingOnboarding = typeof PendingOwnerOnboarding.Type
 export const PendingOwnerOnboardingJson = Schema.fromJsonString(PendingOwnerOnboarding)
