@@ -1,17 +1,15 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Use Phosphor icons, Base UI Toast, domain-specific function names, and composable static roles, and reset the selection during render when the dialog opens.
+// Local changes: Use Phosphor icons, Base UI Toast, domain-specific function names, and a single-role select with last-owner protection, and reset the selection during render when the dialog opens.
 
 "use client"
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
-import { parseMemberRoles } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { useUpdateMemberRole } from "@better-auth-ui/react/plugins/organization"
 import { ShieldCheckIcon as ShieldCheck } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogClose,
@@ -21,7 +19,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldContent, FieldLabel, FieldTitle } from "@/components/ui/field"
+import { Field, FieldLabel } from "@/components/ui/field"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
@@ -50,7 +55,8 @@ export function EditMemberRolesDialog({
 }: EditMemberRolesDialogProps) {
   const { authClient, localization } = useAuth<OrganizationAuthClient>()
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
-  const [selectedRoles, setSelectedRoles] = useState(() => parseMemberRoles(member.role))
+  const initialRole = roles.find(([role]) => role === member.role)?.[0] ?? null
+  const [selectedRole, setSelectedRole] = useState(initialRole)
   const { mutate: updateMemberRole, isPending } = useUpdateMemberRole(authClient, {
     onSuccess: () => {
       toast.add({ title: organizationLocalization.memberRoleUpdated, type: "success" })
@@ -63,18 +69,12 @@ export function EditMemberRolesDialog({
   if (open !== prevOpen || member.role !== prevMemberRole) {
     setPrevOpen(open)
     setPrevMemberRole(member.role)
-    if (open) setSelectedRoles(parseMemberRoles(member.role))
+    if (open) setSelectedRole(initialRole)
   }
 
-  const toggleMemberRole = (role: string, checked: boolean) => {
-    setSelectedRoles((current) =>
-      checked
-        ? current.includes(role)
-          ? current
-          : [...current, role]
-        : current.filter((entry) => entry !== role),
-    )
-  }
+  const isRoleValid =
+    roles.some(([role]) => role === selectedRole) &&
+    (!protectedRoleRemovalDisabled || selectedRole === protectedRole)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -83,12 +83,12 @@ export function EditMemberRolesDialog({
           className="flex flex-col gap-6"
           onSubmit={(event) => {
             event.preventDefault()
-            if (selectedRoles.length === 0) return
+            if (!selectedRole || !isRoleValid) return
 
             updateMemberRole({
               memberId: member.id,
               organizationId,
-              role: selectedRoles,
+              role: selectedRole,
             })
           }}
         >
@@ -102,32 +102,32 @@ export function EditMemberRolesDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-2">
-            {roles.map(([role, label]) => {
-              const checked = selectedRoles.includes(role)
-              const disabled =
-                isPending ||
-                (checked && selectedRoles.length === 1) ||
-                (role === protectedRole && checked && protectedRoleRemovalDisabled === true)
-              const id = `member-${member.id}-role-${role}`
-
-              return (
-                <FieldLabel htmlFor={id} key={role}>
-                  <Field orientation="horizontal" data-disabled={disabled}>
-                    <FieldContent>
-                      <FieldTitle>{label}</FieldTitle>
-                    </FieldContent>
-                    <Checkbox
-                      checked={checked}
-                      disabled={disabled}
-                      id={id}
-                      onCheckedChange={(next) => toggleMemberRole(role, next === true)}
-                    />
-                  </Field>
-                </FieldLabel>
-              )
-            })}
-          </div>
+          <Field>
+            <FieldLabel htmlFor={`member-${member.id}-role`}>
+              {organizationLocalization.role}
+            </FieldLabel>
+            <Select
+              items={roles.map(([value, label]) => ({ value, label }))}
+              value={selectedRole}
+              onValueChange={setSelectedRole}
+              disabled={isPending}
+            >
+              <SelectTrigger id={`member-${member.id}-role`} className="w-full">
+                <SelectValue placeholder={organizationLocalization.selectRoles} />
+              </SelectTrigger>
+              <SelectContent>
+                {roles.map(([role, label]) => (
+                  <SelectItem
+                    key={role}
+                    value={role}
+                    disabled={protectedRoleRemovalDisabled && role !== protectedRole}
+                  >
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
           <DialogFooter>
             <DialogClose
@@ -137,7 +137,7 @@ export function EditMemberRolesDialog({
             >
               {localization.settings.cancel}
             </DialogClose>
-            <Button disabled={isPending || selectedRoles.length === 0} type="submit">
+            <Button disabled={isPending || !isRoleValid} type="submit">
               {isPending && <Spinner />}
               {localization.settings.saveChanges}
             </Button>

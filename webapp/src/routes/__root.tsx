@@ -224,7 +224,12 @@ function AppProviders({ children }: { children: ReactNode }) {
               developer: "Developer",
               viewer: "Viewer",
             },
-            localization: { people: "Members" },
+            localization: {
+              people: "Members",
+              selectRoles: "Select a role",
+              changeMemberRoleDescription:
+                "Choose the role this member should have in the organization.",
+            },
             viewPaths: { organization: { people: "members" } },
           }),
           apiKeyPlugin({
