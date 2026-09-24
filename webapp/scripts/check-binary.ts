@@ -89,7 +89,7 @@ async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promi
 
 async function runBinaryCheck() {
   const webappDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
-  const binaryPath = join(webappDirectory, ".output", "astralbeam")
+  const binaryPath = join(webappDirectory, ".output", "astralbeam-platform")
   const binaryInfo = await stat(binaryPath)
   const binarySizeMiB = binaryInfo.size / 1024 / 1024
   if (binaryInfo.size > BINARY_CHECK_MAX_BYTES) {

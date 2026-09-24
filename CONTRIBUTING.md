@@ -10,13 +10,14 @@ Follow [SETUP.md](SETUP.md) for prerequisites, then [README.md](README.md#local-
 
 Deno is the only supported runtime and package manager for this repository. Vite and npm tooling run through Deno's compatibility layer.
 
-## The four projects
+## The five projects
 
-The repository holds four independent Deno projects that do not form a package-manager workspace:
+The repository holds five independent Deno projects that do not form a package-manager workspace:
 
 - `webapp`, the TanStack Start product application, database, theme, and dashboard UI.
 - `www`, the public website, a prerendered TanStack Start application.
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
+- `cli`, the organization admin CLI published to npm as `@astralbeam/cli` and as Deno binaries.
 - `examples/todos`, a standalone application that consumes the built SDK.
 
 `examples/todos-rails` is a Ruby on Rails consumer of the published SDK outside the Deno toolchain. Validate it with `bin/ci` from its directory, which CI runs too.
@@ -31,6 +32,7 @@ Every project defines the same tasks, where `check` covers formatting, linting, 
 deno task --cwd webapp ready
 deno task --cwd www ready
 deno task --cwd sdk ready
+deno task --cwd cli ready
 deno task --cwd examples/todos ready
 ```
 
@@ -38,7 +40,7 @@ Documentation-only changes need source review and `git diff --check`, not a full
 
 The browser suites run through their own `e2e` tasks, for example `deno task --cwd examples/todos e2e`. They need Playwright browsers and running services, so they stay out of `check`, `test`, `ready`, and CI. Run them locally when you change a flow they cover.
 
-CI runs `ready` for all four projects, compiles and smoke-tests the webapp binary, and runs the deterministic browser specs.
+CI runs `ready` for all five projects, compiles and smoke-tests the webapp and CLI binaries, and runs the deterministic browser specs.
 
 ## Pull requests
 
@@ -59,15 +61,15 @@ Agreement is collected when a contribution is proposed, by ticking the CLA ackno
 
 ## Releasing
 
-Releases are maintainer-only. One tag `vX.Y.Z` releases the webapp and the SDK together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put the SDK on npm.
+Releases are maintainer-only. One tag `vX.Y.Z` releases the webapp, the SDK, and the CLI together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put either package on npm.
 
-1. Make sure `sdk/package.json` is already at the version you are about to tag. The SDK is the only versioned project, so the workflow fails immediately if the tag and that version disagree.
+1. Make sure `sdk/package.json` and `cli/package.json` are both already at the version you are about to tag. They are the only versioned projects and move in lockstep, so the workflow fails immediately if the tag and either version disagree.
 2. Push the tag, for example `git tag v0.10.0 && git push origin v0.10.0`.
-3. The workflow builds the SDK, compiles and smoke-tests the webapp binary, creates the GitHub release with auto-generated notes and the binary attached, and stages the SDK on npm with `npm stage publish`.
-4. A maintainer approves the staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is the SDK public. The run's job summary prints the stage id.
+3. The workflow builds the SDK and CLI, compiles and smoke-tests the webapp binary and the five CLI binaries, stages both packages on npm with `npm stage publish`, and creates the GitHub release with auto-generated notes and every binary attached.
+4. A maintainer approves each staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is a package public. The run's job summary prints the stage ids.
 
 Before approving, inspect the staged package with `npm stage list`, `npm stage view <stage-id>`, and `npm stage download <stage-id>`.
 
 Run the workflow manually from the Actions tab with the `dry-run` input to exercise the builds without creating a release or staging anything.
 
-The SDK publishes through [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so there is no npm token in the repository. The trusted publisher on npmjs.com names this repository and the workflow filename `release.yml` exactly, both case-sensitive. It leaves the "Allowed actions" setting unchecked, which is the stage-only default and keeps the 2FA approval gate in place.
+Both packages publish through [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so there is no npm token in the repository. Each package's trusted publisher on npmjs.com names this repository and the workflow filename `release.yml` exactly, both case-sensitive. It leaves the "Allowed actions" setting unchecked, which is the stage-only default and keeps the 2FA approval gate in place.

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "include": ["src", "tsdown.config.ts", "oxlint.config.ts"],
+  "compilerOptions": {
+    "lib": ["ES2025"],
+    "types": ["node"]
+  }
+}

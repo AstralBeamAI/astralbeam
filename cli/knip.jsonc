@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "tags": ["-knipignore"],
+  "treatConfigHintsAsErrors": true,
+  "treatTagHintsAsErrors": true,
+  // The CLI is an application, so source entry exports must also be used within this project.
+  // https://knip.dev/reference/configuration#includeentryexports
+  "includeEntryExports": true,
+}
