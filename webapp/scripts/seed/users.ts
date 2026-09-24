@@ -6,12 +6,6 @@ import { account, user } from "../../src/db/schema.server.ts"
 import type { SeedTransaction } from "./database.ts"
 import { SEED_PASSWORD, SEED_USERS } from "./fixtures.ts"
 
-/**
- * Better Auth writes this exact issuer for an email/password account, as
- * `createLocalAccountIssuer("credential")`, and looks accounts up by it during sign-in.
- * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/sign-up.ts
- */
-const SEED_CREDENTIAL_ISSUER = "local:credential"
 const SEED_CREDENTIAL_PROVIDER_ID = "credential"
 
 /**
@@ -41,14 +35,13 @@ export async function seedUsers(transaction: SeedTransaction): Promise<Map<strin
     await transaction
       .insert(account)
       .values({
-        issuer: SEED_CREDENTIAL_ISSUER,
         accountId: inserted.id,
         providerId: SEED_CREDENTIAL_PROVIDER_ID,
         userId: inserted.id,
         password,
       })
       .onConflictDoUpdate({
-        target: [account.issuer, account.accountId],
+        target: [account.providerId, account.accountId],
         set: { password, userId: inserted.id, updatedAt: sql`now()` },
       })
   }

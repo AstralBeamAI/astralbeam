@@ -46,7 +46,6 @@ export const account = snakeCase.table(
   "account",
   {
     id: uuidV7PrimaryKey(),
-    issuer: text().notNull(),
     accountId: text().notNull(),
     providerId: text().notNull(),
     userId: uuid()
@@ -62,7 +61,7 @@ export const account = snakeCase.table(
     ...timestamps(),
   },
   (table) => [
-    uniqueIndex("account_issuer_account_id_uidx").on(table.issuer, table.accountId),
+    uniqueIndex("account_provider_id_account_id_uidx").on(table.providerId, table.accountId),
     index("account_user_id_idx").on(table.userId),
   ],
 )
