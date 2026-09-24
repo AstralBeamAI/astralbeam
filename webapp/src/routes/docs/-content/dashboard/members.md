@@ -18,13 +18,13 @@ A role decides what a member may do, and there are three.
 
 Developer is the working role for anyone configuring the product, and Owner adds control over people and the organization itself. Viewer is deliberately narrow: a viewer sees that the organization exists and who is in it, and nothing about its configuration or credentials.
 
-A member can hold more than one role, and any single role that permits an action is enough. Only an owner can grant the Owner role.
+A member can hold more than one role, and any single role that permits an action is enough. The dashboard assigns one role at a time. Only an owner can grant the Owner role.
 
 Pages a role cannot use are hidden from the sidebar, and opening one by URL returns the person to the organization home. The restriction is applied when the page loads its data, so nothing withheld is merely hidden in the browser.
 
 ## Inviting a member
 
-An owner invites someone by email address and picks the roles they will have on joining, and that address does not need an account yet.
+An owner invites someone by email address and picks the role they will have on joining, and that address does not need an account yet.
 
 An invitation is valid for 48 hours. Inviting the same address again resends the email and extends the existing invitation rather than creating a second one, which is also the fix when the first email never arrived or its delivery failed outright.
 
@@ -40,7 +40,7 @@ Accepting adds the person with the roles the invitation carried. Declining leave
 
 ## Changing roles
 
-An owner can change any member's roles. A member who is not an owner cannot change or remove an owner, so a developer cannot promote themselves.
+An owner can change any member's role using the dropdown. If a member already has multiple roles, choose one before saving. A member who is not an owner cannot change or remove an owner, so a developer cannot promote themselves.
 
 A change applies on the member's next request. Anyone with the page already open keeps the sidebar they loaded until they navigate or reload, and a page they no longer have access to fails at that point rather than continuing to work.
 

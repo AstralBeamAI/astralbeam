@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and composable static roles; take the organization and creator role as props from the page loader and scope the invitation query to its ID; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields; focus the email through the dialog's initialFocus and adjust role and error state during render.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and a single-role select; take the organization and creator role as props from the page loader and scope the invitation query to its ID; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields; focus the email through the dialog's initialFocus and adjust role and error state during render.
 
 "use client"
 
@@ -9,7 +9,7 @@ import {
   useInviteMember,
   useListOrganizationInvitations,
 } from "@better-auth-ui/react/plugins/organization"
-import { CaretDownIcon as ChevronDown, UserPlusIcon as UserPlus } from "@phosphor-icons/react"
+import { UserPlusIcon as UserPlus } from "@phosphor-icons/react"
 import { type SyntheticEvent, useMemo, useRef, useState } from "react"
 import { toast } from "@/components/ui/toast"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -22,18 +22,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { isAuthEmailDeliveryError } from "@/lib/auth/email-delivery"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
-import { cn } from "cn"
 
 /** Props for the `InviteMemberDialog` component. */
 export type InviteMemberDialogProps = {
@@ -71,10 +71,9 @@ export function InviteMemberDialog({
     [creatorRole, isOwner, roles],
   )
 
-  const [selectedRoles, setSelectedRoles] = useState(() => {
-    const fallback = pickDefaultRole(Object.keys(assignableRoles))
-    return fallback ? [fallback] : []
-  })
+  const [selectedRole, setSelectedRole] = useState<string | null>(() =>
+    pickDefaultRole(Object.keys(assignableRoles)),
+  )
   const [emailError, setEmailError] = useState<string>()
   const roleItems = Object.entries(assignableRoles).map(([value, label]) => ({
     label,
@@ -86,14 +85,9 @@ export function InviteMemberDialog({
   const [prevAssignableRoles, setPrevAssignableRoles] = useState(assignableRoles)
   if (assignableRoles !== prevAssignableRoles) {
     setPrevAssignableRoles(assignableRoles)
-    setSelectedRoles((current) => {
+    setSelectedRole((current) => {
       const keys = Object.keys(assignableRoles)
-      const kept = current.filter((entry) => keys.includes(entry))
-
-      if (kept.length > 0) return kept
-
-      const fallback = pickDefaultRole(keys)
-      return fallback ? [fallback] : []
+      return current && keys.includes(current) ? current : pickDefaultRole(keys)
     })
   }
 
@@ -116,15 +110,7 @@ export function InviteMemberDialog({
     },
   })
 
-  const isRoleValid = selectedRoles.length > 0
-
-  const roleSummary = selectedRoles.map((entry) => assignableRoles[entry] ?? entry).join(", ")
-
-  const toggleInvitationRole = (role: string) => {
-    setSelectedRoles((current) =>
-      current.includes(role) ? current.filter((entry) => entry !== role) : [...current, role],
-    )
-  }
+  const isRoleValid = selectedRole !== null && Object.hasOwn(assignableRoles, selectedRole)
 
   const submitMemberInvitation = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -133,12 +119,11 @@ export function InviteMemberDialog({
 
     const formData = new FormData(e.currentTarget)
     const invitationEmail = (formData.get("email") as string).trim()
-    const invitationRoles = [...selectedRoles] as Parameters<typeof inviteMember>[0]["role"]
 
     inviteMember({
       email: invitationEmail,
       organizationId,
-      role: invitationRoles,
+      role: selectedRole,
     })
   }
 
@@ -192,38 +177,23 @@ export function InviteMemberDialog({
             <Field>
               <FieldLabel htmlFor="invite-member-role">{organizationLocalization.role}</FieldLabel>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  id="invite-member-role"
-                  disabled={isInviting}
-                  className={cn(
-                    buttonVariants({ variant: "outline" }),
-                    "w-full justify-between font-normal",
-                  )}
-                >
-                  <span className={cn(!roleSummary && "text-muted-foreground")}>
-                    {roleSummary || organizationLocalization.selectRoles}
-                  </span>
-                  <ChevronDown className="opacity-50" />
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent align="start">
-                  {roleItems.map((item) => {
-                    const checked = selectedRoles.includes(item.value)
-
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={item.value}
-                        checked={checked}
-                        disabled={checked && selectedRoles.length === 1}
-                        onCheckedChange={() => toggleInvitationRole(item.value)}
-                      >
-                        {item.label}
-                      </DropdownMenuCheckboxItem>
-                    )
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Select
+                items={roleItems}
+                value={selectedRole}
+                onValueChange={setSelectedRole}
+                disabled={isInviting}
+              >
+                <SelectTrigger id="invite-member-role" className="w-full">
+                  <SelectValue placeholder={organizationLocalization.selectRoles} />
+                </SelectTrigger>
+                <SelectContent>
+                  {roleItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               <FieldError />
             </Field>
