@@ -137,7 +137,11 @@ const viteConfig = defineConfig(({ mode }) => {
                 }
               },
             },
-            plugins: ["./src/lib/response-headers.server.ts", "./src/cluster/plugin.server.ts"],
+            plugins: [
+              "./src/lib/request-context.server.ts",
+              "./src/lib/response-headers.server.ts",
+              "./src/cluster/plugin.server.ts",
+            ],
           })),
       tailwindcss(),
       tanstackStart(),
