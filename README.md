@@ -1,6 +1,10 @@
 # AstralBeam
 
+[![npm](https://img.shields.io/npm/v/@astralbeam/sdk)](https://www.npmjs.com/package/@astralbeam/sdk) [![License: MIT and AGPL-3.0](https://img.shields.io/badge/license-MIT%20%2B%20AGPL--3.0-blue)](#licensing) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/suehFycUvW)
+
 **Links:** [Website](https://astralbeam.ai) · [Docs](https://app.astralbeam.ai/docs) · [Discord](https://discord.gg/suehFycUvW) · [Cloud](https://app.astralbeam.ai)
+
+![The AstralBeam agent sidebar listing, adding, and completing todos in the todos example](docs/assets/todos-demo.gif)
 
 [AstralBeam](https://astralbeam.ai) is the agentic chat widget for your app. Drop a Cursor-style agent sidebar into your product. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use [AstralBeam Cloud](https://app.astralbeam.ai).
 
