@@ -16,6 +16,11 @@ x-pgbouncer-env: &pgbouncer-env
   MAX_PREPARED_STATEMENTS: 200
   ADMIN_USERS: ${POSTGRES_USER:-astralbeam}
 
+# Probe every second while starting instead of after Docker's 30s default. https://docs.docker.com/reference/compose-file/services/#healthcheck
+x-healthcheck-timing: &healthcheck-timing
+  start_period: 60s
+  start_interval: 1s
+
 x-valkey-env: &valkey-env
   VALKEY_HOST: ${VALKEY_HOST:-valkey}
   VALKEY_PORT: ${VALKEY_PORT:-6379}
@@ -29,6 +34,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
+      <<: *healthcheck-timing
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
 
   pgbouncer:
@@ -40,6 +46,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
+      <<: *healthcheck-timing
       test:
         - CMD-SHELL
         - PGPASSWORD="$${DB_PASSWORD}" psql --host 127.0.0.1 --username "$${DB_USER}" --dbname "$${HEALTHCHECK_DB}" --tuples-only --no-align --command "select 1" | grep -qx 1
@@ -53,6 +60,7 @@ services:
     volumes:
       - valkey-data:/data
     healthcheck:
+      <<: *healthcheck-timing
       test: ["CMD", "valkey-cli", "ping"]
 
   mailpit:
@@ -64,6 +72,7 @@ services:
     volumes:
       - mailpit-data:/data
     healthcheck:
+      <<: *healthcheck-timing
       test: ["CMD", "/mailpit", "readyz"]
 
 volumes:
