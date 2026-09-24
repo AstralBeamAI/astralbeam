@@ -1,5 +1,6 @@
-import { isAstralBeamApiError } from "@astralbeam/sdk/api"
+import { type AstralBeamApiError, isAstralBeamApiError } from "@astralbeam/sdk/api"
 import { stderr, stdout } from "node:process"
+import packageJson from "../package.json" with { type: "json" }
 
 export function printJson(value: unknown): void {
   stdout.write(`${JSON.stringify(value, null, 2)}\n`)
@@ -49,11 +50,30 @@ export function printTable(rows: readonly object[], columns: readonly string[]):
   for (const row of cells) stdout.write(`${line(row)}\n`)
 }
 
+/** A next step for API failures whose detail alone does not explain the fix. */
+function errorHint(error: AstralBeamApiError): string | undefined {
+  if (error.status === 401) {
+    return "The API key was rejected. It may be revoked or deleted, so create a new one and run `astralbeam auth login` again."
+  }
+  // The webapp answers unrouted paths with this generic detail, unlike missing records.
+  // See webapp/src/routes/api/v1/-lib/transport.server.ts.
+  if (error.status === 404 && error.body?.detail === "Resource not found.") {
+    return `This server does not serve that endpoint. Check the API URL, or the server may run an older AstralBeam release than this CLI (${packageJson.version}).`
+  }
+  if (error.status === 429) return "The API rate limit was reached. Wait a few minutes and retry."
+  return undefined
+}
+
 /**
  * Writes a failure to stderr. In JSON mode that is one object holding the API's problem body and
  * the organization `context`, null until credentials resolve.
  */
-export function printError(error: unknown, json: boolean, context?: object): void {
+export function printError(
+  error: unknown,
+  json: boolean,
+  context?: object,
+  failedRequest?: string,
+): void {
   const message = error instanceof Error ? error.message : String(error)
   if (json) {
     const body = isAstralBeamApiError(error)
@@ -62,11 +82,12 @@ export function printError(error: unknown, json: boolean, context?: object): voi
     stderr.write(`${JSON.stringify({ error: body, context: context ?? null })}\n`)
     return
   }
-  const status = isAstralBeamApiError(error) ? ` (HTTP ${error.status})` : ""
-  stderr.write(`Error: ${terminalSafe(message)}${status}\n`)
-  if (isAstralBeamApiError(error)) {
-    for (const issue of error.body?.issues ?? []) {
-      stderr.write(`  ${terminalSafe(issue.path)}: ${terminalSafe(issue.message)}\n`)
-    }
+  if (!isAstralBeamApiError(error)) return void stderr.write(`Error: ${terminalSafe(message)}\n`)
+  const request = failedRequest ? ` from ${failedRequest}` : ""
+  stderr.write(`Error: ${terminalSafe(message)} (HTTP ${error.status}${request})\n`)
+  for (const issue of error.body?.issues ?? []) {
+    stderr.write(`  ${terminalSafe(issue.path)}: ${terminalSafe(issue.message)}\n`)
   }
+  const hint = errorHint(error)
+  if (hint) stderr.write(`${hint}\n`)
 }

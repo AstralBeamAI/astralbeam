@@ -7,6 +7,7 @@ This page is the reference for every `astralbeam` command, its output, and its e
 | Option      | Effect                                                         |
 | ----------- | -------------------------------------------------------------- |
 | `--json`    | Print the API's JSON to stdout, and failures as JSON to stderr |
+| `--debug`   | Log each HTTP request and a failure's stack trace to stderr    |
 | `--version` | Print the CLI version                                          |
 
 `ASTRALBEAM_API_KEY` wins when it is set, with `ASTRALBEAM_API_URL` or `https://app.astralbeam.ai/api` as its URL. Otherwise the CLI uses the login bound to the nearest directory at or above the working directory, and fails when there is none. Every keyed command reports that organization on stderr, as a leading `▸ <name> (<slug>) · org <id> · bound at <directory>` line, or as `context` in the JSON object with `--json`. API URLs must use `https://`, except for `localhost`. `ASTRALBEAM_CONFIG_DIR` moves the file that holds the bindings.
