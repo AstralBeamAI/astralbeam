@@ -20,7 +20,7 @@ const {
   github: githubUrl,
 } = siteMetadata.links
 
-const agentPrompt = `Add an AstralBeam agent sidebar to this app by following ${docsUrl}/start/quickstart.md.Install @astralbeam/sdk, add a server endpoint that mints a chat token with createAstralBeamToken for the signed-in user and their tenant, and mount <AstralBeamChat /> where the sidebar belongs. Read ASTRALBEAM_API_KEY from the server environment and never expose it to browser code.`
+const agentPrompt = `Add an AstralBeam agent sidebar to this app by following ${docsUrl}/start/quickstart.md and these steps: install @astralbeam/sdk, add a server endpoint that mints a chat token with createAstralBeamToken for the signed-in user and their tenant, and mount <AstralBeamChat /> where the sidebar belongs. Read ASTRALBEAM_API_KEY from the server environment and never expose it to browser code.`
 
 // Toggles the label with a data attribute because nothing on this page re-renders.
 function copyPrompt(event: MouseEvent<HTMLButtonElement>) {
