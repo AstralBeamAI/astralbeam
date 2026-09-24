@@ -14,13 +14,13 @@ Run this command to produce the server bundle, which is `webapp/.output/server/i
 deno task --cwd webapp build
 ```
 
-Run this command to compile that output into `webapp/.output/astralbeam`, one Deno executable with the server bundle and its assets embedded:
+Run this command to compile that output into `webapp/.output/astralbeam-platform`, one Deno executable with the server bundle and its assets embedded:
 
 ```sh
 deno task --cwd webapp compile
 ```
 
-`compile` embeds whatever the last `build` left in `.output`, so we must always build first. Each tagged release publishes one prebuilt Linux x86_64 binary, and that binary is the artifact to copy to a server.
+`compile` embeds whatever the last `build` left in `.output`, so we must always build first. Each tagged release publishes one prebuilt Linux x86_64 platform binary, `astralbeam-platform-v<version>-linux-x86_64`, and that binary is the artifact to copy to a server.
 
 **NOTE**: There is no Dockerfile for the application and no published container image.
 

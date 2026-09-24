@@ -4,12 +4,13 @@ AstralBeam lets an Organization embed an agent in its product. Organization empl
 
 Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific counterparts. See [Setup](SETUP.md) for deployment and local development.
 
-## The four projects
+## The five projects
 
 | Project | Responsibility | Output |
 | --- | --- | --- |
 | `webapp` | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Deno binary |
 | `sdk` | Widget, headless session, React bindings, and token minting | `@astralbeam/sdk` npm package |
+| `cli` | Organization admin commands over the public API, built on the SDK | `@astralbeam/cli` npm package and Deno binaries |
 | `www` | Prerendered TanStack Start website | Cloudflare assets |
 | `examples/todos` | Standalone SDK consumer and browser tests | Demo application |
 | `examples/todos-rails` | Rails consumer of the SDK from jsDelivr, outside the Deno toolchain | Demo application |
@@ -104,7 +105,7 @@ Host tools and widgets execute in the host page with agent-chosen input. Attachm
 
 ## Build and deployment
 
-The webapp compiles to a Deno binary with an out-of-tree startup, asset, shutdown, and size check. The SDK publishes independently, and `www` deploys as static assets. CI validates each project and runs deterministic browser tests. Model-driven tests require separate credentials and spend credits.
+The webapp compiles to a Deno binary with an out-of-tree startup, asset, shutdown, and size check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Deno binaries. `www` deploys as static assets. CI validates each project and runs deterministic browser tests. Model-driven tests require separate credentials and spend credits.
 
 Commands and build constraints belong to each project's instructions and manifests. The [root quick start](README.md#local-development) launches local development, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
 

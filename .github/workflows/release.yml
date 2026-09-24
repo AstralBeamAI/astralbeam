@@ -33,13 +33,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Verify the tag matches the SDK version
+      - name: Verify the tag matches the SDK and CLI versions
         id: version
-        # `sdk` is the only versioned project: webapp and examples/todos declare no version and
-        # www is a private placeholder at 0.0.0, so the tag gates the SDK version alone.
+        # `sdk` and `cli` are the versioned projects and move in lockstep: webapp and examples/todos
+        # declare no version and www is a private placeholder at 0.0.0.
         run: |
           version="$(jq -r .version sdk/package.json)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$(jq -r .version cli/package.json)" != "$version" ]; then
+            echo "::error::cli/package.json must match sdk/package.json version ${version}"
+            exit 1
+          fi
           if [ "$GITHUB_REF_TYPE" != tag ]; then
             if [ "$DRY_RUN" = true ]; then
               echo "::notice::Dry run on ${GITHUB_REF_NAME}, sdk/package.json is at ${version}"
@@ -59,7 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      RELEASE_ASSET: astralbeam-v${{ needs.verify.outputs.version }}-linux-x86_64
+      RELEASE_ASSET: astralbeam-platform-v${{ needs.verify.outputs.version }}-linux-x86_64
+      CLI_ASSET_PREFIX: astralbeam-v${{ needs.verify.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -96,7 +101,45 @@ jobs:
         run: deno task binary:check
 
       - name: Name the binary after the release
-        run: mv webapp/.output/astralbeam "$RELEASE_ASSET"
+        run: mv webapp/.output/astralbeam-platform "$RELEASE_ASSET"
+
+      - name: Install CLI dependencies
+        working-directory: cli
+        run: deno install --frozen
+
+      - name: Build the CLI
+        working-directory: cli
+        run: deno task build
+
+      - name: Compile and smoke-test the CLI binaries
+        # deno compile cross-compiles from one runner, and the experimental QuickJS engine makes each
+        # binary 40-46% smaller than V8. https://docs.deno.com/runtime/reference/cli/compile/
+        shell: bash
+        run: |
+          mkdir cli-binaries
+          for pair in x86_64-unknown-linux-gnu:linux-x86_64 aarch64-unknown-linux-gnu:linux-arm64 \
+            x86_64-apple-darwin:macos-x86_64 aarch64-apple-darwin:macos-arm64 \
+            x86_64-pc-windows-msvc:windows-x86_64.exe; do
+            (cd cli && deno compile --no-check --engine quickjs --config deno.jsonc -P=runtime --include skills \
+              --target "${pair%%:*}" --output "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js)
+          done
+          binary="cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
+          test "$("$binary" --version)" = "${{ needs.verify.outputs.version }}"
+          "$binary" skill | grep -q '^name: astralbeam$'
+
+      - name: Upload the CLI binaries
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-binaries
+          path: cli-binaries
+          if-no-files-found: error
+
+      - name: Upload the CLI package output
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-dist
+          path: cli/dist
+          if-no-files-found: error
 
       - name: Upload the Webapp binary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -114,7 +157,7 @@ jobs:
 
   github-release:
     name: Create the GitHub release
-    # Runs after staging so a failed npm step does not leave a release pointing at an unstaged SDK.
+    # Runs after staging so a failed npm step does not leave a release pointing at unstaged packages.
     needs: [verify, build, stage-npm]
     if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
@@ -127,15 +170,21 @@ jobs:
         with:
           name: webapp-binary
 
+      - name: Download the CLI binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cli-binaries
+
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_ASSET: astralbeam-v${{ needs.verify.outputs.version }}-linux-x86_64
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes "$RELEASE_ASSET"
+          RELEASE_ASSET: astralbeam-platform-v${{ needs.verify.outputs.version }}-linux-x86_64
+          CLI_ASSET_PREFIX: astralbeam-v${{ needs.verify.outputs.version }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes "$RELEASE_ASSET" "$CLI_ASSET_PREFIX"-*
 
   stage-npm:
-    name: Stage the SDK on npm
+    name: Stage the SDK and CLI on npm
     needs: [verify, build]
     if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
@@ -156,6 +205,12 @@ jobs:
           name: sdk-dist
           path: sdk/dist
 
+      - name: Download the CLI package output
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cli-dist
+          path: cli/dist
+
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -169,19 +224,26 @@ jobs:
         # floor the `stage` subcommands need, so pin an exact npm into this OIDC-credentialed job.
         run: npm install --global npm@11.19.0
 
-      - name: Stage the SDK
-        # Staging never makes the package public, so no token or 2FA is needed here. A maintainer
-        # approves it with 2FA afterwards. https://docs.npmjs.com/cli/v11/commands/npm-stage
-        shell: bash
-        working-directory: sdk
-        run: npm stage publish | tee "$RUNNER_TEMP/npm-stage.log"
+      - name: Smoke-test the CLI package on Node
+        working-directory: cli
+        run: test "$(node dist/astralbeam.js --version)" = "${{ needs.verify.outputs.version }}"
 
-      - name: Report the staged package
+      - name: Stage the SDK and CLI
+        # Staging never makes a package public, so no token or 2FA is needed here. A maintainer
+        # approves each with 2FA afterwards. https://docs.npmjs.com/cli/v11/commands/npm-stage
+        shell: bash
+        run: |
+          set -o pipefail
+          for project in sdk cli; do
+            (cd "$project" && npm stage publish) | tee -a "$RUNNER_TEMP/npm-stage.log"
+          done
+
+      - name: Report the staged packages
         run: |
           {
-            echo "## SDK staged on npm"
+            echo "## SDK and CLI staged on npm"
             echo
-            echo "Approve it with \`npm stage approve <stage-id>\` or from the Staged Packages tab on [npmjs.com](https://www.npmjs.com/package/@astralbeam/sdk). Approval prompts for 2FA."
+            echo "Approve each with \`npm stage approve <stage-id>\` or from the Staged Packages tab of [@astralbeam/sdk](https://www.npmjs.com/package/@astralbeam/sdk) and [@astralbeam/cli](https://www.npmjs.com/package/@astralbeam/cli). Approval prompts for 2FA."
             echo
             echo '```'
             cat "$RUNNER_TEMP/npm-stage.log"

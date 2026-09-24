@@ -1,0 +1,16 @@
+{
+  "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
+  "exclude": [".output", "dist"],
+  "nodeModulesDir": "auto",
+  "permissions": {
+    // Node's os.homedir() locates the default profile directory.
+    // https://docs.deno.com/runtime/fundamentals/security/#system-information
+    "runtime": {
+      "env": true,
+      "net": true,
+      "read": true,
+      "sys": ["homedir"],
+      "write": true,
+    },
+  },
+}

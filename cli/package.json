@@ -1,0 +1,58 @@
+{
+  "name": "@astralbeam/cli",
+  "version": "0.12.0",
+  "description": "Command-line interface for AstralBeam organization admins and their coding agents",
+  "homepage": "https://app.astralbeam.ai/docs/cli/getting-started",
+  "bugs": "https://github.com/AstralBeamAI/astralbeam/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AstralBeamAI/astralbeam.git",
+    "directory": "cli"
+  },
+  "bin": {
+    "astralbeam": "dist/astralbeam.js"
+  },
+  "files": [
+    "dist",
+    "skills"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "binary:check": "deno task compile && .output/astralbeam --version && .output/astralbeam skill > /dev/null",
+    "build": "tsdown",
+    "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
+    "check:fix": "deno task lint:fix && deno task format && deno task knip:fix",
+    "compile": "deno task build && deno compile --no-check --engine quickjs --config deno.jsonc -P=runtime --include skills --output .output/astralbeam dist/astralbeam.js",
+    "dev": "deno run --node-modules-dir=manual --config deno.jsonc -P=runtime src/main.ts",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "knip": "knip",
+    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install --frozen",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "ready": "deno task check && deno task test && deno task build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@astralbeam/sdk": "file:../sdk",
+    "@types/node": "^26.2.0",
+    "@vitest/eslint-plugin": "^1.6.27",
+    "commander": "^15.0.0",
+    "eslint-plugin-regexp": "^3.3.1",
+    "knip": "^6.32.2",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
+    "oxlint-tsgolint": "^7.0.2002",
+    "tsdown": "0.22.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.3"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

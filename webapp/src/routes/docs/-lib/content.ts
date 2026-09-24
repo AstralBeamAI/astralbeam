@@ -74,6 +74,16 @@ export const DOCS_SECTIONS: DocsSection[] = [
     pages: [],
   },
   {
+    slug: "cli",
+    title: "CLI",
+    description: "Manage your organization from the terminal, by hand or through coding agents.",
+    pages: [
+      { slug: "getting-started", title: "Getting started" },
+      { slug: "commands", title: "Commands" },
+      { slug: "coding-agents", title: "Coding agents" },
+    ],
+  },
+  {
     slug: "dashboard",
     title: "Dashboard",
     description: "Configure the agents, sandboxes, keys, and members your organization uses.",

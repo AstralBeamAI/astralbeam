@@ -21,7 +21,7 @@ jobs:
       # Every project reports its own result, so one failing leg does not hide the others.
       fail-fast: false
       matrix:
-        project: [webapp, www, sdk, examples/todos]
+        project: [webapp, www, sdk, cli, examples/todos]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -40,15 +40,15 @@ jobs:
         run: deno task format:check
 
       - name: Cache SDK node_modules
-        if: matrix.project == 'examples/todos' || matrix.project == 'webapp'
+        if: matrix.project == 'examples/todos' || matrix.project == 'webapp' || matrix.project == 'cli'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: sdk/node_modules
           key: node_modules-${{ runner.os }}-sdk-${{ hashFiles('sdk/deno.lock') }}
 
       - name: Build the SDK
-        if: matrix.project == 'examples/todos' || matrix.project == 'webapp'
-        # The webapp and example consume `sdk/dist` through file dependencies, so their
+        if: matrix.project == 'examples/todos' || matrix.project == 'webapp' || matrix.project == 'cli'
+        # The webapp, CLI, and example consume `sdk/dist` through file dependencies, so their
         # typecheck and build cannot run before the SDK is installed and built.
         working-directory: sdk
         run: |
@@ -84,9 +84,9 @@ jobs:
           DATABASE_URL: ${{ matrix.project == 'webapp' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
         run: deno task ready
 
-      - name: Compile and smoke-test Webapp binary
-        if: matrix.project == 'webapp'
-        working-directory: webapp
+      - name: Compile and smoke-test the binary
+        if: matrix.project == 'webapp' || matrix.project == 'cli'
+        working-directory: ${{ matrix.project }}
         run: deno task binary:check
 
   todos-rails:

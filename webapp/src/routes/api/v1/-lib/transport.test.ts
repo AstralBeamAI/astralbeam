@@ -24,7 +24,7 @@ const restTestState = vi.hoisted(() => ({
   order: [] as SQL[],
   limits: [] as number[],
   failure: undefined as unknown,
-  keyRows: [] as { id: string }[],
+  keyRows: [] as { id: string; name?: string; slug?: string }[],
   verify: vi.fn(),
   chat: vi.fn(),
   organizationAuth: vi.fn(),
@@ -903,6 +903,18 @@ describe("REST API through the Effect Fetch handler", () => {
     expect((await restRequest(`/tenants/${restTenantId}/tenant_users`, { headers })).status).toBe(
       401,
     )
+  })
+
+  test("the organization endpoint names the key's organization and forbids tenant JWTs", async () => {
+    restTestState.keyRows = [{ id: restOrgId, name: "Acme", slug: "acme" }]
+    const response = await restRequest("/organization")
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ id: restOrgId, name: "Acme", slug: "acme" })
+    restTestState.rows.push([{ id: restTenantId }])
+    const tenantResponse = await restRequest("/organization", {
+      headers: { Authorization: `Bearer ${restTenantJwt}` },
+    })
+    expect(tenantResponse.status).toBe(403)
   })
 
   test("rate limits retain Retry-After and JWT buckets include the external Tenant and user", async () => {

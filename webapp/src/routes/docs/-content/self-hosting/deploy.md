@@ -4,14 +4,15 @@ Let's install AstralBeam on a Linux host, with PostgreSQL behind a connection po
 
 ## 1. Get a release binary
 
-Every tagged release publishes one prebuilt asset, `astralbeam-v<version>-linux-x86_64`, built for Linux on x86_64.
+Every tagged release from v0.12.0 publishes one prebuilt platform asset, `astralbeam-platform-v<version>-linux-x86_64`, built for Linux on x86_64. The `astralbeam-v<version>-*` assets beside it are the [CLI](/docs/cli/getting-started), not the server. Releases before v0.12.0 named the server asset `astralbeam-v<version>-linux-x86_64`.
 
-Run these commands to download that asset and install it as `astralbeam`:
+Set `VERSION` to the [release](https://github.com/AstralBeamAI/astralbeam/releases) you want, then run these commands to download that asset and install it as `astralbeam-platform`:
 
 ```sh
-gh release download v0.1.0 --repo AstralBeamAI/astralbeam --pattern 'astralbeam-*-linux-x86_64'
-chmod +x astralbeam-v0.1.0-linux-x86_64
-mv astralbeam-v0.1.0-linux-x86_64 /usr/local/bin/astralbeam
+VERSION=0.12.0
+gh release download "v$VERSION" --repo AstralBeamAI/astralbeam --pattern "astralbeam-platform-v$VERSION-linux-x86_64"
+chmod +x "astralbeam-platform-v$VERSION-linux-x86_64"
+mv "astralbeam-platform-v$VERSION-linux-x86_64" /usr/local/bin/astralbeam-platform
 ```
 
 The release carries no checksum or signature file, so verify what you downloaded by running it. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests every release binary the same way, without the database-backed status check.
@@ -26,7 +27,7 @@ deno task --cwd webapp build
 deno task --cwd webapp compile
 ```
 
-The binary lands at `webapp/.output/astralbeam`. Order matters here: `build` writes the Nitro server bundle and static assets into `webapp/.output`, and `compile` embeds that output, so compiling without a fresh build ships stale assets.
+The binary lands at `webapp/.output/astralbeam-platform`. Order matters here: `build` writes the Nitro server bundle and static assets into `webapp/.output`, and `compile` embeds that output, so compiling without a fresh build ships stale assets.
 
 Run this command to compile and smoke-test the binary the way CI does:
 
@@ -98,7 +99,7 @@ After=network-online.target
 User=astralbeam
 EnvironmentFile=/etc/astralbeam/env
 Environment=PORT=3000
-ExecStart=/usr/local/bin/astralbeam
+ExecStart=/usr/local/bin/astralbeam-platform
 Restart=on-failure
 
 [Install]

@@ -25,7 +25,8 @@ test("typed credentials own authentication, preserving custom bases and queries"
   expect(url.searchParams.get("filter[external_id]")).toBe("東京 / +")
   expect(url.searchParams.get("page_before")).toBe("cursor")
   expect(init).toMatchObject({ signal })
-  expect(request.redirect).toBe("follow")
+  // A redirect would forward the key header to whatever origin it names.
+  expect(request.redirect).toBe("error")
   expect(new Headers(init?.headers).get("x-api-key")).toBe("organization-key")
   expect(new Headers(init?.headers).has("authorization")).toBe(false)
 
