@@ -9,6 +9,7 @@ const ORGANIZATION_ID = "01990a5d-0000-7000-8000-000000000011"
 const API_KEY = `key_${ORGANIZATION_ID}_${"01990a5d-0000-7000-8000-000000000021"}_abo_${"a".repeat(64)}`
 const API_URL = "https://beam.test/api"
 const originalDirectory = process.cwd()
+const context = { organization: { id: ORGANIZATION_ID }, bound_directory: null }
 
 let stdout = ""
 let stderr = ""
@@ -55,7 +56,8 @@ test("--all follows page_after with the API key and prints one merged page", asy
     page_after: null,
     page_before: null,
   })
-  expect(stderr).toBe(`▸ org ${ORGANIZATION_ID} · from ASTRALBEAM_API_KEY\n`)
+  // JSON mode keeps stderr one JSON object, carrying the organization context.
+  expect(JSON.parse(stderr)).toEqual({ context })
 })
 
 test("API failures exit 1 with the problem body, and usage errors exit 2", async () => {
@@ -63,7 +65,12 @@ test("API failures exit 1 with the problem body, and usage errors exit 2", async
   respondWith(problem, 409)
 
   expect(await cli("--json", "tenants", "create", "--external-id", "acme")).toBe(1)
-  expect(JSON.parse(stderr.split("\n")[1] ?? "")).toEqual({ error: problem })
+  expect(JSON.parse(stderr)).toEqual({ error: problem, context })
+  stderr = ""
+  expect(await cli("tenants", "create", "--external-id", "acme")).toBe(1)
+  expect(stderr).toBe(
+    `▸ org ${ORGANIZATION_ID} · from ASTRALBEAM_API_KEY\nError: Taken. (HTTP 409)\n`,
+  )
 
   expect(await cli("tenants", "create", "--metadata", "[1]", "--external-id", "acme")).toBe(2)
 })

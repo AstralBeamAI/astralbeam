@@ -84,7 +84,7 @@ astralbeam chat --tenant customer-42 --user user-7 "What can you do?"
 
 ## Output and exit codes
 
-Human-readable tables and records go to stdout. With `--json`, stdout carries the API's JSON and failures reach stderr as `{"error": {...}}`, holding the API's problem details. Commands exit with `0` on success, `1` when the API or runtime fails, and `2` for invalid usage.
+Human-readable tables and records go to stdout. With `--json`, stdout carries the API's JSON and stderr holds one JSON object: `{"context": {...}}` naming the organization on success, or `{"error": {...}, "context": {...}}` with the API's problem details on failure. Commands exit with `0` on success, `1` when the API or runtime fails, and `2` for invalid usage.
 
 ## Coding agents
 

@@ -11,10 +11,10 @@ If `astralbeam` is not on the PATH, run it as `npx -y @astralbeam/cli` instead.
 
 ## Rules
 
-- Pass `--json` on every command whose output you will read. Records and pages go to stdout, and failures go to stderr as `{"error": {...}}` with the API's `status`, `detail`, and optional `issues`.
+- Pass `--json` on every command whose output you will read. Records and pages go to stdout. Stderr then holds exactly one JSON object: `{"context": {...}}` on success, or `{"error": {...}, "context": {...}}` on failure, where `error` carries the API's `status`, `detail`, and optional `issues`. `context` is `{"organization": {"id", "name", "slug"}, "bound_directory": <path or null>}`, and it is absent when the command failed before resolving credentials or uses none.
 - Exit code 0 means success, 1 means the API or runtime failed, and 2 means the command line was invalid. Read `astralbeam <command> --help` before guessing flags.
 - Never print, log, or echo an API key. Never pass a key as a command-line argument. Credentials come from `ASTRALBEAM_API_KEY`, or from the nearest directory at or above the working directory where someone ran `astralbeam auth login`. Run commands from the project directory the user means, because a different directory can select a different organization.
-- Every keyed command first prints the organization it acts on to stderr, like `▸ Acme (acme) · org <id> · bound at ~/work/acme`. Check that line before any write, and stop if it names the wrong organization.
+- Before any write, run `astralbeam auth status --json` from the same directory and confirm `organization` is the one the user means. Stop if it is not. Without `--json`, keyed commands print the organization first on stderr as `▸ Acme (acme) · org <id> · bound at ~/work/acme`.
 - Never run `astralbeam auth login` yourself unless the user supplies the key through stdin or the environment. It prompts for a secret.
 - Path IDs are internal UUIDs returned by the API. External IDs are the organization's own identifiers and are passed with `--external-id`, `--tenant`, or `--user`.
 - Creates are not idempotent. A duplicate external ID returns HTTP 409. After a timeout or a 409, look the record up with `list --external-id <id>` before retrying.

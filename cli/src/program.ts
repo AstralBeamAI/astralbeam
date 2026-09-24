@@ -1,8 +1,9 @@
 import { Command, CommanderError } from "commander"
+import { stderr } from "node:process"
 import packageJson from "../package.json" with { type: "json" }
 import { registerAuthCommands } from "./auth.ts"
 import { registerChatCommand } from "./chat.ts"
-import { DEFAULT_API_URL } from "./config.ts"
+import { DEFAULT_API_URL, runState } from "./config.ts"
 import { printError } from "./output.ts"
 import { registerSkillCommands } from "./skill.ts"
 import { registerTenantUserCommands } from "./tenant-users.ts"
@@ -39,12 +40,14 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerTokenCommands(program)
   registerChatCommand(program)
   registerSkillCommands(program)
+  Object.assign(runState, { json, context: undefined })
   try {
     await program.parseAsync(argv)
+    if (json && runState.context) stderr.write(`${JSON.stringify({ context: runState.context })}\n`)
     return 0
   } catch (error) {
     if (!(error instanceof CommanderError)) {
-      printError(error, json)
+      printError(error, json, runState.context)
       return 1
     }
     if (error.exitCode === 0) return 0

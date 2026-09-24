@@ -8,10 +8,11 @@ import {
   findBinding,
   globalOptions,
   type Organization,
-  organizationContext,
+  reportOrganization,
   organizationIdFromApiKey,
   readConfig,
   resolveCredentials,
+  runState,
   validatedApiUrl,
   writeConfig,
 } from "./config.ts"
@@ -87,7 +88,7 @@ export function registerAuthCommands(program: Command): void {
       const config = await readConfig()
       config.bindings[directory] = { api_url: apiUrl, api_key: apiKey, organization }
       await writeConfig(config)
-      stderr.write(organizationContext({ apiKey, apiUrl, organization, directory }))
+      reportOrganization({ apiKey, apiUrl, organization, directory })
       printResult({ directory, organization, api_url: apiUrl }, json)
     })
 
@@ -110,6 +111,7 @@ export function registerAuthCommands(program: Command): void {
     .action(async (_options: object, command: Command) => {
       const { apiKey, apiUrl, directory } = await resolveCredentials()
       const organization = await fetchOrganization(apiKey, apiUrl)
+      if (runState.context) runState.context.organization = organization
       if (directory) {
         // Organizations can be renamed in the dashboard, so refresh what the context line shows.
         const config = await readConfig()

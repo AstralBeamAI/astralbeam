@@ -9,7 +9,7 @@ This page is the reference for every `astralbeam` command, its output, and its e
 | `--json`    | Print the API's JSON to stdout, and failures as JSON to stderr |
 | `--version` | Print the CLI version                                          |
 
-`ASTRALBEAM_API_KEY` wins when it is set, with `ASTRALBEAM_API_URL` or `https://app.astralbeam.ai/api` as its URL. Otherwise the CLI uses the login bound to the nearest directory at or above the working directory, and fails when there is none. Every keyed command prints that organization to stderr first, as `▸ <name> (<slug>) · org <id> · bound at <directory>`. API URLs must use `https://`, except for `localhost`. `ASTRALBEAM_CONFIG_DIR` moves the file that holds the bindings.
+`ASTRALBEAM_API_KEY` wins when it is set, with `ASTRALBEAM_API_URL` or `https://app.astralbeam.ai/api` as its URL. Otherwise the CLI uses the login bound to the nearest directory at or above the working directory, and fails when there is none. Every keyed command reports that organization on stderr, as a leading `▸ <name> (<slug>) · org <id> · bound at <directory>` line, or as `context` in the JSON object with `--json`. API URLs must use `https://`, except for `localhost`. `ASTRALBEAM_CONFIG_DIR` moves the file that holds the bindings.
 
 ## auth
 
@@ -89,7 +89,7 @@ See [Coding agents](./coding-agents.md).
 
 Without `--json`, lists print as tables and records as `key value` lines. With `--json`, stdout carries exactly what the API returned: a record, or a page with `items`, `page_after`, and `page_before`. `token` prints `{ "token", "expires_at" }`, and `chat` prints `{ "messages": [...] }` with the turn's user and assistant messages.
 
-Failures always go to stderr. With `--json`, they are `{"error": {...}}` holding the API's problem details, with `status`, `title`, `detail`, and any field `issues`.
+Failures always go to stderr. With `--json`, stderr holds exactly one JSON object: `{"context": {...}}` on success, or `{"error": {...}, "context": {...}}` on failure, where `error` holds the API's problem details with `status`, `title`, `detail`, and any field `issues`. `context` is `{ "organization", "bound_directory" }`, with `bound_directory` null for `ASTRALBEAM_API_KEY`, and is absent when a command failed before resolving credentials.
 
 | Exit code | Meaning                                                            |
 | --------- | ------------------------------------------------------------------ |

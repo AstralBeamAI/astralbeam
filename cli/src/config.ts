@@ -120,8 +120,32 @@ export function displayPath(directory: string): string {
     : directory
 }
 
+/** The organization a run resolved, reported to stderr as JSON in JSON mode. */
+export interface OrganizationContext {
+  organization: Credentials["organization"]
+  bound_directory: string | null
+}
+
+/**
+ * Per-run output state. In JSON mode, stderr must be one JSON object, so the context is held
+ * here and written by `program.ts` with the result or the error instead of as a text line.
+ */
+export const runState: { json: boolean; context: OrganizationContext | undefined } = {
+  json: false,
+  context: undefined,
+}
+
+/** Records the run's organization, printing it first to stderr in human-readable mode. */
+export function reportOrganization(credentials: Credentials): void {
+  runState.context = {
+    organization: credentials.organization,
+    bound_directory: credentials.directory ?? null,
+  }
+  if (!runState.json) stderr.write(organizationContext(credentials))
+}
+
 /** The organization line printed to stderr before a command's output. */
-export function organizationContext(credentials: Credentials): string {
+function organizationContext(credentials: Credentials): string {
   const { organization, directory } = credentials
   const name = organization.name
     ? `${terminalSafe(organization.name)} (${terminalSafe(organization.slug ?? "")}) · `
@@ -145,8 +169,8 @@ export async function apiOptions(): Promise<{ apiKey: string; apiUrl: string }> 
 }
 
 /**
- * `ASTRALBEAM_API_KEY` wins, then the binding of the nearest bound directory. Prints the
- * organization context to stderr so stdout stays parseable.
+ * `ASTRALBEAM_API_KEY` wins, then the binding of the nearest bound directory. Reports the
+ * organization on stderr so stdout stays parseable.
  */
 export async function resolveCredentials(): Promise<Credentials> {
   const envApiKey = env["ASTRALBEAM_API_KEY"]
@@ -173,6 +197,6 @@ export async function resolveCredentials(): Promise<Credentials> {
       directory: found.directory,
     }
   }
-  stderr.write(organizationContext(credentials))
+  reportOrganization(credentials)
   return credentials
 }
