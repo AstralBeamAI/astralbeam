@@ -14,11 +14,13 @@ import { logoutOperator } from "../-functions/logout-operator"
 export function ConfigureActions({
   setupComplete,
   busy = false,
+  saving = false,
   onSave,
   saveDisabled = false,
 }: {
   setupComplete: boolean
   busy?: boolean
+  saving?: boolean
   onSave?: () => void
   saveDisabled?: boolean
 }) {
@@ -50,7 +52,7 @@ export function ConfigureActions({
     <div className="flex flex-wrap items-center gap-2">
       {onSave && (
         <Button type="button" onClick={onSave} disabled={disabled || saveDisabled}>
-          {busy ? <Spinner /> : <FloppyDiskIcon aria-hidden="true" />}
+          {saving ? <Spinner /> : <FloppyDiskIcon aria-hidden="true" />}
           Save
         </Button>
       )}

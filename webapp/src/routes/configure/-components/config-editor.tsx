@@ -3,6 +3,7 @@
 import { Option, Schema } from "effect"
 import { useState } from "react"
 
+import { Spinner } from "@/components/ui/spinner"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { Input } from "@/components/ui/input"
@@ -68,7 +69,8 @@ export function ConfigEditor({
   // Secrets arrive as `null`, so a value an operator revealed is the only copy the page holds.
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [busy, setBusy] = useState(false)
+  const [pendingAction, setPendingAction] = useState<"save" | "invite" | "other" | null>(null)
+  const busy = pendingAction !== null
   const [emailProviderTesting, setEmailProviderTesting] = useState(false)
   const [emailProviderTestResult, setEmailProviderTestResult] = useState<
     { ok: boolean; message: string } | undefined
@@ -121,14 +123,14 @@ export function ConfigEditor({
   })
   const canTestEmailProvider = Option.isSome(emailProviderConnectionInput)
 
-  const run = async (action: () => Promise<void>) => {
-    setBusy(true)
+  const run = async (action: () => Promise<void>, kind: "save" | "invite" | "other" = "other") => {
+    setPendingAction(kind)
     try {
       await action()
     } catch {
       toast.add({ title: "The request failed; try again", type: "error" })
     } finally {
-      setBusy(false)
+      setPendingAction(null)
     }
   }
 
@@ -162,14 +164,14 @@ export function ConfigEditor({
       if (!(await savePendingUpdates())) return
       toast.add({ title: "Configuration saved", type: "success" })
       onChanged()
-    })
+    }, "save")
 
   const handleInviteOwner = () =>
     run(async () => {
       if (!(await savePendingUpdates(true))) return
       toast.add({ title: "Owner invitation sent", type: "success" })
       onChanged()
-    })
+    }, "invite")
 
   const handleGenerate = (key: ConfigKey) =>
     run(async () => {
@@ -236,6 +238,7 @@ export function ConfigEditor({
     <ConfigureActions
       setupComplete={setupComplete}
       busy={busy}
+      saving={pendingAction === "save"}
       onSave={() => void handleSave()}
       saveDisabled={!hasUnsavedConfiguration && fallbackEncryptionKeyCount === 0}
     />
@@ -247,7 +250,17 @@ export function ConfigEditor({
 
       <SetupStatusAlert
         setupComplete={setupComplete}
-        issues={issues}
+        issues={
+          onboarding && !onboarding.complete
+            ? [
+                ...issues.filter(
+                  (issue) =>
+                    issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
+                ),
+                { key: "dogfood_organization_id", message: "Invite the owner to finish setup." },
+              ]
+            : issues
+        }
         fallbackEncryptionKeyCount={fallbackEncryptionKeyCount}
       />
 
@@ -330,7 +343,8 @@ export function ConfigEditor({
               disabled={busy || configurationRequired || !Schema.is(OwnerOnboardingInput)(owner)}
               onClick={() => void handleInviteOwner()}
             >
-              Invite owner
+              {pendingAction === "invite" && <Spinner />}
+              {pendingAction === "invite" ? "Sending invitation…" : "Invite owner"}
             </Button>
           )}
         </section>

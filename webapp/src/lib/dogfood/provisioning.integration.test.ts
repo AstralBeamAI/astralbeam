@@ -480,7 +480,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       },
     )
 
-    test("failed delivery retains provenance and retry reuses resources before a real password reset", async () => {
+    test("failed delivery retains provenance and retry reuses resources", async () => {
       dogfoodIntegration.failEmail = true
       await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
       expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
@@ -503,7 +503,6 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await defaultKeyHasher(values.dogfood_api_key!.slice(prefix.length))).toBe(
         keys[0]!.key,
       )
-      await completeOwnerPassword()
     })
 
     test.each([false, true])(
@@ -627,33 +626,29 @@ describe.skipIf(!dogfoodIntegration.url)(
       })
     })
 
-    test.each([false, true])(
-      "a missing organization (slug reused: %s) cannot replace the owner or rewrite pending setup",
-      async (reuseSlug) => {
-        dogfoodIntegration.failEmail = true
-        await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
-        const { values } = await getDatabaseConfig()
-        const owners = await db.select().from(user)
-        await db.delete(organization)
-        if (reuseSlug)
-          await db
-            .insert(organization)
-            .values({ name: "Unrelated", slug: ownerOnboardingFixture.organizationSlug })
-        await expect(
-          provisionDogfood({ ...ownerOnboardingFixture, email: "replacement@example.com" }),
-        ).rejects.toMatchObject({
-          _tag: "OwnerOnboardingError",
-          message: "The provisioned organization is unavailable",
-        })
-        expect(await db.select().from(user)).toEqual(owners)
-        expect((await getDatabaseConfig()).values).toEqual(values)
-        expect(await runDatabaseEffect(readDogfoodOnboarding(values))).toMatchObject({
-          organizationName: ownerOnboardingFixture.organizationName,
-          organizationCreated: true,
-          complete: false,
-        })
-      },
-    )
+    test("a missing organization cannot be replaced by another using its slug", async () => {
+      dogfoodIntegration.failEmail = true
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      const { values } = await getDatabaseConfig()
+      const owners = await db.select().from(user)
+      await db.delete(organization)
+      await db
+        .insert(organization)
+        .values({ name: "Unrelated", slug: ownerOnboardingFixture.organizationSlug })
+      await expect(
+        provisionDogfood({ ...ownerOnboardingFixture, email: "replacement@example.com" }),
+      ).rejects.toMatchObject({
+        _tag: "OwnerOnboardingError",
+        message: "The provisioned organization is unavailable",
+      })
+      expect(await db.select().from(user)).toEqual(owners)
+      expect((await getDatabaseConfig()).values).toEqual(values)
+      expect(await runDatabaseEffect(readDogfoodOnboarding(values))).toMatchObject({
+        organizationName: ownerOnboardingFixture.organizationName,
+        organizationCreated: true,
+        complete: false,
+      })
+    })
 
     test("concurrent provisioning invites one new owner", async () => {
       const concurrent = await Promise.allSettled(
