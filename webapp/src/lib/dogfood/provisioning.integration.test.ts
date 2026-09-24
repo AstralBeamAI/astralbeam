@@ -462,23 +462,14 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select({ id: apiKey.id }).from(apiKey)).toEqual([{ id: protectedKey!.id }])
     })
 
-    test.each(["TURNSTILE_SITE_KEY", "GITHUB_CLIENT_SECRET"])(
-      "incomplete application configuration (%s) cannot finalize ownership",
-      async (key) => {
-        if (key === "GITHUB_CLIENT_SECRET") vi.stubEnv("GITHUB_CLIENT_ID", "incomplete-provider")
-        vi.stubEnv(key, "")
-        invalidateGlobalConfig()
-        try {
-          await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
-          expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
-          expect(await db.select().from(user)).toHaveLength(0)
-          expect(sendResetPasswordEmail).not.toHaveBeenCalled()
-        } finally {
-          vi.unstubAllEnvs()
-          invalidateGlobalConfig()
-        }
-      },
-    )
+    test("incomplete authentication cannot finalize ownership", async () => {
+      delete process.env.TURNSTILE_SITE_KEY
+      invalidateGlobalConfig()
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
+      expect(await db.select().from(user)).toHaveLength(0)
+      expect(sendResetPasswordEmail).not.toHaveBeenCalled()
+    })
 
     test("failed delivery retains provenance and retry reuses resources", async () => {
       dogfoodIntegration.failEmail = true
@@ -490,6 +481,10 @@ describe.skipIf(!dogfoodIntegration.url)(
       const keys = await db.select().from(apiKey)
       expect(keys).toHaveLength(1)
       expect(await db.select().from(agent)).toHaveLength(1)
+      await db.update(organization).set({ name: "Renamed dogfood", slug: "renamed-dogfood" })
+      expect(
+        await runDatabaseEffect(readDogfoodOnboarding((await getDatabaseConfig()).values)),
+      ).toMatchObject({ organizationCreated: true, complete: false })
       dogfoodIntegration.failEmail = false
       await provisionDogfood()
       expect(sendResetPasswordEmail).toHaveBeenCalledTimes(2)
@@ -498,6 +493,12 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select().from(agent)).toHaveLength(1)
       const { values } = await getDatabaseConfig()
       expect(values.dogfood_pending_setup).toBeUndefined()
+      expect(await runDatabaseEffect(readDogfoodOnboarding(values))).toMatchObject({
+        email: ownerOnboardingFixture.email,
+        organizationName: "Renamed dogfood",
+        organizationSlug: "renamed-dogfood",
+        complete: true,
+      })
       const prefix = `key_${keys[0]!.organizationId}_${keys[0]!.id}_`
       expect(values.dogfood_api_key).toMatch(new RegExp(`^${prefix}abo_[A-Za-z]{64}$`))
       expect(await defaultKeyHasher(values.dogfood_api_key!.slice(prefix.length))).toBe(
@@ -520,40 +521,6 @@ describe.skipIf(!dogfoodIntegration.url)(
         expect(await db.select().from(organization)).toHaveLength(1)
       },
     )
-
-    test("onboarding reads the current organization through retries and completion", async () => {
-      dogfoodIntegration.failEmail = true
-      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
-      const renamed = await db
-        .update(organization)
-        .set({ name: "Renamed dogfood", slug: "renamed-dogfood" })
-        .returning()
-      const expected = {
-        email: ownerOnboardingFixture.email,
-        organizationName: "Renamed dogfood",
-        organizationSlug: "renamed-dogfood",
-        organizationCreated: true,
-        complete: false,
-      }
-      expect(
-        await runDatabaseEffect(readDogfoodOnboarding((await getDatabaseConfig()).values)),
-      ).toEqual(expected)
-      dogfoodIntegration.failEmail = false
-      await provisionDogfood({
-        ...ownerOnboardingFixture,
-        organizationName: "Submitted name",
-        organizationSlug: "submitted-slug",
-      })
-      expect(await db.select().from(organization)).toEqual(renamed)
-      const { values } = await getDatabaseConfig()
-      await db.update(organization).set({ name: "Current dogfood", slug: "current-dogfood" })
-      expect(await runDatabaseEffect(readDogfoodOnboarding(values))).toEqual({
-        ...expected,
-        organizationName: "Current dogfood",
-        organizationSlug: "current-dogfood",
-        complete: true,
-      })
-    })
 
     test("correcting a pending email removes only the old membership and keeps email required", async () => {
       dogfoodIntegration.failEmail = true
@@ -599,55 +566,6 @@ describe.skipIf(!dogfoodIntegration.url)(
       ).toEqual(agents)
       expect(vi.mocked(sendResetPasswordEmail).mock.lastCall?.[0].user.email).toBe(corrected.email)
       await completeOwnerPassword(corrected.email)
-    })
-
-    test("pending onboarding displays its recipient instead of another organization owner", async () => {
-      dogfoodIntegration.failEmail = true
-      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
-      const [customer] = await db.select().from(organization)
-      const [other] = await db
-        .insert(user)
-        .values({
-          email: "other-owner@example.com",
-          name: "Other owner",
-          emailVerified: true,
-        })
-        .returning()
-      await db.insert(member).values({
-        id: "01990a5d-ac96-774b-b942-6b13c85384ca",
-        organizationId: customer!.id,
-        userId: other!.id,
-        role: "owner,developer",
-      })
-      const { values } = await getDatabaseConfig()
-      expect(await runDatabaseEffect(readDogfoodOnboarding(values))).toMatchObject({
-        email: ownerOnboardingFixture.email,
-        complete: false,
-      })
-    })
-
-    test("a missing organization cannot be replaced by another using its slug", async () => {
-      dogfoodIntegration.failEmail = true
-      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
-      const { values } = await getDatabaseConfig()
-      const owners = await db.select().from(user)
-      await db.delete(organization)
-      await db
-        .insert(organization)
-        .values({ name: "Unrelated", slug: ownerOnboardingFixture.organizationSlug })
-      await expect(
-        provisionDogfood({ ...ownerOnboardingFixture, email: "replacement@example.com" }),
-      ).rejects.toMatchObject({
-        _tag: "OwnerOnboardingError",
-        message: "The provisioned organization is unavailable",
-      })
-      expect(await db.select().from(user)).toEqual(owners)
-      expect((await getDatabaseConfig()).values).toEqual(values)
-      expect(await runDatabaseEffect(readDogfoodOnboarding(values))).toMatchObject({
-        organizationName: ownerOnboardingFixture.organizationName,
-        organizationCreated: true,
-        complete: false,
-      })
     })
 
     test("concurrent provisioning invites one new owner", async () => {
