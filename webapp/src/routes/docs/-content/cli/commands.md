@@ -4,23 +4,23 @@ This page is the reference for every `astralbeam` command, its output, and its e
 
 ## Global options
 
-| Option             | Effect                                                         |
-| ------------------ | -------------------------------------------------------------- |
-| `--json`           | Print the API's JSON to stdout, and failures as JSON to stderr |
-| `--profile <name>` | Use a stored profile, overriding `ASTRALBEAM_API_KEY`          |
-| `--version`        | Print the CLI version                                          |
+| Option      | Effect                                                         |
+| ----------- | -------------------------------------------------------------- |
+| `--json`    | Print the API's JSON to stdout, and failures as JSON to stderr |
+| `--version` | Print the CLI version                                          |
 
-Credentials resolve in this order: `--profile`, then `ASTRALBEAM_API_KEY`, then the profile named by `ASTRALBEAM_PROFILE`, then the `default` profile. The API URL comes from `ASTRALBEAM_API_URL`, then the profile, then `https://app.astralbeam.ai/api`. `ASTRALBEAM_CONFIG_DIR` moves the profile file.
+`ASTRALBEAM_API_KEY` wins when it is set, with `ASTRALBEAM_API_URL` or `https://app.astralbeam.ai/api` as its URL. Otherwise the CLI uses the login bound to the nearest directory at or above the working directory, and fails when there is none. Every keyed command prints that organization to stderr first, as `▸ <name> (<slug>) · org <id> · bound at <directory>`. API URLs must use `https://`, except for `localhost`. `ASTRALBEAM_CONFIG_DIR` moves the file that holds the bindings.
 
 ## auth
 
 | Command | Does |
 | --- | --- |
-| `auth login [--api-url <url>]` | Read a key from a hidden prompt or stdin, verify it, and store it in the selected profile |
-| `auth logout` | Delete the selected profile |
-| `auth status` | Show the credential source, organization, and API URL, and verify the key |
+| `auth login [--api-url <url>]` | Read a key from a hidden prompt or stdin, verify it, and bind it to the working directory |
+| `auth logout` | Remove the binding that covers the working directory |
+| `auth status` | Show the organization, API URL, and bound directory, and verify the key |
+| `auth list` | List every bound directory and its organization |
 
-The CLI never takes a key as a flag, so it cannot leak into shell history or process listings.
+The CLI never takes a key as a flag, so it cannot leak into shell history or process listings. `login` and `status` store the organization's name and slug as the API reports them, and `status` refreshes them after a rename.
 
 ## tenants
 

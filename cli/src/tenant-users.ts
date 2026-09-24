@@ -42,7 +42,7 @@ export function registerTenantUserCommands(program: Command): void {
     "only stored admins (--no-admin: only non-admins)",
   ).action(
     async (tenantId: string, options: ListOptions & { admin?: boolean }, command: Command) => {
-      const api = await apiOptions(command)
+      const api = await apiOptions()
       const params: ListUsersForTenantParams = listParams(options)
       if (options.admin !== undefined) params["filter[admin]"] = options.admin ? "true" : "false"
       const page = await listPages(params, options.all, (pageParams) =>
@@ -59,7 +59,7 @@ export function registerTenantUserCommands(program: Command): void {
     .argument("<tenant-id>", "internal Tenant ID")
     .argument("<id>", "internal TenantUser ID")
     .action(async (tenantId: string, id: string, _options: object, command: Command) => {
-      const user = await getTenantUser(tenantId, id, await apiOptions(command))
+      const user = await getTenantUser(tenantId, id, await apiOptions())
       printResult(user, globalOptions(command).json)
     })
 
@@ -80,7 +80,7 @@ export function registerTenantUserCommands(program: Command): void {
       command: Command,
     ) => {
       const input = { external_id: options.externalId, ...tenantUserWriteInput(options) }
-      const user = await createTenantUser(tenantId, input, await apiOptions(command))
+      const user = await createTenantUser(tenantId, input, await apiOptions())
       printResult(user, globalOptions(command).json)
     },
   )
@@ -101,7 +101,7 @@ export function registerTenantUserCommands(program: Command): void {
       if (Object.keys(input).length === 0) {
         command.error("Pass --name, --clear-name, --metadata, --admin, or --no-admin.")
       }
-      const user = await updateTenantUser(tenantId, id, input, await apiOptions(command))
+      const user = await updateTenantUser(tenantId, id, input, await apiOptions())
       printResult(user, globalOptions(command).json)
     },
   )

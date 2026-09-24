@@ -142,6 +142,13 @@ export interface UpdateTenantUserInput {
   admin?: boolean
 }
 
+export interface Organization {
+  id: string
+  name: string
+  /** Editable dashboard URL segment. Use id, not slug, as the stable identity. */
+  slug: string
+}
+
 export type ChatRunInputForwardedProps = { [key: string]: unknown }
 
 /**
@@ -523,6 +530,21 @@ export const updateTenantUser = (
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(updateTenantUserInput),
+  })
+}
+
+export const getGetOrganizationUrl = () => {
+  return `/api/v1/organization`
+}
+
+/**
+ * Return the id, name, and slug of the Organization that owns the credential. Accepts an organization API key or organization-management JWT, including a viewer's. Tenant JWTs are forbidden.
+ * @summary Get the current Organization
+ */
+export const getOrganization = (options: Parameters<typeof astralBeamApiFetch>[1]) => {
+  return astralBeamApiFetch<Organization>(getGetOrganizationUrl(), {
+    ...options,
+    method: "GET",
   })
 }
 

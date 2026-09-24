@@ -44,7 +44,7 @@ export function registerTenantCommands(program: Command): void {
 
   addListOptions(tenants.command("list").description("List Tenants in internal ID order")).action(
     async (options: ListOptions, command: Command) => {
-      const api = await apiOptions(command)
+      const api = await apiOptions()
       const page = await listPages(listParams(options), options.all, (params) =>
         listTenants(params, api),
       )
@@ -57,7 +57,7 @@ export function registerTenantCommands(program: Command): void {
     .description("Show one Tenant by its internal ID")
     .argument("<id>", "internal Tenant ID")
     .action(async (id: string, _options: object, command: Command) => {
-      printResult(await getTenant(id, await apiOptions(command)), globalOptions(command).json)
+      printResult(await getTenant(id, await apiOptions()), globalOptions(command).json)
     })
 
   addRecordWriteOptions(
@@ -68,7 +68,7 @@ export function registerTenantCommands(program: Command): void {
     false,
   ).action(async (options: RecordWriteOptions & { externalId: string }, command: Command) => {
     const input = { external_id: options.externalId, ...recordWriteInput(options) }
-    printResult(await createTenant(input, await apiOptions(command)), globalOptions(command).json)
+    printResult(await createTenant(input, await apiOptions()), globalOptions(command).json)
   })
 
   addRecordWriteOptions(
@@ -80,9 +80,6 @@ export function registerTenantCommands(program: Command): void {
   ).action(async (id: string, options: RecordWriteOptions, command: Command) => {
     const input = recordWriteInput(options)
     if (Object.keys(input).length === 0) command.error("Pass --name, --clear-name, or --metadata.")
-    printResult(
-      await updateTenant(id, input, await apiOptions(command)),
-      globalOptions(command).json,
-    )
+    printResult(await updateTenant(id, input, await apiOptions()), globalOptions(command).json)
   })
 }

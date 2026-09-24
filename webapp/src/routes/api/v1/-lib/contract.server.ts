@@ -6,6 +6,7 @@ import { tenantApi } from "./tenant.server"
 import { tenantUserApi } from "./tenant-user.server"
 
 import { currentUserApi } from "./current-user.server"
+import { organizationApi } from "./organization.server"
 
 export const ApiV1 = HttpApi.make("ApiV1")
   .add(
@@ -13,6 +14,9 @@ export const ApiV1 = HttpApi.make("ApiV1")
       .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
       .middleware(RestAuthorization),
     tenantUserApi
+      .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
+      .middleware(RestAuthorization),
+    organizationApi
       .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
       .middleware(RestAuthorization),
     chatApi,

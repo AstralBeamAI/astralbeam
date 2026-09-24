@@ -16,7 +16,7 @@ Restart the agent session so it loads the skill. The agent then reaches for the 
 
 ## 2. Give the agent credentials
 
-Never paste an API key into a prompt, where it lands in the transcript. Give the agent's shell the key instead, through a profile you stored with `astralbeam auth login` or through `ASTRALBEAM_API_KEY` in its environment. The skill tells the agent to check them with `astralbeam auth status --json`, and never to print a key or pass one as a flag.
+Never paste an API key into a prompt, where it lands in the transcript. Give the agent's shell the key instead, by running `astralbeam auth login` yourself in the project directory the agent works in, or through `ASTRALBEAM_API_KEY` in its environment. The agent then acts on the organization bound to that directory, and the skill tells it to check the organization line each command prints before writing anything. The skill tells the agent to check them with `astralbeam auth status --json`, and never to print a key or pass one as a flag.
 
 **NOTE**: An organization API key can create and update every Tenant and TenantUser, and can sign chat tokens as any of them. Give an agent a dedicated key you can delete, and prefer a staging organization or a self-hosted deployment for experiments. See [API keys](/docs/dashboard/api-keys).
 

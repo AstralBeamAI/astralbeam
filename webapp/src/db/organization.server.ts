@@ -24,6 +24,19 @@ const decodeOrganizationMembership = Schema.decodeUnknownEffect(OrganizationMemb
   onExcessProperty: "error",
 })
 
+/** The display identity of an organization whose ID came from a verified credential. */
+export function readOrganizationSummary(organizationId: string) {
+  return Effect.gen(function* () {
+    const db = yield* effectDatabase
+    const [row] = yield* db
+      .select({ id: organization.id, name: organization.name, slug: organization.slug })
+      .from(organization)
+      .where(eq(organization.id, organizationId))
+      .limit(1)
+    return row
+  })
+}
+
 export function isLastOrganizationApiKey(keyId: string) {
   return Effect.gen(function* () {
     const db = yield* effectDatabase

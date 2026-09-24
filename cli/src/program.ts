@@ -11,9 +11,8 @@ import { registerTokenCommands } from "./token.ts"
 
 const HELP_FOOTER = `
 Environment:
-  ASTRALBEAM_API_KEY     organization API key, used instead of a stored profile
-  ASTRALBEAM_API_URL     API base URL (default ${DEFAULT_API_URL})
-  ASTRALBEAM_PROFILE     stored profile name (default "default")
+  ASTRALBEAM_API_KEY     organization API key, used instead of directory logins
+  ASTRALBEAM_API_URL     API base URL for ASTRALBEAM_API_KEY and login (default ${DEFAULT_API_URL})
   ASTRALBEAM_CONFIG_DIR  directory holding config.json
 
 Exit codes: 0 success, 1 API or runtime failure, 2 invalid usage.
@@ -30,7 +29,6 @@ export async function run(argv: readonly string[]): Promise<number> {
     )
     .version(packageJson.version)
     .option("--json", "print JSON to stdout, and failures as JSON to stderr")
-    .option("--profile <name>", "stored profile to use, overriding ASTRALBEAM_API_KEY")
     .addHelpText("after", HELP_FOOTER)
     .showHelpAfterError()
     .exitOverride()

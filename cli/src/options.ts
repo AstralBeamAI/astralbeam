@@ -8,6 +8,15 @@ export function positiveInteger(value: string): number {
   return number
 }
 
+/** A token lifetime, within the 60-600 seconds the API accepts. */
+export function lifetimeSeconds(value: string): number {
+  const number = Number(value)
+  if (!Number.isInteger(number) || number < 60 || number > 600) {
+    throw new InvalidArgumentError("Expected a whole number of seconds from 60 to 600.")
+  }
+  return number
+}
+
 export function jsonObject(value: string): Record<string, unknown> {
   let parsed: unknown
   try {

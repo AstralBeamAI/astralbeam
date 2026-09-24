@@ -5,9 +5,23 @@ export function printJson(value: unknown): void {
   stdout.write(`${JSON.stringify(value, null, 2)}\n`)
 }
 
+/**
+ * Escapes C0 and C1 control characters, other than those in `keep`, so API or agent text cannot
+ * drive the terminal with escape sequences. JSON output needs no escaping.
+ */
+export function terminalSafe(text: string, keep = ""): string {
+  let safe = ""
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0
+    const control = code < 0x20 || (code >= 0x7f && code < 0xa0)
+    safe += control && !keep.includes(char) ? `\\u${code.toString(16).padStart(4, "0")}` : char
+  }
+  return safe
+}
+
 function cell(value: unknown): string {
   if (value === null || value === undefined) return ""
-  return typeof value === "string" ? value : JSON.stringify(value)
+  return terminalSafe(typeof value === "string" ? value : JSON.stringify(value))
 }
 
 /** One `key  value` line per field, for a single record in human-readable mode. */
@@ -46,10 +60,10 @@ export function printError(error: unknown, json: boolean): void {
     return
   }
   const status = isAstralBeamApiError(error) ? ` (HTTP ${error.status})` : ""
-  stderr.write(`Error: ${message}${status}\n`)
+  stderr.write(`Error: ${terminalSafe(message)}${status}\n`)
   if (isAstralBeamApiError(error)) {
     for (const issue of error.body?.issues ?? []) {
-      stderr.write(`  ${issue.path}: ${issue.message}\n`)
+      stderr.write(`  ${terminalSafe(issue.path)}: ${terminalSafe(issue.message)}\n`)
     }
   }
 }

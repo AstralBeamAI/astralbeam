@@ -7,7 +7,7 @@ import {
 import type { Command } from "commander"
 import { stdout } from "node:process"
 import { globalOptions, organizationIdFromApiKey, resolveCredentials } from "./config.ts"
-import { positiveInteger } from "./options.ts"
+import { lifetimeSeconds } from "./options.ts"
 import { printJson } from "./output.ts"
 
 export interface IdentityOptions {
@@ -27,7 +27,7 @@ export function addIdentityOptions(command: Command): Command {
     .option("--tenant-name <name>", "Tenant display name")
     .option("--user-name <name>", "TenantUser display name")
     .option("--admin", "sign user.admin: true, granting Tenant admin API access")
-    .option("--expires-in <seconds>", "token lifetime, 60-600 (default 300)", positiveInteger)
+    .option("--expires-in <seconds>", "token lifetime, 60-600 (default 300)", lifetimeSeconds)
 }
 
 export function chatIdentity(options: IdentityOptions): { tenant: Tenant; user: TenantUser } {
@@ -60,7 +60,7 @@ export function registerTokenCommands(program: Command): void {
       .command("chat")
       .description("Mint a chat JWT for a Tenant's user, as a token endpoint would"),
   ).action(async (options: IdentityOptions, command: Command) => {
-    const { apiKey } = await resolveCredentials(globalOptions(command).profile)
+    const { apiKey } = await resolveCredentials()
     const expiresInSeconds = options.expiresIn ?? 300
     const jwt = await createAstralBeamToken({ apiKey, expiresInSeconds, ...chatIdentity(options) })
     printToken(jwt, expiresInSeconds, globalOptions(command).json)
@@ -70,9 +70,9 @@ export function registerTokenCommands(program: Command): void {
     .command("organization")
     .description("Mint an organization-management JWT delegating a member's current role")
     .requiredOption("--email <email>", "email of an existing member of the organization")
-    .option("--expires-in <seconds>", "token lifetime, 60-600 (default 300)", positiveInteger)
+    .option("--expires-in <seconds>", "token lifetime, 60-600 (default 300)", lifetimeSeconds)
     .action(async (options: { email: string; expiresIn?: number }, command: Command) => {
-      const { apiKey } = await resolveCredentials(globalOptions(command).profile)
+      const { apiKey } = await resolveCredentials()
       const expiresInSeconds = options.expiresIn ?? 300
       const jwt = await createAstralBeamOrganizationToken({
         apiKey,

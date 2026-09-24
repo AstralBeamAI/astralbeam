@@ -4,7 +4,7 @@ import type { Command } from "commander"
 import { stderr, stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import { globalOptions, resolveCredentials } from "./config.ts"
-import { printJson } from "./output.ts"
+import { printJson, terminalSafe } from "./output.ts"
 import { addIdentityOptions, chatIdentity, type IdentityOptions } from "./token.ts"
 
 type Message = ReturnType<AstralBeamChatCore["getState"]>["messages"][number]
@@ -29,13 +29,13 @@ async function sendChatMessage(chat: AstralBeamChatCore, content: string, json: 
     const messages = chat.getState().messages.slice(start)
     const text = replyText(messages)
     if (text.startsWith(printed)) {
-      stdout.write(text.slice(printed.length))
+      stdout.write(terminalSafe(text.slice(printed.length), "\n\t"))
       printed = text
     }
     for (const part of messages.flatMap((message) => message.parts)) {
       if (part.type !== "tool-call" || announcedTools.has(part.id)) continue
       announcedTools.add(part.id)
-      stderr.write(`[tool ${part.name}]\n`)
+      stderr.write(`[tool ${terminalSafe(part.name)}]\n`)
     }
   })
   try {
@@ -85,8 +85,8 @@ export function registerChatCommand(program: Command): void {
       options: IdentityOptions & { agent?: string },
       command: Command,
     ) => {
-      const { json, profile } = globalOptions(command)
-      const { apiKey, apiUrl } = await resolveCredentials(profile)
+      const { json } = globalOptions(command)
+      const { apiKey, apiUrl } = await resolveCredentials()
       const expiresInSeconds = options.expiresIn ?? 300
       const identity = chatIdentity(options)
       const chat = createAstralBeamChat({

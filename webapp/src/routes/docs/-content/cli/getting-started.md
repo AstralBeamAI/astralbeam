@@ -28,31 +28,38 @@ mv astralbeam-v0.12.0-macos-arm64 /usr/local/bin/astralbeam
 
 ## 2. Sign in
 
-As an owner or developer, open **API keys** in the dashboard and create a key. See [API keys](/docs/dashboard/api-keys). Then run this command and paste the full `key_…_abo_…` value when it asks:
+As an owner or developer, open **API keys** in the dashboard and create a key. See [API keys](/docs/dashboard/api-keys). Logins belong to directories, so first move to the directory where you work on this organization, such as its application's repository. Then run this command and paste the full `key_…_abo_…` value when it asks:
 
 ```sh
+cd ~/work/acme
 astralbeam auth login
 ```
 
-The prompt hides what you paste. Because `login` lists one Tenant before saving anything, a mistyped key or a wrong server fails here rather than on your next command. It then writes the key to `~/.config/astralbeam/config.json`, or `%APPDATA%\astralbeam\config.json` on Windows, readable only by you.
+The prompt hides what you paste. Because `login` reads the organization's name and slug from the API before saving anything, a mistyped key or a wrong server fails here rather than on your next command. It then binds the key to this directory and everything below it, in `~/.config/astralbeam/config.json` or `%APPDATA%\astralbeam\config.json` on Windows, readable only by you. Nothing is written into the directory itself.
 
-For a self-hosted deployment, pass its `/api` base and a profile name so the hosted key stays separate:
+For a self-hosted deployment, pass its `/api` base. It must use `https://`, except for `localhost`:
 
 ```sh
-astralbeam auth login --profile self-hosted --api-url https://beam.example.com/api
+astralbeam auth login --api-url https://beam.example.com/api
 ```
 
-Then select that profile with `--profile self-hosted` on any command, or set `ASTRALBEAM_PROFILE=self-hosted`.
+Every command now uses the nearest bound directory at or above the one it runs in, and names that organization on stderr before its output:
 
-**TIP**: In CI, skip `login` and set `ASTRALBEAM_API_KEY`, plus `ASTRALBEAM_API_URL` when self-hosting. Nothing is written to disk.
+```text
+▸ Acme (acme) · org 01990a5d-… · bound at ~/work/acme
+```
 
-Check which credentials the CLI will use:
+To manage a second organization, log in again from its own directory. A directory with no bound ancestor fails with exit code 1 rather than falling back to some other organization.
+
+**TIP**: In CI, skip `login` and set `ASTRALBEAM_API_KEY`, plus `ASTRALBEAM_API_URL` when self-hosting. The key overrides any directory binding, and nothing is written to disk.
+
+Check the organization commands here will use:
 
 ```sh
 astralbeam auth status
 ```
 
-It prints the source, the organization ID, the API URL, and a masked key, and exits with code 1 if the API rejects the key.
+It prints the organization, API URL, bound directory, and a masked key, and exits with code 1 if the API rejects the key. `astralbeam auth list` shows every bound directory.
 
 ## 3. Create a Tenant and a user
 

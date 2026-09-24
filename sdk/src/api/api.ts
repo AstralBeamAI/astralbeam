@@ -64,9 +64,12 @@ async function apiResponse(path: string, options: ApiOptions | FileOptions): Pro
   headers.delete("x-api-key")
   if (apiKey) headers.set("x-api-key", apiKey)
   if (astralBeamToken) headers.set("authorization", `Bearer ${astralBeamToken}`)
+  // Fetch drops Authorization on a cross-origin redirect but forwards custom headers like X-API-Key.
+  // https://fetch.spec.whatwg.org/#http-redirect-fetch
   const response = await fetchClient(resolveApiUrl(path, apiUrl), {
     ...init,
     headers,
+    ...(apiKey ? { redirect: "error" as const } : {}),
   })
   if (response.ok) return response
   const value: unknown = await response.json().catch((error: unknown) => {

@@ -4,6 +4,7 @@ import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { ApiV1 } from "./contract.server"
 import { ApiBoundary, RestAuthorization, restScope } from "./shared.server"
 import { currentUserHandlers } from "./current-user.server"
+import { organizationHandlers } from "./organization.server"
 import { chatHandlers } from "../chat/-lib/chat.server"
 import { authenticateRestRequest } from "./auth.server"
 import { tenantHandlers } from "./tenant.server"
@@ -89,6 +90,7 @@ export const apiV1WebHandler = HttpRouter.toWebHandler(
       tenantUserHandlers(ApiV1),
       chatHandlers(ApiV1),
       currentUserHandlers(ApiV1),
+      organizationHandlers(ApiV1),
     ]),
     Layer.provide([ApiBoundaryLive, RestAuthorizationLive]),
     Layer.provide(RestDatabaseLayer),
