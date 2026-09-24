@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as DocsRouteRouteImport } from './routes/docs/route'
+import { Route as DocsDotmdRouteImport } from './routes/docs[.]md'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedOrgSlugRouteRouteImport } from './routes/_authenticated/$orgSlug/route'
@@ -40,6 +41,7 @@ import { Route as AuthenticatedOrgSlugTenantsIndexRouteImport } from './routes/_
 import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
 import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
 import { Route as DocsSectionPageIndexRouteImport } from './routes/docs/$section/$page/index'
+import { Route as DocsSectionChar123pageChar125DotmdIndexRouteImport } from './routes/docs/$section/{$page}[.]md/index'
 import { Route as AuthenticatedOrgSlugAgentsAgentIdIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/$agentId/index'
 import { Route as AuthenticatedOrgSlugAgentsNewIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/new/index'
 import { Route as AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/index'
@@ -52,6 +54,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const DocsRouteRoute = DocsRouteRouteImport.update({
   id: '/docs',
   path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsDotmdRoute = DocsDotmdRouteImport.update({
+  id: '/docs.md',
+  path: '/docs.md',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
@@ -213,6 +220,12 @@ const DocsSectionPageIndexRoute = DocsSectionPageIndexRouteImport.update({
   path: '/$section/$page/',
   getParentRoute: () => DocsRouteRoute,
 } as any)
+const DocsSectionChar123pageChar125DotmdIndexRoute =
+  DocsSectionChar123pageChar125DotmdIndexRouteImport.update({
+    id: '/$section/{$page}.md/',
+    path: '/$section/{$page}.md/',
+    getParentRoute: () => DocsRouteRoute,
+  } as any)
 const AuthenticatedOrgSlugAgentsAgentIdIndexRoute =
   AuthenticatedOrgSlugAgentsAgentIdIndexRouteImport.update({
     id: '/agents/$agentId/',
@@ -241,6 +254,7 @@ const AuthenticatedOrgSlugSandboxesNewIndexRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/docs': typeof DocsRouteRouteWithChildren
+  '/docs.md': typeof DocsDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/$orgSlug': typeof AuthenticatedOrgSlugRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
@@ -269,12 +283,14 @@ export interface FileRoutesByFullPath {
   '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
+  '/docs/$section/{$page}.md/': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/$orgSlug/agents/$agentId/': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/$orgSlug/agents/new/': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   '/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
 }
 export interface FileRoutesByTo {
+  '/docs.md': typeof DocsDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
@@ -303,6 +319,7 @@ export interface FileRoutesByTo {
   '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page': typeof DocsSectionPageIndexRoute
+  '/docs/$section/{$page}.md': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/$orgSlug/agents/$agentId': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/$orgSlug/agents/new': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   '/$orgSlug/sandboxes/$sandboxProviderId': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
@@ -312,6 +329,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/docs': typeof DocsRouteRouteWithChildren
+  '/docs.md': typeof DocsDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/_authenticated/$orgSlug': typeof AuthenticatedOrgSlugRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
@@ -341,6 +359,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
   '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
   '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
+  '/docs/$section/{$page}.md/': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/_authenticated/$orgSlug/agents/$agentId/': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/_authenticated/$orgSlug/agents/new/': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
@@ -351,6 +370,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/docs'
+    | '/docs.md'
     | '/robots.txt'
     | '/$orgSlug'
     | '/settings'
@@ -379,12 +399,14 @@ export interface FileRouteTypes {
     | '/settings/account/'
     | '/settings/security/'
     | '/docs/$section/$page/'
+    | '/docs/$section/{$page}.md/'
     | '/$orgSlug/agents/$agentId/'
     | '/$orgSlug/agents/new/'
     | '/$orgSlug/sandboxes/$sandboxProviderId/'
     | '/$orgSlug/sandboxes/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/docs.md'
     | '/robots.txt'
     | '/settings'
     | '/api/status'
@@ -413,6 +435,7 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/security'
     | '/docs/$section/$page'
+    | '/docs/$section/{$page}.md'
     | '/$orgSlug/agents/$agentId'
     | '/$orgSlug/agents/new'
     | '/$orgSlug/sandboxes/$sandboxProviderId'
@@ -421,6 +444,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/docs'
+    | '/docs.md'
     | '/robots.txt'
     | '/_authenticated/$orgSlug'
     | '/_authenticated/settings'
@@ -450,6 +474,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/account/'
     | '/_authenticated/settings/security/'
     | '/docs/$section/$page/'
+    | '/docs/$section/{$page}.md/'
     | '/_authenticated/$orgSlug/agents/$agentId/'
     | '/_authenticated/$orgSlug/agents/new/'
     | '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/'
@@ -459,6 +484,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   DocsRouteRoute: typeof DocsRouteRouteWithChildren
+  DocsDotmdRoute: typeof DocsDotmdRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   ApiStatusRoute: typeof ApiStatusRoute
   DevSplatRoute: typeof DevSplatRoute
@@ -484,6 +510,13 @@ declare module '@tanstack/react-router' {
       path: '/docs'
       fullPath: '/docs'
       preLoaderRoute: typeof DocsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs.md': {
+      id: '/docs.md'
+      path: '/docs.md'
+      fullPath: '/docs.md'
+      preLoaderRoute: typeof DocsDotmdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/robots.txt': {
@@ -689,6 +722,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSectionPageIndexRouteImport
       parentRoute: typeof DocsRouteRoute
     }
+    '/docs/$section/{$page}.md/': {
+      id: '/docs/$section/{$page}.md/'
+      path: '/$section/{$page}.md'
+      fullPath: '/docs/$section/{$page}.md/'
+      preLoaderRoute: typeof DocsSectionChar123pageChar125DotmdIndexRouteImport
+      parentRoute: typeof DocsRouteRoute
+    }
     '/_authenticated/$orgSlug/agents/$agentId/': {
       id: '/_authenticated/$orgSlug/agents/$agentId/'
       path: '/agents/$agentId'
@@ -809,6 +849,7 @@ interface DocsRouteRouteChildren {
   DocsSectionIndexRoute: typeof DocsSectionIndexRoute
   DocsApiIndexRoute: typeof DocsApiIndexRoute
   DocsSectionPageIndexRoute: typeof DocsSectionPageIndexRoute
+  DocsSectionChar123pageChar125DotmdIndexRoute: typeof DocsSectionChar123pageChar125DotmdIndexRoute
 }
 
 const DocsRouteRouteChildren: DocsRouteRouteChildren = {
@@ -817,6 +858,8 @@ const DocsRouteRouteChildren: DocsRouteRouteChildren = {
   DocsSectionIndexRoute: DocsSectionIndexRoute,
   DocsApiIndexRoute: DocsApiIndexRoute,
   DocsSectionPageIndexRoute: DocsSectionPageIndexRoute,
+  DocsSectionChar123pageChar125DotmdIndexRoute:
+    DocsSectionChar123pageChar125DotmdIndexRoute,
 }
 
 const DocsRouteRouteWithChildren = DocsRouteRoute._addFileChildren(
@@ -826,6 +869,7 @@ const DocsRouteRouteWithChildren = DocsRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   DocsRouteRoute: DocsRouteRouteWithChildren,
+  DocsDotmdRoute: DocsDotmdRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   ApiStatusRoute: ApiStatusRoute,
   DevSplatRoute: DevSplatRoute,

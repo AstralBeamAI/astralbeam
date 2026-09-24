@@ -4,7 +4,10 @@ import { APP_NAME } from "@/lib/constants"
 import { DOCS_SECTIONS, publishedDocsPages } from "./-lib/content"
 
 export const Route = createFileRoute("/docs/")({
-  head: () => ({ meta: [{ title: `Docs · ${APP_NAME}` }] }),
+  head: () => ({
+    meta: [{ title: `Docs · ${APP_NAME}` }],
+    links: [{ rel: "alternate", type: "text/markdown", href: "/docs.md" }],
+  }),
   component: DocsHomePage,
 })
 

@@ -11,6 +11,7 @@ export const RESERVED_ORGANIZATION_SLUGS = [
   "configure",
   "dev",
   "docs",
+  "docs.md",
   "favicon.ico",
   "invitations",
   "invite",

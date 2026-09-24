@@ -20,8 +20,15 @@ export const Route = createFileRoute("/docs/$section/$page/")({
     if (!section || !page) throw notFound()
     return { pageTitle: page.title, markdown: await loadDocsMarkdown(section.slug, page.slug) }
   },
-  head: ({ loaderData }) => ({
+  head: ({ loaderData, params }) => ({
     meta: [{ title: `${loaderData?.pageTitle} · Docs · ${APP_NAME}` }],
+    links: [
+      {
+        rel: "alternate",
+        type: "text/markdown",
+        href: `/docs/${params.section}/${params.page}.md`,
+      },
+    ],
   }),
   component: DocsArticlePage,
 })
