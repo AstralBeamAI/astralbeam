@@ -50,8 +50,8 @@ export function printTable(rows: readonly object[], columns: readonly string[]):
 }
 
 /**
- * Writes a failure to stderr. In JSON mode that is one object holding the API's problem body and,
- * once credentials resolved, the organization `context`.
+ * Writes a failure to stderr. In JSON mode that is one object holding the API's problem body and
+ * the organization `context`, null until credentials resolve.
  */
 export function printError(error: unknown, json: boolean, context?: object): void {
   const message = error instanceof Error ? error.message : String(error)
@@ -59,7 +59,7 @@ export function printError(error: unknown, json: boolean, context?: object): voi
     const body = isAstralBeamApiError(error)
       ? (error.body ?? { status: error.status, detail: message })
       : { detail: message }
-    stderr.write(`${JSON.stringify({ error: body, ...(context ? { context } : {}) })}\n`)
+    stderr.write(`${JSON.stringify({ error: body, context: context ?? null })}\n`)
     return
   }
   const status = isAstralBeamApiError(error) ? ` (HTTP ${error.status})` : ""

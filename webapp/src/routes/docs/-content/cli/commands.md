@@ -89,7 +89,7 @@ See [Coding agents](./coding-agents.md).
 
 Without `--json`, lists print as tables and records as `key value` lines. With `--json`, stdout carries exactly what the API returned: a record, or a page with `items`, `page_after`, and `page_before`. `token` prints `{ "token", "expires_at" }`, and `chat` prints `{ "messages": [...] }` with the turn's user and assistant messages.
 
-Failures always go to stderr. With `--json`, stderr holds exactly one JSON object: `{"context": {...}}` on success, or `{"error": {...}, "context": {...}}` on failure, where `error` holds the API's problem details with `status`, `title`, `detail`, and any field `issues`. `context` is `{ "organization", "bound_directory" }`, with `bound_directory` null for `ASTRALBEAM_API_KEY`, and is absent when a command failed before resolving credentials.
+Failures always go to stderr. With `--json`, stderr holds exactly one JSON object: `{"context": {...}}` on success, or `{"error": {...}, "context": {...}}` on failure, where `error` holds the API's problem details with `status`, `title`, `detail`, and any field `issues`. `context` is `{ "organization", "bound_directory" }`, with `bound_directory` null for `ASTRALBEAM_API_KEY`, and `context` itself is null when a command uses no credentials or failed before resolving them.
 
 | Exit code | Meaning                                                            |
 | --------- | ------------------------------------------------------------------ |

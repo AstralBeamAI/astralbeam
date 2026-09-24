@@ -82,6 +82,10 @@ test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
     return (JSON.parse(stderr) as { error: { detail: string } }).error.detail
   }
 
+  // Commands that need no credentials still end with one object, with a null context.
+  expect(await cli("--json", "skill")).toBe(0)
+  expect(JSON.parse(stderr)).toEqual({ context: null })
+
   expect(await usageError("tenants", "create")).toMatch(/--external-id/)
   expect(await usageError("tenants", "update", "id", "--metadata", "nope")).toMatch(/JSON object/)
   // Following page_after from a page_before request would send both cursors.

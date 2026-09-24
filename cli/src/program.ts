@@ -43,7 +43,7 @@ export async function run(argv: readonly string[]): Promise<number> {
   Object.assign(runState, { json, context: undefined })
   try {
     await program.parseAsync(argv)
-    if (json && runState.context) stderr.write(`${JSON.stringify({ context: runState.context })}\n`)
+    if (json) stderr.write(`${JSON.stringify({ context: runState.context ?? null })}\n`)
     return 0
   } catch (error) {
     if (!(error instanceof CommanderError)) {
@@ -57,7 +57,7 @@ export async function run(argv: readonly string[]): Promise<number> {
         error.code === "commander.help"
           ? "Missing subcommand."
           : error.message.replace(/^error: /, "")
-      printError(new Error(detail), true)
+      printError(new Error(detail), true, runState.context)
     }
     return 2
   }
