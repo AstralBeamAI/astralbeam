@@ -51,7 +51,7 @@ vi.mock("@/emails/index", () => ({
   sendVerificationEmail: vi.fn(),
 }))
 
-import { db, runDatabaseEffect } from "@/db"
+import { getAuthDatabase, runDatabaseEffect } from "@/db"
 import { getDatabaseConfig } from "@/db/config.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
@@ -122,7 +122,9 @@ async function completeOwnerPassword(email = ownerOnboardingFixture.email) {
 describe.skipIf(!dogfoodIntegration.url)(
   "owner provisioning with PostgreSQL and Better Auth",
   () => {
+    let db: ReturnType<typeof getAuthDatabase>
     beforeEach(async () => {
+      db = getAuthDatabase()
       // The URL guard runs before any database module is imported.
       await db.execute(sql`truncate "config", "organization", "user" cascade`)
       process.env.DATABASE_ENCRYPTION_KEY = "dogfood-integration-encryption-key-not-for-production"

@@ -4,6 +4,7 @@ import { RateLimiter } from "effect/unstable/persistence"
 import type { SQL } from "drizzle-orm"
 import { PgDialect } from "drizzle-orm/pg-core"
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest"
+
 import { type EffectDatabase, runDatabaseEffect } from "@/db"
 import { listTenants } from "@/db/tenant.server"
 import { organization } from "@/db/schema/organizations.server"
@@ -129,7 +130,7 @@ vi.mock("@/lib/sandbox/factory.server", () => ({
     }),
 }))
 
-import { apiV1WebHandler, dispatchRestRequest } from "./transport.server"
+import { getApiV1WebHandler, dispatchRestRequest } from "./transport.server"
 import { authenticateRestRequest } from "./auth.server"
 import { OrganizationMembershipError } from "@/lib/organization-token.server"
 import { ApiV1 } from "./contract.server"
@@ -226,7 +227,7 @@ describe("REST API through the Effect Fetch handler", () => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
   })
-  afterAll(() => apiV1WebHandler.dispose())
+  afterAll(() => getApiV1WebHandler().dispose())
 
   test("current-user synchronization provisions non-admin identities before chat and exposes only public fields", async () => {
     restTestState.chat.mockResolvedValue({

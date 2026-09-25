@@ -1,5 +1,9 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Schema } from "effect"
+
+import { updateGlobalConfig } from "@/lib/config/update.server"
+import { findConfigDefinition } from "@/lib/config/registry.server"
+import { withConfigureError } from "../-lib/configure-error.server"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
 const GenerateConfigValueInput = Schema.Struct({
@@ -15,9 +19,6 @@ export const generateConfigValue = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(Schema.toStandardSchemaV1(GenerateConfigValueInput))
   .handler(async ({ data }): Promise<GenerateConfigValueResult> => {
-    const { findConfigDefinition } = await import("@/lib/config/registry.server")
-    const { updateGlobalConfig } = await import("@/lib/config/update.server")
-    const { withConfigureError } = await import("../-lib/configure-error.server")
     const definition = findConfigDefinition(data.key)
     const generate = definition?.generate
     if (!definition || definition.systemManaged || !generate) {

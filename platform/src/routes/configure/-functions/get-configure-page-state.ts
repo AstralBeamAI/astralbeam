@@ -1,31 +1,31 @@
 import { createServerFn } from "@tanstack/react-start"
 
+import { readDogfoodOnboarding } from "@/lib/dogfood/provisioning.server"
+import { runDatabaseEffect } from "@/db"
+import { getGlobalConfigState } from "@/lib/config/runtime.server"
+import { getDatabaseMigrationState } from "@/db/migration-runner.server"
+import {
+  getDatabaseBootstrapIssues,
+  getDatabaseEncryptionKeyring,
+} from "@/db/lib/database-credentials.server"
+import {
+  CONFIG_DEFINITIONS,
+  configEnvironmentVariable,
+  environmentConfigOverrideKeys,
+} from "@/lib/config/registry.server"
+import { withConfigureError } from "../-lib/configure-error.server"
+import { requireConfigureRequest } from "../-lib/configure-request.server"
+import { getOperatorSession } from "../-lib/operator-session.server"
 import type { ConfigureField, ConfigurePageState } from "../-lib/types"
 
 export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
   async (): Promise<ConfigurePageState> => {
-    const { requireConfigureRequest } = await import("../-lib/configure-request.server")
     requireConfigureRequest()
-    const { getDatabaseBootstrapIssues, getDatabaseEncryptionKeyring } =
-      await import("@/db/lib/database-credentials.server")
     const bootstrapIssues = getDatabaseBootstrapIssues()
     if (bootstrapIssues.length > 0) return { status: "unavailable", bootstrapIssues }
 
-    const { getOperatorSession } = await import("../-lib/operator-session.server")
     const session = await getOperatorSession()
     if (!session) return { status: "signed-out" }
-
-    const [
-      { CONFIG_DEFINITIONS, configEnvironmentVariable, environmentConfigOverrideKeys },
-      { getGlobalConfigState },
-      { getDatabaseMigrationState },
-      { withConfigureError },
-    ] = await Promise.all([
-      import("@/lib/config/registry.server"),
-      import("@/lib/config/runtime.server"),
-      import("@/db/migration-runner.server"),
-      import("../-lib/configure-error.server"),
-    ])
 
     const [migrationState, configState] = await Promise.all([
       withConfigureError("Migration state could not be loaded", getDatabaseMigrationState),
@@ -62,8 +62,6 @@ export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
         value: definition.kind === "secret" ? null : (effectiveValues[definition.key] ?? null),
       }
     })
-    const { readDogfoodOnboarding } = await import("@/lib/dogfood/provisioning.server")
-    const { runDatabaseEffect } = await import("@/db")
     const onboarding =
       migrationState.pending.length === 0
         ? await withConfigureError("Owner onboarding could not be read", () =>

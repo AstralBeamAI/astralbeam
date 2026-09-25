@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router"
+
 import { APP_NAME, APP_WORDMARK_DARK_SVG_URL, APP_WORDMARK_LIGHT_SVG_URL } from "@/lib/constants"
 import { findDocsSection } from "../-lib/content"
+import { apiDocsHtml } from "../-lib/scalar.server"
 
 export const Route = createFileRoute("/docs/api/")({
   server: {
     handlers: {
-      GET: async () => {
-        const { apiDocsHtml } = await import("../-lib/scalar.server")
+      GET: () => {
         const { title } = findDocsSection("api")!
         const html = apiDocsHtml().replace(
           "<body>",

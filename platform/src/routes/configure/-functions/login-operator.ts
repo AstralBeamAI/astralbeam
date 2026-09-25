@@ -2,6 +2,15 @@ import { createServerFn } from "@tanstack/react-start"
 import { setResponseHeader } from "@tanstack/react-start/server"
 import { Schema } from "effect"
 
+import {
+  clearOperatorLoginRateLimit,
+  consumeOperatorLoginRateLimit,
+} from "../-lib/login-rate-limit.server"
+import { runDatabaseEffect } from "@/db"
+import { requireConfigureRequest } from "../-lib/configure-request.server"
+import { checkOperatorKey } from "../-lib/operator-credentials.server"
+import { createOperatorSession, setOperatorSessionCookie } from "../-lib/operator-session.server"
+
 const OperatorLoginInput = Schema.Struct({
   key: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1_024))),
 })
@@ -14,13 +23,6 @@ interface OperatorLoginResult {
 export const loginOperator = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(OperatorLoginInput))
   .handler(async ({ data }): Promise<OperatorLoginResult> => {
-    const { requireConfigureRequest } = await import("../-lib/configure-request.server")
-    const { checkOperatorKey } = await import("../-lib/operator-credentials.server")
-    const { clearOperatorLoginRateLimit, consumeOperatorLoginRateLimit } =
-      await import("../-lib/login-rate-limit.server")
-    const { runDatabaseEffect } = await import("@/db")
-    const { createOperatorSession, setOperatorSessionCookie } =
-      await import("../-lib/operator-session.server")
     requireConfigureRequest()
     const decision = await runDatabaseEffect(consumeOperatorLoginRateLimit())
     if (!decision.allowed) {

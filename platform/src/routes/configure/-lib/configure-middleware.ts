@@ -1,13 +1,14 @@
 import { createMiddleware } from "@tanstack/react-start"
+import { setResponseStatus } from "@tanstack/react-start/server"
+import { Effect, Predicate } from "effect"
+
+import { runDatabaseEffect } from "@/db"
+import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
+import { requireConfigureRequest } from "./configure-request.server"
+import { getOperatorSession } from "./operator-session.server"
 
 export const configureMiddleware = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const { requireConfigureRequest } = await import("./configure-request.server")
-    const { getOperatorSession } = await import("./operator-session.server")
-    const { setResponseStatus } = await import("@tanstack/react-start/server")
-    const { runDatabaseEffect } = await import("@/db")
-    const { withDogfoodProvisioningLock } = await import("@/db/dogfood.server")
-    const { Effect, Predicate } = await import("effect")
     requireConfigureRequest()
     if (!(await getOperatorSession())) {
       setResponseStatus(403)

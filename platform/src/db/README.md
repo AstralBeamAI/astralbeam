@@ -21,15 +21,15 @@ Tenant and TenantUser name/external-ID substring searches use `pg_trgm` GIN inde
 Use the Drizzle client from server-only code, after authorizing the organization ID at the request boundary:
 
 ```ts
-import { db } from "@/db"
+import { getAuthDatabase } from "@/db"
 import { eq } from "drizzle-orm"
 import { agent } from "@/db/schema.server"
 
 export const listOrganizationAgents = (organizationId: string) =>
-  db.select().from(agent).where(eq(agent.organizationId, organizationId))
+  getAuthDatabase().select().from(agent).where(eq(agent.organizationId, organizationId))
 ```
 
-Database imports belong in server-only code and require `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration use the cached, environment-aware `getGlobalConfig` entry point. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
+Database imports belong in server-only code and do not initialize resources. Database operations require `DATABASE_URL`, and encrypted values require `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration use the cached, environment-aware `getGlobalConfig` entry point. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
 
 ## Local services
 

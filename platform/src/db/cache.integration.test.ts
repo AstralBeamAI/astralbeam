@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm"
 import { Duration, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql"
-import { afterEach, describe, expect, test, vi } from "vitest"
+import { beforeAll, afterEach, describe, expect, test, vi } from "vitest"
 
 const cacheIntegration = vi.hoisted(() => {
   const configured = globalThis.process.env.DATABASE_URL
@@ -15,7 +15,7 @@ const cacheIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { db, runDatabaseEffect } from "@/db"
+import { getAuthDatabase, runDatabaseEffect } from "@/db"
 import { cacheEntry } from "@/db/schema.server"
 import {
   deleteDatabaseCache,
@@ -32,6 +32,10 @@ const cacheTestOptions = {
 }
 
 describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
+  let db: ReturnType<typeof getAuthDatabase>
+  beforeAll(() => {
+    db = getAuthDatabase()
+  })
   afterEach(async () => {
     await db.delete(cacheEntry).where(sql`${cacheEntry.namespace} like 'cache-integration%'`)
   })
