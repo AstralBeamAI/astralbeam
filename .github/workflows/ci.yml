@@ -14,19 +14,32 @@ concurrency:
 
 jobs:
   check:
-    name: Check ${{ matrix.project }}
+    name: Check ${{ matrix.leg || matrix.project }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       # Every project reports its own result, so one failing leg does not hide the others.
       fail-fast: false
       matrix:
-        project: [platform, www, sdk, cli, examples/todos]
+        # The platform splits `ready` across two legs so its checks and tests overlap its build. The CLI's
+        # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
+        include:
+          - { project: platform, leg: platform checks, tasks: check && deno task test }
+          - { project: platform, leg: platform build, tasks: build && deno task binary:check }
+          - { project: www, tasks: ready }
+          - { project: sdk, tasks: ready }
+          - { project: cli, tasks: check && deno task test && deno task binary:check }
+          - { project: examples/todos, tasks: ready }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Pull Platform test database images
+        if: matrix.project == 'platform'
+        # Runs in the background so the images download while Deno and the dependencies install.
+        run: docker compose pull --quiet postgres pgbouncer > /dev/null 2>&1 &
 
       - name: Set up Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
@@ -35,6 +48,8 @@ jobs:
           deno-version: latest
           # Caches the module cache, keyed by a hash of the per-project deno.lock files.
           cache: true
+          # Per-leg keys keep each leg's downloads, since only a key's first saver writes it.
+          cache-hash: ${{ matrix.leg || matrix.project }}-${{ hashFiles('**/deno.lock') }}
 
       - name: Check root formatting
         run: deno task format:check
@@ -46,14 +61,24 @@ jobs:
           path: sdk/node_modules
           key: node_modules-${{ runner.os }}-sdk-${{ hashFiles('sdk/deno.lock') }}
 
+      - name: Cache SDK build
+        id: sdk-build
+        if: matrix.project == 'examples/todos' || matrix.project == 'platform' || matrix.project == 'cli'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: sdk/dist
+          key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/**', '!sdk/node_modules/**', '!sdk/dist/**', '!sdk/.generated/**', '!sdk/src/widget/styles.generated.ts') }}
+
       - name: Build the SDK
         if: matrix.project == 'examples/todos' || matrix.project == 'platform' || matrix.project == 'cli'
         # The platform, CLI, and example consume `sdk/dist` through file dependencies, so their
         # typecheck and build cannot run before the SDK is installed and built.
         working-directory: sdk
+        env:
+          SDK_BUILD_CACHED: ${{ steps.sdk-build.outputs.cache-hit }}
         run: |
           deno install --frozen
-          deno task build
+          if [ "$SDK_BUILD_CACHED" != true ]; then deno task build; fi
 
       - name: Cache node_modules
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -85,9 +110,8 @@ jobs:
           DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
           # Left empty so `binary:check` can require `migrate --dry-run` to list every migration.
           BINARY_CHECK_DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_binary_check' || '' }}
-        # The platform's `build` compiles the binary that `binary:check` smoke-tests. The CLI's
-        # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
-        run: deno task ${{ matrix.project == 'platform' && 'ready && deno task binary:check' || matrix.project == 'cli' && 'check && deno task test && deno task binary:check' || 'ready' }}
+        # The platform's `build` compiles the binary that `binary:check` smoke-tests.
+        run: deno task ${{ matrix.tasks }}
 
   todos-rails:
     name: Check examples/todos-rails

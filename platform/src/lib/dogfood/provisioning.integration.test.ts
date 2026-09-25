@@ -677,9 +677,10 @@ describe.skipIf(!dogfoodIntegration.url)(
         for (const name of ["reveal-config-value", "generate-config-value"]) {
           const response = await requests.get(name)!(authorizedCookie)
           expect(response.status).toBe(200)
-          const result = fromCrossJSON((await response.json()) as SerovalNode, {}) as {
-            result: unknown
-          }
+          const result = fromCrossJSON<{ result: unknown }>(
+            (await response.json()) as SerovalNode,
+            {},
+          )
           expect(result.result).toMatchObject({ ok: false })
           expect(result.result).not.toHaveProperty("value")
         }
@@ -716,9 +717,10 @@ describe.skipIf(!dogfoodIntegration.url)(
           await db.execute(sql`update config set value = ${encrypted} where key = ${key}`)
         }
         const response = await requests.get("save-config-values")!(authorizedCookie)
-        const result = fromCrossJSON((await response.json()) as SerovalNode, {}) as {
-          result: unknown
-        }
+        const result = fromCrossJSON<{ result: unknown }>(
+          (await response.json()) as SerovalNode,
+          {},
+        )
         expect(result.result).toEqual({ ok: true })
         // This process only has the active key, so a read proves the fallback can be retired.
         expect((await getDatabaseConfig()).values).toEqual(configured)
