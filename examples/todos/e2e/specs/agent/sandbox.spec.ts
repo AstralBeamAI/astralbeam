@@ -37,7 +37,7 @@ test.describe("with a Docker daemon", () => {
 
     await test.step("check the tool rows report a real sandbox run", async () => {
       // The server chooses the socket, so a daemon the CLI can reach is not necessarily one the
-      // webapp can: on macOS with OrbStack, export DOCKER_HOST=unix:///var/run/docker.sock.
+      // platform can: on macOS with OrbStack, export DOCKER_HOST=unix:///var/run/docker.sock.
       await expect(
         chat.toolRow(/Could not write/),
         "The sandbox refused a file write, which usually means the server could not reach Docker",

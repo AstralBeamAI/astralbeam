@@ -1,9 +1,9 @@
 # CLI development
 
-Author guide for `@astralbeam/cli`. Consumer documentation is the `README.md`, the bundled `skills/astralbeam/SKILL.md`, and the webapp-hosted guides under `webapp/src/routes/docs/-content/cli`.
+Author guide for `@astralbeam/cli`. Consumer documentation is the `README.md`, the bundled `skills/astralbeam/SKILL.md`, and the platform-hosted guides under `platform/src/routes/docs/-content/cli`.
 
-- The CLI is a thin shell over `@astralbeam/sdk`. Call the SDK's generated `api` client, `server` token minting, and `core` chat session instead of reimplementing HTTP, JWT signing, or the chat protocol. Commands the public API cannot serve belong in the webapp's `/api/v1` first.
-- Keep `version` equal to `sdk/package.json`. One `v*` tag releases both, and the release workflow rejects a mismatch. Each bump also updates the version pins in `README.md` and `webapp/src/routes/docs/-content/cli/getting-started.md`.
+- The CLI is a thin shell over `@astralbeam/sdk`. Call the SDK's generated `api` client, `server` token minting, and `core` chat session instead of reimplementing HTTP, JWT signing, or the chat protocol. Commands the public API cannot serve belong in the platform's `/api/v1` first.
+- Keep `version` equal to `sdk/package.json`. One `v*` tag releases both, and the release workflow rejects a mismatch. Release assets carry no version, so binary download docs use version-free `releases/latest/download` URLs and need no edit on a bump.
 - Write code that runs unchanged on Node 22.12+ and Deno. Use `node:` built-ins and web APIs, never `Deno.*` or Node-only globals that Deno lacks.
 - `tsdown` bundles every dependency into `dist/astralbeam.js`, so the npm package declares no `dependencies`. The release compiles that bundle with `deno compile --engine quickjs --include skills`, and the skill resolves relative to `import.meta.url` from `src/`, `dist/`, and the binary alike. The experimental [QuickJS engine](https://docs.deno.com/runtime/reference/cli/compile/) makes each binary 40-46% smaller than V8. Keep the CLI to APIs it supports, and after a Deno upgrade smoke-test login, JWT signing, redirect refusal, and streamed chat on the compiled binary. Switch back to V8 only if it breaks.
 - Keep one module per command group in `src/`, each exporting a `register*` function that `program.ts` wires up.

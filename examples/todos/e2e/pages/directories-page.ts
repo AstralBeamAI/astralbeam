@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test"
 import { fileURLToPath } from "node:url"
-import { webappUrl } from "../worktree.ts"
+import { platformUrl } from "../worktree.ts"
 
 export function directoriesPage(page: Page) {
   const tenants = page.getByRole("region", { name: "Tenants", exact: true })
@@ -64,7 +64,7 @@ export async function openVanillaDirectories(
         <script type="module">
           import { mountAstralBeamTenantList, mountAstralBeamTenantUserList } from '/__listing-sdk/client.js';
           const options = { apiUrl: ${JSON.stringify(
-            `${webappUrl}/api`,
+            `${platformUrl}/api`,
           )}, fetchAstralBeamToken: { url: '/__listing-token' }, ...${JSON.stringify(options)} };
           const mount = () => [
             mountAstralBeamTenantList(document.getElementById('tenants'), options),

@@ -6,7 +6,7 @@
 
 ## Tooling and validation
 
-- Use Deno from the affected project directory (`webapp`, `www`, `sdk`, `cli`, or `examples/todos`) with `deno task <script>`, or from the repository root with `deno task --cwd <project> <script>`. The projects do not form a package-manager workspace. Deno is the only supported repository JavaScript runtime and package manager. Vite and npm tooling run through its compatibility layer. SDK consumer examples may use the host application's package manager.
+- Use Deno from the affected project directory (`platform`, `www`, `sdk`, `cli`, or `examples/todos`) with `deno task <script>`, or from the repository root with `deno task --cwd <project> <script>`. The projects do not form a package-manager workspace. Deno is the only supported repository JavaScript runtime and package manager. Vite and npm tooling run through its compatibility layer. SDK consumer examples may use the host application's package manager.
 - `examples/todos-rails` is a Ruby on Rails consumer outside the five Deno projects and their Oxlint, oxfmt, and Knip rules. Follow its `AGENTS.md` and validate it with its own `bin/ci`.
 - Keep every project's `check`, `test`, and `build` tasks meaning the same thing, and `ready` meaning `check`, `test`, and `build`. `www` alone runs `build` before `test`, because its test reads the build output.
 - Compose reusable validation gates in the affected project's `check` task so local and CI checks stay aligned. Keep workflow additions limited to environment provisioning and checks that require a distinct execution environment.
@@ -22,7 +22,7 @@
 - Reserve Knip entries for actual execution or externally discovered roots, and add reusable modules only when code uses them. Do not hide speculative modules or accidental exports with entries. Keep `includeEntryExports` enabled in the four applications, including `cli`, whose entry exports must also be used in-project, and off in `sdk`, whose entry-point exports are the published npm surface.
 - Run `scripts/setup.sh` once after pulling to install the OS-level tooling and the projects' frozen dependencies. Otherwise, use the smallest relevant project task or syntax/configuration check. Documentation and instruction changes need only source review and `git diff --check`.
 - Do not automatically run `deno task check`, `deno task test`, or `deno task ready`. `ready` already runs checks, tests, and builds. Run it once before creating a PR or when explicitly requested, without separate `check` or `test` runs unless diagnosing a failure.
-- Run JavaScript and TypeScript tests with Vitest through the project's Deno task, never `Deno.test` or `deno test`. The `webapp` and todos browser suites use Playwright through their own `e2e` tasks, which stay out of `check`, `test`, `ready`, and CI.
+- Run JavaScript and TypeScript tests with Vitest through the project's Deno task, never `Deno.test` or `deno test`. The `platform` and todos browser suites use Playwright through their own `e2e` tasks, which stay out of `check`, `test`, `ready`, and CI.
 - When coding or reviewing, remove low-value or redundant tests and unnecessary fixtures/mocks. Keep tests that protect durable behavior, security boundaries, or observed regressions. Prefer short, direct tests and code over verbose setup or abstractions unless the extra complexity catches a distinct, worthwhile failure. Do not retain tests merely to restate implementation details, trivial constants, or generated structure.
 - Before final validation, turn durable, non-obvious user corrections into one concise, nonduplicative instruction in the closest `AGENTS.md` or skill. Skip one-off decisions and preferences.
 
@@ -40,33 +40,33 @@
 
 ## Environment
 
-- Keep Webapp environment files under `webapp`. Commit reviewed non-secret environment files such as `.env`, `.env.development`, `.env.test`, and `.env.example`. Ignore `*.local` files and never commit credentials or deployment-specific values.
-- Keep the webapp's bootstrap environment variables and optional deployment overrides documented in `webapp/AGENTS.md`. Other runtime settings live in its database `config` table and are managed at `/configure`. Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
+- Keep Platform environment files under `platform`. Commit reviewed non-secret environment files such as `.env`, `.env.development`, `.env.test`, and `.env.example`. Ignore `*.local` files and never commit credentials or deployment-specific values.
+- Keep the platform's bootstrap environment variables and optional deployment overrides documented in `platform/AGENTS.md`. Other runtime settings live in its database `config` table and are managed at `/configure`. Keep standalone tool loading local to the tool configuration, with shell, CI, and deployment variables taking precedence over file values.
 - Give every local worktree its own PostgreSQL database named exactly after its unique worktree folder. In Codex's nested layout, use the directory immediately above the repository checkout (`a3f4` for `.../worktrees/a3f4/astralbeam`), not the shared checkout basename. `copy-worktree-env.sh` must select, drop, and recreate that database with the `db-reset` task before `setup.sh` runs so every worktree starts fresh. Keep `db-reset` limited to recreating that database without migrations, and never recreate shared Compose volumes.
 - On macOS, run application code natively with Deno and use Docker Compose or Podman Compose for PostgreSQL, PgBouncer, Valkey, and Mailpit. Use a devcontainer only when explicitly requested. Never install host PostgreSQL or Valkey from `scripts/setup.sh`. Keep PgBouncer as the only loopback-published PostgreSQL endpoint so local application and CLI traffic exercise transaction pooling. Preserve `POSTGRES_HOST` and `POSTGRES_PORT` as its backend overrides and `PGBOUNCER_HOST_PORT` as its host-published port override. Use `docker compose exec postgres` only for explicit direct database administration. Invoke `scripts/codex-db.sh` only through `INSTALL_EXTRA=codex-db` in Codex Cloud's Ubuntu environment, paired with `SKIP_DOCKER_COMPOSE=true` to prevent a Compose start.
 
-## Webapp and SDK UI
+## Platform and SDK UI
 
-- `webapp` and `sdk` each own a `components.json` and their own shadcn-generated components, hooks, and utilities under `webapp/src/components/ui`, `webapp/src/hooks`, and `webapp/src/lib`, or the corresponding SDK paths under `sdk/src/widget`. Neither imports the other's.
-- Add components from the owning project with `deno task ui add <component>`. Both `components.json` files use the phosphor icon library, but their styles diverge on purpose: the webapp uses `base-lyra`/`mist`, while the SDK stays on the plain `b0` preset baseline (`base-nova`/`neutral`).
+- `platform` and `sdk` each own a `components.json` and their own shadcn-generated components, hooks, and utilities under `platform/src/components/ui`, `platform/src/hooks`, and `platform/src/lib`, or the corresponding SDK paths under `sdk/src/widget`. Neither imports the other's.
+- Add components from the owning project with `deno task ui add <component>`. Both `components.json` files use the phosphor icon library, but their styles diverge on purpose: the platform uses `base-lyra`/`mist`, while the SDK stays on the plain `b0` preset baseline (`base-nova`/`neutral`).
 - At the top of each registry-added UI file, record the repeatable command as `// Added with: deno task ui add <component>` and every intentional local change. Omit nonessential automation flags such as `--overwrite` and `-y` from the recorded command.
 - Let Knip remove unreachable registry UI files in both projects. Ignore generated export-level noise rather than excluding the directory from unused-file discovery.
-- Use `@phosphor-icons/react` throughout Webapp and SDK UI. Replace other icon-library imports in registry source during integration and do not add `lucide-react` as a dependency.
-- Keep the hand-authored portions of `webapp/src/styles.css` theme-agnostic. Concrete palette values belong only in its marked generated section. The theme blocks in `sdk/src/styles.css` are the chat widget's own palette, deliberately independent of the webapp's. Edit them directly and do not resynchronize them with `brand.json`.
+- Use `@phosphor-icons/react` throughout Platform and SDK UI. Replace other icon-library imports in registry source during integration and do not add `lucide-react` as a dependency.
+- Keep the hand-authored portions of `platform/src/styles.css` theme-agnostic. Concrete palette values belong only in its marked generated section. The theme blocks in `sdk/src/styles.css` are the chat widget's own palette, deliberately independent of the platform's. Edit them directly and do not resynchronize them with `brand.json`.
 
 ## Theme and brand
 
-- Keep the semantic theme compiler design-time under `webapp/scripts/theme`. It must stay a pure function of its input, without filesystem, HTTP, DOM, environment, or mutable global-state work, and nothing under `webapp/src` may import it.
-- Treat `webapp/src/theme/brand.json` as the concrete theme source of truth and regenerate the marked theme section of `webapp/src/styles.css` from `webapp` with `deno task generate:theme` after changing it.
-- Email clients cannot read the stylesheet's OKLCH tokens, so `webapp/src/emails/email-theme.ts` inlines static sRGB values. Refresh them from the palette `deno task generate:theme` prints.
-- Keep `webapp/src/theme/theme.schema.json`, the compiler's schemas, and the independently published `www/src/brand/theme.schema.json` snapshot synchronized through explicit edits. Neither project may import the other.
-- Keep SVG logo masters and their generated PNG variants under `webapp/public` and regenerate the PNGs from `webapp` with `deno task generate:png` after SVG changes.
+- Keep the semantic theme compiler design-time under `platform/scripts/theme`. It must stay a pure function of its input, without filesystem, HTTP, DOM, environment, or mutable global-state work, and nothing under `platform/src` may import it.
+- Treat `platform/src/theme/brand.json` as the concrete theme source of truth and regenerate the marked theme section of `platform/src/styles.css` from `platform` with `deno task generate:theme` after changing it.
+- Email clients cannot read the stylesheet's OKLCH tokens, so `platform/src/emails/email-theme.ts` inlines static sRGB values. Refresh them from the palette `deno task generate:theme` prints.
+- Keep `platform/src/theme/theme.schema.json`, the compiler's schemas, and the independently published `www/src/brand/theme.schema.json` snapshot synchronized through explicit edits. Neither project may import the other.
+- Keep SVG logo masters and their generated PNG variants under `platform/public` and regenerate the PNGs from `platform` with `deno task generate:png` after SVG changes.
 
 ## Database
 
-- Keep PostgreSQL and Drizzle code under `webapp/src/db`. Use the `.server.ts` suffix for server-only modules and never import the runtime client into browser code.
-- Keep domain table and relation modules under `webapp/src/db/schema`, re-export every module Drizzle Kit must discover from `webapp/src/db/schema.server.ts`, and keep generated migrations under `webapp/src/db/migrations`.
-- Run database commands from `webapp` with `deno task db <command>`.
+- Keep PostgreSQL and Drizzle code under `platform/src/db`. Use the `.server.ts` suffix for server-only modules and never import the runtime client into browser code.
+- Keep domain table and relation modules under `platform/src/db/schema`, re-export every module Drizzle Kit must discover from `platform/src/db/schema.server.ts`, and keep generated migrations under `platform/src/db/migrations`.
+- Run database commands from `platform` with `deno task db <command>`.
 - After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.
 - Use PostgreSQL `uuid` primary and foreign keys with database-generated `uuidv7()` defaults, `citext` for email identity, and `timestamp with time zone` without forced precision for application instants. PostgreSQL 18 is the minimum supported server version.
 - Define tables with `snakeCase.table`, keep TypeScript property names camel case, and omit redundant column-name arguments when Drizzle can derive the lower snake-case SQL name.

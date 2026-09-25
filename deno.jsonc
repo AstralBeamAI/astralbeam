@@ -8,30 +8,30 @@
     "format": "deno run -A npm:oxfmt@0.70.0 --disable-nested-config",
     "format:check": "deno run -A npm:oxfmt@0.70.0 --disable-nested-config --check",
 
-    "install:webapp": "cd webapp && deno install",
+    "install:platform": "cd platform && deno install",
     "install:www": "cd www && deno install",
     "install:sdk": "cd sdk && deno install",
     "install:cli": "cd cli && deno install",
     "install:todos": "cd examples/todos && deno install",
-    "install": "deno task install:sdk && deno task install:webapp && deno task install:www && deno task install:cli && deno task install:todos",
+    "install": "deno task install:sdk && deno task install:platform && deno task install:www && deno task install:cli && deno task install:todos",
 
-    "dev:webapp": "deno task --cwd webapp dev",
+    "dev:platform": "deno task --cwd platform dev",
     "dev:www": "deno task --cwd www dev",
     "dev:sdk": "deno task --cwd sdk dev",
     "dev:todos": "deno task --cwd examples/todos dev",
     // The SDK has no dev server; its watcher rewrites the `dist` output the todos example loads,
     // so a page reload picks up an SDK source change.
     "dev": {
-      "description": "Run the webapp, website, and todos dev servers plus the SDK watcher concurrently",
-      "dependencies": ["dev:webapp", "dev:www", "dev:sdk", "dev:todos"],
+      "description": "Run the platform, website, and todos dev servers plus the SDK watcher concurrently",
+      "dependencies": ["dev:platform", "dev:www", "dev:sdk", "dev:todos"],
     },
 
     "build:sdk": "deno task --cwd sdk build",
-    "build:webapp": "deno task --cwd webapp build",
+    "build:platform": "deno task --cwd platform build",
     "build:www": "deno task --cwd www build",
     "build:cli": "deno task --cwd cli build",
     "build:todos": "deno task --cwd examples/todos build",
-    // The SDK builds first because the webapp, CLI, and todos example consume its linked `dist` output.
-    "build": "deno task build:sdk && deno task build:webapp && deno task build:www && deno task build:cli && deno task build:todos",
+    // The SDK builds first because the platform, CLI, and todos example consume its linked `dist` output.
+    "build": "deno task build:sdk && deno task build:platform && deno task build:www && deno task build:cli && deno task build:todos",
   },
 }

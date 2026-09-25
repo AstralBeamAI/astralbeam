@@ -4,7 +4,7 @@ import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 
-import { SEED_TODOS_TARGET } from "../../../webapp/scripts/seed/fixtures.ts"
+import { SEED_TODOS_TARGET } from "../../../platform/scripts/seed/fixtures.ts"
 
 /**
  * Resolves everything about this worktree the suite needs: where the projects are, which ports its
@@ -19,7 +19,7 @@ import { SEED_TODOS_TARGET } from "../../../webapp/scripts/seed/fixtures.ts"
 const e2eDirectory = dirname(fileURLToPath(import.meta.url))
 const todosDirectory = join(e2eDirectory, "..")
 const repositoryRoot = join(todosDirectory, "..", "..")
-const webappDirectory = join(repositoryRoot, "webapp")
+const platformDirectory = join(repositoryRoot, "platform")
 const sdkDistDirectory = join(repositoryRoot, "sdk", "dist")
 
 /**
@@ -32,32 +32,32 @@ const sdkDistDirectory = join(repositoryRoot, "sdk", "dist")
 const E2E_PORT_BASE = 14_500
 const E2E_PORT_SLOTS = 500
 
-function derivePortPair(seed: string): { webapp: number; todos: number } {
+function derivePortPair(seed: string): { platform: number; todos: number } {
   // FNV-1a, for a stable spread across worktree paths without a hash dependency.
   let hash = 0x811c9dc5
   for (let index = 0; index < seed.length; index += 1) {
     hash ^= seed.charCodeAt(index)
     hash = Math.imul(hash, 0x01000193) >>> 0
   }
-  const webapp = E2E_PORT_BASE + (hash % E2E_PORT_SLOTS) * 2
-  return { webapp, todos: webapp + 1 }
+  const platform = E2E_PORT_BASE + (hash % E2E_PORT_SLOTS) * 2
+  return { platform, todos: platform + 1 }
 }
 
 const ports = derivePortPair(repositoryRoot)
-const webappPort = Number(process.env.E2E_WEBAPP_PORT ?? ports.webapp)
+const platformPort = Number(process.env.E2E_PLATFORM_PORT ?? ports.platform)
 const todosPort = Number(process.env.E2E_TODOS_PORT ?? ports.todos)
 
 /**
- * The webapp's environment files, in Vite's precedence order, lowest first. Only plain `KEY=value`
+ * The platform's environment files, in Vite's precedence order, lowest first. Only plain `KEY=value`
  * lines are read, which is all these files contain and all the repository's own scripts assume.
  * https://vite.dev/guide/env-and-mode
  */
-const WEBAPP_ENV_FILES = [".env", ".env.local", ".env.development", ".env.development.local"]
+const PLATFORM_ENV_FILES = [".env", ".env.local", ".env.development", ".env.development.local"]
 
-function readWebappEnvFiles(): Record<string, string> {
+function readPlatformEnvFiles(): Record<string, string> {
   const values: Record<string, string> = {}
-  for (const fileName of WEBAPP_ENV_FILES) {
-    const path = join(webappDirectory, fileName)
+  for (const fileName of PLATFORM_ENV_FILES) {
+    const path = join(platformDirectory, fileName)
     if (!existsSync(path)) continue
     for (const line of readFileSync(path, "utf8").split("\n")) {
       const match = /^\s*([A-Z_]\w*)\s*=(.*)$/i.exec(line)
@@ -68,23 +68,23 @@ function readWebappEnvFiles(): Record<string, string> {
   return values
 }
 
-const webappEnv = readWebappEnvFiles()
+const platformEnv = readPlatformEnvFiles()
 
-function webappEnvValue(key: string): string | undefined {
-  return process.env[key] || webappEnv[key] || undefined
+function platformEnvValue(key: string): string | undefined {
+  return process.env[key] || platformEnv[key] || undefined
 }
 
 /** Set to reuse servers that are already running, instead of letting the suite start its own. */
-const externalWebappUrl = process.env.E2E_WEBAPP_URL
+const externalPlatformUrl = process.env.E2E_PLATFORM_URL
 const externalTodosUrl = process.env.E2E_TODOS_URL
 
-export const webappUrl = externalWebappUrl ?? `http://localhost:${webappPort}`
+export const platformUrl = externalPlatformUrl ?? `http://localhost:${platformPort}`
 export const todosUrl = externalTodosUrl ?? `http://localhost:${todosPort}`
 
 export const seedTarget = SEED_TODOS_TARGET
 
 /** Agent specs spend real model credits, so they only run when a key is actually configured. */
-export const agentSpecsEnabled = Boolean(webappEnvValue("OPENAI_API_KEY"))
+export const agentSpecsEnabled = Boolean(platformEnvValue("OPENAI_API_KEY"))
 
 /**
  * Pins one Docker endpoint for the whole run.
@@ -124,14 +124,14 @@ export function assertSdkIsBuilt(): void {
 }
 
 /**
- * The webapp dev server loads its own env files, so only what the suite changes is forwarded: its
+ * The platform dev server loads its own env files, so only what the suite changes is forwarded: its
  * port, and the base URL Better Auth derives from configuration. Without the override Better Auth
  * would use the seeded `app_base_url` and reject requests arriving on the suite's port.
  */
-function forwardedWebappEnv(): Record<string, string> {
+function forwardedPlatformEnv(): Record<string, string> {
   return {
-    PORT: String(webappPort),
-    APP_BASE_URL: webappUrl,
+    PORT: String(platformPort),
+    APP_BASE_URL: platformUrl,
     // Explicit, so the server's sandbox client uses the same daemon the specs probed.
     ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}),
   }
@@ -140,14 +140,14 @@ function forwardedWebappEnv(): Record<string, string> {
 /** Playwright `webServer` entries. Empty for a server the operator is already running. */
 export function e2eWebServers() {
   return [
-    ...(externalWebappUrl
+    ...(externalPlatformUrl
       ? []
       : [
           {
             command: "deno task dev",
-            cwd: webappDirectory,
-            url: `${webappUrl}/api/status`,
-            env: forwardedWebappEnv(),
+            cwd: platformDirectory,
+            url: `${platformUrl}/api/status`,
+            env: forwardedPlatformEnv(),
             reuseExistingServer: false,
             timeout: 180_000,
             stdout: "pipe" as const,
@@ -166,7 +166,7 @@ export function e2eWebServers() {
               // The confidential key the token route signs with, and the browser-safe agent it targets.
               ASTRALBEAM_API_KEY: seedTarget.apiKey,
               VITE_ASTRALBEAM_AGENT_ID: seedTarget.agentId,
-              VITE_ASTRALBEAM_API_URL: `${webappUrl}/api`,
+              VITE_ASTRALBEAM_API_URL: `${platformUrl}/api`,
             },
             reuseExistingServer: false,
             timeout: 180_000,

@@ -20,12 +20,12 @@ Or install it globally as `astralbeam`:
 npm install --global @astralbeam/cli
 ```
 
-Each [GitHub release](https://github.com/AstralBeamAI/astralbeam/releases) also attaches standalone binaries that need no Node, named `astralbeam-v<version>-<platform>` for `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, and `windows-x86_64.exe`.
+Each [GitHub release](https://github.com/AstralBeamAI/astralbeam/releases) also attaches standalone binaries that need no Node, named `astralbeam-<platform>` for `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, and `windows-x86_64.exe`. The `releases/latest/download` URL always serves the newest release, so rerunning the download upgrades the CLI.
 
 ```sh
-gh release download v0.12.2 --repo AstralBeamAI/astralbeam --pattern 'astralbeam-v0.12.2-macos-arm64'
-chmod +x astralbeam-v0.12.2-macos-arm64
-mv astralbeam-v0.12.2-macos-arm64 /usr/local/bin/astralbeam
+curl -fsSLo astralbeam https://github.com/AstralBeamAI/astralbeam/releases/latest/download/astralbeam-macos-arm64
+chmod +x astralbeam
+mv astralbeam /usr/local/bin/astralbeam
 ```
 
 **NOTE**: The binaries are not signed. On macOS, a binary downloaded through a browser needs `xattr -d com.apple.quarantine <file>` before its first run.

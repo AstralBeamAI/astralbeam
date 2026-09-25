@@ -33,7 +33,7 @@ export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
 export PATH="$DENO_INSTALL/bin:$PATH"
 
 # Each application is an independent Deno project with its own package.json, deno.lock, and node_modules.
-WORKSPACE_APPS=(webapp www sdk cli examples/todos)
+WORKSPACE_APPS=(platform www sdk cli examples/todos)
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
@@ -141,15 +141,15 @@ start_databases() {
   fi
 }
 
-# Vite loads `webapp/.env.development[.local]`, and a shell value always wins, so this reads the
-# same order the webapp does. https://vite.dev/guide/env-and-mode
-webapp_database_url() {
+# Vite loads `platform/.env.development[.local]`, and a shell value always wins, so this reads the
+# same order the platform does. https://vite.dev/guide/env-and-mode
+platform_database_url() {
   local env_file url
   if [ -n "${DATABASE_URL:-}" ]; then
     printf '%s\n' "$DATABASE_URL"
     return 0
   fi
-  for env_file in "$WORKSPACE_PATH/webapp/.env.development.local" "$WORKSPACE_PATH/webapp/.env.development"; do
+  for env_file in "$WORKSPACE_PATH/platform/.env.development.local" "$WORKSPACE_PATH/platform/.env.development"; do
     [ -f "$env_file" ] || continue
     url=$(sed -n 's/^DATABASE_URL=//p' "$env_file" | tail -n 1)
     if [ -n "$url" ]; then
@@ -171,13 +171,13 @@ database_is_reachable() {
 # The schema and the sample data before the SDK bundle, because the seed writes the API key and
 # agent ID that `examples/todos` reads and the example loads the SDK's built `dist`.
 bootstrap_workspace() {
-  [ -d "$WORKSPACE_PATH/webapp" ] || return 0
+  [ -d "$WORKSPACE_PATH/platform" ] || return 0
   local url
   # `DATABASE_URL` can carry a real password and this script runs under `set -x`, so the value is
   # resolved and probed with tracing off, and only its credential-free tail is ever printed.
   set +x
-  if ! url=$(webapp_database_url); then
-    echo "Skipped the migrate, seed, and SDK build steps: no DATABASE_URL in the environment or in webapp/.env.development[.local]." >&2
+  if ! url=$(platform_database_url); then
+    echo "Skipped the migrate, seed, and SDK build steps: no DATABASE_URL in the environment or in platform/.env.development[.local]." >&2
     set -x
     return 0
   fi
@@ -189,8 +189,8 @@ bootstrap_workspace() {
     return 0
   fi
   set -x
-  (cd "$WORKSPACE_PATH/webapp" && deno task db migrate)
-  (cd "$WORKSPACE_PATH/webapp" && deno task db-seed)
+  (cd "$WORKSPACE_PATH/platform" && deno task db migrate)
+  (cd "$WORKSPACE_PATH/platform" && deno task db-seed)
   (cd "$WORKSPACE_PATH/sdk" && deno task build)
 }
 

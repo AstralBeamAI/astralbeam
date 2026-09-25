@@ -35,7 +35,7 @@ jobs:
 
       - name: Verify the tag matches the SDK and CLI versions
         id: version
-        # `sdk` and `cli` are the versioned projects and move in lockstep: webapp and examples/todos
+        # `sdk` and `cli` are the versioned projects and move in lockstep: platform and examples/todos
         # declare no version and www is a private placeholder at 0.0.0.
         run: |
           version="$(jq -r .version sdk/package.json)"
@@ -63,8 +63,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PLATFORM_ASSET_PREFIX: astralbeam-platform-v${{ needs.verify.outputs.version }}
-      CLI_ASSET_PREFIX: astralbeam-v${{ needs.verify.outputs.version }}
+      # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
+      # https://docs.github.com/repositories/releasing-projects-on-github/linking-to-releases
+      PLATFORM_ASSET_PREFIX: astralbeam-platform
+      CLI_ASSET_PREFIX: astralbeam
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -85,25 +87,25 @@ jobs:
         working-directory: sdk
         run: deno task build
 
-      - name: Install Webapp dependencies
-        working-directory: webapp
+      - name: Install Platform dependencies
+        working-directory: platform
         env:
           SHARP_IGNORE_GLOBAL_LIBVIPS: 1
         run: deno install --frozen
 
-      - name: Build the Webapp
+      - name: Build the Platform
         # `deno task compile` embeds `.output`, so the Vite and Nitro build has to run first.
-        working-directory: webapp
+        working-directory: platform
         run: deno task build
 
-      - name: Compile and smoke-test the Webapp binary
-        working-directory: webapp
+      - name: Compile and smoke-test the Platform binary
+        working-directory: platform
         run: deno task binary:check
 
-      - name: Cross-compile the other Webapp binaries
+      - name: Cross-compile the other Platform binaries
         # Ships the smoke-tested host binary as linux-x86_64 and repeats the `compile` task's flags
         # for the other targets. https://docs.deno.com/runtime/reference/cli/compile/
-        working-directory: webapp
+        working-directory: platform
         shell: bash
         run: |
           mkdir ../platform-binaries
@@ -153,10 +155,10 @@ jobs:
           path: cli/dist
           if-no-files-found: error
 
-      - name: Upload the Webapp binaries
+      - name: Upload the Platform binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: webapp-binaries
+          name: platform-binaries
           path: platform-binaries
           if-no-files-found: error
 
@@ -177,10 +179,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download the Webapp binaries
+      - name: Download the Platform binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: webapp-binaries
+          name: platform-binaries
 
       - name: Download the CLI binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -191,9 +193,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          PLATFORM_ASSET_PREFIX: astralbeam-platform-v${{ needs.verify.outputs.version }}
-          CLI_ASSET_PREFIX: astralbeam-v${{ needs.verify.outputs.version }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes "$PLATFORM_ASSET_PREFIX"-* "$CLI_ASSET_PREFIX"-*
+        # The glob matches both the platform and the CLI binaries downloaded above.
+        run: gh release create "$GITHUB_REF_NAME" --latest --generate-notes astralbeam-*
 
   stage-npm:
     name: Stage the SDK and CLI on npm

@@ -12,7 +12,7 @@ services:
     volumes:
       - .:/workspaces/astralbeam
       # Keep Linux-native dependencies and Deno's cache isolated from the macOS checkout. https://docs.deno.com/runtime/reference/deno_json/#node-modules-directory
-      - webapp-node-modules:/workspaces/astralbeam/webapp/node_modules
+      - platform-node-modules:/workspaces/astralbeam/platform/node_modules
       - www-node-modules:/workspaces/astralbeam/www/node_modules
       - sdk-node-modules:/workspaces/astralbeam/sdk/node_modules
       - todos-node-modules:/workspaces/astralbeam/examples/todos/node_modules
@@ -35,7 +35,7 @@ services:
         condition: service_healthy
 
 volumes:
-  webapp-node-modules:
+  platform-node-modules:
   www-node-modules:
   sdk-node-modules:
   todos-node-modules:
