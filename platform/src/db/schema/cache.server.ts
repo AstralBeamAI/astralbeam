@@ -9,8 +9,8 @@ export const DATABASE_CACHE_KEY_MAX_LENGTH = 512
 // Global infrastructure with caller-owned namespaces, not Organization-owned rows or cascade deletion.
 // Callers authorize access and include immutable Organization/Tenant UUIDs in scoped keys. See ../../../../AGENTS.md.
 
-// TTL hides expired entries from reads. Only explicit deleteDatabaseCache calls remove rows for now.
-// Cleanup is deferred. Autovacuum reclaims deleted versions, not expired entries: https://www.postgresql.org/docs/18/routine-vacuuming.html
+// TTL hides expired entries immediately. Cluster maintenance removes them in bounded batches.
+// Autovacuum then reclaims deleted versions: https://www.postgresql.org/docs/18/routine-vacuuming.html
 export const cacheEntry = snakeCase.table(
   "cache_entry",
   {
@@ -43,7 +43,7 @@ export const cacheEntry = snakeCase.table(
     // One value per namespace/key pair. This index supports exact reads and the atomic upsert conflict target.
     // https://www.postgresql.org/docs/18/sql-insert.html#SQL-ON-CONFLICT
     uniqueIndex("cache_entry_namespace_key_uidx").on(table.namespace, table.key),
-    // Reserve an expiration-ordered index for future cleanup and omit indefinite entries.
+    // Support expiration-ordered cleanup and omit indefinite entries.
     // https://www.postgresql.org/docs/18/indexes-ordering.html
     index("cache_entry_expires_at_idx")
       .on(table.expiresAt, table.id)

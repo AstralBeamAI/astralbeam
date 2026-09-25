@@ -17,8 +17,10 @@ const cacheIntegration = vi.hoisted(() => {
 
 import { getAuthDatabase, runDatabaseEffect } from "@/db"
 import { cacheEntry } from "@/db/schema.server"
+import expiredCacheCleanup from "../workflows/expired-cache-cleanup.ts"
 import {
   deleteDatabaseCache,
+  deleteExpiredDatabaseCacheBatch,
   readDatabaseCache,
   withDatabaseCacheLock,
   writeDatabaseCache,
@@ -38,6 +40,53 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
   })
   afterEach(async () => {
     await db.delete(cacheEntry).where(sql`${cacheEntry.namespace} like 'cache-integration%'`)
+  })
+
+  test("cleanup drains multiple bounded batches and preserves refreshed and non-expiring entries", async () => {
+    await db.insert(cacheEntry).values(
+      Array.from({ length: 2001 }, (_, index) => ({
+        namespace: cacheTestNamespace,
+        key: `expired-${index}`,
+        value: '"old"',
+        expiresAt: new Date(0),
+      })),
+    )
+    await runDatabaseEffect(writeDatabaseCache({ ...cacheTestOptions, value: "keep" }))
+    await runDatabaseEffect(
+      writeDatabaseCache({ ...cacheTestOptions, key: "refreshed", value: "old", timeToLive: 0 }),
+    )
+    await runDatabaseEffect(
+      writeDatabaseCache({
+        ...cacheTestOptions,
+        key: "refreshed",
+        value: "new",
+        timeToLive: "1 hour",
+      }),
+    )
+    expect(await runDatabaseEffect(deleteExpiredDatabaseCacheBatch)).toBe(1000)
+    await runDatabaseEffect(expiredCacheCleanup)
+    expect(await runDatabaseEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
+    expect(await runDatabaseEffect(readDatabaseCache(cacheTestOptions))).toEqual(
+      Option.some("keep"),
+    )
+    expect(
+      await runDatabaseEffect(readDatabaseCache({ ...cacheTestOptions, key: "refreshed" })),
+    ).toEqual(Option.some("new"))
+  })
+
+  test("cleanup skips a row while another transaction refreshes its TTL", async () => {
+    await runDatabaseEffect(
+      writeDatabaseCache({ ...cacheTestOptions, value: "old", timeToLive: 0 }),
+    )
+    await db.transaction(async (transaction) => {
+      await transaction
+        .update(cacheEntry)
+        .set({ expiresAt: sql`now() + interval '1 hour'` })
+        .where(eq(cacheEntry.namespace, cacheTestNamespace))
+      expect(await runDatabaseEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
+    })
+    expect(await runDatabaseEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
+    expect(await runDatabaseEffect(readDatabaseCache(cacheTestOptions))).toEqual(Option.some("old"))
   })
 
   test("enforces character limits in PostgreSQL and accepts Unicode at the boundary", async () => {

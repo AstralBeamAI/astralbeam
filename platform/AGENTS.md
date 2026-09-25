@@ -56,7 +56,7 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 
 ## Cluster runtime
 
-- Keep one embedded runner per process under `src/cluster`, and native workflows with named activities under `src/workflows`. Use cluster terminology for infrastructure and workflow terminology for execution. Keep the registry empty until requested. Follow the [cluster](src/cluster/README.md) and [workflow](src/workflows/README.md) guides.
+- Keep one embedded runner per process under `src/cluster`, and native workflows with named activities under `src/workflows`. Use cluster terminology for infrastructure and workflow terminology for execution. Centralize cron schedules and missed-run policies in `src/workflows/cron.ts`, keeping operation definitions in separate modules. Give workflow modules a named default export matching their kebab-case filename in camelCase. Follow the [cluster](src/cluster/README.md) and [workflow](src/workflows/README.md) guides.
 - Reserve `effect_*` table names for Effect-owned storage and exclude them from Drizzle introspection. Effect owns `effect_cluster_*` storage outside Drizzle management and application schema conventions. Preserve its schema, journal and bookkeeping without custom version guards. Keep Effect packages aligned and review upgrades and required privileges using the [storage guide](src/cluster/README.md#storage-and-deployment).
 - Await runner cleanup before terminating Nitro's development worker. Worker signal listeners do not replace Vite lifecycle cleanup. Use `shardLockDisableAdvisory: true` for PgBouncer. Skip prerendering and unit tests, and keep runner failures independent of `/configure` and database operations.
 - Keep runner addresses environment-only: `CLUSTER_RUNNER_HOST` advertises a private host (default `127.0.0.1`), `CLUSTER_RUNNER_PORT` selects its port (default `0`, published after binding), and `CLUSTER_RUNNER_LISTEN_HOST` overrides the bind host. Never advertise a wildcard. Shell and deployment values override local files.
@@ -127,7 +127,7 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
   - Use `APP_NAME` for display text and `APP_HANDLE` for brand-derived domains, protocol identifiers, asset paths, and test fixtures.
 
 - Recheck session, organization, role, and data scope at every server function and query. Route guards provide navigation protection only. Return safe errors and keep sensitive diagnostics server-side.
-- Use `*.server.ts` for server-only code. Add `import "@tanstack/react-start/server-only"` only to unsuffixed server entrypoints such as `index.ts`. Never expose server environment variables to clients.
+- Use plain `.ts` filenames for new files inside `src/db/schema` and `src/workflows`, which Vite's TanStack import protection marks server-only as entire folders. Keep existing filenames unless explicitly asked to rename them. Elsewhere, use `*.server.ts` for server-only code and add `import "@tanstack/react-start/server-only"` only to unsuffixed server entrypoints such as `index.ts`. Never expose server environment variables to clients.
 
 ## Seed data
 

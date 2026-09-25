@@ -66,7 +66,7 @@
 
 ## Database
 
-- Keep PostgreSQL and Drizzle code under `platform/src/db`. Use the `.server.ts` suffix for server-only modules and never import the runtime client into browser code.
+- Keep PostgreSQL and Drizzle code under `platform/src/db`. Use the `.server.ts` suffix for server-only modules outside folders protected by TanStack's import protection, and never import the runtime client into browser code.
 - Keep domain table and relation modules under `platform/src/db/schema`, re-export every module Drizzle Kit must discover from `platform/src/db/schema.server.ts`, and keep generated migrations under `platform/src/db/migrations`.
 - Run database commands from `platform` with `deno task db <command>`.
 - After schema changes, run `generate --name <description>`, inspect the SQL, run `check`, and commit schema and migration files together.

@@ -144,7 +144,22 @@ const viteConfig = defineConfig(({ mode }) => {
             ],
           })),
       tailwindcss(),
-      tanstackStart(),
+      tanstackStart({
+        importProtection: {
+          client: {
+            files: [
+              "**/*.server.*",
+              "**/src/cluster/**",
+              "**/src/db/**",
+              "**/src/emails/**",
+              "**/src/workflows/**",
+            ],
+            // The configuration UI shares email schemas. Preserve the default dependency exclusion.
+            // https://tanstack.com/start/latest/docs/framework/react/guide/import-protection
+            excludeFiles: ["**/node_modules/**", "**/src/emails/schema.ts"],
+          },
+        },
+      }),
       viteReact(),
     ],
     test: {

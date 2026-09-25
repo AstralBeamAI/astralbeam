@@ -153,3 +153,15 @@ export const deleteDatabaseCache = Effect.fn("deleteDatabaseCache")(function* (
   const store = yield* makeDatabaseCacheStore(options)
   yield* store.remove(options.key)
 })
+
+export const deleteExpiredDatabaseCacheBatch = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  const deleted = yield* sql<{ id: string }>`delete from cache_entry where id in (
+    select id from cache_entry
+    where expires_at <= statement_timestamp()
+    order by expires_at, id
+    limit 1000
+    for update skip locked
+  ) returning id`
+  return deleted.length
+})
