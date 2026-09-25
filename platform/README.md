@@ -44,5 +44,5 @@ Upgrade a deployed binary in three steps. [Deploy](src/routes/docs/-content/self
 ```sh
 sudo astralbeam-platform upgrade        # or pass a tag, such as v0.13.3
 astralbeam-platform migrate
-systemctl restart astralbeam
+systemctl restart astralbeam-platform
 ```

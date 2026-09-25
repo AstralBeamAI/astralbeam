@@ -94,7 +94,7 @@ A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list
 
 To keep the server running even after we log out of the host, we must set it up as a Linux system service, owned by an unprivileged user.
 
-Save this unit as `/etc/systemd/system/astralbeam.service`:
+Save this unit as `/etc/systemd/system/astralbeam-platform.service`:
 
 ```ini
 [Unit]
@@ -118,10 +118,10 @@ Run these commands to load the unit and start the service:
 
 ```sh
 systemctl daemon-reload
-systemctl enable --now astralbeam
+systemctl enable --now astralbeam-platform
 ```
 
-`systemctl status astralbeam` should now report the service as active, and `curl -i http://127.0.0.1:3000/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
+`systemctl status astralbeam-platform` should now report the service as active, and `curl -i http://127.0.0.1:3000/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
 
 **NOTE**: The development server runs on port 4500. A production process listens on whatever `PORT` says.
 
@@ -192,7 +192,7 @@ Let's move a running deployment to a newer release. Read the release notes first
 3. Run this command to restart the service, since the running process keeps serving the old binary until then:
 
    ```sh
-   systemctl restart astralbeam
+   systemctl restart astralbeam-platform
    ```
 
 4. Upgrade and restart every other replica so each one reloads configuration and migration state.
