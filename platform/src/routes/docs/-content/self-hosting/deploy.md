@@ -197,8 +197,6 @@ Let's move a running deployment to a newer release. Read the release notes first
    systemctl restart astralbeam-platform
    ```
 
-   **NOTE**: Deployments set up from the v0.13.2 or earlier docs named the unit `astralbeam.service`, so run `systemctl restart astralbeam` there instead, or rename the unit file to `astralbeam-platform.service` and run `systemctl daemon-reload` first.
-
 4. Upgrade and restart every other replica so each one reloads configuration and migration state.
 
 Downgrading is not supported, because a migration has no rollback. `upgrade` refuses an older tag, and without a tag it reports `Already at <version>` when the running binary is newer than the latest release. Reverse a schema change with a forward migration instead.
