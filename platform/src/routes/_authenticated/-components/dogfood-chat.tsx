@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { authClient } from "@/lib/auth/client"
 import type { OrganizationAccess } from "@/lib/auth/organization-membership.server"
 import { APP_NAME } from "@/lib/constants"
+import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "@/lib/widget-theme"
 
 export function DogfoodChat() {
   const organization = useMatches({
@@ -110,12 +111,13 @@ function DogfoodChatPanel({ organization }: { organization: OrganizationAccess }
               <XIcon aria-hidden="true" />
             </Button>
           </header>
-          <div className="min-h-0 flex-1">
+          <div className={cn("min-h-0 flex-1", widgetThemeClassName)} style={widgetThemeStyle}>
             <AstralBeamChat
               ref={chat}
               apiUrl="/api"
               colorScheme={theme === "dark" || theme === "light" ? theme : "system"}
               showHeader={false}
+              theme={widgetDashboardTheme}
               fetchAstralBeamToken={{
                 url: "/api/astralbeam/token",
                 headers: { "Content-Type": "application/json" },
