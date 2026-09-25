@@ -49,14 +49,23 @@ const databaseResourcesKey = Symbol.for("platform.databaseResources")
 const databaseProcess = globalThis as typeof globalThis & {
   [databaseResourcesKey]?: ReturnType<typeof createDatabaseResources>
 }
-export const databaseResources = (databaseProcess[databaseResourcesKey] ??=
-  createDatabaseResources())
+export function getDatabaseResources() {
+  return (databaseProcess[databaseResourcesKey] ??= createDatabaseResources())
+}
 
-export const db = drizzle({
-  client: databaseResources.authPool,
-  jit: true,
-  relations: databaseRelations,
-})
+function createAuthDatabase() {
+  return drizzle({
+    client: getDatabaseResources().authPool,
+    jit: true,
+    relations: databaseRelations,
+  })
+}
+
+let authDatabase: ReturnType<typeof createAuthDatabase> | undefined
+
+export function getAuthDatabase() {
+  return (authDatabase ??= createAuthDatabase())
+}
 
 const makeEffectDatabase = PgDrizzle.makeWithDefaults({
   relations: databaseRelations,
@@ -97,13 +106,15 @@ export function runDatabaseEffect<A, E>(
   effect: Effect.Effect<A, E, EffectDatabase | PgClient.PgClient | SqlClient.SqlClient>,
   options?: Effect.RunOptions,
 ): Promise<A> {
-  return databaseResources.runtime.runPromise(
+  return getDatabaseResources().runtime.runPromise(
     Effect.provideServiceEffect(effect, effectDatabase, productionDatabase),
     options,
   )
 }
 
 export function closeDatabase(): Promise<void> {
+  const databaseResources = databaseProcess[databaseResourcesKey]
+  if (!databaseResources) return Promise.resolve()
   return (databaseResources.shutdown ??= Promise.all([
     databaseResources.runtime.dispose(),
     databaseResources.authPool.end(),

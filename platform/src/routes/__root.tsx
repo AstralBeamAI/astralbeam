@@ -12,13 +12,17 @@ import {
 } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
+import { getRequest } from "@tanstack/react-start/server"
 import { type ReactNode, useCallback } from "react"
 import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
 
+import { getGlobalConfig } from "@/lib/config"
+import { isSetupComplete } from "@/lib/config/state.server"
 import { AuthProvider } from "@/components/auth/auth-provider"
 import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
 import { PublicConfigProvider } from "@/components/public-config-provider"
 import { Toaster } from "@/components/ui/toast"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { authClient } from "@/lib/auth/client"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
@@ -48,10 +52,6 @@ const devtoolsPlugins = [
 
 const getRedirectOrigin = createIsomorphicFn()
   .server(async () => {
-    const [{ getGlobalConfig }, { getRequest }] = await Promise.all([
-      import("@/lib/config"),
-      import("@tanstack/react-start/server"),
-    ])
     const appBaseUrl = await getGlobalConfig("app_base_url")
     // Requests can carry redirectTo before setup configures the base URL; fall back to the request origin.
     return appBaseUrl ?? new URL(getRequest().url).origin
@@ -60,9 +60,7 @@ const getRedirectOrigin = createIsomorphicFn()
 
 const getSetupState = createIsomorphicFn()
   .server(async () => {
-    const { getDatabaseBootstrapIssues } = await import("@/db/lib/database-credentials.server")
     if (getDatabaseBootstrapIssues().length > 0) return { setupComplete: false }
-    const { isSetupComplete } = await import("@/lib/config/state.server")
     return {
       setupComplete: await isSetupComplete(),
     }

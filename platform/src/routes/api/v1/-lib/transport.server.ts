@@ -1,6 +1,7 @@
 import { Cause, Effect, Layer, SchemaIssue } from "effect"
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
+
 import { ApiV1 } from "./contract.server"
 import { ApiBoundary, RestAuthorization, restScope } from "./shared.server"
 import { currentUserHandlers } from "./current-user.server"
@@ -83,28 +84,36 @@ const RestDatabaseLayer = Layer.effect(
   Effect.promise(() => runDatabaseEffect(effectDatabase)),
 )
 
-export const apiV1WebHandler = HttpRouter.toWebHandler(
-  HttpApiBuilder.layer(ApiV1).pipe(
-    Layer.provide([
-      tenantHandlers(ApiV1),
-      tenantUserHandlers(ApiV1),
-      chatHandlers(ApiV1),
-      currentUserHandlers(ApiV1),
-      organizationHandlers(ApiV1),
-    ]),
-    Layer.provide([ApiBoundaryLive, RestAuthorizationLive]),
-    Layer.provide(RestDatabaseLayer),
-    HttpRouter.provideRequest(RestDatabaseLayer),
-    Layer.provide(HttpServer.layerServices),
-  ),
-  { disableLogger: true },
-)
+function createApiV1WebHandler() {
+  return HttpRouter.toWebHandler(
+    HttpApiBuilder.layer(ApiV1).pipe(
+      Layer.provide([
+        tenantHandlers(ApiV1),
+        tenantUserHandlers(ApiV1),
+        chatHandlers(ApiV1),
+        currentUserHandlers(ApiV1),
+        organizationHandlers(ApiV1),
+      ]),
+      Layer.provide([ApiBoundaryLive, RestAuthorizationLive]),
+      Layer.provide(RestDatabaseLayer),
+      HttpRouter.provideRequest(RestDatabaseLayer),
+      Layer.provide(HttpServer.layerServices),
+    ),
+    { disableLogger: true },
+  )
+}
+
+let apiV1WebHandler: ReturnType<typeof createApiV1WebHandler> | undefined
+
+export function getApiV1WebHandler() {
+  return (apiV1WebHandler ??= createApiV1WebHandler())
+}
 
 export async function dispatchRestRequest(request: Request): Promise<Response> {
   if (request.method === "OPTIONS") return restResponseHeaders(new Response(null, { status: 204 }))
   let response: Response
   try {
-    response = await apiV1WebHandler.handler(request)
+    response = await getApiV1WebHandler().handler(request)
     if (
       response.status >= 400 &&
       !response.headers.get("content-type")?.includes("application/problem+json")

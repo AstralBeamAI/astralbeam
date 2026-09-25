@@ -2,7 +2,7 @@ import { Cause, Context, Duration, Effect, Fiber, Layer, Schedule } from "effect
 import { Sharding, ShardingConfig } from "effect/unstable/cluster"
 
 import { sqlState } from "../db/lib/sqlstate.server.ts"
-import { databaseResources, effectDatabaseLayer } from "../db/index.ts"
+import { getDatabaseResources, effectDatabaseLayer } from "../db/index.ts"
 import { registeredWorkflowLayers } from "../workflows/registry.server.ts"
 import { clusterRunnerLayer, clusterRunnerSettings } from "./runner.server.ts"
 
@@ -55,7 +55,11 @@ const superviseClusterRunner = Effect.gen(function* () {
 
 export function startClusterRunner(): Promise<void> {
   clusterRuntimeState.transition = stopClusterRunner().then(() => {
-    clusterRuntimeState.fiber = databaseResources.runtime.runFork(superviseClusterRunner)
+    try {
+      clusterRuntimeState.fiber = getDatabaseResources().runtime.runFork(superviseClusterRunner)
+    } catch {
+      console.error("Cluster runner could not start. Check server configuration.")
+    }
   })
   return clusterRuntimeState.transition
 }
@@ -63,7 +67,7 @@ export function startClusterRunner(): Promise<void> {
 export function stopClusterRunner(): Promise<void> {
   clusterRuntimeState.transition = clusterRuntimeState.transition.then(async () => {
     if (clusterRuntimeState.fiber)
-      await databaseResources.runtime.runPromise(Fiber.interrupt(clusterRuntimeState.fiber))
+      await getDatabaseResources().runtime.runPromise(Fiber.interrupt(clusterRuntimeState.fiber))
     clusterRuntimeState.fiber = undefined
   })
   return clusterRuntimeState.transition

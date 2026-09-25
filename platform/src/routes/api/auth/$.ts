@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { getRequestIP } from "@tanstack/react-start/server"
 
+import { getAuth } from "@/lib/auth.server"
+import { setupGateResponse } from "@/lib/config/state.server"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { isLoopbackProxyAddress } from "@/lib/utils.server"
 
 /**
@@ -17,14 +20,9 @@ function withTrustedForwardedFor(request: Request): Request {
 }
 
 async function handleAuthRequest(request: Request): Promise<Response> {
-  const { getDatabaseBootstrapIssues } = await import("@/db/lib/database-credentials.server")
   if (getDatabaseBootstrapIssues().length > 0) {
     return new Response("Server configuration required", { status: 503 })
   }
-  const [{ getAuth }, { setupGateResponse }] = await Promise.all([
-    import("@/lib/auth.server"),
-    import("@/lib/config/state.server"),
-  ])
   const gate = await setupGateResponse()
   if (gate) return gate
   return (await getAuth()).handler(withTrustedForwardedFor(request))

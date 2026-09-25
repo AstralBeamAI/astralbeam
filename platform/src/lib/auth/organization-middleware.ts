@@ -1,15 +1,12 @@
 import { createMiddleware, createServerOnlyFn } from "@tanstack/react-start"
 
+import { runDatabaseEffect } from "@/db"
+import { requireOrganizationAccess } from "./organization-membership.server.ts"
 import type { OrganizationPermissionRequest } from "./organization-access.ts"
 
 const authorizeOrganizationRequest = createServerOnlyFn(
-  async (input: { data: unknown; permissions?: OrganizationPermissionRequest }) => {
-    const [{ runDatabaseEffect }, { requireOrganizationAccess }] = await Promise.all([
-      import("@/db"),
-      import("./organization-membership.server.ts"),
-    ])
-    return runDatabaseEffect(requireOrganizationAccess(input))
-  },
+  (input: { data: unknown; permissions?: OrganizationPermissionRequest }) =>
+    runDatabaseEffect(requireOrganizationAccess(input)),
 )
 
 /**

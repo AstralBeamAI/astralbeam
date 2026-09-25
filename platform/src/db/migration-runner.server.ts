@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 
 import { sql } from "drizzle-orm"
 
-import { db } from "@/db"
+import { getAuthDatabase } from "@/db"
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { approvedMigrationsMatch } from "@/db/migration-approval.server"
 
@@ -77,7 +77,9 @@ function appliedNameSet(rows: Iterable<object | undefined>): Set<string> {
 
 async function listAppliedMigrationNames(): Promise<Set<string> | null> {
   try {
-    const result = await db.execute(sql`select name from drizzle.__drizzle_migrations`)
+    const result = await getAuthDatabase().execute(
+      sql`select name from drizzle.__drizzle_migrations`,
+    )
     return appliedNameSet(result.rows)
   } catch (error) {
     if (isMissingBookkeepingError(error)) return null
@@ -110,7 +112,7 @@ export function getDatabaseMigrationState(): Promise<MigrationState> {
 type ApplyMigrationsResult = { ok: true; applied: string[] } | { ok: false; error: string }
 
 export async function runWithMigrationAdvisoryLock(
-  database: Pick<typeof db, "transaction">,
+  database: Pick<ReturnType<typeof getAuthDatabase>, "transaction">,
   applyMigrations: () => Promise<ApplyMigrationsResult>,
 ): Promise<ApplyMigrationsResult> {
   return await database.transaction(async (transaction) => {
@@ -139,6 +141,7 @@ export async function applyApprovedMigrations(
   // transaction open so its advisory lock remains pinned while root database transactions use
   // other clients from the shared pool to preserve one transaction per migration.
   try {
+    const db = getAuthDatabase()
     return await runWithMigrationAdvisoryLock(db, async () => {
       let appliedNames: Set<string> | null
       try {

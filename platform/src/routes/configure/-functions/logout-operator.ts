@@ -1,11 +1,10 @@
 import { createServerFn } from "@tanstack/react-start"
 
-export const logoutOperator = createServerFn({ method: "POST" }).handler(
-  async (): Promise<{ ok: boolean }> => {
-    const { requireConfigureRequest } = await import("../-lib/configure-request.server")
-    const { clearOperatorSessionCookie } = await import("../-lib/operator-session.server")
-    requireConfigureRequest()
-    clearOperatorSessionCookie()
-    return { ok: true }
-  },
-)
+import { requireConfigureRequest } from "../-lib/configure-request.server"
+import { clearOperatorSessionCookie } from "../-lib/operator-session.server"
+
+export const logoutOperator = createServerFn({ method: "POST" }).handler((): { ok: boolean } => {
+  requireConfigureRequest()
+  clearOperatorSessionCookie()
+  return { ok: true }
+})

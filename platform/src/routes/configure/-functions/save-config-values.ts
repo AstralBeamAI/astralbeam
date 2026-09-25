@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start"
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 
+import { updateGlobalConfig } from "@/lib/config/update.server"
+import { getGlobalConfig } from "@/lib/config"
+import { provisionDogfoodResources } from "@/lib/dogfood/provisioning.server"
+import { runDatabaseEffect } from "@/db"
+import { withConfigureError } from "../-lib/configure-error.server"
 import type { ConfigureFieldError } from "../-lib/types"
 import { OwnerOnboardingInput } from "@/lib/dogfood/schema"
 import { configureMiddleware } from "../-lib/configure-middleware"
@@ -24,19 +29,12 @@ export const saveConfigValues = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(Schema.toStandardSchemaV1(SaveConfigValuesInput))
   .handler(async ({ data }): Promise<SaveConfigValuesResult> => {
-    const { updateGlobalConfig } = await import("@/lib/config/update.server")
-    const { withConfigureError } = await import("../-lib/configure-error.server")
-
     return withConfigureError(
       "Configuration could not be saved",
       async (): Promise<SaveConfigValuesResult> => {
-        const { getGlobalConfig } = await import("@/lib/config")
         const needsOnboarding = !(await getGlobalConfig("dogfood_organization_id"))
         const saved = await updateGlobalConfig(data.updates)
         if (!saved.ok || !needsOnboarding || !data.onboarding) return saved
-        const { provisionDogfoodResources } = await import("@/lib/dogfood/provisioning.server")
-        const { runDatabaseEffect } = await import("@/db")
-        const { Effect } = await import("effect")
         return runDatabaseEffect(
           provisionDogfoodResources(data.onboarding).pipe(
             Effect.as({ ok: true } as const),

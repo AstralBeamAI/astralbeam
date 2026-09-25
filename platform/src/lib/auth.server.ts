@@ -15,7 +15,7 @@ import {
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 
-import { db, runDatabaseEffect } from "@/db"
+import { getAuthDatabase, runDatabaseEffect } from "@/db"
 import { isLastOrganizationApiKey } from "@/db/organization.server"
 import { tables } from "@/db/schema.server"
 import {
@@ -146,7 +146,7 @@ function buildAuth(config: AuthConfig) {
     appName: APP_NAME,
     baseURL: config.appBaseUrl,
     secret: config.betterAuthSecret,
-    database: drizzleAdapter(db, {
+    database: drizzleAdapter(getAuthDatabase(), {
       provider: "pg",
       schema: tables,
       transaction: true,

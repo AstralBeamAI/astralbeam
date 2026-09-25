@@ -1,5 +1,9 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Schema } from "effect"
+
+import { getGlobalConfig } from "@/lib/config"
+import { findConfigDefinition } from "@/lib/config/registry.server"
+import { withConfigureError } from "../-lib/configure-error.server"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
 const RevealConfigValueInput = Schema.Struct({
@@ -16,9 +20,6 @@ export const revealConfigValue = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(Schema.toStandardSchemaV1(RevealConfigValueInput))
   .handler(async ({ data }): Promise<RevealConfigValueResult> => {
-    const { findConfigDefinition } = await import("@/lib/config/registry.server")
-    const { getGlobalConfig } = await import("@/lib/config")
-    const { withConfigureError } = await import("../-lib/configure-error.server")
     const definition = findConfigDefinition(data.key)
     if (!definition || definition.systemManaged || definition.kind !== "secret") {
       return { ok: false, error: "This configuration value cannot be revealed" }
