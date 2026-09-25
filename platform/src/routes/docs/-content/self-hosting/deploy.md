@@ -6,17 +6,19 @@ Let's install AstralBeam on a Linux host, with PostgreSQL behind a connection po
 
 Every tagged release from v0.13.0 publishes prebuilt platform assets named `astralbeam-platform-<target>`, where `<target>` is `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, or `windows-x86_64.exe`. The `astralbeam-<target>` assets beside them are the [CLI](/docs/cli/getting-started), not the server. Earlier releases put the version in each asset name, such as `astralbeam-platform-v0.12.2-linux-x86_64`.
 
-Run these commands to download the latest x86_64 asset and install it as `astralbeam-platform`. On an arm64 host, replace `linux-x86_64` with `linux-arm64`:
+Run these commands to download the latest x86_64 asset with the release's `SHA256SUMS`, check the download against it, and install it as `astralbeam-platform`. On an arm64 host, replace `linux-x86_64` with `linux-arm64`:
 
 ```sh
-curl -fsSLo astralbeam-platform https://github.com/AstralBeamAI/astralbeam/releases/latest/download/astralbeam-platform-linux-x86_64
-chmod +x astralbeam-platform
-mv astralbeam-platform /usr/local/bin/astralbeam-platform
+curl -fsSLO https://github.com/AstralBeamAI/astralbeam/releases/latest/download/astralbeam-platform-linux-x86_64
+curl -fsSLO https://github.com/AstralBeamAI/astralbeam/releases/latest/download/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x astralbeam-platform-linux-x86_64
+mv astralbeam-platform-linux-x86_64 /usr/local/bin/astralbeam-platform
 ```
 
-**TIP**: To pin a release instead, replace `latest/download` with `download/v<version>` in the URL, for example `download/v0.13.0`.
+**TIP**: To pin a release instead, replace `latest/download` with `download/v<version>` in both URLs, for example `download/v0.13.4`. Releases before v0.13.4 publish no `SHA256SUMS`.
 
-The release carries no checksum or signature file, so nothing here verifies where a download came from. Running it is only a smoke check. `astralbeam-platform version` prints the release version and target, such as `astralbeam-platform 0.13.3 (linux-x86_64)`, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
+`sha256sum` prints `astralbeam-platform-linux-x86_64: OK` when the download matches the release's checksum and fails otherwise. That proves the file arrived intact, but the release carries no signature, so nothing here verifies where it came from. Running the binary is only a smoke check. `astralbeam-platform version` prints the release version and target, such as `astralbeam-platform 0.13.4 (linux-x86_64)`, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
 
 For a fork, or a target without a prebuilt asset, we build the binary ourselves. Deno is the only supported toolchain.
 
@@ -179,7 +181,7 @@ Let's move a running deployment to a newer release. Read the release notes first
    sudo astralbeam-platform upgrade
    ```
 
-   To pin a release instead, pass its tag, as in `sudo astralbeam-platform upgrade v0.13.3`. The command downloads the matching `astralbeam-platform-<target>` asset from GitHub and swaps it in place after you confirm, and it supports releases from v0.13.0. Pass `-y` or `--yes` to skip the confirmation, which a run without a terminal needs because it cannot answer the prompt. It needs `sudo` only because `/usr/local/bin` belongs to root. Run from a checkout with `deno task start`, it refuses, because the running executable is then Deno itself, so pull and rebuild the checkout instead. Like the manual download, it verifies no checksum or signature.
+   To pin a release instead, pass its tag, as in `sudo astralbeam-platform upgrade v0.13.4`. The command downloads the matching `astralbeam-platform-<target>` asset from GitHub, checks it against the release's `SHA256SUMS`, and swaps it in place after you confirm. It refuses a download that does not match its checksum or is missing from the file, and it supports releases from v0.13.4, the first to publish `SHA256SUMS`. Pass `-y` or `--yes` to skip the confirmation, which a run without a terminal needs because it cannot answer the prompt. It needs `sudo` only because `/usr/local/bin` belongs to root. Run from a checkout with `deno task start`, it refuses, because the running executable is then Deno itself, so pull and rebuild the checkout instead. Like the manual download, it verifies no signature.
 
 2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
 
@@ -195,6 +197,8 @@ Let's move a running deployment to a newer release. Read the release notes first
    systemctl restart astralbeam-platform
    ```
 
+   **NOTE**: Deployments set up from the v0.13.2 or earlier docs named the unit `astralbeam.service`, so run `systemctl restart astralbeam` there instead, or rename the unit file to `astralbeam-platform.service` and run `systemctl daemon-reload` first.
+
 4. Upgrade and restart every other replica so each one reloads configuration and migration state.
 
-Downgrading is not supported, because a migration has no rollback. `upgrade` accepts an older tag but warns that applied migrations stay applied. Reverse a schema change with a forward migration instead.
+Downgrading is not supported, because a migration has no rollback. `upgrade` refuses an older tag, and without a tag it reports `Already at <version>` when the running binary is newer than the latest release. Reverse a schema change with a forward migration instead.

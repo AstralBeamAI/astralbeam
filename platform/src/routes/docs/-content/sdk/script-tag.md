@@ -9,7 +9,7 @@ Let's give the widget a container with a definite height and mount it from a mod
 ```html
 <div id="astralbeam-chat" style="height: 100vh"></div>
 <script type="module">
-  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.13.3/dist/client.js"
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.13.4/dist/client.js"
 
   mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
     title: "Acme Assistant",
@@ -48,7 +48,7 @@ Rails loads JavaScript through import maps, so the SDK needs no npm or bundler t
 
    ```ruby
    pin "assistant"
-   pin "@astralbeam/sdk/client", to: "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.13.3/dist/client.js"
+   pin "@astralbeam/sdk/client", to: "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.13.4/dist/client.js"
    ```
 
 2. Mount the widget from that module in `app/javascript/assistant.js`:

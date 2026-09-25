@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import {
   chmodSync,
   existsSync,
@@ -156,7 +157,7 @@ program
 program
   .command("upgrade")
   .description("replace this binary with the latest release or the given one")
-  .argument("[version]", "release tag such as v0.13.1 (default: the latest release)")
+  .argument("[version]", "release tag such as v0.13.4 (default: the latest release)")
   .option("-y, --yes", "replace the binary without asking for confirmation")
   .action(async (requested: string | undefined, options: { yes?: boolean }) => {
     const binaryPath = process.execPath
@@ -179,15 +180,20 @@ program
       }
       const version = tag.replace(/^v/, "")
       if (!/^\d+\.\d+\.\d+$/.test(version)) {
-        throw new Error(`${tag} is not a release tag such as v0.13.1`)
+        throw new Error(`${tag} is not a release tag such as v0.13.4`)
       }
-      if (version === packageJson.version) return console.log(`Already at ${version}`)
-      // Earlier releases put the version in each asset name.
-      if (version.localeCompare("0.13.0", undefined, { numeric: true }) < 0) {
-        throw new Error("upgrade supports v0.13.0 and later releases")
+      const order = version.localeCompare(packageJson.version, undefined, { numeric: true })
+      if (order === 0 || (order < 0 && !requested)) {
+        return console.log(`Already at ${packageJson.version}`)
       }
-      if (version.localeCompare(packageJson.version, undefined, { numeric: true }) < 0) {
-        console.error(`Warning: downgrading to ${version} does not undo applied migrations`)
+      if (order < 0) {
+        throw new Error(
+          `downgrading to ${version} is not supported, because migrations stay applied`,
+        )
+      }
+      // Earlier releases publish no SHA256SUMS to check the download against.
+      if (version.localeCompare("0.13.4", undefined, { numeric: true }) < 0) {
+        throw new Error("upgrade supports v0.13.4 and later releases, which publish SHA256SUMS")
       }
       if (
         !options.yes &&
@@ -196,19 +202,37 @@ program
         throw new Error("upgrade cancelled")
       }
       const asset = `${APP_HANDLE}-platform-${RELEASE_TARGET}`
-      const response = await fetch(
-        `https://github.com/${APP_RELEASES_REPOSITORY}/releases/download/v${version}/${asset}`,
-      )
+      const releaseUrl = `https://github.com/${APP_RELEASES_REPOSITORY}/releases/download/v${version}`
+      const sums = await fetch(`${releaseUrl}/SHA256SUMS`)
+      if (!sums.ok) {
+        throw new Error(`downloading v${version} SHA256SUMS returned HTTP ${sums.status}`)
+      }
+      // `sha256sum` writes `<hash>  <name>`, or `<hash> *<name>` in binary mode.
+      const expected = (await sums.text())
+        .split("\n")
+        .map((line) => line.split(/ [ *]/))
+        .find(([, name]) => name === asset)?.[0]
+      if (!expected) throw new Error(`v${version} SHA256SUMS lists no ${asset}`)
+      const response = await fetch(`${releaseUrl}/${asset}`)
       if (!response.ok) {
         throw new Error(`downloading v${version} ${asset} returned HTTP ${response.status}`)
       }
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      if (createHash("sha256").update(bytes).digest("hex") !== expected) {
+        throw new Error(`v${version} ${asset} does not match its SHA256SUMS entry`)
+      }
       const downloadPath = `${binaryPath}.download`
       try {
-        writeFileSync(downloadPath, new Uint8Array(await response.arrayBuffer()))
+        writeFileSync(downloadPath, bytes)
         chmodSync(downloadPath, 0o755)
         // Windows cannot overwrite a running executable, but it can rename one.
         if (process.platform === "win32") renameSync(binaryPath, `${binaryPath}.old`)
-        renameSync(downloadPath, binaryPath)
+        try {
+          renameSync(downloadPath, binaryPath)
+        } catch (error) {
+          if (process.platform === "win32") renameSync(`${binaryPath}.old`, binaryPath)
+          throw error
+        }
       } finally {
         rmSync(downloadPath, { force: true })
       }
