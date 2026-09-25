@@ -2,7 +2,7 @@
 
 A running deployment needs migrations applied, backups taken, and a handful of limits and log lines understood. [Deploy](./deploy.md) covers the install itself.
 
-Every command below needs `DATABASE_URL` in the environment. `astralbeam-platform` commands run from the installed binary, and `deno task` commands run from the repository root, in a checkout of the deployed version.
+Every command below needs `DATABASE_URL` in the environment. `astralbeam-platform` commands run from the installed binary and can also read it from [the saved file](./deploy.md#3-set-the-bootstrap-environment), and `deno task` commands run from the repository root, in a checkout of the deployed version.
 
 ## Applying migrations
 

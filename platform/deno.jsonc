@@ -25,6 +25,8 @@
       "net": true,
       "read": true,
       "sys": ["gid", "homedir", "hostname", "osRelease", "uid"],
+      // Saves prompted database variables under ~/.astralbeam, which permission paths cannot expand.
+      "write": true,
     },
   },
 }

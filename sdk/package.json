@@ -1,6 +1,6 @@
 {
   "name": "@astralbeam/sdk",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "Frontend SDK for AstralBeam: drop-in agent UI, chat streaming, and server helpers",
   "homepage": "https://astralbeam.ai",
   "bugs": "https://github.com/AstralBeamAI/astralbeam/issues",
