@@ -5,6 +5,30 @@
       "path": ".",
     },
     {
+      "name": "cli",
+      "path": "cli",
+    },
+    {
+      "name": "docs",
+      "path": "docs",
+    },
+    {
+      "name": "examples/todos",
+      "path": "examples/todos",
+    },
+    {
+      "name": "examples/todos-rails",
+      "path": "examples/todos-rails",
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+    },
+    {
+      "name": "sdk",
+      "path": "sdk",
+    },
+    {
       "name": "platform",
       "path": "platform",
     },
@@ -15,8 +39,23 @@
   ],
   "settings": {
     "files.exclude": {
+      "cli": true,
+      "docs": true,
+      "examples": true,
+      "sdk": true,
       "platform": true,
       "www": true,
+    },
+    // NOTE: Keep in sync with .vscode/settings.json
+    "deno.enable": true,
+    "deno.lint": false,
+    "vitest.runtime": "deno",
+    "gitlens.blame.ignoreWhitespace": true,
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.oxc": "always",
     },
   },
 }
