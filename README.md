@@ -80,7 +80,7 @@ AstralBeam works with your existing LLM providers and gateways, observability pl
 There are five independent Deno projects: a TanStack Start product application with app-local shadcn/ui components, the prerendered TanStack Start marketing website, the frontend SDK published to npm, the organization admin CLI published to npm and as Deno binaries, and a standalone TanStack Start example that consumes the built SDK.
 
 ```text
-webapp/       # TanStack Start application, database, theme, and UI
+platform/       # TanStack Start application, database, theme, and UI
 www/          # Public website
 sdk/          # Frontend SDK, published to npm as @astralbeam/sdk
 cli/          # Organization admin CLI, published to npm as @astralbeam/cli
@@ -93,7 +93,7 @@ Run the applications natively with Deno and the database services through Docker
 
 ### Start PostgreSQL and Mailpit
 
-Compose starts PostgreSQL, PgBouncer, Valkey, and Mailpit. The default `DATABASE_URL` in [`webapp/.env.development`](webapp/.env.development) points at PgBouncer, the only database endpoint published to the host. On macOS, run Deno natively and use Compose for these services.
+Compose starts PostgreSQL, PgBouncer, Valkey, and Mailpit. The default `DATABASE_URL` in [`platform/.env.development`](platform/.env.development) points at PgBouncer, the only database endpoint published to the host. On macOS, run Deno natively and use Compose for these services.
 
 From the repository root, start the services with Docker:
 
@@ -118,11 +118,11 @@ Install dependencies, migrate, seed local data, and build the SDK:
 ./scripts/setup.sh
 ```
 
-The [seed](webapp/src/db/README.md#seed-sample-data) creates local accounts and credentials and writes `examples/todos/.env` and `examples/todos-rails/.env` only when absent. Bootstrap defaults are in [`webapp/.env.development`](webapp/.env.development). Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value.
+The [seed](platform/src/db/README.md#seed-sample-data) creates local accounts and credentials and writes `examples/todos/.env` and `examples/todos-rails/.env` only when absent. Bootstrap defaults are in [`platform/.env.development`](platform/.env.development). Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value.
 
 ### Chat credentials
 
-Chat runs on the organization's own OpenAI API key, which owners set in the dashboard under **Settings**. Put a key of your own in `webapp/.env.local` and the seed gives it to every seeded organization:
+Chat runs on the organization's own OpenAI API key, which owners set in the dashboard under **Settings**. Put a key of your own in `platform/.env.local` and the seed gives it to every seeded organization:
 
 ```sh
 OPENAI_API_KEY=sk-...
@@ -154,7 +154,7 @@ deno task dev      # all apps and the SDK watcher
 deno task build    # all projects, SDK first
 ```
 
-Per-project aliases include `deno task dev:webapp`, `deno task build:sdk`, and `deno task install:todos`. Other tasks use `deno task --cwd <project> <task>`. Run `deno task` to list root commands.
+Per-project aliases include `deno task dev:platform`, `deno task build:sdk`, and `deno task install:todos`. Other tasks use `deno task --cwd <project> <task>`. Run `deno task` to list root commands.
 
 For account creation and email delivery, follow [Authentication setup](SETUP.md#authentication-and-transactional-email).
 

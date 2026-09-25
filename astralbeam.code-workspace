@@ -5,8 +5,8 @@
       "path": ".",
     },
     {
-      "name": "webapp",
-      "path": "webapp",
+      "name": "platform",
+      "path": "platform",
     },
     {
       "name": "www",
@@ -15,7 +15,7 @@
   ],
   "settings": {
     "files.exclude": {
-      "webapp": true,
+      "platform": true,
       "www": true,
     },
   },

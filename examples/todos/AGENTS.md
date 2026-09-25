@@ -11,7 +11,7 @@
 - Do not hardcode AstralBeam brand text outside `src/lib/config.ts` or `src/lib/config.server.ts`. Import centralized labels and identifiers instead.
 - Colocate unit tests under `src`. Keep `vitest.config.ts` scoped to them so it does not collect Playwright specs under `e2e`.
 - Run `deno task ready` before publishing changes to this example.
-- Browser tests live in `e2e`, run with Playwright through `deno task e2e`, as permitted by the root test policy. Read `e2e/README.md` before changing them. Keep selectors in `e2e/pages`, identities in `webapp/scripts/seed/fixtures.ts`, and assertions on observable side effects rather than on an assistant's wording.
+- Browser tests live in `e2e`, run with Playwright through `deno task e2e`, as permitted by the root test policy. Read `e2e/README.md` before changing them. Keep selectors in `e2e/pages`, identities in `platform/scripts/seed/fixtures.ts`, and assertions on observable side effects rather than on an assistant's wording.
 - Keep deterministic specs in `e2e/specs/app` and specs that drive a real agent in `e2e/specs/agent`, because the latter spend model credits on every run.
 - Keep `mintSeedChatAuthToken(apiKey: string)` fixed to the default seed identity. Tests needing another user must select an existing seeded identity and use the built server SDK, without adding identity or permission overrides to this helper.
 - Keep the example's user listing tenant-scoped and reuse its chat token endpoint. Exercise organization scope in browser fixtures, without adding an organization-token endpoint or tenant directory page to this app.

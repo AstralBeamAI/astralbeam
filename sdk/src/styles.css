@@ -55,7 +55,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* The widget's own palette, independent of webapp/src/theme/brand.json; generated as `:root`,
+/* The widget's own palette, independent of platform/src/theme/brand.json; generated as `:root`,
    which never matches inside a shadow root, so it lives on `:host`. */
 :host {
   /* Body and heading fonts are independent tokens set separately by the `theme` mount option;

@@ -14,7 +14,7 @@ Deno is the only supported runtime and package manager for this repository. Vite
 
 The repository holds five independent Deno projects that do not form a package-manager workspace:
 
-- `webapp`, the TanStack Start product application, database, theme, and dashboard UI.
+- `platform`, the TanStack Start product application, database, theme, and dashboard UI.
 - `www`, the public website, a prerendered TanStack Start application.
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
 - `cli`, the organization admin CLI published to npm as `@astralbeam/cli` and as Deno binaries.
@@ -29,7 +29,7 @@ Each owns its dependencies, lockfile, and tooling. [ARCHITECTURE.md](ARCHITECTUR
 Every project defines the same tasks, where `check` covers formatting, linting, and typechecking, and `ready` means `check`, `test`, and `build` together. Run `ready` once for each project you touched before opening a pull request, rather than running `check` and `test` separately:
 
 ```sh
-deno task --cwd webapp ready
+deno task --cwd platform ready
 deno task --cwd www ready
 deno task --cwd sdk ready
 deno task --cwd cli ready
@@ -40,7 +40,7 @@ Documentation-only changes need source review and `git diff --check`, not a full
 
 The browser suites run through their own `e2e` tasks, for example `deno task --cwd examples/todos e2e`. They need Playwright browsers and running services, so they stay out of `check`, `test`, `ready`, and CI. Run them locally when you change a flow they cover.
 
-CI runs `ready` for all five projects, compiles and smoke-tests the webapp and CLI binaries, and runs the deterministic browser specs.
+CI runs `ready` for all five projects, compiles and smoke-tests the platform and CLI binaries, and runs the deterministic browser specs.
 
 ## Pull requests
 
@@ -61,11 +61,11 @@ Agreement is collected when a contribution is proposed, by ticking the CLA ackno
 
 ## Releasing
 
-Releases are maintainer-only. One tag `vX.Y.Z` releases the webapp, the SDK, and the CLI together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put either package on npm.
+Releases are maintainer-only. One tag `vX.Y.Z` releases the platform, the SDK, and the CLI together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put either package on npm.
 
 1. Make sure `sdk/package.json` and `cli/package.json` are both already at the version you are about to tag. They are the only versioned projects and move in lockstep, so the workflow fails immediately if the tag and either version disagree.
 2. Push the tag, for example `git tag v0.10.0 && git push origin v0.10.0`.
-3. The workflow builds the SDK and CLI, compiles and smoke-tests the webapp binary and the five CLI binaries, stages both packages on npm with `npm stage publish`, and creates the GitHub release with auto-generated notes and every binary attached.
+3. The workflow builds the SDK and CLI, compiles and smoke-tests the platform binary and the five CLI binaries, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build.
 4. A maintainer approves each staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is a package public. The run's job summary prints the stage ids.
 
 Before approving, inspect the staged package with `npm stage list`, `npm stage view <stage-id>`, and `npm stage download <stage-id>`.

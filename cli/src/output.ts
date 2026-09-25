@@ -55,8 +55,8 @@ function errorHint(error: AstralBeamApiError): string | undefined {
   if (error.status === 401) {
     return "The API key was rejected. It may be revoked or deleted, so create a new one and run `astralbeam auth login` again."
   }
-  // The webapp answers unrouted paths with this generic detail, unlike missing records.
-  // See webapp/src/routes/api/v1/-lib/transport.server.ts.
+  // The platform answers unrouted paths with this generic detail, unlike missing records.
+  // See platform/src/routes/api/v1/-lib/transport.server.ts.
   if (error.status === 404 && error.body?.detail === "Resource not found.") {
     return `This server does not serve that endpoint. Check the API URL, or the server may run an older AstralBeam release than this CLI (${packageJson.version}).`
   }

@@ -8,7 +8,7 @@ Please do not open a public issue, pull request, or Discord message for a suspec
 
 A useful report includes:
 
-- The affected project (`webapp`, `www`, `sdk`, or `examples`) and the version, tag, or commit you tested.
+- The affected project (`platform`, `www`, `sdk`, or `examples`) and the version, tag, or commit you tested.
 - Whether you reproduced it against a self-hosted deployment or AstralBeam Cloud.
 - Steps to reproduce, the impact you believe it has, and any proof-of-concept code.
 
@@ -26,4 +26,4 @@ AstralBeam is pre-1.0. Only the latest published version is supported, which tod
 
 ## Scope
 
-The code in this repository is in scope, including the webapp, the website, the SDK, and the example applications. Issues in third-party dependencies belong to their own maintainers, but tell us if AstralBeam's use of a dependency makes it exploitable here.
+The code in this repository is in scope, including the platform, the website, the SDK, and the example applications. Issues in third-party dependencies belong to their own maintainers, but tell us if AstralBeam's use of a dependency makes it exploitable here.

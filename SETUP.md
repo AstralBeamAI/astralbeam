@@ -33,7 +33,7 @@ Use Docker Desktop with Docker Compose, or set up Podman below.
 
 #### Optional: Match the devcontainer workspace path
 
-To help agent CLIs find the codebase outside the devcontainer, expose the directory containing the repository at `/workspaces` on macOS. For example, a repository cloned at `$HOME/projects/astralbeam` will then be available at `/workspaces/astralbeam`, with the Webapp at `/workspaces/astralbeam/webapp`.
+To help agent CLIs find the codebase outside the devcontainer, expose the directory containing the repository at `/workspaces` on macOS. For example, a repository cloned at `$HOME/projects/astralbeam` will then be available at `/workspaces/astralbeam`, with the Platform at `/workspaces/astralbeam/platform`.
 
 - On modern macOS, `/` is read-only, so use `/etc/synthetic.conf` to create the root-level symlink.
 - Check for an existing entry with `sudo grep -n '^workspaces' /etc/synthetic.conf 2>/dev/null`. If nothing is returned, add one:
@@ -48,7 +48,7 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
   ```bash
   readlink /workspaces
-  ls -ld /workspaces/astralbeam/webapp
+  ls -ld /workspaces/astralbeam/platform
   ```
 
 ### Option 2: Run directly on macOS
@@ -70,15 +70,15 @@ With Podman, wait for the services to become healthy before setup. PgBouncer pub
 ./scripts/setup.sh
 ```
 
-Setup installs the Deno toolchain and frozen dependencies, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Deno on `PATH`. Chat runs on each organization's own OpenAI API key, set in the dashboard under **Settings**; put `OPENAI_API_KEY` in `webapp/.env.local` and the seed gives it to every seeded organization.
+Setup installs the Deno toolchain and frozen dependencies, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Deno on `PATH`. Chat runs on each organization's own OpenAI API key, set in the dashboard under **Settings**; put `OPENAI_API_KEY` in `platform/.env.local` and the seed gives it to every seeded organization.
 
 ```sh
 deno task dev                      # all apps and the SDK watcher
 ```
 
-Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](webapp/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
+Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](platform/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
 
-The webapp starts one embedded Effect Cluster runner with automatic PostgreSQL storage initialization and an OS-assigned loopback port. No separate worker command is needed. See the [cluster guide](webapp/src/cluster/README.md) for database privileges, replica addresses and recovery, and the [workflow guide](webapp/src/workflows/README.md) for authoring.
+The platform starts one embedded Effect Cluster runner with automatic PostgreSQL storage initialization and an OS-assigned loopback port. No separate worker command is needed. See the [cluster guide](platform/src/cluster/README.md) for database privileges, replica addresses and recovery, and the [workflow guide](platform/src/workflows/README.md) for authoring.
 
 ## Cloud agent setup
 
@@ -94,7 +94,7 @@ Passwords are 12–128 characters and are screened for known compromise outside 
 
 ### Configure the environment
 
-`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are the required bootstrap variables. `webapp/.env.development` supplies local defaults and is loaded automatically. An existing shell, CI, or deployment value always wins, and `webapp/.env.development.local` holds ignored local overrides. See the [Vite](https://vite.dev/guide/env-and-mode) environment guide.
+`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are the required bootstrap variables. `platform/.env.development` supplies local defaults and is loaded automatically. An existing shell, CI, or deployment value always wins, and `platform/.env.development.local` holds ignored local overrides. See the [Vite](https://vite.dev/guide/env-and-mode) environment guide.
 
 Set `DATABASE_ENCRYPTION_KEY` to one or more comma-separated raw secrets, with the active encryption secret first and older decryption-only secrets after it. Every trimmed entry must be unique and contain at least 32 characters, and a secret cannot contain a comma. Each entry is hashed with SHA-256 into 32-byte root material. Hashing and a length check do not strengthen a weak passphrase, so generate high-entropy values with OpenSSL and keep them in the deployment's secret manager:
 
@@ -188,7 +188,7 @@ Choose one email provider per environment and do not configure credentials or pe
 
 ### Run locally
 
-After configuration, run from `webapp`:
+After configuration, run from `platform`:
 
 ```sh
 deno task dev

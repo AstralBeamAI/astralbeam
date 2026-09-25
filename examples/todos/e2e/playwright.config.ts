@@ -13,7 +13,7 @@ import {
 assertSdkIsBuilt()
 
 /**
- * One shared webapp, one agent backend, and one Docker daemon serve every spec, so the suite runs
+ * One shared platform, one agent backend, and one Docker daemon serve every spec, so the suite runs
  * serially. Specs are routed to projects by folder rather than by tag:
  *
  * - `specs/app` is deterministic and free; it never calls a model.

@@ -8,7 +8,7 @@ Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific cou
 
 | Project | Responsibility | Output |
 | --- | --- | --- |
-| `webapp` | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Deno binary |
+| `platform` | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Deno binary |
 | `sdk` | Widget, headless session, React bindings, and token minting | `@astralbeam/sdk` npm package |
 | `cli` | Organization admin commands over the public API, built on the SDK | `@astralbeam/cli` npm package and Deno binaries |
 | `www` | Prerendered TanStack Start website | Cloudflare assets |
@@ -30,7 +30,7 @@ Tenant user's browser
 │       │     Synchronize the Tenant and current TenantUser
 │       │
 │       └─ 3. POST /api/v1/chat with Bearer JWT
-│              webapp
+│              platform
 │              ├─ Verify token → ChatPrincipal
 │              ├─ Resolve agent and normalize attachments
 │              └─ Run model
@@ -49,9 +49,9 @@ An organization API key is `key_<organizationId>_<id>_abo_<secret>`. Its IDs are
 
 The host signs chat JWTs using the SHA-256 digest of the complete `abo_<secret>` value. AstralBeam verifies them against the stored digest without receiving the raw key. Consequently, read access to `api_key.key` is enough to forge chat tokens. Treat it as signing-key access.
 
-JWTs carry separate `user` and `tenant` claims, use the organization UUID as issuer and `astralbeam` as audience, and expire after 60–600 seconds. Trusted organization context comes from the verified key row. The [chat authentication instructions](webapp/src/lib/chat/AGENTS.md#authentication) define verification order and lifecycle checks.
+JWTs carry separate `user` and `tenant` claims, use the organization UUID as issuer and `astralbeam` as audience, and expire after 60–600 seconds. Trusted organization context comes from the verified key row. The [chat authentication instructions](platform/src/lib/chat/AGENTS.md#authentication) define verification order and lifecycle checks.
 
-The management API persists Tenants and TenantUsers. Before becoming ready, SDK authentication calls JWT-only `POST /api/v1/me` to synchronize the signed Tenant and current TenantUser atomically. Organization JWTs instead return the existing member and current role. Token issuance does not write these identities. Chat authenticates their external identities from signed claims without reading or upserting those records. A signed `user.admin` claim grants scoped management access independently of stored TenantUser `admin` data. See [API authentication](webapp/src/routes/docs/-content/api/authentication.md).
+The management API persists Tenants and TenantUsers. Before becoming ready, SDK authentication calls JWT-only `POST /api/v1/me` to synchronize the signed Tenant and current TenantUser atomically. Organization JWTs instead return the existing member and current role. Token issuance does not write these identities. Chat authenticates their external identities from signed claims without reading or upserting those records. A signed `user.admin` claim grants scoped management access independently of stored TenantUser `admin` data. See [API authentication](platform/src/routes/docs/-content/api/authentication.md).
 
 First-party organization-owned rows use `(organization_id, id)` keys. Tenant-owned rows add `tenant_id`. Composite foreign keys prevent cross-organization or cross-Tenant references at the database boundary. Better Auth tables retain adapter-compatible keys and require application-level scoping.
 
@@ -87,13 +87,13 @@ TanStack Start server functions and routes form the framework boundary. Public m
 
 New application logic uses Effect with typed failures, executed through the `ManagedRuntime` bridge. Better Auth and TanStack sandbox lifecycle contracts remain Promise-based.
 
-The database module owns a `pg` pool for Promise and Better Auth queries and a separate native `@effect/sql-pg` pool for Effect queries. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](webapp/AGENTS.md#database) for the required pool lifecycle.
+The database module owns a `pg` pool for Promise and Better Auth queries and a separate native `@effect/sql-pg` pool for Effect queries. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](platform/AGENTS.md#database) for the required pool lifecycle.
 
 ## Durable workflow execution
 
-Each webapp process embeds `ClusterWorkflowEngine` and one Effect Cluster runner using private HTTP, PostgreSQL journals and SQL row leases compatible with PgBouncer transaction pooling. The runner shares the native Effect pool but has its own scope, keeping startup failures independent of `/configure` and ordinary database operations.
+Each platform process embeds `ClusterWorkflowEngine` and one Effect Cluster runner using private HTTP, PostgreSQL journals and SQL row leases compatible with PgBouncer transaction pooling. The runner shares the native Effect pool but has its own scope, keeping startup failures independent of `/configure` and ordinary database operations.
 
-Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](webapp/src/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](webapp/src/workflows/README.md) for authoring and recovery.
+Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](platform/src/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](platform/src/workflows/README.md) for authoring and recovery.
 
 ## SDK boundary
 
@@ -101,11 +101,11 @@ The vanilla entry lazily loads a widget with its own React and styles. The React
 
 Chat and directory components use the same framework-free authentication lifecycle for token acquisition, current-user synchronization, proactive renewal, and bounded retry. Each component owns and disposes its session.
 
-Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox artifacts are downloaded through short-lived tickets bound to the published bytes. These boundaries are detailed in [SDK security](webapp/src/routes/docs/-content/sdk/security.md).
+Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox artifacts are downloaded through short-lived tickets bound to the published bytes. These boundaries are detailed in [SDK security](platform/src/routes/docs/-content/sdk/security.md).
 
 ## Build and deployment
 
-The webapp compiles to a Deno binary with an out-of-tree startup, asset, shutdown, and size check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Deno binaries. `www` deploys as static assets. CI validates each project and runs deterministic browser tests. Model-driven tests require separate credentials and spend credits.
+The platform compiles to a Deno binary with an out-of-tree startup, asset, shutdown, and size check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Deno binaries. `www` deploys as static assets. CI validates each project and runs deterministic browser tests. Model-driven tests require separate credentials and spend credits.
 
 Commands and build constraints belong to each project's instructions and manifests. The [root quick start](README.md#local-development) launches local development, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
 

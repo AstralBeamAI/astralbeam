@@ -21,7 +21,7 @@ jobs:
       # Every project reports its own result, so one failing leg does not hide the others.
       fail-fast: false
       matrix:
-        project: [webapp, www, sdk, cli, examples/todos]
+        project: [platform, www, sdk, cli, examples/todos]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -40,15 +40,15 @@ jobs:
         run: deno task format:check
 
       - name: Cache SDK node_modules
-        if: matrix.project == 'examples/todos' || matrix.project == 'webapp' || matrix.project == 'cli'
+        if: matrix.project == 'examples/todos' || matrix.project == 'platform' || matrix.project == 'cli'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: sdk/node_modules
           key: node_modules-${{ runner.os }}-sdk-${{ hashFiles('sdk/deno.lock') }}
 
       - name: Build the SDK
-        if: matrix.project == 'examples/todos' || matrix.project == 'webapp' || matrix.project == 'cli'
-        # The webapp, CLI, and example consume `sdk/dist` through file dependencies, so their
+        if: matrix.project == 'examples/todos' || matrix.project == 'platform' || matrix.project == 'cli'
+        # The platform, CLI, and example consume `sdk/dist` through file dependencies, so their
         # typecheck and build cannot run before the SDK is installed and built.
         working-directory: sdk
         run: |
@@ -68,9 +68,9 @@ jobs:
           SHARP_IGNORE_GLOBAL_LIBVIPS: 1
         run: deno install --frozen
 
-      - name: Prepare Webapp test database
-        if: matrix.project == 'webapp'
-        working-directory: webapp
+      - name: Prepare Platform test database
+        if: matrix.project == 'platform'
+        working-directory: platform
         env:
           DATABASE_URL: postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test
         run: |
@@ -81,9 +81,9 @@ jobs:
       - name: Check, test, and build
         working-directory: ${{ matrix.project }}
         env:
-          DATABASE_URL: ${{ matrix.project == 'webapp' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
+          DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
         # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
-        run: deno task ${{ (matrix.project == 'webapp' || matrix.project == 'cli') && 'check && deno task test && deno task binary:check' || 'ready' }}
+        run: deno task ${{ (matrix.project == 'platform' || matrix.project == 'cli') && 'check && deno task test && deno task binary:check' || 'ready' }}
 
   todos-rails:
     name: Check examples/todos-rails
@@ -125,11 +125,11 @@ jobs:
           deno-version: latest
           cache: true
 
-      - name: Cache Webapp node_modules
+      - name: Cache Platform node_modules
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
-          path: webapp/node_modules
-          key: node_modules-${{ runner.os }}-webapp-${{ hashFiles('webapp/deno.lock') }}
+          path: platform/node_modules
+          key: node_modules-${{ runner.os }}-platform-${{ hashFiles('platform/deno.lock') }}
 
       - name: Cache SDK node_modules
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -147,7 +147,7 @@ jobs:
         env:
           SHARP_IGNORE_GLOBAL_LIBVIPS: 1
         run: |
-          (cd webapp && deno install --frozen)
+          (cd platform && deno install --frozen)
           (cd sdk && deno install --frozen)
           (cd examples/todos && deno install --frozen)
 
@@ -160,7 +160,7 @@ jobs:
         run: docker compose up --detach --wait
 
       - name: Migrate and seed the database
-        working-directory: webapp
+        working-directory: platform
         run: |
           deno task db migrate
           deno task db-seed
@@ -171,6 +171,6 @@ jobs:
 
       - name: Run deterministic browser specs
         working-directory: examples/todos
-        # Only the `app` project, which never calls a model; the suite starts its own webapp and
+        # Only the `app` project, which never calls a model; the suite starts its own platform and
         # todos servers. https://playwright.dev/docs/test-webserver
         run: deno task e2e --project=app

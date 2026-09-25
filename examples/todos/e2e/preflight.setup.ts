@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 import { mintSeedChatAuthToken, readJwtHeader } from "./tokens.ts"
-import { seedTarget, todosUrl, webappUrl } from "./worktree.ts"
+import { seedTarget, todosUrl, platformUrl } from "./worktree.ts"
 
 /**
  * Fails once, with something to act on, when the environment is not ready. Both spec projects
@@ -25,17 +25,17 @@ test("the todos token route mints a token for the seeded API key", async ({ requ
   ).toBe(`key_${seedTarget.organizationId}_${seedTarget.apiKeyId}`)
 })
 
-test("the webapp accepts a seeded chat auth token and resolves the seeded agent", async ({
+test("the platform accepts a seeded chat auth token and resolves the seeded agent", async ({
   request,
 }) => {
   const token = await mintSeedChatAuthToken(seedTarget.apiKey)
   const response = await request.get(
-    `${webappUrl}/api/v1/chat/config?agentId=${seedTarget.agentId}`,
+    `${platformUrl}/api/v1/chat/config?agentId=${seedTarget.agentId}`,
     { headers: { authorization: `Bearer ${token}` } },
   )
   expect(
     response.status(),
-    `The webapp rejected the seeded API key or agent. Run \`deno task db-seed\` from \`webapp\` against the database this server uses (${response.status()} ${await response.text()}).`,
+    `The platform rejected the seeded API key or agent. Run \`deno task db-seed\` from \`platform\` against the database this server uses (${response.status()} ${await response.text()}).`,
   ).toBe(200)
   expect(await response.json()).toEqual({ capabilities: { attachments: true } })
 })

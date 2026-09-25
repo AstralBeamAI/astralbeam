@@ -1,6 +1,6 @@
 # SDK development
 
-Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` quick start plus the webapp-hosted guides. Neither carries internals.
+Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` quick start plus the platform-hosted guides. Neither carries internals.
 
 ## Layout and entry points
 
@@ -53,7 +53,7 @@ Chat and directories share the semantic CSS variables in `src/styles.css` and `a
 
 Generate shadcn components with `deno task ui add <component>` and allow only minimal typed fixups.
 
-- Keep `components.json` on `b0`/`base-nova`/`neutral`/RTL with Phosphor, independent of the webapp.
+- Keep `components.json` on `b0`/`base-nova`/`neutral`/RTL with Phosphor, independent of the platform.
 - Registry-added files live under `src/widget/components/ui`. Hand-written chat components one per file under `src/widget/components`.
 
 ## Code conventions
@@ -69,7 +69,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Treat a copied API key as its public ID plus the exact Better Auth raw key. Hash the complete `abo_<secret>` value, never only its random suffix.
 - Model token identities as separate `user` and `tenant` objects with a required stable Tenant ID plus a stable tenant-local TenantUser ID. The host authenticates once and derives both objects from that same session. Preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
 - Keep SDK option and model names camelCase, map AstralBeam-owned multiword JWT claim names to snake_case on the wire, and preserve caller-owned `metadata` keys verbatim.
-- Generated API types retain OpenAPI field names. Generate with `deno task generate:api` from the committed `webapp/public/api/openapi.json`. Never hand-edit `src/api/generated`. Orval is development-only, and `/api` must contain no third-party runtime imports or bundled transport/validation dependencies.
+- Generated API types retain OpenAPI field names. Generate with `deno task generate:api` from the committed `platform/public/api/openapi.json`. Never hand-edit `src/api/generated`. Orval is development-only, and `/api` must contain no third-party runtime imports or bundled transport/validation dependencies.
 - Use typed `apiKey` options on servers and `astralBeamToken` options in browsers. Resource helpers support either, chat run/config accept only JWTs, and files use signed tickets. Keep TanStack's SSE parsing and the existing one-time 401 refresh outside the generated transport.
 - Preserve native Fetch redirect-following defaults for compatibility. Honor an explicit caller-provided `redirect` option.
 - Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject. Do not expose a deployment-handle option while `APP_HANDLE` remains a source constant.
@@ -94,7 +94,7 @@ Verify embedded directories through the existing consumer examples and their bro
 
 ## Documentation
 
-`README.md` is the quick start. Full guides live under `webapp/src/routes/docs/-content/sdk/`, served at `/docs/sdk`. Apply the section-length guidance below to both.
+`README.md` is the quick start. Full guides live under `platform/src/routes/docs/-content/sdk/`, served at `/docs/sdk`. Apply the section-length guidance below to both.
 
 - Keep every section scannable: one or two intro sentences (at most 30–40 words), then at most 6–8 bullets of 20–25 words each, with short code examples.
 - The README links to the hosted guides at `https://app.astralbeam.ai/docs/sdk/<page>`. Keep both in step with SDK behavior changes.

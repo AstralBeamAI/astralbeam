@@ -1,7 +1,7 @@
 import { expect, test } from "../../fixtures.ts"
 import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"
-import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../webapp/scripts/seed/fixtures.ts"
+import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../platform/scripts/seed/fixtures.ts"
 // @deno-types="../../../../../sdk/dist/server.d.ts"
 import {
   createAstralBeamOrganizationToken,

@@ -7,7 +7,7 @@ body:
     attributes:
       label: Project
       options:
-        - webapp
+        - platform
         - www
         - sdk
         - examples

@@ -1,15 +1,15 @@
 # Todos end-to-end suite
 
-Browser tests cover the example, SDK, and chat endpoint against a seeded webapp. Deterministic specs run without a model, while agent specs use real model calls.
+Browser tests cover the example, SDK, and chat endpoint against a seeded platform. Deterministic specs run without a model, while agent specs use real model calls.
 
-The suite reads its identities from `webapp/scripts/seed/fixtures.ts`, the same file `deno task db-seed` writes, so there is nothing to copy between the two.
+The suite reads its identities from `platform/scripts/seed/fixtures.ts`, the same file `deno task db-seed` writes, so there is nothing to copy between the two.
 
 ## Run it
 
 ```sh
-deno task --cwd webapp db-reset          # optional: start from an empty database
-deno task --cwd webapp db migrate
-deno task --cwd webapp db-seed
+deno task --cwd platform db-reset          # optional: start from an empty database
+deno task --cwd platform db migrate
+deno task --cwd platform db-seed
 deno task --cwd sdk build                # the example consumes sdk/dist
 deno task --cwd examples/todos e2e:install
 deno task --cwd examples/todos e2e
@@ -17,10 +17,10 @@ deno task --cwd examples/todos e2e
 
 - `deno task --cwd examples/todos e2e --project=app` runs only the free specs. Nothing in that project calls a model.
 - `deno task --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
-- Without `OPENAI_API_KEY` in `webapp/.env.local`, which the seed stores as each organization's own key, the `agent` project is omitted. Report it as not run, not as passed.
+- Without `OPENAI_API_KEY` in `platform/.env.local`, which the seed stores as each organization's own key, the `agent` project is omitted. Report it as not run, not as passed.
 - `deno task --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
 
-The suite starts its own webapp and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_WEBAPP_URL` and `E2E_TODOS_URL` to test servers you are already running instead.
+The suite starts its own platform and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_PLATFORM_URL` and `E2E_TODOS_URL` to test servers you are already running instead.
 
 The `list` reporter narrates every `test.step` as it starts and finishes, with its duration. An agent spec's steps say what turn is running and, if the endpoint throttles it, that it is waiting out the rate-limit window rather than hanging.
 
@@ -64,7 +64,7 @@ Compose it from the page objects. A spec should read as the user's steps and not
 | --- | --- |
 | SDK widget markup or accessible names | `pages/chat-widget.ts` |
 | Host app UI or control labels | `pages/todos-page.ts` |
-| Seeded accounts, keys, agents, or tenants | `webapp/scripts/seed/fixtures.ts` |
+| Seeded accounts, keys, agents, or tenants | `platform/scripts/seed/fixtures.ts` |
 | Auth token claims or signing | `tokens.ts`, kept in step with `sdk/src/server/index.ts` |
 | Server startup, ports, or required env | `worktree.ts` |
 | A new capability to cover | a new spec under `specs/app` or `specs/agent` |

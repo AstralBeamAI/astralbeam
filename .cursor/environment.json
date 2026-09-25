@@ -23,7 +23,7 @@
   "terminals": [
     {
       "name": "Product application",
-      "command": "cd webapp && deno task dev",
+      "command": "cd platform && deno task dev",
       "description": "Runs the TanStack Start application on port 4500."
     },
     {

@@ -4,7 +4,7 @@ const mutator = (name: string) => ({ path: "src/api/api.ts", name, inferred: tru
 
 export default defineConfig({
   api: {
-    input: "../webapp/public/api/openapi.json",
+    input: "../platform/public/api/openapi.json",
     output: {
       target: "src/api/generated/api.ts",
       // Fetch ignores optionsParamRequired. Require typed auth during generation, not via runtime wrappers.
