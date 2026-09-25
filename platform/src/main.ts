@@ -12,6 +12,40 @@ Environment:
   DATABASE_ENCRYPTION_KEY  keyring for encrypted settings (required by start)
   PORT                     port the server listens on (default 3000)`
 
+// The `Deno.serve(options, handler)` form srvx calls. https://docs.deno.com/api/deno/~/Deno.serve
+type DenoServe = (
+  options: object,
+  handler: (request: Request, info: { completed: Promise<void> }) => Response | Promise<Response>,
+) => unknown
+
+// Compiled binaries ignore `no-legacy-abort`, so their request signals also abort once a response
+// is delivered. https://github.com/denoland/deno/blob/v2.9.7/cli/rt/run.rs#L1786
+function restoreRequestAbortSemantics(): void {
+  const { Deno: deno } = globalThis as unknown as { Deno: { serve: DenoServe } }
+  const serve = deno.serve
+  deno.serve = (options, handler) =>
+    serve(options, (request, info) => {
+      const abort = new AbortController()
+      let delivered = false
+      void info.completed.then(
+        () => (delivered = true),
+        () => abort.abort(),
+      )
+      // A delivered response resolves `completed` just before the legacy abort fires.
+      request.signal.addEventListener("abort", () =>
+        queueMicrotask(() => {
+          if (!delivered) abort.abort()
+        }),
+      )
+      return handler(new Request(request, { signal: abort.signal }), info)
+    })
+  // Reading the legacy signal above triggers Deno's notice, which the replacement signal makes false.
+  const { warn } = console
+  console.warn = (...data: unknown[]) => {
+    if (!String(data[0]).startsWith("Deno.serve: request.signal aborts")) warn(...data)
+  }
+}
+
 function pluralMigrations(count: number): string {
   return `${count} migration${count === 1 ? "" : "s"}`
 }
@@ -25,6 +59,7 @@ program
   .command("start", { isDefault: true })
   .description("start the server (the default command)")
   .action(async () => {
+    restoreRequestAbortSemantics()
     // Computed so typechecking needs no build output; `deno compile --include` embeds the module.
     await import(new URL("../.output/server/index.mjs", import.meta.url).href)
   })
