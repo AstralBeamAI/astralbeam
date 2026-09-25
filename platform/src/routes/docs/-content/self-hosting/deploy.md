@@ -179,7 +179,7 @@ Let's move a running deployment to a newer release. Read the release notes first
    sudo astralbeam-platform upgrade
    ```
 
-   To pin a release instead, pass its tag, as in `sudo astralbeam-platform upgrade v0.13.3`. The command downloads the matching `astralbeam-platform-<target>` asset from GitHub and swaps it in place after you confirm, and it supports releases from v0.13.0. Pass `-y` or `--yes` to skip the confirmation, which a run without a terminal needs because it cannot answer the prompt. It needs `sudo` only because `/usr/local/bin` belongs to root. Like the manual download, it verifies no checksum or signature.
+   To pin a release instead, pass its tag, as in `sudo astralbeam-platform upgrade v0.13.3`. The command downloads the matching `astralbeam-platform-<target>` asset from GitHub and swaps it in place after you confirm, and it supports releases from v0.13.0. Pass `-y` or `--yes` to skip the confirmation, which a run without a terminal needs because it cannot answer the prompt. It needs `sudo` only because `/usr/local/bin` belongs to root. Run from a checkout with `deno task start`, it refuses, because the running executable is then Deno itself, so pull and rebuild the checkout instead. Like the manual download, it verifies no checksum or signature.
 
 2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
 

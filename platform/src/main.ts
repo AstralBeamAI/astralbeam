@@ -161,6 +161,13 @@ program
   .action(async (requested: string | undefined, options: { yes?: boolean }) => {
     const binaryPath = process.execPath
     try {
+      // Under `deno run`, `execPath` is Deno itself. https://docs.deno.com/api/deno/~/Deno.build
+      const { Deno: deno } = globalThis as unknown as { Deno: { build: { standalone: boolean } } }
+      if (!deno.build.standalone) {
+        throw new Error(
+          "upgrade replaces a compiled binary, so pull and rebuild a checkout instead",
+        )
+      }
       if (!RELEASE_TARGET) throw new Error(`no release binary for ${BINARY_HOST}`)
       let tag = requested
       if (!tag) {
