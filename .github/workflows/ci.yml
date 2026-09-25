@@ -82,12 +82,8 @@ jobs:
         working-directory: ${{ matrix.project }}
         env:
           DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
-        run: deno task ready
-
-      - name: Compile and smoke-test the binary
-        if: matrix.project == 'platform' || matrix.project == 'cli'
-        working-directory: ${{ matrix.project }}
-        run: deno task binary:check
+        # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
+        run: deno task ${{ (matrix.project == 'platform' || matrix.project == 'cli') && 'check && deno task test && deno task binary:check' || 'ready' }}
 
   todos-rails:
     name: Check examples/todos-rails

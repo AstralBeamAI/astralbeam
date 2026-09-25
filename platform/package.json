@@ -10,7 +10,7 @@
     "openapi:check": "deno task generate:openapi --check",
     "build": "deno task generate:openapi && NODE_ENV=production vite build",
     "start": "deno run --config deno.jsonc -P=runtime .output/server/index.mjs",
-    "compile": "deno task typecheck && deno compile --no-check --node-modules-dir=none --exclude-unused-npm --include npm:busboy --config deno.jsonc -P=runtime --output .output/astralbeam-platform .",
+    "compile": "deno compile --no-check --node-modules-dir=none --exclude-unused-npm --include npm:busboy --config deno.jsonc -P=runtime --output .output/astralbeam-platform .",
     "binary:check": "deno task compile && deno run --env-file=.env.test -P=tooling scripts/check-binary.ts",
     "check": "deno task format:check && deno task openapi:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno task generate:png && deno task generate:openapi && deno task lint:fix && deno task knip:fix && deno task format",
