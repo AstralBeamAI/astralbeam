@@ -16,7 +16,7 @@ mv astralbeam-platform /usr/local/bin/astralbeam-platform
 
 **TIP**: To pin a release instead, replace `latest/download` with `download/v<version>` in the URL, for example `download/v0.13.0`.
 
-The release carries no checksum or signature file, so nothing here verifies where a download came from. Running it is only a smoke check. `astralbeam-platform version` prints the release version, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
+The release carries no checksum or signature file, so nothing here verifies where a download came from. Running it is only a smoke check. `astralbeam-platform version` prints the release version and target, such as `astralbeam-platform 0.13.3 (linux-x86_64)`, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
 
 For a fork, or a target without a prebuilt asset, we build the binary ourselves. Deno is the only supported toolchain.
 
@@ -39,7 +39,7 @@ Run this command to smoke-test the binary the way CI does:
 deno task --cwd platform binary:check
 ```
 
-It rejects a binary over 200 MiB, requires `version` and `--version` to print the platform version and `--help` to list `migrate`, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. With `BINARY_CHECK_DATABASE_URL` pointing at an empty database, as in CI, it also requires `migrate --dry-run` to list every embedded migration and leave no tables behind. It prints `Binary smoke check passed` with the binary's size when all of that holds.
+It rejects a binary over 200 MiB, requires `version` and `--version` to print the platform version and `--help` to list `migrate` and `upgrade`, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. With `BINARY_CHECK_DATABASE_URL` pointing at an empty database, as in CI, it also requires `migrate --dry-run` to list every embedded migration and leave no tables behind. It prints `Binary smoke check passed` with the binary's size when all of that holds.
 
 **TIP**: You can skip the binary and run the same commands with `deno task --cwd platform start`, which needs the repository, its installed dependencies, and a fresh `build` on the host.
 
@@ -171,9 +171,30 @@ Run each of these against the public origin:
 
 ## Upgrade
 
-1. Read the release notes, and back up the database before an upgrade that carries migrations.
-2. Replace the artifact and restart. Rerun the [download](#1-get-a-release-binary) to fetch the latest binary, then stop the old process, swap the binary, and start the new one.
-3. If the release added migrations, the gate closes and every page redirects to `/configure`. Sign in, review the new SQL, and apply it. You can also apply it ahead of the restart with the new binary's `astralbeam-platform migrate`, as described in [database commands](./operations.md#database-commands).
-4. Restart every other replica so each one reloads configuration and migration state.
+Let's move a running deployment to a newer release. Read the release notes first, and back up the database before an upgrade that carries migrations.
 
-Downgrading is not supported, because a migration has no rollback. Reverse a schema change with a forward migration instead.
+1. Run this command to replace the installed binary with the latest release for this host's target:
+
+   ```sh
+   sudo astralbeam-platform upgrade
+   ```
+
+   To pin a release instead, pass its tag, as in `sudo astralbeam-platform upgrade v0.13.3`. The command downloads the matching `astralbeam-platform-<target>` asset from GitHub and swaps it in place, and it supports releases from v0.13.0. It needs `sudo` only because `/usr/local/bin` belongs to root. Like the manual download, it verifies no checksum or signature.
+
+2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
+
+   ```sh
+   astralbeam-platform migrate
+   ```
+
+   It prompts for `DATABASE_URL` when neither the environment nor [the saved file](#3-set-the-bootstrap-environment) has it. You can skip this step and apply them from `/configure` after the restart instead, where the gate redirects every page until you review and apply the new SQL.
+
+3. Run this command to restart the service, since the running process keeps serving the old binary until then:
+
+   ```sh
+   systemctl restart astralbeam
+   ```
+
+4. Upgrade and restart every other replica so each one reloads configuration and migration state.
+
+Downgrading is not supported, because a migration has no rollback. `upgrade` accepts an older tag but warns that applied migrations stay applied. Reverse a schema change with a forward migration instead.

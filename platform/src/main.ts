@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
@@ -7,7 +15,7 @@ import { Command } from "commander"
 
 import packageJson from "../package.json" with { type: "json" }
 import { migrateDatabase } from "./db/migrate-command.server.ts"
-import { APP_HANDLE } from "./lib/constants.ts"
+import { APP_HANDLE, APP_RELEASES_REPOSITORY } from "./lib/constants.ts"
 
 const CLI_HELP_FOOTER = `
 Environment:
@@ -24,6 +32,19 @@ const BOOTSTRAP_PROMPTS = {
   DATABASE_ENCRYPTION_KEY:
     "Encryption keyring, 32+ characters per entry (DATABASE_ENCRYPTION_KEY):",
 }
+
+// Release asset suffixes keyed by `${process.platform}-${process.arch}`.
+const RELEASE_TARGETS: Record<string, string> = {
+  "linux-x64": "linux-x86_64",
+  "linux-arm64": "linux-arm64",
+  "darwin-x64": "macos-x86_64",
+  "darwin-arm64": "macos-arm64",
+  "win32-x64": "windows-x86_64.exe",
+}
+
+const BINARY_HOST = `${process.platform}-${process.arch}`
+const RELEASE_TARGET = RELEASE_TARGETS[BINARY_HOST]
+const VERSION_OUTPUT = `${APP_HANDLE}-platform ${packageJson.version} (${RELEASE_TARGET ?? BINARY_HOST})`
 
 type BootstrapVariable = keyof typeof BOOTSTRAP_PROMPTS
 
@@ -97,7 +118,7 @@ function pluralMigrations(count: number): string {
 
 const program = new Command(`${APP_HANDLE}-platform`)
   .description("Run the platform server and its maintenance commands.")
-  .version(packageJson.version)
+  .version(VERSION_OUTPUT)
   .addHelpText("after", CLI_HELP_FOOTER)
 
 program
@@ -113,7 +134,7 @@ program
 program
   .command("version")
   .description("print the version")
-  .action(() => console.log(packageJson.version))
+  .action(() => console.log(VERSION_OUTPUT))
 
 program
   .command("migrate")
@@ -128,6 +149,64 @@ program
       console.log(`${dryRun ? "Pending" : "Applied"} ${pluralMigrations(names.length)}:`)
       for (const name of names) console.log(`  ${name}`)
     } catch (error) {
+      program.error(`error: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  })
+
+program
+  .command("upgrade")
+  .description("replace this binary with the latest release or the given one")
+  .argument("[version]", "release tag such as v0.13.1 (default: the latest release)")
+  .action(async (requested?: string) => {
+    const binaryPath = process.execPath
+    try {
+      if (!RELEASE_TARGET) throw new Error(`no release binary for ${BINARY_HOST}`)
+      let tag = requested
+      if (!tag) {
+        const response = await fetch(
+          `https://api.github.com/repos/${APP_RELEASES_REPOSITORY}/releases/latest`,
+        )
+        if (!response.ok) throw new Error(`latest release lookup returned HTTP ${response.status}`)
+        tag = ((await response.json()) as { tag_name: string }).tag_name
+      }
+      const version = tag.replace(/^v/, "")
+      if (!/^\d+\.\d+\.\d+$/.test(version)) {
+        throw new Error(`${tag} is not a release tag such as v0.13.1`)
+      }
+      if (version === packageJson.version) return console.log(`Already at ${version}`)
+      // Earlier releases put the version in each asset name.
+      if (version.localeCompare("0.13.0", undefined, { numeric: true }) < 0) {
+        throw new Error("upgrade supports v0.13.0 and later releases")
+      }
+      if (version.localeCompare(packageJson.version, undefined, { numeric: true }) < 0) {
+        console.error(`Warning: downgrading to ${version} does not undo applied migrations`)
+      }
+      const asset = `${APP_HANDLE}-platform-${RELEASE_TARGET}`
+      const response = await fetch(
+        `https://github.com/${APP_RELEASES_REPOSITORY}/releases/download/v${version}/${asset}`,
+      )
+      if (!response.ok) {
+        throw new Error(`downloading v${version} ${asset} returned HTTP ${response.status}`)
+      }
+      const downloadPath = `${binaryPath}.download`
+      try {
+        writeFileSync(downloadPath, new Uint8Array(await response.arrayBuffer()))
+        chmodSync(downloadPath, 0o755)
+        // Windows cannot overwrite a running executable, but it can rename one.
+        if (process.platform === "win32") renameSync(binaryPath, `${binaryPath}.old`)
+        renameSync(downloadPath, binaryPath)
+      } finally {
+        rmSync(downloadPath, { force: true })
+      }
+      console.log(`Replaced ${packageJson.version} with ${version}`)
+      console.log(`Run \`${program.name()} migrate\`, then restart the service`)
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code === "EACCES" || code === "EPERM") {
+        program.error(
+          `error: cannot replace ${binaryPath}, rerun with write access to it, such as with sudo`,
+        )
+      }
       program.error(`error: ${error instanceof Error ? error.message : String(error)}`)
     }
   })

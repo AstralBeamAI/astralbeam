@@ -103,14 +103,16 @@ async function runBinaryCheck() {
   }
   for (const args of [["version"], ["--version"]]) {
     const { stdout } = await runBinaryCheckCommand(binaryPath, args)
-    if (stdout.trim() !== packageJson.version) {
+    const expected = `astralbeam-platform ${packageJson.version} (`
+    if (!stdout.startsWith(expected)) {
       throw new Error(
-        `\`${args.join(" ")}\` printed ${stdout.trim()}, expected ${packageJson.version}`,
+        `\`${args.join(" ")}\` printed ${stdout.trim()}, expected ${expected}<target>)`,
       )
     }
   }
   const { stdout: help } = await runBinaryCheckCommand(binaryPath, ["--help"])
   if (!/^ {2}migrate \[options\]/m.test(help)) throw new Error("--help did not list migrate")
+  if (!/^ {2}upgrade \[version\]/m.test(help)) throw new Error("--help did not list upgrade")
 
   // CI provisions an empty database here. The release job builds without one.
   const migrateDatabaseUrl = processEnvironment.BINARY_CHECK_DATABASE_URL
