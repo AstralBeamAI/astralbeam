@@ -1,3 +1,3 @@
-import { Layer } from "effect"
+import { scheduledWorkflowsLayer } from "./cron.ts"
 
-export const registeredWorkflowLayers = Layer.empty
+export const registeredWorkflowLayers = scheduledWorkflowsLayer
