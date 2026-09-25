@@ -38,4 +38,5 @@ read -r -p "Tag $(git rev-parse --short HEAD) as $tag and push it to release? [y
 
 git tag "$tag"
 git push origin "$tag"
-echo "Pushed $tag. Watch the release workflow, then approve both staged npm packages."
+echo "Pushed $tag. Monitor the release workflow at https://github.com/AstralBeamAI/astralbeam/actions"
+echo "Once it succeeds, approve to publish staged npm packages at https://www.npmjs.com/settings/~/staged-packages"
