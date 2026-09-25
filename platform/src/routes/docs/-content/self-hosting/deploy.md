@@ -78,6 +78,8 @@ Each process starts an embedded cluster runner and lets Effect initialize or mig
 
 Keep runner ports on a trusted private network because they expose internal cluster RPCs. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
 
+When either database variable is missing from the environment, `astralbeam-platform` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
+
 Run this command to generate a high-entropy encryption value:
 
 ```sh

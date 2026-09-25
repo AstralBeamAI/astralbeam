@@ -1,3 +1,6 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { homedir } from "node:os"
+import { dirname, join } from "node:path"
 import process from "node:process"
 
 import { Command } from "commander"
@@ -10,7 +13,49 @@ const CLI_HELP_FOOTER = `
 Environment:
   DATABASE_URL             PostgreSQL connection URL (required)
   DATABASE_ENCRYPTION_KEY  keyring for encrypted settings (required by start)
-  PORT                     port the server listens on (default 3000)`
+  PORT                     port the server listens on (default 3000)
+
+Missing database variables are prompted for once and saved to ~/.astralbeam/platform.json.`
+
+const BOOTSTRAP_ENVIRONMENT_FILE = join(homedir(), ".astralbeam", "platform.json")
+
+const BOOTSTRAP_PROMPTS = {
+  DATABASE_URL: "PostgreSQL connection URL (DATABASE_URL):",
+  DATABASE_ENCRYPTION_KEY:
+    "Encryption keyring, 32+ characters per entry (DATABASE_ENCRYPTION_KEY):",
+}
+
+type BootstrapVariable = keyof typeof BOOTSTRAP_PROMPTS
+
+// Fills unset variables from the saved file, prompts on a terminal for any still missing, and
+// reports where each value came from.
+function loadBootstrapEnvironment(names: BootstrapVariable[]): void {
+  const saved = (
+    existsSync(BOOTSTRAP_ENVIRONMENT_FILE)
+      ? JSON.parse(readFileSync(BOOTSTRAP_ENVIRONMENT_FILE, "utf8"))
+      : {}
+  ) as Partial<Record<BootstrapVariable, string>>
+  const missing = names.filter((name) => !process.env[name] && !saved[name])
+  for (const name of missing) {
+    const value = prompt(BOOTSTRAP_PROMPTS[name])?.trim()
+    if (value) saved[name] = value
+  }
+  if (missing.some((name) => saved[name])) {
+    mkdirSync(dirname(BOOTSTRAP_ENVIRONMENT_FILE), { recursive: true, mode: 0o700 })
+    writeFileSync(BOOTSTRAP_ENVIRONMENT_FILE, `${JSON.stringify(saved, null, 2)}\n`, {
+      mode: 0o600,
+    })
+    console.error(`Saved to ${BOOTSTRAP_ENVIRONMENT_FILE}`)
+  }
+  for (const name of names) {
+    if (process.env[name]) {
+      console.error(`Using ${name} from the environment`)
+    } else if (saved[name]) {
+      process.env[name] = saved[name]
+      console.error(`Using ${name} from ${BOOTSTRAP_ENVIRONMENT_FILE}`)
+    }
+  }
+}
 
 // The `Deno.serve(options, handler)` form srvx calls. https://docs.deno.com/api/deno/~/Deno.serve
 type DenoServe = (
@@ -59,6 +104,7 @@ program
   .command("start", { isDefault: true })
   .description("start the server (the default command)")
   .action(async () => {
+    loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
     restoreRequestAbortSemantics()
     // Computed so typechecking needs no build output; `deno compile --include` embeds the module.
     await import(new URL("../.output/server/index.mjs", import.meta.url).href)
@@ -74,6 +120,7 @@ program
   .description("apply pending database migrations in one transaction")
   .option("--dry-run", "list pending migrations without applying them")
   .action(async (options: { dryRun?: boolean }) => {
+    loadBootstrapEnvironment(["DATABASE_URL"])
     const dryRun = options.dryRun ?? false
     try {
       const names = await migrateDatabase({ dryRun })
