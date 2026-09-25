@@ -33,17 +33,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Verify the tag matches the SDK and CLI versions
+      - name: Verify the tag matches the SDK, CLI, and Platform versions
         id: version
-        # `sdk` and `cli` are the versioned projects and move in lockstep: platform and examples/todos
-        # declare no version and www is a private placeholder at 0.0.0.
+        # `sdk`, `cli`, and `platform` are the versioned projects and move in lockstep: examples/todos
+        # declares no version and www is a private placeholder at 0.0.0.
         run: |
           version="$(jq -r .version sdk/package.json)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [ "$(jq -r .version cli/package.json)" != "$version" ]; then
-            echo "::error::cli/package.json must match sdk/package.json version ${version}"
-            exit 1
-          fi
+          for project in cli platform; do
+            if [ "$(jq -r .version "$project/package.json")" != "$version" ]; then
+              echo "::error::$project/package.json must match sdk/package.json version ${version}"
+              exit 1
+            fi
+          done
           if [ "$GITHUB_REF_TYPE" != tag ]; then
             if [ "$DRY_RUN" = true ]; then
               echo "::notice::Dry run on ${GITHUB_REF_NAME}, sdk/package.json is at ${version}"
@@ -94,17 +96,17 @@ jobs:
         run: deno install --frozen
 
       - name: Build the Platform
-        # `deno task compile` embeds `.output`, so the Vite and Nitro build has to run first.
+        # Builds `.output` once and compiles the host binary from it.
         working-directory: platform
         run: deno task build
 
-      - name: Compile and smoke-test the Platform binary
+      - name: Smoke-test the Platform binary
         working-directory: platform
         run: deno task binary:check
 
       - name: Cross-compile the other Platform binaries
-        # Ships the smoke-tested host binary as linux-x86_64 and repeats the `compile` task's flags
-        # for the other targets. https://docs.deno.com/runtime/reference/cli/compile/
+        # Ships the smoke-tested host binary as linux-x86_64 and repeats the `build` task's compile
+        # flags for the other targets. https://docs.deno.com/runtime/reference/cli/compile/
         working-directory: platform
         shell: bash
         run: |
@@ -112,9 +114,10 @@ jobs:
           mv .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
           for pair in aarch64-unknown-linux-gnu:linux-arm64 x86_64-apple-darwin:macos-x86_64 \
             aarch64-apple-darwin:macos-arm64 x86_64-pc-windows-msvc:windows-x86_64.exe; do
-            deno compile --no-check --node-modules-dir=none --exclude-unused-npm --include npm:busboy \
-              --config deno.jsonc -P=runtime --target "${pair%%:*}" \
-              --output "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}" .
+            deno compile --no-check --node-modules-dir=none --exclude-unused-npm --unstable-detect-cjs \
+              --include npm:busboy --include .output --include src/db/migrations --config deno.jsonc \
+              -P=runtime --target "${pair%%:*}" \
+              --output "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}" src/main.ts
           done
 
       - name: Install CLI dependencies

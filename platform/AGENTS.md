@@ -2,7 +2,7 @@
 
 - Use plain data and helper functions with explicit options objects for application logic. Do not use classes or closure-based state factories. Isolate framework-required classes such as React error boundaries.
 - Keep named functions, function-valued variables, and module-level constants globally unique within `platform`. Use concise domain qualifiers when needed. Implementations may reuse names prescribed by their shared interface, as may framework-mandated exports such as TanStack Router's `Route`.
-- Keep the platform distributable as a Deno binary, keep compiled npm payloads limited to reachable packages, and explicitly include any runtime-computed import or require that Deno cannot trace. Run `deno task binary:check` for dependency, build, and server changes. CI runs the same out-of-tree smoke check and enforces its 200 MiB ceiling.
+- Keep the platform distributable as a Deno binary, keep compiled npm payloads limited to reachable packages, and explicitly include any runtime-computed import or require that Deno cannot trace. `deno task build` compiles the binary from `src/main.ts`, its command-line entrypoint. Keep that entrypoint's own imports free of drizzle-orm and effect, because the compiler embeds each reachable npm package whole, beside the copies the Nitro bundle already inlines. Run `deno task build` and then `deno task binary:check` for dependency, build, and server changes. CI runs the same out-of-tree smoke check and enforces its 200 MiB ceiling.
 
 - Keep application code under `src/` and custom scripts under `scripts/`, invoked through `package.json` tasks. The stack is TanStack Start/Router, React, Tailwind, shadcn/ui, Better Auth, Drizzle, and React Email.
 

@@ -1,14 +1,18 @@
-import { type ChildProcess, spawn } from "node:child_process"
+import { type ChildProcess, execFile, spawn } from "node:child_process"
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { env as processEnvironment, kill as killProcess } from "node:process"
 import { fileURLToPath } from "node:url"
+import { promisify } from "node:util"
+
+import packageJson from "../package.json" with { type: "json" }
 
 const BINARY_CHECK_MAX_BYTES = 200 * 1024 * 1024
 const BINARY_CHECK_START_TIMEOUT_MS = 20_000
 const BINARY_CHECK_FETCH_TIMEOUT_MS = 2_000
+const runBinaryCheckCommand = promisify(execFile)
 
 async function reserveBinaryCheckPort() {
   const server = createServer()
@@ -95,6 +99,16 @@ async function runBinaryCheck() {
   if (binaryInfo.size > BINARY_CHECK_MAX_BYTES) {
     throw new Error(`Binary is ${binarySizeMiB.toFixed(1)} MiB; expected at most 200 MiB`)
   }
+  for (const args of [["version"], ["--version"]]) {
+    const { stdout } = await runBinaryCheckCommand(binaryPath, args)
+    if (stdout.trim() !== packageJson.version) {
+      throw new Error(
+        `\`${args.join(" ")}\` printed ${stdout.trim()}, expected ${packageJson.version}`,
+      )
+    }
+  }
+  const { stdout: help } = await runBinaryCheckCommand(binaryPath, ["--help"])
+  if (!/^ {2}migrate \[options\]/m.test(help)) throw new Error("--help did not list migrate")
 
   const publicAssetsDirectory = join(platformDirectory, ".output", "public", "assets")
   let stylesheetName: string | undefined

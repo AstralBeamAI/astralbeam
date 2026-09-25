@@ -2,7 +2,7 @@
 
 A running deployment needs migrations applied, backups taken, and a handful of limits and log lines understood. [Deploy](./deploy.md) covers the install itself.
 
-Every command below runs from the repository root, from a checkout of the deployed version, and needs `DATABASE_URL` in the environment.
+Every command below needs `DATABASE_URL` in the environment. `astralbeam-platform` commands run from the installed binary, and `deno task` commands run from the repository root, in a checkout of the deployed version.
 
 ## Applying migrations
 
@@ -22,9 +22,23 @@ A failure stops the run and reports `Migration '<name>' failed: <code>: <message
 
 ## Database commands
 
-The operator page and the Drizzle CLI write the same bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name, so the two are interchangeable. Reach for the CLI when you would rather migrate before restarting, or when you have no browser access to `/configure`.
+The operator page, the binary's `migrate` command, and the Drizzle CLI write the same bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name, so the three are interchangeable. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
 
-Run this command to apply every checked-in migration that has not run yet:
+Run this command with the new binary to list the migrations it would apply, without changing the database:
+
+```sh
+astralbeam-platform migrate --dry-run
+```
+
+Run this command to apply them:
+
+```sh
+astralbeam-platform migrate
+```
+
+It takes the same advisory lock as `/configure` and applies every pending migration in one transaction, so a failure reports `Migration '<name>' failed: <code>: <message>` and leaves none of them applied.
+
+Run this command to apply every checked-in migration that has not run yet from a checkout instead:
 
 ```sh
 deno task --cwd platform db migrate

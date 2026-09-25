@@ -8,19 +8,13 @@ Every command below runs from the repository root in the `deno task --cwd platfo
 
 One process serves the dashboard, the operator page at `/configure`, the public API under `/api`, and these docs. It ships as two artifacts, both of which come out of the same build.
 
-Run this command to produce the server bundle, which is `platform/.output/server/index.mjs` plus the static assets in `platform/.output/public`:
+Run this command to produce both. It writes the server bundle, which is `platform/.output/server/index.mjs` plus the static assets in `platform/.output/public`, then compiles it into `platform/.output/astralbeam-platform`, one Deno executable with the server bundle and its assets embedded:
 
 ```sh
 deno task --cwd platform build
 ```
 
-Run this command to compile that output into `platform/.output/astralbeam-platform`, one Deno executable with the server bundle and its assets embedded:
-
-```sh
-deno task --cwd platform compile
-```
-
-`compile` embeds whatever the last `build` left in `.output`, so we must always build first. Each tagged release publishes prebuilt platform binaries for Linux, macOS, and Windows, such as `astralbeam-platform-linux-x86_64`, and the binary for your server's target is the artifact to copy to it.
+Each tagged release publishes prebuilt platform binaries for Linux, macOS, and Windows, such as `astralbeam-platform-linux-x86_64`, and the binary for your server's target is the artifact to copy to it.
 
 **NOTE**: There is no Dockerfile for the application and no published container image.
 

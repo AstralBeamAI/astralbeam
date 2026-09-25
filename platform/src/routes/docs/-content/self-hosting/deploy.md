@@ -16,29 +16,28 @@ mv astralbeam-platform /usr/local/bin/astralbeam-platform
 
 **TIP**: To pin a release instead, replace `latest/download` with `download/v<version>` in the URL, for example `download/v0.13.0`.
 
-The release carries no checksum or signature file, so verify what you downloaded by running it. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
+The release carries no checksum or signature file, so verify what you downloaded by running it. `astralbeam-platform version` prints the release version, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
 
 For a fork, or a target without a prebuilt asset, we build the binary ourselves. Deno is the only supported toolchain.
 
-Run these commands from the repository root to install the frozen dependencies, build, and compile:
+Run these commands from the repository root to install the frozen dependencies and build the binary:
 
 ```sh
 ./scripts/setup.sh
 deno task --cwd platform build
-deno task --cwd platform compile
 ```
 
-The binary lands at `platform/.output/astralbeam-platform`. Order matters here: `build` writes the Nitro server bundle and static assets into `platform/.output`, and `compile` embeds that output, so compiling without a fresh build ships stale assets.
+The binary lands at `platform/.output/astralbeam-platform`. `build` writes the Nitro server bundle and static assets into `platform/.output`, then compiles them into the binary.
 
-Run this command to compile and smoke-test the binary the way CI does:
+Run this command to smoke-test the binary the way CI does:
 
 ```sh
 deno task --cwd platform binary:check
 ```
 
-It rejects a binary over 200 MiB, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. It prints `Binary smoke check passed` with the binary's size when all of that holds.
+It rejects a binary over 200 MiB, requires `version` and `--version` to print the platform version and `--help` to list `migrate`, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. It prints `Binary smoke check passed` with the binary's size when all of that holds.
 
-**TIP**: You can skip `compile` and run the server bundle with `deno task --cwd platform start`, which needs the repository and its installed dependencies on the host.
+**TIP**: You can skip the binary and run the same commands with `deno task --cwd platform start`, which needs the repository, its installed dependencies, and a fresh `build` on the host.
 
 ## 2. Provision the database
 
@@ -168,7 +167,7 @@ Run each of these against the public origin:
 
 1. Read the release notes, and back up the database before an upgrade that carries migrations.
 2. Replace the artifact and restart. Rerun the [download](#1-get-a-release-binary) to fetch the latest binary, then stop the old process, swap the binary, and start the new one.
-3. If the release added migrations, the gate closes and every page redirects to `/configure`. Sign in, review the new SQL, and apply it. You can also apply it ahead of the restart with `deno task --cwd platform db migrate` from a checkout of the new version, run from the repository root.
+3. If the release added migrations, the gate closes and every page redirects to `/configure`. Sign in, review the new SQL, and apply it. You can also apply it ahead of the restart with the new binary's `astralbeam-platform migrate`, as described in [database commands](./operations.md#database-commands).
 4. Restart every other replica so each one reloads configuration and migration state.
 
 Downgrading is not supported, because a migration has no rollback. Reverse a schema change with a forward migration instead.
