@@ -64,7 +64,7 @@ Agreement is collected when a contribution is proposed, by ticking the CLA ackno
 Releases are maintainer-only. One tag `vX.Y.Z` releases the platform, the SDK, and the CLI together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put either package on npm.
 
 1. Make sure `sdk/package.json` and `cli/package.json` are both already at the version you are about to tag. They are the only versioned projects and move in lockstep, so the workflow fails immediately if the tag and either version disagree.
-2. Push the tag by running `scripts/release.sh` on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, and tags and pushes `HEAD` after you confirm.
+2. Push the tag by running `deno task release` from the repository root on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, and links the Actions page and npm Staged Packages page for the next steps.
 3. The workflow builds the SDK and CLI, compiles and smoke-tests the platform binary and the five CLI binaries, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build.
 4. A maintainer approves each staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is a package public. The run's job summary prints the stage ids.
 

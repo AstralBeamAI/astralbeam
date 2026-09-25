@@ -33,5 +33,7 @@
     "build:todos": "deno task --cwd examples/todos build",
     // The SDK builds first because the platform, CLI, and todos example consume its linked `dist` output.
     "build": "deno task build:sdk && deno task build:platform && deno task build:www && deno task build:cli && deno task build:todos",
+
+    "release": "scripts/release.sh",
   },
 }
