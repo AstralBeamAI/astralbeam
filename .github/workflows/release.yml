@@ -197,7 +197,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         # The glob matches both the platform and the CLI binaries downloaded above.
-        run: gh release create "$GITHUB_REF_NAME" --latest --generate-notes astralbeam-*
+        run: |
+          sha256sum astralbeam-* > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" --latest --generate-notes astralbeam-* SHA256SUMS
 
   stage-npm:
     name: Stage the SDK and CLI on npm

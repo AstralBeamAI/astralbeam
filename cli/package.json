@@ -1,6 +1,6 @@
 {
   "name": "@astralbeam/cli",
-  "version": "0.13.3",
+  "version": "0.13.4",
   "description": "Command-line interface for AstralBeam organization admins and their coding agents",
   "homepage": "https://app.astralbeam.ai/docs/cli/getting-started",
   "bugs": "https://github.com/AstralBeamAI/astralbeam/issues",
