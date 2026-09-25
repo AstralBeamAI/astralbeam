@@ -10,10 +10,12 @@
   },
   "deno.enable": true,
   "deno.lint": false,
-  "deno.codeLens.test": false,
   "vitest.runtime": "deno",
   "gitlens.blame.ignoreWhitespace": true,
   "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.formatOnSave": true,
-  "editor.formatOnSaveMode": "file"
+  "editor.formatOnSaveMode": "file",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.oxc": "always"
+  },
 }
