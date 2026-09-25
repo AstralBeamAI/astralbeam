@@ -120,12 +120,7 @@ export function prepareOrganizationSandboxProviderCandidate<Provider extends San
   input: SandboxProviderMutationInput<Provider>,
 ) {
   return Effect.gen(function* () {
-    const name = yield* decodeSandboxProviderValue(() =>
-      Schema.decodeUnknownSync(SandboxProviderNameSchema)(input.name),
-    )
-    const options = yield* decodeSandboxProviderValue(() =>
-      decodeProviderOptions(input.providerType, input.options),
-    )
+    const { name, options, credentials } = input
     const existing = input.id ? yield* readSandboxProviderRow(input.organizationId, input.id) : null
     if (
       (!existing && (input.id !== undefined || input.lockVersion !== undefined)) ||
@@ -140,9 +135,6 @@ export function prepareOrganizationSandboxProviderCandidate<Provider extends San
       )
     }
     yield* ensureSandboxProviderNameAvailable(input.organizationId, name, input.id)
-    const credentials = yield* decodeSandboxProviderValue(() =>
-      decodeProviderCredentials(input.providerType, input.credentials),
-    )
     const existingCredentials =
       existing && existing.providerType === input.providerType
         ? yield* readSandboxProviderCredentials(existing)
@@ -301,8 +293,8 @@ type SandboxProviderMutationInput<Provider extends SandboxProviderId> = {
   organizationId: string
   name: string
   providerType: Provider
-  options: unknown
-  credentials: unknown
+  options: SandboxProviderOptions[Provider]
+  credentials: SandboxProviderCredentials[Provider]
   id?: string
   lockVersion?: number
 }

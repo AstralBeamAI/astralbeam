@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema"
 import * as Option from "effect/Option"
 
-import { SlugSchema, UuidV7Schema } from "@/lib/schemas"
+import { NonEmptyStringSchema, SlugSchema, UuidV7Schema } from "@/lib/schemas"
 import { isReservedOrganizationSlug } from "@/lib/auth/organization-slug"
 
 const decodeDogfoodCredential = Schema.decodeUnknownOption(
@@ -15,7 +15,11 @@ const decodeDogfoodCredential = Schema.decodeUnknownOption(
   ]),
 )
 export const DogfoodCredential = Schema.String.pipe(
-  Schema.check(Schema.makeFilter((value) => Option.isSome(decodeDogfoodCredential(value)))),
+  Schema.check(
+    Schema.makeFilter((value) => Option.isSome(decodeDogfoodCredential(value)), {
+      message: "Must be a valid embedded assistant credential",
+    }),
+  ),
 )
 
 export const OwnerOnboardingInput = Schema.Struct({
@@ -26,8 +30,8 @@ export const OwnerOnboardingInput = Schema.Struct({
       Schema.isMaxLength(254),
     ),
   ),
-  organizationName: Schema.String.pipe(
-    Schema.check(Schema.isTrimmed(), Schema.isMinLength(1), Schema.isMaxLength(100)),
+  organizationName: NonEmptyStringSchema.pipe(
+    Schema.check(Schema.isTrimmed(), Schema.isMaxLength(100)),
   ),
   organizationSlug: SlugSchema.pipe(
     Schema.check(Schema.makeFilter((slug) => !isReservedOrganizationSlug(slug))),

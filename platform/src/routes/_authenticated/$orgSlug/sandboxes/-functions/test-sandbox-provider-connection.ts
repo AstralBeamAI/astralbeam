@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
+import { toStrictStandardSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
 import {
@@ -17,7 +17,7 @@ import { SandboxProviderInputSchema } from "../-lib/schemas.ts"
 
 export const testSandboxProviderConnection = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["test"] })])
-  .validator(Schema.toStandardSchemaV1(SandboxProviderInputSchema))
+  .validator(toStrictStandardSchema(SandboxProviderInputSchema))
   .handler(({ context, data }) =>
     runDatabaseEffect(
       Effect.gen(function* () {

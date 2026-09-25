@@ -1,6 +1,6 @@
 import process from "node:process"
 
-import { Schema } from "effect"
+import { Schema, SchemaGetter } from "effect"
 
 import {
   EmailProviderSchema,
@@ -9,7 +9,7 @@ import {
   SmtpSecuritySchema,
 } from "@/emails/schema"
 import { generateSecret } from "@/lib/generate-secret.server"
-import { UuidV7Schema } from "@/lib/schemas"
+import { strictParseOptions, UuidV7Schema, NonEmptyStringSchema } from "@/lib/schemas"
 import { DogfoodCredential } from "@/lib/dogfood/schema"
 import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "@/lib/types"
 
@@ -28,59 +28,42 @@ function isServerOrigin(url: URL): boolean {
   )
 }
 
-const decodeServerOrigin = Schema.decodeUnknownSync(
-  Schema.URLFromString.pipe(Schema.check(Schema.makeFilter(isServerOrigin))),
+const ServerOriginSchema = Schema.URLFromString.check(
+  Schema.makeFilter(isServerOrigin, {
+    message:
+      "Use an HTTP(S) origin without credentials, path, query, or fragment, and HTTPS outside local development",
+  }),
+).pipe(
+  Schema.decodeTo(Schema.String, {
+    decode: SchemaGetter.transform((url) => url.origin),
+    encode: SchemaGetter.transform((value) => new URL(value)),
+  }),
 )
-const decodeSecretValue = Schema.decodeUnknownSync(
-  Schema.String.pipe(Schema.check(Schema.isMinLength(32))),
-)
-const decodeNonEmptyText = Schema.decodeUnknownSync(Schema.NonEmptyString)
-const decodeEmailProvider = Schema.decodeUnknownSync(EmailProviderSchema)
 
-// Resend rejects a From value that is not `email@example.com` or `Name <email@example.com>`, and
-// SES has the same requirement, so the shape is validated here instead of failing at send time.
+// Resend and SES accept a bare address or a display name followed by an address.
 // https://resend.com/docs/api-reference/emails/send-email
 const EMAIL_ADDRESS_PATTERN = /^[^\s@<>,]+@[^\s@<>,.]+(?:\.[^\s@<>,.]+)+$/
 const NAMED_EMAIL_ADDRESS_PATTERN = /^(?:[^<>@,]*\S\s*)?<([^\s<>,]+)>$/
-
-const decodeEmailFromAddress = Schema.decodeUnknownSync(
-  Schema.String.pipe(
-    Schema.check(
-      Schema.makeFilter((value) =>
-        EMAIL_ADDRESS_PATTERN.test(NAMED_EMAIL_ADDRESS_PATTERN.exec(value)?.[1] ?? value),
-      ),
-    ),
+const EmailFromAddressSchema = Schema.String.check(
+  Schema.makeFilter(
+    (value) => EMAIL_ADDRESS_PATTERN.test(NAMED_EMAIL_ADDRESS_PATTERN.exec(value)?.[1] ?? value),
+    { message: "Email from address must be 'email@example.com' or 'Name <email@example.com>'" },
   ),
 )
-const decodeSmtpSecurity = Schema.decodeUnknownSync(SmtpSecuritySchema)
-const decodePublicHttpUrl = Schema.decodeUnknownSync(
-  Schema.URLFromString.pipe(
-    Schema.check(Schema.makeFilter((url) => url.protocol === "https:" || url.protocol === "http:")),
-  ),
+const PublicHttpUrlSchema = Schema.URLFromString.check(
+  Schema.makeFilter((url) => url.protocol === "https:" || url.protocol === "http:", {
+    message: "URL must use HTTP(S)",
+  }),
+).pipe(
+  Schema.decodeTo(Schema.String, {
+    decode: SchemaGetter.transform((url) => url.href),
+    encode: SchemaGetter.transform((value) => new URL(value)),
+  }),
 )
 
-function sanitizedDecoder(
-  decodeValue: (value: unknown) => string,
-  invalidMessage: string,
-): (value: unknown) => string {
-  return (value) => {
-    try {
-      return decodeValue(value)
-    } catch (error) {
-      if (!Schema.isSchemaError(error)) throw error
-      // Never include the submitted or stored value in the error.
-      throw new Error(invalidMessage)
-    }
-  }
+export function decodeConfigValue(definition: ConfigDefinition, value: unknown): string {
+  return Schema.decodeUnknownSync(definition.schema, strictParseOptions)(value)
 }
-
-const nonEmptyDecoder = (label: string) =>
-  sanitizedDecoder(decodeNonEmptyText, `${label} must not be empty`)
-
-const decodeSmtpPort = sanitizedDecoder(
-  (value) => String(Schema.decodeUnknownSync(SmtpPortSchema)(value)),
-  "SMTP port must be between 1 and 65535",
-)
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
@@ -91,10 +74,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "secret",
     required: true,
     systemManaged: true,
-    decode: sanitizedDecoder(
-      Schema.decodeUnknownSync(UuidV7Schema),
-      "Invalid dogfood organization",
-    ),
+    schema: UuidV7Schema,
   },
   {
     key: "dogfood_api_key",
@@ -104,10 +84,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "secret",
     required: true,
     systemManaged: true,
-    decode: sanitizedDecoder(
-      Schema.decodeUnknownSync(DogfoodCredential),
-      "Invalid embedded assistant credential",
-    ),
+    schema: DogfoodCredential,
   },
   {
     key: "dogfood_pending_setup",
@@ -117,7 +94,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "secret",
     required: false,
     systemManaged: true,
-    decode: nonEmptyDecoder("Pending owner onboarding"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "app_base_url",
@@ -128,10 +105,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "url",
     required: true,
     isPublic: true,
-    decode: sanitizedDecoder(
-      (value) => decodeServerOrigin(value).origin,
-      "Application base URL must be an HTTP(S) origin without credentials, path, query, or fragment, and must use HTTPS outside local development",
-    ),
+    schema: ServerOriginSchema,
   },
   {
     key: "better_auth_secret",
@@ -141,10 +115,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       "Signs authentication sessions and tokens. Rotating it signs every user out immediately.",
     kind: "secret",
     required: true,
-    decode: sanitizedDecoder(
-      decodeSecretValue,
-      "Authentication secret must be at least 32 characters",
-    ),
+    schema: Schema.String.check(Schema.isMinLength(32)),
     generate: generateSecret,
   },
   {
@@ -156,7 +127,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "text",
     required: false,
     isPublic: true,
-    decode: nonEmptyDecoder("Google client ID"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "google_client_secret",
@@ -165,7 +136,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "OAuth client secret paired with the Google client ID.",
     kind: "secret",
     required: false,
-    decode: nonEmptyDecoder("Google client secret"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "github_client_id",
@@ -176,7 +147,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "text",
     required: false,
     isPublic: true,
-    decode: nonEmptyDecoder("GitHub client ID"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "github_client_secret",
@@ -185,7 +156,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "OAuth client secret paired with the GitHub client ID.",
     kind: "secret",
     required: false,
-    decode: nonEmptyDecoder("GitHub client secret"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "turnstile_site_key",
@@ -196,7 +167,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "text",
     required: true,
     isPublic: true,
-    decode: nonEmptyDecoder("Turnstile site key"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "turnstile_secret_key",
@@ -205,7 +176,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "Server-only Cloudflare Turnstile secret paired with the site key.",
     kind: "secret",
     required: true,
-    decode: nonEmptyDecoder("Turnstile secret key"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "email_provider",
@@ -220,10 +191,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       { value: "resend", label: "Resend API" },
       { value: "ses", label: "Amazon SES API" },
     ],
-    decode: sanitizedDecoder(
-      (value) => decodeEmailProvider(value),
-      "Email provider must be 'smtp', 'resend', or 'ses'",
-    ),
+    schema: EmailProviderSchema,
   },
   {
     key: "email_from_address",
@@ -233,10 +201,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       "Default From address for outgoing email, as 'email@example.com' or 'Name <email@example.com>'.",
     kind: "text",
     required: false,
-    decode: sanitizedDecoder(
-      decodeEmailFromAddress,
-      "Email from address must be 'email@example.com' or 'Name <email@example.com>'",
-    ),
+    schema: EmailFromAddressSchema,
   },
   {
     key: "smtp_host",
@@ -246,7 +211,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "text",
     required: false,
     defaultValue: SMTP_DEFAULTS.host,
-    decode: nonEmptyDecoder("SMTP host"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "smtp_port",
@@ -256,7 +221,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "text",
     required: false,
     defaultValue: String(SMTP_DEFAULTS.port),
-    decode: decodeSmtpPort,
+    schema: SmtpPortSchema.pipe(Schema.decodeTo(Schema.flip(Schema.NumberFromString))),
   },
   {
     key: "smtp_security",
@@ -276,10 +241,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       { value: "starttls", label: "Require STARTTLS — Usually port 587" },
       { value: "tls", label: "TLS from connection start — Usually port 465" },
     ],
-    decode: sanitizedDecoder(
-      (value) => decodeSmtpSecurity(value),
-      "SMTP security must be 'none', 'auto', 'starttls', or 'tls'",
-    ),
+    schema: SmtpSecuritySchema,
   },
   {
     key: "smtp_username",
@@ -289,7 +251,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       "Optional username. Set it together with an SMTP password to enable authentication.",
     kind: "text",
     required: false,
-    decode: nonEmptyDecoder("SMTP username"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "smtp_password",
@@ -298,7 +260,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "Optional password paired with the SMTP username.",
     kind: "secret",
     required: false,
-    decode: nonEmptyDecoder("SMTP password"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "resend_api_key",
@@ -307,7 +269,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "Required when the email provider is Resend.",
     kind: "secret",
     required: false,
-    decode: nonEmptyDecoder("Resend API key"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "aws_region",
@@ -316,7 +278,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "Required when the email provider is SES.",
     kind: "text",
     required: false,
-    decode: nonEmptyDecoder("AWS region"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "aws_access_key_id",
@@ -326,7 +288,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       "Used to send email through SES. Leave both AWS credential fields unset to use the deployment's own AWS credential chain, such as an IAM role or profile.",
     kind: "text",
     required: false,
-    decode: nonEmptyDecoder("AWS access key ID"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "aws_secret_access_key",
@@ -335,7 +297,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "Paired with the AWS access key ID.",
     kind: "secret",
     required: false,
-    decode: nonEmptyDecoder("AWS secret access key"),
+    schema: NonEmptyStringSchema,
   },
   {
     key: "privacy_policy_url",
@@ -345,10 +307,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "url",
     required: false,
     isPublic: true,
-    decode: sanitizedDecoder(
-      (value) => decodePublicHttpUrl(value).href,
-      "Privacy policy URL must use HTTP(S)",
-    ),
+    schema: PublicHttpUrlSchema,
   },
   {
     key: "terms_of_service_url",
@@ -358,10 +317,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "url",
     required: false,
     isPublic: true,
-    decode: sanitizedDecoder(
-      (value) => decodePublicHttpUrl(value).href,
-      "Terms of service URL must use HTTP(S)",
-    ),
+    schema: PublicHttpUrlSchema,
   },
 ]
 
@@ -413,7 +369,10 @@ export function environmentConfigValues(): ConfigValues {
     const environmentValue = process.env[environmentVariable]
     if (environmentValue === undefined || environmentValue === "") continue
     try {
-      values[definition.key] = definition.decode(parseEnvironmentConfigValue(environmentValue))
+      values[definition.key] = decodeConfigValue(
+        definition,
+        parseEnvironmentConfigValue(environmentValue),
+      )
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid value"
       throw new Error(`${environmentVariable}: ${message}`)

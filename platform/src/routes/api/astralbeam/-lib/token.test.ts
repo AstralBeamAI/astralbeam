@@ -31,6 +31,18 @@ test.each([
   ["https://app.example", "text/plain", '{"organizationSlug":"dogfood"}', 403],
   ["https://app.example", "application/json", "{", 400],
   ["https://app.example", "application/json", '{"organizationSlug":"../other"}', 400],
+  [
+    "https://app.example",
+    "application/json",
+    '{"organizationSlug":"dogfood","extra":"private-test-secret"}',
+    400,
+  ],
+  [
+    "https://app.example",
+    "application/json",
+    '{"organizationSlug":"dogfood","private-test-secret":true}',
+    400,
+  ],
   ["https://app.example", "application/json", "x".repeat(1025), 413],
 ])("rejects invalid token requests (%s, %s, %s)", async (origin, contentType, body, status) => {
   const response = await dashboardTokenHandler({
@@ -42,6 +54,7 @@ test.each([
   })
   expect(response.status).toBe(status)
   expect(response.headers.get("cache-control")).toBe("private, no-store")
+  expect(await response.text()).not.toContain("private-test-secret")
   expect(issueDashboardToken).not.toHaveBeenCalled()
 })
 

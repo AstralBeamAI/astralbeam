@@ -1,3 +1,4 @@
+import { NonEmptyStringSchema, enumSchema } from "../../../../lib/schemas.ts"
 import { Context, Schema, SchemaGetter } from "effect"
 import { HttpApiMiddleware, HttpApiSchema } from "effect/unstable/httpapi"
 import type { EffectDatabase } from "@/db"
@@ -53,7 +54,7 @@ export class RestAuthorization extends HttpApiMiddleware.Service<
   { provides: RestScope; requires: EffectDatabase }
 >()("RestAuthorization") {}
 
-const restPageCursor = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(2048))
+const restPageCursor = NonEmptyStringSchema.check(Schema.isMaxLength(2048))
 export const restPageQuery = Schema.Struct({
   q: Schema.optionalKey(
     Schema.String.check(
@@ -89,7 +90,7 @@ export const restPageQuery = Schema.Struct({
 export type RestPageQuery = typeof restPageQuery.Type
 export const restUserPageQuery = Schema.Struct({
   ...restPageQuery.fields,
-  "filter[admin]": Schema.optionalKey(Schema.Literals(["true", "false"])),
+  "filter[admin]": Schema.optionalKey(enumSchema(["true", "false"])),
 }).check(
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
 )

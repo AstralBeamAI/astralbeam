@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer"
 import { createHash } from "node:crypto"
 import process from "node:process"
+import { NonEmptyStringSchema } from "../../lib/schemas.ts"
 
 import { Schema } from "effect"
 
@@ -11,7 +12,7 @@ export type DatabaseKeyringEntry = {
 
 export type DatabaseEncryptionKeyring = readonly [DatabaseKeyringEntry, ...DatabaseKeyringEntry[]]
 
-const decodeDatabaseUrl = Schema.decodeUnknownSync(Schema.NonEmptyString)
+const decodeDatabaseUrl = Schema.decodeUnknownSync(NonEmptyStringSchema)
 
 let databaseUrl: string | undefined
 

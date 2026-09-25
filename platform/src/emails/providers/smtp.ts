@@ -2,7 +2,6 @@ import nodemailer from "nodemailer"
 import { Schema } from "effect"
 import { getGlobalConfig } from "../../lib/config/index.ts"
 import {
-  emailProviderParseOptions,
   runConnectionTest,
   type SmtpProviderSettings,
   SmtpProviderSettingsSchema,
@@ -10,6 +9,7 @@ import {
 } from "../schema.ts"
 import { nodemailerMessage } from "../utils.server.ts"
 import type { SendProviderEmail } from "../utils.server.ts"
+import { strictParseOptions } from "@/lib/schemas"
 
 function createSmtpTransport(settings: SmtpProviderSettings) {
   return nodemailer.createTransport({
@@ -48,7 +48,7 @@ export const sendSmtpEmail: SendProviderEmail = async (input) => {
   ])
   const settings = Schema.decodeUnknownSync(
     SmtpProviderSettingsSchema,
-    emailProviderParseOptions,
+    strictParseOptions,
   )({
     smtp_host,
     smtp_port,

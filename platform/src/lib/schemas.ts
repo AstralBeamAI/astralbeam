@@ -2,7 +2,29 @@ import * as Schema from "effect/Schema"
 
 import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./slug.ts"
 
-export const UuidV7Schema = Schema.String.pipe(Schema.check(Schema.isUUID(7)))
+export const strictParseOptions = {
+  errors: "all",
+  onExcessProperty: "error",
+  reportInput: false,
+} as const
+
+export function toStrictStandardSchema<S extends Schema.ConstraintDecoder<unknown>>(schema: S) {
+  return Schema.toStandardSchemaV1(schema, { parseOptions: strictParseOptions })
+}
+
+export const NonEmptyStringSchema = Schema.String.check(
+  Schema.isMinLength(1, { message: "Must not be empty" }),
+)
+
+export function enumSchema<const Values extends readonly string[]>(values: Values) {
+  return Schema.Literals(values).annotate({
+    message: `Must be ${new Intl.ListFormat("en", { type: "disjunction" }).format(values)}`,
+  })
+}
+
+export const UuidV7Schema = Schema.String.pipe(
+  Schema.check(Schema.isUUID(7, { message: "Must be a valid UUID v7" })),
+)
 
 const AGENT_ID_UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 const AGENT_ID_PATTERN = new RegExp(`^agent_(${AGENT_ID_UUID_PATTERN})_(${AGENT_ID_UUID_PATTERN})$`)
@@ -28,14 +50,12 @@ export const SlugSchema = Schema.String.pipe(
   Schema.check(Schema.isPattern(SLUG_PATTERN, { message: SLUG_VALIDATION_MESSAGE })),
 )
 
-export const AgentNameSchema = Schema.String.pipe(
+export const AgentNameSchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isTrimmed()),
-  Schema.check(Schema.isMinLength(1)),
   Schema.check(Schema.isMaxLength(100)),
 )
 
-export const AgentSystemPromptSchema = Schema.String.pipe(
-  Schema.check(Schema.isMinLength(1)),
+export const AgentSystemPromptSchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(32_768)),
 )
 
@@ -54,14 +74,11 @@ export const OpenaiApiKeySchema = Schema.String.pipe(
 
 export const isValidOpenaiApiKey = Schema.is(OpenaiApiKeySchema)
 
-export const LockVersionSchema = Schema.Number.pipe(
-  Schema.check(Schema.makeFilter((value) => Number.isSafeInteger(value) && value >= 0)),
+export const LockVersionSchema = Schema.Int.check(
+  Schema.isGreaterThanOrEqualTo(0, { message: "Must be 0 or greater" }),
 )
 
-const ChatExternalIdSchema = Schema.String.pipe(
-  Schema.check(Schema.isMinLength(1)),
-  Schema.check(Schema.isMaxLength(255)),
-)
+const ChatExternalIdSchema = NonEmptyStringSchema.pipe(Schema.check(Schema.isMaxLength(255)))
 
 const ChatTenantSchema = Schema.Struct({
   id: ChatExternalIdSchema,

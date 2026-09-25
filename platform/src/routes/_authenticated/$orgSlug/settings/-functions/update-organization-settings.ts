@@ -5,18 +5,17 @@ import * as Schema from "effect/Schema"
 
 import { getAuth } from "@/lib/auth.server"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { SlugSchema } from "@/lib/schemas"
+import { NonEmptyStringSchema, toStrictStandardSchema, SlugSchema } from "@/lib/schemas"
 
-const OrganizationNameSchema = Schema.String.pipe(
+const OrganizationNameSchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isTrimmed()),
-  Schema.check(Schema.isMinLength(1)),
   Schema.check(Schema.isMaxLength(100)),
 )
 
 export const updateOrganizationSettings = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["update"] })])
   .validator(
-    Schema.toStandardSchemaV1(
+    toStrictStandardSchema(
       Schema.Struct({
         organizationSlug: SlugSchema,
         name: OrganizationNameSchema,

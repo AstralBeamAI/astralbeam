@@ -1,44 +1,46 @@
 import * as Data from "effect/Data"
 import * as Schema from "effect/Schema"
 
+import { strictParseOptions, NonEmptyStringSchema, enumSchema } from "../schemas.ts"
+
 export const SANDBOX_PROVIDER_IDS = ["daytona", "docker", "sprites", "vercel"] as const
 
-export const SandboxProviderIdSchema = Schema.Literals(SANDBOX_PROVIDER_IDS)
+export const SandboxProviderIdSchema = enumSchema(SANDBOX_PROVIDER_IDS)
 export type SandboxProviderId = typeof SandboxProviderIdSchema.Type
 
-const secretString = Schema.String.pipe(
+const secretString = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isTrimmed()),
-  Schema.check(Schema.isMinLength(1)),
   Schema.check(Schema.isMaxLength(16_384)),
 )
 
-const nonEmptyTrimmedString = Schema.String.pipe(
+const nonEmptyTrimmedString = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isTrimmed()),
-  Schema.check(Schema.isMinLength(1)),
   Schema.check(Schema.isMaxLength(256)),
 )
 
-export const SandboxProviderNameSchema = Schema.String.pipe(
+export const SandboxProviderNameSchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isTrimmed()),
-  Schema.check(Schema.isMinLength(1)),
   Schema.check(Schema.isMaxLength(100)),
 )
 
 const DaytonaSandboxOptionsSchema = Schema.Struct({
-  target: Schema.Literals(["us", "eu"]),
+  target: enumSchema(["us", "eu"]),
   snapshot: nonEmptyTrimmedString,
 })
 const DaytonaSandboxCredentialsSchema = Schema.Struct({ apiKey: secretString })
 
 const DockerSandboxOptionsSchema = Schema.Struct({ image: nonEmptyTrimmedString })
-const EmptySandboxConfigurationSchema = Schema.Record(Schema.String, Schema.Never)
+const EmptySandboxConfigurationSchema = Schema.Record(
+  Schema.String,
+  Schema.Never.annotate({ message: "This field is not allowed" }),
+)
 const DockerSandboxCredentialsSchema = EmptySandboxConfigurationSchema
 const SpritesSandboxOptionsSchema = EmptySandboxConfigurationSchema
 const SpritesSandboxCredentialsSchema = Schema.Struct({ apiKey: secretString })
 const VercelSandboxOptionsSchema = Schema.Struct({
   teamId: nonEmptyTrimmedString,
   projectId: nonEmptyTrimmedString,
-  runtime: Schema.Literals(["node24", "node22", "python3.13"]),
+  runtime: enumSchema(["node24", "node22", "python3.13"]),
 })
 const VercelSandboxCredentialsSchema = Schema.Struct({ token: secretString })
 
@@ -59,29 +61,19 @@ export type SandboxProviderCredentials = {
   ]: (typeof SANDBOX_PROVIDER_SCHEMAS)[Provider]["credentials"]["Type"]
 }
 
-const sandboxProviderOptionDecoders: {
-  [Provider in SandboxProviderId]: (
-    value: unknown,
-    message: string,
-  ) => SandboxProviderOptions[Provider]
-} = {
-  daytona: (value, message) => decodeStrict(DaytonaSandboxOptionsSchema, value, message),
-  docker: (value, message) => decodeStrict(DockerSandboxOptionsSchema, value, message),
-  sprites: (value, message) => decodeStrict(SpritesSandboxOptionsSchema, value, message),
-  vercel: (value, message) => decodeStrict(VercelSandboxOptionsSchema, value, message),
-}
+const sandboxProviderSchemas: {
+  [Provider in SandboxProviderId]: {
+    options: Schema.Decoder<SandboxProviderOptions[Provider]>
+    credentials: Schema.Decoder<SandboxProviderCredentials[Provider]>
+  }
+} = SANDBOX_PROVIDER_SCHEMAS
 
-const sandboxProviderCredentialDecoders: {
-  [Provider in SandboxProviderId]: (
-    value: unknown,
-    message: string,
-  ) => SandboxProviderCredentials[Provider]
-} = {
-  daytona: (value, message) => decodeStrict(DaytonaSandboxCredentialsSchema, value, message),
-  docker: (value, message) => decodeStrict(DockerSandboxCredentialsSchema, value, message),
-  sprites: (value, message) => decodeStrict(SpritesSandboxCredentialsSchema, value, message),
-  vercel: (value, message) => decodeStrict(VercelSandboxCredentialsSchema, value, message),
-}
+export const SandboxProviderConfigurationSchema = Schema.Union([
+  Schema.Struct({ providerType: Schema.Literal("daytona"), ...SANDBOX_PROVIDER_SCHEMAS.daytona }),
+  Schema.Struct({ providerType: Schema.Literal("docker"), ...SANDBOX_PROVIDER_SCHEMAS.docker }),
+  Schema.Struct({ providerType: Schema.Literal("sprites"), ...SANDBOX_PROVIDER_SCHEMAS.sprites }),
+  Schema.Struct({ providerType: Schema.Literal("vercel"), ...SANDBOX_PROVIDER_SCHEMAS.vercel }),
+])
 
 export const SandboxProviderOptionsSchema = Schema.Union(
   SANDBOX_PROVIDER_IDS.map((provider) => SANDBOX_PROVIDER_SCHEMAS[provider].options),
@@ -101,7 +93,7 @@ const SANDBOX_CONNECTION_ERROR_CODES = [
 ] as const
 export type SandboxConnectionErrorCode = (typeof SANDBOX_CONNECTION_ERROR_CODES)[number]
 
-const SandboxConnectionErrorCodeSchema = Schema.Literals(SANDBOX_CONNECTION_ERROR_CODES)
+const SandboxConnectionErrorCodeSchema = enumSchema(SANDBOX_CONNECTION_ERROR_CODES)
 const SandboxTestedAtSchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value) => {
@@ -111,7 +103,7 @@ const SandboxTestedAtSchema = Schema.String.pipe(
   ),
 )
 export const SandboxTestMetadataSchema = Schema.Struct({
-  status: Schema.Literals(["success", "failure"]),
+  status: enumSchema(["success", "failure"]),
   testedAt: SandboxTestedAtSchema,
   errorCode: Schema.optionalKey(SandboxConnectionErrorCodeSchema),
 })
@@ -122,17 +114,14 @@ export function decodeProviderOptions<Provider extends SandboxProviderId>(
   provider: Provider,
   value: unknown,
 ): SandboxProviderOptions[Provider] {
-  return sandboxProviderOptionDecoders[provider](value, `Invalid ${provider} sandbox settings`)
+  return decodeStrict(sandboxProviderSchemas[provider].options, value)
 }
 
 export function decodeProviderCredentials<Provider extends SandboxProviderId>(
   provider: Provider,
   value: unknown,
 ): SandboxProviderCredentials[Provider] {
-  return sandboxProviderCredentialDecoders[provider](
-    value,
-    `Invalid ${provider} sandbox credentials`,
-  )
+  return decodeStrict(sandboxProviderSchemas[provider].credentials, value)
 }
 
 export function isProviderCredentials<Provider extends SandboxProviderId>(
@@ -142,12 +131,12 @@ export function isProviderCredentials<Provider extends SandboxProviderId>(
   return Schema.is(SANDBOX_PROVIDER_SCHEMAS[provider].credentials)(value)
 }
 
-function decodeStrict<A>(schema: Schema.Codec<A, unknown>, value: unknown, message: string): A {
+function decodeStrict<A>(schema: Schema.Decoder<A>, value: unknown): A {
   try {
-    return Schema.decodeUnknownSync(schema, { onExcessProperty: "error" })(value)
+    return Schema.decodeUnknownSync(schema, strictParseOptions)(value)
   } catch (error) {
     if (!Schema.isSchemaError(error)) throw error
-    throw new SandboxConfigurationValidationError(message)
+    throw new SandboxConfigurationValidationError(error.message)
   }
 }
 

@@ -1,5 +1,6 @@
 import { type AnyServerTool, toolDefinition } from "@tanstack/ai"
 import * as Schema from "effect/Schema"
+import { NonEmptyStringSchema } from "../schemas.ts"
 
 import { CHAT_ATTACHMENT_READ_MAX_CHARACTERS } from "./constants.server"
 import type { ChatAttachmentFile, DebugLog } from "./types"
@@ -19,7 +20,7 @@ import type { ChatAttachmentFile, DebugLog } from "./types"
 const ReadAttachmentInputSchema = Schema.toStandardJSONSchemaV1(
   Schema.toStandardSchemaV1(
     Schema.Struct({
-      file: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
+      file: NonEmptyStringSchema.annotate({
         description: "Name of the attached file, exactly as the user's message gives it.",
       }),
       offset: Schema.optionalKey(

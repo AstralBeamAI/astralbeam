@@ -12,6 +12,7 @@ import { SandboxTextField } from "./sandbox-text-field"
 export type SandboxProviderOptionFieldsProps = {
   provider: SandboxProviderId
   options: SandboxProviderOptions[SandboxProviderId]
+  errorsFor: (key: string) => Array<{ message: string }>
   disabled: boolean
   onChange: (patch: Record<string, unknown>) => void
 }
@@ -20,6 +21,7 @@ export function SandboxProviderOptionFields({
   provider,
   options,
   disabled,
+  errorsFor,
   onChange,
 }: SandboxProviderOptionFieldsProps) {
   if (provider === "docker") {
@@ -29,6 +31,7 @@ export function SandboxProviderOptionFields({
         id="docker-image"
         label="Image"
         value={value.image}
+        errors={errorsFor("image")}
         maximumLength={256}
         disabled={disabled}
         onChange={(image) => onChange({ image })}
@@ -59,6 +62,7 @@ export function SandboxProviderOptionFields({
           id="daytona-snapshot"
           label="Snapshot"
           value={value.snapshot}
+          errors={errorsFor("snapshot")}
           maximumLength={256}
           disabled={disabled}
           onChange={(snapshot) => onChange({ snapshot })}
@@ -75,6 +79,7 @@ export function SandboxProviderOptionFields({
         id="vercel-team-id"
         label="Team ID"
         value={value.teamId}
+        errors={errorsFor("teamId")}
         maximumLength={256}
         disabled={disabled}
         onChange={(teamId) => onChange({ teamId })}
@@ -83,6 +88,7 @@ export function SandboxProviderOptionFields({
         id="vercel-project-id"
         label="Project ID"
         value={value.projectId}
+        errors={errorsFor("projectId")}
         maximumLength={256}
         disabled={disabled}
         onChange={(projectId) => onChange({ projectId })}

@@ -1,13 +1,11 @@
 import { Schema } from "effect"
+import { NonEmptyStringSchema } from "../lib/schemas.ts"
 
 export const ApiUuidSchema = Schema.String.check(
   Schema.isUUID(undefined, { toJsonSchema: () => ({ format: "uuid" }) }),
 )
 
-export const TenantExternalIdSchema = Schema.String.check(
-  Schema.isMinLength(1),
-  Schema.isMaxLength(255),
-).annotate({
+export const TenantExternalIdSchema = NonEmptyStringSchema.check(Schema.isMaxLength(255)).annotate({
   description:
     "Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation.",
 })

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
+import { toStrictStandardSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
 import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
@@ -10,7 +10,7 @@ import { SandboxProviderInputSchema } from "../-lib/schemas.ts"
 
 export const deleteSandboxProvider = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["delete"] })])
-  .validator(Schema.toStandardSchemaV1(SandboxProviderInputSchema))
+  .validator(toStrictStandardSchema(SandboxProviderInputSchema))
   .handler(({ context, data }) =>
     runDatabaseEffect(
       deleteProviderRow({

@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm"
+import { Schema } from "effect"
 
 import { getAuthDatabase } from "@/db"
 import { sqlState } from "@/db/lib/sqlstate.server"
@@ -40,20 +41,16 @@ function isMissingBookkeepingError(error: unknown): boolean {
   return code === "42P01" || code === "3F000"
 }
 
-function appliedNameSet(rows: Iterable<object | undefined>): Set<string> {
-  const names = new Set<string>()
-  for (const row of rows) {
-    if (row && "name" in row && typeof row.name === "string") names.add(row.name)
-  }
-  return names
-}
+const decodeAppliedMigrations = Schema.decodeUnknownSync(
+  Schema.Array(Schema.Struct({ name: Schema.String })),
+)
 
 async function listAppliedMigrationNames(): Promise<Set<string> | null> {
   try {
     const result = await getAuthDatabase().execute(
-      sql`select name from drizzle.__drizzle_migrations`,
+      sql`select name from drizzle.__drizzle_migrations where name is not null`,
     )
-    return appliedNameSet(result.rows)
+    return new Set(decodeAppliedMigrations(result.rows).map((row) => row.name))
   } catch (error) {
     if (isMissingBookkeepingError(error)) return null
     throw error
@@ -116,14 +113,7 @@ export async function applyApprovedMigrations(
   try {
     const db = getAuthDatabase()
     return await runWithMigrationAdvisoryLock(db, async () => {
-      let appliedNames: Set<string> | null
-      try {
-        const result = await db.execute(sql`select name from drizzle.__drizzle_migrations`)
-        appliedNames = appliedNameSet(result.rows)
-      } catch (error) {
-        if (!isMissingBookkeepingError(error)) throw error
-        appliedNames = null
-      }
+      const appliedNames = await listAppliedMigrationNames()
       const pending = pendingMigrations(bundledMigrations(), appliedNames)
       // The operator approves exactly the SQL digests they reviewed; abort if anything changed.
       if (!approvedMigrationsMatch(pending, approvedMigrations)) {

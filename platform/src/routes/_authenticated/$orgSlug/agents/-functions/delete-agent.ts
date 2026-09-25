@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
+import { toStrictStandardSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
 import { deleteOrganizationAgent } from "@/db/agent.server"
@@ -10,7 +10,7 @@ import { DeleteAgentInputSchema } from "../-lib/schemas.ts"
 
 export const deleteAgent = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["delete"] })])
-  .validator(Schema.toStandardSchemaV1(DeleteAgentInputSchema))
+  .validator(toStrictStandardSchema(DeleteAgentInputSchema))
   .handler(({ context, data }) =>
     runDatabaseEffect(
       deleteOrganizationAgent({

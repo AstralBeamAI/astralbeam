@@ -3,8 +3,11 @@
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
+import { Result, Schema, SchemaIssue } from "effect"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { strictParseOptions } from "@/lib/schemas"
+import { SaveSandboxProviderInputSchema } from "../-lib/schemas"
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -14,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
   InputGroup,
   InputGroupAddon,
@@ -31,11 +34,7 @@ import {
 import { toast } from "@/components/ui/toast"
 import type { OrganizationSandboxProvider } from "@/db/organization-sandbox-provider.server"
 import { sandboxProviderDescriptors } from "@/lib/sandbox/registry"
-import {
-  decodeProviderOptions,
-  type SandboxProviderId,
-  type SandboxProviderOptions,
-} from "@/lib/sandbox/schemas"
+import { type SandboxProviderId, type SandboxProviderOptions } from "@/lib/sandbox/schemas"
 import { saveSandboxProvider } from "../-functions/save-sandbox-provider"
 import { SANDBOX_PROVIDER_OPTION_DEFAULTS } from "../-lib/constants"
 import { sandboxRequestFailedToast } from "../-lib/utils"
@@ -43,6 +42,7 @@ import { SandboxProviderOptionFields } from "./sandbox-provider-option-fields"
 import { SandboxTextField } from "./sandbox-text-field"
 
 const SANDBOX_PROVIDER_NAME_MAX_LENGTH = 100
+const formatSandboxIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 
 export type SandboxProviderFormProps = {
   organizationSlug: string
@@ -83,19 +83,34 @@ export function SandboxProviderForm({
   }))
   const descriptor = sandboxProviderDescriptors.find((item) => item.id === providerType)!
   const credentialLabel = descriptor.credentialLabel ?? "Credential"
-  const credentialRequired = providerType !== "docker" && secret.trim() === ""
-  const configurationValid = (() => {
-    try {
-      decodeProviderOptions(providerType, options)
-      return (
-        name.trim().length > 0 &&
-        name === name.trim() &&
-        name.length <= SANDBOX_PROVIDER_NAME_MAX_LENGTH
-      )
-    } catch {
-      return false
-    }
-  })()
+  const input = Schema.decodeUnknownResult(
+    SaveSandboxProviderInputSchema,
+    strictParseOptions,
+  )({
+    organizationSlug,
+    name,
+    providerType,
+    options,
+    credentials:
+      providerType === "docker"
+        ? {}
+        : providerType === "vercel"
+          ? { token: secret.trim() }
+          : { apiKey: secret.trim() },
+    id: existing?.id ?? null,
+    lockVersion: existing?.lockVersion ?? null,
+  })
+  const issues = Result.isFailure(input) ? formatSandboxIssues(input.failure.issue).issues : []
+  const sandboxFieldErrors = (path: string) =>
+    issues.filter(
+      (issue) =>
+        issue.path
+          ?.map((segment) => (typeof segment === "object" ? segment.key : segment))
+          .join(".") === path,
+    )
+  const credentialErrors = sandboxFieldErrors(
+    providerType === "vercel" ? "credentials.token" : "credentials.apiKey",
+  )
   const requiresConnectionTest =
     !existing ||
     existing.providerType !== providerType ||
@@ -104,25 +119,10 @@ export function SandboxProviderForm({
   const disabled = saving || readOnly
 
   const save = async () => {
+    if (Result.isFailure(input)) return
     setSaving(true)
     try {
-      const normalizedSecret = secret.trim()
-      const result = await saveSandboxProvider({
-        data: {
-          organizationSlug,
-          name,
-          providerType,
-          options,
-          credentials:
-            providerType === "docker"
-              ? {}
-              : providerType === "vercel"
-                ? { token: normalizedSecret }
-                : { apiKey: normalizedSecret },
-          id: existing?.id ?? null,
-          lockVersion: existing?.lockVersion ?? null,
-        },
-      })
+      const result = await saveSandboxProvider({ data: input.success })
       if (!result.ok) {
         toast.add({ title: result.message, type: "error" })
         if (result.code === "stale") await router.invalidate()
@@ -165,6 +165,7 @@ export function SandboxProviderForm({
             maximumLength={SANDBOX_PROVIDER_NAME_MAX_LENGTH}
             disabled={disabled}
             onChange={setName}
+            errors={sandboxFieldErrors("name")}
           />
           <Field>
             <FieldLabel htmlFor="sandbox-provider-type">Provider</FieldLabel>
@@ -200,27 +201,23 @@ export function SandboxProviderForm({
           <SandboxProviderOptionFields
             provider={providerType}
             options={options}
+            errorsFor={(key) => sandboxFieldErrors(`options.${key}`)}
             disabled={disabled}
             onChange={(patch) =>
               setOptions({ ...options, ...patch } as SandboxProviderOptions[SandboxProviderId])
             }
           />
 
-          {!configurationValid && (
-            <Alert variant="destructive">
-              <AlertTitle>Check the provider settings</AlertTitle>
-              <AlertDescription>
-                Enter a unique name and complete every provider field.
-              </AlertDescription>
-            </Alert>
-          )}
-
           {providerType !== "docker" && (
-            <Field>
+            <Field data-invalid={credentialErrors.length > 0 || undefined}>
               <FieldLabel htmlFor="sandbox-credential">{credentialLabel}</FieldLabel>
               <InputGroup>
                 <InputGroupInput
                   id="sandbox-credential"
+                  aria-invalid={credentialErrors.length > 0 || undefined}
+                  aria-describedby={
+                    credentialErrors.length > 0 ? "sandbox-credential-error" : undefined
+                  }
                   type={secretVisible ? "text" : "password"}
                   autoComplete="new-password"
                   maxLength={16_384}
@@ -245,6 +242,7 @@ export function SandboxProviderForm({
                   </InputGroupButton>
                 </InputGroupAddon>
               </InputGroup>
+              <FieldError id="sandbox-credential-error" errors={credentialErrors} />
               {existing && existing.providerType !== providerType && (
                 <FieldDescription>
                   Changing providers requires new credentials; the previous credentials will be
@@ -257,10 +255,7 @@ export function SandboxProviderForm({
       </CardContent>
       {!readOnly && (
         <CardFooter className="flex flex-wrap gap-2">
-          <Button
-            disabled={saving || credentialRequired || !configurationValid}
-            onClick={() => void save()}
-          >
+          <Button disabled={saving || Result.isFailure(input)} onClick={() => void save()}>
             {saving
               ? requiresConnectionTest
                 ? "Testing and saving…"

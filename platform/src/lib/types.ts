@@ -1,3 +1,5 @@
+import type { Schema } from "effect"
+
 // The non-secret slice of the database-backed runtime configuration that the client may see.
 export interface PublicConfig {
   enabledSocialProviders: ("google" | "github")[]
@@ -46,7 +48,7 @@ export interface ConfigDefinition {
   /** The stored value is visible to end users (public pages or browser-visible URLs). */
   isPublic?: true
   options?: readonly { value: string; label: string }[]
-  decode: (value: unknown) => string
+  schema: Schema.Decoder<string>
   generate?: () => string
 }
 

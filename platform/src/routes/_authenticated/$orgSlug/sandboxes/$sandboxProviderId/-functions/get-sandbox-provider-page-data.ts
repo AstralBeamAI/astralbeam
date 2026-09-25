@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
+import { toStrictStandardSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
 import { readOrganizationSandboxProvider } from "@/db/organization-sandbox-provider.server"
@@ -9,7 +9,7 @@ import { SandboxProviderIdInputSchema } from "../../-lib/schemas.ts"
 
 export const getSandboxProviderPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
-  .validator(Schema.toStandardSchemaV1(SandboxProviderIdInputSchema))
+  .validator(toStrictStandardSchema(SandboxProviderIdInputSchema))
   .handler(({ context, data }) =>
     runDatabaseEffect(
       readOrganizationSandboxProvider(context.organizationId, data.sandboxProviderId).pipe(
