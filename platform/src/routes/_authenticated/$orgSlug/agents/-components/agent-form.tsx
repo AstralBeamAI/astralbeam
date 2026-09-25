@@ -2,6 +2,9 @@
 
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
+import { Schema } from "effect"
+
+import { AgentNameSchema, AgentSystemPromptSchema } from "@/lib/schemas"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -71,10 +74,7 @@ export function AgentForm({
     sandboxProviderId === NO_SANDBOX_PROVIDER ? null : sandboxProviderId
   const normalizedName = name.trim()
   const valid =
-    normalizedName.length > 0 &&
-    normalizedName.length <= AGENT_NAME_MAX_LENGTH &&
-    systemPrompt.length > 0 &&
-    systemPrompt.length <= AGENT_SYSTEM_PROMPT_MAX_LENGTH
+    Schema.is(AgentNameSchema)(normalizedName) && Schema.is(AgentSystemPromptSchema)(systemPrompt)
 
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()

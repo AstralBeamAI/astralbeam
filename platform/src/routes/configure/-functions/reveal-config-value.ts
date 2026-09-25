@@ -5,9 +5,10 @@ import { getGlobalConfig } from "@/lib/config"
 import { findConfigDefinition } from "@/lib/config/registry.server"
 import { withConfigureError } from "../-lib/configure-error.server"
 import { configureMiddleware } from "../-lib/configure-middleware"
+import { toValidationSchema, NonEmptyStringSchema } from "@/lib/schemas"
 
 const RevealConfigValueInput = Schema.Struct({
-  key: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(128))),
+  key: NonEmptyStringSchema.pipe(Schema.check(Schema.isMaxLength(128))),
 })
 
 type RevealConfigValueResult = { ok: true; value: string | null } | { ok: false; error: string }
@@ -18,7 +19,7 @@ type RevealConfigValueResult = { ok: true; value: string | null } | { ok: false;
  */
 export const revealConfigValue = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
-  .validator(Schema.toStandardSchemaV1(RevealConfigValueInput))
+  .validator(toValidationSchema(RevealConfigValueInput))
   .handler(async ({ data }): Promise<RevealConfigValueResult> => {
     const definition = findConfigDefinition(data.key)
     if (!definition || definition.systemManaged || definition.kind !== "secret") {

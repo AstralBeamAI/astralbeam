@@ -24,6 +24,7 @@ vi.mock("@/db/migration-runner.server", () => ({
 
 import {
   CONFIG_DEFINITIONS,
+  decodeConfigValue,
   configEnvironmentVariable,
   findConfigDefinition,
   validateConfigCompleteness,
@@ -69,6 +70,19 @@ afterEach(() => {
 })
 
 describe("global configuration", () => {
+  test("schema errors reject invalid values without exposing secrets", () => {
+    const secret = "private-test-secret"
+    for (const [key, value] of [
+      ["better_auth_secret", secret],
+      ["email_provider", secret],
+      ["smtp_port", { password: secret }],
+      ["app_base_url", `https://${secret}@example.com`],
+    ] as const) {
+      expect(() => decodeConfigValue(findConfigDefinition(key)!, value)).toThrow()
+      expect(() => decodeConfigValue(findConfigDefinition(key)!, value)).not.toThrow(secret)
+    }
+  })
+
   test("environment values override stored values while defaults remain available", async () => {
     setStoredConfig(completeStoredConfig())
     vi.stubEnv("APP_BASE_URL", JSON.stringify("https://environment.example"))
@@ -137,13 +151,15 @@ describe("global configuration", () => {
     const definition = findConfigDefinition("email_from_address")
     if (!definition) throw new Error("Expected an email_from_address definition")
 
-    expect(() => definition.decode("onboarding.resend.dev")).toThrow(
+    expect(() => decodeConfigValue(definition, "onboarding.resend.dev")).toThrow(
       /must be 'email@example.com' or 'Name <email@example.com>'/,
     )
     // The error must not repeat the rejected value, which the operator may have mistyped a secret into.
-    expect(() => definition.decode("secret@@value")).not.toThrow(/secret/)
-    expect(definition.decode("onboarding@resend.dev")).toBe("onboarding@resend.dev")
-    expect(definition.decode("App <onboarding@resend.dev>")).toBe("App <onboarding@resend.dev>")
+    expect(() => decodeConfigValue(definition, "secret@@value")).not.toThrow(/secret/)
+    expect(decodeConfigValue(definition, "onboarding@resend.dev")).toBe("onboarding@resend.dev")
+    expect(decodeConfigValue(definition, "App <onboarding@resend.dev>")).toBe(
+      "App <onboarding@resend.dev>",
+    )
 
     expect(
       validateConfigCompleteness({

@@ -1,12 +1,10 @@
-import { Schema } from "effect"
 import { expect, test } from "vitest"
+import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 
-import { EmailProviderConnectionInputSchema, emailProviderParseOptions } from "./schema"
+import { EmailProviderConnectionInputSchema } from "./schema"
 
 test("provider validation rejects excess settings without exposing credentials", async () => {
-  const validator = Schema.toStandardSchemaV1(EmailProviderConnectionInputSchema, {
-    parseOptions: emailProviderParseOptions,
-  })
+  const validator = toValidationSchema(EmailProviderConnectionInputSchema, strictParseOptions)
   const result = await validator["~standard"].validate({
     provider: "resend",
     settings: { resend_api_key: "private-test-key", unexpected: "private-extra-value" },

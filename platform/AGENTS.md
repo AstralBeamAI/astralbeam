@@ -10,6 +10,7 @@
   - Better Auth UI output under `src/components/auth` and `src/lib/auth`, and Emailcn output under `src/emails`, follow the same provenance rule: retain the registry command, source, and local changes. Preserve earlier provenance when replacing a source and centralize shared email changes outside imported templates.
 - Build shared components under `src/components` with shadcn/ui primitives.
 - Give icon-only controls an accessible name and hover explanation, usually `aria-label` and `title`. Use a Tooltip when richer content is needed.
+- Present form validation errors beside their fields, associate them with the inputs for accessibility, and use Effect's structured issues instead of displaying raw schema paths.
 - Keep single-use private states, skeletons, and rows in their consumer unless reuse or substantial complexity warrants extraction.
 - Pass the dashboard theme to embedded SDK widgets through `colorScheme`, and hide duplicate widget headers when the dashboard supplies their titles. Keep dashboard directory styling in `theme` and `customCss` props, not SDK defaults.
 - Dock dashboard chat beside the page without a modal backdrop from 1024px upward, and use a full-width panel below that. Match the dashboard's 56px header, reserve content space for the fixed launcher, and preserve chat state when closed.
@@ -63,6 +64,7 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 ## Shared code
 
 - Prefer Effect's built-in error handling, scheduling, and concurrency operators over custom server control flow.
+- Decode application-owned request objects with Effect Schema, use generated validation messages with shared readable defaults ("Must not be empty" and "Must be x, y, or z"), and remove repeated checks after decoding. Retain checks at security, persistence, concurrency, and external-system boundaries. Keep refactors behavior-preserving, including accepted inputs and error-result contracts, and avoid unrelated test deletions. Avoid unused internal options and redundant checks on application-owned constants.
 
 - Apply global framing restrictions without embedded API path exemptions. Cross-origin fetch uses CORS, not framing permissions. Append the framing CSP as an additional policy so route-provided restrictions remain enforced.
 - `schemas.ts`: reusable domain-neutral Effect schemas. Reuse its UUIDv7 and lock-version schemas instead of duplicating their predicates.

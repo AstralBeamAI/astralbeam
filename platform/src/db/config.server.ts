@@ -7,7 +7,11 @@ import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.serv
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { configTable } from "@/db/schema.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
-import { CONFIG_DEFINITIONS, findConfigDefinition } from "@/lib/config/registry.server"
+import {
+  CONFIG_DEFINITIONS,
+  decodeConfigValue,
+  findConfigDefinition,
+} from "@/lib/config/registry.server"
 import type { ConfigDefinition, ConfigKey, ConfigStorageEntry, ConfigValues } from "@/lib/types"
 
 type DatabaseConfigChange = {
@@ -81,7 +85,7 @@ function decodeStoredConfigValue(
 ): string | undefined {
   try {
     if (!row.value || row.value.key !== row.key) throw new Error()
-    return definition.decode(row.value.value)
+    return decodeConfigValue(definition, row.value.value)
   } catch {
     logInvalidStoredConfigValue(definition.key)
     return undefined
@@ -139,7 +143,7 @@ function databaseConfigValue(value: DatabaseConfigGeneratedValue) {
   if (!definition) throw new Error("Unknown global configuration key")
   return {
     key: value.key,
-    value: { key: value.key, value: definition.decode(value.value) },
+    value: { key: value.key, value: decodeConfigValue(definition, value.value) },
   }
 }
 

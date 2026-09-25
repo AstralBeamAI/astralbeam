@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
+import { toValidationSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
 import { updateOrganizationAgent } from "@/db/agent.server"
@@ -10,7 +10,7 @@ import { UpdateAgentInputSchema } from "../-lib/schemas.ts"
 
 export const updateAgent = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
-  .validator(Schema.toStandardSchemaV1(UpdateAgentInputSchema))
+  .validator(toValidationSchema(UpdateAgentInputSchema))
   .handler(({ context, data: { organizationSlug: _organizationSlug, ...fields } }) =>
     runDatabaseEffect(
       updateOrganizationAgent({ organizationId: context.organizationId, ...fields }).pipe(

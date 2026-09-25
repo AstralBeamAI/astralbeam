@@ -26,7 +26,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
         onLoggedIn()
         return
       }
-      setError(result.error ?? "Login failed")
+      setError(result.error)
     } catch {
       setError("Login failed")
     } finally {

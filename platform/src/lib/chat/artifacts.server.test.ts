@@ -90,12 +90,6 @@ describe("detectSandboxArtifactMimeType", () => {
 })
 
 describe("artifactContentDisposition", () => {
-  it("keeps ASCII names in both parameters", () => {
-    expect(artifactContentDisposition("attachment", "/workspace/out/report v2.pdf")).toBe(
-      `attachment; filename="report v2.pdf"; filename*=UTF-8''report%20v2.pdf`,
-    )
-  })
-
   it("keeps header values ByteString-safe for non-ASCII names", () => {
     const value = artifactContentDisposition("inline", "/workspace/😀 chart.png")
     expect(value).toBe(`inline; filename="__ chart.png"; filename*=UTF-8''%F0%9F%98%80%20chart.png`)

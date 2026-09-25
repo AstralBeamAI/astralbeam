@@ -2,6 +2,7 @@ import { applyDatabaseConfigChanges, getDatabaseConfig } from "@/db/config.serve
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import {
   CONFIG_DEFINITIONS,
+  decodeConfigValue,
   configEnvironmentVariable,
   findConfigDefinition,
   hasEnvironmentConfigOverride,
@@ -57,7 +58,7 @@ function validateConfigUpdates(updates: readonly GlobalConfigUpdate[]) {
       continue
     }
     try {
-      changes.push({ key: definition.key, value: definition.decode(update.value) })
+      changes.push({ key: definition.key, value: decodeConfigValue(definition, update.value) })
     } catch (error) {
       fieldErrors.push({
         key: definition.key,
@@ -85,7 +86,10 @@ function generateMissingValues(
     )
       continue
     try {
-      values.push({ key: definition.key, value: definition.decode(definition.generate()) })
+      values.push({
+        key: definition.key,
+        value: decodeConfigValue(definition, definition.generate()),
+      })
     } catch (error) {
       fieldErrors.push({
         key: definition.key,

@@ -49,7 +49,7 @@ export function PendingMigrationsCard({
         onApplied()
         return
       }
-      setError(result.error ?? "The migrations could not be applied")
+      setError(result.error)
     } catch {
       setError("The migrations could not be applied")
     } finally {

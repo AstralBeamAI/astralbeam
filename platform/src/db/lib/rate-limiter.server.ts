@@ -6,13 +6,11 @@ import { RateLimiter } from "effect/unstable/persistence"
 import { type EffectDatabase, effectDatabase } from "@/db"
 import { rateLimit } from "@/db/schema.server"
 
-const POSTGRES_INTEGER_MAX = 2_147_483_647
 const DATABASE_RATE_LIMIT_KEY_PREFIX = "effect-rate-limit:"
 
 interface RateLimitConsumeOptions {
   readonly key: string
   readonly limit: number
-  readonly tokens?: number
   readonly window: Duration.Input
 }
 
@@ -23,13 +21,6 @@ interface DatabaseRateLimiter {
   readonly reset: (key: string) => Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase>
 }
 
-interface ValidatedOptions {
-  readonly key: string
-  readonly limit: number
-  readonly tokens: number
-  readonly windowMilliseconds: number
-}
-
 function storeError(message: string, cause?: unknown): RateLimiter.RateLimiterError {
   const reason =
     cause === undefined
@@ -38,45 +29,8 @@ function storeError(message: string, cause?: unknown): RateLimiter.RateLimiterEr
   return new RateLimiter.RateLimiterError({ reason })
 }
 
-function validateOptions(
-  options: RateLimitConsumeOptions,
-): Effect.Effect<ValidatedOptions, RateLimiter.RateLimiterError> {
-  return Effect.try({
-    try: () => {
-      const tokens = options.tokens ?? 1
-      const window = Duration.fromInputUnsafe(options.window)
-      const windowMilliseconds = Math.ceil(Duration.toMillis(window))
-      if (options.key.length === 0) throw new Error("key must not be empty")
-      if (
-        !Number.isSafeInteger(options.limit) ||
-        options.limit <= 0 ||
-        options.limit >= POSTGRES_INTEGER_MAX
-      ) {
-        throw new Error(
-          "limit must be a positive safe integer below the PostgreSQL integer maximum",
-        )
-      }
-      if (!Number.isSafeInteger(windowMilliseconds) || windowMilliseconds <= 0) {
-        throw new Error("window must resolve to a positive safe number of milliseconds")
-      }
-      if (!Number.isSafeInteger(tokens) || tokens <= 0 || tokens > POSTGRES_INTEGER_MAX) {
-        throw new Error(
-          "tokens must be a positive safe integer within the PostgreSQL integer range",
-        )
-      }
-      return {
-        key: options.key,
-        limit: options.limit,
-        tokens,
-        windowMilliseconds,
-      }
-    },
-    catch: (cause) => storeError("Invalid rate-limit options", cause),
-  })
-}
-
 function exceededError(
-  options: ValidatedOptions,
+  options: RateLimitConsumeOptions,
   resetAfter: Duration.Duration,
 ): RateLimiter.RateLimiterError {
   return new RateLimiter.RateLimiterError({
@@ -97,19 +51,18 @@ function consume(
   options: RateLimitConsumeOptions,
 ): Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError, EffectDatabase> {
   return Effect.gen(function* () {
-    const validated = yield* validateOptions(options)
+    const windowMilliseconds = Math.ceil(Duration.toMillis(options.window))
     const db = yield* effectDatabase
-    const persistedKey = `${DATABASE_RATE_LIMIT_KEY_PREFIX}${validated.key}`
-    const maximumCount = validated.limit + 1
-    const insertedCount = Math.min(validated.tokens, maximumCount)
+    const persistedKey = `${DATABASE_RATE_LIMIT_KEY_PREFIX}${options.key}`
+    const maximumCount = options.limit + 1
     const now =
       sql<number>`floor(extract(epoch from statement_timestamp()) * 1000)::bigint`.mapWith(Number)
-    const windowExpiresAt = sql<number>`${now} + ${validated.windowMilliseconds}`
+    const windowExpiresAt = sql<number>`${now} + ${windowMilliseconds}`
     const rows = yield* db
       .insert(rateLimit)
       .values({
         key: persistedKey,
-        count: insertedCount,
+        count: 1,
         // Better Auth shares and prunes this table using lastRequest. Namespaced keys and an
         // expiry timestamp prevent collisions and premature deletion of active custom windows.
         // https://better-auth.com/docs/concepts/rate-limit
@@ -118,7 +71,7 @@ function consume(
       .onConflictDoUpdate({
         target: rateLimit.key,
         set: {
-          count: sql<number>`case when ${rateLimit.lastRequest} <= ${now} then ${insertedCount} else least(${rateLimit.count}::bigint + ${validated.tokens}, ${maximumCount})::integer end`,
+          count: sql<number>`case when ${rateLimit.lastRequest} <= ${now} then 1 else least(${rateLimit.count}::bigint + 1, ${maximumCount})::integer end`,
           lastRequest: sql<number>`case when ${rateLimit.lastRequest} <= ${now} then ${windowExpiresAt} else ${rateLimit.lastRequest} end`,
           updatedAt: sql`now()`,
         },
@@ -133,13 +86,13 @@ function consume(
     if (!row) return yield* Effect.fail(storeError("Rate-limit update returned no row"))
 
     const resetAfter = Duration.millis(Math.max(0, row.windowExpiresAt - row.currentTime))
-    const remaining = validated.limit - row.count
+    const remaining = options.limit - row.count
     if (remaining < 0) {
-      return yield* Effect.fail(exceededError(validated, resetAfter))
+      return yield* Effect.fail(exceededError(options, resetAfter))
     }
     return {
       delay: Duration.zero,
-      limit: validated.limit,
+      limit: options.limit,
       remaining,
       resetAfter,
     }
@@ -147,7 +100,6 @@ function consume(
 }
 
 function reset(key: string): Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase> {
-  if (key.length === 0) return Effect.fail(storeError("Rate-limit key must not be empty"))
   return Effect.gen(function* () {
     const db = yield* effectDatabase
     yield* db

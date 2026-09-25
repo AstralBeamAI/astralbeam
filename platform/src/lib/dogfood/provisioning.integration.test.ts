@@ -251,10 +251,9 @@ describe.skipIf(!dogfoodIntegration.url)(
           .consume({
             key: `dashboard-token:${session!.user.id}`,
             limit: 60,
-            tokens: 60,
             window: "1 minute",
           })
-          .pipe(Effect.ignore),
+          .pipe(Effect.ignore, Effect.repeat({ times: 59 })),
       )
       await expect(
         runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers })),

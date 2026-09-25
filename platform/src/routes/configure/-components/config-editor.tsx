@@ -5,6 +5,7 @@ import { useState } from "react"
 
 import { Spinner } from "@/components/ui/spinner"
 import { Button } from "@/components/ui/button"
+import { strictParseOptions } from "@/lib/schemas"
 import { toast } from "@/components/ui/toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +18,6 @@ import {
 import {
   EMAIL_PROVIDER_SETTING_KEYS,
   EmailProviderConnectionInputSchema,
-  emailProviderParseOptions,
   EmailProviderSchema,
 } from "@/emails/schema"
 import type { ConfigIssue, ConfigKey } from "@/lib/types"
@@ -33,7 +33,7 @@ import { SetupStatusAlert } from "./setup-status-alert"
 const decodeEmailProvider = Schema.decodeUnknownSync(EmailProviderSchema)
 const decodeEmailProviderConnectionInput = Schema.decodeUnknownOption(
   EmailProviderConnectionInputSchema,
-  emailProviderParseOptions,
+  strictParseOptions,
 )
 const emailConfigKeys = new Set([
   "email_provider",
@@ -182,7 +182,7 @@ export function ConfigEditor({
         toast.add({ title: "New secret generated", type: "success" })
         onChanged()
       } else {
-        toast.add({ title: result.error ?? "The secret could not be generated", type: "error" })
+        toast.add({ title: result.error, type: "error" })
       }
     })
 

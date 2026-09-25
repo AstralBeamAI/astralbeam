@@ -18,7 +18,9 @@ function isMissingRateLimitTable(error: RateLimiter.RateLimiterError): boolean {
   return error.reason._tag === "RateLimitStoreError" && sqlState(error.reason.cause) === "42P01"
 }
 
-function isRateLimitExceeded(error: RateLimiter.RateLimiterError): boolean {
+function isRateLimitExceeded(
+  error: RateLimiter.RateLimiterError,
+): error is RateLimiter.RateLimiterError & { reason: RateLimiter.RateLimitExceeded } {
   return error.reason._tag === "RateLimitExceeded"
 }
 
@@ -45,12 +47,7 @@ export function consumeOperatorLoginRateLimit() {
         Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
       ),
       Effect.catchIf(isRateLimitExceeded, (error) =>
-        Effect.succeed(
-          operatorLoginDecision(
-            false,
-            error.reason._tag === "RateLimitExceeded" ? error.reason.retryAfter : Duration.zero,
-          ),
-        ),
+        Effect.succeed(operatorLoginDecision(false, error.reason.retryAfter)),
       ),
     )
 }

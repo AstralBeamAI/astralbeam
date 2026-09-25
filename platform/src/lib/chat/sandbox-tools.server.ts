@@ -1,6 +1,7 @@
 import { type AnyServerTool, toolDefinition } from "@tanstack/ai"
 import { resolveHarnessCwd } from "@tanstack/ai-sandbox"
 import * as Schema from "effect/Schema"
+import { NonEmptyStringSchema } from "../schemas.ts"
 
 import {
   CHAT_SANDBOX_COMMAND_TIMEOUT_MS,
@@ -48,8 +49,7 @@ interface SandboxResolvedPath {
   relativePath: string
 }
 
-const sandboxPath = Schema.String.pipe(
-  Schema.check(Schema.isMinLength(1)),
+const sandboxPath = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(CHAT_SANDBOX_MAX_PATH_LENGTH)),
 )
 
@@ -99,7 +99,7 @@ const PublishSandboxArtifactInputSchema = Schema.toStandardJSONSchemaV1(
 const RunSandboxCommandInputSchema = Schema.toStandardJSONSchemaV1(
   Schema.toStandardSchemaV1(
     Schema.Struct({
-      command: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
+      command: NonEmptyStringSchema.annotate({
         description:
           "Shell command to run. It goes through the sandbox's shell, so pipes and redirection work.",
       }),

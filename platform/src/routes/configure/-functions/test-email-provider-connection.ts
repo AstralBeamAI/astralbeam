@@ -1,16 +1,12 @@
 import { createServerFn } from "@tanstack/react-start"
-import { Schema } from "effect"
+import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 
-import { EmailProviderConnectionInputSchema, emailProviderParseOptions } from "@/emails/schema"
+import { EmailProviderConnectionInputSchema } from "@/emails/schema"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
 export const testEmailProviderConnection = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
-  .validator(
-    Schema.toStandardSchemaV1(EmailProviderConnectionInputSchema, {
-      parseOptions: emailProviderParseOptions,
-    }),
-  )
+  .validator(toValidationSchema(EmailProviderConnectionInputSchema, strictParseOptions))
   .handler(async ({ data }) => {
     switch (data.provider) {
       case "smtp":

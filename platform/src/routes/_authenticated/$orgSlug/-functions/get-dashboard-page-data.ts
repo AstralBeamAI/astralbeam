@@ -6,11 +6,11 @@ import { runDatabaseEffect } from "@/db"
 import { readOrganizationOpenaiApiKeyConfigured } from "@/db/organization-openai-api-key.server"
 import { readOrganizationResourceCounts } from "@/db/organization.server"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { SlugSchema } from "@/lib/schemas"
+import { toValidationSchema, SlugSchema } from "@/lib/schemas"
 
 export const getDashboardPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware()])
-  .validator(Schema.toStandardSchemaV1(Schema.Struct({ organizationSlug: SlugSchema })))
+  .validator(toValidationSchema(Schema.Struct({ organizationSlug: SlugSchema })))
   .handler(({ context }) =>
     runDatabaseEffect(
       Effect.gen(function* () {

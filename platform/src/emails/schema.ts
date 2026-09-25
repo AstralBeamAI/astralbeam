@@ -1,16 +1,11 @@
 import { Effect, Schema } from "effect"
 
-export const emailProviderParseOptions = {
-  errors: "all",
-  onExcessProperty: "error",
-  reportInput: false,
-} as const
+import { NonEmptyStringSchema, enumSchema } from "../lib/schemas.ts"
 
 /** Providers `sendEmail` can dispatch to; each maps to one `src/emails/providers` module. */
-export const EmailProviderSchema = Schema.Literals(["smtp", "resend", "ses"]).annotate({
+export const EmailProviderSchema = enumSchema(["smtp", "resend", "ses"]).annotate({
   title: "Email provider",
   description: "Protocol used to deliver application email.",
-  message: "Email provider must be 'smtp', 'resend', or 'ses'",
 })
 export type EmailProvider = Schema.Schema.Type<typeof EmailProviderSchema>
 
@@ -26,24 +21,17 @@ export const SMTP_DEFAULTS = {
   security: "none",
 } as const
 
-export const SmtpSecuritySchema = Schema.Literals(["none", "auto", "starttls", "tls"]).annotate({
+export const SmtpSecuritySchema = enumSchema(["none", "auto", "starttls", "tls"]).annotate({
   title: "SMTP security",
   description: "TLS policy used for the SMTP connection.",
-  message: "SMTP security must be 'none', 'auto', 'starttls', or 'tls'",
 })
 
 export const SmtpPortSchema = Schema.Union([Schema.Number, Schema.NumberFromString])
   .pipe(
     Schema.check(
-      Schema.isInt({ message: "SMTP port must be between 1 and 65535" }),
-      Schema.isBetween(
-        { minimum: 1, maximum: 65_535 },
-        {
-          message: "SMTP port must be between 1 and 65535",
-        },
-      ),
+      Schema.isInt({ message: "Must be a whole number" }),
+      Schema.isBetween({ minimum: 1, maximum: 65_535 }, { message: "Must be between 1 and 65535" }),
     ),
-    Schema.optional,
     Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.port)),
   )
   .annotate({
@@ -52,34 +40,24 @@ export const SmtpPortSchema = Schema.Union([Schema.Number, Schema.NumberFromStri
   })
 
 export const SmtpProviderSettingsSchema = Schema.Struct({
-  smtp_host: Schema.NonEmptyString.pipe(
-    Schema.optional,
+  smtp_host: NonEmptyStringSchema.pipe(
     Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.host)),
-  )
-    .annotate({ message: "SMTP host must not be empty" })
-    .annotateKey({
-      title: "SMTP Host",
-      description: "Hostname or IP address of the SMTP server.",
-    }),
+  ).annotateKey({
+    title: "SMTP Host",
+    description: "Hostname or IP address of the SMTP server.",
+  }),
   smtp_port: SmtpPortSchema,
   smtp_security: SmtpSecuritySchema.pipe(
-    Schema.optional,
     Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.security)),
   ).annotateKey({
     title: "SMTP Security",
     description: "TLS policy used for the SMTP connection.",
   }),
-  smtp_username: Schema.String.pipe(
-    Schema.optional,
-    Schema.withDecodingDefault(Effect.succeed("")),
-  ).annotateKey({
+  smtp_username: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))).annotateKey({
     title: "SMTP Username",
     description: "Optional SMTP username; it must be paired with a password.",
   }),
-  smtp_password: Schema.String.pipe(
-    Schema.optional,
-    Schema.withDecodingDefault(Effect.succeed("")),
-  ).annotateKey({
+  smtp_password: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))).annotateKey({
     title: "SMTP Password",
     description: "Optional SMTP password; it must be paired with a username.",
   }),
@@ -103,12 +81,9 @@ export const SmtpProviderSettingsSchema = Schema.Struct({
 export type SmtpProviderSettings = Schema.Schema.Type<typeof SmtpProviderSettingsSchema>
 
 const ResendProviderSettingsSchema = Schema.Struct({
-  resend_api_key: Schema.NonEmptyString.annotate({
-    message: "Resend API key must not be empty",
-  }).annotateKey({
+  resend_api_key: NonEmptyStringSchema.annotateKey({
     title: "Resend API Key",
     description: "API key used to authenticate with Resend.",
-    messageMissingKey: "Resend API key is required",
   }),
 }).annotate({
   title: "Resend connection settings",
@@ -117,22 +92,17 @@ const ResendProviderSettingsSchema = Schema.Struct({
 export type ResendProviderSettings = Schema.Schema.Type<typeof ResendProviderSettingsSchema>
 
 const SesProviderSettingsSchema = Schema.Struct({
-  aws_region: Schema.NonEmptyString.annotate({
-    message: "AWS region must not be empty",
-  }).annotateKey({
+  aws_region: NonEmptyStringSchema.annotateKey({
     title: "AWS Region",
     description: "AWS region containing the SES account.",
-    messageMissingKey: "AWS region is required",
   }),
   aws_access_key_id: Schema.String.annotateKey({
     title: "AWS Access Key ID",
     description: "Optional static access key; it must be paired with a secret key.",
-    messageMissingKey: "AWS access key ID is required",
   }),
   aws_secret_access_key: Schema.String.annotateKey({
     title: "AWS Secret Access Key",
     description: "Optional static secret key; it must be paired with an access key ID.",
-    messageMissingKey: "AWS secret access key is required",
   }),
 })
   .pipe(
@@ -155,7 +125,7 @@ export type SesProviderSettings = Schema.Schema.Type<typeof SesProviderSettingsS
 
 const EmailProviderConnectionResultSchema = Schema.Union([
   Schema.Struct({ ok: Schema.Literal(true) }),
-  Schema.Struct({ ok: Schema.Literal(false), error: Schema.NonEmptyString }),
+  Schema.Struct({ ok: Schema.Literal(false), error: NonEmptyStringSchema }),
 ]).annotate({
   title: "Email provider connection result",
   description: "Result of verifying provider settings without sending email.",

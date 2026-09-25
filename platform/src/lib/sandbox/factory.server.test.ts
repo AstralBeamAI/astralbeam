@@ -1,75 +1,54 @@
 import * as Effect from "effect/Effect"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { expect, test, vi } from "vitest"
 
 const sandboxFactoryMocks = vi.hoisted(() => ({
-  daytonaSandbox: vi.fn(() => ({ name: "daytona" })),
-  dockerSandbox: vi.fn(() => ({ name: "docker" })),
-  spritesSandbox: vi.fn(() => ({ name: "sprites" })),
-  vercelSandbox: vi.fn(() => ({ name: "vercel" })),
+  daytona: vi.fn(),
+  docker: vi.fn(),
+  sprites: vi.fn(),
+  vercel: vi.fn(),
 }))
 
-vi.mock("@tanstack/ai-sandbox-daytona", () => ({
-  daytonaSandbox: sandboxFactoryMocks.daytonaSandbox,
-}))
-vi.mock("@tanstack/ai-sandbox-docker", () => ({
-  dockerSandbox: sandboxFactoryMocks.dockerSandbox,
-}))
-vi.mock("@tanstack/ai-sandbox-sprites", () => ({
-  spritesSandbox: sandboxFactoryMocks.spritesSandbox,
-}))
-vi.mock("@tanstack/ai-sandbox-vercel", () => ({
-  vercelSandbox: sandboxFactoryMocks.vercelSandbox,
-}))
+vi.mock("@tanstack/ai-sandbox-daytona", () => ({ daytonaSandbox: sandboxFactoryMocks.daytona }))
+vi.mock("@tanstack/ai-sandbox-docker", () => ({ dockerSandbox: sandboxFactoryMocks.docker }))
+vi.mock("@tanstack/ai-sandbox-sprites", () => ({ spritesSandbox: sandboxFactoryMocks.sprites }))
+vi.mock("@tanstack/ai-sandbox-vercel", () => ({ vercelSandbox: sandboxFactoryMocks.vercel }))
 
 import { createSandboxProvider } from "./factory.server.ts"
 
-describe("sandbox provider factory", () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it("passes validated database values directly to official initializers", async () => {
-    const daytonaOptions = { target: "eu", snapshot: "daytona-medium" }
-    await Effect.runPromise(
-      createSandboxProvider("daytona", {
-        options: daytonaOptions,
-        credentials: { apiKey: "daytona-key" },
-      }),
-    )
-    expect(sandboxFactoryMocks.daytonaSandbox).toHaveBeenCalledWith({
-      ...daytonaOptions,
-      apiKey: "daytona-key",
-    })
-
-    const dockerOptions = { image: "custom/image:tag" }
-    await Effect.runPromise(
-      createSandboxProvider("docker", {
-        options: dockerOptions,
-        credentials: {},
-      }),
-    )
-    expect(sandboxFactoryMocks.dockerSandbox).toHaveBeenCalledWith(dockerOptions)
-
-    await Effect.runPromise(
-      createSandboxProvider("sprites", {
-        options: {},
-        credentials: { apiKey: "sprites-key" },
-      }),
-    )
-    expect(sandboxFactoryMocks.spritesSandbox).toHaveBeenCalledWith({ apiKey: "sprites-key" })
-
-    const vercelOptions = {
+test.each([
+  {
+    provider: "daytona",
+    options: { target: "eu", snapshot: "daytona-medium" },
+    credentials: { apiKey: "daytona-key" },
+    expected: { target: "eu", snapshot: "daytona-medium", apiKey: "daytona-key" },
+  },
+  {
+    provider: "docker",
+    options: { image: "custom/image:tag" },
+    credentials: {},
+    expected: { image: "custom/image:tag" },
+  },
+  {
+    provider: "sprites",
+    options: {},
+    credentials: { apiKey: "sprites-key" },
+    expected: { apiKey: "sprites-key" },
+  },
+  {
+    provider: "vercel",
+    options: { teamId: "team-id", projectId: "project-id", runtime: "node24" },
+    credentials: { token: "vercel-token" },
+    expected: {
       teamId: "team-id",
       projectId: "project-id",
       runtime: "node24",
-    } as const
-    await Effect.runPromise(
-      createSandboxProvider("vercel", {
-        options: vercelOptions,
-        credentials: { token: "vercel-token" },
-      }),
-    )
-    expect(sandboxFactoryMocks.vercelSandbox).toHaveBeenCalledWith({
-      ...vercelOptions,
       token: "vercel-token",
-    })
-  })
-})
+    },
+  },
+] as const)(
+  "passes $provider options and credentials to its adapter",
+  async ({ provider, options, credentials, expected }) => {
+    await Effect.runPromise(createSandboxProvider(provider, { options, credentials }))
+    expect(sandboxFactoryMocks[provider]).toHaveBeenCalledExactlyOnceWith(expected)
+  },
+)

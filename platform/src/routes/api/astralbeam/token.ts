@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
+import * as SchemaIssue from "effect/SchemaIssue"
 
 import { runDatabaseEffect } from "@/db"
 import { getGlobalConfig } from "@/lib/config"
 import { isSetupComplete } from "@/lib/config/state.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
-import { SlugSchema } from "@/lib/schemas"
+import { validationParseOptions, SlugSchema } from "@/lib/schemas"
 import { readRequestJson, RequestTooLargeError } from "../-lib/request-body.server"
 
 const decodeDashboardTokenRequest = Schema.decodeUnknownSync(
@@ -14,12 +15,14 @@ const decodeDashboardTokenRequest = Schema.decodeUnknownSync(
     organizationSlug: SlugSchema,
     scope: Schema.optional(Schema.Literal("organization")),
   }),
+  validationParseOptions,
 )
 const dashboardTokenHeaders = {
   "Cache-Control": "private, no-store",
   Pragma: "no-cache",
   Vary: "Cookie",
 }
+const formatDashboardTokenIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 
 function dashboardTokenErrorResponse(error: string, status: number, code?: string) {
   return Response.json({ error, code }, { status, headers: dashboardTokenHeaders })
@@ -45,7 +48,14 @@ async function handleDashboardTokenRequest(request: Request): Promise<Response> 
       if (error instanceof RequestTooLargeError) {
         return dashboardTokenErrorResponse("Request too large", 413)
       }
-      return dashboardTokenErrorResponse("Invalid organization selector", 400)
+      return dashboardTokenErrorResponse(
+        Schema.isSchemaError(error)
+          ? formatDashboardTokenIssues(error.issue)
+              .issues.map((issue) => issue.message)
+              .join("\n")
+          : "Invalid JSON request body",
+        400,
+      )
     }
     return await runDatabaseEffect(
       issueDashboardToken({ ...input, headers: request.headers }).pipe(

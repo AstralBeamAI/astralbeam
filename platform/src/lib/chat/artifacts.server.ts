@@ -1,4 +1,5 @@
 import { base64url, jwtVerify, SignJWT } from "jose"
+import { Schema } from "effect"
 
 import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
 import {
@@ -51,21 +52,22 @@ export async function artifactContentDigest(bytes: Uint8Array): Promise<string> 
   )
 }
 
-export interface SandboxArtifactTicket {
+const SandboxArtifactTicketSchema = Schema.Struct({
   /** Full tenant-user scope the publishing run was authenticated as, for auditability. */
-  readonly organizationId: string
-  readonly tenantId: string
-  readonly tenantUserId: string
+  organizationId: Schema.String,
+  tenantId: Schema.String,
+  tenantUserId: Schema.String,
   /** Enough to reconnect: the stored provider configuration and the vendor's sandbox id. */
-  readonly sandboxProviderId: string
-  readonly providerSandboxId: string
+  sandboxProviderId: Schema.String,
+  providerSandboxId: Schema.String,
   /** Absolute path inside the sandbox, already containment-checked at publish time. */
-  readonly path: string
-  readonly mimeType: string
-  readonly size: number
+  path: Schema.String,
+  mimeType: Schema.String,
+  size: Schema.Number,
   /** Unpadded base64url SHA-256 of the published bytes; the capability covers these bytes only. */
-  readonly sha256: string
-}
+  sha256: Schema.String,
+})
+export type SandboxArtifactTicket = typeof SandboxArtifactTicketSchema.Type
 
 export async function mintSandboxArtifactTicket(ticket: SandboxArtifactTicket): Promise<string> {
   return await new SignJWT({ ...ticket })
@@ -85,41 +87,7 @@ export async function verifySandboxArtifactTicket(
       audience: CHAT_ARTIFACT_TICKET_AUDIENCE,
       typ: CHAT_ARTIFACT_TICKET_TYPE,
     })
-    const {
-      organizationId,
-      tenantId,
-      tenantUserId,
-      sandboxProviderId,
-      providerSandboxId,
-      path,
-      mimeType,
-      sha256,
-    } = payload as Partial<SandboxArtifactTicket>
-    const size = payload["size"]
-    if (
-      typeof organizationId !== "string" ||
-      typeof tenantId !== "string" ||
-      typeof tenantUserId !== "string" ||
-      typeof sandboxProviderId !== "string" ||
-      typeof providerSandboxId !== "string" ||
-      typeof path !== "string" ||
-      typeof mimeType !== "string" ||
-      typeof size !== "number" ||
-      typeof sha256 !== "string"
-    ) {
-      return undefined
-    }
-    return {
-      organizationId,
-      tenantId,
-      tenantUserId,
-      sandboxProviderId,
-      providerSandboxId,
-      path,
-      mimeType,
-      size,
-      sha256,
-    }
+    return Schema.decodeUnknownSync(SandboxArtifactTicketSchema)(payload)
   } catch {
     return undefined
   }
