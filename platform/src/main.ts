@@ -157,7 +157,8 @@ program
   .command("upgrade")
   .description("replace this binary with the latest release or the given one")
   .argument("[version]", "release tag such as v0.13.1 (default: the latest release)")
-  .action(async (requested?: string) => {
+  .option("-y, --yes", "replace the binary without asking for confirmation")
+  .action(async (requested: string | undefined, options: { yes?: boolean }) => {
     const binaryPath = process.execPath
     try {
       if (!RELEASE_TARGET) throw new Error(`no release binary for ${BINARY_HOST}`)
@@ -180,6 +181,12 @@ program
       }
       if (version.localeCompare(packageJson.version, undefined, { numeric: true }) < 0) {
         console.error(`Warning: downgrading to ${version} does not undo applied migrations`)
+      }
+      if (
+        !options.yes &&
+        !confirm(`Replace ${packageJson.version} with ${version} at ${binaryPath}?`)
+      ) {
+        throw new Error("upgrade cancelled")
       }
       const asset = `${APP_HANDLE}-platform-${RELEASE_TARGET}`
       const response = await fetch(
