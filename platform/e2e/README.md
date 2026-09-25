@@ -26,7 +26,7 @@ The `list` reporter narrates every `test.step` as it starts and finishes, with i
 Video, traces, and screenshots are kept for any failure and land in `e2e/.output`, which is git-ignored.
 
 ```sh
-deno task --cwd platform e2e:capture   # record video, trace, and screenshots for a passing run too
+E2E_CAPTURE=all deno task --cwd platform e2e   # record video, trace, and screenshots for a passing run too
 playwright show-report e2e/.output/report
 playwright show-trace e2e/.output/test-results/<test>/trace.zip
 ```
