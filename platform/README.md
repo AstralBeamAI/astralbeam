@@ -36,3 +36,13 @@ deno task --cwd platform db generate --name=add-projects
 deno task --cwd platform db check
 deno task --cwd platform db migrate
 ```
+
+## Upgrade
+
+Upgrade a deployed binary in three steps. [Deploy](src/routes/docs/-content/self-hosting/deploy.md#upgrade) explains each one.
+
+```sh
+sudo astralbeam-platform upgrade        # or pass a tag, such as v0.13.3
+astralbeam-platform migrate
+systemctl restart astralbeam-platform
+```
