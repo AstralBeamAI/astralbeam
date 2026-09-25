@@ -16,16 +16,20 @@ mv astralbeam-platform /usr/local/bin/astralbeam-platform
 
 **TIP**: To pin a release instead, replace `latest/download` with `download/v<version>` in the URL, for example `download/v0.13.0`.
 
-The release carries no checksum or signature file, so verify what you downloaded by running it. `astralbeam-platform version` prints the release version, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
+The release carries no checksum or signature file, so nothing here verifies where a download came from. Running it is only a smoke check. `astralbeam-platform version` prints the release version, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
 
 For a fork, or a target without a prebuilt asset, we build the binary ourselves. Deno is the only supported toolchain.
 
-Run these commands from the repository root to install the frozen dependencies and build the binary:
+With [Deno installed](https://docs.deno.com/runtime/getting_started/installation/), run these commands from the repository root to install the frozen dependencies, build the SDK the platform bundles, and build the binary:
 
 ```sh
-./scripts/setup.sh
+(cd sdk && deno install --frozen)
+deno task --cwd sdk build
+(cd platform && SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen)
 deno task --cwd platform build
 ```
+
+**NOTE**: Do not run `scripts/setup.sh` on a deployment host. It is the contributor setup, and it migrates any database `DATABASE_URL` reaches and seeds it with fixed development credentials.
 
 The binary lands at `platform/.output/astralbeam-platform`. `build` writes the Nitro server bundle and static assets into `platform/.output`, then compiles them into the binary.
 
@@ -35,7 +39,7 @@ Run this command to smoke-test the binary the way CI does:
 deno task --cwd platform binary:check
 ```
 
-It rejects a binary over 200 MiB, requires `version` and `--version` to print the platform version and `--help` to list `migrate`, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. It prints `Binary smoke check passed` with the binary's size when all of that holds.
+It rejects a binary over 200 MiB, requires `version` and `--version` to print the platform version and `--help` to list `migrate`, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. With `BINARY_CHECK_DATABASE_URL` pointing at an empty database, as in CI, it also requires `migrate --dry-run` to list every embedded migration and leave no tables behind. It prints `Binary smoke check passed` with the binary's size when all of that holds.
 
 **TIP**: You can skip the binary and run the same commands with `deno task --cwd platform start`, which needs the repository, its installed dependencies, and a fresh `build` on the host.
 

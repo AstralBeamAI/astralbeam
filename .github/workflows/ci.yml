@@ -76,12 +76,15 @@ jobs:
         run: |
           docker compose up --detach --wait postgres pgbouncer
           docker compose exec -T postgres createdb -U astralbeam ci_dogfood_test
+          docker compose exec -T postgres createdb -U astralbeam ci_binary_check
           deno task db migrate
 
       - name: Check, test, and build
         working-directory: ${{ matrix.project }}
         env:
           DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
+          # Left empty so `binary:check` can require `migrate --dry-run` to list every migration.
+          BINARY_CHECK_DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_binary_check' || '' }}
         # The platform's `build` compiles the binary that `binary:check` smoke-tests. The CLI's
         # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
         run: deno task ${{ matrix.project == 'platform' && 'ready && deno task binary:check' || matrix.project == 'cli' && 'check && deno task test && deno task binary:check' || 'ready' }}

@@ -7,6 +7,8 @@ import { env as processEnvironment, kill as killProcess } from "node:process"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 
+import { Client } from "pg"
+
 import packageJson from "../package.json" with { type: "json" }
 
 const BINARY_CHECK_MAX_BYTES = 200 * 1024 * 1024
@@ -109,6 +111,35 @@ async function runBinaryCheck() {
   }
   const { stdout: help } = await runBinaryCheckCommand(binaryPath, ["--help"])
   if (!/^ {2}migrate \[options\]/m.test(help)) throw new Error("--help did not list migrate")
+
+  // CI provisions an empty database here. The release job builds without one.
+  const migrateDatabaseUrl = processEnvironment.BINARY_CHECK_DATABASE_URL
+  if (migrateDatabaseUrl) {
+    const migrationNames = (
+      await readdir(join(platformDirectory, "src", "db", "migrations"))
+    ).sort()
+    const { stdout: dryRun } = await runBinaryCheckCommand(binaryPath, ["migrate", "--dry-run"], {
+      env: { ...processEnvironment, DATABASE_URL: migrateDatabaseUrl },
+    })
+    const pendingNames = dryRun
+      .trim()
+      .split("\n")
+      .slice(1)
+      .map((line) => line.trim())
+    if (pendingNames.join() !== migrationNames.join()) {
+      throw new Error(`\`migrate --dry-run\` did not list every embedded migration:\n${dryRun}`)
+    }
+    const client = new Client({ connectionString: migrateDatabaseUrl })
+    await client.connect()
+    try {
+      const { rows } = await client.query<{ tables: number }>(
+        "select count(*)::int as tables from pg_tables where schemaname not in ('pg_catalog', 'information_schema')",
+      )
+      if (rows[0]?.tables !== 0) throw new Error("`migrate --dry-run` left tables behind")
+    } finally {
+      await client.end()
+    }
+  }
 
   const publicAssetsDirectory = join(platformDirectory, ".output", "public", "assets")
   let stylesheetName: string | undefined
