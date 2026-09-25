@@ -5,7 +5,7 @@ import { updateGlobalConfig } from "@/lib/config/update.server"
 import { findConfigDefinition } from "@/lib/config/registry.server"
 import { withConfigureError } from "../-lib/configure-error.server"
 import { configureMiddleware } from "../-lib/configure-middleware"
-import { toStrictStandardSchema, NonEmptyStringSchema } from "@/lib/schemas"
+import { toValidationSchema, NonEmptyStringSchema } from "@/lib/schemas"
 
 const GenerateConfigValueInput = Schema.Struct({
   key: NonEmptyStringSchema.pipe(Schema.check(Schema.isMaxLength(128))),
@@ -15,7 +15,7 @@ type GenerateConfigValueResult = { ok: true } | { ok: false; error: string }
 
 export const generateConfigValue = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
-  .validator(toStrictStandardSchema(GenerateConfigValueInput))
+  .validator(toValidationSchema(GenerateConfigValueInput))
   .handler(async ({ data }): Promise<GenerateConfigValueResult> => {
     const definition = findConfigDefinition(data.key)
     const generate = definition?.generate

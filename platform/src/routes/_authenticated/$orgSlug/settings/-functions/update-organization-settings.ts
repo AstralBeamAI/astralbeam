@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema"
 
 import { getAuth } from "@/lib/auth.server"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { NonEmptyStringSchema, toStrictStandardSchema, SlugSchema } from "@/lib/schemas"
+import { NonEmptyStringSchema, toValidationSchema, SlugSchema } from "@/lib/schemas"
 
 const OrganizationNameSchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isTrimmed()),
@@ -15,7 +15,7 @@ const OrganizationNameSchema = NonEmptyStringSchema.pipe(
 export const updateOrganizationSettings = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["update"] })])
   .validator(
-    toStrictStandardSchema(
+    toValidationSchema(
       Schema.Struct({
         organizationSlug: SlugSchema,
         name: OrganizationNameSchema,

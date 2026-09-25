@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import * as Effect from "effect/Effect"
-import { toStrictStandardSchema } from "@/lib/schemas"
+import { toValidationSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
 import { readOrganizationAgentById, readOrganizationAgentFormOptions } from "@/db/agent.server"
@@ -9,7 +9,7 @@ import { AgentIdInputSchema } from "../../-lib/schemas.ts"
 
 export const getAgentPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
-  .validator(toStrictStandardSchema(AgentIdInputSchema))
+  .validator(toValidationSchema(AgentIdInputSchema))
   .handler(({ context, data }) =>
     runDatabaseEffect(
       Effect.gen(function* () {

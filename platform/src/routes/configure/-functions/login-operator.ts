@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { setResponseHeader } from "@tanstack/react-start/server"
 import { Schema } from "effect"
-import { toStrictStandardSchema, NonEmptyStringSchema } from "@/lib/schemas"
+import { toValidationSchema, NonEmptyStringSchema } from "@/lib/schemas"
 
 import {
   clearOperatorLoginRateLimit,
@@ -19,7 +19,7 @@ const OperatorLoginInput = Schema.Struct({
 type OperatorLoginResult = { ok: true } | { ok: false; error: string }
 
 export const loginOperator = createServerFn({ method: "POST" })
-  .validator(toStrictStandardSchema(OperatorLoginInput))
+  .validator(toValidationSchema(OperatorLoginInput))
   .handler(async ({ data }): Promise<OperatorLoginResult> => {
     requireConfigureRequest()
     const decision = await runDatabaseEffect(consumeOperatorLoginRateLimit())

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
-import { toStrictStandardSchema, NonEmptyStringSchema } from "@/lib/schemas"
+import { toValidationSchema, NonEmptyStringSchema } from "@/lib/schemas"
 
 import { updateGlobalConfig } from "@/lib/config/update.server"
 import { getGlobalConfig } from "@/lib/config"
@@ -28,7 +28,7 @@ type SaveConfigValuesResult =
 
 export const saveConfigValues = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
-  .validator(toStrictStandardSchema(SaveConfigValuesInput))
+  .validator(toValidationSchema(SaveConfigValuesInput))
   .handler(async ({ data }): Promise<SaveConfigValuesResult> => {
     return withConfigureError(
       "Configuration could not be saved",

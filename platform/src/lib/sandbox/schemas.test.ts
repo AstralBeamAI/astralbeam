@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
 
 import { decodeProviderCredentials, decodeProviderOptions } from "./schemas.ts"
-import { toStrictStandardSchema } from "@/lib/schemas"
+import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 import { SaveSandboxProviderInputSchema } from "@/routes/_authenticated/$orgSlug/sandboxes/-lib/schemas"
 
 describe("sandbox provider schemas", () => {
   it("reports all invalid request fields and rejects mismatched credentials without exposing them", async () => {
-    const validator = toStrictStandardSchema(SaveSandboxProviderInputSchema)
+    const validator = toValidationSchema(SaveSandboxProviderInputSchema, strictParseOptions)
     const result = await validator["~standard"].validate({
       organizationSlug: "acme",
       name: "",

@@ -2,14 +2,18 @@ import * as Schema from "effect/Schema"
 
 import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./slug.ts"
 
+export const validationParseOptions = { errors: "all", reportInput: false } as const
+
 export const strictParseOptions = {
-  errors: "all",
+  ...validationParseOptions,
   onExcessProperty: "error",
-  reportInput: false,
 } as const
 
-export function toStrictStandardSchema<S extends Schema.ConstraintDecoder<unknown>>(schema: S) {
-  return Schema.toStandardSchemaV1(schema, { parseOptions: strictParseOptions })
+export function toValidationSchema<S extends Schema.ConstraintDecoder<unknown>>(
+  schema: S,
+  parseOptions = validationParseOptions,
+) {
+  return Schema.toStandardSchemaV1(schema, { parseOptions })
 }
 
 export const NonEmptyStringSchema = Schema.String.check(

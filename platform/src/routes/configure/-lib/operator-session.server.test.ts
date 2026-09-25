@@ -40,6 +40,7 @@ describe("operator session boundary", () => {
       { iat: iat + 0.5, exp: iat + 900.5 },
       { exp: iat + 901 },
       { typ: "JWT" },
+      { typ: "OPERATOR-SESSION+JWT" },
     ]) {
       const { typ = "operator-session+jwt", ...claims } = invalid
       const token = await new SignJWT({ sub: "operator", iat, exp: iat + 900, ...claims })

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import * as Effect from "effect/Effect"
-import { toStrictStandardSchema } from "@/lib/schemas"
+import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
 import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
@@ -14,7 +14,7 @@ import { SaveSandboxProviderInputSchema } from "../-lib/schemas.ts"
 
 export const saveSandboxProvider = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
-  .validator(toStrictStandardSchema(SaveSandboxProviderInputSchema))
+  .validator(toValidationSchema(SaveSandboxProviderInputSchema, strictParseOptions))
   .handler(({ context, data }) =>
     runDatabaseEffect(
       Effect.gen(function* () {

@@ -2,11 +2,11 @@ import { createServerFn } from "@tanstack/react-start"
 import * as Schema from "effect/Schema"
 
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { toStrictStandardSchema, SlugSchema } from "@/lib/schemas"
+import { toValidationSchema, SlugSchema } from "@/lib/schemas"
 
 export const getMembersPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware()])
-  .validator(toStrictStandardSchema(Schema.Struct({ organizationSlug: SlugSchema })))
+  .validator(toValidationSchema(Schema.Struct({ organizationSlug: SlugSchema })))
   .handler(({ context }) => ({
     data: {
       organization: {

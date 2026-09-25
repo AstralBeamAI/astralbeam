@@ -74,6 +74,7 @@ function generateMissingValues(
   changedKeys: ReadonlySet<ConfigKey>,
 ) {
   const values: { key: ConfigKey; value: string }[] = []
+  const fieldErrors: GlobalConfigUpdateIssue[] = []
   const storedKeys = new Set((state.rows ?? []).map((row) => row.key))
   for (const definition of CONFIG_DEFINITIONS) {
     if (
@@ -84,9 +85,19 @@ function generateMissingValues(
       changedKeys.has(definition.key)
     )
       continue
-    values.push({ key: definition.key, value: definition.generate() })
+    try {
+      values.push({
+        key: definition.key,
+        value: decodeConfigValue(definition, definition.generate()),
+      })
+    } catch (error) {
+      fieldErrors.push({
+        key: definition.key,
+        message: error instanceof Error ? error.message : "A required value could not be generated",
+      })
+    }
   }
-  return values
+  return { values, fieldErrors }
 }
 
 export async function updateGlobalConfig(
@@ -99,6 +110,7 @@ export async function updateGlobalConfig(
     await getGlobalConfigState(),
     new Set(decoded.changes.map((change) => change.key)),
   )
+  if (generated.fieldErrors.length > 0) return { ok: false, fieldErrors: generated.fieldErrors }
 
   // Hidden system-managed values must rotate on saves without being sent to the browser.
   if (getDatabaseEncryptionKeyring().length > 1) {
@@ -110,7 +122,7 @@ export async function updateGlobalConfig(
       }
     }
   }
-  await applyDatabaseConfigChanges(decoded.changes, generated)
+  await applyDatabaseConfigChanges(decoded.changes, generated.values)
   invalidateGlobalConfig()
   return { ok: true }
 }

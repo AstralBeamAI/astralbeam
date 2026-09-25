@@ -7,7 +7,7 @@ import { runDatabaseEffect } from "@/db"
 import { getGlobalConfig } from "@/lib/config"
 import { isSetupComplete } from "@/lib/config/state.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
-import { strictParseOptions, SlugSchema } from "@/lib/schemas"
+import { validationParseOptions, SlugSchema } from "@/lib/schemas"
 import { readRequestJson, RequestTooLargeError } from "../-lib/request-body.server"
 
 const decodeDashboardTokenRequest = Schema.decodeUnknownSync(
@@ -15,7 +15,7 @@ const decodeDashboardTokenRequest = Schema.decodeUnknownSync(
     organizationSlug: SlugSchema,
     scope: Schema.optional(Schema.Literal("organization")),
   }),
-  strictParseOptions,
+  validationParseOptions,
 )
 const dashboardTokenHeaders = {
   "Cache-Control": "private, no-store",

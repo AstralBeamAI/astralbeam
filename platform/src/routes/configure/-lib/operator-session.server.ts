@@ -56,10 +56,10 @@ export async function verifyOperatorSession(
       algorithms: ["HS256"],
       issuer: OPERATOR_SESSION_ISSUER,
       audience: OPERATOR_SESSION_AUDIENCE,
-      typ: OPERATOR_SESSION_TYPE,
       requiredClaims: ["iat", "exp", "sub", "jti"],
       maxTokenAge: OPERATOR_SESSION_TTL_SECONDS,
     })
+    if (result.protectedHeader.typ !== OPERATOR_SESSION_TYPE) return null
     const payload = Schema.decodeUnknownSync(OperatorSessionClaims)(result.payload)
     return { expiresAt: new Date(payload.exp * 1_000) }
   } catch {

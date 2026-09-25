@@ -64,7 +64,7 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 ## Shared code
 
 - Prefer Effect's built-in error handling, scheduling, and concurrency operators over custom server control flow.
-- Decode application-owned request objects strictly with Effect Schema, use generated validation messages with shared readable defaults ("Must not be empty" and "Must be x, y, or z"), and remove repeated checks after decoding. Retain checks at security, persistence, concurrency, and external-system boundaries.
+- Decode application-owned request objects with Effect Schema, use generated validation messages with shared readable defaults ("Must not be empty" and "Must be x, y, or z"), and remove repeated checks after decoding. Retain checks at security, persistence, concurrency, and external-system boundaries. Keep refactors behavior-preserving, including accepted inputs and error-result contracts, and avoid unrelated test deletions. Avoid unused internal options and redundant checks on application-owned constants.
 
 - Apply global framing restrictions without embedded API path exemptions. Cross-origin fetch uses CORS, not framing permissions. Append the framing CSP as an additional policy so route-provided restrictions remain enforced.
 - `schemas.ts`: reusable domain-neutral Effect schemas. Reuse its UUIDv7 and lock-version schemas instead of duplicating their predicates.

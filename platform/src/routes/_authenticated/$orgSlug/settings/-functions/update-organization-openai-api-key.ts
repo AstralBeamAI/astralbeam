@@ -5,7 +5,7 @@ import { runDatabaseEffect } from "@/db"
 import { writeOrganizationOpenaiApiKey } from "@/db/organization-openai-api-key.server"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
 import {
-  toStrictStandardSchema,
+  toValidationSchema,
   isValidOpenaiApiKey,
   OPENAI_API_KEY_VALIDATION_MESSAGE,
   SlugSchema,
@@ -14,7 +14,7 @@ import {
 export const updateOrganizationOpenaiApiKey = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
   .validator(
-    toStrictStandardSchema(
+    toValidationSchema(
       Schema.Struct({
         organizationSlug: SlugSchema,
         /** `null` clears the stored key. */
