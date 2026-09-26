@@ -4,7 +4,7 @@ AstralBeam lets an Organization embed an agent in its product. Organization empl
 
 Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific counterparts. See [Setup](SETUP.md) for deployment and local development.
 
-## The five projects
+## The projects
 
 | Project | Responsibility | Output |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific cou
 | `cli` | Organization admin commands over the public API, built on the SDK | `@astralbeam/cli` npm package and Deno binaries |
 | `www` | Prerendered TanStack Start website | Cloudflare assets |
 | `examples/todos` | Standalone SDK consumer and browser tests | Demo application |
+| `examples/linearity-react` | Project-tracking playground with browser state, Astro tools, and Basic Auth | Deno server and browser assets |
 | `examples/todos-rails` | Rails consumer of the SDK from jsDelivr, outside the Deno toolchain | Demo application |
 
 Each project owns its dependencies, lockfile, and tooling because they ship independently. The root shares compiler defaults in `tsconfig.base.json` and launches `install`, `dev`, and `build` tasks.

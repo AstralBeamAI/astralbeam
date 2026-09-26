@@ -4,7 +4,7 @@
 
 **Links:** [Website](https://astralbeam.ai) · [Docs](https://app.astralbeam.ai/docs) · [Discord](https://discord.gg/suehFycUvW) · [Cloud](https://app.astralbeam.ai)
 
-![The AstralBeam agent sidebar listing, adding, and completing todos in the todos example](docs/assets/todos-demo.gif)
+![Astro creates and updates issues in the Linearity project-tracking playground](docs/assets/linearity-demo.gif)
 
 [AstralBeam](https://astralbeam.ai) is the agentic chat widget for your app. Drop a Cursor-style agent sidebar into your product. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use [AstralBeam Cloud](https://app.astralbeam.ai).
 
@@ -77,7 +77,7 @@ AstralBeam works with your existing LLM providers and gateways, observability pl
 
 ## Codebase Structure
 
-There are five independent Deno projects: a TanStack Start product application with app-local shadcn/ui components, the prerendered TanStack Start marketing website, the frontend SDK published to npm, the organization admin CLI published to npm and as Deno binaries, and a standalone TanStack Start example that consumes the built SDK.
+There are six independent Deno projects: a TanStack Start product application with app-local shadcn/ui components, the prerendered TanStack Start marketing website, the frontend SDK published to npm, the organization admin CLI published to npm and as Deno binaries, and two standalone TanStack Start examples that consume the built SDK. [Linearity](examples/linearity-react) is a multi-workspace project tracker with an embedded Astro assistant. The todos example keeps the integration minimal.
 
 ```text
 platform/       # TanStack Start application, database, theme, and UI
@@ -134,10 +134,11 @@ OPENAI_API_KEY=sk-...
 deno task dev
 ```
 
-This starts the three dev servers and the SDK watcher together:
+This starts the four dev servers and the SDK watcher together:
 
 - <http://localhost:4500>, the product application and its `/api/v1/chat` agent endpoint
 - <http://localhost:4600>, the public website
+- <http://localhost:4800>, Linearity with projects, issues, cycles, and Astro. Set its Basic Auth credentials first using [the example setup](examples/linearity-react/README.md)
 - <http://localhost:4700>, the todos example with the embedded widget. See [`examples/todos/README.md`](examples/todos/README.md) for what to try
 
 The Ruby on Rails version of the example runs separately with `bin/setup` from `examples/todos-rails` and opens on <http://localhost:3000>. See [`examples/todos-rails/README.md`](examples/todos-rails/README.md).

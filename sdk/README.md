@@ -129,6 +129,7 @@ widgets: {
 
 - Schemas are plain JSON Schema, or any [Standard Schema](https://standardschema.dev) validator (Zod, Valibot, ArkType).
 - Only a Standard Schema validates input in the browser. With plain JSON Schema, treat input as untrusted.
+- Return plain JSON values from tools, with no `undefined` fields. If a result cannot be sent, the action may still have happened.
 
 ## Documentation
 
@@ -164,7 +165,9 @@ There is no root export. Conversation history is not built yet.
 
 Types resolve under every TypeScript module resolution mode, including classic `"moduleResolution": "node"`. Requires TypeScript 5.0 or later because declarations use `const` type parameters, which fail to parse on TypeScript 4.x.
 
-## Example
+## Examples
+
+[`examples/linearity-react`](../examples/linearity-react) is a TanStack Start and shadcn/ui project tracker with two workspaces, localStorage persistence, and an assistant named Astro. It demonstrates validated tools, live issue cards, tenant switching, and a Basic Auth gate for a hosted playground.
 
 [`examples/todos`](../examples/todos) embeds the sidebar and a tenant-scoped user listing in a minimal TanStack Start app. Both use the same demo token route. The app also demonstrates host tools over live React state and a `todoCard` widget, with no Tailwind or shadcn/ui of its own.
 

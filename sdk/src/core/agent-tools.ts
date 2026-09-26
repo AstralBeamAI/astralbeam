@@ -1,4 +1,4 @@
-import { type SchemaInput, toolDefinition } from "@tanstack/ai/client"
+import { canonicalInterruptJson, type SchemaInput, toolDefinition } from "@tanstack/ai/client"
 import type {
   JsonSchemaObject,
   ToolDefinition as HostToolDefinition,
@@ -147,6 +147,13 @@ function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: Debug
       }
       try {
         const output = await tool.execute(validated)
+        try {
+          canonicalInterruptJson(output)
+        } catch {
+          throw new Error(
+            `Tool "${name}" ran, but its result is not JSON-compatible. Its changes may already be applied. Read current state before retrying. Return plain JSON values and omit undefined fields.`,
+          )
+        }
         debug?.("tool", `host tool "${name}" returned`, { output })
         return output
       } catch (error) {

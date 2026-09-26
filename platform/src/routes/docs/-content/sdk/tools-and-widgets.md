@@ -1,6 +1,6 @@
 # Tools and widgets
 
-Tools execute actions in your page and return results to the agent. Widgets render host UI in the conversation. Both have a name, description, and parameter schema.
+Tools let an agent act in your app, and widgets show your UI in its replies. Let’s connect both to the state your users already work with.
 
 ## Tools
 
@@ -16,6 +16,8 @@ tools: {
 ```
 
 - The resolved value is returned to the agent as the tool result. A thrown error becomes a tool error.
+- Return JSON-compatible values. Omit absent object fields instead of setting them to `undefined`, and convert dates or custom objects to plain values.
+- The SDK names the tool when its result cannot be sent. Its action may already have happened, so read current state before retrying.
 - A string `metadata.title` labels the tool's transcript entry in prose instead of its registry name.
 - New tools reach the agent on its next run.
 
@@ -75,3 +77,14 @@ Definitions are declared once but called many turns later, so make sure they rea
 - In React, the SDK routes `execute` through the latest `tools` prop, so rebuilding the object each render is fine and keeps closures fresh.
 - Widget renders re-read the current `widgets` prop, so host state changes re-render projected UI.
 - Pass ids in widget props and resolve them against your own state, rather than snapshotting data into props.
+
+## Read after a write
+
+An agent can call several tools before React renders again. Because state setters schedule a render, a second tool can read stale data if the first tool only called `setState`. Let’s keep the tool result and the next read in agreement.
+
+- For server data, await the mutation and read from the authoritative response or refreshed cache.
+- For browser data, commit to a synchronous store before returning. React can subscribe to that store with `useSyncExternalStore`.
+- Resolve issue, project, and assignee IDs inside the active Tenant. A valid schema does not establish ownership.
+- Keep manual edits and agent edits on the same mutation path so both validate, persist, and notify the UI in the same way.
+
+[Linearity’s store](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/linearity-react/src/lib/store.ts) demonstrates this with localStorage. Its issue widgets receive only an ID and resolve the latest issue on each render.

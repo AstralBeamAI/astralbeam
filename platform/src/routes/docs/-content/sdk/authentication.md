@@ -135,7 +135,7 @@ After fetching a JWT, the SDK calls `POST /api/v1/me` to synchronize the Tenant 
 - Both forms call `/me` after every acquisition and use the same proactive renewal and failure recovery.
 - React reads the function prop from the latest render. Closures over current authentication state need no memoization.
 - Returning `undefined` or throwing fails closed. The widget shows the error and offers a retry.
-- Remount when switching end users so the previous user's transcript or directory rows are discarded.
+- Remount when switching users or Tenants so the previous identity’s transcript, directory rows, and in-flight work are discarded.
 - A cross-origin endpoint with a custom header is preflighted, so it must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
 
 ## Refresh and current-user behavior
@@ -166,3 +166,18 @@ The tenant JWT identifies the tenant user to AstralBeam, so treat it like a sess
 
 - A disabled composer with an error note means the token fetch failed. The retry link refetches.
 - A CORS error in the console is usually a non-200 token response whose error path omits CORS headers.
+
+## Switching workspaces
+
+A workspace switch often changes the Tenant without changing the person at the keyboard. Because changing a token callback only affects the next acquisition, let’s remount chat when the active identity changes:
+
+```tsx
+<AstralBeamChat
+  key={`${session.tenant.id}:${session.user.id}`}
+  fetchAstralBeamToken={{ url: "/api/astralbeam/token" }}
+/>
+```
+
+Update your trusted server session before rendering the new identity. The token endpoint must check membership in the selected Tenant, and every host tool must enforce the same scope. Clearing the transcript alone does not establish a new identity.
+
+[Linearity](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/linearity-react) shows the component lifecycle with two mock workspaces. Its token route accepts a visitor ID only because the entire app is a shared-password demo with no real customer data. Do not copy that identity policy into an authenticated product.

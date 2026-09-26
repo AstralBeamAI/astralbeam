@@ -1,0 +1,12 @@
+{
+  "$schema": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
+  "nodeModulesDir": "auto",
+  "unstable": ["no-legacy-abort"],
+  "permissions": {
+    "runtime": {
+      "env": true,
+      "net": true,
+      "read": true,
+    },
+  },
+}

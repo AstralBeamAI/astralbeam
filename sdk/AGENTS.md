@@ -106,4 +106,4 @@ Verify embedded directories through the existing consumer examples and their bro
 - Keep `tsdown` pinned exactly to `0.22.3`. Newer versions pull `rolldown-plugin-dts@^0.27`, whose `yuku` native bindings Deno loads as JavaScript ([denoland/deno#36240](https://github.com/denoland/deno/issues/36240)). Re-test after that issue is fixed.
 - Leave version bumps and release tags to maintainers, following [`CONTRIBUTING.md`](../CONTRIBUTING.md). The package version must match the release tag before publishing.
 - Build with `deno task build` before an authorized npm release. The package ships only `dist`, `README.md`, `LICENSE`, and `package.json`.
-- Keep top-level `../examples/*` as standalone consumer apps on the built `dist` via `file:` dependencies, with no Tailwind or shadcn of their own, so they keep demonstrating the shadow-root style boundary.
+- Keep top-level `../examples/*` as standalone consumer apps on the built `dist` via `file:` dependencies, with independent host styling. The todos examples stay free of Tailwind and shadcn, while `linearity-react` owns its shadcn components and demonstrates coexistence with the SDK shadow root.
