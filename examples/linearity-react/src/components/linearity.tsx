@@ -349,7 +349,10 @@ function WorkspaceApp({
                   <span>
                     {
                       workspace.issues.filter(
-                        (issue) => issue.assigneeId === member.id && issue.status !== "Done",
+                        (issue) =>
+                          issue.assigneeId === member.id &&
+                          issue.status !== "Done" &&
+                          issue.status !== "Canceled",
                       ).length
                     }{" "}
                     open issues
