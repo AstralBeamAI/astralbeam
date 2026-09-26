@@ -4,7 +4,9 @@
 
 **Links:** [Website](https://astralbeam.ai) · [Docs](https://app.astralbeam.ai/docs) · [Discord](https://discord.gg/suehFycUvW) · [Cloud](https://app.astralbeam.ai)
 
-![Astro finds the Atlas launch blocker, offers an inline owner picker, and starts the work in Linearity](docs/assets/linearity-demo.gif)
+Here's a [Linear clone](examples/linearity-react) with the AstralBeam agent embedded:
+
+https://github.com/user-attachments/assets/03049d7d-5645-4080-922a-5e823230638d
 
 [AstralBeam](https://astralbeam.ai) is the agentic chat widget for your app. Drop a Cursor-style agent sidebar into your product. It streams answers, calls your tools, renders your components, and works with users' files. Self-host it or use [AstralBeam Cloud](https://app.astralbeam.ai).
 
