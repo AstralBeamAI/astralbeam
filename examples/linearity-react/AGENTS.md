@@ -7,3 +7,5 @@
 - Keep secrets in server environment variables without a `VITE_` prefix. Missing Basic Auth credentials must fail closed in development and production.
 - This example owns its shadcn components under `src/components/ui`. Add them with `deno task ui add <component>` and record the command and intentional changes in each generated file. Keep generated export noise out of Knip while retaining unused-file discovery.
 - Keep browser specs under `e2e` and run them with `deno task e2e`. Save screenshots, videos, and reports outside the worktree. Live Astro tests require explicit `E2E_LIVE_ASTRO=true` and a configured local platform.
+- Keep views and individual issues on workspace-scoped URLs. Route changes within a workspace must preserve Astro's conversation, and agent navigation must validate the destination against that workspace.
+- Verify the host and sidebar together at 140% zoom. Customer recordings should tell one real-world story with deliberate reading time. Keep resets, reloads, and other test mechanics in the functional suite.

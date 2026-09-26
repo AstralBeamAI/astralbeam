@@ -2,7 +2,7 @@
 
 Linearity is a project-tracking playground built with TanStack Start, React, and shadcn/ui. It gives potential customers somewhere useful to try AstralBeam: ask Astro to triage issues, prepare a launch, or move work through a cycle, then watch the app change.
 
-Acme and Orbit have separate projects, issues, and teams. You can create, edit, assign, filter, and delete issues, switch between lists and boards, browse projects and cycles, and inspect the activity feed. Astro reads and updates the same state through the SDK's tools and renders live issue cards in its replies.
+Acme and Orbit have separate projects, issues, and teams. You can create, edit, assign, filter, and delete issues, switch between lists and boards, browse projects and cycles, and inspect the activity feed. Astro reads and updates the same state through the SDK's tools, opens app pages, and renders live issue cards and an interactive owner picker in its replies. Every view, project, and issue has a workspace-scoped URL, so refresh and browser history work as expected.
 
 ## Run locally
 
@@ -36,7 +36,9 @@ You are Astro, the assistant inside Linearity, a project-tracking app. Help the 
 
 Use inspect_workspace to learn the active workspace, its projects, and its members. Use list_issues to read current issues before discussing or changing them. Never invent IDs. Make changes only through create_issue and update_issue, and report success only after the tool succeeds. Omit fields that should stay unchanged. Use null only to remove an assignee.
 
-Show created or updated issues with the issueCard widget, using each issue's opaque UUID. The cards stay connected to the app. Summarize large sets instead of repeating every issue. Ask a short question when a request is ambiguous. You can only act in the currently selected workspace.
+When asked to open a view, project, or issue, call navigate_app with a URL returned by inspect_workspace or list_issues. Keep navigation confirmations short because the user can see the page.
+
+Use issueCard to show an issue when the user asks for a card, or when discussing an issue outside its own page. Use assigneePicker when the user wants to choose an owner in chat. Both widgets take the issue's opaque UUID and stay connected to the app. Read the issue again before making another change because the user may have edited it through a widget. Keep confirmations brief. Summarize large sets instead of repeating every issue. Ask a short question when a request is ambiguous. You can only act in the currently selected workspace.
 ```
 
 The assistant's name and empty-state copy belong to the host UI. Its behavior belongs to the agent's dashboard configuration. Setting `title="Astro"` does not change the system prompt.
@@ -46,15 +48,16 @@ The assistant's name and empty-state copy belong to the host UI. Its behavior be
 - Ask, “Which high-priority issues are still open this cycle?”
 - Ask, “Assign the SSO issue to Maya, make it urgent, and show me the issue.”
 - Ask, “Create three enterprise launch tasks in Enterprise readiness and assign them to the right people.”
-- Open an issue card in chat, change its status, and save. The list and the card update together.
+- Ask, “Open the SSO launch blocker and let me choose an owner here.” Astro takes you to the issue page and shows a picker in chat. Choose Maya and watch the page update.
+- Change an issue’s status, priority, or assignee on its page. Properties save immediately, and live cards in chat update with them. Use **Edit details** for its title and description.
 - Switch to Orbit. The sample data and Astro's conversation change with the workspace.
 - Refresh to check your edits, then choose **Reset demo** to restore both workspaces.
 
 ## What is saved
 
-All project data and edits live in this browser's `linearity-demo:v1` localStorage entry. There is no application database, account signup, or real membership system. Different browsers start independently. Tabs on the same origin share saved data. Concurrent edits use the last saved snapshot.
+All project data and edits live in this browser's `linearity-demo:v1` localStorage entry. There is no application database, account signup, or real membership system. Different browsers start independently. Tabs on the same origin share saved data while keeping their own workspace URLs. Concurrent edits use the last saved snapshot.
 
-Reset restores both workspaces, clears their local activity, and starts a fresh Astro conversation. It preserves the visitor ID, so repeated resets do not create new AstralBeam identities. Conversations themselves are held in memory and are lost on refresh. Reset does not erase records already synchronized to AstralBeam.
+Reset restores both workspaces, clears their local activity, and starts a fresh Astro conversation. It preserves the visitor ID, so repeated resets do not create new AstralBeam identities. Navigating within a workspace preserves the conversation. Conversations themselves are held in memory and are lost on refresh. Reset does not erase records already synchronized to AstralBeam.
 
 Astro sends chat messages, attachments, and tool results to the configured AstralBeam deployment. That service synchronizes Tenant and TenantUser identities and uses the Organization's model provider. The issue dataset stays local except for the data included in those requests.
 
@@ -114,4 +117,4 @@ To record the real assistant against an already running, configured local demo, 
 E2E_BASE_URL=http://127.0.0.1:4800 E2E_LIVE_ASTRO=true E2E_CAPTURE=true E2E_OUTPUT_DIR=/tmp/linearity-recording deno task e2e walkthrough.spec.ts
 ```
 
-The walkthrough records at 140% zoom so issue details and Astro’s replies remain readable in the README GIF. The browser suite uses disposable local credentials `local-review` / `linearity-local-only`. Set those only on the local demo used for recording. Never reuse them on the deployed playground. Chromium must already be installed, or install it with `deno task e2e:install`. Recordings and screenshots go to the system temporary directory by default, or to `E2E_OUTPUT_DIR`. Keep that path outside the repository.
+The walkthrough follows the Atlas enterprise pilot in three exchanges. Astro finds the launch blocker and shows a live card, opens the issue with an owner picker, then raises its priority and starts the work after the user chooses Maya. It records at 140% zoom with pauses for reading each result. Keep the README GIF to 20–25 seconds by cutting typing and model wait time. Attach the fuller video to the PR. Reset, refresh, and tenant-isolation checks stay in the deterministic suite. The recording also saves screenshots and `story.json` timestamps for editing the film. The browser suite uses disposable local credentials `local-review` / `linearity-local-only`. Set those only on the local demo used for recording. Never reuse them on the deployed playground. Chromium must already be installed, or install it with `deno task e2e:install`. Recordings and screenshots go to the system temporary directory by default, or to `E2E_OUTPUT_DIR`. Keep that path outside the repository.

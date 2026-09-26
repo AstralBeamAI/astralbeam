@@ -10,7 +10,6 @@ import {
 } from "@phosphor-icons/react"
 import { Button } from "./ui/button.tsx"
 import { Avatar } from "./issue-bits.tsx"
-import { demoStore } from "@/lib/store.ts"
 import type { Workspace } from "@/lib/model.ts"
 
 export type View = "Overview" | "Issues" | "Projects" | "Cycles" | "Team" | "Activity"
@@ -31,6 +30,7 @@ export function Sidebar({
   onProject,
   onCreate,
   onReset,
+  onWorkspace,
 }: {
   workspace: Workspace
   workspaces: Workspace[]
@@ -40,6 +40,7 @@ export function Sidebar({
   onProject: (id: string) => void
   onCreate: () => void
   onReset: () => void
+  onWorkspace: (id: string) => void
 }) {
   return (
     <aside className="navigation">
@@ -49,7 +50,8 @@ export function Sidebar({
           <i />
           <i />
         </span>
-        linearity<span className="demo-badge">DEMO</span>
+        <span className="wordmark-name">linearity</span>
+        <span className="demo-badge">DEMO</span>
       </a>
       <div className="workspace-picker">
         <span className={`workspace-monogram ${workspace.initials === "O" ? "blue" : "purple"}`}>
@@ -61,7 +63,7 @@ export function Sidebar({
         <select
           id="workspace"
           value={workspace.id}
-          onChange={(event) => demoStore.switchWorkspace(event.target.value)}
+          onChange={(event) => onWorkspace(event.target.value)}
         >
           {workspaces.map((entry) => (
             <option key={entry.id} value={entry.id}>
@@ -70,9 +72,16 @@ export function Sidebar({
           ))}
         </select>
       </div>
-      <Button type="button" variant="outline" className="create-sidebar" onClick={onCreate}>
+      <Button
+        type="button"
+        variant="outline"
+        className="create-sidebar"
+        onClick={onCreate}
+        aria-label="Create issue"
+        title="Create issue"
+      >
         <PlusIcon />
-        Create issue
+        <span className="nav-text">Create issue</span>
         <span className="spacer" />
         <kbd>C</kbd>
       </Button>
@@ -84,10 +93,12 @@ export function Sidebar({
             key={name}
             className={view === name && !projectId ? "nav-item active" : "nav-item"}
             onClick={() => onNavigate(name)}
+            title={name}
+            aria-label={name}
             aria-current={view === name && !projectId ? "page" : undefined}
           >
             <Icon size={18} weight={view === name ? "duotone" : "regular"} />
-            {name}
+            <span className="nav-text">{name}</span>
             {name === "Issues" && (
               <span className="nav-count">
                 {
@@ -110,9 +121,11 @@ export function Sidebar({
             key={project.id}
             className={`nav-item project-nav ${projectId === project.id ? "active" : ""}`}
             onClick={() => onProject(project.id)}
+            title={project.name}
+            aria-label={project.name}
           >
             <span className={`project-dot ${project.color}`} />
-            {project.name}
+            <span className="nav-text">{project.name}</span>
           </button>
         ))}
       </nav>

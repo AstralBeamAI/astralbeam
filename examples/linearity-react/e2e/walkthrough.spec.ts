@@ -1,79 +1,111 @@
 import process from "node:process"
+import { writeFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
 
-test("Astro changes real host state, then edits survive refresh and Reset", async ({
-  page,
-}, testInfo) => {
+test("Astro helps the team unblock the Atlas pilot", async ({ page }, testInfo) => {
   test.skip(
     process.env.E2E_LIVE_ASTRO !== "true",
     "Requires a configured AstralBeam agent and model key",
   )
   test.setTimeout(180_000)
+  const started = Date.now()
+  const beats: Record<string, number> = {}
+  const mark = (name: string) => {
+    beats[name] = (Date.now() - started) / 1000
+  }
   if (process.env.E2E_CAPTURE) {
     await page.addInitScript(() => {
       document.addEventListener("DOMContentLoaded", () => {
-        const style = document.createElement("style")
-        style.textContent = "html { zoom: 1.4 } .app-shell { height: calc(100dvh / 1.4) }"
-        document.head.append(style)
+        document.documentElement.style.zoom = "1.4"
       })
     })
   }
-  await page.goto("/")
-  const composer = page.getByRole("textbox", { name: "Message" })
+  const workspace = "8f25a5c7-28cc-49d4-b4c6-21c20a781d01"
+  const issue = "74dcb815-bc71-4f65-a100-000000000100"
+  const composer = page.getByRole("textbox", { name: "Message", exact: true })
+  const follow = page
+    .getByRole("button", { name: "Scroll to end", exact: true })
+    .and(page.locator('[data-active="true"]'))
+  const settled = async () => {
+    await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0, {
+      timeout: 60_000,
+    })
+    if (await follow.isVisible()) await follow.click()
+    await page.waitForTimeout(500)
+  }
+  const say = async (prompt: string, beat: string) => {
+    mark(`${beat}Typing`)
+    await composer.pressSequentially(prompt, { delay: 40 })
+    await page.waitForTimeout(400)
+    await composer.press("Enter")
+    mark(`${beat}Sent`)
+  }
+  await page.goto(`/${workspace}/projects/74dcb815-bc71-4f65-a100-000000000020`)
   await expect(page.getByPlaceholder("Message Astro…")).toBeEnabled({ timeout: 30_000 })
-  await page.screenshot({ path: testInfo.outputPath("overview.png"), animations: "disabled" })
-  await page.waitForTimeout(1800)
-  await page.getByRole("button", { name: /^Issues/ }).click()
-  await page.getByRole("textbox", { name: "Search issues" }).fill("enterprise launch")
-  await composer.fill(
-    "Create an issue called Enterprise launch review in Enterprise readiness. Assign Maya Patel, set High priority, Todo, Cycle 24, and Security. Add a short description and show its issue card.",
-  )
-  await composer.press("Enter")
-  const created = page.getByRole("button", {
-    name: "ACM-146 Enterprise launch review",
-    exact: true,
-  })
-  await expect(created).toBeVisible({ timeout: 120_000 })
-  await expect(page.locator(".astro-issue-card")).toBeVisible({ timeout: 60_000 })
-  await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0, {
-    timeout: 60_000,
-  })
+  await expect(
+    page.getByRole("heading", { name: "Enterprise readiness", exact: true }),
+  ).toBeVisible()
+  mark("opening")
   await page.screenshot({
-    path: testInfo.outputPath("astro-created-issue.png"),
+    path: testInfo.outputPath("01-enterprise-launch.png"),
     animations: "disabled",
   })
   await page.waitForTimeout(2000)
-  await page.locator(".astro-issue-card").click()
-  await expect(page.getByRole("combobox", { name: "Assignee", exact: true })).toHaveValue(
-    /74dcb815/,
-  )
-  await page.getByRole("combobox", { name: "Status", exact: true }).selectOption("In progress")
-  await page.getByRole("button", { name: "Save changes" }).click()
-  await expect(page.locator(".astro-issue-card")).toContainText("In progress")
-  await page.getByRole("button", { name: "Board view" }).click()
-  await page.screenshot({ path: testInfo.outputPath("board.png"), animations: "disabled" })
-  await page.waitForTimeout(1700)
-  await page.reload()
-  await page.getByRole("button", { name: /^Issues/ }).click()
-  await page.getByRole("textbox", { name: "Search issues" }).fill("enterprise launch")
+
+  await say("What's blocking the Atlas pilot? Show a card here.", "find")
+  const card = page.locator(".astro-issue-card")
+  await expect(card.first()).toContainText("Add workspace-level SSO enforcement", {
+    timeout: 90_000,
+  })
+  await settled()
+  mark("found")
+  await page.screenshot({
+    path: testInfo.outputPath("02-launch-blocker.png"),
+    animations: "disabled",
+  })
+  await page.waitForTimeout(2800)
+
+  await say("Open it and let me choose an owner here.", "open")
+  await expect(page).toHaveURL(new RegExp(`/${workspace}/issues/${issue}$`), { timeout: 90_000 })
   await expect(
-    page
-      .getByRole("region", { name: "In progress issues", exact: true })
-      .getByRole("button", { name: /Enterprise launch review/ }),
+    page.getByRole("heading", { name: "Add workspace-level SSO enforcement" }),
   ).toBeVisible()
-  await page.waitForTimeout(1200)
-  await page
-    .getByRole("combobox", { name: "Workspace", exact: true })
-    .selectOption({ label: "Orbit workspace" })
-  await expect(created).toHaveCount(0)
-  await page.screenshot({ path: testInfo.outputPath("orbit.png"), animations: "disabled" })
-  await page.waitForTimeout(1700)
-  await page.getByRole("button", { name: "Reset demo" }).click()
-  await page.waitForTimeout(1000)
-  await page.getByRole("button", { name: "Reset everything" }).click()
-  await expect(page.getByRole("combobox", { name: "Workspace", exact: true })).toHaveValue(
-    "8f25a5c7-28cc-49d4-b4c6-21c20a781d01",
+  await expect(page.getByRole("region", { name: "Choose an issue owner" })).toBeVisible({
+    timeout: 90_000,
+  })
+  await settled()
+  await expect(page.getByRole("combobox", { name: "Assignee", exact: true })).toHaveValue("")
+  mark("picker")
+  await page.screenshot({
+    path: testInfo.outputPath("03-choose-owner.png"),
+    animations: "disabled",
+  })
+  await page.waitForTimeout(2500)
+  await page.getByRole("button", { name: "Assign to Maya Patel", exact: true }).click()
+  await expect(page.getByRole("combobox", { name: "Assignee", exact: true })).toHaveValue(
+    "74dcb815-bc71-4f65-a100-000000000002",
   )
-  await expect(created).toHaveCount(0)
-  await page.waitForTimeout(1400)
+  await expect(page.getByText("Assigned to Maya Patel", { exact: true })).toBeVisible()
+  mark("assigned")
+  await page.waitForTimeout(1800)
+
+  await say("Make it urgent, start work, and show the updated card.", "update")
+  await expect(page.getByRole("combobox", { name: "Status", exact: true })).toHaveValue(
+    "In progress",
+    { timeout: 90_000 },
+  )
+  await expect(page.getByRole("combobox", { name: "Priority", exact: true })).toHaveValue("Urgent")
+  await expect(card).toHaveCount(2, { timeout: 90_000 })
+  await settled()
+  await expect(card.last()).toContainText("Maya Patel")
+  await expect(card.last()).toContainText("In progress")
+  await expect(card.last()).toContainText("Urgent")
+  mark("resolved")
+  await page.screenshot({
+    path: testInfo.outputPath("04-owned-and-moving.png"),
+    animations: "disabled",
+  })
+  await page.waitForTimeout(6000)
+  mark("end")
+  await writeFile(testInfo.outputPath("story.json"), JSON.stringify(beats, null, 2))
 })

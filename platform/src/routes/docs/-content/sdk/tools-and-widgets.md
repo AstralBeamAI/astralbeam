@@ -34,7 +34,8 @@ widgets: {
 ```
 
 - In React, `render` returns JSX. Elsewhere it draws into a container and may return a cleanup.
-- Renders live in your app's tree, so state, context, and event handlers keep working.
+- Renders live in your app's tree, so state, context, and event handlers keep working. An inline picker can call the same mutation function as a form elsewhere in your app.
+- Clicking a widget does not send a chat message or return a tool result. Have the agent read current state before its next change so it sees edits made through your UI.
 - Several renders of one widget can be live at once. The oldest collapse to a summary past a cap.
 - Dropping a widget disposes any render of it still in the transcript.
 
@@ -88,3 +89,9 @@ An agent can call several tools before React renders again. Because state setter
 - Keep manual edits and agent edits on the same mutation path so both validate, persist, and notify the UI in the same way.
 
 [Linearity’s store](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/linearity-react/src/lib/store.ts) demonstrates this with localStorage. Its issue widgets receive only an ID and resolve the latest issue on each render.
+
+## Navigating the host app
+
+Navigation is another host tool. Let’s give the agent URLs from your app’s own issue and project records, validate its destination, and pass the URL to your client router. Keep the sidebar in a persistent layout so opening an issue does not discard the conversation.
+
+[Linearity’s navigation tool](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/linearity-react/src/lib/astro-tools.ts) accepts only known views and records in the active workspace. It rejects external URLs and another workspace’s IDs. Your production app must also enforce the current user’s permissions, just as it does for manual navigation.

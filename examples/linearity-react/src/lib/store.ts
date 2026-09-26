@@ -48,7 +48,7 @@ function persist(data: DemoData, generation = snapshot.generation) {
   snapshot = { data, ready: true, notice, generation }
   emit()
 }
-function load() {
+function load(preserveWorkspace = false) {
   let data = initialData(crypto.randomUUID())
   let notice = ""
   try {
@@ -59,11 +59,13 @@ function load() {
     notice =
       "We couldn't load your saved workspace. This session starts with sample data. Reset to save a fresh copy."
   }
+  if (preserveWorkspace && snapshot.ready)
+    data = { ...data, activeWorkspaceId: snapshot.data.activeWorkspaceId }
   snapshot = { data, ready: true, notice, generation: snapshot.generation + 1 }
   emit()
 }
 function onStorage(event: StorageEvent) {
-  if (event.key === storageKey || event.key === null) load()
+  if (event.key === storageKey || event.key === null) load(true)
 }
 function subscribe(listener: () => void) {
   listeners.add(listener)

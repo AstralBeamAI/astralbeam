@@ -97,12 +97,15 @@ function seedWorkspace(index: 0 | 1): Workspace {
       id: uuid(100 + i),
       number: 128 + i,
       title: index === 0 ? title : orbitTitles[i]!,
-      status,
+      status: index === 0 && i === 0 ? "Todo" : status,
       priority,
       label,
-      assigneeId: members[member]!.id,
+      assigneeId: index === 0 && i === 0 ? null : members[member]!.id,
       projectId: projects[project]!.id,
-      description: `${index === 0 ? title : orbitTitles[i]}.\n\nScope\nMake this work consistently across all workspaces, including empty and error states.\n\nAcceptance criteria\n• The main flow is accessible with a keyboard.\n• Loading and failure states have clear next steps.\n• Document the behavior for the team before shipping.`,
+      description:
+        index === 0 && i === 0
+          ? "Atlas starts its enterprise pilot on Monday. Their security team requires SSO enforcement before they can invite employees. This is the remaining launch blocker.\n\nAcceptance criteria\n• Require SAML sign-in for all workspace members.\n• Keep a recovery path for workspace administrators.\n• Verify existing sessions expire when enforcement is enabled.\n\nCoordinate the rollout with Maya and get security sign-off before the pilot opens."
+          : `${index === 0 ? title : orbitTitles[i]}.\n\nScope\nMake this work consistently across all workspaces, including empty and error states.\n\nAcceptance criteria\n• The main flow is accessible with a keyboard.\n• Loading and failure states have clear next steps.\n• Document the behavior for the team before shipping.`,
       cycle: i < 10 || status === "Done" ? "Cycle 24" : "Cycle 25",
     }),
   )

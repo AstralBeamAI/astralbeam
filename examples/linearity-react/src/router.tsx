@@ -6,6 +6,7 @@ export function getRouter() {
   return createRouter({
     routeTree,
     scrollRestoration: true,
+    scrollToTopSelectors: [".main-content"],
     defaultPreload: "intent",
   })
 }

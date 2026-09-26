@@ -10,6 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorkspaceIdRouteImport } from './routes/$workspaceId'
+import { Route as WorkspaceIdIndexRouteImport } from './routes/$workspaceId.index'
+import { Route as WorkspaceIdActivityRouteImport } from './routes/$workspaceId.activity'
+import { Route as WorkspaceIdCyclesRouteImport } from './routes/$workspaceId.cycles'
+import { Route as WorkspaceIdIssuesRouteImport } from './routes/$workspaceId.issues'
+import { Route as WorkspaceIdOverviewRouteImport } from './routes/$workspaceId.overview'
+import { Route as WorkspaceIdProjectsRouteImport } from './routes/$workspaceId.projects'
+import { Route as WorkspaceIdTeamRouteImport } from './routes/$workspaceId.team'
+import { Route as WorkspaceIdIssuesIssueIdRouteImport } from './routes/$workspaceId.issues_.$issueId'
+import { Route as WorkspaceIdIssuesNewRouteImport } from './routes/$workspaceId.issues_.new'
+import { Route as WorkspaceIdProjectsProjectIdRouteImport } from './routes/$workspaceId.projects_.$projectId'
 import { Route as ApiAstralbeamTokenRouteImport } from './routes/api/astralbeam/token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -17,6 +28,63 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceIdRoute = WorkspaceIdRouteImport.update({
+  id: '/$workspaceId',
+  path: '/$workspaceId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspaceIdIndexRoute = WorkspaceIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WorkspaceIdRoute,
+} as any)
+const WorkspaceIdActivityRoute = WorkspaceIdActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => WorkspaceIdRoute,
+} as any)
+const WorkspaceIdCyclesRoute = WorkspaceIdCyclesRouteImport.update({
+  id: '/cycles',
+  path: '/cycles',
+  getParentRoute: () => WorkspaceIdRoute,
+} as any)
+const WorkspaceIdIssuesRoute = WorkspaceIdIssuesRouteImport.update({
+  id: '/issues',
+  path: '/issues',
+  getParentRoute: () => WorkspaceIdRoute,
+} as any)
+const WorkspaceIdOverviewRoute = WorkspaceIdOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => WorkspaceIdRoute,
+} as any)
+const WorkspaceIdProjectsRoute = WorkspaceIdProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => WorkspaceIdRoute,
+} as any)
+const WorkspaceIdTeamRoute = WorkspaceIdTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => WorkspaceIdRoute,
+} as any)
+const WorkspaceIdIssuesIssueIdRoute =
+  WorkspaceIdIssuesIssueIdRouteImport.update({
+    id: '/issues_/$issueId',
+    path: '/issues/$issueId',
+    getParentRoute: () => WorkspaceIdRoute,
+  } as any)
+const WorkspaceIdIssuesNewRoute = WorkspaceIdIssuesNewRouteImport.update({
+  id: '/issues_/new',
+  path: '/issues/new',
+  getParentRoute: () => WorkspaceIdRoute,
+} as any)
+const WorkspaceIdProjectsProjectIdRoute =
+  WorkspaceIdProjectsProjectIdRouteImport.update({
+    id: '/projects_/$projectId',
+    path: '/projects/$projectId',
+    getParentRoute: () => WorkspaceIdRoute,
+  } as any)
 const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
   id: '/api/astralbeam/token',
   path: '/api/astralbeam/token',
@@ -25,27 +93,99 @@ const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$workspaceId': typeof WorkspaceIdRouteWithChildren
+  '/$workspaceId/activity': typeof WorkspaceIdActivityRoute
+  '/$workspaceId/cycles': typeof WorkspaceIdCyclesRoute
+  '/$workspaceId/issues': typeof WorkspaceIdIssuesRoute
+  '/$workspaceId/overview': typeof WorkspaceIdOverviewRoute
+  '/$workspaceId/projects': typeof WorkspaceIdProjectsRoute
+  '/$workspaceId/team': typeof WorkspaceIdTeamRoute
+  '/$workspaceId/': typeof WorkspaceIdIndexRoute
+  '/$workspaceId/issues/$issueId': typeof WorkspaceIdIssuesIssueIdRoute
+  '/$workspaceId/issues/new': typeof WorkspaceIdIssuesNewRoute
+  '/$workspaceId/projects/$projectId': typeof WorkspaceIdProjectsProjectIdRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$workspaceId/activity': typeof WorkspaceIdActivityRoute
+  '/$workspaceId/cycles': typeof WorkspaceIdCyclesRoute
+  '/$workspaceId/issues': typeof WorkspaceIdIssuesRoute
+  '/$workspaceId/overview': typeof WorkspaceIdOverviewRoute
+  '/$workspaceId/projects': typeof WorkspaceIdProjectsRoute
+  '/$workspaceId/team': typeof WorkspaceIdTeamRoute
+  '/$workspaceId': typeof WorkspaceIdIndexRoute
+  '/$workspaceId/issues/$issueId': typeof WorkspaceIdIssuesIssueIdRoute
+  '/$workspaceId/issues/new': typeof WorkspaceIdIssuesNewRoute
+  '/$workspaceId/projects/$projectId': typeof WorkspaceIdProjectsProjectIdRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$workspaceId': typeof WorkspaceIdRouteWithChildren
+  '/$workspaceId/activity': typeof WorkspaceIdActivityRoute
+  '/$workspaceId/cycles': typeof WorkspaceIdCyclesRoute
+  '/$workspaceId/issues': typeof WorkspaceIdIssuesRoute
+  '/$workspaceId/overview': typeof WorkspaceIdOverviewRoute
+  '/$workspaceId/projects': typeof WorkspaceIdProjectsRoute
+  '/$workspaceId/team': typeof WorkspaceIdTeamRoute
+  '/$workspaceId/': typeof WorkspaceIdIndexRoute
+  '/$workspaceId/issues_/$issueId': typeof WorkspaceIdIssuesIssueIdRoute
+  '/$workspaceId/issues_/new': typeof WorkspaceIdIssuesNewRoute
+  '/$workspaceId/projects_/$projectId': typeof WorkspaceIdProjectsProjectIdRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/astralbeam/token'
+  fullPaths:
+    | '/'
+    | '/$workspaceId'
+    | '/$workspaceId/activity'
+    | '/$workspaceId/cycles'
+    | '/$workspaceId/issues'
+    | '/$workspaceId/overview'
+    | '/$workspaceId/projects'
+    | '/$workspaceId/team'
+    | '/$workspaceId/'
+    | '/$workspaceId/issues/$issueId'
+    | '/$workspaceId/issues/new'
+    | '/$workspaceId/projects/$projectId'
+    | '/api/astralbeam/token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/astralbeam/token'
-  id: '__root__' | '/' | '/api/astralbeam/token'
+  to:
+    | '/'
+    | '/$workspaceId/activity'
+    | '/$workspaceId/cycles'
+    | '/$workspaceId/issues'
+    | '/$workspaceId/overview'
+    | '/$workspaceId/projects'
+    | '/$workspaceId/team'
+    | '/$workspaceId'
+    | '/$workspaceId/issues/$issueId'
+    | '/$workspaceId/issues/new'
+    | '/$workspaceId/projects/$projectId'
+    | '/api/astralbeam/token'
+  id:
+    | '__root__'
+    | '/'
+    | '/$workspaceId'
+    | '/$workspaceId/activity'
+    | '/$workspaceId/cycles'
+    | '/$workspaceId/issues'
+    | '/$workspaceId/overview'
+    | '/$workspaceId/projects'
+    | '/$workspaceId/team'
+    | '/$workspaceId/'
+    | '/$workspaceId/issues_/$issueId'
+    | '/$workspaceId/issues_/new'
+    | '/$workspaceId/projects_/$projectId'
+    | '/api/astralbeam/token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  WorkspaceIdRoute: typeof WorkspaceIdRouteWithChildren
   ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
 }
 
@@ -58,6 +198,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$workspaceId': {
+      id: '/$workspaceId'
+      path: '/$workspaceId'
+      fullPath: '/$workspaceId'
+      preLoaderRoute: typeof WorkspaceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$workspaceId/': {
+      id: '/$workspaceId/'
+      path: '/'
+      fullPath: '/$workspaceId/'
+      preLoaderRoute: typeof WorkspaceIdIndexRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/activity': {
+      id: '/$workspaceId/activity'
+      path: '/activity'
+      fullPath: '/$workspaceId/activity'
+      preLoaderRoute: typeof WorkspaceIdActivityRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/cycles': {
+      id: '/$workspaceId/cycles'
+      path: '/cycles'
+      fullPath: '/$workspaceId/cycles'
+      preLoaderRoute: typeof WorkspaceIdCyclesRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/issues': {
+      id: '/$workspaceId/issues'
+      path: '/issues'
+      fullPath: '/$workspaceId/issues'
+      preLoaderRoute: typeof WorkspaceIdIssuesRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/overview': {
+      id: '/$workspaceId/overview'
+      path: '/overview'
+      fullPath: '/$workspaceId/overview'
+      preLoaderRoute: typeof WorkspaceIdOverviewRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/projects': {
+      id: '/$workspaceId/projects'
+      path: '/projects'
+      fullPath: '/$workspaceId/projects'
+      preLoaderRoute: typeof WorkspaceIdProjectsRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/team': {
+      id: '/$workspaceId/team'
+      path: '/team'
+      fullPath: '/$workspaceId/team'
+      preLoaderRoute: typeof WorkspaceIdTeamRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/issues_/$issueId': {
+      id: '/$workspaceId/issues_/$issueId'
+      path: '/issues/$issueId'
+      fullPath: '/$workspaceId/issues/$issueId'
+      preLoaderRoute: typeof WorkspaceIdIssuesIssueIdRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/issues_/new': {
+      id: '/$workspaceId/issues_/new'
+      path: '/issues/new'
+      fullPath: '/$workspaceId/issues/new'
+      preLoaderRoute: typeof WorkspaceIdIssuesNewRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
+    '/$workspaceId/projects_/$projectId': {
+      id: '/$workspaceId/projects_/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/$workspaceId/projects/$projectId'
+      preLoaderRoute: typeof WorkspaceIdProjectsProjectIdRouteImport
+      parentRoute: typeof WorkspaceIdRoute
+    }
     '/api/astralbeam/token': {
       id: '/api/astralbeam/token'
       path: '/api/astralbeam/token'
@@ -68,8 +285,39 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface WorkspaceIdRouteChildren {
+  WorkspaceIdActivityRoute: typeof WorkspaceIdActivityRoute
+  WorkspaceIdCyclesRoute: typeof WorkspaceIdCyclesRoute
+  WorkspaceIdIssuesRoute: typeof WorkspaceIdIssuesRoute
+  WorkspaceIdOverviewRoute: typeof WorkspaceIdOverviewRoute
+  WorkspaceIdProjectsRoute: typeof WorkspaceIdProjectsRoute
+  WorkspaceIdTeamRoute: typeof WorkspaceIdTeamRoute
+  WorkspaceIdIndexRoute: typeof WorkspaceIdIndexRoute
+  WorkspaceIdIssuesIssueIdRoute: typeof WorkspaceIdIssuesIssueIdRoute
+  WorkspaceIdIssuesNewRoute: typeof WorkspaceIdIssuesNewRoute
+  WorkspaceIdProjectsProjectIdRoute: typeof WorkspaceIdProjectsProjectIdRoute
+}
+
+const WorkspaceIdRouteChildren: WorkspaceIdRouteChildren = {
+  WorkspaceIdActivityRoute: WorkspaceIdActivityRoute,
+  WorkspaceIdCyclesRoute: WorkspaceIdCyclesRoute,
+  WorkspaceIdIssuesRoute: WorkspaceIdIssuesRoute,
+  WorkspaceIdOverviewRoute: WorkspaceIdOverviewRoute,
+  WorkspaceIdProjectsRoute: WorkspaceIdProjectsRoute,
+  WorkspaceIdTeamRoute: WorkspaceIdTeamRoute,
+  WorkspaceIdIndexRoute: WorkspaceIdIndexRoute,
+  WorkspaceIdIssuesIssueIdRoute: WorkspaceIdIssuesIssueIdRoute,
+  WorkspaceIdIssuesNewRoute: WorkspaceIdIssuesNewRoute,
+  WorkspaceIdProjectsProjectIdRoute: WorkspaceIdProjectsProjectIdRoute,
+}
+
+const WorkspaceIdRouteWithChildren = WorkspaceIdRoute._addFileChildren(
+  WorkspaceIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  WorkspaceIdRoute: WorkspaceIdRouteWithChildren,
   ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
 }
 export const routeTree = rootRouteImport

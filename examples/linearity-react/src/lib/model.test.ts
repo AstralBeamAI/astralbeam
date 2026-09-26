@@ -23,7 +23,7 @@ describe("workspace mutations", () => {
   it("keeps omitted fields and validates agent changes before applying them", () => {
     const updated = editIssue(workspace, issue.id, { status: "Done", assigneeId: null })
     expect(updated).toEqual({ ...issue, status: "Done", assigneeId: null })
-    expect(issue.status).toBe("In progress")
+    expect(issue.status).toBe("Todo")
     expect(() => editIssue(workspace, issue.id, { title: " " })).toThrow()
     expect(() => editIssue(workspace, issue.id, { status: "Invented" })).toThrow()
   })
