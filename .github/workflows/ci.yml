@@ -30,6 +30,7 @@ jobs:
           - { project: sdk, tasks: ready }
           - { project: cli, tasks: check && deno task test && deno task binary:check }
           - { project: examples/todos, tasks: ready }
+          - { project: examples/linearity-react, tasks: ready }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -55,7 +56,7 @@ jobs:
         run: deno task format:check
 
       - name: Cache SDK node_modules
-        if: matrix.project == 'examples/todos' || matrix.project == 'platform' || matrix.project == 'cli'
+        if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: sdk/node_modules
@@ -63,15 +64,15 @@ jobs:
 
       - name: Cache SDK build
         id: sdk-build
-        if: matrix.project == 'examples/todos' || matrix.project == 'platform' || matrix.project == 'cli'
+        if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: sdk/dist
           key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/**', '!sdk/node_modules/**', '!sdk/dist/**', '!sdk/.generated/**', '!sdk/src/widget/styles.generated.ts') }}
 
       - name: Build the SDK
-        if: matrix.project == 'examples/todos' || matrix.project == 'platform' || matrix.project == 'cli'
-        # The platform, CLI, and example consume `sdk/dist` through file dependencies, so their
+        if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'
+        # The platform, CLI, and examples consume `sdk/dist` through file dependencies, so their
         # typecheck and build cannot run before the SDK is installed and built.
         working-directory: sdk
         env:

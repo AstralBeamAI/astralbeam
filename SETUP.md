@@ -70,11 +70,13 @@ With Podman, wait for the services to become healthy before setup. PgBouncer pub
 ./scripts/setup.sh
 ```
 
-Setup installs the Deno toolchain and frozen dependencies, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Deno on `PATH`. Chat runs on each organization's own OpenAI API key, set in the dashboard under **Settings**; put `OPENAI_API_KEY` in `platform/.env.local` and the seed gives it to every seeded organization.
+Setup installs the Deno toolchain and frozen dependencies for all six projects, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Deno on `PATH`. Chat runs on each organization's own OpenAI API key, set in the dashboard under **Settings**; put `OPENAI_API_KEY` in `platform/.env.local` and the seed gives it to every seeded organization.
 
 ```sh
 deno task dev                      # all apps and the SDK watcher
 ```
+
+Linearity runs on port 4800 alongside the existing examples. Set its Basic Auth credentials and Astro connection in `examples/linearity-react/.env.local` before opening it. Follow [Linearity setup](examples/linearity-react/README.md) for the local and hosted paths. The example stores its issue data in the browser and needs no application database.
 
 Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](platform/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
 

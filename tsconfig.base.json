@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  // Shared compiler options only: no `include`, `paths`, or `references`, so the five projects stay
+  // Shared compiler options only: no `include`, `paths`, or `references`, so the six projects stay
   // independent rather than becoming one project graph. https://www.typescriptlang.org/tsconfig/#extends
   "compilerOptions": {
     "allowImportingTsExtensions": true,

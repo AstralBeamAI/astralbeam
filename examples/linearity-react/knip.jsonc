@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "includeEntryExports": true,
+  "tags": ["-knipignore"],
+  "treatConfigHintsAsErrors": true,
+  "treatTagHintsAsErrors": true,
+  "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    "src/components/ui/**": [
+      "exports",
+      "nsExports",
+      "types",
+      "nsTypes",
+      "enumMembers",
+      "namespaceMembers",
+    ],
+  },
+  "playwright": { "config": ["e2e/playwright.config.ts"], "entry": ["e2e/**/*.spec.ts"] },
+}
