@@ -25,7 +25,7 @@ Acme and Orbit have separate projects, issues, and teams. You can create, edit, 
    deno task dev
    ```
 
-7. Open [localhost:4800](http://localhost:4800), enter your Basic Auth credentials, and try a prompt in Astro. You can use the rest of the app without configuring AstralBeam, but the assistant will show a connection error until its credentials are ready.
+7. Open [localhost:4900](http://localhost:4900), enter your Basic Auth credentials, and try a prompt in Astro. You can use the rest of the app without configuring AstralBeam, but the assistant will show a connection error until its credentials are ready.
 
 For repository development, [`scripts/setup.sh`](../../scripts/setup.sh) builds the SDK and seeds the local platform. Its todos API key also works here, but choose the starter agent or create Astro rather than using the todos-specific agent. Worktrees get their own database through the existing setup scripts. Linearity itself needs no database.
 
@@ -75,7 +75,7 @@ Linearity needs a server for Basic Auth and token minting. Build it from the rep
 | `APP_ORIGIN` | Server start | Set to `https://play.astralbeam.ai` behind a TLS proxy, without a trailing slash. Used for token-request origin checks. |
 | `VITE_ASTRALBEAM_API_URL` | Build | Public API base, normally `https://app.astralbeam.ai/api`. |
 | `VITE_ASTRALBEAM_AGENT_ID` | Build | Public ID of Astro. Optional when Astro is the default agent. |
-| `PORT` | Server start | HTTP listener port. Defaults to `3000` in production and `4800` in development. |
+| `PORT` | Server start | HTTP listener port. Defaults to `3000` in production and `4900` in development. |
 
 From the repository root, install and build the application:
 
@@ -114,7 +114,7 @@ deno task e2e
 To record the real assistant against an already running, configured local demo, use:
 
 ```sh
-E2E_BASE_URL=http://127.0.0.1:4800 E2E_LIVE_ASTRO=true E2E_CAPTURE=true E2E_OUTPUT_DIR=/tmp/linearity-recording deno task e2e walkthrough.spec.ts
+E2E_BASE_URL=http://127.0.0.1:4900 E2E_LIVE_ASTRO=true E2E_CAPTURE=true E2E_OUTPUT_DIR=/tmp/linearity-recording deno task e2e walkthrough.spec.ts
 ```
 
 The walkthrough follows the Atlas enterprise pilot in three exchanges. Astro finds the launch blocker and shows a live card, opens the issue with an owner picker, then raises its priority and starts the work after the user chooses Maya. It records at 140% zoom with pauses for reading each result. Keep the README GIF to 20–25 seconds by cutting typing and model wait time. Attach the fuller video to the PR. Reset, refresh, and tenant-isolation checks stay in the deterministic suite. The recording also saves screenshots and `story.json` timestamps for editing the film. The browser suite uses disposable local credentials `local-review` / `linearity-local-only`. Set those only on the local demo used for recording. Never reuse them on the deployed playground. Chromium must already be installed, or install it with `deno task e2e:install`. Recordings and screenshots go to the system temporary directory by default, or to `E2E_OUTPUT_DIR`. Keep that path outside the repository.
