@@ -108,7 +108,7 @@ Host tools and widgets execute in the host page with agent-chosen input. Attachm
 
 The platform compiles to a Deno binary with an out-of-tree startup, asset, shutdown, and size check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Deno binaries. `www` deploys as static assets. CI validates each project and runs deterministic browser tests. Model-driven tests require separate credentials and spend credits.
 
-Commands and build constraints belong to each project's instructions and manifests. The [root quick start](README.md#local-development) launches local development, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
+Commands and build constraints belong to each project's instructions and manifests. The [local development guide](CONTRIBUTING.md#local-development) launches local development, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
 
 ## Glossary
 

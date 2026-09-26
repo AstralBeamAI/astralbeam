@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
   }
   return {
     resolve: { tsconfigPaths: true },
-    server: { port: Number(process.env.PORT ?? 4800), strictPort: true },
+    server: { port: Number(process.env.PORT ?? 4900), strictPort: true },
     plugins: [tailwindcss(), nitro({ preset: "deno-server" }), tanstackStart(), react()],
   }
 })

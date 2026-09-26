@@ -76,7 +76,7 @@ Setup installs the Deno toolchain and frozen dependencies for all six projects, 
 deno task dev                      # all apps and the SDK watcher
 ```
 
-Linearity runs on port 4800 alongside the existing examples. Set its Basic Auth credentials and Astro connection in `examples/linearity-react/.env.local` before opening it. Follow [Linearity setup](examples/linearity-react/README.md) for the local and hosted paths. The example stores its issue data in the browser and needs no application database.
+Linearity runs on port 4900 alongside the existing examples. Set its Basic Auth credentials and Astro connection in `examples/linearity-react/.env.local` before opening it. Follow [Linearity setup](examples/linearity-react/README.md) for the local and hosted paths. The example stores its issue data in the browser and needs no application database.
 
 Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](platform/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
 

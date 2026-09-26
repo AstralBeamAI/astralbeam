@@ -6,23 +6,96 @@ Questions and ideas are welcome on [Discord](https://discord.gg/suehFycUvW). Vul
 
 ## Get set up
 
-Follow [SETUP.md](SETUP.md) for prerequisites, then [README.md](README.md#local-development) for starting the services, installing dependencies, seeding the database, and running the dev servers.
+Follow [SETUP.md](SETUP.md) for one-time prerequisites, then [Local development](#local-development) for starting the services, installing dependencies, seeding the database, and running the dev servers.
 
 Deno is the only supported runtime and package manager for this repository. Vite and npm tooling run through Deno's compatibility layer.
 
-## The five projects
+## Codebase structure
 
-The repository holds five independent Deno projects that do not form a package-manager workspace:
+The repository holds six independent Deno projects that do not form a package-manager workspace:
 
-- `platform`, the TanStack Start product application, database, theme, and dashboard UI.
+- `platform`, the TanStack Start product application, database, theme, and dashboard UI with app-local shadcn/ui components.
 - `www`, the public website, a prerendered TanStack Start application.
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
 - `cli`, the organization admin CLI published to npm as `@astralbeam/cli` and as Deno binaries.
-- `examples/todos`, a standalone application that consumes the built SDK.
+- `examples/linearity-react`, [Linearity](examples/linearity-react), a multi-workspace project tracker with an embedded Astro assistant that consumes the built SDK.
+- `examples/todos`, a minimal standalone application that consumes the built SDK.
 
 `examples/todos-rails` is a Ruby on Rails consumer of the published SDK outside the Deno toolchain. Validate it with `bin/ci` from its directory, which CI runs too.
 
 Each owns its dependencies, lockfile, and tooling. [ARCHITECTURE.md](ARCHITECTURE.md) explains how they fit together, and [AGENTS.md](AGENTS.md) holds the implementation rules that reviews apply.
+
+## Local development
+
+Run the applications natively with Deno and the database services through Docker Compose or Podman Compose.
+
+### Start PostgreSQL and Mailpit
+
+Compose starts PostgreSQL, PgBouncer, Valkey, and Mailpit. The default `DATABASE_URL` in [`platform/.env.development`](platform/.env.development) points at PgBouncer, the only database endpoint published to the host. On macOS, run Deno natively and use Compose for these services.
+
+From the repository root, start the services with Docker:
+
+```sh
+docker compose up --detach --wait
+```
+
+Or use Podman, then wait for the services to become healthy:
+
+```sh
+podman compose up --detach
+podman compose ps
+```
+
+Mailpit captures outgoing email on SMTP port 1025. Read it in the [local inbox](http://localhost:8025) on port 8025.
+
+### Set up the projects
+
+Install dependencies, migrate, seed local data, and build the SDK:
+
+```sh
+./scripts/setup.sh
+```
+
+The [seed](platform/src/db/README.md#seed-sample-data) creates local accounts and credentials and writes `examples/todos/.env` and `examples/todos-rails/.env` only when absent. Bootstrap defaults are in [`platform/.env.development`](platform/.env.development). Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value.
+
+### Chat credentials
+
+Chat runs on the organization's own OpenAI API key, which owners set in the dashboard under **Settings**. Put a key of your own in `platform/.env.local` and the seed gives it to every seeded organization:
+
+```sh
+OPENAI_API_KEY=sk-...
+```
+
+### Run everything
+
+```sh
+deno task dev
+```
+
+This starts the four dev servers and the SDK watcher together:
+
+- <http://localhost:4500>, the product application and its `/api/v1/chat` agent endpoint
+- <http://localhost:4600>, the public website
+- <http://localhost:4900>, Linearity with projects, issues, cycles, and Astro. Set its Basic Auth credentials first using [the example setup](examples/linearity-react/README.md)
+- <http://localhost:4700>, the todos example with the embedded widget. See [`examples/todos/README.md`](examples/todos/README.md) for what to try
+
+The Ruby on Rails version of the example runs separately with `bin/setup` from `examples/todos-rails` and opens on <http://localhost:3000>. See [`examples/todos-rails/README.md`](examples/todos-rails/README.md).
+
+Reload the page after changing SDK sources: the watcher rewrites the `sdk/dist` output the example imports.
+
+### Project commands
+
+Run from the repository root:
+
+```sh
+deno task install  # all project dependencies
+deno task dev      # all apps and the SDK watcher
+deno task build    # all projects, SDK first
+```
+
+Per-project aliases include `deno task dev:platform`, `deno task build:sdk`, and `deno task install:todos`. Other tasks use `deno task --cwd <project> <task>`. Run `deno task` to list root commands.
+
+For account creation and email delivery, follow [Authentication setup](SETUP.md#authentication-and-transactional-email).
 
 ## Validate your change
 
@@ -34,13 +107,14 @@ deno task --cwd www ready
 deno task --cwd sdk ready
 deno task --cwd cli ready
 deno task --cwd examples/todos ready
+deno task --cwd examples/linearity-react ready
 ```
 
 Documentation-only changes need source review and `git diff --check`, not a full `ready`.
 
 The browser suites run through their own `e2e` tasks, for example `deno task --cwd examples/todos e2e`. They need Playwright browsers and running services, so they stay out of `check`, `test`, `ready`, and CI. Run them locally when you change a flow they cover.
 
-CI runs `ready` for all five projects, compiles and smoke-tests the platform and CLI binaries, and runs the deterministic browser specs.
+CI runs `ready` for all six projects, compiles and smoke-tests the platform and CLI binaries, and runs the deterministic browser specs.
 
 ## Pull requests
 
@@ -51,7 +125,7 @@ CI runs `ready` for all five projects, compiles and smoke-tests the platform and
 
 ## Licensing of contributions
 
-Different parts of this repository carry different licenses. Files under [`www`](www), [`sdk`](sdk), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
+Different parts of this repository carry different licenses. Files under [`www`](www), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
 
 AstralBeam also asks contributors to agree to the [Contributor License Agreement](docs/legal/CLA.md). It grants AstralBeam Inc. a copyright and patent license to your contribution and lets AstralBeam license that contribution onward under any terms, expressly including AGPL-3.0-only, the MIT License, and proprietary or commercial terms. That is what makes separate proprietary licensing and closed distributions possible alongside the open source releases. You keep ownership of your contribution and every right to use it yourself.
 
