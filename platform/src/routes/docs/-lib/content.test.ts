@@ -2,7 +2,12 @@ import { readdirSync, readFileSync } from "node:fs"
 import { expect, test } from "vitest"
 
 import limits from "../-content/sdk/limits.md?raw"
-import { DOCS_SECTIONS, docsSitemapPaths } from "./content"
+import {
+  DOCS_SECTIONS,
+  docsSitemapPaths,
+  findDocsArticleNeighbors,
+  type DocsSection,
+} from "./content"
 import {
   CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
   CHAT_ATTACHMENT_MAX_COUNT,
@@ -98,4 +103,81 @@ test("the manifest and the content directory hold exactly the same pages", () =>
     section.pages.map((page) => `${section.slug}/${page.slug}.md`),
   )
   for (const file of pageFiles) expect([...files.keys()]).toContain(file)
+})
+
+const docsNavigationSections: DocsSection[] = [
+  {
+    slug: "start",
+    title: "Start",
+    description: "",
+    pages: [
+      { slug: "overview", title: "Overview" },
+      { slug: "draft", title: "Draft", draft: true },
+      { slug: "tutorial", title: "Tutorial" },
+    ],
+  },
+  {
+    slug: "unpublished",
+    title: "Unpublished",
+    description: "",
+    draft: true,
+    pages: [{ slug: "overview", title: "Overview" }],
+  },
+  {
+    slug: "api",
+    title: "API",
+    description: "",
+    href: "/docs/api",
+    pages: [{ slug: "overview", title: "Overview" }],
+  },
+  {
+    slug: "sdk",
+    title: "SDK",
+    description: "",
+    pages: [{ slug: "overview", title: "Overview" }],
+  },
+]
+
+test("article neighbors cross sections while skipping drafts and separate destinations", () => {
+  const neighbors = findDocsArticleNeighbors({
+    sections: docsNavigationSections,
+    sectionSlug: "start",
+    pageSlug: "tutorial",
+  })
+
+  expect(neighbors).toMatchObject({
+    previous: { section: { slug: "start" }, page: { slug: "overview" } },
+    next: { section: { slug: "sdk" }, page: { slug: "overview" } },
+  })
+})
+
+test("article neighbors omit the missing ends and distinguish repeated page slugs", () => {
+  const first = findDocsArticleNeighbors({
+    sections: docsNavigationSections,
+    sectionSlug: "start",
+    pageSlug: "overview",
+  })
+  const last = findDocsArticleNeighbors({
+    sections: docsNavigationSections,
+    sectionSlug: "sdk",
+    pageSlug: "overview",
+  })
+
+  expect(first.previous).toBeUndefined()
+  expect(first.next?.page.slug).toBe("tutorial")
+  expect(last.previous?.page.slug).toBe("tutorial")
+  expect(last.next).toBeUndefined()
+})
+
+test("an unpublished or unknown article has no navigation neighbors", () => {
+  for (const [sectionSlug, pageSlug] of [
+    ["start", "draft"],
+    ["unpublished", "overview"],
+    ["api", "overview"],
+    ["start", "missing"],
+  ] as const) {
+    expect(
+      findDocsArticleNeighbors({ sections: docsNavigationSections, sectionSlug, pageSlug }),
+    ).toEqual({ previous: undefined, next: undefined })
+  }
 })

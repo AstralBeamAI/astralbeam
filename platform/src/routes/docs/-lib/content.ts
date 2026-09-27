@@ -125,6 +125,27 @@ export function publishedDocsPages(section: DocsSection): DocsPage[] {
   return section.pages.filter((page) => !page.draft)
 }
 
+export function findDocsArticleNeighbors({
+  sections,
+  sectionSlug,
+  pageSlug,
+}: {
+  sections: DocsSection[]
+  sectionSlug: string
+  pageSlug: string
+}) {
+  const entries = sections
+    .filter((section) => !section.draft && !section.href)
+    .flatMap((section) => publishedDocsPages(section).map((page) => ({ section, page })))
+  const position = entries.findIndex(
+    ({ section, page }) => section.slug === sectionSlug && page.slug === pageSlug,
+  )
+  return {
+    previous: position < 0 ? undefined : entries[position - 1],
+    next: position < 0 ? undefined : entries[position + 1],
+  }
+}
+
 /** Crawlable docs paths: drafts are unlisted, and a bare section URL is only a redirect. */
 export function docsSitemapPaths(): string[] {
   return [

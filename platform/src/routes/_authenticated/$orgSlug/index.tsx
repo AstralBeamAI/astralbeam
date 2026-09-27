@@ -1,9 +1,8 @@
-import { WarningCircleIcon } from "@phosphor-icons/react"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
+import { DashboardIntegrationGuide } from "./-components/dashboard-integration-guide"
 import { DashboardResourceCards } from "./-components/dashboard-resource-cards"
 import { getDashboardPageData } from "./-functions/get-dashboard-page-data"
 
@@ -20,25 +19,6 @@ function DashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
-      {data.openaiApiKeyConfigured === false && (
-        <Alert variant="destructive" className="max-w-4xl rounded-lg">
-          <WarningCircleIcon aria-hidden="true" />
-          <AlertTitle>This organization has no OpenAI API key</AlertTitle>
-          <AlertDescription>
-            Every embedded chat message is refused until one is set.{" "}
-            {permissions.updateOrganization ? (
-              <>
-                <Link to="/$orgSlug/settings" params={{ orgSlug }}>
-                  Configure the OpenAI API key
-                </Link>{" "}
-                in the organization settings.
-              </>
-            ) : (
-              "Ask an owner to add one in the organization settings."
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           {data.organizationName}
@@ -47,6 +27,12 @@ function DashboardPage() {
           Configure the agents this organization embeds with {APP_NAME}.
         </p>
       </div>
+      <DashboardIntegrationGuide
+        organizationSlug={orgSlug}
+        openaiApiKeyConfigured={data.openaiApiKeyConfigured}
+        apiKeyCount={data.counts.apiKeys}
+        permissions={permissions}
+      />
       <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />
     </div>
   )
@@ -59,6 +45,7 @@ function DashboardPageSkeleton() {
         <Skeleton className="h-9 w-56" />
         <Skeleton className="h-5 w-full max-w-md" />
       </div>
+      <Skeleton className="h-96" />
       <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
         <Skeleton className="h-32 rounded-xl" />
         <Skeleton className="h-32 rounded-xl" />

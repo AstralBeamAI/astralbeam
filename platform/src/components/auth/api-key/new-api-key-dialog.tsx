@@ -1,9 +1,9 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons and the contextual Base UI toast manager; show one copyable API key; require explicit dismissal of the secret.
+// Local changes: Use Phosphor icons, show one key with manual copy recovery, and require explicit dismissal of the secret.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { CheckIcon, CopyIcon, KeyIcon } from "@phosphor-icons/react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,7 +21,6 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
-import { toast } from "@/components/ui/toast"
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
 
 export type NewApiKeyDialogProps = {
@@ -35,11 +34,16 @@ export function NewApiKeyDialog({ open, onOpenChange, name, apiKey }: NewApiKeyD
   const { localization } = useAuth()
   const { localization: apiKeyLocalization } = useAuthPlugin(apiKeyPlugin)
 
-  const [copied, setCopied] = useState(false)
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle")
+  const apiKeyInputRef = useRef<HTMLInputElement>(null)
+  const copyLabel =
+    copyStatus === "copied"
+      ? localization.settings.copiedToClipboard
+      : localization.settings.copyToClipboard
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
-      setCopied(false)
+      setCopyStatus("idle")
     }
 
     onOpenChange(nextOpen)
@@ -47,11 +51,14 @@ export function NewApiKeyDialog({ open, onOpenChange, name, apiKey }: NewApiKeyD
 
   const copyApiKey = async () => {
     if (!apiKey) return
+    setCopyStatus("idle")
     try {
       await globalThis.navigator.clipboard.writeText(apiKey)
-      setCopied(true)
+      setCopyStatus("copied")
     } catch {
-      toast.add({ title: "Couldn't copy the API key", type: "error" })
+      setCopyStatus("failed")
+      apiKeyInputRef.current?.focus()
+      apiKeyInputRef.current?.select()
     }
   }
 
@@ -80,15 +87,39 @@ export function NewApiKeyDialog({ open, onOpenChange, name, apiKey }: NewApiKeyD
         <div className="flex flex-col gap-4">
           <p className="text-sm font-medium">{name || apiKeyLocalization.apiKey}</p>
 
-          <ApiKeyCopyField
-            id="new-api-key"
-            label="API key"
-            value={apiKey}
-            copied={copied}
-            copiedLabel={localization.settings.copiedToClipboard}
-            copyLabel={localization.settings.copyToClipboard}
-            onCopy={() => void copyApiKey()}
-          />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="new-api-key">API key</Label>
+            <InputGroup>
+              <InputGroupInput
+                ref={apiKeyInputRef}
+                id="new-api-key"
+                value={apiKey ?? ""}
+                readOnly
+                aria-describedby={copyStatus === "failed" ? "new-api-key-copy-help" : undefined}
+                className="font-mono text-xs"
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label={copyLabel}
+                  title={copyLabel}
+                  onClick={() => void copyApiKey()}
+                >
+                  {copyStatus === "copied" ? (
+                    <CheckIcon aria-hidden="true" />
+                  ) : (
+                    <CopyIcon aria-hidden="true" />
+                  )}
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+            {copyStatus === "failed" && (
+              <p id="new-api-key-copy-help" role="alert" className="text-sm text-destructive">
+                Couldn&apos;t copy automatically. Use your browser or keyboard to copy the selected
+                key before dismissing this dialog.
+              </p>
+            )}
+          </div>
 
           <p className="text-xs text-muted-foreground">
             Use this key only with{" "}
@@ -104,42 +135,5 @@ export function NewApiKeyDialog({ open, onOpenChange, name, apiKey }: NewApiKeyD
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function ApiKeyCopyField({
-  id,
-  label,
-  value,
-  copied,
-  copiedLabel,
-  copyLabel,
-  onCopy,
-}: {
-  id: string
-  label: string
-  value: string | null
-  copied: boolean
-  copiedLabel: string
-  copyLabel: string
-  onCopy: () => void
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <InputGroup>
-        <InputGroupInput id={id} value={value ?? ""} readOnly className="font-mono text-xs" />
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton
-            size="icon-xs"
-            aria-label={copied ? copiedLabel : copyLabel}
-            title={copied ? copiedLabel : copyLabel}
-            onClick={onCopy}
-          >
-            {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-    </div>
   )
 }
