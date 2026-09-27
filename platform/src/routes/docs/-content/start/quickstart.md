@@ -105,7 +105,11 @@ export function TaskAssistant() {
 
   return (
     <div>
-      <ul>{tasks.map((task) => <li key={task.id}>{task.title}</li>)}</ul>
+      <ul>
+        {tasks.map((task) => (
+          <li key={task.id}>{task.title}</li>
+        ))}
+      </ul>
       <aside style={{ height: "70dvh" }}>
         <AstralBeamChat
           title="Task Assistant"
