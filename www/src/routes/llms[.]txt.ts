@@ -2,18 +2,18 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { siteMetadata, siteUrl } from "@/lib/site"
 
-const { app, docs, github, discord } = siteMetadata.links
+const { app, docs, quickstart, selfHosting, example, github, discord } = siteMetadata.links
 const llmsText = `# AstralBeam
 
 > AstralBeam adds an agentic chat widget to your app in minutes.
 
-${siteMetadata.description} Self-host the platform or use AstralBeam Cloud. Items marked "in progress" are on the roadmap and not shipped yet.
+${siteMetadata.description} Each organization needs its own OpenAI API key. Model and sandbox providers bill for their usage. Items marked "in progress" are on the roadmap and not shipped yet. The homepage animation is a scripted preview with sample data, not a live agent.
 
 ## Integration
 
 1. Add the frontend SDK (@astralbeam/sdk): Cursor-style agentic chat, managed backend, full customization of copy, colors, and slots, users' file attachments, coding sandboxes with downloadable artifacts, resumable streaming (in progress).
-2. Identify your users: your server mints a short-lived token carrying the user and tenant. Unlocks per-customer and per-user rate limits, tenant isolation, and, in progress, conversation history, usage tracking, Stripe-metered billing, and one-click observability.
-3. Hook up tools and widgets: the agent reads user data, takes actions inside your app, renders interactive widgets in its replies, asks before acting, and validates typed input. Exposing your app over MCP is in progress.
+2. Identify your users: your server mints a short-lived token carrying the user and tenant. Resource requests enforce their access scope, and chat rate limits are per organization, tenant, and user combination. Conversation history, usage tracking, Stripe-metered billing, and one-click observability are in progress.
+3. Hook up tools and widgets: the agent reads user data, takes actions inside your app, renders interactive widgets in its replies, and asks before acting. Standard Schema libraries validate tool input before execution. With plain JSON Schema, the host tool owns input validation. Exposing your app over MCP is in progress.
 
 ## Works with your stack
 
@@ -25,14 +25,17 @@ ${siteMetadata.description} Self-host the platform or use AstralBeam Cloud. Item
 ## Deployment
 
 - The SDK is MIT licensed. The platform is AGPL-3.0.
-- Self-host: one binary and a PostgreSQL database, with your own model keys and sandbox provider.
-- AstralBeam Cloud: sign up, create an API key, and point the widget at app.astralbeam.ai.
+- Self-host: the platform executable, PostgreSQL 18+, a connection pooler, email delivery, HTTPS, and the configuration described in the self-hosting guide. Model requests and sandbox workloads go to the configured providers.
+- AstralBeam Cloud: sign up, configure your organization's OpenAI key, create an AstralBeam API key, and integrate the widget using the quickstart.
 
 ## Links
 
 - [Home](${siteUrl("/")}): Product overview, integration steps, and deployment model.
 - [Hosted app](${app}): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
 - [Documentation](${docs}): Guides and reference for the SDK and the platform.
+- [Quickstart](${quickstart}): Embed the widget with a server-side token endpoint.
+- [Self-hosting](${selfHosting}): Requirements, deployment, and operations.
+- [Todos tutorial](${example}): Build a working integration with app tools and widgets.
 - [Source code](${github}): The open-source platform under AGPL-3.0.
 - [Discord](${discord}): Community chat with the AstralBeam team.
 

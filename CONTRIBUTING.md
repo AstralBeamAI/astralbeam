@@ -4,6 +4,17 @@ Thanks for your interest in AstralBeam. This page covers how to set up the repos
 
 Questions and ideas are welcome on [Discord](https://discord.gg/suehFycUvW). Vulnerabilities go through [private reporting](SECURITY.md), never a public issue. All participation is covered by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Ways to contribute
+
+You do not need to run the whole platform to help:
+
+- Try the [Quickstart](https://app.astralbeam.ai/docs/start/quickstart) in your own app and [report where you get stuck](https://github.com/AstralBeamAI/astralbeam/issues/new/choose). Include the guide URL, your framework, and the step that failed. Remove API keys and personal data from logs.
+- Fix a typo, unclear instruction, or broken link. Small documentation fixes can go straight to a pull request. The hosted guides live in [`platform/src/routes/docs/-content`](platform/src/routes/docs/-content).
+- Share a reproducible bug or propose an improvement through the [issue forms](https://github.com/AstralBeamAI/astralbeam/issues/new/choose). An explanation of the problem is enough, even if you do not have a solution.
+- Improve an existing [example](sdk/README.md#examples), or describe an integration you would like to contribute. Open an issue before starting a substantial feature so we can agree on scope.
+
+For code contributions, follow the setup below and the affected project's `AGENTS.md`. Leave package versions and release tags to the maintainers.
+
 ## Get set up
 
 Follow [SETUP.md](SETUP.md) for one-time prerequisites, then [Local development](#local-development) for starting the services, installing dependencies, seeding the database, and running the dev servers.
@@ -137,7 +148,7 @@ Agreement is collected when a contribution is proposed, by ticking the CLA ackno
 
 Releases are maintainer-only. One tag `vX.Y.Z` releases the platform, the SDK, and the CLI together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put either package on npm.
 
-1. Make sure `sdk/package.json` and `cli/package.json` are both already at the version you are about to tag. They are the only versioned projects and move in lockstep, so the workflow fails immediately if the tag and either version disagree.
+1. Make sure `sdk/package.json`, `cli/package.json`, and `platform/package.json` are already at the version you are about to tag. These three projects move in lockstep, so the workflow fails immediately if the tag and any version disagree.
 2. Push the tag by running `deno task release` from the repository root on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, and links the Actions page and npm Staged Packages page for the next steps.
 3. The workflow builds the SDK and CLI, compiles and smoke-tests the platform binary and the five CLI binaries, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build.
 4. A maintainer approves each staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is a package public. The run's job summary prints the stage ids.

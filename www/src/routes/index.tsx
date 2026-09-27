@@ -7,7 +7,7 @@ import { CheckIcon, CopyIcon, DiscordIcon, GithubIcon } from "@/components/icons
 import { cssVars } from "@/lib/css-vars"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata } from "@/lib/site"
-import { startSiteEffects } from "@/scripts/main"
+import { startMenu, startSiteEffects } from "@/scripts/main"
 
 import { AgentDemo } from "./-landing/agent-demo"
 import { highlight, integrations, steps } from "./-landing/content"
@@ -16,11 +16,14 @@ const {
   signUp: signUpUrl,
   logIn: logInUrl,
   docs: docsUrl,
+  quickstart: quickstartUrl,
+  selfHosting: selfHostingUrl,
+  example: exampleUrl,
   discord: discordUrl,
   github: githubUrl,
 } = siteMetadata.links
 
-const agentPrompt = `Add an AstralBeam agent sidebar to this app by following ${docsUrl}/start/quickstart.md and these steps: install @astralbeam/sdk, add a server endpoint that mints a chat token with createAstralBeamToken for the signed-in user and their tenant, and mount <AstralBeamChat /> where the sidebar belongs. Read ASTRALBEAM_API_KEY from the server environment and never expose it to browser code.`
+const agentPrompt = `Add an AstralBeam agent sidebar to this app by following ${quickstartUrl}.md and these steps: install @astralbeam/sdk, add a server endpoint that mints a chat token with createAstralBeamToken for the signed-in user and their tenant, and mount <AstralBeamChat /> where the sidebar belongs. Read ASTRALBEAM_API_KEY from the server environment and never expose it to browser code.`
 
 // Toggles the label with a data attribute because nothing on this page re-renders.
 function copyPrompt(event: MouseEvent<HTMLButtonElement>) {
@@ -42,6 +45,7 @@ export const Route = createFileRoute("/")({
 })
 
 function LandingPage() {
+  useEffect(startMenu, [])
   // The starfield, scramble-in headlines, scroll reveals, terminal typing, and the agent-sidebar
   // replay are imperative and own their DOM outright. Nothing on this page re-renders.
   useEffect(startSiteEffects, [])
@@ -151,7 +155,7 @@ function LandingPage() {
               </p>
               <div className="hero-ctas reveal" style={cssVars({ "--reveal-delay": ".48s" })}>
                 <a className="btn btn-primary btn-lg" href={signUpUrl}>
-                  GET STARTED
+                  TRY CLOUD
                 </a>
                 <button
                   type="button"
@@ -168,6 +172,15 @@ function LandingPage() {
                   </span>
                 </button>
               </div>
+              <nav className="hero-links reveal" aria-label="Start building">
+                <a href={quickstartUrl}>Quickstart</a>
+                <a href={selfHostingUrl}>Self-host</a>
+                <a href={exampleUrl}>Run an example</a>
+                <a href={githubUrl}>Star on GitHub</a>
+              </nav>
+              <p className="hero-requirements reveal">
+                Bring your own OpenAI API key. Model and sandbox usage is billed by your providers.
+              </p>
             </div>
 
             <div className="hero-demo reveal" style={cssVars({ "--reveal-delay": ".3s" })}>
@@ -234,8 +247,8 @@ function LandingPage() {
               WORKS WITH YOUR STACK
             </h2>
             <p className="section-sub reveal">
-              AstralBeam sits between your app and the providers you already pay for. Swap any of
-              them without touching the widget.
+              Use OpenAI with your own API key and choose a coding sandbox. Integrations marked “in
+              progress” are planned and are not available yet.
             </p>
           </div>
 
@@ -256,6 +269,7 @@ function LandingPage() {
                       title={item.soon ? "In progress" : undefined}
                     >
                       {item.name}
+                      {item.soon && <span className="chip-status"> · IN PROGRESS</span>}
                     </li>
                   ))}
                 </ul>
@@ -285,8 +299,8 @@ function LandingPage() {
               OPEN SOURCE FROM DAY ONE
             </h2>
             <p className="section-sub reveal">
-              The AstralBeam platform is open source under AGPL-3.0, built on open standards, and
-              modular by design. Read it, fork it, run it, extend it.
+              The SDK is MIT licensed. The platform is AGPL-3.0. Read the code, run it on your own
+              infrastructure, and help shape what comes next.
             </p>
           </div>
 
@@ -294,26 +308,27 @@ function LandingPage() {
             <div className="panel os-panel reveal">
               <h3 className="os-name mono">SELF-HOST</h3>
               <p>
-                Run the whole platform on your own infrastructure. Your data never leaves your
-                orbit.
+                Run the platform and database on your infrastructure. Model requests and sandbox
+                workloads go to the providers you configure.
               </p>
             </div>
             <div className="panel os-panel reveal" style={cssVars({ "--reveal-delay": ".1s" })}>
               <h3 className="os-name mono">CLOUD</h3>
               <p>
-                Let us run it for you: managed infrastructure, zero maintenance, always current.
+                Use our hosted dashboard and API. Bring your own OpenAI key and connect a sandbox
+                when your agent needs to run code.
               </p>
             </div>
             <div className="panel os-panel reveal" style={cssVars({ "--reveal-delay": ".2s" })}>
-              <h3 className="os-name mono">MODULAR</h3>
-              <p>Start with the entire platform, or adopt it incrementally, piece by piece.</p>
+              <h3 className="os-name mono">YOUR APP</h3>
+              <p>
+                Embed with React or plain JavaScript. Your tools use your app’s existing session and
+                permission checks.
+              </p>
             </div>
             <div className="panel os-panel reveal" style={cssVars({ "--reveal-delay": ".3s" })}>
               <h3 className="os-name mono">OPEN PROTOCOLS</h3>
-              <p>
-                Built on open protocols: AG-UI, MCP, A2A. Swap pieces in and out instead of adopting
-                a proprietary runtime.
-              </p>
+              <p>Chat streams use AG-UI. Exposing your app’s tools over MCP is in progress.</p>
             </div>
           </div>
 
@@ -325,9 +340,9 @@ function LandingPage() {
               rel="noopener noreferrer"
             >
               <GithubIcon />
-              BROWSE THE SOURCE
+              STAR ON GITHUB
             </a>
-            <a className="btn btn-ghost btn-lg" href={`${docsUrl}/self-hosting`}>
+            <a className="btn btn-ghost btn-lg" href={selfHostingUrl}>
               SELF-HOSTING GUIDE
             </a>
           </div>

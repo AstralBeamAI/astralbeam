@@ -1,0 +1,29 @@
+name: Documentation issue
+description: Report a confusing step, missing guide, or broken link
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: Tell us where the documentation let you down. Remove API keys, tokens, and personal data from examples and screenshots.
+
+  - type: input
+    id: page
+    attributes:
+      label: Page or guide
+      description: Link to the page, README, or section. For a missing guide, describe the topic.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What needs to improve?
+      description: What were you trying to do, and which step was unclear, incorrect, or missing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Integration details
+      description: If relevant, include your framework, SDK version, and whether you use Cloud or self-hosting.

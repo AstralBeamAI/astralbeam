@@ -4,7 +4,7 @@
 
 ## Validation
 
-<!-- Which tasks you ran, for example `deno task --cwd sdk ready`, and anything you could not verify. -->
+<!-- Which tasks you ran, for example `deno task --cwd sdk ready`, and anything you could not verify. Documentation-only changes need source review and `git diff --check`. -->
 
 ## Checklist
 

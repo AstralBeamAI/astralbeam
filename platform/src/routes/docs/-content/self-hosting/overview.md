@@ -23,16 +23,19 @@ Each tagged release publishes prebuilt platform binaries for Linux, macOS, and W
 - PostgreSQL 18 or newer. The schema depends on server-side `uuidv7()` defaults and the `citext` extension.
 - A transaction-pooling connection pooler such as PgBouncer. The application sends prepared queries, so the pooler also needs a prepared statement allowance. The reference Compose setup runs one and sets `MAX_PREPARED_STATEMENTS: 200`.
 - An email path: an SMTP server, a Resend API key, or Amazon SES. Sign-up verification, password reset, password-change notices, and organization invitations all send mail.
+- Cloudflare Turnstile site and secret keys for your domain. Setup remains gated until both CAPTCHA keys are configured.
 - A reverse proxy that terminates TLS. Production requires HTTPS.
 - An OpenAI API key per organization. Each organization stores its own in the dashboard, and its chat requests fail until it does. The deployment holds no key of its own.
 
 Nothing else is required. There is no object storage, no queue, and no separate cache server.
 
+The platform is licensed under AGPL-3.0-only, and the SDK is MIT licensed. Budget separately for your server, PostgreSQL, email delivery, and OpenAI usage. A sandbox provider is optional for ordinary chat and browser tools, and using a hosted sandbox provider may add its own charges.
+
 **NOTE**: The development Compose file also starts Valkey and Mailpit. No application code uses Valkey, and Mailpit is a local sink that captures mail instead of delivering it.
 
 ## Where state lives
 
-Everything is a row in the one PostgreSQL database, so a backup of that database is a backup of the deployment.
+Persisted application state lives in PostgreSQL. Back up that database and preserve `DATABASE_ENCRYPTION_KEY` separately so the encrypted secrets can be restored. Chat transcripts remain in the browser's current session, and conversation history is not yet persisted by AstralBeam.
 
 | Tables | State |
 | --- | --- |

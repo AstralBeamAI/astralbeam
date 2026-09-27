@@ -166,10 +166,12 @@ function scramble(el: HTMLElement) {
 /* ============ HUD chrome ============ */
 
 /* Below 820px the primary links live in a dropdown panel instead of the bar. */
-function initMenu() {
+export function startMenu() {
   const toggle = document.querySelector<HTMLButtonElement>("[data-menu]")
   const nav = document.getElementById("hud-nav")
   if (!toggle || !nav) return
+  const controller = new AbortController()
+  const { signal } = controller
 
   function setOpen(open: boolean) {
     nav?.toggleAttribute("data-open", open)
@@ -177,16 +179,29 @@ function initMenu() {
     toggle?.setAttribute("aria-label", open ? "Close menu" : "Open menu")
   }
 
-  toggle.addEventListener("click", (event) => {
-    event.stopPropagation()
-    setOpen(!nav.hasAttribute("data-open"))
-  })
+  toggle.addEventListener(
+    "click",
+    (event) => {
+      event.stopPropagation()
+      setOpen(!nav.hasAttribute("data-open"))
+    },
+    { signal },
+  )
 
   // Any tap outside, or on one of the links, dismisses the panel.
-  document.addEventListener("click", () => setOpen(false))
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") setOpen(false)
-  })
+  document.addEventListener("click", () => setOpen(false), { signal })
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape" && nav.hasAttribute("data-open")) {
+        setOpen(false)
+        toggle.focus()
+      }
+    },
+    { signal },
+  )
+
+  return () => controller.abort()
 }
 
 /* ============ scroll reveals ============ */
@@ -218,7 +233,10 @@ function initReveals() {
     { threshold: 0.25, rootMargin: "0px 0px -8% 0px" },
   )
 
-  revealEls.forEach((el) => io.observe(el))
+  revealEls.forEach((el) => {
+    io.observe(el)
+    if (el.getBoundingClientRect().top >= window.innerHeight) el.classList.add("reveal-pending")
+  })
 }
 
 /* ============ terminal typing ============ */
@@ -249,57 +267,23 @@ function initTerminals() {
     )
 
     io.observe(terminal)
+    if (terminal.getBoundingClientRect().top >= window.innerHeight)
+      terminal.classList.add("is-typing")
   }
 }
 
 /* ============ agent sidebar prototype ============ */
 
-/* Canned replies for anything the visitor types. Hardcoded stand-in until the
-   real sidebar SDK can be embedded here. */
-const DEMO_REPLIES: Array<{ tool?: [string, string]; text: string }> = [
-  {
-    tool: ["lookupOrder", "4830"],
-    text: "Order 4830 shipped this morning. Tracking is already in her inbox.",
-  },
-  {
-    tool: ["refundOrder", "$9.00"],
-    text: "Refunded the shipping fee too, since the delay was on us.",
-  },
-  { text: "Two similar tickets came in this week. Want me to group them into one thread?" },
-  {
-    tool: ["addNote", "account"],
-    text: "Done. I left a note on the account so the next agent has the context.",
-  },
-  { text: "Her plan renews on the 14th. I can pause it if she would rather wait." },
-  {
-    text: "I only see the last four digits of the card, so payment details are out of scope for me.",
-  },
-  { tool: ["draftEmail", "reply"], text: "Drafted a reply for you to approve before it goes out." },
-  { text: "Nothing else is outstanding on this account right now." },
-  {
-    tool: ["lookupOrder", "4830"],
-    text: "That one ships from the Ohio warehouse, so delivery lands Thursday.",
-  },
-  {
-    tool: ["escalate", "payments"],
-    text: "Escalated to the payments team and linked this conversation for them.",
-  },
-]
-
 function initAgentDemo() {
   const panel = document.getElementById("agent-demo")
   if (!panel) return
-  const composer = panel.querySelector<HTMLFormElement>("[data-composer]")
-  const input = panel.querySelector<HTMLInputElement>("[data-input]")
   const replayButton = panel.querySelector<HTMLButtonElement>("[data-replay]")
   const thread = panel.querySelector<HTMLElement>("[data-thread]")
-  if (!thread || !composer || !input) return
+  if (!thread) return
   const feed = thread
 
-  // The scripted transcript ships in the HTML so the panel is not empty without
-  // JavaScript. Playback detaches it and mounts one message at a time: leaving
-  // the hidden messages in flow would reserve their height, and scrolling the
-  // thread to the newest message would then start below the visible ones.
+  // The transcript ships in the HTML. Playback mounts one message at a time so
+  // hidden messages do not reserve space in the scrolling panel.
   const scripted = Array.from(feed.children).filter(
     (child): child is HTMLElement => child instanceof HTMLElement,
   )
@@ -308,10 +292,8 @@ function initAgentDemo() {
     answers.set(stream, (stream.textContent ?? "").trim().replace(/\s+/gu, " "))
   }
 
-  // Bumped by a replay or a visitor message so an in-flight intro can tell that
-  // it has been superseded. Visitor replies are never cancelled.
+  // A replay cancels any previous playback before starting again.
   let intro = 0
-  const always = () => true
 
   // Pauses in ms. The intro should read like a conversation happening in real
   // time rather than a transcript being dumped into the panel.
@@ -323,7 +305,6 @@ function initAgentDemo() {
     tool: 630,
     betweenTools: 290,
     widget: 490,
-    visitorReply: 1250,
   }
 
   function wait(ms: number) {
@@ -363,12 +344,12 @@ function initAgentDemo() {
   }
 
   function reset() {
+    if (!reducedMotion) panel?.classList.add("is-playing")
     feed.replaceChildren()
     scripted.forEach(clear)
     feed.scrollTop = 0
   }
 
-  /* Jump the intro to its end without touching anything the visitor has sent. */
   function completeScripted() {
     feed.querySelectorAll(".agent-thinking").forEach((marker) => marker.remove())
     for (const message of scripted) {
@@ -476,80 +457,7 @@ function initAgentDemo() {
     }
   }
 
-  function createUserMessage(text: string) {
-    const message = document.createElement("article")
-    message.className = "agent-msg is-user"
-    const body = document.createElement("p")
-    body.textContent = text
-    message.append(body)
-    return message
-  }
-
-  function createAgentMessage(reply: (typeof DEMO_REPLIES)[number]) {
-    const message = document.createElement("article")
-    message.className = "agent-msg is-agent"
-
-    if (reply.tool) {
-      const [name, argument] = reply.tool
-      const tools = document.createElement("ul")
-      tools.className = "agent-tools mono"
-      const item = document.createElement("li")
-      item.className = "agent-tool"
-      item.dataset.tool = ""
-      const dot = document.createElement("i")
-      dot.className = "tool-dot"
-      dot.setAttribute("aria-hidden", "true")
-      const toolName = document.createElement("span")
-      toolName.className = "tool-name"
-      toolName.textContent = name
-      const detail = document.createElement("b")
-      detail.textContent = argument
-      item.append(dot, toolName, detail)
-      tools.append(item)
-      message.append(tools)
-    }
-
-    const stream = document.createElement("p")
-    stream.className = "agent-stream"
-    stream.dataset.stream = ""
-    message.append(stream)
-    answers.set(stream, reply.text)
-    return message
-  }
-
-  composer.addEventListener("submit", (event) => {
-    event.preventDefault()
-    const text = input.value.trim()
-    if (!text) return
-    input.value = ""
-
-    // Supersede the intro and land it at its end, so the transcript above the
-    // visitor's message is never left half-revealed.
-    intro += 1
-    completeScripted()
-
-    const reply = DEMO_REPLIES[Math.floor(Math.random() * DEMO_REPLIES.length)]
-    if (!reply) return
-    const userMessage = createUserMessage(text)
-    const agentMessage = createAgentMessage(reply)
-
-    if (reducedMotion) {
-      feed.append(userMessage, agentMessage)
-      finish(userMessage)
-      finish(agentMessage)
-      scrollToEnd()
-      return
-    }
-
-    void (async () => {
-      await mount(userMessage)
-      await think(PACE.visitorReply, always)
-      await playMessage(agentMessage, always)
-    })()
-  })
-
   replayButton?.addEventListener("click", () => {
-    input.value = ""
     if (reducedMotion) {
       intro += 1
       reset()
@@ -564,23 +472,22 @@ function initAgentDemo() {
     return
   }
 
-  reset()
   const io = new IntersectionObserver(
     (entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return
       io.disconnect()
-      // Zero means neither a replay nor a visitor message beat the observer to it.
+      // Zero means a replay has not already started playback.
       if (intro === 0) void play()
     },
     { threshold: 0.3 },
   )
 
   io.observe(panel)
+  reset()
 }
 
 function init() {
   initStarfield()
-  initMenu()
   initReveals()
   initTerminals()
   initAgentDemo()

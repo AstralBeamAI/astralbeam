@@ -4,7 +4,7 @@ Tenant directories show tenant records and their users inside your application. 
 
 ## From records to a working directory
 
-1. Create the Tenant and TenantUser records from your server. Your Organization API key stays server-side. Keep the returned UUIDs for subsequent updates.
+1. Provision any records you want to show before those users sign in. The SDK synchronizes the current Tenant and TenantUser through `POST /api/v1/me` after token acquisition, while a management API import lets you include other users in advance. Your Organization API key stays server-side. Keep the returned UUIDs for subsequent updates.
 
    Let's create a customer and one of its users:
 
@@ -93,10 +93,9 @@ const handle = mountAstralBeamTenantUserList(document.getElementById("users")!, 
   fetchAstralBeamToken: { url: "/api/astralbeam/token" },
 })
 handle.update({ colorScheme: "dark" })
-handle.unmount()
 ```
 
-Use `mountAstralBeamTenantList` from the same entry point for Tenant records. The directory loads lazily with its own bundled React.
+Use `mountAstralBeamTenantList` from the same entry point for Tenant records. The directory loads lazily with its own bundled React. Call `handle.unmount()` when removing the host element or changing identity.
 
 ## Tenant identifiers
 
@@ -193,7 +192,7 @@ The directory styling slots are `directory`, `directory-header`, `directory-tool
 
 ## Troubleshooting
 
-- An empty directory can mean no persisted records or no search matches. Tokens never create or synchronize records. Check provisioning first, then clear filters.
+- Minting a token does not create records. The SDK then synchronizes the current Tenant and TenantUser through `POST /api/v1/me`. Other users appear after their own synchronization or a management API import. Check that request, provisioning, and filters when records are missing.
 - A `403` means the token lacks permission. Tenant views require signed tenant-admin authority.
 - A missing tenant shows an empty state. Check the token and record's external IDs for exact spelling and case.
 - Stored admin controls are hidden intentionally. Enable `showAdmin` only when the attribute is useful to your audience.

@@ -83,6 +83,8 @@ astralbeam tenants list --external-id customer-42
 
 ## 4. Chat as that user
 
+Before chatting, an organization owner must save an OpenAI key under **Settings**. Model usage is billed to that OpenAI account. Tenant-management commands above do not require a model key.
+
 Now let's talk to the organization's default agent as Alex, the way the embedded widget would:
 
 ```sh

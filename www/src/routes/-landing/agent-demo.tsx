@@ -1,11 +1,12 @@
 import { FileIcon } from "@/components/icons"
 import { cssVars } from "@/lib/css-vars"
+import { siteMetadata } from "@/lib/site"
 
 /* The scripted transcript ships in the HTML so the panel is not empty without JavaScript.
    main.ts detaches it on load and replays it one message at a time. */
 export function AgentDemo() {
   return (
-    <aside className="panel agent-panel" id="agent-demo">
+    <aside className="panel agent-panel" id="agent-demo" aria-label="Scripted agent preview">
       <header className="agent-bar mono">
         <span className="agent-title">ACME ASSISTANT</span>
         <button className="agent-replay mono" type="button" data-replay="">
@@ -16,6 +17,7 @@ export function AgentDemo() {
           REPLAY
         </button>
       </header>
+      <p className="agent-demo-notice">Scripted preview with sample data</p>
 
       <div className="agent-thread" data-thread="">
         <article className="agent-msg is-user" data-step="">
@@ -153,19 +155,9 @@ export function AgentDemo() {
         </article>
       </div>
 
-      <form className="agent-composer" data-composer="">
-        <input
-          className="agent-input"
-          type="text"
-          autoComplete="off"
-          placeholder="Ask the agent…"
-          aria-label="Ask the demo agent"
-          data-input=""
-        />
-        <button className="agent-send" type="submit" aria-label="Send message">
-          ↑
-        </button>
-      </form>
+      <div className="agent-demo-footer">
+        <a href={siteMetadata.links.example}>Build a working agent with the Todos tutorial →</a>
+      </div>
     </aside>
   )
 }

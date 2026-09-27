@@ -79,6 +79,7 @@ export function Sidebar() {
 
 export async function POST(request: Request) {
   const session = await getSession(request)
+  if (!session) return new Response(null, { status: 401 })
   const token = await createAstralBeamToken({
     apiKey: process.env.ASTRALBEAM_API_KEY,
     user: {
@@ -90,7 +91,9 @@ export async function POST(request: Request) {
       name: session.org.name,
     },
   })
-  return Response.json({ token })
+  return Response.json({ token }, {
+    headers: { "Cache-Control": "no-store" },
+  })
 }`,
     benefits: [
       {
@@ -100,7 +103,7 @@ export async function POST(request: Request) {
       },
       {
         name: "Rate limits",
-        desc: "Per-customer and per-user limits, so one tenant can never drain another's budget.",
+        desc: "Chat requests have a separate rate limit for each organization, tenant, and user combination.",
       },
       {
         name: "Usage tracking",
@@ -119,7 +122,7 @@ export async function POST(request: Request) {
       },
       {
         name: "Tenant isolation",
-        desc: "Organization and tenant boundaries are enforced in the database, not only at the API.",
+        desc: "Signed tokens identify the organization, tenant, and user. Resource requests enforce their access scope.",
       },
     ],
   },
@@ -163,7 +166,7 @@ export async function POST(request: Request) {
       },
       {
         name: "Typed and validated",
-        desc: "Zod, Valibot, ArkType, or plain JSON Schema. Input is validated before your code runs.",
+        desc: "Zod, Valibot, and ArkType validate input through Standard Schema. With plain JSON Schema, your tool validates its input.",
       },
       {
         name: "Your app as an MCP server",
@@ -183,7 +186,7 @@ interface Integration {
 export const integrations: Integration[] = [
   {
     label: "LLM PROVIDERS & GATEWAYS",
-    desc: "Bring your own keys. Route through a gateway if you already have one.",
+    desc: "Bring your own OpenAI key. Additional providers and gateways are in progress.",
     items: [
       { name: "OpenAI" },
       { name: "Anthropic", soon: true },
@@ -194,7 +197,7 @@ export const integrations: Integration[] = [
   },
   {
     label: "OBSERVABILITY",
-    desc: "Every run traced where your team already looks.",
+    desc: "Planned integrations for sending traces to your team's observability tools.",
     items: [
       { name: "Langfuse", soon: true },
       { name: "Braintrust", soon: true },
@@ -214,7 +217,7 @@ export const integrations: Integration[] = [
   },
   {
     label: "IDENTITY & BILLING",
-    desc: "Your session is the source of truth. Usage rolls up into your billing.",
+    desc: "Use your existing authentication. Usage-based Stripe billing is in progress.",
     items: [{ name: "Any auth provider" }, { name: "Stripe", soon: true }],
   },
 ]

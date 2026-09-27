@@ -10,6 +10,8 @@ body:
         - platform
         - www
         - sdk
+        - cli
+        - Documentation
         - examples
         - Not sure
     validations:
@@ -28,5 +30,3 @@ body:
     attributes:
       label: Proposal
       description: What you would like to see, and any alternatives you considered.
-    validations:
-      required: true

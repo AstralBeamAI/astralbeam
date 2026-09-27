@@ -1,15 +1,18 @@
 export const siteMetadata = {
   name: "AstralBeam",
   origin: "https://www.astralbeam.ai",
-  title: "AstralBeam - Add an Agent to Your App in Minutes",
+  title: "AstralBeam - Open-source AI agents for your app",
   description:
-    "Drop a Cursor-style agent into your product. It answers queries, interacts with your app, renders your UI components, and works with users' files.",
+    "Add a Cursor-style AI agent to your React or JavaScript app. Connect your tools, render your UI components, and work with users' files. Self-host or use AstralBeam Cloud.",
   email: "hello@astralbeam.ai",
   links: {
     app: "https://app.astralbeam.ai",
     signUp: "https://app.astralbeam.ai/auth/sign-up",
     logIn: "https://app.astralbeam.ai/auth/sign-in",
     docs: "https://app.astralbeam.ai/docs",
+    quickstart: "https://app.astralbeam.ai/docs/start/quickstart",
+    selfHosting: "https://app.astralbeam.ai/docs/self-hosting/overview",
+    example: "https://app.astralbeam.ai/docs/start/todos-tutorial",
     github: "https://github.com/astralbeamai/astralbeam",
     discord: "https://discord.gg/suehFycUvW",
   },

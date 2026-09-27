@@ -8,26 +8,42 @@ npm install @astralbeam/sdk
 
 ## Quick start
 
-One component in React, one function everywhere else. Full setup, including the required token endpoint, is in [Getting started](https://app.astralbeam.ai/docs/sdk/getting-started).
+Before mounting the widget, complete these steps in the [quickstart](https://app.astralbeam.ai/docs/start/quickstart):
+
+1. Create an organization in the [dashboard](https://app.astralbeam.ai). Its starter agent is the default.
+2. As an owner, add an OpenAI key under **Settings**. Your OpenAI account pays for model usage, including on hosted AstralBeam.
+3. Create an AstralBeam key under **API keys** and save it as the server-only `ASTRALBEAM_API_KEY` secret.
+4. Add `POST /api/astralbeam/token` to your application using the [handler below](#authentication). It must authenticate your existing application session.
+
+Mount in React with an explicit container height. No Tailwind, shadcn/ui, or stylesheet import is needed:
 
 ```tsx
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 export function Sidebar() {
-  return <AstralBeamChat />
+  return (
+    <aside style={{ height: "100dvh" }}>
+      <AstralBeamChat />
+    </aside>
+  )
 }
 ```
+
+For other frameworks, render a container such as `<div id="sidebar" style="height: 100dvh"></div>`, then mount after it exists:
 
 ```ts
 import { mountAstralBeamChat } from "@astralbeam/sdk/client"
 
-const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
+const target = document.getElementById("sidebar")
+if (!target) throw new Error("Missing sidebar container")
+const handle = mountAstralBeamChat(target, {})
 // Update with handle.update({ colorScheme: "dark" }), then clean up with handle.unmount().
 ```
 
 Without npm or a bundler, import the same entry from jsDelivr in a module script. Pin an exact version and the full `/dist/client.js` path, because the loader imports its lazy chunks relative to itself. See [Script tag](https://app.astralbeam.ai/docs/sdk/script-tag).
 
 ```html
+<div id="sidebar" style="height: 100dvh"></div>
 <script type="module">
   import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.13.5/dist/client.js"
 
@@ -35,15 +51,17 @@ Without npm or a bundler, import the same entry from jsDelivr in a module script
 </script>
 ```
 
-- The widget fills its container, so give it a parent with a definite height (`min-h-0` in a flex column).
+- The widget fills its container. In a flex column, give it a definite height or available flex space with `min-height: 0`.
 - Chat uses the hosted cloud by default. Tokens come from your application. For self-hosting, set `apiUrl` to your deployment’s `/api` base.
 - `@astralbeam/sdk/client` ships no React. The chat loads as a lazy chunk with its own bundled copy.
 - No runtime dependencies. `react` and `react-dom` are optional peers used only by `@astralbeam/sdk/react`.
 - Mount it above your router if the transcript should survive page navigation.
 
+Once chat works, [add your first app action](https://app.astralbeam.ai/docs/start/quickstart#8-make-the-assistant-change-your-app). The example lets the assistant create a task in the visible host UI.
+
 ## Authentication
 
-Your server must authenticate the host session and mint a chat token before the widget can chat. Keep the API key server-only. See [Authentication](https://app.astralbeam.ai/docs/sdk/authentication).
+Register this handler as `POST /api/astralbeam/token` in your framework. Replace `getApplicationSession` with your existing session and Tenant-membership lookup. Keep the API key server-only. See [Authentication](https://app.astralbeam.ai/docs/sdk/authentication).
 
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
@@ -79,10 +97,10 @@ export async function POST(request: Request) {
 - Authenticate once and derive stable `user.id` and `tenant.id` values from that trusted session.
 - Keep API keys server-only. Tokens are signed, not encrypted, so their claims must contain no secrets.
 - Return `Cache-Control: no-store` and fail closed when configuration or authentication is missing.
-- Directory access additionally requires signed `user.admin: true`, derived from trusted tenant permissions, and persisted records. Follow [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings).
+- Directory access additionally requires signed `user.admin: true`, derived from trusted tenant permissions. Follow [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings).
 - For employee-facing Tenant management, use `createAstralBeamOrganizationToken`. The [API client guide](https://app.astralbeam.ai/docs/sdk/api) covers database-backed roles and browser integration.
 
-Existing token props and the default chat endpoint keep working. After acquiring a token, components call `POST /api/v1/me` and renew before expiry. See [authentication and refresh behavior](https://app.astralbeam.ai/docs/sdk/authentication).
+Chat requests tokens from your application's origin at `/api/astralbeam/token`. To use a different route, set `fetchAstralBeamToken={{ url: "/your/token/route" }}`. After acquiring a token, components call AstralBeam's `POST /api/v1/me` and renew before expiry. See [authentication and refresh behavior](https://app.astralbeam.ai/docs/sdk/authentication).
 
 ## Options
 

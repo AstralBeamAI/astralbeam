@@ -4,7 +4,7 @@ labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: Do not report vulnerabilities here. Use [private reporting](https://github.com/AstralBeamAI/astralbeam/security/advisories/new) instead.
+      value: Do not report vulnerabilities here. Use [private reporting](https://github.com/AstralBeamAI/astralbeam/security/advisories/new) instead. Remove API keys, tokens, and personal data from logs and screenshots.
 
   - type: dropdown
     id: project
@@ -14,6 +14,7 @@ body:
         - platform
         - www
         - sdk
+        - cli
         - examples
         - Not sure
     validations:
@@ -34,9 +35,15 @@ body:
     id: version
     attributes:
       label: Version or commit
-      description: SDK version, release tag, or commit SHA you are running.
+      description: SDK version, release tag, or commit SHA you are running. For a Cloud dashboard issue, enter "Cloud" and the date it happened.
     validations:
       required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser and operating system. For an SDK integration, include your framework and runtime versions.
 
   - type: textarea
     id: what-happened

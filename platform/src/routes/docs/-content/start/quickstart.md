@@ -1,16 +1,22 @@
 # Quickstart
 
-Let's walk through the process of embedding an agent in your application, from creating an organization to the first streamed reply. Along the way we'll set up the three parts an integration needs: an agent configured in the dashboard, an API key your server holds, and the widget in your page.
+AstralBeam gives your application an assistant that can act through your own functions. Let's connect an authenticated application, get a streamed reply, and give the assistant its first tool.
 
-Your server authenticates its own users and mints a short-lived chat token for each one, so the widget never sees the API key. Basic familiarity with your application's own session handling is assumed here.
+We need a web application with a server and an existing sign-in session, an AstralBeam organization, and an OpenAI API key with model access. No Tailwind, shadcn/ui, or sandbox provider is needed for this integration. For a complete example application, follow the [Todos tutorial](./todos-tutorial.md).
 
 ## 1. Create your organization
 
-Sign up, then either accept an invitation to an existing organization or create your own. An organization is the boundary that owns your agents, sandbox providers, API keys, members, and tenants.
+Open the [hosted dashboard](https://app.astralbeam.ai), sign up, then either accept an invitation to an existing organization or create your own. An Organization is your company or application, and its Tenants are your customers.
 
-Creating one makes you its owner and provisions a starter agent, already set as the organization's default, so you can send a message before you have configured anything.
+Creating one makes you its owner and provisions a starter agent, already set as the organization's default. Let's keep that agent for our first integration.
 
-## 2. Create an API key
+## 2. Connect OpenAI
+
+Because every chat run uses your organization's own model key, an owner must open **Settings**, add an OpenAI API key, and select **Save key** before the agent can reply. This applies to both the hosted service and self-hosted deployments.
+
+OpenAI bills model usage to the account that owns this key. This is a different credential from the AstralBeam API key we create next. See [organization settings](/docs/dashboard/settings) for storage and replacement details.
+
+## 3. Create an AstralBeam API key
 
 Owners and developers can create an organization API key. Its full value looks like `key_<organizationId>_<id>_abo_<secret>`, and the dashboard shows it exactly once, so copy it into your server's secret manager on the spot.
 
@@ -18,7 +24,7 @@ The key does two jobs. It authenticates calls to the [management API](/docs/api)
 
 **NOTE**: Deleting a key invalidates both uses at once, including tokens already minted from it.
 
-## 3. Install the SDK
+## 4. Install the SDK
 
 Run this command to add the SDK to your application:
 
@@ -28,22 +34,27 @@ npm install @astralbeam/sdk
 
 The package has no runtime dependencies. `react` and `react-dom` are optional peers, so the non-React entry points never load them.
 
-## 4. Add a token endpoint
+## 5. Add a token endpoint
 
-The widget asks your server for a chat token and expects `{ token }` in reply. `createAstralBeamToken` is the only server helper you need, and this handler is the whole integration on the server:
+Let's register a `POST /api/astralbeam/token` route in your application. The widget calls that path on your application's origin by default and expects JSON containing `{ token }`. Store the AstralBeam key in the server's `ASTRALBEAM_API_KEY` secret, never in a browser-exposed variable such as `VITE_ASTRALBEAM_API_KEY`.
+
+Adapt this handler to your framework's route format. `getApplicationSession` represents your existing server-side session lookup, which must also verify membership in the selected Tenant:
 
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
 export async function POST(request: Request) {
+  const headers = { "Cache-Control": "no-store" }
+  const apiKey = process.env.ASTRALBEAM_API_KEY
+  if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503, headers })
   const session = await getApplicationSession(request)
-  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
+  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401, headers })
   const token = await createAstralBeamToken({
-    apiKey: process.env.ASTRALBEAM_API_KEY!,
+    apiKey,
     user: { id: session.user.id, name: session.user.name },
     tenant: { id: session.tenant.id, name: session.tenant.name },
   })
-  return Response.json({ token }, { headers: { "cache-control": "no-store" } })
+  return Response.json({ token }, { headers })
 }
 ```
 
@@ -53,7 +64,7 @@ Tokens last 60 to 600 seconds and default to 300. That short life is why the res
 
 The full contract, including cross-origin endpoints and custom fetching, is in [SDK authentication](/docs/sdk/authentication).
 
-## 5. Mount the widget
+## 6. Mount the widget
 
 Add the component wherever the sidebar belongs:
 
@@ -62,7 +73,7 @@ import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 export function Sidebar() {
   return (
-    <aside className="flex h-dvh min-h-0 flex-col">
+    <aside style={{ height: "100dvh" }}>
       <AstralBeamChat title="Acme Assistant" />
     </aside>
   )
@@ -75,11 +86,57 @@ By default it talks to the hosted API at `https://app.astralbeam.ai/api`. A self
 
 Mounting without React, updating options in place, and the layout rules are covered in [SDK getting started](/docs/sdk/getting-started).
 
-## 6. Send the first message
+## 7. Send the first message
 
 Sign in to your own application and open the sidebar. A streamed reply means the token round trip, the API key, and the agent all resolved.
 
-If the composer is disabled with an error, your token endpoint failed rather than the agent. Check that it returns `{ token }`, that the request carries your session, and that the API key is present on the server.
+In your browser's network panel, the expected sequence is your token endpoint returning `{ token }`, AstralBeam's `POST /api/v1/me` returning `200`, and a request to `/api/v1/chat` streaming a reply. A disabled composer can mean token acquisition or current-user synchronization failed. The troubleshooting table below separates these steps.
+
+## 8. Make the assistant change your app
+
+A reply proves the connection works. Let's replace `Sidebar` with a component that gives the assistant a `create_task` tool and renders the tasks it creates:
+
+```tsx
+import { useState } from "react"
+import { AstralBeamChat } from "@astralbeam/sdk/react"
+
+export function TaskAssistant() {
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string }>>([])
+
+  return (
+    <div>
+      <ul>{tasks.map((task) => <li key={task.id}>{task.title}</li>)}</ul>
+      <aside style={{ height: "70dvh" }}>
+        <AstralBeamChat
+          title="Task Assistant"
+          tools={{
+            create_task: {
+              description: "Create a task in the list visible to the user",
+              parameters: {
+                type: "object",
+                properties: { title: { type: "string" } },
+                required: ["title"],
+              },
+              execute: ({ title }) => {
+                if (typeof title !== "string" || !title.trim() || title.length > 200) {
+                  throw new Error("A task title must contain 1 to 200 characters")
+                }
+                const task = { id: crypto.randomUUID(), title: title.trim() }
+                setTasks((current) => [...current, task])
+                return task
+              },
+            },
+          }}
+        />
+      </aside>
+    </div>
+  )
+}
+```
+
+Ask, **“Create a task called Ship my first agent.”** The task should appear outside the chat and the assistant should confirm it. This example keeps tasks in React state, so reloading clears them. For your own app, call the same authenticated mutation your existing form uses, await its response, and enforce permissions on your server.
+
+Plain JSON Schema describes the input to the model but does not validate it in the browser, which is why the tool checks its input. [Tools and widgets](/docs/sdk/tools-and-widgets) covers validators, live state, and rendering your components in chat.
 
 ## Agents and agent IDs
 
@@ -93,10 +150,14 @@ The system prompt lives with the agent, so an embedding application cannot overr
 
 | Symptom | Cause |
 | --- | --- |
-| Composer disabled with a retry link | The token fetch failed or returned something other than `{ token }` |
+| Empty or invisible widget | Give its container an explicit CSS height |
+| Composer disabled with a retry link | Token acquisition or `POST /api/v1/me` synchronization failed. Inspect the failing request |
+| `404` or `405` from `/api/astralbeam/token` | Register the route in your app as `POST`, or set `fetchAstralBeamToken` to your route |
 | `401` from your own endpoint | No application session on the request |
 | `503` from your own endpoint | The API key is missing from the server environment |
-| Chat requests fail on a self-hosted deployment | The deployment has no model provider key configured yet |
+| `401` from AstralBeam | Check that your AstralBeam key is enabled and belongs to the deployment selected by `apiUrl` |
+| `Org OpenAI key is not configured` | An owner must save the organization's OpenAI key in **Settings**, on hosted or self-hosted deployments |
+| Provider authentication or quota error | Check the OpenAI key's model access, billing, and usage limits |
 | Attachments refused | The agent does not allow them, and the chat endpoint enforces that whatever the client sends |
 
 ## Next

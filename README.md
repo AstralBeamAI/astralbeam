@@ -10,7 +10,15 @@ Here's a [Linear clone](examples/linearity-react) with the AstralBeam agent embe
 
 https://github.com/user-attachments/assets/03049d7d-5645-4080-922a-5e823230638d
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the codebase structure and local development.
+## Get started
+
+Follow the [Quickstart](https://app.astralbeam.ai/docs/start/quickstart) to embed the agent in your own app. You'll need your own OpenAI API key and a server endpoint that authenticates your users and issues short-lived chat tokens. Keep API keys on the server.
+
+- **Integrate:** use the [React or JavaScript SDK](sdk), or a [script tag](https://app.astralbeam.ai/docs/sdk/script-tag) without a bundler. Add [tools and widgets](https://app.astralbeam.ai/docs/sdk/tools-and-widgets) so the agent can act in your app and render your components.
+- **Explore working examples:** [Linearity](examples/linearity-react) for a full project tracker, [Todos](examples/todos) for a minimal React integration, or [Todos on Rails](examples/todos-rails) for Ruby and plain JavaScript.
+- **Self-host:** follow the [deployment guide](https://app.astralbeam.ai/docs/self-hosting/deploy). For repository development, start with [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Questions or an integration to share? Join [Discord](https://discord.gg/suehFycUvW). [Report a bug or documentation gap](https://github.com/AstralBeamAI/astralbeam/issues/new/choose), or find a way to [contribute](CONTRIBUTING.md#ways-to-contribute).
 
 ## Licensing
 

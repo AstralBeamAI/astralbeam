@@ -9,9 +9,11 @@ The code lives in `examples/todos` in the repository, and it demonstrates four t
 - A user can paste an image or attach a file, and the agent can use it for that request only.
 - With a sandbox provider on the agent, the agent can run commands and publish files the user downloads.
 
+Before we start, complete the repository's [local setup](https://github.com/AstralBeamAI/astralbeam/blob/main/SETUP.md). It installs Deno and frozen dependencies, prepares the local database, seeds example data, and builds the SDK. The steps below assume that local development environment, rather than an empty checkout or a production deployment.
+
 ## 1. Seed the local data
 
-Run this command from the repository root to create an organization, a todos agent, a sandbox provider, and an API key:
+Local setup already seeds the example. If you need to prepare the example data again, run this command from the repository root to create an organization, a todos agent, a sandbox provider, and an API key:
 
 ```sh
 deno task --cwd platform db-seed
@@ -19,7 +21,9 @@ deno task --cwd platform db-seed
 
 It also writes `examples/todos/.env` when that file does not already exist, so the example points at the database you just seeded.
 
-**NOTE**: To set this up by hand instead, create an agent with the demo prompt, optionally configure a sandbox provider and select it on the agent, create an API key, and copy `.env.example` to `.env`.
+**NOTE**: To set this up by hand instead, create an agent with the demo prompt, optionally configure a sandbox provider and select it on the agent, create an API key, and copy `examples/todos/.env.example` to `examples/todos/.env.local`. Keep your credentials in that ignored local file.
+
+Because chat uses the organization's own OpenAI key, an owner must save one under **Settings** before the assistant can reply. The seed imports `OPENAI_API_KEY` from `platform/.env.local` when supplied. OpenAI bills usage to that key's account, and the sandbox is optional for editing todos.
 
 The example reads three variables. `ASTRALBEAM_API_KEY` is server only and is the key the token route signs with. `VITE_ASTRALBEAM_AGENT_ID` is optional, and leaving it empty uses the organization's default agent. `VITE_ASTRALBEAM_API_URL` is optional and defaults to the local platform's `/api` base.
 
@@ -27,9 +31,9 @@ The API key and the agent must belong to the same organization, as a key cannot 
 
 ## 2. Run the example
 
-Start the platform on port 4500 with `deno task dev` from `platform`, then build the SDK with `deno task build` from `sdk`. From `examples/todos`, run `deno install` followed by `deno task dev` and open `http://localhost:4700`.
+Start the platform on port 4500 with `deno task dev` from `platform`, then build the SDK with `deno task build` from `sdk` if its sources changed after setup. From `examples/todos`, run `deno install --frozen` followed by `deno task dev` and open `http://localhost:4700`.
 
-You should see the todo list with the assistant sidebar beside it, and controls along the top for hiding the assistant and switching themes.
+You should see the todo list with the assistant sidebar beside it, and controls along the top for hiding the assistant and switching themes. Ask **“Create a todo called Ship my first agent.”** A new item in the list proves the assistant can change host state. The remaining steps explain that integration and add optional capabilities.
 
 ## 3. Mint tokens for a real user
 
