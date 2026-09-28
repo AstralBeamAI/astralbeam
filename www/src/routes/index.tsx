@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { type MouseEvent, useEffect } from "react"
+import { useEffect } from "react"
 
 import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
-import { CheckIcon, CopyIcon, DiscordIcon, GithubIcon } from "@/components/icons"
+import { DiscordIcon, GithubIcon } from "@/components/icons"
 import { cssVars } from "@/lib/css-vars"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata } from "@/lib/site"
@@ -11,6 +11,7 @@ import { startSiteEffects } from "@/scripts/main"
 
 import { AgentDemo } from "./-landing/agent-demo"
 import { highlight, integrations, steps } from "./-landing/content"
+import { CopyPrompt } from "./-landing/copy-prompt"
 
 const {
   signUp: signUpUrl,
@@ -19,17 +20,6 @@ const {
   discord: discordUrl,
   github: githubUrl,
 } = siteMetadata.links
-
-const agentPrompt = `Add an AstralBeam agent sidebar to this app by following ${docsUrl}/start/quickstart.md and these steps: install @astralbeam/sdk, add a server endpoint that mints a chat token with createAstralBeamToken for the signed-in user and their tenant, and mount <AstralBeamChat /> where the sidebar belongs. Read ASTRALBEAM_API_KEY from the server environment and never expose it to browser code.`
-
-// Toggles the label with a data attribute because nothing on this page re-renders.
-function copyPrompt(event: MouseEvent<HTMLButtonElement>) {
-  const button = event.currentTarget
-  void navigator.clipboard.writeText(agentPrompt).then(() => {
-    button.dataset.copied = ""
-    setTimeout(() => delete button.dataset.copied, 2000)
-  })
-}
 
 export const Route = createFileRoute("/")({
   head: () =>
@@ -153,20 +143,7 @@ function LandingPage() {
                 <a className="btn btn-primary btn-lg" href={signUpUrl}>
                   GET STARTED
                 </a>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-lg copy-prompt"
-                  onClick={copyPrompt}
-                >
-                  <span>
-                    <CopyIcon />
-                    COPY PROMPT
-                  </span>
-                  <span>
-                    <CheckIcon />
-                    COPIED
-                  </span>
-                </button>
+                <CopyPrompt />
               </div>
             </div>
 
