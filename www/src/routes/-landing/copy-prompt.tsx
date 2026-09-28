@@ -63,17 +63,17 @@ export function CopyPrompt() {
           <ol className="prompt-steps">
             <li>Copy the prompt below.</li>
             <li>
-              Open Claude Code, Codex, Cursor, or another coding agent in the repository where you
-              want to add AstralBeam.
+              Open a coding agent (Cursor, Claude Code, Codex, etc.) in the repo where you want to
+              add AstralBeam.
             </li>
             <li>
-              Paste the prompt. The agent installs the SDK, adds a token endpoint to your server,
-              and mounts the chat sidebar.
+              Paste the prompt. The agent will install the SDK and integrate AstralBeam into your
+              app.
             </li>
           </ol>
           <pre className="prompt-text mono">{agentPrompt}</pre>
           <p className="prompt-note">
-            The endpoint reads <code className="mono">ASTRALBEAM_API_KEY</code> from your server
+            The integration reads <code className="mono">ASTRALBEAM_API_KEY</code> from your server
             environment. <a href={signUpUrl}>Sign up</a> to create one.
           </p>
           <p className="prompt-manual" role="status">
