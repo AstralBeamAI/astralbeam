@@ -73,8 +73,8 @@ export function CopyPrompt() {
           </ol>
           <pre className="prompt-text mono">{agentPrompt}</pre>
           <p className="prompt-note">
-            The integration reads <code className="mono">ASTRALBEAM_API_KEY</code> from your server
-            environment. <a href={signUpUrl}>Sign up</a> to create one.
+            <a href={signUpUrl}>Sign up</a> to generate an AstralBeam API Key needed to authorize
+            chat requests.
           </p>
           <p className="prompt-manual" role="status">
             Your browser blocked the clipboard, so the prompt is selected. Copy it with Ctrl+C or
