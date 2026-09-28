@@ -404,6 +404,110 @@ a[href] {
   visibility: hidden;
 }
 
+/* ---------- copy-prompt dialog ---------- */
+
+.prompt-dialog {
+  width: min(40rem, 100% - 2 * var(--gutter));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--foreground);
+  text-align: start;
+}
+.prompt-dialog::backdrop {
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  backdrop-filter: blur(4px);
+}
+html:has(.prompt-dialog[open]) {
+  overflow: hidden;
+}
+
+/* Capped to the dialog's height so the prompt box, the only shrinkable item, scrolls instead. */
+.prompt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  max-height: inherit;
+  padding: 1.6rem 1.7rem 1.8rem;
+}
+/* Opaque: the translucent panel surface lets the hero headline bleed through. */
+.prompt-panel::before {
+  background: var(--card);
+}
+
+.prompt-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.prompt-title {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+.prompt-close {
+  display: inline-flex;
+  padding: 0.35rem;
+  font-size: 1.1rem;
+  color: var(--text-chrome);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.prompt-close:hover {
+  color: var(--primary);
+}
+
+.prompt-steps {
+  display: grid;
+  gap: 0.4rem;
+  padding-left: 1.3rem;
+  color: var(--text-muted);
+}
+.prompt-steps li::marker {
+  font-family: var(--font-mono);
+  color: var(--primary);
+}
+
+.prompt-text {
+  min-height: 6rem;
+  overflow-y: auto;
+  padding: 1rem 1.1rem;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--background);
+  border: 1px solid var(--border-strong);
+}
+
+.prompt-note,
+.prompt-manual {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+.prompt-note a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.prompt-manual {
+  color: var(--warning);
+}
+.prompt-dialog:not([data-copy-failed]) .prompt-manual {
+  display: none;
+}
+
+/* Equal widths the same way as .hero-ctas. */
+.prompt-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: fit-content;
+  align-items: center;
+  gap: 0.8rem;
+}
+
 .hud-cta {
   pointer-events: auto;
 }
@@ -1746,6 +1850,14 @@ main {
   .os-repo,
   .launch-ctas {
     width: 100%;
+  }
+  /* Narrow enough that the dialog's two actions still fit side by side at equal width. */
+  .prompt-panel {
+    padding: 1.3rem 1.15rem 1.4rem;
+  }
+  .prompt-text {
+    padding: 0.8rem 0.9rem;
+    font-size: 0.7rem;
   }
   /* One sentence per line, instead of a break mid-clause. */
   .launch-sub span {
