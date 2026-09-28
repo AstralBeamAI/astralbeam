@@ -1855,6 +1855,10 @@ main {
   .prompt-panel {
     padding: 1.3rem 1.15rem 1.4rem;
   }
+  .prompt-text {
+    padding: 0.8rem 0.9rem;
+    font-size: 0.7rem;
+  }
   /* One sentence per line, instead of a break mid-clause. */
   .launch-sub span {
     display: block;
