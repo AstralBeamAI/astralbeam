@@ -73,8 +73,10 @@ export function CopyPrompt() {
           </ol>
           <pre className="prompt-text mono">{agentPrompt}</pre>
           <p className="prompt-note">
-            <a href={signUpUrl}>Sign up</a> to generate an AstralBeam API Key needed to authorize
-            chat requests.
+            <a href={signUpUrl} target="_blank" rel="noopener noreferrer">
+              Sign up
+            </a>{" "}
+            to generate an AstralBeam API Key needed to authorize chat requests.
           </p>
           <p className="prompt-manual" role="status">
             Your browser blocked the clipboard, so the prompt is selected. Copy it with Ctrl+C or
