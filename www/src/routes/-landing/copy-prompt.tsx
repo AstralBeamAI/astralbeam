@@ -63,7 +63,7 @@ export function CopyPrompt() {
           <ol className="prompt-steps">
             <li>Copy the prompt below.</li>
             <li>
-              Open a coding agent (Cursor, Claude Code, Codex, etc.) in your app's code repository.
+              Open a coding agent (Cursor, Claude Code, Codex, etc.) in your app’s code repository.
             </li>
             <li>
               Paste the prompt. The agent will install the SDK and integrate AstralBeam into your
