@@ -424,10 +424,12 @@ html:has(.prompt-dialog[open]) {
   overflow: hidden;
 }
 
+/* Capped to the dialog's height so the prompt box, the only shrinkable item, scrolls instead. */
 .prompt-panel {
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
+  max-height: inherit;
   padding: 1.6rem 1.7rem 1.8rem;
 }
 /* Opaque: the translucent panel surface lets the hero headline bleed through. */
@@ -469,6 +471,8 @@ html:has(.prompt-dialog[open]) {
 }
 
 .prompt-text {
+  min-height: 6rem;
+  overflow-y: auto;
   padding: 1rem 1.1rem;
   font-size: 0.8rem;
   line-height: 1.65;
@@ -494,9 +498,13 @@ html:has(.prompt-dialog[open]) {
   display: none;
 }
 
+/* Equal widths the same way as .hero-ctas. */
 .prompt-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: fit-content;
+  align-items: center;
   gap: 0.8rem;
 }
 
@@ -1842,6 +1850,10 @@ main {
   .os-repo,
   .launch-ctas {
     width: 100%;
+  }
+  /* Narrow enough that the dialog's two actions still fit side by side at equal width. */
+  .prompt-panel {
+    padding: 1.3rem 1.15rem 1.4rem;
   }
   /* One sentence per line, instead of a break mid-clause. */
   .launch-sub span {

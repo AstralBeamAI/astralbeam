@@ -98,7 +98,7 @@ export function CopyPrompt() {
               </span>
             </button>
             <a className="btn btn-ghost btn-lg" href={`${docsUrl}/start/quickstart`}>
-              READ THE QUICKSTART
+              READ QUICKSTART
             </a>
           </div>
         </div>
