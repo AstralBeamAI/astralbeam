@@ -34,7 +34,6 @@ vi.mock("@tanstack/ai", async (original) => ({
 }))
 
 import { Database, type EffectDatabase } from "@/db/database.server"
-import { DatabaseEncryptionError } from "@/db/lib/encryption.server"
 import { organizationConfiguration } from "@/db/schema/organizations.server"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
@@ -57,8 +56,7 @@ const sandboxedAgent: ChatAgent = {
   sandboxProviderId: "01990a5d-ac96-774b-b942-6b13c85384cc",
 }
 
-// A stored key that fails to decrypt dies inside Drizzle's row mapping with this tag.
-const undecryptable = new DatabaseEncryptionError()
+const undecryptable = "undecryptable"
 const CHAT_TEST_OPENAI_API_KEY = `sk-${"a".repeat(32)}`
 
 beforeAll(() => {
@@ -75,7 +73,7 @@ function chatTestLayer(options: {
   } as unknown as Agents["Service"]
   // The key read selects the column's raw ciphertext and decrypts it itself.
   const storedValue =
-    options.key instanceof DatabaseEncryptionError
+    options.key === undecryptable
       ? "not-a-compact-jwe"
       : options.key &&
         String(
