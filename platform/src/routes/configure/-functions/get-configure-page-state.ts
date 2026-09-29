@@ -8,7 +8,7 @@ import {
 import { Config } from "@/lib/config/config.server"
 import { CONFIG_DEFINITIONS, configEnvironmentVariable } from "@/lib/config/registry.server"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { exposeError, runEffect, runRequestEffect } from "@/lib/runtime/server-fn.server"
 import { checkConfigureRequest } from "../-lib/configure-request.server"
 import { readOperatorSession } from "../-lib/operator-session.server"
 import type { ConfigureField, ConfigurePageState } from "../-lib/types"
@@ -43,7 +43,7 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
           ? snapshot.values[definition.key] !== undefined
           : row !== undefined,
       ...(row?.storageStatus ? { storageStatus: row.storageStatus } : {}),
-      // A secret never leaves with the page; `isSet` drives the masked state and
+      // A secret never leaves with the page. `isSet` drives the masked state and
       // `revealConfigValue` fetches the one value an operator asks to see.
       value: definition.kind === "secret" ? null : (snapshot.values[definition.key] ?? null),
     }
@@ -68,13 +68,23 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
 })
 
 export const getConfigurePageState = createServerFn({ method: "GET" }).handler(
-  ({ serverFnMeta }): Promise<ConfigurePageState> | ConfigurePageState => {
-    const request = checkConfigureRequest()
-    // Without these variables no Effect can run, so the page explains them before anything else.
+  ({ serverFnMeta }): Promise<ConfigurePageState> => {
+    // Without these variables the app runtime cannot start, so the page explains them first.
     const bootstrapIssues = getDatabaseBootstrapIssues()
-    if (bootstrapIssues.length > 0) return { status: "unavailable", bootstrapIssues }
+    if (bootstrapIssues.length > 0) {
+      return runRequestEffect(
+        checkConfigureRequest().pipe(
+          Effect.catchTag(
+            ["ConfigureHttpsRequired", "ConfigureRequestForbidden"],
+            () => Effect.void,
+          ),
+          Effect.as<ConfigurePageState>({ status: "unavailable", bootstrapIssues }),
+        ),
+        serverFnMeta.name,
+      )
+    }
     return runEffect(
-      request.pipe(
+      checkConfigureRequest().pipe(
         Effect.andThen(readConfigurePageState()),
         Effect.catchTag(["ConfigureHttpsRequired", "ConfigureRequestForbidden"], exposeError),
       ),

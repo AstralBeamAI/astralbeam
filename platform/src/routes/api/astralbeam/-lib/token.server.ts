@@ -5,7 +5,7 @@ import { Config } from "@/lib/config/config.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
 import { SlugSchema, validationParseOptions } from "@/lib/schemas"
-import { readRequestJson, RequestTooLargeError } from "../../-lib/request-body.server"
+import { readRequestJson } from "../../-lib/request-body.server"
 
 const decodeDashboardTokenRequest = Schema.decodeUnknownResult(
   Schema.Struct({
@@ -40,11 +40,9 @@ export const handleDashboardTokenRequest = Effect.fn("handleDashboardTokenReques
     if (!(yield* config.setupState).setupComplete) {
       return dashboardTokenErrorResponse("Application is not configured", 503)
     }
-    const body = yield* Effect.result(
-      Effect.tryPromise({ try: () => readRequestJson(request, 1024), catch: (cause) => cause }),
-    )
+    const body = yield* Effect.result(readRequestJson(request, 1024))
     if (Result.isFailure(body)) {
-      return body.failure instanceof RequestTooLargeError
+      return body.failure._tag === "RequestTooLarge"
         ? dashboardTokenErrorResponse("Request too large", 413)
         : dashboardTokenErrorResponse("Invalid JSON request body", 400)
     }

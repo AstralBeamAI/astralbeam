@@ -2,18 +2,17 @@ import { chat, mergeAgentTools, type StreamChunk } from "@tanstack/ai"
 import { Cause, Context, Effect, identity, Layer, Stream } from "effect"
 
 import { Database } from "@/db/database.server"
-import { DatabaseEncryptionError } from "@/db/lib/encryption.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { readOrganizationOpenaiApiKey } from "@/lib/organizations/openai-api-key.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { createChatAdapter } from "./adapter.server"
-import { createChatAttachmentTools } from "./attachment-tools.server"
+import { createChatAttachmentTools } from "./attachments/tools.server"
 import {
   createChatAttachmentSnapshotMiddleware,
   normalizeChatAttachments,
   redactChatAttachmentData,
-} from "./attachments.server"
+} from "./attachments/attachments.server"
 import {
   CHAT_ATTACHMENT_SYSTEM_PROMPT,
   CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT,
@@ -29,8 +28,8 @@ import {
   ChatModelKeyUnreadable,
   ChatSystemPromptRefused,
 } from "./errors.ts"
-import { ChatSandboxes } from "./sandbox.server"
-import { createChatSandboxTools } from "./sandbox-tools.server"
+import { ChatSandboxes } from "./sandbox/sandbox.server"
+import { createChatSandboxTools } from "./sandbox/tools.server"
 import type { ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 
@@ -94,13 +93,6 @@ export class Chat extends Context.Service<
         readOrganizationOpenaiApiKey(organizationId).pipe(
           Effect.provideService(Database, database),
           mapDatabaseErrors(),
-          // Seam: a key that fails to decrypt dies in Drizzle's row mapping until its read
-          // reports it as typed.
-          Effect.catchDefect((defect) =>
-            defect instanceof DatabaseEncryptionError
-              ? Effect.fail(new ChatModelKeyUnreadable())
-              : Effect.die(defect),
-          ),
           Effect.catchTag("OrganizationOpenaiApiKeyUnreadable", () =>
             Effect.fail(new ChatModelKeyUnreadable()),
           ),

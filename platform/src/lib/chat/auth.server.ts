@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm"
-import { Clock, Effect, Predicate, Schema } from "effect"
+import { Clock, Effect, Schema } from "effect"
 import { decodeProtectedHeader, jwtVerify } from "jose"
 
 import { Database } from "@/db/database.server"
@@ -27,10 +27,6 @@ const decodeChatAuthTokenPayload = Schema.decodeUnknownEffect(ChatAuthTokenPaylo
   onExcessProperty: "error",
 })
 
-export function isChatAuthenticationError(error: unknown): error is ChatAuthenticationError {
-  return Predicate.isTagged(error, "ChatAuthenticationError")
-}
-
 /**
  * Authenticate a chat JWT without the raw API key.
  *
@@ -51,11 +47,15 @@ export const authenticateChatRequest = Effect.fn("authenticateChatRequest")(func
 })
 
 /** Shared key ownership/lifecycle verification. The supplied verifier must enforce its own JWT type. */
-export function authenticateOrganizationIssuedToken<T, E>(
-  request: Request,
-  verify: (token: string, verifier: Uint8Array, keyId: string) => Effect.Effect<T, E>,
-) {
-  return Effect.gen(function* () {
+export const authenticateOrganizationIssuedToken = Effect.fn("authenticateOrganizationIssuedToken")(
+  function* <T>(
+    request: Request,
+    verify: (
+      token: string,
+      verifier: Uint8Array,
+      keyId: string,
+    ) => Effect.Effect<T, ChatAuthenticationError>,
+  ) {
     const token = yield* readChatBearerToken(request)
     const { apiKeyId, organizationId, id } = yield* Effect.try({
       try: () => decodeProtectedHeader(token).kid,
@@ -82,11 +82,7 @@ export function authenticateOrganizationIssuedToken<T, E>(
       .pipe(Effect.orDie)
     if (!initial) return yield* new ChatAuthenticationError()
 
-    const identity = yield* verify(token, chatTokenEncoder.encode(initial.digest), apiKeyId).pipe(
-      Effect.mapError((cause) =>
-        isChatAuthenticationError(cause) ? cause : new ChatAuthenticationError(),
-      ),
-    )
+    const identity = yield* verify(token, chatTokenEncoder.encode(initial.digest), apiKeyId)
     const [current] = yield* db
       .select({ enabled: apiKey.enabled, expiresAt: apiKey.expiresAt })
       .from(apiKey)
@@ -99,8 +95,8 @@ export function authenticateOrganizationIssuedToken<T, E>(
     }
 
     return { organizationId: initial.organizationId, identity }
-  })
-}
+  },
+)
 
 export const verifyChatAuthToken = Effect.fn("verifyChatAuthToken")(function* (
   token: string,
@@ -149,8 +145,13 @@ function parseChatApiKeyId(apiKeyId: unknown) {
     : Effect.fail(new ChatAuthenticationError())
 }
 
+/** The token an `Authorization: Bearer` header carries. */
+export function readBearerToken(request: Request): string | undefined {
+  return /^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1]
+}
+
 function readChatBearerToken(request: Request) {
-  const token = /^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1]
+  const token = readBearerToken(request)
   return token && token.length <= CHAT_AUTH_TOKEN_MAX_LENGTH
     ? Effect.succeed(token)
     : Effect.fail(new ChatAuthenticationError())

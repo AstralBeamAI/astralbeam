@@ -7,19 +7,12 @@ import {
   CHAT_ARTIFACT_TICKET_AUDIENCE,
   CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS,
   CHAT_ARTIFACT_TICKET_TYPE,
-  CHAT_ATTACHMENT_MAGIC_BYTES,
 } from "./constants.server"
+import { CHAT_ATTACHMENT_MAGIC_BYTES } from "../attachments/constants.server"
 import { ChatArtifactUnavailable } from "./errors.ts"
 
-/**
- * Sandbox artifact tickets: a short-lived signed capability to download exactly the published
- * bytes of one file. The signing key is HKDF-derived from the deployment's encryption root with
- * its own info label: deployment-wide, so any replica (and a restarted process) can verify a
- * ticket another minted against a vendor sandbox that is still alive, while staying
- * domain-separated from every other use of the root and independent of the stored API-key
- * digest. Rotating the first DATABASE_ENCRYPTION_KEY entry or changing APP_HANDLE invalidates
- * live tickets, which at a fifteen-minute lifetime is acceptable.
- */
+/** Signs artifact tickets with a key HKDF-derived from the encryption root under its own label, so
+ * any replica verifies them. Rotating the first key invalidates live tickets, which is acceptable. */
 export const deriveArtifactTicketKey = Effect.gen(function* () {
   const material = yield* Effect.promise(() =>
     crypto.subtle.importKey(

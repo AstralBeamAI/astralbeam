@@ -1,6 +1,10 @@
+import { Effect } from "effect"
 import { describe, expect, test } from "vitest"
 
-import { acceptedAtForUserCreation } from "./legal.server.ts"
+import { acceptedAtForUserCreation as acceptedAtEffect } from "./legal.server.ts"
+
+const acceptedAtForUserCreation = (...args: Parameters<typeof acceptedAtEffect>) =>
+  Effect.runPromise(acceptedAtEffect(...args))
 
 describe("legal acceptance for user creation", () => {
   test("accepts an explicit email-signup assertion and creates the timestamp on the server", async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { CHAT_SANDBOX_ROOT } from "./constants.server.ts"
-import { resolveSandboxPath } from "./sandbox-paths.server.ts"
+import { resolveSandboxPath } from "./paths.server.ts"
 
 // Daytona's real workspace directory, which is what makes the virtual-root mapping load-bearing.
 const REAL_ROOT = "/home/daytona/workspace"

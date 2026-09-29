@@ -1,10 +1,11 @@
 // Added with: deno task ui add @better-auth-ui/api-key
-// Local changes: Use Phosphor icons, support exact optional property types, and disable last-key deletion.
+// Local changes: Use Phosphor icons, support exact optional property types, disable last-key deletion, and render dates after hydration.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { KeyIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
+import { LocalDateTime } from "@/components/local-date-time"
 import { Button } from "@/components/ui/button"
 import {
   Item,
@@ -44,21 +45,16 @@ export function ApiKey({ apiKey, hideDelete, deleteDisabled, hideUpdate, onDelet
       <ItemContent>
         <ItemTitle>{apiKey.name || apiKeyLocalization.apiKey}</ItemTitle>
         <ItemDescription>
-          {apiKeyLocalization.created}{" "}
-          {new Date(apiKey.createdAt).toLocaleString(undefined, {
-            dateStyle: "medium",
-            timeStyle: "short",
-          })}{" "}
+          {apiKeyLocalization.created} <LocalDateTime value={apiKey.createdAt} dateStyle="medium" />{" "}
           ·{" "}
-          {apiKey.expiresAt
-            ? `${apiKeyLocalization.expires} ${new Date(apiKey.expiresAt).toLocaleString(
-                undefined,
-                {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                },
-              )}`
-            : apiKeyLocalization.neverExpires}{" "}
+          {apiKey.expiresAt ? (
+            <>
+              {apiKeyLocalization.expires}{" "}
+              <LocalDateTime value={apiKey.expiresAt} dateStyle="medium" />
+            </>
+          ) : (
+            apiKeyLocalization.neverExpires
+          )}{" "}
           · {apiKey.enabled ? apiKeyLocalization.enabled : apiKeyLocalization.disabled}
         </ItemDescription>
       </ItemContent>

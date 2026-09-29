@@ -1,6 +1,6 @@
 import { expect, test } from "vitest"
 
-import { createChatAttachmentTools } from "./attachment-tools.server"
+import { createChatAttachmentTools } from "./tools.server"
 import { CHAT_ATTACHMENT_READ_MAX_CHARACTERS } from "./constants.server"
 import type { ChatAttachmentFile } from "./types"
 

@@ -7,7 +7,7 @@ import {
   redactChatAttachmentData,
 } from "./attachments.server"
 import { CHAT_ATTACHMENT_MAX_COUNT } from "./constants.server"
-import type { ChatMessages } from "./types"
+import type { ChatMessages } from "../types"
 
 const base64 = (text: string) => btoa(text)
 

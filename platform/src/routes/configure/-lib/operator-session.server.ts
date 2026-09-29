@@ -1,11 +1,11 @@
 import { createHmac } from "node:crypto"
 
-import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server"
 import { Clock, Effect, Option, Schema } from "effect"
 import { jwtVerify, SignJWT } from "jose"
 
 import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
 import { generateSecret } from "@/lib/generate-secret.server"
+import { ServerRequest } from "@/lib/runtime/server-request.server"
 
 const OPERATOR_SESSION_COOKIE = "operator_session"
 const OPERATOR_SESSION_TTL_SECONDS = 15 * 60
@@ -75,24 +75,26 @@ export const verifyOperatorSession = Effect.fnUntraced(function* (
   )
 })
 
-export function setOperatorSessionCookie(token: string): void {
-  setCookie(OPERATOR_SESSION_COOKIE, token, {
+export const setOperatorSessionCookie = Effect.fn("setOperatorSessionCookie")(function* (
+  token: string,
+) {
+  const server = yield* ServerRequest
+  yield* server.setCookie(OPERATOR_SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "strict",
     path: "/",
     maxAge: OPERATOR_SESSION_TTL_SECONDS,
     secure: import.meta.env.PROD,
   })
-}
+})
 
-export function clearOperatorSessionCookie(): void {
-  deleteCookie(OPERATOR_SESSION_COOKIE, {
-    path: "/",
-    secure: import.meta.env.PROD,
-  })
-}
+export const clearOperatorSessionCookie = Effect.fn("clearOperatorSessionCookie")(function* () {
+  const server = yield* ServerRequest
+  yield* server.deleteCookie(OPERATOR_SESSION_COOKIE, { path: "/", secure: import.meta.env.PROD })
+})
 
 /** The session the request's cookie carries, when it verifies. */
-export function readOperatorSession() {
-  return verifyOperatorSession(getCookie(OPERATOR_SESSION_COOKIE))
-}
+export const readOperatorSession = Effect.fn("readOperatorSession")(function* () {
+  const server = yield* ServerRequest
+  return yield* verifyOperatorSession(server.cookie(OPERATOR_SESSION_COOKIE))
+})

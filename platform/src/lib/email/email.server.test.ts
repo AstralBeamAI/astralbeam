@@ -1,7 +1,8 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Effect, Layer, Logger } from "effect"
+import { Context, Effect, Layer, Logger } from "effect"
 
-import { EmailConfig } from "./config.server.ts"
+import { Config } from "@/lib/config/config.server"
+
 import { Mailer } from "./email.server.ts"
 import { EmailDeliveryError } from "./errors.ts"
 import { maskEmailAddressForLog } from "./messages.server.ts"
@@ -27,7 +28,9 @@ function mailerTestLayer(options: { readonly failure?: EmailDeliveryError } = {}
   const layer = Mailer.layerNoDeps.pipe(
     Layer.provide([
       providers,
-      Layer.succeed(EmailConfig, { values: Effect.succeed(MAILER_TEST_CONFIG) }),
+      Layer.succeed(Config, {
+        snapshot: Effect.succeed({ values: MAILER_TEST_CONFIG }),
+      } as unknown as Context.Service.Shape<typeof Config>),
     ]),
     Layer.provideMerge(Logger.layer([Logger.map(Logger.formatJson, (line) => lines.push(line))])),
   )
@@ -109,6 +112,8 @@ describe("Mailer", () => {
       assert.include(invitation?.text, invitationURL.toString())
       assert.include(invitation?.text, "72 hours")
       assert.include(passwordChanged?.text, "https://app.example.test/auth/forgot-password")
+      // Whoever changed the password holds the session, so recovery never starts from settings.
+      assert.notInclude(passwordChanged?.text, "/settings/security")
     }).pipe(Effect.provide(layer))
   })
 })

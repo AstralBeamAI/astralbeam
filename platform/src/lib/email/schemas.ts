@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect"
 
 import { NonEmptyStringSchema, enumSchema } from "@/lib/schemas"
 
-/** Providers the Mailer can dispatch to; each maps to one `providers/*.server.ts` module. */
+/** Providers the Mailer can dispatch to, each one `providers/*.server.ts` module. */
 export const EmailProviderSchema = enumSchema(["smtp", "resend", "ses"]).annotate({
   title: "Email provider",
   description: "Protocol used to deliver application email.",

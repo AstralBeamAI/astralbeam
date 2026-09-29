@@ -15,13 +15,16 @@ import { SqlClient } from "effect/unstable/sql"
 
 import { Database } from "@/db/database.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
-import { applyApprovedMigrations, getDatabaseMigrationState } from "@/db/migration-runner.server"
+import {
+  DatabaseMigrations,
+  type DatabaseMigrationState,
+  type MigrationsNotApplied,
+} from "@/db/migration-runner.server"
 import {
   ConfigEnvironmentInvalid,
   ConfigUpdateInvalid,
   ConfigValueNotGeneratable,
   ConfigValueNotRevealable,
-  MigrationsNotApplied,
 } from "./errors.ts"
 import {
   configEnvironmentVariable,
@@ -62,17 +65,11 @@ export interface ConfigSnapshot {
   readonly environmentKeys: ReadonlySet<ConfigKey>
 }
 
-type MigrationState = Effect.Success<ReturnType<typeof loadMigrationState>>
-
 export interface SetupState {
   readonly snapshot: ConfigSnapshot
-  readonly migrations: MigrationState
+  readonly migrations: DatabaseMigrationState
   /** Derived from process-cached configuration and migration state, never a persisted marker. */
   readonly setupComplete: boolean
-}
-
-function loadMigrationState() {
-  return Effect.tryPromise(getDatabaseMigrationState).pipe(Effect.orDie)
 }
 
 const environmentConfig = EffectConfig.all(
@@ -154,6 +151,7 @@ export class Config extends Context.Service<
     Config,
     Effect.gen(function* () {
       const db = yield* Database
+      const migrations = yield* DatabaseMigrations
       const generations = yield* Ref.make(0)
       // A load joining a caller's transaction would cache values that transaction may roll back.
       const sqlClient = yield* Effect.serviceOption(SqlClient.SqlClient)
@@ -185,7 +183,7 @@ export class Config extends Context.Service<
       const snapshot = Cache.get(cache, "snapshot")
       const invalidate = Cache.invalidate(cache, "snapshot")
 
-      const setupState = Effect.all([snapshot, loadMigrationState()], {
+      const setupState = Effect.all([snapshot, migrations.state], {
         concurrency: "unbounded",
       }).pipe(
         Effect.map(([current, migrations]) => ({
@@ -247,10 +245,7 @@ export class Config extends Context.Service<
 
       const applyMigrations = Effect.fn("Config.applyMigrations")(
         function* (approved: readonly { readonly name: string; readonly hash: string }[]) {
-          const result = yield* Effect.tryPromise(() =>
-            applyApprovedMigrations([...approved]),
-          ).pipe(Effect.orDie)
-          if (!result.ok) return yield* new MigrationsNotApplied({ message: result.error })
+          yield* migrations.apply(approved)
         },
         (effect) => Effect.ensuring(effect, invalidate),
       )
@@ -273,5 +268,7 @@ export class Config extends Context.Service<
     }),
   )
 
-  static readonly layer = Config.layerNoDeps.pipe(Layer.provide(Database.layer))
+  static readonly layer = Config.layerNoDeps.pipe(
+    Layer.provide([Database.layer, DatabaseMigrations.layer]),
+  )
 }

@@ -20,6 +20,11 @@ export function hashedRateLimitKey(namespace: string, identity: readonly string[
   return `${namespace}:${createHash("sha256").update(JSON.stringify(identity)).digest("base64url")}`
 }
 
+/** Whole seconds until a limited caller may retry, never zero, for a `Retry-After` header. */
+export function rateLimitRetryAfterSeconds(retryAfter: Duration.Input): number {
+  return Math.max(1, Math.ceil(Duration.toMillis(retryAfter) / 1_000))
+}
+
 function storeError(cause?: unknown): RateLimiter.RateLimiterError {
   const message = "Rate-limit database operation failed"
   const reason =
@@ -64,9 +69,8 @@ export class DatabaseRateLimiter extends Context.Service<
           .values({
             key: persistedKey,
             count: 1,
-            // Better Auth shares and prunes this table using lastRequest. Namespaced keys and an
-            // expiry timestamp prevent collisions and premature deletion of active custom windows.
-            // https://better-auth.com/docs/concepts/rate-limit
+            // Better Auth shares and prunes this table by lastRequest, so namespaced keys and an
+            // expiry timestamp keep custom windows apart and alive. https://better-auth.com/docs/concepts/rate-limit
             lastRequest: windowExpiresAt,
           })
           .onConflictDoUpdate({

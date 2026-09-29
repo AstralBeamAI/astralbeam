@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { resolveAppOrigin } from "@/lib/utils.server"
+import { resolveAppOrigin } from "../-lib/app-origin.server"
 import { docsSitemapPaths } from "./-lib/content"
 
 // A sitemap may only list URLs at or below its own path, so the docs sitemap lives under /docs.

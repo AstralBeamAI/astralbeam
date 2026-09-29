@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { afterAll, beforeAll, vi } from "vitest"
 
-import { type EffectDatabase, Database } from "@/db"
+import { type EffectDatabase, Database } from "@/db/database.server"
 import { readOrganizationOpenaiApiKey } from "./openai-api-key.server.ts"
 import { organizationConfiguration } from "../../db/schema/organizations.server.ts"
 

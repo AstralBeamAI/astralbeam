@@ -44,29 +44,24 @@ function drainOrganizationBatches<E, R>(batch: Effect.Effect<number, E, R>) {
   return batch.pipe(Effect.repeat({ while: (deleted) => deleted > 0 }))
 }
 
-function notifyOrganizationOwners(input: {
+const notifyOrganizationOwners = Effect.fn("notifyOrganizationOwners")(function* (input: {
   organizationName: string
   ownerUserIds: readonly string[]
 }) {
-  return Effect.gen(function* () {
-    if (input.ownerUserIds.length === 0) return
-    const mailer = yield* Mailer
-    const deletedAt = DateTime.toDateUtc(yield* DateTime.now)
-    const emails = yield* readUserEmails(input.ownerUserIds).pipe(
-      Effect.retry(organizationPurgeRetry),
-      Effect.orDie,
-    )
-    // The Mailer logs every outcome, so a notice that still fails after its retries is dropped.
-    yield* Effect.forEach(emails, (email) =>
-      mailer
-        .sendOrganizationDeleted({ email, organizationName: input.organizationName, deletedAt })
-        .pipe(
-          Effect.retry({ schedule: Schedule.exponential("5 seconds"), times: 4 }),
-          Effect.ignore,
-        ),
-    )
-  })
-}
+  if (input.ownerUserIds.length === 0) return
+  const mailer = yield* Mailer
+  const deletedAt = DateTime.toDateUtc(yield* DateTime.now)
+  const emails = yield* readUserEmails(input.ownerUserIds).pipe(
+    Effect.retry(organizationPurgeRetry),
+    Effect.orDie,
+  )
+  // The Mailer logs every outcome, so a notice that still fails after its retries is dropped.
+  yield* Effect.forEach(emails, (email) =>
+    mailer
+      .sendOrganizationDeleted({ email, organizationName: input.organizationName, deletedAt })
+      .pipe(Effect.retry({ schedule: Schedule.exponential("5 seconds"), times: 4 }), Effect.ignore),
+  )
+})
 
 export const deleteOrganizationWorkflowLayer = deleteOrganization.toLayer((payload) =>
   Effect.gen(function* () {

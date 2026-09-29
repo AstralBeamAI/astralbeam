@@ -25,7 +25,7 @@ const ticket: SandboxArtifactTicket = {
 }
 
 beforeAll(() => {
-  // The ticket key derives from the deployment encryption root; give the tests one.
+  // The ticket key derives from the deployment encryption root, so the tests get one.
   vi.stubEnv("DATABASE_ENCRYPTION_KEY", "artifact-ticket-test-key-32-characters!!")
 })
 

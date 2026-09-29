@@ -13,7 +13,7 @@ import {
   CHAT_ATTACHMENT_PPTX_MIME_TYPE,
   CHAT_ATTACHMENT_XLSX_MIME_TYPE,
 } from "./constants.server"
-import { type AttachmentTable, profileRows } from "./attachment-profile.server"
+import { type AttachmentTable, profileRows } from "./profile.server"
 import { ChatOfficeArchiveTooLarge } from "./errors.ts"
 import type { ChatAttachmentContent } from "./types"
 
@@ -40,20 +40,8 @@ interface OfficeExtractionFailure {
 
 const decoder = new TextDecoder("utf-8")
 
-/**
- * Reads the named parts out of the container. `filter` runs before anything is inflated and
- * `originalSize` is the entry's declared uncompressed size, so a compression bomb is refused
- * without allocating it — the reason this uses fflate's filter rather than unzipping everything.
- *
- * The budget is archive-wide rather than per entry: `unzipSync` inflates every selected entry
- * before it returns, so thousands of individually modest parts still add up to gigabytes, and a
- * per-entry cap below the archive's could only ever skip a part — which surfaced to the agent as
- * "it holds no document part" rather than the truth. Throwing is fflate's only way to stop the
- * unpack, so the filter throws and `extractOfficeDocument` turns that into a reason.
- *
- * Every entry is counted before `wanted` runs: those two caps describe only the parts that are
- * kept, so an archive declaring entries that match nothing would be walked with neither firing.
- */
+/** Reads the named parts, refusing a bomb in fflate's `filter` by declared size before anything
+ * inflates. The filter throws, fflate's only stop, and counts every entry before `wanted` runs. */
 function readParts(bytes: Uint8Array, wanted: (name: string) => boolean): Record<string, string> {
   let visited = 0
   let selected = 0

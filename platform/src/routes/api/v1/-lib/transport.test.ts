@@ -1,5 +1,5 @@
 import { OpenApi } from "effect/unstable/httpapi"
-import { Context, Data, Duration, Effect, Layer, Logger, Schema, Stream } from "effect"
+import { Context, Duration, Effect, Layer, Logger, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { RateLimiter } from "effect/unstable/persistence"
 import type { SQL } from "drizzle-orm"
@@ -10,9 +10,12 @@ import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vit
 import { Database, type EffectDatabase } from "@/db/database.server"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { isSetupComplete } from "@/lib/config/state.server"
+import { type AppAuth, Auth } from "@/lib/auth/auth.server"
+import { OrganizationMembershipError } from "@/lib/auth/errors"
+import { Config } from "@/lib/config/config.server"
+import { Organizations } from "@/lib/organizations/organizations.server"
 import { Chat } from "@/lib/chat/chat.server"
-import { ChatSandboxes } from "@/lib/chat/sandbox.server"
+import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
@@ -36,6 +39,7 @@ const restTestState = vi.hoisted(() => ({
   keyRows: [] as { id: string; name?: string; slug?: string }[],
   logs: [] as string[],
   verify: vi.fn(),
+  setupState: vi.fn<() => Effect.Effect<{ setupComplete: boolean }>>(),
   chat: vi.fn(),
   organizationAuth: vi.fn(),
   consume: vi.fn<(options: { key: string }) => Effect.Effect<void, RateLimiter.RateLimiterError>>(),
@@ -48,43 +52,33 @@ vi.mock("@/db/lib/database-credentials.server", async (original) => ({
   ...(await original<typeof import("@/db/lib/database-credentials.server")>()),
   getDatabaseBootstrapIssues: vi.fn(),
 }))
-vi.mock("@/lib/config/state.server", () => ({ isSetupComplete: vi.fn() }))
-vi.mock("@/lib/auth/auth.server", async (original) => ({
-  ...(await original<typeof import("@/lib/auth/auth.server")>()),
-  getAuth: () => Promise.resolve({ api: { verifyApiKey: restTestState.verify } }),
-}))
-vi.mock("@/lib/chat/auth.server", async () => {
+vi.mock("@/lib/chat/auth.server", async (original) => {
   const { ChatAuthenticationError } = await import("@/lib/chat/errors")
-  const isChatAuthenticationError = (error: unknown) =>
-    error instanceof Error && error.name === "ChatAuthenticationError"
   return {
+    ...(await original<typeof import("@/lib/chat/auth.server")>()),
     authenticateChatRequest: (request: Request) =>
       Effect.tryPromise({
         try: () => restTestState.chat(request) as Promise<unknown>,
         catch: (error) =>
-          isChatAuthenticationError(error) ? new ChatAuthenticationError() : error,
+          error instanceof Error && error.name === "ChatAuthenticationError"
+            ? new ChatAuthenticationError()
+            : error,
       }),
-    isChatAuthenticationError,
   }
 })
 vi.mock("@/lib/auth/organization-token.server", () => ({
-  OrganizationMembershipError: class extends Data.TaggedError("OrganizationMembershipError") {},
   ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
   authenticateOrganizationRequest: restTestState.organizationAuth,
 }))
 
 import { ApiV1Routes } from "./transport.server"
 import { authenticateRestRequest } from "./auth.server"
-import { OrganizationMembershipError } from "@/lib/auth/organization-token.server"
 import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
-import {
-  ChatAgentNotFound,
-  ChatArtifactUnavailable,
-  ChatSandboxOperationFailed,
-} from "@/lib/chat/errors"
+import { ChatAgentNotFound } from "@/lib/chat/errors"
+import { ChatArtifactUnavailable, ChatSandboxOperationFailed } from "@/lib/chat/sandbox/errors"
 
 // Return queued driver results, not a second implementation of database filtering or constraints.
 function restTestDatabase(): EffectDatabase {
@@ -169,8 +163,25 @@ const restTestServices = Layer.mergeAll(
     session: () => Effect.die("unused"),
     readArtifact: (ticket) => restTestState.readFile(ticket) as never,
   }),
+  Organizations.layerNoDeps,
   Logger.layer([Logger.map(Logger.formatJson, (line) => restTestState.logs.push(line))]),
-).pipe(Layer.provideMerge(Layer.succeed(Database, restTestDatabase())))
+).pipe(
+  Layer.provideMerge(
+    Layer.mergeAll(
+      Layer.succeed(Database, restTestDatabase()),
+      // Better Auth verifies API keys, and these cover how the transport treats its verdicts.
+      Layer.succeed(Auth, {
+        api: <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
+          Effect.promise(() =>
+            call({ verifyApiKey: restTestState.verify } as unknown as AppAuth["api"]),
+          ),
+      } as unknown as Context.Service.Shape<typeof Auth>),
+      Layer.succeed(Config, {
+        setupState: Effect.suspend(() => restTestState.setupState()),
+      } as unknown as Context.Service.Shape<typeof Config>),
+    ),
+  ),
+)
 
 const restWebHandler = HttpRouter.toWebHandler(
   ApiV1Routes.pipe(Layer.provideMerge(restTestServices), Layer.provide(HttpServer.layerServices)),
@@ -260,7 +271,7 @@ beforeEach(() => {
     keyRows: [{ id: restOrgId }],
   })
   vi.mocked(getDatabaseBootstrapIssues).mockReturnValue([])
-  vi.mocked(isSetupComplete).mockResolvedValue(true)
+  restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: true }))
   restTestState.verify.mockResolvedValue({
     valid: true,
     key: { id: restOtherId, referenceId: restOrgId },
@@ -280,7 +291,7 @@ describe("v1 router boundary", () => {
       if (kind === "bootstrap") {
         vi.mocked(getDatabaseBootstrapIssues).mockReturnValue(["DATABASE_URL"])
       } else {
-        vi.mocked(isSetupComplete).mockResolvedValue(false)
+        restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: false }))
       }
       const response = await restRequest("/chat")
       expect(response.status).toBe(503)
@@ -301,12 +312,12 @@ describe("v1 router boundary", () => {
       expect(response.headers.get("access-control-max-age")).toBe("86400")
       expect(response.headers.get("access-control-allow-credentials")).toBeNull()
       expect(getDatabaseBootstrapIssues).not.toHaveBeenCalled()
-      expect(isSetupComplete).not.toHaveBeenCalled()
+      expect(restTestState.setupState).not.toHaveBeenCalled()
     },
   )
   test("unexpected setup failures log safe diagnostics once and answer a reference", async () => {
-    vi.mocked(isSetupComplete).mockRejectedValue(
-      Object.assign(new Error("private connection details"), { code: "08006" }),
+    restTestState.setupState.mockReturnValue(
+      Effect.die(Object.assign(new Error("private connection details"), { code: "08006" })),
     )
     const response = await restRequest("/tenants")
     expect(response.status).toBe(500)

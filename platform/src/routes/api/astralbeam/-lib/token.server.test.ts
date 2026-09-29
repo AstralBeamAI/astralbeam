@@ -7,7 +7,7 @@ import { EmbeddedAssistantUnavailable } from "@/lib/auth/errors"
 import { Config, type SetupState } from "@/lib/config/config.server"
 import { handleDashboardTokenRequest } from "./token.server.ts"
 
-// Issuance has its own services; this boundary only decides what reaches it.
+// Issuance has its own services, and this boundary only decides what reaches it.
 vi.mock("@/lib/auth/dashboard-token.server", () => ({ issueDashboardToken: vi.fn() }))
 
 const config = Layer.succeed(Config, {

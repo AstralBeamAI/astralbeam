@@ -16,7 +16,8 @@ const deleteOrganizationIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { Database, getAuthDatabase, runDatabaseEffect } from "@/db"
+import { Database, getAuthDatabase } from "@/db/database.server"
+import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { Mailer } from "@/lib/email/email.server"
 import { revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
 import {
@@ -94,10 +95,10 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     const { organizationId: deletedId, ownerId } = await createOrganization("deleted")
     const { organizationId: keptId } = await createOrganization("kept")
 
-    expect(await runDatabaseEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
+    expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
     expect(await db.select().from(member).where(eq(member.organizationId, deletedId))).toEqual([])
 
-    await runDatabaseEffect(organizationDeletion(deletedId))
+    await runAppEffect(organizationDeletion(deletedId))
 
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])
@@ -120,7 +121,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     }
     const realPause = Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
     try {
-      await runDatabaseEffect(
+      await runAppEffect(
         Effect.gen(function* () {
           const deletion = yield* Effect.forkChild(organizationDeletion(organizationId))
           // Two virtual hours of backoff while the table is offline.

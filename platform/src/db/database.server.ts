@@ -50,7 +50,7 @@ const databaseResourcesKey = Symbol.for("platform.databaseResources")
 const databaseProcess = globalThis as typeof globalThis & {
   [databaseResourcesKey]?: ReturnType<typeof createDatabaseResources>
 }
-export function getDatabaseResources() {
+function getDatabaseResources() {
   return (databaseProcess[databaseResourcesKey] ??= createDatabaseResources())
 }
 

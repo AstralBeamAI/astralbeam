@@ -36,22 +36,17 @@ export function organizationHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "organization",
-    Effect.fn(function* (handlers) {
-      const { Database } = yield* Effect.promise(() => import("@/db/database.server"))
-      const { readOrganizationSummary } = yield* Effect.promise(
+    Effect.fn("organizationHandlers")(function* (handlers) {
+      const { Organizations } = yield* Effect.promise(
         () => import("@/lib/organizations/organizations.server"),
       )
-      const database = yield* Database
+      const organizations = yield* Organizations
       return handlers.handle(
         "getOrganization",
         Effect.fn("getOrganization")(function* () {
           const scope = yield* RestScope
           if (scope.externalTenantId !== undefined) return yield* new RestTenantTokenForbidden()
-          // Seam: reads through the organizations module until it exposes a service.
-          const row = yield* readOrganizationSummary(scope.organizationId).pipe(
-            Effect.provideService(Database, database),
-            Effect.orDie,
-          )
+          const row = yield* organizations.summary(scope.organizationId)
           if (!row) return yield* new RestOrganizationNotFound()
           return row
         }),

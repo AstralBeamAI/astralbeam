@@ -42,7 +42,7 @@ export function currentUserHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "currentUser",
-    Effect.fn(function* (handlers) {
+    Effect.fn("currentUserHandlers")(function* (handlers) {
       const { getCurrentUser } = yield* Effect.promise(() => import("./current-user-auth.server"))
       const context = yield* Effect.context<Effect.Services<ReturnType<typeof getCurrentUser>>>()
       return handlers.handle(

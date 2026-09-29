@@ -1,8 +1,8 @@
 import { Context, DateTime, Effect, Layer, Schema } from "effect"
 
-import { APP_LOGO_LIGHT_PNG_URL } from "@/lib/constants"
+import { Config } from "@/lib/config/config.server"
 import type { ConfigValues } from "@/lib/config/types"
-import { EmailConfig } from "./config.server.ts"
+import { APP_LOGO_LIGHT_PNG_URL } from "@/lib/constants"
 import { EmailDeliveryError } from "./errors.ts"
 import {
   type AccountExistsEmailData,
@@ -92,7 +92,7 @@ export class Mailer extends Context.Service<
   static readonly layerNoDeps = Layer.effect(
     Mailer,
     Effect.gen(function* () {
-      const config = yield* EmailConfig
+      const config = yield* Config
       const providers = yield* EmailProviders
 
       /**
@@ -103,8 +103,8 @@ export class Mailer extends Context.Service<
         kind: EmailKind,
         build: (context: EmailContext) => EmailMessage,
       ) {
-        const delivery = yield* config.values.pipe(
-          Effect.flatMap(resolveEmailDelivery),
+        const delivery = yield* config.snapshot.pipe(
+          Effect.flatMap((snapshot) => resolveEmailDelivery(snapshot.values)),
           Effect.tapError((error) =>
             Effect.logError("Email preparation failed").pipe(
               Effect.annotateLogs({ kind, reason: error.reason }),
@@ -192,6 +192,6 @@ export class Mailer extends Context.Service<
   )
 
   static readonly layer = Mailer.layerNoDeps.pipe(
-    Layer.provide([EmailConfig.layer, EmailProviders.layer]),
+    Layer.provide([Config.layer, EmailProviders.layer]),
   )
 }

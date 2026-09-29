@@ -4,11 +4,12 @@ import { IS_DEVELOPMENT_SERVER } from "./environment.server.ts"
 
 import { Database } from "@/db/database.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { DatabaseMigrations } from "@/db/migration-runner.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import { Auth } from "@/lib/auth/auth.server"
 import { Chat } from "@/lib/chat/chat.server"
-import { ChatSandboxes } from "@/lib/chat/sandbox.server"
+import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
 import { Config } from "@/lib/config/config.server"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { Mailer } from "@/lib/email/email.server"
@@ -30,6 +31,7 @@ function makeAppLayer() {
     ChatSandboxes.layer,
     Config.layer,
     Database.layer,
+    DatabaseMigrations.layer,
     DatabaseRateLimiter.layer,
     Dogfood.layer,
     Mailer.layer,
@@ -53,7 +55,7 @@ export function getAppLayer() {
 
 export type AppServices = Layer.Success<ReturnType<typeof makeAppLayer>>
 
-// Pools stay process-wide in `@/db`, so a module reload rebuilds only this layer's services.
+// Pools stay process-wide in `src/db/database.server.ts`, so a reload rebuilds only these services.
 // https://vite.dev/guide/api-hmr.html#hot-dispose-cb
 let appRuntime: ManagedRuntime.ManagedRuntime<AppServices, never> | undefined
 

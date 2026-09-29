@@ -5,7 +5,7 @@ import {
   profileRows,
   readDelimitedRows,
   sniffDelimiter,
-} from "./attachment-profile.server"
+} from "./profile.server"
 import { CHAT_ATTACHMENT_MAX_TABLE_COLUMNS } from "./constants.server"
 
 // A quoted field is the difference between a correct row count and a wrong one, and the agent

@@ -3,8 +3,8 @@ import { Predicate, Result } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
 
-import { profileDelimitedText } from "./attachment-profile.server"
-import { extractOfficeDocument, isOfficeMimeType } from "./attachment-office.server"
+import { profileDelimitedText } from "./profile.server"
+import { extractOfficeDocument, isOfficeMimeType } from "./office.server"
 import {
   CHAT_ATTACHMENT_DELIMITED_MIME_TYPES,
   CHAT_ATTACHMENT_IMAGE_MIME_TYPES,
@@ -25,8 +25,8 @@ import type {
   ChatAttachmentFile,
   ChatAttachmentKind,
   ChatAttachmentOutcome,
-  ChatMessages,
 } from "./types"
+import type { ChatMessages } from "../types"
 
 /**
  * Rewrites a run's user messages into what the model actually receives.

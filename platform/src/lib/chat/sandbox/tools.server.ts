@@ -16,18 +16,13 @@ import {
   CHAT_SANDBOX_STATUS_EVENT,
 } from "./constants.server"
 import { ChatSandboxOperationFailed, type ChatSandboxUnavailable } from "./errors.ts"
-import { chatSandboxCall, type ChatSandboxSession, logChatSandboxFailure } from "./sandbox.server"
-import { resolveSandboxPath } from "./sandbox-paths.server"
-import type { ChatSandboxStatus } from "./types"
-
-/**
- * The sandbox tools an agent with a configured provider gets. Unlike every other tool the endpoint
- * declares, these execute here rather than in the host page.
- *
- * A refused path, a non-zero exit code, and a timed-out command all come back as ordinary results
- * the agent can act on. Only a broken sandbox fails, because a failed tool tells the agent
- * nothing except that something went wrong.
- */
+import {
+  chatSandboxCall,
+  type ChatSandboxSession,
+  type ChatSandboxStatus,
+  logChatSandboxFailure,
+} from "./sandbox.server"
+import { resolveSandboxPath } from "./paths.server"
 
 const sandboxPath = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(CHAT_SANDBOX_MAX_PATH_LENGTH)),
@@ -100,6 +95,8 @@ interface SandboxToolContext {
 
 type SandboxToolEffect<A> = Effect.Effect<A, ChatSandboxUnavailable | ChatSandboxOperationFailed>
 
+/** The sandbox tools, which run here rather than in the host page. A refused path, a failed
+ * command and a timeout are ordinary results the agent can act on, and only a broken sandbox fails. */
 export function createChatSandboxTools(input: {
   readonly session: ChatSandboxSession
   /** The run's services, which each tool's Effect runs with. */

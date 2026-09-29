@@ -43,6 +43,9 @@ export function enumSchema<const Values extends readonly string[]>(values: Value
   })
 }
 
+/** A UUIDv7 inside a composite public identifier such as `agent_<organizationId>_<id>`. */
+export const UUID_V7_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+
 export const UuidV7Schema = Schema.String.pipe(
   Schema.check(Schema.isUUID(7, { message: "Must be a valid UUID v7" })),
 )

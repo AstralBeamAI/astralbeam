@@ -113,11 +113,8 @@ export function passwordChangedEmailMessage(
   }
 }
 
-/**
- * Sent when a sign-up names an address that already has a verified account. Better Auth answers
- * that sign-up with its synthetic-user response to avoid confirming the address exists, so this
- * email is the only thing that tells the account's real owner why their sign-up went nowhere.
- */
+/** Tells a verified account's owner why a sign-up with their address went nowhere, since Better
+ * Auth answers it with a synthetic user rather than confirm the address exists. */
 export function accountExistsEmailMessage(
   data: AccountExistsEmailData,
   { appBaseUrl, logoURL }: EmailContext,
@@ -174,11 +171,8 @@ export function organizationDeletedEmailMessage(
   }
 }
 
-/**
- * Renders a recipient for a server log: the domain stays readable so an operator can spot a
- * provider or domain-specific outage, while the local part is reduced to a fixed-width mask that
- * leaks neither its characters nor its length.
- */
+/** A recipient for a server log: the domain stays readable to spot a domain outage, and the
+ * local part becomes a fixed-width mask that leaks neither its characters nor its length. */
 export function maskEmailAddressForLog(value: string): string {
   const separator = value.lastIndexOf("@")
   if (separator < 1) return "***"

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { resolveAppOrigin } from "@/lib/utils.server"
+import { resolveAppOrigin } from "./-lib/app-origin.server"
 
 // Generated rather than a static file because a crawler discovers the sitemap here and the
 // Sitemap URL must be absolute. https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap

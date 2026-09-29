@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start"
-import { getRequest } from "@tanstack/react-start/server"
 import { Effect, Schema } from "effect"
 
 import { Auth } from "@/lib/auth/auth.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { DisplayNameSchema, SlugSchema, toValidationSchema } from "@/lib/schemas"
 
 export const updateOrganizationSettings = createServerFn({ method: "POST" })
@@ -18,17 +18,17 @@ export const updateOrganizationSettings = createServerFn({ method: "POST" })
       }),
     ),
   )
-  .handler(({ context, data, serverFnMeta }) => {
-    const headers = getRequest().headers
-    return runEffect(
-      Effect.flatMap(Auth, (auth) =>
-        auth.updateOrganization({
-          headers,
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const auth = yield* Auth
+        yield* auth.updateOrganization({
+          headers: (yield* ServerRequest).request.headers,
           organizationId: context.organizationId,
           name: data.name,
           slug: data.slug,
-        }),
-      ).pipe(Effect.catchTag("OrganizationSlugTaken", exposeError)),
+        })
+      }).pipe(Effect.catchTag("OrganizationSlugTaken", exposeError)),
       serverFnMeta.name,
-    )
-  })
+    ),
+  )

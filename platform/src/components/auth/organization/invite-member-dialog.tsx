@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and a single-role select; take the organization and creator role as props from the page loader and scope the invitation query to its ID, through the core query options so no active-organization fetch runs beside it; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields; focus the email through the dialog's initialFocus and adjust role and error state during render.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and a single-role select. Take the organization and creator role as props from the page loader and scope the invitation query to its ID, through the core query options so no active-organization fetch runs beside it. Reveal the pending invitation when its email could not be delivered. Omit disabled teams, dynamic roles, and invitation model fields. Focus the email through the dialog's initialFocus and adjust role and error state during render.
 
 "use client"
 

@@ -3,7 +3,7 @@ import { Sharding, ShardingConfig } from "effect/unstable/cluster"
 import { WorkflowEngine } from "effect/unstable/workflow"
 
 import { sqlState } from "../../db/lib/sqlstate.server.ts"
-import { closeDatabase } from "../../db/index.ts"
+import { closeDatabase } from "../../db/database.server.ts"
 import { disposeAppRuntime, getAppRuntime } from "../runtime/runtime.server.ts"
 import { registeredWorkflowLayers } from "../workflows/registry.server.ts"
 import { ClusterUnavailableError } from "./errors.ts"
