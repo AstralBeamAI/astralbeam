@@ -100,9 +100,8 @@ describe("optimistic locking", () => {
         }),
       ),
     ).rejects.toMatchObject({
+      _tag: "OptimisticLockError",
       expectedLockVersion: 2,
-      name: "OptimisticLockError",
-      reason: "conflict",
       tableName: "locked_record",
     } satisfies Partial<OptimisticLockError>)
   })

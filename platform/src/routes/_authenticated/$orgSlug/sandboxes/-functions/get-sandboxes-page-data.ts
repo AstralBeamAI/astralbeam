@@ -1,23 +1,25 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { readOrganizationSandboxProviderSummaries } from "@/lib/sandboxes/providers.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { runEffect } from "@/lib/runtime/server-fn.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { toValidationSchema } from "@/lib/schemas"
 import { OrganizationSlugInputSchema } from "../-lib/schemas.ts"
 
 export const getSandboxesPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
   .validator(toValidationSchema(OrganizationSlugInputSchema))
-  .handler(({ context }) =>
-    runDatabaseEffect(
-      Effect.map(
-        readOrganizationSandboxProviderSummaries(context.organizationId),
-        (sandboxProviders) => ({
+  .handler(({ context, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(SandboxProviders, (providers) =>
+        providers.listSummaries({ organizationId: context.organizationId }),
+      ).pipe(
+        Effect.map((sandboxProviders) => ({
           data: { sandboxProviders },
           permissions: context.permissions,
-        }),
+        })),
       ),
+      serverFnMeta.name,
     ),
   )

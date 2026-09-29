@@ -1,64 +1,39 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
-import {
-  prepareOrganizationSandboxProviderCandidate,
-  saveOrganizationSandboxProvider,
-} from "@/lib/sandboxes/providers.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { runOrganizationSandboxConnectionTest } from "../-lib/connection-test.server.ts"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 import { SaveSandboxProviderInputSchema } from "../-lib/schemas.ts"
 
+/** Tests changed connection settings before saving, and returns the provider's ID. */
 export const saveSandboxProvider = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
   .validator(toValidationSchema(SaveSandboxProviderInputSchema, strictParseOptions))
-  .handler(({ context, data }) =>
-    runDatabaseEffect(
-      Effect.gen(function* () {
-        const { organizationId } = context
-        const prepared = yield* prepareOrganizationSandboxProviderCandidate({
-          organizationId,
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(SandboxProviders, (providers) =>
+        providers.save({
+          organizationId: context.organizationId,
           name: data.name,
           providerType: data.providerType,
           options: data.options,
           credentials: data.credentials,
-          ...(data.id && { id: data.id }),
-          ...(data.lockVersion !== null && { lockVersion: data.lockVersion }),
-        })
-        const connection = prepared.requiresTest
-          ? yield* runOrganizationSandboxConnectionTest(prepared.candidate)
-          : null
-        if (connection?.status === "failure") {
-          return {
-            ok: false as const,
-            code: connection.errorCode ?? "provider_error",
-            message:
-              connection.errorCode === "cleanup_failed"
-                ? "The connection worked, but its temporary sandbox could not be removed"
-                : "The provider connection test failed; the existing configuration was not changed",
-          }
-        }
-        const saved = yield* saveOrganizationSandboxProvider(prepared, connection?.testedAt)
-        return { ok: true as const, id: saved }
-      }).pipe(
-        catchOptimisticLockConflict("Reload before saving again"),
-        Effect.catchTags({
-          SandboxConfigurationValidationError: (error) =>
-            Effect.succeed({
-              ok: false as const,
-              code: "invalid" as const,
-              message: error.message,
-            }),
-          SandboxProviderNameConflictError: (error) =>
-            Effect.succeed({
-              ok: false as const,
-              code: "duplicate_name" as const,
-              message: error.message,
-            }),
+          id: data.id,
+          lockVersion: data.lockVersion,
         }),
+      ).pipe(
+        Effect.catchTag(
+          [
+            "SandboxProviderChanged",
+            "SandboxProviderNameTaken",
+            "SandboxConnectionFailed",
+            "SandboxCleanupFailed",
+          ],
+          exposeError,
+        ),
       ),
+      serverFnMeta.name,
     ),
   )

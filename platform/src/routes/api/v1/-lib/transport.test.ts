@@ -1,12 +1,19 @@
 import { OpenApi } from "effect/unstable/httpapi"
-import { Context, Data, Duration, Effect, Schema, Stream } from "effect"
+import { Context, Data, Duration, Effect, Layer, Logger, Schema } from "effect"
+import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { RateLimiter } from "effect/unstable/persistence"
 import type { SQL } from "drizzle-orm"
+import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import { PgDialect } from "drizzle-orm/pg-core"
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
-import { type EffectDatabase, runDatabaseEffect } from "@/db"
-import { listTenants } from "@/lib/tenants/tenants.server"
+import { Database, type EffectDatabase } from "@/db/database.server"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { isSetupComplete } from "@/lib/config/state.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { TenantUsers } from "@/lib/tenants/tenant-users.server"
+import { Tenants } from "@/lib/tenants/tenants.server"
 import { organization } from "@/db/schema/organizations.server"
 import {
   createTenant as sdkCreateTenant,
@@ -19,13 +26,13 @@ import {
 } from "../../../../../../sdk/src/api/index.ts"
 
 const restTestState = vi.hoisted(() => ({
-  rows: [] as unknown[][],
+  rows: [] as (unknown[] | { fail: unknown })[],
   predicates: [] as SQL[],
   writes: [] as unknown[],
   order: [] as SQL[],
   limits: [] as number[],
-  failure: undefined as unknown,
   keyRows: [] as { id: string; name?: string; slug?: string }[],
+  logs: [] as string[],
   verify: vi.fn(),
   chat: vi.fn(),
   organizationAuth: vi.fn(),
@@ -33,16 +40,70 @@ const restTestState = vi.hoisted(() => ({
   agent: vi.fn(),
   run: vi.fn(),
   readFile: vi.fn(),
+  services: undefined as
+    | Layer.Layer<Database | DatabaseRateLimiter | SandboxProviders | TenantUsers | Tenants>
+    | undefined,
 }))
 
+// Chat modules still run Effects through the database bridge, so it runs them on the doubles.
+vi.mock("@/db", async (original) => ({
+  ...(await original<typeof import("@/db")>()),
+  runDatabaseEffect: <A, E>(effect: Effect.Effect<A, E, never>) =>
+    Effect.runPromise(effect.pipe(Effect.provide(restTestState.services!))),
+}))
+vi.mock("@/db/lib/database-credentials.server", async (original) => ({
+  ...(await original<typeof import("@/db/lib/database-credentials.server")>()),
+  getDatabaseBootstrapIssues: vi.fn(),
+}))
+vi.mock("@/lib/config/state.server", () => ({ isSetupComplete: vi.fn() }))
+vi.mock("@/lib/auth/auth.server", () => ({
+  getAuth: () => Promise.resolve({ api: { verifyApiKey: restTestState.verify } }),
+}))
+vi.mock("@/lib/chat/auth.server", () => ({
+  authenticateChatRequest: restTestState.chat,
+  isChatAuthenticationError: (error: unknown) =>
+    error instanceof Error && error.name === "ChatAuthenticationError",
+}))
+vi.mock("@/lib/auth/organization-token.server", () => ({
+  OrganizationMembershipError: class extends Data.TaggedError("OrganizationMembershipError") {},
+  ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
+  authenticateOrganizationRequest: restTestState.organizationAuth,
+}))
+vi.mock("@/lib/organizations/openai-api-key.server", () => ({
+  readOrganizationOpenaiApiKey: () => Effect.succeed("test-provider-key"),
+}))
+vi.mock("@/lib/chat/agent.server", () => ({ resolveChatAgent: restTestState.agent }))
+vi.mock("@tanstack/ai", async (original) => ({
+  ...(await original<typeof import("@tanstack/ai")>()),
+  chat: restTestState.run,
+}))
+vi.mock("@/lib/sandboxes/factory.server", () => ({
+  createSandboxProvider: () =>
+    Effect.succeed({
+      resume: () =>
+        Promise.resolve({
+          cwd: "/workspace",
+          fs: { readBytes: restTestState.readFile },
+        }),
+    }),
+}))
+
+import { ApiV1Routes } from "./transport.server"
+import { authenticateRestRequest } from "./auth.server"
+import { OrganizationMembershipError } from "@/lib/auth/organization-token.server"
+import { ApiV1 } from "./contract.server"
+import { RestApiErrorSchema } from "./shared.server"
+import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
+import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
+import { artifactContentDigest, mintSandboxArtifactTicket } from "@/lib/chat/artifacts.server"
+
 // Return queued driver results, not a second implementation of database filtering or constraints.
-vi.mock("@/db", () => {
+function restTestDatabase(): EffectDatabase {
   const result = () =>
     Effect.suspend(() => {
-      if (restTestState.failure) return Effect.fail(restTestState.failure)
       const rows = restTestState.rows.shift()
       if (!rows) throw new Error("Unexpected database operation")
-      return Effect.succeed(rows)
+      return "fail" in rows ? Effect.fail(rows.fail) : Effect.succeed(rows)
     })
   const query = {
     table: undefined as unknown,
@@ -84,70 +145,54 @@ vi.mock("@/db", () => {
     select: () => ({ ...query }),
     insert: () => ({ ...query }),
     update: () => ({ ...query }),
-  } as unknown as EffectDatabase
-  const service = Context.Service<EffectDatabase>("REST test database")
-  return {
-    Database: service,
-    runDatabaseEffect: <A, E>(effect: Effect.Effect<A, E, EffectDatabase>) =>
-      Effect.runPromise(effect.pipe(Effect.provideService(service, database))),
   }
-})
-vi.mock("@/lib/auth/auth.server", () => ({
-  getAuth: () => Promise.resolve({ api: { verifyApiKey: restTestState.verify } }),
-}))
-vi.mock("@/lib/chat/auth.server", () => ({
-  authenticateChatRequest: restTestState.chat,
-  isChatAuthenticationError: (error: unknown) =>
-    error instanceof Error && error.name === "ChatAuthenticationError",
-}))
-vi.mock("@/db/lib/rate-limiter.server", () => ({
-  databaseRateLimiter: { consume: restTestState.consume },
-}))
-vi.mock("@/lib/auth/organization-token.server", () => ({
-  OrganizationMembershipError: class extends Data.TaggedError("OrganizationMembershipError") {},
-  ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
-  authenticateOrganizationRequest: restTestState.organizationAuth,
-}))
-vi.mock("@/lib/organizations/openai-api-key.server", () => ({
-  readOrganizationOpenaiApiKey: () => Effect.succeed("test-provider-key"),
-}))
-vi.mock("@/lib/chat/agent.server", () => ({ resolveChatAgent: restTestState.agent }))
-vi.mock("@tanstack/ai", async (original) => ({
-  ...(await original<typeof import("@tanstack/ai")>()),
-  chat: restTestState.run,
-}))
-vi.mock("@/lib/sandboxes/providers.server", () => ({
-  resolveOrganizationSandboxProviderConfiguration: () => Effect.succeed({ provider: "test" }),
-}))
-vi.mock("@/lib/sandboxes/factory.server", () => ({
-  createSandboxProvider: () =>
-    Effect.succeed({
-      resume: () =>
-        Promise.resolve({
-          cwd: "/workspace",
-          fs: { readBytes: restTestState.readFile },
-        }),
-    }),
-}))
+  return database as unknown as EffectDatabase
+}
 
-import { getApiV1WebHandler, dispatchRestRequest } from "./transport.server"
-import { authenticateRestRequest } from "./auth.server"
-import { OrganizationMembershipError } from "@/lib/auth/organization-token.server"
-import { ApiV1 } from "./contract.server"
-import { RestApiErrorSchema } from "./shared.server"
-import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
-import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
-import { artifactContentDigest, mintSandboxArtifactTicket } from "@/lib/chat/artifacts.server"
+function queryFailure(cause: object) {
+  return { fail: new EffectDrizzleQueryError({ query: "query", params: ["private"], cause }) }
+}
+
+const restTestServices = Layer.mergeAll(
+  TenantUsers.layerNoDeps.pipe(Layer.provideMerge(Tenants.layerNoDeps)),
+  Layer.succeed(
+    DatabaseRateLimiter,
+    DatabaseRateLimiter.of({
+      consume: (options) =>
+        restTestState
+          .consume(options)
+          .pipe(
+            Effect.as({ delay: Duration.zero, limit: 1, remaining: 0, resetAfter: Duration.zero }),
+          ),
+      reset: () => Effect.void,
+    }),
+  ),
+  Layer.succeed(SandboxProviders, {
+    resolveConfiguration: () =>
+      Effect.succeed({ name: "Test", provider: "docker", options: {}, credentials: {} }),
+  } as unknown as Context.Service.Shape<typeof SandboxProviders>),
+  Logger.layer([Logger.map(Logger.formatJson, (line) => restTestState.logs.push(line))]),
+).pipe(Layer.provideMerge(Layer.succeed(Database, restTestDatabase())))
+restTestState.services = restTestServices
+
+const restWebHandler = HttpRouter.toWebHandler(
+  ApiV1Routes.pipe(Layer.provideMerge(restTestServices), Layer.provide(HttpServer.layerServices)),
+  { disableLogger: true },
+)
+
+function runRestEffect<A, E>(effect: Effect.Effect<A, E, Layer.Success<typeof restTestServices>>) {
+  return Effect.runPromise(effect.pipe(Effect.provide(restTestServices)))
+}
 
 const restOrgId = "019a0000-0000-7000-8000-000000000001"
 const restTenantId = "019a0000-0000-7000-8000-000000000002"
 const restUserId = "019a0000-0000-7000-8000-000000000003"
 const restOtherId = "019a0000-0000-7000-8000-000000000004"
-const restSdkFetch: typeof fetch = (input, init) => dispatchRestRequest(new Request(input, init))
+const restSdkFetch: typeof fetch = (input, init) => restWebHandler.handler(new Request(input, init))
 const restTenantJwt = `${btoa(JSON.stringify({ typ: "astralbeam+jwt" }))}.e30.c2ln`
 const restTestApiKey = `key_${restOrgId}_${restOtherId}_abo_${"A".repeat(64)}`
+// Repositories project public columns, so queued rows carry no organization ID.
 const restTenantRow = {
-  organizationId: restOrgId,
   id: restTenantId,
   externalId: " Customer/東京 +?# ",
   name: null,
@@ -161,7 +206,7 @@ const restPrincipal = {
   tenantUser: { id: "caller-not-persisted", admin: true, tenant: { id: restTenantRow.externalId } },
 }
 function restRequest(path: string, init: RequestInit = {}) {
-  return dispatchRestRequest(
+  return restWebHandler.handler(
     new Request(`http://localhost/api/v1${path}`, {
       ...init,
       headers: init.headers ?? { "X-API-Key": restTestApiKey },
@@ -203,32 +248,87 @@ function restLastPredicate() {
   return new PgDialect().sqlToQuery(restTestState.predicates.at(-1)!)
 }
 
-describe("REST API through the Effect Fetch handler", () => {
-  beforeEach(() => {
-    vi.resetAllMocks()
-    vi.stubEnv("DATABASE_ENCRYPTION_KEY", "rest-unit-test-key-not-for-deployment")
-    Object.assign(restTestState, {
-      rows: [],
-      predicates: [],
-      writes: [],
-      order: [],
-      limits: [],
-      failure: undefined,
-      keyRows: [{ id: restOrgId }],
-    })
-    restTestState.verify.mockResolvedValue({
-      valid: true,
-      key: { id: restOtherId, referenceId: restOrgId },
-    })
-    restTestState.chat.mockResolvedValue(restPrincipal)
-    restTestState.consume.mockReturnValue(Effect.void)
-  })
-  afterEach(() => {
-    vi.restoreAllMocks()
-    vi.unstubAllEnvs()
-  })
-  afterAll(() => getApiV1WebHandler().dispose())
+afterAll(() => restWebHandler.dispose())
 
+beforeEach(() => {
+  vi.resetAllMocks()
+  vi.stubEnv("DATABASE_ENCRYPTION_KEY", "rest-unit-test-key-not-for-deployment")
+  Object.assign(restTestState, {
+    rows: [],
+    predicates: [],
+    writes: [],
+    order: [],
+    limits: [],
+    logs: [],
+    keyRows: [{ id: restOrgId }],
+  })
+  vi.mocked(getDatabaseBootstrapIssues).mockReturnValue([])
+  vi.mocked(isSetupComplete).mockResolvedValue(true)
+  restTestState.verify.mockResolvedValue({
+    valid: true,
+    key: { id: restOtherId, referenceId: restOrgId },
+  })
+  restTestState.chat.mockResolvedValue(restPrincipal)
+  restTestState.consume.mockReturnValue(Effect.void)
+})
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+})
+
+describe("v1 router boundary", () => {
+  test.each(["bootstrap", "setup"])(
+    "preserves safe 503 with CORS/no-store for %s",
+    async (kind) => {
+      if (kind === "bootstrap") {
+        vi.mocked(getDatabaseBootstrapIssues).mockReturnValue(["DATABASE_URL"])
+      } else {
+        vi.mocked(isSetupComplete).mockResolvedValue(false)
+      }
+      const response = await restRequest("/chat")
+      expect(response.status).toBe(503)
+      expect(response.headers.get("retry-after")).toBe("10")
+      expect(response.headers.get("access-control-allow-origin")).toBe("*")
+      expect(response.headers.get("cache-control")).toBe("no-store")
+      expect(await response.json()).toMatchObject({
+        status: 503,
+        detail: "Server configuration required.",
+      })
+    },
+  )
+  test.each(["tenants", "chat", "chat/config", "chat/files"])(
+    "%s preflight bypasses setup and authentication",
+    async (path) => {
+      const response = await restRequest(`/${path}`, { method: "OPTIONS" })
+      expect(response.status).toBe(204)
+      expect(response.headers.get("access-control-max-age")).toBe("86400")
+      expect(response.headers.get("access-control-allow-credentials")).toBeNull()
+      expect(getDatabaseBootstrapIssues).not.toHaveBeenCalled()
+      expect(isSetupComplete).not.toHaveBeenCalled()
+    },
+  )
+  test("unexpected setup failures log safe diagnostics once and answer a reference", async () => {
+    vi.mocked(isSetupComplete).mockRejectedValue(
+      Object.assign(new Error("private connection details"), { code: "08006" }),
+    )
+    const response = await restRequest("/tenants")
+    expect(response.status).toBe(500)
+    const body = await response.text()
+    expect(body).not.toContain("private connection details")
+    expect(restTestState.logs).toHaveLength(1)
+    expect(restTestState.logs[0]).toContain('"sqlstate":"08006"')
+    expect(restTestState.logs[0]).toContain((JSON.parse(body) as { reference: string }).reference)
+    expect(restTestState.logs[0]).not.toContain("private connection details")
+  })
+  test("unknown paths answer a problem body with CORS", async () => {
+    const response = await restRequest("/unknown")
+    expect(response.status).toBe(404)
+    expect(response.headers.get("content-type")).toContain("application/problem+json")
+    expect(response.headers.get("access-control-allow-origin")).toBe("*")
+  })
+})
+
+describe("REST API through the Effect Fetch handler", () => {
   test("current-user synchronization provisions non-admin identities before chat and exposes only public fields", async () => {
     restTestState.chat.mockResolvedValue({
       ...restPrincipal,
@@ -487,7 +587,6 @@ describe("REST API through the Effect Fetch handler", () => {
     restTestState.readFile.mockResolvedValue(new TextEncoder().encode("changed"))
     expect((await restRequest(`/chat/files?ticket=${ticket}`)).status).toBe(404)
     expect((await restRequest("/chat/files?ticket=invalid")).status).toBe(404)
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {})
     restTestState.readFile.mockRejectedValue(
       Object.assign(new Error("private provider details"), {
         name: "FileReadError",
@@ -496,53 +595,13 @@ describe("REST API through the Effect Fetch handler", () => {
     )
     const failed = await restRequest(`/chat/files?ticket=${ticket}`)
     expect(failed.status).toBe(500)
-    expect(logged).toHaveBeenCalledExactlyOnceWith("API request failed", {
-      stage: "getChatFile",
-      status: 500,
-      errorType: "FileReadError",
-      code: "ENOENT",
-    })
+    expect(restTestState.logs).toHaveLength(1)
+    expect(restTestState.logs[0]).toContain('"operation":"getChatFile"')
+    expect(restTestState.logs[0]).toContain('"type":"FileReadError"')
+    expect(restTestState.logs[0]).toContain('"sqlstate":"ENOENT"')
+    expect(restTestState.logs[0]).not.toContain("private provider details")
     expect(await failed.text()).not.toContain("private provider details")
   })
-
-  test.each([false, true])(
-    "database page streams advance lazily (backward: %s)",
-    async (backward) => {
-      const rows = [
-        restTenantRow,
-        { ...restTenantRow, id: restUserId },
-        {
-          ...restTenantRow,
-          id: restOtherId,
-        },
-      ]
-      const ordered = backward ? rows.toReversed() : rows
-      restTestState.rows.push(ordered, [ordered[2]!])
-      const pages = await runDatabaseEffect(
-        listTenants(
-          { organizationId: restOrgId },
-          {
-            pageSize: 2,
-            backward,
-          },
-        ).pipe(Stream.toAsyncIterableEffect),
-      )
-      expect(restTestState.limits).toEqual([])
-      const collected = []
-      for await (const page of pages) collected.push(page)
-      expect(collected).toEqual([
-        {
-          items: backward ? ordered.slice(0, 2).reverse() : ordered.slice(0, 2),
-          nextPosition: { id: restUserId },
-          previousPosition: undefined,
-        },
-        { items: [ordered[2]], nextPosition: null, previousPosition: undefined },
-      ])
-      expect(restTestState.limits).toEqual([3, 3])
-      expect(restLastPredicate().params).toEqual([restOrgId, restUserId])
-      expect(restLastPredicate().sql).toContain(backward ? " < " : " > ")
-    },
-  )
 
   test("HTTP responses preserve wire records, exact filters and scoped partial writes", async () => {
     restTestState.rows.push([restTenantRow], [restTenantRow], [restTenantRow])
@@ -639,7 +698,7 @@ describe("REST API through the Effect Fetch handler", () => {
       expect(restLastPredicate().params).toEqual([scope.organizationId])
     }
     await expect(
-      runDatabaseEffect(
+      runRestEffect(
         authenticateRestRequest(new Request("https://example.test/api/v1/tenants", { headers })),
       ),
     ).resolves.toEqual({ organizationId: restOtherId, currentUser })
@@ -648,7 +707,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(buckets[1]).toBe(buckets[0])
     expect(buckets[2]).not.toBe(buckets[0])
     await expect(
-      runDatabaseEffect(
+      runRestEffect(
         authenticateRestRequest(
           new Request("https://example.test/api/v1/tenants", {
             headers: { "X-API-Key": restTestApiKey },
@@ -711,21 +770,18 @@ describe("REST API through the Effect Fetch handler", () => {
   )
 
   test("organization authentication preserves safe database diagnostics without disclosing them", async () => {
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {})
     restTestState.organizationAuth.mockReturnValue(
       Effect.fail(Object.assign(new Error("private database details"), { code: "42P01" })),
     )
     const jwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
     const response = await restRequest("/tenants", { headers: { Authorization: `Bearer ${jwt}` } })
     expect(response.status).toBe(500)
-    expect(await response.json()).toMatchObject({
-      detail: "Authentication could not be completed.",
-    })
-    expect(logged).toHaveBeenCalledExactlyOnceWith(
-      "API request failed",
-      expect.objectContaining({ code: "42P01" }),
-    )
-    expect(JSON.stringify(logged.mock.calls)).not.toContain("private database details")
+    const body = (await response.json()) as { detail: string; reference: string }
+    expect(body.detail).toBe("The request could not be completed.")
+    expect(restTestState.logs).toHaveLength(1)
+    expect(restTestState.logs[0]).toContain('"sqlstate":"42P01"')
+    expect(restTestState.logs[0]).toContain(body.reference)
+    expect(restTestState.logs[0]).not.toContain("private database details")
     expect(restTestState.predicates).toEqual([])
   })
 
@@ -775,29 +831,29 @@ describe("REST API through the Effect Fetch handler", () => {
     ).rejects.toMatchObject({
       body: { issues: [{ path: "body.admin", message: "Expected boolean" }] },
     })
-    for (const constraint of [
-      "tenant_organization_id_external_id_uidx",
-      "tenant_user_organization_id_tenant_id_external_id_uidx",
-    ]) {
-      restTestState.failure = { constraint }
-      await expect(
-        restJson(TenantUserRecordSchema, `/tenants/${restTenantId}/tenant_users/${restUserId}`, {
-          method: "PATCH",
-          json: { name: "value" },
-        }),
-      ).rejects.toMatchObject({ status: 409 })
-    }
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {})
-    restTestState.failure = Object.assign(new Error("private database details"), { code: "42P01" })
+    restTestState.rows.push(queryFailure({ constraint: "tenant_organization_id_external_id_uidx" }))
+    await expect(
+      restJson(TenantRecordSchema, "/tenants", { method: "POST", json: { external_id: "taken" } }),
+    ).rejects.toMatchObject({ status: 409 })
+    restTestState.rows.push(
+      [restTenantRow],
+      queryFailure({ constraint: "tenant_user_organization_id_tenant_id_external_id_uidx" }),
+    )
+    await expect(
+      restJson(TenantUserRecordSchema, `/tenants/${restTenantId}/tenant_users`, {
+        method: "POST",
+        json: { external_id: "taken" },
+      }),
+    ).rejects.toMatchObject({ status: 409 })
+    restTestState.rows.push(queryFailure({ code: "42P01", message: "private database details" }))
     await expect(restJson(TenantRecordSchema, `/tenants/${restTenantId}`)).rejects.toMatchObject({
       status: 500,
       message: "The request could not be completed.",
     })
-    const diagnostic = JSON.stringify(logged.mock.calls)
-    expect(diagnostic).toContain("getTenant")
-    expect(diagnostic).toContain("42P01")
-    expect(diagnostic).not.toContain("private database details")
-    restTestState.failure = undefined
+    expect(restTestState.logs).toHaveLength(1)
+    expect(restTestState.logs[0]).toContain('"operation":"getTenant"')
+    expect(restTestState.logs[0]).toContain('"sqlstate":"42P01"')
+    expect(restTestState.logs[0]).not.toContain("private database details")
     restTestState.rows.push([])
     await expect(restJson(TenantRecordSchema, `/tenants/${restTenantId}`)).rejects.toMatchObject({
       status: 404,

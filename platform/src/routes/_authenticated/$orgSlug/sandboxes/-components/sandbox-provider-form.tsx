@@ -3,8 +3,9 @@
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
-import { Result, Schema, SchemaIssue } from "effect"
+import { Equal, Result, Schema, SchemaIssue } from "effect"
 
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { strictParseOptions } from "@/lib/schemas"
 import { SaveSandboxProviderInputSchema } from "../-lib/schemas"
 
@@ -37,7 +38,6 @@ import { sandboxProviderDescriptors } from "@/lib/sandboxes/registry"
 import { type SandboxProviderId, type SandboxProviderOptions } from "@/lib/sandboxes/schemas"
 import { saveSandboxProvider } from "../-functions/save-sandbox-provider"
 import { SANDBOX_PROVIDER_OPTION_DEFAULTS } from "../-lib/constants"
-import { sandboxRequestFailedToast } from "../-lib/utils"
 import { SandboxProviderOptionFields } from "./sandbox-provider-option-fields"
 import { SandboxTextField } from "./sandbox-text-field"
 
@@ -75,6 +75,7 @@ export function SandboxProviderForm({
   const [secret, setSecret] = useState(initialSecret)
   const [secretVisible, setSecretVisible] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   // Base UI resolves the trigger's label from `items`, not from the rendered options.
   const providerItems = sandboxProviderDescriptors.map((item) => ({
@@ -114,20 +115,16 @@ export function SandboxProviderForm({
   const requiresConnectionTest =
     !existing ||
     existing.providerType !== providerType ||
-    JSON.stringify(existing.options) !== JSON.stringify(options) ||
+    !Equal.equals(existing.options, options) ||
     secret.trim() !== initialSecret
   const disabled = saving || readOnly
 
   const save = async () => {
     if (Result.isFailure(input)) return
     setSaving(true)
+    setNameError(null)
     try {
-      const result = await saveSandboxProvider({ data: input.success })
-      if (!result.ok) {
-        toast.add({ title: result.message, type: "error" })
-        if (result.code === "stale") await router.invalidate()
-        return
-      }
+      const sandboxProviderId = await saveSandboxProvider({ data: input.success })
       toast.add({
         title: requiresConnectionTest ? "Provider tested and saved" : "Provider saved",
         type: "success",
@@ -138,11 +135,17 @@ export function SandboxProviderForm({
       }
       await navigate({
         to: "/$orgSlug/sandboxes/$sandboxProviderId",
-        params: { orgSlug: organizationSlug, sandboxProviderId: result.id },
+        params: { orgSlug: organizationSlug, sandboxProviderId },
         replace: true,
       })
-    } catch {
-      sandboxRequestFailedToast()
+    } catch (error) {
+      const failure = parseServerFnError(error)
+      if (failure.tag === "SandboxProviderNameTaken") {
+        setNameError(failure.message)
+        return
+      }
+      toast.add({ title: failure.message, type: "error" })
+      if (failure.tag === "SandboxProviderChanged") await router.invalidate()
     } finally {
       setSaving(false)
     }
@@ -164,8 +167,11 @@ export function SandboxProviderForm({
             value={name}
             maximumLength={SANDBOX_PROVIDER_NAME_MAX_LENGTH}
             disabled={disabled}
-            onChange={setName}
-            errors={sandboxFieldErrors("name")}
+            onChange={(value) => {
+              setName(value)
+              setNameError(null)
+            }}
+            errors={[...sandboxFieldErrors("name"), ...(nameError ? [{ message: nameError }] : [])]}
           />
           <Field>
             <FieldLabel htmlFor="sandbox-provider-type">Provider</FieldLabel>
@@ -249,6 +255,13 @@ export function SandboxProviderForm({
                   removed.
                 </FieldDescription>
               )}
+              {existing &&
+                !existing.credentialsReadable &&
+                existing.providerType === providerType && (
+                  <FieldDescription>
+                    The stored credentials cannot be read. Enter them again, then test and save.
+                  </FieldDescription>
+                )}
             </Field>
           )}
         </FieldGroup>

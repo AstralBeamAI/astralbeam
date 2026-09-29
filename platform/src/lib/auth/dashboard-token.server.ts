@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import { SignJWT } from "jose"
 
 import { readOrganizationMembership } from "@/lib/organizations/organizations.server"
-import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import {
   hasOrganizationApiKeys,
   readOrganizationDefaultApiKey,
@@ -33,7 +33,7 @@ export function issueDashboardToken(input: {
       catch: () => dashboardTokenFailure(503, "Authentication is unavailable"),
     })
     if (!session) return yield* Effect.fail(dashboardTokenFailure(401, "Authentication required"))
-    yield* databaseRateLimiter
+    yield* (yield* DatabaseRateLimiter)
       .consume({
         key: `dashboard-token:${session.user.id}`,
         limit: 60,

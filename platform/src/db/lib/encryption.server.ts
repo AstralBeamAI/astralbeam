@@ -1,6 +1,6 @@
 import { hkdfSync } from "node:crypto"
 
-import * as Data from "effect/Data"
+import { Predicate, Result, Schema } from "effect"
 
 import { decryptCompactJwe, encryptCompactJwe } from "./compact-jwe.server.ts"
 import type {
@@ -8,9 +8,13 @@ import type {
   DatabaseKeyringEntry,
 } from "./database-credentials.server.ts"
 
-class DatabaseEncryptionError extends Data.TaggedError("DatabaseEncryptionError")<{
-  readonly message: string
-}> {}
+/** Every encryption failure reads alike, so it never describes or echoes the stored value. */
+export class DatabaseEncryptionError extends Schema.TaggedError<DatabaseEncryptionError>()(
+  "DatabaseEncryptionError",
+  {},
+) {
+  override readonly message = "Stored database value could not be processed"
+}
 
 const DATABASE_ENCRYPTION_SALT = new TextEncoder().encode("database-encryption:hkdf-sha256:v1")
 const DATABASE_ENCRYPTION_INFO = new TextEncoder().encode("database-encryption:a256gcm:v1")
@@ -21,63 +25,50 @@ type DecryptedDatabaseValue<Value> = {
   usedFallbackKey: boolean
 }
 
-type EncryptDatabaseValueOptions<Value> = {
+const databaseEncryptionError = Result.fail(new DatabaseEncryptionError())
+
+/** Validates the value against its column schema before encrypting it with the active key. */
+export function encryptDatabaseValue<Value>(options: {
   value: unknown
-  decode: (value: unknown) => Value
+  schema: Schema.Decoder<Value>
   keyring: DatabaseEncryptionKeyring
+}): Result.Result<string, DatabaseEncryptionError> {
+  const value = decodeDatabaseValue(options.schema, options.value)
+  const serialized = Result.isSuccess(value) ? serializeDatabaseValue(value.success) : undefined
+  if (serialized === undefined) return databaseEncryptionError
+  const activeKey = options.keyring[0]
+  return encryptCompactJwe({
+    plaintext: new TextEncoder().encode(serialized),
+    protectedHeader: { alg: "dir", enc: "A256GCM", kid: activeKey.kid },
+    key: deriveDatabaseEncryptionKey(activeKey.root),
+  }).pipe(Result.mapError(() => new DatabaseEncryptionError()))
 }
 
-type DecryptDatabaseValueOptions<Value> = {
+export function decryptDatabaseValue<Value>(options: {
   storedValue: unknown
-  decode: (value: unknown) => Value
+  schema: Schema.Decoder<Value>
   keyring: DatabaseEncryptionKeyring
-}
-
-export function encryptDatabaseValue<Value>(options: EncryptDatabaseValueOptions<Value>): string {
-  try {
-    const value = options.decode(options.value)
-    const activeKey = options.keyring[0]
-    const encrypted = encryptCompactJwe({
-      plaintext: serializeDatabaseEncryptionPayload(value),
-      protectedHeader: { alg: "dir", enc: "A256GCM", kid: activeKey.kid },
-      key: deriveDatabaseEncryptionKey(activeKey.root),
-    })
-    return encrypted
-  } catch {
-    throw databaseEncryptionError()
-  }
-}
-
-export function decryptDatabaseValue<Value>(
-  options: DecryptDatabaseValueOptions<Value>,
-): DecryptedDatabaseValue<Value> {
-  try {
-    if (typeof options.storedValue !== "string") throw new Error()
-    let selectedKey: DatabaseKeyringEntry | undefined
-    const result = decryptCompactJwe({
-      compactJwe: options.storedValue,
-      resolveKey: (header) => {
-        const kid = header.kid
-        if (typeof kid !== "string" || !DATABASE_ENCRYPTION_KID_PATTERN.test(kid)) {
-          throw new Error()
-        }
-        selectedKey = options.keyring.find((key) => key.kid === kid)
-        if (!selectedKey) throw new Error()
-        return deriveDatabaseEncryptionKey(selectedKey.root)
-      },
-    })
-    if (!selectedKey) throw new Error()
-    return {
-      value: decodeDatabaseEncryptionPayload(result.plaintext, options.decode),
-      usedFallbackKey: selectedKey !== options.keyring[0],
-    }
-  } catch {
-    throw databaseEncryptionError()
-  }
-}
-
-function databaseEncryptionError(): DatabaseEncryptionError {
-  return new DatabaseEncryptionError({ message: "Stored database value could not be processed" })
+}): Result.Result<DecryptedDatabaseValue<Value>, DatabaseEncryptionError> {
+  if (!Predicate.isString(options.storedValue)) return databaseEncryptionError
+  let selectedKey: DatabaseKeyringEntry | undefined
+  const decrypted = decryptCompactJwe({
+    compactJwe: options.storedValue,
+    resolveKey: (header) => {
+      const kid = header.kid
+      if (!Predicate.isString(kid) || !DATABASE_ENCRYPTION_KID_PATTERN.test(kid)) return undefined
+      selectedKey = options.keyring.find((key) => key.kid === kid)
+      return selectedKey && deriveDatabaseEncryptionKey(selectedKey.root)
+    },
+  })
+  const payload = Result.isSuccess(decrypted)
+    ? parseDatabaseValue(decrypted.success.plaintext)
+    : undefined
+  const value = payload && decodeDatabaseValue(options.schema, payload.value)
+  if (!selectedKey || !value || Result.isFailure(value)) return databaseEncryptionError
+  return Result.succeed({
+    value: value.success,
+    usedFallbackKey: selectedKey !== options.keyring[0],
+  })
 }
 
 function deriveDatabaseEncryptionKey(root: Uint8Array): Uint8Array {
@@ -86,15 +77,32 @@ function deriveDatabaseEncryptionKey(root: Uint8Array): Uint8Array {
   )
 }
 
-function serializeDatabaseEncryptionPayload(value: unknown): Uint8Array {
-  const serialized = JSON.stringify(value)
-  if (serialized === undefined) throw new Error()
-  return new TextEncoder().encode(serialized)
+function decodeDatabaseValue<Value>(schema: Schema.Decoder<Value>, value: unknown) {
+  return Schema.decodeUnknownResult(schema, { onExcessProperty: "error" })(value)
 }
 
-function decodeDatabaseEncryptionPayload<Value>(
-  plaintext: Uint8Array,
-  decode: (value: unknown) => Value,
-): Value {
-  return decode(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)))
+const decodeDatabaseJson = Schema.decodeUnknownResult(Schema.fromJsonString(Schema.Unknown))
+
+// `JSON.stringify` returns undefined for values JSON cannot represent, such as a bare function.
+function serializeDatabaseValue(value: unknown): string | undefined {
+  return Result.getOrUndefined(
+    Schema.encodeUnknownResult(Schema.fromJsonString(Schema.Unknown))(value),
+  )
+}
+
+function parseDatabaseValue(plaintext: Uint8Array): { readonly value: unknown } | undefined {
+  const text = Result.getOrUndefined(decodeUtf8(plaintext))
+  const value = text === undefined ? undefined : decodeDatabaseJson(text)
+  return value && Result.isSuccess(value) ? { value: value.success } : undefined
+}
+
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true })
+
+function decodeUtf8(bytes: Uint8Array): Result.Result<string, DatabaseEncryptionError> {
+  // A fatal decoder throws on malformed UTF-8, the only failure this read can have.
+  try {
+    return Result.succeed(utf8Decoder.decode(bytes))
+  } catch {
+    return databaseEncryptionError
+  }
 }

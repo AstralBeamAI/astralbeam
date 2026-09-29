@@ -1,9 +1,11 @@
 import { NonEmptyStringSchema, enumSchema } from "../../../../lib/schemas.ts"
-import { Context, Schema, SchemaGetter } from "effect"
+import { Context, Predicate, Schema, SchemaGetter } from "effect"
+import { HttpServerResponse } from "effect/unstable/http"
 import { HttpApiMiddleware, HttpApiSchema } from "effect/unstable/httpapi"
-import type { Database } from "@/db"
 import type { OrganizationCurrentUser } from "@/lib/auth/organization-token.server"
-import type { TenantScope } from "../../../../lib/tenants/tenants.server.ts"
+import type { TenantScope } from "@/lib/tenants/tenants.server"
+import { APP_HANDLE } from "../../../../lib/constants.ts"
+import { declaredHttpApiStatus } from "../../../../lib/runtime/http-api-status.ts"
 import { TenantExternalIdSchema } from "../../../../lib/tenants/schemas.ts"
 export const restEmptyPage = { items: [], page_after: null, page_before: null }
 export const restResourceSecurity = {
@@ -27,32 +29,144 @@ export const RestApiErrorSchema = Schema.Struct({
   issues: Schema.optionalKey(
     Schema.Array(Schema.Struct({ path: Schema.String, message: Schema.String })),
   ),
+  // An RFC 9457 extension member. https://www.rfc-editor.org/rfc/rfc9457#section-3.2
+  reference: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "Identifies the server log entry of an internal error. Quote it for support.",
+    }),
+  ),
 }).annotate({
   identifier: "AstralBeamApiError",
 })
+
+/** A failure the REST boundary answers with its class's declared status and user-safe message. */
+export interface RestError {
+  readonly _tag: string
+  readonly message: string
+  readonly issues?: typeof RestApiErrorSchema.Type.issues
+  readonly retryAfterSeconds?: number
+  readonly reference?: string
+}
+
+/** A problem read back from the wire, which carries its status instead of declaring it. */
+export class RestProblem extends Schema.TaggedError<RestProblem>()("RestProblem", {
+  status: Schema.Int,
+  message: Schema.String,
+  issues: RestApiErrorSchema.fields.issues,
+  retryAfterSeconds: Schema.optionalKey(Schema.Int),
+  reference: Schema.optionalKey(Schema.String),
+}) {}
+
+export function restErrorStatus(error: unknown): number | undefined {
+  return error instanceof RestProblem ? error.status : declaredHttpApiStatus(error)
+}
+
+const restErrorTitles: Record<number, string> = {
+  400: "Bad Request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not Found",
+  409: "Conflict",
+  413: "Content Too Large",
+  415: "Unsupported Media Type",
+  422: "Unprocessable Content",
+  429: "Too Many Requests",
+  500: "Internal Server Error",
+  503: "Service Unavailable",
+}
+
+const restProblemHeaders = {
+  "Retry-After": Schema.optionalKey(Schema.String),
+  "WWW-Authenticate": Schema.optionalKey(Schema.String),
+}
+
+/** The RFC 9457 body and headers of a failure, for HttpApi codecs and router-level replies. */
+function restProblem(error: RestError) {
+  const status = restErrorStatus(error) ?? 500
+  const body: typeof RestApiErrorSchema.Type = {
+    type: "about:blank",
+    title: restErrorTitles[status] ?? "Request Failed",
+    status,
+    detail: error.message,
+    ...(error.issues ? { issues: error.issues } : {}),
+    ...(error.reference ? { reference: error.reference } : {}),
+  }
+  const headers: { "Retry-After"?: string; "WWW-Authenticate"?: string } = {
+    ...(status === 401 ? { "WWW-Authenticate": `Bearer realm="${APP_HANDLE}"` } : {}),
+    ...(error.retryAfterSeconds ? { "Retry-After": String(error.retryAfterSeconds) } : {}),
+  }
+  return { body, headers }
+}
+
+export function restProblemResponse(error: RestError): HttpServerResponse.HttpServerResponse {
+  const { body, headers } = restProblem(error)
+  return HttpServerResponse.jsonUnsafe(body, {
+    status: body.status,
+    headers,
+    contentType: "application/problem+json",
+  })
+}
+
+export function isRestError(error: unknown): error is RestError {
+  return (
+    restErrorStatus(error) !== undefined &&
+    Predicate.hasProperty(error, "message") &&
+    Predicate.isString(error.message)
+  )
+}
+
+// One codec per documented status keeps a single AstralBeamApiError response per status.
 const restErrorSchemas = [400, 401, 403, 404, 409, 413, 415, 422, 429, 500, 503].map((status) =>
-  HttpApiSchema.WithHeaders(RestApiErrorSchema, {
-    "Retry-After": Schema.optionalKey(Schema.String),
-    "WWW-Authenticate": Schema.optionalKey(Schema.String),
-  }).pipe(
-    HttpApiSchema.status(status),
-    HttpApiSchema.asJson({ contentType: "application/problem+json" }),
+  Schema.declare(
+    (error): error is RestError => isRestError(error) && restErrorStatus(error) === status,
+  ).pipe(
+    HttpApiSchema.encodeToWithHeaders(
+      {
+        // Each status annotates its own suspension, so OpenAPI still emits one shared component.
+        body: Schema.suspend(() => RestApiErrorSchema).pipe(
+          HttpApiSchema.status(status),
+          HttpApiSchema.asJson({ contentType: "application/problem+json" }),
+        ),
+        headers: restProblemHeaders,
+      },
+      {
+        decode: ({ body, headers }) =>
+          new RestProblem({
+            status: body.status,
+            message: body.detail,
+            ...(body.issues ? { issues: body.issues } : {}),
+            ...(body.reference ? { reference: body.reference } : {}),
+            ...(headers["Retry-After"]
+              ? { retryAfterSeconds: Number(headers["Retry-After"]) }
+              : {}),
+          }),
+        encode: restProblem,
+      },
+    ),
+    // A suspended body has no identifier to name the response after.
+    (codec) => codec.annotate({ description: "AstralBeamApiError" }),
   ),
 )
-export interface RestScope extends TenantScope {
-  currentUser?: OrganizationCurrentUser
-  externalTenantId?: string
-  tenantFilter?: string
-}
-export const restScope = Context.Service<RestScope>("RestScope")
-export class ApiBoundary extends HttpApiMiddleware.Service<ApiBoundary>()("ApiBoundary", {
-  error: restErrorSchemas,
-}) {}
+
+export class RestScope extends Context.Service<
+  RestScope,
+  TenantScope & {
+    readonly currentUser?: OrganizationCurrentUser | undefined
+    readonly externalTenantId?: string | undefined
+    readonly tenantFilter?: string | undefined
+  }
+>()("astralbeam/api/v1/RestScope") {}
+
+/** Owns request checks and turns every failure into a declared problem response. */
+export class ApiBoundary extends HttpApiMiddleware.Service<ApiBoundary>()(
+  "astralbeam/api/v1/ApiBoundary",
+  { error: restErrorSchemas },
+) {}
 
 export class RestAuthorization extends HttpApiMiddleware.Service<
   RestAuthorization,
-  { provides: RestScope; requires: Database }
->()("RestAuthorization") {}
+  { provides: RestScope }
+>()("astralbeam/api/v1/RestAuthorization", { error: restErrorSchemas }) {}
 
 const restPageCursor = NonEmptyStringSchema.check(Schema.isMaxLength(2048))
 export const restPageQuery = Schema.Struct({

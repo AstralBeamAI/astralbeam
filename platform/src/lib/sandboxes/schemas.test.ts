@@ -1,3 +1,5 @@
+import { it as effectIt } from "@effect/vitest"
+import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { decodeProviderCredentials, decodeProviderOptions } from "./schemas.ts"
@@ -22,14 +24,11 @@ describe("sandbox provider schemas", () => {
     expect(JSON.stringify(result)).not.toContain("private-test-secret")
   })
 
-  it("rejects provider-mismatched and unsafe stored values", () => {
-    expect(() =>
-      decodeProviderOptions("daytona", {
-        target: "us",
-        snapshot: "daytona-medium",
-        apiKey: "leak",
-      }),
-    ).toThrow()
-    expect(() => decodeProviderCredentials("docker", { apiKey: "token" })).toThrow()
-  })
+  effectIt.effect("rejects provider-mismatched and unsafe stored values", () =>
+    Effect.gen(function* () {
+      const options = { target: "us", snapshot: "daytona-medium", apiKey: "leak" }
+      yield* Effect.flip(decodeProviderOptions("daytona", options))
+      yield* Effect.flip(decodeProviderCredentials("docker", { apiKey: "token" }))
+    }),
+  )
 })
