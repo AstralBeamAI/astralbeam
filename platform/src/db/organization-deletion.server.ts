@@ -3,14 +3,14 @@ import { Effect } from "effect"
 import { SqlClient } from "effect/unstable/sql"
 
 // The cluster runner loads this module through Nitro, which cannot resolve the `@/` alias.
-import { effectDatabase } from "./index.ts"
+import { Database } from "./index.ts"
 import { user } from "./schema/authentication.server.ts"
 import { apiKey, invitation, member, organization } from "./schema/organizations.server.ts"
 
 /** Ends dashboard, REST, and SDK access at once and returns the owners' user IDs to notify. */
 export function revokeOrganizationAccess(organizationId: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     yield* db.delete(invitation).where(eq(invitation.organizationId, organizationId))
     yield* db.delete(apiKey).where(eq(apiKey.organizationId, organizationId))
     const members = yield* db
@@ -26,7 +26,7 @@ export function revokeOrganizationAccess(organizationId: string) {
 }
 
 export function readUserEmails(userIds: readonly string[]) {
-  return Effect.flatMap(effectDatabase, (db) =>
+  return Effect.flatMap(Database, (db) =>
     db
       .select({ email: user.email })
       .from(user)
@@ -58,7 +58,7 @@ export function deleteOrganizationTenantBatch(organizationId: string) {
 
 /** Cascades to the organization's remaining agents, sandbox providers, and configuration. */
 export function deleteOrganizationRow(organizationId: string) {
-  return Effect.flatMap(effectDatabase, (db) =>
+  return Effect.flatMap(Database, (db) =>
     db.delete(organization).where(eq(organization.id, organizationId)),
   )
 }

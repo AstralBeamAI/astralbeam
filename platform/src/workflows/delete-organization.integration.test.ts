@@ -16,7 +16,7 @@ const deleteOrganizationIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { effectDatabaseLayer, getAuthDatabase, runDatabaseEffect } from "@/db"
+import { Database, getAuthDatabase, runDatabaseEffect } from "@/db"
 import { revokeOrganizationAccess } from "@/db/organization-deletion.server"
 import {
   agent,
@@ -80,7 +80,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         Effect.provide(
           deleteOrganizationWorkflowLayer.pipe(
             Layer.provideMerge(WorkflowEngine.layerMemory),
-            Layer.provide(effectDatabaseLayer),
+            Layer.provide(Database.layerNoDeps),
           ),
         ),
       )
