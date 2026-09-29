@@ -23,6 +23,7 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/comp
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { authClient } from "@/lib/auth/client"
 import { requestOrganizationDeletion } from "../-functions/request-organization-deletion"
 
@@ -48,20 +49,14 @@ export function DeleteOrganizationCard({
   const remove = async () => {
     setDeleting(true)
     try {
-      const result = await requestOrganizationDeletion({
-        data: { organizationSlug, organizationId },
-      })
-      if (!result.ok) {
-        toast.add({ title: result.message, type: "error" })
-        return
-      }
+      await requestOrganizationDeletion({ data: { organizationSlug, organizationId } })
       await queryClient.invalidateQueries({
         queryKey: organizationQueryKeys.lists(session?.user.id),
       })
       toast.add({ title: `${organizationName} deleted`, type: "success" })
       await navigate({ to: "/", replace: true })
-    } catch {
-      toast.add({ title: "The organization could not be deleted. Try again.", type: "error" })
+    } catch (error) {
+      toast.add({ title: parseServerFnError(error).message, type: "error" })
     } finally {
       setDeleting(false)
     }

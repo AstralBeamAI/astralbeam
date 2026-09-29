@@ -1,34 +1,38 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { readOrganizationOpenaiApiKeyHint } from "@/lib/organizations/openai-api-key.server"
+import { Config } from "@/lib/config/config.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { getGlobalConfig } from "@/lib/config"
-import { toValidationSchema, SlugSchema } from "@/lib/schemas"
+import { readOrganizationOpenaiApiKeyHint } from "@/lib/organizations/openai-api-key.server"
+import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
+import { runEffect } from "@/lib/runtime/server-fn.server"
+import { toValidationSchema } from "@/lib/schemas"
 
 export const getOrganizationSettingsPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organization: ["update"] })])
-  .validator(toValidationSchema(Schema.Struct({ organizationSlug: SlugSchema })))
-  .handler(async ({ context }) => {
-    const dogfood = (await getGlobalConfig("dogfood_organization_id")) === context.organizationId
-    return runDatabaseEffect(
-      // The last four characters name the stored key for whoever is about to replace it. Nothing
-      // more of it reaches the browser.
-      readOrganizationOpenaiApiKeyHint(context.organizationId).pipe(
-        Effect.map((openaiApiKeyLast4) => ({
+  .validator(toValidationSchema(OrganizationRouteInputSchema))
+  .handler(({ context, serverFnMeta }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const dogfoodOrganizationId = yield* Effect.flatMap(Config, (config) =>
+          config.get("dogfood_organization_id"),
+        )
+        // The last four characters name the stored key for whoever is about to replace it.
+        // Nothing more of it reaches the browser.
+        const openaiApiKeyLast4 = yield* readOrganizationOpenaiApiKeyHint(context.organizationId)
+        return {
           data: {
             organization: {
               id: context.organizationId,
               name: context.organizationName,
               slug: context.organizationSlug,
-              dogfood,
+              dogfood: dogfoodOrganizationId === context.organizationId,
             },
             openaiApiKeyLast4,
           },
           permissions: context.permissions,
-        })),
-      ),
-    )
-  })
+        }
+      }),
+      serverFnMeta.name,
+    ),
+  )

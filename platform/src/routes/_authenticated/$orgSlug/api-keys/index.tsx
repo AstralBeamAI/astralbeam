@@ -1,9 +1,12 @@
+import { apiKeyQueryKeys } from "@better-auth-ui/core/plugins/api-key"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { ApiKeys } from "@/components/auth/api-key/api-keys"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
+import { throwOrganizationRouteError } from "../-lib/route-errors"
 import { getApiKeysPageData } from "./-functions/get-api-keys-page-data"
+import { firstApiKeysPageQuery } from "./-lib/constants"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/api-keys/")({
   beforeLoad: ({ context, params }) => {
@@ -11,7 +14,17 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/api-keys/")({
       throw redirect({ to: "/$orgSlug", params: { orgSlug: params.orgSlug }, replace: true })
     }
   },
-  loader: ({ params }) => getApiKeysPageData({ data: { organizationSlug: params.orgSlug } }),
+  loader: async ({ context: { access, queryClient }, params }) => {
+    const page = await getApiKeysPageData({ data: { organizationSlug: params.orgSlug } }).catch(
+      (error: unknown) => throwOrganizationRouteError(error, params.orgSlug),
+    )
+    const query = firstApiKeysPageQuery(page.data.organizationId)
+    queryClient.setQueryData(
+      apiKeyQueryKeys.list(access.userId, query),
+      page.data.apiKeys,
+    )
+    return page
+  },
   component: ApiKeysPage,
   pendingComponent: ApiKeysPageSkeleton,
   head: () => ({ meta: [{ title: `API keys · ${APP_NAME}` }] }),

@@ -2,8 +2,16 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { Spinner } from "@/components/ui/spinner"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { AppSidebar } from "../-components/app-sidebar"
-import { getOrganizationRouteContext } from "../$orgSlug/-functions/get-organization-route-context"
+import { getOrganizationRouteContext } from "../-functions/get-organization-route-context"
+
+function organizationUnavailableAsNull(error: unknown): null {
+  const { tag } = parseServerFnError(error)
+  if (tag === "OrganizationNotFound" || tag === "OrganizationAccessDenied") return null
+  throw error
+}
 
 export const Route = createFileRoute("/_authenticated/settings")({
   beforeLoad: ({ location }) => {
@@ -11,17 +19,18 @@ export const Route = createFileRoute("/_authenticated/settings")({
       throw redirect({ to: "/settings/account", replace: true })
     }
   },
-  // The account and security pages are user-level, so the sidebar follows the session's own
-  // active organization rather than a slug in the URL.
-  loader: async ({ context: { access } }) =>
-    access.status === "ready"
-      ? {
-          organization: await getOrganizationRouteContext({
+  // The account and security pages are user-level, so the sidebar follows the organization the
+  // session lands on rather than a slug in the URL, and renders without one it cannot read.
+  loader: async ({ context: { access } }) => ({
+    organization:
+      access.status === "ready"
+        ? await getOrganizationRouteContext({
             data: { organizationSlug: access.organizationSlug },
-          }),
-        }
-      : { organization: null },
+          }).catch(organizationUnavailableAsNull)
+        : null,
+  }),
   component: SettingsLayout,
+  pendingComponent: SettingsLayoutPending,
 })
 
 function SettingsLayout() {
@@ -46,5 +55,13 @@ function SettingsLayout() {
         <Outlet />
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+function SettingsLayoutPending() {
+  return (
+    <main className="grid min-h-svh place-items-center" aria-busy="true">
+      <Spinner className="size-6" />
+    </main>
   )
 }

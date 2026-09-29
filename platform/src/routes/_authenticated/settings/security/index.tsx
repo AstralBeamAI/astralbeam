@@ -1,10 +1,22 @@
+import { authQueryKeys } from "@better-auth-ui/core"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { Settings } from "@/components/auth/settings/settings"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
+import { getSecuritySettingsPageData } from "./-functions/get-security-settings-page-data"
 
 export const Route = createFileRoute("/_authenticated/settings/security/")({
+  // A list that needs a fresh sign-in stays unseeded, so its card shows the prompt itself.
+  loader: async ({ context: { access, queryClient } }) => {
+    const { accounts, sessions } = await getSecuritySettingsPageData()
+    if (accounts) {
+      queryClient.setQueryData(authQueryKeys.listAccounts(access.userId), accounts)
+    }
+    if (sessions) {
+      queryClient.setQueryData(authQueryKeys.listSessions(access.userId), sessions)
+    }
+  },
   component: SecuritySettingsRoute,
   pendingComponent: SecuritySettingsSkeleton,
   head: () => ({ meta: [{ title: `Security settings · ${APP_NAME}` }] }),

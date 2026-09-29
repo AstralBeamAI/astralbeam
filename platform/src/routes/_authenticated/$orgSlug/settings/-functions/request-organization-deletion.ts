@@ -1,14 +1,18 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
+import { Effect, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql"
 
 import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime.server"
-import { runDatabaseEffect } from "@/db"
+import { Config } from "@/lib/config/config.server"
 import { revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
-import { getGlobalConfig } from "@/lib/config"
+import {
+  DogfoodOrganizationProtected,
+  OrganizationChanged,
+  OrganizationDeletionUnavailable,
+} from "@/lib/organizations/errors"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { toValidationSchema, SlugSchema, UuidV7Schema } from "@/lib/schemas"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { SlugSchema, toValidationSchema, UuidV7Schema } from "@/lib/schemas"
 import deleteOrganization from "@/lib/workflows/delete-organization.server"
 
 export const requestOrganizationDeletion = createServerFn({ method: "POST" })
@@ -18,37 +22,49 @@ export const requestOrganizationDeletion = createServerFn({ method: "POST" })
       Schema.Struct({ organizationSlug: SlugSchema, organizationId: UuidV7Schema }),
     ),
   )
-  .handler(async ({ context, data }) => {
-    // The slug may have moved to another organization since the dialog rendered.
-    if (data.organizationId !== context.organizationId) {
-      return { ok: false as const, message: "This organization changed. Reload and try again." }
-    }
-    if ((await getGlobalConfig("dogfood_organization_id")) === context.organizationId) {
-      return { ok: false as const, message: "This deployment's own organization cannot be deleted" }
-    }
-    const { organizationId, organizationName } = context
-    // Commit the revocation and the purge request together. https://effect.website/docs/v4/api/effect/unstable/workflow/Workflow/
-    return runDatabaseEffect(
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
       Effect.gen(function* () {
+        const { organizationId, organizationName } = context
+        // The slug may have moved to another organization since the dialog rendered.
+        if (data.organizationId !== organizationId) return yield* new OrganizationChanged()
+        const config = yield* Config
+        if ((yield* config.get("dogfood_organization_id")) === organizationId) {
+          return yield* new DogfoodOrganizationProtected()
+        }
+        // Commit the revocation and the purge request together. https://effect.website/docs/v4/api/effect/unstable/workflow/Workflow/
         const sql = yield* SqlClient.SqlClient
-        yield* sql.withTransaction(
-          Effect.gen(function* () {
-            const ownerUserIds = yield* revokeOrganizationAccess(organizationId)
-            yield* deleteOrganization.execute(
-              { organizationId, operationId: crypto.randomUUID(), organizationName, ownerUserIds },
-              { discard: true },
-            )
-          }),
-        )
-        return { ok: true as const }
+        yield* sql
+          .withTransaction(
+            Effect.gen(function* () {
+              const ownerUserIds = yield* revokeOrganizationAccess(organizationId)
+              yield* deleteOrganization.execute(
+                {
+                  organizationId,
+                  operationId: crypto.randomUUID(),
+                  organizationName,
+                  ownerUserIds,
+                },
+                { discard: true },
+              )
+            }),
+          )
+          .pipe(
+            provideClusterWorkflowEngine,
+            Effect.catchTag("ClusterUnavailableError", () =>
+              Effect.fail(new OrganizationDeletionUnavailable()),
+            ),
+          )
       }).pipe(
-        provideClusterWorkflowEngine,
-        Effect.catchTag("ClusterUnavailableError", () =>
-          Effect.succeed({
-            ok: false as const,
-            message: "Background jobs are unavailable. Try again shortly.",
-          }),
+        Effect.catchTag(
+          [
+            "OrganizationChanged",
+            "DogfoodOrganizationProtected",
+            "OrganizationDeletionUnavailable",
+          ],
+          exposeError,
         ),
       ),
-    )
-  })
+      serverFnMeta.name,
+    ),
+  )

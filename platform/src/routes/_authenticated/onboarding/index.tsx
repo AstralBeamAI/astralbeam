@@ -1,9 +1,11 @@
 import { useSession } from "@better-auth-ui/react"
+import { organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
 import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router"
 
 import { Spinner } from "@/components/ui/spinner"
 import { authClient } from "@/lib/auth/client"
 import { APP_NAME } from "@/lib/constants"
+import { getUserInvitations } from "../-functions/get-user-invitations"
 import { OrganizationOnboarding } from "./-components/organization-onboarding"
 
 export const Route = createFileRoute("/_authenticated/onboarding/")({
@@ -11,6 +13,12 @@ export const Route = createFileRoute("/_authenticated/onboarding/")({
     if (access.status === "ready") {
       throw redirect({ href: `/${access.organizationSlug}`, replace: true })
     }
+  },
+  loader: async ({ context: { access, queryClient } }) => {
+    queryClient.setQueryData(
+      organizationQueryKeys.userInvitations.list(access.userId),
+      await getUserInvitations(),
+    )
   },
   component: OnboardingRoute,
   head: () => ({ meta: [{ title: `Get started · ${APP_NAME}` }] }),

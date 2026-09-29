@@ -2,12 +2,16 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
+import { throwOrganizationRouteError } from "./-lib/route-errors"
 import { DashboardIntegrationGuide } from "./-components/dashboard-integration-guide"
 import { DashboardResourceCards } from "./-components/dashboard-resource-cards"
 import { getDashboardPageData } from "./-functions/get-dashboard-page-data"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/")({
-  loader: ({ params }) => getDashboardPageData({ data: { organizationSlug: params.orgSlug } }),
+  loader: ({ params }) =>
+    getDashboardPageData({ data: { organizationSlug: params.orgSlug } }).catch((error: unknown) =>
+      throwOrganizationRouteError(error, params.orgSlug),
+    ),
   component: DashboardPage,
   pendingComponent: DashboardPageSkeleton,
   head: () => ({ meta: [{ title: `Dashboard · ${APP_NAME}` }] }),

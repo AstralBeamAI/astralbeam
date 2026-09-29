@@ -1,10 +1,11 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Schema from "effect/Schema"
 
-import { runDatabaseEffect } from "@/db"
-import { resolveOrganizationRouteAccess } from "@/lib/organizations/membership.server"
-import { toValidationSchema, SlugSchema } from "@/lib/schemas"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { toValidationSchema } from "@/lib/schemas"
+import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
 
+/** The organization, role, and permissions a layout renders around, read without writing. */
 export const getOrganizationRouteContext = createServerFn({ method: "GET" })
-  .validator(toValidationSchema(Schema.Struct({ organizationSlug: SlugSchema })))
-  .handler(({ data }) => runDatabaseEffect(resolveOrganizationRouteAccess(data.organizationSlug)))
+  .middleware([organizationAccessMiddleware()])
+  .validator(toValidationSchema(OrganizationRouteInputSchema))
+  .handler(({ context }) => context)

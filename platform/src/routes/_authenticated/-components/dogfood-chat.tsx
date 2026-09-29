@@ -2,14 +2,16 @@ import { AstralBeamChat, type AstralBeamChatRef } from "@astralbeam/sdk/react"
 import { ArrowCounterClockwiseIcon, ChatCircleIcon, XIcon } from "@phosphor-icons/react"
 import { useEffect, useId, useRef, useState } from "react"
 import { cn } from "cn"
-import { useMatches } from "@tanstack/react-router"
+import { getRouteApi, useMatches } from "@tanstack/react-router"
 import { useTheme } from "tanstack-router-theme-provider"
 
 import { Button } from "@/components/ui/button"
-import { authClient } from "@/lib/auth/client"
-import type { OrganizationAccess } from "@/lib/organizations/membership.server"
+
+import type { OrganizationAccess } from "@/lib/organizations/access"
 import { APP_NAME } from "@/lib/constants"
 import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "@/lib/widget-theme"
+
+const dogfoodChatRoute = getRouteApi("/_authenticated")
 
 export function DogfoodChat() {
   const organization = useMatches({
@@ -20,11 +22,11 @@ export function DogfoodChat() {
       return settings?.loaderData?.organization ?? null
     },
   })
-  const { data: session } = authClient.useSession()
-  if (!session || !organization) return null
+  const { access } = dogfoodChatRoute.useRouteContext()
+  if (!organization) return null
   return (
     <DogfoodChatPanel
-      key={`${session.user.id}:${organization.organizationId}`}
+      key={`${access.userId}:${organization.organizationId}`}
       organization={organization}
     />
   )

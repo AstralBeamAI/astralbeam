@@ -1,16 +1,11 @@
 import { createServerFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
-import { APIError } from "better-auth/api"
-import * as Schema from "effect/Schema"
+import { Effect, Schema } from "effect"
 
-import { getAuth } from "@/lib/auth/auth.server"
+import { Auth } from "@/lib/auth/auth.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { NonEmptyStringSchema, toValidationSchema, SlugSchema } from "@/lib/schemas"
-
-const OrganizationNameSchema = NonEmptyStringSchema.pipe(
-  Schema.check(Schema.isTrimmed()),
-  Schema.check(Schema.isMaxLength(100)),
-)
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { DisplayNameSchema, SlugSchema, toValidationSchema } from "@/lib/schemas"
 
 export const updateOrganizationSettings = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["update"] })])
@@ -18,27 +13,22 @@ export const updateOrganizationSettings = createServerFn({ method: "POST" })
     toValidationSchema(
       Schema.Struct({
         organizationSlug: SlugSchema,
-        name: OrganizationNameSchema,
+        name: DisplayNameSchema,
         slug: SlugSchema,
       }),
     ),
   )
-  .handler(async ({ context, data }) => {
-    const auth = await getAuth()
-    // Better Auth owns the organization table and re-checks the caller's permission itself.
-    try {
-      await auth.api.updateOrganization({
-        headers: getRequest().headers,
-        body: {
+  .handler(({ context, data, serverFnMeta }) => {
+    const headers = getRequest().headers
+    return runEffect(
+      Effect.flatMap(Auth, (auth) =>
+        auth.updateOrganization({
+          headers,
           organizationId: context.organizationId,
-          data: { name: data.name, slug: data.slug },
-        },
-      })
-    } catch (error) {
-      if (error instanceof APIError && error.body?.code === "ORGANIZATION_SLUG_ALREADY_TAKEN") {
-        return { ok: false as const, message: "An organization with this slug already exists" }
-      }
-      throw error
-    }
-    return { ok: true as const }
+          name: data.name,
+          slug: data.slug,
+        }),
+      ).pipe(Effect.catchTag("OrganizationSlugTaken", exposeError)),
+      serverFnMeta.name,
+    )
   })
