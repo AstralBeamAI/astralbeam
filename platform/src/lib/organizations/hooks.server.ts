@@ -6,7 +6,7 @@ import { Effect, Schema } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
-import { getAppRuntime } from "@/lib/runtime/runtime.server"
+import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { isValidOpenaiApiKey, SlugSchema } from "@/lib/schemas"
 import { SLUG_VALIDATION_MESSAGE } from "@/lib/organizations/slug"
 import { organizationRoles } from "./access.ts"
@@ -88,7 +88,7 @@ export const organizationRoleHooks = {
 export const organizationProvisioningHooks = {
   afterCreateOrganization: async ({ organization }) => {
     const openaiApiKey = import.meta.env.DEV ? process.env.OPENAI_API_KEY?.trim() : undefined
-    await getAppRuntime().runPromise(
+    await runAppEffect(
       Effect.flatMap(Agents, (agents) =>
         agents.provisionDefault({
           organizationId: organization.id,

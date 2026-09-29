@@ -15,7 +15,7 @@ import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { Context, Effect, Layer, Predicate, Ref } from "effect"
 
-import { getAuthDatabase } from "@/db"
+import { getAuthDatabase } from "@/db/database.server"
 import { tables } from "@/db/schema.server"
 import {
   sendAccountExistsEmail,
@@ -41,7 +41,7 @@ import {
   organizationProvisioningHooks,
   organizationRoleHooks,
 } from "@/lib/organizations/hooks.server"
-import { getAppRuntime } from "@/lib/runtime/runtime.server"
+import { forkAppEffect, runAppEffect } from "@/lib/runtime/app-effect.server"
 import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
 import {
   assertAuthEmailDelivered,
@@ -121,7 +121,7 @@ async function buildVerificationURL(config: AuthConfig, email: string): Promise<
 // A password-change notice is informational and its recipient is not waiting on it, so it runs
 // past the response instead of blocking like the emails deliverBlockingAuthEmail guards.
 function notifyPasswordChanged(user: { email: string }): Promise<void> {
-  getAppRuntime().runFork(
+  forkAppEffect(
     Effect.tryPromise(() => sendPasswordChangedEmail({ user })).pipe(
       Effect.catchCause(() => Effect.logError("Password-change notification delivery failed")),
     ),
@@ -338,7 +338,7 @@ function buildAuth(config: AuthConfig) {
         const body = recordValue(context.body)
         if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
           // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
-          await getAppRuntime().runPromise(
+          await runAppEffect(
             deleteOrganizationApiKey({
               headers: context.headers ?? new Headers(),
               keyId: body.keyId,
@@ -492,10 +492,11 @@ export class Auth extends Context.Service<
         return auth
       })
 
+      // Dies with Better Auth's own error, which a hook rethrows to its caller unchanged.
       const api = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
-        Effect.flatMap(instance, (auth) => Effect.tryPromise(() => call(auth.api))).pipe(
-          Effect.orDie,
-        )
+        Effect.flatMap(instance, (auth) =>
+          Effect.tryPromise({ try: () => call(auth.api), catch: (cause) => cause }),
+        ).pipe(Effect.orDie)
 
       /** Answers Better Auth's refusal with `code` through `onRefused`; any other failure dies. */
       const apiUnlessRefused = <A, B, E>(
@@ -588,5 +589,5 @@ export class Auth extends Context.Service<
 
 /** A Promise bridge for the REST routes. Effect code yields the `Auth` service instead. */
 export function getAuth(): Promise<AppAuth> {
-  return getAppRuntime().runPromise(Effect.flatMap(Auth, (auth) => auth.instance))
+  return runAppEffect(Effect.flatMap(Auth, (auth) => auth.instance))
 }

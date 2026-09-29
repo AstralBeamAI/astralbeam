@@ -7,7 +7,7 @@ import {
   AUTH_EMAIL_DELIVERY_FAILED_CODE,
   AUTH_EMAIL_DELIVERY_FAILED_MESSAGE,
 } from "@/lib/auth/email-delivery"
-import { getAppRuntime } from "@/lib/runtime/runtime.server"
+import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { AuthEmailNotDelivered } from "./errors.ts"
 
 /**
@@ -57,7 +57,7 @@ export function deliverBlockingAuthEmail(
   request: Request | undefined,
   send: () => Promise<void>,
 ): Promise<void> {
-  return getAppRuntime().runPromise(
+  return runAppEffect(
     // The send boundary already logged the provider's reason against the masked recipient.
     Effect.tryPromise({ try: send, catch: authEmailDeliveryError }).pipe(
       Effect.tapError((error) =>

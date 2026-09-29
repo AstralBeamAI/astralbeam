@@ -1,11 +1,13 @@
 import { assert, describe, it } from "@effect/vitest"
-import { ConfigProvider, Deferred, Effect, Fiber, Layer, Result } from "effect"
-import { beforeAll, beforeEach, vi } from "vitest"
+import { Deferred, Effect, Fiber, Layer, Result } from "effect"
+import { afterEach, beforeAll, beforeEach, vi } from "vitest"
 
 import { Database, type EffectDatabase } from "@/db/database.server"
 import { configTable } from "@/db/schema/config.server"
 import { Config, publicConfigFromValues } from "./config.server.ts"
 import {
+  CONFIG_DEFINITIONS,
+  configEnvironmentVariable,
   decodeConfigValue,
   findConfigDefinition,
   validateConfigCompleteness,
@@ -39,7 +41,20 @@ beforeAll(() => {
 
 beforeEach(() => {
   migrations.pending = false
+  // A developer's own shell must not leak into what the tests expect.
+  for (const definition of CONFIG_DEFINITIONS) {
+    vi.stubEnv(configEnvironmentVariable(definition.key), "")
+  }
 })
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.stubEnv("DATABASE_ENCRYPTION_KEY", SECRET)
+})
+
+function stubEnvironment(env: Record<string, string>) {
+  for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value)
+}
 
 function encryptedRows(values: Record<string, string>): StoredRow[] {
   return Object.entries(values).map(([key, value]) => ({
@@ -60,14 +75,8 @@ function configDatabase(state: { rows: StoredRow[]; reads: number; gate?: Effect
   } as unknown as EffectDatabase)
 }
 
-function configLayer(
-  state: { rows: StoredRow[]; reads: number; gate?: Effect.Effect<void> },
-  env: Record<string, string> = {},
-) {
-  return Config.layerNoDeps.pipe(
-    Layer.provide(configDatabase(state)),
-    Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
-  )
+function configLayer(state: { rows: StoredRow[]; reads: number; gate?: Effect.Effect<void> }) {
+  return Config.layerNoDeps.pipe(Layer.provide(configDatabase(state)))
 }
 
 describe("configuration registry", () => {
@@ -131,12 +140,12 @@ describe("configuration registry", () => {
 describe("Config", () => {
   it.effect("lets environment values override stored ones while defaults remain", () => {
     const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
-    const env = {
+    stubEnvironment({
       APP_BASE_URL: JSON.stringify("https://environment.example"),
       BETTER_AUTH_SECRET: JSON.stringify("b".repeat(64)),
       SMTP_PORT: "587",
       DOGFOOD_API_KEY: "attacker-value",
-    }
+    })
     return Effect.gen(function* () {
       const { values, environmentKeys } = yield* Effect.flatMap(Config, (config) => config.snapshot)
       assert.deepInclude(values, {
@@ -150,7 +159,7 @@ describe("Config", () => {
         dogfood_api_key: COMPLETE_VALUES.dogfood_api_key,
       })
       assert.isFalse(environmentKeys.has("dogfood_api_key"))
-    }).pipe(Effect.provide(configLayer(state, env)))
+    }).pipe(Effect.provide(configLayer(state)))
   })
 
   it.effect("keeps only features that need an unreadable value incomplete", () => {
@@ -221,6 +230,7 @@ describe("Config", () => {
 
   it.effect("refuses generic writes to system-managed and environment-supplied keys", () => {
     const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
+    stubEnvironment({ APP_BASE_URL: "https://environment.example" })
     return Effect.gen(function* () {
       const config = yield* Config
       for (const key of ["dogfood_organization_id", "dogfood_api_key", "app_base_url"]) {
@@ -232,6 +242,6 @@ describe("Config", () => {
         (yield* Effect.flip(config.reveal("dogfood_api_key")))._tag,
         "ConfigValueNotRevealable",
       )
-    }).pipe(Effect.provide(configLayer(state, { APP_BASE_URL: "https://environment.example" })))
+    }).pipe(Effect.provide(configLayer(state)))
   })
 })

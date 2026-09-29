@@ -1,16 +1,13 @@
 import { assert, describe, it } from "@effect/vitest"
-import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
+import { Cause, Effect, Exit, Logger } from "effect"
 import { afterAll, beforeAll, vi } from "vitest"
 
-import { getDatabaseConfigEffect } from "./store.server.ts"
-import { type EffectDatabase, Database } from "@/db"
+import type { EffectDatabase } from "@/db/database.server"
 import { configTable } from "../../db/schema/config.server.ts"
-
-const ACTIVE_KEY = "a".repeat(64)
+import { readDatabaseConfig } from "./store.server.ts"
 
 beforeAll(() => {
-  vi.stubEnv("DATABASE_ENCRYPTION_KEY", ACTIVE_KEY)
+  vi.stubEnv("DATABASE_ENCRYPTION_KEY", "a".repeat(64))
 })
 
 afterAll(() => {
@@ -19,71 +16,49 @@ afterAll(() => {
 
 describe("database configuration", () => {
   it.effect("fails closed for unreadable and mismatched encrypted values", () => {
-    const database = readDatabase([
-      { key: "better_auth_secret", storedValue: "not-a-compact-jwe" },
-      {
-        key: "turnstile_secret_key",
-        storedValue: encryptedRow("resend_api_key", "provider-secret").storedValue,
-      },
-    ])
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {})
-
+    const lines: string[] = []
+    const database = readDatabase(
+      Effect.succeed([
+        { key: "better_auth_secret", storedValue: "not-a-compact-jwe" },
+        {
+          key: "turnstile_secret_key",
+          storedValue: encryptedValue("resend_api_key", "provider-secret"),
+        },
+      ]),
+    )
     return Effect.gen(function* () {
-      const state = yield* getDatabaseConfigEffect()
-
-      assert.strictEqual(state.values.better_auth_secret, undefined)
-      assert.strictEqual(state.values.turnstile_secret_key, undefined)
+      const state = yield* readDatabaseConfig(database)
+      assert.deepStrictEqual(state.values, {})
       assert.deepStrictEqual(state.rows, [
         { key: "better_auth_secret", storageStatus: "unreadable" },
         { key: "turnstile_secret_key", storageStatus: "unreadable" },
       ])
-      assert(logged.mock.calls.length > 0)
-      const loggedOutput = JSON.stringify(logged.mock.calls)
-      assert(!loggedOutput.includes("not-a-compact-jwe"))
-      assert(!loggedOutput.includes("provider-secret"))
+      assert.isAbove(lines.length, 0)
+      assert.notInclude(lines.join("\n"), "not-a-compact-jwe")
+      assert.notInclude(lines.join("\n"), "provider-secret")
     }).pipe(
-      Effect.ensuring(Effect.sync(() => logged.mockRestore())),
-      Effect.provide(Layer.succeed(Database, database)),
+      Effect.provide(Logger.layer([Logger.map(Logger.formatJson, (line) => lines.push(line))])),
     )
   })
 
-  it.effect("treats only a missing config table as an empty bootstrap state", () => {
-    const missingTable = Object.assign(new Error("missing table"), { code: "42P01" })
-    const unavailable = Object.assign(new Error("database unavailable"), { code: "08006" })
+  it.effect("treats only a missing config table as an empty bootstrap state", () =>
+    Effect.gen(function* () {
+      const missingTable = Object.assign(new Error("missing table"), { code: "42P01" })
+      const bootstrap = yield* readDatabaseConfig(readDatabase(Effect.fail(missingTable)))
+      assert.deepStrictEqual(bootstrap, { rows: null, values: {} })
 
-    return Effect.gen(function* () {
-      const state = yield* getDatabaseConfigEffect().pipe(
-        Effect.provide(Layer.succeed(Database, readDatabase(Effect.fail(missingTable)))),
-      )
-      assert.strictEqual(state.rows, null)
-      assert.deepStrictEqual(state.values, {})
-
-      const error = yield* getDatabaseConfigEffect().pipe(
-        Effect.provide(Layer.succeed(Database, readDatabase(Effect.fail(unavailable)))),
-        Effect.flip,
-      )
-      assert.strictEqual<unknown>(error, unavailable)
-    })
-  })
+      const unavailable = Object.assign(new Error("database unavailable"), { code: "08006" })
+      const exit = yield* Effect.exit(readDatabaseConfig(readDatabase(Effect.fail(unavailable))))
+      assert.isTrue(Exit.isFailure(exit) && Cause.hasDies(exit.cause))
+    }),
+  )
 })
 
-type StoredRow = {
-  readonly key: string
-  readonly storedValue: string
+function encryptedValue(key: string, value: string): string {
+  return configTable.value.mapToDriverValue({ key, value }) as string
 }
 
-function encryptedRow(key: string, value: string): StoredRow {
-  const storedValue: unknown = configTable.value.mapToDriverValue({ key, value })
-  if (typeof storedValue !== "string") throw new Error("Expected an encrypted config value")
-  return { key, storedValue }
-}
-
-function readDatabase(
-  rows: readonly StoredRow[] | Effect.Effect<readonly StoredRow[], unknown>,
-): EffectDatabase {
-  const result = Effect.isEffect(rows) ? rows : Effect.succeed(rows)
-  const query = Object.assign(result, { where: () => result })
-  return {
-    select: () => ({ from: () => query }),
-  } as unknown as EffectDatabase
+function readDatabase(rows: Effect.Effect<readonly unknown[], unknown>): EffectDatabase {
+  const query = Object.assign(rows, { where: () => rows })
+  return { select: () => ({ from: () => query }) } as unknown as EffectDatabase
 }
