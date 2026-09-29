@@ -50,6 +50,33 @@ describe("runEffect", () => {
     ])
   })
 
+  it("never answers another in-flight request whose socket settles the fiber", async () => {
+    let releaseOther: () => void = () => {}
+    let insideOther: ((evaluate: () => void) => void) | undefined
+    const otherStarted = Promise.withResolvers<void>()
+    const other = requestHandler(async () => {
+      insideOther = AsyncLocalStorage.snapshot()
+      otherStarted.resolve()
+      await new Promise<void>((resolve) => (releaseOther = resolve))
+      return new Response("other")
+    })(new Request("http://localhost/_serverFn/other"), undefined)
+    await otherStarted.promise
+    // The query's socket was opened by the other request, so its callback resumes there.
+    const resumeInOther = Effect.callback<void>((resume) => {
+      insideOther!(() => setTimeout(() => resume(Effect.void), 1))
+    })
+    const response = await serveServerFn(
+      resumeInOther.pipe(
+        Effect.andThen(
+          tryPromiseInServerRequest(() => Promise.resolve(setCookie("session_token", "mine"))),
+        ),
+      ),
+    )
+    releaseOther()
+    expect(response.headers.getSetCookie()).toEqual(["session_token=mine; Path=/"])
+    expect((await other).headers.getSetCookie()).toEqual([])
+  })
+
   it("throws an exposed failure as its tag and user-safe message with its status", async () => {
     const response = await serveServerFn(
       Effect.fail(new AgentNameTaken()).pipe(

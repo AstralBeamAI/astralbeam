@@ -163,20 +163,19 @@ export class Dogfood extends Context.Service<
         if (!customer && pending.organizationId) {
           return yield* new OwnerOnboardingFailed({ reason: "organizationUnavailable" })
         }
-        customer ??= yield* auth.instance.pipe(
-          Effect.flatMap((instance) =>
-            Effect.tryPromise(() =>
-              instance.api.createOrganization({
-                body: {
-                  name: pending.organizationName,
-                  slug: pending.organizationSlug,
-                  userId: owner.id,
-                },
-              }),
-            ),
-          ),
-          Effect.mapError(() => new OwnerOnboardingFailed({ reason: "organizationNotCreated" })),
-        )
+        customer ??= yield* auth
+          .api((api) =>
+            api.createOrganization({
+              body: {
+                name: pending.organizationName,
+                slug: pending.organizationSlug,
+                userId: owner.id,
+              },
+            }),
+          )
+          .pipe(
+            Effect.mapError(() => new OwnerOnboardingFailed({ reason: "organizationNotCreated" })),
+          )
         const organizationId = customer.id
         yield* savePendingOwner({ ...pending, organizationId })
         yield* agents.provisionDefault({ organizationId, organizationName: customer.name })
