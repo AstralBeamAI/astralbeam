@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm"
-import { Duration, Effect } from "effect"
+import { Duration, Effect, Predicate } from "effect"
 import { decodeProtectedHeader } from "jose"
 import {
   authenticateOrganizationRequest,
@@ -7,12 +7,16 @@ import {
 } from "@/lib/auth/organization-token.server"
 import { Database } from "@/db/database.server"
 import { apiKey, organization } from "@/db/schema/organizations.server"
-import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter.server"
+import {
+  DatabaseRateLimiter,
+  hashedRateLimitKey,
+  rateLimitRetryAfterSeconds,
+} from "@/db/lib/rate-limiter.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
 import { ORGANIZATION_API_KEY_CONFIG_ID, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { Auth } from "@/lib/auth/auth.server"
 import { authorizeOrganizationRole } from "@/lib/organizations/access"
-import { authenticateChatRequest } from "@/lib/chat/auth.server"
+import { authenticateChatRequest, readBearerToken } from "@/lib/chat/auth.server"
 import {
   RestInvalidCredentials,
   RestMembershipRequired,
@@ -31,7 +35,7 @@ function readRestCredential(value: string | null | undefined): string | undefine
 }
 
 export function readRestBearerToken(request: Request): string | undefined {
-  return readRestCredential(/^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1])
+  return readRestCredential(readBearerToken(request))
 }
 
 export const decodeRestTokenType = Effect.fn("decodeRestTokenType")(function* (token: string) {
@@ -54,10 +58,7 @@ export const consumeRestRateLimit = Effect.fn("consumeRestRateLimit")(function* 
       error.reason._tag === "RateLimitExceeded"
         ? Effect.fail(
             new RestRateLimited({
-              retryAfterSeconds: Math.max(
-                1,
-                Math.ceil(Duration.toMillis(error.reason.retryAfter) / 1000),
-              ),
+              retryAfterSeconds: rateLimitRetryAfterSeconds(error.reason.retryAfter),
             }),
           )
         : Effect.die(error),
@@ -95,8 +96,8 @@ const authenticateRestApiKey = Effect.fn("authenticateRestApiKey")(function* (cr
       const milliseconds = details.details?.tryAgainIn
       return yield* new RestRateLimited({
         retryAfterSeconds:
-          typeof milliseconds === "number" && Number.isFinite(milliseconds)
-            ? Math.max(1, Math.ceil(milliseconds / 1000))
+          Predicate.isNumber(milliseconds) && Number.isFinite(milliseconds)
+            ? rateLimitRetryAfterSeconds(milliseconds)
             : 300,
       })
     }

@@ -5,11 +5,11 @@ import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { runEffect } from "@/lib/runtime/server-fn.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { toValidationSchema } from "@/lib/schemas"
-import { OrganizationSlugInputSchema } from "../-lib/schemas.ts"
+import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
 
 export const getSandboxesPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
-  .validator(toValidationSchema(OrganizationSlugInputSchema))
+  .validator(toValidationSchema(OrganizationRouteInputSchema))
   .handler(({ context, serverFnMeta }) =>
     runEffect(
       Effect.flatMap(SandboxProviders, (providers) =>

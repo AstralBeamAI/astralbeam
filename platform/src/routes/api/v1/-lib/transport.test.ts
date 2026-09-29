@@ -52,9 +52,10 @@ vi.mock("@/db/lib/database-credentials.server", async (original) => ({
   ...(await original<typeof import("@/db/lib/database-credentials.server")>()),
   getDatabaseBootstrapIssues: vi.fn(),
 }))
-vi.mock("@/lib/chat/auth.server", async () => {
+vi.mock("@/lib/chat/auth.server", async (original) => {
   const { ChatAuthenticationError } = await import("@/lib/chat/errors")
   return {
+    ...(await original<typeof import("@/lib/chat/auth.server")>()),
     authenticateChatRequest: (request: Request) =>
       Effect.tryPromise({
         try: () => restTestState.chat(request) as Promise<unknown>,

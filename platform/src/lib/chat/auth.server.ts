@@ -145,8 +145,13 @@ function parseChatApiKeyId(apiKeyId: unknown) {
     : Effect.fail(new ChatAuthenticationError())
 }
 
+/** The token an `Authorization: Bearer` header carries. */
+export function readBearerToken(request: Request): string | undefined {
+  return /^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1]
+}
+
 function readChatBearerToken(request: Request) {
-  const token = /^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1]
+  const token = readBearerToken(request)
   return token && token.length <= CHAT_AUTH_TOKEN_MAX_LENGTH
     ? Effect.succeed(token)
     : Effect.fail(new ChatAuthenticationError())

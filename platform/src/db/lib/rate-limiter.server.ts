@@ -20,6 +20,11 @@ export function hashedRateLimitKey(namespace: string, identity: readonly string[
   return `${namespace}:${createHash("sha256").update(JSON.stringify(identity)).digest("base64url")}`
 }
 
+/** Whole seconds until a limited caller may retry, never zero, for a `Retry-After` header. */
+export function rateLimitRetryAfterSeconds(retryAfter: Duration.Input): number {
+  return Math.max(1, Math.ceil(Duration.toMillis(retryAfter) / 1_000))
+}
+
 function storeError(cause?: unknown): RateLimiter.RateLimiterError {
   const message = "Rate-limit database operation failed"
   const reason =

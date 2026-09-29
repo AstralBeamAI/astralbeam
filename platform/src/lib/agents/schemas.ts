@@ -1,9 +1,13 @@
 import { Schema } from "effect"
 
 // Relative, because seed modules import this under a plain `deno run` without the `@/` alias.
-import { DisplayNameSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
+import {
+  DisplayNameSchema,
+  NonEmptyStringSchema,
+  UUID_V7_PATTERN,
+  UuidV7Schema,
+} from "../schemas.ts"
 
-const UUID_V7_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 const AGENT_ID_PATTERN = new RegExp(`^agent_(${UUID_V7_PATTERN})_(${UUID_V7_PATTERN})$`)
 
 /** The public `agent_<organizationId>_<id>` form of an agent's composite key. */

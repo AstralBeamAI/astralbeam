@@ -2,6 +2,8 @@ import type { ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
 // Seed modules and the database schema import this under a plain `deno run`, so it has no `@/` imports.
 import { Schema } from "effect"
 
+import { UUID_V7_PATTERN } from "../schemas.ts"
+
 export type OrganizationApiKey = ListedApiKey
 
 export const ORGANIZATION_API_KEY_PREFIX = "abo_"
@@ -18,7 +20,6 @@ const ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MINUTES = 5
 export const ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS =
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MINUTES * 60 * 1_000
 
-const UUID_V7_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 const API_KEY_ID_PATTERN = new RegExp(`^key_(${UUID_V7_PATTERN})_(${UUID_V7_PATTERN})$`)
 const API_KEY_CREDENTIAL_PATTERN = new RegExp(
   `^key_(${UUID_V7_PATTERN})_(${UUID_V7_PATTERN})_(${ORGANIZATION_API_KEY_PREFIX}[A-Za-z]{${ORGANIZATION_API_KEY_SECRET_LENGTH}})$`,

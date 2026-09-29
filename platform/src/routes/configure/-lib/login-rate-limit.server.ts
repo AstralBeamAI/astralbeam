@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import { RateLimiter } from "effect/unstable/persistence"
 
 import { sqlState } from "@/db/lib/sqlstate.server"
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { DatabaseRateLimiter, rateLimitRetryAfterSeconds } from "@/db/lib/rate-limiter.server"
 
 const OPERATOR_LOGIN_RATE_LIMIT_KEY = "configure:operator-login"
 const OPERATOR_LOGIN_WINDOW = Duration.minutes(1)
@@ -30,7 +30,7 @@ function operatorLoginDecision(
 ): OperatorLoginRateLimitDecision {
   return {
     allowed,
-    retryAfterSeconds: Math.max(1, Math.ceil(Duration.toMillis(resetAfter) / 1_000)),
+    retryAfterSeconds: rateLimitRetryAfterSeconds(resetAfter),
   }
 }
 
