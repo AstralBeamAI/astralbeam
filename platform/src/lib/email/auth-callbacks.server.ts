@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 
-import { getAppRuntime } from "@/lib/runtime/runtime.server"
+import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { Mailer } from "./email.server.ts"
 import type {
   AccountExistsEmailData,
@@ -12,7 +12,7 @@ import type {
 // Seam: Better Auth callbacks await Promises, so these run Mailer sends on the app runtime until
 // the Auth service calls the Mailer directly. A rejection carries only `EmailDeliveryError`.
 function runMailerSend(send: (mailer: Mailer["Service"]) => Effect.Effect<void, unknown>) {
-  return getAppRuntime().runPromise(Effect.flatMap(Mailer, send))
+  return runAppEffect(Effect.flatMap(Mailer, send))
 }
 
 export function sendVerificationEmail(data: BetterAuthLinkEmailData): Promise<void> {

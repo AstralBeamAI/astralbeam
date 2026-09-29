@@ -20,6 +20,23 @@ export const NonEmptyStringSchema = Schema.String.check(
   Schema.isMinLength(1, { message: "Must not be empty" }),
 )
 
+/** A trimmed display name, such as an organization's or an agent's. */
+export const DisplayNameSchema = NonEmptyStringSchema.pipe(
+  Schema.check(Schema.isTrimmed()),
+  Schema.check(Schema.isMaxLength(100)),
+)
+
+// Better Auth validates addresses with Zod's `z.email()`, so a value this accepts it accepts too.
+// https://zod.dev/api#emails
+export const EmailAddressSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^(?!\.)(?!.+\.\.)[\w'+.-]*[\w+-]@(?:[a-z0-9][a-z0-9-]*\.)+[a-z]{2,}$/i, {
+      message: "Must be a valid email address",
+    }),
+    Schema.isMaxLength(254),
+  ),
+)
+
 export function enumSchema<const Values extends readonly string[]>(values: Values) {
   return Schema.Literals(values).annotate({
     message: `Must be ${new Intl.ListFormat("en", { type: "disjunction" }).format(values)}`,

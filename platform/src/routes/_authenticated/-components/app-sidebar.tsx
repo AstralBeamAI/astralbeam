@@ -36,8 +36,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import type { OrganizationAccess } from "@/lib/organizations/membership.server"
-import type { OrganizationPermissions } from "@/lib/organizations/access"
+import type { OrganizationAccess, OrganizationPermissions } from "@/lib/organizations/access"
 
 type OrganizationNavigationEntry = {
   label: string

@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { chatParamsFromRequestBody } from "@tanstack/ai"
 import { Effect, Layer, Stream } from "effect"
-import { beforeEach, vi } from "vitest"
+import { beforeAll, beforeEach, vi } from "vitest"
 
 const chatRunTest = vi.hoisted(() => ({
   options: [] as Array<{ systemPrompts: string[]; tools: Array<{ name: string }> }>,
@@ -35,6 +35,7 @@ vi.mock("@tanstack/ai", async (original) => ({
 
 import { Database, type EffectDatabase } from "@/db/database.server"
 import { DatabaseEncryptionError } from "@/db/lib/encryption.server"
+import { organizationConfiguration } from "@/db/schema/organizations.server"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
@@ -58,6 +59,11 @@ const sandboxedAgent: ChatAgent = {
 
 // A stored key that fails to decrypt dies inside Drizzle's row mapping with this tag.
 const undecryptable = new DatabaseEncryptionError()
+const CHAT_TEST_OPENAI_API_KEY = `sk-${"a".repeat(32)}`
+
+beforeAll(() => {
+  vi.stubEnv("DATABASE_ENCRYPTION_KEY", "a".repeat(64))
+})
 
 function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
@@ -67,19 +73,19 @@ function chatTestLayer(options: {
     resolveForChat: () =>
       options.agent ? Effect.succeed(options.agent) : Effect.fail(new AgentNotFound()),
   } as unknown as Agents["Service"]
-  const limit = () =>
+  // The key read selects the column's raw ciphertext and decrypts it itself.
+  const storedValue =
     options.key instanceof DatabaseEncryptionError
-      ? Effect.die(options.key)
-      : Effect.succeed(
-          options.key
-            ? [
-                {
-                  organizationId: ORGANIZATION_ID,
-                  openaiApiKey: { organizationId: ORGANIZATION_ID, ...options.key },
-                },
-              ]
-            : [],
+      ? "not-a-compact-jwe"
+      : options.key &&
+        String(
+          organizationConfiguration.openaiApiKey.mapToDriverValue({
+            organizationId: ORGANIZATION_ID,
+            ...options.key,
+          }),
         )
+  const limit = () =>
+    Effect.succeed(storedValue ? [{ organizationId: ORGANIZATION_ID, storedValue }] : [])
   const query = { from: () => query, where: () => query, limit }
   const database = { select: () => query } as unknown as EffectDatabase
   const sandboxes = {
@@ -167,7 +173,11 @@ describe("Chat.run", () => {
         runChat({ messages: [{ id: "user-1", role: "user", content: [document] }] }),
       )
       assert.strictEqual(failure._tag, "ChatAttachmentsDisabled")
-    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, key: { apiKey: "sk-test" } }))),
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
+      ),
+    ),
   )
 
   it.effect(
@@ -180,7 +190,11 @@ describe("Chat.run", () => {
         assert.isFalse(options?.systemPrompts.includes(CHAT_SANDBOX_SYSTEM_PROMPT))
         assert.isFalse(options?.tools.some((tool) => tool.name.startsWith("sandbox_")))
         assert.include(options?.systemPrompts, sandboxedAgent.systemPrompt)
-      }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, key: { apiKey: "sk-test" } }))),
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
+        ),
+      ),
   )
 
   it.effect("aborts the provider request before closing the run when the client goes away", () =>
@@ -194,6 +208,10 @@ describe("Chat.run", () => {
       yield* Effect.promise(() => iterator.return!())
       yield* Effect.promise(() => pending)
       assert.deepStrictEqual(chatRunTest.order, ["aborted", "closed"])
-    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, key: { apiKey: "sk-test" } }))),
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
+      ),
+    ),
   )
 })

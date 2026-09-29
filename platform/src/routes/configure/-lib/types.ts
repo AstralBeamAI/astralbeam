@@ -4,7 +4,7 @@ import type {
   ConfigKey,
   ConfigStorageEntry,
 } from "@/lib/config/types"
-import type { DogfoodOnboarding } from "@/lib/dogfood/schema"
+import type { DogfoodOnboarding } from "@/lib/dogfood/schemas"
 
 export interface ConfigureField {
   key: ConfigKey

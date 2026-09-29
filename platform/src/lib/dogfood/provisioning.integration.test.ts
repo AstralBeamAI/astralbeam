@@ -53,9 +53,8 @@ vi.mock("@/lib/email/auth-callbacks.server", () => ({
 }))
 
 import { getAuthDatabase, runDatabaseEffect } from "@/db"
-import { getDatabaseConfig } from "@/lib/config/store.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { withDogfoodProvisioningLock } from "@/lib/dogfood/dogfood.server"
+import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import {
   account,
   agent,
@@ -73,7 +72,8 @@ import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
 import { getAuth } from "@/lib/auth/auth.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { sendResetPasswordEmail } from "@/lib/email/auth-callbacks.server"
-import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
+import { Config } from "@/lib/config/config.server"
+import type { ConfigValues } from "@/lib/config/types"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
 import { authenticateChatRequest } from "@/lib/chat/auth.server"
 import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
@@ -81,7 +81,7 @@ import type { ChatPrincipal } from "@/lib/chat/types"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
-import { provisionDogfoodResources, readDogfoodOnboarding } from "./provisioning.server"
+import type { OwnerOnboarding } from "./schemas.ts"
 
 const ownerOnboardingFixture = {
   email: "provisioning-owner@example.com",
@@ -101,8 +101,22 @@ async function synchronizeDashboardIdentity(organizationSlug: string, headers: H
   )
 }
 
-function provisionDogfood(input = ownerOnboardingFixture) {
-  return runDatabaseEffect(withDogfoodProvisioningLock(provisionDogfoodResources(input)))
+function provisionDogfood(input: OwnerOnboarding = ownerOnboardingFixture) {
+  return runDatabaseEffect(
+    Effect.flatMap(Dogfood, (dogfood) => dogfood.withProvisioningLock(dogfood.provision(input))),
+  )
+}
+
+function getDatabaseConfig() {
+  return runDatabaseEffect(Effect.flatMap(Config, (config) => config.readStored))
+}
+
+function invalidateGlobalConfig() {
+  return runDatabaseEffect(Effect.flatMap(Config, (config) => config.invalidate))
+}
+
+function readDogfoodOnboarding(values: ConfigValues) {
+  return Effect.flatMap(Dogfood, (dogfood) => dogfood.onboarding(values))
 }
 
 async function completeOwnerPassword(email = ownerOnboardingFixture.email) {
@@ -140,7 +154,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       dogfoodIntegration.failEmail = false
       dogfoodIntegration.resetUrl = ""
       vi.clearAllMocks()
-      invalidateGlobalConfig()
+      await invalidateGlobalConfig()
     })
 
     test.each([undefined, "invalid-key", "sk-development-provisioning-test-only"])(
@@ -184,7 +198,7 @@ describe.skipIf(!dogfoodIntegration.url)(
             headers: new Headers(),
           }),
         ),
-      ).rejects.toMatchObject({ status: 401 })
+      ).rejects.toMatchObject({ _tag: "SignInRequired" })
       expect(await db.select().from(tenant)).toHaveLength(0)
       const headers = await completeOwnerPassword()
       const auth = await getAuth()
@@ -248,7 +262,7 @@ describe.skipIf(!dogfoodIntegration.url)(
         .where(and(eq(member.organizationId, second.id), eq(member.userId, session!.user.id)))
       await expect(
         runDatabaseEffect(issueDashboardToken({ organizationSlug: "second", headers })),
-      ).rejects.toMatchObject({ status: 404 })
+      ).rejects.toMatchObject({ _tag: "OrganizationNotFound" })
       expect(await db.select().from(tenantUser)).toHaveLength(2)
       await runDatabaseEffect(
         Effect.flatMap(DatabaseRateLimiter, (limiter) =>
@@ -261,7 +275,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       )
       await expect(
         runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers })),
-      ).rejects.toMatchObject({ status: 429 })
+      ).rejects.toMatchObject({ _tag: "DashboardTokenRateLimited" })
     })
 
     test("tenant synchronization preserves identity, replaces supplied fields, isolates scope and rolls back", async () => {
@@ -365,8 +379,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       })
       const input = { organizationSlug: "directory", scope: "organization" as const, headers }
       await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
-        status: 503,
-        code: "NO_API_KEYS",
+        _tag: "OrganizationApiKeysMissing",
       })
       const disabled = await auth.api.createApiKey({
         headers,
@@ -374,8 +387,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       })
       await db.update(apiKey).set({ enabled: false }).where(eq(apiKey.id, disabled.id))
       await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
-        status: 503,
-        code: undefined,
+        _tag: "OrganizationApiKeyUnavailable",
       })
       const active = await auth.api.createApiKey({
         headers,
@@ -416,7 +428,7 @@ describe.skipIf(!dogfoodIntegration.url)(
         .set({ expiresAt: new Date(0) })
         .where(eq(apiKey.id, active.id))
       await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
-        status: 503,
+        _tag: "OrganizationApiKeyUnavailable",
       })
       await expect(
         runDatabaseEffect(
@@ -427,8 +439,33 @@ describe.skipIf(!dogfoodIntegration.url)(
       ).rejects.toMatchObject({ _tag: "RestInvalidCredentials" })
       await db.delete(member).where(eq(member.organizationId, second.id))
       await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
-        status: 404,
+        _tag: "OrganizationNotFound",
       })
+    })
+
+    test("concurrent deletions cannot remove an organization's last API key", async () => {
+      await provisionDogfood()
+      const headers = await completeOwnerPassword()
+      const auth = await getAuth()
+      const session = await auth.api.getSession({ headers })
+      const second = await auth.api.createOrganization({
+        body: { userId: session!.user.id, name: "Racing", slug: "racing" },
+      })
+      const keys = await Promise.all(
+        ["First", "Second"].map((name) =>
+          auth.api.createApiKey({ headers, body: { organizationId: second.id, name } }),
+        ),
+      )
+      const deletions = await Promise.allSettled(
+        keys.map((key) => auth.api.deleteApiKey({ headers, body: { keyId: key.id } })),
+      )
+      expect(deletions.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+      expect(deletions.find((result) => result.status === "rejected")).toMatchObject({
+        reason: { body: { code: "LAST_API_KEY" } },
+      })
+      expect(
+        await db.select({ id: apiKey.id }).from(apiKey).where(eq(apiKey.organizationId, second.id)),
+      ).toHaveLength(1)
     })
 
     test("the configured chat key cannot be deleted, regardless of its name", async () => {
@@ -471,8 +508,8 @@ describe.skipIf(!dogfoodIntegration.url)(
 
     test("incomplete authentication cannot finalize ownership", async () => {
       delete process.env.TURNSTILE_SITE_KEY
-      invalidateGlobalConfig()
-      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      await invalidateGlobalConfig()
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingFailed" })
       expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
       expect(await db.select().from(user)).toHaveLength(0)
       expect(sendResetPasswordEmail).not.toHaveBeenCalled()
@@ -480,7 +517,7 @@ describe.skipIf(!dogfoodIntegration.url)(
 
     test("failed delivery retains provenance and retry reuses resources", async () => {
       dogfoodIntegration.failEmail = true
-      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingFailed" })
       expect((await getDatabaseConfig()).values.dogfood_organization_id).toBeUndefined()
       const [created] = await db.select().from(user)
       expect(created).toMatchObject({ emailVerified: true, termsAcceptedAt: null })
@@ -519,7 +556,7 @@ describe.skipIf(!dogfoodIntegration.url)(
         await db
           .insert(user)
           .values({ email: ownerOnboardingFixture.email, name: "Existing owner", emailVerified })
-        await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+        await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingFailed" })
         expect((await db.select().from(user))[0]?.emailVerified).toBe(emailVerified)
         expect(await db.select().from(organization)).toHaveLength(0)
         expect((await getDatabaseConfig()).values.dogfood_pending_setup).toBeUndefined()
@@ -531,7 +568,7 @@ describe.skipIf(!dogfoodIntegration.url)(
 
     test("correcting a pending email removes only the old membership and keeps email required", async () => {
       dogfoodIntegration.failEmail = true
-      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingFailed" })
       const organizations = await db.select().from(organization)
       const agents = await db.select().from(agent)
       const [previous] = await db.select().from(user)
@@ -546,12 +583,12 @@ describe.skipIf(!dogfoodIntegration.url)(
         emailVerified: true,
       })
       await expect(provisionDogfood(corrected)).rejects.toMatchObject({
-        _tag: "OwnerOnboardingError",
+        _tag: "OwnerOnboardingFailed",
       })
       expect(await db.select().from(member)).toHaveLength(2)
       await db.execute(sql`delete from "user" where email = ${corrected.email}`)
       await expect(provisionDogfood(corrected)).rejects.toMatchObject({
-        _tag: "OwnerOnboardingError",
+        _tag: "OwnerOnboardingFailed",
       })
       const pending = await getDatabaseConfig()
       expect(pending.values.dogfood_organization_id).toBeUndefined()
@@ -595,7 +632,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       await auth.api.createOrganization({
         body: { userId: other!.id, name: "Existing", slug: "dogfood" },
       })
-      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingError" })
+      await expect(provisionDogfood()).rejects.toMatchObject({ _tag: "OwnerOnboardingFailed" })
       expect((await getDatabaseConfig()).values.dogfood_pending_setup).toBeUndefined()
       expect(await db.select().from(user)).toHaveLength(1)
       await provisionDogfood({ ...ownerOnboardingFixture, organizationSlug: "newdogfood" })
@@ -605,7 +642,7 @@ describe.skipIf(!dogfoodIntegration.url)(
     test("configuration requires only operator credentials, including during repair", async () => {
       await provisionDogfood()
       const ownerHeaders = await completeOwnerPassword()
-      const operator = await createOperatorSession()
+      const operator = await runDatabaseEffect(createOperatorSession())
       const authorizedCookie = `operator_session=${operator}`
       const fallbackKey = "retired-dogfood-test-encryption-key"
       const listener = createServer()
@@ -680,25 +717,23 @@ describe.skipIf(!dogfoodIntegration.url)(
             expect(response.status).toBe(403)
           }
         }
+        const dogfoodCredential = (await getDatabaseConfig()).values.dogfood_api_key!
         for (const name of ["reveal-config-value", "generate-config-value"]) {
           const response = await requests.get(name)!(authorizedCookie)
-          expect(response.status).toBe(200)
-          const result = fromCrossJSON<{ result: unknown }>(
-            (await response.json()) as SerovalNode,
-            {},
-          )
-          expect(result.result).toMatchObject({ ok: false })
-          expect(result.result).not.toHaveProperty("value")
+          expect(response.status).toBe(422)
+          expect(await response.text()).not.toContain(dogfoodCredential)
         }
         const before = (await getDatabaseConfig()).values.privacy_policy_url
         const acquired = Promise.withResolvers<void>()
         const release = Promise.withResolvers<void>()
         const lock = runDatabaseEffect(
-          withDogfoodProvisioningLock(
-            Effect.promise(() => {
-              acquired.resolve()
-              return release.promise
-            }),
+          Effect.flatMap(Dogfood, (dogfood) =>
+            dogfood.withProvisioningLock(
+              Effect.promise(() => {
+                acquired.resolve()
+                return release.promise
+              }),
+            ),
           ),
         )
         try {
@@ -729,7 +764,7 @@ describe.skipIf(!dogfoodIntegration.url)(
           (await response.json()) as SerovalNode,
           {},
         )
-        expect(result.result).toEqual({ ok: true })
+        expect(result.result).toEqual({ fieldErrors: [] })
         // This process only has the active key, so a read proves the fallback can be retired.
         expect((await getDatabaseConfig()).values).toEqual(configured)
       } finally {

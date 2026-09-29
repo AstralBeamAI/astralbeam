@@ -4,7 +4,9 @@ import { and, asc, eq } from "drizzle-orm"
 import { Database } from "@/db"
 import { user } from "@/db/schema/authentication.server"
 import { member } from "@/db/schema/organizations.server"
+import { parseApiKeyId } from "@/lib/api-keys/schemas"
 import { APP_HANDLE } from "@/lib/constants"
+import { EmailAddressSchema } from "@/lib/schemas"
 import { authenticateOrganizationIssuedToken } from "../chat/auth.server"
 
 export const ORGANIZATION_TOKEN_TYPE = `${APP_HANDLE}-organization+jwt`
@@ -16,11 +18,7 @@ const organizationTokenClaims = Schema.Struct({
   ver: Schema.Literal(1),
   iss: Schema.String,
   aud: Schema.Literal(APP_HANDLE),
-  email: Schema.String.check(
-    Schema.isPattern(/^[^\s@]+@[^\s@]+$/),
-    Schema.isMaxLength(320),
-    Schema.makeFilter((value) => !value.includes("\0")),
-  ),
+  email: EmailAddressSchema,
   organization_id: Schema.String,
   iat: Schema.Int,
   exp: Schema.Int,
@@ -28,7 +26,7 @@ const organizationTokenClaims = Schema.Struct({
 
 export function verifyOrganizationToken(token: string, verifier: Uint8Array, keyId: string) {
   return Effect.gen(function* () {
-    const issuer = keyId.split("_")[1]
+    const issuer = parseApiKeyId(keyId)?.organizationId
     if (!issuer) return yield* Effect.fail(new errors.JWTInvalid("Invalid key identifier"))
     // Separate types and strict claims prevent cross-JWT substitution. https://www.rfc-editor.org/rfc/rfc8725#section-3.12
     const { payload, protectedHeader } = yield* Effect.tryPromise(() =>

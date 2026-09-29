@@ -1,10 +1,15 @@
 import { and, eq } from "drizzle-orm"
-import { Clock, Effect, Option, Predicate, Schema } from "effect"
+import { Clock, Effect, Predicate, Schema } from "effect"
 import { decodeProtectedHeader, jwtVerify } from "jose"
 
 import { Database } from "@/db/database.server"
 import { apiKey, organization } from "@/db/schema.server"
-import { ChatAuthTokenPayloadSchema, UuidV7Schema } from "@/lib/schemas"
+import {
+  formatApiKeyId,
+  ORGANIZATION_API_KEY_CONFIG_ID,
+  parseApiKeyId,
+} from "@/lib/api-keys/schemas"
+import { ChatAuthTokenPayloadSchema } from "@/lib/schemas"
 import {
   CHAT_AUTH_TOKEN_AUDIENCE,
   CHAT_AUTH_TOKEN_IDENTITY_MAX_BYTES,
@@ -17,11 +22,6 @@ import { ChatAuthenticationError } from "./errors.ts"
 import type { ChatPrincipal, ChatTenantUser } from "./types"
 
 const chatTokenEncoder = new TextEncoder()
-const API_KEY_CONFIG_ID = "default"
-// Seam: the shared API-key credential format module replaces this parser once it lands.
-const decodeChatApiKeyId = Schema.decodeUnknownOption(
-  Schema.TemplateLiteralParser(["key_", UuidV7Schema, "_", UuidV7Schema]),
-)
 const CLOCK_TOLERANCE_SECONDS = 30
 const decodeChatAuthTokenPayload = Schema.decodeUnknownEffect(ChatAuthTokenPayloadSchema, {
   onExcessProperty: "error",
@@ -74,7 +74,7 @@ export function authenticateOrganizationIssuedToken<T, E>(
         and(
           eq(apiKey.organizationId, organization.id),
           eq(apiKey.id, id),
-          eq(apiKey.configId, API_KEY_CONFIG_ID),
+          eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
         ),
       )
       .where(eq(organization.id, organizationId))
@@ -143,11 +143,10 @@ export const verifyChatAuthToken = Effect.fn("verifyChatAuthToken")(function* (
 })
 
 function parseChatApiKeyId(apiKeyId: unknown) {
-  return Option.match(decodeChatApiKeyId(apiKeyId), {
-    onNone: () => Effect.fail(new ChatAuthenticationError()),
-    onSome: ([, organizationId, , id]) =>
-      Effect.succeed({ apiKeyId: `key_${organizationId}_${id}`, organizationId, id }),
-  })
+  const key = parseApiKeyId(apiKeyId)
+  return key
+    ? Effect.succeed({ apiKeyId: formatApiKeyId(key), ...key })
+    : Effect.fail(new ChatAuthenticationError())
 }
 
 function readChatBearerToken(request: Request) {

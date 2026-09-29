@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { getRequestIP } from "@tanstack/react-start/server"
+import { Effect } from "effect"
 
-import { getAuth } from "@/lib/auth/auth.server"
-import { setupGateResponse } from "@/lib/config/state.server"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
+import { Auth } from "@/lib/auth/auth.server"
+import { Config } from "@/lib/config/config.server"
+import { reportFailure } from "@/lib/runtime/failure-report.server"
+import { getAppRuntime } from "@/lib/runtime/runtime.server"
 import { isLoopbackProxyAddress } from "@/lib/utils.server"
 
 /**
@@ -19,20 +22,39 @@ function withTrustedForwardedFor(request: Request): Request {
   return new Request(request, { headers })
 }
 
-async function handleAuthRequest(request: Request): Promise<Response> {
+const handleAuthRequest = Effect.fn("handleAuthRequest")(
+  function* (request: Request) {
+    const { setupComplete } = yield* Effect.flatMap(Config, (config) => config.setupState)
+    if (!setupComplete) {
+      return Response.json(
+        { error: "Application is not configured" },
+        { status: 503, headers: { "retry-after": "10" } },
+      )
+    }
+    return yield* Effect.flatMap(Auth, (auth) => auth.handler(request))
+  },
+  // Better Auth answers its own errors, so only an unexpected failure reaches this.
+  Effect.catchCause((cause) =>
+    Effect.map(
+      reportFailure("handleAuthRequest", cause),
+      () => new Response("Authentication is unavailable", { status: 500 }),
+    ),
+  ),
+)
+
+function serveAuthRequest(request: Request): Response | Promise<Response> {
+  // Without these variables no Effect can run.
   if (getDatabaseBootstrapIssues().length > 0) {
     return new Response("Server configuration required", { status: 503 })
   }
-  const gate = await setupGateResponse()
-  if (gate) return gate
-  return (await getAuth()).handler(withTrustedForwardedFor(request))
+  return getAppRuntime().runPromise(handleAuthRequest(withTrustedForwardedFor(request)))
 }
 
 export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: ({ request }) => handleAuthRequest(request),
-      POST: ({ request }) => handleAuthRequest(request),
+      GET: ({ request }) => serveAuthRequest(request),
+      POST: ({ request }) => serveAuthRequest(request),
     },
   },
 })

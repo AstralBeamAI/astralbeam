@@ -6,7 +6,7 @@ import { OrganizationDirectory } from "../-components/organization-directory"
 export const Route = createFileRoute("/_authenticated/$orgSlug/tenants/")({
   beforeLoad: ({ context, params }) => {
     if (!context.organization.permissions.readTenants) {
-      redirect({ to: "/$orgSlug", params: { orgSlug: params.orgSlug }, replace: true, throw: true })
+      throw redirect({ to: "/$orgSlug", params: { orgSlug: params.orgSlug }, replace: true })
     }
   },
   component: () => <OrganizationDirectory kind="tenants" />,

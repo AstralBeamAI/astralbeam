@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm"
 import { Schema } from "effect"
 
-import { getAuthDatabase } from "@/db"
+import { getAuthDatabase } from "./database.server.ts"
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { approvedMigrationsMatch } from "@/db/migration-approval.server"
 import {

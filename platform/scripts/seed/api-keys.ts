@@ -6,7 +6,7 @@ import { apiKey } from "../../src/db/schema.server.ts"
 import {
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
-} from "../../src/lib/auth/organization-api-key-configuration.ts"
+} from "../../src/lib/api-keys/schemas.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_ORGANIZATIONS } from "./fixtures.ts"

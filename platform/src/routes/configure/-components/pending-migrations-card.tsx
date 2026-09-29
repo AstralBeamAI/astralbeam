@@ -19,6 +19,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Spinner } from "@/components/ui/spinner"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { cn } from "cn"
 import { applyMigrations } from "../-functions/apply-migrations"
 import type { PendingMigration } from "../-lib/types"
@@ -40,18 +41,14 @@ export function PendingMigrationsCard({
     setPendingApply(true)
     setError(null)
     try {
-      const result = await applyMigrations({
+      await applyMigrations({
         data: {
           approvedMigrations: pending.map(({ name, hash }) => ({ name, hash })),
         },
       })
-      if (result.ok) {
-        onApplied()
-        return
-      }
-      setError(result.error)
-    } catch {
-      setError("The migrations could not be applied")
+      onApplied()
+    } catch (applyError) {
+      setError(parseServerFnError(applyError).message)
     } finally {
       setPendingApply(false)
     }

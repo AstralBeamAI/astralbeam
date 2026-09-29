@@ -16,8 +16,8 @@ import { getRequest } from "@tanstack/react-start/server"
 import { type ReactNode, useCallback } from "react"
 import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
 
-import { getGlobalConfig } from "@/lib/config"
-import { isSetupComplete } from "@/lib/config/state.server"
+import { Effect } from "effect"
+
 import { AuthProvider } from "@/components/auth/auth-provider"
 import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
 import { PublicConfigProvider } from "@/components/public-config-provider"
@@ -28,6 +28,9 @@ import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { normalizeReturnPath, resolveRedirectOrigin } from "@/lib/auth/redirect"
 import { themePlugin } from "@/lib/auth/theme-plugin"
+import { ORGANIZATION_API_KEY_PAGE_SIZE } from "@/lib/api-keys/schemas"
+import { Config } from "@/lib/config/config.server"
+import { runEffect } from "@/lib/runtime/server-fn.server"
 import {
   APP_LOGO_DARK_SVG_URL,
   APP_LOGO_LIGHT_PNG_URL,
@@ -51,20 +54,28 @@ const devtoolsPlugins = [
 ]
 
 const getRedirectOrigin = createIsomorphicFn()
-  .server(async () => {
-    const appBaseUrl = await getGlobalConfig("app_base_url")
-    // Requests can carry redirectTo before setup configures the base URL; fall back to the request origin.
-    return appBaseUrl ?? new URL(getRequest().url).origin
-  })
+  .server(() =>
+    runEffect(
+      Effect.flatMap(Config, (config) => config.get("app_base_url")).pipe(
+        // Requests can carry redirectTo before setup configures the base URL.
+        Effect.map((appBaseUrl) => appBaseUrl ?? new URL(getRequest().url).origin),
+      ),
+      "getRedirectOrigin",
+    ),
+  )
   .client(() => globalThis.location.origin)
 
 const getSetupState = createIsomorphicFn()
-  .server(async () => {
-    if (getDatabaseBootstrapIssues().length > 0) return { setupComplete: false }
-    return {
-      setupComplete: await isSetupComplete(),
-    }
-  })
+  .server(() =>
+    getDatabaseBootstrapIssues().length > 0
+      ? { setupComplete: false }
+      : runEffect(
+          Effect.flatMap(Config, (config) => config.setupState).pipe(
+            Effect.map((state) => ({ setupComplete: state.setupComplete })),
+          ),
+          "getSetupState",
+        ),
+  )
   // The server gates application documents. Public docs leave through a full document navigation.
   .client(() => ({ setupComplete: true }))
 
@@ -233,6 +244,7 @@ function AppProviders({ children }: { children: ReactNode }) {
           apiKeyPlugin({
             organization: true,
             keyExpiration: { defaultInterval: null },
+            pageSize: ORGANIZATION_API_KEY_PAGE_SIZE,
             localization: {
               apiKeysDescription: "Manage API keys.",
             },

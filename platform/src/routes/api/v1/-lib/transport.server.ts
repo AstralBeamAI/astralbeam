@@ -13,7 +13,7 @@ import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { isSetupComplete } from "@/lib/config/state.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
-import { AppLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
+import { getAppLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
 import { ApiV1 } from "./contract.server"
 import {
@@ -203,7 +203,7 @@ export const ApiV1Routes = Layer.mergeAll(
 // The shared memo map reuses the app runtime's services instead of building another set.
 function makeApiV1WebHandler() {
   return HttpRouter.toWebHandler(
-    ApiV1Routes.pipe(Layer.provideMerge(AppLayer), Layer.provide(HttpServer.layerServices)),
+    ApiV1Routes.pipe(Layer.provideMerge(getAppLayer()), Layer.provide(HttpServer.layerServices)),
     { disableLogger: true, memoMap: getAppRuntime().memoMap },
   )
 }

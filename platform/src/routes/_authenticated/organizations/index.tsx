@@ -1,10 +1,19 @@
+import { organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { Organizations } from "@/components/auth/organization/organizations"
 import { UserInvitations } from "@/components/auth/organization/user-invitations"
 import { APP_NAME } from "@/lib/constants"
+import { getUserInvitations } from "../-functions/get-user-invitations"
 
 export const Route = createFileRoute("/_authenticated/organizations/")({
+  // The organization list arrives with the session access every authenticated route reads.
+  loader: async ({ context: { access, queryClient } }) => {
+    queryClient.setQueryData(
+      organizationQueryKeys.userInvitations.list(access.userId),
+      await getUserInvitations(),
+    )
+  },
   component: OrganizationsRoute,
   head: () => ({ meta: [{ title: `Organizations · ${APP_NAME}` }] }),
 })

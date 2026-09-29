@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { loginOperator } from "../-functions/login-operator"
 
 export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
@@ -21,14 +22,10 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
     setPending(true)
     setError(null)
     try {
-      const result = await loginOperator({ data: { key } })
-      if (result.ok) {
-        onLoggedIn()
-        return
-      }
-      setError(result.error)
-    } catch {
-      setError("Login failed")
+      await loginOperator({ data: { key } })
+      onLoggedIn()
+    } catch (loginError) {
+      setError(parseServerFnError(loginError).message)
     } finally {
       setKey("")
       setPending(false)

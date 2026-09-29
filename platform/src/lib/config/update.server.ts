@@ -1,46 +1,46 @@
-import { applyDatabaseConfigChanges, getDatabaseConfig } from "@/lib/config/store.server"
-import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
+import { Result } from "effect"
+
 import {
   CONFIG_DEFINITIONS,
-  decodeConfigValue,
   configEnvironmentVariable,
+  decodeConfigValue,
   findConfigDefinition,
-  hasEnvironmentConfigOverride,
-} from "@/lib/config/registry.server"
-import { getGlobalConfigState, invalidateGlobalConfig } from "@/lib/config/runtime.server"
-import type { ConfigKey } from "@/lib/config/types"
+} from "./registry.server.ts"
+import type { DatabaseConfigChange } from "./store.server.ts"
+import type { ConfigKey, ConfigStorageEntry, ConfigValues } from "./types.ts"
 
-type GlobalConfigUpdate = {
+export interface ConfigUpdate {
   readonly key: string
+  /** `null` clears an optional value. */
   readonly value: string | null
 }
 
-type GlobalConfigUpdateIssue = {
+interface ConfigUpdateIssue {
   readonly key: string
   readonly message: string
 }
 
-type GlobalConfigUpdateResult =
-  | { readonly ok: false; readonly fieldErrors: GlobalConfigUpdateIssue[] }
-  | { readonly ok: true }
-
-function validateConfigUpdates(updates: readonly GlobalConfigUpdate[]) {
-  const changes: { key: ConfigKey; value: string | null }[] = []
-  const fieldErrors: GlobalConfigUpdateIssue[] = []
+/** Decodes operator updates, refusing system-managed, environment-supplied and duplicate keys. */
+export function validateConfigUpdates(
+  updates: readonly ConfigUpdate[],
+  environmentKeys: ReadonlySet<ConfigKey>,
+) {
+  const changes: DatabaseConfigChange[] = []
+  const issues: ConfigUpdateIssue[] = []
   const seenKeys = new Set<string>()
   for (const update of updates) {
     if (seenKeys.has(update.key)) {
-      fieldErrors.push({ key: update.key, message: "Duplicate configuration update" })
+      issues.push({ key: update.key, message: "Duplicate configuration update" })
       continue
     }
     seenKeys.add(update.key)
     const definition = findConfigDefinition(update.key)
     if (!definition || definition.systemManaged) {
-      fieldErrors.push({ key: update.key, message: "Unknown configuration key" })
+      issues.push({ key: update.key, message: "Unknown configuration key" })
       continue
     }
-    if (hasEnvironmentConfigOverride(definition.key)) {
-      fieldErrors.push({
+    if (environmentKeys.has(definition.key)) {
+      issues.push({
         key: definition.key,
         message: `This value is provided by ${configEnvironmentVariable(definition.key)}`,
       })
@@ -48,81 +48,39 @@ function validateConfigUpdates(updates: readonly GlobalConfigUpdate[]) {
     }
     if (update.value === null) {
       if (definition.required) {
-        fieldErrors.push({
-          key: definition.key,
-          message: "Required configuration cannot be cleared",
-        })
+        issues.push({ key: definition.key, message: "Required configuration cannot be cleared" })
       } else {
         changes.push({ key: definition.key, value: null })
       }
       continue
     }
-    try {
-      changes.push({ key: definition.key, value: decodeConfigValue(definition, update.value) })
-    } catch (error) {
-      fieldErrors.push({
-        key: definition.key,
-        message: error instanceof Error ? error.message : "Invalid value",
-      })
-    }
+    const decoded = decodeConfigValue(definition, update.value)
+    if (Result.isSuccess(decoded)) changes.push({ key: definition.key, value: decoded.success })
+    else issues.push({ key: definition.key, message: decoded.failure.message })
   }
-  return { changes, fieldErrors }
+  return { changes, issues }
 }
 
-function generateMissingValues(
-  state: Awaited<ReturnType<typeof getGlobalConfigState>>,
+/** Generates each required value that is neither stored, effective, nor being changed. */
+export function generateMissingConfigValues(
+  current: { readonly rows: readonly ConfigStorageEntry[] | null; readonly values: ConfigValues },
   changedKeys: ReadonlySet<ConfigKey>,
 ) {
   const values: { key: ConfigKey; value: string }[] = []
-  const fieldErrors: GlobalConfigUpdateIssue[] = []
-  const storedKeys = new Set((state.rows ?? []).map((row) => row.key))
+  const issues: ConfigUpdateIssue[] = []
+  const storedKeys = new Set((current.rows ?? []).map((row) => row.key))
   for (const definition of CONFIG_DEFINITIONS) {
     if (
       !definition.required ||
       !definition.generate ||
-      state.values[definition.key] ||
+      current.values[definition.key] ||
       storedKeys.has(definition.key) ||
       changedKeys.has(definition.key)
     )
       continue
-    try {
-      values.push({
-        key: definition.key,
-        value: decodeConfigValue(definition, definition.generate()),
-      })
-    } catch (error) {
-      fieldErrors.push({
-        key: definition.key,
-        message: error instanceof Error ? error.message : "A required value could not be generated",
-      })
-    }
+    const decoded = decodeConfigValue(definition, definition.generate())
+    if (Result.isSuccess(decoded)) values.push({ key: definition.key, value: decoded.success })
+    else issues.push({ key: definition.key, message: "A required value could not be generated" })
   }
-  return { values, fieldErrors }
-}
-
-export async function updateGlobalConfig(
-  updates: readonly GlobalConfigUpdate[],
-): Promise<GlobalConfigUpdateResult> {
-  const decoded = validateConfigUpdates(updates)
-  if (decoded.fieldErrors.length > 0) return { ok: false, fieldErrors: decoded.fieldErrors }
-
-  const generated = generateMissingValues(
-    await getGlobalConfigState(),
-    new Set(decoded.changes.map((change) => change.key)),
-  )
-  if (generated.fieldErrors.length > 0) return { ok: false, fieldErrors: generated.fieldErrors }
-
-  // Hidden system-managed values must rotate on saves without being sent to the browser.
-  if (getDatabaseEncryptionKeyring().length > 1) {
-    const { rows, values } = await getDatabaseConfig()
-    for (const row of rows ?? []) {
-      const definition = findConfigDefinition(row.key)
-      if (definition?.systemManaged && row.storageStatus === "fallback-key") {
-        decoded.changes.push({ key: definition.key, value: values[definition.key]! })
-      }
-    }
-  }
-  await applyDatabaseConfigChanges(decoded.changes, generated.values)
-  invalidateGlobalConfig()
-  return { ok: true }
+  return { values, issues }
 }

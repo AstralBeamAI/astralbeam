@@ -9,6 +9,7 @@ import { Database } from "@/db/database.server"
 import { apiKey, organization } from "@/db/schema/organizations.server"
 import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
+import { ORGANIZATION_API_KEY_CONFIG_ID, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { getAuth } from "@/lib/auth/auth.server"
 import { authorizeOrganizationRole } from "@/lib/organizations/access"
 import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
@@ -23,8 +24,6 @@ import type { RestScope } from "./shared.server"
 
 const REST_CREDENTIAL_MAX_LENGTH = 16_384
 const REST_RATE_LIMIT = { limit: 100, window: Duration.minutes(5) }
-const REST_API_KEY_PATTERN =
-  /^key_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_(abo_[A-Za-z]{64})$/
 
 /** A verifier failed rather than rejected, which the boundary reports as an internal error. */
 class RestVerifierFailed extends Schema.TaggedError<RestVerifierFailed>()("RestVerifierFailed", {
@@ -107,9 +106,9 @@ const verifyRestApiKey = Effect.fn("verifyRestApiKey")(function* (key: string) {
 }, Effect.orDie)
 
 const authenticateRestApiKey = Effect.fn("authenticateRestApiKey")(function* (credential: string) {
-  const parts = REST_API_KEY_PATTERN.exec(credential)
+  const parts = parseApiKeyCredential(credential)
   if (!parts) return yield* new RestInvalidCredentials()
-  const verified = yield* verifyRestApiKey(parts[3]!)
+  const verified = yield* verifyRestApiKey(parts.secret)
   if (!verified.valid || !verified.key) {
     if (verified.error?.code === "RATE_LIMITED") {
       const details = verified.error as { details?: { tryAgainIn?: unknown } }
@@ -131,10 +130,10 @@ const authenticateRestApiKey = Effect.fn("authenticateRestApiKey")(function* (cr
     .where(
       and(
         eq(organization.id, verified.key.referenceId),
-        eq(organization.id, parts[1]!),
+        eq(organization.id, parts.organizationId),
         eq(apiKey.id, verified.key.id),
-        eq(apiKey.id, parts[2]!),
-        eq(apiKey.configId, "default"),
+        eq(apiKey.id, parts.id),
+        eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
       ),
     )
     .limit(1)

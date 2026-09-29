@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
+import { throwOrganizationRouteError } from "../-lib/route-errors"
 import { DeleteOrganizationCard } from "./-components/delete-organization-card"
 import { OrganizationOpenaiApiKeyCard } from "./-components/organization-openai-api-key-card"
 import { OrganizationSettingsForm } from "./-components/organization-settings-form"
@@ -14,7 +15,9 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/settings/")({
     }
   },
   loader: ({ params }) =>
-    getOrganizationSettingsPageData({ data: { organizationSlug: params.orgSlug } }),
+    getOrganizationSettingsPageData({ data: { organizationSlug: params.orgSlug } }).catch(
+      (error: unknown) => throwOrganizationRouteError(error, params.orgSlug),
+    ),
   component: OrganizationSettingsPage,
   pendingComponent: OrganizationSettingsPageSkeleton,
   head: () => ({ meta: [{ title: `Organization settings · ${APP_NAME}` }] }),

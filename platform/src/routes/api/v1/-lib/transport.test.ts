@@ -49,7 +49,8 @@ vi.mock("@/db/lib/database-credentials.server", async (original) => ({
   getDatabaseBootstrapIssues: vi.fn(),
 }))
 vi.mock("@/lib/config/state.server", () => ({ isSetupComplete: vi.fn() }))
-vi.mock("@/lib/auth/auth.server", () => ({
+vi.mock("@/lib/auth/auth.server", async (original) => ({
+  ...(await original<typeof import("@/lib/auth/auth.server")>()),
   getAuth: () => Promise.resolve({ api: { verifyApiKey: restTestState.verify } }),
 }))
 vi.mock("@/lib/chat/auth.server", async () => {

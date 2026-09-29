@@ -1,7 +1,12 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { strictParseOptions, NonEmptyStringSchema, enumSchema } from "../schemas.ts"
+import {
+  DisplayNameSchema,
+  strictParseOptions,
+  NonEmptyStringSchema,
+  enumSchema,
+} from "../schemas.ts"
 
 export const SANDBOX_PROVIDER_IDS = ["daytona", "docker", "sprites", "vercel"] as const
 
@@ -18,10 +23,7 @@ const nonEmptyTrimmedString = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(256)),
 )
 
-export const SandboxProviderNameSchema = NonEmptyStringSchema.pipe(
-  Schema.check(Schema.isTrimmed()),
-  Schema.check(Schema.isMaxLength(100)),
-)
+export const SandboxProviderNameSchema = DisplayNameSchema
 
 const DaytonaSandboxOptionsSchema = Schema.Struct({
   target: enumSchema(["us", "eu"]),

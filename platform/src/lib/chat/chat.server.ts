@@ -101,7 +101,7 @@ export class Chat extends Context.Service<
               ? Effect.fail(new ChatModelKeyUnreadable())
               : Effect.die(defect),
           ),
-          Effect.catchTag("OrganizationOpenaiApiKeyError", () =>
+          Effect.catchTag("OrganizationOpenaiApiKeyUnreadable", () =>
             Effect.fail(new ChatModelKeyUnreadable()),
           ),
           Effect.tapErrorTag("ChatModelKeyUnreadable", () =>

@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 
 // Relative, because seed modules import this under a plain `deno run` without the `@/` alias.
-import { NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
+import { DisplayNameSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
 
 const UUID_V7_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 const AGENT_ID_PATTERN = new RegExp(`^agent_(${UUID_V7_PATTERN})_(${UUID_V7_PATTERN})$`)
@@ -11,10 +11,7 @@ export const AgentIdSchema = Schema.String.pipe(
   Schema.check(Schema.isPattern(AGENT_ID_PATTERN, { message: "Enter a valid agent ID" })),
 )
 
-export const AgentNameSchema = NonEmptyStringSchema.pipe(
-  Schema.check(Schema.isTrimmed()),
-  Schema.check(Schema.isMaxLength(100)),
-)
+export const AgentNameSchema = DisplayNameSchema
 
 export const AgentSystemPromptSchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(32_768)),

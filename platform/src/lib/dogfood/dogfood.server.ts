@@ -1,203 +1,230 @@
-import { and, asc, eq, sql } from "drizzle-orm"
-import * as Effect from "effect/Effect"
-import { defaultKeyHasher } from "@better-auth/api-key"
-import { generateRandomString } from "better-auth/crypto"
+import { sql } from "drizzle-orm"
+import { Context, Effect, Layer, Schema } from "effect"
 
-import { Database } from "@/db"
-import { apiKey, member, organization, user } from "@/db/schema.server"
-import { applyDatabaseConfigChangesEffect } from "@/lib/config/store.server"
-import type { OwnerOnboarding, PendingOnboarding } from "@/lib/dogfood/schema"
+import { Database } from "@/db/database.server"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
+import { Agents } from "@/lib/agents/agents.server"
+import { Auth } from "@/lib/auth/auth.server"
+import { Config } from "@/lib/config/config.server"
+import type { DatabaseConfigState } from "@/lib/config/store.server"
+import type { ConfigValues } from "@/lib/config/types"
+import { ConfigurationBusy, OwnerOnboardingFailed } from "./errors.ts"
 import {
-  ORGANIZATION_API_KEY_PREFIX,
-  ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
-} from "@/lib/auth/organization-api-key-configuration"
+  createDogfoodCredential,
+  createDogfoodOwner,
+  isDogfoodOwner,
+  readDogfoodOrganization,
+  readDogfoodOwner,
+  replacePendingDogfoodOwner,
+} from "./records.server.ts"
+import {
+  type DogfoodOnboarding,
+  type OwnerOnboarding,
+  type PendingOnboarding,
+  PendingOwnerOnboardingJson,
+} from "./schemas.ts"
 
-/** Commit the credential and its encrypted recovery record together, including across crashes. */
-export function createDogfoodCredential(pending: PendingOnboarding & { organizationId: string }) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    const secret = yield* Effect.sync(
-      () => `${ORGANIZATION_API_KEY_PREFIX}${generateRandomString(64, "a-z", "A-Z")}`,
-    )
-    const hashed = yield* Effect.tryPromise({
-      try: () => defaultKeyHasher(secret),
-      catch: () => ({
-        _tag: "OwnerOnboardingError" as const,
-        message: "Credential generation failed",
-      }),
-    })
-    return yield* db.transaction((transaction) =>
-      Effect.gen(function* () {
-        const [key] = yield* transaction
-          .insert(apiKey)
-          .values({
-            organizationId: pending.organizationId,
-            name: "dogfood",
-            prefix: ORGANIZATION_API_KEY_PREFIX,
-            start: secret.slice(0, ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH),
-            key: hashed,
-          })
-          .returning({ id: apiKey.id })
-        const recovery = {
-          ...pending,
-          apiKey: `key_${pending.organizationId}_${key!.id}_${secret}`,
-        }
-        yield* applyDatabaseConfigChangesEffect([
-          {
-            key: "dogfood_pending_setup",
-            value: JSON.stringify(recovery),
-          },
-        ])
-        return recovery
-      }),
-    )
-  })
-}
+const decodePendingOnboarding = Schema.decodeUnknownEffect(PendingOwnerOnboardingJson)
+const DOGFOOD_KEYS = new Set([
+  "dogfood_organization_id",
+  "dogfood_api_key",
+  "dogfood_pending_setup",
+])
 
-export function withDogfoodProvisioningLock<A, E, R>(operation: Effect.Effect<A, E, R>) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    const context = yield* Effect.context<R>()
-    return yield* db.transaction((transaction) =>
-      Effect.gen(function* () {
-        const locks = yield* transaction.execute<{ acquired: boolean }>(
-          sql`select pg_try_advisory_xact_lock(734028190) as acquired`,
-          "objects",
+export class Dogfood extends Context.Service<
+  Dogfood,
+  {
+    /** What `/configure` shows of owner onboarding, from current database values by UUID. */
+    readonly onboarding: (values: ConfigValues) => Effect.Effect<DogfoodOnboarding>
+    /** Creates or resumes the organization, owner, agent and credential, then mails a reset link.
+     * Run it inside `withProvisioningLock` with the configuration changes preceding it. */
+    readonly provision: (input: OwnerOnboarding) => Effect.Effect<void, OwnerOnboardingFailed>
+    /**
+     * Serializes configuration writes and provisioning across processes. The operation runs
+     * outside the lock's transaction, so its recovery commits survive a failed email.
+     */
+    readonly withProvisioningLock: <A, E, R>(
+      operation: Effect.Effect<A, E, R>,
+    ) => Effect.Effect<A, E | ConfigurationBusy, R>
+  }
+>()("astralbeam/dogfood/Dogfood") {
+  static readonly layerNoDeps = Layer.effect(
+    Dogfood,
+    Effect.gen(function* () {
+      const db = yield* Database
+      const config = yield* Config
+      const auth = yield* Auth
+      const agents = yield* Agents
+      const provideDatabase = <A, E>(effect: Effect.Effect<A, E, Database | Config>) =>
+        effect.pipe(
+          Effect.provideService(Database, db),
+          Effect.provideService(Config, config),
+          mapDatabaseErrors(),
         )
-        const lock = locks[0]
-        if (!lock?.acquired) {
-          return yield* Effect.fail({
-            _tag: "OwnerOnboardingError" as const,
-            message: "Owner onboarding is busy. Save again shortly.",
-          })
+
+      const savePendingOwner = (pending: PendingOnboarding) =>
+        config
+          .write([{ key: "dogfood_pending_setup", value: JSON.stringify(pending) }])
+          .pipe(Effect.andThen(config.invalidate))
+
+      const prepareOwnerOnboarding = Effect.fnUntraced(function* (
+        input: OwnerOnboarding,
+        state: DatabaseConfigState,
+      ) {
+        const stored = state.values.dogfood_pending_setup
+        if (!stored) {
+          if (yield* readDogfoodOwner(input.email)) {
+            return yield* new OwnerOnboardingFailed({ reason: "ownerEmailInUse" })
+          }
+          if (yield* readDogfoodOrganization({ slug: input.organizationSlug })) {
+            return yield* new OwnerOnboardingFailed({ reason: "slugInUse" })
+          }
+          const pending: PendingOnboarding = { ...input }
+          yield* savePendingOwner(pending)
+          return pending
         }
-        // Keep recovery commits outside the lock's ambient transaction, even when email fails.
-        // https://effect.website/docs/requirements-management/services/
-        return yield* Effect.setContext(operation, context)
-      }),
-    )
-  })
-}
-
-export function readDogfoodOwner(email: string) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    const rows = yield* db
-      .select({ id: user.id, emailVerified: user.emailVerified })
-      .from(user)
-      .where(eq(user.email, email))
-      .limit(1)
-    if (rows[0] && !rows[0].emailVerified) {
-      return yield* Effect.fail({
-        _tag: "OwnerOnboardingError" as const,
-        message: "That account is not verified. Choose a different owner email.",
-      })
-    }
-    return rows[0] ?? null
-  })
-}
-
-export function createDogfoodOwner(email: string) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    const [owner] = yield* db
-      .insert(user)
-      .values({
-        email,
-        name: email.split("@")[0]!,
-        emailVerified: true,
-      })
-      .returning({ id: user.id })
-    return owner!
-  })
-}
-
-export function readDogfoodOrganization(input: { id?: string | undefined; slug: string }) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    const rows = yield* db
-      .select({
-        id: organization.id,
-        name: organization.name,
-        slug: organization.slug,
-        ownerEmail: user.email,
-      })
-      .from(organization)
-      .leftJoin(
-        member,
-        and(
-          eq(member.organizationId, organization.id),
-          sql`'owner' = any(string_to_array(${member.role}, ','))`,
-        ),
-      )
-      .leftJoin(user, eq(user.id, member.userId))
-      .where(input.id ? eq(organization.id, input.id) : eq(organization.slug, input.slug))
-      .orderBy(asc(member.id))
-      .limit(1)
-    return rows[0] ?? null
-  })
-}
-
-export function isDogfoodOwner(input: { organizationId: string; userId: string }) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    const rows = yield* db
-      .select({ role: member.role })
-      .from(member)
-      .where(and(eq(member.organizationId, input.organizationId), eq(member.userId, input.userId)))
-    return rows.some((row) => row.role.split(",").includes("owner"))
-  })
-}
-
-export function replacePendingDogfoodOwner(pending: PendingOnboarding, input: OwnerOnboarding) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    return yield* db.transaction((transaction) =>
-      Effect.gen(function* () {
-        const previous = yield* readDogfoodOwner(pending.email)
+        const pending = yield* decodePendingOnboarding(stored).pipe(
+          Effect.mapError(() => new OwnerOnboardingFailed({ reason: "pendingInvalid" })),
+        )
         const customer = yield* readDogfoodOrganization({
           id: pending.organizationId,
           slug: pending.organizationSlug,
         })
-        if (
-          customer &&
-          (!previous ||
-            !(yield* isDogfoodOwner({
-              organizationId: customer.id,
-              userId: previous.id,
-            })))
-        ) {
-          return yield* Effect.fail({
-            _tag: "OwnerOnboardingError" as const,
-            message: "That organization is not owned by the pending account",
-          })
+        if (pending.organizationId && !customer) {
+          return yield* new OwnerOnboardingFailed({ reason: "organizationUnavailable" })
         }
-        if (yield* readDogfoodOwner(input.email)) {
-          return yield* Effect.fail({
-            _tag: "OwnerOnboardingError" as const,
-            message: "Use an unused email address to replace the pending owner.",
-          })
-        }
-        const replacement = yield* createDogfoodOwner(input.email)
-        if (customer) {
-          yield* transaction
-            .update(member)
-            .set({ userId: replacement.id })
-            .where(and(eq(member.organizationId, customer.id), eq(member.userId, previous!.id)))
+        if (!customer && (yield* readDogfoodOrganization({ slug: input.organizationSlug }))) {
+          return yield* new OwnerOnboardingFailed({ reason: "slugInUse" })
         }
         const updated = {
-          ...pending,
           ...input,
-          ...(customer ? { organizationId: customer.id } : {}),
+          organizationId: customer?.id ?? pending.organizationId,
+          organizationName: customer?.name ?? input.organizationName,
+          organizationSlug: customer?.slug ?? input.organizationSlug,
         }
-        yield* applyDatabaseConfigChangesEffect([
-          {
-            key: "dogfood_pending_setup",
-            value: JSON.stringify(updated),
-          },
+        if (pending.email === input.email) return { ...pending, ...updated }
+        const replaced = yield* replacePendingDogfoodOwner(pending, updated)
+        yield* config.invalidate
+        return replaced
+      })
+
+      const onboarding = Effect.fn("Dogfood.onboarding")(function* (values: ConfigValues) {
+        const pending = values.dogfood_pending_setup
+          ? yield* decodePendingOnboarding(values.dogfood_pending_setup)
+          : null
+        const organizationId = values.dogfood_organization_id ?? pending?.organizationId
+        const customer =
+          organizationId || pending
+            ? yield* readDogfoodOrganization({
+                id: organizationId,
+                slug: pending?.organizationSlug ?? "dogfood",
+              }).pipe(provideDatabase)
+            : null
+        return {
+          email: pending?.email ?? customer?.ownerEmail ?? "",
+          organizationName: customer?.name ?? pending?.organizationName ?? "dogfood",
+          organizationSlug: customer?.slug ?? pending?.organizationSlug ?? "dogfood",
+          organizationCreated: Boolean(organizationId || customer),
+          complete: Boolean(values.dogfood_organization_id),
+        } satisfies DogfoodOnboarding
+      }, Effect.orDie)
+
+      const provision = Effect.fn("Dogfood.provision")(function* (input: OwnerOnboarding) {
+        const state = yield* config.readStored
+        if (state.values.dogfood_organization_id) return
+        const current = yield* config.snapshot
+        if (current.issues.some((issue) => !DOGFOOD_KEYS.has(issue.key))) {
+          return yield* new OwnerOnboardingFailed({ reason: "configurationIncomplete" })
+        }
+        if (
+          state.rows?.some((row) => DOGFOOD_KEYS.has(row.key) && row.storageStatus === "unreadable")
+        ) {
+          return yield* new OwnerOnboardingFailed({ reason: "undecryptable" })
+        }
+        let pending = yield* prepareOwnerOnboarding(
+          { ...input, email: input.email.toLowerCase() },
+          state,
+        ).pipe(provideDatabase)
+        const owner =
+          (yield* readDogfoodOwner(pending.email).pipe(provideDatabase)) ??
+          (yield* createDogfoodOwner(pending.email).pipe(provideDatabase))
+        let customer: { id: string; name: string } | null = yield* readDogfoodOrganization({
+          id: pending.organizationId,
+          slug: pending.organizationSlug,
+        }).pipe(provideDatabase)
+        if (
+          customer &&
+          !(yield* isDogfoodOwner({ organizationId: customer.id, userId: owner.id }).pipe(
+            provideDatabase,
+          ))
+        ) {
+          return yield* new OwnerOnboardingFailed({ reason: "organizationNotOwned" })
+        }
+        if (!customer && pending.organizationId) {
+          return yield* new OwnerOnboardingFailed({ reason: "organizationUnavailable" })
+        }
+        customer ??= yield* auth.instance.pipe(
+          Effect.flatMap((instance) =>
+            Effect.tryPromise(() =>
+              instance.api.createOrganization({
+                body: {
+                  name: pending.organizationName,
+                  slug: pending.organizationSlug,
+                  userId: owner.id,
+                },
+              }),
+            ),
+          ),
+          Effect.mapError(() => new OwnerOnboardingFailed({ reason: "organizationNotCreated" })),
+        )
+        const organizationId = customer.id
+        yield* savePendingOwner({ ...pending, organizationId })
+        yield* agents.provisionDefault({ organizationId, organizationName: customer.name })
+        if (!pending.apiKey) {
+          pending = yield* createDogfoodCredential({ ...pending, organizationId }).pipe(
+            provideDatabase,
+          )
+          yield* config.invalidate
+        }
+        const appBaseUrl = yield* config.get("app_base_url")
+        yield* auth
+          .requestPasswordReset({
+            email: pending.email,
+            redirectTo: new URL("/auth/reset-password", appBaseUrl).href,
+          })
+          .pipe(Effect.mapError(() => new OwnerOnboardingFailed({ reason: "emailNotSent" })))
+        yield* config.write([
+          { key: "dogfood_organization_id", value: organizationId },
+          { key: "dogfood_api_key", value: pending.apiKey! },
+          { key: "dogfood_pending_setup", value: null },
         ])
-        return updated
-      }),
-    )
-  })
+        yield* config.invalidate
+      })
+
+      const withProvisioningLock = <A, E, R>(operation: Effect.Effect<A, E, R>) =>
+        Effect.gen(function* () {
+          const context = yield* Effect.context<R>()
+          return yield* db.transaction((transaction) =>
+            Effect.gen(function* () {
+              const [lock] = yield* transaction
+                .execute<{ acquired: boolean }>(
+                  sql`select pg_try_advisory_xact_lock(734028190) as acquired`,
+                  "objects",
+                )
+                .pipe(Effect.orDie)
+              if (!lock?.acquired) return yield* new ConfigurationBusy()
+              // Keep recovery commits outside the lock's ambient transaction, even when email
+              // fails. https://effect.website/docs/requirements-management/services/
+              return yield* Effect.setContext(operation, context)
+            }),
+          )
+        }).pipe(mapDatabaseErrors())
+
+      return Dogfood.of({ onboarding, provision, withProvisioningLock })
+    }),
+  )
+
+  static readonly layer = Dogfood.layerNoDeps.pipe(
+    Layer.provide(Layer.mergeAll(Agents.layer, Auth.layer, Config.layer, Database.layer)),
+  )
 }

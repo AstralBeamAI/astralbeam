@@ -1,6 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
+import { Effect, Layer } from "effect"
 import { afterAll, beforeAll, vi } from "vitest"
 
 import { type EffectDatabase, Database } from "@/db"
@@ -19,74 +18,37 @@ afterAll(() => {
   vi.unstubAllEnvs()
 })
 
+/** Answers the read with one row holding `storedValue`, the column's raw ciphertext. */
+function readKey(storedValue: string | null) {
+  const result = Effect.succeed([{ organizationId: ORGANIZATION_ID, storedValue }])
+  const query = Object.assign(result, { where: () => query, limit: () => result })
+  const database = { select: () => ({ from: () => query }) } as unknown as EffectDatabase
+  return readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
+    Effect.provide(Layer.succeed(Database, database)),
+  )
+}
+
+function ciphertext(organizationId: string): string {
+  return organizationConfiguration.openaiApiKey.mapToDriverValue({
+    organizationId,
+    apiKey: TEST_API_KEY,
+  }) as string
+}
+
 describe("organization OpenAI API key", () => {
   it.effect("reveals the organization's own key and nothing when none is stored", () =>
     Effect.gen(function* () {
-      const stored = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
-        Effect.provide(
-          Layer.succeed(
-            Database,
-            configurationDatabase([
-              {
-                organizationId: ORGANIZATION_ID,
-                openaiApiKey: storedApiKey(ORGANIZATION_ID),
-              },
-            ]),
-          ),
-        ),
-      )
-      assert.strictEqual(stored, TEST_API_KEY)
-
-      const missing = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
-        Effect.provide(
-          Layer.succeed(
-            Database,
-            configurationDatabase([{ organizationId: ORGANIZATION_ID, openaiApiKey: null }]),
-          ),
-        ),
-      )
-      assert.strictEqual(missing, null)
+      assert.strictEqual(yield* readKey(ciphertext(ORGANIZATION_ID)), TEST_API_KEY)
+      assert.strictEqual(yield* readKey(null), null)
     }),
   )
 
-  it.effect("refuses a key encrypted for another organization", () =>
+  it.effect("refuses a key encrypted for another organization or not decryptable", () =>
     Effect.gen(function* () {
-      const error = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
-        Effect.provide(
-          Layer.succeed(
-            Database,
-            // The row is this organization's, the ciphertext in it is not.
-            configurationDatabase([
-              {
-                organizationId: ORGANIZATION_ID,
-                openaiApiKey: storedApiKey(OTHER_ORGANIZATION_ID),
-              },
-            ]),
-          ),
-        ),
-        Effect.flip,
-      )
-      assert.strictEqual(error._tag, "OrganizationOpenaiApiKeyError")
+      for (const storedValue of [ciphertext(OTHER_ORGANIZATION_ID), "not-a-compact-jwe"]) {
+        const error = yield* Effect.flip(readKey(storedValue))
+        assert.strictEqual(error._tag, "OrganizationOpenaiApiKeyUnreadable")
+      }
     }),
   )
 })
-
-type ConfigurationRow = {
-  readonly organizationId: string
-  readonly openaiApiKey: { organizationId: string; apiKey: string } | null
-}
-
-/** Round-trips the payload through the encrypted column, the way a real read would. */
-function storedApiKey(organizationId: string): NonNullable<ConfigurationRow["openaiApiKey"]> {
-  const column = organizationConfiguration.openaiApiKey
-  const ciphertext: unknown = column.mapToDriverValue({ organizationId, apiKey: TEST_API_KEY })
-  if (typeof ciphertext !== "string") throw new Error("Expected an encrypted OpenAI API key")
-  const payload: unknown = column.mapFromDriverValue(ciphertext)
-  return payload as NonNullable<ConfigurationRow["openaiApiKey"]>
-}
-
-function configurationDatabase(rows: readonly ConfigurationRow[]): EffectDatabase {
-  const result = Effect.succeed(rows)
-  const query = Object.assign(result, { where: () => query, limit: () => result })
-  return { select: () => ({ from: () => query }) } as unknown as EffectDatabase
-}
