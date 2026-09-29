@@ -1,19 +1,18 @@
 import { createServerFn } from "@tanstack/react-start"
+import { Effect } from "effect"
 import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 
-import { EmailProviderConnectionInputSchema } from "@/emails/schema"
+import { Mailer } from "@/lib/email/email.server"
+import { EmailProviderConnectionInputSchema } from "@/lib/email/schemas"
+import { runEffect } from "@/lib/runtime/server-fn.server"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
 export const testEmailProviderConnection = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(toValidationSchema(EmailProviderConnectionInputSchema, strictParseOptions))
-  .handler(async ({ data }) => {
-    switch (data.provider) {
-      case "smtp":
-        return await (await import("@/emails/providers/smtp")).testConnection(data.settings)
-      case "resend":
-        return await (await import("@/emails/providers/resend")).testConnection(data.settings)
-      case "ses":
-        return await (await import("@/emails/providers/ses")).testConnection(data.settings)
-    }
-  })
+  .handler(({ data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(Mailer, (mailer) => mailer.testConnection(data)),
+      serverFnMeta.name,
+    ),
+  )

@@ -154,9 +154,6 @@ const viteConfig = defineConfig(({ mode }) => {
               "**/src/emails/**",
               "**/src/lib/workflows/**",
             ],
-            // The configuration UI shares email schemas. Preserve the default dependency exclusion.
-            // https://tanstack.com/start/latest/docs/framework/react/guide/import-protection
-            excludeFiles: ["**/node_modules/**", "**/src/emails/schema.ts"],
           },
         },
       }),

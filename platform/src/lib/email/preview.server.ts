@@ -1,21 +1,26 @@
+import { Effect } from "effect"
 import { createElement } from "react"
 import type { ReactElement } from "react"
 
-import { renderEmailElement } from "./render.server.ts"
-import AccountExistsEmail, { createAccountExistsPreviewProps } from "./templates/account-exists.tsx"
+import AccountExistsEmail, {
+  createAccountExistsPreviewProps,
+} from "@/emails/templates/account-exists"
 import EmailVerificationEmail, {
   createEmailVerificationPreviewProps,
-} from "./templates/email-verification.tsx"
+} from "@/emails/templates/email-verification"
 import OrganizationDeletedEmail, {
   createOrganizationDeletedPreviewProps,
-} from "./templates/organization-deleted.tsx"
+} from "@/emails/templates/organization-deleted"
 import OrganizationInvitationEmail, {
   createOrganizationInvitationPreviewProps,
-} from "./templates/organization-invitation.tsx"
+} from "@/emails/templates/organization-invitation"
 import PasswordChangedEmail, {
   createPasswordChangedPreviewProps,
-} from "./templates/password-changed.tsx"
-import ResetPasswordEmail, { createResetPasswordPreviewProps } from "./templates/reset-password.tsx"
+} from "@/emails/templates/password-changed"
+import ResetPasswordEmail, {
+  createResetPasswordPreviewProps,
+} from "@/emails/templates/reset-password"
+import { renderEmailElement } from "./render.server.ts"
 
 const EMAIL_PREVIEWS = [
   {
@@ -95,21 +100,21 @@ function emailPreviewIndex(): Response {
   )
 }
 
-export async function handleEmailPreviewRequest(
-  request: Request,
-  name?: string,
-): Promise<Response> {
-  if (!name) return emailPreviewIndex()
-
-  const preview = EMAIL_PREVIEWS.find((candidate) => candidate.name === name)
+/** Serves `/dev/emails` and one preview per template, rendered from synthetic props. */
+export const emailPreviewResponse = Effect.fn("emailPreviewResponse")(function* (input: {
+  readonly request: Request
+  readonly name?: string | undefined
+}) {
+  if (!input.name) return emailPreviewIndex()
+  const preview = EMAIL_PREVIEWS.find((candidate) => candidate.name === input.name)
   if (!preview) return new Response("Not Found", { status: 404 })
 
-  const url = new URL(request.url)
-  const { html, text } = await renderEmailElement(preview.element(url.origin))
+  const url = new URL(input.request.url)
+  const { html, text } = yield* renderEmailElement(preview.element(url.origin))
   const plainText = url.searchParams.get("text") === "1"
   return new Response(plainText ? text : html, {
     headers: {
       "content-type": plainText ? "text/plain; charset=utf-8" : "text/html; charset=utf-8",
     },
   })
-}
+})

@@ -4,6 +4,7 @@ import { WorkflowEngine } from "effect/unstable/workflow"
 
 import { sqlState } from "../../db/lib/sqlstate.server.ts"
 import { Database, getDatabaseResources } from "../../db/index.ts"
+import { Mailer } from "../email/email.server.ts"
 import { registeredWorkflowLayers } from "../workflows/registry.server.ts"
 import { clusterRunnerLayer, clusterRunnerSettings } from "./runner.server.ts"
 
@@ -23,7 +24,10 @@ const clusterRuntimeState = (clusterProcess[clusterRuntimeKey] ??= {
 const superviseClusterRunner = Effect.gen(function* () {
   const engine = clusterRunnerLayer(clusterRunnerSettings())
   const context = yield* Layer.build(
-    registeredWorkflowLayers.pipe(Layer.provideMerge(engine), Layer.provide(Database.layerNoDeps)),
+    registeredWorkflowLayers.pipe(
+      Layer.provideMerge(engine),
+      Layer.provide([Database.layerNoDeps, Mailer.layer]),
+    ),
   )
   const sharding = Context.get(context, Sharding.Sharding)
   const config = Context.get(context, ShardingConfig.ShardingConfig)
