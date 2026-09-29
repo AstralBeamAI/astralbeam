@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
-import type { OrganizationSandboxProvider } from "@/db/organization-sandbox-provider.server"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
+import type { OrganizationSandboxProvider } from "@/lib/sandboxes/providers.server"
 import { deleteSandboxProvider } from "../../-functions/delete-sandbox-provider"
 import { testSandboxProviderConnection } from "../../-functions/test-sandbox-provider-connection"
-import { sandboxRequestFailedToast } from "../../-lib/utils"
 
 export type SandboxProviderActionsProps = {
   organizationSlug: string
@@ -38,6 +38,15 @@ export function SandboxProviderActions({
   const navigate = useNavigate()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
+  const showFailure = async (error: unknown) => {
+    const failure = parseServerFnError(error)
+    toast.add({ title: failure.message, type: "error" })
+    if (failure.tag === "SandboxProviderChanged" || failure.tag === "SandboxProviderInUse") {
+      await router.invalidate()
+    }
+  }
 
   const testConnection = async () => {
     setBusy(true)
@@ -45,13 +54,14 @@ export function SandboxProviderActions({
       const result = await testSandboxProviderConnection({
         data: { organizationSlug, id: provider.id, lockVersion: provider.lockVersion },
       })
+      const succeeded = result.status === "success"
       toast.add({
-        title: result.ok ? "Provider connection succeeded" : result.message,
-        type: result.ok ? "success" : "error",
+        title: succeeded ? "Provider connection succeeded" : "The provider connection test failed",
+        type: succeeded ? "success" : "error",
       })
       await router.invalidate()
-    } catch {
-      sandboxRequestFailedToast()
+    } catch (error) {
+      await showFailure(error)
     } finally {
       setBusy(false)
     }
@@ -60,20 +70,14 @@ export function SandboxProviderActions({
   const removeProvider = async () => {
     setBusy(true)
     try {
-      const result = await deleteSandboxProvider({
+      await deleteSandboxProvider({
         data: { organizationSlug, id: provider.id, lockVersion: provider.lockVersion },
       })
-      toast.add({
-        title: result.ok ? `${provider.name} deleted` : result.message,
-        type: result.ok ? "success" : "error",
-      })
-      if (!result.ok) {
-        await router.invalidate()
-        return
-      }
+      toast.add({ title: `${provider.name} deleted`, type: "success" })
       await navigate({ to: "/$orgSlug/sandboxes", params: { orgSlug: organizationSlug } })
-    } catch {
-      sandboxRequestFailedToast()
+    } catch (error) {
+      setDeleteOpen(false)
+      await showFailure(error)
     } finally {
       setBusy(false)
     }
@@ -94,7 +98,7 @@ export function SandboxProviderActions({
         </Button>
       )}
       {canDelete && (
-        <AlertDialog>
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialogTrigger
             render={
               <Button
@@ -116,9 +120,13 @@ export function SandboxProviderActions({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={() => void removeProvider()}>
-                Delete provider
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={busy}
+                onClick={() => void removeProvider()}
+              >
+                {busy ? "Deleting…" : "Delete provider"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

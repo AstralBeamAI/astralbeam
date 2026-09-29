@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { APP_NAME } from "@/lib/constants"
+
 const DEVELOPMENT_INDEX = `<!doctype html>
 <html lang="en">
 <head>
@@ -12,7 +14,7 @@ const DEVELOPMENT_INDEX = `<!doctype html>
   <main class="mx-auto flex min-h-svh max-w-3xl items-center px-6 py-16">
     <section class="w-full space-y-8">
       <header class="space-y-2">
-        <p class="text-sm font-medium text-primary">AstralBeam development</p>
+        <p class="text-sm font-medium text-primary">${APP_NAME} development</p>
         <h1 class="font-heading text-3xl font-semibold tracking-tight">Development tools</h1>
         <p class="text-muted-foreground">Local utilities available only while the development server is running.</p>
       </header>
@@ -44,8 +46,11 @@ export const Route = createFileRoute("/dev/$")({
         const emailPath = /^emails(?:\/([^/]+))?$/.exec(path)
         if (!emailPath) return new Response("Not Found", { status: 404 })
 
-        const { handleEmailPreviewRequest } = await import("@/emails/preview.server.ts")
-        return handleEmailPreviewRequest(request, emailPath[1])
+        const [{ emailPreviewResponse }, { runRouteEffect }] = await Promise.all([
+          import("@/lib/email/preview.server"),
+          import("@/lib/runtime/server-fn.server"),
+        ])
+        return runRouteEffect(emailPreviewResponse({ request, name: emailPath[1] }))
       },
       ANY: () => {
         if (!import.meta.env.DEV) return new Response("Not Found", { status: 404 })

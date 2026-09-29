@@ -1,7 +1,7 @@
 import { CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import type { ConfigIssue } from "@/lib/types"
+import type { ConfigIssue } from "@/lib/config/types"
 
 export function SetupStatusAlert({
   setupComplete,

@@ -1,50 +1,43 @@
-import {
-  getRequest,
-  getRequestIP,
-  getRequestUrl,
-  setResponseHeader,
-  setResponseStatus,
-} from "@tanstack/react-start/server"
-import { redirect } from "@tanstack/react-router"
+import { Effect, Result } from "effect"
 
+import { ServerRedirect, ServerRequest } from "@/lib/runtime/server-request.server"
 import { isLoopbackProxyAddress } from "@/lib/utils.server"
+import { ConfigureHttpsRequired, ConfigureRequestForbidden } from "./errors.ts"
 
 export function isSameOriginConfigureRequest(request: Request, requestUrl: URL): boolean {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) return true
   if (request.headers.get("sec-fetch-site") !== "same-origin") return false
   const source = request.headers.get("origin") ?? request.headers.get("referer")
-  try {
-    return source !== null && new URL(source).origin === requestUrl.origin
-  } catch {
-    return false
-  }
+  if (source === null) return false
+  const sourceUrl = Result.try(() => new URL(source))
+  return Result.isSuccess(sourceUrl) && sourceUrl.success.origin === requestUrl.origin
 }
 
-export function requireConfigureRequest(): void {
-  setResponseHeader("Cache-Control", "no-store")
-  setResponseHeader("Pragma", "no-cache")
-  // Stricter than the application-wide default, so it stays here.
-  setResponseHeader("Referrer-Policy", "no-referrer")
-
-  const request = getRequest()
-  // The forwarded host and protocol are only the ingress's when the connection came from it;
-  // otherwise a direct caller could satisfy the HTTPS requirement below with a header of its own.
-  const forwardedByIngress = isLoopbackProxyAddress(getRequestIP())
-  const requestUrl = getRequestUrl({
-    xForwardedHost: forwardedByIngress,
-    xForwardedProto: forwardedByIngress,
+/**
+ * Marks responses uncacheable at once, and fails for a request `/configure` must not serve. A page
+ * load over plain HTTP in production redirects to HTTPS.
+ */
+export const checkConfigureRequest = Effect.fn("checkConfigureRequest")(function* () {
+  const server = yield* ServerRequest
+  // The Referrer-Policy is stricter than the application-wide default, so it stays here.
+  yield* server.setHeaders({
+    "Cache-Control": "no-store",
+    Pragma: "no-cache",
+    "Referrer-Policy": "no-referrer",
   })
+  const { request } = server
+  // Forwarded host and protocol count only from the ingress, or a direct caller could satisfy the
+  // HTTPS requirement below with a header of its own.
+  const requestUrl = server.url({ forwarded: isLoopbackProxyAddress(server.clientAddress) })
   if (import.meta.env.PROD && requestUrl.protocol !== "https:") {
     if (["GET", "HEAD"].includes(request.method.toUpperCase())) {
       const httpsUrl = new URL(requestUrl)
       httpsUrl.protocol = "https:"
-      throw redirect({ href: httpsUrl.href, statusCode: 307 })
+      return yield* new ServerRedirect({ href: httpsUrl.href, status: 307 })
     }
-    setResponseStatus(400)
-    throw new Error("HTTPS is required")
+    return yield* new ConfigureHttpsRequired()
   }
   if (!isSameOriginConfigureRequest(request, requestUrl)) {
-    setResponseStatus(403)
-    throw new Error("Forbidden")
+    return yield* new ConfigureRequestForbidden()
   }
-}
+})

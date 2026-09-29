@@ -6,7 +6,8 @@ import * as Layer from "effect/Layer"
 import { RateLimiter } from "effect/unstable/persistence"
 import { SqlError, UnknownError } from "effect/unstable/sql/SqlError"
 
-import { type EffectDatabase, effectDatabase } from "@/db"
+import { type EffectDatabase, Database } from "@/db/database.server"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 
 import { consumeOperatorLoginRateLimit } from "./login-rate-limit.server.ts"
 
@@ -17,12 +18,12 @@ describe("operator login rate limiting", () => {
 
     return Effect.gen(function* () {
       const bootstrapDecision = yield* consumeOperatorLoginRateLimit().pipe(
-        Effect.provide(Layer.succeed(effectDatabase, failingDatabase(missingTable))),
+        Effect.provide(limiterOver(missingTable)),
       )
       assert.deepStrictEqual(bootstrapDecision, { allowed: true, retryAfterSeconds: 0 })
 
       const error = yield* consumeOperatorLoginRateLimit().pipe(
-        Effect.provide(Layer.succeed(effectDatabase, failingDatabase(unavailable))),
+        Effect.provide(limiterOver(unavailable)),
         Effect.flip,
       )
       assert.instanceOf(error.reason, RateLimiter.RateLimitStoreError)
@@ -41,6 +42,12 @@ function queryError(code: string): EffectDrizzleQueryError {
     params: [],
     query: "insert into rate_limit",
   })
+}
+
+function limiterOver(cause: unknown) {
+  return DatabaseRateLimiter.layerNoDeps.pipe(
+    Layer.provide(Layer.succeed(Database, failingDatabase(cause))),
+  )
 }
 
 function failingDatabase(cause: unknown): EffectDatabase {

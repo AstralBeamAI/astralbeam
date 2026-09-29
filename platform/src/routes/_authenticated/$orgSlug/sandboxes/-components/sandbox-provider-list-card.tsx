@@ -2,8 +2,8 @@ import { CubeIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import type { OrganizationSandboxProviderSummary } from "@/db/organization-sandbox-provider.server"
-import { sandboxProviderDescriptors } from "@/lib/sandbox/registry"
+import type { OrganizationSandboxProviderSummary } from "@/lib/sandboxes/providers.server"
+import { sandboxProviderDescriptors } from "@/lib/sandboxes/registry"
 import { SandboxConnectionStatus } from "./sandbox-connection-status"
 
 export type SandboxProviderListCardProps = {

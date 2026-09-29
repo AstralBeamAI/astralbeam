@@ -1,17 +1,20 @@
-import process from "node:process"
-
-import { Schema, SchemaGetter } from "effect"
+import { Result, Schema, SchemaGetter } from "effect"
 
 import {
   EmailProviderSchema,
   SMTP_DEFAULTS,
   SmtpPortSchema,
   SmtpSecuritySchema,
-} from "@/emails/schema"
+} from "@/lib/email/schemas"
+import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { generateSecret } from "@/lib/generate-secret.server"
-import { strictParseOptions, UuidV7Schema, NonEmptyStringSchema } from "@/lib/schemas"
-import { DogfoodCredential } from "@/lib/dogfood/schema"
-import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "@/lib/types"
+import {
+  EmailAddressSchema,
+  NonEmptyStringSchema,
+  strictParseOptions,
+  UuidV7Schema,
+} from "@/lib/schemas"
+import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "./types.ts"
 
 function isLoopbackHost(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
@@ -42,11 +45,11 @@ const ServerOriginSchema = Schema.URLFromString.check(
 
 // Resend and SES accept a bare address or a display name followed by an address.
 // https://resend.com/docs/api-reference/emails/send-email
-const EMAIL_ADDRESS_PATTERN = /^[^\s@<>,]+@[^\s@<>,.]+(?:\.[^\s@<>,.]+)+$/
 const NAMED_EMAIL_ADDRESS_PATTERN = /^(?:[^<>@,]*\S\s*)?<([^\s<>,]+)>$/
+const isEmailAddress = Schema.is(EmailAddressSchema)
 const EmailFromAddressSchema = Schema.String.check(
   Schema.makeFilter(
-    (value) => EMAIL_ADDRESS_PATTERN.test(NAMED_EMAIL_ADDRESS_PATTERN.exec(value)?.[1] ?? value),
+    (value) => isEmailAddress(NAMED_EMAIL_ADDRESS_PATTERN.exec(value)?.[1] ?? value),
     { message: "Email from address must be 'email@example.com' or 'Name <email@example.com>'" },
   ),
 )
@@ -61,8 +64,12 @@ const PublicHttpUrlSchema = Schema.URLFromString.check(
   }),
 )
 
-export function decodeConfigValue(definition: ConfigDefinition, value: unknown): string {
-  return Schema.decodeUnknownSync(definition.schema, strictParseOptions)(value)
+/** Fails with a generated message that never repeats the rejected value. */
+export function decodeConfigValue(
+  definition: ConfigDefinition,
+  value: unknown,
+): Result.Result<string, Schema.SchemaError> {
+  return Schema.decodeUnknownResult(definition.schema, strictParseOptions)(value)
 }
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
@@ -84,7 +91,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "secret",
     required: true,
     systemManaged: true,
-    schema: DogfoodCredential,
+    schema: ApiKeyCredentialSchema,
   },
   {
     key: "dogfood_pending_setup",
@@ -329,26 +336,6 @@ export function configEnvironmentVariable(key: ConfigKey): Uppercase<ConfigKey> 
   return key.toUpperCase() as Uppercase<ConfigKey>
 }
 
-export function hasEnvironmentConfigOverride(key: ConfigKey): boolean {
-  if (findConfigDefinition(key)?.systemManaged) return false
-  const value = process.env[configEnvironmentVariable(key)]
-  return value !== undefined && value !== ""
-}
-
-export function environmentConfigOverrideKeys(): ConfigKey[] {
-  return CONFIG_DEFINITIONS.filter((definition) =>
-    hasEnvironmentConfigOverride(definition.key),
-  ).map((definition) => definition.key)
-}
-
-function parseEnvironmentConfigValue(value: string): unknown {
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
-  }
-}
-
 export function findConfigDefinition(key: string): ConfigDefinition | undefined {
   return definitionByKey.get(key)
 }
@@ -359,34 +346,30 @@ export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
   ),
 ) as ConfigValues
 
+/** System-managed values stay database-only, so no environment variable can replace them. */
+export const ENVIRONMENT_CONFIG_DEFINITIONS = CONFIG_DEFINITIONS.filter(
+  (definition) => !definition.systemManaged,
+)
+
 // Environment values may use JSON syntax so they behave like equivalent JSONB values; ordinary
 // unquoted strings remain valid for shell ergonomics.
-export function environmentConfigValues(): ConfigValues {
-  const values: ConfigValues = {}
-  for (const definition of CONFIG_DEFINITIONS) {
-    if (definition.systemManaged) continue
-    const environmentVariable = configEnvironmentVariable(definition.key)
-    const environmentValue = process.env[environmentVariable]
-    if (environmentValue === undefined || environmentValue === "") continue
-    try {
-      values[definition.key] = decodeConfigValue(
-        definition,
-        parseEnvironmentConfigValue(environmentValue),
-      )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid value"
-      throw new Error(`${environmentVariable}: ${message}`)
-    }
-  }
-  return values
+export function parseEnvironmentConfigValue(value: string): unknown {
+  return Result.getOrElse(
+    Result.try(() => JSON.parse(value) as unknown),
+    () => value,
+  )
 }
 
-export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] {
+/** `environmentKeys` names the keys an environment variable supplies. */
+export function validateConfigCompleteness(
+  values: ConfigValues,
+  environmentKeys: ReadonlySet<ConfigKey> = new Set(),
+): ConfigIssue[] {
   const issues: ConfigIssue[] = []
   if (
     values.dogfood_api_key &&
     values.dogfood_organization_id &&
-    !values.dogfood_api_key.startsWith(`key_${values.dogfood_organization_id}_`)
+    parseApiKeyCredential(values.dogfood_api_key)?.organizationId !== values.dogfood_organization_id
   ) {
     issues.push({
       key: "dogfood_api_key",
@@ -434,8 +417,8 @@ export function validateConfigCompleteness(values: ConfigValues): ConfigIssue[] 
       message: `${findConfigDefinition(missing)?.label} is required when its pair is configured`,
     })
   }
-  const hasAwsAccessKeyEnvironmentOverride = hasEnvironmentConfigOverride("aws_access_key_id")
-  const hasAwsSecretKeyEnvironmentOverride = hasEnvironmentConfigOverride("aws_secret_access_key")
+  const hasAwsAccessKeyEnvironmentOverride = environmentKeys.has("aws_access_key_id")
+  const hasAwsSecretKeyEnvironmentOverride = environmentKeys.has("aws_secret_access_key")
   if (hasAwsAccessKeyEnvironmentOverride !== hasAwsSecretKeyEnvironmentOverride) {
     const missing = hasAwsAccessKeyEnvironmentOverride
       ? "aws_secret_access_key"

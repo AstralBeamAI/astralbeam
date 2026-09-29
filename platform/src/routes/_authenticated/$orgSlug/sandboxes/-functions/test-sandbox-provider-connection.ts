@@ -1,60 +1,25 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import {
-  catchOptimisticLockConflict,
-  optimisticLockConflict,
-} from "@/db/lib/optimistic-locking.server"
-import {
-  recordOrganizationSandboxProviderTest,
-  resolveOrganizationSandboxProviderConfiguration,
-} from "@/db/organization-sandbox-provider.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { runOrganizationSandboxConnectionTest } from "../-lib/connection-test.server.ts"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { toValidationSchema } from "@/lib/schemas"
 import { SandboxProviderInputSchema } from "../-lib/schemas.ts"
 
+/** Returns the recorded outcome, which is a failure result rather than an error when it fails. */
 export const testSandboxProviderConnection = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["test"] })])
   .validator(toValidationSchema(SandboxProviderInputSchema))
-  .handler(({ context, data }) =>
-    runDatabaseEffect(
-      Effect.gen(function* () {
-        const { organizationId } = context
-        const resolved = yield* resolveOrganizationSandboxProviderConfiguration(
-          organizationId,
-          data.id,
-        )
-        if (resolved.lockVersion !== data.lockVersion) {
-          return yield* optimisticLockConflict("Reload before testing again")
-        }
-        const connection = yield* runOrganizationSandboxConnectionTest(resolved)
-        yield* recordOrganizationSandboxProviderTest({
-          organizationId,
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(SandboxProviders, (providers) =>
+        providers.testConnection({
+          organizationId: context.organizationId,
           id: data.id,
           lockVersion: data.lockVersion,
-          status: connection.status,
-          testedAt: connection.testedAt,
-          ...(connection.errorCode && { errorCode: connection.errorCode }),
-        })
-        return connection.status === "success"
-          ? { ok: true as const }
-          : {
-              ok: false as const,
-              code: connection.errorCode ?? "provider_error",
-              message: "The provider connection test failed",
-            }
-      }).pipe(
-        catchOptimisticLockConflict("Reload before testing again"),
-        Effect.catchTags({
-          SandboxConfigurationValidationError: (error) =>
-            Effect.succeed({
-              ok: false as const,
-              code: "invalid" as const,
-              message: error.message,
-            }),
         }),
-      ),
+      ).pipe(Effect.catchTag(["SandboxProviderChanged", "SandboxProviderUnreadable"], exposeError)),
+      serverFnMeta.name,
     ),
   )

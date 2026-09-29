@@ -13,51 +13,17 @@ export interface OrganizationMembershipIdentity {
   slug: string
 }
 
-export interface SessionAccessDependencies {
-  listOrganizations: () => Promise<readonly OrganizationMembershipIdentity[]>
-  setActiveOrganization: (organizationId: string) => Promise<void>
-}
-
-/**
- * Reconcile the session's active organization against the user's current memberships.
- *
- * Memberships remain authoritative: a null or stale active organization does not imply
- * that the user needs onboarding. When selection is required, sorting by the opaque ID
- * makes the result independent of the order returned by the organization API.
- */
-export async function reconcileSessionAccess(
+/** Chooses the organization a session lands on without writing it: its active membership, else
+ * the lowest ID, so API order never matters. The organization layout records the shown one. */
+export function decideSessionAccess(
   session: SessionAccessIdentity | null,
-  dependencies: SessionAccessDependencies,
-): Promise<SessionAccessDecision> {
+  organizations: readonly OrganizationMembershipIdentity[],
+): SessionAccessDecision {
   if (!session) return { status: "signed-out" }
-
-  const organizations = await dependencies.listOrganizations()
-  if (organizations.length === 0) {
-    return { status: "onboarding", userId: session.userId }
-  }
-
-  const activeOrganization = session.activeOrganizationId
-    ? organizations.find(({ id }) => id === session.activeOrganizationId)
-    : undefined
-
-  if (activeOrganization) {
-    return {
-      status: "ready",
-      userId: session.userId,
-      organizationId: activeOrganization.id,
-      organizationSlug: activeOrganization.slug,
-    }
-  }
-
-  const organization = organizations.toSorted((left, right) =>
-    compareOrganizationIds(left.id, right.id),
-  )[0]
-
-  if (!organization) {
-    return { status: "onboarding", userId: session.userId }
-  }
-
-  await dependencies.setActiveOrganization(organization.id)
+  const organization =
+    organizations.find(({ id }) => id === session.activeOrganizationId) ??
+    organizations.toSorted((left, right) => compareOrganizationIds(left.id, right.id))[0]
+  if (!organization) return { status: "onboarding", userId: session.userId }
   return {
     status: "ready",
     userId: session.userId,

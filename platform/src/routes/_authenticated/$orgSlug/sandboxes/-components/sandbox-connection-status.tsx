@@ -1,5 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import type { SandboxTestMetadata } from "@/lib/sandbox/schemas"
+import type { SandboxTestMetadata } from "@/lib/sandboxes/schemas"
 
 export type SandboxConnectionStatusProps = {
   metadata: SandboxTestMetadata

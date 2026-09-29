@@ -1,14 +1,15 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and a single-role select; take the organization and creator role as props from the page loader and scope the invitation query to its ID; reveal the pending invitation when its email could not be delivered; omit disabled teams, dynamic roles, and invitation model fields; focus the email through the dialog's initialFocus and adjust role and error state during render.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and a single-role select. Take the organization and creator role as props from the page loader and scope the invitation query to its ID, through the core query options so no active-organization fetch runs beside it. Reveal the pending invitation when its email could not be delivered. Omit disabled teams, dynamic roles, and invitation model fields. Focus the email through the dialog's initialFocus and adjust role and error state during render.
 
 "use client"
 
-import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
-import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import {
-  useInviteMember,
-  useListOrganizationInvitations,
-} from "@better-auth-ui/react/plugins/organization"
+  listOrganizationInvitationsOptions,
+  type OrganizationAuthClient,
+} from "@better-auth-ui/core/plugins/organization"
+import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
+import { useInviteMember } from "@better-auth-ui/react/plugins/organization"
+import { useQuery } from "@tanstack/react-query"
 import { UserPlusIcon as UserPlus } from "@phosphor-icons/react"
 import { type SyntheticEvent, useMemo, useRef, useState } from "react"
 import { toast } from "@/components/ui/toast"
@@ -64,7 +65,10 @@ export function InviteMemberDialog({
   } = useAuthPlugin(organizationPlugin)
   // Scoped to the prop, not the active organization, so the limit and the delivery-error refetch
   // both describe the organization this dialog is inviting into.
-  const invitations = useListOrganizationInvitations(authClient, { query: { organizationId } })
+  const { data: session } = useSession(authClient)
+  const invitations = useQuery(
+    listOrganizationInvitationsOptions(authClient, session?.user.id, { query: { organizationId } }),
+  )
   const assignableRoles = useMemo(
     () =>
       Object.fromEntries(Object.entries(roles).filter(([role]) => isOwner || role !== creatorRole)),

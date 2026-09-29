@@ -1,15 +1,11 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Schema from "effect/Schema"
+import { Effect, Schema } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { writeOrganizationOpenaiApiKey } from "@/db/organization-openai-api-key.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import {
-  toValidationSchema,
-  isValidOpenaiApiKey,
-  OPENAI_API_KEY_VALIDATION_MESSAGE,
-  SlugSchema,
-} from "@/lib/schemas"
+import { OrganizationOpenaiApiKeyInvalid } from "@/lib/organizations/errors"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { writeOrganizationOpenaiApiKey } from "@/lib/organizations/openai-api-key.server"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { isValidOpenaiApiKey, SlugSchema, toValidationSchema } from "@/lib/schemas"
 
 export const updateOrganizationOpenaiApiKey = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
@@ -22,13 +18,15 @@ export const updateOrganizationOpenaiApiKey = createServerFn({ method: "POST" })
       }),
     ),
   )
-  .handler(async ({ context, data }) => {
-    const apiKey = data.apiKey === null ? null : data.apiKey.trim()
-    if (apiKey !== null && !isValidOpenaiApiKey(apiKey)) {
-      return { ok: false as const, message: OPENAI_API_KEY_VALIDATION_MESSAGE }
-    }
-    await runDatabaseEffect(
-      writeOrganizationOpenaiApiKey({ organizationId: context.organizationId, apiKey }),
-    )
-    return { ok: true as const }
-  })
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const apiKey = data.apiKey === null ? null : data.apiKey.trim()
+        if (apiKey !== null && !isValidOpenaiApiKey(apiKey)) {
+          return yield* new OrganizationOpenaiApiKeyInvalid()
+        }
+        yield* writeOrganizationOpenaiApiKey({ organizationId: context.organizationId, apiKey })
+      }).pipe(Effect.catchTag("OrganizationOpenaiApiKeyInvalid", exposeError)),
+      serverFnMeta.name,
+    ),
+  )

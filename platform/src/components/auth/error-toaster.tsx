@@ -9,6 +9,7 @@ import {
   isSessionNotFreshError,
 } from "@better-auth-ui/core"
 import { matchMutation, matchQuery, useQueryClient } from "@tanstack/react-query"
+import { Predicate } from "effect"
 import { useEffect } from "react"
 import { useToastManager } from "@/components/ui/toast"
 import {
@@ -16,13 +17,17 @@ import {
   isAuthEmailDeliveryError,
 } from "@/lib/auth/email-delivery"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function authErrorCode(error: unknown): string | undefined {
+  if (!Predicate.hasProperty(error, "error") || !Predicate.hasProperty(error.error, "code")) {
+    return undefined
+  }
+  return Predicate.isString(error.error.code) ? error.error.code : undefined
 }
 
-function authErrorCode(error: unknown): string | undefined {
-  if (!isRecord(error) || !isRecord(error.error)) return undefined
-  return typeof error.error.code === "string" ? error.error.code : undefined
+/** Better Auth's check-slug and create endpoints reject a taken slug with these codes. */
+export function isOrganizationSlugTakenError(error: unknown): boolean {
+  const code = authErrorCode(error)
+  return code === "ORGANIZATION_SLUG_ALREADY_TAKEN" || code === "ORGANIZATION_ALREADY_EXISTS"
 }
 
 function safeAuthError(error: unknown): string {
@@ -33,7 +38,10 @@ function safeAuthError(error: unknown): string {
   if (authErrorCode(error) === "DOGFOOD_API_KEY_IN_USE") {
     return "This API key is used by the embedded assistant and cannot be deleted."
   }
-  const status = isRecord(error) && typeof error.status === "number" ? error.status : undefined
+  const status =
+    Predicate.hasProperty(error, "status") && Predicate.isNumber(error.status)
+      ? error.status
+      : undefined
   if (status === 429) {
     return "Too many attempts. Please wait a moment and try again."
   }
@@ -79,6 +87,8 @@ export function ErrorToaster() {
       // Every form that sets a new password renders this one against the
       // password field, so a toast would just repeat it.
       if (isPasswordCompromisedError(error)) return
+      // The create organization dialog renders a taken slug against its slug field.
+      if (isOrganizationSlugTakenError(error)) return
 
       if (authErrorCode(error) === "EMAIL_NOT_VERIFIED") return
       addToast({ title: safeAuthError(error), type: "error" })

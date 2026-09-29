@@ -1,44 +1,52 @@
-import type { SQL } from "drizzle-orm"
-import { PgDialect } from "drizzle-orm/pg-core"
-import { describe, expect, test, vi } from "vitest"
+import { assert, describe, it } from "@effect/vitest"
+import { Effect } from "effect"
+import type { Pool, PoolClient } from "pg"
 
-import { runWithMigrationAdvisoryLock } from "./migration-runner.server.ts"
+import { MigrationsNotApplied, withMigrationLock } from "./migration-runner.server.ts"
 
-function lockClient(locked: boolean) {
-  const execute = vi.fn((_query: SQL) => Promise.resolve({ rows: [{ locked }] }))
-  const database = {
-    transaction: (callback: (transaction: { execute: typeof execute }) => Promise<unknown>) =>
-      callback({ execute }),
-  } as unknown as Parameters<typeof runWithMigrationAdvisoryLock>[0]
-  return { database, execute }
+function lockPool(locked: boolean) {
+  const queries: string[] = []
+  const client = {
+    query: (text: string) => {
+      queries.push(text)
+      return Promise.resolve({ rows: [{ locked }] })
+    },
+    release: () => queries.push("release"),
+  } as unknown as PoolClient
+  const pool: Pick<Pool, "connect"> = { connect: () => Promise.resolve(client) }
+  return { pool, queries }
 }
 
 describe("migration advisory lock", () => {
-  test("runs migrations while the transaction-scoped lock is held", async () => {
-    const applyMigrations = vi.fn(() =>
-      Promise.resolve({ ok: true as const, applied: ["migration"] }),
-    )
-    const locking = lockClient(true)
+  it.effect("runs migrations while the transaction-scoped lock is held", () =>
+    Effect.gen(function* () {
+      const { pool, queries } = lockPool(true)
+      const applied = yield* withMigrationLock(
+        pool,
+        Effect.sync(() => queries.push("apply")),
+      )
+      assert.isNumber(applied)
+      assert.strictEqual(queries[0], "begin")
+      assert.include(queries[1], "pg_try_advisory_xact_lock")
+      assert.deepStrictEqual(queries.slice(2), ["apply", "commit", "release"])
+    }),
+  )
 
-    await expect(runWithMigrationAdvisoryLock(locking.database, applyMigrations)).resolves.toEqual({
-      ok: true,
-      applied: ["migration"],
-    })
-    const lockQuery = locking.execute.mock.calls.at(0)?.at(0)
-    if (!lockQuery) throw new Error("Expected an advisory-lock query")
-    expect(new PgDialect().sqlToQuery(lockQuery).sql).toContain("pg_try_advisory_xact_lock")
-    expect(applyMigrations).toHaveBeenCalledOnce()
-  })
-
-  test("rejects a competing migration run", async () => {
-    const applyMigrations = vi.fn(() => Promise.resolve({ ok: true as const, applied: [] }))
-
-    await expect(
-      runWithMigrationAdvisoryLock(lockClient(false).database, applyMigrations),
-    ).resolves.toEqual({
-      ok: false,
-      error: "A migration run is already in progress",
-    })
-    expect(applyMigrations).not.toHaveBeenCalled()
-  })
+  it.effect("rejects a competing migration run and releases its client", () =>
+    Effect.gen(function* () {
+      const { pool, queries } = lockPool(false)
+      const failure = yield* Effect.flip(
+        withMigrationLock(
+          pool,
+          Effect.sync(() => queries.push("apply")),
+        ),
+      )
+      assert.deepStrictEqual(
+        failure,
+        new MigrationsNotApplied({ message: "A migration run is already in progress" }),
+      )
+      assert.notInclude(queries, "apply")
+      assert.deepStrictEqual(queries.slice(-2), ["rollback", "release"])
+    }),
+  )
 })

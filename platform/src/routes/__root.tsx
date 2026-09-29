@@ -12,12 +12,11 @@ import {
 } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
-import { getRequest } from "@tanstack/react-start/server"
 import { type ReactNode, useCallback } from "react"
 import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
 
-import { getGlobalConfig } from "@/lib/config"
-import { isSetupComplete } from "@/lib/config/state.server"
+import { Effect } from "effect"
+
 import { AuthProvider } from "@/components/auth/auth-provider"
 import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
 import { PublicConfigProvider } from "@/components/public-config-provider"
@@ -28,6 +27,10 @@ import { apiKeyPlugin } from "@/lib/auth/api-key-plugin"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { normalizeReturnPath, resolveRedirectOrigin } from "@/lib/auth/redirect"
 import { themePlugin } from "@/lib/auth/theme-plugin"
+import { ORGANIZATION_API_KEY_PAGE_SIZE } from "@/lib/api-keys/schemas"
+import { Config } from "@/lib/config/config.server"
+import { runEffect } from "@/lib/runtime/server-fn.server"
+import { ServerRequest } from "@/lib/runtime/server-request.server"
 import {
   APP_LOGO_DARK_SVG_URL,
   APP_LOGO_LIGHT_PNG_URL,
@@ -42,7 +45,8 @@ import { getPublicConfig } from "./-functions/get-public-config"
 
 const APP_THEMES = ["system", "light", "dark"] as const
 type AppTheme = (typeof APP_THEMES)[number]
-const devtoolsConfig = { position: "bottom-right" } as const
+// Bottom-right holds the toasts and the chat composer, and bottom-left the account menu.
+const devtoolsConfig = { position: "middle-left", hideUntilHover: true } as const
 const devtoolsPlugins = [
   {
     name: "Tanstack Router",
@@ -51,20 +55,29 @@ const devtoolsPlugins = [
 ]
 
 const getRedirectOrigin = createIsomorphicFn()
-  .server(async () => {
-    const appBaseUrl = await getGlobalConfig("app_base_url")
-    // Requests can carry redirectTo before setup configures the base URL; fall back to the request origin.
-    return appBaseUrl ?? new URL(getRequest().url).origin
-  })
+  .server(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const appBaseUrl = yield* Effect.flatMap(Config, (config) => config.get("app_base_url"))
+        // Requests can carry redirectTo before setup configures the base URL.
+        return appBaseUrl ?? new URL((yield* ServerRequest).request.url).origin
+      }),
+      "getRedirectOrigin",
+    ),
+  )
   .client(() => globalThis.location.origin)
 
 const getSetupState = createIsomorphicFn()
-  .server(async () => {
-    if (getDatabaseBootstrapIssues().length > 0) return { setupComplete: false }
-    return {
-      setupComplete: await isSetupComplete(),
-    }
-  })
+  .server(() =>
+    getDatabaseBootstrapIssues().length > 0
+      ? { setupComplete: false }
+      : runEffect(
+          Effect.flatMap(Config, (config) => config.setupState).pipe(
+            Effect.map((state) => ({ setupComplete: state.setupComplete })),
+          ),
+          "getSetupState",
+        ),
+  )
   // The server gates application documents. Public docs leave through a full document navigation.
   .client(() => ({ setupComplete: true }))
 
@@ -233,6 +246,7 @@ function AppProviders({ children }: { children: ReactNode }) {
           apiKeyPlugin({
             organization: true,
             keyExpiration: { defaultInterval: null },
+            pageSize: ORGANIZATION_API_KEY_PAGE_SIZE,
             localization: {
               apiKeysDescription: "Manage API keys.",
             },

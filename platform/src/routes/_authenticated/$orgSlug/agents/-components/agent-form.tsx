@@ -4,7 +4,9 @@ import { useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 import { Schema } from "effect"
 
-import { AgentNameSchema, AgentSystemPromptSchema } from "@/lib/schemas"
+import type { Agent, AgentSandboxProvider } from "@/lib/agents/agents.server"
+import { AgentNameSchema, AgentSystemPromptSchema } from "@/lib/agents/schemas"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -16,7 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -27,10 +29,8 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
-import type { AgentSandboxProviderSummary, OrganizationAgent } from "@/db/agent.server"
 import { createAgent } from "../-functions/create-agent"
 import { updateAgent } from "../-functions/update-agent"
-import { agentRequestFailedToast } from "../-lib/utils"
 
 /** Stands in for a null provider, which the Select cannot represent with an empty value. */
 const NO_SANDBOX_PROVIDER = "none"
@@ -41,8 +41,8 @@ const AGENT_SYSTEM_PROMPT_MAX_LENGTH = 32_768
 export type AgentFormProps = {
   organizationSlug: string
   /** Null on the create page, where the agent's ID does not exist yet. */
-  agent: OrganizationAgent | null
-  sandboxProviders: readonly AgentSandboxProviderSummary[]
+  agent: Agent | null
+  sandboxProviders: readonly AgentSandboxProvider[]
   readOnly: boolean
 }
 
@@ -61,6 +61,7 @@ export function AgentForm({
     existing?.sandboxProviderId ?? NO_SANDBOX_PROVIDER,
   )
   const [saving, setSaving] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   // Base UI resolves the trigger's label from `items`, not from the rendered options.
   const sandboxProviderItems = [
@@ -80,38 +81,42 @@ export function AgentForm({
     event.preventDefault()
     if (!valid || readOnly) return
     setSaving(true)
+    setNameError(null)
+    const fields = {
+      name: normalizedName,
+      systemPrompt,
+      attachmentsEnabled,
+      sandboxProviderId: selectedSandboxProviderId,
+    }
     try {
-      const fields = {
-        organizationSlug,
-        name: normalizedName,
-        systemPrompt,
-        attachmentsEnabled,
-        sandboxProviderId: selectedSandboxProviderId,
-      }
       if (existing) {
-        const result = await updateAgent({
-          data: { ...fields, id: existing.id, lockVersion: existing.lockVersion },
+        await updateAgent({
+          data: {
+            organizationSlug,
+            agentId: existing.id,
+            lockVersion: existing.lockVersion,
+            fields,
+          },
         })
-        toast.add({
-          title: result.ok ? "Agent saved" : result.message,
-          type: result.ok ? "success" : "error",
-        })
-        if (result.ok || result.code === "stale") await router.invalidate()
+        toast.add({ title: "Agent saved", type: "success" })
+        await router.invalidate()
         return
       }
-      const result = await createAgent({ data: fields })
-      toast.add({
-        title: result.ok ? "Agent created" : result.message,
-        type: result.ok ? "success" : "error",
-      })
-      if (!result.ok) return
+      const agentId = await createAgent({ data: { organizationSlug, fields } })
+      toast.add({ title: "Agent created", type: "success" })
       await navigate({
         to: "/$orgSlug/agents/$agentId",
-        params: { orgSlug: organizationSlug, agentId: result.id },
+        params: { orgSlug: organizationSlug, agentId },
         replace: true,
       })
-    } catch {
-      agentRequestFailedToast()
+    } catch (error) {
+      const failure = parseServerFnError(error)
+      if (failure.tag === "AgentNameTaken") {
+        setNameError(failure.message)
+        return
+      }
+      toast.add({ title: failure.message, type: "error" })
+      if (failure.tag === "AgentChanged") await router.invalidate()
     } finally {
       setSaving(false)
     }
@@ -132,7 +137,7 @@ export function AgentForm({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <Field>
+            <Field data-invalid={nameError !== null || undefined}>
               <FieldLabel htmlFor="agent-name">Name</FieldLabel>
               <Input
                 id="agent-name"
@@ -140,8 +145,14 @@ export function AgentForm({
                 required
                 maxLength={AGENT_NAME_MAX_LENGTH}
                 disabled={disabled}
-                onChange={(event) => setName(event.target.value)}
+                aria-invalid={nameError !== null || undefined}
+                aria-describedby={nameError ? "agent-name-error" : undefined}
+                onChange={(event) => {
+                  setName(event.target.value)
+                  setNameError(null)
+                }}
               />
+              <FieldError id="agent-name-error">{nameError}</FieldError>
               <FieldDescription>Unique within this organization.</FieldDescription>
             </Field>
 

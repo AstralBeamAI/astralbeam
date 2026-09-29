@@ -3,7 +3,7 @@ import { PgDialect, snakeCase, text } from "drizzle-orm/pg-core"
 import * as Effect from "effect/Effect"
 import { describe, expect, test } from "vitest"
 
-import type { EffectDatabase } from "@/db"
+import type { EffectDatabase } from "@/db/database.server"
 import { lockVersion, uuidV7PrimaryKey } from "./columns.server.ts"
 import {
   deleteWithOptimisticLock,
@@ -100,9 +100,8 @@ describe("optimistic locking", () => {
         }),
       ),
     ).rejects.toMatchObject({
+      _tag: "OptimisticLockError",
       expectedLockVersion: 2,
-      name: "OptimisticLockError",
-      reason: "conflict",
       tableName: "locked_record",
     } satisfies Partial<OptimisticLockError>)
   })

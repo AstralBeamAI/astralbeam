@@ -14,13 +14,14 @@ import {
   type DogfoodOnboarding,
   type OwnerOnboarding,
   OwnerOnboardingInput,
-} from "@/lib/dogfood/schema"
+} from "@/lib/dogfood/schemas"
 import {
   EMAIL_PROVIDER_SETTING_KEYS,
   EmailProviderConnectionInputSchema,
   EmailProviderSchema,
-} from "@/emails/schema"
-import type { ConfigIssue, ConfigKey } from "@/lib/types"
+} from "@/lib/email/schemas"
+import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { generateConfigValue } from "../-functions/generate-config-value"
 import { revealConfigValue } from "../-functions/reveal-config-value"
 import { saveConfigValues } from "../-functions/save-config-values"
@@ -127,36 +128,37 @@ export function ConfigEditor({
     setPendingAction(kind)
     try {
       await action()
-    } catch {
-      toast.add({ title: "The request failed; try again", type: "error" })
+    } catch (error) {
+      toast.add({ title: parseServerFnError(error).message, type: "error" })
     } finally {
       setPendingAction(null)
     }
   }
 
   const savePendingUpdates = async (inviteOwner = false) => {
-    const result = await saveConfigValues({
-      data: {
-        updates: pendingUpdates,
-        ...(inviteOwner && owner ? { onboarding: owner } : {}),
-      },
-    })
-    if (result.ok) {
-      setFieldErrors({})
+    try {
+      const { fieldErrors: refused } = await saveConfigValues({
+        data: {
+          updates: pendingUpdates,
+          ...(inviteOwner && owner ? { onboarding: owner } : {}),
+        },
+      })
+      setFieldErrors(Object.fromEntries(refused.map((issue) => [issue.key, issue.message])))
+      if (refused.length > 0) {
+        toast.add({ title: "Some values could not be saved", type: "error" })
+        return false
+      }
       setDrafts({})
       if (inviteOwner) setOwnerDrafts({})
       setRevealedValues({})
       return true
+    } catch (error) {
+      const failure = parseServerFnError(error)
+      toast.add({ title: failure.message, type: "error" })
+      // The configuration was saved before owner onboarding failed.
+      if (failure.tag === "OwnerOnboardingFailed") onChanged()
+      return false
     }
-    setFieldErrors(
-      Object.fromEntries(result.fieldErrors.map((issue) => [issue.key, issue.message])),
-    )
-    toast.add({
-      title: result.error ?? "Some values could not be saved",
-      type: "error",
-    })
-    if (result.error) onChanged()
-    return false
   }
 
   const handleSave = () =>
@@ -175,29 +177,22 @@ export function ConfigEditor({
 
   const handleGenerate = (key: ConfigKey) =>
     run(async () => {
-      const result = await generateConfigValue({ data: { key } })
-      if (result.ok) {
-        // The stored value changed, so any copy this page revealed is stale.
-        setRevealedValues({})
-        toast.add({ title: "New secret generated", type: "success" })
-        onChanged()
-      } else {
-        toast.add({ title: result.error, type: "error" })
-      }
+      await generateConfigValue({ data: { key } })
+      // The stored value changed, so any copy this page revealed is stale.
+      setRevealedValues({})
+      toast.add({ title: "New secret generated", type: "success" })
+      onChanged()
     })
 
   const handleReveal = async (key: ConfigKey): Promise<boolean> => {
     try {
-      const result = await revealConfigValue({ data: { key } })
-      if (result.ok) {
-        setRevealedValues((current) => ({ ...current, [key]: result.value ?? "" }))
-        return true
-      }
-      toast.add({ title: result.error, type: "error" })
-    } catch {
-      toast.add({ title: "The value could not be revealed; try again", type: "error" })
+      const value = await revealConfigValue({ data: { key } })
+      setRevealedValues((current) => ({ ...current, [key]: value ?? "" }))
+      return true
+    } catch (error) {
+      toast.add({ title: parseServerFnError(error).message, type: "error" })
+      return false
     }
-    return false
   }
 
   const handleTestEmailProvider = () =>

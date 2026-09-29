@@ -16,6 +16,7 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { isValidOpenaiApiKey, OPENAI_API_KEY_VALIDATION_MESSAGE } from "@/lib/schemas"
 import { updateOrganizationOpenaiApiKey } from "../-functions/update-organization-openai-api-key"
 
@@ -40,21 +41,15 @@ export function OrganizationOpenaiApiKeyCard({
   const submit = async (value: string | null) => {
     setPending(true)
     try {
-      const result = await updateOrganizationOpenaiApiKey({
-        data: { organizationSlug, apiKey: value },
-      })
-      if (!result.ok) {
-        toast.add({ title: result.message, type: "error" })
-        return
-      }
+      await updateOrganizationOpenaiApiKey({ data: { organizationSlug, apiKey: value } })
       setApiKey("")
       toast.add({
         title: value === null ? "OpenAI API key removed" : "OpenAI API key saved",
         type: "success",
       })
       await router.invalidate()
-    } catch {
-      toast.add({ title: "The OpenAI API key could not be saved. Try again.", type: "error" })
+    } catch (error) {
+      toast.add({ title: parseServerFnError(error).message, type: "error" })
     } finally {
       setPending(false)
     }

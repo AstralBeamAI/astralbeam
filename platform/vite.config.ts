@@ -1,6 +1,8 @@
+import { spawnSync } from "node:child_process"
 import { readdirSync, readFileSync } from "node:fs"
 import { extname } from "node:path"
 import process from "node:process"
+import { fileURLToPath } from "node:url"
 
 import tailwindcss from "@tailwindcss/vite"
 import { devtools } from "@tanstack/devtools-vite"
@@ -30,7 +32,20 @@ const legalAssets = [
     })),
 ]
 
-const viteConfig = defineConfig(({ mode }) => {
+// dockerode reads only `DOCKER_HOST` and otherwise prefers a Docker Desktop socket that may be
+// stale, so the dev server pins the CLI's active context. https://docs.docker.com/engine/manage-resources/contexts/
+function pinDockerHost(): void {
+  if (process.env.DOCKER_HOST) return
+  const probe = spawnSync(
+    "docker",
+    ["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
+    { encoding: "utf8" },
+  )
+  if (probe.status === 0 && probe.stdout.trim()) process.env.DOCKER_HOST = probe.stdout.trim()
+}
+
+const viteConfig = defineConfig(({ command, mode }) => {
+  if (command === "serve" && !process.env.VITEST) pinDockerHost()
   return {
     resolve: { tsconfigPaths: true },
     // `strictPort` keeps a busy port an error instead of a silent move to the next one, which
@@ -82,38 +97,48 @@ const viteConfig = defineConfig(({ mode }) => {
         name: "cluster-development-close",
         apply: "serve",
         configureServer(server) {
-          // Nitro runs in a worker. Await its cleanup before Vite terminates that environment.
+          // Every server environment runs in Nitro's one worker, and closing any of them terminates
+          // it, so each awaits the cleanup requested over the nitro environment's HMR channel.
           // https://vite.dev/guide/api-plugin.html#client-server-communication
           const environment = server.environments.nitro
           if (!environment) return
-          const close = environment.close.bind(environment)
-          let closing: Promise<void> | undefined
-          environment.close = () =>
-            (closing ??= (async () => {
-              try {
-                await new Promise<void>((resolve, reject) => {
-                  const timeout = setTimeout(() => {
-                    environment.hot.off("astralbeam:closed", closed)
-                    reject(new Error("Cluster development shutdown timed out"))
-                  }, 5_000)
-                  const closed = () => {
-                    clearTimeout(timeout)
-                    environment.hot.off("astralbeam:closed", closed)
-                    resolve()
-                  }
-                  environment.hot.on("astralbeam:closed", closed)
-                  environment.hot.send("astralbeam:close")
-                })
-              } finally {
-                await close()
+          let cleanup: Promise<void> | undefined
+          const awaitClusterCleanup = () =>
+            (cleanup ??= new Promise<void>((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                environment.hot.off("astralbeam:closed", closed)
+                reject(new Error("Cluster development shutdown timed out"))
+              }, 5_000)
+              const closed = () => {
+                clearTimeout(timeout)
+                environment.hot.off("astralbeam:closed", closed)
+                resolve()
               }
-            })())
+              environment.hot.on("astralbeam:closed", closed)
+              environment.hot.send("astralbeam:close")
+            }))
+          for (const serverEnvironment of Object.values(server.environments)) {
+            if (serverEnvironment.config.consumer !== "server") continue
+            const close = serverEnvironment.close.bind(serverEnvironment)
+            let closing: Promise<void> | undefined
+            serverEnvironment.close = () =>
+              (closing ??= (async () => {
+                try {
+                  await awaitClusterCleanup()
+                } finally {
+                  await close()
+                }
+              })())
+          }
         },
       },
       devtools(),
       ...(mode === "test"
         ? []
         : nitro({
+            // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
+            // https://nitro.build/config#alias
+            alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
             // Nitro prerenders before indexing static assets, including their content-based ETags.
             // https://nitro.build/docs/prerender
             prerender: {
@@ -138,9 +163,9 @@ const viteConfig = defineConfig(({ mode }) => {
               },
             },
             plugins: [
-              "./src/lib/request-context.server.ts",
-              "./src/lib/response-headers.server.ts",
-              "./src/cluster/plugin.server.ts",
+              "./src/lib/runtime/request-context.server.ts",
+              "./src/lib/runtime/response-headers.server.ts",
+              "./src/lib/cluster/plugin.server.ts",
             ],
           })),
       tailwindcss(),
@@ -149,14 +174,11 @@ const viteConfig = defineConfig(({ mode }) => {
           client: {
             files: [
               "**/*.server.*",
-              "**/src/cluster/**",
+              "**/src/lib/cluster/**",
               "**/src/db/**",
               "**/src/emails/**",
-              "**/src/workflows/**",
+              "**/src/lib/workflows/**",
             ],
-            // The configuration UI shares email schemas. Preserve the default dependency exclusion.
-            // https://tanstack.com/start/latest/docs/framework/react/guide/import-protection
-            excludeFiles: ["**/node_modules/**", "**/src/emails/schema.ts"],
           },
         },
       }),

@@ -17,14 +17,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
-import type { OrganizationAgent } from "@/db/agent.server"
+import type { Agent } from "@/lib/agents/agents.server"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { deleteAgent } from "../../-functions/delete-agent"
 import { setDefaultAgent } from "../../-functions/set-default-agent"
-import { agentRequestFailedToast } from "../../-lib/utils"
 
 export type AgentActionsProps = {
   organizationSlug: string
-  agent: OrganizationAgent
+  agent: Agent
   isDefault: boolean
   canSetDefault: boolean
   canDelete: boolean
@@ -40,19 +40,17 @@ export function AgentActions({
   const navigate = useNavigate()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const makeDefault = async () => {
     setBusy(true)
     try {
-      const result = await setDefaultAgent({ data: { organizationSlug, id: agent.id } })
-      toast.add({
-        title: result.ok ? `${agent.name} is now the default agent` : result.message,
-        type: result.ok ? "success" : "error",
-      })
-      await router.invalidate()
-    } catch {
-      agentRequestFailedToast()
+      await setDefaultAgent({ data: { organizationSlug, agentId: agent.id } })
+      toast.add({ title: `${agent.name} is now the default agent`, type: "success" })
+    } catch (error) {
+      toast.add({ title: parseServerFnError(error).message, type: "error" })
     } finally {
+      await router.invalidate()
       setBusy(false)
     }
   }
@@ -60,20 +58,16 @@ export function AgentActions({
   const removeAgent = async () => {
     setBusy(true)
     try {
-      const result = await deleteAgent({
-        data: { organizationSlug, id: agent.id, lockVersion: agent.lockVersion },
+      await deleteAgent({
+        data: { organizationSlug, agentId: agent.id, lockVersion: agent.lockVersion },
       })
-      toast.add({
-        title: result.ok ? `${agent.name} deleted` : result.message,
-        type: result.ok ? "success" : "error",
-      })
-      if (!result.ok) {
-        await router.invalidate()
-        return
-      }
+      toast.add({ title: `${agent.name} deleted`, type: "success" })
       await navigate({ to: "/$orgSlug/agents", params: { orgSlug: organizationSlug } })
-    } catch {
-      agentRequestFailedToast()
+    } catch (error) {
+      setDeleteOpen(false)
+      const failure = parseServerFnError(error)
+      toast.add({ title: failure.message, type: "error" })
+      if (failure.tag === "AgentChanged") await router.invalidate()
     } finally {
       setBusy(false)
     }
@@ -90,7 +84,7 @@ export function AgentActions({
         </Button>
       )}
       {canDelete && (
-        <AlertDialog>
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialogTrigger
             render={
               <Button
@@ -112,9 +106,13 @@ export function AgentActions({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={() => void removeAgent()}>
-                Delete agent
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={busy}
+                onClick={() => void removeAgent()}
+              >
+                {busy ? "Deleting…" : "Delete agent"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

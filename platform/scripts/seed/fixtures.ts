@@ -95,7 +95,7 @@ const SEED_TODOS_AGENT_SYSTEM_PROMPT =
 
 /**
  * Prompt for each organization's starter agent. A real organization gets its own wording from
- * `provisionOrganizationDefaultAgent` in `src/db/agent.server.ts`; this one is seed-owned on
+ * `Agents.provisionDefault` in `src/lib/agents/agents.server.ts`; this one is seed-owned on
  * purpose, so changing that default never leaves a stale copy here.
  */
 const SEED_STARTER_AGENT_SYSTEM_PROMPT =

@@ -1,17 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { getRequestIP } from "@tanstack/react-start/server"
+import { Effect } from "effect"
 
-import { getAuth } from "@/lib/auth.server"
-import { setupGateResponse } from "@/lib/config/state.server"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
+import { Auth } from "@/lib/auth/auth.server"
+import { Config } from "@/lib/config/config.server"
+import { reportFailure } from "@/lib/runtime/failure-report.server"
+import { runRouteEffect } from "@/lib/runtime/server-fn.server"
+import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { isLoopbackProxyAddress } from "@/lib/utils.server"
 
 /**
  * Better Auth reads its rate-limit and session address from `x-forwarded-for` and cannot tell who
  * sent it, so an untrusted peer's header is replaced with the peer. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/core/src/utils/ip.ts
  */
-function withTrustedForwardedFor(request: Request): Request {
-  const peerAddress = getRequestIP()
+function withTrustedForwardedFor(request: Request, peerAddress: string | undefined): Request {
   if (isLoopbackProxyAddress(peerAddress)) return request
   const headers = new Headers(request.headers)
   if (peerAddress === undefined) headers.delete("x-forwarded-for")
@@ -19,20 +21,41 @@ function withTrustedForwardedFor(request: Request): Request {
   return new Request(request, { headers })
 }
 
-async function handleAuthRequest(request: Request): Promise<Response> {
+const handleAuthRequest = Effect.fn("handleAuthRequest")(
+  function* () {
+    const { setupComplete } = yield* Effect.flatMap(Config, (config) => config.setupState)
+    if (!setupComplete) {
+      return Response.json(
+        { error: "Application is not configured" },
+        { status: 503, headers: { "retry-after": "10" } },
+      )
+    }
+    const { request, clientAddress } = yield* ServerRequest
+    const auth = yield* Auth
+    return yield* auth.handler(withTrustedForwardedFor(request, clientAddress))
+  },
+  // Better Auth answers its own errors, so only an unexpected failure reaches this.
+  Effect.catchCause((cause) =>
+    Effect.map(
+      reportFailure("handleAuthRequest", cause),
+      () => new Response("Authentication is unavailable", { status: 500 }),
+    ),
+  ),
+)
+
+function serveAuthRequest(): Response | Promise<Response> {
+  // Without these variables no Effect can run.
   if (getDatabaseBootstrapIssues().length > 0) {
     return new Response("Server configuration required", { status: 503 })
   }
-  const gate = await setupGateResponse()
-  if (gate) return gate
-  return (await getAuth()).handler(withTrustedForwardedFor(request))
+  return runRouteEffect(handleAuthRequest())
 }
 
 export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: ({ request }) => handleAuthRequest(request),
-      POST: ({ request }) => handleAuthRequest(request),
+      GET: serveAuthRequest,
+      POST: serveAuthRequest,
     },
   },
 })

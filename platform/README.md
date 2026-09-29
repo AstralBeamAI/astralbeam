@@ -2,7 +2,7 @@
 
 TanStack Start application for the AstralBeam product.
 
-For local development, follow [Setup](../SETUP.md). See [Architecture](../ARCHITECTURE.md) for the system overview and [Platform development](AGENTS.md) for source layout and implementation rules.
+For local development, follow [Setup](../SETUP.md). See [Architecture](../ARCHITECTURE.md) for the system overview, the [code map](src/README.md) to find your way around the source, and [Platform development](AGENTS.md) for implementation rules.
 
 ## Authentication
 

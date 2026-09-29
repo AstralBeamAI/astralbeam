@@ -33,10 +33,11 @@ function AuthenticatedLayout() {
 
   return (
     <div className="group/dogfood flex items-start">
-      <div className="min-w-0 flex-1 max-lg:group-has-[[data-dogfood-chat=open]]/dogfood:hidden [&_[data-slot=sidebar-inset]]:pb-20">
-        <Outlet />
-      </div>
-      <DogfoodChat />
+      <DogfoodChat>
+        <div className="min-w-0 flex-1 max-lg:group-has-[[data-dogfood-chat=open]]/dogfood:hidden">
+          <Outlet />
+        </div>
+      </DogfoodChat>
     </div>
   )
 }

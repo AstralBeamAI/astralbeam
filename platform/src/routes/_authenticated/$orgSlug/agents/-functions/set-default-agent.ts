@@ -1,26 +1,20 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { setOrganizationDefaultAgent } from "@/db/agent.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { SetDefaultAgentInputSchema } from "../-lib/schemas.ts"
+import { Agents } from "@/lib/agents/agents.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { toValidationSchema } from "@/lib/schemas"
+import { AgentIdInputSchema } from "../-lib/schemas.ts"
 
 export const setDefaultAgent = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
-  .validator(toValidationSchema(SetDefaultAgentInputSchema))
-  .handler(({ context, data }) =>
-    runDatabaseEffect(
-      setOrganizationDefaultAgent({ organizationId: context.organizationId, id: data.id }).pipe(
-        Effect.as({ ok: true as const }),
-        Effect.catchTag("OrganizationDefaultAgentError", (error) =>
-          Effect.succeed({
-            ok: false as const,
-            code: "invalid_agent" as const,
-            message: error.message,
-          }),
-        ),
-      ),
+  .validator(toValidationSchema(AgentIdInputSchema))
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(Agents, (agents) =>
+        agents.setDefault({ organizationId: context.organizationId, agentId: data.agentId }),
+      ).pipe(Effect.catchTag("AgentNotFound", exposeError)),
+      serverFnMeta.name,
     ),
   )

@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import { RateLimiter } from "effect/unstable/persistence"
 
 import { sqlState } from "@/db/lib/sqlstate.server"
-import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { DatabaseRateLimiter, rateLimitRetryAfterSeconds } from "@/db/lib/rate-limiter.server"
 
 const OPERATOR_LOGIN_RATE_LIMIT_KEY = "configure:operator-login"
 const OPERATOR_LOGIN_WINDOW = Duration.minutes(1)
@@ -30,30 +30,30 @@ function operatorLoginDecision(
 ): OperatorLoginRateLimitDecision {
   return {
     allowed,
-    retryAfterSeconds: Math.max(1, Math.ceil(Duration.toMillis(resetAfter) / 1_000)),
+    retryAfterSeconds: rateLimitRetryAfterSeconds(resetAfter),
   }
 }
 
 export function consumeOperatorLoginRateLimit() {
-  return databaseRateLimiter
-    .consume({
+  return Effect.flatMap(DatabaseRateLimiter, (limiter) =>
+    limiter.consume({
       key: OPERATOR_LOGIN_RATE_LIMIT_KEY,
       limit: OPERATOR_LOGIN_MAX_ATTEMPTS,
       window: OPERATOR_LOGIN_WINDOW,
-    })
-    .pipe(
-      Effect.map((result) => operatorLoginDecision(true, result.resetAfter)),
-      Effect.catchIf(isMissingRateLimitTable, () =>
-        Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
-      ),
-      Effect.catchIf(isRateLimitExceeded, (error) =>
-        Effect.succeed(operatorLoginDecision(false, error.reason.retryAfter)),
-      ),
-    )
+    }),
+  ).pipe(
+    Effect.map((result) => operatorLoginDecision(true, result.resetAfter)),
+    Effect.catchIf(isMissingRateLimitTable, () =>
+      Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
+    ),
+    Effect.catchIf(isRateLimitExceeded, (error) =>
+      Effect.succeed(operatorLoginDecision(false, error.reason.retryAfter)),
+    ),
+  )
 }
 
 export function clearOperatorLoginRateLimit() {
-  return databaseRateLimiter
-    .reset(OPERATOR_LOGIN_RATE_LIMIT_KEY)
-    .pipe(Effect.catchIf(isMissingRateLimitTable, () => Effect.void))
+  return Effect.flatMap(DatabaseRateLimiter, (limiter) =>
+    limiter.reset({ key: OPERATOR_LOGIN_RATE_LIMIT_KEY }),
+  ).pipe(Effect.catchIf(isMissingRateLimitTable, () => Effect.void))
 }

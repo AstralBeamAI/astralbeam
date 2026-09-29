@@ -1,11 +1,10 @@
 import { createServerFn } from "@tanstack/react-start"
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 
-import { applyApprovedMigrations } from "@/db/migration-runner.server"
-import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
-import { withConfigureError } from "../-lib/configure-error.server"
+import { Config } from "@/lib/config/config.server"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"
 import { configureMiddleware } from "../-lib/configure-middleware"
-import { toValidationSchema, NonEmptyStringSchema } from "@/lib/schemas"
 
 const ApplyMigrationsInput = Schema.Struct({
   approvedMigrations: Schema.Array(
@@ -16,18 +15,14 @@ const ApplyMigrationsInput = Schema.Struct({
   ),
 })
 
-type ApplyMigrationsActionResult = { ok: true } | { ok: false; error: string }
-
 export const applyMigrations = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(toValidationSchema(ApplyMigrationsInput))
-  .handler(async ({ data }): Promise<ApplyMigrationsActionResult> => {
-    const result = await withConfigureError("Pending migrations could not be applied", async () => {
-      try {
-        return await applyApprovedMigrations([...data.approvedMigrations])
-      } finally {
-        invalidateGlobalConfig()
-      }
-    })
-    return result.ok ? { ok: true } : { ok: false, error: result.error }
-  })
+  .handler(({ data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(Config, (config) => config.applyMigrations(data.approvedMigrations)).pipe(
+        Effect.catchTag("MigrationsNotApplied", exposeError),
+      ),
+      serverFnMeta.name,
+    ),
+  )

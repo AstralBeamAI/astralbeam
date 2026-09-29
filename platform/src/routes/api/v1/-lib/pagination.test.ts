@@ -1,4 +1,6 @@
-import { describe, expect, test } from "vitest"
+import { assert, describe, it } from "@effect/vitest"
+import { Effect } from "effect"
+import { base64url, CompactSign, decodeProtectedHeader } from "jose"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { decodeRestCursor, encodeRestCursor } from "./pagination.server"
 
@@ -15,68 +17,107 @@ const cursorScope = {
 const cursorPosition = {
   id: "019a0000-0000-4000-8000-000000000003",
 }
+const collection = "tenant_users"
+
+const rejected = (cursor: string, input: Partial<Parameters<typeof decodeRestCursor>[0]> = {}) =>
+  decodeRestCursor({
+    cursor,
+    collection,
+    scope: cursorScope,
+    keyring: cursorOldKeyring,
+    ...input,
+  }).pipe(
+    Effect.flip,
+    Effect.map((error) => assert.strictEqual(error._tag, "RestInvalidCursor")),
+  )
+
 describe("opaque pagination cursors", () => {
-  test("maximum-length Unicode cursors fit the limit and survive retained-key rotation", async () => {
-    const cursor = await encodeRestCursor(
-      cursorPosition,
-      "tenant_users",
-      cursorScope,
-      cursorOldKeyring,
-    )
-    expect(cursor.length).toBeLessThanOrEqual(2048)
-    expect(
-      await decodeRestCursor(cursor, "tenant_users", cursorScope, cursorRotatedKeyring),
-    ).toEqual(cursorPosition)
-    await expect(
-      decodeRestCursor(
+  it.effect("maximum-length Unicode cursors fit the limit and survive retained-key rotation", () =>
+    Effect.gen(function* () {
+      const cursor = yield* encodeRestCursor({
+        position: cursorPosition,
+        collection,
+        scope: cursorScope,
+        keyring: cursorOldKeyring,
+      })
+      assert.isAtMost(cursor.length, 2048)
+      const decoded = yield* decodeRestCursor({
         cursor,
-        "tenant_users",
+        collection,
+        scope: cursorScope,
+        keyring: cursorRotatedKeyring,
+      })
+      assert.deepStrictEqual(decoded, cursorPosition)
+      yield* rejected(cursor, { keyring: parseDatabaseEncryptionKeyring(cursorNewSecret) })
+    }),
+  )
+
+  it.effect("rejects tampering, collection and scope changes", () =>
+    Effect.gen(function* () {
+      const cursor = yield* encodeRestCursor({
+        position: cursorPosition,
+        collection,
+        scope: cursorScope,
+        keyring: cursorOldKeyring,
+      })
+      const parts = cursor.split(".")
+      parts[2] = (parts[2]![0] === "A" ? "B" : "A") + parts[2]!.slice(1)
+      for (const invalid of ["not-a-jws", parts.join(".")]) yield* rejected(invalid)
+      yield* rejected(cursor, { collection: "tenants" })
+      for (const scope of [
+        { ...cursorScope, organizationId: cursorPosition.id },
+        { ...cursorScope, externalTenantId: "other" },
+        { organizationId: cursorScope.organizationId },
+        { ...cursorScope, externalId: "added-filter" },
+        { ...cursorScope, tenantFilter: cursorPosition.id },
+        { ...cursorScope, search: "name" },
+        { ...cursorScope, admin: false },
+      ]) {
+        yield* rejected(cursor, { scope })
+      }
+    }),
+  )
+
+  it.effect("signs with a purpose-bound key, never the raw encryption root", () =>
+    Effect.gen(function* () {
+      const cursor = yield* encodeRestCursor({
+        position: cursorPosition,
+        collection,
+        scope: cursorScope,
+        keyring: cursorOldKeyring,
+      })
+      const rootSigned = yield* Effect.promise(() =>
+        new CompactSign(base64url.decode(cursor.split(".")[1]!))
+          .setProtectedHeader({ alg: "HS256", ...decodeProtectedHeader(cursor) })
+          .sign(cursorOldKeyring[0].root),
+      )
+      yield* rejected(rootSigned)
+    }),
+  )
+
+  it.effect("binds search and admin filters even when admin is false", () =>
+    Effect.gen(function* () {
+      const scope = { ...cursorScope, search: "東京_%", admin: false }
+      const cursor = yield* encodeRestCursor({
+        position: cursorPosition,
+        collection,
+        scope,
+        keyring: cursorOldKeyring,
+      })
+      const decoded = yield* decodeRestCursor({
+        cursor,
+        collection,
+        scope,
+        keyring: cursorOldKeyring,
+      })
+      assert.deepStrictEqual(decoded, cursorPosition)
+      for (const changed of [
+        { ...scope, search: "東京" },
+        { ...scope, admin: true },
         cursorScope,
-        parseDatabaseEncryptionKeyring(cursorNewSecret),
-      ),
-    ).rejects.toThrow("Invalid pagination cursor")
-  })
-  test("rejects tampering, collection and scope changes", async () => {
-    const cursor = await encodeRestCursor(
-      cursorPosition,
-      "tenant_users",
-      cursorScope,
-      cursorOldKeyring,
-    )
-    const parts = cursor.split(".")
-    parts[2] = (parts[2]![0] === "A" ? "B" : "A") + parts[2]!.slice(1)
-    for (const invalid of ["not-a-jws", parts.join(".")]) {
-      await expect(
-        decodeRestCursor(invalid, "tenant_users", cursorScope, cursorOldKeyring),
-      ).rejects.toThrow("Invalid pagination cursor")
-    }
-    await expect(
-      decodeRestCursor(cursor, "tenants", cursorScope, cursorOldKeyring),
-    ).rejects.toThrow()
-    for (const scope of [
-      { ...cursorScope, organizationId: cursorPosition.id },
-      { ...cursorScope, externalTenantId: "other" },
-      { organizationId: cursorScope.organizationId },
-      { ...cursorScope, externalId: "added-filter" },
-      { ...cursorScope, tenantFilter: cursorPosition.id },
-      { ...cursorScope, search: "name" },
-      { ...cursorScope, admin: false },
-    ]) {
-      await expect(
-        decodeRestCursor(cursor, "tenant_users", scope, cursorOldKeyring),
-      ).rejects.toThrow()
-    }
-  })
-  test("binds search and admin filters even when admin is false", async () => {
-    const scope = { ...cursorScope, search: "東京_%", admin: false }
-    const cursor = await encodeRestCursor(cursorPosition, "tenant_users", scope, cursorOldKeyring)
-    expect(await decodeRestCursor(cursor, "tenant_users", scope, cursorOldKeyring)).toEqual(
-      cursorPosition,
-    )
-    for (const changed of [{ ...scope, search: "東京" }, { ...scope, admin: true }, cursorScope]) {
-      await expect(
-        decodeRestCursor(cursor, "tenant_users", changed, cursorOldKeyring),
-      ).rejects.toThrow("Invalid pagination cursor")
-    }
-  })
+      ]) {
+        yield* rejected(cursor, { scope: changed })
+      }
+    }),
+  )
 })

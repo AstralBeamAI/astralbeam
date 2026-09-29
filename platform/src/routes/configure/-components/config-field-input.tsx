@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { ConfigDefinition } from "@/lib/types"
+import type { ConfigDefinition } from "@/lib/config/types"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigValueInput } from "./config-value-input"
 

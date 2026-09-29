@@ -297,32 +297,48 @@ export function createAstralBeamChat(
       throw error instanceof Error && isAstralBeamApiError(error.cause) ? error.cause : error
     }
   }
-  const client = new ChatClient({
-    connection,
-    tools: declareTools(),
-    forwardedProps: forwardedProps(),
-    onMessagesChange: (messages) => {
-      update({ messages, sandbox: collectSandboxActivity(messages), error: client.getError() })
-    },
-    onStatusChange: (status) => update({ status, error: client.getError() }),
-    onCustomEvent: (eventType, data) => {
-      const value = (data as { state?: unknown } | undefined)?.state
-      if (
-        eventType === SANDBOX_STATUS_EVENT &&
-        (value === "starting" || value === "ready" || value === "error")
-      ) {
-        debug?.("sandbox", `sandbox ${value}`)
-        update({ sandboxStatus: value })
-        return
-      }
-      debug?.("stream", `custom event "${eventType}"`, data)
-    },
-    // Read per event rather than captured, so a `debug` update reaches the next chunk.
-    onChunk: (chunk) => live.streamCallbacks?.onChunk?.(chunk),
-    onResponse: (response) => live.streamCallbacks?.onResponse?.(response),
-    onFinish: (message) => live.streamCallbacks?.onFinish?.(message),
-    onError: (error) => live.streamCallbacks?.onError?.(error),
-  })
+  // The thread ID is fixed per client and keys the server's sandbox lease, so a new conversation
+  // gets a new client instead of `clear()`. A replaced client's late callbacks are dropped.
+  const createClient = (): ChatClient => {
+    const next: ChatClient = new ChatClient({
+      connection,
+      tools: declareTools(),
+      forwardedProps: forwardedProps(),
+      onMessagesChange: (messages) => {
+        if (client !== next) return
+        update({ messages, sandbox: collectSandboxActivity(messages), error: next.getError() })
+      },
+      onStatusChange: (status) => {
+        if (client === next) update({ status, error: next.getError() })
+      },
+      onCustomEvent: (eventType, data) => {
+        if (client !== next) return
+        const value = (data as { state?: unknown } | undefined)?.state
+        if (
+          eventType === SANDBOX_STATUS_EVENT &&
+          (value === "starting" || value === "ready" || value === "error")
+        ) {
+          debug?.("sandbox", `sandbox ${value}`)
+          update({ sandboxStatus: value })
+          return
+        }
+        debug?.("stream", `custom event "${eventType}"`, data)
+      },
+      // Read per event rather than captured, so a `debug` update reaches the next chunk.
+      onChunk: (chunk) => live.streamCallbacks?.onChunk?.(chunk),
+      onResponse: (response) => live.streamCallbacks?.onResponse?.(response),
+      onFinish: (message) => live.streamCallbacks?.onFinish?.(message),
+      onError: (error) => live.streamCallbacks?.onError?.(error),
+    })
+    return next
+  }
+  let client = createClient()
+  const replaceClient = () => {
+    client.stop()
+    const previous = client
+    client = createClient()
+    previous.dispose()
+  }
 
   // A run input holding an unresolved tool call never reaches the model, so a send settles
   // every dangling call first: questionnaires as skipped, unknown tools as errors.
@@ -358,8 +374,7 @@ export function createAstralBeamChat(
     if (auth.status === "ready") {
       const nextIdentity = authenticationIdentity(auth.currentUser)
       if (identity !== undefined && identity !== nextIdentity) {
-        client.stop()
-        client.clear()
+        replaceClient()
         disposeRenders()
         update({ messages: [], sandbox: { files: [], commands: [] }, sandboxStatus: undefined })
       }
@@ -412,10 +427,11 @@ export function createAstralBeamChat(
     reload: () => client.reload(),
     reset: () => {
       debug?.("status", "conversation reset")
-      client.clear()
+      replaceClient()
       disposeRenders()
       update({
         messages: [],
+        status: "ready",
         sandbox: { files: [], commands: [] },
         sandboxStatus: undefined,
         error: undefined,

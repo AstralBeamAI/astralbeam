@@ -86,7 +86,7 @@ The first encryption-key entry encrypts writes and authenticates the operator. O
 
 TanStack Start server functions and routes form the framework boundary. Public management and chat APIs share an Effect HttpApi contract. Chat retains AG-UI input and streaming, while management resources use their own schemas and authorization.
 
-New application logic uses Effect with typed failures, executed through the `ManagedRuntime` bridge. Better Auth and TanStack sandbox lifecycle contracts remain Promise-based.
+All server logic is Effect programs built from services, one module per domain under `platform/src/lib`, composed into a single app layer and run through one `ManagedRuntime` at the framework boundary. Promise-based libraries such as Better Auth, the email providers, and the sandbox SDKs are wrapped once inside the service that owns them. Failures a user should see are typed errors with their own messages, and every other failure is logged once under a reference the user can quote. The [code map](platform/src/README.md) shows where each piece lives.
 
 The database module owns a `pg` pool for Promise and Better Auth queries and a separate native `@effect/sql-pg` pool for Effect queries. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](platform/AGENTS.md#database) for the required pool lifecycle.
 
@@ -94,7 +94,7 @@ The database module owns a `pg` pool for Promise and Better Auth queries and a s
 
 Each platform process embeds `ClusterWorkflowEngine` and one Effect Cluster runner using private HTTP, PostgreSQL journals and SQL row leases compatible with PgBouncer transaction pooling. The runner shares the native Effect pool but has its own scope, keeping startup failures independent of `/configure` and ordinary database operations.
 
-Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](platform/src/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](platform/src/workflows/README.md) for authoring and recovery.
+Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](platform/src/lib/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](platform/src/lib/workflows/README.md) for authoring and recovery.
 
 ## SDK boundary
 

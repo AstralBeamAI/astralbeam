@@ -1,29 +1,31 @@
-import { createMiddleware } from "@tanstack/react-start"
-import { setResponseStatus } from "@tanstack/react-start/server"
-import { Effect, Predicate } from "effect"
+import { createMiddleware, createServerOnlyFn } from "@tanstack/react-start"
+import { Effect, Option } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
-import { requireConfigureRequest } from "./configure-request.server"
-import { getOperatorSession } from "./operator-session.server"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { checkConfigureRequest } from "./configure-request.server.ts"
+import { OperatorSessionRequired } from "./errors.ts"
+import { readOperatorSession } from "./operator-session.server.ts"
 
-export const configureMiddleware = createMiddleware({ type: "function" }).server(
-  async ({ next }) => {
-    requireConfigureRequest()
-    if (!(await getOperatorSession())) {
-      setResponseStatus(403)
-      throw new Error("Operator authentication required")
-    }
-    return runDatabaseEffect(
-      withDogfoodProvisioningLock(
-        Effect.tryPromise({ try: () => next(), catch: (error) => error }),
+const authorizeConfigureRequest = createServerOnlyFn((operation: string) =>
+  runEffect(
+    checkConfigureRequest().pipe(
+      Effect.andThen(readOperatorSession),
+      Effect.flatMap((session) =>
+        Option.isSome(session) ? Effect.void : Effect.fail(new OperatorSessionRequired()),
       ),
-    ).catch((error: unknown) => {
-      if (Predicate.isTagged(error, "OwnerOnboardingError")) {
-        setResponseStatus(409)
-        throw new Error("Configuration is busy. Try again shortly.")
-      }
-      throw error
-    })
+      Effect.catchTag(
+        ["ConfigureHttpsRequired", "ConfigureRequestForbidden", "OperatorSessionRequired"],
+        exposeError,
+      ),
+    ),
+    operation,
+  ),
+)
+
+/** Requires the operator session, independent of dashboard sessions and dogfood membership. */
+export const configureMiddleware = createMiddleware({ type: "function" }).server(
+  async ({ next, serverFnMeta }) => {
+    await authorizeConfigureRequest(serverFnMeta.name)
+    return next()
   },
 )

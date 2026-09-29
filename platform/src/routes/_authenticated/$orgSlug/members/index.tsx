@@ -1,4 +1,4 @@
-import { hasMemberRole } from "@better-auth-ui/core/plugins/organization"
+import { hasMemberRole, organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
 import { useAuthPlugin } from "@better-auth-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 
@@ -7,10 +7,25 @@ import { OrganizationMembers } from "@/components/auth/organization/organization
 import { Skeleton } from "@/components/ui/skeleton"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { APP_NAME } from "@/lib/constants"
+import { throwOrganizationRouteError } from "../-lib/route-errors"
 import { getMembersPageData } from "./-functions/get-members-page-data"
+import { MEMBERS_PAGE_SIZE, membersPageQueries } from "./-lib/constants"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/members/")({
-  loader: ({ params }) => getMembersPageData({ data: { organizationSlug: params.orgSlug } }),
+  loader: async ({ context: { access, queryClient }, params }) => {
+    const page = await getMembersPageData({ data: { organizationSlug: params.orgSlug } }).catch(
+      (error: unknown) => throwOrganizationRouteError(error, params.orgSlug),
+    )
+    const { members, owners, invitations } = membersPageQueries(page.data.organization.id)
+    const { userId } = access
+    queryClient.setQueryData(organizationQueryKeys.members.list(userId, members), page.data.members)
+    queryClient.setQueryData(organizationQueryKeys.members.list(userId, owners), page.data.owners)
+    queryClient.setQueryData(
+      organizationQueryKeys.invitations.list(userId, invitations),
+      page.data.invitations,
+    )
+    return page
+  },
   component: MembersPage,
   pendingComponent: MembersPageSkeleton,
   head: () => ({ meta: [{ title: `Members · ${APP_NAME}` }] }),
@@ -31,7 +46,7 @@ function MembersPage() {
       </div>
       <div className="flex flex-col gap-4 md:gap-6">
         <OrganizationMembers
-          pageSize={20}
+          pageSize={MEMBERS_PAGE_SIZE}
           organization={data.organization}
           memberRole={data.memberRole}
           canInvite={permissions.createInvitation}

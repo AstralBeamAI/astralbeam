@@ -1,6 +1,5 @@
 import { APIError, getOAuthState } from "better-auth/api"
-
-type RecordValue = Record<string, unknown>
+import { DateTime, Effect, Predicate } from "effect"
 
 interface UserCreationContext {
   body?: unknown
@@ -20,9 +19,9 @@ const LEGAL_ACCEPTANCE_ERROR = {
   message: "Terms and privacy policy acceptance is required",
 } as const
 
-export function recordValue(value: unknown): RecordValue | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
-  return value as RecordValue
+/** The object a Better Auth hook received, or `undefined` for any other value. */
+export function recordValue(value: unknown): Record<PropertyKey, unknown> | undefined {
+  return Predicate.isObject(value) ? value : undefined
 }
 
 export function assertLegalAcceptance(value: unknown): void {
@@ -30,21 +29,21 @@ export function assertLegalAcceptance(value: unknown): void {
   throw new APIError("BAD_REQUEST", LEGAL_ACCEPTANCE_ERROR)
 }
 
-export async function acceptedAtForUserCreation(
+/** The server's own acceptance time for a user whose signup asserted it, never a client's. */
+export const acceptedAtForUserCreation = Effect.fn("acceptedAtForUserCreation")(function* (
   context: UserCreationContext | null,
   readOAuthState: OAuthStateReader = getOAuthState,
-): Promise<Date> {
-  if (context?.path === "/sign-up/email") {
-    assertLegalAcceptance(recordValue(context.body)?.termsAccepted)
-    return new Date()
-  }
-
-  if (context?.path === "/callback/:id") {
-    const state = await readOAuthState()
-    if (state?.requestSignUp === true && recordValue(state.serverContext)?.termsAccepted === true) {
-      return new Date()
-    }
-  }
-
-  throw new APIError("BAD_REQUEST", LEGAL_ACCEPTANCE_ERROR)
-}
+) {
+  const accepted =
+    context?.path === "/sign-up/email"
+      ? recordValue(context.body)?.termsAccepted === true
+      : context?.path === "/callback/:id" &&
+        (yield* Effect.map(
+          Effect.promise(readOAuthState),
+          (state) =>
+            state?.requestSignUp === true &&
+            recordValue(state.serverContext)?.termsAccepted === true,
+        ))
+  if (!accepted) return yield* Effect.fail(new APIError("BAD_REQUEST", LEGAL_ACCEPTANCE_ERROR))
+  return DateTime.toDateUtc(yield* DateTime.now)
+})

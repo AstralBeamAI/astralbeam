@@ -51,6 +51,82 @@ test("HTTP errors reach chat state and callbacks with their API details", async 
   }
 })
 
+// The platform keys a sandbox lease on the thread, so a reset must not reuse the old sandbox.
+test("a reset starts a new thread", async () => {
+  const threads: unknown[] = []
+  vi.stubGlobal("fetch", (input: URL, init?: RequestInit) => {
+    if (String(input).endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (typeof init?.body === "string")
+      threads.push((JSON.parse(init.body) as { threadId: unknown }).threadId)
+    return Promise.resolve(new Response(null, { status: 500 }))
+  })
+  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatAuthToken })
+  try {
+    await chat.sendMessage("Hello")
+    chat.reset()
+    await chat.sendMessage("Hello again")
+    expect(threads).toHaveLength(2)
+    expect(threads[0]).toEqual(expect.any(String))
+    expect(threads[1]).not.toBe(threads[0])
+  } finally {
+    chat.dispose()
+  }
+})
+
+// Trimmed from a recorded sandbox turn: the server runs the tool and streams the reply in one body.
+test("the reply after a server tool round keeps its first text delta", async () => {
+  const run = { runId: "run-1", threadId: "thread" }
+  const finished = (finishReason: string) => ({
+    type: "RUN_FINISHED",
+    ...run,
+    metadata: { tanstack: { finishReason } },
+  })
+  const text = { messageId: "reply" }
+  const events = [
+    { type: "RUN_STARTED", ...run },
+    {
+      type: "TOOL_CALL_START",
+      toolCallId: "call",
+      toolCallName: "write",
+      parentMessageId: "call-turn",
+    },
+    { type: "TOOL_CALL_ARGS", toolCallId: "call", delta: "{}" },
+    { type: "TOOL_CALL_END", toolCallId: "call" },
+    finished("tool_calls"),
+    { type: "TOOL_CALL_RESULT", toolCallId: "call", messageId: "call-turn", content: "{}" },
+    { type: "RUN_STARTED", ...run },
+    { type: "TEXT_MESSAGE_START", ...text, role: "assistant" },
+    { type: "TEXT_MESSAGE_CONTENT", ...text, delta: "I" },
+    { type: "TEXT_MESSAGE_CONTENT", ...text, delta: " wrote it." },
+    { type: "TEXT_MESSAGE_END", ...text },
+    finished("stop"),
+  ]
+  const body = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")
+  vi.stubGlobal("fetch", (input: URL, init?: RequestInit) =>
+    Promise.resolve(
+      String(input).endsWith("/me")
+        ? Response.json(currentUser)
+        : new Response(typeof init?.body === "string" ? body : null, {
+            status: typeof init?.body === "string" ? 200 : 500,
+          }),
+    ),
+  )
+  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatAuthToken })
+  const statuses: string[] = []
+  chat.subscribe(() => statuses.push(chat.getState().status))
+  try {
+    await chat.sendMessage("Write a file")
+    expect(chat.getState().messages.at(-1)?.parts.at(-1)).toEqual({
+      type: "text",
+      content: "I wrote it.",
+    })
+    // The tool round's intermediate RUN_FINISHED must not make the widget look idle mid-turn.
+    expect(statuses.slice(statuses.indexOf("submitted"), -1)).not.toContain("ready")
+  } finally {
+    chat.dispose()
+  }
+})
+
 // A React host rebuilds its tool objects every render, so publishing a fresh `agentTools` for an
 // unchanged tool set would notify a subscriber whose rerender feeds the same update back in.
 test("rebuilding equivalent tool definitions notifies no subscriber", () => {

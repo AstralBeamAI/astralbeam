@@ -1,74 +1,63 @@
-import { afterEach, describe, expect, test, vi } from "vitest"
+import { Effect } from "effect"
+import { describe, expect, test } from "vitest"
 
 import { AUTH_EMAIL_DELIVERY_FAILED_CODE } from "@/lib/auth/email-delivery"
-
-const emailDeliveryTestState = vi.hoisted(() => ({
-  request: null as Request | null,
-}))
-
-vi.mock("@tanstack/react-start/server", () => ({
-  getRequest: () => {
-    if (!emailDeliveryTestState.request) throw new Error("no request context")
-    return emailDeliveryTestState.request
-  },
-}))
-
 import {
   assertAuthEmailDelivered,
   deliverBlockingAuthEmail,
 } from "@/lib/auth/email-delivery.server"
+import { EmailDeliveryError } from "@/lib/email/errors"
 
-function useRequestContext(): Request {
-  emailDeliveryTestState.request = new Request("https://example.com/api/auth/sign-up/email")
-  return emailDeliveryTestState.request
+function signUpRequest(): Request {
+  return new Request("https://example.com/api/auth/sign-up/email")
 }
 
-function deliveryFailure(reason: string): Promise<void> {
-  return deliverBlockingAuthEmail(() => Promise.reject(new Error(reason)))
+function deliveryFailure(request: Request | undefined, reason: string): Promise<void> {
+  return deliverBlockingAuthEmail(request, Effect.fail(new EmailDeliveryError({ reason })))
 }
-
-afterEach(() => {
-  emailDeliveryTestState.request = null
-})
 
 describe("authentication email delivery boundary", () => {
   test("a failed send fails the response instead of passing silently", async () => {
-    useRequestContext()
-    await expect(deliveryFailure("provider down")).rejects.toMatchObject({
+    const request = signUpRequest()
+    await expect(deliveryFailure(request, "provider down")).rejects.toMatchObject({
       statusCode: 503,
       body: { code: AUTH_EMAIL_DELIVERY_FAILED_CODE },
     })
-
-    expect(() => assertAuthEmailDelivered()).toThrow()
+    expect(() => assertAuthEmailDelivered(request)).toThrow()
   })
 
   test("a delivered send leaves the response untouched", async () => {
-    useRequestContext()
-    await deliverBlockingAuthEmail(() => Promise.resolve())
+    const request = signUpRequest()
+    await deliverBlockingAuthEmail(request, Effect.void)
+    expect(() => assertAuthEmailDelivered(request)).not.toThrow()
+  })
 
-    expect(() => assertAuthEmailDelivered()).not.toThrow()
+  test("a defect, such as an unreachable configuration, fails the response the same way", async () => {
+    const request = signUpRequest()
+    await expect(
+      deliverBlockingAuthEmail(request, Effect.die(new Error("database-private-detail"))),
+    ).rejects.toMatchObject({ statusCode: 503, body: { code: AUTH_EMAIL_DELIVERY_FAILED_CODE } })
+    expect(() => assertAuthEmailDelivered(request)).toThrow()
   })
 
   test("a failure is scoped to the request that saw it", async () => {
-    useRequestContext()
-    await expect(deliveryFailure("provider down")).rejects.toThrow()
-
-    useRequestContext()
-    expect(() => assertAuthEmailDelivered()).not.toThrow()
+    await expect(deliveryFailure(signUpRequest(), "provider down")).rejects.toThrow()
+    expect(() => assertAuthEmailDelivered(signUpRequest())).not.toThrow()
   })
 
   test("neither the thrown nor the asserted error repeats the provider's reason", async () => {
-    useRequestContext()
-    const thrown = await deliveryFailure("smtp-secret-detail").catch((error: unknown) => error)
+    const request = signUpRequest()
+    const thrown = await deliveryFailure(request, "smtp-secret-detail").catch(
+      (error: unknown) => error,
+    )
     expect(JSON.stringify(thrown)).not.toContain("smtp-secret-detail")
-
-    expect(() => assertAuthEmailDelivered()).toThrow(/could not send the email/i)
+    expect(() => assertAuthEmailDelivered(request)).toThrow(/could not send the email/i)
     // The record is consumed, so one failure cannot fail a later response.
-    expect(() => assertAuthEmailDelivered()).not.toThrow()
+    expect(() => assertAuthEmailDelivered(request)).not.toThrow()
   })
 
-  test("a send outside a request context still rejects", async () => {
-    await expect(deliveryFailure("provider down")).rejects.toThrow()
-    expect(() => assertAuthEmailDelivered()).not.toThrow()
+  test("a send outside a request still rejects", async () => {
+    await expect(deliveryFailure(undefined, "provider down")).rejects.toThrow()
+    expect(() => assertAuthEmailDelivered(undefined)).not.toThrow()
   })
 })

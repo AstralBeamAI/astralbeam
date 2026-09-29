@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import type { OrganizationResourceCounts } from "@/db/organization.server"
+import type { OrganizationResourceCounts } from "@/lib/organizations/organizations.server"
 
 export type DashboardResourceCardsProps = {
   organizationSlug: string

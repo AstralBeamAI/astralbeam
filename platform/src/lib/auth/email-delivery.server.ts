@@ -1,76 +1,78 @@
-import { getRequest } from "@tanstack/react-start/server"
 import { AsyncLocalStorage } from "node:async_hooks"
+
 import { APIError } from "better-auth/api"
+import { Cause, Effect } from "effect"
 
 import {
   AUTH_EMAIL_DELIVERY_FAILED_CODE,
   AUTH_EMAIL_DELIVERY_FAILED_MESSAGE,
 } from "@/lib/auth/email-delivery"
+import type { EmailDeliveryError } from "@/lib/email/errors"
+import { runAppEffect } from "@/lib/runtime/app-effect.server"
+import { reportFailure } from "@/lib/runtime/failure-report.server"
+import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
+import { AuthEmailNotDelivered } from "./errors.ts"
 
-/**
- * Better Auth routes most sends through `runInBackgroundOrAwait`, which awaits the callback but
- * logs and swallows its rejection, so a throw inside `sendVerificationEmail` cannot reach the
- * client on its own. A failed blocking send is recorded against the current request here, and
- * `assertAuthEmailDelivered` rethrows it from the `after` hook as the response. Endpoints that
- * already rethrow the callback's error, such as `/send-verification-email`, get the same
- * `APIError` directly.
- * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/context/create-context.ts
- */
+// `runInBackgroundOrAwait` swallows a callback's rejection, so a failed send is recorded against its
+// request and rethrown from the `after` hook. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/context/create-context.ts
 const failedAuthEmailRequests = new WeakMap<Request, APIError>()
 const blockingAuthEmailContext = new AsyncLocalStorage<{ error?: APIError }>()
 
-/** Also detects swallowed send failures in requestless Better Auth server API calls. */
-export function withBlockingAuthEmailDelivery<A>(operation: () => Promise<A>): Promise<A> {
-  return blockingAuthEmailContext.run({}, async () => {
-    const result = await operation()
-    const error = blockingAuthEmailContext.getStore()?.error
-    if (error) throw error
-    return result
-  })
-}
+/** Runs a requestless Better Auth server API call, failing when a blocking send failed. */
+export const withBlockingAuthEmailDelivery = Effect.fnUntraced(function* <A>(
+  operation: () => Promise<A>,
+) {
+  const scope: { error?: APIError } = {}
+  const result = yield* tryPromiseInServerRequest(() =>
+    blockingAuthEmailContext.run(scope, operation),
+  ).pipe(
+    Effect.catch((cause) =>
+      scope.error ? Effect.fail(new AuthEmailNotDelivered()) : Effect.die(cause),
+    ),
+  )
+  if (scope.error) return yield* new AuthEmailNotDelivered()
+  return result
+})
 
-function currentAuthEmailRequest(): Request | null {
-  try {
-    return getRequest()
-  } catch {
-    // Auth CLI calls and direct server API calls can run outside TanStack's request context.
-    return null
-  }
-}
-
+// 503 rather than 500: the provider is an unavailable upstream dependency and the caller can
+// retry. The code lets the browser render delivery-specific copy, and the message stays fixed.
 function authEmailDeliveryError(): APIError {
-  // 503 rather than 500: the provider is an unavailable upstream dependency and the caller can
-  // retry. The body carries a stable code so the browser can render delivery-specific copy, and
-  // a fixed message so the provider's own reason stays in the server log.
   return APIError.from("SERVICE_UNAVAILABLE", {
     code: AUTH_EMAIL_DELIVERY_FAILED_CODE,
     message: AUTH_EMAIL_DELIVERY_FAILED_MESSAGE,
   })
 }
 
-/**
- * Awaits an authentication email the caller is waiting on, so the response reports the outcome
- * instead of completing while delivery fails out of band.
- */
-export async function deliverBlockingAuthEmail(send: () => Promise<void>): Promise<void> {
-  try {
-    await send()
-  } catch {
-    // The send boundary already logged the provider's reason against the masked recipient.
-    const error = authEmailDeliveryError()
-    const scope = blockingAuthEmailContext.getStore()
-    if (scope) scope.error = error
-    const request = currentAuthEmailRequest()
-    if (request) failedAuthEmailRequests.set(request, error)
-    throw error
-  }
+/** Awaits an email the caller is waiting on, so the response reports its outcome. `request` is the
+ * one Better Auth passed to its callback, absent for requestless server API calls. */
+export function deliverBlockingAuthEmail(
+  request: Request | undefined,
+  send: Effect.Effect<void, EmailDeliveryError>,
+): Promise<void> {
+  // Read before the fiber starts, which may resume in another request's async context.
+  const scope = blockingAuthEmailContext.getStore()
+  return runAppEffect(
+    send.pipe(
+      // The Mailer already logged a provider's reason, so only a defect is reported here.
+      Effect.catchCause((cause) =>
+        Effect.andThen(
+          Cause.hasDies(cause) ? reportFailure("deliverBlockingAuthEmail", cause) : Effect.void,
+          Effect.fail(authEmailDeliveryError()),
+        ),
+      ),
+      Effect.tapError((error) =>
+        Effect.sync(() => {
+          if (scope) scope.error = error
+          if (request) failedAuthEmailRequests.set(request, error)
+        }),
+      ),
+    ),
+  )
 }
 
 /** Fails the response when a blocking authentication email could not be delivered. */
-export function assertAuthEmailDelivered(): void {
-  const request = currentAuthEmailRequest()
-  if (!request) return
-  const error = failedAuthEmailRequests.get(request)
+export function assertAuthEmailDelivered(request: Request | undefined): void {
+  const error = request && failedAuthEmailRequests.get(request)
   if (!error) return
   failedAuthEmailRequests.delete(request)
   throw error

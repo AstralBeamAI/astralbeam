@@ -1,4 +1,4 @@
-import { Effect, Option, Schema, Stream } from "effect"
+import { Effect, Schema } from "effect"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
@@ -7,14 +7,13 @@ import {
   OpenApi,
 } from "effect/unstable/httpapi"
 import type { ApiV1 } from "./contract.server"
-import { restHandleErrors } from "./responses.server"
 import {
   restEmptyPage,
   restExamplePageCursors,
   restPageFields,
   restPageHeaders,
   restResourceSecurity,
-  restScope,
+  RestScope,
   restUserPageQuery,
   tenantRestKeys,
 } from "./shared.server"
@@ -23,7 +22,7 @@ import {
   TenantUserPatchSchema,
   TenantUserRecordSchema as ManagementTenantUserRecordSchema,
   TenantUserWriteSchema,
-} from "../../../../api/management.ts"
+} from "../../../../lib/tenants/schemas.ts"
 import { restExampleTenant, restMemberParams } from "./tenant.server"
 
 const restExampleUser = {
@@ -138,79 +137,57 @@ export const tenantUserApi = HttpApiGroup.make("tenant_users", { topLevel: true 
     "A TenantUser is a user of one of your Organization's Tenants, not an employee using the dashboard. All routes use internal UUID tenant_id and user id values. External IDs are unique within the organization and Tenant; the same external user ID may exist in another Tenant. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable; users cannot move between Tenants. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. Stored admin does not change signed JWT authority. Creation does not issue tokens or upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
   )
 
-function toTenantUserResponse(
-  row: typeof TenantUserRecordSchema.Type,
-): typeof TenantUserRecordSchema.Type {
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    externalId: row.externalId,
-    name: row.name,
-    admin: row.admin,
-    metadata: row.metadata,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  }
-}
-
 export function tenantUserHandlers(api: typeof ApiV1) {
-  return HttpApiBuilder.group(api, "tenant_users", (handlers) =>
-    Effect.gen(function* () {
-      const { createTenantUser, getTenantUser, listTenantUsers, updateTenantUser } =
-        yield* Effect.promise(() => import("@/db/tenant-user.server"))
+  return HttpApiBuilder.group(
+    api,
+    "tenant_users",
+    Effect.fn("tenantUserHandlers")(function* (handlers) {
+      const { TenantUsers } = yield* Effect.promise(
+        () => import("@/lib/tenants/tenant-users.server"),
+      )
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("./pagination.server"),
       )
+      const tenantUsers = yield* TenantUsers
       return handlers.handleAll({
-        listUsersForTenant: Effect.fn(function* ({ params, query, request }) {
-          const scope = yield* restScope
+        listUsersForTenant: Effect.fn("listUsersForTenant")(function* ({ params, query, request }) {
+          const scope = yield* RestScope
           const tenantScope = { ...scope, tenantFilter: params.tenant_id }
-          const { pageSize, backward, cursor, externalId, search, admin } = yield* restPageOptions(
-            query,
-            "tenant_users",
-            tenantScope,
-          )
-          const page = yield* listTenantUsers(scope, params.tenant_id, {
-            pageSize,
-            position: cursor,
-            backward,
-            externalId,
-            search,
-            admin,
-            includePrevious: true,
-          }).pipe(Stream.runHead, Effect.map(Option.getOrThrow))
-          return yield* Effect.promise(() =>
-            restPage(
-              { ...page, items: page.items.map((row) => toTenantUserResponse(row)) },
-              {
-                collection: "tenant_users",
-                scope: tenantScope,
-                url: request.url,
-                backward,
-                externalId,
-                search,
-                admin,
-              },
-            ),
-          )
-        }, restHandleErrors("listUsersForTenant")),
-        getTenantUser: Effect.fn(function* ({ params }) {
-          return toTenantUserResponse(
-            yield* getTenantUser(yield* restScope, params.tenant_id, params.id),
-          )
-        }, restHandleErrors("getTenantUser")),
-        createTenantUser: Effect.fn(function* ({ params, payload }) {
-          const row = yield* createTenantUser(yield* restScope, params.tenant_id, payload)
+          const options = yield* restPageOptions(query, "tenant_users", tenantScope)
+          const page = yield* tenantUsers.list({ ...options, scope, tenantId: params.tenant_id })
+          return yield* restPage(page, {
+            ...options,
+            collection: "tenant_users",
+            scope: tenantScope,
+            url: request.url,
+          })
+        }),
+        getTenantUser: Effect.fn("getTenantUser")(function* ({ params }) {
+          return yield* tenantUsers.get({
+            scope: yield* RestScope,
+            tenantId: params.tenant_id,
+            id: params.id,
+          })
+        }),
+        createTenantUser: Effect.fn("createTenantUser")(function* ({ params, payload }) {
+          const row = yield* tenantUsers.create({
+            scope: yield* RestScope,
+            tenantId: params.tenant_id,
+            fields: payload,
+          })
           return HttpApiSchema.withHeaders({
-            body: toTenantUserResponse(row),
+            body: row,
             headers: { Location: `/api/v1/tenants/${row.tenantId}/tenant_users/${row.id}` },
           })
-        }, restHandleErrors("createTenantUser")),
-        updateTenantUser: Effect.fn(function* ({ params, payload }) {
-          return toTenantUserResponse(
-            yield* updateTenantUser(yield* restScope, params.tenant_id, params.id, payload),
-          )
-        }, restHandleErrors("updateTenantUser")),
+        }),
+        updateTenantUser: Effect.fn("updateTenantUser")(function* ({ params, payload }) {
+          return yield* tenantUsers.update({
+            scope: yield* RestScope,
+            tenantId: params.tenant_id,
+            id: params.id,
+            patch: payload,
+          })
+        }),
       })
     }),
   )

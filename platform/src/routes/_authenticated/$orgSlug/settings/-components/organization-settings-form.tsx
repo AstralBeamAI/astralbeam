@@ -15,15 +15,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
 import { authClient } from "@/lib/auth/client"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import {
   isReservedOrganizationSlug,
   RESERVED_ORGANIZATION_SLUG_MESSAGE,
-} from "@/lib/auth/organization-slug"
-import { isValidSlug, SLUG_MAX_LENGTH, SLUG_VALIDATION_MESSAGE } from "@/lib/slug"
+} from "@/lib/organizations/reserved-slugs"
+import { isValidSlug, SLUG_MAX_LENGTH, SLUG_VALIDATION_MESSAGE } from "@/lib/organizations/slug"
 import { updateOrganizationSettings } from "../-functions/update-organization-settings"
 
 const ORGANIZATION_NAME_MAX_LENGTH = 100
@@ -46,6 +47,7 @@ export function OrganizationSettingsForm({
   const [name, setName] = useState(organizationName)
   const [slug, setSlug] = useState(organizationSlug)
   const [saving, setSaving] = useState(false)
+  const [slugError, setSlugError] = useState<string | null>(null)
   const normalizedName = name.trim()
   const normalizedSlug = slug.trim()
   const valid =
@@ -58,14 +60,11 @@ export function OrganizationSettingsForm({
     event.preventDefault()
     if (!valid || readOnly) return
     setSaving(true)
+    setSlugError(null)
     try {
-      const result = await updateOrganizationSettings({
+      await updateOrganizationSettings({
         data: { organizationSlug, name: normalizedName, slug: normalizedSlug },
       })
-      if (!result.ok) {
-        toast.add({ title: result.message, type: "error" })
-        return
-      }
       await queryClient.invalidateQueries({
         queryKey: organizationQueryKeys.lists(session?.user.id),
       })
@@ -76,8 +75,10 @@ export function OrganizationSettingsForm({
         replace: true,
       })
       await router.invalidate()
-    } catch {
-      toast.add({ title: "The organization could not be saved. Try again.", type: "error" })
+    } catch (error) {
+      const failure = parseServerFnError(error)
+      if (failure.tag === "OrganizationSlugTaken") setSlugError(failure.message)
+      else toast.add({ title: failure.message, type: "error" })
     } finally {
       setSaving(false)
     }
@@ -113,9 +114,15 @@ export function OrganizationSettingsForm({
                 required
                 maxLength={SLUG_MAX_LENGTH}
                 disabled={saving || readOnly}
-                onChange={(event) => setSlug(event.target.value)}
+                aria-invalid={slugError !== null}
+                aria-describedby={slugError ? "organization-slug-error" : undefined}
+                onChange={(event) => {
+                  setSlug(event.target.value)
+                  setSlugError(null)
+                }}
                 className="font-mono text-xs"
               />
+              {slugError && <FieldError id="organization-slug-error">{slugError}</FieldError>}
               <FieldDescription>
                 {!isValidSlug(normalizedSlug)
                   ? SLUG_VALIDATION_MESSAGE

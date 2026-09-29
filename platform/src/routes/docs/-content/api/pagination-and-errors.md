@@ -81,7 +81,7 @@ The example response above also includes a `Link` header with the returned `page
 
 # Errors
 
-Errors follow the `AstralBeamApiError` schema and use RFC 9457 `application/problem+json`: `type`, `title`, `status`, `detail`, and optional validation `issues` with `path` and `message`.
+Errors follow the `AstralBeamApiError` schema and use RFC 9457 `application/problem+json`: `type`, `title`, `status`, `detail`, and optional validation `issues` with `path` and `message`. A `500` also carries a `reference` that matches the server's log entry for the failure, so quote it when you report the problem.
 
 The following conventions apply across the API. Endpoint descriptions call out resource-specific behavior. Their response schemas use this same error format.
 

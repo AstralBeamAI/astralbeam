@@ -1,23 +1,23 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { readOrganizationAgentFormOptions } from "@/db/agent.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { OrganizationSlugInputSchema } from "../../-lib/schemas.ts"
+import { Agents } from "@/lib/agents/agents.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { runEffect } from "@/lib/runtime/server-fn.server"
+import { toValidationSchema } from "@/lib/schemas"
+import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
 
 export const getNewAgentPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
-  .validator(toValidationSchema(OrganizationSlugInputSchema))
-  .handler(({ context }) =>
-    runDatabaseEffect(
-      Effect.map(
-        readOrganizationAgentFormOptions(context.organizationId),
-        ({ sandboxProviders }) => ({
+  .validator(toValidationSchema(OrganizationRouteInputSchema))
+  .handler(({ context, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(Agents, (agents) => agents.formOptions(context.organizationId)).pipe(
+        Effect.map(({ sandboxProviders }) => ({
           data: { sandboxProviders },
           permissions: context.permissions,
-        }),
+        })),
       ),
+      serverFnMeta.name,
     ),
   )

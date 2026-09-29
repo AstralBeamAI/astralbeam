@@ -1,110 +1,63 @@
-import { beforeEach, describe, expect, test, vi } from "vitest"
-import { authQueryKeys } from "@better-auth-ui/core"
-import { QueryClient } from "@tanstack/react-query"
+import { assert, describe, it } from "@effect/vitest"
+import { Context, Effect, Layer } from "effect"
 
-type TestSession = {
-  session: { activeOrganizationId: string | null }
-  user: { id: string }
-} | null
+import { ServerRequest } from "@/lib/runtime/server-request.server"
+import { type AppAuth, Auth, type AuthSession } from "./auth.server.ts"
+import { resolveSessionAccess } from "./session.server.ts"
 
-const mocks = vi.hoisted(() => ({
-  getRequest: vi.fn(() => new Request("https://app.example.test/")),
-  getSession: vi.fn((): Promise<TestSession> => Promise.resolve(null)),
-  ensureSessionServer: vi.fn((): Promise<TestSession> => Promise.resolve(null)),
-  listOrganizations: vi.fn((): Promise<Array<{ id: string; slug: string }>> => Promise.resolve([])),
-  setActiveOrganization: vi.fn(),
-  setResponseHeader: vi.fn(),
-}))
+function sessionAccessLayer(session: AuthSession | null) {
+  const recorded = { headers: [] as Record<string, string>[], listed: 0 }
+  const organizations = [{ id: "organization-a", slug: "organizationa" }]
+  const auth = Layer.succeed(Auth, {
+    getSession: () => Effect.succeed(session),
+    api: (call: (api: AppAuth["api"]) => Promise<unknown>) =>
+      Effect.promise(() =>
+        call({
+          listOrganizations: () => {
+            recorded.listed += 1
+            return Promise.resolve(organizations)
+          },
+        } as unknown as AppAuth["api"]),
+      ),
+  } as unknown as Context.Service.Shape<typeof Auth>)
+  const request = Layer.succeed(ServerRequest, {
+    request: new Request("https://app.example.test/"),
+    setHeaders: (headers: Record<string, string>) =>
+      Effect.sync(() => void recorded.headers.push(headers)),
+  } as unknown as ServerRequest["Service"])
+  return { recorded, layer: Layer.merge(auth, request) }
+}
 
-vi.mock("@better-auth-ui/core/server", () => ({
-  ensureSessionServer: mocks.ensureSessionServer,
-}))
-
-vi.mock("@tanstack/react-start/server", () => ({
-  getRequest: mocks.getRequest,
-  setResponseHeader: mocks.setResponseHeader,
-}))
-
-vi.mock("@/lib/auth.server", () => ({
-  getAuth: () =>
-    Promise.resolve({
-      api: {
-        getSession: mocks.getSession,
-        listOrganizations: mocks.listOrganizations,
-        setActiveOrganization: mocks.setActiveOrganization,
-      },
-    }),
-}))
-
-import { getSessionAccessDecisionForRequest } from "@/lib/auth/session.server"
-
-describe("session access response boundary", () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
+describe("session access", () => {
+  it.effect("marks the decision private and reads no memberships for a signed-out request", () => {
+    const { recorded, layer } = sessionAccessLayer(null)
+    return Effect.gen(function* () {
+      const result = yield* resolveSessionAccess()
+      assert.deepStrictEqual(result.access, { status: "signed-out" })
+      assert.deepStrictEqual(recorded.headers, [
+        { "Cache-Control": "no-store", Vary: "Cookie, Authorization" },
+      ])
+      assert.strictEqual(recorded.listed, 0)
+    }).pipe(Effect.provide(layer))
   })
 
-  test("marks the session-derived decision as private before resolving access", async () => {
-    await expect(getSessionAccessDecisionForRequest()).resolves.toEqual({
-      status: "signed-out",
-    })
-
-    expect(mocks.setResponseHeader).toHaveBeenNthCalledWith(1, "Cache-Control", "no-store")
-    expect(mocks.setResponseHeader).toHaveBeenNthCalledWith(2, "Vary", "Cookie, Authorization")
-  })
-
-  test("seeds the shared session query during server-side route resolution", async () => {
-    const queryClient = new QueryClient()
-    mocks.ensureSessionServer.mockResolvedValueOnce({
-      session: { activeOrganizationId: "organization-a" },
-      user: { id: "user-a" },
-    })
-    mocks.listOrganizations.mockResolvedValueOnce([{ id: "organization-a", slug: "organizationa" }])
-
-    await expect(getSessionAccessDecisionForRequest(queryClient)).resolves.toEqual({
-      status: "ready",
-      userId: "user-a",
-      organizationId: "organization-a",
-      organizationSlug: "organizationa",
-    })
-
-    expect(mocks.ensureSessionServer).toHaveBeenCalledOnce()
-    expect(mocks.getSession).not.toHaveBeenCalled()
-  })
-
-  test("keeps a repaired active organization consistent in the hydrated session", async () => {
-    const queryClient = new QueryClient()
-    mocks.ensureSessionServer.mockResolvedValueOnce({
+  it.effect("returns the memberships it decided from, which routing seeds into queries", () => {
+    const session = {
       session: { activeOrganizationId: null },
       user: { id: "user-a" },
-    })
-    mocks.listOrganizations.mockResolvedValueOnce([{ id: "organization-a", slug: "organizationa" }])
-    mocks.setActiveOrganization.mockResolvedValueOnce({ id: "organization-a" })
-
-    await expect(getSessionAccessDecisionForRequest(queryClient)).resolves.toEqual({
-      status: "ready",
-      userId: "user-a",
-      organizationId: "organization-a",
-      organizationSlug: "organizationa",
-    })
-
-    expect(queryClient.getQueryData(authQueryKeys.session)).toEqual({
-      session: { activeOrganizationId: "organization-a" },
-      user: { id: "user-a" },
-    })
-  })
-
-  test("logs and returns only a generic access failure", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {})
-    mocks.getSession.mockRejectedValueOnce(
-      new Error("postgres://user:secret@example.test/database"),
-    )
-
-    await expect(getSessionAccessDecisionForRequest()).rejects.toThrow(
-      "Unable to determine organization access",
-    )
-
-    expect(log).toHaveBeenCalledWith("Unable to determine organization access", "Error")
-    expect(JSON.stringify(log.mock.calls)).not.toContain("secret")
-    log.mockRestore()
+    } as unknown as AuthSession
+    const { recorded, layer } = sessionAccessLayer(session)
+    return Effect.gen(function* () {
+      const result = yield* resolveSessionAccess()
+      assert.deepStrictEqual(result.access, {
+        status: "ready",
+        userId: "user-a",
+        organizationId: "organization-a",
+        organizationSlug: "organizationa",
+      })
+      assert.strictEqual(result.session, session)
+      assert.lengthOf(result.organizations, 1)
+      assert.strictEqual(recorded.listed, 1)
+    }).pipe(Effect.provide(layer))
   })
 })

@@ -1,5 +1,5 @@
 // Added with: deno task ui add toast
-// Local changes: Add a hover title to the icon-only close action.
+// Local changes: Add a hover title to the icon-only close action. Raise the viewport to z-[60], above dialog overlays.
 import * as React from "react"
 import { Toast as ToastPrimitive } from "@base-ui/react/toast"
 
@@ -22,7 +22,7 @@ function ToastViewport({ className, ...props }: ToastPrimitive.Viewport.Props) {
     <ToastPrimitive.Viewport
       data-slot="toast-viewport"
       className={cn(
-        "pointer-events-none fixed inset-x-4 bottom-4 z-50 mx-auto w-auto max-w-sm outline-none sm:end-4 sm:start-auto sm:mx-0 sm:w-full",
+        "pointer-events-none fixed inset-x-4 bottom-4 z-[60] mx-auto w-auto max-w-sm outline-none sm:end-4 sm:start-auto sm:mx-0 sm:w-full",
         className
       )}
       {...props}

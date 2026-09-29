@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { SandboxProviderId, SandboxProviderOptions } from "@/lib/sandbox/schemas"
+import type { SandboxProviderId, SandboxProviderOptions } from "@/lib/sandboxes/schemas"
 import { SandboxTextField } from "./sandbox-text-field"
 
 export type SandboxProviderOptionFieldsProps = {

@@ -6,12 +6,12 @@ import { Link } from "@tanstack/react-router"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { OrganizationAgent } from "@/db/agent.server"
+import type { Agent } from "@/lib/agents/agents.server"
 import { copyAgentId } from "../-lib/utils"
 
 export type AgentListCardProps = {
   organizationSlug: string
-  agent: OrganizationAgent
+  agent: Agent
   isDefault: boolean
 }
 

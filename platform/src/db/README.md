@@ -4,8 +4,8 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 
 ## Structure
 
-- `index.ts` is guarded as server-only and owns the separate process-wide pools, managed runtime and idempotent shutdown. It exports the Promise Drizzle client, Effect database service and replaceable layer, and framework bridge through `@/db`.
-- `config.server.ts` validates decrypted values from the global `config` table and recovers unreadable rows for `/configure`. The Drizzle column codec owns encryption, while `src/lib/config` adds environment precedence and process-local caching through `getGlobalConfig`.
+- `database.server.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
+- `schema/config.server.ts` defines the global `config` table, whose Drizzle column codec owns encryption. The `Config` service in `src/lib/config` validates stored values, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching.
 - `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
@@ -21,7 +21,7 @@ Tenant and TenantUser name/external-ID substring searches use `pg_trgm` GIN inde
 Use the Drizzle client from server-only code, after authorizing the organization ID at the request boundary:
 
 ```ts
-import { getAuthDatabase } from "@/db"
+import { getAuthDatabase } from "@/db/database.server"
 import { eq } from "drizzle-orm"
 import { agent } from "@/db/schema.server"
 
@@ -29,7 +29,7 @@ export const listOrganizationAgents = (organizationId: string) =>
   getAuthDatabase().select().from(agent).where(eq(agent.organizationId, organizationId))
 ```
 
-Database imports belong in server-only code and do not initialize resources. Database operations require `DATABASE_URL`, and encrypted values require `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration use the cached, environment-aware `getGlobalConfig` entry point. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
+Database imports belong in server-only code and do not initialize resources. Database operations require `DATABASE_URL`, and encrypted values require `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration go through the cached, environment-aware `Config` service. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
 
 ## Local services
 
@@ -103,7 +103,7 @@ Review the SQL and commit it with its matching snapshot and TypeScript schema ch
 - Reverse applied changes with a forward migration. There is no automatic rollback command, and migration history that may have reached a shared environment must never be rewritten.
 - Resolve rename prompts carefully to avoid accidental drop-and-create SQL.
 - Schema diffs cannot infer data backfills or transformations. Use `deno task --cwd platform db generate --custom --name=backfill-projects` for data migrations or unsupported DDL.
-- Apply application schema changes only through reviewed, checked-in migration files with `migrate`. Effect initializes and migrates its own `effect_cluster_*` tables at runner startup, outside Drizzle schema management. See [cluster storage ownership](../cluster/README.md#storage-and-deployment) for privileges and upgrade requirements. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes.
+- Apply application schema changes only through reviewed, checked-in migration files with `migrate`. Effect initializes and migrates its own `effect_cluster_*` tables at runner startup, outside Drizzle schema management. See [cluster storage ownership](../lib/cluster/README.md#storage-and-deployment) for privileges and upgrade requirements. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes.
 - This repository uses colocated migration folders, not root SQL files and `meta/_journal.json`.
 - `up` upgrades metadata on disk. `migrate` applies pending migrations to PostgreSQL.
 
@@ -121,23 +121,28 @@ Each source table must be owned by exactly one relation part. Two parts defining
 
 ## PostgreSQL cache
 
-`cache.server.ts` provides schema-typed JSON reads, writes, deletes, and transaction-scoped key locking through the existing Effect SQL client. The global `cache_entry` table isolates keys by namespace. Effect v4's `KeyValueStore.toSchemaStore` handles serialization. Direct SQL keeps the adapter usable from the native Deno worker and CLI without importing the web server's database runtime.
+`cache.server.ts` provides schema-typed JSON reads, writes, deletes, and transaction-scoped key locking through the existing Effect SQL client. `makeDatabaseCache` builds one Effect v4 `KeyValueStore.SchemaStore` per namespace and time to live, so build it once and reuse it. The global `cache_entry` table isolates keys by namespace, and `KeyValueStore.toSchemaStore` handles serialization. Direct SQL keeps the adapter usable from the native Deno worker and CLI without importing the web server's database runtime.
 
 ```ts
-import { Schema } from "effect"
-import { runDatabaseEffect } from "@/db"
-import { deleteDatabaseCache, readDatabaseCache, writeDatabaseCache } from "@/db/cache.server"
+import { Effect, Schema } from "effect"
+import { makeDatabaseCache } from "@/db/cache.server"
 
-const options = { namespace: "example:v1", key: "hello", schema: Schema.String }
-await runDatabaseEffect(writeDatabaseCache({ ...options, value: "world", timeToLive: "5 minutes" }))
-await runDatabaseEffect(writeDatabaseCache({ ...options, value: "updated", timeToLive: "1 hour" }))
-const value = await runDatabaseEffect(readDatabaseCache(options)) // Option.some("updated")
-await runDatabaseEffect(deleteDatabaseCache(options))
+const greetings = Effect.gen(function* () {
+  const cache = yield* makeDatabaseCache({
+    namespace: "example:v1",
+    schema: Schema.String,
+    timeToLive: "1 hour",
+  })
+  yield* cache.set("hello", "world")
+  const value = yield* cache.get("hello") // Option.some("world")
+  yield* cache.remove("hello")
+  return value
+})
 ```
 
-Writes insert missing keys or atomically replace both value and expiration for an existing namespace/key pair, using last-write-wins semantics. Updates preserve `id` and `created_at` and refresh `updated_at`. Omitted or infinite `timeToLive` means no expiration, and zero or negative TTL expires immediately. PostgreSQL's statement clock determines expiration. Reads never extend TTL. [Cluster maintenance](../workflows/README.md#scheduling) runs every five minutes and drains expired rows in batches of up to 1,000, pausing ten milliseconds between batches until a batch deletes no rows. Locked rows are skipped and remain eligible for a later run. The [storage rationale](schema/cache.server.ts) explains each column and index, the alternatives, and the upstream references.
+Writes insert missing keys or atomically replace both value and expiration for an existing namespace/key pair, using last-write-wins semantics. Updates preserve `id` and `created_at` and refresh `updated_at`. Omitting the store's `timeToLive` or passing an infinite one means no expiration, and zero or negative TTL expires immediately. PostgreSQL's statement clock determines expiration. Reads never extend TTL. [Cluster maintenance](../lib/workflows/README.md#scheduling) runs every five minutes and drains expired rows in batches of up to 1,000, pausing ten milliseconds between batches until a batch deletes no rows. Locked rows are skipped and remain eligible for a later run. The [storage rationale](schema/cache.server.ts) explains each column and index, the alternatives, and the upstream references.
 
-`deleteDatabaseCache` removes the exact namespace/key pair whether expired or live. Expired rows remain unreadable through the cache API until cluster maintenance or explicit deletion removes them. PostgreSQL autovacuum reclaims dead row versions after deletion, but does not delete entries based on TTL.
+`remove` deletes the exact namespace/key pair whether expired or live. Expired rows remain unreadable through the cache API until cluster maintenance or explicit deletion removes them. PostgreSQL autovacuum reclaims dead row versions after deletion, but does not delete entries based on TTL.
 
 Namespaces allow at most 64 Unicode code points and keys at most 512, enforced in both the application and database. Oversized inputs and unpaired Unicode surrogates fail with `KeyValueStoreError` before a cache query. Rejecting unpaired surrogates keeps advisory-lock identities consistent with UTF-8 database keys. TTL conversion also fails before database access. Database and codec failures propagate to callers. JSON `null` is a cached value, distinct from a miss.
 

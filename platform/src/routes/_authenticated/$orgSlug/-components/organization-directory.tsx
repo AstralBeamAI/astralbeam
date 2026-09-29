@@ -4,17 +4,14 @@ import { useState } from "react"
 import { useTheme } from "tanstack-router-theme-provider"
 import { cn } from "cn"
 
-import { authClient } from "@/lib/auth/client"
 import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "@/lib/widget-theme"
 import directoryCss from "./organization-directory.css?inline"
 
 const organizationDirectoryRoute = getRouteApi("/_authenticated/$orgSlug")
 export function OrganizationDirectory({ kind }: { kind: "tenants" | "tenant-users" }) {
-  const { organization } = organizationDirectoryRoute.useRouteContext()
+  const { access, organization } = organizationDirectoryRoute.useRouteContext()
   const { theme } = useTheme()
-  const { data: session, isPending } = authClient.useSession()
   const [missingApiKeys, setMissingApiKeys] = useState(false)
-  if (isPending || !session) return null
   const Directory = kind === "tenants" ? AstralBeamTenantList : AstralBeamTenantUserList
   return (
     <div
@@ -27,7 +24,7 @@ export function OrganizationDirectory({ kind }: { kind: "tenants" | "tenant-user
         </h1>
       </header>
       <Directory
-        key={`${session.user.id}:${organization.organizationId}`}
+        key={`${access.userId}:${organization.organizationId}`}
         apiUrl="/api"
         scope="organization"
         showHeader={false}

@@ -1,25 +1,24 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { deleteOrganizationAgent } from "@/db/agent.server"
-import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { DeleteAgentInputSchema } from "../-lib/schemas.ts"
+import { Agents } from "@/lib/agents/agents.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { toValidationSchema } from "@/lib/schemas"
+import { AgentVersionInputSchema } from "../-lib/schemas.ts"
 
 export const deleteAgent = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["delete"] })])
-  .validator(toValidationSchema(DeleteAgentInputSchema))
-  .handler(({ context, data }) =>
-    runDatabaseEffect(
-      deleteOrganizationAgent({
-        organizationId: context.organizationId,
-        id: data.id,
-        lockVersion: data.lockVersion,
-      }).pipe(
-        Effect.as({ ok: true as const }),
-        catchOptimisticLockConflict("Reload before deleting this agent"),
-      ),
+  .validator(toValidationSchema(AgentVersionInputSchema))
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(Agents, (agents) =>
+        agents.remove({
+          organizationId: context.organizationId,
+          agentId: data.agentId,
+          lockVersion: data.lockVersion,
+        }),
+      ).pipe(Effect.catchTag("AgentChanged", exposeError)),
+      serverFnMeta.name,
     ),
   )

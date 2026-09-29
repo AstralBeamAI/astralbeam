@@ -1,0 +1,160 @@
+import { Effect, Schema } from "effect"
+
+import { NonEmptyStringSchema, enumSchema } from "@/lib/schemas"
+
+/** Providers the Mailer can dispatch to, each one `providers/*.server.ts` module. */
+export const EmailProviderSchema = enumSchema(["smtp", "resend", "ses"]).annotate({
+  title: "Email provider",
+  description: "Protocol used to deliver application email.",
+})
+export type EmailProvider = Schema.Schema.Type<typeof EmailProviderSchema>
+
+export const EMAIL_PROVIDER_SETTING_KEYS = {
+  smtp: ["smtp_host", "smtp_port", "smtp_security", "smtp_username", "smtp_password"],
+  resend: ["resend_api_key"],
+  ses: ["aws_region", "aws_access_key_id", "aws_secret_access_key"],
+} as const satisfies Record<EmailProvider, readonly string[]>
+
+export const SMTP_DEFAULTS = {
+  host: "127.0.0.1",
+  port: 1025,
+  security: "none",
+} as const
+
+export const SmtpSecuritySchema = enumSchema(["none", "auto", "starttls", "tls"]).annotate({
+  title: "SMTP security",
+  description: "TLS policy used for the SMTP connection.",
+})
+
+export const SmtpPortSchema = Schema.Union([Schema.Number, Schema.NumberFromString])
+  .pipe(
+    Schema.check(
+      Schema.isInt({ message: "Must be a whole number" }),
+      Schema.isBetween({ minimum: 1, maximum: 65_535 }, { message: "Must be between 1 and 65535" }),
+    ),
+    Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.port)),
+  )
+  .annotate({
+    title: "SMTP Port",
+    description: "TCP port exposed by the SMTP server.",
+  })
+
+export const SmtpProviderSettingsSchema = Schema.Struct({
+  smtp_host: NonEmptyStringSchema.pipe(
+    Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.host)),
+  ).annotateKey({
+    title: "SMTP Host",
+    description: "Hostname or IP address of the SMTP server.",
+  }),
+  smtp_port: SmtpPortSchema,
+  smtp_security: SmtpSecuritySchema.pipe(
+    Schema.withDecodingDefault(Effect.succeed(SMTP_DEFAULTS.security)),
+  ).annotateKey({
+    title: "SMTP Security",
+    description: "TLS policy used for the SMTP connection.",
+  }),
+  smtp_username: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))).annotateKey({
+    title: "SMTP Username",
+    description: "Optional SMTP username; it must be paired with a password.",
+  }),
+  smtp_password: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))).annotateKey({
+    title: "SMTP Password",
+    description: "Optional SMTP password; it must be paired with a username.",
+  }),
+})
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((settings) => {
+        if (Boolean(settings.smtp_username) === Boolean(settings.smtp_password)) return
+        const missing = settings.smtp_username ? "smtp_password" : "smtp_username"
+        return {
+          path: [missing],
+          issue: "SMTP username and password must be configured together",
+        }
+      }),
+    ),
+  )
+  .annotate({
+    title: "SMTP connection settings",
+    description: "Settings used to verify an SMTP server without sending email.",
+  })
+export type SmtpProviderSettings = Schema.Schema.Type<typeof SmtpProviderSettingsSchema>
+
+const ResendProviderSettingsSchema = Schema.Struct({
+  resend_api_key: NonEmptyStringSchema.annotateKey({
+    title: "Resend API Key",
+    description: "API key used to authenticate with Resend.",
+  }),
+}).annotate({
+  title: "Resend connection settings",
+  description: "Settings used to verify access to the Resend API.",
+})
+export type ResendProviderSettings = Schema.Schema.Type<typeof ResendProviderSettingsSchema>
+
+const SesProviderSettingsSchema = Schema.Struct({
+  aws_region: NonEmptyStringSchema.annotateKey({
+    title: "AWS Region",
+    description: "AWS region containing the SES account.",
+  }),
+  aws_access_key_id: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))).annotateKey(
+    {
+      title: "AWS Access Key ID",
+      description: "Optional static access key; it must be paired with a secret key.",
+    },
+  ),
+  aws_secret_access_key: Schema.String.pipe(
+    Schema.withDecodingDefault(Effect.succeed("")),
+  ).annotateKey({
+    title: "AWS Secret Access Key",
+    description: "Optional static secret key; it must be paired with an access key ID.",
+  }),
+})
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((settings) => {
+        if (Boolean(settings.aws_access_key_id) === Boolean(settings.aws_secret_access_key)) return
+        const missing = settings.aws_access_key_id ? "aws_secret_access_key" : "aws_access_key_id"
+        return {
+          path: [missing],
+          issue: "AWS access key ID and secret access key must be configured together",
+        }
+      }),
+    ),
+  )
+  .annotate({
+    title: "Amazon SES connection settings",
+    description: "Settings used to verify access to Amazon SES.",
+  })
+export type SesProviderSettings = Schema.Schema.Type<typeof SesProviderSettingsSchema>
+
+const EmailProviderConnectionResultSchema = Schema.Union([
+  Schema.Struct({ ok: Schema.Literal(true) }),
+  Schema.Struct({ ok: Schema.Literal(false), error: NonEmptyStringSchema }),
+]).annotate({
+  title: "Email provider connection result",
+  description: "Result of verifying provider settings without sending email.",
+})
+export type EmailProviderConnectionResult = Schema.Schema.Type<
+  typeof EmailProviderConnectionResultSchema
+>
+
+export const EmailProviderConnectionInputSchema = Schema.Union([
+  Schema.Struct({
+    provider: Schema.Literal("smtp"),
+    settings: SmtpProviderSettingsSchema,
+  }),
+  Schema.Struct({
+    provider: Schema.Literal("resend"),
+    settings: ResendProviderSettingsSchema,
+  }),
+  Schema.Struct({
+    provider: Schema.Literal("ses"),
+    settings: SesProviderSettingsSchema,
+  }),
+]).annotate({
+  title: "Email provider connection test",
+  description: "Provider-specific settings submitted from the configuration page for verification.",
+})
+export type EmailProviderConnectionInput = Schema.Schema.Type<
+  typeof EmailProviderConnectionInputSchema
+>

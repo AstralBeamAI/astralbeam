@@ -8,7 +8,3 @@ export async function copyAgentId(id: string): Promise<void> {
     toast.add({ title: "The agent ID could not be copied", type: "error" })
   }
 }
-
-export function agentRequestFailedToast(): void {
-  toast.add({ title: "The agent request failed. Try again.", type: "error" })
-}

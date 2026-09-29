@@ -122,7 +122,7 @@ Counters live in the shared `rate_limit` table, so every replica enforces the sa
 | Bucket | Limit | Scope |
 | --- | --- | --- |
 | Operator sign-in at `/configure` | 5 per minute | The whole deployment. Cleared by a successful sign-in |
-| Chat requests | 20 per 60 seconds | Organization, Tenant, and tenant user combined |
+| Chat requests | 200 per 60 seconds | Organization, Tenant, and tenant user combined |
 | Sign-up, password reset, verification email, and organization invite | 5 per 60 seconds each | The requesting client address |
 | Management API with an API key | 100 per 5 minutes | The API key |
 | Management API with a chat token | 100 per 5 minutes | The token's identity |

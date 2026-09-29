@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: render Better Auth's comma-joined static roles as separate labels, add an icon-action hover title, and notify onboarding after an invitation action.
+// Local changes: render Better Auth's comma-joined static roles as separate labels, add an icon-action hover title, notify onboarding after an invitation action, and render dates after hydration.
 
 "use client"
 
@@ -15,6 +15,7 @@ import {
 import type { Invitation } from "better-auth/client"
 import { CheckIcon as Check, ClockIcon as Clock, XIcon as X } from "@phosphor-icons/react"
 
+import { LocalDateTime } from "@/components/local-date-time"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,10 +60,7 @@ export function UserInvitationRow({ invitation, onInvitationAction }: UserInvita
           <Badge variant="secondary">{memberRoleLabels(invitation.role, roles).join(", ")}</Badge>
         </ItemTitle>
         <ItemDescription>
-          {new Date(invitation.createdAt).toLocaleString(undefined, {
-            dateStyle: "medium",
-            timeStyle: "short",
-          })}
+          <LocalDateTime value={invitation.createdAt} dateStyle="medium" />
         </ItemDescription>
       </ItemContent>
       <ItemActions>

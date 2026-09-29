@@ -1,32 +1,24 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
-import { deleteOrganizationSandboxProvider as deleteProviderRow } from "@/db/organization-sandbox-provider.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { toValidationSchema } from "@/lib/schemas"
 import { SandboxProviderInputSchema } from "../-lib/schemas.ts"
 
 export const deleteSandboxProvider = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["delete"] })])
   .validator(toValidationSchema(SandboxProviderInputSchema))
-  .handler(({ context, data }) =>
-    runDatabaseEffect(
-      deleteProviderRow({
-        organizationId: context.organizationId,
-        id: data.id,
-        lockVersion: data.lockVersion,
-      }).pipe(
-        Effect.as({ ok: true as const }),
-        catchOptimisticLockConflict("Reload before deleting this sandbox provider"),
-        Effect.catchTag("SandboxProviderInUseError", (error) =>
-          Effect.succeed({
-            ok: false as const,
-            code: "in_use" as const,
-            message: error.message,
-          }),
-        ),
-      ),
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(SandboxProviders, (providers) =>
+        providers.remove({
+          organizationId: context.organizationId,
+          id: data.id,
+          lockVersion: data.lockVersion,
+        }),
+      ).pipe(Effect.catchTag(["SandboxProviderChanged", "SandboxProviderInUse"], exposeError)),
+      serverFnMeta.name,
     ),
   )
