@@ -1,8 +1,8 @@
 import { Effect, Schema, Stream } from "effect"
 
-export class RequestTooLarge extends Schema.TaggedError<RequestTooLarge>()("RequestTooLarge", {}) {}
+class RequestTooLarge extends Schema.TaggedError<RequestTooLarge>()("RequestTooLarge", {}) {}
 
-export class RequestBodyInvalid extends Schema.TaggedError<RequestBodyInvalid>()(
+class RequestBodyInvalid extends Schema.TaggedError<RequestBodyInvalid>()(
   "RequestBodyInvalid",
   {},
 ) {}
