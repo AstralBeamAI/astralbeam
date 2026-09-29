@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import { APP_NAME } from "@/lib/constants"
-import { resolveAppOrigin } from "@/lib/utils.server"
+import { resolveAppOrigin } from "./-lib/app-origin.server"
 import { DOCS_SECTIONS, publishedDocsPages } from "./docs/-lib/content"
 
 // The Markdown counterpart of /docs, listing every published page's .md URL in navigation order.
