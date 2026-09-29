@@ -52,13 +52,8 @@ import { chatPrincipalScope } from "./identity.server"
 import { resolveSandboxPath } from "./sandbox-paths.server"
 import type { ChatAttachmentFile, ChatPrincipal, ChatSandboxStatus } from "./types"
 
-/**
- * Sandbox lifecycle for chat runs.
- *
- * A sandbox is NOT provisioned when a run starts: the first sandbox tool the agent reaches for
- * acquires it, so an ordinary reply costs nothing. `reuse: "thread"` then keeps that sandbox for
- * the rest of the conversation, which is what lets the agent build on the files it already wrote.
- */
+// The first sandbox tool a run calls provisions the sandbox, so an ordinary reply costs nothing,
+// and `reuse: "thread"` keeps it for the conversation so the agent builds on its own files.
 
 /** Wraps one vendor sandbox call: a timeout interrupts it, and its error never reaches the agent. */
 export function chatSandboxCall<A>(
@@ -217,11 +212,8 @@ export class ChatSandboxes extends Context.Service<
           )
         })
 
-      /**
-       * `computeSandboxKey` folds the tenant in, but it is a 64-bit hash and `threadId` is
-       * browser-supplied, so every lookup is also namespaced by the verified principal scope: a
-       * forged or colliding thread can only ever reach that principal's own sandboxes.
-       */
+      // `computeSandboxKey` is a 64-bit hash over a browser-supplied `threadId`, so lookups are
+      // also namespaced by the verified principal, confining a forged thread to its own sandboxes.
       const instanceStore = (scope: string, provider: SandboxProvider): SandboxInstanceStore => {
         const scoped = (key: string) => `${scope}\0${key}`
         return {
@@ -349,7 +341,7 @@ export class ChatSandboxes extends Context.Service<
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
         ).pipe(Effect.orDie)
         if (!handle) return yield* new ChatArtifactUnavailable({ reason: "SandboxGone" })
-        // The path was containment-checked at publish time; recheck it against the resumed
+        // The path was containment-checked at publish time, so recheck it against the resumed
         // workspace so a root that moved cannot turn it into an escape.
         const resolved = resolveSandboxPath(resolveHarnessCwd(handle), ticket.path)
         if ("refusal" in resolved || resolved.path !== ticket.path) {

@@ -75,7 +75,7 @@ function chatRequest(token: string) {
   })
 }
 
-// Serves queued rows to each select and records its predicates; any write fails the test.
+// Serves queued rows to each select and records its predicates, and any write fails the test.
 function recordingDatabase(rows: readonly (readonly unknown[])[]) {
   const recorded = { joins: [] as SQL[], wheres: [] as SQL[], selects: 0 }
   const select = () => {

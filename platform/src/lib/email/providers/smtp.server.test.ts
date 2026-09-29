@@ -9,7 +9,7 @@ const smtpTest = vi.hoisted(() => ({
   close: vi.fn(),
 }))
 
-// Nodemailer is the vendor boundary; everything above it runs for real.
+// Nodemailer is the vendor boundary, and everything above it runs for real.
 vi.mock("nodemailer", () => ({ default: { createTransport: smtpTest.createTransport } }))
 
 import { SmtpProviderSettingsSchema } from "../schemas.ts"

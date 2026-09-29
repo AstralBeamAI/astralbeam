@@ -25,7 +25,7 @@ import type { ChatSandboxStatus } from "./types"
  * declares, these execute here rather than in the host page.
  *
  * A refused path, a non-zero exit code, and a timed-out command all come back as ordinary results
- * the agent can act on; only a broken sandbox fails, because a failed tool tells the agent
+ * the agent can act on. Only a broken sandbox fails, because a failed tool tells the agent
  * nothing except that something went wrong.
  */
 
@@ -293,7 +293,7 @@ export function createChatSandboxTools(input: {
         const read = yield* Effect.result(
           chatSandboxCall(() => handle.fs.readBytes(resolved.path), CHAT_SANDBOX_FILE_TIMEOUT_MS),
         )
-        // The agent only learns the path did not work; the reason goes to the log.
+        // The agent only learns the path did not work, and the reason goes to the log.
         if (Result.isFailure(read)) {
           yield* logChatSandboxFailure("publish_artifact", read.failure)
           return { refusal: "The file could not be read. Check the path with sandbox_list_files." }

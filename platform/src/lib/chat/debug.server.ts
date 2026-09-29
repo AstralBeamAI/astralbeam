@@ -2,8 +2,8 @@ import type { StreamChunk } from "@tanstack/ai"
 import { Cause, Effect, Result, Stream } from "effect"
 
 /**
- * Logs one line of a `debug: true` run. Development only, because it prints whole conversations;
- * it mirrors the SDK's browser-console debug log so both sides of one run can be followed.
+ * Logs one line of a `debug: true` run, development only because it prints whole conversations.
+ * It mirrors the SDK's browser-console debug log so both sides of a run can be followed.
  */
 export type ChatDebugLog = (
   category: string,
@@ -52,7 +52,7 @@ function takeChatDebugText(state: ChatDebugState, key: string): [ChatDebugState,
   return [{ ...state, texts }, text]
 }
 
-// Streams are many tiny deltas; logging each would drown the terminal, so text and tool inputs
+// Streams are many tiny deltas and logging each would drown the terminal, so text and tool inputs
 // accumulate per id and log whole on their end event. Everything else logs as it arrives.
 function describeChatChunk(
   state: ChatDebugState,

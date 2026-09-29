@@ -159,7 +159,7 @@ const restTestServices = Layer.mergeAll(
     resolveConfiguration: () =>
       Effect.succeed({ name: "Test", provider: "docker", options: {}, credentials: {} }),
   } as unknown as Context.Service.Shape<typeof SandboxProviders>),
-  // Chat's own behavior is tested beside it; these cover its HTTP contract.
+  // Chat's own behavior is tested beside it, and these cover its HTTP contract.
   Layer.succeed(Chat, {
     run: (input) => restTestState.run(input) as never,
     capabilities: (input) => restTestState.agent(input) as never,

@@ -156,9 +156,8 @@ export class Chat extends Context.Service<
           yield* log("request", `client-declared tools (${params.tools.length})`, params.tools)
         }
         const openaiApiKey = yield* Effect.fromResult(modelKey)
-        // Attachments are rewritten into what the model reads before the run starts: the provider
-        // adapter throws on a content part it cannot map, which would fail the whole run over one
-        // unsupported file. A file with no text view has nowhere to go without a sandbox.
+        // Attachments become what the model reads before the run, since the provider adapter throws
+        // on a part it cannot map. A file with no text view needs a sandbox to go to.
         const { messages, attachments, files } = normalizeChatAttachments(params.messages, {
           sandbox: agent.sandboxProviderId !== null,
         })
@@ -169,9 +168,8 @@ export class Chat extends Context.Service<
         if (log && attachments.length > 0) {
           yield* log("attachment", `${attachments.length} attachment(s) normalized`, attachments)
         }
-        // Resolving the sandbox is one configuration read and builds nothing: the tools provision
-        // one only when the agent reaches for them. An unreadable configuration drops the tools
-        // and their prompts together, so the agent never offers a capability it does not have.
+        // Resolving the sandbox provisions nothing. An unreadable configuration drops its tools and
+        // prompts together, so the agent never offers a capability it does not have.
         const session = agent.sandboxProviderId
           ? yield* sandboxes
               .session({
@@ -204,9 +202,8 @@ export class Chat extends Context.Service<
                 : []),
               agent.systemPrompt,
             ],
-            // Every other tool executes in the host page and arrives declared in the request
-            // body; a client tool reusing a server tool's name is dropped by `mergeAgentTools`.
-            // `read_attachment` is declared only when the run carries files to read.
+            // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
+            // drops a client tool named like a server tool.
             tools: mergeAgentTools(
               [...sandboxTools, ...createChatAttachmentTools(files)],
               params.tools,

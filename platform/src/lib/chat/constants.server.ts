@@ -242,7 +242,7 @@ export const CHAT_SANDBOX_MAX_PATH_LENGTH = 512
 export const CHAT_SANDBOX_IDLE_TTL_MS = 15 * 60_000
 export const CHAT_SANDBOX_SWEEP_INTERVAL_MS = 60_000
 export const CHAT_SANDBOX_MAX_LIVE = 25
-// Shutdown destroys every live sandbox inside the server's 5-second deadline; the vendor reclaims
+// Shutdown destroys every live sandbox inside the server's 5-second deadline. The vendor reclaims
 // any it misses.
 export const CHAT_SANDBOX_SHUTDOWN_TIMEOUT_MS = 3_000
 
