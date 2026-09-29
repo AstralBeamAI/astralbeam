@@ -64,7 +64,7 @@ const submitResourceOperation = Effect.gen(function* () {
 
 Both submission modes persist requests. `discard: true` returns the execution ID without waiting for completion. Durability still requires transaction commit. Polling returns an `Option` of the native workflow result. Inspect suspended versus complete results and the completed `Exit` to distinguish success from failure. An absent result is not proof of completion.
 
-The first producer must provide `WorkflowEngine` and authorize submission at a server-only framework boundary. `runDatabaseEffect` supplies only database services. Reuse the managed runtime instead of constructing a runner per request.
+Producers authorize submission at a server-only framework boundary and supply `WorkflowEngine` with `provideClusterWorkflowEngine` from the [cluster runtime](../cluster/runtime.server.ts), which fails with `ClusterUnavailableError` until the local runner is ready. `runDatabaseEffect` supplies only database services. Never construct a runner per request.
 
 Use the definition's `interrupt(executionId)` for cooperative cancellation and `resume(executionId)` for suspended work. Cancellation cannot undo completed external effects. Resumption does not create a fresh execution after terminal failure.
 
