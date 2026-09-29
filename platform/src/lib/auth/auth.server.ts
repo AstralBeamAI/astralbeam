@@ -46,10 +46,8 @@ import type { AuthEmailNotDelivered } from "./errors.ts"
 import { acceptedAtForUserCreation, assertLegalAcceptance, recordValue } from "./legal.server.ts"
 import { createSyntheticUser } from "./synthetic-user.server.ts"
 
-// Better Auth 1.7.2 keeps these defaults inline rather than exporting them. Pass each value to
-// both its auth option and email callback so the real expiry and rendered copy stay in sync.
-// Verification:
-// https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/email-verification.ts#L16-L40
+// Better Auth 1.7.2 keeps these defaults inline, so each passes to both its option and its email
+// callback to keep the expiry and the copy in sync. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/email-verification.ts#L16-L40
 const EMAIL_VERIFICATION_EXPIRY_SECONDS = 60 * 60
 
 // Password reset:
@@ -60,9 +58,8 @@ const PASSWORD_RESET_EXPIRY_SECONDS = 60 * 60
 // https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/adapter.ts#L1185-L1211
 const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 
-// Better Auth mounts its routes under this default basePath, which the verification link has to
-// repeat because a resend outside an endpoint context cannot read `context.baseURL`.
-// https://better-auth.com/docs/reference/options#basepath
+// The default basePath, which a resend outside an endpoint context must repeat because it cannot
+// read `context.baseURL`. https://better-auth.com/docs/reference/options#basepath
 const AUTH_BASE_PATH = "/api/auth"
 
 interface AuthConfig {
@@ -204,10 +201,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
           request,
           mailer.sendResetPassword({ user, url, expiresInSeconds: PASSWORD_RESET_EXPIRY_SECONDS }),
         ),
-      // Better Auth answers a duplicate sign-up with a synthetic user so the response cannot
-      // confirm the address exists, which otherwise leaves the address's real owner on a "check
-      // your inbox" screen forever. Both branches send exactly one email, so a provider outage
-      // fails a duplicate sign-up and a new one identically. https://better-auth.com/docs/concepts/email
+      // A duplicate sign-up gets a synthetic user, so its real owner learns why only from this email.
+      // Both branches send one email, so an outage fails either alike. https://better-auth.com/docs/concepts/email
       onExistingUserSignUp: ({ user }, request) =>
         deliverBlockingAuthEmail(
           request,
@@ -259,7 +254,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     account: {
       encryptOAuthTokens: true,
       storeStateStrategy: "database",
-      // Keep trustedProviders unset so implicit linking requires both the provider identity and existing user email to be verified; never transfer an identity already owned by another user. https://better-auth.com/docs/concepts/users-accounts#account-linking
+      // trustedProviders stays unset, so implicit linking needs both emails verified and never moves
+      // an identity another user owns. https://better-auth.com/docs/concepts/users-accounts#account-linking
       accountLinking: {
         enabled: true,
         disableImplicitLinking: false,
@@ -313,17 +309,16 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         },
       },
     },
-    // backgroundTasks stays unset so Better Auth awaits each email send inside the request. A
-    // handler would defer the send past the response and swallow its rejection, which is what let
-    // a failed send complete behind a "check your inbox" screen. https://better-auth.com/docs/concepts/email
+    // backgroundTasks stays unset, because a handler would defer each send past the response and
+    // swallow its rejection behind a "check your inbox" screen. https://better-auth.com/docs/concepts/email
     advanced: {
       database: {
         // Let PostgreSQL apply the schema's UUIDv7 defaults. https://better-auth.com/docs/concepts/database#id-generation
         generateId: false,
         joins: true,
       },
-      // Makes Better Auth walk a forwarded chain to the first hop it does not own instead of
-      // trusting only single-value headers; `/api/auth/$` verifies the sender. https://better-auth.com/docs/concepts/rate-limit
+      // Better Auth walks a forwarded chain to the first hop it does not own, and `/api/auth/$`
+      // verifies the sender. https://better-auth.com/docs/concepts/rate-limit
       ipAddress: {
         trustedProxies: [...LOOPBACK_PROXY_ADDRESSES],
       },
@@ -496,7 +491,7 @@ export class Auth extends Context.Service<
       // Dies with Better Auth's own error, which a hook rethrows to its caller unchanged.
       const api = <A>(call: (api: AppAuth["api"]) => Promise<A>) => callApi(call).pipe(Effect.orDie)
 
-      /** Answers Better Auth's refusal with `code` through `onRefused`; any other failure dies. */
+      /** Answers Better Auth's refusal with `code` through `onRefused`. Any other failure dies. */
       const apiUnlessRefused = <A, B, E>(
         call: (api: AppAuth["api"]) => Promise<A>,
         code: string,

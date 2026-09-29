@@ -59,12 +59,8 @@ export const readOrganizationOpenaiApiKey = Effect.fn("readOrganizationOpenaiApi
   return decrypted.success.value.apiKey
 })
 
-/**
- * The settings page's read: the stored key's last four characters, or `null` when none is stored.
- *
- * Derived from the one stored copy rather than saved beside it, so the hint cannot drift from the
- * key, and the key itself never leaves the server.
- */
+/** The settings page's read: the stored key's last four characters, or `null`. Derived from the
+ * one stored copy, so the hint cannot drift and the key never leaves the server. */
 export function readOrganizationOpenaiApiKeyHint(organizationId: string) {
   return Effect.map(readOrganizationOpenaiApiKey(organizationId), (apiKey) =>
     apiKey === null ? null : apiKey.slice(-OPENAI_API_KEY_HINT_LENGTH),

@@ -15,7 +15,7 @@ import type { TenantPatchSchema, TenantRecordSchema, TenantWriteSchema } from ".
 /** The Tenants a verified credential may reach, derived from the credential and never the request. */
 export interface TenantScope {
   readonly organizationId: string
-  /** Omitted for organization-wide access; null means no accessible Tenant. */
+  /** Omitted for organization-wide access, and null means no accessible Tenant. */
   readonly tenantId?: string | null | undefined
 }
 

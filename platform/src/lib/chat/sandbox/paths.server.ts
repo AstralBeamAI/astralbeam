@@ -11,18 +11,8 @@ interface SandboxResolvedPath {
   relativePath: string
 }
 
-/**
- * The absolute path a tool acts on, kept inside the sandbox's workspace.
- *
- * `root` is the provider's REAL workspace directory, from `resolveHarnessCwd`. That matters
- * because the agent writes paths into command strings, where nothing maps them: Daytona's
- * `/workspace` is really `/home/daytona/workspace`, so `python3 /workspace/app.py` would not find
- * the file `sandbox_write_file` just wrote there. Every result therefore reports a real path — and
- * a virtual `/workspace` one is still translated, since the agent may type it anyway.
- *
- * Containment is not the security boundary; the sandbox is. It stops the agent overwriting the
- * image's own files and keeps the widget's file list coherent.
- */
+/** The real path under `root`, the provider's own workspace from `resolveHarnessCwd`, because
+ * commands see real paths. A virtual `/workspace` path is translated. The sandbox is the boundary. */
 export function resolveSandboxPath(
   root: string,
   path: string,
@@ -37,9 +27,8 @@ export function resolveSandboxPath(
       refusal: `Only paths inside ${root} can be used here. Reach anything else with a command.`,
     }
   }
-  // The relative form is what the widget labels a row with — a real absolute path wraps over two
-  // lines in a sidebar — and is also the shorter thing for the agent to type against the default
-  // working directory.
+  // The widget labels a row with the relative form, which also is shorter for the agent to type
+  // against the default working directory.
   return { path: mapped, relativePath: mapped === root ? "." : mapped.slice(root.length + 1) }
 }
 

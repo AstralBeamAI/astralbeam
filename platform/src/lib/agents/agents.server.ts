@@ -90,7 +90,7 @@ export function defaultAgentName(organizationName: string): string {
   return `${trimmed.length > room ? trimmed.slice(0, room).trimEnd() : trimmed}${DEFAULT_AGENT_NAME_SUFFIX}`
 }
 
-/** Starter persona; the chat endpoint always prepends its own product-neutral system prompt. */
+/** Starter persona. The chat endpoint always prepends its own product-neutral system prompt. */
 function defaultAgentSystemPrompt(organizationName: string): string {
   return (
     `You are the assistant for ${organizationName.trim()}. Help its users with their ` +

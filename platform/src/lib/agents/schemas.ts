@@ -21,7 +21,7 @@ export const AgentSystemPromptSchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(32_768)),
 )
 
-/** What an Organization member edits; the organization always comes from verified access. */
+/** What an Organization member edits. The organization always comes from verified access. */
 export const AgentFieldsSchema = Schema.Struct({
   name: AgentNameSchema,
   systemPrompt: AgentSystemPromptSchema,

@@ -69,9 +69,8 @@ export class DatabaseRateLimiter extends Context.Service<
           .values({
             key: persistedKey,
             count: 1,
-            // Better Auth shares and prunes this table using lastRequest. Namespaced keys and an
-            // expiry timestamp prevent collisions and premature deletion of active custom windows.
-            // https://better-auth.com/docs/concepts/rate-limit
+            // Better Auth shares and prunes this table by lastRequest, so namespaced keys and an
+            // expiry timestamp keep custom windows apart and alive. https://better-auth.com/docs/concepts/rate-limit
             lastRequest: windowExpiresAt,
           })
           .onConflictDoUpdate({

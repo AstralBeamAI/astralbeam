@@ -43,7 +43,7 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
           ? snapshot.values[definition.key] !== undefined
           : row !== undefined,
       ...(row?.storageStatus ? { storageStatus: row.storageStatus } : {}),
-      // A secret never leaves with the page; `isSet` drives the masked state and
+      // A secret never leaves with the page. `isSet` drives the masked state and
       // `revealConfigValue` fetches the one value an operator asks to see.
       value: definition.kind === "secret" ? null : (snapshot.values[definition.key] ?? null),
     }

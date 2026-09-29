@@ -1,5 +1,5 @@
-// Attachment handling. The caps mirror the SDK composer's, which enforces them first; a client
-// that skips them (or is not the SDK) is held to the same numbers here.
+// The caps mirror the SDK composer's, which enforces them first, and hold any other client to
+// the same numbers here.
 export const CHAT_ATTACHMENT_MAX_BYTES_BY_KIND = {
   image: 5 * 1024 * 1024,
   pdf: 10 * 1024 * 1024,
@@ -8,8 +8,8 @@ export const CHAT_ATTACHMENT_MAX_BYTES_BY_KIND = {
   office: 10 * 1024 * 1024,
 } as const
 export const CHAT_ATTACHMENT_MAX_TOTAL_BYTES = 20 * 1024 * 1024
-// Peer of the SDK composer's `MAX_ATTACHMENTS_PER_MESSAGE` in `sdk/src/widget/lib/constants.ts`,
-// which holds a message to the same count before it is sent; keep the two numbers equal.
+// Peer of `MAX_ATTACHMENTS_PER_MESSAGE` in `sdk/src/widget/lib/constants.ts`, which holds a
+// message to the same count before it is sent. Keep the two equal.
 export const CHAT_ATTACHMENT_MAX_COUNT = 5
 
 export const CHAT_ATTACHMENT_MAX_FILENAME_LENGTH = 120
@@ -23,18 +23,16 @@ export const CHAT_ATTACHMENT_READ_MAX_CHARACTERS = 40_000
 // work per column and is why a profile is a hint the agent should confirm in code.
 export const CHAT_ATTACHMENT_PROFILE_TYPED_ROWS = 50
 
-// Office containers are ZIPs, so every declared uncompressed size is attacker-chosen: a few
-// megabytes can claim gigabytes, and many individually modest entries still add up because
-// `unzipSync` inflates every selected entry before returning. One archive-wide budget bounds both.
+// Declared ZIP sizes are attacker-chosen and `unzipSync` inflates every selected entry, so one
+// archive-wide budget bounds both a single bomb and many modest entries.
 export const CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES = 96 * 1024 * 1024
 export const CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES = 2_048
 // `filter` runs for every declared entry, so the caps above bound only the entries that are kept.
 // This bounds the walk itself, well above the few hundred parts a real deck or workbook holds.
 export const CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES = 4_096
 
-// Table shape bounds. A worksheet's coordinates are attacker-chosen too — one value at the valid
-// cell `XFD1048576` describes a 17-billion-cell grid — and a delimited file can be one 10 MB row
-// of separators, so rows and columns are bounded before anything is allocated from them.
+// One worksheet value at `XFD1048576` describes a 17-billion-cell grid and a delimited file can
+// be one 10 MB row, so table shape is bounded before anything is allocated from it.
 export const CHAT_ATTACHMENT_MAX_SHEET_CELLS = 200_000
 export const CHAT_ATTACHMENT_MAX_TABLE_ROWS = 50_000
 export const CHAT_ATTACHMENT_MAX_TABLE_COLUMNS = 512
@@ -42,7 +40,7 @@ export const CHAT_ATTACHMENT_MAX_TABLE_COLUMNS = 512
 /** Where attached files land in the sandbox, relative to its workspace directory. */
 export const CHAT_ATTACHMENT_UPLOAD_DIRECTORY = "uploads"
 
-/** Image types the configured model reads natively; anything else is refused with an explanation. */
+/** Image types the configured model reads natively. Anything else is refused with a reason. */
 export const CHAT_ATTACHMENT_IMAGE_MIME_TYPES = [
   "image/png",
   "image/jpeg",
@@ -50,7 +48,7 @@ export const CHAT_ATTACHMENT_IMAGE_MIME_TYPES = [
   "image/gif",
 ]
 
-/** The only document type the provider takes as a file; everything else is read here instead. */
+/** The only document type the provider takes as a file. Everything else is read here. */
 export const CHAT_ATTACHMENT_PDF_MIME_TYPE = "application/pdf"
 
 // Textual `application/*` types, since `text/*` is matched by prefix. SVG is markup, so its
@@ -92,11 +90,8 @@ export const CHAT_ATTACHMENT_PPTX_MIME_TYPE =
 export const CHAT_ATTACHMENT_XLSX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-/**
- * Types a browser labels badly or not at all, repaired from the filename extension. Only the data
- * and office formats are listed: a mislabeled `.csv` changes how the file is delivered, while a
- * mislabeled `.md` is textual either way.
- */
+/** Types a browser labels badly, repaired from the extension. Only data and office formats are
+ * listed, because a mislabeled `.csv` changes delivery while a mislabeled `.md` is text either way. */
 export const CHAT_ATTACHMENT_MIME_TYPE_BY_EXTENSION: Record<string, string> = {
   csv: "text/csv",
   tsv: "text/tab-separated-values",
@@ -109,18 +104,14 @@ export const CHAT_ATTACHMENT_MIME_TYPE_BY_EXTENSION: Record<string, string> = {
   xlsx: CHAT_ATTACHMENT_XLSX_MIME_TYPE,
 }
 
-/** ZIP local file header; the OOXML office formats are all ZIP containers. */
+/** ZIP local file header, which starts every OOXML office container. */
 const ZIP_SIGNATURE = [{ offset: 0, bytes: [0x50, 0x4b, 0x03, 0x04] }]
 const PARQUET_SIGNATURE = [{ offset: 0, bytes: [0x50, 0x41, 0x52, 0x31] }]
 /** "SQLite format 3\0". */
 const SQLITE_SIGNATURE = [{ offset: 0, bytes: [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65] }]
 
-/**
- * Leading bytes each type must actually start with, so a renamed or truncated file is refused with
- * an explanation instead of failing the run with a provider 400 or an unpack error. A type with no
- * entry here has no signature to check — delimited text is text — and is validated by decoding.
- * https://www.iana.org/assignments/media-types/media-types.xhtml
- */
+/** Leading bytes each type must start with, so a renamed file is refused with a reason. A type
+ * without one, such as delimited text, is validated by decoding. https://www.iana.org/assignments/media-types/media-types.xhtml */
 export const CHAT_ATTACHMENT_MAGIC_BYTES: Record<
   string,
   ReadonlyArray<{ offset: number; bytes: readonly number[] }>

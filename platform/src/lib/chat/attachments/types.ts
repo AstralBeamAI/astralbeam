@@ -1,20 +1,17 @@
 import type { AttachmentTable } from "./profile.server.ts"
 
-/**
- * What an attachment is, which decides how it reaches the model: an `image` or a `pdf` is a
- * modality the provider reads itself, and everything else is a file the agent reads with
- * `read_attachment` or opens in the sandbox.
- */
+/** How an attachment reaches the model: the provider reads an `image` or a `pdf` itself, and the
+ * agent reads anything else with `read_attachment` or in the sandbox. */
 export type ChatAttachmentKind = "image" | "pdf" | "text" | "data" | "office"
 
 /** What became of one attachment on a run, for the debug log. */
 export interface ChatAttachmentOutcome {
   filename: string
   mimeType: string
-  /** Decoded size; zero for a refused attachment, which is never decoded. */
+  /** Decoded size, zero for a refused attachment, which is never decoded. */
   bytes: number
   result: ChatAttachmentKind | "rejected"
-  /** The name the agent reads the file by; absent for a native or refused attachment. */
+  /** The name the agent reads the file by, absent for a native or refused attachment. */
   handle?: string
   reason?: string
 }
@@ -24,7 +21,7 @@ export interface ChatAttachmentOutcome {
  * {@link ChatAttachmentFile} carries it, and `read_attachment` reports it beside the page of text.
  */
 export interface ChatAttachmentContent {
-  /** The text view of the file; absent when it has none, such as a Parquet file. */
+  /** The text view of the file, absent when it has none, such as a Parquet file. */
   text?: string
   /** {@link text} stops short of the whole file. */
   truncated?: true
@@ -44,6 +41,6 @@ export interface ChatAttachmentFile extends ChatAttachmentContent {
   readonly filename: string
   readonly mimeType: string
   readonly bytes: Uint8Array
-  /** Where the file is written in the sandbox; absent when the agent has no sandbox. */
+  /** Where the file is written in the sandbox, absent when the agent has no sandbox. */
   readonly sandboxPath?: string
 }
