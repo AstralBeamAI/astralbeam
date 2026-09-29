@@ -1,4 +1,4 @@
-import { applyDatabaseConfigChanges, getDatabaseConfig } from "@/db/config.server"
+import { applyDatabaseConfigChanges, getDatabaseConfig } from "@/lib/config/store.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import {
   CONFIG_DEFINITIONS,
@@ -8,7 +8,7 @@ import {
   hasEnvironmentConfigOverride,
 } from "@/lib/config/registry.server"
 import { getGlobalConfigState, invalidateGlobalConfig } from "@/lib/config/runtime.server"
-import type { ConfigKey } from "@/lib/types"
+import type { ConfigKey } from "@/lib/config/types"
 
 type GlobalConfigUpdate = {
   readonly key: string

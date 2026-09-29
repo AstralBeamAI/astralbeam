@@ -7,7 +7,7 @@ import { useTheme } from "tanstack-router-theme-provider"
 
 import { Button } from "@/components/ui/button"
 import { authClient } from "@/lib/auth/client"
-import type { OrganizationAccess } from "@/lib/auth/organization-membership.server"
+import type { OrganizationAccess } from "@/lib/organizations/membership.server"
 import { APP_NAME } from "@/lib/constants"
 import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "@/lib/widget-theme"
 

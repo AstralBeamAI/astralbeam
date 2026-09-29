@@ -94,7 +94,7 @@ The database module owns a `pg` pool for Promise and Better Auth queries and a s
 
 Each platform process embeds `ClusterWorkflowEngine` and one Effect Cluster runner using private HTTP, PostgreSQL journals and SQL row leases compatible with PgBouncer transaction pooling. The runner shares the native Effect pool but has its own scope, keeping startup failures independent of `/configure` and ordinary database operations.
 
-Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](platform/src/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](platform/src/workflows/README.md) for authoring and recovery.
+Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](platform/src/lib/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](platform/src/lib/workflows/README.md) for authoring and recovery.
 
 ## SDK boundary
 

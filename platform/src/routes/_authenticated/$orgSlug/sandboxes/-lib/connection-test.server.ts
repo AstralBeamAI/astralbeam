@@ -4,12 +4,12 @@ import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 
-import { createSandboxProvider } from "@/lib/sandbox/factory.server"
+import { createSandboxProvider } from "@/lib/sandboxes/factory.server"
 import type {
   SandboxConnectionErrorCode,
   SandboxProviderId,
   SandboxTestMetadata,
-} from "@/lib/sandbox/schemas"
+} from "@/lib/sandboxes/schemas"
 
 class OrganizationSandboxProviderOperationError extends Data.TaggedError(
   "OrganizationSandboxProviderOperationError",

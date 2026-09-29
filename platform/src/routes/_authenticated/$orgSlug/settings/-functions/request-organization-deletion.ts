@@ -3,13 +3,13 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { SqlClient } from "effect/unstable/sql"
 
-import { provideClusterWorkflowEngine } from "@/cluster/runtime.server"
+import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime.server"
 import { runDatabaseEffect } from "@/db"
-import { revokeOrganizationAccess } from "@/db/organization-deletion.server"
+import { revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
 import { getGlobalConfig } from "@/lib/config"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { toValidationSchema, SlugSchema, UuidV7Schema } from "@/lib/schemas"
-import deleteOrganization from "@/workflows/delete-organization"
+import deleteOrganization from "@/lib/workflows/delete-organization.server"
 
 export const requestOrganizationDeletion = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["delete"] })])

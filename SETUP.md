@@ -80,7 +80,7 @@ Linearity runs on port 4900 alongside the existing examples. Set its Basic Auth 
 
 Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](platform/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
 
-The platform starts one embedded Effect Cluster runner with automatic PostgreSQL storage initialization and an OS-assigned loopback port. No separate worker command is needed. See the [cluster guide](platform/src/cluster/README.md) for database privileges, replica addresses and recovery, and the [workflow guide](platform/src/workflows/README.md) for authoring.
+The platform starts one embedded Effect Cluster runner with automatic PostgreSQL storage initialization and an OS-assigned loopback port. No separate worker command is needed. See the [cluster guide](platform/src/lib/cluster/README.md) for database privileges, replica addresses and recovery, and the [workflow guide](platform/src/lib/workflows/README.md) for authoring.
 
 ## Cloud agent setup
 

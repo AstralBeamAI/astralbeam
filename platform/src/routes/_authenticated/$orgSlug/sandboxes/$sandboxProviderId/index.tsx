@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
-import { sandboxProviderDescriptors } from "@/lib/sandbox/registry"
+import { sandboxProviderDescriptors } from "@/lib/sandboxes/registry"
 import { UuidV7Schema } from "@/lib/schemas"
 import { SandboxConnectionStatus } from "../-components/sandbox-connection-status"
 import { SandboxProviderForm } from "../-components/sandbox-provider-form"

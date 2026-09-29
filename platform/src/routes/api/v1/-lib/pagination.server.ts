@@ -7,7 +7,7 @@ import {
   type DatabaseEncryptionKeyring,
   getDatabaseEncryptionKeyring,
 } from "@/db/lib/database-credentials.server"
-import { ApiUuidSchema } from "@/api/management"
+import { ApiUuidSchema } from "@/lib/tenants/schemas"
 import type { RestPageQuery, RestScope } from "./shared.server"
 import { RestFault, restFault } from "./responses.server"
 

@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import type { OrganizationPermissions } from "@/lib/auth/organization-access"
+import type { OrganizationPermissions } from "@/lib/organizations/access"
 import { APP_NAME } from "@/lib/constants"
 
 export function DashboardIntegrationGuide({

@@ -2,17 +2,17 @@ import { createAstralBeamToken } from "@astralbeam/sdk/server"
 import * as Effect from "effect/Effect"
 import { SignJWT } from "jose"
 
-import { readOrganizationMembership } from "@/db/organization.server"
+import { readOrganizationMembership } from "@/lib/organizations/organizations.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import {
   hasOrganizationApiKeys,
   readOrganizationDefaultApiKey,
-} from "@/db/organization-configuration.server"
-import { getAuth } from "@/lib/auth.server"
+} from "@/lib/organizations/configuration.server"
+import { getAuth } from "@/lib/auth/auth.server"
 import { getGlobalConfig } from "@/lib/config"
 import { APP_HANDLE } from "@/lib/constants"
-import { ORGANIZATION_TOKEN_TYPE } from "@/lib/organization-token.server"
-import { authorizeOrganizationRole } from "./organization-access"
+import { ORGANIZATION_TOKEN_TYPE } from "@/lib/auth/organization-token.server"
+import { authorizeOrganizationRole } from "../organizations/access"
 
 function dashboardTokenFailure(
   status: 401 | 403 | 404 | 429 | 503,

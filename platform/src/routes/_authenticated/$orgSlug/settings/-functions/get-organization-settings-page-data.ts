@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { runDatabaseEffect } from "@/db"
-import { readOrganizationOpenaiApiKeyHint } from "@/db/organization-openai-api-key.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { readOrganizationOpenaiApiKeyHint } from "@/lib/organizations/openai-api-key.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { getGlobalConfig } from "@/lib/config"
 import { toValidationSchema, SlugSchema } from "@/lib/schemas"
 

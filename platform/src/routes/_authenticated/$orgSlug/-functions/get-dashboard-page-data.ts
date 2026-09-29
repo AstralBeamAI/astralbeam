@@ -3,9 +3,9 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { runDatabaseEffect } from "@/db"
-import { readOrganizationOpenaiApiKeyConfigured } from "@/db/organization-openai-api-key.server"
-import { readOrganizationResourceCounts } from "@/db/organization.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { readOrganizationOpenaiApiKeyConfigured } from "@/lib/organizations/openai-api-key.server"
+import { readOrganizationResourceCounts } from "@/lib/organizations/organizations.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { toValidationSchema, SlugSchema } from "@/lib/schemas"
 
 export const getDashboardPageData = createServerFn({ method: "GET" })

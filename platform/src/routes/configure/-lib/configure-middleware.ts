@@ -3,7 +3,7 @@ import { setResponseStatus } from "@tanstack/react-start/server"
 import { Effect, Predicate } from "effect"
 
 import { runDatabaseEffect } from "@/db"
-import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
+import { withDogfoodProvisioningLock } from "@/lib/dogfood/dogfood.server"
 import { requireConfigureRequest } from "./configure-request.server"
 import { getOperatorSession } from "./operator-session.server"
 

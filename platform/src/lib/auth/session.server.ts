@@ -3,7 +3,7 @@ import { ensureSessionServer } from "@better-auth-ui/core/server"
 import type { QueryClient } from "@tanstack/react-query"
 import { getRequest, setResponseHeader } from "@tanstack/react-start/server"
 
-import { getAuth } from "@/lib/auth.server"
+import { getAuth } from "@/lib/auth/auth.server"
 import { reconcileSessionAccess, type SessionAccessDecision } from "@/lib/auth/session-access"
 
 const SESSION_ACCESS_ERROR = "Unable to determine organization access"

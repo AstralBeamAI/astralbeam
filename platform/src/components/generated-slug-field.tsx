@@ -18,7 +18,7 @@ import {
   SLUG_MAX_LENGTH,
   SLUG_RANDOM_SUFFIX_LENGTH,
   SLUG_VALIDATION_MESSAGE,
-} from "@/lib/slug"
+} from "@/lib/organizations/slug"
 
 type SlugAvailability = "available" | "checking" | "idle" | "invalid" | "unavailable"
 type SlugAvailabilityResult = {

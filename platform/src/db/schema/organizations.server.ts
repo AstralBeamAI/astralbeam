@@ -21,7 +21,7 @@ import {
   SandboxProviderIdSchema,
   type SandboxProviderOptions,
   type SandboxTestMetadata,
-} from "../../lib/sandbox/schemas.ts"
+} from "../../lib/sandboxes/schemas.ts"
 import { OpenaiApiKeySchema, UuidV7Schema } from "../../lib/schemas.ts"
 
 import {

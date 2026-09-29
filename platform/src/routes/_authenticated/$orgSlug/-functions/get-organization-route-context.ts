@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import * as Schema from "effect/Schema"
 
 import { runDatabaseEffect } from "@/db"
-import { resolveOrganizationRouteAccess } from "@/lib/auth/organization-membership.server"
+import { resolveOrganizationRouteAccess } from "@/lib/organizations/membership.server"
 import { toValidationSchema, SlugSchema } from "@/lib/schemas"
 
 export const getOrganizationRouteContext = createServerFn({ method: "GET" })

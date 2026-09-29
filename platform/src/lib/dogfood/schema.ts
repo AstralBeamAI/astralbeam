@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema"
 import * as Option from "effect/Option"
 
 import { NonEmptyStringSchema, SlugSchema, UuidV7Schema } from "@/lib/schemas"
-import { isReservedOrganizationSlug } from "@/lib/auth/organization-slug"
+import { isReservedOrganizationSlug } from "@/lib/organizations/reserved-slugs"
 
 const decodeDogfoodCredential = Schema.decodeUnknownOption(
   Schema.TemplateLiteralParser([

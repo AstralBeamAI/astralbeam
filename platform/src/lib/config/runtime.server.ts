@@ -1,11 +1,11 @@
-import { getDatabaseConfig } from "@/db/config.server"
+import { getDatabaseConfig } from "@/lib/config/store.server"
 import {
   DEFAULT_CONFIG_VALUES,
   environmentConfigOverrideKeys,
   environmentConfigValues,
   validateConfigCompleteness,
 } from "@/lib/config/registry.server"
-import type { ConfigIssue, ConfigKey, ConfigStorageEntry, ConfigValues } from "@/lib/types"
+import type { ConfigIssue, ConfigKey, ConfigStorageEntry, ConfigValues } from "@/lib/config/types"
 
 type GlobalConfigState = {
   rows: ConfigStorageEntry[] | null

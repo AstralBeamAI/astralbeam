@@ -1,6 +1,6 @@
 import { createContext, type ReactNode, useContext } from "react"
 
-import type { PublicConfig } from "@/lib/types"
+import type { PublicConfig } from "@/lib/config/types"
 
 const PublicConfigContext = createContext<PublicConfig | null>(null)
 

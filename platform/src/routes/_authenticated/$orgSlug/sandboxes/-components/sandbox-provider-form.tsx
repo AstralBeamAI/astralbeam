@@ -32,9 +32,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
-import type { OrganizationSandboxProvider } from "@/db/organization-sandbox-provider.server"
-import { sandboxProviderDescriptors } from "@/lib/sandbox/registry"
-import { type SandboxProviderId, type SandboxProviderOptions } from "@/lib/sandbox/schemas"
+import type { OrganizationSandboxProvider } from "@/lib/sandboxes/providers.server"
+import { sandboxProviderDescriptors } from "@/lib/sandboxes/registry"
+import { type SandboxProviderId, type SandboxProviderOptions } from "@/lib/sandboxes/schemas"
 import { saveSandboxProvider } from "../-functions/save-sandbox-provider"
 import { SANDBOX_PROVIDER_OPTION_DEFAULTS } from "../-lib/constants"
 import { sandboxRequestFailedToast } from "../-lib/utils"

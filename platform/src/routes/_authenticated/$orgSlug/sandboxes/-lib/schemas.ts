@@ -3,7 +3,7 @@ import { Schema, Tuple } from "effect"
 import {
   SandboxProviderConfigurationSchema,
   SandboxProviderNameSchema,
-} from "@/lib/sandbox/schemas"
+} from "@/lib/sandboxes/schemas"
 import { LockVersionSchema, SlugSchema, UuidV7Schema } from "@/lib/schemas"
 
 /** Every sandbox function is addressed by the organization slug in the URL, never by an ID. */

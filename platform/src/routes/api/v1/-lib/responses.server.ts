@@ -1,5 +1,5 @@
 import type { RestApiErrorSchema } from "./shared.server"
-import type { TenantError } from "@/db/tenant.server"
+import type { TenantError } from "@/lib/tenants/tenants.server"
 import { ChatError } from "../../../../lib/chat/errors.server.ts"
 import { Data, Duration, Effect } from "effect"
 import type { RateLimiter } from "effect/unstable/persistence"

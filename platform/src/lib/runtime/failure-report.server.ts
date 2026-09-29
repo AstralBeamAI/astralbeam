@@ -51,7 +51,10 @@ function spanTrail(reason: Cause.Reason<unknown>): readonly string[] | undefined
   const trail: string[] = []
   let frame = Context.getOrUndefined(Cause.reasonAnnotations(reason), Cause.StackTrace)
   for (; frame && trail.length < STACK_FRAME_LIMIT; frame = frame.parent) {
-    const site = frame.stack()?.split("\n").find((line) => line.trim().startsWith("at "))
+    const site = frame
+      .stack()
+      ?.split("\n")
+      .find((line) => line.trim().startsWith("at "))
     const location = site && /\(([^()]*)\)$|at (\S+)$/.exec(site.trim())
     trail.push(location ? `${frame.name} (${location[1] ?? location[2]})` : frame.name)
   }

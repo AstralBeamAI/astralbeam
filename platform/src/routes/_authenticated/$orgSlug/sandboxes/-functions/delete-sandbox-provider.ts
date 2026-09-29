@@ -4,8 +4,8 @@ import { toValidationSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
 import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
-import { deleteOrganizationSandboxProvider as deleteProviderRow } from "@/db/organization-sandbox-provider.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { deleteOrganizationSandboxProvider as deleteProviderRow } from "@/lib/sandboxes/providers.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { SandboxProviderInputSchema } from "../-lib/schemas.ts"
 
 export const deleteSandboxProvider = createServerFn({ method: "POST" })

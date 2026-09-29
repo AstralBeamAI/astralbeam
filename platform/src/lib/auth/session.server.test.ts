@@ -25,7 +25,7 @@ vi.mock("@tanstack/react-start/server", () => ({
   setResponseHeader: mocks.setResponseHeader,
 }))
 
-vi.mock("@/lib/auth.server", () => ({
+vi.mock("@/lib/auth/auth.server", () => ({
   getAuth: () =>
     Promise.resolve({
       api: {

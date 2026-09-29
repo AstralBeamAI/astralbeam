@@ -5,7 +5,7 @@ import {
   applyDatabaseConfigChangesEffect,
   type DatabaseConfigState,
   getDatabaseConfigEffect,
-} from "@/db/config.server"
+} from "@/lib/config/store.server"
 import {
   createDogfoodCredential,
   createDogfoodOwner,
@@ -13,13 +13,13 @@ import {
   readDogfoodOrganization,
   readDogfoodOwner,
   replacePendingDogfoodOwner,
-} from "@/db/dogfood.server"
-import { getAuth } from "@/lib/auth.server"
+} from "@/lib/dogfood/dogfood.server"
+import { getAuth } from "@/lib/auth/auth.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { withBlockingAuthEmailDelivery } from "@/lib/auth/email-delivery.server"
 import { getGlobalConfigState, invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { getGlobalConfig } from "@/lib/config"
-import type { ConfigValues } from "@/lib/types"
+import type { ConfigValues } from "@/lib/config/types"
 import {
   type DogfoodOnboarding,
   type OwnerOnboarding,

@@ -6,7 +6,7 @@ import { PgDialect } from "drizzle-orm/pg-core"
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 import { type EffectDatabase, runDatabaseEffect } from "@/db"
-import { listTenants } from "@/db/tenant.server"
+import { listTenants } from "@/lib/tenants/tenants.server"
 import { organization } from "@/db/schema/organizations.server"
 import {
   createTenant as sdkCreateTenant,
@@ -92,7 +92,7 @@ vi.mock("@/db", () => {
       Effect.runPromise(effect.pipe(Effect.provideService(service, database))),
   }
 })
-vi.mock("@/lib/auth.server", () => ({
+vi.mock("@/lib/auth/auth.server", () => ({
   getAuth: () => Promise.resolve({ api: { verifyApiKey: restTestState.verify } }),
 }))
 vi.mock("@/lib/chat/auth.server", () => ({
@@ -103,12 +103,12 @@ vi.mock("@/lib/chat/auth.server", () => ({
 vi.mock("@/db/lib/rate-limiter.server", () => ({
   databaseRateLimiter: { consume: restTestState.consume },
 }))
-vi.mock("@/lib/organization-token.server", () => ({
+vi.mock("@/lib/auth/organization-token.server", () => ({
   OrganizationMembershipError: class extends Data.TaggedError("OrganizationMembershipError") {},
   ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
   authenticateOrganizationRequest: restTestState.organizationAuth,
 }))
-vi.mock("@/db/organization-openai-api-key.server", () => ({
+vi.mock("@/lib/organizations/openai-api-key.server", () => ({
   readOrganizationOpenaiApiKey: () => Effect.succeed("test-provider-key"),
 }))
 vi.mock("@/lib/chat/agent.server", () => ({ resolveChatAgent: restTestState.agent }))
@@ -116,10 +116,10 @@ vi.mock("@tanstack/ai", async (original) => ({
   ...(await original<typeof import("@tanstack/ai")>()),
   chat: restTestState.run,
 }))
-vi.mock("@/db/organization-sandbox-provider.server", () => ({
+vi.mock("@/lib/sandboxes/providers.server", () => ({
   resolveOrganizationSandboxProviderConfiguration: () => Effect.succeed({ provider: "test" }),
 }))
-vi.mock("@/lib/sandbox/factory.server", () => ({
+vi.mock("@/lib/sandboxes/factory.server", () => ({
   createSandboxProvider: () =>
     Effect.succeed({
       resume: () =>
@@ -132,7 +132,7 @@ vi.mock("@/lib/sandbox/factory.server", () => ({
 
 import { getApiV1WebHandler, dispatchRestRequest } from "./transport.server"
 import { authenticateRestRequest } from "./auth.server"
-import { OrganizationMembershipError } from "@/lib/organization-token.server"
+import { OrganizationMembershipError } from "@/lib/auth/organization-token.server"
 import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"

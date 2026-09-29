@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { AgentVersionInputSchema } from "../-lib/schemas.ts"

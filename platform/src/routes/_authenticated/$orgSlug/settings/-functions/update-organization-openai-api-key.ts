@@ -2,8 +2,8 @@ import { createServerFn } from "@tanstack/react-start"
 import * as Schema from "effect/Schema"
 
 import { runDatabaseEffect } from "@/db"
-import { writeOrganizationOpenaiApiKey } from "@/db/organization-openai-api-key.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { writeOrganizationOpenaiApiKey } from "@/lib/organizations/openai-api-key.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import {
   toValidationSchema,
   isValidOpenaiApiKey,

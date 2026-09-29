@@ -6,13 +6,13 @@ import {
   authenticateOrganizationRequest,
   ORGANIZATION_TOKEN_TYPE,
   OrganizationMembershipError,
-} from "@/lib/organization-token.server"
+} from "@/lib/auth/organization-token.server"
 import { Database } from "@/db"
 import { apiKey, organization } from "@/db/schema/organizations.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { resolveTenant, type TenantError } from "@/db/tenant.server"
-import { getAuth } from "@/lib/auth.server"
-import { authorizeOrganizationRole } from "@/lib/auth/organization-access"
+import { resolveTenant, type TenantError } from "@/lib/tenants/tenants.server"
+import { getAuth } from "@/lib/auth/auth.server"
+import { authorizeOrganizationRole } from "@/lib/organizations/access"
 import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
 import type { RestScope } from "./shared.server"
 import { type RestFault, restFault, restRateLimitFault } from "./responses.server"

@@ -54,7 +54,7 @@ import { CHAT_AUTH_TOKEN_AUDIENCE, CHAT_AUTH_TOKEN_TYPE } from "./constants.serv
 import {
   authenticateOrganizationRequest,
   verifyOrganizationToken,
-} from "../organization-token.server"
+} from "../auth/organization-token.server"
 
 const apiKeyId = "key_01990a5d-ac96-774b-b942-6b13c85384ca_01990a5d-ac96-774b-b942-6b13c85384c9"
 const rawApiKey = `abo_${"A".repeat(64)}`

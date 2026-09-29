@@ -3,7 +3,7 @@ import { createFileRoute, notFound, Outlet } from "@tanstack/react-router"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { isValidSlug } from "@/lib/slug"
+import { isValidSlug } from "@/lib/organizations/slug"
 import { AppSidebar } from "../-components/app-sidebar"
 import { getOrganizationRouteContext } from "./-functions/get-organization-route-context"
 

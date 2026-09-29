@@ -22,8 +22,8 @@ import { authClient } from "@/lib/auth/client"
 import {
   isReservedOrganizationSlug,
   RESERVED_ORGANIZATION_SLUG_MESSAGE,
-} from "@/lib/auth/organization-slug"
-import { isValidSlug, SLUG_MAX_LENGTH, SLUG_VALIDATION_MESSAGE } from "@/lib/slug"
+} from "@/lib/organizations/reserved-slugs"
+import { isValidSlug, SLUG_MAX_LENGTH, SLUG_VALIDATION_MESSAGE } from "@/lib/organizations/slug"
 import { updateOrganizationSettings } from "../-functions/update-organization-settings"
 
 const ORGANIZATION_NAME_MAX_LENGTH = 100

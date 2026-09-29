@@ -17,7 +17,7 @@ const cacheIntegration = vi.hoisted(() => {
 
 import { getAuthDatabase, runDatabaseEffect } from "@/db"
 import { cacheEntry } from "@/db/schema.server"
-import expiredCacheCleanup from "../workflows/expired-cache-cleanup.ts"
+import expiredCacheCleanup from "../lib/workflows/expired-cache-cleanup.server.ts"
 import {
   deleteDatabaseCache,
   deleteExpiredDatabaseCacheBatch,

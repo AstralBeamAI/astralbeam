@@ -23,7 +23,7 @@ import {
   TenantUserPatchSchema,
   TenantUserRecordSchema as ManagementTenantUserRecordSchema,
   TenantUserWriteSchema,
-} from "../../../../api/management.ts"
+} from "../../../../lib/tenants/schemas.ts"
 import { restExampleTenant, restMemberParams } from "./tenant.server"
 
 const restExampleUser = {
@@ -157,7 +157,7 @@ export function tenantUserHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(api, "tenant_users", (handlers) =>
     Effect.gen(function* () {
       const { createTenantUser, getTenantUser, listTenantUsers, updateTenantUser } =
-        yield* Effect.promise(() => import("@/db/tenant-user.server"))
+        yield* Effect.promise(() => import("@/lib/tenants/tenant-users.server"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("./pagination.server"),
       )

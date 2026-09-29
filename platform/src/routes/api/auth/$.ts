@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { getRequestIP } from "@tanstack/react-start/server"
 
-import { getAuth } from "@/lib/auth.server"
+import { getAuth } from "@/lib/auth/auth.server"
 import { setupGateResponse } from "@/lib/config/state.server"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { isLoopbackProxyAddress } from "@/lib/utils.server"

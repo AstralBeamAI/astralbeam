@@ -7,8 +7,8 @@ import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
 import {
   prepareOrganizationSandboxProviderCandidate,
   saveOrganizationSandboxProvider,
-} from "@/db/organization-sandbox-provider.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+} from "@/lib/sandboxes/providers.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { runOrganizationSandboxConnectionTest } from "../-lib/connection-test.server.ts"
 import { SaveSandboxProviderInputSchema } from "../-lib/schemas.ts"
 

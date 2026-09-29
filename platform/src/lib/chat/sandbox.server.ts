@@ -10,9 +10,9 @@ import {
 } from "@tanstack/ai-sandbox"
 import * as Effect from "effect/Effect"
 
-import { resolveOrganizationSandboxProviderConfiguration } from "@/db/organization-sandbox-provider.server"
+import { resolveOrganizationSandboxProviderConfiguration } from "@/lib/sandboxes/providers.server"
 import { APP_HANDLE } from "@/lib/constants"
-import { createSandboxProvider } from "@/lib/sandbox/factory.server"
+import { createSandboxProvider } from "@/lib/sandboxes/factory.server"
 import {
   CHAT_ATTACHMENT_UPLOAD_DIRECTORY,
   CHAT_SANDBOX_FILE_TIMEOUT_MS,

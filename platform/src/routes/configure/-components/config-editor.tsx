@@ -20,7 +20,7 @@ import {
   EmailProviderConnectionInputSchema,
   EmailProviderSchema,
 } from "@/emails/schema"
-import type { ConfigIssue, ConfigKey } from "@/lib/types"
+import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import { generateConfigValue } from "../-functions/generate-config-value"
 import { revealConfigValue } from "../-functions/reveal-config-value"
 import { saveConfigValues } from "../-functions/save-config-values"

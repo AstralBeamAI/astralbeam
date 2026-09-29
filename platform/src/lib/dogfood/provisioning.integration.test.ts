@@ -52,9 +52,9 @@ vi.mock("@/emails/index", () => ({
 }))
 
 import { getAuthDatabase, runDatabaseEffect } from "@/db"
-import { getDatabaseConfig } from "@/db/config.server"
+import { getDatabaseConfig } from "@/lib/config/store.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { withDogfoodProvisioningLock } from "@/db/dogfood.server"
+import { withDogfoodProvisioningLock } from "@/lib/dogfood/dogfood.server"
 import {
   account,
   agent,
@@ -69,14 +69,14 @@ import {
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
-import { getAuth } from "@/lib/auth.server"
+import { getAuth } from "@/lib/auth/auth.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { sendResetPasswordEmail } from "@/emails/index"
 import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
 import { authenticateChatRequest } from "@/lib/chat/auth.server"
 import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
-import { syncTenantCurrentUser } from "@/db/current-user.server"
+import { syncTenantCurrentUser } from "@/lib/tenants/current-user.server"
 import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { provisionDogfoodResources, readDogfoodOnboarding } from "./provisioning.server"

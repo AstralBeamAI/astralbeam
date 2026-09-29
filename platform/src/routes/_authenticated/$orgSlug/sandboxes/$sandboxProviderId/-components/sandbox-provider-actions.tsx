@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
-import type { OrganizationSandboxProvider } from "@/db/organization-sandbox-provider.server"
+import type { OrganizationSandboxProvider } from "@/lib/sandboxes/providers.server"
 import { deleteSandboxProvider } from "../../-functions/delete-sandbox-provider"
 import { testSandboxProviderConnection } from "../../-functions/test-sandbox-provider-connection"
 import { sandboxRequestFailedToast } from "../../-lib/utils"

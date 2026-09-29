@@ -1,7 +1,7 @@
 import { type AnyServerTool, chat, mergeAgentTools } from "@tanstack/ai"
 
 import { runDatabaseEffect } from "@/db"
-import { readOrganizationOpenaiApiKey } from "@/db/organization-openai-api-key.server"
+import { readOrganizationOpenaiApiKey } from "@/lib/organizations/openai-api-key.server"
 import { createChatAdapter } from "./adapter.server"
 import { resolveChatAgent } from "./agent.server"
 import { createChatAttachmentTools } from "./attachment-tools.server"

@@ -10,8 +10,8 @@ import {
 import {
   recordOrganizationSandboxProviderTest,
   resolveOrganizationSandboxProviderConfiguration,
-} from "@/db/organization-sandbox-provider.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+} from "@/lib/sandboxes/providers.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { runOrganizationSandboxConnectionTest } from "../-lib/connection-test.server.ts"
 import { SandboxProviderInputSchema } from "../-lib/schemas.ts"
 

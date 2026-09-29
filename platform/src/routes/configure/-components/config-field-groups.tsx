@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { EMAIL_PROVIDER_SETTING_KEYS } from "@/emails/schema"
 import type { EmailProvider } from "@/emails/schema"
-import type { ConfigKey } from "@/lib/types"
+import type { ConfigKey } from "@/lib/config/types"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
 

@@ -1,6 +1,6 @@
 import { getDatabaseMigrationState } from "@/db/migration-runner.server"
 import { getGlobalConfigState } from "@/lib/config/runtime.server"
-import type { ConfigValues, PublicConfig } from "@/lib/types"
+import type { ConfigValues, PublicConfig } from "@/lib/config/types"
 
 async function loadSetupState() {
   const [config, migrations] = await Promise.all([

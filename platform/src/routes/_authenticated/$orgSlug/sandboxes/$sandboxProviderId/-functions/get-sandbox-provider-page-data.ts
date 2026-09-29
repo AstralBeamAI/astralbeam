@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect"
 import { toValidationSchema } from "@/lib/schemas"
 
 import { runDatabaseEffect } from "@/db"
-import { readOrganizationSandboxProvider } from "@/db/organization-sandbox-provider.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { readOrganizationSandboxProvider } from "@/lib/sandboxes/providers.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { SandboxProviderIdInputSchema } from "../../-lib/schemas.ts"
 
 export const getSandboxProviderPageData = createServerFn({ method: "GET" })

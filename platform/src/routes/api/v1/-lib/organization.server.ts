@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect"
 import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import type { ApiV1 } from "./contract.server"
-import { ApiUuidSchema } from "../../../../api/management.ts"
+import { ApiUuidSchema } from "../../../../lib/tenants/schemas.ts"
 import { restFault, restHandleErrors } from "./responses.server"
 import { restScope } from "./shared.server"
 
@@ -42,7 +42,7 @@ export function organizationHandlers(api: typeof ApiV1) {
           return yield* Effect.fail(restFault(403, "Tenant tokens cannot read the Organization."))
         }
         const { readOrganizationSummary } = yield* Effect.promise(
-          () => import("@/db/organization.server"),
+          () => import("@/lib/organizations/organizations.server"),
         )
         const row = yield* readOrganizationSummary(scope.organizationId)
         if (!row) return yield* Effect.fail(restFault(404, "Organization not found."))

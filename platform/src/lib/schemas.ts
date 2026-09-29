@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./slug.ts"
+import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./organizations/slug.ts"
 
 export const validationParseOptions = { errors: "all", reportInput: false } as const
 

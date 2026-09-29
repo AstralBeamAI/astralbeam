@@ -11,7 +11,7 @@ import {
 import { generateSecret } from "@/lib/generate-secret.server"
 import { strictParseOptions, UuidV7Schema, NonEmptyStringSchema } from "@/lib/schemas"
 import { DogfoodCredential } from "@/lib/dogfood/schema"
-import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "@/lib/types"
+import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "@/lib/config/types"
 
 function isLoopbackHost(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"

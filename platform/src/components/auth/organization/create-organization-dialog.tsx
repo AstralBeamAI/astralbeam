@@ -22,7 +22,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
-import { isReservedOrganizationSlug } from "@/lib/auth/organization-slug"
+import { isReservedOrganizationSlug } from "@/lib/organizations/reserved-slugs"
 
 /** Props for the `CreateOrganizationDialog` component. */
 export type CreateOrganizationDialogProps = {

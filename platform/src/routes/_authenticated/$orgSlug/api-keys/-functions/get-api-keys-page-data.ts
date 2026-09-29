@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import * as Schema from "effect/Schema"
 
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { toValidationSchema, SlugSchema } from "@/lib/schemas"
 
 export const getApiKeysPageData = createServerFn({ method: "GET" })

@@ -23,7 +23,7 @@ import {
   TenantPatchSchema,
   TenantRecordSchema as ManagementTenantRecordSchema,
   TenantWriteSchema,
-} from "../../../../api/management.ts"
+} from "../../../../lib/tenants/schemas.ts"
 
 export const restExampleTenant = {
   id: "019eed68-fd00-7c42-9a61-53b3a890d276",
@@ -145,7 +145,7 @@ export function tenantHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(api, "tenants", (handlers) =>
     Effect.gen(function* () {
       const { createTenant, getTenant, listTenants, updateTenant } = yield* Effect.promise(
-        () => import("@/db/tenant.server"),
+        () => import("@/lib/tenants/tenants.server"),
       )
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("./pagination.server"),

@@ -138,9 +138,9 @@ const viteConfig = defineConfig(({ mode }) => {
               },
             },
             plugins: [
-              "./src/lib/request-context.server.ts",
-              "./src/lib/response-headers.server.ts",
-              "./src/cluster/plugin.server.ts",
+              "./src/lib/runtime/request-context.server.ts",
+              "./src/lib/runtime/response-headers.server.ts",
+              "./src/lib/cluster/plugin.server.ts",
             ],
           })),
       tailwindcss(),
@@ -149,10 +149,10 @@ const viteConfig = defineConfig(({ mode }) => {
           client: {
             files: [
               "**/*.server.*",
-              "**/src/cluster/**",
+              "**/src/lib/cluster/**",
               "**/src/db/**",
               "**/src/emails/**",
-              "**/src/workflows/**",
+              "**/src/lib/workflows/**",
             ],
             // The configuration UI shares email schemas. Preserve the default dependency exclusion.
             // https://tanstack.com/start/latest/docs/framework/react/guide/import-protection

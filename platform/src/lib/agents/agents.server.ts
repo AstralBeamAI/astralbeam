@@ -9,7 +9,7 @@ import {
 } from "@/db/lib/optimistic-locking.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import { agent, organizationConfiguration } from "@/db/schema/organizations.server"
-import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandbox/schemas"
+import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandboxes/schemas"
 import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
 import {
   AgentChanged,

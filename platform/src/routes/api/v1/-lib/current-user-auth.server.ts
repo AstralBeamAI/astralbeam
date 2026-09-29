@@ -2,13 +2,13 @@ import { createHash } from "node:crypto"
 import { Effect } from "effect"
 import { decodeProtectedHeader } from "jose"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { syncTenantCurrentUser } from "@/db/current-user.server"
+import { syncTenantCurrentUser } from "@/lib/tenants/current-user.server"
 import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
 import { CHAT_AUTH_TOKEN_TYPE } from "@/lib/chat/constants.server"
 import {
   authenticateOrganizationRequest,
   ORGANIZATION_TOKEN_TYPE,
-} from "@/lib/organization-token.server"
+} from "@/lib/auth/organization-token.server"
 import { restFault, restRateLimitFault } from "./responses.server"
 
 function currentUserRateLimit(identity: readonly string[]) {

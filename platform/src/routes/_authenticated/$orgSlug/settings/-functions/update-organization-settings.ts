@@ -3,8 +3,8 @@ import { getRequest } from "@tanstack/react-start/server"
 import { APIError } from "better-auth/api"
 import * as Schema from "effect/Schema"
 
-import { getAuth } from "@/lib/auth.server"
-import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { getAuth } from "@/lib/auth/auth.server"
+import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { NonEmptyStringSchema, toValidationSchema, SlugSchema } from "@/lib/schemas"
 
 const OrganizationNameSchema = NonEmptyStringSchema.pipe(
