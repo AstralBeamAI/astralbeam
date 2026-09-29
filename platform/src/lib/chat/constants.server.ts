@@ -242,21 +242,9 @@ export const CHAT_SANDBOX_MAX_PATH_LENGTH = 512
 export const CHAT_SANDBOX_IDLE_TTL_MS = 15 * 60_000
 export const CHAT_SANDBOX_SWEEP_INTERVAL_MS = 60_000
 export const CHAT_SANDBOX_MAX_LIVE = 25
+// Shutdown destroys every live sandbox inside the server's 5-second deadline; the vendor reclaims
+// any it misses.
+export const CHAT_SANDBOX_SHUTDOWN_TIMEOUT_MS = 3_000
 
 /** CUSTOM stream event carrying provisioning progress, which no tool result can report in time. */
 export const CHAT_SANDBOX_STATUS_EVENT = `${APP_HANDLE}.sandbox.status`
-
-export const DEBUG_ANSI_RESET = "\x1b[0m"
-export const DEBUG_ANSI_BADGE = "\x1b[45;97m" // magenta background, white text
-export const DEBUG_ANSI_DIM = "\x1b[2m"
-export const DEBUG_ANSI_BY_CATEGORY: Record<string, string> = {
-  request: "\x1b[36m",
-  run: "\x1b[34m",
-  stream: "\x1b[35m",
-  text: "\x1b[32m",
-  reasoning: "\x1b[90m",
-  tool: "\x1b[33m",
-  sandbox: "\x1b[96m",
-  attachment: "\x1b[36m",
-  error: "\x1b[31m",
-}

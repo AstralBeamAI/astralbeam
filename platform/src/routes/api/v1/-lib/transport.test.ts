@@ -1,5 +1,5 @@
 import { OpenApi } from "effect/unstable/httpapi"
-import { Context, Data, Duration, Effect, Schema, Stream } from "effect"
+import { Context, Data, Duration, Effect, Layer, ManagedRuntime, Schema, Stream } from "effect"
 import { RateLimiter } from "effect/unstable/persistence"
 import type { SQL } from "drizzle-orm"
 import { PgDialect } from "drizzle-orm/pg-core"
@@ -95,11 +95,20 @@ vi.mock("@/db", () => {
 vi.mock("@/lib/auth/auth.server", () => ({
   getAuth: () => Promise.resolve({ api: { verifyApiKey: restTestState.verify } }),
 }))
-vi.mock("@/lib/chat/auth.server", () => ({
-  authenticateChatRequest: restTestState.chat,
-  isChatAuthenticationError: (error: unknown) =>
-    error instanceof Error && error.name === "ChatAuthenticationError",
-}))
+vi.mock("@/lib/chat/auth.server", async () => {
+  const { ChatAuthenticationError } = await import("@/lib/chat/errors")
+  const isChatAuthenticationError = (error: unknown) =>
+    error instanceof Error && error.name === "ChatAuthenticationError"
+  return {
+    authenticateChatRequest: (request: Request) =>
+      Effect.tryPromise({
+        try: () => restTestState.chat(request) as Promise<unknown>,
+        catch: (error) =>
+          isChatAuthenticationError(error) ? new ChatAuthenticationError() : error,
+      }),
+    isChatAuthenticationError,
+  }
+})
 vi.mock("@/db/lib/rate-limiter.server", () => ({
   databaseRateLimiter: { consume: restTestState.consume },
 }))
@@ -108,27 +117,23 @@ vi.mock("@/lib/auth/organization-token.server", () => ({
   ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
   authenticateOrganizationRequest: restTestState.organizationAuth,
 }))
-vi.mock("@/lib/organizations/openai-api-key.server", () => ({
-  readOrganizationOpenaiApiKey: () => Effect.succeed("test-provider-key"),
-}))
-vi.mock("@/lib/chat/agent.server", () => ({ resolveChatAgent: restTestState.agent }))
-vi.mock("@tanstack/ai", async (original) => ({
-  ...(await original<typeof import("@tanstack/ai")>()),
-  chat: restTestState.run,
-}))
-vi.mock("@/lib/sandboxes/providers.server", () => ({
-  resolveOrganizationSandboxProviderConfiguration: () => Effect.succeed({ provider: "test" }),
-}))
-vi.mock("@/lib/sandboxes/factory.server", () => ({
-  createSandboxProvider: () =>
-    Effect.succeed({
-      resume: () =>
-        Promise.resolve({
-          cwd: "/workspace",
-          fs: { readBytes: restTestState.readFile },
-        }),
+// Chat's services come from the app runtime, so the chat routes run over service doubles here.
+vi.mock("@/lib/runtime/runtime.server", async () => {
+  const { Chat } = await import("@/lib/chat/chat.server")
+  const { ChatSandboxes } = await import("@/lib/chat/sandbox.server")
+  const services = Layer.mergeAll(
+    Layer.succeed(Chat, {
+      run: (input) => restTestState.run(input) as never,
+      capabilities: (input) => restTestState.agent(input) as never,
     }),
-}))
+    Layer.succeed(ChatSandboxes, {
+      session: () => Effect.die("unused"),
+      readArtifact: (ticket) => restTestState.readFile(ticket) as never,
+    }),
+  )
+  const runtime = ManagedRuntime.make(services)
+  return { getAppRuntime: () => runtime }
+})
 
 import { getApiV1WebHandler, dispatchRestRequest } from "./transport.server"
 import { authenticateRestRequest } from "./auth.server"
@@ -137,7 +142,11 @@ import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
-import { artifactContentDigest, mintSandboxArtifactTicket } from "@/lib/chat/artifacts.server"
+import {
+  ChatAgentNotFound,
+  ChatArtifactUnavailable,
+  ChatSandboxOperationFailed,
+} from "@/lib/chat/errors"
 
 const restOrgId = "019a0000-0000-7000-8000-000000000001"
 const restTenantId = "019a0000-0000-7000-8000-000000000002"
@@ -358,29 +367,19 @@ describe("REST API through the Effect Fetch handler", () => {
       ...restPrincipal,
       tenantUser: { ...restPrincipal.tenantUser, admin: false },
     })
-    restTestState.agent.mockResolvedValue({
-      systemPrompt: "Help",
-      attachmentsEnabled: false,
-      sandboxProviderId: null,
-    })
     let stopped = false
-    restTestState.run.mockImplementation(async function* ({
-      abortController,
-    }: {
-      abortController: AbortController
-    }) {
-      yield { type: "RUN_STARTED", threadId: "thread", runId: "run" }
-      await new Promise<void>((resolve) =>
-        abortController.signal.addEventListener(
-          "abort",
-          () => {
-            stopped = true
-            resolve()
-          },
-          { once: true },
+    restTestState.run.mockReturnValue(
+      Effect.succeed(
+        Stream.make({ type: "RUN_STARTED", threadId: "thread", runId: "run" }).pipe(
+          Stream.concat(Stream.never),
+          Stream.ensuring(
+            Effect.sync(() => {
+              stopped = true
+            }),
+          ),
         ),
-      )
-    })
+      ),
+    )
     const response = await sdkRunChat(
       {
         threadId: "thread",
@@ -428,8 +427,10 @@ describe("REST API through the Effect Fetch handler", () => {
       expect(response.headers.get("access-control-allow-origin")).toBe("*")
       expect(await response.json()).toMatchObject({ status })
     }
-    restTestState.agent.mockResolvedValue(null)
-    expect((await restRequest("/chat/config", { headers })).status).toBe(404)
+    restTestState.agent.mockReturnValue(Effect.fail(new ChatAgentNotFound()))
+    const missing = await restRequest("/chat/config", { headers })
+    expect(missing.status).toBe(404)
+    expect(await missing.json()).toMatchObject({ detail: "Agent not found." })
     restTestState.chat.mockRejectedValue(
       Object.assign(new Error("private"), { name: "ChatAuthenticationError" }),
     )
@@ -457,18 +458,10 @@ describe("REST API through the Effect Fetch handler", () => {
 
   test("artifact tickets serve unchanged bytes and security headers without bearer auth", async () => {
     const bytes = new TextEncoder().encode("A published report")
-    restTestState.readFile.mockResolvedValue(bytes)
-    const ticket = await mintSandboxArtifactTicket({
-      organizationId: restOrgId,
-      tenantId: "customer",
-      tenantUserId: "user",
-      sandboxProviderId: restOtherId,
-      providerSandboxId: "sandbox",
-      path: "/workspace/report.txt",
-      mimeType: "text/plain",
-      size: bytes.length,
-      sha256: await artifactContentDigest(bytes),
-    })
+    const ticket = "signed-ticket"
+    restTestState.readFile.mockReturnValue(
+      Effect.succeed({ bytes, mimeType: "text/plain", path: "/workspace/report.txt" }),
+    )
     const response = await sdkGetChatFile(
       { ticket },
       {
@@ -484,22 +477,28 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(response.headers.get("access-control-expose-headers")).toContain("Content-Disposition")
     expect(restTestState.chat).not.toHaveBeenCalled()
     expect(restTestState.verify).not.toHaveBeenCalled()
-    restTestState.readFile.mockResolvedValue(new TextEncoder().encode("changed"))
-    expect((await restRequest(`/chat/files?ticket=${ticket}`)).status).toBe(404)
-    expect((await restRequest("/chat/files?ticket=invalid")).status).toBe(404)
+    restTestState.readFile.mockReturnValue(
+      Effect.fail(new ChatArtifactUnavailable({ reason: "Changed" })),
+    )
+    const changed = await restRequest(`/chat/files?ticket=${ticket}`)
+    expect(changed.status).toBe(404)
+    expect(await changed.json()).toMatchObject({
+      detail: "The file changed since it was published.",
+    })
     const logged = vi.spyOn(console, "error").mockImplementation(() => {})
-    restTestState.readFile.mockRejectedValue(
-      Object.assign(new Error("private provider details"), {
-        name: "FileReadError",
-        code: "ENOENT",
-      }),
+    const cause = Object.assign(new Error("private provider details"), {
+      name: "FileReadError",
+      code: "ENOENT",
+    })
+    restTestState.readFile.mockReturnValue(
+      Effect.die(new ChatSandboxOperationFailed({ timedOut: false, cause })),
     )
     const failed = await restRequest(`/chat/files?ticket=${ticket}`)
     expect(failed.status).toBe(500)
     expect(logged).toHaveBeenCalledExactlyOnceWith("API request failed", {
       stage: "getChatFile",
       status: 500,
-      errorType: "FileReadError",
+      errorType: "ChatSandboxOperationFailed",
       code: "ENOENT",
     })
     expect(await failed.text()).not.toContain("private provider details")

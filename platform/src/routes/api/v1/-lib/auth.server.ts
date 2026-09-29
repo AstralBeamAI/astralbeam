@@ -70,13 +70,9 @@ export function authenticateRestRequest(
         currentUser: principal.currentUser,
       } satisfies RestScope
     }
-    const principal = yield* Effect.tryPromise({
-      try: () => authenticateChatRequest(request),
-      catch: (error) =>
-        isChatAuthenticationError(error)
-          ? restFault(401, "Invalid credentials.")
-          : restFault(500, "Authentication could not be completed."),
-    })
+    const principal = yield* authenticateChatRequest(request).pipe(
+      Effect.mapError(() => restFault(401, "Invalid credentials.")),
+    )
     if (principal.tenantUser.admin !== true) {
       return yield* Effect.fail(restFault(403, "Tenant administrator authority is required."))
     }

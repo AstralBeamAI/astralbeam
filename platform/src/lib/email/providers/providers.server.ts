@@ -1,5 +1,6 @@
-import { Config, Context, Effect, Equal, Layer, Predicate, RcMap, type Scope } from "effect"
+import { Config, Context, Effect, Equal, Layer, RcMap, type Scope } from "effect"
 
+import { errorReason } from "@/lib/runtime/failure-report.server"
 import { EmailConnectionFailed, EmailDeliveryError } from "../errors.ts"
 import type { EmailProvider, EmailProviderConnectionInput } from "../schemas.ts"
 
@@ -57,19 +58,11 @@ function loadEmailProvider(provider: EmailProvider) {
   )
 }
 
-/** A provider error's code or name, never its message, which can echo credentials or addresses. */
-export function emailFailureReason(cause: unknown): string {
-  const reason = (["code", "name"] as const)
-    .map((field) => (Predicate.hasProperty(cause, field) ? cause[field] : undefined))
-    .find(Predicate.isString)
-  return reason && /^[\w.-]{1,64}$/.test(reason) ? reason : "unknown"
-}
-
 /** Wraps one provider call with the shared timeout and a loggable failure. */
 export function emailProviderCall<A>(call: (signal: AbortSignal) => PromiseLike<A>) {
   return Effect.tryPromise({
     try: call,
-    catch: (cause) => new EmailDeliveryError({ reason: emailFailureReason(cause) }),
+    catch: (cause) => new EmailDeliveryError({ reason: errorReason(cause) }),
   }).pipe(
     Effect.timeout(EMAIL_PROVIDER_TIMEOUT),
     Effect.catchTag("TimeoutError", () =>

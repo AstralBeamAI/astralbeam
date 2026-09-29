@@ -1,14 +1,10 @@
 import { Effect } from "effect"
 import { Resend } from "resend"
 
+import { errorReason } from "@/lib/runtime/failure-report.server"
 import { EmailConnectionFailed, EmailDeliveryError } from "../errors.ts"
 import type { ResendProviderSettings } from "../schemas.ts"
-import {
-  emailConnectionCheck,
-  emailFailureReason,
-  emailProviderCall,
-  type ProviderEmail,
-} from "./providers.server.ts"
+import { emailConnectionCheck, emailProviderCall, type ProviderEmail } from "./providers.server.ts"
 
 export const testConnection = (settings: ResendProviderSettings) =>
   emailConnectionCheck(() => new Resend(settings.resend_api_key).domains.list({ limit: 1 })).pipe(
@@ -37,7 +33,7 @@ export const acquireSender = (settings: ResendProviderSettings) =>
       ).pipe(
         Effect.flatMap(({ data, error }) =>
           error
-            ? Effect.fail(new EmailDeliveryError({ reason: emailFailureReason(error) }))
+            ? Effect.fail(new EmailDeliveryError({ reason: errorReason(error) }))
             : Effect.succeed(data?.id),
         ),
       )

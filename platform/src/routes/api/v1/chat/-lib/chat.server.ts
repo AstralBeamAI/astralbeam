@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { HttpServerRequest } from "effect/unstable/http"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
@@ -8,7 +8,7 @@ import {
   OpenApi,
 } from "effect/unstable/httpapi"
 import type { ApiV1 } from "../../-lib/contract.server"
-import { restFault, restHandleErrors, restRateLimitFault } from "../../-lib/responses.server"
+import { restHandleErrors, restRateLimitFault } from "../../-lib/responses.server"
 
 const chatRunInput = Schema.Struct({
   threadId: Schema.String,
@@ -80,18 +80,20 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
 
 function chatAuthenticate(request: HttpServerRequest.HttpServerRequest) {
   return Effect.gen(function* () {
-    const { authenticateChatRequest, isChatAuthenticationError } = yield* Effect.promise(
+    const { authenticateChatRequest } = yield* Effect.promise(
       () => import("@/lib/chat/auth.server"),
     )
-    const native = yield* HttpServerRequest.toWeb(request)
-    return yield* Effect.tryPromise({
-      try: () => authenticateChatRequest(native),
-      catch: (error) =>
-        isChatAuthenticationError(error)
-          ? restFault(401, "The chat auth token is invalid.")
-          : error,
-    })
+    return yield* authenticateChatRequest(yield* HttpServerRequest.toWeb(request))
   })
+}
+
+// Chat's services live in the app runtime. Loading it per request keeps the OpenAPI export free
+// of database configuration.
+function provideChatServices<A, E, R>(effect: Effect.Effect<A, E, R>) {
+  return Effect.promise(() => import("@/lib/runtime/runtime.server")).pipe(
+    Effect.flatMap(({ getAppRuntime }) => getAppRuntime().contextEffect),
+    Effect.flatMap((services) => Effect.provideContext(effect, services)),
+  )
 }
 
 export function chatHandlers(api: typeof ApiV1) {
@@ -99,47 +101,53 @@ export function chatHandlers(api: typeof ApiV1) {
     handlers
       .handleRaw(
         "runChat",
-        Effect.fn(function* ({ request }) {
-          const principal = yield* chatAuthenticate(request)
-          const { consumeChatRateLimit } = yield* Effect.promise(
-            () => import("@/lib/chat/rate-limit.server"),
-          )
-          yield* consumeChatRateLimit(principal).pipe(Effect.mapError(restRateLimitFault))
-          const { runChatRequest } = yield* Effect.promise(() => import("./run.server"))
-          const native = yield* HttpServerRequest.toWeb(request)
-          const response = yield* Effect.tryPromise({
-            try: () => runChatRequest(native, principal),
-            catch: (error) => error,
-          })
-          return HttpServerResponse.fromWeb(response)
-        }, restHandleErrors("runChat")),
+        Effect.fn(
+          function* ({ request }) {
+            const principal = yield* chatAuthenticate(request)
+            const { consumeChatRateLimit } = yield* Effect.promise(
+              () => import("@/lib/chat/rate-limit.server"),
+            )
+            yield* consumeChatRateLimit(principal).pipe(Effect.mapError(restRateLimitFault))
+            const { chatRunResponse, readChatRunParams } = yield* Effect.promise(
+              () => import("./run.server"),
+            )
+            const params = yield* readChatRunParams(yield* HttpServerRequest.toWeb(request))
+            const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat.server"))
+            const chat = yield* Chat
+            return yield* chatRunResponse(yield* chat.run({ params, principal }))
+          },
+          provideChatServices,
+          restHandleErrors("runChat"),
+        ),
       )
       .handle(
         "getChatConfig",
-        Effect.fn(function* ({ query, request }) {
-          const principal = yield* chatAuthenticate(request)
-          const { resolveChatAgent } = yield* Effect.promise(
-            () => import("@/lib/chat/agent.server"),
-          )
-          const agent = yield* Effect.tryPromise({
-            try: () => resolveChatAgent(query.agentId, principal.organization.id),
-            catch: (error) => error,
-          })
-          if (!agent) return yield* Effect.fail(restFault(404, "Agent not found."))
-          return { capabilities: { attachments: agent.attachmentsEnabled } }
-        }, restHandleErrors("getChatConfig")),
+        Effect.fn(
+          function* ({ query, request }) {
+            const principal = yield* chatAuthenticate(request)
+            const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat.server"))
+            const chat = yield* Chat
+            const capabilities = yield* chat.capabilities({ principal, agentId: query.agentId })
+            return { capabilities }
+          },
+          provideChatServices,
+          restHandleErrors("getChatConfig"),
+        ),
       )
       .handle(
         "getChatFile",
-        Effect.fn(function* ({ query }) {
-          const { serveChatFile } = yield* Effect.promise(() => import("./files.server"))
-          return HttpServerResponse.fromWeb(
-            yield* Effect.tryPromise({
-              try: () => serveChatFile(query.ticket),
-              catch: (error) => error,
-            }),
-          )
-        }, restHandleErrors("getChatFile")),
+        Effect.fn(
+          function* ({ query }) {
+            const { ChatSandboxes } = yield* Effect.promise(
+              () => import("@/lib/chat/sandbox.server"),
+            )
+            const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
+            const sandboxes = yield* ChatSandboxes
+            return chatArtifactResponse(yield* sandboxes.readArtifact(query.ticket))
+          },
+          provideChatServices,
+          restHandleErrors("getChatFile"),
+        ),
       ),
   )
 }

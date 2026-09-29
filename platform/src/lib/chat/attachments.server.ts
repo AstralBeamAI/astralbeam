@@ -1,4 +1,7 @@
 import { type ChatMiddleware, EventType } from "@tanstack/ai"
+import { Predicate, Result } from "effect"
+
+import { APP_HANDLE } from "@/lib/constants"
 
 import { profileDelimitedText } from "./attachment-profile.server"
 import { extractOfficeDocument, isOfficeMimeType } from "./attachment-office.server"
@@ -63,12 +66,16 @@ const MEDIA_TYPES = new Set(["image", "audio", "video", "document"])
 
 function isMediaEntry(entry: unknown): entry is MediaEntry {
   return (
-    typeof entry === "object" &&
-    entry !== null &&
-    MEDIA_TYPES.has((entry as { type?: unknown }).type as string) &&
-    typeof (entry as { source?: unknown }).source === "object" &&
-    (entry as { source: unknown }).source !== null
+    Predicate.hasProperty(entry, "type") &&
+    Predicate.isString(entry.type) &&
+    MEDIA_TYPES.has(entry.type) &&
+    Predicate.hasProperty(entry, "source") &&
+    Predicate.isObject(entry.source)
   )
+}
+
+function mediaEntryFilename(entry: MediaEntry): unknown {
+  return Predicate.hasProperty(entry.metadata, "filename") ? entry.metadata.filename : undefined
 }
 
 function textEntry(shape: ContentShape, text: string) {
@@ -77,7 +84,7 @@ function textEntry(shape: ContentShape, text: string) {
 
 /** RFC 2045 parameters off, lower case, so `TEXT/PLAIN; charset=utf-8` compares equal. */
 function normalizeMimeType(value: unknown): string {
-  return typeof value === "string" ? (value.split(";")[0] ?? "").trim().toLowerCase() : ""
+  return Predicate.isString(value) ? (value.split(";")[0] ?? "").trim().toLowerCase() : ""
 }
 
 function isTextualMimeType(mimeType: string): boolean {
@@ -93,7 +100,7 @@ function isTextualMimeType(mimeType: string): boolean {
 // sandbox path, so control characters (which could forge line structure) are replaced and the
 // length is bounded.
 function sanitizeAttachmentFilename(value: unknown, fallback: string): string {
-  if (typeof value !== "string") return fallback
+  if (!Predicate.isString(value)) return fallback
   const cleaned = value.replace(/\p{C}/gu, " ").trim()
   if (cleaned.length === 0) return fallback
   return cleaned.length > CHAT_ATTACHMENT_MAX_FILENAME_LENGTH
@@ -155,16 +162,13 @@ function base64ByteLength(value: string): number {
  * Stage 3 proposal that this TypeScript's lib does not declare.
  */
 function decodeAttachmentBytes(value: string): Uint8Array | undefined {
-  try {
-    const binary = atob(base64Payload(value).replace(/\s/g, ""))
-    const bytes = new Uint8Array(binary.length)
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index)
-    }
-    return bytes
-  } catch {
-    return undefined
+  const binary = Result.try(() => atob(base64Payload(value).replace(/\s/g, "")))
+  if (Result.isFailure(binary)) return undefined
+  const bytes = new Uint8Array(binary.success.length)
+  for (let index = 0; index < binary.success.length; index += 1) {
+    bytes[index] = binary.success.charCodeAt(index)
   }
+  return bytes
 }
 
 /**
@@ -195,11 +199,9 @@ function formatBytes(bytes: number): string {
 
 /** `fatal` turns a binary file mislabeled as text into a refusal instead of a page of U+FFFD. */
 function decodeUtf8(bytes: Uint8Array): string | undefined {
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes).replace(/^\ufeff/, "")
-  } catch {
-    return undefined
-  }
+  return Result.getOrUndefined(
+    Result.try(() => new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+  )?.replace(/^\ufeff/, "")
 }
 
 /**
@@ -279,13 +281,9 @@ export function normalizeChatAttachments(
     shape: ContentShape,
     position: number,
   ): { entry: unknown } | { file: ChatAttachmentFile } => {
-    const metadata =
-      typeof entry.metadata === "object" && entry.metadata !== null
-        ? (entry.metadata as { filename?: unknown })
-        : {}
     const declared = normalizeMimeType(entry.source.mimeType)
     const filename = sanitizeAttachmentFilename(
-      metadata.filename,
+      mediaEntryFilename(entry),
       declared === CHAT_ATTACHMENT_PDF_MIME_TYPE
         ? "document.pdf"
         : entry.type === "image"
@@ -302,7 +300,7 @@ export function normalizeChatAttachments(
       attachments.push({ filename, mimeType, bytes: 0, result: "rejected", reason })
       return { entry: textEntry(shape, refusalText(filename, mimeType, reason)) }
     }
-    if (typeof entry.source.value !== "string" || entry.source.value.length === 0) {
+    if (!Predicate.isString(entry.source.value) || entry.source.value.length === 0) {
       return refuse("its contents were missing.")
     }
     // Only inline data: a URL source would have the provider fetch a caller-chosen host on this
@@ -343,7 +341,7 @@ export function normalizeChatAttachments(
         entry: {
           ...entry,
           type: kind === "image" ? "image" : "document",
-          metadata: { ...metadata, filename },
+          metadata: { ...(Predicate.isObject(entry.metadata) ? entry.metadata : {}), filename },
         },
       }
     }
@@ -412,12 +410,8 @@ export function normalizeChatAttachments(
   const stripMedia = (entries: unknown[]) =>
     entries.filter((entry) => {
       if (!isMediaEntry(entry)) return true
-      const metadata =
-        typeof entry.metadata === "object" && entry.metadata !== null
-          ? (entry.metadata as { filename?: unknown })
-          : {}
       attachments.push({
-        filename: sanitizeAttachmentFilename(metadata.filename, "attachment"),
+        filename: sanitizeAttachmentFilename(mediaEntryFilename(entry), "attachment"),
         mimeType: normalizeMimeType(entry.source.mimeType),
         bytes: 0,
         result: "rejected",
@@ -461,7 +455,7 @@ export function normalizeChatAttachments(
 export function redactChatAttachmentData(messages: ChatMessages): ChatMessages {
   const redactEntries = (entries: unknown[]) =>
     entries.map((entry) =>
-      isMediaEntry(entry) && typeof entry.source.value === "string"
+      isMediaEntry(entry) && Predicate.isString(entry.source.value)
         ? {
             ...entry,
             source: {
@@ -497,12 +491,12 @@ export function createChatAttachmentSnapshotMiddleware(messages: ChatMessages): 
   for (const message of messages) {
     if (message.role !== "user") continue
     const source = message as { id?: unknown; content?: unknown; parts?: unknown }
-    if (typeof source.id !== "string" || source.id.length === 0) continue
+    if (!Predicate.isString(source.id) || source.id.length === 0) continue
     const entries = Array.isArray(source.parts) ? source.parts : source.content
     if (Array.isArray(entries) && entries.some(isMediaEntry)) sent.set(source.id, message)
   }
   return {
-    name: "astralbeam-chat-attachment-snapshot",
+    name: `${APP_HANDLE}-chat-attachment-snapshot`,
     onChunk: (_context, chunk) => {
       if (sent.size === 0 || chunk.type !== EventType.MESSAGES_SNAPSHOT) return
       let restored = false

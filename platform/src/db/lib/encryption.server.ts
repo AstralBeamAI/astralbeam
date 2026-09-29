@@ -1,6 +1,8 @@
 import { hkdfSync } from "node:crypto"
 
 import * as Data from "effect/Data"
+import * as Effect from "effect/Effect"
+import * as Predicate from "effect/Predicate"
 
 import { decryptCompactJwe, encryptCompactJwe } from "./compact-jwe.server.ts"
 import type {
@@ -74,6 +76,19 @@ export function decryptDatabaseValue<Value>(
   } catch {
     throw databaseEncryptionError()
   }
+}
+
+/**
+ * Recovers a stored value that failed to decrypt, which dies inside Drizzle's row mapping, as the
+ * caller's typed error. Every other defect stays a defect.
+ */
+export function catchDatabaseDecryptionFailure<E2>(onFailure: () => E2) {
+  return <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | E2, R> =>
+    Effect.catchDefect(effect, (defect) =>
+      Predicate.isTagged(defect, "DatabaseEncryptionError")
+        ? Effect.fail(onFailure())
+        : Effect.die(defect),
+    )
 }
 
 function databaseEncryptionError(): DatabaseEncryptionError {

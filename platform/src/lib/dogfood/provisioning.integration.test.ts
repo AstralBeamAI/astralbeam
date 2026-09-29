@@ -211,7 +211,7 @@ describe.skipIf(!dogfoodIntegration.url)(
           ),
         ),
       )
-      const principal = await authenticateChatRequest(request)
+      const principal = await runDatabaseEffect(authenticateChatRequest(request))
       const dogfoodId = (await getDatabaseConfig()).values.dogfood_organization_id!
       expect(principal.organization.id).toBe(dogfoodId)
       expect(principal.tenantUser).toMatchObject({

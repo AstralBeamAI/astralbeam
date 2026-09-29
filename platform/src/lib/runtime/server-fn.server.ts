@@ -1,7 +1,8 @@
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
-import { Cause, Effect, Exit, Option, Predicate, Schema, SchemaAST } from "effect"
+import { Cause, Effect, Exit, Option, Schema } from "effect"
 
 import { reportFailure } from "./failure-report.server.ts"
+import { httpApiStatus } from "./http-api-status.ts"
 import { type AppServices, getAppRuntime } from "./runtime.server.ts"
 import { formatServerFnError, INTERNAL_ERROR_TAG } from "./server-fn-error.ts"
 
@@ -21,7 +22,11 @@ export function exposeError(error: {
   readonly message: string
 }): Effect.Effect<never, ExposedError> {
   return Effect.fail(
-    new ExposedError({ tag: error._tag, message: error.message, status: httpStatus(error) }),
+    new ExposedError({
+      tag: error._tag,
+      message: error.message,
+      status: httpApiStatus(error) ?? 400,
+    }),
   )
 }
 
@@ -53,11 +58,4 @@ export async function runEffect<A, E>(
       message: `Something went wrong. Reference: ${referenceId}`,
     }),
   )
-}
-
-// Reuses the status an error class declares for HttpApi, so both transports agree.
-function httpStatus(error: object): number {
-  const errorClass: unknown = error.constructor
-  const ast = Predicate.hasProperty(errorClass, "ast") ? errorClass.ast : undefined
-  return (SchemaAST.isAST(ast) && SchemaAST.resolveAt<number>("httpApiStatus")(ast)) || 400
 }

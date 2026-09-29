@@ -2,6 +2,8 @@ import { Layer, Logger, ManagedRuntime } from "effect"
 
 import { Database } from "@/db/database.server"
 import { Agents } from "@/lib/agents/agents.server"
+import { Chat } from "@/lib/chat/chat.server"
+import { ChatSandboxes } from "@/lib/chat/sandbox.server"
 import { Mailer } from "@/lib/email/email.server"
 
 const LoggerLayer = Logger.layer([
@@ -9,7 +11,14 @@ const LoggerLayer = Logger.layer([
 ])
 
 /** Every service the application's Effects may require, built once per module graph. */
-const AppLayer = Layer.mergeAll(Agents.layer, Database.layer, LoggerLayer, Mailer.layer)
+const AppLayer = Layer.mergeAll(
+  Agents.layer,
+  Chat.layer,
+  ChatSandboxes.layer,
+  Database.layer,
+  LoggerLayer,
+  Mailer.layer,
+)
 
 export type AppServices = Layer.Success<typeof AppLayer>
 

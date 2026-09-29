@@ -1,6 +1,6 @@
 import type { RestApiErrorSchema } from "./shared.server"
 import type { TenantError } from "@/lib/tenants/tenants.server"
-import { ChatError } from "../../../../lib/chat/errors.server.ts"
+import { httpApiStatus } from "../../../../lib/runtime/http-api-status.ts"
 import { Data, Duration, Effect } from "effect"
 import type { RateLimiter } from "effect/unstable/persistence"
 import { APP_HANDLE } from "../../../../lib/constants.ts"
@@ -40,11 +40,10 @@ export function restFault(
 export function restErrorResponse(error: unknown, stage = "dispatch"): Response {
   const diagnosticCode = sqlState(error)
   const errorType = error instanceof Error ? error.name : "UnknownError"
-  if (error instanceof ChatError) {
-    error = restFault(
-      { InvalidInput: 400, NotFound: 404, Unavailable: 503 }[error.reason],
-      error.message,
-    )
+  // A class that declares its HttpApi status owns a user-safe message.
+  const declaredStatus = httpApiStatus(error)
+  if (declaredStatus !== undefined && error instanceof Error) {
+    error = restFault(declaredStatus, error.message)
   }
   if (error instanceof Error && "_tag" in error && error._tag === "TenantError") {
     const fault = error as TenantError

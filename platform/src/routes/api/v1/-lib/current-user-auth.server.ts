@@ -52,10 +52,7 @@ export function getCurrentUser(request: Request) {
     if (typ !== CHAT_AUTH_TOKEN_TYPE) {
       return yield* Effect.fail(restFault(401, "Invalid credentials."))
     }
-    const principal = yield* Effect.tryPromise({
-      try: () => authenticateChatRequest(request),
-      catch: (error) => error,
-    })
+    const principal = yield* authenticateChatRequest(request)
     yield* currentUserRateLimit([
       "tenant",
       principal.organization.id,
