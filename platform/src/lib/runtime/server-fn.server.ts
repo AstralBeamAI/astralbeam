@@ -56,7 +56,7 @@ export async function runEffect<A, E>(
 }
 
 // Reuses the status an error class declares for HttpApi, so both transports agree.
-function httpStatus(error: object): number {
+export function httpStatus(error: object): number {
   const errorClass: unknown = error.constructor
   const ast = Predicate.hasProperty(errorClass, "ast") ? errorClass.ast : undefined
   return (SchemaAST.isAST(ast) && SchemaAST.resolveAt<number>("httpApiStatus")(ast)) || 400

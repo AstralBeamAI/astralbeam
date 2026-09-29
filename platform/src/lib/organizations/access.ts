@@ -53,6 +53,15 @@ export interface OrganizationPermissions {
   readonly deleteConfiguration: boolean
 }
 
+/** The organization a dashboard page shows, and what the signed-in member may do in it. */
+export interface OrganizationAccess {
+  readonly organizationId: string
+  readonly organizationSlug: string
+  readonly organizationName: string
+  readonly role: string
+  readonly permissions: OrganizationPermissions
+}
+
 /** Mirrors Better Auth's own `hasPermission`, which authorizes each comma-separated role in turn. */
 export function authorizeOrganizationRole(
   role: string,
