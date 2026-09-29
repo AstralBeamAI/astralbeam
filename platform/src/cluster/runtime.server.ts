@@ -1,5 +1,6 @@
-import { Cause, Context, Duration, Effect, Fiber, Layer, Schedule } from "effect"
+import { Cause, Context, Data, Duration, Effect, Fiber, Layer, Schedule } from "effect"
 import { Sharding, ShardingConfig } from "effect/unstable/cluster"
+import { WorkflowEngine } from "effect/unstable/workflow"
 
 import { sqlState } from "../db/lib/sqlstate.server.ts"
 import { Database, getDatabaseResources } from "../db/index.ts"
@@ -12,6 +13,7 @@ const clusterProcess = globalThis as typeof globalThis & {
     transition: Promise<void>
     fiber?: Fiber.Fiber<unknown, unknown> | undefined
     unavailable?: string | undefined
+    workflowEngine?: WorkflowEngine.WorkflowEngine["Service"] | undefined
   }
 }
 const clusterRuntimeState = (clusterProcess[clusterRuntimeKey] ??= {
@@ -26,6 +28,12 @@ const superviseClusterRunner = Effect.gen(function* () {
   const sharding = Context.get(context, Sharding.Sharding)
   const config = Context.get(context, ShardingConfig.ShardingConfig)
   clusterRuntimeState.unavailable = undefined
+  clusterRuntimeState.workflowEngine = Context.get(context, WorkflowEngine.WorkflowEngine)
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => {
+      clusterRuntimeState.workflowEngine = undefined
+    }),
+  )
   yield* Effect.logInfo("Cluster runner ready", { address: config.runnerAddress })
   yield* Effect.gen(function* () {
     if (yield* sharding.isShutdown) return yield* Effect.fail(new Error("Cluster runner stopped"))
@@ -52,6 +60,20 @@ const superviseClusterRunner = Effect.gen(function* () {
     ),
   ),
 )
+
+export class ClusterUnavailableError extends Data.TaggedError("ClusterUnavailableError") {}
+
+/** Submits workflows through this process's running engine, so no request builds a runner. */
+export function provideClusterWorkflowEngine<A, E, R>(effect: Effect.Effect<A, E, R>) {
+  return Effect.suspend<A, E | ClusterUnavailableError, Exclude<R, WorkflowEngine.WorkflowEngine>>(
+    () => {
+      const engine = clusterRuntimeState.workflowEngine
+      return engine
+        ? Effect.provideService(effect, WorkflowEngine.WorkflowEngine, engine)
+        : Effect.fail(new ClusterUnavailableError())
+    },
+  )
+}
 
 export function startClusterRunner(): Promise<void> {
   clusterRuntimeState.transition = stopClusterRunner().then(() => {

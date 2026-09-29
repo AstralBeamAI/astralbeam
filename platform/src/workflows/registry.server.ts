@@ -1,3 +1,9 @@
-import { scheduledWorkflowsLayer } from "./cron.ts"
+import { Layer } from "effect"
 
-export const registeredWorkflowLayers = scheduledWorkflowsLayer
+import { scheduledWorkflowsLayer } from "./cron.ts"
+import { deleteOrganizationWorkflowLayer } from "./delete-organization.ts"
+
+export const registeredWorkflowLayers = Layer.mergeAll(
+  scheduledWorkflowsLayer,
+  deleteOrganizationWorkflowLayer,
+)

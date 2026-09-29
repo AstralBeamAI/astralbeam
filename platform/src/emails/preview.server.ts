@@ -6,6 +6,9 @@ import AccountExistsEmail, { createAccountExistsPreviewProps } from "./templates
 import EmailVerificationEmail, {
   createEmailVerificationPreviewProps,
 } from "./templates/email-verification.tsx"
+import OrganizationDeletedEmail, {
+  createOrganizationDeletedPreviewProps,
+} from "./templates/organization-deleted.tsx"
 import OrganizationInvitationEmail, {
   createOrganizationInvitationPreviewProps,
 } from "./templates/organization-invitation.tsx"
@@ -26,6 +29,12 @@ const EMAIL_PREVIEWS = [
     label: "Email verification",
     element: (origin: string) =>
       createElement(EmailVerificationEmail, createEmailVerificationPreviewProps(origin)),
+  },
+  {
+    name: "organization-deleted",
+    label: "Organization deleted",
+    element: (origin: string) =>
+      createElement(OrganizationDeletedEmail, createOrganizationDeletedPreviewProps(origin)),
   },
   {
     name: "organization-invitation",

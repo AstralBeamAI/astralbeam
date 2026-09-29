@@ -8,6 +8,7 @@ import { truncateEmailGraphemes } from "./email-text.ts"
 import type { EmailProvider } from "./schema.ts"
 import AccountExistsEmail from "./templates/account-exists.tsx"
 import EmailVerificationEmail from "./templates/email-verification.tsx"
+import OrganizationDeletedEmail from "./templates/organization-deleted.tsx"
 import OrganizationInvitationEmail from "./templates/organization-invitation.tsx"
 import PasswordChangedEmail from "./templates/password-changed.tsx"
 import ResetPasswordEmail from "./templates/reset-password.tsx"
@@ -61,6 +62,7 @@ interface AuthEmailContext {
 type AuthEmailKind =
   | "account-exists"
   | "email-verification"
+  | "organization-deleted"
   | "organization-invitation"
   | "password-changed"
   | "reset-password"
@@ -215,6 +217,24 @@ export async function sendOrganizationInvitationEmail(
       }),
     }
   })
+}
+
+export async function sendOrganizationDeletedEmail(data: {
+  email: string
+  organizationName: string
+  deletedAt: Date
+}): Promise<void> {
+  await deliverAuthEmail("organization-deleted", ({ appBaseUrl, logoURL }) => ({
+    to: data.email,
+    subject: `${sanitizeSubjectPart(data.organizationName)} was deleted on ${APP_NAME}`,
+    react: createElement(OrganizationDeletedEmail, {
+      appName: APP_NAME,
+      dashboardURL: new URL("/", appBaseUrl).toString(),
+      logoURL,
+      organizationName: data.organizationName,
+      timestamp: formatTimestamp(data.deletedAt),
+    }),
+  }))
 }
 
 /**
