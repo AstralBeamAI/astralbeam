@@ -1,5 +1,5 @@
 import { OpenApi } from "effect/unstable/httpapi"
-import { Context, Duration, Effect, Layer, Logger, Schema, Stream } from "effect"
+import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { RateLimiter } from "effect/unstable/persistence"
 import type { SQL } from "drizzle-orm"
@@ -46,6 +46,8 @@ const restTestState = vi.hoisted(() => ({
   agent: vi.fn(),
   run: vi.fn(),
   readFile: vi.fn(),
+  appLayer: undefined as Layer.Layer<never> | undefined,
+  appRuntime: undefined as ManagedRuntime.ManagedRuntime<never, never> | undefined,
 }))
 
 vi.mock("@/db/lib/database-credentials.server", async (original) => ({
@@ -66,12 +68,18 @@ vi.mock("@/lib/chat/auth.server", async (original) => {
       }),
   }
 })
+vi.mock("@/lib/runtime/runtime.server", async (original) => ({
+  ...(await original<typeof import("@/lib/runtime/runtime.server")>()),
+  getAppLayer: () => restTestState.appLayer,
+  getAppRuntime: () => restTestState.appRuntime,
+}))
 vi.mock("@/lib/auth/organization-token.server", () => ({
   ORGANIZATION_TOKEN_TYPE: "astralbeam-organization+jwt",
   authenticateOrganizationRequest: restTestState.organizationAuth,
 }))
 
 import { ApiV1Routes } from "./transport.server"
+import { handleApiV1Request } from "./route.server"
 import { authenticateRestRequest } from "./auth.server"
 import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
@@ -285,36 +293,30 @@ afterEach(() => {
 })
 
 describe("v1 router boundary", () => {
-  test.each(["bootstrap", "setup"])(
-    "preserves safe 503 with CORS/no-store for %s",
-    async (kind) => {
-      if (kind === "bootstrap") {
-        vi.mocked(getDatabaseBootstrapIssues).mockReturnValue(["DATABASE_URL"])
-      } else {
-        restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: false }))
-      }
-      const response = await restRequest("/chat")
-      expect(response.status).toBe(503)
-      expect(response.headers.get("retry-after")).toBe("10")
-      expect(response.headers.get("access-control-allow-origin")).toBe("*")
-      expect(response.headers.get("cache-control")).toBe("no-store")
-      expect(await response.json()).toMatchObject({
-        status: 503,
-        detail: "Server configuration required.",
-      })
-    },
-  )
-  test.each(["tenants", "chat", "chat/config", "chat/files"])(
-    "%s preflight bypasses setup and authentication",
-    async (path) => {
-      const response = await restRequest(`/${path}`, { method: "OPTIONS" })
-      expect(response.status).toBe(204)
-      expect(response.headers.get("access-control-max-age")).toBe("86400")
-      expect(response.headers.get("access-control-allow-credentials")).toBeNull()
-      expect(getDatabaseBootstrapIssues).not.toHaveBeenCalled()
-      expect(restTestState.setupState).not.toHaveBeenCalled()
-    },
-  )
+  test("preserves safe 503 with CORS/no-store before setup", async () => {
+    restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: false }))
+    const response = await restRequest("/chat")
+    expect(response.status).toBe(503)
+    expect(response.headers.get("retry-after")).toBe("10")
+    expect(response.headers.get("access-control-allow-origin")).toBe("*")
+    expect(response.headers.get("cache-control")).toBe("no-store")
+    expect(await response.json()).toMatchObject({
+      status: 503,
+      detail: "Server configuration required.",
+    })
+  })
+  test("disposing the app runtime releases the services the entrypoint's handler holds", async () => {
+    const released = vi.fn<() => void>()
+    restTestState.appLayer = Layer.merge(
+      restTestServices,
+      Layer.effectDiscard(Effect.addFinalizer(() => Effect.sync(released))),
+    )
+    restTestState.appRuntime = ManagedRuntime.make(restTestState.appLayer)
+    const response = await handleApiV1Request(new Request("http://localhost/api/v1/unknown"))
+    expect(response.status).toBe(404)
+    await restTestState.appRuntime.dispose()
+    expect(released).toHaveBeenCalledOnce()
+  })
   test("unexpected setup failures log safe diagnostics once and answer a reference", async () => {
     restTestState.setupState.mockReturnValue(
       Effect.die(Object.assign(new Error("private connection details"), { code: "08006" })),

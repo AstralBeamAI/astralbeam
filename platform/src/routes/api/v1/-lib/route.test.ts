@@ -33,3 +33,24 @@ describe("temporary /api/chat alias", () => {
     await response.body!.cancel()
   })
 })
+
+describe("v1 entrypoint", () => {
+  test("answers preflight and missing database variables without building services", async () => {
+    vi.stubEnv("DATABASE_URL", "")
+    vi.stubEnv("DATABASE_ENCRYPTION_KEY", "")
+    const { handleApiV1Request: handle } =
+      await vi.importActual<typeof import("./route.server")>("./route.server")
+    const url = "http://localhost/api/v1/tenants"
+    const preflight = await handle(new Request(url, { method: "OPTIONS" }))
+    expect(preflight.status).toBe(204)
+    expect(preflight.headers.get("access-control-max-age")).toBe("86400")
+    expect(preflight.headers.get("access-control-allow-credentials")).toBeNull()
+    const response = await handle(new Request(url))
+    expect(response.status).toBe(503)
+    expect(response.headers.get("retry-after")).toBe("10")
+    expect(response.headers.get("access-control-allow-origin")).toBe("*")
+    expect(response.headers.get("cache-control")).toBe("no-store")
+    expect(await response.json()).toMatchObject({ detail: "Server configuration required." })
+    vi.unstubAllEnvs()
+  })
+})

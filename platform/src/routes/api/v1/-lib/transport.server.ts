@@ -1,4 +1,4 @@
-import { Cause, Effect, Layer, Option, SchemaIssue } from "effect"
+import { Cause, Effect, Layer, Option, SchemaIssue, Scope } from "effect"
 import {
   HttpRouter,
   HttpServer,
@@ -10,7 +10,6 @@ import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 
 import { Database } from "@/db/database.server"
 import { Auth } from "@/lib/auth/auth.server"
-import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { Config } from "@/lib/config/config.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
@@ -119,7 +118,7 @@ const REST_CORS_HEADERS = {
 }
 
 /** Every v1 response is uncacheable and readable cross-origin, including errors. */
-function restResponseHeaders(response: HttpServerResponse.HttpServerResponse) {
+export function restResponseHeaders(response: HttpServerResponse.HttpServerResponse) {
   const cache = response.headers["cache-control"]
   const noStore = cache?.split(",").some((value) => value.trim().toLowerCase() === "no-store")
   return HttpServerResponse.setHeaders(response, {
@@ -159,17 +158,13 @@ function restRouterFailure<E>(
     : Effect.failCause(cause)
 }
 
-/** Owns preflight, setup, CORS, cache headers, and failures outside every endpoint. */
+/** Owns setup, CORS, cache headers, and failures outside every endpoint. */
 const RestRouterBoundary = Layer.unwrap(
   Effect.map(Config, (config) =>
     HttpRouter.middleware(
       (httpEffect) =>
         Effect.gen(function* () {
-          const request = yield* HttpServerRequest.HttpServerRequest
-          if (request.method === "OPTIONS") return HttpServerResponse.empty({ status: 204 })
-          // Without the database variables the configuration cannot be read.
-          const setupComplete =
-            getDatabaseBootstrapIssues().length === 0 && (yield* config.setupState).setupComplete
+          const { setupComplete } = yield* config.setupState
           if (!setupComplete) return restProblemResponse(new RestSetupRequired())
           return restProblemOnly(yield* httpEffect)
         }).pipe(Effect.catchCause(restRouterFailure), Effect.map(restResponseHeaders)),
@@ -193,12 +188,20 @@ export const ApiV1Routes = Layer.mergeAll(
   RestRouterBoundary,
 )
 
-// The shared memo map reuses the app runtime's services instead of building another set.
+// The shared memo map reuses the app runtime's services, and the runtime's scope owns the handler
+// so disposing the runtime also releases the services the handler holds.
 function makeApiV1WebHandler() {
-  return HttpRouter.toWebHandler(
+  const runtime = getAppRuntime()
+  const webHandler = HttpRouter.toWebHandler(
     ApiV1Routes.pipe(Layer.provideMerge(getAppLayer()), Layer.provide(HttpServer.layerServices)),
-    { disableLogger: true, memoMap: getAppRuntime().memoMap },
+    { disableLogger: true, memoMap: runtime.memoMap },
   )
+  const disposeWebHandler = Effect.promise(() => {
+    if (apiV1WebHandler === webHandler) apiV1WebHandler = undefined
+    return webHandler.dispose()
+  })
+  Effect.runSync(Scope.addFinalizer(runtime.scope, disposeWebHandler))
+  return webHandler
 }
 
 let apiV1WebHandler: ReturnType<typeof makeApiV1WebHandler> | undefined
