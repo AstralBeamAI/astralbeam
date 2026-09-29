@@ -51,9 +51,10 @@ export const decodeRestTokenType = Effect.fn("decodeRestTokenType")(function* (t
 export const consumeRestRateLimit = Effect.fn("consumeRestRateLimit")(function* (
   namespace: string,
   identity: readonly string[],
+  limits: { readonly limit: number; readonly window: Duration.Input } = REST_RATE_LIMIT,
 ) {
   const limiter = yield* DatabaseRateLimiter
-  yield* limiter.consume({ key: hashedRateLimitKey(namespace, identity), ...REST_RATE_LIMIT }).pipe(
+  yield* limiter.consume({ key: hashedRateLimitKey(namespace, identity), ...limits }).pipe(
     Effect.catch((error) =>
       error.reason._tag === "RateLimitExceeded"
         ? Effect.fail(
@@ -88,13 +89,9 @@ export const authenticateRestOrganizationToken = Effect.fn("authenticateRestOrga
 export const authenticateRestTenantToken = Effect.fn("authenticateRestTenantToken")(function* (
   request: Request,
 ) {
-  return yield* Effect.tryPromise({
-    try: () => authenticateChatRequest(request),
-    catch: (cause) =>
-      isChatAuthenticationError(cause)
-        ? new RestInvalidCredentials()
-        : new RestVerifierFailed({ cause }),
-  }).pipe(Effect.catchTag("RestVerifierFailed", (error) => Effect.die(error)))
+  return yield* authenticateChatRequest(request).pipe(
+    Effect.catchTag("ChatAuthenticationError", () => Effect.fail(new RestInvalidCredentials())),
+  )
 })
 
 const verifyRestApiKey = Effect.fn("verifyRestApiKey")(function* (key: string) {

@@ -1,9 +1,9 @@
 import process from "node:process"
 
+import { Effect, Fiber } from "effect"
 import type { NitroAppPlugin } from "nitro/types"
 
-import { closeDatabase } from "../../db/index.ts"
-import { startClusterRunner, stopClusterRunner } from "./runtime.server.ts"
+import { closeClusterProcess, startClusterRunner, stopClusterRunner } from "./runtime.server.ts"
 
 // Nitro reloads can invalidate modules without HMR disposal. Keep signal cleanup process-wide.
 // https://vite.dev/guide/api-environment-runtimes.html#modulerunner
@@ -12,21 +12,22 @@ const clusterPluginProcess = globalThis as typeof globalThis & {
   [clusterShutdownCleanupKey]?: () => void
 }
 
+const exitProcess = (message: string) =>
+  Effect.logError(message).pipe(Effect.andThen(Effect.sync(() => process.exit(1))))
+
 const clusterPlugin: NitroAppPlugin = (nitro) => {
   if (import.meta.prerender || process.env.NODE_ENV === "test") return
   clusterPluginProcess[clusterShutdownCleanupKey]?.()
-  void startClusterRunner()
-  let shutdownDeadline: ReturnType<typeof setTimeout> | undefined
+  Effect.runFork(startClusterRunner)
+  let shutdownDeadline: Fiber.Fiber<void> | undefined
   const boundShutdown = () => {
-    if (shutdownDeadline !== undefined) return
-    shutdownDeadline = setTimeout(() => {
-      console.error("Server shutdown exceeded the 5-second deadline")
-      process.exit(1)
-    }, 5_000)
+    shutdownDeadline ??= Effect.runFork(
+      exitProcess("Server shutdown exceeded the 5-second deadline").pipe(Effect.delay("5 seconds")),
+    )
   }
   const removeShutdownHandlers = () => {
     import.meta.hot?.off("astralbeam:close", closeDevelopmentCluster)
-    clearTimeout(shutdownDeadline)
+    if (shutdownDeadline) Effect.runFork(Fiber.interrupt(shutdownDeadline))
     process.off("SIGTERM", boundShutdown)
     process.off("SIGINT", boundShutdown)
     if (clusterPluginProcess[clusterShutdownCleanupKey] === removeShutdownHandlers) {
@@ -39,25 +40,23 @@ const clusterPlugin: NitroAppPlugin = (nitro) => {
 
   // Nitro awaits HTTP draining before runtime close hooks in the Deno preset.
   // https://github.com/nitrojs/nitro/pull/4574
-  const closeCluster = async () => {
-    try {
-      await stopClusterRunner()
-      await closeDatabase()
-      removeShutdownHandlers()
-    } catch {
-      console.error("Server shutdown cleanup failed")
-      process.exit(1)
-    }
-  }
-  nitro.hooks.hook("close", closeCluster)
+  const closeCluster = closeClusterProcess.pipe(
+    Effect.andThen(Effect.sync(removeShutdownHandlers)),
+    Effect.catchCause(() => exitProcess("Server shutdown cleanup failed")),
+  )
+  nitro.hooks.hook("close", () => Effect.runPromise(closeCluster))
   function closeDevelopmentCluster() {
     boundShutdown()
-    void closeCluster().then(() => import.meta.hot?.send("astralbeam:closed"))
+    Effect.runFork(
+      closeCluster.pipe(
+        Effect.andThen(Effect.sync(() => import.meta.hot?.send("astralbeam:closed"))),
+      ),
+    )
   }
   import.meta.hot?.on("astralbeam:close", closeDevelopmentCluster)
   import.meta.hot?.dispose(() => {
     removeShutdownHandlers()
-    void stopClusterRunner()
+    Effect.runFork(stopClusterRunner)
   })
 }
 

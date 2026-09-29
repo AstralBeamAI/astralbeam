@@ -8,7 +8,7 @@ Every authentication flow in this app is two writes with a network call between 
 - The indirection is required because Better Auth routes most sends through `runInBackgroundOrAwait`, which awaits the callback but logs and swallows its rejection, so a throw inside `sendVerificationEmail` cannot reach the client on its own.
 - `advanced.backgroundTasks` must stay unset. A handler defers the send past the response, which is what let a failed send complete behind a "check your inbox" screen.
 - The response is `503` with the `EMAIL_DELIVERY_FAILED` code from `email-delivery.ts`. `ErrorToaster` maps that code to the only backend-sourced sentence it will render. The provider's own reason never leaves the server.
-- `deliverAuthEmail` in `src/emails/index.ts` is the single place that logs a send outcome. Both outcomes carry a partially masked recipient from `maskEmailAddressForLog`. The rendered email and the token URL are never logged.
+- The `Mailer`'s shared delivery in `src/lib/email/email.server.ts` is the single place that logs a send outcome, with the provider's error code and never its message. Both outcomes carry a partially masked recipient from `maskEmailAddressForLog`. The rendered email and the token URL are never logged.
 - A password-change notice is the one exception: it is informational, its recipient is not waiting on it, and it stays deferred through `runAfterResponse` so an email outage cannot fail a password change that already succeeded.
 
 ## What each flow leaves behind

@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm"
 import { Effect, Result } from "effect"
 
-import { Database } from "@/db"
+import { Database } from "@/db/database.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import {

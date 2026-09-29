@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema"
 import { NonEmptyStringSchema } from "../schemas.ts"
 
 import { CHAT_ATTACHMENT_READ_MAX_CHARACTERS } from "./constants.server"
-import type { ChatAttachmentFile, DebugLog } from "./types"
+import type { ChatAttachmentFile } from "./types"
 
 /**
  * The tool that gives an attached file's contents to the agent.
@@ -41,11 +41,7 @@ const ReadAttachmentInputSchema = Schema.toStandardJSONSchemaV1(
  * Declares `read_attachment` over the files this run carries, or nothing when it carries none —
  * an agent should not be offered a tool with nothing to read.
  */
-export function createChatAttachmentTools(input: {
-  readonly files: readonly ChatAttachmentFile[]
-  readonly log?: DebugLog | undefined
-}): AnyServerTool[] {
-  const { files, log } = input
+export function createChatAttachmentTools(files: readonly ChatAttachmentFile[]): AnyServerTool[] {
   if (files.length === 0) return []
   const byHandle = new Map(files.map((file) => [file.handle, file]))
 
@@ -60,21 +56,21 @@ export function createChatAttachmentTools(input: {
   }).server(({ file: handle, offset = 0, limit }) => {
     const file = byHandle.get(handle)
     if (!file) {
-      return Promise.resolve({
+      return {
         refusal: `There is no attached file with the handle "${handle}". The attached files are: ${files
           .map((candidate) => `"${candidate.handle}"`)
           .join(", ")}.`,
-      })
+      }
     }
     if (file.text === undefined) {
-      return Promise.resolve({
+      return {
         refusal:
           file.sandboxPath === undefined
             ? `"${handle}" is a ${file.mimeType} file with no text to read, and this agent has no ` +
               "sandbox to open it in. Tell the user you cannot read that file."
             : `"${handle}" is a ${file.mimeType} file with no text to read. Open it with code in ` +
               `the sandbox at ${file.sandboxPath} instead.`,
-      })
+      }
     }
     // A page is bounded whatever the agent asks for: the limit is model context, not a preference.
     const start = Math.min(Math.floor(offset), file.text.length)
@@ -85,8 +81,7 @@ export function createChatAttachmentTools(input: {
     const content = file.text.slice(start, start + size)
     const stop = start + content.length
     const done = stop >= file.text.length
-    log?.("attachment", `read ${handle} [${start}, ${stop})`, { characters: content.length })
-    return Promise.resolve({
+    return {
       file: handle,
       filename: file.filename,
       mimeType: file.mimeType,
@@ -103,7 +98,7 @@ export function createChatAttachmentTools(input: {
       ...(file.tables ? { tables: file.tables } : {}),
       ...(file.sections ? { sections: file.sections } : {}),
       ...(file.sandboxPath === undefined ? {} : { sandboxPath: file.sandboxPath }),
-    })
+    }
   })
 
   return [readAttachment]

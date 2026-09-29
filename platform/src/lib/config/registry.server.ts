@@ -5,7 +5,7 @@ import {
   SMTP_DEFAULTS,
   SmtpPortSchema,
   SmtpSecuritySchema,
-} from "@/emails/schema"
+} from "@/lib/email/schemas"
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { generateSecret } from "@/lib/generate-secret.server"
 import {

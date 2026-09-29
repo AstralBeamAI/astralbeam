@@ -1,3 +1,4 @@
+import { Result } from "effect"
 import { unzipSync } from "fflate"
 
 import {
@@ -13,6 +14,7 @@ import {
   CHAT_ATTACHMENT_XLSX_MIME_TYPE,
 } from "./constants.server"
 import { type AttachmentTable, profileRows } from "./attachment-profile.server"
+import { ChatOfficeArchiveTooLarge } from "./errors.ts"
 import type { ChatAttachmentContent } from "./types"
 
 /**
@@ -38,11 +40,6 @@ interface OfficeExtractionFailure {
 
 const decoder = new TextDecoder("utf-8")
 
-/** An archive whose declared contents are too large to inflate, refused before they are. */
-class OfficeArchiveTooLargeError extends Error {
-  override readonly name = "OfficeArchiveTooLargeError"
-}
-
 /**
  * Reads the named parts out of the container. `filter` runs before anything is inflated and
  * `originalSize` is the entry's declared uncompressed size, so a compression bomb is refused
@@ -51,7 +48,8 @@ class OfficeArchiveTooLargeError extends Error {
  * The budget is archive-wide rather than per entry: `unzipSync` inflates every selected entry
  * before it returns, so thousands of individually modest parts still add up to gigabytes, and a
  * per-entry cap below the archive's could only ever skip a part — which surfaced to the agent as
- * "it holds no document part" rather than the truth. Throwing stops the unpack and says why.
+ * "it holds no document part" rather than the truth. Throwing is fflate's only way to stop the
+ * unpack, so the filter throws and `extractOfficeDocument` turns that into a reason.
  *
  * Every entry is counted before `wanted` runs: those two caps describe only the parts that are
  * kept, so an archive declaring entries that match nothing would be walked with neither firing.
@@ -64,7 +62,7 @@ function readParts(bytes: Uint8Array, wanted: (name: string) => boolean): Record
     filter: (file) => {
       visited += 1
       if (visited > CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES) {
-        throw new OfficeArchiveTooLargeError()
+        throw new ChatOfficeArchiveTooLarge()
       }
       if (!wanted(file.name)) return false
       selected += 1
@@ -73,7 +71,7 @@ function readParts(bytes: Uint8Array, wanted: (name: string) => boolean): Record
         selected > CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES ||
         declared > CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES
       ) {
-        throw new OfficeArchiveTooLargeError()
+        throw new ChatOfficeArchiveTooLarge()
       }
       return true
     },
@@ -436,14 +434,15 @@ export function extractOfficeDocument(
 ): OfficeExtraction | OfficeExtractionFailure {
   const extractor = EXTRACTORS[mimeType]
   if (!extractor) return { reason: "this assistant cannot read that office format." }
-  try {
-    return extractor(bytes)
-  } catch (error) {
-    if (error instanceof OfficeArchiveTooLargeError) {
-      return { reason: "it declares more content than this assistant will unpack." }
-    }
-    return { reason: "its contents could not be unpacked." }
-  }
+  return Result.getOrElse(
+    Result.try(() => extractor(bytes)),
+    (error) => ({
+      reason:
+        error instanceof ChatOfficeArchiveTooLarge
+          ? "it declares more content than this assistant will unpack."
+          : "its contents could not be unpacked.",
+    }),
+  )
 }
 
 export function isOfficeMimeType(mimeType: string): boolean {

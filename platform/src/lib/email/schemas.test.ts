@@ -1,7 +1,7 @@
 import { expect, test } from "vitest"
 import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 
-import { EmailProviderConnectionInputSchema } from "./schema"
+import { EmailProviderConnectionInputSchema } from "./schemas.ts"
 
 test("provider validation rejects excess settings without exposing credentials", async () => {
   const validator = toValidationSchema(EmailProviderConnectionInputSchema, strictParseOptions)

@@ -34,14 +34,14 @@ async function read(
   files: readonly ChatAttachmentFile[],
   input: { file: string; offset?: number; limit?: number },
 ) {
-  const [tool] = createChatAttachmentTools({ files })
+  const [tool] = createChatAttachmentTools(files)
   return (await tool?.execute?.(input)) as Record<string, unknown>
 }
 
 // An agent should not be offered a reader when there is nothing to read.
 test("declares no tool for a run with no files", () => {
-  expect(createChatAttachmentTools({ files: [] })).toEqual([])
-  expect(createChatAttachmentTools({ files: [file()] })).toHaveLength(1)
+  expect(createChatAttachmentTools([])).toEqual([])
+  expect(createChatAttachmentTools([file()])).toHaveLength(1)
 })
 
 test("reads a file's text by handle", async () => {

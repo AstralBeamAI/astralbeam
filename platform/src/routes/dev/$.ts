@@ -46,8 +46,11 @@ export const Route = createFileRoute("/dev/$")({
         const emailPath = /^emails(?:\/([^/]+))?$/.exec(path)
         if (!emailPath) return new Response("Not Found", { status: 404 })
 
-        const { handleEmailPreviewRequest } = await import("@/emails/preview.server.ts")
-        return handleEmailPreviewRequest(request, emailPath[1])
+        const [{ emailPreviewResponse }, { getAppRuntime }] = await Promise.all([
+          import("@/lib/email/preview.server"),
+          import("@/lib/runtime/runtime.server"),
+        ])
+        return getAppRuntime().runPromise(emailPreviewResponse({ request, name: emailPath[1] }))
       },
       ANY: () => {
         if (!import.meta.env.DEV) return new Response("Not Found", { status: 404 })

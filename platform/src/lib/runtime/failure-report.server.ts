@@ -41,6 +41,14 @@ function describeReason(reason: Cause.Reason<unknown>): ReasonDiagnostic {
   }
 }
 
+/** A vendor error's code or name for a log line, never its message, which can carry secrets. */
+export function errorReason(error: unknown): string {
+  const reason = (["code", "name"] as const)
+    .map((field) => (Predicate.hasProperty(error, field) ? error[field] : undefined))
+    .find(Predicate.isString)
+  return reason && /^[\w.-]{1,64}$/.test(reason) ? reason : "unknown"
+}
+
 function errorType(value: unknown): string {
   if (Predicate.hasProperty(value, "_tag") && Predicate.isString(value._tag)) return value._tag
   return value instanceof Error ? value.name : typeof value

@@ -1,6 +1,7 @@
-import { Duration, Effect, Schedule, Schema } from "effect"
+import { DateTime, Duration, Effect, Schedule, Schema } from "effect"
 import { Activity, Workflow } from "effect/unstable/workflow"
 
+import { Mailer } from "../email/email.server.ts"
 import {
   deleteOrganizationRow,
   deleteOrganizationTenantBatch,
@@ -49,26 +50,20 @@ function notifyOrganizationOwners(input: {
 }) {
   return Effect.gen(function* () {
     if (input.ownerUserIds.length === 0) return
-    // Loaded on execution because Nitro's prerender bundle cannot resolve the email aliases.
-    const { sendOrganizationDeletedEmail } = yield* Effect.promise(
-      () => import("../../emails/index.ts"),
-    )
-    const deletedAt = new Date()
+    const mailer = yield* Mailer
+    const deletedAt = DateTime.toDateUtc(yield* DateTime.now)
     const emails = yield* readUserEmails(input.ownerUserIds).pipe(
       Effect.retry(organizationPurgeRetry),
       Effect.orDie,
     )
+    // The Mailer logs every outcome, so a notice that still fails after its retries is dropped.
     yield* Effect.forEach(emails, (email) =>
-      Effect.tryPromise(() =>
-        sendOrganizationDeletedEmail({
-          email,
-          organizationName: input.organizationName,
-          deletedAt,
-        }),
-      ).pipe(
-        Effect.retry({ schedule: Schedule.exponential("5 seconds"), times: 4 }),
-        Effect.ignore,
-      ),
+      mailer
+        .sendOrganizationDeleted({ email, organizationName: input.organizationName, deletedAt })
+        .pipe(
+          Effect.retry({ schedule: Schedule.exponential("5 seconds"), times: 4 }),
+          Effect.ignore,
+        ),
     )
   })
 }

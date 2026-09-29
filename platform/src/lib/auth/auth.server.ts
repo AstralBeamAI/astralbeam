@@ -23,7 +23,7 @@ import {
   sendPasswordChangedEmail,
   sendResetPasswordEmail,
   sendVerificationEmail,
-} from "@/emails/index"
+} from "@/lib/email/auth-callbacks.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import {
   ORGANIZATION_API_KEY_PREFIX,

@@ -19,7 +19,7 @@ import {
   EMAIL_PROVIDER_SETTING_KEYS,
   EmailProviderConnectionInputSchema,
   EmailProviderSchema,
-} from "@/emails/schema"
+} from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { generateConfigValue } from "../-functions/generate-config-value"
