@@ -1,15 +1,13 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
-import { toValidationSchema, NonEmptyStringSchema } from "@/lib/schemas"
 
-import { updateGlobalConfig } from "@/lib/config/update.server"
-import { getGlobalConfig } from "@/lib/config"
-import { provisionDogfoodResources } from "@/lib/dogfood/provisioning.server"
-import { runDatabaseEffect } from "@/db"
-import { withConfigureError } from "../-lib/configure-error.server"
-import type { ConfigureFieldError } from "../-lib/types"
-import { OwnerOnboardingInput } from "@/lib/dogfood/schema"
+import { Config } from "@/lib/config/config.server"
+import { Dogfood } from "@/lib/dogfood/dogfood.server"
+import { OwnerOnboardingInput } from "@/lib/dogfood/schemas"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"
 import { configureMiddleware } from "../-lib/configure-middleware"
+import type { ConfigureFieldError } from "../-lib/types"
 
 const SaveConfigValuesInput = Schema.Struct({
   onboarding: Schema.optional(OwnerOnboardingInput),
@@ -22,28 +20,29 @@ const SaveConfigValuesInput = Schema.Struct({
   ),
 })
 
-type SaveConfigValuesResult =
-  | { ok: true }
-  | { ok: false; error?: string; fieldErrors: readonly ConfigureFieldError[] }
-
+/** Returns the values it refused beside their fields. Every other failure is thrown. */
 export const saveConfigValues = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(toValidationSchema(SaveConfigValuesInput))
-  .handler(async ({ data }): Promise<SaveConfigValuesResult> => {
-    return withConfigureError(
-      "Configuration could not be saved",
-      async (): Promise<SaveConfigValuesResult> => {
-        const needsOnboarding = !(await getGlobalConfig("dogfood_organization_id"))
-        const saved = await updateGlobalConfig(data.updates)
-        if (!saved.ok || !needsOnboarding || !data.onboarding) return saved
-        return runDatabaseEffect(
-          provisionDogfoodResources(data.onboarding).pipe(
-            Effect.as({ ok: true } as const),
-            Effect.catchTag("OwnerOnboardingError", (error) =>
-              Effect.succeed({ ok: false, error: error.message, fieldErrors: [] } as const),
-            ),
-          ),
+  .handler(({ data, serverFnMeta }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const config = yield* Config
+        const dogfood = yield* Dogfood
+        yield* dogfood.withProvisioningLock(
+          Effect.gen(function* () {
+            const needsOnboarding = !(yield* config.get("dogfood_organization_id"))
+            yield* config.update(data.updates)
+            if (needsOnboarding && data.onboarding) yield* dogfood.provision(data.onboarding)
+          }),
         )
-      },
-    )
-  })
+        return { fieldErrors: [] as readonly ConfigureFieldError[] }
+      }).pipe(
+        Effect.catchTag("ConfigUpdateInvalid", (error) =>
+          Effect.succeed({ fieldErrors: error.issues }),
+        ),
+        Effect.catchTag(["OwnerOnboardingFailed", "ConfigurationBusy"], exposeError),
+      ),
+      serverFnMeta.name,
+    ),
+  )

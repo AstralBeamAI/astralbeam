@@ -7,6 +7,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { logoutOperator } from "../-functions/logout-operator"
 
 // The page's main actions, rendered above and below the content so they are reachable without
@@ -34,8 +35,8 @@ export function ConfigureActions({
       try {
         await logoutOperator()
         after()
-      } catch {
-        toast.add({ title: "The request failed; try again", type: "error" })
+      } catch (error) {
+        toast.add({ title: parseServerFnError(error).message, type: "error" })
       } finally {
         setLeaving(false)
       }

@@ -1,8 +1,8 @@
 import { createHmac } from "node:crypto"
 
-import { jwtVerify, SignJWT } from "jose"
-import { Schema } from "effect"
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server"
+import { Clock, Effect, Option, Schema } from "effect"
+import { jwtVerify, SignJWT } from "jose"
 
 import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
 import { generateSecret } from "@/lib/generate-secret.server"
@@ -15,11 +15,13 @@ const OPERATOR_SESSION_AUDIENCE = "configure"
 const OPERATOR_SESSION_SUBJECT = "operator"
 const OPERATOR_SESSION_TYPE = "operator-session+jwt"
 
-const OperatorSessionClaims = Schema.Struct({
-  sub: Schema.Literal(OPERATOR_SESSION_SUBJECT),
-  iat: Schema.Int,
-  exp: Schema.Int,
-}).check(Schema.makeFilter((claims) => claims.exp - claims.iat === OPERATOR_SESSION_TTL_SECONDS))
+const decodeOperatorSessionClaims = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    sub: Schema.Literal(OPERATOR_SESSION_SUBJECT),
+    iat: Schema.Int,
+    exp: Schema.Int,
+  }).check(Schema.makeFilter((claims) => claims.exp - claims.iat === OPERATOR_SESSION_TTL_SECONDS)),
+)
 
 interface OperatorSession {
   expiresAt: Date
@@ -31,45 +33,47 @@ function operatorSessionSigningKey(encryptionRoot: Uint8Array): Uint8Array {
     .digest()
 }
 
-export async function createOperatorSession(
-  encryptionRoot = getActiveDatabaseEncryptionRoot(),
-): Promise<string> {
-  const now = Math.floor(Date.now() / 1_000)
-  return await new SignJWT()
-    .setProtectedHeader({ alg: "HS256", typ: OPERATOR_SESSION_TYPE })
-    .setIssuer(OPERATOR_SESSION_ISSUER)
-    .setAudience(OPERATOR_SESSION_AUDIENCE)
-    .setSubject(OPERATOR_SESSION_SUBJECT)
-    .setJti(generateSecret())
-    .setIssuedAt(now)
-    .setExpirationTime(now + OPERATOR_SESSION_TTL_SECONDS)
-    .sign(operatorSessionSigningKey(encryptionRoot))
-}
+/** A short, stateless session signed only by the first active `DATABASE_ENCRYPTION_KEY` value. */
+export const createOperatorSession = Effect.fnUntraced(function* (
+  encryptionRoot: Uint8Array = getActiveDatabaseEncryptionRoot(),
+) {
+  const now = Math.floor((yield* Clock.currentTimeMillis) / 1_000)
+  return yield* Effect.tryPromise(() =>
+    new SignJWT()
+      .setProtectedHeader({ alg: "HS256", typ: OPERATOR_SESSION_TYPE })
+      .setIssuer(OPERATOR_SESSION_ISSUER)
+      .setAudience(OPERATOR_SESSION_AUDIENCE)
+      .setSubject(OPERATOR_SESSION_SUBJECT)
+      .setJti(generateSecret())
+      .setIssuedAt(now)
+      .setExpirationTime(now + OPERATOR_SESSION_TTL_SECONDS)
+      .sign(operatorSessionSigningKey(encryptionRoot)),
+  ).pipe(Effect.orDie)
+})
 
-export async function verifyOperatorSession(
+/** `None` for a missing, tampered, expired, or foreign token alike. */
+export const verifyOperatorSession = Effect.fnUntraced(function* (
   token: string | undefined,
-  encryptionRoot = getActiveDatabaseEncryptionRoot(),
-): Promise<OperatorSession | null> {
-  if (!token || token.length > OPERATOR_SESSION_MAX_TOKEN_LENGTH) return null
-  try {
-    const result = await jwtVerify(token, operatorSessionSigningKey(encryptionRoot), {
+  encryptionRoot: Uint8Array = getActiveDatabaseEncryptionRoot(),
+) {
+  if (!token || token.length > OPERATOR_SESSION_MAX_TOKEN_LENGTH) return Option.none()
+  const currentDate = new Date(yield* Clock.currentTimeMillis)
+  return yield* Effect.tryPromise(() =>
+    jwtVerify(token, operatorSessionSigningKey(encryptionRoot), {
       algorithms: ["HS256"],
       issuer: OPERATOR_SESSION_ISSUER,
       audience: OPERATOR_SESSION_AUDIENCE,
       requiredClaims: ["iat", "exp", "sub", "jti"],
       maxTokenAge: OPERATOR_SESSION_TTL_SECONDS,
-    })
-    if (result.protectedHeader.typ !== OPERATOR_SESSION_TYPE) return null
-    const payload = Schema.decodeUnknownSync(OperatorSessionClaims)(result.payload)
-    return { expiresAt: new Date(payload.exp * 1_000) }
-  } catch {
-    return null
-  }
-}
-
-function operatorSessionToken(): string | undefined {
-  return getCookie(OPERATOR_SESSION_COOKIE)
-}
+      currentDate,
+    }),
+  ).pipe(
+    Effect.filterOrFail((result) => result.protectedHeader.typ === OPERATOR_SESSION_TYPE),
+    Effect.flatMap((result) => decodeOperatorSessionClaims(result.payload)),
+    Effect.map((claims): OperatorSession => ({ expiresAt: new Date(claims.exp * 1_000) })),
+    Effect.option,
+  )
+})
 
 export function setOperatorSessionCookie(token: string): void {
   setCookie(OPERATOR_SESSION_COOKIE, token, {
@@ -88,6 +92,7 @@ export function clearOperatorSessionCookie(): void {
   })
 }
 
-export async function getOperatorSession(): Promise<OperatorSession | null> {
-  return await verifyOperatorSession(operatorSessionToken())
+/** The session the request's cookie carries, when it verifies. */
+export function readOperatorSession() {
+  return verifyOperatorSession(getCookie(OPERATOR_SESSION_COOKIE))
 }

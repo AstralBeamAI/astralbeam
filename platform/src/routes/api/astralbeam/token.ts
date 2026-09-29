@@ -1,16 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router"
-import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
-import * as SchemaIssue from "effect/SchemaIssue"
+import { Effect, Result, Schema, SchemaIssue } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { getGlobalConfig } from "@/lib/config"
-import { isSetupComplete } from "@/lib/config/state.server"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
-import { validationParseOptions, SlugSchema } from "@/lib/schemas"
+import { Config } from "@/lib/config/config.server"
+import { reportFailure } from "@/lib/runtime/failure-report.server"
+import { getAppRuntime } from "@/lib/runtime/runtime.server"
+import { httpStatus } from "@/lib/runtime/server-fn.server"
+import { SlugSchema, validationParseOptions } from "@/lib/schemas"
 import { readRequestJson, RequestTooLargeError } from "../-lib/request-body.server"
 
-const decodeDashboardTokenRequest = Schema.decodeUnknownSync(
+const decodeDashboardTokenRequest = Schema.decodeUnknownResult(
   Schema.Struct({
     organizationSlug: SlugSchema,
     scope: Schema.optional(Schema.Literal("organization")),
@@ -28,9 +28,10 @@ function dashboardTokenErrorResponse(error: string, status: number, code?: strin
   return Response.json({ error, code }, { status, headers: dashboardTokenHeaders })
 }
 
-async function handleDashboardTokenRequest(request: Request): Promise<Response> {
-  try {
-    const baseUrl = await getGlobalConfig("app_base_url")
+const handleDashboardTokenRequest = Effect.fn("handleDashboardTokenRequest")(
+  function* (request: Request) {
+    const config = yield* Config
+    const baseUrl = yield* config.get("app_base_url")
     if (
       !baseUrl ||
       request.headers.get("origin") !== new URL(baseUrl).origin ||
@@ -38,38 +39,48 @@ async function handleDashboardTokenRequest(request: Request): Promise<Response> 
     ) {
       return dashboardTokenErrorResponse("Forbidden", 403)
     }
-    if (!(await isSetupComplete())) {
+    if (!(yield* config.setupState).setupComplete) {
       return dashboardTokenErrorResponse("Application is not configured", 503)
     }
-    let input: ReturnType<typeof decodeDashboardTokenRequest>
-    try {
-      input = decodeDashboardTokenRequest(await readRequestJson(request, 1024))
-    } catch (error) {
-      if (error instanceof RequestTooLargeError) {
-        return dashboardTokenErrorResponse("Request too large", 413)
-      }
-      return dashboardTokenErrorResponse(
-        Schema.isSchemaError(error)
-          ? formatDashboardTokenIssues(error.issue)
-              .issues.map((issue) => issue.message)
-              .join("\n")
-          : "Invalid JSON request body",
-        400,
-      )
-    }
-    return await runDatabaseEffect(
-      issueDashboardToken({ ...input, headers: request.headers }).pipe(
-        Effect.map((result) => Response.json(result, { headers: dashboardTokenHeaders })),
-        Effect.catchTag("DashboardTokenError", (error) =>
-          Effect.succeed(dashboardTokenErrorResponse(error.message, error.status, error.code)),
-        ),
-      ),
+    const body = yield* Effect.result(
+      Effect.tryPromise({ try: () => readRequestJson(request, 1024), catch: (cause) => cause }),
     )
-  } catch {
-    return dashboardTokenErrorResponse("Authentication is unavailable", 500)
-  }
-}
+    if (Result.isFailure(body)) {
+      return body.failure instanceof RequestTooLargeError
+        ? dashboardTokenErrorResponse("Request too large", 413)
+        : dashboardTokenErrorResponse("Invalid JSON request body", 400)
+    }
+    const input = decodeDashboardTokenRequest(body.success)
+    if (Result.isFailure(input)) {
+      const issues = formatDashboardTokenIssues(input.failure.issue).issues
+      return dashboardTokenErrorResponse(issues.map((issue) => issue.message).join("\n"), 400)
+    }
+    const result = yield* issueDashboardToken({ ...input.success, headers: request.headers })
+    return Response.json(result, { headers: dashboardTokenHeaders })
+  },
+  Effect.catch((error) =>
+    Effect.succeed(
+      dashboardTokenErrorResponse(
+        error.message,
+        httpStatus(error),
+        error._tag === "OrganizationApiKeysMissing" ? "NO_API_KEYS" : undefined,
+      ),
+    ),
+  ),
+  Effect.catchCause((cause) =>
+    Effect.map(reportFailure("handleDashboardTokenRequest", cause), () =>
+      dashboardTokenErrorResponse("Authentication is unavailable", 500),
+    ),
+  ),
+)
 
 export const Route = createFileRoute("/api/astralbeam/token")({
-  server: { handlers: { POST: ({ request }) => handleDashboardTokenRequest(request) } },
+  server: {
+    handlers: {
+      POST: ({ request }) =>
+        getDatabaseBootstrapIssues().length > 0
+          ? dashboardTokenErrorResponse("Application is not configured", 503)
+          : getAppRuntime().runPromise(handleDashboardTokenRequest(request)),
+    },
+  },
 })

@@ -1,12 +1,16 @@
 import { createServerFn } from "@tanstack/react-start"
+import { Effect } from "effect"
 
-import { loadPublicConfig } from "@/lib/config/state.server"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
-import type { PublicConfig } from "@/lib/config/types"
+import { Config } from "@/lib/config/config.server"
+import { runEffect } from "@/lib/runtime/server-fn.server"
 
-export const getPublicConfig = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PublicConfig | null> => {
-    if (getDatabaseBootstrapIssues().length > 0) return null
-    return await loadPublicConfig()
-  },
+/** `null` until setup completes, including while no database is configured. */
+export const getPublicConfig = createServerFn({ method: "GET" }).handler(({ serverFnMeta }) =>
+  getDatabaseBootstrapIssues().length > 0
+    ? null
+    : runEffect(
+        Effect.flatMap(Config, (config) => config.publicConfig),
+        serverFnMeta.name,
+      ),
 )
