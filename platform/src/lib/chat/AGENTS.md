@@ -4,8 +4,8 @@
 
 ## Request arrival
 
-- This folder owns chat execution, identity, attachments, and sandbox orchestration. Keep it independent of API routes. `createChatRun` accepts parsed input and a verified principal and returns the event stream and abort controller. `readChatFile` returns verified bytes, MIME type, and path.
-- `src/routes/api/v1/chat/-lib` owns the HTTP contracts, body parsing, SSE responses, and download headers. Runtime imports stay deferred so static OpenAPI generation needs no database configuration. Throw `ChatError` for expected domain failures. The shared API boundary maps them to HTTP errors.
+- This folder owns chat execution, identity, attachments, and sandbox orchestration. Keep it independent of API routes. `Chat.run` accepts parsed input and a verified principal and returns the event Stream, and interrupting it aborts the run. `ChatSandboxes.readArtifact` returns verified bytes, MIME type, and path.
+- `src/routes/api/v1/chat/-lib` owns the HTTP contracts, body parsing, SSE responses, and download headers. Runtime imports stay deferred so static OpenAPI generation needs no database configuration. Fail with the `Schema.TaggedError` classes in `errors.ts`, whose `httpApiStatus` the v1 boundary encodes.
 - Keep agent selection and selected configuration fields in one lookup. Handler error conversion also satisfies Effect HttpApi's declared error types, so removing it requires type checking as well as HTTP tests.
 - `handleRaw` preserves TanStack's AG-UI parser and bounded body reader. A declared or actual streamed body over `CHAT_MAX_REQUEST_BYTES` (32 MiB) gives 413. Do not apply resource casing transformations to AG-UI input.
 - `chatParamsFromRequestBody` from `@tanstack/ai` parses the AG-UI run input: messages, the client-declared tools with their schemas, `threadId`/`runId`/`parentRunId`/`resume`, and `forwardedProps`.
@@ -19,12 +19,12 @@
 - Key lifecycle (`enabled`, `expires_at`) is re-read _after_ the signature verifies, in a second query keyed by `(id, organizationId)`. A disabled or expired key fails there, preventing revoked keys from working for the remaining token lifetime.
 - Verification is read-only. It never touches `request_count`, `remaining`, the refill columns, or `last_request`, so a chat run does not consume Better Auth API-key quota.
 - The trusted context is a `ChatPrincipal`: `organization.id` from the loaded row, plus the token's `user` and `tenant` claims. No organization id ever comes from the request body.
-- Rate limiting (`rate-limit.server.ts`) is 20 requests per 60 seconds against the database-backed limiter, keyed by `chat:` plus `chatPrincipalScope`, a SHA-256 over the JSON tuple `[organizationId, tenantId, tenantUserId]`. The tenant ids are host-supplied external strings, so the JSON tuple is what makes arbitrary text an unambiguous key.
+- Rate limiting (`consumeChatRateLimit` in `src/routes/api/v1/chat/-lib/run.server.ts`) is 20 requests per 60 seconds against the database-backed limiter, keyed by `chat:` plus `chatPrincipalScope`, a SHA-256 over the JSON tuple `[organizationId, tenantId, tenantUserId]`. The tenant ids are host-supplied external strings, so the JSON tuple is what makes arbitrary text an unambiguous key.
 - `tenant` and `tenant_user` rows are not involved: nothing here reads or writes them. Tenancy on this path is the token's claims.
 
 ## Agent resolution
 
-- `resolveChatAgent` takes the `agentId` public id (`agent_<orgId>_<id>`) or, when it is absent, joins `organization_configuration.default_agent_id`. Creating an organization also creates a starter agent and that configuration row, so the default normally exists. When it does not, the 404 says so specifically.
+- `Agents.resolveForChat` takes the `agentId` public id (`agent_<orgId>_<id>`) or, when it is absent, joins `organization_configuration.default_agent_id`. Creating an organization also creates a starter agent and that configuration row, so the default normally exists. When it does not, the 404 says so specifically.
 - A malformed id, a non-string id, and an id belonging to another organization all return `null` and the same 404, because the query is additionally filtered by the authenticated organization id. There is no way to tell "not an id" from "not yours".
 - The agent row contributes exactly three things: `systemPrompt`, `attachmentsEnabled`, and the optional `sandboxProviderId`. It carries no model, every run uses the single `CHAT_MODEL` constant in `adapter.server.ts` with the authenticated organization's own `organization_configuration.openai_api_key`. A missing key is a 503 whose detail says the organization has no key, which the widget shows the tenant user instead of a reply.
 - System prompts compose in order: `CHAT_SYSTEM_PROMPT`, the attachment policy when the run carries files, the two sandbox prompts when sandbox tools were declared, then the agent's own prompt last. No prompt text ever names a file, sheet, or column: those strings are chosen by whoever made the file, and a system prompt carries deployment authority.
@@ -46,7 +46,7 @@
 - Host tools and widgets arrive declared in the request body and execute in the host page. The endpoint forwards them verbatim through `mergeAgentTools`, which drops a client tool whose name collides with a server tool. `render_widget` and `ask_questionnaire` are the two every mount declares.
 - Sandbox tools are the exception that executes here: `sandbox_write_file`, `sandbox_read_file`, `sandbox_list_files`, `sandbox_run_command`, and `sandbox_publish_artifact`, declared only when the agent has a `sandboxProviderId`.
 - `sdk/src/core/protocol.ts` names the shared literals: `RENDER_WIDGET_TOOL`, `ASK_QUESTIONNAIRE_TOOL`, `SANDBOX_WRITE_FILE_TOOL`, `SANDBOX_READ_FILE_TOOL`, `SANDBOX_LIST_FILES_TOOL`, `SANDBOX_RUN_COMMAND_TOOL`, `SANDBOX_PUBLISH_ARTIFACT_TOOL`, and `SANDBOX_STATUS_EVENT`. The SDK writes them as string literals. This side derives them from `APP_HANDLE` in `constants.server.ts`.
-- No sandbox is provisioned when a run starts. `resolveChatSandboxSession` is one organization-scoped configuration read. The first sandbox tool the agent reaches for calls `acquireChatSandbox`, which memoizes one `ensure`, including its rejection, so a failed provision is not retried per tool call, and writes the run's uploads in.
+- No sandbox is provisioned when a run starts. `resolveChatSandboxSession` is one organization-scoped configuration read. The first sandbox tool the agent reaches for calls the session's `acquire`, which memoizes one `ensure` in a Deferred, including its failure, so a failed provision is not retried per tool call, and writes the run's uploads in.
 - Provisioning progress goes out as the `SANDBOX_STATUS_EVENT` CUSTOM event carrying `state: "starting" | "ready" | "error"`. It exists because no tool result can report it in time: the widget needs it while the sandbox is still starting.
 - An unreadable provider configuration drops the sandbox tools and their prompts together and logs the reason, so the agent answers without a sandbox instead of the run failing.
 - Sandbox leases are process-local, namespaced by `chatPrincipalScope`, swept at 15 minutes idle, and capped at 25 live with LRU eviction. Resume therefore works only within one replica.
@@ -54,10 +54,10 @@
 
 ## Streaming
 
-- `chat()` produces the AG-UI event stream. The route uses `toServerSentEventsResponse` and Effect's `HttpServerResponse.fromWeb` without buffering. A shared `AbortController` lets a dropped client abort the run.
+- `chat()` produces the AG-UI event stream. The route uses `toServerSentEventsResponse` and Effect's `HttpServerResponse.fromWeb` without buffering. The run's Stream owns the only `AbortController` and aborts it before closing TanStack's iterator, so a dropped client aborts the run.
 - The events are AG-UI's own: `RUN_STARTED`/`RUN_FINISHED`/`RUN_ERROR`, `TEXT_MESSAGE_*`, `REASONING_MESSAGE_*`, `TOOL_CALL_START`/`ARGS`/`END`/`RESULT`, `MESSAGES_SNAPSHOT`, and CUSTOM.
 - A host tool result comes back on a _following request_ rather than on this stream: the client executes the tool in its page, then re-posts the conversation with `runId`, `parentRunId`, and `resume` set. `adapter.server.ts` drops the OpenAI Responses item id from a replayed `function_call` so it matches on `call_id` alone. Without that, a reasoning model rejects the unpaired call and the run fails the moment the first host tool result arrives.
-- `withDebugLog` wraps the stream, accumulates text and tool-input deltas and logs them whole on their end event, and `redactChatAttachmentData` replaces every base64 payload with its size before any message is printed.
+- `withChatDebugLog` taps the stream, accumulates text and tool-input deltas and logs them whole on their end event, and `redactChatAttachmentData` replaces every base64 payload with its size before any message is printed.
 
 ## Invariants
 
