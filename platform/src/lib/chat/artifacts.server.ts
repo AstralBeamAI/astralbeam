@@ -1,13 +1,15 @@
+import { Effect, Result, Schema } from "effect"
 import { base64url, jwtVerify, SignJWT } from "jose"
-import { Schema } from "effect"
 
 import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
+import { APP_HANDLE } from "@/lib/constants"
 import {
   CHAT_ARTIFACT_TICKET_AUDIENCE,
   CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS,
   CHAT_ARTIFACT_TICKET_TYPE,
   CHAT_ATTACHMENT_MAGIC_BYTES,
 } from "./constants.server"
+import { ChatArtifactUnavailable } from "./errors.ts"
 
 /**
  * Sandbox artifact tickets: a short-lived signed capability to download exactly the published
@@ -15,40 +17,38 @@ import {
  * its own info label: deployment-wide, so any replica (and a restarted process) can verify a
  * ticket another minted against a vendor sandbox that is still alive, while staying
  * domain-separated from every other use of the root and independent of the stored API-key
- * digest. Rotating the first DATABASE_ENCRYPTION_KEY entry invalidates live tickets, which at a
- * fifteen-minute lifetime is acceptable.
+ * digest. Rotating the first DATABASE_ENCRYPTION_KEY entry or changing APP_HANDLE invalidates
+ * live tickets, which at a fifteen-minute lifetime is acceptable.
  */
-let artifactTicketKeyPromise: Promise<Uint8Array> | undefined
-
-function artifactTicketKey(): Promise<Uint8Array> {
-  return (artifactTicketKeyPromise ??= deriveArtifactTicketKey())
-}
-
-async function deriveArtifactTicketKey(): Promise<Uint8Array> {
-  const material = await crypto.subtle.importKey(
-    "raw",
-    getActiveDatabaseEncryptionRoot() as BufferSource,
-    "HKDF",
-    false,
-    ["deriveBits"],
+export const deriveArtifactTicketKey = Effect.gen(function* () {
+  const material = yield* Effect.promise(() =>
+    crypto.subtle.importKey(
+      "raw",
+      getActiveDatabaseEncryptionRoot() as BufferSource,
+      "HKDF",
+      false,
+      ["deriveBits"],
+    ),
   )
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "HKDF",
-      hash: "SHA-256",
-      salt: new Uint8Array(0),
-      info: new TextEncoder().encode("astralbeam sandbox artifact ticket v1"),
-    },
-    material,
-    256,
+  const bits = yield* Effect.promise(() =>
+    crypto.subtle.deriveBits(
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: new Uint8Array(0),
+        info: new TextEncoder().encode(`${APP_HANDLE} sandbox artifact ticket v1`),
+      },
+      material,
+      256,
+    ),
   )
   return new Uint8Array(bits)
-}
+})
 
 /** Digest binding a ticket to the exact published bytes, so a same-type overwrite is refused. */
-export async function artifactContentDigest(bytes: Uint8Array): Promise<string> {
-  return base64url.encode(
-    new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource)),
+export function artifactContentDigest(bytes: Uint8Array) {
+  return Effect.promise(() => crypto.subtle.digest("SHA-256", bytes as BufferSource)).pipe(
+    Effect.map((digest) => base64url.encode(new Uint8Array(digest))),
   )
 }
 
@@ -68,29 +68,30 @@ const SandboxArtifactTicketSchema = Schema.Struct({
   sha256: Schema.String,
 })
 export type SandboxArtifactTicket = typeof SandboxArtifactTicketSchema.Type
+const decodeSandboxArtifactTicket = Schema.decodeUnknownEffect(SandboxArtifactTicketSchema)
 
-export async function mintSandboxArtifactTicket(ticket: SandboxArtifactTicket): Promise<string> {
-  return await new SignJWT({ ...ticket })
-    .setProtectedHeader({ alg: "HS256", typ: CHAT_ARTIFACT_TICKET_TYPE })
-    .setAudience(CHAT_ARTIFACT_TICKET_AUDIENCE)
-    .setIssuedAt()
-    .setExpirationTime(`${CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS}s`)
-    .sign(await artifactTicketKey())
+export function mintSandboxArtifactTicket(key: Uint8Array, ticket: SandboxArtifactTicket) {
+  return Effect.promise(() =>
+    new SignJWT({ ...ticket })
+      .setProtectedHeader({ alg: "HS256", typ: CHAT_ARTIFACT_TICKET_TYPE })
+      .setAudience(CHAT_ARTIFACT_TICKET_AUDIENCE)
+      .setIssuedAt()
+      .setExpirationTime(`${CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS}s`)
+      .sign(key),
+  )
 }
 
-/** Returns the ticket's claims, or undefined for anything invalid, expired, or malformed. */
-export async function verifySandboxArtifactTicket(
-  token: string,
-): Promise<SandboxArtifactTicket | undefined> {
-  try {
-    const { payload } = await jwtVerify(token, await artifactTicketKey(), {
+/** The ticket's claims, failing alike for anything invalid, expired, or malformed. */
+export function verifySandboxArtifactTicket(key: Uint8Array, token: string) {
+  return Effect.tryPromise(() =>
+    jwtVerify(token, key, {
       audience: CHAT_ARTIFACT_TICKET_AUDIENCE,
       typ: CHAT_ARTIFACT_TICKET_TYPE,
-    })
-    return Schema.decodeUnknownSync(SandboxArtifactTicketSchema)(payload)
-  } catch {
-    return undefined
-  }
+    }),
+  ).pipe(
+    Effect.flatMap(({ payload }) => decodeSandboxArtifactTicket(payload)),
+    Effect.mapError(() => new ChatArtifactUnavailable({ reason: "Expired" })),
+  )
 }
 
 function matchesMagicBytes(
@@ -124,13 +125,10 @@ export function isInlineArtifactMimeType(mimeType: string): boolean {
 function isPlainText(bytes: Uint8Array): boolean {
   // NUL is the practical text/binary discriminator; a full decode then proves valid UTF-8.
   const head = bytes.subarray(0, 4096)
-  if (head.includes(0)) return false
-  try {
-    new TextDecoder("utf-8", { fatal: true }).decode(head)
-    return true
-  } catch {
-    return false
-  }
+  return (
+    !head.includes(0) &&
+    Result.isSuccess(Result.try(() => new TextDecoder("utf-8", { fatal: true }).decode(head)))
+  )
 }
 
 /**

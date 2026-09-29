@@ -40,7 +40,7 @@ vi.mock("@tanstack/react-start/server", () => ({
   setResponseHeader: vi.fn(),
   setResponseStatus: vi.fn(),
 }))
-vi.mock("@/emails/index", () => ({
+vi.mock("@/lib/email/auth-callbacks.server", () => ({
   sendResetPasswordEmail: vi.fn(({ url }: { url: string }) => {
     if (dogfoodIntegration.failEmail) throw new Error("provider-private-failure")
     dogfoodIntegration.resetUrl = url
@@ -72,7 +72,7 @@ import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
 import { getAuth } from "@/lib/auth/auth.server"
 import { Agents } from "@/lib/agents/agents.server"
-import { sendResetPasswordEmail } from "@/emails/index"
+import { sendResetPasswordEmail } from "@/lib/email/auth-callbacks.server"
 import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
 import { authenticateChatRequest } from "@/lib/chat/auth.server"
@@ -213,7 +213,7 @@ describe.skipIf(!dogfoodIntegration.url)(
           ),
         ),
       )
-      const principal = await authenticateChatRequest(request)
+      const principal = await runDatabaseEffect(authenticateChatRequest(request))
       const dogfoodId = (await getDatabaseConfig()).values.dogfood_organization_id!
       expect(principal.organization.id).toBe(dogfoodId)
       expect(principal.tenantUser).toMatchObject({

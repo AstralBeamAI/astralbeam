@@ -45,6 +45,14 @@ const AgentSandboxProviderSchema = Schema.Struct({
 
 export type AgentSandboxProvider = typeof AgentSandboxProviderSchema.Type
 
+/** The agent configuration a chat run reads, which carries no model. */
+export interface ChatAgent {
+  readonly id: string
+  readonly systemPrompt: string
+  readonly attachmentsEnabled: boolean
+  readonly sandboxProviderId: string | null
+}
+
 const DefaultAgentConfigurationSchema = Schema.NullOr(
   Schema.Struct({ defaultAgentId: Schema.NullOr(UuidV7Schema) }),
 )
@@ -147,6 +155,14 @@ export class Agents extends Context.Service<
       readonly organizationId: string
       readonly agentId: string
     }) => Effect.Effect<void, AgentNotFound>
+    /**
+     * Chat's one agent lookup: the public ID, or the organization's default when the host sends
+     * none. Malformed and foreign IDs fail alike, so a caller cannot tell them apart.
+     */
+    readonly resolveForChat: (input: {
+      readonly organizationId: string
+      readonly agentId: unknown
+    }) => Effect.Effect<ChatAgent, AgentNotFound>
     /** Recovers a missing default agent without replacing one or creating duplicates. */
     readonly provisionDefault: (input: {
       readonly organizationId: string
@@ -302,6 +318,44 @@ export class Agents extends Context.Service<
         }),
       )
 
+      const resolveForChat = Effect.fn("Agents.resolveForChat")(function* (input: {
+        organizationId: string
+        agentId: unknown
+      }) {
+        const useDefault = input.agentId === undefined || input.agentId === null
+        const parsed = parseAgentId(input.agentId)
+        if (!useDefault && parsed?.organizationId !== input.organizationId) {
+          return yield* new AgentNotFound()
+        }
+        const query = db
+          .select({
+            id: agent.id,
+            systemPrompt: agent.systemPrompt,
+            attachmentsEnabled: agent.attachmentsEnabled,
+            sandboxProviderId: agent.sandboxProviderId,
+          })
+          .from(agent)
+        const [row] = yield* (
+          parsed && !useDefault
+            ? query.where(
+                and(eq(agent.id, parsed.id), eq(agent.organizationId, input.organizationId)),
+              )
+            : query
+                .innerJoin(
+                  organizationConfiguration,
+                  and(
+                    eq(agent.id, organizationConfiguration.defaultAgentId),
+                    eq(agent.organizationId, organizationConfiguration.organizationId),
+                  ),
+                )
+                .where(eq(agent.organizationId, input.organizationId))
+        )
+          .limit(1)
+          .pipe(Effect.orDie)
+        if (!row) return yield* new AgentNotFound()
+        return row
+      })
+
       const provisionDefault = Effect.fn("Agents.provisionDefault")(function* (input: {
         organizationId: string
         organizationName: string
@@ -360,6 +414,7 @@ export class Agents extends Context.Service<
         update,
         remove,
         setDefault,
+        resolveForChat,
         provisionDefault,
       })
     }),

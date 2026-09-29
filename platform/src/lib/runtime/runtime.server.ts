@@ -3,6 +3,9 @@ import { Layer, Logger, ManagedRuntime } from "effect"
 import { Database } from "@/db/database.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { Agents } from "@/lib/agents/agents.server"
+import { Chat } from "@/lib/chat/chat.server"
+import { ChatSandboxes } from "@/lib/chat/sandbox.server"
+import { Mailer } from "@/lib/email/email.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
@@ -14,8 +17,11 @@ const LoggerLayer = Logger.layer([
 /** Every service the application's Effects may require, built once per module graph. */
 export const AppLayer = Layer.mergeAll(
   Agents.layer,
+  Chat.layer,
+  ChatSandboxes.layer,
   Database.layer,
   DatabaseRateLimiter.layer,
+  Mailer.layer,
   SandboxProviders.layer,
   Tenants.layer,
   TenantUsers.layer,
@@ -32,4 +38,11 @@ export function getAppRuntime() {
   return (appRuntime ??= ManagedRuntime.make(AppLayer.pipe(Layer.orDie)))
 }
 
-import.meta.hot?.dispose(() => void appRuntime?.dispose())
+/** Runs the services' finalizers, such as destroying chat sandboxes, without closing the pools. */
+export function disposeAppRuntime(): Promise<void> {
+  const runtime = appRuntime
+  appRuntime = undefined
+  return runtime ? runtime.dispose() : Promise.resolve()
+}
+
+import.meta.hot?.dispose(() => void disposeAppRuntime())

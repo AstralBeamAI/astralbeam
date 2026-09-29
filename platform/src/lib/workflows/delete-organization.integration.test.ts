@@ -17,6 +17,7 @@ const deleteOrganizationIntegration = vi.hoisted(() => {
 })
 
 import { Database, getAuthDatabase, runDatabaseEffect } from "@/db"
+import { Mailer } from "@/lib/email/email.server"
 import { revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
 import {
   agent,
@@ -82,7 +83,8 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         Effect.provide(
           deleteOrganizationWorkflowLayer.pipe(
             Layer.provideMerge(WorkflowEngine.layerMemory),
-            Layer.provide(Database.layerNoDeps),
+            // No owners are passed, so the notice step never reaches the Mailer.
+            Layer.provide([Database.layerNoDeps, Layer.succeed(Mailer, {} as Mailer["Service"])]),
           ),
         ),
       )

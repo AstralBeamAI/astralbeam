@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 
-import { Database } from "@/db"
+import { Database } from "@/db/database.server"
 import { organizationConfiguration } from "@/db/schema/organizations.server"
 
 /** How much of a stored key may leave the server, which is what names it without revealing it. */

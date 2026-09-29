@@ -24,7 +24,7 @@ import {
   sendPasswordChangedEmail,
   sendResetPasswordEmail,
   sendVerificationEmail,
-} from "@/emails/index"
+} from "@/lib/email/auth-callbacks.server"
 import { getGlobalConfig } from "@/lib/config"
 import { APP_NAME } from "@/lib/constants"
 import {

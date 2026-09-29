@@ -1,8 +1,8 @@
 import { Effect, Schema } from "effect"
 
-import { NonEmptyStringSchema, enumSchema } from "../lib/schemas.ts"
+import { NonEmptyStringSchema, enumSchema } from "@/lib/schemas"
 
-/** Providers `sendEmail` can dispatch to; each maps to one `src/emails/providers` module. */
+/** Providers the Mailer can dispatch to; each maps to one `providers/*.server.ts` module. */
 export const EmailProviderSchema = enumSchema(["smtp", "resend", "ses"]).annotate({
   title: "Email provider",
   description: "Protocol used to deliver application email.",
@@ -96,11 +96,15 @@ const SesProviderSettingsSchema = Schema.Struct({
     title: "AWS Region",
     description: "AWS region containing the SES account.",
   }),
-  aws_access_key_id: Schema.String.annotateKey({
-    title: "AWS Access Key ID",
-    description: "Optional static access key; it must be paired with a secret key.",
-  }),
-  aws_secret_access_key: Schema.String.annotateKey({
+  aws_access_key_id: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))).annotateKey(
+    {
+      title: "AWS Access Key ID",
+      description: "Optional static access key; it must be paired with a secret key.",
+    },
+  ),
+  aws_secret_access_key: Schema.String.pipe(
+    Schema.withDecodingDefault(Effect.succeed("")),
+  ).annotateKey({
     title: "AWS Secret Access Key",
     description: "Optional static secret key; it must be paired with an access key ID.",
   }),
@@ -130,22 +134,9 @@ const EmailProviderConnectionResultSchema = Schema.Union([
   title: "Email provider connection result",
   description: "Result of verifying provider settings without sending email.",
 })
-type EmailProviderConnectionResult = Schema.Schema.Type<typeof EmailProviderConnectionResultSchema>
-
-export type TestConnection<Settings> = (
-  settings: Settings,
-) => Promise<EmailProviderConnectionResult>
-
-export async function runConnectionTest(
-  check: () => Promise<void>,
-): Promise<EmailProviderConnectionResult> {
-  try {
-    await check()
-    return { ok: true }
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Connection test failed" }
-  }
-}
+export type EmailProviderConnectionResult = Schema.Schema.Type<
+  typeof EmailProviderConnectionResultSchema
+>
 
 export const EmailProviderConnectionInputSchema = Schema.Union([
   Schema.Struct({
@@ -164,3 +155,6 @@ export const EmailProviderConnectionInputSchema = Schema.Union([
   title: "Email provider connection test",
   description: "Provider-specific settings submitted from the configuration page for verification.",
 })
+export type EmailProviderConnectionInput = Schema.Schema.Type<
+  typeof EmailProviderConnectionInputSchema
+>

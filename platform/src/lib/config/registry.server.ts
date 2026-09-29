@@ -7,7 +7,7 @@ import {
   SMTP_DEFAULTS,
   SmtpPortSchema,
   SmtpSecuritySchema,
-} from "@/emails/schema"
+} from "@/lib/email/schemas"
 import { generateSecret } from "@/lib/generate-secret.server"
 import { strictParseOptions, UuidV7Schema, NonEmptyStringSchema } from "@/lib/schemas"
 import { DogfoodCredential } from "@/lib/dogfood/schema"

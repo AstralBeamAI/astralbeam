@@ -1,22 +1,52 @@
-import { chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
-import { createChatRun } from "@/lib/chat/run.server"
-import type { ChatParams, ChatPrincipal } from "@/lib/chat/types"
-import { restFault } from "../../-lib/responses.server"
-import { readRequestJson, RequestTooLargeError } from "@/routes/api/-lib/request-body.server"
-import { CHAT_MAX_REQUEST_BYTES } from "@/lib/chat/constants.server"
+import {
+  chatParamsFromRequestBody,
+  type StreamChunk,
+  toServerSentEventsResponse,
+} from "@tanstack/ai"
+import { Duration, Effect, Stream } from "effect"
+import { HttpServerResponse } from "effect/unstable/http"
 
-export async function runChatRequest(
-  request: Request,
-  principal: ChatPrincipal,
-): Promise<Response> {
-  let params: ChatParams
-  try {
-    params = await chatParamsFromRequestBody(await readRequestJson(request, CHAT_MAX_REQUEST_BYTES))
-  } catch (error) {
-    throw error instanceof RequestTooLargeError
-      ? restFault(413, "The message and its attachments are too large.")
-      : restFault(400, "The request body is not a valid chat run input.")
-  }
-  const { stream, abortController } = await createChatRun(params, principal)
-  return toServerSentEventsResponse(stream, { abortController })
+import {
+  CHAT_MAX_REQUEST_BYTES,
+  CHAT_RATE_LIMIT_MAX_REQUESTS,
+  CHAT_RATE_LIMIT_WINDOW_MS,
+} from "@/lib/chat/constants.server"
+import type { ChatPrincipal } from "@/lib/chat/types"
+import { readRequestJson, RequestTooLargeError } from "@/routes/api/-lib/request-body.server"
+import { consumeRestRateLimit } from "../../-lib/auth.server"
+import { ChatRunInputInvalid, ChatRunTooLarge } from "./errors.ts"
+
+/**
+ * Chat's own bucket, keyed by all three of organization, tenant, and tenant-user id, and
+ * independent of Better Auth API-key usage, which a chat run never consumes.
+ */
+export function consumeChatRateLimit(principal: ChatPrincipal) {
+  return consumeRestRateLimit(
+    "chat",
+    [principal.organization.id, principal.tenantUser.tenant.id, principal.tenantUser.id],
+    { limit: CHAT_RATE_LIMIT_MAX_REQUESTS, window: Duration.millis(CHAT_RATE_LIMIT_WINDOW_MS) },
+  )
+}
+
+/** Reads the AG-UI run input through the bounded body reader and TanStack's own parser. */
+export const readChatRunParams = Effect.fn("readChatRunParams")(function* (request: Request) {
+  const body = yield* Effect.tryPromise({
+    try: () => readRequestJson(request, CHAT_MAX_REQUEST_BYTES),
+    catch: (error) =>
+      error instanceof RequestTooLargeError ? new ChatRunTooLarge() : new ChatRunInputInvalid(),
+  })
+  return yield* Effect.tryPromise({
+    try: () => chatParamsFromRequestBody(body),
+    catch: () => new ChatRunInputInvalid(),
+  })
+})
+
+/**
+ * Streams a run as Server-Sent Events without buffering. TanStack encodes the events, so the AG-UI
+ * wire stays its own, and cancelling the response body interrupts the run's stream.
+ */
+export function chatRunResponse(events: Stream.Stream<StreamChunk>) {
+  return Effect.map(Stream.toAsyncIterableEffect(events), (iterable) =>
+    HttpServerResponse.fromWeb(toServerSentEventsResponse(iterable)),
+  )
 }
