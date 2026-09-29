@@ -1,11 +1,8 @@
-import { setResponseStatus } from "@tanstack/react-start/server"
 import { and, eq, getTableName, type InferSelectModel, type SQL, sql } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import type { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import type { AnyPgColumn, AnyPgTable, PgUpdateSetSource } from "drizzle-orm/pg-core"
-import * as Data from "effect/Data"
-import * as Effect from "effect/Effect"
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import { LockVersionSchema } from "@/lib/schemas"
 
@@ -32,27 +29,12 @@ type OptimisticLockOptions<TTable extends LockedTable> = {
 }
 
 /** No row matched the expected lock version, because it changed or no longer exists. */
-export class OptimisticLockError extends Data.TaggedError("OptimisticLockError")<{
-  readonly reason: "conflict"
-  readonly expectedLockVersion: number
-  readonly tableName: string
-}> {}
-
-export function optimisticLockConflict(message: string) {
-  return Effect.sync(() => {
-    setResponseStatus(409)
-    return { ok: false as const, code: "stale" as const, message }
-  })
-}
-
-export function catchOptimisticLockConflict(message: string) {
-  return <Success, Failure, Requirements>(effect: Effect.Effect<Success, Failure, Requirements>) =>
-    Effect.catchIf(
-      effect,
-      (error): error is Failure & OptimisticLockError =>
-        error instanceof OptimisticLockError && error.reason === "conflict",
-      () => optimisticLockConflict(message),
-    )
+export class OptimisticLockError extends Schema.TaggedError<OptimisticLockError>()(
+  "OptimisticLockError",
+  { expectedLockVersion: Schema.Int, tableName: Schema.String },
+  { httpApiStatus: 409 },
+) {
+  override readonly message = "This record changed since you opened it. Reload and try again"
 }
 
 export function updateWithOptimisticLock<TTable extends LockedTable>(
@@ -93,17 +75,6 @@ function validateLockVersion<TTable extends LockedTable>(options: {
     : Effect.die(new Error(`Invalid lock version for ${getTableName(options.table)}`))
 }
 
-function optimisticLockError<TTable extends LockedTable>(options: {
-  expectedLockVersion: number
-  table: TTable
-}): OptimisticLockError {
-  return new OptimisticLockError({
-    reason: "conflict",
-    expectedLockVersion: options.expectedLockVersion,
-    tableName: getTableName(options.table),
-  })
-}
-
 function lockedWhere<TTable extends LockedTable>(options: {
   expectedLockVersion: number
   id: InferSelectModel<TTable>["id"]
@@ -117,6 +88,22 @@ function lockedWhere<TTable extends LockedTable>(options: {
   )!
 }
 
+// Tables are module constants, so each row decoder is built once rather than per mutation.
+const lockedRowDecoders = new WeakMap<LockedTable, (row: unknown) => Effect.Effect<unknown>>()
+
+function lockedRowDecoder(table: LockedTable) {
+  let decode = lockedRowDecoders.get(table)
+  if (!decode) {
+    const rowSchema = createSelectSchema(table).pipe(
+      Schema.fieldsAssign({ lockVersion: LockVersionSchema }),
+    )
+    const decodeRow = Schema.decodeUnknownEffect(rowSchema)
+    decode = (row) => decodeRow(row).pipe(Effect.orDie)
+    lockedRowDecoders.set(table, decode)
+  }
+  return decode
+}
+
 function mutationResult<TTable extends LockedTable>(
   rows: readonly unknown[],
   options: {
@@ -126,13 +113,12 @@ function mutationResult<TTable extends LockedTable>(
 ): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError> {
   const row = rows[0]
   if (!row) {
-    return Effect.fail(optimisticLockError(options))
+    return Effect.fail(
+      new OptimisticLockError({
+        expectedLockVersion: options.expectedLockVersion,
+        tableName: getTableName(options.table),
+      }),
+    )
   }
-  const rowSchema = createSelectSchema(options.table).pipe(
-    Schema.fieldsAssign({ lockVersion: LockVersionSchema }),
-  )
-  return Schema.decodeUnknownEffect(rowSchema)(row).pipe(
-    Effect.map((decoded) => decoded as InferSelectModel<TTable>),
-    Effect.orDie,
-  )
+  return lockedRowDecoder(options.table)(row) as Effect.Effect<InferSelectModel<TTable>>
 }

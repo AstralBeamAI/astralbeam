@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
 import { customType, integer, timestamp, uuid } from "drizzle-orm/pg-core"
+import { Result, type Schema } from "effect"
 
 import {
   type DatabaseEncryptionKeyring,
@@ -8,7 +9,7 @@ import {
 import { decryptDatabaseValue, encryptDatabaseValue } from "./encryption.server.ts"
 
 type EncryptedJsonOptions<Value> = {
-  decode: (value: unknown) => Value
+  schema: Schema.Decoder<Value>
   keyring?: DatabaseEncryptionKeyring
 }
 
@@ -23,20 +24,17 @@ export const caseInsensitiveText = customType<{ data: string }>({
  */
 export function encryptedJson<Value>(options: EncryptedJsonOptions<Value>) {
   const keyring = () => options.keyring ?? getDatabaseEncryptionKeyring()
+  // Drizzle codecs are synchronous and report failures only by throwing.
   const decodeStoredValue = (storedValue: string) =>
-    decryptDatabaseValue({
-      storedValue,
-      decode: options.decode,
-      keyring: keyring(),
-    }).value
+    Result.getOrThrow(
+      decryptDatabaseValue({ storedValue, schema: options.schema, keyring: keyring() }),
+    ).value
   return customType<{ data: Value; driverData: string; jsonData: string }>({
     dataType: () => "text",
     toDriver: (value) =>
-      encryptDatabaseValue({
-        value,
-        decode: options.decode,
-        keyring: keyring(),
-      }),
+      Result.getOrThrow(
+        encryptDatabaseValue({ value, schema: options.schema, keyring: keyring() }),
+      ),
     fromDriver: decodeStoredValue,
     fromJson: decodeStoredValue,
   })()

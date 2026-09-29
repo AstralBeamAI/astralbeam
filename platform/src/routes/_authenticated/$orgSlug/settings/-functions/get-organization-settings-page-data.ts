@@ -19,7 +19,12 @@ export const getOrganizationSettingsPageData = createServerFn({ method: "GET" })
         )
         // The last four characters name the stored key for whoever is about to replace it.
         // Nothing more of it reaches the browser.
-        const openaiApiKeyLast4 = yield* readOrganizationOpenaiApiKeyHint(context.organizationId)
+        const openaiApiKeyLast4 = yield* readOrganizationOpenaiApiKeyHint(
+          context.organizationId,
+        ).pipe(
+          // An unreadable key reads as none, so its owner can replace it here.
+          Effect.catchTag("OrganizationOpenaiApiKeyUnreadable", () => Effect.succeed(null)),
+        )
         return {
           data: {
             organization: {

@@ -5,7 +5,11 @@ import { beforeAll, beforeEach, vi } from "vitest"
 import { Database, type EffectDatabase } from "@/db/database.server"
 import { configTable } from "@/db/schema/config.server"
 import { Config, publicConfigFromValues } from "./config.server.ts"
-import { decodeConfigValue, findConfigDefinition, validateConfigCompleteness } from "./registry.server.ts"
+import {
+  decodeConfigValue,
+  findConfigDefinition,
+  validateConfigCompleteness,
+} from "./registry.server.ts"
 import type { ConfigValues } from "./types.ts"
 
 const migrations = vi.hoisted(() => ({ pending: false }))
@@ -51,7 +55,9 @@ function configDatabase(state: { rows: StoredRow[]; reads: number; gate?: Effect
     return (state.gate ?? Effect.void).pipe(Effect.as(state.rows))
   })
   const query = Object.assign(read, { where: () => read })
-  return Layer.succeed(Database, { select: () => ({ from: () => query }) } as unknown as EffectDatabase)
+  return Layer.succeed(Database, {
+    select: () => ({ from: () => query }),
+  } as unknown as EffectDatabase)
 }
 
 function configLayer(
@@ -209,7 +215,7 @@ describe("Config", () => {
       yield* config.invalidate
       yield* Deferred.succeed(release, undefined)
       yield* Fiber.join(stale)
-      assert.strictEqual((yield* config.get("app_base_url")), "https://fresh.example")
+      assert.strictEqual(yield* config.get("app_base_url"), "https://fresh.example")
     })
   })
 

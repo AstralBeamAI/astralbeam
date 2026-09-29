@@ -6,7 +6,7 @@ import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.serv
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { configTable } from "@/db/schema.server"
-import { decodeConfigValuePayload } from "@/db/schema/config.server"
+import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
 import { CONFIG_DEFINITIONS, decodeConfigValue, findConfigDefinition } from "./registry.server.ts"
 import type { ConfigKey, ConfigStorageEntry, ConfigValues } from "./types.ts"
 
@@ -24,18 +24,16 @@ export interface DatabaseConfigState {
 
 type StoredConfigRow = {
   readonly key: string
-  readonly payload: Option.Option<ReturnType<typeof decodeConfigValuePayload>>
+  readonly payload: Option.Option<typeof ConfigValuePayloadSchema.Type>
   readonly usedFallbackKey: boolean
 }
 
 function decryptStoredConfigRow(row: { key: string; storedValue: string }): StoredConfigRow {
-  const decrypted = Result.try(() =>
-    decryptDatabaseValue({
-      storedValue: row.storedValue,
-      decode: decodeConfigValuePayload,
-      keyring: getDatabaseEncryptionKeyring(),
-    }),
-  )
+  const decrypted = decryptDatabaseValue({
+    storedValue: row.storedValue,
+    schema: ConfigValuePayloadSchema,
+    keyring: getDatabaseEncryptionKeyring(),
+  })
   return {
     key: row.key,
     payload: Result.isSuccess(decrypted) ? Option.some(decrypted.success.value) : Option.none(),

@@ -1,13 +1,14 @@
 import { Effect } from "effect"
 
 import { getAppRuntime } from "@/lib/runtime/runtime.server"
-import { Config, notConfiguredResponse } from "./config.server.ts"
+import { Config } from "./config.server.ts"
 
-/** A Promise bridge for the REST routes. Effect code reads `Config.setupState` instead. */
-export function setupGateResponse(): Promise<Response | null> {
+/** A Promise bridge for the REST transport's setup gate. Effect code reads `Config.setupState`. */
+export function isSetupComplete(): Promise<boolean> {
   return getAppRuntime().runPromise(
-    Effect.flatMap(Config, (config) => config.setupState).pipe(
-      Effect.map((state) => (state.setupComplete ? null : notConfiguredResponse())),
+    Effect.map(
+      Effect.flatMap(Config, (config) => config.setupState),
+      (state) => state.setupComplete,
     ),
   )
 }

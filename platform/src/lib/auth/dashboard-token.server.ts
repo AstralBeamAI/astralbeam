@@ -2,7 +2,7 @@ import { createAstralBeamToken } from "@astralbeam/sdk/server"
 import { Effect } from "effect"
 import { SignJWT } from "jose"
 
-import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import { formatApiKeyId, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { Config } from "@/lib/config/config.server"
@@ -32,15 +32,15 @@ export const issueDashboardToken = Effect.fn("issueDashboardToken")(function* (i
   const session = yield* Effect.flatMap(Auth, (auth) =>
     auth.requireSession({ headers: input.headers }),
   )
-  yield* databaseRateLimiter
-    .consume({ key: `dashboard-token:${session.user.id}`, limit: 60, window: "1 minute" })
-    .pipe(
-      Effect.catch((error) =>
-        error.reason._tag === "RateLimitExceeded"
-          ? Effect.fail(new DashboardTokenRateLimited())
-          : Effect.die(error),
-      ),
-    )
+  yield* Effect.flatMap(DatabaseRateLimiter, (limiter) =>
+    limiter.consume({ key: `dashboard-token:${session.user.id}`, limit: 60, window: "1 minute" }),
+  ).pipe(
+    Effect.catch((error) =>
+      error.reason._tag === "RateLimitExceeded"
+        ? Effect.fail(new DashboardTokenRateLimited())
+        : Effect.die(error),
+    ),
+  )
   const organization = yield* Effect.flatMap(Organizations, (organizations) =>
     organizations.membership({
       organizationSlug: input.organizationSlug,

@@ -35,6 +35,15 @@ export class OrganizationOpenaiApiKeyInvalid extends Schema.TaggedError<Organiza
   override readonly message = OPENAI_API_KEY_VALIDATION_MESSAGE
 }
 
+/** The stored key does not decrypt with the active keyring, or belongs to another organization. */
+export class OrganizationOpenaiApiKeyUnreadable extends Schema.TaggedError<OrganizationOpenaiApiKeyUnreadable>()(
+  "OrganizationOpenaiApiKeyUnreadable",
+  {},
+  { httpApiStatus: 503 },
+) {
+  override readonly message = "The organization's OpenAI API key could not be read"
+}
+
 export class OrganizationSlugTaken extends Schema.TaggedError<OrganizationSlugTaken>()(
   "OrganizationSlugTaken",
   {},

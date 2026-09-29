@@ -1,11 +1,10 @@
 import type { SandboxProvider } from "@tanstack/ai-sandbox"
-import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 
+import { SandboxProviderUnavailable } from "./errors.ts"
 import {
   decodeProviderCredentials,
   decodeProviderOptions,
-  SandboxConfigurationValidationError,
   type SandboxProviderCredentials,
   type SandboxProviderId,
   type SandboxProviderOptions,
@@ -19,7 +18,7 @@ type ProviderConfiguration<Provider extends SandboxProviderId> = {
 const factories: {
   [Provider in SandboxProviderId]: (
     configuration: ProviderConfiguration<Provider>,
-  ) => Effect.Effect<SandboxProvider, SandboxProviderFactoryError>
+  ) => Effect.Effect<SandboxProvider, SandboxProviderUnavailable>
 } = {
   daytona: (configuration: ProviderConfiguration<"daytona">) =>
     loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-daytona")).pipe(
@@ -45,35 +44,22 @@ const factories: {
     ),
 }
 
-export class SandboxProviderFactoryError extends Data.TaggedError("SandboxProviderFactoryError")<{
-  readonly cause: unknown
-}> {}
-
-export function createSandboxProvider<Provider extends SandboxProviderId>(
-  provider: Provider,
-  configuration: { options: unknown; credentials: unknown },
-): Effect.Effect<
-  SandboxProvider,
-  SandboxConfigurationValidationError | SandboxProviderFactoryError
-> {
-  return Effect.try({
-    try: () =>
-      ({
-        options: decodeProviderOptions(provider, configuration.options),
-        credentials: decodeProviderCredentials(provider, configuration.credentials),
-      }) satisfies ProviderConfiguration<Provider>,
-    catch: (cause) =>
-      cause instanceof SandboxConfigurationValidationError
-        ? cause
-        : new SandboxProviderFactoryError({ cause }),
-  }).pipe(Effect.flatMap(factories[provider]))
-}
+/** Revalidates the stored configuration and builds the provider's TanStack adapter. */
+export const createSandboxProvider = Effect.fn("createSandboxProvider")(function* <
+  Provider extends SandboxProviderId,
+>(provider: Provider, configuration: { options: unknown; credentials: unknown }) {
+  const decoded = yield* Effect.all({
+    options: decodeProviderOptions(provider, configuration.options),
+    credentials: decodeProviderCredentials(provider, configuration.credentials),
+  }).pipe(Effect.mapError((cause) => new SandboxProviderUnavailable({ cause })))
+  return yield* factories[provider](decoded)
+})
 
 function loadSandboxProviderModule<Module>(
   load: () => Promise<Module>,
-): Effect.Effect<Module, SandboxProviderFactoryError> {
+): Effect.Effect<Module, SandboxProviderUnavailable> {
   return Effect.tryPromise({
     try: load,
-    catch: (cause) => new SandboxProviderFactoryError({ cause }),
+    catch: (cause) => new SandboxProviderUnavailable({ cause }),
   })
 }

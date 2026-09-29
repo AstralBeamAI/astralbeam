@@ -104,14 +104,6 @@ const readEnvironmentConfig = Effect.fnUntraced(function* () {
   return values
 })
 
-/** The API routes' answer until setup completes. Page routes redirect to `/configure` instead. */
-export function notConfiguredResponse(): Response {
-  return Response.json(
-    { error: "Application is not configured" },
-    { status: 503, headers: { "retry-after": "10" } },
-  )
-}
-
 /** The secret-free slice of a complete configuration that browsers may see. */
 export function publicConfigFromValues(values: ConfigValues): PublicConfig {
   const enabledSocialProviders: PublicConfig["enabledSocialProviders"] = []

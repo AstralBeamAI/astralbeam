@@ -19,10 +19,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/api-keys/")({
       (error: unknown) => throwOrganizationRouteError(error, params.orgSlug),
     )
     const query = firstApiKeysPageQuery(page.data.organizationId)
-    queryClient.setQueryData(
-      apiKeyQueryKeys.list(access.userId, query),
-      page.data.apiKeys,
-    )
+    queryClient.setQueryData(apiKeyQueryKeys.list(access.userId, query), page.data.apiKeys)
     return page
   },
   component: ApiKeysPage,

@@ -6,7 +6,7 @@ import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { Config } from "@/lib/config/config.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { getAppRuntime } from "@/lib/runtime/runtime.server"
-import { httpStatus } from "@/lib/runtime/server-fn.server"
+import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
 import { SlugSchema, validationParseOptions } from "@/lib/schemas"
 import { readRequestJson, RequestTooLargeError } from "../-lib/request-body.server"
 
@@ -62,7 +62,7 @@ const handleDashboardTokenRequest = Effect.fn("handleDashboardTokenRequest")(
     Effect.succeed(
       dashboardTokenErrorResponse(
         error.message,
-        httpStatus(error),
+        declaredHttpApiStatus(error) ?? 500,
         error._tag === "OrganizationApiKeysMissing" ? "NO_API_KEYS" : undefined,
       ),
     ),

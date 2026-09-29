@@ -4,7 +4,7 @@ import { Effect } from "effect"
 
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { Auth } from "@/lib/auth/auth.server"
-import { Config, notConfiguredResponse } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { getAppRuntime } from "@/lib/runtime/runtime.server"
 import { isLoopbackProxyAddress } from "@/lib/utils.server"
@@ -25,7 +25,12 @@ function withTrustedForwardedFor(request: Request): Request {
 const handleAuthRequest = Effect.fn("handleAuthRequest")(
   function* (request: Request) {
     const { setupComplete } = yield* Effect.flatMap(Config, (config) => config.setupState)
-    if (!setupComplete) return notConfiguredResponse()
+    if (!setupComplete) {
+      return Response.json(
+        { error: "Application is not configured" },
+        { status: 503, headers: { "retry-after": "10" } },
+      )
+    }
     return yield* Effect.flatMap(Auth, (auth) => auth.handler(request))
   },
   // Better Auth answers its own errors, so only an unexpected failure reaches this.

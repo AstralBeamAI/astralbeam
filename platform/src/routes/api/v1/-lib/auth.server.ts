@@ -1,142 +1,185 @@
 import { and, eq } from "drizzle-orm"
-import { createHash } from "node:crypto"
-import { Duration, Effect } from "effect"
+import { Duration, Effect, Predicate, Schema } from "effect"
 import { decodeProtectedHeader } from "jose"
 import {
   authenticateOrganizationRequest,
   ORGANIZATION_TOKEN_TYPE,
-  OrganizationMembershipError,
 } from "@/lib/auth/organization-token.server"
-import { Database } from "@/db"
+import { Database } from "@/db/database.server"
 import { apiKey, organization } from "@/db/schema/organizations.server"
-import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { resolveTenant, type TenantError } from "@/lib/tenants/tenants.server"
+import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter.server"
+import { Tenants } from "@/lib/tenants/tenants.server"
 import { ORGANIZATION_API_KEY_CONFIG_ID, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { getAuth } from "@/lib/auth/auth.server"
 import { authorizeOrganizationRole } from "@/lib/organizations/access"
 import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
+import {
+  RestInvalidCredentials,
+  RestMembershipRequired,
+  RestRateLimited,
+  RestRoleForbidden,
+  RestTenantAdminRequired,
+} from "./errors.ts"
 import type { RestScope } from "./shared.server"
-import { type RestFault, restFault, restRateLimitFault } from "./responses.server"
 
-export function authenticateRestRequest(
-  request: Request,
-): Effect.Effect<RestScope, RestFault | TenantError, Database> {
-  return Effect.gen(function* () {
-    const apiKeyHeader = request.headers.get("x-api-key")
-    const authorization = request.headers.get("authorization")
-    const credential = apiKeyHeader ?? /^Bearer (\S+)$/i.exec(authorization ?? "")?.[1]
-    if (!credential || credential.length > 16384) {
-      return yield* Effect.fail(restFault(401, "Invalid credentials."))
-    }
-    if (apiKeyHeader !== null || credential.startsWith("key_")) {
-      return yield* authenticateRestApiKey(credential)
-    }
-    const header = yield* Effect.try({
-      try: () => decodeProtectedHeader(credential),
-      catch: () => restFault(401, "Invalid credentials."),
-    })
-    if (header.typ === ORGANIZATION_TOKEN_TYPE) {
-      const principal = yield* authenticateOrganizationRequest(request).pipe(
-        Effect.mapError((error) =>
-          error instanceof OrganizationMembershipError
-            ? restFault(403, "Organization membership is required.")
+const REST_CREDENTIAL_MAX_LENGTH = 16_384
+const REST_RATE_LIMIT = { limit: 100, window: Duration.minutes(5) }
+
+/** A verifier failed rather than rejected, which the boundary reports as an internal error. */
+class RestVerifierFailed extends Schema.TaggedError<RestVerifierFailed>()("RestVerifierFailed", {
+  cause: Schema.Defect(),
+}) {}
+
+/** The credential a REST request carries, when it fits the accepted length. */
+function readRestCredential(value: string | null | undefined): string | undefined {
+  return value && value.length <= REST_CREDENTIAL_MAX_LENGTH ? value : undefined
+}
+
+export function readRestBearerToken(request: Request): string | undefined {
+  return readRestCredential(/^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1])
+}
+
+export const decodeRestTokenType = Effect.fn("decodeRestTokenType")(function* (token: string) {
+  const header = yield* Effect.try({
+    try: () => decodeProtectedHeader(token),
+    catch: () => new RestInvalidCredentials(),
+  })
+  return header.typ
+})
+
+/** Consumes one request from a hashed identity bucket, so the key never stores the identity. */
+export const consumeRestRateLimit = Effect.fn("consumeRestRateLimit")(function* (
+  namespace: string,
+  identity: readonly string[],
+) {
+  const limiter = yield* DatabaseRateLimiter
+  yield* limiter.consume({ key: hashedRateLimitKey(namespace, identity), ...REST_RATE_LIMIT }).pipe(
+    Effect.catch((error) =>
+      error.reason._tag === "RateLimitExceeded"
+        ? Effect.fail(
+            new RestRateLimited({
+              retryAfterSeconds: Math.max(
+                1,
+                Math.ceil(Duration.toMillis(error.reason.retryAfter) / 1000),
+              ),
+            }),
+          )
+        : Effect.die(error),
+    ),
+  )
+})
+
+// Seam: the verifiers below keep their current contracts until the Auth service replaces them.
+export const authenticateRestOrganizationToken = Effect.fn("authenticateRestOrganizationToken")(
+  function* (request: Request) {
+    return yield* authenticateOrganizationRequest(request).pipe(
+      Effect.catch(
+        (error): Effect.Effect<never, RestMembershipRequired | RestInvalidCredentials> =>
+          Predicate.isTagged(error, "OrganizationMembershipError")
+            ? Effect.fail(new RestMembershipRequired())
             : isChatAuthenticationError(error)
-              ? restFault(401, "Invalid credentials.")
-              : restFault(500, "Authentication could not be completed.", { cause: error }),
-        ),
-      )
-      const identity = createHash("sha256")
-        .update(JSON.stringify([principal.organizationId, principal.currentUser.id]))
-        .digest("base64url")
-      yield* databaseRateLimiter
-        .consume({
-          key: `organization-rest:${identity}`,
-          limit: 100,
-          window: Duration.minutes(5),
-        })
-        .pipe(Effect.mapError(restRateLimitFault))
-      if (
-        !authorizeOrganizationRole(principal.currentUser.role, {
-          tenantManagement: [
-            request.method === "GET" || request.method === "HEAD" ? "read" : "write",
-          ],
-        })
-      ) {
-        return yield* Effect.fail(
-          restFault(403, "Your organization role does not permit this operation."),
-        )
-      }
-      return {
-        organizationId: principal.organizationId,
-        currentUser: principal.currentUser,
-      } satisfies RestScope
-    }
-    const principal = yield* Effect.tryPromise({
-      try: () => authenticateChatRequest(request),
-      catch: (error) =>
-        isChatAuthenticationError(error)
-          ? restFault(401, "Invalid credentials.")
-          : restFault(500, "Authentication could not be completed."),
-    })
-    if (principal.tenantUser.admin !== true) {
-      return yield* Effect.fail(restFault(403, "Tenant administrator authority is required."))
-    }
-    const organizationId = principal.organization.id
-    const externalTenantId = principal.tenantUser.tenant.id
-    const identity = createHash("sha256")
-      .update(JSON.stringify([organizationId, externalTenantId, principal.tenantUser.id]))
-      .digest("base64url")
-    yield* databaseRateLimiter
-      .consume({
-        key: `tenant-rest:${identity}`,
-        limit: 100,
-        window: Duration.minutes(5),
+              ? Effect.fail(new RestInvalidCredentials())
+              : Effect.die(error),
+      ),
+    )
+  },
+)
+
+export const authenticateRestTenantToken = Effect.fn("authenticateRestTenantToken")(function* (
+  request: Request,
+) {
+  return yield* Effect.tryPromise({
+    try: () => authenticateChatRequest(request),
+    catch: (cause) =>
+      isChatAuthenticationError(cause)
+        ? new RestInvalidCredentials()
+        : new RestVerifierFailed({ cause }),
+  }).pipe(Effect.catchTag("RestVerifierFailed", (error) => Effect.die(error)))
+})
+
+const verifyRestApiKey = Effect.fn("verifyRestApiKey")(function* (key: string) {
+  const auth = yield* Effect.tryPromise({
+    try: () => getAuth(),
+    catch: (cause) => new RestVerifierFailed({ cause }),
+  })
+  return yield* Effect.tryPromise({
+    try: () => auth.api.verifyApiKey({ body: { key } }),
+    catch: (cause) => new RestVerifierFailed({ cause }),
+  })
+}, Effect.orDie)
+
+const authenticateRestApiKey = Effect.fn("authenticateRestApiKey")(function* (credential: string) {
+  const parts = parseApiKeyCredential(credential)
+  if (!parts) return yield* new RestInvalidCredentials()
+  const verified = yield* verifyRestApiKey(parts.secret)
+  if (!verified.valid || !verified.key) {
+    if (verified.error?.code === "RATE_LIMITED") {
+      const details = verified.error as { details?: { tryAgainIn?: unknown } }
+      const milliseconds = details.details?.tryAgainIn
+      return yield* new RestRateLimited({
+        retryAfterSeconds:
+          typeof milliseconds === "number" && Number.isFinite(milliseconds)
+            ? Math.max(1, Math.ceil(milliseconds / 1000))
+            : 300,
       })
-      .pipe(Effect.mapError(restRateLimitFault))
-    const tenantId = yield* resolveTenant(organizationId, externalTenantId)
-    return { organizationId, tenantId, externalTenantId } satisfies RestScope
-  })
-}
-function authenticateRestApiKey(credential: string) {
-  return Effect.gen(function* () {
-    const parts = parseApiKeyCredential(credential)
-    if (!parts) return yield* Effect.fail(restFault(401, "Invalid credentials."))
-    const verified = yield* Effect.tryPromise({
-      try: async () => (await getAuth()).api.verifyApiKey({ body: { key: parts.secret } }),
-      catch: () => restFault(500, "Authentication could not be completed."),
-    })
-    if (!verified.valid || !verified.key) {
-      if (verified.error?.code === "RATE_LIMITED") {
-        const details = verified.error as { details?: { tryAgainIn?: unknown } }
-        const milliseconds = details.details?.tryAgainIn
-        return yield* Effect.fail(
-          restFault(429, "Request limit exceeded.", {
-            retryAfter:
-              typeof milliseconds === "number" && Number.isFinite(milliseconds)
-                ? Math.max(1, Math.ceil(milliseconds / 1000))
-                : 300,
-          }),
-        )
-      }
-      return yield* Effect.fail(restFault(401, "Invalid credentials."))
     }
-    const database = yield* Database
-    const rows = yield* database
-      .select({ id: organization.id })
-      .from(organization)
-      .innerJoin(apiKey, eq(apiKey.organizationId, organization.id))
-      .where(
-        and(
-          eq(organization.id, verified.key.referenceId),
-          eq(organization.id, parts.organizationId),
-          eq(apiKey.id, verified.key.id),
-          eq(apiKey.id, parts.id),
-          eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
-        ),
-      )
-      .limit(1)
-      .pipe(Effect.mapError(() => restFault(500, "Authentication could not be completed.")))
-    if (!rows[0]) return yield* Effect.fail(restFault(401, "Invalid credentials."))
-    return { organizationId: rows[0].id } satisfies RestScope
-  })
-}
+    return yield* new RestInvalidCredentials()
+  }
+  const database = yield* Database
+  const [row] = yield* database
+    .select({ id: organization.id })
+    .from(organization)
+    .innerJoin(apiKey, eq(apiKey.organizationId, organization.id))
+    .where(
+      and(
+        eq(organization.id, verified.key.referenceId),
+        eq(organization.id, parts.organizationId),
+        eq(apiKey.id, verified.key.id),
+        eq(apiKey.id, parts.id),
+        eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
+      ),
+    )
+    .limit(1)
+    .pipe(Effect.orDie)
+  if (!row) return yield* new RestInvalidCredentials()
+  return { organizationId: row.id } satisfies RestScope["Service"]
+})
+
+/** Resolves the scope a REST credential may reach, rechecking membership and role each time. */
+export const authenticateRestRequest = Effect.fn("authenticateRestRequest")(function* (
+  request: Request,
+) {
+  const apiKeyHeader = request.headers.get("x-api-key")
+  const credential = readRestCredential(apiKeyHeader ?? readRestBearerToken(request))
+  if (!credential) return yield* new RestInvalidCredentials()
+  if (apiKeyHeader !== null || credential.startsWith("key_")) {
+    return yield* authenticateRestApiKey(credential)
+  }
+  if ((yield* decodeRestTokenType(credential)) === ORGANIZATION_TOKEN_TYPE) {
+    const principal = yield* authenticateRestOrganizationToken(request)
+    yield* consumeRestRateLimit("organization-rest", [
+      principal.organizationId,
+      principal.currentUser.id,
+    ])
+    const access = request.method === "GET" || request.method === "HEAD" ? "read" : "write"
+    if (!authorizeOrganizationRole(principal.currentUser.role, { tenantManagement: [access] })) {
+      return yield* new RestRoleForbidden()
+    }
+    return {
+      organizationId: principal.organizationId,
+      currentUser: principal.currentUser,
+    } satisfies RestScope["Service"]
+  }
+  const principal = yield* authenticateRestTenantToken(request)
+  if (principal.tenantUser.admin !== true) return yield* new RestTenantAdminRequired()
+  const organizationId = principal.organization.id
+  const externalTenantId = principal.tenantUser.tenant.id
+  yield* consumeRestRateLimit("tenant-rest", [
+    organizationId,
+    externalTenantId,
+    principal.tenantUser.id,
+  ])
+  const tenants = yield* Tenants
+  const tenantId = yield* tenants.resolveId({ organizationId, externalId: externalTenantId })
+  return { organizationId, tenantId, externalTenantId } satisfies RestScope["Service"]
+})
