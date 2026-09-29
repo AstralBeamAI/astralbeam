@@ -1,12 +1,12 @@
 import { and, eq } from "drizzle-orm"
 import { decodeProtectedHeader, jwtVerify } from "jose"
 import * as Effect from "effect/Effect"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { Database, runDatabaseEffect } from "@/db"
 import { apiKey, organization } from "@/db/schema.server"
-import { ChatAuthTokenPayloadSchema, UuidV7Schema } from "@/lib/schemas"
+import { ORGANIZATION_API_KEY_CONFIG_ID, parseApiKeyId } from "@/lib/api-keys/schemas"
+import { ChatAuthTokenPayloadSchema } from "@/lib/schemas"
 import {
   CHAT_AUTH_TOKEN_AUDIENCE,
   CHAT_AUTH_TOKEN_IDENTITY_MAX_BYTES,
@@ -18,9 +18,6 @@ import {
 import type { ChatAuthenticationError, ChatPrincipal, ChatTenantUser } from "./types"
 
 const textEncoder = new TextEncoder()
-const API_KEY_CONFIG_ID = "default"
-const ApiKeyIdSchema = Schema.TemplateLiteralParser(["key_", UuidV7Schema, "_", UuidV7Schema])
-const decodeApiKeyId = Schema.decodeUnknownOption(ApiKeyIdSchema)
 const CLOCK_TOLERANCE_SECONDS = 30
 const decodeChatAuthTokenPayload = Schema.decodeUnknownSync(ChatAuthTokenPayloadSchema, {
   onExcessProperty: "error",
@@ -60,7 +57,7 @@ export function authenticateOrganizationIssuedToken<T, E>(
         const token = readBearerToken(request)
         const apiKeyId = decodeProtectedHeader(token).kid
         if (typeof apiKeyId !== "string") throw invalidToken("Wrong token header")
-        return { token, apiKeyId, ...parseApiKeyId(apiKeyId) }
+        return { token, apiKeyId, ...parseChatApiKeyId(apiKeyId) }
       },
       catch: (cause) =>
         isChatAuthenticationError(cause) ? cause : invalidToken("Malformed token header", cause),
@@ -78,7 +75,7 @@ export function authenticateOrganizationIssuedToken<T, E>(
         and(
           eq(apiKey.organizationId, organization.id),
           eq(apiKey.id, id),
-          eq(apiKey.configId, API_KEY_CONFIG_ID),
+          eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
         ),
       )
       .where(eq(organization.id, organizationId))
@@ -113,7 +110,7 @@ export async function verifyChatAuthToken(
   apiKeyId: string,
 ): Promise<ChatTenantUser> {
   try {
-    const { organizationId } = parseApiKeyId(apiKeyId)
+    const { organizationId } = parseChatApiKeyId(apiKeyId)
     const { payload, protectedHeader } = await jwtVerify(token, verifier, {
       algorithms: ["HS256"],
       typ: CHAT_AUTH_TOKEN_TYPE,
@@ -145,11 +142,10 @@ export async function verifyChatAuthToken(
   }
 }
 
-function parseApiKeyId(apiKeyId: string): { organizationId: string; id: string } {
-  const publicId = decodeApiKeyId(apiKeyId)
-  if (Option.isNone(publicId)) throw invalidToken("Malformed API key identifier")
-  const [, organizationId, , id] = publicId.value
-  return { organizationId, id }
+function parseChatApiKeyId(apiKeyId: string): { organizationId: string; id: string } {
+  const publicId = parseApiKeyId(apiKeyId)
+  if (!publicId) throw invalidToken("Malformed API key identifier")
+  return publicId
 }
 
 function readBearerToken(request: Request): string {

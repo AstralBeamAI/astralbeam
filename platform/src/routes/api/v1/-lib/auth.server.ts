@@ -11,6 +11,7 @@ import { Database } from "@/db"
 import { apiKey, organization } from "@/db/schema/organizations.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { resolveTenant, type TenantError } from "@/lib/tenants/tenants.server"
+import { ORGANIZATION_API_KEY_CONFIG_ID, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { getAuth } from "@/lib/auth/auth.server"
 import { authorizeOrganizationRole } from "@/lib/organizations/access"
 import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
@@ -98,13 +99,10 @@ export function authenticateRestRequest(
 }
 function authenticateRestApiKey(credential: string) {
   return Effect.gen(function* () {
-    const parts =
-      /^key_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})_(abo_[A-Za-z]{64})$/.exec(
-        credential,
-      )
+    const parts = parseApiKeyCredential(credential)
     if (!parts) return yield* Effect.fail(restFault(401, "Invalid credentials."))
     const verified = yield* Effect.tryPromise({
-      try: async () => (await getAuth()).api.verifyApiKey({ body: { key: parts[3]! } }),
+      try: async () => (await getAuth()).api.verifyApiKey({ body: { key: parts.secret } }),
       catch: () => restFault(500, "Authentication could not be completed."),
     })
     if (!verified.valid || !verified.key) {
@@ -130,10 +128,10 @@ function authenticateRestApiKey(credential: string) {
       .where(
         and(
           eq(organization.id, verified.key.referenceId),
-          eq(organization.id, parts[1]!),
+          eq(organization.id, parts.organizationId),
           eq(apiKey.id, verified.key.id),
-          eq(apiKey.id, parts[2]!),
-          eq(apiKey.configId, "default"),
+          eq(apiKey.id, parts.id),
+          eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
         ),
       )
       .limit(1)

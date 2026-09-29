@@ -10,7 +10,7 @@ import { getAppRuntime } from "@/lib/runtime/runtime.server"
 import { isValidOpenaiApiKey, SlugSchema } from "@/lib/schemas"
 import { SLUG_VALIDATION_MESSAGE } from "@/lib/organizations/slug"
 import { organizationRoles } from "./access.ts"
-import { ORGANIZATION_API_KEY_PREFIX } from "../auth/organization-api-key-configuration.ts"
+import { ORGANIZATION_API_KEY_PREFIX } from "../api-keys/schemas.ts"
 import { isReservedOrganizationSlug, RESERVED_ORGANIZATION_SLUG_MESSAGE } from "./reserved-slugs.ts"
 
 const isOrganizationSlug = Schema.is(SlugSchema)

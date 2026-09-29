@@ -36,7 +36,7 @@ import {
 import {
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
-} from "../../lib/auth/organization-api-key-configuration.ts"
+} from "../../lib/api-keys/schemas.ts"
 import { user } from "./authentication.server.ts"
 
 export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({

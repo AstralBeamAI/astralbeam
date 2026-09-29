@@ -9,7 +9,7 @@ import {
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
-} from "../auth/organization-api-key-configuration.ts"
+} from "../api-keys/schemas.ts"
 import { organizationAccessControl, organizationRoles } from "./access.ts"
 import { organizationApiKeyPlugin, organizationRoleHooks } from "./hooks.server.ts"
 
