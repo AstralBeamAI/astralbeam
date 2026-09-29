@@ -1,54 +1,45 @@
 import { and, asc, desc, eq, gt, ilike, lt, or, sql } from "drizzle-orm"
-import { Data, Effect } from "effect"
-import { Database } from "@/db"
-import { tenant } from "@/db/schema/organizations.server"
-import { sqlConstraint, sqlState } from "../../db/lib/sqlstate.server"
-import { type DatabasePageOptions, databasePages } from "../../db/lib/pagination.server"
-import type { TenantPatchSchema, TenantWriteSchema } from "@/lib/tenants/schemas.ts"
+import { Context, Effect, Layer } from "effect"
 
+import { Database } from "@/db/database.server"
+import {
+  type DatabasePage,
+  type DatabasePageOptions,
+  databasePage,
+} from "@/db/lib/pagination.server"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
+import { tenant } from "@/db/schema/organizations.server"
+import { TenantExternalIdTaken, TenantNotFound, TenantWriteForbidden } from "./errors.ts"
+import type { TenantPatchSchema, TenantRecordSchema, TenantWriteSchema } from "./schemas.ts"
+
+/** The Tenants a verified credential may reach, derived from the credential and never the request. */
 export interface TenantScope {
-  organizationId: string
+  readonly organizationId: string
   /** Omitted for organization-wide access; null means no accessible Tenant. */
-  tenantId?: string | null
+  readonly tenantId?: string | null | undefined
 }
 
-type TenantWrite = typeof TenantWriteSchema.Type
-type TenantPatch = typeof TenantPatchSchema.Type
-export interface TenantListOptions extends DatabasePageOptions {
-  externalId?: string | undefined
-  search?: string | undefined
+export type TenantRecord = typeof TenantRecordSchema.Type
+
+export interface TenantListInput extends DatabasePageOptions {
+  readonly scope: TenantScope
+  readonly externalId?: string | undefined
+  readonly search?: string | undefined
+}
+
+// A typed projection keeps the organization ID and future columns out of API records.
+export const tenantRecordColumns = {
+  id: tenant.id,
+  externalId: tenant.externalId,
+  name: tenant.name,
+  metadata: tenant.metadata,
+  createdAt: tenant.createdAt,
+  updatedAt: tenant.updatedAt,
 }
 
 /** Escape LIKE wildcards so user input is a literal substring, not a pattern. */
 export function tenantSearchPattern(search: string) {
   return `%${search.replace(/[\\%_]/g, "\\$&")}%`
-}
-export class TenantError extends Data.TaggedError("TenantError")<{
-  reason: "NotFound" | "Conflict" | "Forbidden" | "Database"
-  message: string
-  cause?: { code: string | undefined }
-}> {}
-
-export function tenantDatabaseError(error: unknown) {
-  if (error instanceof TenantError) return error
-  const constraint = sqlConstraint(error)
-  if (
-    constraint === "tenant_organization_id_external_id_uidx" ||
-    constraint === "tenant_user_organization_id_tenant_id_external_id_uidx"
-  ) {
-    return new TenantError({
-      reason: "Conflict",
-      message: "The external ID already exists in this scope.",
-    })
-  }
-  if (constraint === "tenant_user_organization_id_tenant_id_fk") {
-    return new TenantError({ reason: "NotFound", message: "Tenant not found." })
-  }
-  return new TenantError({
-    reason: "Database",
-    message: "The request could not be completed.",
-    cause: { code: sqlState(error) },
-  })
 }
 
 function tenantWhere(scope: TenantScope, id?: string) {
@@ -63,99 +54,128 @@ function tenantWhere(scope: TenantScope, id?: string) {
   )
 }
 
-export function resolveTenant(organizationId: string, externalId: string) {
-  return Effect.gen(function* () {
-    const database = yield* Database
-    const rows = yield* database
-      .select({ id: tenant.id })
-      .from(tenant)
-      .where(and(eq(tenant.organizationId, organizationId), eq(tenant.externalId, externalId)))
-      .limit(1)
-    return rows[0]?.id ?? null
-  }).pipe(Effect.mapError(tenantDatabaseError))
+function requireOrganizationScope(scope: TenantScope) {
+  return scope.tenantId === undefined ? Effect.void : Effect.fail(new TenantWriteForbidden())
 }
 
-export function listTenants(scope: TenantScope, options: TenantListOptions = {}) {
-  const { externalId, search } = options
-  return databasePages(options, (position, limit, backward) =>
+export class Tenants extends Context.Service<
+  Tenants,
+  {
+    /** The internal ID of a Tenant identified by its customer-provided external ID. */
+    readonly resolveId: (input: {
+      readonly organizationId: string
+      readonly externalId: string
+    }) => Effect.Effect<string | null>
+    readonly list: (input: TenantListInput) => Effect.Effect<DatabasePage<TenantRecord>>
+    readonly get: (input: {
+      readonly scope: TenantScope
+      readonly id: string
+    }) => Effect.Effect<TenantRecord, TenantNotFound>
+    readonly create: (input: {
+      readonly scope: TenantScope
+      readonly fields: typeof TenantWriteSchema.Type
+    }) => Effect.Effect<TenantRecord, TenantWriteForbidden | TenantExternalIdTaken>
+    readonly update: (input: {
+      readonly scope: TenantScope
+      readonly id: string
+      readonly patch: typeof TenantPatchSchema.Type
+    }) => Effect.Effect<TenantRecord, TenantWriteForbidden | TenantNotFound>
+  }
+>()("astralbeam/tenants/Tenants") {
+  static readonly layerNoDeps = Layer.effect(
+    Tenants,
     Effect.gen(function* () {
-      const database = yield* Database
-      return yield* database
-        .select()
-        .from(tenant)
-        .where(
-          and(
-            tenantWhere(scope),
-            externalId === undefined ? undefined : eq(tenant.externalId, externalId),
-            search
-              ? or(
-                  ilike(tenant.name, tenantSearchPattern(search)),
-                  ilike(tenant.externalId, tenantSearchPattern(search)),
-                )
-              : undefined,
-            position ? (backward ? lt : gt)(tenant.id, position.id) : undefined,
-          ),
+      const db = yield* Database
+
+      const resolveId = Effect.fn("Tenants.resolveId")(function* (input: {
+        organizationId: string
+        externalId: string
+      }) {
+        const [row] = yield* db
+          .select({ id: tenant.id })
+          .from(tenant)
+          .where(
+            and(
+              eq(tenant.organizationId, input.organizationId),
+              eq(tenant.externalId, input.externalId),
+            ),
+          )
+          .limit(1)
+        return row?.id ?? null
+      }, mapDatabaseErrors())
+
+      const list = Effect.fn("Tenants.list")(function* (input: TenantListInput) {
+        const { scope, externalId, search } = input
+        return yield* databasePage(input, (position, limit, backward) =>
+          db
+            .select(tenantRecordColumns)
+            .from(tenant)
+            .where(
+              and(
+                tenantWhere(scope),
+                externalId === undefined ? undefined : eq(tenant.externalId, externalId),
+                search
+                  ? or(
+                      ilike(tenant.name, tenantSearchPattern(search)),
+                      ilike(tenant.externalId, tenantSearchPattern(search)),
+                    )
+                  : undefined,
+                position ? (backward ? lt : gt)(tenant.id, position.id) : undefined,
+              ),
+            )
+            .orderBy((backward ? desc : asc)(tenant.id))
+            .limit(limit)
+            .pipe(mapDatabaseErrors()),
         )
-        .orderBy((backward ? desc : asc)(tenant.id))
-        .limit(limit)
-    }).pipe(Effect.mapError(tenantDatabaseError)),
-  )
-}
-
-export function getTenant(scope: TenantScope, id: string) {
-  return Effect.gen(function* () {
-    const database = yield* Database
-    const rows = yield* database.select().from(tenant).where(tenantWhere(scope, id)).limit(1)
-    return rows[0]
-  }).pipe(
-    Effect.mapError(tenantDatabaseError),
-    Effect.filterOrFail(
-      (row) => row !== undefined,
-      () => new TenantError({ reason: "NotFound", message: "Tenant not found." }),
-    ),
-  )
-}
-
-export function createTenant(scope: TenantScope, input: TenantWrite) {
-  return Effect.gen(function* () {
-    if (scope.tenantId !== undefined) {
-      return yield* Effect.fail(
-        new TenantError({
-          reason: "Forbidden",
-          message: "Tenant writes require organization scope.",
-        }),
-      )
-    }
-    const database = yield* Database
-    const [row] = yield* database
-      .insert(tenant)
-      .values({
-        ...input,
-        organizationId: scope.organizationId,
       })
-      .returning()
-    return row!
-  }).pipe(Effect.mapError(tenantDatabaseError))
-}
 
-export function updateTenant(scope: TenantScope, id: string, patch: TenantPatch) {
-  return Effect.gen(function* () {
-    if (scope.tenantId !== undefined) {
-      return yield* Effect.fail(
-        new TenantError({
-          reason: "Forbidden",
-          message: "Tenant writes require organization scope.",
-        }),
-      )
-    }
-    const database = yield* Database
-    const rows = yield* database.update(tenant).set(patch).where(tenantWhere(scope, id)).returning()
-    return rows[0]
-  }).pipe(
-    Effect.mapError(tenantDatabaseError),
-    Effect.filterOrFail(
-      (row) => row !== undefined,
-      () => new TenantError({ reason: "NotFound", message: "Tenant not found." }),
-    ),
+      const get = Effect.fn("Tenants.get")(function* (input: { scope: TenantScope; id: string }) {
+        const [row] = yield* db
+          .select(tenantRecordColumns)
+          .from(tenant)
+          .where(tenantWhere(input.scope, input.id))
+          .limit(1)
+          .pipe(mapDatabaseErrors())
+        if (!row) return yield* new TenantNotFound()
+        return row
+      })
+
+      const create = Effect.fn("Tenants.create")(function* (input: {
+        scope: TenantScope
+        fields: typeof TenantWriteSchema.Type
+      }) {
+        yield* requireOrganizationScope(input.scope)
+        const [row] = yield* db
+          .insert(tenant)
+          .values({ ...input.fields, organizationId: input.scope.organizationId })
+          .returning(tenantRecordColumns)
+          .pipe(
+            mapDatabaseErrors({
+              tenant_organization_id_external_id_uidx: () => new TenantExternalIdTaken(),
+            }),
+          )
+        return row!
+      })
+
+      const update = Effect.fn("Tenants.update")(function* (input: {
+        scope: TenantScope
+        id: string
+        patch: typeof TenantPatchSchema.Type
+      }) {
+        yield* requireOrganizationScope(input.scope)
+        const [row] = yield* db
+          .update(tenant)
+          .set(input.patch)
+          .where(tenantWhere(input.scope, input.id))
+          .returning(tenantRecordColumns)
+          .pipe(mapDatabaseErrors())
+        if (!row) return yield* new TenantNotFound()
+        return row
+      })
+
+      return Tenants.of({ resolveId, list, get, create, update })
+    }),
   )
+
+  static readonly layer = Tenants.layerNoDeps.pipe(Layer.provide(Database.layer))
 }
