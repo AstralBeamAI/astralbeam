@@ -4,8 +4,8 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 
 ## Structure
 
-- `index.ts` is guarded as server-only and owns the separate process-wide pools, managed runtime and idempotent shutdown. It exports the Promise Drizzle client, Effect database service and replaceable layer, and framework bridge through `@/db`.
-- `config.server.ts` validates decrypted values from the global `config` table and recovers unreadable rows for `/configure`. The Drizzle column codec owns encryption, while `src/lib/config` adds environment precedence and process-local caching through `getGlobalConfig`.
+- `database.server.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
+- `schema/config.server.ts` defines the global `config` table, whose Drizzle column codec owns encryption. The `Config` service in `src/lib/config` validates stored values, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching.
 - `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
@@ -21,7 +21,7 @@ Tenant and TenantUser name/external-ID substring searches use `pg_trgm` GIN inde
 Use the Drizzle client from server-only code, after authorizing the organization ID at the request boundary:
 
 ```ts
-import { getAuthDatabase } from "@/db"
+import { getAuthDatabase } from "@/db/database.server"
 import { eq } from "drizzle-orm"
 import { agent } from "@/db/schema.server"
 
@@ -29,7 +29,7 @@ export const listOrganizationAgents = (organizationId: string) =>
   getAuthDatabase().select().from(agent).where(eq(agent.organizationId, organizationId))
 ```
 
-Database imports belong in server-only code and do not initialize resources. Database operations require `DATABASE_URL`, and encrypted values require `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration use the cached, environment-aware `getGlobalConfig` entry point. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
+Database imports belong in server-only code and do not initialize resources. Database operations require `DATABASE_URL`, and encrypted values require `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration go through the cached, environment-aware `Config` service. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
 
 ## Local services
 

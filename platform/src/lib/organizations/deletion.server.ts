@@ -3,7 +3,7 @@ import { Effect } from "effect"
 import { SqlClient } from "effect/unstable/sql"
 
 // The cluster runner loads this module through Nitro, which cannot resolve the `@/` alias.
-import { Database } from "../../db/index.ts"
+import { Database } from "../../db/database.server.ts"
 import { user } from "../../db/schema/authentication.server.ts"
 import { apiKey, invitation, member, organization } from "../../db/schema/organizations.server.ts"
 

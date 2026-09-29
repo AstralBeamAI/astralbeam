@@ -6,7 +6,7 @@ import * as Layer from "effect/Layer"
 import { RateLimiter } from "effect/unstable/persistence"
 import { SqlError, UnknownError } from "effect/unstable/sql/SqlError"
 
-import { type EffectDatabase, Database } from "@/db"
+import { type EffectDatabase, Database } from "@/db/database.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 
 import { consumeOperatorLoginRateLimit } from "./login-rate-limit.server.ts"

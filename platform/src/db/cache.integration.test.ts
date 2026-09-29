@@ -15,7 +15,8 @@ const cacheIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { getAuthDatabase, runDatabaseEffect } from "@/db"
+import { getAuthDatabase } from "@/db/database.server"
+import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { cacheEntry } from "@/db/schema.server"
 import expiredCacheCleanup from "../lib/workflows/expired-cache-cleanup.server.ts"
 import {
@@ -74,11 +75,11 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
         expiresAt: new Date(0),
       })),
     )
-    await runDatabaseEffect(writeTestCache({ ...cacheTestOptions, value: "keep" }))
-    await runDatabaseEffect(
+    await runAppEffect(writeTestCache({ ...cacheTestOptions, value: "keep" }))
+    await runAppEffect(
       writeTestCache({ ...cacheTestOptions, key: "refreshed", value: "old", timeToLive: 0 }),
     )
-    await runDatabaseEffect(
+    await runAppEffect(
       writeTestCache({
         ...cacheTestOptions,
         key: "refreshed",
@@ -86,26 +87,26 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
         timeToLive: "1 hour",
       }),
     )
-    expect(await runDatabaseEffect(deleteExpiredDatabaseCacheBatch)).toBe(1000)
-    await runDatabaseEffect(expiredCacheCleanup)
-    expect(await runDatabaseEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
-    expect(await runDatabaseEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("keep"))
-    expect(
-      await runDatabaseEffect(readTestCache({ ...cacheTestOptions, key: "refreshed" })),
-    ).toEqual(Option.some("new"))
+    expect(await runAppEffect(deleteExpiredDatabaseCacheBatch)).toBe(1000)
+    await runAppEffect(expiredCacheCleanup)
+    expect(await runAppEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
+    expect(await runAppEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("keep"))
+    expect(await runAppEffect(readTestCache({ ...cacheTestOptions, key: "refreshed" }))).toEqual(
+      Option.some("new"),
+    )
   })
 
   test("cleanup skips a row while another transaction refreshes its TTL", async () => {
-    await runDatabaseEffect(writeTestCache({ ...cacheTestOptions, value: "old", timeToLive: 0 }))
+    await runAppEffect(writeTestCache({ ...cacheTestOptions, value: "old", timeToLive: 0 }))
     await db.transaction(async (transaction) => {
       await transaction
         .update(cacheEntry)
         .set({ expiresAt: sql`now() + interval '1 hour'` })
         .where(eq(cacheEntry.namespace, cacheTestNamespace))
-      expect(await runDatabaseEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
+      expect(await runAppEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
     })
-    expect(await runDatabaseEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
-    expect(await runDatabaseEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("old"))
+    expect(await runAppEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
+    expect(await runAppEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("old"))
   })
 
   test("enforces character limits in PostgreSQL and accepts Unicode at the boundary", async () => {
@@ -114,8 +115,8 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
       namespace: cacheTestNamespace + "😀".repeat(64 - cacheTestNamespace.length),
       key: "😀".repeat(512),
     }
-    await runDatabaseEffect(writeTestCache({ ...options, value: "boundary" }))
-    expect(await runDatabaseEffect(readTestCache(options))).toEqual(Option.some("boundary"))
+    await runAppEffect(writeTestCache({ ...options, value: "boundary" }))
+    expect(await runAppEffect(readTestCache(options))).toEqual(Option.some("boundary"))
     for (const identity of [
       { namespace: options.namespace + "x", key: "key" },
       { namespace: cacheTestNamespace, key: options.key + "x" },
@@ -127,7 +128,7 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
   })
 
   test("preserves null, isolates namespaces, overwrites and deletes", async () => {
-    await runDatabaseEffect(
+    await runAppEffect(
       Effect.gen(function* () {
         expect(yield* readTestCache(cacheTestOptions)).toEqual(Option.none())
         yield* writeTestCache({ ...cacheTestOptions, value: null })
@@ -152,11 +153,11 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
   })
 
   test("upserts value and TTL together while preserving row identity and creation time", async () => {
-    await runDatabaseEffect(
+    await runAppEffect(
       writeTestCache({ ...cacheTestOptions, value: "expired", timeToLive: Duration.zero }),
     )
-    expect(await runDatabaseEffect(readTestCache(cacheTestOptions))).toEqual(Option.none())
-    await runDatabaseEffect(
+    expect(await runAppEffect(readTestCache(cacheTestOptions))).toEqual(Option.none())
+    await runAppEffect(
       writeTestCache({ ...cacheTestOptions, value: "finite", timeToLive: "1 hour" }),
     )
     const [finite] = await db
@@ -164,8 +165,8 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
       .from(cacheEntry)
       .where(eq(cacheEntry.namespace, cacheTestNamespace))
     expect(finite?.expiresAt).toBeInstanceOf(Date)
-    expect(await runDatabaseEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("finite"))
-    await runDatabaseEffect(
+    expect(await runAppEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("finite"))
+    await runAppEffect(
       writeTestCache({ ...cacheTestOptions, value: "extended", timeToLive: "2 hours" }),
     )
     const extendedRows = await db
@@ -180,17 +181,15 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
     expect(extended.expiresAt!.getTime()).toBeGreaterThan(finite!.expiresAt!.getTime())
     expect(extended.expiresAt!.getTime() - extended.updatedAt.getTime()).toBe(7_200_000)
     expect(extended.value).toBe('"extended"')
-    expect(await runDatabaseEffect(readTestCache(cacheTestOptions))).toEqual(
-      Option.some("extended"),
-    )
-    await runDatabaseEffect(writeTestCache({ ...cacheTestOptions, value: "forever" }))
+    expect(await runAppEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("extended"))
+    await runAppEffect(writeTestCache({ ...cacheTestOptions, value: "forever" }))
     const [unlimited] = await db
       .select()
       .from(cacheEntry)
       .where(eq(cacheEntry.namespace, cacheTestNamespace))
     expect(unlimited?.expiresAt).toBeNull()
-    expect(await runDatabaseEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("forever"))
-    await runDatabaseEffect(
+    expect(await runAppEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("forever"))
+    await runAppEffect(
       writeTestCache({
         ...cacheTestOptions,
         value: "expired again",
@@ -205,7 +204,7 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
     expect(expiredRows[0]!.id).toBe(finite!.id)
     expect(expiredRows[0]!.value).toBe('"expired again"')
     expect(expiredRows[0]!.expiresAt).toEqual(expiredRows[0]!.updatedAt)
-    expect(await runDatabaseEffect(readTestCache(cacheTestOptions))).toEqual(Option.none())
+    expect(await runAppEffect(readTestCache(cacheTestOptions))).toEqual(Option.none())
   })
 
   test("propagates corrupt JSON and schema errors", async () => {
@@ -214,7 +213,7 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
         .insert(cacheEntry)
         .values({ namespace: cacheTestNamespace, key: "key", value })
         .onConflictDoUpdate({ target: [cacheEntry.namespace, cacheEntry.key], set: { value } })
-      const error = await runDatabaseEffect(readTestCache(cacheTestOptions).pipe(Effect.flip))
+      const error = await runAppEffect(readTestCache(cacheTestOptions).pipe(Effect.flip))
       expect(error._tag).toBe("SchemaError")
     }
   })
@@ -223,7 +222,7 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
     const counter = { ...cacheTestOptions, schema: Schema.Number }
     await Promise.all(
       Array.from({ length: 10 }, () =>
-        runDatabaseEffect(
+        runAppEffect(
           withDatabaseCacheLock(
             counter,
             Effect.gen(function* () {
@@ -237,8 +236,8 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
         ),
       ),
     )
-    expect(await runDatabaseEffect(readTestCache(counter))).toEqual(Option.some(10))
-    const result = await runDatabaseEffect(
+    expect(await runAppEffect(readTestCache(counter))).toEqual(Option.some(10))
+    const result = await runAppEffect(
       Effect.result(
         Effect.gen(function* () {
           const client = yield* SqlClient.SqlClient
@@ -251,8 +250,8 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
       ),
     )
     expect(result).toMatchObject({ _tag: "Failure", failure: "rollback" })
-    expect(await runDatabaseEffect(readTestCache(counter))).toEqual(Option.some(10))
-    await runDatabaseEffect(deleteTestCache(counter))
-    expect(await runDatabaseEffect(readTestCache(counter))).toEqual(Option.none())
+    expect(await runAppEffect(readTestCache(counter))).toEqual(Option.some(10))
+    await runAppEffect(deleteTestCache(counter))
+    expect(await runAppEffect(readTestCache(counter))).toEqual(Option.none())
   })
 })
