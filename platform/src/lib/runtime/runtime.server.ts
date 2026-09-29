@@ -55,7 +55,7 @@ export function getAppLayer() {
 
 export type AppServices = Layer.Success<ReturnType<typeof makeAppLayer>>
 
-// Pools stay process-wide in `@/db`, so a module reload rebuilds only this layer's services.
+// Pools stay process-wide in `src/db/database.server.ts`, so a reload rebuilds only these services.
 // https://vite.dev/guide/api-hmr.html#hot-dispose-cb
 let appRuntime: ManagedRuntime.ManagedRuntime<AppServices, never> | undefined
 
