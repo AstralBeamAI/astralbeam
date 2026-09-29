@@ -10,7 +10,7 @@ import {
 } from "@tanstack/ai-sandbox"
 import * as Effect from "effect/Effect"
 
-import { resolveOrganizationSandboxProviderConfiguration } from "@/lib/sandboxes/providers.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { APP_HANDLE } from "@/lib/constants"
 import { createSandboxProvider } from "@/lib/sandboxes/factory.server"
 import {
@@ -66,7 +66,7 @@ class ChatSandboxUnavailableError extends Error {
 
 /**
  * Resolve the agent's stored provider into a per-run session, or fail when the configuration is
- * gone or unreadable. The read is organization-scoped by `resolveOrganizationSandboxProviderConfiguration`.
+ * gone or unreadable. The read is organization-scoped by `SandboxProviders.resolveConfiguration`.
  */
 export function resolveChatSandboxSession(input: {
   readonly sandboxProviderId: string
@@ -77,10 +77,11 @@ export function resolveChatSandboxSession(input: {
   readonly uploads: readonly ChatAttachmentFile[]
 }) {
   return Effect.gen(function* () {
-    const configuration = yield* resolveOrganizationSandboxProviderConfiguration(
-      input.principal.organization.id,
-      input.sandboxProviderId,
-    )
+    const providers = yield* SandboxProviders
+    const configuration = yield* providers.resolveConfiguration({
+      organizationId: input.principal.organization.id,
+      id: input.sandboxProviderId,
+    })
     const provider = yield* createSandboxProvider(configuration.provider, configuration)
     // The agent is part of the sandbox identity, so switching a thread to another agent starts a
     // clean sandbox rather than resuming one provisioned for different instructions.

@@ -1,4 +1,4 @@
-import * as Data from "effect/Data"
+import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { strictParseOptions, NonEmptyStringSchema, enumSchema } from "../schemas.ts"
@@ -110,18 +110,25 @@ export const SandboxTestMetadataSchema = Schema.Struct({
 
 export type SandboxTestMetadata = typeof SandboxTestMetadataSchema.Type
 
+/** Rejects unknown or provider-mismatched fields before a configuration is stored or returned. */
 export function decodeProviderOptions<Provider extends SandboxProviderId>(
   provider: Provider,
   value: unknown,
-): SandboxProviderOptions[Provider] {
-  return decodeStrict(sandboxProviderSchemas[provider].options, value)
+): Effect.Effect<SandboxProviderOptions[Provider], Schema.SchemaError> {
+  return Schema.decodeUnknownEffect(
+    sandboxProviderSchemas[provider].options,
+    strictParseOptions,
+  )(value)
 }
 
 export function decodeProviderCredentials<Provider extends SandboxProviderId>(
   provider: Provider,
   value: unknown,
-): SandboxProviderCredentials[Provider] {
-  return decodeStrict(sandboxProviderSchemas[provider].credentials, value)
+): Effect.Effect<SandboxProviderCredentials[Provider], Schema.SchemaError> {
+  return Schema.decodeUnknownEffect(
+    sandboxProviderSchemas[provider].credentials,
+    strictParseOptions,
+  )(value)
 }
 
 export function isProviderCredentials<Provider extends SandboxProviderId>(
@@ -129,23 +136,4 @@ export function isProviderCredentials<Provider extends SandboxProviderId>(
   value: unknown,
 ): value is SandboxProviderCredentials[Provider] {
   return Schema.is(SANDBOX_PROVIDER_SCHEMAS[provider].credentials)(value)
-}
-
-function decodeStrict<A>(schema: Schema.Decoder<A>, value: unknown): A {
-  try {
-    return Schema.decodeUnknownSync(schema, strictParseOptions)(value)
-  } catch (error) {
-    if (!Schema.isSchemaError(error)) throw error
-    throw new SandboxConfigurationValidationError(error.message)
-  }
-}
-
-export class SandboxConfigurationValidationError extends Data.TaggedError(
-  "SandboxConfigurationValidationError",
-)<{
-  readonly message: string
-}> {
-  constructor(input: string | { readonly message: string }) {
-    super(typeof input === "string" ? { message: input } : input)
-  }
 }

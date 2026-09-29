@@ -2,7 +2,7 @@ import { resolveHarnessCwd } from "@tanstack/ai-sandbox"
 import * as Effect from "effect/Effect"
 
 import { runDatabaseEffect } from "@/db"
-import { resolveOrganizationSandboxProviderConfiguration } from "@/lib/sandboxes/providers.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { createSandboxProvider } from "@/lib/sandboxes/factory.server"
 import {
   artifactContentDigest,
@@ -22,9 +22,11 @@ export async function readChatFile(token: string) {
     )
   }
   const provider = await runDatabaseEffect(
-    resolveOrganizationSandboxProviderConfiguration(
-      ticket.organizationId,
-      ticket.sandboxProviderId,
+    Effect.flatMap(SandboxProviders, (providers) =>
+      providers.resolveConfiguration({
+        organizationId: ticket.organizationId,
+        id: ticket.sandboxProviderId,
+      }),
     ).pipe(
       Effect.flatMap((configuration) =>
         createSandboxProvider(configuration.provider, configuration),
