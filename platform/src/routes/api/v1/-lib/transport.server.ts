@@ -1,4 +1,4 @@
-import { Cause, Effect, Layer, Option, Schema, SchemaIssue } from "effect"
+import { Cause, Effect, Layer, Option, SchemaIssue } from "effect"
 import {
   HttpRouter,
   HttpServer,
@@ -9,9 +9,10 @@ import {
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 
 import { Database } from "@/db/database.server"
+import { Auth } from "@/lib/auth/auth.server"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { isSetupComplete } from "@/lib/config/state.server"
+import { Config } from "@/lib/config/config.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { getAppLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
@@ -43,12 +44,6 @@ import {
 } from "./errors.ts"
 
 const formatRestIssues = SchemaIssue.makeFormatterStandardSchemaV1()
-
-/** The setup check itself failed, which the router reports as an internal error. */
-class RestSetupCheckFailed extends Schema.TaggedError<RestSetupCheckFailed>()(
-  "RestSetupCheckFailed",
-  { cause: Schema.Defect() },
-) {}
 
 function restValidationError(error: HttpApiError.HttpApiSchemaError) {
   const body = error.kind === "Payload"
@@ -103,7 +98,7 @@ const ApiBoundaryLive = Layer.succeed(ApiBoundary, (httpEffect, { endpoint }) =>
 const RestAuthorizationLive = Layer.effect(
   RestAuthorization,
   Effect.gen(function* () {
-    const services = yield* Effect.context<Database | DatabaseRateLimiter | Tenants>()
+    const services = yield* Effect.context<Auth | Database | DatabaseRateLimiter | Tenants>()
     return (httpEffect) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
@@ -147,15 +142,6 @@ function restProblemOnly(response: HttpServerResponse.HttpServerResponse) {
   )
 }
 
-const restSetupGate = Effect.gen(function* () {
-  if (getDatabaseBootstrapIssues().length > 0) return false
-  // Seam: setup state stays Promise-based until the config module exposes an Effect service.
-  return yield* Effect.tryPromise({
-    try: () => isSetupComplete(),
-    catch: (cause) => new RestSetupCheckFailed({ cause }),
-  }).pipe(Effect.orDie)
-})
-
 /** Answers an unknown path with a problem body and reports defects once. */
 function restRouterFailure<E>(
   cause: Cause.Cause<E>,
@@ -174,15 +160,22 @@ function restRouterFailure<E>(
 }
 
 /** Owns preflight, setup, CORS, cache headers, and failures outside every endpoint. */
-const RestRouterBoundary = HttpRouter.middleware(
-  (httpEffect) =>
-    Effect.gen(function* () {
-      const request = yield* HttpServerRequest.HttpServerRequest
-      if (request.method === "OPTIONS") return HttpServerResponse.empty({ status: 204 })
-      if (!(yield* restSetupGate)) return restProblemResponse(new RestSetupRequired())
-      return restProblemOnly(yield* httpEffect)
-    }).pipe(Effect.catchCause(restRouterFailure), Effect.map(restResponseHeaders)),
-  { global: true },
+const RestRouterBoundary = Layer.unwrap(
+  Effect.map(Config, (config) =>
+    HttpRouter.middleware(
+      (httpEffect) =>
+        Effect.gen(function* () {
+          const request = yield* HttpServerRequest.HttpServerRequest
+          if (request.method === "OPTIONS") return HttpServerResponse.empty({ status: 204 })
+          // Without the database variables the configuration cannot be read.
+          const setupComplete =
+            getDatabaseBootstrapIssues().length === 0 && (yield* config.setupState).setupComplete
+          if (!setupComplete) return restProblemResponse(new RestSetupRequired())
+          return restProblemOnly(yield* httpEffect)
+        }).pipe(Effect.catchCause(restRouterFailure), Effect.map(restResponseHeaders)),
+      { global: true },
+    ),
+  ),
 )
 
 /** The v1 routes and their boundaries, before the application services they run on. */

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm"
-import { Duration, Effect, Predicate, Schema } from "effect"
+import { Duration, Effect } from "effect"
 import { decodeProtectedHeader } from "jose"
 import {
   authenticateOrganizationRequest,
@@ -10,9 +10,9 @@ import { apiKey, organization } from "@/db/schema/organizations.server"
 import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
 import { ORGANIZATION_API_KEY_CONFIG_ID, parseApiKeyCredential } from "@/lib/api-keys/schemas"
-import { getAuth } from "@/lib/auth/auth.server"
+import { Auth } from "@/lib/auth/auth.server"
 import { authorizeOrganizationRole } from "@/lib/organizations/access"
-import { authenticateChatRequest, isChatAuthenticationError } from "@/lib/chat/auth.server"
+import { authenticateChatRequest } from "@/lib/chat/auth.server"
 import {
   RestInvalidCredentials,
   RestMembershipRequired,
@@ -24,11 +24,6 @@ import type { RestScope } from "./shared.server"
 
 const REST_CREDENTIAL_MAX_LENGTH = 16_384
 const REST_RATE_LIMIT = { limit: 100, window: Duration.minutes(5) }
-
-/** A verifier failed rather than rejected, which the boundary reports as an internal error. */
-class RestVerifierFailed extends Schema.TaggedError<RestVerifierFailed>()("RestVerifierFailed", {
-  cause: Schema.Defect(),
-}) {}
 
 /** The credential a REST request carries, when it fits the accepted length. */
 function readRestCredential(value: string | null | undefined): string | undefined {
@@ -70,18 +65,13 @@ export const consumeRestRateLimit = Effect.fn("consumeRestRateLimit")(function* 
   )
 })
 
-// Seam: the verifiers below keep their current contracts until the Auth service replaces them.
 export const authenticateRestOrganizationToken = Effect.fn("authenticateRestOrganizationToken")(
   function* (request: Request) {
     return yield* authenticateOrganizationRequest(request).pipe(
-      Effect.catch(
-        (error): Effect.Effect<never, RestMembershipRequired | RestInvalidCredentials> =>
-          Predicate.isTagged(error, "OrganizationMembershipError")
-            ? Effect.fail(new RestMembershipRequired())
-            : isChatAuthenticationError(error)
-              ? Effect.fail(new RestInvalidCredentials())
-              : Effect.die(error),
-      ),
+      Effect.catchTags({
+        OrganizationMembershipError: () => Effect.fail(new RestMembershipRequired()),
+        ChatAuthenticationError: () => Effect.fail(new RestInvalidCredentials()),
+      }),
     )
   },
 )
@@ -94,21 +84,11 @@ export const authenticateRestTenantToken = Effect.fn("authenticateRestTenantToke
   )
 })
 
-const verifyRestApiKey = Effect.fn("verifyRestApiKey")(function* (key: string) {
-  const auth = yield* Effect.tryPromise({
-    try: () => getAuth(),
-    catch: (cause) => new RestVerifierFailed({ cause }),
-  })
-  return yield* Effect.tryPromise({
-    try: () => auth.api.verifyApiKey({ body: { key } }),
-    catch: (cause) => new RestVerifierFailed({ cause }),
-  })
-}, Effect.orDie)
-
 const authenticateRestApiKey = Effect.fn("authenticateRestApiKey")(function* (credential: string) {
   const parts = parseApiKeyCredential(credential)
   if (!parts) return yield* new RestInvalidCredentials()
-  const verified = yield* verifyRestApiKey(parts.secret)
+  const auth = yield* Auth
+  const verified = yield* auth.api((api) => api.verifyApiKey({ body: { key: parts.secret } }))
   if (!verified.valid || !verified.key) {
     if (verified.error?.code === "RATE_LIMITED") {
       const details = verified.error as { details?: { tryAgainIn?: unknown } }

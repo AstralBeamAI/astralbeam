@@ -11,6 +11,12 @@ export class AuthEmailNotDelivered extends Schema.TaggedError<AuthEmailNotDelive
   override readonly message = AUTH_EMAIL_DELIVERY_FAILED_MESSAGE
 }
 
+/** A verified organization token names a user who is not a member of its organization. */
+export class OrganizationMembershipError extends Schema.TaggedError<OrganizationMembershipError>()(
+  "OrganizationMembershipError",
+  {},
+) {}
+
 // The dashboard token endpoint answers with each message as its JSON `error`.
 
 export class DashboardTokenRateLimited extends Schema.TaggedError<DashboardTokenRateLimited>()(

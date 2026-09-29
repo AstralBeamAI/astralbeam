@@ -45,19 +45,6 @@ type OrganizationOwnedTable = typeof agent | typeof apiKey | typeof member | typ
 
 type AccessFailure = SignInRequired | OrganizationNotFound | OrganizationAccessDenied
 
-/** The display identity of an organization whose ID came from a verified credential. */
-export function readOrganizationSummary(organizationId: string) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    const [row] = yield* db
-      .select({ id: organization.id, name: organization.name, slug: organization.slug })
-      .from(organization)
-      .where(eq(organization.id, organizationId))
-      .limit(1)
-    return row
-  })
-}
-
 export class Organizations extends Context.Service<
   Organizations,
   {
@@ -76,6 +63,10 @@ export class Organizations extends Context.Service<
       readonly organizationSlug: string
       readonly permissions?: OrganizationPermissionRequest | undefined
     }) => Effect.Effect<OrganizationAccess, AccessFailure>
+    /** The display identity of an organization whose ID came from a verified credential. */
+    readonly summary: (
+      organizationId: string,
+    ) => Effect.Effect<{ readonly id: string; readonly name: string; readonly slug: string } | null>
     /** The dashboard's one read: how much of each resource the organization has configured. */
     readonly resourceCounts: (input: {
       readonly organizationId: string
@@ -153,6 +144,15 @@ export class Organizations extends Context.Service<
         return granted
       })
 
+      const summary = Effect.fn("Organizations.summary")(function* (organizationId: string) {
+        const [row] = yield* db
+          .select({ id: organization.id, name: organization.name, slug: organization.slug })
+          .from(organization)
+          .where(eq(organization.id, organizationId))
+          .limit(1)
+        return row ?? null
+      }, Effect.orDie)
+
       const resourceCounts = Effect.fn("Organizations.resourceCounts")(function* (input: {
         organizationId: string
         permissions: OrganizationPermissions
@@ -180,6 +180,7 @@ export class Organizations extends Context.Service<
       return Organizations.of({
         membership,
         access,
+        summary,
         resourceCounts,
       })
     }),

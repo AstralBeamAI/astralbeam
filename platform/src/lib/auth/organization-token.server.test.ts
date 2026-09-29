@@ -2,9 +2,7 @@ import { Effect } from "effect"
 import { createHash } from "node:crypto"
 import { execFileSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
-import { expect, test, vi } from "vitest"
-
-vi.mock("@/db", () => ({ Database: Effect.void, runDatabaseEffect: Effect.runPromise }))
+import { expect, test } from "vitest"
 
 import { verifyOrganizationToken } from "./organization-token.server"
 
