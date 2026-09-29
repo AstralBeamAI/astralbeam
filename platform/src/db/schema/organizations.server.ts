@@ -52,11 +52,6 @@ export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
   ),
 )
 
-const decodeSandboxProviderCredentialsPayload = Schema.decodeUnknownSync(
-  SandboxProviderCredentialsPayloadSchema,
-  { onExcessProperty: "error" },
-)
-
 export const organization = snakeCase.table(
   "organization",
   {
@@ -123,7 +118,7 @@ export const sandboxProvider = snakeCase.table(
     name: caseInsensitiveText().notNull(),
     providerType: text().$type<SandboxProviderId>().notNull(),
     options: jsonb().$type<SandboxProviderOptions[SandboxProviderId]>().notNull(),
-    credentials: encryptedJson({ decode: decodeSandboxProviderCredentialsPayload }),
+    credentials: encryptedJson({ schema: SandboxProviderCredentialsPayloadSchema }),
     lastTest: jsonb().$type<SandboxTestMetadata>(),
     lockVersion: lockVersion(),
     ...timestamps(),
@@ -181,11 +176,6 @@ const OrganizationOpenaiApiKeyPayloadSchema = Schema.Struct({
   apiKey: OpenaiApiKeySchema,
 })
 
-const decodeOrganizationOpenaiApiKeyPayload = Schema.decodeUnknownSync(
-  OrganizationOpenaiApiKeyPayloadSchema,
-  { onExcessProperty: "error" },
-)
-
 export const organizationConfiguration = snakeCase.table(
   "organization_configuration",
   {
@@ -197,7 +187,7 @@ export const organizationConfiguration = snakeCase.table(
       }),
     defaultAgentId: uuid(),
     // Every chat run streams on the organization's own key; the deployment holds none.
-    openaiApiKey: encryptedJson({ decode: decodeOrganizationOpenaiApiKeyPayload }),
+    openaiApiKey: encryptedJson({ schema: OrganizationOpenaiApiKeyPayloadSchema }),
     lockVersion: lockVersion(),
     ...timestamps(),
   },

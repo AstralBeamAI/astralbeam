@@ -1,12 +1,13 @@
 import { eq, notInArray, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
+import * as Result from "effect/Result"
 
 import { Database, runDatabaseEffect } from "@/db"
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { configTable } from "@/db/schema.server"
-import { decodeConfigValuePayload } from "@/db/schema/config.server"
+import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
 import {
   CONFIG_DEFINITIONS,
   decodeConfigValue,
@@ -31,7 +32,7 @@ type DatabaseConfigGeneratedValue = {
 
 type StoredConfigRow = {
   readonly key: string
-  readonly value?: ReturnType<typeof decodeConfigValuePayload>
+  readonly value?: typeof ConfigValuePayloadSchema.Type
   readonly storage?: NonNullable<ConfigStorageEntry["storageStatus"]>
 }
 
@@ -53,15 +54,12 @@ function readStoredConfigRows(excludedKeys: readonly ConfigKey[]) {
       ? query
       : query.where(notInArray(configTable.key, [...excludedKeys]))
     return rows.map(({ key, storedValue }) => {
-      try {
-        const decoded = decodeRawStoredConfigValue(storedValue)
-        return {
-          key,
-          value: decoded.value,
-          ...(decoded.usedFallbackKey ? { storage: "fallback-key" as const } : {}),
-        }
-      } catch {
-        return { key, storage: "unreadable" as const }
+      const decoded = decodeRawStoredConfigValue(storedValue)
+      if (Result.isFailure(decoded)) return { key, storage: "unreadable" as const }
+      return {
+        key,
+        value: decoded.success.value,
+        ...(decoded.success.usedFallbackKey ? { storage: "fallback-key" as const } : {}),
       }
     })
   }).pipe(
@@ -75,7 +73,7 @@ function readStoredConfigRows(excludedKeys: readonly ConfigKey[]) {
 function decodeRawStoredConfigValue(storedValue: string) {
   return decryptDatabaseValue({
     storedValue,
-    decode: decodeConfigValuePayload,
+    schema: ConfigValuePayloadSchema,
     keyring: getDatabaseEncryptionKeyring(),
   })
 }

@@ -9,6 +9,7 @@ import * as Redacted from "effect/Redacted"
 import { Pool } from "pg"
 
 import { getDatabaseUrl } from "./lib/database-credentials.server.ts"
+import { sqlState } from "./lib/sqlstate.server.ts"
 import { databaseRelations } from "./schema.server.ts"
 
 // Keep Better Auth and Effect connection lifecycles independent.
@@ -26,16 +27,19 @@ function createAuthDatabasePool(): Pool {
     keepAlive: true,
     keepAliveInitialDelayMillis: 10_000,
   })
-  // An unhandled 'error' event on a pg pool terminates the process.
+  // An unhandled 'error' event on a pg pool terminates the process. Log its code, not its message.
   pool.on("error", (error) => {
-    console.error("Database pool idle client error", {
-      pool: "astralbeam-platform-auth",
-      message: error.message,
-      code: "code" in error && typeof error.code === "string" ? error.code : undefined,
-      total: pool.totalCount,
-      idle: pool.idleCount,
-      waiting: pool.waitingCount,
-    })
+    Effect.runFork(
+      Effect.logError("Database pool idle client error").pipe(
+        Effect.annotateLogs({
+          pool: "astralbeam-platform-auth",
+          code: sqlState(error),
+          total: pool.totalCount,
+          idle: pool.idleCount,
+          waiting: pool.waitingCount,
+        }),
+      ),
+    )
   })
   return pool
 }
@@ -77,7 +81,7 @@ const SqlClientLayer = Layer.effectContext(
 )
 
 export class Database extends Context.Service<Database, EffectDatabase>()(
-  "@astralbeam/EffectDatabase",
+  "astralbeam/db/Database",
 ) {
   static readonly layerNoDeps = Layer.effect(Database, makeEffectDatabase)
   static readonly layer = Database.layerNoDeps.pipe(Layer.provideMerge(SqlClientLayer))
