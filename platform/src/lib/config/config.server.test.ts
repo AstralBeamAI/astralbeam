@@ -3,6 +3,7 @@ import { Deferred, Effect, Fiber, Layer, Result } from "effect"
 import { afterEach, beforeAll, beforeEach, vi } from "vitest"
 
 import { Database, type EffectDatabase } from "@/db/database.server"
+import { DatabaseMigrations } from "@/db/migration-runner.server"
 import { configTable } from "@/db/schema/config.server"
 import { Config, publicConfigFromValues } from "./config.server.ts"
 import {
@@ -14,14 +15,7 @@ import {
 } from "./registry.server.ts"
 import type { ConfigValues } from "./types.ts"
 
-const migrations = vi.hoisted(() => ({ pending: false }))
-
-// The migration runner reads the Promise pool directly, outside any Effect service.
-vi.mock("@/db/migration-runner.server", () => ({
-  getDatabaseMigrationState: () =>
-    Promise.resolve({ pending: migrations.pending ? [{ name: "pending" }] : [], appliedCount: 0 }),
-  applyApprovedMigrations: () => Promise.resolve({ ok: true, applied: [] }),
-}))
+const migrations = { pending: false }
 
 const SECRET = "a".repeat(64)
 const COMPLETE_VALUES = {
@@ -75,8 +69,16 @@ function configDatabase(state: { rows: StoredRow[]; reads: number; gate?: Effect
   } as unknown as EffectDatabase)
 }
 
+const configMigrations = Layer.succeed(DatabaseMigrations, {
+  state: Effect.sync(() => ({
+    pending: migrations.pending ? [{ name: "pending", sql: "", hash: "", folderMillis: 0 }] : [],
+    appliedCount: 0,
+  })),
+  apply: () => Effect.void,
+})
+
 function configLayer(state: { rows: StoredRow[]; reads: number; gate?: Effect.Effect<void> }) {
-  return Config.layerNoDeps.pipe(Layer.provide(configDatabase(state)))
+  return Config.layerNoDeps.pipe(Layer.provide([configDatabase(state), configMigrations]))
 }
 
 describe("configuration registry", () => {

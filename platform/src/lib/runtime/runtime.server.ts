@@ -4,6 +4,7 @@ import { IS_DEVELOPMENT_SERVER } from "./environment.server.ts"
 
 import { Database } from "@/db/database.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { DatabaseMigrations } from "@/db/migration-runner.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import { Auth } from "@/lib/auth/auth.server"
@@ -30,6 +31,7 @@ function makeAppLayer() {
     ChatSandboxes.layer,
     Config.layer,
     Database.layer,
+    DatabaseMigrations.layer,
     DatabaseRateLimiter.layer,
     Dogfood.layer,
     Mailer.layer,

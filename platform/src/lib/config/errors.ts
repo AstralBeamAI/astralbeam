@@ -32,10 +32,3 @@ export class ConfigEnvironmentInvalid extends Schema.TaggedError<ConfigEnvironme
   "ConfigEnvironmentInvalid",
   { variable: Schema.String },
 ) {}
-
-/** Carries the migration runner's reason, which names the migration and SQLSTATE for operators. */
-export class MigrationsNotApplied extends Schema.TaggedError<MigrationsNotApplied>()(
-  "MigrationsNotApplied",
-  { message: Schema.String },
-  { httpApiStatus: 409 },
-) {}
