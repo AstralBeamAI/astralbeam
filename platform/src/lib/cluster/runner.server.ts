@@ -1,9 +1,7 @@
-import process from "node:process"
-
 import * as DenoCrypto from "@effect/platform-deno/DenoCrypto"
 import * as DenoHttpClient from "@effect/platform-deno/DenoHttpClient"
 import * as DenoHttpServer from "@effect/platform-deno/DenoHttpServer"
-import { Effect, Layer, Option, Result } from "effect"
+import { Config, Effect, Layer, Option, Result } from "effect"
 import {
   ClusterWorkflowEngine,
   HttpRunner,
@@ -18,21 +16,28 @@ import { HttpServer } from "effect/unstable/http"
 import { NetAddress } from "effect/unstable/net"
 import { RpcSerialization } from "effect/unstable/rpc"
 
-export function clusterRunnerSettings() {
-  const host = process.env.CLUSTER_RUNNER_HOST ?? "127.0.0.1"
-  const portValue = process.env.CLUSTER_RUNNER_PORT ?? "0"
-  const port = Number(portValue)
-  if (!/^\d+$/u.test(portValue) || port > 65535) {
-    throw new Error("CLUSTER_RUNNER_PORT must be an integer between 0 and 65535")
-  }
-  const address = NetAddress.ipFromString(host)
-  if (!host || (Result.isSuccess(address) && NetAddress.isUnspecified(address.success))) {
-    throw new Error("CLUSTER_RUNNER_HOST must be a reachable host, not a wildcard")
-  }
-  return { host, port, listenHost: process.env.CLUSTER_RUNNER_LISTEN_HOST ?? host }
-}
+import { ClusterRunnerSettingsInvalid } from "./errors.ts"
 
-export function clusterRunnerLayer(settings: ReturnType<typeof clusterRunnerSettings>) {
+/** The runner's advertised and listening addresses, read from the environment only. */
+export const clusterRunnerSettings = Effect.gen(function* () {
+  const host = yield* Config.String("CLUSTER_RUNNER_HOST").pipe(Config.withDefault("127.0.0.1"))
+  const port = yield* Config.Int("CLUSTER_RUNNER_PORT").pipe(Config.withDefault(0))
+  const listenHost = yield* Config.String("CLUSTER_RUNNER_LISTEN_HOST").pipe(
+    Config.withDefault(host),
+  )
+  const address = NetAddress.ipFromString(host)
+  if (
+    port < 0 ||
+    port > 65535 ||
+    !host ||
+    (Result.isSuccess(address) && NetAddress.isUnspecified(address.success))
+  ) {
+    return yield* new ClusterRunnerSettingsInvalid()
+  }
+  return { host, port, listenHost }
+})
+
+export function clusterRunnerLayer(settings: Effect.Success<typeof clusterRunnerSettings>) {
   return Layer.unwrap(
     Effect.gen(function* () {
       const server = yield* DenoHttpServer.make({

@@ -21,4 +21,11 @@ export function getAppRuntime() {
   return (appRuntime ??= ManagedRuntime.make(AppLayer.pipe(Layer.orDie)))
 }
 
-import.meta.hot?.dispose(() => void appRuntime?.dispose())
+/** Runs the services' finalizers, such as destroying chat sandboxes, without closing the pools. */
+export function disposeAppRuntime(): Promise<void> {
+  const runtime = appRuntime
+  appRuntime = undefined
+  return runtime ? runtime.dispose() : Promise.resolve()
+}
+
+import.meta.hot?.dispose(() => void disposeAppRuntime())

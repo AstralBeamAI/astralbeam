@@ -18,7 +18,7 @@ The [embedded cluster runtime](../cluster/README.md) owns private runner communi
 
 1. Define a versioned workflow in a `.ts` module in this folder, which TanStack's import protection marks server-only, with payload, success, and error schemas. Use immutable Organization UUIDs and resource IDs for organization-owned operations. Derive the idempotency key from stable domain identity.
 2. Implement the workflow with `.toLayer`. Put external operations inside named `Activity.make` steps with serializable results and typed failures. Yield Effects directly inside the handler.
-3. Import the handler layer into `registry.server.ts` and include it in `registeredWorkflowLayers`, using `Layer.mergeAll` for multiple handlers. Provide the application services each handler requires. The runtime supplies the workflow engine and shared SQL client.
+3. Import the handler layer into `registry.server.ts` and include it in `registeredWorkflowLayers`, using `Layer.mergeAll` for multiple handlers. Handlers may require any service in the [app runtime](../runtime/runtime.server.ts), which the cluster supervisor runs on together with the workflow engine and shared SQL client.
 
 This schematic definition assumes an application-provided `performResourceOperation` Effect that returns a string. Supply its real error schema if the operation has typed failures and provide any services it requires.
 
@@ -64,7 +64,7 @@ const submitResourceOperation = Effect.gen(function* () {
 
 Both submission modes persist requests. `discard: true` returns the execution ID without waiting for completion. Durability still requires transaction commit. Polling returns an `Option` of the native workflow result. Inspect suspended versus complete results and the completed `Exit` to distinguish success from failure. An absent result is not proof of completion.
 
-Producers authorize submission at a server-only framework boundary and supply `WorkflowEngine` with `provideClusterWorkflowEngine` from the [cluster runtime](../cluster/runtime.server.ts), which fails with `ClusterUnavailableError` until the local runner is ready. `runDatabaseEffect` supplies only database services. Never construct a runner per request.
+Producers authorize submission at a server-only framework boundary and supply `WorkflowEngine` with `provideClusterWorkflowEngine` from the [cluster runtime](../cluster/runtime.server.ts), which fails with `ClusterUnavailableError` until the local runner is ready. The app runtime supplies application services but never the engine. Never construct a runner per request.
 
 Use the definition's `interrupt(executionId)` for cooperative cancellation and `resume(executionId)` for suspended work. Cancellation cannot undo completed external effects. Resumption does not create a fresh execution after terminal failure.
 

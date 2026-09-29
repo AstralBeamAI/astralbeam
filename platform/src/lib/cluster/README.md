@@ -9,12 +9,12 @@ Each platform process runs one private Effect Cluster runner, backed by PostgreS
 | Module | Responsibility |
 | --- | --- |
 | [plugin.server.ts](plugin.server.ts) | Starts the runner through Nitro and disposes its scope on reload and application close. |
-| [runtime.server.ts](runtime.server.ts) | Serializes process-wide lifecycle transitions, supervises readiness, and retries unavailable storage. |
+| [runtime.server.ts](runtime.server.ts) | Serializes process-wide lifecycle transitions, supervises readiness on the app runtime's services, and retries unavailable storage. |
 | [runner.server.ts](runner.server.ts) | Composes Deno HTTP and crypto, SQL storage, sharding, and `ClusterWorkflowEngine`. |
 | [registry.server.ts](../workflows/registry.server.ts) | Registers application workflow handler layers. |
 | [db/index.ts](../../db/index.ts) | Owns the separate pools, shared SQL runtime and shutdown, with module-local Drizzle adapters and the Promise framework bridge. |
 
-On SIGTERM or SIGINT, Nitro drains HTTP responses, then its close hook stops the runner and both database pools. A five-second deadline bounds shutdown, with exit status 1 on timeout or cleanup failure. See [shutdown operations](../../routes/docs/-content/self-hosting/operations.md#shutdown) for stream and supervisor implications.
+On SIGTERM or SIGINT, Nitro drains HTTP responses, then its close hook stops the runner, disposes the [app runtime](../runtime/runtime.server.ts) so service finalizers such as chat sandbox cleanup run, and closes both database pools. A five-second deadline bounds shutdown, with exit status 1 on timeout or cleanup failure. See [shutdown operations](../../routes/docs/-content/self-hosting/operations.md#shutdown) for stream and supervisor implications.
 
 The Nitro plugin starts without waiting for a request and skips builds, prerendering and ordinary unit tests. Process-global state serializes runner replacement on reload. Initialization replaces old signal listeners and deadlines because Nitro invalidation can skip HMR disposal. Vite requests the same cleanup over its HMR channel and awaits acknowledgment before terminating Nitro's development worker. Module reloads retain the database pools, while worker and process shutdown close them.
 
