@@ -1,6 +1,6 @@
 import { type AnyServerTool, toolDefinition } from "@tanstack/ai"
 import * as Schema from "effect/Schema"
-import { NonEmptyStringSchema } from "../schemas.ts"
+import { NonEmptyStringSchema } from "../../schemas.ts"
 
 import { CHAT_ATTACHMENT_READ_MAX_CHARACTERS } from "./constants.server"
 import type { ChatAttachmentFile } from "./types"

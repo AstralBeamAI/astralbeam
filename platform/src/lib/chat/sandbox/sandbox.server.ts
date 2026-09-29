@@ -32,8 +32,8 @@ import {
   type SandboxArtifactTicket,
   verifySandboxArtifactTicket,
 } from "./artifacts.server"
+import { CHAT_ATTACHMENT_UPLOAD_DIRECTORY } from "../attachments/constants.server"
 import {
-  CHAT_ATTACHMENT_UPLOAD_DIRECTORY,
   CHAT_SANDBOX_FILE_TIMEOUT_MS,
   CHAT_SANDBOX_IDLE_TTL_MS,
   CHAT_SANDBOX_MAX_ARTIFACT_BYTES,
@@ -48,9 +48,16 @@ import {
   ChatSandboxOperationFailed,
   ChatSandboxUnavailable,
 } from "./errors.ts"
-import { chatPrincipalScope } from "./identity.server"
-import { resolveSandboxPath } from "./sandbox-paths.server"
-import type { ChatAttachmentFile, ChatPrincipal, ChatSandboxStatus } from "./types"
+import { chatPrincipalScope } from "../identity.server"
+import { resolveSandboxPath } from "./paths.server"
+import type { ChatAttachmentFile } from "../attachments/types"
+import type { ChatPrincipal } from "../types"
+
+/**
+ * Sandbox provisioning progress. Streamed as a CUSTOM event because it is the one thing a tool
+ * result cannot report in time: the widget needs it while the sandbox is still starting.
+ */
+export type ChatSandboxStatus = { readonly state: "starting" | "ready" | "error" }
 
 // The first sandbox tool a run calls provisions the sandbox, so an ordinary reply costs nothing,
 // and `reuse: "thread"` keeps it for the conversation so the agent builds on its own files.

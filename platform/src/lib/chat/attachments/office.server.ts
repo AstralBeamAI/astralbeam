@@ -13,7 +13,7 @@ import {
   CHAT_ATTACHMENT_PPTX_MIME_TYPE,
   CHAT_ATTACHMENT_XLSX_MIME_TYPE,
 } from "./constants.server"
-import { type AttachmentTable, profileRows } from "./attachment-profile.server"
+import { type AttachmentTable, profileRows } from "./profile.server"
 import { ChatOfficeArchiveTooLarge } from "./errors.ts"
 import type { ChatAttachmentContent } from "./types"
 

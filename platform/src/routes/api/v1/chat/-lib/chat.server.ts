@@ -86,7 +86,9 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/auth.server"),
       )
       const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat.server"))
-      const { ChatSandboxes } = yield* Effect.promise(() => import("@/lib/chat/sandbox.server"))
+      const { ChatSandboxes } = yield* Effect.promise(
+        () => import("@/lib/chat/sandbox/sandbox.server"),
+      )
       const { consumeChatRateLimit, readChatRunParams, chatRunResponse } = yield* Effect.promise(
         () => import("./run.server"),
       )

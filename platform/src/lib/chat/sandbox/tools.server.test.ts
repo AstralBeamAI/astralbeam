@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { clampSandboxText } from "./sandbox-tools.server.ts"
+import { clampSandboxText } from "./tools.server.ts"
 
 describe("clampSandboxText", () => {
   it("passes text within the cap through untouched", () => {

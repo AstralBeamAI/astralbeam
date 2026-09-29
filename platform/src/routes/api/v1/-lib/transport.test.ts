@@ -15,7 +15,7 @@ import { OrganizationMembershipError } from "@/lib/auth/errors"
 import { Config } from "@/lib/config/config.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { Chat } from "@/lib/chat/chat.server"
-import { ChatSandboxes } from "@/lib/chat/sandbox.server"
+import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
@@ -77,11 +77,8 @@ import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
-import {
-  ChatAgentNotFound,
-  ChatArtifactUnavailable,
-  ChatSandboxOperationFailed,
-} from "@/lib/chat/errors"
+import { ChatAgentNotFound } from "@/lib/chat/errors"
+import { ChatArtifactUnavailable, ChatSandboxOperationFailed } from "@/lib/chat/sandbox/errors"
 
 // Return queued driver results, not a second implementation of database filtering or constraints.
 function restTestDatabase(): EffectDatabase {

@@ -7,12 +7,12 @@ import { Agents } from "@/lib/agents/agents.server"
 import { readOrganizationOpenaiApiKey } from "@/lib/organizations/openai-api-key.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { createChatAdapter } from "./adapter.server"
-import { createChatAttachmentTools } from "./attachment-tools.server"
+import { createChatAttachmentTools } from "./attachments/tools.server"
 import {
   createChatAttachmentSnapshotMiddleware,
   normalizeChatAttachments,
   redactChatAttachmentData,
-} from "./attachments.server"
+} from "./attachments/attachments.server"
 import {
   CHAT_ATTACHMENT_SYSTEM_PROMPT,
   CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT,
@@ -28,8 +28,8 @@ import {
   ChatModelKeyUnreadable,
   ChatSystemPromptRefused,
 } from "./errors.ts"
-import { ChatSandboxes } from "./sandbox.server"
-import { createChatSandboxTools } from "./sandbox-tools.server"
+import { ChatSandboxes } from "./sandbox/sandbox.server"
+import { createChatSandboxTools } from "./sandbox/tools.server"
 import type { ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 

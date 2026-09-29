@@ -1,7 +1,7 @@
 import { strToU8, zipSync } from "fflate"
 import { expect, test } from "vitest"
 
-import { extractOfficeDocument } from "./attachment-office.server"
+import { extractOfficeDocument } from "./office.server"
 import {
   CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES,
   CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES,

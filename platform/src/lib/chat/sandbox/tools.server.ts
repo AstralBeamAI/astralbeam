@@ -16,9 +16,13 @@ import {
   CHAT_SANDBOX_STATUS_EVENT,
 } from "./constants.server"
 import { ChatSandboxOperationFailed, type ChatSandboxUnavailable } from "./errors.ts"
-import { chatSandboxCall, type ChatSandboxSession, logChatSandboxFailure } from "./sandbox.server"
-import { resolveSandboxPath } from "./sandbox-paths.server"
-import type { ChatSandboxStatus } from "./types"
+import {
+  chatSandboxCall,
+  type ChatSandboxSession,
+  type ChatSandboxStatus,
+  logChatSandboxFailure,
+} from "./sandbox.server"
+import { resolveSandboxPath } from "./paths.server"
 
 /**
  * The sandbox tools an agent with a configured provider gets. Unlike every other tool the endpoint

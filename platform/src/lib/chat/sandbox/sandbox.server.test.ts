@@ -21,8 +21,7 @@ import { SandboxProviderUnreadable } from "@/lib/sandboxes/errors"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { artifactContentDigest } from "./artifacts.server.ts"
 import { CHAT_SANDBOX_MAX_LIVE } from "./constants.server.ts"
-import { ChatSandboxes } from "./sandbox.server.ts"
-import type { ChatSandboxStatus } from "./types.ts"
+import { ChatSandboxes, type ChatSandboxStatus } from "./sandbox.server.ts"
 
 function fakeSandboxHandle(id: string): SandboxHandle {
   return {

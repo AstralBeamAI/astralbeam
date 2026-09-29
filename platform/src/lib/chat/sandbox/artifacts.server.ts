@@ -7,8 +7,8 @@ import {
   CHAT_ARTIFACT_TICKET_AUDIENCE,
   CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS,
   CHAT_ARTIFACT_TICKET_TYPE,
-  CHAT_ATTACHMENT_MAGIC_BYTES,
 } from "./constants.server"
+import { CHAT_ATTACHMENT_MAGIC_BYTES } from "../attachments/constants.server"
 import { ChatArtifactUnavailable } from "./errors.ts"
 
 /**
