@@ -17,13 +17,6 @@ import { Context, Effect, Layer, Predicate, Ref } from "effect"
 
 import { getAuthDatabase } from "@/db/database.server"
 import { tables } from "@/db/schema.server"
-import {
-  sendAccountExistsEmail,
-  sendOrganizationInvitationEmail,
-  sendPasswordChangedEmail,
-  sendResetPasswordEmail,
-  sendVerificationEmail,
-} from "@/lib/email/auth-callbacks.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import {
   ORGANIZATION_API_KEY_PREFIX,
@@ -34,6 +27,7 @@ import {
 import { Config } from "@/lib/config/config.server"
 import type { ConfigValues } from "@/lib/config/types"
 import { APP_NAME } from "@/lib/constants"
+import { Mailer } from "@/lib/email/email.server"
 import { organizationAccessControl, organizationRoles } from "@/lib/organizations/access"
 import { OrganizationSlugTaken, SignInRequired } from "@/lib/organizations/errors"
 import {
@@ -102,26 +96,33 @@ function authConfigFromValues(values: ConfigValues): AuthConfig | null {
 
 // Rebuilds the `/sign-up/email` link for a resend outside an endpoint context, so signing up again
 // recovers an unverified account. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/sign-up.ts
-async function buildVerificationURL(config: AuthConfig, email: string): Promise<string> {
-  const token = await createEmailVerificationToken(
-    config.betterAuthSecret,
-    email,
-    undefined,
-    EMAIL_VERIFICATION_EXPIRY_SECONDS,
-  )
+const buildVerificationURL = Effect.fn("buildVerificationURL")(function* (
+  config: AuthConfig,
+  email: string,
+) {
+  const token = yield* Effect.tryPromise(() =>
+    createEmailVerificationToken(
+      config.betterAuthSecret,
+      email,
+      undefined,
+      EMAIL_VERIFICATION_EXPIRY_SECONDS,
+    ),
+  ).pipe(Effect.orDie)
   const url = new URL(`${AUTH_BASE_PATH}/verify-email`, config.appBaseUrl)
   url.searchParams.set("token", token)
   url.searchParams.set("callbackURL", "/")
   return url.toString()
-}
+})
 
 // A password-change notice is informational and its recipient is not waiting on it, so it runs
 // past the response instead of blocking like the emails deliverBlockingAuthEmail guards.
-function notifyPasswordChanged(user: { email: string }): Promise<void> {
+function notifyPasswordChanged(mailer: Mailer["Service"], user: { email: string }): Promise<void> {
   forkAppEffect(
-    Effect.tryPromise(() => sendPasswordChangedEmail({ user })).pipe(
-      Effect.catchCause(() => Effect.logError("Password-change notification delivery failed")),
-    ),
+    mailer
+      .sendPasswordChanged({ user })
+      .pipe(
+        Effect.catchCause(() => Effect.logError("Password-change notification delivery failed")),
+      ),
   )
   return Promise.resolve()
 }
@@ -164,7 +165,7 @@ const deleteOrganizationApiKey = Effect.fn("deleteOrganizationApiKey")(function*
   )
 })
 
-function buildAuth(config: AuthConfig) {
+function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
   // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
   const turnstileAuthPlugin = captcha({
     provider: "cloudflare-turnstile",
@@ -200,28 +201,28 @@ function buildAuth(config: AuthConfig) {
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
       sendResetPassword: ({ user, url }, request) =>
-        deliverBlockingAuthEmail(request, () =>
-          sendResetPasswordEmail({
-            user,
-            url,
-            expiresInSeconds: PASSWORD_RESET_EXPIRY_SECONDS,
-          }),
+        deliverBlockingAuthEmail(
+          request,
+          mailer.sendResetPassword({ user, url, expiresInSeconds: PASSWORD_RESET_EXPIRY_SECONDS }),
         ),
       // Better Auth answers a duplicate sign-up with a synthetic user so the response cannot
       // confirm the address exists, which otherwise leaves the address's real owner on a "check
       // your inbox" screen forever. Both branches send exactly one email, so a provider outage
       // fails a duplicate sign-up and a new one identically. https://better-auth.com/docs/concepts/email
       onExistingUserSignUp: ({ user }, request) =>
-        deliverBlockingAuthEmail(request, async () =>
+        deliverBlockingAuthEmail(
+          request,
           user.emailVerified
-            ? sendAccountExistsEmail({ user })
-            : sendVerificationEmail({
-                user,
-                url: await buildVerificationURL(config, user.email),
-                expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
-              }),
+            ? mailer.sendAccountExists({ user })
+            : Effect.flatMap(buildVerificationURL(config, user.email), (url) =>
+                mailer.sendVerification({
+                  user,
+                  url,
+                  expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
+                }),
+              ),
         ),
-      onPasswordReset: ({ user }) => notifyPasswordChanged(user),
+      onPasswordReset: ({ user }) => notifyPasswordChanged(mailer, user),
     },
     emailVerification: {
       expiresIn: EMAIL_VERIFICATION_EXPIRY_SECONDS,
@@ -229,8 +230,9 @@ function buildAuth(config: AuthConfig) {
       sendOnSignIn: false,
       autoSignInAfterVerification: true,
       sendVerificationEmail: ({ user, url }, request) =>
-        deliverBlockingAuthEmail(request, () =>
-          sendVerificationEmail({
+        deliverBlockingAuthEmail(
+          request,
+          mailer.sendVerification({
             user,
             url,
             expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
@@ -370,7 +372,7 @@ function buildAuth(config: AuthConfig) {
         assertAuthEmailDelivered(context.request)
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
         const user = context.context.session?.user
-        if (user) await notifyPasswordChanged(user)
+        if (user) await notifyPasswordChanged(mailer, user)
       }),
     },
     databaseHooks: {
@@ -405,8 +407,9 @@ function buildAuth(config: AuthConfig) {
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
         sendInvitationEmail: (data, request) =>
-          deliverBlockingAuthEmail(request, () =>
-            sendOrganizationInvitationEmail({
+          deliverBlockingAuthEmail(
+            request,
+            mailer.sendOrganizationInvitation({
               ...data,
               expiresInSeconds: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
             }),
@@ -472,6 +475,7 @@ export class Auth extends Context.Service<
     Auth,
     Effect.gen(function* () {
       const config = yield* Config
+      const mailer = yield* Mailer
       const built = yield* Ref.make<{ generation: number; auth: AppAuth } | null>(null)
       const sessions = new WeakMap<Headers, Effect.Effect<AuthSession | null>>()
 
@@ -481,7 +485,7 @@ export class Auth extends Context.Service<
         if (current?.generation === snapshot.generation) return current.auth
         const authConfig = authConfigFromValues(snapshot.values)
         if (!authConfig) return yield* Effect.die("Authentication configuration is incomplete")
-        const auth = buildAuth(authConfig)
+        const auth = buildAuth(authConfig, mailer)
         yield* Ref.set(built, { generation: snapshot.generation, auth })
         return auth
       })
@@ -576,10 +580,5 @@ export class Auth extends Context.Service<
     }),
   )
 
-  static readonly layer = Auth.layerNoDeps.pipe(Layer.provide(Config.layer))
-}
-
-/** A Promise bridge for the REST routes. Effect code yields the `Auth` service instead. */
-export function getAuth(): Promise<AppAuth> {
-  return runAppEffect(Effect.flatMap(Auth, (auth) => auth.instance))
+  static readonly layer = Auth.layerNoDeps.pipe(Layer.provide([Config.layer, Mailer.layer]))
 }

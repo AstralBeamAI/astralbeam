@@ -1,3 +1,4 @@
+import { Effect } from "effect"
 import { describe, expect, test } from "vitest"
 
 import { AUTH_EMAIL_DELIVERY_FAILED_CODE } from "@/lib/auth/email-delivery"
@@ -5,13 +6,14 @@ import {
   assertAuthEmailDelivered,
   deliverBlockingAuthEmail,
 } from "@/lib/auth/email-delivery.server"
+import { EmailDeliveryError } from "@/lib/email/errors"
 
 function signUpRequest(): Request {
   return new Request("https://example.com/api/auth/sign-up/email")
 }
 
 function deliveryFailure(request: Request | undefined, reason: string): Promise<void> {
-  return deliverBlockingAuthEmail(request, () => Promise.reject(new Error(reason)))
+  return deliverBlockingAuthEmail(request, Effect.fail(new EmailDeliveryError({ reason })))
 }
 
 describe("authentication email delivery boundary", () => {
@@ -26,8 +28,16 @@ describe("authentication email delivery boundary", () => {
 
   test("a delivered send leaves the response untouched", async () => {
     const request = signUpRequest()
-    await deliverBlockingAuthEmail(request, () => Promise.resolve())
+    await deliverBlockingAuthEmail(request, Effect.void)
     expect(() => assertAuthEmailDelivered(request)).not.toThrow()
+  })
+
+  test("a defect, such as an unreachable configuration, fails the response the same way", async () => {
+    const request = signUpRequest()
+    await expect(
+      deliverBlockingAuthEmail(request, Effect.die(new Error("database-private-detail"))),
+    ).rejects.toMatchObject({ statusCode: 503, body: { code: AUTH_EMAIL_DELIVERY_FAILED_CODE } })
+    expect(() => assertAuthEmailDelivered(request)).toThrow()
   })
 
   test("a failure is scoped to the request that saw it", async () => {

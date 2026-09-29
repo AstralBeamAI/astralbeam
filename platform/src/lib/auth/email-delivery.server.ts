@@ -1,13 +1,15 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 
 import { APIError } from "better-auth/api"
-import { Effect } from "effect"
+import { Cause, Effect } from "effect"
 
 import {
   AUTH_EMAIL_DELIVERY_FAILED_CODE,
   AUTH_EMAIL_DELIVERY_FAILED_MESSAGE,
 } from "@/lib/auth/email-delivery"
+import type { EmailDeliveryError } from "@/lib/email/errors"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
+import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import { AuthEmailNotDelivered } from "./errors.ts"
 
@@ -45,13 +47,19 @@ function authEmailDeliveryError(): APIError {
  * one Better Auth passed to its callback, absent for requestless server API calls. */
 export function deliverBlockingAuthEmail(
   request: Request | undefined,
-  send: () => Promise<void>,
+  send: Effect.Effect<void, EmailDeliveryError>,
 ): Promise<void> {
   // Read before the fiber starts, which may resume in another request's async context.
   const scope = blockingAuthEmailContext.getStore()
   return runAppEffect(
-    // The send boundary already logged the provider's reason against the masked recipient.
-    Effect.tryPromise({ try: send, catch: authEmailDeliveryError }).pipe(
+    send.pipe(
+      // The Mailer already logged a provider's reason, so only a defect is reported here.
+      Effect.catchCause((cause) =>
+        Effect.andThen(
+          Cause.hasDies(cause) ? reportFailure("deliverBlockingAuthEmail", cause) : Effect.void,
+          Effect.fail(authEmailDeliveryError()),
+        ),
+      ),
       Effect.tapError((error) =>
         Effect.sync(() => {
           if (scope) scope.error = error
