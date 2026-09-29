@@ -11,15 +11,14 @@ import {
   MIGRATION_LOG_DDL,
 } from "@/db/migration-log.server"
 
-// Vite inlines the migration SQL at build time because the built server has no migrations folder
-// on disk. https://vite.dev/guide/features#glob-import
-const migrationSqlByPath = import.meta.glob("/src/db/migrations/*/migration.sql", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-})
-
 function bundledMigrations(): BundledMigration[] {
+  // Vite inlines the SQL because the built server has no migrations folder. Nitro's own bundle
+  // cannot, so the glob runs only when called. https://vite.dev/guide/features#glob-import
+  const migrationSqlByPath = import.meta.glob<string>("/src/db/migrations/*/migration.sql", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  })
   return Object.entries(migrationSqlByPath)
     .map(([path, migrationSql]) => bundledMigration(path.split("/").at(-2) ?? path, migrationSql))
     .sort((a, b) => a.name.localeCompare(b.name))
