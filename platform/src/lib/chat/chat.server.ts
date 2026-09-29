@@ -32,6 +32,7 @@ import {
 import { ChatSandboxes } from "./sandbox.server"
 import { createChatSandboxTools } from "./sandbox-tools.server"
 import type { ChatParams, ChatPrincipal } from "./types"
+import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 
 /**
  * A run's AG-UI events. Interrupting the stream, as a dropped client does, aborts the provider
@@ -142,7 +143,7 @@ export class Chat extends Context.Service<
         )
         // The SDK's `debug` mount option rides along in the forwarded props and its log prints
         // whole conversations, so, like the refused `systemPrompt`, it is honored only in DEV.
-        const log = debug === true && import.meta.env.DEV ? chatDebugLog(params.runId) : undefined
+        const log = debug === true && IS_DEVELOPMENT_SERVER ? chatDebugLog(params.runId) : undefined
         if (log) {
           yield* log("request", `POST /api/v1/chat, ${params.messages.length} messages`, {
             threadId: params.threadId,

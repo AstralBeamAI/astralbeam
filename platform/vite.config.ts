@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { extname } from "node:path"
 import process from "node:process"
+import { fileURLToPath } from "node:url"
 
 import tailwindcss from "@tailwindcss/vite"
 import { devtools } from "@tanstack/devtools-vite"
@@ -114,6 +115,9 @@ const viteConfig = defineConfig(({ mode }) => {
       ...(mode === "test"
         ? []
         : nitro({
+            // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
+            // https://nitro.build/config#alias
+            alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
             // Nitro prerenders before indexing static assets, including their content-based ETags.
             // https://nitro.build/docs/prerender
             prerender: {

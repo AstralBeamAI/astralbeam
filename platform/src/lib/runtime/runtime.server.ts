@@ -1,5 +1,7 @@
 import { Layer, Logger, ManagedRuntime } from "effect"
 
+import { IS_DEVELOPMENT_SERVER } from "./environment.server.ts"
+
 import { Database } from "@/db/database.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { Agents } from "@/lib/agents/agents.server"
@@ -11,7 +13,7 @@ import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
 
 const LoggerLayer = Logger.layer([
-  import.meta.env.DEV ? Logger.consolePretty() : Logger.consoleLogFmt,
+  IS_DEVELOPMENT_SERVER ? Logger.consolePretty() : Logger.consoleLogFmt,
 ])
 
 /** Every service the application's Effects may require, built once per module graph. */
