@@ -83,32 +83,39 @@ const viteConfig = defineConfig(({ mode }) => {
         name: "cluster-development-close",
         apply: "serve",
         configureServer(server) {
-          // Nitro runs in a worker. Await its cleanup before Vite terminates that environment.
+          // Every server environment runs in Nitro's one worker, and closing any of them terminates
+          // it, so each awaits the cleanup requested over the nitro environment's HMR channel.
           // https://vite.dev/guide/api-plugin.html#client-server-communication
           const environment = server.environments.nitro
           if (!environment) return
-          const close = environment.close.bind(environment)
-          let closing: Promise<void> | undefined
-          environment.close = () =>
-            (closing ??= (async () => {
-              try {
-                await new Promise<void>((resolve, reject) => {
-                  const timeout = setTimeout(() => {
-                    environment.hot.off("astralbeam:closed", closed)
-                    reject(new Error("Cluster development shutdown timed out"))
-                  }, 5_000)
-                  const closed = () => {
-                    clearTimeout(timeout)
-                    environment.hot.off("astralbeam:closed", closed)
-                    resolve()
-                  }
-                  environment.hot.on("astralbeam:closed", closed)
-                  environment.hot.send("astralbeam:close")
-                })
-              } finally {
-                await close()
+          let cleanup: Promise<void> | undefined
+          const awaitClusterCleanup = () =>
+            (cleanup ??= new Promise<void>((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                environment.hot.off("astralbeam:closed", closed)
+                reject(new Error("Cluster development shutdown timed out"))
+              }, 5_000)
+              const closed = () => {
+                clearTimeout(timeout)
+                environment.hot.off("astralbeam:closed", closed)
+                resolve()
               }
-            })())
+              environment.hot.on("astralbeam:closed", closed)
+              environment.hot.send("astralbeam:close")
+            }))
+          for (const serverEnvironment of Object.values(server.environments)) {
+            if (serverEnvironment.config.consumer !== "server") continue
+            const close = serverEnvironment.close.bind(serverEnvironment)
+            let closing: Promise<void> | undefined
+            serverEnvironment.close = () =>
+              (closing ??= (async () => {
+                try {
+                  await awaitClusterCleanup()
+                } finally {
+                  await close()
+                }
+              })())
+          }
         },
       },
       devtools(),
