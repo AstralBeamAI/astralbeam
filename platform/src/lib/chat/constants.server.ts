@@ -30,7 +30,7 @@ export const CHAT_ATTACHMENT_SYSTEM_PROMPT =
 // This limit uses the shared database store and an opaque organization + tenant + tenant-user key. It is
 // deliberately independent of Better Auth API-key usage and never touches API-key counters.
 export const CHAT_RATE_LIMIT_WINDOW_MS = 60_000
-export const CHAT_RATE_LIMIT_MAX_REQUESTS = 20
+export const CHAT_RATE_LIMIT_MAX_REQUESTS = 200
 
 export const CHAT_AUTH_TOKEN_AUDIENCE = APP_HANDLE
 export const CHAT_AUTH_TOKEN_TYPE = `${APP_HANDLE}+jwt`
