@@ -112,6 +112,8 @@ describe("Mailer", () => {
       assert.include(invitation?.text, invitationURL.toString())
       assert.include(invitation?.text, "72 hours")
       assert.include(passwordChanged?.text, "https://app.example.test/auth/forgot-password")
+      // Whoever changed the password holds the session, so recovery never starts from settings.
+      assert.notInclude(passwordChanged?.text, "/settings/security")
     }).pipe(Effect.provide(layer))
   })
 })
