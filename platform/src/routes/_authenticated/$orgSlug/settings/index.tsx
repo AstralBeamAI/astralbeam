@@ -43,6 +43,7 @@ function OrganizationSettingsPage() {
       />
       {permissions.deleteOrganization && (
         <DeleteOrganizationCard
+          organizationId={data.organization.id}
           organizationSlug={data.organization.slug}
           organizationName={data.organization.name}
           dogfood={data.organization.dogfood}

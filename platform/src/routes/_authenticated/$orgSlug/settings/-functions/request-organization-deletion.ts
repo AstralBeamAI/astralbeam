@@ -8,26 +8,34 @@ import { runDatabaseEffect } from "@/db"
 import { revokeOrganizationAccess } from "@/db/organization-deletion.server"
 import { getGlobalConfig } from "@/lib/config"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
-import { toValidationSchema, SlugSchema } from "@/lib/schemas"
+import { toValidationSchema, SlugSchema, UuidV7Schema } from "@/lib/schemas"
 import deleteOrganization from "@/workflows/delete-organization"
 
 export const requestOrganizationDeletion = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["delete"] })])
-  .validator(toValidationSchema(Schema.Struct({ organizationSlug: SlugSchema })))
-  .handler(async ({ context }) => {
+  .validator(
+    toValidationSchema(
+      Schema.Struct({ organizationSlug: SlugSchema, organizationId: UuidV7Schema }),
+    ),
+  )
+  .handler(async ({ context, data }) => {
+    // The slug may have moved to another organization since the dialog rendered.
+    if (data.organizationId !== context.organizationId) {
+      return { ok: false as const, message: "This organization changed. Reload and try again." }
+    }
     if ((await getGlobalConfig("dogfood_organization_id")) === context.organizationId) {
       return { ok: false as const, message: "This deployment's own organization cannot be deleted" }
     }
-    const { organizationId } = context
+    const { organizationId, organizationName } = context
     // Commit the revocation and the purge request together. https://effect.website/docs/v4/api/effect/unstable/workflow/Workflow/
     return runDatabaseEffect(
       Effect.gen(function* () {
         const sql = yield* SqlClient.SqlClient
         yield* sql.withTransaction(
           Effect.gen(function* () {
-            yield* revokeOrganizationAccess(organizationId)
+            const ownerUserIds = yield* revokeOrganizationAccess(organizationId)
             yield* deleteOrganization.execute(
-              { organizationId, operationId: crypto.randomUUID() },
+              { organizationId, operationId: crypto.randomUUID(), organizationName, ownerUserIds },
               { discard: true },
             )
           }),

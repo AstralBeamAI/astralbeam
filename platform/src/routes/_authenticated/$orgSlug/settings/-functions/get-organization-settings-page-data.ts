@@ -20,6 +20,7 @@ export const getOrganizationSettingsPageData = createServerFn({ method: "GET" })
         Effect.map((openaiApiKeyLast4) => ({
           data: {
             organization: {
+              id: context.organizationId,
               name: context.organizationName,
               slug: context.organizationSlug,
               dogfood,

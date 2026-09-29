@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm"
-import { Effect, Layer } from "effect"
+import { Effect, Fiber, Layer } from "effect"
+import { TestClock } from "effect/testing"
 import { WorkflowEngine } from "effect/unstable/workflow"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -64,28 +65,35 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         externalId: `u${index}`,
       })),
     )
-    return organizationId
+    return { organizationId, ownerId: owner!.id }
+  }
+
+  function organizationDeletion(organizationId: string) {
+    return deleteOrganization
+      .execute({
+        organizationId,
+        operationId: crypto.randomUUID(),
+        organizationName: "deleted",
+        ownerUserIds: [],
+      })
+      .pipe(
+        Effect.provide(
+          deleteOrganizationWorkflowLayer.pipe(
+            Layer.provideMerge(WorkflowEngine.layerMemory),
+            Layer.provide(effectDatabaseLayer),
+          ),
+        ),
+      )
   }
 
   test("revokes access at once and purges only the deleted organization", async () => {
-    const deletedId = await createOrganization("deleted")
-    const keptId = await createOrganization("kept")
+    const { organizationId: deletedId, ownerId } = await createOrganization("deleted")
+    const { organizationId: keptId } = await createOrganization("kept")
 
-    await runDatabaseEffect(revokeOrganizationAccess(deletedId))
+    expect(await runDatabaseEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
     expect(await db.select().from(member).where(eq(member.organizationId, deletedId))).toEqual([])
 
-    await runDatabaseEffect(
-      deleteOrganization
-        .execute({ organizationId: deletedId, operationId: crypto.randomUUID() })
-        .pipe(
-          Effect.provide(
-            deleteOrganizationWorkflowLayer.pipe(
-              Layer.provideMerge(WorkflowEngine.layerMemory),
-              Layer.provide(effectDatabaseLayer),
-            ),
-          ),
-        ),
-    )
+    await runDatabaseEffect(organizationDeletion(deletedId))
 
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])
@@ -94,5 +102,28 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       .from(tenantUser)
     expect(new Set(tenantUsers.map((row) => row.organizationId))).toEqual(new Set([keptId]))
     expect(tenantUsers).toHaveLength(2001)
+  })
+
+  test("keeps retrying a failed purge past any backoff window until the database recovers", async () => {
+    const { organizationId } = await createOrganization("deleted")
+    await db.execute(sql`alter table tenant_user rename to tenant_user_offline`)
+    const realPause = Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
+    await runDatabaseEffect(
+      Effect.gen(function* () {
+        const deletion = yield* Effect.forkChild(organizationDeletion(organizationId))
+        // Two virtual hours of backoff while the table is offline.
+        for (let step = 0; step < 24; step++) {
+          yield* realPause
+          yield* TestClock.adjust("5 minutes")
+        }
+        yield* Effect.promise(() =>
+          db.execute(sql`alter table tenant_user_offline rename to tenant_user`),
+        )
+        yield* realPause
+        yield* TestClock.adjust("5 minutes")
+        yield* Fiber.join(deletion)
+      }).pipe(Effect.provide(TestClock.layer())),
+    )
+    expect(await db.select().from(organization)).toEqual([])
   })
 })

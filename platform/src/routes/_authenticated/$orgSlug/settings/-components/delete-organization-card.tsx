@@ -27,12 +27,14 @@ import { authClient } from "@/lib/auth/client"
 import { requestOrganizationDeletion } from "../-functions/request-organization-deletion"
 
 export type DeleteOrganizationCardProps = {
+  organizationId: string
   organizationSlug: string
   organizationName: string
   dogfood: boolean
 }
 
 export function DeleteOrganizationCard({
+  organizationId,
   organizationSlug,
   organizationName,
   dogfood,
@@ -46,7 +48,9 @@ export function DeleteOrganizationCard({
   const remove = async () => {
     setDeleting(true)
     try {
-      const result = await requestOrganizationDeletion({ data: { organizationSlug } })
+      const result = await requestOrganizationDeletion({
+        data: { organizationSlug, organizationId },
+      })
       if (!result.ok) {
         toast.add({ title: result.message, type: "error" })
         return
