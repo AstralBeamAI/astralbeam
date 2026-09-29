@@ -1,20 +1,22 @@
-import process from "node:process"
-
 import { GetAccountCommand, SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2"
-import { Effect } from "effect"
+import { Config, Effect } from "effect"
 
 import { EmailConnectionFailed } from "../errors.ts"
 import type { SesProviderSettings } from "../schemas.ts"
 import { emailConnectionCheck, emailProviderCall, type ProviderEmail } from "./providers.server.ts"
 
-function acquireSesClient(settings: SesProviderSettings) {
+const acquireSesClient = Effect.fnUntraced(function* (settings: SesProviderSettings) {
   // Standard AWS environment credentials belong to the SDK chain so temporary credentials retain
   // AWS_SESSION_TOKEN. Only database-backed static credentials are passed explicitly.
+  const environmentKeyId = yield* Config.String("AWS_ACCESS_KEY_ID").pipe(
+    Config.withDefault(""),
+    Effect.orDie,
+  )
   const credentials =
-    !process.env.AWS_ACCESS_KEY_ID && settings.aws_access_key_id && settings.aws_secret_access_key
+    !environmentKeyId && settings.aws_access_key_id && settings.aws_secret_access_key
       ? { accessKeyId: settings.aws_access_key_id, secretAccessKey: settings.aws_secret_access_key }
       : undefined
-  return Effect.acquireRelease(
+  return yield* Effect.acquireRelease(
     Effect.sync(
       () =>
         new SESv2Client({
@@ -26,7 +28,7 @@ function acquireSesClient(settings: SesProviderSettings) {
     ),
     (client) => Effect.sync(() => client.destroy()),
   )
-}
+})
 
 export const testConnection = (settings: SesProviderSettings) =>
   Effect.scoped(

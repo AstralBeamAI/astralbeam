@@ -141,7 +141,7 @@ export function tenantUserHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "tenant_users",
-    Effect.fn(function* (handlers) {
+    Effect.fn("tenantUserHandlers")(function* (handlers) {
       const { TenantUsers } = yield* Effect.promise(
         () => import("@/lib/tenants/tenant-users.server"),
       )

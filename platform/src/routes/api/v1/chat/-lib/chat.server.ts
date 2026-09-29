@@ -81,7 +81,7 @@ export function chatHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "chat",
-    Effect.fn(function* (handlers) {
+    Effect.fn("chatHandlers")(function* (handlers) {
       const { authenticateChatRequest } = yield* Effect.promise(
         () => import("@/lib/chat/auth.server"),
       )

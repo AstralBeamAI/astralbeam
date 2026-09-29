@@ -1,5 +1,3 @@
-import process from "node:process"
-
 import { API_KEY_ERROR_CODES, apiKey } from "@better-auth/api-key"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import type { BetterAuthPlugin } from "better-auth"
@@ -36,6 +34,7 @@ import {
   organizationRoleHooks,
 } from "@/lib/organizations/hooks.server"
 import { forkAppEffect, runAppEffect } from "@/lib/runtime/app-effect.server"
+import { IS_TEST_RUNTIME } from "@/lib/runtime/environment.server"
 import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
 import {
@@ -379,8 +378,9 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       user: {
         create: {
           before: async (user, context) => {
+            // It needs no service, and runAppEffect's type would cycle back through `Auth`.
             const termsAcceptedAt = config.legalAcceptanceRequired
-              ? await acceptedAtForUserCreation(context)
+              ? await Effect.runPromise(acceptedAtForUserCreation(context))
               : null
 
             return {
@@ -396,7 +396,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     plugins: [
       turnstileAuthPlugin,
       haveIBeenPwned({
-        enabled: process.env.VITEST !== "true" && process.env.NODE_ENV !== "test",
+        enabled: !IS_TEST_RUNTIME,
         paths: ["/sign-up/email", "/change-password", "/reset-password"],
       }),
       organization({

@@ -1,8 +1,7 @@
-import process from "node:process"
 import type { BetterAuthPlugin } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
-import { Effect, Schema } from "effect"
+import { Config, ConfigProvider, Effect, Schema } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
@@ -88,15 +87,22 @@ export const organizationRoleHooks = {
  */
 export const organizationProvisioningHooks = {
   afterCreateOrganization: async ({ organization }) => {
-    const openaiApiKey = IS_DEVELOPMENT_SERVER ? process.env.OPENAI_API_KEY?.trim() : undefined
     await runAppEffect(
-      Effect.flatMap(Agents, (agents) =>
-        agents.provisionDefault({
+      Effect.gen(function* () {
+        // Read afresh, as the Config service rereads the environment it overrides.
+        const openaiApiKey = IS_DEVELOPMENT_SERVER
+          ? (yield* Config.String("OPENAI_API_KEY").pipe(
+              Config.withDefault(""),
+              Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+            )).trim()
+          : undefined
+        const agents = yield* Agents
+        yield* agents.provisionDefault({
           organizationId: organization.id,
           organizationName: organization.name,
           openaiApiKey: isValidOpenaiApiKey(openaiApiKey) ? openaiApiKey : undefined,
-        }),
-      ).pipe(
+        })
+      }).pipe(
         // The organization already exists and its owner can add an agent by hand, so a failure
         // here must not fail the request that created it.
         Effect.catchCause((cause) => reportFailure("afterCreateOrganization", cause)),

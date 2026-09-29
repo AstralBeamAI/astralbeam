@@ -12,7 +12,7 @@ import {
   CHAT_RATE_LIMIT_WINDOW_MS,
 } from "@/lib/chat/constants.server"
 import type { ChatPrincipal } from "@/lib/chat/types"
-import { readRequestJson, RequestTooLargeError } from "@/routes/api/-lib/request-body.server"
+import { readRequestJson } from "@/routes/api/-lib/request-body.server"
 import { consumeRestRateLimit } from "../../-lib/auth.server"
 import { ChatRunInputInvalid, ChatRunTooLarge } from "./errors.ts"
 
@@ -30,11 +30,12 @@ export function consumeChatRateLimit(principal: ChatPrincipal) {
 
 /** Reads the AG-UI run input through the bounded body reader and TanStack's own parser. */
 export const readChatRunParams = Effect.fn("readChatRunParams")(function* (request: Request) {
-  const body = yield* Effect.tryPromise({
-    try: () => readRequestJson(request, CHAT_MAX_REQUEST_BYTES),
-    catch: (error) =>
-      error instanceof RequestTooLargeError ? new ChatRunTooLarge() : new ChatRunInputInvalid(),
-  })
+  const body = yield* readRequestJson(request, CHAT_MAX_REQUEST_BYTES).pipe(
+    Effect.catchTags({
+      RequestTooLarge: () => Effect.fail(new ChatRunTooLarge()),
+      RequestBodyInvalid: () => Effect.fail(new ChatRunInputInvalid()),
+    }),
+  )
   return yield* Effect.tryPromise({
     try: () => chatParamsFromRequestBody(body),
     catch: () => new ChatRunInputInvalid(),

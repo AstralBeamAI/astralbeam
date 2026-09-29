@@ -116,23 +116,24 @@ interface ChatSandboxLease {
  * Writes the run's attached files into the workspace as part of starting the sandbox. A failure
  * fails the start: an agent told a file is at `uploads/sales.csv` must not find it missing.
  */
-function writeChatSandboxUploads(handle: SandboxHandle, uploads: readonly ChatAttachmentFile[]) {
-  return Effect.gen(function* () {
-    if (uploads.length === 0) return
-    const directory = `${resolveHarnessCwd(handle)}/${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}`
-    // One level below a workspace that already exists, so this needs no recursive `mkdir`.
-    yield* chatSandboxCall(() => handle.fs.mkdir(directory), CHAT_SANDBOX_FILE_TIMEOUT_MS)
-    yield* Effect.forEach(
-      uploads,
-      (upload) =>
-        chatSandboxCall(
-          () => handle.fs.write(`${directory}/${upload.handle}`, upload.bytes),
-          CHAT_SANDBOX_FILE_TIMEOUT_MS,
-        ),
-      { concurrency: "unbounded", discard: true },
-    )
-  })
-}
+const writeChatSandboxUploads = Effect.fn("writeChatSandboxUploads")(function* (
+  handle: SandboxHandle,
+  uploads: readonly ChatAttachmentFile[],
+) {
+  if (uploads.length === 0) return
+  const directory = `${resolveHarnessCwd(handle)}/${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}`
+  // One level below a workspace that already exists, so this needs no recursive `mkdir`.
+  yield* chatSandboxCall(() => handle.fs.mkdir(directory), CHAT_SANDBOX_FILE_TIMEOUT_MS)
+  yield* Effect.forEach(
+    uploads,
+    (upload) =>
+      chatSandboxCall(
+        () => handle.fs.write(`${directory}/${upload.handle}`, upload.bytes),
+        CHAT_SANDBOX_FILE_TIMEOUT_MS,
+      ),
+    { concurrency: "unbounded", discard: true },
+  )
+})
 
 export class ChatSandboxes extends Context.Service<
   ChatSandboxes,
