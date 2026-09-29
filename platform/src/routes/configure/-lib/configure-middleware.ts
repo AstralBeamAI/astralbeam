@@ -9,7 +9,7 @@ import { readOperatorSession } from "./operator-session.server.ts"
 const authorizeConfigureRequest = createServerOnlyFn((operation: string) =>
   runEffect(
     checkConfigureRequest().pipe(
-      Effect.andThen(readOperatorSession()),
+      Effect.andThen(readOperatorSession),
       Effect.flatMap((session) =>
         Option.isSome(session) ? Effect.void : Effect.fail(new OperatorSessionRequired()),
       ),

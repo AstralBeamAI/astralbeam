@@ -12,7 +12,6 @@ import {
 } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
-import { getRequest } from "@tanstack/react-start/server"
 import { type ReactNode, useCallback } from "react"
 import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
 
@@ -31,6 +30,7 @@ import { themePlugin } from "@/lib/auth/theme-plugin"
 import { ORGANIZATION_API_KEY_PAGE_SIZE } from "@/lib/api-keys/schemas"
 import { Config } from "@/lib/config/config.server"
 import { runEffect } from "@/lib/runtime/server-fn.server"
+import { ServerRequest } from "@/lib/runtime/server-request.server"
 import {
   APP_LOGO_DARK_SVG_URL,
   APP_LOGO_LIGHT_PNG_URL,
@@ -56,10 +56,11 @@ const devtoolsPlugins = [
 const getRedirectOrigin = createIsomorphicFn()
   .server(() =>
     runEffect(
-      Effect.flatMap(Config, (config) => config.get("app_base_url")).pipe(
+      Effect.gen(function* () {
+        const appBaseUrl = yield* Effect.flatMap(Config, (config) => config.get("app_base_url"))
         // Requests can carry redirectTo before setup configures the base URL.
-        Effect.map((appBaseUrl) => appBaseUrl ?? new URL(getRequest().url).origin),
-      ),
+        return appBaseUrl ?? new URL((yield* ServerRequest).request.url).origin
+      }),
       "getRedirectOrigin",
     ),
   )

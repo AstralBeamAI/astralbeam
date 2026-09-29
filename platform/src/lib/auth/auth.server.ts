@@ -42,6 +42,7 @@ import {
   organizationRoleHooks,
 } from "@/lib/organizations/hooks.server"
 import { forkAppEffect, runAppEffect } from "@/lib/runtime/app-effect.server"
+import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
 import {
   assertAuthEmailDelivered,
@@ -485,11 +486,11 @@ export class Auth extends Context.Service<
         return auth
       })
 
+      const callApi = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
+        Effect.flatMap(instance, (auth) => tryPromiseInServerRequest(() => call(auth.api)))
+
       // Dies with Better Auth's own error, which a hook rethrows to its caller unchanged.
-      const api = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
-        Effect.flatMap(instance, (auth) =>
-          Effect.tryPromise({ try: () => call(auth.api), catch: (cause) => cause }),
-        ).pipe(Effect.orDie)
+      const api = <A>(call: (api: AppAuth["api"]) => Promise<A>) => callApi(call).pipe(Effect.orDie)
 
       /** Answers Better Auth's refusal with `code` through `onRefused`; any other failure dies. */
       const apiUnlessRefused = <A, B, E>(
@@ -497,9 +498,7 @@ export class Auth extends Context.Service<
         code: string,
         onRefused: () => Effect.Effect<B, E>,
       ) =>
-        Effect.flatMap(instance, (auth) =>
-          Effect.tryPromise({ try: () => call(auth.api), catch: (cause) => cause }),
-        ).pipe(
+        callApi(call).pipe(
           Effect.catch((cause) =>
             cause instanceof APIError && cause.body?.code === code
               ? onRefused()
@@ -529,7 +528,7 @@ export class Auth extends Context.Service<
 
       const handler = Effect.fn("Auth.handler")(function* (request: Request) {
         const auth = yield* instance
-        return yield* Effect.tryPromise(() => auth.handler(request)).pipe(Effect.orDie)
+        return yield* tryPromiseInServerRequest(() => auth.handler(request)).pipe(Effect.orDie)
       })
 
       const updateOrganization = Effect.fn("Auth.updateOrganization")(function* (input: {

@@ -4,7 +4,7 @@ import { Effect } from "effect"
 
 import { Database } from "@/db/database.server"
 import { organization } from "@/db/schema/organizations.server"
-import { getAppRuntime } from "@/lib/runtime/runtime.server"
+import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 
 /**
  * Liveness probe that stays reachable without a session and never reads, logs, or parses a
@@ -23,7 +23,7 @@ const statusResponse = Effect.gen(function* () {
 export const Route = createFileRoute("/api/status")({
   server: {
     handlers: {
-      GET: () => getAppRuntime().runPromise(statusResponse),
+      GET: () => runRouteEffect(statusResponse),
     },
   },
 })

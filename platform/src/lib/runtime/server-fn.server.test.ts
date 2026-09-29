@@ -1,39 +1,74 @@
+import { AsyncLocalStorage } from "node:async_hooks"
+
+import { getResponseStatus, requestHandler, setCookie } from "@tanstack/react-start/server"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import { Effect, Logger } from "effect"
-import { beforeEach, describe, expect, it, vi } from "vitest"
-
-const response = vi.hoisted(() => ({ setResponseStatus: vi.fn() }))
-
-vi.mock("@tanstack/react-start/server", () => ({
-  getRequest: () => new Request("http://localhost/_serverFn"),
-  setResponseStatus: response.setResponseStatus,
-}))
+import { describe, expect, it } from "vitest"
 
 import { AgentNameTaken } from "@/lib/agents/errors"
 import { reportFailure } from "./failure-report.server.ts"
 import { exposeError, runEffect } from "./server-fn.server.ts"
+import { ServerRequest, tryPromiseInServerRequest } from "./server-request.server.ts"
+
+// A database socket settles a query in the context that opened it, not the caller's.
+const outsideAnyRequest = AsyncLocalStorage.snapshot()
+const resumeOutsideRequest = Effect.callback<void>((resume) => {
+  outsideAnyRequest(() => setTimeout(() => resume(Effect.void), 1))
+})
+
+/** Answers one request through TanStack's event storage, as its server function handler does. */
+function serveServerFn(effect: Effect.Effect<unknown, unknown, ServerRequest>) {
+  return requestHandler(async () => {
+    const outcome = await runEffect(effect, "testServerFn").then(
+      () => "ok",
+      (error: Error) => error.message,
+    )
+    return new Response(outcome, { status: getResponseStatus() })
+  })(new Request("http://localhost/_serverFn/test"), undefined)
+}
 
 describe("runEffect", () => {
-  beforeEach(() => response.setResponseStatus.mockReset())
+  it("answers its own request after the fiber resumes outside it", async () => {
+    const response = await serveServerFn(
+      Effect.gen(function* () {
+        yield* resumeOutsideRequest
+        const server = yield* ServerRequest
+        yield* server.setHeaders({ "Retry-After": "7" })
+        yield* server.setCookie("operator_session", "token", { httpOnly: true, path: "/" })
+        yield* resumeOutsideRequest
+        // Better Auth's cookie plugin calls TanStack's `setCookie` inside its own Promise.
+        yield* tryPromiseInServerRequest(() =>
+          Promise.resolve(setCookie("session_token", "refreshed")),
+        )
+      }),
+    )
+    expect(await response.text()).toBe("ok")
+    expect(response.headers.get("retry-after")).toBe("7")
+    expect(response.headers.getSetCookie()).toEqual([
+      "operator_session=token; Path=/; HttpOnly",
+      "session_token=refreshed; Path=/",
+    ])
+  })
 
   it("throws an exposed failure as its tag and user-safe message with its status", async () => {
-    const effect = Effect.fail(new AgentNameTaken()).pipe(
-      Effect.catchTag("AgentNameTaken", exposeError),
+    const response = await serveServerFn(
+      Effect.fail(new AgentNameTaken()).pipe(
+        Effect.tap(() => resumeOutsideRequest),
+        Effect.catchTag("AgentNameTaken", exposeError),
+      ),
     )
-    await expect(runEffect(effect, "createAgent")).rejects.toThrow(
-      "[AgentNameTaken] An agent with this name already exists",
-    )
-    expect(response.setResponseStatus).toHaveBeenCalledWith(409)
+    expect(await response.text()).toBe("[AgentNameTaken] An agent with this name already exists")
+    expect(response.status).toBe(409)
   })
 
   it("hides unexposed failures and defects behind a reference", async () => {
-    await expect(runEffect(Effect.fail(new AgentNameTaken()), "createAgent")).rejects.toThrow(
-      /^\[InternalError\] Something went wrong\. Reference: [0-9a-f]{8}$/,
-    )
-    await expect(runEffect(Effect.die(new Error("boom")), "createAgent")).rejects.toThrow(
-      /^\[InternalError\]/,
-    )
-    expect(response.setResponseStatus).toHaveBeenLastCalledWith(500)
+    for (const effect of [Effect.fail(new AgentNameTaken()), Effect.die(new Error("boom"))]) {
+      const response = await serveServerFn(effect)
+      expect(await response.text()).toMatch(
+        /^\[InternalError\] Something went wrong\. Reference: [0-9a-f]{8}$/,
+      )
+      expect(response.status).toBe(500)
+    }
   })
 })
 

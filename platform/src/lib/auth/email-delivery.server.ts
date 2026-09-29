@@ -8,6 +8,7 @@ import {
   AUTH_EMAIL_DELIVERY_FAILED_MESSAGE,
 } from "@/lib/auth/email-delivery"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
+import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import { AuthEmailNotDelivered } from "./errors.ts"
 
 // `runInBackgroundOrAwait` swallows a callback's rejection, so a failed send is recorded against its
@@ -20,10 +21,9 @@ export const withBlockingAuthEmailDelivery = Effect.fnUntraced(function* <A>(
   operation: () => Promise<A>,
 ) {
   const scope: { error?: APIError } = {}
-  const result = yield* Effect.tryPromise({
-    try: () => blockingAuthEmailContext.run(scope, operation),
-    catch: (cause) => cause,
-  }).pipe(
+  const result = yield* tryPromiseInServerRequest(() =>
+    blockingAuthEmailContext.run(scope, operation),
+  ).pipe(
     Effect.catch((cause) =>
       scope.error ? Effect.fail(new AuthEmailNotDelivered()) : Effect.die(cause),
     ),
@@ -47,12 +47,13 @@ export function deliverBlockingAuthEmail(
   request: Request | undefined,
   send: () => Promise<void>,
 ): Promise<void> {
+  // Read before the fiber starts, which may resume in another request's async context.
+  const scope = blockingAuthEmailContext.getStore()
   return runAppEffect(
     // The send boundary already logged the provider's reason against the masked recipient.
     Effect.tryPromise({ try: send, catch: authEmailDeliveryError }).pipe(
       Effect.tapError((error) =>
         Effect.sync(() => {
-          const scope = blockingAuthEmailContext.getStore()
           if (scope) scope.error = error
           if (request) failedAuthEmailRequests.set(request, error)
         }),

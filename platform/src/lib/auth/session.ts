@@ -2,16 +2,13 @@ import { authQueryKeys } from "@better-auth-ui/core"
 import { organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
 import type { QueryClient } from "@tanstack/react-query"
 import { createIsomorphicFn, createServerFn, createServerOnlyFn } from "@tanstack/react-start"
-import { getRequest, setResponseHeader } from "@tanstack/react-start/server"
 
 import { resolveSessionAccess } from "@/lib/auth/session.server"
 import { runEffect } from "@/lib/runtime/server-fn.server"
 
-const resolveRequestSessionAccess = createServerOnlyFn((operation: string) => {
-  setResponseHeader("Cache-Control", "no-store")
-  setResponseHeader("Vary", "Cookie, Authorization")
-  return runEffect(resolveSessionAccess(getRequest().headers), operation)
-})
+const resolveRequestSessionAccess = createServerOnlyFn((operation: string) =>
+  runEffect(resolveSessionAccess(), operation),
+)
 
 const getSessionAccess = createServerFn({ method: "GET" }).handler(({ serverFnMeta }) =>
   resolveRequestSessionAccess(serverFnMeta.name),
