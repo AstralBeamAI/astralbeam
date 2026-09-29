@@ -5,6 +5,7 @@ import { fromCrossJSON, type SerovalNode, toJSON } from "seroval"
 import { and, eq, sql } from "drizzle-orm"
 import { defaultKeyHasher } from "@better-auth/api-key"
 import * as Effect from "effect/Effect"
+import * as Result from "effect/Result"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 const dogfoodIntegration = vi.hoisted(() => {
@@ -53,7 +54,7 @@ vi.mock("@/lib/email/auth-callbacks.server", () => ({
 
 import { getAuthDatabase, runDatabaseEffect } from "@/db"
 import { getDatabaseConfig } from "@/lib/config/store.server"
-import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { withDogfoodProvisioningLock } from "@/lib/dogfood/dogfood.server"
 import {
   account,
@@ -68,7 +69,7 @@ import {
 } from "@/db/schema.server"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
-import { decodeConfigValuePayload } from "@/db/schema/config.server"
+import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
 import { getAuth } from "@/lib/auth/auth.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { sendResetPasswordEmail } from "@/lib/email/auth-callbacks.server"
@@ -76,7 +77,8 @@ import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
 import { authenticateChatRequest } from "@/lib/chat/auth.server"
 import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
-import { syncTenantCurrentUser } from "@/lib/tenants/current-user.server"
+import type { ChatPrincipal } from "@/lib/chat/types"
+import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { provisionDogfoodResources, readDogfoodOnboarding } from "./provisioning.server"
@@ -220,7 +222,7 @@ describe.skipIf(!dogfoodIntegration.url)(
         tenant: { id: dogfoodId },
       })
       await expect(runDatabaseEffect(authenticateRestRequest(request))).rejects.toMatchObject({
-        restStatus: 403,
+        _tag: "RestTenantAdminRequired",
       })
       expect(await db.select().from(tenant)).toHaveLength(1)
       expect(await db.select().from(tenantUser)).toHaveLength(1)
@@ -249,13 +251,13 @@ describe.skipIf(!dogfoodIntegration.url)(
       ).rejects.toMatchObject({ status: 404 })
       expect(await db.select().from(tenantUser)).toHaveLength(2)
       await runDatabaseEffect(
-        databaseRateLimiter
-          .consume({
+        Effect.flatMap(DatabaseRateLimiter, (limiter) =>
+          limiter.consume({
             key: `dashboard-token:${session!.user.id}`,
             limit: 60,
             window: "1 minute",
-          })
-          .pipe(Effect.ignore, Effect.repeat({ times: 59 })),
+          }),
+        ).pipe(Effect.ignore, Effect.repeat({ times: 59 })),
       )
       await expect(
         runDatabaseEffect(issueDashboardToken({ organizationSlug: "renamed", headers })),
@@ -280,8 +282,10 @@ describe.skipIf(!dogfoodIntegration.url)(
           tenant: { id: "same-tenant", name: "Original tenant", metadata: { first: true } },
         },
       }
-      const synchronize = (value: Parameters<typeof syncTenantCurrentUser>[0]) =>
-        runDatabaseEffect(syncTenantCurrentUser(value))
+      const synchronize = (principal: ChatPrincipal) =>
+        runDatabaseEffect(
+          Effect.flatMap(TenantUsers, (tenantUsers) => tenantUsers.syncCurrentUser({ principal })),
+        )
       const original = await synchronize(principal)
       const minimal = await synchronize({
         organization: principal.organization,
@@ -405,7 +409,7 @@ describe.skipIf(!dogfoodIntegration.url)(
             }),
           ),
         ),
-      ).rejects.toMatchObject({ restStatus: 403 })
+      ).rejects.toMatchObject({ _tag: "RestRoleForbidden" })
       expect(await db.select().from(tenant)).toHaveLength(0)
       await db
         .update(apiKey)
@@ -420,7 +424,7 @@ describe.skipIf(!dogfoodIntegration.url)(
             new Request("http://localhost:4500/api/v1/tenants", { headers: authorization }),
           ),
         ),
-      ).rejects.toMatchObject({ restStatus: 401 })
+      ).rejects.toMatchObject({ _tag: "RestInvalidCredentials" })
       await db.delete(member).where(eq(member.organizationId, second.id))
       await expect(runDatabaseEffect(issueDashboardToken(input))).rejects.toMatchObject({
         status: 404,
@@ -711,11 +715,13 @@ describe.skipIf(!dogfoodIntegration.url)(
         }
         const configured = (await getDatabaseConfig()).values
         for (const key of ["dogfood_organization_id", "dogfood_api_key"] as const) {
-          const encrypted = encryptDatabaseValue({
-            value: { key, value: configured[key]! },
-            decode: decodeConfigValuePayload,
-            keyring: parseDatabaseEncryptionKeyring(fallbackKey),
-          })
+          const encrypted = Result.getOrThrow(
+            encryptDatabaseValue({
+              value: { key, value: configured[key]! },
+              schema: ConfigValuePayloadSchema,
+              keyring: parseDatabaseEncryptionKeyring(fallbackKey),
+            }),
+          )
           await db.execute(sql`update config set value = ${encrypted} where key = ${key}`)
         }
         const response = await requests.get("save-config-values")!(authorizedCookie)

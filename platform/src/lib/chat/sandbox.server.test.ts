@@ -4,7 +4,7 @@ import { Context, Effect, Exit, Layer, Scope } from "effect"
 import { beforeAll, beforeEach, vi } from "vitest"
 
 const sandboxTest = vi.hoisted(() => ({
-  configuration: undefined as unknown,
+  unreadable: false,
   created: 0,
   createFails: false,
   destroyed: [] as string[],
@@ -12,18 +12,13 @@ const sandboxTest = vi.hoisted(() => ({
   resumable: true,
 }))
 
-// The provider repository and factory are module functions until they become services.
-vi.mock("@/lib/sandboxes/providers.server", () => ({
-  resolveOrganizationSandboxProviderConfiguration: () =>
-    sandboxTest.configuration === undefined
-      ? Effect.succeed({ provider: "docker", options: {}, credentials: {} })
-      : Effect.die(sandboxTest.configuration),
-}))
+// The provider factory is a module function that builds the vendor adapter.
 vi.mock("@/lib/sandboxes/factory.server", () => ({
   createSandboxProvider: () => Effect.succeed(fakeSandboxProvider),
 }))
 
-import { Database, type EffectDatabase } from "@/db/database.server"
+import { SandboxProviderUnreadable } from "@/lib/sandboxes/errors"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { artifactContentDigest } from "./artifacts.server.ts"
 import { CHAT_SANDBOX_MAX_LIVE } from "./constants.server.ts"
 import { ChatSandboxes } from "./sandbox.server.ts"
@@ -58,7 +53,14 @@ const fakeSandboxProvider = {
 } as unknown as SandboxProvider
 
 const sandboxesLayer = ChatSandboxes.layerNoDeps.pipe(
-  Layer.provide(Layer.succeed(Database, {} as EffectDatabase)),
+  Layer.provide(
+    Layer.succeed(SandboxProviders, {
+      resolveConfiguration: () =>
+        sandboxTest.unreadable
+          ? Effect.fail(new SandboxProviderUnreadable())
+          : Effect.succeed({ name: "Local", provider: "docker", options: {}, credentials: {} }),
+    } as unknown as SandboxProviders["Service"]),
+  ),
 )
 
 function sessionFor(sandboxes: ChatSandboxes["Service"], threadId = "thread") {
@@ -83,7 +85,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   Object.assign(sandboxTest, {
-    configuration: undefined,
+    unreadable: false,
     created: 0,
     createFails: false,
     destroyed: [],
@@ -111,7 +113,7 @@ describe("ChatSandboxes", () => {
 
   it.effect("degrades when the stored provider credentials cannot be decrypted", () =>
     Effect.gen(function* () {
-      sandboxTest.configuration = { _tag: "DatabaseEncryptionError" }
+      sandboxTest.unreadable = true
       const failure = yield* Effect.flip(sessionFor(yield* ChatSandboxes))
       assert.strictEqual(failure._tag, "ChatSandboxConfigurationUnreadable")
     }).pipe(Effect.provide(sandboxesLayer)),

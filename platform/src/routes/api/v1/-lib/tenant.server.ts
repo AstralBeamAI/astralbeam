@@ -1,4 +1,4 @@
-import { Effect, Option, Schema, Stream } from "effect"
+import { Effect, Schema } from "effect"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
@@ -7,7 +7,6 @@ import {
   OpenApi,
 } from "effect/unstable/httpapi"
 import type { ApiV1 } from "./contract.server"
-import { restHandleErrors } from "./responses.server"
 import {
   restEmptyPage,
   restExamplePageCursors,
@@ -15,7 +14,7 @@ import {
   restPageHeaders,
   restPageQuery,
   restResourceSecurity,
-  restScope,
+  RestScope,
   tenantRestKeys,
 } from "./shared.server"
 import {
@@ -130,69 +129,41 @@ export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true })
     "A Tenant is one of your Organization's customers. Use internal UUID IDs in resource paths and your own customer identity as external_id. External IDs are unique within the organization. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. These APIs neither issue tokens nor upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
   )
 
-function toTenantResponse(row: typeof TenantRecordSchema.Type): typeof TenantRecordSchema.Type {
-  return {
-    id: row.id,
-    externalId: row.externalId,
-    name: row.name,
-    metadata: row.metadata,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  }
-}
-
 export function tenantHandlers(api: typeof ApiV1) {
-  return HttpApiBuilder.group(api, "tenants", (handlers) =>
-    Effect.gen(function* () {
-      const { createTenant, getTenant, listTenants, updateTenant } = yield* Effect.promise(
-        () => import("@/lib/tenants/tenants.server"),
-      )
+  return HttpApiBuilder.group(
+    api,
+    "tenants",
+    Effect.fn(function* (handlers) {
+      const { Tenants } = yield* Effect.promise(() => import("@/lib/tenants/tenants.server"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("./pagination.server"),
       )
+      const tenants = yield* Tenants
       return handlers.handleAll({
-        listTenants: Effect.fn(function* ({ query, request }) {
-          const scope = yield* restScope
-          const { pageSize, backward, cursor, externalId, search } = yield* restPageOptions(
-            query,
-            "tenants",
+        listTenants: Effect.fn("listTenants")(function* ({ query, request }) {
+          const scope = yield* RestScope
+          const options = yield* restPageOptions(query, "tenants", scope)
+          const page = yield* tenants.list({ ...options, scope })
+          return yield* restPage(page, {
+            ...options,
+            collection: "tenants",
             scope,
-          )
-          const page = yield* listTenants(scope, {
-            pageSize,
-            position: cursor,
-            backward,
-            externalId,
-            search,
-            includePrevious: true,
-          }).pipe(Stream.runHead, Effect.map(Option.getOrThrow))
-          return yield* Effect.promise(() =>
-            restPage(
-              { ...page, items: page.items.map((row) => toTenantResponse(row)) },
-              {
-                collection: "tenants",
-                scope,
-                url: request.url,
-                backward,
-                externalId,
-                search,
-              },
-            ),
-          )
-        }, restHandleErrors("listTenants")),
-        getTenant: Effect.fn(function* ({ params }) {
-          return toTenantResponse(yield* getTenant(yield* restScope, params.id))
-        }, restHandleErrors("getTenant")),
-        createTenant: Effect.fn(function* ({ payload }) {
-          const row = yield* createTenant(yield* restScope, payload)
+            url: request.url,
+          })
+        }),
+        getTenant: Effect.fn("getTenant")(function* ({ params }) {
+          return yield* tenants.get({ scope: yield* RestScope, id: params.id })
+        }),
+        createTenant: Effect.fn("createTenant")(function* ({ payload }) {
+          const row = yield* tenants.create({ scope: yield* RestScope, fields: payload })
           return HttpApiSchema.withHeaders({
-            body: toTenantResponse(row),
+            body: row,
             headers: { Location: `/api/v1/tenants/${row.id}` },
           })
-        }, restHandleErrors("createTenant")),
-        updateTenant: Effect.fn(function* ({ params, payload }) {
-          return toTenantResponse(yield* updateTenant(yield* restScope, params.id, payload))
-        }, restHandleErrors("updateTenant")),
+        }),
+        updateTenant: Effect.fn("updateTenant")(function* ({ params, payload }) {
+          return yield* tenants.update({ scope: yield* RestScope, id: params.id, patch: payload })
+        }),
       })
     }),
   )

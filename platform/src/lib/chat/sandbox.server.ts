@@ -20,11 +20,10 @@ import {
   Ref,
 } from "effect"
 
-import { Database } from "@/db/database.server"
-import { catchDatabaseDecryptionFailure } from "@/db/lib/encryption.server"
 import { APP_HANDLE } from "@/lib/constants"
 import { errorReason } from "@/lib/runtime/failure-report.server"
 import { createSandboxProvider } from "@/lib/sandboxes/factory.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import {
   artifactContentDigest,
   deriveArtifactTicketKey,
@@ -152,7 +151,7 @@ export class ChatSandboxes extends Context.Service<
   static readonly layerNoDeps = Layer.effect(
     ChatSandboxes,
     Effect.gen(function* () {
-      const database = yield* Database
+      const providers = yield* SandboxProviders
       const artifactTicketKey = yield* Effect.cached(deriveArtifactTicketKey)
       // Process-local, so resume works only within one replica: a conversation that lands on
       // another instance starts a new sandbox instead, which costs time but is never incorrect.
@@ -161,17 +160,14 @@ export class ChatSandboxes extends Context.Service<
       const sweeper = yield* FiberHandle.make()
       const runLeaseEffect = yield* FiberSet.makeRuntimePromise()
 
-      // Loaded on use, because the repository imports `@/db`, which imports the app runtime.
-      const resolveProvider = (organizationId: string, sandboxProviderId: string) =>
-        Effect.promise(() => import("@/lib/sandboxes/providers.server")).pipe(
-          Effect.flatMap(({ resolveOrganizationSandboxProviderConfiguration }) =>
-            resolveOrganizationSandboxProviderConfiguration(organizationId, sandboxProviderId),
-          ),
-          Effect.flatMap((configuration) =>
-            createSandboxProvider(configuration.provider, configuration),
-          ),
-          Effect.provideService(Database, database),
-        )
+      const resolveProvider = (organizationId: string, id: string) =>
+        providers
+          .resolveConfiguration({ organizationId, id })
+          .pipe(
+            Effect.flatMap((configuration) =>
+              createSandboxProvider(configuration.provider, configuration),
+            ),
+          )
 
       const destroyLease = (lease: ChatSandboxLease, timeout: Duration.Input) =>
         chatSandboxCall(
@@ -268,9 +264,7 @@ export class ChatSandboxes extends Context.Service<
           uploads: readonly ChatAttachmentFile[]
         }) {
           const organizationId = input.principal.organization.id
-          const provider = yield* resolveProvider(organizationId, input.sandboxProviderId).pipe(
-            catchDatabaseDecryptionFailure(() => new ChatSandboxConfigurationUnreadable()),
-          )
+          const provider = yield* resolveProvider(organizationId, input.sandboxProviderId)
           // The agent is part of the sandbox identity, so switching a thread to another agent
           // starts a clean sandbox rather than resuming one provisioned for other instructions.
           const definition = defineSandbox({
@@ -384,5 +378,5 @@ export class ChatSandboxes extends Context.Service<
     }),
   )
 
-  static readonly layer = ChatSandboxes.layerNoDeps.pipe(Layer.provide(Database.layer))
+  static readonly layer = ChatSandboxes.layerNoDeps.pipe(Layer.provide(SandboxProviders.layer))
 }

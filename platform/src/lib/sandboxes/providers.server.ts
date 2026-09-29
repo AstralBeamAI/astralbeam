@@ -1,25 +1,32 @@
-import { and, asc, eq, getTableName, ne } from "drizzle-orm"
+import { and, asc, eq, ne, sql } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
-import * as Data from "effect/Data"
-import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
+import { Context, Effect, Equal, Layer, Option, Result, Schema } from "effect"
 
-import { type EffectDatabase, Database } from "@/db"
+import { Database } from "@/db/database.server"
+import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
+import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import {
   deleteWithOptimisticLock,
-  OptimisticLockError,
   updateWithOptimisticLock,
-} from "../../db/lib/optimistic-locking.server.ts"
-import { sqlConstraint } from "../../db/lib/sqlstate.server.ts"
+} from "@/db/lib/optimistic-locking.server"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import {
   sandboxProvider,
   SandboxProviderCredentialsPayloadSchema,
-} from "../../db/schema/organizations.server.ts"
+} from "@/db/schema/organizations.server"
+import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
+import { runSandboxConnectionTest } from "./connection-test.server.ts"
 import {
-  decodeProviderCredentials,
+  SandboxCleanupFailed,
+  SandboxConnectionFailed,
+  SandboxProviderChanged,
+  SandboxProviderInUse,
+  SandboxProviderNameTaken,
+  SandboxProviderNotFound,
+  SandboxProviderUnreadable,
+} from "./errors.ts"
+import {
   decodeProviderOptions,
-  SandboxConfigurationValidationError,
-  type SandboxConnectionErrorCode,
   type SandboxProviderCredentials,
   type SandboxProviderId,
   SandboxProviderIdSchema,
@@ -28,15 +35,7 @@ import {
   SandboxProviderOptionsSchema,
   type SandboxTestMetadata,
   SandboxTestMetadataSchema,
-} from "@/lib/sandboxes/schemas"
-import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
-
-type OrganizationSandboxProviderCandidate<Provider extends SandboxProviderId> = {
-  name: string
-  provider: Provider
-  options: SandboxProviderOptions[Provider]
-  credentials: SandboxProviderCredentials[Provider]
-}
+} from "./schemas.ts"
 
 const SandboxProviderRowSchema = createSelectSchema(sandboxProvider, {
   id: UuidV7Schema,
@@ -44,443 +43,389 @@ const SandboxProviderRowSchema = createSelectSchema(sandboxProvider, {
   name: SandboxProviderNameSchema,
   providerType: SandboxProviderIdSchema,
   options: SandboxProviderOptionsSchema,
-  credentials: Schema.NullOr(SandboxProviderCredentialsPayloadSchema),
   lastTest: Schema.NullOr(SandboxTestMetadataSchema),
   lockVersion: LockVersionSchema,
-})
+}).mapFields(({ credentials: _credentials, ...fields }) => fields)
+
 type SandboxProviderRow = typeof SandboxProviderRowSchema.Type
 
-const SandboxProviderSummarySchema = Schema.Struct({
-  id: UuidV7Schema,
-  name: SandboxProviderNameSchema,
-  providerType: SandboxProviderIdSchema,
-  lastTest: Schema.NullOr(SandboxTestMetadataSchema),
+const decodeSandboxProviderRow = Schema.decodeUnknownEffect(SandboxProviderRowSchema, {
+  onExcessProperty: "error",
 })
 
-export type OrganizationSandboxProviderSummary = typeof SandboxProviderSummarySchema.Type
+const decodeSandboxProviderSummaries = Schema.decodeUnknownEffect(
+  Schema.Array(
+    Schema.Struct({
+      id: UuidV7Schema,
+      name: SandboxProviderNameSchema,
+      providerType: SandboxProviderIdSchema,
+      lastTest: Schema.NullOr(SandboxTestMetadataSchema),
+    }),
+  ),
+  { onExcessProperty: "error" },
+)
 
-export type OrganizationSandboxProvider = Omit<SandboxProviderRow, "credentials"> & {
+export type OrganizationSandboxProviderSummary = Effect.Success<
+  ReturnType<typeof decodeSandboxProviderSummaries>
+>[number]
+
+/** A provider as its no-store editing page sees it, with credentials revealed for masking. */
+export type OrganizationSandboxProvider = SandboxProviderRow & {
   credentials: SandboxProviderCredentials[SandboxProviderId]
+  /** False when stored credentials no longer decrypt, so the member enters them again. */
+  credentialsReadable: boolean
 }
 
-type PreparedOrganizationSandboxProvider<Provider extends SandboxProviderId> = {
-  organizationId: string
-  candidate: OrganizationSandboxProviderCandidate<Provider>
-  existing: SandboxProviderRow | null
-  credentialsChanged: boolean
-  requiresTest: boolean
+export interface SandboxProviderConfiguration {
+  readonly name: string
+  readonly provider: SandboxProviderId
+  readonly options: SandboxProviderOptions[SandboxProviderId]
+  readonly credentials: SandboxProviderCredentials[SandboxProviderId]
 }
 
-class OrganizationSandboxProviderRepositoryError extends Data.TaggedError(
-  "OrganizationSandboxProviderRepositoryError",
-)<{ readonly cause: unknown }> {}
-
-class SandboxProviderNameConflictError extends Data.TaggedError(
-  "SandboxProviderNameConflictError",
-)<{ readonly message: string }> {}
-
-class SandboxProviderInUseError extends Data.TaggedError("SandboxProviderInUseError")<{
-  readonly message: string
-}> {}
-
-/** The list page's read: no credentials leave the server, so nothing to decrypt or reveal. */
-export function readOrganizationSandboxProviderSummaries(organizationId: string) {
-  return sandboxProviderDatabaseEffect((db) =>
-    db
-      .select({
-        id: sandboxProvider.id,
-        name: sandboxProvider.name,
-        providerType: sandboxProvider.providerType,
-        lastTest: sandboxProvider.lastTest,
-      })
-      .from(sandboxProvider)
-      .where(eq(sandboxProvider.organizationId, organizationId))
-      .orderBy(asc(sandboxProvider.name), asc(sandboxProvider.id)),
-  ).pipe(
-    Effect.flatMap((rows) =>
-      Effect.forEach(rows, (row) =>
-        Schema.decodeUnknownEffect(SandboxProviderSummarySchema, {
-          onExcessProperty: "error",
-        })(row).pipe(
-          Effect.mapError((cause) => new OrganizationSandboxProviderRepositoryError({ cause })),
-        ),
-      ),
-    ),
-  )
+export interface SaveSandboxProviderInput<Provider extends SandboxProviderId = SandboxProviderId> {
+  readonly organizationId: string
+  readonly name: string
+  readonly providerType: Provider
+  readonly options: SandboxProviderOptions[Provider]
+  readonly credentials: SandboxProviderCredentials[Provider]
+  /** Null when creating, together with `lockVersion`. */
+  readonly id: string | null
+  readonly lockVersion: number | null
 }
 
-/** The detail page's read, which reveals credentials for masked editing. */
-export function readOrganizationSandboxProvider(organizationId: string, id: string) {
-  return readSandboxProviderRow(organizationId, id).pipe(
-    Effect.flatMap((row) => (row ? revealSandboxProviderRow(row) : Effect.succeed(null))),
-  )
+// The raw text bypasses the column codec, so an unreadable value degrades instead of failing.
+const sandboxProviderColumns = {
+  id: sandboxProvider.id,
+  organizationId: sandboxProvider.organizationId,
+  name: sandboxProvider.name,
+  providerType: sandboxProvider.providerType,
+  options: sandboxProvider.options,
+  lastTest: sandboxProvider.lastTest,
+  lockVersion: sandboxProvider.lockVersion,
+  createdAt: sandboxProvider.createdAt,
+  updatedAt: sandboxProvider.updatedAt,
+  storedCredentials: sql<string | null>`${sandboxProvider.credentials}::text`,
 }
 
-export function prepareOrganizationSandboxProviderCandidate<Provider extends SandboxProviderId>(
-  input: SandboxProviderMutationInput<Provider>,
-) {
-  return Effect.gen(function* () {
-    const { name, options, credentials } = input
-    const existing = input.id ? yield* readSandboxProviderRow(input.organizationId, input.id) : null
-    if (
-      (!existing && (input.id !== undefined || input.lockVersion !== undefined)) ||
-      (existing && input.lockVersion !== existing.lockVersion)
-    ) {
-      return yield* Effect.fail(
-        new OptimisticLockError({
-          reason: "conflict",
-          expectedLockVersion: input.lockVersion ?? 0,
-          tableName: getTableName(sandboxProvider),
-        }),
-      )
-    }
-    yield* ensureSandboxProviderNameAvailable(input.organizationId, name, input.id)
-    const existingCredentials =
-      existing && existing.providerType === input.providerType
-        ? yield* readSandboxProviderCredentials(existing)
-        : null
-    const credentialsChanged =
-      !existing ||
-      existing.providerType !== input.providerType ||
-      JSON.stringify(existingCredentials) !== JSON.stringify(credentials)
-    const requiresTest =
-      credentialsChanged || JSON.stringify(existing?.options) !== JSON.stringify(options)
-    return {
-      organizationId: input.organizationId,
-      candidate: { name, provider: input.providerType, options, credentials },
-      requiresTest,
-      existing,
-      credentialsChanged,
-    } satisfies PreparedOrganizationSandboxProvider<Provider>
+/** Decrypts a row's own credentials. Values copied from another row or provider are unreadable. */
+function readStoredCredentials(
+  row: SandboxProviderRow,
+  storedCredentials: string | null,
+): Option.Option<SandboxProviderCredentials[SandboxProviderId]> {
+  if (row.providerType === "docker")
+    return storedCredentials === null ? Option.some({}) : Option.none()
+  const decrypted = decryptDatabaseValue({
+    storedValue: storedCredentials,
+    schema: SandboxProviderCredentialsPayloadSchema,
+    keyring: getDatabaseEncryptionKeyring(),
   })
+  if (Result.isFailure(decrypted)) return Option.none()
+  const payload = decrypted.success.value
+  return payload.sandboxProviderId === row.id &&
+    payload.organizationId === row.organizationId &&
+    payload.providerType === row.providerType
+    ? Option.some(payload.credentials)
+    : Option.none()
 }
 
-export function saveOrganizationSandboxProvider<Provider extends SandboxProviderId>(
-  prepared: PreparedOrganizationSandboxProvider<Provider>,
-  testedAt?: string,
-) {
-  return Effect.gen(function* () {
-    if (prepared.requiresTest && testedAt === undefined) {
-      return yield* Effect.fail(
-        new SandboxConfigurationValidationError({
-          message: "Test the sandbox provider before saving these changes",
-        }),
-      )
-    }
-    const existing = prepared.existing
-    const lastTest = testedAt
-      ? { status: "success" as const, testedAt }
-      : (existing?.lastTest ?? null)
-
-    if (!existing) {
-      return yield* createOrganizationSandboxProvider({
-        organizationId: prepared.organizationId,
-        candidate: prepared.candidate,
-        lastTest,
-      })
-    }
-
-    const db = yield* Database
-
-    const credentialUpdate =
-      prepared.candidate.provider === "docker"
-        ? { credentials: null }
-        : prepared.credentialsChanged
-          ? {
-              credentials: {
-                sandboxProviderId: existing.id,
-                organizationId: prepared.organizationId,
-                providerType: prepared.candidate.provider,
-                credentials: prepared.candidate.credentials,
-              },
-            }
-          : {}
-    yield* updateWithOptimisticLock({
-      executor: db,
-      table: sandboxProvider,
-      id: existing.id,
-      scope: eq(sandboxProvider.organizationId, prepared.organizationId),
-      expectedLockVersion: existing.lockVersion,
-      set: {
-        name: prepared.candidate.name,
-        providerType: prepared.candidate.provider,
-        options: prepared.candidate.options,
-        lastTest,
-        ...credentialUpdate,
-      },
-    })
-    return existing.id
-  })
-}
-
-export function resolveOrganizationSandboxProviderConfiguration(
-  organizationId: string,
-  sandboxProviderId: string,
-) {
-  return Effect.gen(function* () {
-    const row = yield* readSandboxProviderRow(organizationId, sandboxProviderId)
-    if (!row) {
-      return yield* Effect.fail(
-        new SandboxConfigurationValidationError({ message: "Sandbox provider not found" }),
-      )
-    }
-    return {
-      name: row.name,
-      provider: row.providerType,
-      options: row.options,
-      credentials: yield* readSandboxProviderCredentials(row),
-      id: row.id,
-      lockVersion: row.lockVersion,
-    }
-  })
-}
-
-export function recordOrganizationSandboxProviderTest(input: {
-  organizationId: string
+function credentialsPayload(input: {
   id: string
-  lockVersion: number
-  status: "success" | "failure"
-  testedAt: string
-  errorCode?: SandboxConnectionErrorCode
+  organizationId: string
+  provider: SandboxProviderId
+  credentials: SandboxProviderCredentials[SandboxProviderId]
 }) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    yield* updateWithOptimisticLock({
-      executor: db,
-      table: sandboxProvider,
-      id: input.id,
-      scope: eq(sandboxProvider.organizationId, input.organizationId),
-      expectedLockVersion: input.lockVersion,
-      set: {
-        lastTest: {
-          status: input.status,
-          testedAt: input.testedAt,
-          ...(input.errorCode && { errorCode: input.errorCode }),
-        },
-      },
-    })
-  })
+  return input.provider === "docker"
+    ? null
+    : {
+        sandboxProviderId: input.id,
+        organizationId: input.organizationId,
+        providerType: input.provider,
+        credentials: input.credentials,
+      }
 }
 
-export function deleteOrganizationSandboxProvider(input: {
-  organizationId: string
-  id: string
-  lockVersion: number
-}) {
-  return Effect.gen(function* () {
-    const db = yield* Database
-    yield* deleteWithOptimisticLock({
-      executor: db,
-      table: sandboxProvider,
-      id: input.id,
-      scope: eq(sandboxProvider.organizationId, input.organizationId),
-      expectedLockVersion: input.lockVersion,
-    })
-  }).pipe(
-    Effect.catchIf(
-      (error) => sqlConstraint(error) === "agent_organization_id_sandbox_provider_id_fk",
-      () =>
-        Effect.fail(
-          new SandboxProviderInUseError({
-            message: "Reassign or delete agents using this provider before deleting it",
-          }),
-        ),
-    ),
-  )
-}
+const mapSandboxProviderWriteErrors = mapDatabaseErrors({
+  sandbox_provider_organization_id_name_uidx: () => new SandboxProviderNameTaken(),
+})
 
-type SandboxProviderMutationInput<Provider extends SandboxProviderId> = {
-  organizationId: string
-  name: string
-  providerType: Provider
-  options: SandboxProviderOptions[Provider]
-  credentials: SandboxProviderCredentials[Provider]
-  id?: string
-  lockVersion?: number
-}
+export class SandboxProviders extends Context.Service<
+  SandboxProviders,
+  {
+    /** The list page's read, which leaves credentials encrypted. */
+    readonly listSummaries: (input: {
+      readonly organizationId: string
+    }) => Effect.Effect<readonly OrganizationSandboxProviderSummary[]>
+    readonly get: (input: {
+      readonly organizationId: string
+      readonly id: string
+    }) => Effect.Effect<OrganizationSandboxProvider | null>
+    /** Tests changed connection settings before storing them, and returns the provider's ID. */
+    readonly save: (
+      input: SaveSandboxProviderInput,
+    ) => Effect.Effect<
+      string,
+      | SandboxProviderChanged
+      | SandboxProviderNameTaken
+      | SandboxConnectionFailed
+      | SandboxCleanupFailed
+    >
+    /** Tests a saved provider and records the outcome, which it returns rather than fails with. */
+    readonly testConnection: (input: {
+      readonly organizationId: string
+      readonly id: string
+      readonly lockVersion: number
+    }) => Effect.Effect<SandboxTestMetadata, SandboxProviderChanged | SandboxProviderUnreadable>
+    readonly remove: (input: {
+      readonly organizationId: string
+      readonly id: string
+      readonly lockVersion: number
+    }) => Effect.Effect<void, SandboxProviderChanged | SandboxProviderInUse>
+    /** The configuration a chat run builds its sandbox from. */
+    readonly resolveConfiguration: (input: {
+      readonly organizationId: string
+      readonly id: string
+    }) => Effect.Effect<
+      SandboxProviderConfiguration,
+      SandboxProviderNotFound | SandboxProviderUnreadable
+    >
+  }
+>()("astralbeam/sandboxes/SandboxProviders") {
+  static readonly layerNoDeps = Layer.effect(
+    SandboxProviders,
+    Effect.gen(function* () {
+      const db = yield* Database
 
-function createOrganizationSandboxProvider<Provider extends SandboxProviderId>(input: {
-  organizationId: string
-  candidate: OrganizationSandboxProviderCandidate<Provider>
-  lastTest: SandboxTestMetadata | null
-}) {
-  return sandboxProviderDatabaseEffect((db) =>
-    db.transaction((transaction) =>
-      Effect.gen(function* () {
-        const createdRows = yield* transaction
-          .insert(sandboxProvider)
-          .values({
-            organizationId: input.organizationId,
-            name: input.candidate.name,
-            providerType: input.candidate.provider,
-            options: input.candidate.options,
-            credentials: null,
-            lastTest: input.lastTest,
-          })
-          .returning()
-        const created = createdRows[0]
-        if (!created) {
-          return yield* Effect.fail(
-            new Error("PostgreSQL did not return the created sandbox provider"),
+      const readRow = Effect.fnUntraced(function* (organizationId: string, id: string) {
+        const [stored] = yield* db
+          .select(sandboxProviderColumns)
+          .from(sandboxProvider)
+          .where(
+            and(eq(sandboxProvider.organizationId, organizationId), eq(sandboxProvider.id, id)),
           )
+          .limit(1)
+        if (!stored) return null
+        const { storedCredentials, ...fields } = stored
+        const row = yield* decodeSandboxProviderRow(fields)
+        const options = yield* decodeProviderOptions(row.providerType, row.options)
+        return {
+          row: { ...row, options },
+          credentials: readStoredCredentials(row, storedCredentials),
         }
-        if (input.candidate.provider === "docker") return created
+      }, Effect.orDie)
 
-        const rows = yield* transaction
-          .update(sandboxProvider)
-          .set({
-            credentials: {
-              sandboxProviderId: created.id,
-              organizationId: input.organizationId,
-              providerType: input.candidate.provider,
-              credentials: input.candidate.credentials,
-            },
+      const listSummaries = Effect.fn("SandboxProviders.listSummaries")(function* (input: {
+        organizationId: string
+      }) {
+        const rows = yield* db
+          .select({
+            id: sandboxProvider.id,
+            name: sandboxProvider.name,
+            providerType: sandboxProvider.providerType,
+            lastTest: sandboxProvider.lastTest,
           })
+          .from(sandboxProvider)
+          .where(eq(sandboxProvider.organizationId, input.organizationId))
+          .orderBy(asc(sandboxProvider.name), asc(sandboxProvider.id))
+        return yield* decodeSandboxProviderSummaries(rows)
+      }, Effect.orDie)
+
+      const get = Effect.fn("SandboxProviders.get")(function* (input: {
+        organizationId: string
+        id: string
+      }) {
+        const found = yield* readRow(input.organizationId, input.id)
+        if (!found) return null
+        return {
+          ...found.row,
+          credentials: Option.getOrElse(found.credentials, () => ({})),
+          credentialsReadable: Option.isSome(found.credentials),
+        } satisfies OrganizationSandboxProvider
+      })
+
+      const nameTaken = Effect.fnUntraced(function* (input: SaveSandboxProviderInput) {
+        const [row] = yield* db
+          .select({ id: sandboxProvider.id })
+          .from(sandboxProvider)
           .where(
             and(
-              eq(sandboxProvider.organizationId, created.organizationId),
-              eq(sandboxProvider.id, created.id),
+              eq(sandboxProvider.organizationId, input.organizationId),
+              eq(sandboxProvider.name, input.name),
+              input.id ? ne(sandboxProvider.id, input.id) : undefined,
             ),
           )
-          .returning()
-        const row = rows[0]
-        if (!row) {
-          return yield* Effect.fail(
-            new Error("PostgreSQL did not return sandbox provider credentials"),
-          )
-        }
-        return row
-      }),
-    ),
-  ).pipe(Effect.map((row) => row.id))
-}
+          .limit(1)
+          .pipe(Effect.orDie)
+        return row !== undefined
+      })
 
-function readSandboxProviderCredentials(
-  row: SandboxProviderRow,
-): Effect.Effect<
-  SandboxProviderCredentials[SandboxProviderId],
-  OrganizationSandboxProviderRepositoryError | SandboxConfigurationValidationError
-> {
-  if (row.providerType === "docker") {
-    return row.credentials === null
-      ? Effect.succeed({})
-      : Effect.fail(storedSandboxProviderError("Docker unexpectedly has stored credentials"))
-  }
-  const payload = row.credentials
-  if (!payload) {
-    return Effect.fail(
-      new SandboxConfigurationValidationError({
-        message: "Provider credentials are not configured",
-      }),
-    )
-  }
-  if (
-    payload.sandboxProviderId !== row.id ||
-    payload.organizationId !== row.organizationId ||
-    payload.providerType !== row.providerType
-  ) {
-    return Effect.fail(storedSandboxProviderError("Stored credentials belong to another provider"))
-  }
-  return decodeSandboxProviderValue(() =>
-    decodeProviderCredentials(row.providerType, payload.credentials),
-  )
-}
-
-function revealSandboxProviderRow(row: SandboxProviderRow) {
-  const { credentials: _storedCredentials, ...provider } = row
-  return readSandboxProviderCredentials(row).pipe(
-    Effect.map((credentials) => ({ ...provider, credentials })),
-  )
-}
-
-function ensureSandboxProviderNameAvailable(
-  organizationId: string,
-  name: string,
-  excludedId?: string,
-) {
-  return sandboxProviderDatabaseEffect((db) =>
-    db
-      .select({ id: sandboxProvider.id })
-      .from(sandboxProvider)
-      .where(
-        and(
-          eq(sandboxProvider.organizationId, organizationId),
-          eq(sandboxProvider.name, name),
-          excludedId ? ne(sandboxProvider.id, excludedId) : undefined,
-        ),
-      )
-      .limit(1),
-  ).pipe(
-    Effect.flatMap((rows) =>
-      rows.length === 0
-        ? Effect.void
-        : Effect.fail(
-            new SandboxProviderNameConflictError({
-              message: "A sandbox provider with this name already exists",
+      const create = Effect.fnUntraced(function* (
+        input: SaveSandboxProviderInput,
+        lastTest: SandboxTestMetadata | null,
+      ) {
+        return yield* db
+          .transaction((transaction) =>
+            Effect.gen(function* () {
+              const [created] = yield* transaction
+                .insert(sandboxProvider)
+                .values({
+                  organizationId: input.organizationId,
+                  name: input.name,
+                  providerType: input.providerType,
+                  options: input.options,
+                  credentials: null,
+                  lastTest,
+                })
+                .returning({ id: sandboxProvider.id })
+              // Credentials embed the row's generated ID, so they are written once it exists.
+              yield* transaction
+                .update(sandboxProvider)
+                .set({
+                  credentials: credentialsPayload({
+                    id: created!.id,
+                    organizationId: input.organizationId,
+                    provider: input.providerType,
+                    credentials: input.credentials,
+                  }),
+                })
+                .where(
+                  and(
+                    eq(sandboxProvider.organizationId, input.organizationId),
+                    eq(sandboxProvider.id, created!.id),
+                  ),
+                )
+              return created!.id
             }),
-          ),
-    ),
-  )
-}
+          )
+          .pipe(mapSandboxProviderWriteErrors)
+      })
 
-function readSandboxProviderRow(organizationId: string, id: string) {
-  return sandboxProviderDatabaseEffect((db) =>
-    db
-      .select()
-      .from(sandboxProvider)
-      .where(and(eq(sandboxProvider.organizationId, organizationId), eq(sandboxProvider.id, id)))
-      .limit(1),
-  ).pipe(
-    Effect.flatMap((rows) => {
-      const row = rows[0]
-      return row ? decodeSandboxProviderRow(row) : Effect.succeed(null)
+      const save = Effect.fn("SandboxProviders.save")(function* (input: SaveSandboxProviderInput) {
+        const existing = input.id ? yield* readRow(input.organizationId, input.id) : null
+        if (
+          existing ? input.lockVersion !== existing.row.lockVersion : input.lockVersion !== null
+        ) {
+          return yield* new SandboxProviderChanged()
+        }
+        if (input.id !== null && !existing) return yield* new SandboxProviderChanged()
+        // Checked before the connection test, which creates a billable vendor sandbox.
+        if (yield* nameTaken(input)) return yield* new SandboxProviderNameTaken()
+        const credentialsChanged =
+          !existing ||
+          existing.row.providerType !== input.providerType ||
+          Option.match(existing.credentials, {
+            onNone: () => true,
+            onSome: (stored) => !Equal.equals(stored, input.credentials),
+          })
+        const requiresTest =
+          credentialsChanged || !Equal.equals(existing.row.options, input.options)
+        const tested = requiresTest
+          ? yield* runSandboxConnectionTest({
+              provider: input.providerType,
+              options: input.options,
+              credentials: input.credentials,
+            })
+          : null
+        if (tested?.status === "failure") {
+          return yield* tested.errorCode === "cleanup_failed"
+            ? new SandboxCleanupFailed()
+            : new SandboxConnectionFailed()
+        }
+        const lastTest = tested ?? existing?.row.lastTest ?? null
+        if (!existing) return yield* create(input, lastTest)
+        const credentials = credentialsPayload({
+          id: existing.row.id,
+          organizationId: input.organizationId,
+          provider: input.providerType,
+          credentials: input.credentials,
+        })
+        yield* updateWithOptimisticLock({
+          executor: db,
+          table: sandboxProvider,
+          id: existing.row.id,
+          scope: eq(sandboxProvider.organizationId, input.organizationId),
+          expectedLockVersion: existing.row.lockVersion,
+          set: {
+            name: input.name,
+            providerType: input.providerType,
+            options: input.options,
+            lastTest,
+            ...(credentials === null || credentialsChanged ? { credentials } : {}),
+          },
+        }).pipe(
+          mapSandboxProviderWriteErrors,
+          Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),
+        )
+        return existing.row.id
+      })
+
+      const testConnection = Effect.fn("SandboxProviders.testConnection")(function* (input: {
+        organizationId: string
+        id: string
+        lockVersion: number
+      }) {
+        const found = yield* readRow(input.organizationId, input.id)
+        if (found?.row.lockVersion !== input.lockVersion) return yield* new SandboxProviderChanged()
+        if (Option.isNone(found.credentials)) return yield* new SandboxProviderUnreadable()
+        const result = yield* runSandboxConnectionTest({
+          provider: found.row.providerType,
+          options: found.row.options,
+          credentials: found.credentials.value,
+        })
+        yield* updateWithOptimisticLock({
+          executor: db,
+          table: sandboxProvider,
+          id: input.id,
+          scope: eq(sandboxProvider.organizationId, input.organizationId),
+          expectedLockVersion: input.lockVersion,
+          set: { lastTest: result },
+        }).pipe(
+          mapDatabaseErrors(),
+          Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),
+        )
+        return result
+      })
+
+      const remove = Effect.fn("SandboxProviders.remove")(
+        function* (input: { organizationId: string; id: string; lockVersion: number }) {
+          yield* deleteWithOptimisticLock({
+            executor: db,
+            table: sandboxProvider,
+            id: input.id,
+            scope: eq(sandboxProvider.organizationId, input.organizationId),
+            expectedLockVersion: input.lockVersion,
+          })
+        },
+        mapDatabaseErrors({
+          agent_organization_id_sandbox_provider_id_fk: () => new SandboxProviderInUse(),
+        }),
+        Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),
+      )
+
+      const resolveConfiguration = Effect.fn("SandboxProviders.resolveConfiguration")(
+        function* (input: { organizationId: string; id: string }) {
+          const found = yield* readRow(input.organizationId, input.id)
+          if (!found) return yield* new SandboxProviderNotFound()
+          if (Option.isNone(found.credentials)) return yield* new SandboxProviderUnreadable()
+          return {
+            name: found.row.name,
+            provider: found.row.providerType,
+            options: found.row.options,
+            credentials: found.credentials.value,
+          } satisfies SandboxProviderConfiguration
+        },
+      )
+
+      return SandboxProviders.of({
+        listSummaries,
+        get,
+        save,
+        testConnection,
+        remove,
+        resolveConfiguration,
+      })
     }),
   )
-}
 
-function storedSandboxProviderError(message: string): OrganizationSandboxProviderRepositoryError {
-  return new OrganizationSandboxProviderRepositoryError({ cause: new Error(message) })
-}
-
-function sandboxProviderDatabaseEffect<Value>(
-  operation: (db: EffectDatabase) => Effect.Effect<Value, unknown>,
-) {
-  return Effect.flatMap(Database, (db) =>
-    operation(db).pipe(
-      Effect.mapError((cause) => new OrganizationSandboxProviderRepositoryError({ cause })),
-    ),
-  )
-}
-
-function decodeSandboxProviderValue<Value>(
-  decode: () => Value,
-): Effect.Effect<
-  Value,
-  OrganizationSandboxProviderRepositoryError | SandboxConfigurationValidationError
-> {
-  return Effect.try({
-    try: decode,
-    catch: (cause) =>
-      cause instanceof SandboxConfigurationValidationError
-        ? cause
-        : new OrganizationSandboxProviderRepositoryError({ cause }),
-  })
-}
-
-function decodeSandboxProviderRow(value: unknown) {
-  return Schema.decodeUnknownEffect(SandboxProviderRowSchema, { onExcessProperty: "error" })(
-    value,
-  ).pipe(
-    Effect.flatMap((row) =>
-      decodeSandboxProviderValue(() => ({
-        ...row,
-        options: decodeProviderOptions(row.providerType, row.options),
-      })),
-    ),
-    Effect.mapError((cause) =>
-      cause instanceof OrganizationSandboxProviderRepositoryError
-        ? cause
-        : new OrganizationSandboxProviderRepositoryError({ cause }),
-    ),
-  )
+  static readonly layer = SandboxProviders.layerNoDeps.pipe(Layer.provide(Database.layer))
 }

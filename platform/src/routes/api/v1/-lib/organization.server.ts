@@ -2,8 +2,8 @@ import { Effect, Schema } from "effect"
 import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import type { ApiV1 } from "./contract.server"
 import { ApiUuidSchema } from "../../../../lib/tenants/schemas.ts"
-import { restFault, restHandleErrors } from "./responses.server"
-import { restScope } from "./shared.server"
+import { RestOrganizationNotFound, RestTenantTokenForbidden } from "./errors.ts"
+import { RestScope } from "./shared.server"
 
 const OrganizationSchema = Schema.Struct({
   id: ApiUuidSchema,
@@ -33,21 +33,29 @@ export const organizationApi = HttpApiGroup.make("organization", { topLevel: tru
   )
 
 export function organizationHandlers(api: typeof ApiV1) {
-  return HttpApiBuilder.group(api, "organization", (handlers) =>
-    handlers.handle(
-      "getOrganization",
-      Effect.fn(function* () {
-        const scope = yield* restScope
-        if (scope.externalTenantId !== undefined) {
-          return yield* Effect.fail(restFault(403, "Tenant tokens cannot read the Organization."))
-        }
-        const { readOrganizationSummary } = yield* Effect.promise(
-          () => import("@/lib/organizations/organizations.server"),
-        )
-        const row = yield* readOrganizationSummary(scope.organizationId)
-        if (!row) return yield* Effect.fail(restFault(404, "Organization not found."))
-        return row
-      }, restHandleErrors("getOrganization")),
-    ),
+  return HttpApiBuilder.group(
+    api,
+    "organization",
+    Effect.fn(function* (handlers) {
+      const { Database } = yield* Effect.promise(() => import("@/db/database.server"))
+      const { readOrganizationSummary } = yield* Effect.promise(
+        () => import("@/lib/organizations/organizations.server"),
+      )
+      const database = yield* Database
+      return handlers.handle(
+        "getOrganization",
+        Effect.fn("getOrganization")(function* () {
+          const scope = yield* RestScope
+          if (scope.externalTenantId !== undefined) return yield* new RestTenantTokenForbidden()
+          // Seam: reads through the organizations module until it exposes a service.
+          const row = yield* readOrganizationSummary(scope.organizationId).pipe(
+            Effect.provideService(Database, database),
+            Effect.orDie,
+          )
+          if (!row) return yield* new RestOrganizationNotFound()
+          return row
+        }),
+      )
+    }),
   )
 }

@@ -5,7 +5,6 @@ import type { ApiV1 } from "./contract.server"
 import { ApiUuidSchema } from "../../../../lib/tenants/schemas.ts"
 import { TenantRecordSchema } from "./tenant.server"
 import { TenantUserRecordSchema } from "./tenant-user.server"
-import { restHandleErrors } from "./responses.server"
 
 const currentUserOrganization = Schema.Struct({ id: ApiUuidSchema })
 const CurrentUserSchema = Schema.Union([
@@ -40,13 +39,19 @@ export const currentUserApi = HttpApiGroup.make("currentUser", { topLevel: true 
 )
 
 export function currentUserHandlers(api: typeof ApiV1) {
-  return HttpApiBuilder.group(api, "currentUser", (handlers) =>
-    handlers.handle(
-      "getCurrentUser",
-      Effect.fn(function* ({ request }) {
-        const { getCurrentUser } = yield* Effect.promise(() => import("./current-user-auth.server"))
-        return yield* getCurrentUser(yield* HttpServerRequest.toWeb(request))
-      }, restHandleErrors("getCurrentUser")),
-    ),
+  return HttpApiBuilder.group(
+    api,
+    "currentUser",
+    Effect.fn(function* (handlers) {
+      const { getCurrentUser } = yield* Effect.promise(() => import("./current-user-auth.server"))
+      const context = yield* Effect.context<Effect.Services<ReturnType<typeof getCurrentUser>>>()
+      return handlers.handle(
+        "getCurrentUser",
+        Effect.fn("getCurrentUser")(function* ({ request }) {
+          const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
+          return yield* getCurrentUser(native).pipe(Effect.provideContext(context))
+        }),
+      )
+    }),
   )
 }

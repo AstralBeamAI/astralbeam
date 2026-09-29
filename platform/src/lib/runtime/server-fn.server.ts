@@ -2,7 +2,7 @@ import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
 import { Cause, Effect, Exit, Option, Schema } from "effect"
 
 import { reportFailure } from "./failure-report.server.ts"
-import { httpApiStatus } from "./http-api-status.ts"
+import { declaredHttpApiStatus } from "./http-api-status.ts"
 import { type AppServices, getAppRuntime } from "./runtime.server.ts"
 import { formatServerFnError, INTERNAL_ERROR_TAG } from "./server-fn-error.ts"
 
@@ -25,7 +25,7 @@ export function exposeError(error: {
     new ExposedError({
       tag: error._tag,
       message: error.message,
-      status: httpApiStatus(error) ?? 400,
+      status: declaredHttpApiStatus(error) ?? 400,
     }),
   )
 }

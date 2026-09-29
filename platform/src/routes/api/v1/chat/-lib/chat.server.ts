@@ -8,7 +8,6 @@ import {
   OpenApi,
 } from "effect/unstable/httpapi"
 import type { ApiV1 } from "../../-lib/contract.server"
-import { restHandleErrors, restRateLimitFault } from "../../-lib/responses.server"
 
 const chatRunInput = Schema.Struct({
   threadId: Schema.String,
@@ -78,76 +77,56 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       .annotate(OpenApi.Override, { security: [{ ArtifactTicket: [] }] }),
   )
 
-function chatAuthenticate(request: HttpServerRequest.HttpServerRequest) {
-  return Effect.gen(function* () {
-    const { authenticateChatRequest } = yield* Effect.promise(
-      () => import("@/lib/chat/auth.server"),
-    )
-    return yield* authenticateChatRequest(yield* HttpServerRequest.toWeb(request))
-  })
-}
-
-// Chat's services live in the app runtime. Loading it per request keeps the OpenAPI export free
-// of database configuration.
-function provideChatServices<A, E, R>(effect: Effect.Effect<A, E, R>) {
-  return Effect.promise(() => import("@/lib/runtime/runtime.server")).pipe(
-    Effect.flatMap(({ getAppRuntime }) => getAppRuntime().contextEffect),
-    Effect.flatMap((services) => Effect.provideContext(effect, services)),
-  )
-}
-
 export function chatHandlers(api: typeof ApiV1) {
-  return HttpApiBuilder.group(api, "chat", (handlers) =>
-    handlers
-      .handleRaw(
-        "runChat",
-        Effect.fn(
-          function* ({ request }) {
-            const principal = yield* chatAuthenticate(request)
-            const { consumeChatRateLimit } = yield* Effect.promise(
-              () => import("@/lib/chat/rate-limit.server"),
-            )
-            yield* consumeChatRateLimit(principal).pipe(Effect.mapError(restRateLimitFault))
-            const { chatRunResponse, readChatRunParams } = yield* Effect.promise(
-              () => import("./run.server"),
-            )
-            const params = yield* readChatRunParams(yield* HttpServerRequest.toWeb(request))
-            const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat.server"))
-            const chat = yield* Chat
+  return HttpApiBuilder.group(
+    api,
+    "chat",
+    Effect.fn(function* (handlers) {
+      const { authenticateChatRequest } = yield* Effect.promise(
+        () => import("@/lib/chat/auth.server"),
+      )
+      const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat.server"))
+      const { ChatSandboxes } = yield* Effect.promise(() => import("@/lib/chat/sandbox.server"))
+      const { consumeChatRateLimit, readChatRunParams, chatRunResponse } = yield* Effect.promise(
+        () => import("./run.server"),
+      )
+      const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
+      const chat = yield* Chat
+      const sandboxes = yield* ChatSandboxes
+      const services = yield* Effect.context<
+        | Effect.Services<ReturnType<typeof authenticateChatRequest>>
+        | Effect.Services<ReturnType<typeof consumeChatRateLimit>>
+      >()
+      const authenticate = (request: HttpServerRequest.HttpServerRequest) =>
+        HttpServerRequest.toWeb(request).pipe(
+          Effect.orDie,
+          Effect.flatMap(authenticateChatRequest),
+          Effect.provideContext(services),
+        )
+      return handlers
+        .handleRaw(
+          "runChat",
+          Effect.fn("runChat")(function* ({ request }) {
+            const principal = yield* authenticate(request)
+            yield* consumeChatRateLimit(principal).pipe(Effect.provideContext(services))
+            const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
+            const params = yield* readChatRunParams(native)
             return yield* chatRunResponse(yield* chat.run({ params, principal }))
-          },
-          provideChatServices,
-          restHandleErrors("runChat"),
-        ),
-      )
-      .handle(
-        "getChatConfig",
-        Effect.fn(
-          function* ({ query, request }) {
-            const principal = yield* chatAuthenticate(request)
-            const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat.server"))
-            const chat = yield* Chat
-            const capabilities = yield* chat.capabilities({ principal, agentId: query.agentId })
-            return { capabilities }
-          },
-          provideChatServices,
-          restHandleErrors("getChatConfig"),
-        ),
-      )
-      .handle(
-        "getChatFile",
-        Effect.fn(
-          function* ({ query }) {
-            const { ChatSandboxes } = yield* Effect.promise(
-              () => import("@/lib/chat/sandbox.server"),
-            )
-            const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
-            const sandboxes = yield* ChatSandboxes
+          }),
+        )
+        .handle(
+          "getChatConfig",
+          Effect.fn("getChatConfig")(function* ({ query, request }) {
+            const principal = yield* authenticate(request)
+            return { capabilities: yield* chat.capabilities({ principal, agentId: query.agentId }) }
+          }),
+        )
+        .handle(
+          "getChatFile",
+          Effect.fn("getChatFile")(function* ({ query }) {
             return chatArtifactResponse(yield* sandboxes.readArtifact(query.ticket))
-          },
-          provideChatServices,
-          restHandleErrors("getChatFile"),
-        ),
-      ),
+          }),
+        )
+    }),
   )
 }
