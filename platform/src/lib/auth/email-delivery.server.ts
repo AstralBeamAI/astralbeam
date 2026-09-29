@@ -10,15 +10,8 @@ import {
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { AuthEmailNotDelivered } from "./errors.ts"
 
-/**
- * Better Auth routes most sends through `runInBackgroundOrAwait`, which awaits the callback but
- * logs and swallows its rejection, so a throw inside `sendVerificationEmail` cannot reach the
- * client on its own. A failed blocking send is recorded against the request Better Auth passed to
- * the callback, and `assertAuthEmailDelivered` rethrows it from the `after` hook as the response.
- * Endpoints that already rethrow the callback's error, such as `/send-verification-email`, get the
- * same `APIError` directly.
- * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/context/create-context.ts
- */
+// `runInBackgroundOrAwait` swallows a callback's rejection, so a failed send is recorded against its
+// request and rethrown from the `after` hook. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/context/create-context.ts
 const failedAuthEmailRequests = new WeakMap<Request, APIError>()
 const blockingAuthEmailContext = new AsyncLocalStorage<{ error?: APIError }>()
 
@@ -48,11 +41,8 @@ function authEmailDeliveryError(): APIError {
   })
 }
 
-/**
- * Awaits an authentication email the caller is waiting on, so the response reports the outcome
- * instead of completing while delivery fails out of band. `request` is the one Better Auth passed
- * to its callback, absent for requestless server API calls.
- */
+/** Awaits an email the caller is waiting on, so the response reports its outcome. `request` is the
+ * one Better Auth passed to its callback, absent for requestless server API calls. */
 export function deliverBlockingAuthEmail(
   request: Request | undefined,
   send: () => Promise<void>,

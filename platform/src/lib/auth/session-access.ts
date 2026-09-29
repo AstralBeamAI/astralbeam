@@ -13,14 +13,8 @@ export interface OrganizationMembershipIdentity {
   slug: string
 }
 
-/**
- * Chooses the organization a session lands on, without writing it.
- *
- * Memberships remain authoritative: a null or stale active organization does not imply that the
- * user needs onboarding. Otherwise the lowest opaque ID wins, so the result is independent of the
- * order returned by the organization API. The organization layout points the session's active
- * organization at the page once it renders.
- */
+/** Chooses the organization a session lands on without writing it: its active membership, else
+ * the lowest ID, so API order never matters. The organization layout records the shown one. */
 export function decideSessionAccess(
   session: SessionAccessIdentity | null,
   organizations: readonly OrganizationMembershipIdentity[],

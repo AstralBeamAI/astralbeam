@@ -99,12 +99,8 @@ function authConfigFromValues(values: ConfigValues): AuthConfig | null {
   }
 }
 
-/**
- * Rebuilds the link `/sign-up/email` would have mailed, for a resend that happens outside an
- * endpoint context. The token is the same signed JWT `/verify-email` accepts, so an unverified
- * account can be recovered by signing up again.
- * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/sign-up.ts
- */
+// Rebuilds the `/sign-up/email` link for a resend outside an endpoint context, so signing up again
+// recovers an unverified account. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/api/routes/sign-up.ts
 async function buildVerificationURL(config: AuthConfig, email: string): Promise<string> {
   const token = await createEmailVerificationToken(
     config.betterAuthSecret,
@@ -129,11 +125,8 @@ function notifyPasswordChanged(user: { email: string }): Promise<void> {
   return Promise.resolve()
 }
 
-/**
- * Deletes an organization API key in one locked transaction instead of Better Auth's own delete,
- * whose separate last-key check could not stop two concurrent deletions. Better Auth's own errors
- * reach the hook unchanged, because a run rejects with its squashed cause.
- */
+// Replaces Better Auth's delete, whose separate last-key check let two concurrent deletions pass.
+// Its own errors reach the hook unchanged, because a run rejects with its squashed cause.
 const deleteOrganizationApiKey = Effect.fn("deleteOrganizationApiKey")(function* (input: {
   headers: Headers
   keyId: string

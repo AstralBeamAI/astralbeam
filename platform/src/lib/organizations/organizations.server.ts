@@ -69,11 +69,8 @@ export class Organizations extends Context.Service<
       readonly organizationSlug: string
       readonly userId: string
     }) => Effect.Effect<OrganizationMembership | null>
-    /**
-     * Resolves the signed-in caller's membership and role in the slug's organization, plus one
-     * permission when given. Memoized per request headers, and a missing organization and a
-     * non-member fail alike.
-     */
+    /** The caller's membership and role, plus one permission when given, memoized per request
+     * headers. A missing organization and a non-member fail alike. */
     readonly access: (input: {
       readonly headers: Headers
       readonly organizationSlug: string

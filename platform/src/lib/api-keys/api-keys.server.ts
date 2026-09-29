@@ -19,11 +19,8 @@ export class ApiKeys extends Context.Service<
       organizationId: string,
     ) => Effect.Effect<{ readonly id: string; readonly digest: string } | null>
     readonly hasAny: (organizationId: string) => Effect.Effect<boolean>
-    /**
-     * Deletes a key the caller was authorized to delete, refusing the embedded assistant's key and
-     * the organization's last one. Row locks serialize concurrent deletions, so two cannot both
-     * pass the last-key check.
-     */
+    /** Refuses the embedded assistant's key and the last one, under row locks that serialize
+     * concurrent deletions. The caller must already be authorized to delete it. */
     readonly remove: (input: {
       readonly organizationId: string
       readonly keyId: string

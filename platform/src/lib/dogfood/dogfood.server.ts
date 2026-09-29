@@ -36,11 +36,8 @@ export class Dogfood extends Context.Service<
   {
     /** What `/configure` shows of owner onboarding, from current database values by UUID. */
     readonly onboarding: (values: ConfigValues) => Effect.Effect<DogfoodOnboarding>
-    /**
-     * Creates or resumes the dogfood organization, owner, starter agent and credential, and mails
-     * the owner a password-reset link. Run it inside `withProvisioningLock`, together with the
-     * configuration changes preceding it.
-     */
+    /** Creates or resumes the organization, owner, agent and credential, then mails a reset link.
+     * Run it inside `withProvisioningLock` with the configuration changes preceding it. */
     readonly provision: (input: OwnerOnboarding) => Effect.Effect<void, OwnerOnboardingFailed>
     /**
      * Serializes configuration writes and provisioning across processes. The operation runs

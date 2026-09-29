@@ -37,11 +37,8 @@ const authorizeOrganizationRequest = createServerOnlyFn(
   },
 )
 
-/**
- * Resolves the organization from the function's own `organizationSlug` input, never an ID from
- * the request, and enforces the caller's membership, plus one permission when given. Route guards
- * never stand in for this.
- */
+/** Resolves the organization from the function's own `organizationSlug` input, never an ID, and
+ * enforces membership plus one permission when given. Route guards never stand in for this. */
 export function organizationAccessMiddleware(permissions?: OrganizationPermissionRequest) {
   return createMiddleware({ type: "function" }).server(async ({ data, next, serverFnMeta }) => {
     const access = await authorizeOrganizationRequest({
