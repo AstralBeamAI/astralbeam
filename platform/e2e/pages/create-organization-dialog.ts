@@ -12,7 +12,7 @@ export function createOrganizationDialog(page: Page) {
   return {
     dialog,
 
-    /** The slug is generated with a random suffix, so a spec that asserts URLs sets its own. */
+    /** The slug follows the name, so a spec that asserts URLs sets its own unique one. */
     async create(name: string, slug: string): Promise<void> {
       await dialog.locator("#create-organization-name").fill(name)
       await dialog.locator("#create-organization-slug").fill(slug)

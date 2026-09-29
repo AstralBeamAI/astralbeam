@@ -24,6 +24,12 @@ function authErrorCode(error: unknown): string | undefined {
   return Predicate.isString(error.error.code) ? error.error.code : undefined
 }
 
+/** Better Auth's check-slug and create endpoints reject a taken slug with these codes. */
+export function isOrganizationSlugTakenError(error: unknown): boolean {
+  const code = authErrorCode(error)
+  return code === "ORGANIZATION_SLUG_ALREADY_TAKEN" || code === "ORGANIZATION_ALREADY_EXISTS"
+}
+
 function safeAuthError(error: unknown): string {
   if (isAuthEmailDeliveryError(error)) return AUTH_EMAIL_DELIVERY_FAILED_MESSAGE
   if (authErrorCode(error) === "LAST_API_KEY") {
@@ -81,6 +87,8 @@ export function ErrorToaster() {
       // Every form that sets a new password renders this one against the
       // password field, so a toast would just repeat it.
       if (isPasswordCompromisedError(error)) return
+      // The create organization dialog renders a taken slug against its slug field.
+      if (isOrganizationSlugTakenError(error)) return
 
       if (authErrorCode(error) === "EMAIL_NOT_VERIFIED") return
       addToast({ title: safeAuthError(error), type: "error" })

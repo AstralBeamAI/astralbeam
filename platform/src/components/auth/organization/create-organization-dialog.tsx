@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, omit unsupported organization model fields while retaining the official create flow, focus the name through the dialog's initialFocus, and reset closed-dialog state during render.
+// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name without a random suffix, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, omit unsupported organization model fields while retaining the official create flow, focus the name through the dialog's initialFocus, render a taken slug from the availability check or a create race against the slug field, and reset closed-dialog state during render.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -7,6 +7,7 @@ import { useCheckSlug, useCreateOrganization } from "@better-auth-ui/react/plugi
 import { BriefcaseIcon as Briefcase } from "@phosphor-icons/react"
 import type { Organization } from "better-auth/client"
 import { type SyntheticEvent, useCallback, useRef, useState } from "react"
+import { isOrganizationSlugTakenError } from "@/components/auth/error-toaster"
 import { GeneratedSlugField } from "@/components/generated-slug-field"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -46,6 +47,7 @@ export function CreateOrganizationDialog({
     "available" | "checking" | "idle" | "invalid" | "unavailable"
   >("idle")
   const [nameError, setNameError] = useState<string>()
+  const [takenSlug, setTakenSlug] = useState<string>()
   const submissionLocked = useRef(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -54,6 +56,9 @@ export function CreateOrganizationDialog({
       onOpenChange(false)
       return onOrganizationCreated?.(organization)
     },
+    onError: (error, { slug }) => {
+      if (isOrganizationSlugTakenError(error)) setTakenSlug(slug)
+    },
     onSettled: () => {
       submissionLocked.current = false
     },
@@ -61,8 +66,16 @@ export function CreateOrganizationDialog({
   const { mutateAsync: checkSlug } = useCheckSlug(authClient)
   // The organization hooks reject a reserved slug server-side; this only saves a round trip.
   const checkOrganizationSlug = useCallback(
-    async (value: string) =>
-      !isReservedOrganizationSlug(value) && (await checkSlug({ slug: value })).status,
+    async (value: string) => {
+      if (isReservedOrganizationSlug(value)) return false
+      try {
+        return (await checkSlug({ slug: value })).status
+      } catch (error) {
+        // Better Auth rejects a taken slug instead of answering `status: false`.
+        if (isOrganizationSlugTakenError(error)) return false
+        throw error
+      }
+    },
     [checkSlug],
   )
 
@@ -87,6 +100,7 @@ export function CreateOrganizationDialog({
       setName(initialName?.trim() ?? "")
       setSlugAvailability("idle")
       setNameError(undefined)
+      setTakenSlug(undefined)
     }
   }
 
@@ -138,8 +152,8 @@ export function CreateOrganizationDialog({
               id="create-organization-slug"
               label="Slug"
               sourceValue={name}
-              fallback="org"
               checkAvailability={checkOrganizationSlug}
+              unavailableValue={takenSlug}
               onAvailabilityChange={setSlugAvailability}
               disabled={isPending}
             />

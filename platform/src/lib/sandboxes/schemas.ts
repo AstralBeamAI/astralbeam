@@ -95,7 +95,7 @@ const SANDBOX_CONNECTION_ERROR_CODES = [
 ] as const
 export type SandboxConnectionErrorCode = (typeof SANDBOX_CONNECTION_ERROR_CODES)[number]
 
-const SandboxConnectionErrorCodeSchema = enumSchema(SANDBOX_CONNECTION_ERROR_CODES)
+export const SandboxConnectionErrorCodeSchema = enumSchema(SANDBOX_CONNECTION_ERROR_CODES)
 const SandboxTestedAtSchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value) => {

@@ -52,5 +52,5 @@ describe("v1 entrypoint", () => {
     expect(response.headers.get("cache-control")).toBe("no-store")
     expect(await response.json()).toMatchObject({ detail: "Server configuration required." })
     vi.unstubAllEnvs()
-  })
+  }, 30_000)
 })

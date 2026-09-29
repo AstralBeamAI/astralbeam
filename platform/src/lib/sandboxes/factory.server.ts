@@ -1,6 +1,7 @@
 import type { SandboxProvider } from "@tanstack/ai-sandbox"
 import * as Effect from "effect/Effect"
 
+import { dockerKeepAliveCommand } from "./docker.server.ts"
 import { SandboxProviderUnavailable } from "./errors.ts"
 import {
   decodeProviderCredentials,
@@ -28,7 +29,9 @@ const factories: {
     ),
   docker: (configuration: ProviderConfiguration<"docker">) =>
     loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-docker")).pipe(
-      Effect.map(({ dockerSandbox }) => dockerSandbox(configuration.options)),
+      Effect.map(({ dockerSandbox }) =>
+        dockerSandbox({ ...configuration.options, keepAliveCommand: dockerKeepAliveCommand() }),
+      ),
     ),
   sprites: (configuration: ProviderConfiguration<"sprites">) =>
     loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-sprites")).pipe(

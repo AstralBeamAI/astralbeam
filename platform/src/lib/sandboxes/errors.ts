@@ -1,5 +1,7 @@
 import { Schema } from "effect"
 
+import { type SandboxConnectionErrorCode, SandboxConnectionErrorCodeSchema } from "./schemas.ts"
+
 // Each message is written for the member who sees it, so handlers may expose it verbatim.
 
 export class SandboxProviderNotFound extends Schema.TaggedError<SandboxProviderNotFound>()(
@@ -45,14 +47,25 @@ export class SandboxProviderUnreadable extends Schema.TaggedError<SandboxProvide
   override readonly message = "The stored credentials can't be read. Enter them again and save"
 }
 
-/** A save's connection test failed, so the existing configuration was left unchanged. */
+const SANDBOX_CONNECTION_FAILURE_MESSAGES = {
+  cancelled: "The connection test was cancelled.",
+  timeout: "The provider did not respond in time. Try again.",
+  authentication: "The provider rejected the credentials. Check them and try again.",
+  quota: "The provider's quota or rate limit was reached. Try again later.",
+  not_found: "The provider could not find the configured image, snapshot, or template.",
+  provider_error: "The provider connection test failed.",
+  cleanup_failed: "The connection test's temporary sandbox could not be removed.",
+} satisfies Record<SandboxConnectionErrorCode, string>
+
+/** A save's connection test failed, so nothing was saved. */
 export class SandboxConnectionFailed extends Schema.TaggedError<SandboxConnectionFailed>()(
   "SandboxConnectionFailed",
-  {},
+  { errorCode: SandboxConnectionErrorCodeSchema },
   { httpApiStatus: 422 },
 ) {
-  override readonly message =
-    "The provider connection test failed; the existing configuration was not changed"
+  override get message() {
+    return `${SANDBOX_CONNECTION_FAILURE_MESSAGES[this.errorCode]} Nothing was saved.`
+  }
 }
 
 export class SandboxCleanupFailed extends Schema.TaggedError<SandboxCleanupFailed>()(

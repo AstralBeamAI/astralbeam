@@ -1,4 +1,4 @@
-import { chat, mergeAgentTools, type StreamChunk } from "@tanstack/ai"
+import { chat, maxIterations, mergeAgentTools, type StreamChunk } from "@tanstack/ai"
 import { Cause, Context, Effect, identity, Layer, Stream } from "effect"
 
 import { Database } from "@/db/database.server"
@@ -17,6 +17,7 @@ import {
   CHAT_ATTACHMENT_SYSTEM_PROMPT,
   CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT,
   CHAT_SANDBOX_SYSTEM_PROMPT,
+  CHAT_MAX_MODEL_TURNS,
   CHAT_SYSTEM_PROMPT,
 } from "./constants.server"
 import { chatDebugLog, withChatDebugLog } from "./debug.server"
@@ -204,6 +205,7 @@ export class Chat extends Context.Service<
             // The client rebuilds its transcript from the snapshot an interrupt boundary emits,
             // so the turns it sent have to survive the rewrite above.
             middleware: [createChatAttachmentSnapshotMiddleware(params.messages)],
+            agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
             threadId: params.threadId,
             runId: params.runId,
             parentRunId: params.parentRunId,

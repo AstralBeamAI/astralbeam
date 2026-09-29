@@ -5,14 +5,10 @@ import { SlugSchema } from "../schemas.ts"
 import { generateSlugSuggestion, isValidSlug } from "./slug.ts"
 
 describe("public slugs", () => {
-  it("generates a stable lowercase alphanumeric suggestion from injected random bytes", () => {
-    expect(
-      generateSlugSuggestion("Production-Agent!", "agent", new Uint8Array([10, 11, 12, 13, 14])),
-    ).toBe("productionagentabcde")
-    expect(generateSlugSuggestion("***", "org", new Uint8Array([0, 1, 2, 3, 4]))).toBe("org01234")
-    expect(
-      generateSlugSuggestion("x".repeat(100), "key", new Uint8Array([0, 1, 2, 3, 4])),
-    ).toHaveLength(63)
+  it("suggests the name's words joined by hyphens, blank without any", () => {
+    expect(generateSlugSuggestion(" Acme  Logistics, Inc.")).toBe("acme-logistics-inc")
+    expect(generateSlugSuggestion("***")).toBe("")
+    expect(generateSlugSuggestion(`${"x".repeat(62)} y`)).toBe("x".repeat(62))
   })
 
   it("uses one strict lowercase alphanumeric and hyphen contract", () => {

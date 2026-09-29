@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 import { readdirSync, readFileSync } from "node:fs"
 import { extname } from "node:path"
 import process from "node:process"
@@ -31,7 +32,20 @@ const legalAssets = [
     })),
 ]
 
-const viteConfig = defineConfig(({ mode }) => {
+// dockerode reads only `DOCKER_HOST` and otherwise prefers a Docker Desktop socket that may be
+// stale, so the dev server pins the CLI's active context. https://docs.docker.com/engine/manage-resources/contexts/
+function pinDockerHost(): void {
+  if (process.env.DOCKER_HOST) return
+  const probe = spawnSync(
+    "docker",
+    ["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
+    { encoding: "utf8" },
+  )
+  if (probe.status === 0 && probe.stdout.trim()) process.env.DOCKER_HOST = probe.stdout.trim()
+}
+
+const viteConfig = defineConfig(({ command, mode }) => {
+  if (command === "serve" && !process.env.VITEST) pinDockerHost()
   return {
     resolve: { tsconfigPaths: true },
     // `strictPort` keeps a busy port an error instead of a silent move to the next one, which

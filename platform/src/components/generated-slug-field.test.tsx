@@ -1,23 +1,16 @@
 import { createElement } from "react"
 import { renderToString } from "react-dom/server"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 
 import { GeneratedSlugField } from "./generated-slug-field.tsx"
 
 describe("GeneratedSlugField", () => {
-  it("defers random suffix generation until after hydration", () => {
-    const createSuffixBytes = vi.fn(() => new Uint8Array([0, 1, 2, 3, 4]))
-    const field = createElement(GeneratedSlugField, {
-      id: "agent-identifier",
-      label: "Identifier",
-      sourceValue: "Production agent",
-      fallback: "agent",
-      createSuffixBytes,
-    })
-
-    const markup = renderToString(field)
-    expect(markup).toBe(renderToString(field))
-    expect(markup).toContain(String.raw`pattern="[0-9a-z\-]{1,63}"`)
-    expect(createSuffixBytes).not.toHaveBeenCalled()
+  it("follows the name without a suffix and starts blank without an error", () => {
+    const render = (sourceValue: string) =>
+      renderToString(createElement(GeneratedSlugField, { id: "slug", label: "Slug", sourceValue }))
+    expect(render("Acme Logistics")).toContain('value="acme-logistics"')
+    const blank = render("")
+    expect(blank).toContain('value=""')
+    expect(blank).not.toContain("Identifier is required")
   })
 })

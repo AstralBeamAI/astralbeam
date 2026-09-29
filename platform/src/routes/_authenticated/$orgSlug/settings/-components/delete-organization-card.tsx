@@ -45,6 +45,7 @@ export function DeleteOrganizationCard({
   const { data: session } = useSession(authClient)
   const [confirmation, setConfirmation] = useState("")
   const [deleting, setDeleting] = useState(false)
+  const [open, setOpen] = useState(false)
 
   const remove = async () => {
     setDeleting(true)
@@ -56,6 +57,7 @@ export function DeleteOrganizationCard({
       toast.add({ title: `${organizationName} deleted`, type: "success" })
       await navigate({ to: "/", replace: true })
     } catch (error) {
+      setOpen(false)
       toast.add({ title: parseServerFnError(error).message, type: "error" })
     } finally {
       setDeleting(false)
@@ -73,7 +75,13 @@ export function DeleteOrganizationCard({
         </CardDescription>
       </CardHeader>
       <CardFooter className="justify-end">
-        <AlertDialog onOpenChange={() => setConfirmation("")}>
+        <AlertDialog
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next)
+            setConfirmation("")
+          }}
+        >
           <AlertDialogTrigger
             render={<Button type="button" variant="destructive" disabled={dogfood} />}
           >

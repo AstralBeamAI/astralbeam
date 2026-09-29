@@ -1,6 +1,14 @@
 import { AstralBeamChat, type AstralBeamChatRef } from "@astralbeam/sdk/react"
 import { ArrowCounterClockwiseIcon, ChatCircleIcon, XIcon } from "@phosphor-icons/react"
-import { useEffect, useId, useRef, useState } from "react"
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react"
 import { cn } from "cn"
 import { getRouteApi, useMatches } from "@tanstack/react-router"
 import { useTheme } from "tanstack-router-theme-provider"
@@ -13,7 +21,18 @@ import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "@/
 
 const dogfoodChatRoute = getRouteApi("/_authenticated")
 
-export function DogfoodChat() {
+type DogfoodChatState = {
+  panelId: string
+  triggerId: string
+  open: boolean
+  hasOpened: boolean
+  setOpen: (open: boolean) => void
+}
+
+const DogfoodChatContext = createContext<DogfoodChatState | null>(null)
+
+/** Renders the chat panel beside `children`, whose header shows `DogfoodChatTrigger`. */
+export function DogfoodChat({ children }: { children: ReactNode }) {
   const organization = useMatches({
     select: (matches) => {
       const dashboard = matches.find((match) => match.routeId === "/_authenticated/$orgSlug")
@@ -23,27 +42,61 @@ export function DogfoodChat() {
     },
   })
   const { access } = dogfoodChatRoute.useRouteContext()
-  if (!organization) return null
+  const panelId = useId()
+  const triggerId = useId()
+  const [open, setOpen] = useState(false)
+  const [hasOpened, setHasOpened] = useState(false)
+  if (open && !hasOpened) setHasOpened(true)
+  const chatKey = organization ? `${access.userId}:${organization.organizationId}` : null
+  // Another user or organization closes the chat and defers its token request until reopened.
+  const [previousChatKey, setPreviousChatKey] = useState(chatKey)
+  if (chatKey !== previousChatKey) {
+    setPreviousChatKey(chatKey)
+    setOpen(false)
+    setHasOpened(false)
+  }
+  const chat: DogfoodChatState = { panelId, triggerId, open, hasOpened, setOpen }
   return (
-    <DogfoodChatPanel
-      key={`${access.userId}:${organization.organizationId}`}
-      organization={organization}
-    />
+    <DogfoodChatContext.Provider value={organization ? chat : null}>
+      {children}
+      {organization && hasOpened && (
+        <DogfoodChatPanel key={chatKey} organization={organization} chat={chat} />
+      )}
+    </DogfoodChatContext.Provider>
   )
 }
 
-function DogfoodChatPanel({ organization }: { organization: OrganizationAccess }) {
+export function DogfoodChatTrigger() {
+  const chat = useContext(DogfoodChatContext)
+  if (!chat) return null
+  return (
+    <Button
+      id={chat.triggerId}
+      variant="outline"
+      size="sm"
+      aria-expanded={chat.open}
+      aria-controls={chat.hasOpened ? chat.panelId : undefined}
+      onClick={() => chat.setOpen(!chat.open)}
+    >
+      <ChatCircleIcon aria-hidden="true" /> Ask {APP_NAME}
+    </Button>
+  )
+}
+
+function DogfoodChatPanel({
+  organization,
+  chat: { panelId, triggerId, open, setOpen },
+}: {
+  organization: OrganizationAccess
+  chat: DogfoodChatState
+}) {
   const { theme } = useTheme()
-  const panelId = useId()
   const chat = useRef<AstralBeamChatRef>(null)
   const panel = useRef<HTMLDivElement>(null)
-  const trigger = useRef<HTMLButtonElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
-  const [open, setOpen] = useState(false)
-  const [hasOpened, setHasOpened] = useState(false)
   useEffect(() => {
     if (!open) {
-      if (hasOpened) trigger.current?.focus()
+      document.getElementById(triggerId)?.focus()
       return
     }
     closeButton.current?.focus()
@@ -56,79 +109,63 @@ function DogfoodChatPanel({ organization }: { organization: OrganizationAccess }
     }
     element.addEventListener("keydown", onEscape)
     return () => element.removeEventListener("keydown", onEscape)
-  }, [open, hasOpened])
+  }, [open, setOpen, triggerId])
   return (
-    <>
-      <Button
-        ref={trigger}
-        className={cn("fixed right-5 bottom-5 z-30 shadow-lg", open && "hidden")}
-        aria-expanded={open}
-        aria-controls={hasOpened ? panelId : undefined}
-        onClick={() => {
-          setHasOpened(true)
-          setOpen(true)
-        }}
-      >
-        <ChatCircleIcon aria-hidden="true" /> Ask {APP_NAME}
-      </Button>
-      {hasOpened && (
-        <div
-          ref={panel}
-          id={panelId}
-          role="dialog"
-          aria-label={`Ask ${APP_NAME}`}
-          data-dogfood-chat={open ? "open" : "closed"}
-          className={cn(
-            "fixed inset-0 z-30 flex h-dvh flex-col border-l bg-background lg:sticky lg:top-0 lg:w-[28rem] lg:shrink-0",
-            !open && "hidden",
-          )}
-        >
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate text-sm font-medium">Ask {APP_NAME}</h2>
-              <p
-                className="truncate text-xs text-muted-foreground"
-                title={organization.organizationName}
-              >
-                Assistant for {organization.organizationName}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Reset conversation"
-              title="Reset conversation"
-              onClick={() => chat.current?.reset()}
-            >
-              <ArrowCounterClockwiseIcon aria-hidden="true" />
-            </Button>
-            <Button
-              ref={closeButton}
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close chat"
-              title="Close chat"
-              onClick={() => setOpen(false)}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-          </header>
-          <div className={cn("min-h-0 flex-1", widgetThemeClassName)} style={widgetThemeStyle}>
-            <AstralBeamChat
-              ref={chat}
-              apiUrl="/api"
-              colorScheme={theme === "dark" || theme === "light" ? theme : "system"}
-              showHeader={false}
-              theme={widgetDashboardTheme}
-              fetchAstralBeamToken={{
-                url: "/api/astralbeam/token",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ organizationSlug: organization.organizationSlug }),
-              }}
-            />
-          </div>
-        </div>
+    <div
+      ref={panel}
+      id={panelId}
+      role="dialog"
+      aria-label={`Ask ${APP_NAME}`}
+      data-dogfood-chat={open ? "open" : "closed"}
+      className={cn(
+        "fixed inset-0 z-30 flex h-dvh flex-col border-l bg-background lg:sticky lg:top-0 lg:w-[28rem] lg:shrink-0",
+        !open && "hidden",
       )}
-    </>
+    >
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-sm font-medium">Ask {APP_NAME}</h2>
+          <p
+            className="truncate text-xs text-muted-foreground"
+            title={organization.organizationName}
+          >
+            Assistant for {organization.organizationName}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Reset conversation"
+          title="Reset conversation"
+          onClick={() => chat.current?.reset()}
+        >
+          <ArrowCounterClockwiseIcon aria-hidden="true" />
+        </Button>
+        <Button
+          ref={closeButton}
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close chat"
+          title="Close chat"
+          onClick={() => setOpen(false)}
+        >
+          <XIcon aria-hidden="true" />
+        </Button>
+      </header>
+      <div className={cn("min-h-0 flex-1", widgetThemeClassName)} style={widgetThemeStyle}>
+        <AstralBeamChat
+          ref={chat}
+          apiUrl="/api"
+          colorScheme={theme === "dark" || theme === "light" ? theme : "system"}
+          showHeader={false}
+          theme={widgetDashboardTheme}
+          fetchAstralBeamToken={{
+            url: "/api/astralbeam/token",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ organizationSlug: organization.organizationSlug }),
+          }}
+        />
+      </div>
+    </div>
   )
 }

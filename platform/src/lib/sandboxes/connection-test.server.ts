@@ -31,7 +31,15 @@ function sandboxOperation<A>(
 
 const createSandbox = (provider: {
   create: (options: { signal: AbortSignal }) => Promise<SandboxHandle>
-}) => sandboxOperation((signal) => provider.create({ signal }), "30 seconds")
+}) => {
+  let pending: Promise<SandboxHandle> | undefined
+  // Docker's create ignores the signal, so a timed-out or interrupted create destroys a late handle.
+  return sandboxOperation((signal) => (pending = provider.create({ signal })), "30 seconds").pipe(
+    Effect.onError(() =>
+      Effect.sync(() => void pending?.then((handle) => handle.destroy()).catch(() => undefined)),
+    ),
+  )
+}
 
 const destroySandbox = (handle: SandboxHandle) =>
   sandboxOperation(() => handle.destroy(), "15 seconds")
@@ -102,16 +110,26 @@ function sandboxErrorCode(cause: unknown): SandboxConnectionErrorCode {
   const seen = new Set<unknown>()
   while (Predicate.isObject(current) && !seen.has(current)) {
     seen.add(current)
+    // Vercel's APIError keeps the status on its `response`.
+    const response = Predicate.hasProperty(current, "response") ? current.response : undefined
     const status = Predicate.hasProperty(current, "status")
       ? current.status
       : Predicate.hasProperty(current, "statusCode")
         ? current.statusCode
-        : undefined
+        : Predicate.hasProperty(response, "status")
+          ? response.status
+          : undefined
     if (status === 401 || status === 403) return "authentication"
     if (status === 404) return "not_found"
     if (status === 429) return "quota"
     current = Predicate.hasProperty(current, "cause") ? current.cause : undefined
   }
+  // Sprites throws a plain Error naming the HTTP status, so read it from the message.
+  // https://github.com/TanStack/ai/blob/main/packages/ai-sandbox-sprites/src/client.ts
+  const httpStatus = / failed: (\d{3}) /.exec(error.message)?.[1]
+  if (httpStatus === "401" || httpStatus === "403") return "authentication"
+  if (httpStatus === "404") return "not_found"
+  if (httpStatus === "429") return "quota"
   const code =
     Predicate.hasProperty(error, "code") && Predicate.isString(error.code) ? error.code : ""
   if (/timeout/i.test(error.name) || /timed?out/i.test(code)) return "timeout"

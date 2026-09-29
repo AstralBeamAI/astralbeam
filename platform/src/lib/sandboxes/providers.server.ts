@@ -329,7 +329,7 @@ export class SandboxProviders extends Context.Service<
         if (tested?.status === "failure") {
           return yield* tested.errorCode === "cleanup_failed"
             ? new SandboxCleanupFailed()
-            : new SandboxConnectionFailed()
+            : new SandboxConnectionFailed({ errorCode: tested.errorCode ?? "provider_error" })
         }
         const lastTest = tested ?? existing?.row.lastTest ?? null
         if (!existing) return yield* create(input, lastTest)

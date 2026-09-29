@@ -85,6 +85,7 @@ import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
+import { CHAT_RATE_LIMIT_MAX_REQUESTS } from "@/lib/chat/constants.server"
 import { ChatAgentNotFound } from "@/lib/chat/errors"
 import { ChatArtifactUnavailable, ChatSandboxOperationFailed } from "@/lib/chat/sandbox/errors"
 
@@ -502,7 +503,10 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(new TextDecoder().decode((await reader.read()).value)).toContain("RUN_STARTED")
     await reader.cancel()
     await vi.waitFor(() => expect(stopped).toBe(true))
-    expect(restTestState.consume.mock.calls[0]![0]).toHaveProperty("limit", 20)
+    expect(restTestState.consume.mock.calls[0]![0]).toHaveProperty(
+      "limit",
+      CHAT_RATE_LIMIT_MAX_REQUESTS,
+    )
     expect(restTestState.consume.mock.calls[0]![0]).toHaveProperty(
       "key",
       expect.stringMatching(/^chat:/),

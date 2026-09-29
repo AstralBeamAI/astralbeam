@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Spinner } from "@/components/ui/spinner"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { AppSidebar } from "../-components/app-sidebar"
+import { DogfoodChatTrigger } from "../-components/dogfood-chat"
 import { getOrganizationRouteContext } from "../-functions/get-organization-route-context"
 
 function organizationUnavailableAsNull(error: unknown): null {
@@ -50,7 +51,10 @@ function SettingsLayout() {
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center border-b bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/70 sm:px-4">
           <SidebarTrigger />
-          <ThemeToggle className="ms-auto" />
+          <div className="ms-auto flex items-center gap-2">
+            <DogfoodChatTrigger />
+            <ThemeToggle />
+          </div>
         </header>
         <Outlet />
       </SidebarInset>

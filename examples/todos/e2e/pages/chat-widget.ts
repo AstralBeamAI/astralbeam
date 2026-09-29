@@ -34,6 +34,10 @@ export function chatWidget(page: Page) {
   const composer = root.getByRole("textbox", { name: "Message" })
   const sendButton = root.getByRole("button", { name: "Send", exact: true })
   const stopButton = root.getByRole("button", { name: "Stop", exact: true })
+  const busy = root
+    .locator('[aria-busy="true"]')
+    .or(root.getByRole("status", { name: "Loading" }))
+    .or(stopButton)
 
   return {
     root,
@@ -73,9 +77,7 @@ export function chatWidget(page: Page) {
      * The spinner inside a running step is the one that carries the "Loading" name.
      */
     async waitForIdle(timeout = CHAT_IDLE_TIMEOUT_MS): Promise<void> {
-      await expect(root.locator('[aria-busy="true"]')).toHaveCount(0, { timeout })
-      await expect(root.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout })
-      await expect(stopButton).toHaveCount(0, { timeout })
+      await expect(busy).toHaveCount(0, { timeout })
       await expect(sendButton).toBeVisible({ timeout })
     },
 
@@ -90,18 +92,19 @@ export function chatWidget(page: Page) {
     },
 
     /**
-     * Waits for one more assistant turn than `previousCount`.
+     * Waits for a settled turn: more assistant turns than `previousCount` and an idle widget.
      *
-     * A throttled request is waited out and retried; any other error banner fails immediately
-     * with its own text, which beats spending the full timeout on a request that will never
-     * succeed.
+     * Each host-tool round trip is its own request, so an error can land after the reply has
+     * begun. A throttled request is waited out and retried, and any other error banner fails
+     * immediately with its own text. Retry reruns the turn, so completion is rechecked each poll.
      */
     async waitForReply(previousCount: number): Promise<void> {
       await test.step("wait for the agent's reply", async () => {
         let recoveries = 0
         let deadline = Date.now() + CHAT_IDLE_TIMEOUT_MS
         while (Date.now() < deadline) {
-          if ((await this.assistantMessages().count()) > previousCount) return
+          const replied = (await this.assistantMessages().count()) > previousCount
+          const settled = replied && (await busy.count()) === 0
           const alert = this.errorAlert()
           if ((await alert.count()) > 0) {
             const message = await alert.first().innerText()
@@ -118,9 +121,10 @@ export function chatWidget(page: Page) {
             deadline = Date.now() + CHAT_IDLE_TIMEOUT_MS
             continue
           }
+          if (settled) return
           await page.waitForTimeout(CHAT_REPLY_POLL_MS)
         }
-        throw new Error("The agent never added an assistant turn to the transcript")
+        throw new Error("The agent never finished a reply in the transcript")
       })
     },
 
@@ -134,6 +138,7 @@ export function chatWidget(page: Page) {
       await this.send(text)
       await this.waitForReply(before)
       await this.waitForIdle()
+      await expect(this.errorAlert()).toHaveCount(0)
     },
 
     /** The row a tool call collapses to, matched on its visible label. */

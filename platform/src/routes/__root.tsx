@@ -45,7 +45,8 @@ import { getPublicConfig } from "./-functions/get-public-config"
 
 const APP_THEMES = ["system", "light", "dark"] as const
 type AppTheme = (typeof APP_THEMES)[number]
-const devtoolsConfig = { position: "bottom-right" } as const
+// Bottom-right holds the toasts and the chat composer, and bottom-left the account menu.
+const devtoolsConfig = { position: "middle-left", hideUntilHover: true } as const
 const devtoolsPlugins = [
   {
     name: "Tanstack Router",

@@ -1,22 +1,16 @@
 "use client"
 
-import { ArrowsClockwiseIcon, CheckIcon, XIcon } from "@phosphor-icons/react"
+import { CheckIcon, XIcon } from "@phosphor-icons/react"
 import { useDebouncer } from "@tanstack/react-pacer"
 import { useEffect, useState } from "react"
 
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 import {
   generateSlugSuggestion,
   isValidSlug,
   SLUG_MAX_LENGTH,
-  SLUG_RANDOM_SUFFIX_LENGTH,
   SLUG_VALIDATION_MESSAGE,
 } from "@/lib/organizations/slug"
 
@@ -34,11 +28,11 @@ export type GeneratedSlugFieldProps = {
   id: string
   label: string
   sourceValue: string
-  fallback: string
   checkAvailability?: ((value: string) => Promise<boolean>) | undefined
+  /** A value the server has since rejected as taken, overriding an earlier availability check. */
+  unavailableValue?: string | undefined
   onAvailabilityChange?: ((availability: SlugAvailability) => void) | undefined
   formatPreview?: ((value: string) => string) | undefined
-  createSuffixBytes?: (() => Uint8Array) | undefined
   disabled?: boolean | undefined
 }
 
@@ -46,27 +40,25 @@ export function GeneratedSlugField({
   id,
   label,
   sourceValue,
-  fallback,
   checkAvailability,
+  unavailableValue,
   onAvailabilityChange,
   formatPreview,
-  createSuffixBytes = createSlugSuffixBytes,
   disabled,
 }: GeneratedSlugFieldProps) {
-  const [suffixBytes, setSuffixBytes] = useState<Uint8Array | null>(null)
   const [manualValue, setManualValue] = useState<string | null>(null)
   const [availabilityResult, setAvailabilityResult] = useState<SlugAvailabilityResult | null>(null)
-  const suggestion =
-    suffixBytes === null ? "" : generateSlugSuggestion(sourceValue, fallback, suffixBytes)
-  const value = manualValue ?? suggestion
+  const value = manualValue ?? generateSlugSuggestion(sourceValue)
   const valid = isValidSlug(value)
   const availability: SlugAvailability = !valid
     ? "invalid"
-    : !checkAvailability
-      ? "available"
-      : availabilityResult?.value === value
-        ? availabilityResult.availability
-        : "checking"
+    : value === unavailableValue
+      ? "unavailable"
+      : !checkAvailability
+        ? "available"
+        : availabilityResult?.value === value
+          ? availabilityResult.availability
+          : "checking"
 
   const availabilityDebouncer = useDebouncer(
     async (nextValue: string) => {
@@ -83,15 +75,6 @@ export function GeneratedSlugField({
   )
   const { cancel: cancelAvailabilityCheck, maybeExecute: checkAvailabilityLater } =
     availabilityDebouncer
-
-  // Generate browser-only randomness after hydration so the initial trees match.
-  // https://react.dev/reference/react-dom/client/hydrateRoot#caveats
-  useEffect(() => {
-    const timeout = globalThis.setTimeout(() => {
-      setSuffixBytes((current) => current ?? createSuffixBytes())
-    })
-    return () => globalThis.clearTimeout(timeout)
-  }, [createSuffixBytes])
 
   useEffect(() => {
     onAvailabilityChange?.(availability)
@@ -111,21 +94,17 @@ export function GeneratedSlugField({
     value,
   ])
 
-  const regenerate = () => {
-    setSuffixBytes(createSuffixBytes())
-    setManualValue(null)
-  }
-
+  // A blank slug that follows a blank name is not an error until someone edits the field.
   const error =
-    suffixBytes === null
-      ? undefined
-      : value.length === 0
-        ? "Identifier is required"
-        : !valid
-          ? SLUG_VALIDATION_MESSAGE
-          : availability === "unavailable"
-            ? "This identifier is not available"
-            : undefined
+    value.length === 0
+      ? manualValue === null
+        ? undefined
+        : "Identifier is required"
+      : !valid
+        ? SLUG_VALIDATION_MESSAGE
+        : availability === "unavailable"
+          ? "This identifier is not available"
+          : undefined
 
   return (
     <Field data-invalid={!!error}>
@@ -149,16 +128,6 @@ export function GeneratedSlugField({
           {availability === "checking" && <Spinner />}
           {availability === "available" && <CheckIcon className="text-foreground" />}
           {availability === "unavailable" && <XIcon className="text-destructive" />}
-          <InputGroupButton
-            type="button"
-            size="icon-xs"
-            aria-label="Generate another identifier"
-            title="Generate another identifier"
-            disabled={disabled}
-            onClick={regenerate}
-          >
-            <ArrowsClockwiseIcon aria-hidden="true" />
-          </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
       <FieldDescription>
@@ -173,8 +142,4 @@ export function GeneratedSlugField({
       <FieldError>{error}</FieldError>
     </Field>
   )
-}
-
-function createSlugSuffixBytes(): Uint8Array {
-  return globalThis.crypto.getRandomValues(new Uint8Array(SLUG_RANDOM_SUFFIX_LENGTH))
 }

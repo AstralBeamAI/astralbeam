@@ -3,6 +3,7 @@ import process from "node:process"
 import { Effect, Fiber } from "effect"
 import type { NitroAppPlugin } from "nitro/types"
 
+import { removeOrphanedDockerSandboxes } from "../sandboxes/docker.server.ts"
 import { closeClusterProcess, startClusterRunner, stopClusterRunner } from "./runtime.server.ts"
 
 // Nitro reloads can invalidate modules without HMR disposal. Keep signal cleanup process-wide.
@@ -19,6 +20,7 @@ const clusterPlugin: NitroAppPlugin = (nitro) => {
   if (import.meta.prerender || process.env.NODE_ENV === "test") return
   clusterPluginProcess[clusterShutdownCleanupKey]?.()
   Effect.runFork(startClusterRunner)
+  Effect.runFork(removeOrphanedDockerSandboxes)
   let shutdownDeadline: Fiber.Fiber<void> | undefined
   const boundShutdown = () => {
     shutdownDeadline ??= Effect.runFork(

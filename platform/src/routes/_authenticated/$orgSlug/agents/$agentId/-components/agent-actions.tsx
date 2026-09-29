@@ -40,6 +40,7 @@ export function AgentActions({
   const navigate = useNavigate()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const makeDefault = async () => {
     setBusy(true)
@@ -63,6 +64,7 @@ export function AgentActions({
       toast.add({ title: `${agent.name} deleted`, type: "success" })
       await navigate({ to: "/$orgSlug/agents", params: { orgSlug: organizationSlug } })
     } catch (error) {
+      setDeleteOpen(false)
       const failure = parseServerFnError(error)
       toast.add({ title: failure.message, type: "error" })
       if (failure.tag === "AgentChanged") await router.invalidate()
@@ -82,7 +84,7 @@ export function AgentActions({
         </Button>
       )}
       {canDelete && (
-        <AlertDialog>
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialogTrigger
             render={
               <Button
@@ -104,9 +106,13 @@ export function AgentActions({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={() => void removeAgent()}>
-                Delete agent
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={busy}
+                onClick={() => void removeAgent()}
+              >
+                {busy ? "Deleting…" : "Delete agent"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

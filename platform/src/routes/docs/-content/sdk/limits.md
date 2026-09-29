@@ -8,6 +8,7 @@ The chat endpoint enforces every limit below on every request, whatever the SDK 
 | --- | --- | --- |
 | Request body | 32 MB, checked against `content-length` and again while reading | `413`, "The message and its attachments are too large." |
 | Rate limit | 200 requests per 60 seconds, counted per organization, tenant, and tenant user | `429`, "Too many chat requests; try again in a minute." |
+| Model turns | 25 per request, each tool round counting as one | the run ends after the last tool result without a final reply |
 | Chat auth token lifetime | 60–600 seconds, 300 by default | `createAstralBeamToken` throws, a token outside the range is rejected as invalid |
 | Chat auth token size | 16,384 bytes | minting throws, and a longer bearer header is rejected before it is verified |
 | `user` and `tenant` claims | 8,192 bytes of JSON | minting throws "user and tenant must not exceed 8192 bytes" |

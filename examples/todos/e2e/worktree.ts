@@ -150,6 +150,7 @@ export function e2eWebServers() {
             env: forwardedPlatformEnv(),
             reuseExistingServer: false,
             timeout: 180_000,
+            gracefulShutdown: { signal: "SIGTERM" as const, timeout: 8_000 },
             stdout: "pipe" as const,
             stderr: "pipe" as const,
           },

@@ -38,6 +38,7 @@ export function SandboxProviderActions({
   const navigate = useNavigate()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const showFailure = async (error: unknown) => {
     const failure = parseServerFnError(error)
@@ -75,6 +76,7 @@ export function SandboxProviderActions({
       toast.add({ title: `${provider.name} deleted`, type: "success" })
       await navigate({ to: "/$orgSlug/sandboxes", params: { orgSlug: organizationSlug } })
     } catch (error) {
+      setDeleteOpen(false)
       await showFailure(error)
     } finally {
       setBusy(false)
@@ -96,7 +98,7 @@ export function SandboxProviderActions({
         </Button>
       )}
       {canDelete && (
-        <AlertDialog>
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialogTrigger
             render={
               <Button
@@ -118,9 +120,13 @@ export function SandboxProviderActions({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={() => void removeProvider()}>
-                Delete provider
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={busy}
+                onClick={() => void removeProvider()}
+              >
+                {busy ? "Deleting…" : "Delete provider"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
