@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, semantic shadcn status colors, and hover titles for icon-only actions; take invitation permissions as props from the page loader; retain resend/cancel with static roles and omit invitation model fields.
+// Local changes: use Phosphor/Base Toast, semantic shadcn status colors, and hover titles for icon-only actions; take invitation permissions as props from the page loader; retain resend/cancel with static roles and omit invitation model fields; render dates after hydration.
 
 "use client"
 
@@ -13,6 +13,7 @@ import type { Invitation } from "better-auth/client"
 import { PaperPlaneTiltIcon as Send, XIcon as X } from "@phosphor-icons/react"
 import { toast } from "@/components/ui/toast"
 
+import { LocalDateTime } from "@/components/local-date-time"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -66,10 +67,7 @@ export function OrganizationInvitationRow({
       </TableCell>
 
       <TableCell className="text-muted-foreground text-xs tabular-nums whitespace-nowrap">
-        {new Date(invitation.createdAt).toLocaleString(undefined, {
-          dateStyle: "short",
-          timeStyle: "short",
-        })}
+        <LocalDateTime value={invitation.createdAt} dateStyle="short" />
       </TableCell>
 
       <TableCell className="text-sm">{roleLabel}</TableCell>
