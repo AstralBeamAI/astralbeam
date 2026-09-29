@@ -34,7 +34,13 @@ The key is stored encrypted, the same way sandbox credentials are, and it is nev
 
 Only owners. Developers and viewers do not see this page in the sidebar and are returned to the organization home when they open its URL, where developers still see the missing-key banner. See [Members](./members.md).
 
-An organization cannot be deleted from the dashboard.
+## Deleting the organization
+
+Owners can delete an organization from the **Delete organization** card at the bottom of this page. Let's confirm by typing the organization's slug in the dialog and pressing **Delete organization**.
+
+Every member, pending invitation, and API key is removed at once, so dashboard access, management API calls, and chat auth tokens stop working immediately. Agents, sandbox providers, tenants, and tenant users are then removed in the background, and the slug becomes available again when that finishes. Every owner then receives an email confirming the deletion.
+
+**NOTE**: deletion cannot be undone. The deployment's own organization, which powers the dashboard assistant, cannot be deleted.
 
 ## Settings that live elsewhere
 

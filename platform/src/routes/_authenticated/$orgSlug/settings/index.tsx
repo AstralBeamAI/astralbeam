@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
+import { DeleteOrganizationCard } from "./-components/delete-organization-card"
 import { OrganizationOpenaiApiKeyCard } from "./-components/organization-openai-api-key-card"
 import { OrganizationSettingsForm } from "./-components/organization-settings-form"
 import { getOrganizationSettingsPageData } from "./-functions/get-organization-settings-page-data"
@@ -40,6 +41,14 @@ function OrganizationSettingsPage() {
         last4={data.openaiApiKeyLast4}
         readOnly={!permissions.updateConfiguration}
       />
+      {permissions.deleteOrganization && (
+        <DeleteOrganizationCard
+          organizationId={data.organization.id}
+          organizationSlug={data.organization.slug}
+          organizationName={data.organization.name}
+          dogfood={data.organization.dogfood}
+        />
+      )}
     </div>
   )
 }
@@ -53,6 +62,7 @@ function OrganizationSettingsPageSkeleton() {
       </div>
       <Skeleton className="h-72 w-full max-w-2xl rounded-xl" />
       <Skeleton className="h-64 w-full max-w-2xl rounded-xl" />
+      <Skeleton className="h-36 w-full max-w-2xl rounded-xl" />
     </div>
   )
 }

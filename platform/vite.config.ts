@@ -169,6 +169,26 @@ const viteConfig = defineConfig(({ mode }) => {
       },
       // `e2e` holds Playwright specs, which `deno task e2e` runs in its own runner.
       exclude: [...configDefaults.exclude, "e2e/**"],
+      // Integration suites share one disposable database, so run their files one at a time.
+      // https://vitest.dev/guide/projects
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: "unit",
+            exclude: [...configDefaults.exclude, "e2e/**", "**/*.integration.test.*"],
+          },
+        },
+        {
+          extends: true,
+          test: {
+            name: "integration",
+            include: ["**/*.integration.test.*"],
+            fileParallelism: false,
+            sequence: { groupOrder: 1 },
+          },
+        },
+      ],
     },
   }
 })

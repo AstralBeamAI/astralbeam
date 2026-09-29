@@ -38,6 +38,7 @@ export type OrganizationPermissionRequest = Parameters<typeof organizationRoles.
 export interface OrganizationPermissions {
   readonly readTenants: boolean
   readonly updateOrganization: boolean
+  readonly deleteOrganization: boolean
   readonly createInvitation: boolean
   readonly cancelInvitation: boolean
   readonly updateMember: boolean
@@ -72,6 +73,7 @@ export function deriveOrganizationPermissions(role: string): OrganizationPermiss
   return {
     readTenants: allows({ tenantManagement: ["read"] }),
     updateOrganization: allows({ organization: ["update"] }),
+    deleteOrganization: allows({ organization: ["delete"] }),
     createInvitation: allows({ invitation: ["create"] }),
     cancelInvitation: allows({ invitation: ["cancel"] }),
     updateMember: allows({ member: ["update"] }),
