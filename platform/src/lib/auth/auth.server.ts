@@ -1,8 +1,7 @@
 import process from "node:process"
 
-import { apiKey } from "@better-auth/api-key"
+import { API_KEY_ERROR_CODES, apiKey } from "@better-auth/api-key"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
-import { getRequest } from "@tanstack/react-start/server"
 import type { BetterAuthPlugin } from "better-auth"
 import { betterAuth } from "better-auth/minimal"
 import {
@@ -14,9 +13,9 @@ import {
 } from "better-auth/api"
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
+import { Context, Effect, Layer, Predicate, Ref } from "effect"
 
-import { getAuthDatabase, runDatabaseEffect } from "@/db"
-import { isLastOrganizationApiKey } from "@/lib/organizations/organizations.server"
+import { getAuthDatabase } from "@/db"
 import { tables } from "@/db/schema.server"
 import {
   sendAccountExistsEmail,
@@ -25,31 +24,33 @@ import {
   sendResetPasswordEmail,
   sendVerificationEmail,
 } from "@/emails/index"
-import { getGlobalConfig } from "@/lib/config"
-import { APP_NAME } from "@/lib/constants"
-import {
-  assertAuthEmailDelivered,
-  deliverBlockingAuthEmail,
-} from "@/lib/auth/email-delivery.server"
-import {
-  acceptedAtForUserCreation,
-  assertLegalAcceptance,
-  recordValue,
-} from "@/lib/auth/legal.server"
+import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import {
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
   ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
-} from "@/lib/auth/organization-api-key-configuration"
+} from "@/lib/api-keys/schemas"
+import { Config } from "@/lib/config/config.server"
+import type { ConfigValues } from "@/lib/config/types"
+import { APP_NAME } from "@/lib/constants"
 import { organizationAccessControl, organizationRoles } from "@/lib/organizations/access"
+import { OrganizationSlugTaken, SignInRequired } from "@/lib/organizations/errors"
 import {
   organizationApiKeyPlugin,
   organizationProvisioningHooks,
   organizationRoleHooks,
 } from "@/lib/organizations/hooks.server"
-import { createSyntheticUser } from "@/lib/auth/synthetic-user.server"
+import { getAppRuntime } from "@/lib/runtime/runtime.server"
 import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
+import {
+  assertAuthEmailDelivered,
+  deliverBlockingAuthEmail,
+  withBlockingAuthEmailDelivery,
+} from "./email-delivery.server.ts"
+import type { AuthEmailNotDelivered } from "./errors.ts"
+import { acceptedAtForUserCreation, assertLegalAcceptance, recordValue } from "./legal.server.ts"
+import { createSyntheticUser } from "./synthetic-user.server.ts"
 
 // Better Auth 1.7.2 keeps these defaults inline rather than exporting them. Pass each value to
 // both its auth option and email callback so the real expiry and rendered copy stay in sync.
@@ -70,8 +71,32 @@ const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 // https://better-auth.com/docs/reference/options#basepath
 const AUTH_BASE_PATH = "/api/auth"
 
-type RequestWithWaitUntil = Request & {
-  waitUntil?: (promise: Promise<unknown>) => void
+interface AuthConfig {
+  appBaseUrl: string
+  betterAuthSecret: string
+  google: { clientId: string; clientSecret: string } | null
+  github: { clientId: string; clientSecret: string } | null
+  legalAcceptanceRequired: boolean
+  turnstileSecretKey: string
+}
+
+function authConfigFromValues(values: ConfigValues): AuthConfig | null {
+  const { app_base_url: appBaseUrl, better_auth_secret: betterAuthSecret } = values
+  if (!appBaseUrl || !betterAuthSecret || !values.turnstile_secret_key) return null
+  return {
+    appBaseUrl,
+    betterAuthSecret,
+    google:
+      values.google_client_id && values.google_client_secret
+        ? { clientId: values.google_client_id, clientSecret: values.google_client_secret }
+        : null,
+    github:
+      values.github_client_id && values.github_client_secret
+        ? { clientId: values.github_client_id, clientSecret: values.github_client_secret }
+        : null,
+    legalAcceptanceRequired: Boolean(values.privacy_policy_url || values.terms_of_service_url),
+    turnstileSecretKey: values.turnstile_secret_key,
+  }
 }
 
 /**
@@ -93,37 +118,57 @@ async function buildVerificationURL(config: AuthConfig, email: string): Promise<
   return url.toString()
 }
 
-async function runAfterResponse(promise: Promise<unknown>): Promise<void> {
-  try {
-    const request = getRequest() as RequestWithWaitUntil
-    if (typeof request.waitUntil === "function") {
-      request.waitUntil(promise)
-      return
-    }
-  } catch {
-    // Auth CLI calls and direct server API calls can run outside TanStack's request context.
-  }
-  await promise
+// A password-change notice is informational and its recipient is not waiting on it, so it runs
+// past the response instead of blocking like the emails deliverBlockingAuthEmail guards.
+function notifyPasswordChanged(user: { email: string }): Promise<void> {
+  getAppRuntime().runFork(
+    Effect.tryPromise(() => sendPasswordChangedEmail({ user })).pipe(
+      Effect.catchCause(() => Effect.logError("Password-change notification delivery failed")),
+    ),
+  )
+  return Promise.resolve()
 }
 
-// A password-change notice is informational and its recipient is not waiting on it, so it stays
-// deferred past the response instead of blocking like the emails deliverBlockingAuthEmail guards.
-async function notifyPasswordChanged(user: { email: string }): Promise<void> {
-  await runAfterResponse(
-    sendPasswordChangedEmail({ user }).catch(() => {
-      console.error("Password-change notification delivery failed")
+/**
+ * Deletes an organization API key in one locked transaction instead of Better Auth's own delete,
+ * whose separate last-key check could not stop two concurrent deletions. Better Auth's own errors
+ * reach the hook unchanged, because a run rejects with its squashed cause.
+ */
+const deleteOrganizationApiKey = Effect.fn("deleteOrganizationApiKey")(function* (input: {
+  headers: Headers
+  keyId: string
+}): Effect.fn.Return<void, APIError, ApiKeys | Auth> {
+  const auth = yield* Auth
+  // Authorize reading the key before disclosing why it cannot be deleted.
+  const key = yield* auth.api((api) =>
+    api.getApiKey({ headers: input.headers, query: { id: input.keyId } }),
+  )
+  const permission = yield* auth.api((api) =>
+    api.hasPermission({
+      headers: input.headers,
+      body: { organizationId: key.referenceId, permissions: { apiKey: ["delete"] } },
     }),
   )
-}
-
-interface AuthConfig {
-  appBaseUrl: string
-  betterAuthSecret: string
-  google: { clientId: string; clientSecret: string } | null
-  github: { clientId: string; clientSecret: string } | null
-  legalAcceptanceRequired: boolean
-  turnstileSecretKey: string
-}
+  if (!permission.success) {
+    return yield* Effect.fail(
+      APIError.from("FORBIDDEN", API_KEY_ERROR_CODES.INSUFFICIENT_API_KEY_PERMISSIONS),
+    )
+  }
+  yield* Effect.flatMap(ApiKeys, (apiKeys) =>
+    apiKeys.remove({ organizationId: key.referenceId, keyId: input.keyId }),
+  ).pipe(
+    Effect.catchTags({
+      ApiKeyNotFound: () =>
+        Effect.fail(APIError.from("NOT_FOUND", API_KEY_ERROR_CODES.KEY_NOT_FOUND)),
+      DogfoodApiKeyInUse: (error) =>
+        Effect.fail(
+          new APIError("FORBIDDEN", { code: "DOGFOOD_API_KEY_IN_USE", message: error.message }),
+        ),
+      LastApiKey: (error) =>
+        Effect.fail(new APIError("FORBIDDEN", { code: "LAST_API_KEY", message: error.message })),
+    }),
+  )
+})
 
 function buildAuth(config: AuthConfig) {
   // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
@@ -160,8 +205,8 @@ function buildAuth(config: AuthConfig) {
       resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRY_SECONDS,
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
-      sendResetPassword: ({ user, url }) =>
-        deliverBlockingAuthEmail(() =>
+      sendResetPassword: ({ user, url }, request) =>
+        deliverBlockingAuthEmail(request, () =>
           sendResetPasswordEmail({
             user,
             url,
@@ -172,29 +217,25 @@ function buildAuth(config: AuthConfig) {
       // confirm the address exists, which otherwise leaves the address's real owner on a "check
       // your inbox" screen forever. Both branches send exactly one email, so a provider outage
       // fails a duplicate sign-up and a new one identically. https://better-auth.com/docs/concepts/email
-      onExistingUserSignUp: ({ user }) =>
-        deliverBlockingAuthEmail(async () => {
-          if (user.emailVerified) {
-            await sendAccountExistsEmail({ user })
-            return
-          }
-          await sendVerificationEmail({
-            user,
-            url: await buildVerificationURL(config, user.email),
-            expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
-          })
-        }),
-      onPasswordReset: async ({ user }) => {
-        await notifyPasswordChanged(user)
-      },
+      onExistingUserSignUp: ({ user }, request) =>
+        deliverBlockingAuthEmail(request, async () =>
+          user.emailVerified
+            ? sendAccountExistsEmail({ user })
+            : sendVerificationEmail({
+                user,
+                url: await buildVerificationURL(config, user.email),
+                expiresInSeconds: EMAIL_VERIFICATION_EXPIRY_SECONDS,
+              }),
+        ),
+      onPasswordReset: ({ user }) => notifyPasswordChanged(user),
     },
     emailVerification: {
       expiresIn: EMAIL_VERIFICATION_EXPIRY_SECONDS,
       sendOnSignUp: true,
       sendOnSignIn: false,
       autoSignInAfterVerification: true,
-      sendVerificationEmail: ({ user, url }) =>
-        deliverBlockingAuthEmail(() =>
+      sendVerificationEmail: ({ user, url }, request) =>
+        deliverBlockingAuthEmail(request, () =>
           sendVerificationEmail({
             user,
             url,
@@ -295,32 +336,20 @@ function buildAuth(config: AuthConfig) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
-        if (context.path === "/api-key/delete" && typeof body?.keyId === "string") {
-          // Authorize reading the key before disclosing why it cannot be deleted.
-          await (
-            await getAuth()
-          ).api.getApiKey({
-            headers: context.headers ?? new Headers(),
-            query: { id: body.keyId },
-          })
-          const credential = await getGlobalConfig("dogfood_api_key")
-          if (credential?.split("_")[2] === body.keyId) {
-            throw new APIError("FORBIDDEN", {
-              code: "DOGFOOD_API_KEY_IN_USE",
-              message: "This API key is used by the embedded assistant and cannot be deleted.",
-            })
-          }
-          if (await runDatabaseEffect(isLastOrganizationApiKey(body.keyId))) {
-            throw new APIError("FORBIDDEN", {
-              code: "LAST_API_KEY",
-              message: "The last API key cannot be deleted. Create another key first.",
-            })
-          }
+        if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
+          // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
+          await getAppRuntime().runPromise(
+            deleteOrganizationApiKey({
+              headers: context.headers ?? new Headers(),
+              keyId: body.keyId,
+            }),
+          )
+          return context.json({ success: true })
         }
         const isApiKeyCreate = context.path === "/api-key/create"
         if (isApiKeyCreate || context.path === "/api-key/update") {
           // Better Auth recommends a before hook for endpoint-specific input adjustments. https://better-auth.com/docs/concepts/hooks#before-hooks
-          const name = typeof body?.name === "string" ? body.name.trim() : undefined
+          const name = Predicate.isString(body?.name) ? body.name.trim() : undefined
           return {
             context: {
               ...context,
@@ -344,7 +373,7 @@ function buildAuth(config: AuthConfig) {
         return
       }),
       after: createAuthMiddleware(async (context) => {
-        assertAuthEmailDelivered()
+        assertAuthEmailDelivered(context.request)
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
         const user = context.context.session?.user
         if (user) await notifyPasswordChanged(user)
@@ -381,8 +410,8 @@ function buildAuth(config: AuthConfig) {
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
-        sendInvitationEmail: (data) =>
-          deliverBlockingAuthEmail(() =>
+        sendInvitationEmail: (data, request) =>
+          deliverBlockingAuthEmail(request, () =>
             sendOrganizationInvitationEmail({
               ...data,
               expiresInSeconds: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
@@ -413,52 +442,151 @@ function buildAuth(config: AuthConfig) {
   })
 }
 
-type AppAuth = ReturnType<typeof buildAuth>
+export type AppAuth = ReturnType<typeof buildAuth>
+export type AuthSession = NonNullable<Awaited<ReturnType<AppAuth["api"]["getSession"]>>>
 
-let cachedAuth: { cacheKey: string; auth: AppAuth } | null = null
+export class Auth extends Context.Service<
+  Auth,
+  {
+    /** Better Auth built for the current configuration snapshot, rebuilt after it changes. */
+    readonly instance: Effect.Effect<AppAuth>
+    /** Calls a Better Auth server API whose failures no caller branches on. */
+    readonly api: <A>(call: (api: AppAuth["api"]) => Promise<A>) => Effect.Effect<A>
+    /** Like `api`, but `null` when Better Auth requires a fresh session, which the page prompts for. */
+    readonly freshApi: <A>(call: (api: AppAuth["api"]) => Promise<A>) => Effect.Effect<A | null>
+    /** Memoized per request headers, so one page render reads the session once. */
+    readonly getSession: (input: { readonly headers: Headers }) => Effect.Effect<AuthSession | null>
+    readonly requireSession: (input: {
+      readonly headers: Headers
+    }) => Effect.Effect<AuthSession, SignInRequired>
+    readonly handler: (request: Request) => Effect.Effect<Response>
+    /** Better Auth owns the organization table and rechecks the caller's permission itself. */
+    readonly updateOrganization: (input: {
+      readonly headers: Headers
+      readonly organizationId: string
+      readonly name: string
+      readonly slug: string
+    }) => Effect.Effect<void, OrganizationSlugTaken>
+    /** Mails a password-reset link without a request, reporting a failed send. */
+    readonly requestPasswordReset: (input: {
+      readonly email: string
+      readonly redirectTo: string
+    }) => Effect.Effect<void, AuthEmailNotDelivered>
+  }
+>()("astralbeam/auth/Auth") {
+  static readonly layerNoDeps = Layer.effect(
+    Auth,
+    Effect.gen(function* () {
+      const config = yield* Config
+      const built = yield* Ref.make<{ generation: number; auth: AppAuth } | null>(null)
+      const sessions = new WeakMap<Headers, Effect.Effect<AuthSession | null>>()
 
-export async function getAuth(): Promise<AppAuth> {
-  const [
-    appBaseUrl,
-    betterAuthSecret,
-    googleClientId,
-    googleClientSecret,
-    githubClientId,
-    githubClientSecret,
-    privacyPolicyUrl,
-    termsOfServiceUrl,
-    turnstileSecretKey,
-  ] = await Promise.all([
-    getGlobalConfig("app_base_url"),
-    getGlobalConfig("better_auth_secret"),
-    getGlobalConfig("google_client_id"),
-    getGlobalConfig("google_client_secret"),
-    getGlobalConfig("github_client_id"),
-    getGlobalConfig("github_client_secret"),
-    getGlobalConfig("privacy_policy_url"),
-    getGlobalConfig("terms_of_service_url"),
-    getGlobalConfig("turnstile_secret_key"),
-  ])
-  if (!appBaseUrl || !betterAuthSecret || !turnstileSecretKey) {
-    throw new Error("Required authentication configuration is unavailable")
-  }
-  const config: AuthConfig = {
-    appBaseUrl,
-    betterAuthSecret,
-    google:
-      googleClientId && googleClientSecret
-        ? { clientId: googleClientId, clientSecret: googleClientSecret }
-        : null,
-    github:
-      githubClientId && githubClientSecret
-        ? { clientId: githubClientId, clientSecret: githubClientSecret }
-        : null,
-    legalAcceptanceRequired: Boolean(privacyPolicyUrl || termsOfServiceUrl),
-    turnstileSecretKey,
-  }
-  const cacheKey = JSON.stringify(config)
-  if (cachedAuth?.cacheKey !== cacheKey) {
-    cachedAuth = { cacheKey, auth: buildAuth(config) }
-  }
-  return cachedAuth.auth
+      const instance = Effect.gen(function* () {
+        const snapshot = yield* config.snapshot
+        const current = yield* Ref.get(built)
+        if (current?.generation === snapshot.generation) return current.auth
+        const authConfig = authConfigFromValues(snapshot.values)
+        if (!authConfig) return yield* Effect.die("Authentication configuration is incomplete")
+        const auth = buildAuth(authConfig)
+        yield* Ref.set(built, { generation: snapshot.generation, auth })
+        return auth
+      })
+
+      const api = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
+        Effect.flatMap(instance, (auth) => Effect.tryPromise(() => call(auth.api))).pipe(
+          Effect.orDie,
+        )
+
+      /** Answers Better Auth's refusal with `code` through `onRefused`; any other failure dies. */
+      const apiUnlessRefused = <A, B, E>(
+        call: (api: AppAuth["api"]) => Promise<A>,
+        code: string,
+        onRefused: () => Effect.Effect<B, E>,
+      ) =>
+        Effect.flatMap(instance, (auth) =>
+          Effect.tryPromise({ try: () => call(auth.api), catch: (cause) => cause }),
+        ).pipe(
+          Effect.catch((cause) =>
+            cause instanceof APIError && cause.body?.code === code
+              ? onRefused()
+              : Effect.die(cause),
+          ),
+        )
+
+      const freshApi = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
+        apiUnlessRefused(call, "SESSION_NOT_FRESH", () => Effect.succeed(null))
+
+      const getSession = Effect.fn("Auth.getSession")(function* (input: { headers: Headers }) {
+        const memoized = sessions.get(input.headers)
+        if (memoized) return yield* memoized
+        const lookup = yield* Effect.cached(
+          api((auth) =>
+            auth.getSession({ headers: input.headers, query: { disableCookieCache: true } }),
+          ),
+        )
+        sessions.set(input.headers, lookup)
+        return yield* lookup
+      })
+
+      const requireSession = (input: { headers: Headers }) =>
+        Effect.flatMap(getSession(input), (session) =>
+          session ? Effect.succeed(session) : Effect.fail(new SignInRequired()),
+        )
+
+      const handler = Effect.fn("Auth.handler")(function* (request: Request) {
+        const auth = yield* instance
+        return yield* Effect.tryPromise(() => auth.handler(request)).pipe(Effect.orDie)
+      })
+
+      const updateOrganization = Effect.fn("Auth.updateOrganization")(function* (input: {
+        headers: Headers
+        organizationId: string
+        name: string
+        slug: string
+      }) {
+        yield* apiUnlessRefused(
+          (api) =>
+            api.updateOrganization({
+              headers: input.headers,
+              body: {
+                organizationId: input.organizationId,
+                data: { name: input.name, slug: input.slug },
+              },
+            }),
+          "ORGANIZATION_SLUG_ALREADY_TAKEN",
+          () => Effect.fail(new OrganizationSlugTaken()),
+        )
+      })
+
+      const requestPasswordReset = Effect.fn("Auth.requestPasswordReset")(function* (input: {
+        email: string
+        redirectTo: string
+      }) {
+        const auth = yield* instance
+        yield* withBlockingAuthEmailDelivery(() =>
+          auth.api.requestPasswordReset({
+            body: { email: input.email, redirectTo: input.redirectTo },
+          }),
+        )
+      })
+
+      return Auth.of({
+        instance,
+        api,
+        freshApi,
+        getSession,
+        requireSession,
+        handler,
+        updateOrganization,
+        requestPasswordReset,
+      })
+    }),
+  )
+
+  static readonly layer = Auth.layerNoDeps.pipe(Layer.provide(Config.layer))
+}
+
+/** A Promise bridge for the REST routes. Effect code yields the `Auth` service instead. */
+export function getAuth(): Promise<AppAuth> {
+  return getAppRuntime().runPromise(Effect.flatMap(Auth, (auth) => auth.instance))
 }

@@ -1,6 +1,5 @@
 import { APIError, getOAuthState } from "better-auth/api"
-
-type RecordValue = Record<string, unknown>
+import { Predicate } from "effect"
 
 interface UserCreationContext {
   body?: unknown
@@ -20,9 +19,9 @@ const LEGAL_ACCEPTANCE_ERROR = {
   message: "Terms and privacy policy acceptance is required",
 } as const
 
-export function recordValue(value: unknown): RecordValue | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
-  return value as RecordValue
+/** The object a Better Auth hook received, or `undefined` for any other value. */
+export function recordValue(value: unknown): Record<PropertyKey, unknown> | undefined {
+  return Predicate.isObject(value) ? value : undefined
 }
 
 export function assertLegalAcceptance(value: unknown): void {
