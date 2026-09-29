@@ -2,9 +2,11 @@ import process from "node:process"
 import type { BetterAuthPlugin } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
-import * as Schema from "effect/Schema"
-import { runDatabaseEffect } from "@/db"
-import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
+import { Effect, Schema } from "effect"
+
+import { Agents } from "@/lib/agents/agents.server"
+import { reportFailure } from "@/lib/runtime/failure-report.server"
+import { getAppRuntime } from "@/lib/runtime/runtime.server"
 import { isValidOpenaiApiKey, SlugSchema } from "@/lib/schemas"
 import { SLUG_VALIDATION_MESSAGE } from "@/lib/slug"
 import { organizationRoles } from "./organization-access.ts"
@@ -88,22 +90,20 @@ export const organizationRoleHooks = {
  */
 export const organizationProvisioningHooks = {
   afterCreateOrganization: async ({ organization }) => {
-    try {
-      const openaiApiKey = import.meta.env.DEV ? process.env.OPENAI_API_KEY?.trim() : undefined
-      await runDatabaseEffect(
-        provisionOrganizationDefaultAgent({
+    const openaiApiKey = import.meta.env.DEV ? process.env.OPENAI_API_KEY?.trim() : undefined
+    await getAppRuntime().runPromise(
+      Effect.flatMap(Agents, (agents) =>
+        agents.provisionDefault({
           organizationId: organization.id,
           organizationName: organization.name,
           openaiApiKey: isValidOpenaiApiKey(openaiApiKey) ? openaiApiKey : undefined,
         }),
-      )
-    } catch {
-      // The organization is already created and its owner can add an agent by hand, so a failure
-      // here must not fail the request that created it.
-      console.error("Failed to initialize organization settings", {
-        organizationId: organization.id,
-      })
-    }
+      ).pipe(
+        // The organization already exists and its owner can add an agent by hand, so a failure
+        // here must not fail the request that created it.
+        Effect.catchCause((cause) => reportFailure("afterCreateOrganization", cause)),
+      ),
+    )
   },
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>
 

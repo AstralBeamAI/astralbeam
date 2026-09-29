@@ -44,17 +44,17 @@ vi.mock("@/lib/config/state.server", () => ({
   isSetupComplete: () => Promise.resolve(true),
 }))
 
-import { type EffectDatabase, effectDatabase } from "@/db"
+import { type EffectDatabase, Database } from "@/db"
 import {
   requireOrganizationAccess,
   resolveOrganizationRouteAccess,
 } from "./organization-membership.server.ts"
 
 // The membership read is mocked, so the service only has to satisfy the requirement type.
-const databaseLayer = Layer.succeed(effectDatabase, {} as EffectDatabase)
+const databaseLayer = Layer.succeed(Database, {} as EffectDatabase)
 
 function runAccess<Value, Error>(
-  effect: Effect.Effect<Value, Error, typeof effectDatabase.Identifier>,
+  effect: Effect.Effect<Value, Error, typeof Database.Identifier>,
 ): Promise<Value> {
   return Effect.runPromise(Effect.provide(effect, databaseLayer))
 }
@@ -115,12 +115,12 @@ describe("organization membership authorization", () => {
           permissions: { organizationConfiguration: ["read"] },
         }),
       ),
-    ).rejects.toMatchObject({ status: 403 })
+    ).rejects.toMatchObject({ _tag: "OrganizationAccessDenied" })
 
     accessState.membership = null
     await expect(
       runAccess(requireOrganizationAccess({ data: { organizationSlug: "acme" } })),
-    ).rejects.toMatchObject({ status: 404 })
+    ).rejects.toMatchObject({ _tag: "OrganizationNotFound" })
     await expect(runAccess(resolveOrganizationRouteAccess("acme"))).resolves.toBeNull()
     expect(accessState.setActiveOrganization).not.toHaveBeenCalled()
   })

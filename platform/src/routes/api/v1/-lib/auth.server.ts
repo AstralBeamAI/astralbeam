@@ -7,7 +7,7 @@ import {
   ORGANIZATION_TOKEN_TYPE,
   OrganizationMembershipError,
 } from "@/lib/organization-token.server"
-import { type EffectDatabase, effectDatabase } from "@/db"
+import { Database } from "@/db"
 import { apiKey, organization } from "@/db/schema/organizations.server"
 import { databaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { resolveTenant, type TenantError } from "@/db/tenant.server"
@@ -19,7 +19,7 @@ import { type RestFault, restFault, restRateLimitFault } from "./responses.serve
 
 export function authenticateRestRequest(
   request: Request,
-): Effect.Effect<RestScope, RestFault | TenantError, EffectDatabase> {
+): Effect.Effect<RestScope, RestFault | TenantError, Database> {
   return Effect.gen(function* () {
     const apiKeyHeader = request.headers.get("x-api-key")
     const authorization = request.headers.get("authorization")
@@ -122,7 +122,7 @@ function authenticateRestApiKey(credential: string) {
       }
       return yield* Effect.fail(restFault(401, "Invalid credentials."))
     }
-    const database = yield* effectDatabase
+    const database = yield* Database
     const rows = yield* database
       .select({ id: organization.id })
       .from(organization)

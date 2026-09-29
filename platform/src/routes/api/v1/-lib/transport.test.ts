@@ -87,7 +87,7 @@ vi.mock("@/db", () => {
   } as unknown as EffectDatabase
   const service = Context.Service<EffectDatabase>("REST test database")
   return {
-    effectDatabase: service,
+    Database: service,
     runDatabaseEffect: <A, E>(effect: Effect.Effect<A, E, EffectDatabase>) =>
       Effect.runPromise(effect.pipe(Effect.provideService(service, database))),
   }

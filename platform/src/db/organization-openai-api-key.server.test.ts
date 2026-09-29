@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { afterAll, beforeAll, vi } from "vitest"
 
-import { type EffectDatabase, effectDatabase } from "@/db"
+import { type EffectDatabase, Database } from "@/db"
 import { readOrganizationOpenaiApiKey } from "./organization-openai-api-key.server.ts"
 import { organizationConfiguration } from "./schema/organizations.server.ts"
 
@@ -25,7 +25,7 @@ describe("organization OpenAI API key", () => {
       const stored = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
         Effect.provide(
           Layer.succeed(
-            effectDatabase,
+            Database,
             configurationDatabase([
               {
                 organizationId: ORGANIZATION_ID,
@@ -40,7 +40,7 @@ describe("organization OpenAI API key", () => {
       const missing = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
         Effect.provide(
           Layer.succeed(
-            effectDatabase,
+            Database,
             configurationDatabase([{ organizationId: ORGANIZATION_ID, openaiApiKey: null }]),
           ),
         ),
@@ -54,7 +54,7 @@ describe("organization OpenAI API key", () => {
       const error = yield* readOrganizationOpenaiApiKey(ORGANIZATION_ID).pipe(
         Effect.provide(
           Layer.succeed(
-            effectDatabase,
+            Database,
             // The row is this organization's, the ciphertext in it is not.
             configurationDatabase([
               {

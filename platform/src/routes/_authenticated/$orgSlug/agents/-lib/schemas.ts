@@ -1,42 +1,27 @@
-import * as Schema from "effect/Schema"
+import { Schema } from "effect"
 
-import {
-  AgentIdSchema,
-  AgentNameSchema,
-  AgentSystemPromptSchema,
-  LockVersionSchema,
-  SlugSchema,
-  UuidV7Schema,
-} from "@/lib/schemas"
+import { AgentFieldsSchema, AgentIdSchema } from "@/lib/agents/schemas"
+import { LockVersionSchema, SlugSchema } from "@/lib/schemas"
 
 /** Every agent function is addressed by the organization slug in the URL, never by an ID. */
 export const OrganizationSlugInputSchema = Schema.Struct({ organizationSlug: SlugSchema })
 
-const AgentFieldsSchema = Schema.Struct({
+export const CreateAgentInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,
-  name: AgentNameSchema,
-  systemPrompt: AgentSystemPromptSchema,
-  attachmentsEnabled: Schema.Boolean,
-  sandboxProviderId: Schema.NullOr(UuidV7Schema),
+  fields: AgentFieldsSchema,
 })
-
-export const CreateAgentInputSchema = AgentFieldsSchema
 
 export const UpdateAgentInputSchema = Schema.Struct({
-  ...AgentFieldsSchema.fields,
-  id: AgentIdSchema,
+  organizationSlug: SlugSchema,
+  agentId: AgentIdSchema,
   lockVersion: LockVersionSchema,
+  fields: AgentFieldsSchema,
 })
 
-export const DeleteAgentInputSchema = Schema.Struct({
+export const AgentVersionInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,
-  id: AgentIdSchema,
+  agentId: AgentIdSchema,
   lockVersion: LockVersionSchema,
-})
-
-export const SetDefaultAgentInputSchema = Schema.Struct({
-  organizationSlug: SlugSchema,
-  id: AgentIdSchema,
 })
 
 export const AgentIdInputSchema = Schema.Struct({

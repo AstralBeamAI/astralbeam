@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, ilike, lt, or, sql } from "drizzle-orm"
 import { Data, Effect } from "effect"
-import { effectDatabase } from "@/db"
+import { Database } from "@/db"
 import { tenant } from "@/db/schema/organizations.server"
 import { sqlConstraint, sqlState } from "./lib/sqlstate.server"
 import { type DatabasePageOptions, databasePages } from "./lib/pagination.server"
@@ -65,7 +65,7 @@ function tenantWhere(scope: TenantScope, id?: string) {
 
 export function resolveTenant(organizationId: string, externalId: string) {
   return Effect.gen(function* () {
-    const database = yield* effectDatabase
+    const database = yield* Database
     const rows = yield* database
       .select({ id: tenant.id })
       .from(tenant)
@@ -79,7 +79,7 @@ export function listTenants(scope: TenantScope, options: TenantListOptions = {})
   const { externalId, search } = options
   return databasePages(options, (position, limit, backward) =>
     Effect.gen(function* () {
-      const database = yield* effectDatabase
+      const database = yield* Database
       return yield* database
         .select()
         .from(tenant)
@@ -104,7 +104,7 @@ export function listTenants(scope: TenantScope, options: TenantListOptions = {})
 
 export function getTenant(scope: TenantScope, id: string) {
   return Effect.gen(function* () {
-    const database = yield* effectDatabase
+    const database = yield* Database
     const rows = yield* database.select().from(tenant).where(tenantWhere(scope, id)).limit(1)
     return rows[0]
   }).pipe(
@@ -126,7 +126,7 @@ export function createTenant(scope: TenantScope, input: TenantWrite) {
         }),
       )
     }
-    const database = yield* effectDatabase
+    const database = yield* Database
     const [row] = yield* database
       .insert(tenant)
       .values({
@@ -148,7 +148,7 @@ export function updateTenant(scope: TenantScope, id: string, patch: TenantPatch)
         }),
       )
     }
-    const database = yield* effectDatabase
+    const database = yield* Database
     const rows = yield* database.update(tenant).set(patch).where(tenantWhere(scope, id)).returning()
     return rows[0]
   }).pipe(

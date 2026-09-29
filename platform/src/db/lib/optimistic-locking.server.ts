@@ -1,6 +1,7 @@
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { and, eq, getTableName, type InferSelectModel, type SQL, sql } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
+import type { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import type { AnyPgColumn, AnyPgTable, PgUpdateSetSource } from "drizzle-orm/pg-core"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
@@ -30,9 +31,9 @@ type OptimisticLockOptions<TTable extends LockedTable> = {
   expectedLockVersion: number
 }
 
+/** No row matched the expected lock version, because it changed or no longer exists. */
 export class OptimisticLockError extends Data.TaggedError("OptimisticLockError")<{
-  readonly cause?: unknown
-  readonly reason: "conflict" | "database" | "invalid-result" | "invalid-version"
+  readonly reason: "conflict"
   readonly expectedLockVersion: number
   readonly tableName: string
 }> {}
@@ -58,7 +59,7 @@ export function updateWithOptimisticLock<TTable extends LockedTable>(
   options: OptimisticLockOptions<TTable> & {
     set: LockedUpdateSet<TTable>
   },
-): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError> {
+): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError | EffectDrizzleQueryError> {
   return validateLockVersion(options).pipe(
     Effect.andThen(
       options.executor
@@ -68,8 +69,7 @@ export function updateWithOptimisticLock<TTable extends LockedTable>(
           lockVersion: sql`${options.table.lockVersion} + 1`,
         })
         .where(lockedWhere(options))
-        .returning()
-        .pipe(Effect.mapError((cause) => optimisticLockError("database", options, cause))),
+        .returning(),
     ),
     Effect.flatMap((rows) => mutationResult(rows, options)),
   )
@@ -77,15 +77,9 @@ export function updateWithOptimisticLock<TTable extends LockedTable>(
 
 export function deleteWithOptimisticLock<TTable extends LockedTable>(
   options: OptimisticLockOptions<TTable>,
-): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError> {
+): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError | EffectDrizzleQueryError> {
   return validateLockVersion(options).pipe(
-    Effect.andThen(
-      options.executor
-        .delete(options.table)
-        .where(lockedWhere(options))
-        .returning()
-        .pipe(Effect.mapError((cause) => optimisticLockError("database", options, cause))),
-    ),
+    Effect.andThen(options.executor.delete(options.table).where(lockedWhere(options)).returning()),
     Effect.flatMap((rows) => mutationResult(rows, options)),
   )
 }
@@ -93,20 +87,18 @@ export function deleteWithOptimisticLock<TTable extends LockedTable>(
 function validateLockVersion<TTable extends LockedTable>(options: {
   expectedLockVersion: number
   table: TTable
-}): Effect.Effect<void, OptimisticLockError> {
+}): Effect.Effect<void> {
   return Schema.is(LockVersionSchema)(options.expectedLockVersion)
     ? Effect.void
-    : Effect.fail(optimisticLockError("invalid-version", options))
+    : Effect.die(new Error(`Invalid lock version for ${getTableName(options.table)}`))
 }
 
-function optimisticLockError<TTable extends LockedTable>(
-  reason: OptimisticLockError["reason"],
-  options: { expectedLockVersion: number; table: TTable },
-  cause?: unknown,
-): OptimisticLockError {
+function optimisticLockError<TTable extends LockedTable>(options: {
+  expectedLockVersion: number
+  table: TTable
+}): OptimisticLockError {
   return new OptimisticLockError({
-    ...(cause === undefined ? {} : { cause }),
-    reason,
+    reason: "conflict",
     expectedLockVersion: options.expectedLockVersion,
     tableName: getTableName(options.table),
   })
@@ -134,13 +126,13 @@ function mutationResult<TTable extends LockedTable>(
 ): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError> {
   const row = rows[0]
   if (!row) {
-    return Effect.fail(optimisticLockError("conflict", options))
+    return Effect.fail(optimisticLockError(options))
   }
   const rowSchema = createSelectSchema(options.table).pipe(
     Schema.fieldsAssign({ lockVersion: LockVersionSchema }),
   )
   return Schema.decodeUnknownEffect(rowSchema)(row).pipe(
     Effect.map((decoded) => decoded as InferSelectModel<TTable>),
-    Effect.mapError(() => optimisticLockError("invalid-result", options)),
+    Effect.orDie,
   )
 }

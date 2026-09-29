@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { count } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
-import { effectDatabase, runDatabaseEffect } from "@/db"
+import { Database, runDatabaseEffect } from "@/db"
 import { organization } from "@/db/schema/organizations.server"
 
 /**
@@ -13,7 +13,7 @@ async function handleStatusRequest() {
   try {
     await runDatabaseEffect(
       Effect.gen(function* () {
-        const db = yield* effectDatabase
+        const db = yield* Database
         yield* db.select({ value: count() }).from(organization).pipe(Effect.orDie)
       }),
     )

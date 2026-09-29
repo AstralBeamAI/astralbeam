@@ -1,7 +1,7 @@
 import { NonEmptyStringSchema, enumSchema } from "../../../../lib/schemas.ts"
 import { Context, Schema, SchemaGetter } from "effect"
 import { HttpApiMiddleware, HttpApiSchema } from "effect/unstable/httpapi"
-import type { EffectDatabase } from "@/db"
+import type { Database } from "@/db"
 import type { OrganizationCurrentUser } from "@/lib/organization-token.server"
 import type { TenantScope } from "../../../../db/tenant.server.ts"
 import { TenantExternalIdSchema } from "../../../../api/management.ts"
@@ -51,7 +51,7 @@ export class ApiBoundary extends HttpApiMiddleware.Service<ApiBoundary>()("ApiBo
 
 export class RestAuthorization extends HttpApiMiddleware.Service<
   RestAuthorization,
-  { provides: RestScope; requires: EffectDatabase }
+  { provides: RestScope; requires: Database }
 >()("RestAuthorization") {}
 
 const restPageCursor = NonEmptyStringSchema.check(Schema.isMaxLength(2048))

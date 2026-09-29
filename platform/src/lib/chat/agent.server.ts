@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
-import { effectDatabase, runDatabaseEffect } from "@/db"
+import { Database, runDatabaseEffect } from "@/db"
 import { agent, organizationConfiguration } from "@/db/schema.server"
-import { parseAgentSlug } from "@/lib/schemas"
+import { parseAgentId } from "@/lib/agents/schemas"
 
 /**
  * Resolve malformed and cross-organization public IDs identically. A host that sends no public ID
@@ -11,10 +11,10 @@ import { parseAgentSlug } from "@/lib/schemas"
  */
 export async function resolveChatAgent(publicId: unknown, authenticatedOrganizationId: string) {
   const useDefault = publicId === undefined || publicId === null
-  const parsed = parseAgentSlug(publicId)
+  const parsed = parseAgentId(publicId)
   if (!useDefault && (!parsed || parsed.organizationId !== authenticatedOrganizationId)) return null
   const rows = await runDatabaseEffect(
-    Effect.flatMap(effectDatabase, (db) => {
+    Effect.flatMap(Database, (db) => {
       const query = db
         .select({
           id: agent.id,

@@ -1,13 +1,13 @@
 import { sql } from "drizzle-orm"
 import { Effect } from "effect"
-import { effectDatabase } from "@/db"
+import { Database } from "@/db"
 import { tenant, tenantUser } from "@/db/schema/organizations.server"
 import type { ChatPrincipal } from "@/lib/chat/types"
 import { tenantDatabaseError } from "./tenant.server"
 
 export function syncTenantCurrentUser(principal: ChatPrincipal) {
   return Effect.gen(function* () {
-    const database = yield* effectDatabase
+    const database = yield* Database
     const identity = principal.tenantUser
     const organizationId = principal.organization.id
     return yield* database.transaction((tx) =>

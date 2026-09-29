@@ -1,7 +1,7 @@
 import { errors, jwtVerify } from "jose"
 import { Data, Effect, Schema } from "effect"
 import { and, asc, eq } from "drizzle-orm"
-import { effectDatabase } from "@/db"
+import { Database } from "@/db"
 import { user } from "@/db/schema/authentication.server"
 import { member } from "@/db/schema/organizations.server"
 import { APP_HANDLE } from "@/lib/constants"
@@ -60,7 +60,7 @@ export function verifyOrganizationToken(token: string, verifier: Uint8Array, key
 export function authenticateOrganizationRequest(request: Request) {
   return Effect.gen(function* () {
     const principal = yield* authenticateOrganizationIssuedToken(request, verifyOrganizationToken)
-    const database = yield* effectDatabase
+    const database = yield* Database
     const [currentUser] = yield* database
       .select({
         id: user.id,

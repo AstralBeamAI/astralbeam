@@ -10,7 +10,7 @@ import { chatHandlers } from "../chat/-lib/chat.server"
 import { authenticateRestRequest } from "./auth.server"
 import { tenantHandlers } from "./tenant.server"
 import { tenantUserHandlers } from "./tenant-user.server"
-import { effectDatabase, runDatabaseEffect } from "@/db"
+import { Database, runDatabaseEffect } from "@/db"
 import { restErrorResponse, RestFault, restFault, restResponseHeaders } from "./responses.server"
 
 function restBoundaryFailure(cause: Cause.Cause<unknown>, operation: string) {
@@ -80,8 +80,8 @@ function restBoundaryErrors(operation: string) {
 
 // Borrow the existing ManagedRuntime service; this does not build another database pool.
 const RestDatabaseLayer = Layer.effect(
-  effectDatabase,
-  Effect.promise(() => runDatabaseEffect(effectDatabase)),
+  Database,
+  Effect.promise(() => runDatabaseEffect(Database)),
 )
 
 function createApiV1WebHandler() {

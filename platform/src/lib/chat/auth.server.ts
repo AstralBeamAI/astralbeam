@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import { effectDatabase, runDatabaseEffect } from "@/db"
+import { Database, runDatabaseEffect } from "@/db"
 import { apiKey, organization } from "@/db/schema.server"
 import { ChatAuthTokenPayloadSchema, UuidV7Schema } from "@/lib/schemas"
 import {
@@ -65,7 +65,7 @@ export function authenticateOrganizationIssuedToken<T, E>(
       catch: (cause) =>
         isChatAuthenticationError(cause) ? cause : invalidToken("Malformed token header", cause),
     })
-    const db = yield* effectDatabase
+    const db = yield* Database
     const [initial] = yield* db
       .select({
         id: apiKey.id,

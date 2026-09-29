@@ -1,12 +1,12 @@
 import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
-import { effectDatabase } from "@/db"
+import { Database } from "@/db"
 import { apiKey } from "@/db/schema/organizations.server"
 
 export function hasOrganizationApiKeys(organizationId: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const rows = yield* db
       .select({ id: apiKey.id })
       .from(apiKey)
@@ -18,7 +18,7 @@ export function hasOrganizationApiKeys(organizationId: string) {
 
 export function readOrganizationDefaultApiKey(organizationId: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const [key] = yield* db
       .select({ id: apiKey.id, key: apiKey.key })
       .from(apiKey)

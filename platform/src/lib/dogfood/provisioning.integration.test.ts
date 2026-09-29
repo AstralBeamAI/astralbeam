@@ -70,7 +70,7 @@ import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.se
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { decodeConfigValuePayload } from "@/db/schema/config.server"
 import { getAuth } from "@/lib/auth.server"
-import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
+import { Agents } from "@/lib/agents/agents.server"
 import { sendResetPasswordEmail } from "@/emails/index"
 import { invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
@@ -159,11 +159,13 @@ describe.skipIf(!dogfoodIntegration.url)(
         expect(configuration).toMatchObject({ organizationId, openaiApiKey: expectedKey })
         expect(defaultAgent).toMatchObject({ organizationId, id: configuration!.defaultAgentId })
         await runDatabaseEffect(
-          provisionOrganizationDefaultAgent({
-            organizationId,
-            organizationName: "dogfood",
-            openaiApiKey: "sk-different-development-test-key",
-          }),
+          Effect.flatMap(Agents, (agents) =>
+            agents.provisionDefault({
+              organizationId,
+              organizationName: "dogfood",
+              openaiApiKey: "sk-different-development-test-key",
+            }),
+          ),
         )
         expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey).toEqual(
           expectedKey,

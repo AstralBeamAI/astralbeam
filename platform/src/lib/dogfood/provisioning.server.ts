@@ -15,7 +15,7 @@ import {
   replacePendingDogfoodOwner,
 } from "@/db/dogfood.server"
 import { getAuth } from "@/lib/auth.server"
-import { provisionOrganizationDefaultAgent } from "@/db/agent.server"
+import { Agents } from "@/lib/agents/agents.server"
 import { withBlockingAuthEmailDelivery } from "@/lib/auth/email-delivery.server"
 import { getGlobalConfigState, invalidateGlobalConfig } from "@/lib/config/runtime.server"
 import { getGlobalConfig } from "@/lib/config"
@@ -199,7 +199,9 @@ export function provisionDogfoodResources(input: OwnerOnboarding) {
     }
     const organizationId = customer.id
     yield* savePendingOwner({ ...pending, organizationId })
-    yield* provisionOrganizationDefaultAgent({ organizationId, organizationName: customer.name })
+    yield* Effect.flatMap(Agents, (agents) =>
+      agents.provisionDefault({ organizationId, organizationName: customer.name }),
+    )
     if (!pending.apiKey) {
       pending = yield* createDogfoodCredential({ ...pending, organizationId })
       yield* Effect.sync(invalidateGlobalConfig)

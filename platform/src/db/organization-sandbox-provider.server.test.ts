@@ -9,7 +9,7 @@ const repositoryState = vi.hoisted(() => ({
 }))
 
 vi.mock("@/db", () => ({
-  effectDatabase: Effect.succeed(repositoryState.db),
+  Database: Effect.succeed(repositoryState.db),
   runDatabaseEffect: Effect.runPromise,
 }))
 

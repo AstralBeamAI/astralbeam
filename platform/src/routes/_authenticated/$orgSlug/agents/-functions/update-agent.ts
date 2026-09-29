@@ -1,35 +1,30 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { updateOrganizationAgent } from "@/db/agent.server"
-import { catchOptimisticLockConflict } from "@/db/lib/optimistic-locking.server"
+import { Agents } from "@/lib/agents/agents.server"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { toValidationSchema } from "@/lib/schemas"
 import { UpdateAgentInputSchema } from "../-lib/schemas.ts"
 
 export const updateAgent = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
   .validator(toValidationSchema(UpdateAgentInputSchema))
-  .handler(({ context, data: { organizationSlug: _organizationSlug, ...fields } }) =>
-    runDatabaseEffect(
-      updateOrganizationAgent({ organizationId: context.organizationId, ...fields }).pipe(
-        Effect.as({ ok: true as const }),
-        catchOptimisticLockConflict("Reload before saving this agent again"),
-        Effect.catchTags({
-          OrganizationAgentConflictError: (error) =>
-            Effect.succeed({
-              ok: false as const,
-              code: "duplicate_name" as const,
-              message: error.message,
-            }),
-          OrganizationAgentProviderError: (error) =>
-            Effect.succeed({
-              ok: false as const,
-              code: "invalid_provider" as const,
-              message: error.message,
-            }),
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(Agents, (agents) =>
+        agents.update({
+          organizationId: context.organizationId,
+          agentId: data.agentId,
+          lockVersion: data.lockVersion,
+          fields: data.fields,
         }),
+      ).pipe(
+        Effect.catchTag(
+          ["AgentChanged", "AgentNameTaken", "AgentSandboxProviderInvalid"],
+          exposeError,
+        ),
       ),
+      serverFnMeta.name,
     ),
   )

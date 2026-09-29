@@ -2,7 +2,7 @@ import { Cause, Context, Duration, Effect, Fiber, Layer, Schedule } from "effect
 import { Sharding, ShardingConfig } from "effect/unstable/cluster"
 
 import { sqlState } from "../db/lib/sqlstate.server.ts"
-import { getDatabaseResources, effectDatabaseLayer } from "../db/index.ts"
+import { Database, getDatabaseResources } from "../db/index.ts"
 import { registeredWorkflowLayers } from "../workflows/registry.server.ts"
 import { clusterRunnerLayer, clusterRunnerSettings } from "./runner.server.ts"
 
@@ -21,7 +21,7 @@ const clusterRuntimeState = (clusterProcess[clusterRuntimeKey] ??= {
 const superviseClusterRunner = Effect.gen(function* () {
   const engine = clusterRunnerLayer(clusterRunnerSettings())
   const context = yield* Layer.build(
-    registeredWorkflowLayers.pipe(Layer.provideMerge(engine), Layer.provide(effectDatabaseLayer)),
+    registeredWorkflowLayers.pipe(Layer.provideMerge(engine), Layer.provide(Database.layerNoDeps)),
   )
   const sharding = Context.get(context, Sharding.Sharding)
   const config = Context.get(context, ShardingConfig.ShardingConfig)

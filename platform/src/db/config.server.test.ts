@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer"
 import { afterAll, beforeAll, vi } from "vitest"
 
 import { getDatabaseConfigEffect } from "./config.server.ts"
-import { type EffectDatabase, effectDatabase } from "@/db"
+import { type EffectDatabase, Database } from "@/db"
 import { configTable } from "./schema/config.server.ts"
 
 const ACTIVE_KEY = "a".repeat(64)
@@ -43,7 +43,7 @@ describe("database configuration", () => {
       assert(!loggedOutput.includes("provider-secret"))
     }).pipe(
       Effect.ensuring(Effect.sync(() => logged.mockRestore())),
-      Effect.provide(Layer.succeed(effectDatabase, database)),
+      Effect.provide(Layer.succeed(Database, database)),
     )
   })
 
@@ -53,13 +53,13 @@ describe("database configuration", () => {
 
     return Effect.gen(function* () {
       const state = yield* getDatabaseConfigEffect().pipe(
-        Effect.provide(Layer.succeed(effectDatabase, readDatabase(Effect.fail(missingTable)))),
+        Effect.provide(Layer.succeed(Database, readDatabase(Effect.fail(missingTable)))),
       )
       assert.strictEqual(state.rows, null)
       assert.deepStrictEqual(state.values, {})
 
       const error = yield* getDatabaseConfigEffect().pipe(
-        Effect.provide(Layer.succeed(effectDatabase, readDatabase(Effect.fail(unavailable)))),
+        Effect.provide(Layer.succeed(Database, readDatabase(Effect.fail(unavailable)))),
         Effect.flip,
       )
       assert.strictEqual<unknown>(error, unavailable)

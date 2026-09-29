@@ -2,7 +2,7 @@ import { and, asc, count, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { effectDatabase } from "@/db"
+import { Database } from "@/db"
 import {
   agent,
   apiKey,
@@ -27,7 +27,7 @@ const decodeOrganizationMembership = Schema.decodeUnknownEffect(OrganizationMemb
 /** The display identity of an organization whose ID came from a verified credential. */
 export function readOrganizationSummary(organizationId: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const [row] = yield* db
       .select({ id: organization.id, name: organization.name, slug: organization.slug })
       .from(organization)
@@ -39,7 +39,7 @@ export function readOrganizationSummary(organizationId: string) {
 
 export function isLastOrganizationApiKey(keyId: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const [key] = yield* db
       .select({ organizationId: apiKey.organizationId })
       .from(apiKey)
@@ -59,7 +59,7 @@ export function isLastOrganizationApiKey(keyId: string) {
  */
 export function readOrganizationMembership(input: { organizationSlug: string; userId: string }) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const rows = yield* db
       .select({
         organizationId: organization.id,
@@ -98,7 +98,7 @@ export function readOrganizationResourceCounts(input: {
   permissions: OrganizationPermissions
 }) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const countRows = (table: OrganizationOwnedTable) =>
       db
         .select({ value: count() })

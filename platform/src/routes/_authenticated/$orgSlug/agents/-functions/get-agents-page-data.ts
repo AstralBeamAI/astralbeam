@@ -1,20 +1,20 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { readOrganizationAgents } from "@/db/agent.server"
+import { Agents } from "@/lib/agents/agents.server"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { runEffect } from "@/lib/runtime/server-fn.server"
+import { toValidationSchema } from "@/lib/schemas"
 import { OrganizationSlugInputSchema } from "../-lib/schemas.ts"
 
 export const getAgentsPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
   .validator(toValidationSchema(OrganizationSlugInputSchema))
-  .handler(({ context }) =>
-    runDatabaseEffect(
-      Effect.map(readOrganizationAgents(context.organizationId), (data) => ({
-        data,
-        permissions: context.permissions,
-      })),
+  .handler(({ context, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(Agents, (agents) => agents.list(context.organizationId)).pipe(
+        Effect.map((data) => ({ data, permissions: context.permissions })),
+      ),
+      serverFnMeta.name,
     ),
   )

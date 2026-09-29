@@ -1,8 +1,5 @@
-import { getRequest, setResponseHeader, setResponseStatus } from "@tanstack/react-start/server"
-import * as Data from "effect/Data"
-import * as Effect from "effect/Effect"
-import * as Option from "effect/Option"
-import * as Schema from "effect/Schema"
+import { getRequest, setResponseHeader } from "@tanstack/react-start/server"
+import { Effect, Option, Schema } from "effect"
 
 import { readOrganizationMembership } from "@/db/organization.server"
 import { getAuth } from "@/lib/auth.server"
@@ -14,6 +11,7 @@ import {
   type OrganizationPermissions,
 } from "@/lib/auth/organization-access"
 import { SlugSchema } from "@/lib/schemas"
+import { OrganizationAccessDenied, OrganizationNotFound, SignInRequired } from "./errors.ts"
 
 export interface OrganizationAccess {
   readonly organizationId: string
@@ -23,14 +21,10 @@ export interface OrganizationAccess {
   readonly permissions: OrganizationPermissions
 }
 
-export class OrganizationAccessError extends Data.TaggedError("OrganizationAccessError")<{
-  readonly message: string
-  readonly status: 401 | 403 | 404
-}> {}
-
-class OrganizationSessionError extends Data.TaggedError("OrganizationSessionError")<{
-  readonly cause: unknown
-}> {}
+class OrganizationSessionError extends Schema.TaggedError<OrganizationSessionError>()(
+  "OrganizationSessionError",
+  { cause: Schema.Defect() },
+) {}
 
 const decodeOrganizationSlugInput = Schema.decodeUnknownOption(
   Schema.Struct({ organizationSlug: SlugSchema }),
@@ -48,11 +42,11 @@ export function requireOrganizationAccess(input: {
   setResponseHeader("Cache-Control", "no-store")
   return Effect.gen(function* () {
     const slugInput = decodeOrganizationSlugInput(input.data)
-    if (Option.isNone(slugInput)) return yield* denyOrganizationAccess(404)
+    if (Option.isNone(slugInput)) return yield* new OrganizationNotFound()
     const access = yield* resolveOrganizationAccess(slugInput.value.organizationSlug, headers)
-    if (access === null) return yield* denyOrganizationAccess(404)
+    if (access === null) return yield* new OrganizationNotFound()
     if (input.permissions && !authorizeOrganizationRole(access.role, input.permissions)) {
-      return yield* denyOrganizationAccess(403)
+      return yield* new OrganizationAccessDenied()
     }
     return access
   })
@@ -78,7 +72,7 @@ function resolveOrganizationAccess(
       try: isSetupComplete,
       catch: (cause) => new OrganizationSessionError({ cause }),
     })
-    if (!configured) return yield* denyOrganizationAccess(403)
+    if (!configured) return yield* new OrganizationAccessDenied()
     const auth = yield* Effect.tryPromise({
       try: () => getAuth(),
       catch: (cause) => new OrganizationSessionError({ cause }),
@@ -87,7 +81,7 @@ function resolveOrganizationAccess(
       try: () => auth.api.getSession({ headers, query: { disableCookieCache: true } }),
       catch: (cause) => new OrganizationSessionError({ cause }),
     })
-    if (!session) return yield* denyOrganizationAccess(401)
+    if (!session) return yield* new SignInRequired()
 
     const membership = yield* readOrganizationMembership({
       organizationSlug,
@@ -116,17 +110,5 @@ function resolveOrganizationAccess(
       role: membership.role,
       permissions: deriveOrganizationPermissions(membership.role),
     } satisfies OrganizationAccess
-  })
-}
-
-function denyOrganizationAccess(
-  status: 401 | 403 | 404,
-): Effect.Effect<never, OrganizationAccessError> {
-  return Effect.failSync(() => {
-    setResponseStatus(status)
-    return new OrganizationAccessError({
-      status,
-      message: status === 401 ? "Authentication required" : "Organization is unavailable",
-    })
   })
 }

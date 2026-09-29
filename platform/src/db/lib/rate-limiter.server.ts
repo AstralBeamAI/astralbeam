@@ -3,7 +3,7 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import { RateLimiter } from "effect/unstable/persistence"
 
-import { type EffectDatabase, effectDatabase } from "@/db"
+import { Database } from "@/db/database.server"
 import { rateLimit } from "@/db/schema.server"
 
 const DATABASE_RATE_LIMIT_KEY_PREFIX = "effect-rate-limit:"
@@ -17,8 +17,8 @@ interface RateLimitConsumeOptions {
 interface DatabaseRateLimiter {
   readonly consume: (
     options: RateLimitConsumeOptions,
-  ) => Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError, EffectDatabase>
-  readonly reset: (key: string) => Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase>
+  ) => Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError, Database>
+  readonly reset: (key: string) => Effect.Effect<void, RateLimiter.RateLimiterError, Database>
 }
 
 function storeError(message: string, cause?: unknown): RateLimiter.RateLimiterError {
@@ -49,10 +49,10 @@ function exceededError(
 // https://github.com/Effect-TS/effect-smol/blob/main/packages/effect/src/unstable/persistence/RateLimiter.ts
 function consume(
   options: RateLimitConsumeOptions,
-): Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError, EffectDatabase> {
+): Effect.Effect<RateLimiter.ConsumeResult, RateLimiter.RateLimiterError, Database> {
   return Effect.gen(function* () {
     const windowMilliseconds = Math.ceil(Duration.toMillis(options.window))
-    const db = yield* effectDatabase
+    const db = yield* Database
     const persistedKey = `${DATABASE_RATE_LIMIT_KEY_PREFIX}${options.key}`
     const maximumCount = options.limit + 1
     const now =
@@ -99,9 +99,9 @@ function consume(
   })
 }
 
-function reset(key: string): Effect.Effect<void, RateLimiter.RateLimiterError, EffectDatabase> {
+function reset(key: string): Effect.Effect<void, RateLimiter.RateLimiterError, Database> {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     yield* db
       .delete(rateLimit)
       .where(eq(rateLimit.key, `${DATABASE_RATE_LIMIT_KEY_PREFIX}${key}`))

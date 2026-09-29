@@ -1,7 +1,7 @@
 import { eq, notInArray, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
-import { effectDatabase, runDatabaseEffect } from "@/db"
+import { Database, runDatabaseEffect } from "@/db"
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { sqlState } from "@/db/lib/sqlstate.server"
@@ -37,7 +37,7 @@ export type DatabaseConfigState = {
 
 function readStoredConfigRows(excludedKeys: readonly ConfigKey[]) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const query = db
       .select({
         key: configTable.key,
@@ -152,7 +152,7 @@ export function applyDatabaseConfigChangesEffect(
   generatedValues: readonly DatabaseConfigGeneratedValue[] = [],
 ) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     yield* db.transaction((transaction) =>
       Effect.gen(function* () {
         for (const change of changes) {

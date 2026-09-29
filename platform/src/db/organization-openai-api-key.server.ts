@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 
-import { effectDatabase } from "@/db"
+import { Database } from "@/db"
 import { organizationConfiguration } from "@/db/schema/organizations.server"
 
 /** How much of a stored key may leave the server, which is what names it without revealing it. */
@@ -15,7 +15,7 @@ class OrganizationOpenaiApiKeyError extends Data.TaggedError("OrganizationOpenai
 /** Whether the organization has a key, tested in SQL so the common page read decrypts nothing. */
 export function readOrganizationOpenaiApiKeyConfigured(organizationId: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const rows = yield* db
       .select({
         configured: sql<boolean>`${organizationConfiguration.openaiApiKey} is not null`,
@@ -30,7 +30,7 @@ export function readOrganizationOpenaiApiKeyConfigured(organizationId: string) {
 /** The chat endpoint's read: the key every run for this organization streams on, or `null`. */
 export function readOrganizationOpenaiApiKey(organizationId: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const rows = yield* db
       .select({
         organizationId: organizationConfiguration.organizationId,
@@ -73,7 +73,7 @@ export function writeOrganizationOpenaiApiKey(input: {
 }) {
   const openaiApiKey =
     input.apiKey === null ? null : { organizationId: input.organizationId, apiKey: input.apiKey }
-  return Effect.flatMap(effectDatabase, (db) =>
+  return Effect.flatMap(Database, (db) =>
     db
       .insert(organizationConfiguration)
       .values({

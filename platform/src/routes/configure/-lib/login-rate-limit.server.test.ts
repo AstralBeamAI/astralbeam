@@ -6,7 +6,7 @@ import * as Layer from "effect/Layer"
 import { RateLimiter } from "effect/unstable/persistence"
 import { SqlError, UnknownError } from "effect/unstable/sql/SqlError"
 
-import { type EffectDatabase, effectDatabase } from "@/db"
+import { type EffectDatabase, Database } from "@/db"
 
 import { consumeOperatorLoginRateLimit } from "./login-rate-limit.server.ts"
 
@@ -17,12 +17,12 @@ describe("operator login rate limiting", () => {
 
     return Effect.gen(function* () {
       const bootstrapDecision = yield* consumeOperatorLoginRateLimit().pipe(
-        Effect.provide(Layer.succeed(effectDatabase, failingDatabase(missingTable))),
+        Effect.provide(Layer.succeed(Database, failingDatabase(missingTable))),
       )
       assert.deepStrictEqual(bootstrapDecision, { allowed: true, retryAfterSeconds: 0 })
 
       const error = yield* consumeOperatorLoginRateLimit().pipe(
-        Effect.provide(Layer.succeed(effectDatabase, failingDatabase(unavailable))),
+        Effect.provide(Layer.succeed(Database, failingDatabase(unavailable))),
         Effect.flip,
       )
       assert.instanceOf(error.reason, RateLimiter.RateLimitStoreError)

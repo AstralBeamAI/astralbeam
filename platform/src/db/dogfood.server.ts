@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import { defaultKeyHasher } from "@better-auth/api-key"
 import { generateRandomString } from "better-auth/crypto"
 
-import { effectDatabase } from "@/db"
+import { Database } from "@/db"
 import { apiKey, member, organization, user } from "@/db/schema.server"
 import { applyDatabaseConfigChangesEffect } from "@/db/config.server"
 import type { OwnerOnboarding, PendingOnboarding } from "@/lib/dogfood/schema"
@@ -15,7 +15,7 @@ import {
 /** Commit the credential and its encrypted recovery record together, including across crashes. */
 export function createDogfoodCredential(pending: PendingOnboarding & { organizationId: string }) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const secret = yield* Effect.sync(
       () => `${ORGANIZATION_API_KEY_PREFIX}${generateRandomString(64, "a-z", "A-Z")}`,
     )
@@ -56,7 +56,7 @@ export function createDogfoodCredential(pending: PendingOnboarding & { organizat
 
 export function withDogfoodProvisioningLock<A, E, R>(operation: Effect.Effect<A, E, R>) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const context = yield* Effect.context<R>()
     return yield* db.transaction((transaction) =>
       Effect.gen(function* () {
@@ -81,7 +81,7 @@ export function withDogfoodProvisioningLock<A, E, R>(operation: Effect.Effect<A,
 
 export function readDogfoodOwner(email: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const rows = yield* db
       .select({ id: user.id, emailVerified: user.emailVerified })
       .from(user)
@@ -99,7 +99,7 @@ export function readDogfoodOwner(email: string) {
 
 export function createDogfoodOwner(email: string) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const [owner] = yield* db
       .insert(user)
       .values({
@@ -114,7 +114,7 @@ export function createDogfoodOwner(email: string) {
 
 export function readDogfoodOrganization(input: { id?: string | undefined; slug: string }) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const rows = yield* db
       .select({
         id: organization.id,
@@ -140,7 +140,7 @@ export function readDogfoodOrganization(input: { id?: string | undefined; slug: 
 
 export function isDogfoodOwner(input: { organizationId: string; userId: string }) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     const rows = yield* db
       .select({ role: member.role })
       .from(member)
@@ -151,7 +151,7 @@ export function isDogfoodOwner(input: { organizationId: string; userId: string }
 
 export function replacePendingDogfoodOwner(pending: PendingOnboarding, input: OwnerOnboarding) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     return yield* db.transaction((transaction) =>
       Effect.gen(function* () {
         const previous = yield* readDogfoodOwner(pending.email)

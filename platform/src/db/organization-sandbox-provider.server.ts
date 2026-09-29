@@ -4,7 +4,7 @@ import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { type EffectDatabase, effectDatabase } from "@/db"
+import { type EffectDatabase, Database } from "@/db"
 import {
   deleteWithOptimisticLock,
   OptimisticLockError,
@@ -180,7 +180,7 @@ export function saveOrganizationSandboxProvider<Provider extends SandboxProvider
       })
     }
 
-    const db = yield* effectDatabase
+    const db = yield* Database
 
     const credentialUpdate =
       prepared.candidate.provider === "docker"
@@ -244,7 +244,7 @@ export function recordOrganizationSandboxProviderTest(input: {
   errorCode?: SandboxConnectionErrorCode
 }) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     yield* updateWithOptimisticLock({
       executor: db,
       table: sandboxProvider,
@@ -268,7 +268,7 @@ export function deleteOrganizationSandboxProvider(input: {
   lockVersion: number
 }) {
   return Effect.gen(function* () {
-    const db = yield* effectDatabase
+    const db = yield* Database
     yield* deleteWithOptimisticLock({
       executor: db,
       table: sandboxProvider,
@@ -445,7 +445,7 @@ function storedSandboxProviderError(message: string): OrganizationSandboxProvide
 function sandboxProviderDatabaseEffect<Value>(
   operation: (db: EffectDatabase) => Effect.Effect<Value, unknown>,
 ) {
-  return Effect.flatMap(effectDatabase, (db) =>
+  return Effect.flatMap(Database, (db) =>
     operation(db).pipe(
       Effect.mapError((cause) => new OrganizationSandboxProviderRepositoryError({ cause })),
     ),

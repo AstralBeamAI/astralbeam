@@ -1,15 +1,17 @@
 import { ArrowClockwiseIcon } from "@phosphor-icons/react"
-import { useRouter } from "@tanstack/react-router"
+import { type ErrorComponentProps, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useToastManager } from "@/components/ui/toast"
 import { APP_NAME } from "@/lib/constants"
+import { serverFnErrorReference } from "@/lib/runtime/server-fn-error"
 
 const ROUTE_ERROR_TOAST_ID = "route-error"
 
-export function RouteErrorBoundary() {
+export function RouteErrorBoundary({ error }: ErrorComponentProps) {
   const router = useRouter()
+  const reference = serverFnErrorReference(error)
   const { add: addToast } = useToastManager()
   const [isRetrying, setIsRetrying] = useState(false)
 
@@ -55,6 +57,11 @@ export function RouteErrorBoundary() {
         <p className="mt-2 text-sm text-muted-foreground">
           We couldn&apos;t load this page. Try again in a moment.
         </p>
+        {reference && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            If this keeps happening, share reference <code>{reference}</code> with support.
+          </p>
+        )}
         <Button type="button" className="mt-5" disabled={isRetrying} onClick={() => void retry()}>
           <ArrowClockwiseIcon
             aria-hidden="true"

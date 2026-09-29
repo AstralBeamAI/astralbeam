@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, ilike, lt, or, sql } from "drizzle-orm"
 import { Effect, Stream } from "effect"
-import { effectDatabase } from "@/db"
+import { Database } from "@/db"
 import { tenantUser } from "@/db/schema/organizations.server"
 import { databasePages } from "./lib/pagination.server"
 import type { TenantUserPatchSchema, TenantUserWriteSchema } from "@/api/management.ts"
@@ -47,7 +47,7 @@ export function listTenantUsers(
       yield* requireTenant(scope, tenantId)
       return databasePages(options, (position, limit, backward) =>
         Effect.gen(function* () {
-          const database = yield* effectDatabase
+          const database = yield* Database
           return yield* database
             .select()
             .from(tenantUser)
@@ -75,7 +75,7 @@ export function listTenantUsers(
 
 export function getTenantUser(scope: TenantScope, tenantId: string, id: string) {
   return Effect.gen(function* () {
-    const database = yield* effectDatabase
+    const database = yield* Database
     const rows = yield* database
       .select()
       .from(tenantUser)
@@ -94,7 +94,7 @@ export function getTenantUser(scope: TenantScope, tenantId: string, id: string) 
 export function createTenantUser(scope: TenantScope, tenantId: string, input: TenantUserWrite) {
   return Effect.gen(function* () {
     yield* requireTenant(scope, tenantId)
-    const database = yield* effectDatabase
+    const database = yield* Database
     const [row] = yield* database
       .insert(tenantUser)
       .values({
@@ -115,7 +115,7 @@ export function updateTenantUser(
   patch: TenantUserPatch,
 ) {
   return Effect.gen(function* () {
-    const database = yield* effectDatabase
+    const database = yield* Database
     const rows = yield* database
       .update(tenantUser)
       .set(patch)

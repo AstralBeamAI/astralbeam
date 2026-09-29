@@ -1,33 +1,21 @@
 import { createServerFn } from "@tanstack/react-start"
-import * as Effect from "effect/Effect"
-import { toValidationSchema } from "@/lib/schemas"
+import { Effect } from "effect"
 
-import { runDatabaseEffect } from "@/db"
-import { createOrganizationAgent } from "@/db/agent.server"
+import { Agents } from "@/lib/agents/agents.server"
 import { organizationAccessMiddleware } from "@/lib/auth/organization-middleware"
+import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { toValidationSchema } from "@/lib/schemas"
 import { CreateAgentInputSchema } from "../-lib/schemas.ts"
 
+/** Returns the new agent's public ID, which the caller navigates to. */
 export const createAgent = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
   .validator(toValidationSchema(CreateAgentInputSchema))
-  .handler(({ context, data: { organizationSlug: _organizationSlug, ...fields } }) =>
-    runDatabaseEffect(
-      createOrganizationAgent({ organizationId: context.organizationId, ...fields }).pipe(
-        Effect.map((id) => ({ ok: true as const, id })),
-        Effect.catchTags({
-          OrganizationAgentConflictError: (error) =>
-            Effect.succeed({
-              ok: false as const,
-              code: "duplicate_name" as const,
-              message: error.message,
-            }),
-          OrganizationAgentProviderError: (error) =>
-            Effect.succeed({
-              ok: false as const,
-              code: "invalid_provider" as const,
-              message: error.message,
-            }),
-        }),
-      ),
+  .handler(({ context, data, serverFnMeta }) =>
+    runEffect(
+      Effect.flatMap(Agents, (agents) =>
+        agents.create({ organizationId: context.organizationId, fields: data.fields }),
+      ).pipe(Effect.catchTag(["AgentNameTaken", "AgentSandboxProviderInvalid"], exposeError)),
+      serverFnMeta.name,
     ),
   )

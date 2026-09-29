@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { expect, test, vi } from "vitest"
 
-vi.mock("@/db", () => ({ effectDatabase: Effect.void, runDatabaseEffect: Effect.runPromise }))
+vi.mock("@/db", () => ({ Database: Effect.void, runDatabaseEffect: Effect.runPromise }))
 
 import { verifyOrganizationToken } from "./organization-token.server"
 

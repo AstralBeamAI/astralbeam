@@ -29,7 +29,7 @@ vi.mock("@/db", () => {
     },
   }
   return {
-    effectDatabase: Effect.succeed(db),
+    Database: Effect.succeed(db),
     runDatabaseEffect: Effect.runPromise,
   }
 })
