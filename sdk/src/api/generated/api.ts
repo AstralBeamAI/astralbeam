@@ -45,6 +45,8 @@ export interface AstralBeamApiError {
   status: number
   detail: string
   issues?: AstralBeamApiErrorIssuesItem[]
+  /** Identifies the server log entry of an internal error. Quote it for support. */
+  reference?: string
 }
 
 /**
