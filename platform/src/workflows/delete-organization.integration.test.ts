@@ -107,23 +107,32 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   test("keeps retrying a failed purge past any backoff window until the database recovers", async () => {
     const { organizationId } = await createOrganization("deleted")
     await db.execute(sql`alter table tenant_user rename to tenant_user_offline`)
+    let offline = true
+    // Later suites share this database, so restore the table even when the test fails.
+    const restoreTenantUsers = async () => {
+      if (!offline) return
+      offline = false
+      await db.execute(sql`alter table tenant_user_offline rename to tenant_user`)
+    }
     const realPause = Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
-    await runDatabaseEffect(
-      Effect.gen(function* () {
-        const deletion = yield* Effect.forkChild(organizationDeletion(organizationId))
-        // Two virtual hours of backoff while the table is offline.
-        for (let step = 0; step < 24; step++) {
+    try {
+      await runDatabaseEffect(
+        Effect.gen(function* () {
+          const deletion = yield* Effect.forkChild(organizationDeletion(organizationId))
+          // Two virtual hours of backoff while the table is offline.
+          for (let step = 0; step < 24; step++) {
+            yield* realPause
+            yield* TestClock.adjust("5 minutes")
+          }
+          yield* Effect.promise(restoreTenantUsers)
           yield* realPause
           yield* TestClock.adjust("5 minutes")
-        }
-        yield* Effect.promise(() =>
-          db.execute(sql`alter table tenant_user_offline rename to tenant_user`),
-        )
-        yield* realPause
-        yield* TestClock.adjust("5 minutes")
-        yield* Fiber.join(deletion)
-      }).pipe(Effect.provide(TestClock.layer())),
-    )
+          yield* Fiber.join(deletion)
+        }).pipe(Effect.provide(TestClock.layer())),
+      )
+    } finally {
+      await restoreTenantUsers()
+    }
     expect(await db.select().from(organization)).toEqual([])
   })
 })
