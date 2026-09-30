@@ -77,13 +77,12 @@ export function DogfoodChatTrigger({ className }: { className?: string }) {
   return (
     <Button
       id={chat.triggerId}
-      variant="outline"
       size="sm"
       className={className}
       aria-controls={chat.hasOpened ? chat.panelId : undefined}
       onClick={() => chat.setOpen(true)}
     >
-      <SparkleIcon aria-hidden="true" weight="fill" className="text-primary" /> Ask {ASSISTANT_NAME}
+      <SparkleIcon aria-hidden="true" weight="fill" /> Ask {ASSISTANT_NAME}
     </Button>
   )
 }
