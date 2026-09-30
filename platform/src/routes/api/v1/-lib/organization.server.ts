@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
 import { ApiUuidSchema } from "../../../../lib/tenants/schemas.ts"
 import { RestOrganizationNotFound, RestTenantTokenForbidden } from "./errors.ts"

@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm"
 import { Duration, Effect, Option, Schema } from "effect"
-import { SqlClient } from "effect/unstable/sql"
+import { SqlClient } from "effect/sql"
 import { beforeAll, afterEach, describe, expect, test, vi } from "vitest"
 
 const cacheIntegration = vi.hoisted(() => {

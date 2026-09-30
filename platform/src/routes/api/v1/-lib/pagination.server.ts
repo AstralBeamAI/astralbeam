@@ -1,6 +1,6 @@
 import { createHash, hkdfSync } from "node:crypto"
 import { Effect, Schema } from "effect"
-import { HttpApiSchema } from "effect/unstable/httpapi"
+import { HttpApiSchema } from "effect/http-api"
 import type { DatabasePage } from "@/db/lib/pagination.server"
 import { CompactSign, compactVerify, decodeProtectedHeader } from "jose"
 import {

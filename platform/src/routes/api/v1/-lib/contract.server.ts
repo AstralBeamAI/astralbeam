@@ -1,4 +1,4 @@
-import { HttpApi, OpenApi } from "effect/unstable/httpapi"
+import { HttpApi, OpenApi } from "effect/http-api"
 import { APP_NAME } from "../../../../lib/constants.ts"
 import { ApiBoundary, RestAuthorization } from "./shared.server"
 import { chatApi } from "../chat/-lib/chat.server"

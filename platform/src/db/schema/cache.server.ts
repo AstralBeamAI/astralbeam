@@ -20,7 +20,7 @@ export const cacheEntry = snakeCase.table(
     namespace: text().notNull(),
     key: text().notNull(),
     // toSchemaStore uses toCodecJson/fromJsonString. Store encoded JSON as text because no JSON-field queries are needed.
-    // Schema validates values, including JSON null. https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/unstable/persistence/KeyValueStore.ts
+    // Schema validates values, including JSON null. https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.118/packages/effect/src/persistence/KeyValueStore.ts
     value: text().notNull(),
     // NULL means indefinite retention. Absolute timestamptz expiry uses the database clock rather than application clocks.
     // Writes add TTL to statement_timestamp(). https://www.postgresql.org/docs/18/functions-datetime.html#FUNCTIONS-DATETIME-CURRENT

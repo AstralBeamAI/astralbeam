@@ -81,6 +81,13 @@
         "responses": {
           "200": {
             "description": "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantPage"
+                }
+              }
+            },
             "headers": {
               "link": {
                 "schema": {
@@ -88,17 +95,17 @@
                 },
                 "required": false
               }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TenantPage"
-                }
-              }
             }
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -111,18 +118,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -135,18 +142,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -159,18 +166,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -183,18 +190,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -207,18 +214,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -231,18 +238,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -255,18 +262,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -279,18 +286,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -303,18 +310,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -327,18 +334,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -351,13 +358,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -385,6 +385,13 @@
         "responses": {
           "201": {
             "description": "TenantRecord",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantRecordEncoded"
+                }
+              }
+            },
             "headers": {
               "location": {
                 "schema": {
@@ -392,17 +399,17 @@
                 },
                 "required": true
               }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TenantRecordEncoded"
-                }
-              }
             }
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -415,18 +422,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -439,18 +446,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -463,18 +470,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -487,18 +494,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -511,18 +518,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -535,18 +542,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -559,18 +566,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -583,18 +590,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -607,18 +614,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -631,18 +638,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -655,13 +662,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -724,6 +724,13 @@
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -736,18 +743,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -760,18 +767,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -784,18 +791,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -808,18 +815,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -832,18 +839,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -856,18 +863,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -880,18 +887,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -904,18 +911,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -928,18 +935,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -952,18 +959,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -976,13 +983,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -1033,6 +1033,13 @@
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1045,18 +1052,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1069,18 +1076,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1093,18 +1100,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1117,18 +1124,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1141,18 +1148,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1165,18 +1172,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1189,18 +1196,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1213,18 +1220,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1237,18 +1244,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1261,18 +1268,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1285,13 +1292,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -1409,6 +1409,13 @@
         "responses": {
           "200": {
             "description": "Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantUserPage"
+                }
+              }
+            },
             "headers": {
               "link": {
                 "schema": {
@@ -1416,17 +1423,17 @@
                 },
                 "required": false
               }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TenantUserPage"
-                }
-              }
             }
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1439,18 +1446,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1463,18 +1470,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1487,18 +1494,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1511,18 +1518,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1535,18 +1542,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1559,18 +1566,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1583,18 +1590,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1607,18 +1614,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1631,18 +1638,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1655,18 +1662,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1679,13 +1686,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -1726,6 +1726,13 @@
         "responses": {
           "201": {
             "description": "TenantUserRecord",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantUserRecordEncoded"
+                }
+              }
+            },
             "headers": {
               "location": {
                 "schema": {
@@ -1733,17 +1740,17 @@
                 },
                 "required": true
               }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TenantUserRecordEncoded"
-                }
-              }
             }
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1756,18 +1763,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1780,18 +1787,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1804,18 +1811,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1828,18 +1835,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1852,18 +1859,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1876,18 +1883,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1900,18 +1907,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1924,18 +1931,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1948,18 +1955,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1972,18 +1979,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -1996,13 +2003,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -2077,6 +2077,13 @@
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2089,18 +2096,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2113,18 +2120,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2137,18 +2144,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2161,18 +2168,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2185,18 +2192,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2209,18 +2216,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2233,18 +2240,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2257,18 +2264,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2281,18 +2288,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2305,18 +2312,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2329,13 +2336,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -2398,6 +2398,13 @@
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2410,18 +2417,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2434,18 +2441,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2458,18 +2465,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2482,18 +2489,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2506,18 +2513,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2530,18 +2537,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2554,18 +2561,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2578,18 +2585,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2602,18 +2609,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2626,18 +2633,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2650,13 +2657,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -2703,6 +2703,13 @@
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2715,18 +2722,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2739,18 +2746,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2763,18 +2770,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2787,18 +2794,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2811,18 +2818,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2835,18 +2842,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2859,18 +2866,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2883,18 +2890,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2907,18 +2914,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2931,18 +2938,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -2955,13 +2962,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -2999,6 +2999,13 @@
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3011,18 +3018,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3035,18 +3042,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3059,18 +3066,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3083,18 +3090,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3107,18 +3114,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3131,18 +3138,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3155,18 +3162,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3179,18 +3186,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3203,18 +3210,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3227,18 +3234,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3251,13 +3258,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -3310,6 +3310,13 @@
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3322,18 +3329,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3346,18 +3353,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3370,18 +3377,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3394,18 +3401,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3418,18 +3425,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3442,18 +3449,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3466,18 +3473,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3490,18 +3497,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3514,18 +3521,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3538,18 +3545,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3562,13 +3569,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -3601,6 +3601,17 @@
         "responses": {
           "200": {
             "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "x-effect-stream": {
+                  "encoding": "uint8array"
+                }
+              }
+            },
             "headers": {
               "content-disposition": {
                 "schema": {
@@ -3614,21 +3625,17 @@
                 },
                 "required": true
               }
-            },
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                },
-                "x-effect-stream": {
-                  "encoding": "uint8array"
-                }
-              }
             }
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3641,18 +3648,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3665,18 +3672,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3689,18 +3696,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3713,18 +3720,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3737,18 +3744,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3761,18 +3768,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3785,18 +3792,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3809,18 +3816,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3833,18 +3840,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3857,18 +3864,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3881,13 +3888,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -3924,6 +3924,13 @@
           },
           "400": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3936,18 +3943,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "401": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3960,18 +3967,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "403": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -3984,18 +3991,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "404": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -4008,18 +4015,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "409": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -4032,18 +4039,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "413": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -4056,18 +4063,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "415": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -4080,18 +4087,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "422": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -4104,18 +4111,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "429": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -4128,18 +4135,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "500": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -4152,18 +4159,18 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           },
           "503": {
             "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
             "headers": {
               "retry-after": {
                 "schema": {
@@ -4176,13 +4183,6 @@
                   "type": "string"
                 },
                 "required": false
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AstralBeamApiError"
-                }
               }
             }
           }
@@ -4194,128 +4194,6 @@
   },
   "components": {
     "schemas": {
-      "TenantRecordEncoded": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "external_id": {
-            "type": "string"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "metadata": {
-            "type": "object",
-            "description": "Customer-defined JSON object; keys are preserved."
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "external_id",
-          "name",
-          "metadata",
-          "created_at",
-          "updated_at"
-        ],
-        "additionalProperties": false,
-        "title": "TenantRecord",
-        "description": "Persisted Tenant; id is internal, external_id is the customer's exact identity.",
-        "examples": [
-          {
-            "id": "019eed68-fd00-7c42-9a61-53b3a890d276",
-            "external_id": "customer-42",
-            "name": "Acme Logistics",
-            "metadata": {
-              "plan": "pro",
-              "region": "eu-west-1"
-            },
-            "created_at": "2026-06-22T09:30:00.000Z",
-            "updated_at": "2026-06-22T09:30:00.000Z"
-          }
-        ]
-      },
-      "TenantPage": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TenantRecordEncoded"
-            }
-          },
-          "page_after": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Pass as page_after to fetch the next page; null means no next page."
-          },
-          "page_before": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Pass as page_before to fetch the previous page; null means no previous page."
-          }
-        },
-        "required": [
-          "items",
-          "page_after",
-          "page_before"
-        ],
-        "additionalProperties": false,
-        "description": "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
-        "examples": [
-          {
-            "items": [
-              {
-                "id": "019eed68-fd00-7c42-9a61-53b3a890d276",
-                "external_id": "customer-42",
-                "name": "Acme Logistics",
-                "metadata": {
-                  "plan": "pro",
-                  "region": "eu-west-1"
-                },
-                "created_at": "2026-06-22T09:30:00.000Z",
-                "updated_at": "2026-06-22T09:30:00.000Z"
-              }
-            ],
-            "page_after": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-            "page_before": null
-          },
-          {
-            "items": [],
-            "page_after": null,
-            "page_before": null
-          }
-        ]
-      },
       "AstralBeamApiError": {
         "type": "object",
         "properties": {
@@ -4360,409 +4238,6 @@
           "title",
           "status",
           "detail"
-        ],
-        "additionalProperties": false
-      },
-      "CreateTenantInput": {
-        "type": "object",
-        "properties": {
-          "external_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255,
-            "description": "Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation."
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Defaults to null on creation. Send null to clear the name."
-          },
-          "metadata": {
-            "type": "object",
-            "description": "Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object."
-          }
-        },
-        "required": [
-          "external_id"
-        ],
-        "additionalProperties": false,
-        "examples": [
-          {
-            "external_id": "customer-42",
-            "name": "Acme Logistics",
-            "metadata": {
-              "plan": "pro",
-              "region": "eu-west-1"
-            }
-          },
-          {
-            "external_id": "customer-42"
-          }
-        ]
-      },
-      "UpdateTenantInput": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Defaults to null on creation. Send null to clear the name."
-          },
-          "metadata": {
-            "type": "object",
-            "description": "Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object."
-          }
-        },
-        "additionalProperties": false,
-        "examples": [
-          {
-            "metadata": {
-              "plan": "enterprise",
-              "region": "eu-west-1"
-            }
-          },
-          {
-            "name": null,
-            "metadata": {}
-          }
-        ],
-        "minProperties": 1
-      },
-      "TenantUserRecordEncoded": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "external_id": {
-            "type": "string"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "metadata": {
-            "type": "object",
-            "description": "Customer-defined JSON object; keys are preserved."
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "tenant_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "admin": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "id",
-          "external_id",
-          "name",
-          "metadata",
-          "created_at",
-          "updated_at",
-          "tenant_id",
-          "admin"
-        ],
-        "additionalProperties": false,
-        "title": "TenantUserRecord",
-        "description": "Persisted TenantUser. Stored admin does not grant or revoke signed JWT authority.",
-        "examples": [
-          {
-            "id": "019eed6a-d1c0-7543-b892-608cb6e174da",
-            "external_id": "user-7",
-            "name": "Alex Morgan",
-            "metadata": {
-              "role": "dispatcher",
-              "department": "operations"
-            },
-            "created_at": "2026-06-22T09:30:00.000Z",
-            "updated_at": "2026-06-22T09:30:00.000Z",
-            "tenant_id": "019eed68-fd00-7c42-9a61-53b3a890d276",
-            "admin": false
-          }
-        ]
-      },
-      "TenantUserPage": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TenantUserRecordEncoded"
-            }
-          },
-          "page_after": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Pass as page_after to fetch the next page; null means no next page."
-          },
-          "page_before": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Pass as page_before to fetch the previous page; null means no previous page."
-          }
-        },
-        "required": [
-          "items",
-          "page_after",
-          "page_before"
-        ],
-        "additionalProperties": false,
-        "description": "Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.",
-        "examples": [
-          {
-            "items": [
-              {
-                "id": "019eed6a-d1c0-7543-b892-608cb6e174da",
-                "external_id": "user-7",
-                "name": "Alex Morgan",
-                "metadata": {
-                  "role": "dispatcher",
-                  "department": "operations"
-                },
-                "created_at": "2026-06-22T09:30:00.000Z",
-                "updated_at": "2026-06-22T09:30:00.000Z",
-                "tenant_id": "019eed68-fd00-7c42-9a61-53b3a890d276",
-                "admin": false
-              }
-            ],
-            "page_after": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-            "page_before": null
-          },
-          {
-            "items": [],
-            "page_after": null,
-            "page_before": null
-          }
-        ]
-      },
-      "CreateTenantUserInput": {
-        "type": "object",
-        "properties": {
-          "external_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255,
-            "description": "Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation."
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Defaults to null on creation. Send null to clear the name."
-          },
-          "metadata": {
-            "type": "object",
-            "description": "Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object."
-          },
-          "admin": {
-            "type": "boolean",
-            "description": "Defaults to false on creation. Stored admin does not change signed JWT authority."
-          }
-        },
-        "required": [
-          "external_id"
-        ],
-        "additionalProperties": false,
-        "examples": [
-          {
-            "external_id": "user-7",
-            "name": "Alex Morgan",
-            "metadata": {
-              "role": "dispatcher",
-              "department": "operations"
-            },
-            "admin": false
-          },
-          {
-            "external_id": "user-7"
-          }
-        ]
-      },
-      "UpdateTenantUserInput": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Defaults to null on creation. Send null to clear the name."
-          },
-          "metadata": {
-            "type": "object",
-            "description": "Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object."
-          },
-          "admin": {
-            "type": "boolean",
-            "description": "Defaults to false on creation. Stored admin does not change signed JWT authority."
-          }
-        },
-        "additionalProperties": false,
-        "examples": [
-          {
-            "name": "Alex Morgan-Smith"
-          },
-          {
-            "name": null,
-            "metadata": {}
-          }
-        ],
-        "minProperties": 1
-      },
-      "Organization": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string",
-            "description": "Editable dashboard URL segment. Use id, not slug, as the stable identity."
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "slug"
-        ],
-        "additionalProperties": false,
-        "examples": [
-          {
-            "id": "019eed68-fd00-7c42-9a61-53b3a890d276",
-            "name": "Acme",
-            "slug": "acme"
-          }
-        ]
-      },
-      "ChatRunInput": {
-        "type": "object",
-        "properties": {
-          "threadId": {
-            "type": "string"
-          },
-          "runId": {
-            "type": "string"
-          },
-          "messages": {
-            "type": "array"
-          },
-          "tools": {
-            "type": "array"
-          },
-          "context": {
-            "type": "array"
-          },
-          "forwardedProps": {
-            "type": "object"
-          },
-          "data": {
-            "type": "object",
-            "description": "Legacy mirror of forwardedProps sent by TanStack AI clients."
-          },
-          "state": {},
-          "parentRunId": {
-            "type": "string"
-          },
-          "resume": {
-            "type": "array"
-          }
-        },
-        "required": [
-          "threadId",
-          "runId",
-          "messages",
-          "tools",
-          "context"
-        ],
-        "additionalProperties": false,
-        "description": "AG-UI RunAgentInput, validated by TanStack AI. Messages, tools, context, and resume entries follow AG-UI. forwardedProps accepts agentId and development-only debug. systemPrompt is rejected. Maximum request size: 32 MiB.",
-        "examples": [
-          {
-            "threadId": "conversation-42",
-            "runId": "run-7",
-            "messages": [
-              {
-                "id": "message-1",
-                "role": "user",
-                "content": "Hello!"
-              }
-            ],
-            "tools": [],
-            "context": []
-          }
-        ]
-      },
-      "ChatConfiguration": {
-        "type": "object",
-        "properties": {
-          "capabilities": {
-            "type": "object",
-            "properties": {
-              "attachments": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "attachments"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "required": [
-          "capabilities"
         ],
         "additionalProperties": false
       },
@@ -4859,6 +4334,495 @@
               "user"
             ],
             "additionalProperties": false
+          }
+        ]
+      },
+      "TenantUserRecordEncoded": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "external_id": {
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Customer-defined JSON object; keys are preserved."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "admin": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "external_id",
+          "name",
+          "metadata",
+          "created_at",
+          "updated_at",
+          "tenant_id",
+          "admin"
+        ],
+        "additionalProperties": false,
+        "title": "TenantUserRecord",
+        "description": "Persisted TenantUser. Stored admin does not grant or revoke signed JWT authority.",
+        "examples": [
+          {
+            "id": "019eed6a-d1c0-7543-b892-608cb6e174da",
+            "external_id": "user-7",
+            "name": "Alex Morgan",
+            "metadata": {
+              "role": "dispatcher",
+              "department": "operations"
+            },
+            "created_at": "2026-06-22T09:30:00.000Z",
+            "updated_at": "2026-06-22T09:30:00.000Z",
+            "tenant_id": "019eed68-fd00-7c42-9a61-53b3a890d276",
+            "admin": false
+          }
+        ]
+      },
+      "TenantRecordEncoded": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "external_id": {
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Customer-defined JSON object; keys are preserved."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "external_id",
+          "name",
+          "metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "title": "TenantRecord",
+        "description": "Persisted Tenant; id is internal, external_id is the customer's exact identity.",
+        "examples": [
+          {
+            "id": "019eed68-fd00-7c42-9a61-53b3a890d276",
+            "external_id": "customer-42",
+            "name": "Acme Logistics",
+            "metadata": {
+              "plan": "pro",
+              "region": "eu-west-1"
+            },
+            "created_at": "2026-06-22T09:30:00.000Z",
+            "updated_at": "2026-06-22T09:30:00.000Z"
+          }
+        ]
+      },
+      "ChatConfiguration": {
+        "type": "object",
+        "properties": {
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "attachments": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "attachments"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "capabilities"
+        ],
+        "additionalProperties": false
+      },
+      "ChatRunInput": {
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array"
+          },
+          "tools": {
+            "type": "array"
+          },
+          "context": {
+            "type": "array"
+          },
+          "forwardedProps": {
+            "type": "object"
+          },
+          "data": {
+            "type": "object",
+            "description": "Legacy mirror of forwardedProps sent by TanStack AI clients."
+          },
+          "state": {},
+          "parentRunId": {
+            "type": "string"
+          },
+          "resume": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "threadId",
+          "runId",
+          "messages",
+          "tools",
+          "context"
+        ],
+        "additionalProperties": false,
+        "description": "AG-UI RunAgentInput, validated by TanStack AI. Messages, tools, context, and resume entries follow AG-UI. forwardedProps accepts agentId and development-only debug. systemPrompt is rejected. Maximum request size: 32 MiB.",
+        "examples": [
+          {
+            "threadId": "conversation-42",
+            "runId": "run-7",
+            "messages": [
+              {
+                "id": "message-1",
+                "role": "user",
+                "content": "Hello!"
+              }
+            ],
+            "tools": [],
+            "context": []
+          }
+        ]
+      },
+      "Organization": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Editable dashboard URL segment. Use id, not slug, as the stable identity."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "id": "019eed68-fd00-7c42-9a61-53b3a890d276",
+            "name": "Acme",
+            "slug": "acme"
+          }
+        ]
+      },
+      "UpdateTenantUserInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to null on creation. Send null to clear the name."
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object."
+          },
+          "admin": {
+            "type": "boolean",
+            "description": "Defaults to false on creation. Stored admin does not change signed JWT authority."
+          }
+        },
+        "additionalProperties": false,
+        "examples": [
+          {
+            "name": "Alex Morgan-Smith"
+          },
+          {
+            "name": null,
+            "metadata": {}
+          }
+        ],
+        "minProperties": 1
+      },
+      "CreateTenantUserInput": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to null on creation. Send null to clear the name."
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object."
+          },
+          "admin": {
+            "type": "boolean",
+            "description": "Defaults to false on creation. Stored admin does not change signed JWT authority."
+          }
+        },
+        "required": [
+          "external_id"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "external_id": "user-7",
+            "name": "Alex Morgan",
+            "metadata": {
+              "role": "dispatcher",
+              "department": "operations"
+            },
+            "admin": false
+          },
+          {
+            "external_id": "user-7"
+          }
+        ]
+      },
+      "TenantUserPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantUserRecordEncoded"
+            }
+          },
+          "page_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as page_after to fetch the next page; null means no next page."
+          },
+          "page_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as page_before to fetch the previous page; null means no previous page."
+          }
+        },
+        "required": [
+          "items",
+          "page_after",
+          "page_before"
+        ],
+        "additionalProperties": false,
+        "description": "Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.",
+        "examples": [
+          {
+            "items": [],
+            "page_after": null,
+            "page_before": null
+          }
+        ]
+      },
+      "UpdateTenantInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to null on creation. Send null to clear the name."
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object."
+          }
+        },
+        "additionalProperties": false,
+        "examples": [
+          {
+            "metadata": {
+              "plan": "enterprise",
+              "region": "eu-west-1"
+            }
+          },
+          {
+            "name": null,
+            "metadata": {}
+          }
+        ],
+        "minProperties": 1
+      },
+      "CreateTenantInput": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to null on creation. Send null to clear the name."
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object."
+          }
+        },
+        "required": [
+          "external_id"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "external_id": "customer-42",
+            "name": "Acme Logistics",
+            "metadata": {
+              "plan": "pro",
+              "region": "eu-west-1"
+            }
+          },
+          {
+            "external_id": "customer-42"
+          }
+        ]
+      },
+      "TenantPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantRecordEncoded"
+            }
+          },
+          "page_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as page_after to fetch the next page; null means no next page."
+          },
+          "page_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as page_before to fetch the previous page; null means no previous page."
+          }
+        },
+        "required": [
+          "items",
+          "page_after",
+          "page_before"
+        ],
+        "additionalProperties": false,
+        "description": "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
+        "examples": [
+          {
+            "items": [],
+            "page_after": null,
+            "page_before": null
           }
         ]
       }

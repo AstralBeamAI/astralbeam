@@ -1,4 +1,4 @@
-import { OpenApi } from "effect/unstable/httpapi"
+import { OpenApi } from "effect/http-api"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { argv } from "node:process"
 import { ApiV1 } from "../src/routes/api/v1/-lib/contract.server.ts"

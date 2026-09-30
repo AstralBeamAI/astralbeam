@@ -1,7 +1,7 @@
-import { OpenApi } from "effect/unstable/httpapi"
+import { OpenApi } from "effect/http-api"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
-import { HttpRouter, HttpServer } from "effect/unstable/http"
-import { RateLimiter } from "effect/unstable/persistence"
+import { HttpRouter, HttpServer } from "effect/http"
+import { RateLimiter } from "effect/persistence"
 import type { SQL } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import { PgDialect } from "drizzle-orm/pg-core"
@@ -1085,10 +1085,15 @@ describe("REST API through the Effect Fetch handler", () => {
 })
 
 describe("REST request boundaries", () => {
-  test("OpenAPI keeps one shared Tenant record model", () => {
+  test("OpenAPI keeps stable shared Tenant and TenantUser record models", () => {
     const document = OpenApi.fromApi(ApiV1)
     expect(
       Object.keys(document.components.schemas).filter((name) => name.startsWith("TenantRecord")),
     ).toEqual(["TenantRecordEncoded"])
+    expect(
+      Object.keys(document.components.schemas).filter((name) =>
+        name.startsWith("TenantUserRecord"),
+      ),
+    ).toEqual(["TenantUserRecordEncoded"])
   })
 })

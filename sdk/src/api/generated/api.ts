@@ -5,35 +5,6 @@ import { astralBeamApiFetch } from "../api.ts"
 import { astralBeamChatFetch } from "../api.ts"
 import { astralBeamJwtFetch } from "../api.ts"
 import { astralBeamFileFetch } from "../api.ts"
-/**
- * Customer-defined JSON object; keys are preserved.
- */
-export type TenantRecordEncodedMetadata = { [key: string]: unknown }
-
-/**
- * Persisted Tenant; id is internal, external_id is the customer's exact identity.
- */
-export interface TenantRecordEncoded {
-  id: string
-  external_id: string
-  name: string | null
-  /** Customer-defined JSON object; keys are preserved. */
-  metadata: TenantRecordEncodedMetadata
-  created_at: string
-  updated_at: string
-}
-
-/**
- * Live keyset page. Pass either non-null continuation value as the same-named request parameter.
- */
-export interface TenantPage {
-  items: TenantRecordEncoded[]
-  /** Pass as page_after to fetch the next page; null means no next page. */
-  page_after: string | null
-  /** Pass as page_before to fetch the previous page; null means no previous page. */
-  page_before: string | null
-}
-
 export type AstralBeamApiErrorIssuesItem = {
   path: string
   message: string
@@ -50,33 +21,21 @@ export interface AstralBeamApiError {
 }
 
 /**
- * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
+ * Customer-defined JSON object; keys are preserved.
  */
-export type CreateTenantInputMetadata = { [key: string]: unknown }
-
-export interface CreateTenantInput {
-  /**
-   * Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation.
-   * @minLength 1
-   * @maxLength 255
-   */
-  external_id: string
-  /** Defaults to null on creation. Send null to clear the name. */
-  name?: string | null
-  /** Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object. */
-  metadata?: CreateTenantInputMetadata
-}
+export type TenantRecordEncodedMetadata = { [key: string]: unknown }
 
 /**
- * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
+ * Persisted Tenant; id is internal, external_id is the customer's exact identity.
  */
-export type UpdateTenantInputMetadata = { [key: string]: unknown }
-
-export interface UpdateTenantInput {
-  /** Defaults to null on creation. Send null to clear the name. */
-  name?: string | null
-  /** Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object. */
-  metadata?: UpdateTenantInputMetadata
+export interface TenantRecordEncoded {
+  id: string
+  external_id: string
+  name: string | null
+  /** Customer-defined JSON object; keys are preserved. */
+  metadata: TenantRecordEncodedMetadata
+  created_at: string
+  updated_at: string
 }
 
 /**
@@ -99,56 +58,34 @@ export interface TenantUserRecordEncoded {
   admin: boolean
 }
 
-/**
- * Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.
- */
-export interface TenantUserPage {
-  items: TenantUserRecordEncoded[]
-  /** Pass as page_after to fetch the next page; null means no next page. */
-  page_after: string | null
-  /** Pass as page_before to fetch the previous page; null means no previous page. */
-  page_before: string | null
+export type CurrentUser =
+  | {
+      scope: "tenant"
+      organization: {
+        id: string
+      }
+      tenant: TenantRecordEncoded
+      user: TenantUserRecordEncoded
+    }
+  | {
+      scope: "organization"
+      organization: {
+        id: string
+      }
+      user: {
+        id: string
+        name: string
+        email: string
+        role: string
+      }
+    }
+
+export type ChatConfigurationCapabilities = {
+  attachments: boolean
 }
 
-/**
- * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
- */
-export type CreateTenantUserInputMetadata = { [key: string]: unknown }
-
-export interface CreateTenantUserInput {
-  /**
-   * Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation.
-   * @minLength 1
-   * @maxLength 255
-   */
-  external_id: string
-  /** Defaults to null on creation. Send null to clear the name. */
-  name?: string | null
-  /** Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object. */
-  metadata?: CreateTenantUserInputMetadata
-  /** Defaults to false on creation. Stored admin does not change signed JWT authority. */
-  admin?: boolean
-}
-
-/**
- * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
- */
-export type UpdateTenantUserInputMetadata = { [key: string]: unknown }
-
-export interface UpdateTenantUserInput {
-  /** Defaults to null on creation. Send null to clear the name. */
-  name?: string | null
-  /** Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object. */
-  metadata?: UpdateTenantUserInputMetadata
-  /** Defaults to false on creation. Stored admin does not change signed JWT authority. */
-  admin?: boolean
-}
-
-export interface Organization {
-  id: string
-  name: string
-  /** Editable dashboard URL segment. Use id, not slug, as the stable identity. */
-  slug: string
+export interface ChatConfiguration {
+  capabilities: ChatConfigurationCapabilities
 }
 
 export type ChatRunInputForwardedProps = { [key: string]: unknown }
@@ -175,35 +112,98 @@ export interface ChatRunInput {
   resume?: unknown[]
 }
 
-export type ChatConfigurationCapabilities = {
-  attachments: boolean
+export interface Organization {
+  id: string
+  name: string
+  /** Editable dashboard URL segment. Use id, not slug, as the stable identity. */
+  slug: string
 }
 
-export interface ChatConfiguration {
-  capabilities: ChatConfigurationCapabilities
+/**
+ * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
+ */
+export type UpdateTenantUserInputMetadata = { [key: string]: unknown }
+
+export interface UpdateTenantUserInput {
+  /** Defaults to null on creation. Send null to clear the name. */
+  name?: string | null
+  /** Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object. */
+  metadata?: UpdateTenantUserInputMetadata
+  /** Defaults to false on creation. Stored admin does not change signed JWT authority. */
+  admin?: boolean
 }
 
-export type CurrentUser =
-  | {
-      scope: "tenant"
-      organization: {
-        id: string
-      }
-      tenant: TenantRecordEncoded
-      user: TenantUserRecordEncoded
-    }
-  | {
-      scope: "organization"
-      organization: {
-        id: string
-      }
-      user: {
-        id: string
-        name: string
-        email: string
-        role: string
-      }
-    }
+/**
+ * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
+ */
+export type CreateTenantUserInputMetadata = { [key: string]: unknown }
+
+export interface CreateTenantUserInput {
+  /**
+   * Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation.
+   * @minLength 1
+   * @maxLength 255
+   */
+  external_id: string
+  /** Defaults to null on creation. Send null to clear the name. */
+  name?: string | null
+  /** Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object. */
+  metadata?: CreateTenantUserInputMetadata
+  /** Defaults to false on creation. Stored admin does not change signed JWT authority. */
+  admin?: boolean
+}
+
+/**
+ * Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.
+ */
+export interface TenantUserPage {
+  items: TenantUserRecordEncoded[]
+  /** Pass as page_after to fetch the next page; null means no next page. */
+  page_after: string | null
+  /** Pass as page_before to fetch the previous page; null means no previous page. */
+  page_before: string | null
+}
+
+/**
+ * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
+ */
+export type UpdateTenantInputMetadata = { [key: string]: unknown }
+
+export interface UpdateTenantInput {
+  /** Defaults to null on creation. Send null to clear the name. */
+  name?: string | null
+  /** Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object. */
+  metadata?: UpdateTenantInputMetadata
+}
+
+/**
+ * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
+ */
+export type CreateTenantInputMetadata = { [key: string]: unknown }
+
+export interface CreateTenantInput {
+  /**
+   * Your stable external identity. Exact and case-sensitive; whitespace is preserved. Immutable after creation.
+   * @minLength 1
+   * @maxLength 255
+   */
+  external_id: string
+  /** Defaults to null on creation. Send null to clear the name. */
+  name?: string | null
+  /** Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object. */
+  metadata?: CreateTenantInputMetadata
+}
+
+/**
+ * Live keyset page. Pass either non-null continuation value as the same-named request parameter.
+ */
+export interface TenantPage {
+  items: TenantRecordEncoded[]
+  /** Pass as page_after to fetch the next page; null means no next page. */
+  page_after: string | null
+  /** Pass as page_before to fetch the previous page; null means no previous page. */
+  page_before: string | null
+}
 
 export type ListTenantsParams = {
   /**

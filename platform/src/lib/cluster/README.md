@@ -38,6 +38,6 @@ PgBouncer uses transaction pooling, so the runner sets `shardLockDisableAdvisory
 
 ## References
 
-- [SqlMessageStorage](https://effect.website/docs/v4/api/effect/unstable/cluster/SqlMessageStorage/) and [SqlRunnerStorage](https://effect.website/docs/v4/api/effect/unstable/cluster/SqlRunnerStorage/) own storage initialization and migrations.
-- [ClusterWorkflowEngine](https://effect.website/docs/v4/api/effect/unstable/cluster/ClusterWorkflowEngine/) connects workflow execution to cluster sharding and message storage.
+- [SqlMessageStorage](https://effect.website/docs/v4/api/effect/cluster/SqlMessageStorage/) and [SqlRunnerStorage](https://effect.website/docs/v4/api/effect/cluster/SqlRunnerStorage/) own storage initialization and migrations.
+- [ClusterWorkflowEngine](https://effect.website/docs/v4/api/effect/cluster/ClusterWorkflowEngine/) connects workflow execution to cluster sharding and message storage.
 - [Workflow API references](../workflows/README.md#references) covers definitions, activities, and durable waits.

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
-import { SqlClient } from "effect/unstable/sql"
+import { SqlClient } from "effect/sql"
 
 import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime.server"
 import { Config } from "@/lib/config/config.server"
@@ -32,7 +32,7 @@ export const requestOrganizationDeletion = createServerFn({ method: "POST" })
         if ((yield* config.get("dogfood_organization_id")) === organizationId) {
           return yield* new DogfoodOrganizationProtected()
         }
-        // Commit the revocation and the purge request together. https://effect.website/docs/v4/api/effect/unstable/workflow/Workflow/
+        // Commit the revocation and the purge request together. https://effect.website/docs/v4/api/effect/workflow/Workflow/
         const sql = yield* SqlClient.SqlClient
         yield* sql
           .withTransaction(

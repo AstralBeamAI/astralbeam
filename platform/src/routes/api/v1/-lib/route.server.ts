@@ -1,5 +1,5 @@
 import { Cause, Effect } from "effect"
-import { HttpServerResponse } from "effect/unstable/http"
+import { HttpServerResponse } from "effect/http"
 
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"

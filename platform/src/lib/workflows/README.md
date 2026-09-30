@@ -4,7 +4,7 @@ Durable workflows run background operations through native Effect APIs and a Pos
 
 ## Scheduling
 
-Declare schedule names, cron expressions, time zones, and missed-run policies in [cron.ts](cron.server.ts), with operation logic in separate workflow modules. Use native [ClusterCron](https://effect.website/docs/v4/api/effect/unstable/cluster/ClusterCron/) for recurring operations on the existing runner. Repeatable operations can run directly. Operations requiring durable checkpoints can submit a registered workflow with a stable domain and occurrence idempotency key.
+Declare schedule names, cron expressions, time zones, and missed-run policies in [cron.ts](cron.server.ts), with operation logic in separate workflow modules. Use native [ClusterCron](https://effect.website/docs/v4/api/effect/cluster/ClusterCron/) for recurring operations on the existing runner. Repeatable operations can run directly. Operations requiring durable checkpoints can submit a registered workflow with a stable domain and occurrence idempotency key.
 
 Register the same cron layer on every replica using shared cluster storage and shard leases. ClusterCron coordinates scheduling and persisted delivery across replicas. Define how late an occurrence may run with `skipIfOlderThan`, and use `calculateNextRunFromPrevious: false` to calculate the next occurrence from completion time instead of replaying missed intervals. Failures are logged and the next occurrence is scheduled. Recovery can repeat an operation, so handlers must remain safe to repeat.
 
@@ -24,7 +24,7 @@ This schematic definition assumes an application-provided `performResourceOperat
 
 ```ts
 import { Effect, Schema } from "effect"
-import { Activity, Workflow } from "effect/unstable/workflow"
+import { Activity, Workflow } from "effect/workflow"
 
 export const resourceOperationWorkflow = Workflow.make("ResourceOperation/v1", {
   payload: {
@@ -75,7 +75,7 @@ When a business change requires a follow-up workflow, write both in the same nat
 This future producer pattern assumes an application-defined `saveBusinessChange` Effect. Both operations must use the same native Effect SQL client and transaction context. Construct the engine or producer layer outside the transaction and provide it at the server boundary.
 
 ```ts
-import { SqlClient } from "effect/unstable/sql"
+import { SqlClient } from "effect/sql"
 
 const submitResourceChange = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
@@ -117,10 +117,10 @@ See the [cluster guide](../cluster/README.md) for storage migrations, readiness 
 
 ## References
 
-- [Workflow](https://effect.website/docs/v4/api/effect/unstable/workflow/Workflow/) defines workflows, execution identity, submission, polling, cancellation, and resumption.
-- [Activity](https://effect.website/docs/v4/api/effect/unstable/workflow/Activity/) provides named durable checkpoints.
-- [DurableClock](https://effect.website/docs/v4/api/effect/unstable/workflow/DurableClock/) and [DurableDeferred](https://effect.website/docs/v4/api/effect/unstable/workflow/DurableDeferred/) provide waits and completion signals.
-- [ClusterWorkflowEngine](https://effect.website/docs/v4/api/effect/unstable/cluster/ClusterWorkflowEngine/) implements workflow execution through cluster entities.
-- [SqlMessageStorage](https://effect.website/docs/v4/api/effect/unstable/cluster/SqlMessageStorage/) and [SqlRunnerStorage](https://effect.website/docs/v4/api/effect/unstable/cluster/SqlRunnerStorage/) document persistence and migration behavior.
+- [Workflow](https://effect.website/docs/v4/api/effect/workflow/Workflow/) defines workflows, execution identity, submission, polling, cancellation, and resumption.
+- [Activity](https://effect.website/docs/v4/api/effect/workflow/Activity/) provides named durable checkpoints.
+- [DurableClock](https://effect.website/docs/v4/api/effect/workflow/DurableClock/) and [DurableDeferred](https://effect.website/docs/v4/api/effect/workflow/DurableDeferred/) provide waits and completion signals.
+- [ClusterWorkflowEngine](https://effect.website/docs/v4/api/effect/cluster/ClusterWorkflowEngine/) implements workflow execution through cluster entities.
+- [SqlMessageStorage](https://effect.website/docs/v4/api/effect/cluster/SqlMessageStorage/) and [SqlRunnerStorage](https://effect.website/docs/v4/api/effect/cluster/SqlRunnerStorage/) document persistence and migration behavior.
 
 Consult the installed effect-ts APIs when implementing workflows because upstream documentation and default branches can evolve.

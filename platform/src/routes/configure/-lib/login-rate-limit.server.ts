@@ -1,6 +1,6 @@
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
-import { RateLimiter } from "effect/unstable/persistence"
+import { RateLimiter } from "effect/persistence"
 
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { DatabaseRateLimiter, rateLimitRetryAfterSeconds } from "@/db/lib/rate-limiter.server"

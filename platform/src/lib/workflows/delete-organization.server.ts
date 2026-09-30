@@ -1,5 +1,5 @@
 import { DateTime, Duration, Effect, Schedule, Schema } from "effect"
-import { Activity, Workflow } from "effect/unstable/workflow"
+import { Activity, Workflow } from "effect/workflow"
 
 import { Mailer } from "../email/email.server.ts"
 import {

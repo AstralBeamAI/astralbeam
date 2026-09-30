@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 
 import { eq, sql } from "drizzle-orm"
 import { Context, Duration, Effect, Layer } from "effect"
-import { RateLimiter } from "effect/unstable/persistence"
+import { RateLimiter } from "effect/persistence"
 
 import { Database } from "@/db/database.server"
 import { rateLimit } from "@/db/schema.server"
@@ -35,7 +35,7 @@ function storeError(cause?: unknown): RateLimiter.RateLimiterError {
 }
 
 // Effect's persistent RateLimiter store extends its window per token, so fixed windows count here.
-// https://github.com/Effect-TS/effect-smol/blob/main/packages/effect/src/unstable/persistence/RateLimiter.ts
+// https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.118/packages/effect/src/persistence/RateLimiter.ts
 export class DatabaseRateLimiter extends Context.Service<
   DatabaseRateLimiter,
   {

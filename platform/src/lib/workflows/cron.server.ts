@@ -1,5 +1,5 @@
 import { Cron } from "effect"
-import { ClusterCron } from "effect/unstable/cluster"
+import { ClusterCron } from "effect/cluster"
 
 import expiredCacheCleanup from "./expired-cache-cleanup.server.ts"
 

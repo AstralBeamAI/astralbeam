@@ -1,12 +1,12 @@
 import { Effect, Schema } from "effect"
-import { HttpServerRequest } from "effect/unstable/http"
+import { HttpServerRequest } from "effect/http"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
   HttpApiGroup,
   HttpApiSchema,
   OpenApi,
-} from "effect/unstable/httpapi"
+} from "effect/http-api"
 import type { ApiV1 } from "../../-lib/contract.server"
 
 const chatRunInput = Schema.Struct({

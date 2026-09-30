@@ -11,7 +11,7 @@ import {
   Ref,
   Result,
 } from "effect"
-import { SqlClient } from "effect/unstable/sql"
+import { SqlClient } from "effect/sql"
 
 import { Database } from "@/db/database.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
