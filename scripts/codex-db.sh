@@ -3,10 +3,10 @@ set -euo pipefail
 
 [ "$(uname -s)" = Linux ] || exit 0
 . /etc/os-release
-if [ "${ID:-}" != ubuntu ] || [ "${VERSION_ID:-}" != 24.04 ]; then
-  echo "Host database installation supports Ubuntu 24.04 only." >&2
-  exit 1
-fi
+case "${ID:-}:${VERSION_ID:-}" in
+  ubuntu:24.04 | debian:13) ;;
+  *) echo "Host database installation supports Ubuntu 24.04 and Debian 13 only." >&2; exit 1 ;;
+esac
 run_as_root() {
   if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
 }
@@ -21,9 +21,10 @@ install_valkey() {
   case "$(dpkg --print-architecture)" in
     arm64) architecture=arm64; checksum=f1477b12c36832dcb8e3e2f83c1a1554a18ab94b204d017e1d8443bff1dade21 ;;
     amd64) architecture=x86_64; checksum=41f5eb5dc88111c5d117821c120c5a9fbcf2bcc3316953f811c04444046ecb28 ;;
-    *) echo "Valkey has no official binary for this Ubuntu architecture." >&2; exit 1 ;;
+    *) echo "Valkey has no official binary for this architecture." >&2; exit 1 ;;
   esac
 
+  # The Noble binaries also use libraries available on Debian 13.
   local archive="valkey-9.1.1-noble-$architecture.tar.gz" download_dir
   if ! valkey-server --version 2>/dev/null | grep -q "v=9.1.1 "; then
     download_dir=$(mktemp -d)
