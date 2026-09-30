@@ -22,7 +22,8 @@ import {
   type SandboxProviderOptions,
   type SandboxTestMetadata,
 } from "../../lib/sandboxes/schemas.ts"
-import { OpenaiApiKeySchema, UuidV7Schema } from "../../lib/schemas.ts"
+import { OpenaiApiKeySchema } from "../../lib/organizations/schemas.ts"
+import { UuidV7Schema } from "../../lib/schemas.ts"
 
 import {
   caseInsensitiveText,

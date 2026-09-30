@@ -1,6 +1,6 @@
 import type { chatParamsFromRequest } from "@tanstack/ai"
 
-import type { ChatAuthTokenPayloadSchema } from "@/lib/schemas"
+import type { ChatAuthTokenPayloadSchema } from "./schemas.ts"
 
 export type ChatParams = Awaited<ReturnType<typeof chatParamsFromRequest>>
 export type ChatMessages = ChatParams["messages"]

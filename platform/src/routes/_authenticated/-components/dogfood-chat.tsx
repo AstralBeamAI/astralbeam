@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 
 import type { OrganizationAccess } from "@/lib/organizations/access"
 import { ASSISTANT_NAME } from "@/lib/constants"
-import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "@/lib/widget-theme"
+import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "../-lib/widget-theme"
 
 const dogfoodChatRoute = getRouteApi("/_authenticated")
 

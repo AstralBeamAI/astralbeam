@@ -2,7 +2,8 @@ import * as Schema from "effect/Schema"
 
 import { ApiKeyCredentialSchema } from "@/lib/api-keys/schemas"
 import { isReservedOrganizationSlug } from "@/lib/organizations/reserved-slugs"
-import { DisplayNameSchema, EmailAddressSchema, SlugSchema, UuidV7Schema } from "@/lib/schemas"
+import { SlugSchema } from "@/lib/organizations/slug"
+import { DisplayNameSchema, EmailAddressSchema, UuidV7Schema } from "@/lib/schemas"
 
 export const OwnerOnboardingInput = Schema.Struct({
   // Better Auth mails the owner's password-reset link, so its own address rules apply.

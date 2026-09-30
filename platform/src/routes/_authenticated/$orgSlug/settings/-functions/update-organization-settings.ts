@@ -3,9 +3,10 @@ import { Effect, Schema } from "effect"
 
 import { Auth } from "@/lib/auth/auth.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
+import { SlugSchema } from "@/lib/organizations/slug"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
-import { DisplayNameSchema, SlugSchema, toValidationSchema } from "@/lib/schemas"
+import { DisplayNameSchema, toValidationSchema } from "@/lib/schemas"
 
 export const updateOrganizationSettings = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["update"] })])

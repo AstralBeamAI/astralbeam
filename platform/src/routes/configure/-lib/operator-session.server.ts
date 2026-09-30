@@ -4,7 +4,7 @@ import { Clock, Effect, Option, Schema } from "effect"
 import { jwtVerify, SignJWT } from "jose"
 
 import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
-import { generateSecret } from "@/lib/generate-secret.server"
+import { generateSecret } from "@/lib/utils.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 
 const OPERATOR_SESSION_COOKIE = "operator_session"

@@ -4,7 +4,11 @@ import { useState } from "react"
 import { useTheme } from "tanstack-router-theme-provider"
 import { cn } from "cn"
 
-import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "@/lib/widget-theme"
+import {
+  widgetDashboardTheme,
+  widgetThemeClassName,
+  widgetThemeStyle,
+} from "../../-lib/widget-theme"
 import directoryCss from "./organization-directory.css?inline"
 
 const organizationDirectoryRoute = getRouteApi("/_authenticated/$orgSlug")
