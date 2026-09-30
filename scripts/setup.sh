@@ -37,6 +37,8 @@ WORKSPACE_APPS=(platform www sdk cli examples/todos examples/linearity-react)
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
+  # Pre-provisioned cloud images can run dependencies and Compose without host package privileges.
+  [ "${SKIP_SYSTEM_PACKAGES:-false}" = true ] && return 0
 
   run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
 if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev postgresql-common libsystemd0 libssl3t64 >/dev/null 2>&1; then
