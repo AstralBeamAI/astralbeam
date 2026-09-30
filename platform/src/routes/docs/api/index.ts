@@ -7,17 +7,19 @@ import {
   APP_WORDMARK_DARK_SVG_URL,
   APP_WORDMARK_LIGHT_SVG_URL,
 } from "@/lib/constants"
+import { findDocsSection } from "../-lib/content"
 
 export const Route = createFileRoute("/docs/api/")({
   server: {
     handlers: {
       GET: async () => {
         const { apiDocsHtml } = await import("../-lib/scalar.server")
+        const { title } = findDocsSection("api")!
         // A static copy of the React `DocsNavbar`, since Scalar renders outside the app's React tree.
         const html = apiDocsHtml().replace(
           "<body>",
           `<body><header class="docs-header api-docs-header">
-              <a class="docs-logo" href="/docs" aria-label="${APP_NAME} home">
+              <a class="docs-logo" href="/" aria-label="${APP_NAME} home">
                 <span class="docs-marks">
                   <img class="docs-mark docs-light" src="${APP_LOGO_LIGHT_SVG_URL}" alt="">
                   <img class="docs-mark docs-dark" src="${APP_LOGO_DARK_SVG_URL}" alt="">
@@ -27,6 +29,12 @@ export const Route = createFileRoute("/docs/api/")({
                   <img class="docs-wordmark docs-dark" src="${APP_WORDMARK_DARK_SVG_URL}" alt="">
                 </span>
               </a>
+              <div class="docs-crumbs">
+                <span aria-hidden="true">/</span>
+                <a class="docs-nav-link" href="/docs">Docs</a>
+                <span aria-hidden="true">/</span>
+                <a class="docs-nav-link" href="/docs/api" aria-current="page">${title}</a>
+              </div>
               <nav aria-label="Main">
                 <button type="button" class="docs-theme-toggle" data-docs-theme-toggle aria-label="Toggle theme" title="Toggle theme">
                   <svg class="docs-dark" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"/></svg>

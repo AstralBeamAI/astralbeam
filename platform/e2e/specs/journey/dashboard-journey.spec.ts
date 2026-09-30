@@ -96,9 +96,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       "Agents",
       "Sandboxes",
       "API keys",
-      "Members",
       "Tenants",
-      "Tenant users",
+      "Users",
+      "Members",
       "Settings",
     ])
   })

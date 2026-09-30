@@ -2,7 +2,6 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 
 import { Spinner } from "@/components/ui/spinner"
 import { AppShell } from "../-components/app-shell"
-import { AppSidebar } from "../-components/app-sidebar"
 import { getLandingOrganization } from "../-lib/landing-organization"
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -24,7 +23,7 @@ function SettingsLayout() {
   const { organization } = Route.useLoaderData()
 
   return (
-    <AppShell sidebar={<AppSidebar organization={organization} />}>
+    <AppShell organization={organization}>
       <Outlet />
     </AppShell>
   )

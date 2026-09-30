@@ -23,19 +23,33 @@ export function UnderNavbar({ children }: { children: ReactNode }) {
 }
 
 type NavbarProps = {
-  logoTo?: "/" | "/docs"
+  /** Leaves through a full navigation, for pages that load without the auth providers. */
+  reloadDocument?: boolean
   /** Shows the full wordmark from the `sm` breakpoint up, and the AB mark below it. */
   wordmark?: boolean
   start?: ReactNode
+  /** `NavbarCrumb` segments after the logo, in a container that picks its own breakpoint. */
+  crumbs?: ReactNode
   children?: ReactNode
 }
 
 /** The full-width top bar every page renders, with its links and the theme toggle at the end. */
-export function Navbar({ logoTo = "/", wordmark = false, start, children }: NavbarProps) {
+export function Navbar({
+  reloadDocument = false,
+  wordmark = false,
+  start,
+  crumbs,
+  children,
+}: NavbarProps) {
   return (
     <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3 sm:px-4">
       {start}
-      <Link to={logoTo} aria-label={`${APP_NAME} home`} className="flex shrink-0 items-center">
+      <Link
+        to="/"
+        reloadDocument={reloadDocument}
+        aria-label={`${APP_NAME} home`}
+        className="flex shrink-0 items-center"
+      >
         <span className={cn("contents", wordmark && "sm:hidden")}>
           <img src={APP_LOGO_LIGHT_SVG_URL} alt="" className="size-8 dark:hidden" />
           <img src={APP_LOGO_DARK_SVG_URL} alt="" className="hidden size-8 dark:block" />
@@ -51,12 +65,25 @@ export function Navbar({ logoTo = "/", wordmark = false, start, children }: Navb
           </span>
         )}
       </Link>
+      {crumbs}
       {/* The margins even out the visible gaps beside the toggle icon and the boxed buttons. */}
       <nav aria-label="Main" className="ms-auto flex items-center gap-1">
         <ThemeToggle className="me-1" />
         {children}
       </nav>
     </header>
+  )
+}
+
+/** A `/`-led segment after the navbar logo. */
+export function NavbarCrumb({ children }: { children: ReactNode }) {
+  return (
+    <>
+      <span aria-hidden="true" className="px-1 text-muted-foreground">
+        /
+      </span>
+      {children}
+    </>
   )
 }
 
@@ -92,9 +119,33 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
   )
 }
 
-export function DocsNavbar() {
+export function DocsNavbar({ section }: { section?: { slug: string; title: string } | undefined }) {
   return (
-    <Navbar logoTo="/docs" wordmark>
+    <Navbar
+      reloadDocument
+      wordmark
+      crumbs={
+        // Below `sm` the trail would crowd the links, and the logo alone leads home.
+        <div className="hidden min-w-0 items-center gap-1 sm:flex">
+          <NavbarCrumb>
+            <Link to="/docs" activeOptions={{ exact: true }} className={navLinkClassName}>
+              Docs
+            </Link>
+          </NavbarCrumb>
+          {section && (
+            <NavbarCrumb>
+              <Link
+                to="/docs/$section"
+                params={{ section: section.slug }}
+                className={cn(navLinkClassName, "min-w-0")}
+              >
+                <span className="truncate">{section.title}</span>
+              </Link>
+            </NavbarCrumb>
+          )}
+        </div>
+      }
+    >
       <a href="/" className={navLinkClassName}>
         Home
       </a>
