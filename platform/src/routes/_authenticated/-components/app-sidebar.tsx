@@ -9,9 +9,7 @@ import {
   IdentificationBadgeIcon,
   KeyIcon,
   RobotIcon,
-  ShieldCheckIcon,
   SlidersHorizontalIcon,
-  UserCircleIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
@@ -19,7 +17,6 @@ import type { Organization } from "better-auth/client"
 import { type ComponentProps, useEffect } from "react"
 
 import { OrganizationSwitcher } from "@/components/auth/organization/organization-switcher"
-import { UserButton } from "@/components/auth/user/user-button"
 // Load the Better Auth UI Link module augmentation used by useAuth().
 import type {} from "@/components/auth/auth-provider"
 import {
@@ -37,6 +34,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import type { OrganizationAccess, OrganizationPermissions } from "@/lib/organizations/access"
+import { AppUserButton } from "./app-user-button"
 
 type OrganizationNavigationEntry = {
   label: string
@@ -50,7 +48,7 @@ const organizationNavigation = [
   { label: "Home", segment: "", icon: HouseIcon },
   { label: "Agents", segment: "agents", icon: RobotIcon, permission: "readConfiguration" },
   { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
-  { label: "API keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
+  { label: "API Keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
   { label: "Tenants", segment: "tenants", icon: BriefcaseIcon, permission: "readTenants" },
   {
     label: "Users",
@@ -71,9 +69,8 @@ const carriedSegments = new Set(
   organizationNavigation.map((entry) => entry.segment).filter(Boolean),
 )
 
-export type AppSidebarProps = Omit<ComponentProps<typeof Sidebar>, "children"> & {
-  /** Null on the user-level settings pages of a user who has no organization yet. */
-  organization: OrganizationAccess | null
+type AppSidebarProps = Omit<ComponentProps<typeof Sidebar>, "children"> & {
+  organization: OrganizationAccess
 }
 
 function organizationPath(slug: string, segment: string): string {
@@ -102,9 +99,7 @@ export function AppOrganizationSwitcher({
     setOpenMobile(false)
     if (!next?.slug) return
     void navigate({
-      href: organization
-        ? organizationSwitchPath(pathname, organization.organizationSlug, next.slug)
-        : `/${next.slug}`,
+      href: organizationSwitchPath(pathname, organization.organizationSlug, next.slug),
     })
   }
 
@@ -114,15 +109,11 @@ export function AppOrganizationSwitcher({
       size={isMobile ? "md" : "sm"}
       hidePersonal
       hideSettings
-      {...(organization
-        ? {
-            organization: {
-              id: organization.organizationId,
-              name: organization.organizationName,
-              slug: organization.organizationSlug,
-            },
-          }
-        : {})}
+      organization={{
+        id: organization.organizationId,
+        name: organization.organizationName,
+        slug: organization.organizationSlug,
+      }}
       setActive={switchOrganization}
       onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}` })}
       className={className}
@@ -131,7 +122,7 @@ export function AppOrganizationSwitcher({
 }
 
 export function AppSidebar({ organization, ...props }: AppSidebarProps) {
-  const { Link, localization } = useAuth()
+  const { Link } = useAuth()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { isMobile, setOpenMobile } = useSidebar()
 
@@ -148,68 +139,45 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       )}
 
       <SidebarContent>
-        {organization && (
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <nav aria-label="Organization navigation">
-                <SidebarMenu>
-                  {organizationNavigation.map((item) => {
-                    if (item.permission && !organization.permissions[item.permission]) return null
-                    const href = organizationPath(organization.organizationSlug, item.segment)
-                    const isActive =
-                      item.segment === ""
-                        ? pathname === href
-                        : pathname === href || pathname.startsWith(`${href}/`)
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <nav aria-label="Organization navigation">
+              <SidebarMenu>
+                {organizationNavigation.map((item) => {
+                  if (item.permission && !organization.permissions[item.permission]) return null
+                  const href = organizationPath(organization.organizationSlug, item.segment)
+                  const isActive =
+                    item.segment === ""
+                      ? pathname === href
+                      : pathname === href || pathname.startsWith(`${href}/`)
 
-                    return (
-                      <SidebarMenuItem key={item.segment}>
-                        <SidebarMenuButton
-                          render={<Link href={href} onClick={() => setOpenMobile(false)} />}
-                          isActive={isActive}
-                          tooltip={item.label}
-                          {...(isActive ? { "aria-current": "page" } : {})}
-                        >
-                          <item.icon aria-hidden="true" />
-                          <span>{item.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
-                </SidebarMenu>
-              </nav>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+                  return (
+                    <SidebarMenuItem key={item.segment}>
+                      <SidebarMenuButton
+                        render={<Link href={href} onClick={() => setOpenMobile(false)} />}
+                        isActive={isActive}
+                        tooltip={item.label}
+                        {...(isActive ? { "aria-current": "page" } : {})}
+                      >
+                        <item.icon aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </nav>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
         {/* Only the collapsed rail shows the expand trigger, stacked above the avatar. Expanded, the
             rail's hover handle collapses the sidebar. */}
         <div className="flex items-center group-data-[collapsible=icon]:flex-col-reverse group-data-[collapsible=icon]:gap-1">
-          <UserButton
+          <AppUserButton
             align="start"
-            hideSettings
-            links={[
-              {
-                href: "/settings/account",
-                icon: <UserCircleIcon className="text-muted-foreground" />,
-                label: localization.settings.account,
-                visibility: "authenticated",
-              },
-              {
-                href: "/settings/security",
-                icon: <ShieldCheckIcon className="text-muted-foreground" />,
-                label: localization.settings.security,
-                visibility: "authenticated",
-              },
-              {
-                href: "/organizations",
-                icon: <BriefcaseIcon className="text-muted-foreground" />,
-                label: "Organizations",
-                visibility: "authenticated",
-              },
-            ]}
-            className="min-w-0 flex-1 justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
+            className="min-w-0 flex-1 justify-start pe-1 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
           />
           {!isMobile && (
             <SidebarTrigger className="hidden group-data-[collapsible=icon]:inline-flex" />

@@ -6,7 +6,7 @@ export type OrganizationSection =
   | "Home"
   | "Agents"
   | "Sandboxes"
-  | "API keys"
+  | "API Keys"
   | "Members"
   | "Settings"
 

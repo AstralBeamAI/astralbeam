@@ -16,8 +16,8 @@ import { AppOrganizationSwitcher, AppSidebar } from "./app-sidebar"
 import { DogfoodChatTrigger } from "./dogfood-chat"
 
 type AppShellProps = {
-  /** Null for a user without an organization, and undefined while the organization layout loads. */
-  organization?: OrganizationAccess | null
+  /** Undefined while the organization layout loads. */
+  organization?: OrganizationAccess
   children: ReactNode
 }
 

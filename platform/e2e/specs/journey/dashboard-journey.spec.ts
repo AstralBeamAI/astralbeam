@@ -77,6 +77,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
 
   await test.step("verification signs the new account in and asks it for an organization", async () => {
     await onboarding.expectVisible()
+    // User-level pages drop the organization sidebar but keep the user's own menu.
+    await expect(shell.navigation).toBeHidden()
+    await expect(page.getByRole("button", { name: "Account", exact: true })).toBeVisible()
     await captureMilestone(page, "03-onboarding")
     await onboarding.openCreateOrganization()
     await organizationDialog.create(identity.organizationName, identity.organizationSlug)
@@ -95,7 +98,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       "Home",
       "Agents",
       "Sandboxes",
-      "API keys",
+      "API Keys",
       "Tenants",
       "Users",
       "Members",
@@ -142,7 +145,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   })
 
   await test.step("the owner issues API keys and revokes all but the last", async () => {
-    await shell.openSection("API keys", "API keys")
+    await shell.openSection("API Keys", "API keys")
     const keyName = `Journey key ${identity.runId}`
     const lastKeyName = `Journey last key ${identity.runId}`
     const credential = await apiKeys.createKey(keyName)
@@ -178,6 +181,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
 
   await test.step("the owner updates their own account and reviews security settings", async () => {
     await shell.openUserMenuItem(/^account$/i, "Account settings")
+    await expect(shell.navigation).toBeHidden()
     await userSettings.setDisplayName(`${identity.name} Updated`)
     await captureMilestone(page, "10-account-settings")
 
@@ -201,6 +205,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await page.goto("/organizations")
     await expect(page.getByRole("heading", { level: 1, name: "Organizations" })).toBeVisible()
     await expect(page.getByText(identity.secondOrganizationName)).toBeVisible()
+    await expect(shell.navigation).toBeHidden()
     await captureMilestone(page, "11-organizations")
   })
 
