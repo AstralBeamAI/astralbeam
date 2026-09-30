@@ -13,6 +13,13 @@ package_version() {
   sed -n 's/^  "version": "\(.*\)",$/\1/p' "$1/package.json"
 }
 
+yes=false
+case "${1:-}" in
+  -y | --yes) yes=true ;;
+  "") ;;
+  *) fail "usage: deno task release [-y]" ;;
+esac
+
 [ "$(git branch --show-current)" = "main" ] || fail "run this from the main branch"
 [ -z "$(git status --porcelain)" ] || fail "commit or discard local changes first"
 
@@ -33,8 +40,10 @@ echo "Commits since $previous_tag:"
 git log --oneline "$previous_tag..HEAD"
 echo
 
-read -r -p "Tag $(git rev-parse --short HEAD) as $tag and push it to release? [y/N] " answer
-[ "$answer" = "y" ] || [ "$answer" = "Y" ] || fail "cancelled"
+if [ "$yes" = false ]; then
+  read -r -p "Tag $(git rev-parse --short HEAD) as $tag and push it to release? [y/N] " answer
+  [ "$answer" = "y" ] || [ "$answer" = "Y" ] || fail "cancelled"
+fi
 
 git tag "$tag"
 git push origin "$tag"
