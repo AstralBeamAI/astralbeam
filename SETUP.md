@@ -89,10 +89,10 @@ Codex Cloud runs on Ubuntu and uses `INSTALL_EXTRA=codex-db SKIP_DOCKER_COMPOSE=
 The host database extra also supports Debian 13 and requires root or `sudo`. On a pre-provisioned Debian image with Docker access but no host package privileges, run from the repository root:
 
 ```sh
-SKIP_SYSTEM_PACKAGES=true SKIP_DOCKER_COMPOSE=false INSTALL_EXTRA= bash scripts/setup.sh
+SKIP_DOCKER_COMPOSE=false INSTALL_EXTRA= bash scripts/setup.sh
 ```
 
-This skips OS package installation and uses Compose for PostgreSQL, PgBouncer, Valkey, and Mailpit. Deno installation, frozen project dependencies, migrations, seeding, and the SDK build still run.
+Setup automatically skips OS package installation when neither root nor `sudo` is available and uses the image's existing tools. Compose supplies PostgreSQL, PgBouncer, Valkey, and Mailpit. Deno installation, frozen project dependencies, migrations, seeding, and the SDK build still run.
 
 See the setup guides for [Codex](.codex/README.md) and [Cursor Cloud Agents](.cursor/README.md).
 
