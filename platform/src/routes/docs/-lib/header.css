@@ -84,10 +84,6 @@
   padding: 0 4px;
 }
 
-.docs-crumbs .docs-nav-link:not([aria-current]) {
-  color: var(--muted-foreground);
-}
-
 .docs-nav-primary {
   margin-inline-start: 10px;
 }

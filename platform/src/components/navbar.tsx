@@ -87,11 +87,6 @@ export function NavbarCrumb({ children }: { children: ReactNode }) {
   )
 }
 
-const crumbLinkClassName = cn(
-  navLinkClassName,
-  "text-muted-foreground aria-[current]:text-foreground",
-)
-
 export function DocsLink() {
   return (
     <Link to="/docs" className={navLinkClassName}>
@@ -133,7 +128,7 @@ export function DocsNavbar({ section }: { section?: { slug: string; title: strin
         // Below `sm` the trail would crowd the links, and the logo alone leads home.
         <div className="hidden min-w-0 items-center gap-1 sm:flex">
           <NavbarCrumb>
-            <Link to="/docs" activeOptions={{ exact: true }} className={crumbLinkClassName}>
+            <Link to="/docs" activeOptions={{ exact: true }} className={navLinkClassName}>
               Docs
             </Link>
           </NavbarCrumb>
@@ -142,7 +137,7 @@ export function DocsNavbar({ section }: { section?: { slug: string; title: strin
               <Link
                 to="/docs/$section"
                 params={{ section: section.slug }}
-                className={cn(crumbLinkClassName, "min-w-0")}
+                className={cn(navLinkClassName, "min-w-0")}
               >
                 <span className="truncate">{section.title}</span>
               </Link>
