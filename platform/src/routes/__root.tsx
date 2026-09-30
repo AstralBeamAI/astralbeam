@@ -19,6 +19,7 @@ import { Effect } from "effect"
 
 import { AuthProvider } from "@/components/auth/auth-provider"
 import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
+import { PublicNavbar } from "@/components/navbar"
 import { PublicConfigProvider } from "@/components/public-config-provider"
 import { Toaster } from "@/components/ui/toast"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
@@ -169,10 +170,13 @@ export const Route = createRootRouteWithContext<{
     ],
   }),
   notFoundComponent: () => (
-    <main className="container mx-auto p-4 pt-16">
-      <h1>404</h1>
-      <p>The requested page could not be found.</p>
-    </main>
+    <>
+      <PublicNavbar />
+      <main className="container mx-auto p-4 pt-16">
+        <h1>404</h1>
+        <p>The requested page could not be found.</p>
+      </main>
+    </>
   ),
   shellComponent: RootDocument,
 })

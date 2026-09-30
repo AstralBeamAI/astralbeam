@@ -2,7 +2,6 @@
 
 import { useAuth } from "@better-auth-ui/react"
 import {
-  BookOpenTextIcon,
   BriefcaseIcon,
   CubeIcon,
   HouseIcon,
@@ -10,6 +9,7 @@ import {
   KeyIcon,
   RobotIcon,
   ShieldCheckIcon,
+  SidebarIcon,
   SlidersHorizontalIcon,
   UserCircleIcon,
   UsersThreeIcon,
@@ -93,7 +93,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
   const { Link, localization } = useAuth()
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const { isMobile, setOpenMobile } = useSidebar()
+  const { isMobile, open, setOpenMobile, toggleSidebar } = useSidebar()
 
   useEffect(() => {
     setOpenMobile(false)
@@ -169,17 +169,16 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link href="/docs" onClick={() => setOpenMobile(false)} />}
-              tooltip="Documentation"
-            >
-              <BookOpenTextIcon aria-hidden="true" />
-              <span>Documentation</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {!isMobile && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={toggleSidebar} tooltip="Expand sidebar">
+                <SidebarIcon aria-hidden="true" className="rtl:rotate-180" />
+                <span>{open ? "Collapse sidebar" : "Expand sidebar"}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
         <UserButton
           align="start"
           hideSettings

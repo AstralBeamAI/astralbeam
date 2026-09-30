@@ -9,6 +9,7 @@
 - `src/components/ui` contains registry-generated shadcn UI components. Keep it excluded from Oxlint, oxfmt, and automatic fixes. Make only intentional integration edits and record every divergence in the file's provenance header.
   - Better Auth UI output under `src/components/auth` and `src/lib/auth`, and Emailcn output under `src/emails`, follow the same provenance rule: retain the registry command, source, and local changes. Preserve earlier provenance when replacing a source and centralize shared email changes outside imported templates.
 - Build shared components under `src/components` with shadcn/ui primitives.
+- Give every page, including fallback pages, a full-width navbar built on `Navbar` in `src/components/navbar.tsx`: `AppShell` for signed-in pages, `DocsNavbar` for docs, and `PublicNavbar` elsewhere. Wrap a layout's outlet in `UnderNavbar` so its fallback pages skip a second navbar.
 - Give icon-only controls an accessible name and hover explanation, usually `aria-label` and `title`. Use a Tooltip when richer content is needed.
 - Present form validation errors beside their fields, associate them with the inputs for accessibility, and use Effect's structured issues instead of displaying raw schema paths.
 - Keep single-use private states, skeletons, and rows in their consumer unless reuse or substantial complexity warrants extraction.

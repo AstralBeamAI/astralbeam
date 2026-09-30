@@ -2,6 +2,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react"
 import { type ErrorComponentProps, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 
+import { PublicNavbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { useToastManager } from "@/components/ui/toast"
 import { APP_NAME } from "@/lib/constants"
@@ -43,33 +44,36 @@ export function RouteErrorBoundary({ error }: ErrorComponentProps) {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-4">
-      <section
-        aria-labelledby="route-error-title"
-        className="w-full max-w-md border bg-card p-6 text-card-foreground shadow-sm"
-      >
-        <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-          {APP_NAME}
-        </p>
-        <h1 id="route-error-title" className="mt-2 text-xl font-semibold tracking-tight">
-          Something went wrong
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          We couldn&apos;t load this page. Try again in a moment.
-        </p>
-        {reference && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            If this keeps happening, share reference <code>{reference}</code> with support.
+    <div className="flex min-h-svh flex-col">
+      <PublicNavbar />
+      <div className="flex flex-1 items-center justify-center p-4">
+        <section
+          aria-labelledby="route-error-title"
+          className="w-full max-w-md border bg-card p-6 text-card-foreground shadow-sm"
+        >
+          <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+            {APP_NAME}
           </p>
-        )}
-        <Button type="button" className="mt-5" disabled={isRetrying} onClick={() => void retry()}>
-          <ArrowClockwiseIcon
-            aria-hidden="true"
-            className={isRetrying ? "animate-spin" : undefined}
-          />
-          {isRetrying ? "Retrying…" : "Try again"}
-        </Button>
-      </section>
+          <h1 id="route-error-title" className="mt-2 text-xl font-semibold tracking-tight">
+            Something went wrong
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            We couldn&apos;t load this page. Try again in a moment.
+          </p>
+          {reference && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              If this keeps happening, share reference <code>{reference}</code> with support.
+            </p>
+          )}
+          <Button type="button" className="mt-5" disabled={isRetrying} onClick={() => void retry()}>
+            <ArrowClockwiseIcon
+              aria-hidden="true"
+              className={isRetrying ? "animate-spin" : undefined}
+            />
+            {isRetrying ? "Retrying…" : "Try again"}
+          </Button>
+        </section>
+      </div>
     </div>
   )
 }
