@@ -6,6 +6,7 @@ import {
   CubeIcon,
   HouseIcon,
   type Icon,
+  IdentificationBadgeIcon,
   KeyIcon,
   RobotIcon,
   ShieldCheckIcon,
@@ -50,7 +51,6 @@ const organizationNavigation = [
   { label: "Agents", segment: "agents", icon: RobotIcon, permission: "readConfiguration" },
   { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
   { label: "API keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
-  { label: "Members", segment: "members", icon: UsersThreeIcon },
   { label: "Tenants", segment: "tenants", icon: BriefcaseIcon, permission: "readTenants" },
   {
     label: "Users",
@@ -58,6 +58,7 @@ const organizationNavigation = [
     icon: UsersThreeIcon,
     permission: "readTenants",
   },
+  { label: "Members", segment: "members", icon: IdentificationBadgeIcon },
   {
     label: "Settings",
     segment: "settings",
@@ -182,7 +183,8 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
-        {/* Collapsed, the column stacks the expand trigger above the avatar. */}
+        {/* Only the collapsed rail shows the expand trigger, stacked above the avatar. Expanded, the
+            rail's hover handle collapses the sidebar. */}
         <div className="flex items-center group-data-[collapsible=icon]:flex-col-reverse group-data-[collapsible=icon]:gap-1">
           <UserButton
             align="start"
@@ -207,9 +209,11 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
                 visibility: "authenticated",
               },
             ]}
-            className="min-w-0 flex-1 justify-start pe-0 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
+            className="min-w-0 flex-1 justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
           />
-          {!isMobile && <SidebarTrigger />}
+          {!isMobile && (
+            <SidebarTrigger className="hidden group-data-[collapsible=icon]:inline-flex" />
+          )}
         </div>
       </SidebarFooter>
 

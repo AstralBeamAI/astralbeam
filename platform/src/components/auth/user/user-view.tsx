@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/user-button
-// Local changes: remove username-plugin fields and apply strict optional typing.
+// Local changes: remove username-plugin fields, apply strict optional typing, and optionally wrap the name and email.
 
 import { useAuth, useSession } from "@better-auth-ui/react"
 import type { User } from "better-auth"
@@ -18,6 +18,8 @@ export type UserViewProps = {
   hideSubtitle?: boolean
   /** @remarks `User` */
   user?: Partial<User> | undefined
+  /** Wraps a long name or email onto more lines instead of truncating it. */
+  wrap?: boolean
 }
 
 /**
@@ -29,7 +31,13 @@ export type UserViewProps = {
  * @param user - Optional user object to display; when omitted the current session user is used
  * @returns A React element showing the user's avatar with their identifying information
  */
-export function UserView({ className, isPending, hideSubtitle = false, user }: UserViewProps) {
+export function UserView({
+  className,
+  isPending,
+  hideSubtitle = false,
+  user,
+  wrap = false,
+}: UserViewProps) {
   const { authClient } = useAuth()
   const { data: session, isPending: sessionPending } = useSession(authClient, {
     enabled: !user && !isPending,
@@ -56,12 +64,16 @@ export function UserView({ className, isPending, hideSubtitle = false, user }: U
       <UserAvatar {...(resolvedUser ? { user: resolvedUser } : {})} />
 
       <div className="grid min-w-0 flex-1 text-start text-sm leading-tight">
-        <span className="truncate font-medium text-foreground">
+        <span className={cn("font-medium text-foreground", wrap ? "wrap-anywhere" : "truncate")}>
           {resolvedUser?.name || resolvedUser?.email}
         </span>
 
         {!hideSubtitle && resolvedUser?.name && (
-          <span className="text-muted-foreground truncate text-xs">{resolvedUser?.email}</span>
+          <span
+            className={cn("text-muted-foreground text-xs", wrap ? "wrap-anywhere" : "truncate")}
+          >
+            {resolvedUser?.email}
+          </span>
         )}
       </div>
     </div>
