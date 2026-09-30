@@ -11,10 +11,10 @@ import {
   ShardingConfig,
   SqlMessageStorage,
   SqlRunnerStorage,
-} from "effect/unstable/cluster"
-import { HttpServer } from "effect/unstable/http"
-import { NetAddress } from "effect/unstable/net"
-import { RpcSerialization } from "effect/unstable/rpc"
+} from "effect/cluster"
+import { HttpServer } from "effect/http"
+import { NetAddress } from "effect/net"
+import { RpcSerialization } from "effect/rpc"
 
 import { ClusterRunnerSettingsInvalid } from "./errors.ts"
 

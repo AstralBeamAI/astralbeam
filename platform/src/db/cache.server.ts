@@ -1,6 +1,6 @@
 import { Duration, Effect, Schema } from "effect"
-import { KeyValueStore } from "effect/unstable/persistence"
-import { SqlClient } from "effect/unstable/sql"
+import { KeyValueStore } from "effect/persistence"
+import { SqlClient } from "effect/sql"
 import {
   DATABASE_CACHE_KEY_MAX_LENGTH,
   DATABASE_CACHE_NAMESPACE_MAX_LENGTH,

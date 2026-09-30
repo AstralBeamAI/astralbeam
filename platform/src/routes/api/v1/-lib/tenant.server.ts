@@ -5,11 +5,10 @@ import {
   HttpApiGroup,
   HttpApiSchema,
   OpenApi,
-} from "effect/unstable/httpapi"
+} from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
 import {
   restEmptyPage,
-  restExamplePageCursors,
   restPageFields,
   restPageHeaders,
   restPageQuery,
@@ -72,9 +71,11 @@ export const tenantRestPage = Schema.Struct({
   items: Schema.Array(TenantRecordSchema),
   ...restPageFields,
 }).pipe(
-  Schema.annotateEncoded({
+  // annotateEncoded flips nested codecs and duplicates record identities. Keep this envelope on annotate.
+  // https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.118/packages/effect/src/Schema.ts#L686-L688
+  Schema.annotate({
     identifier: "TenantPage",
-    examples: [{ items: [restExampleTenant], ...restExamplePageCursors }, restEmptyPage],
+    examples: [restEmptyPage],
     description:
       "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
   }),

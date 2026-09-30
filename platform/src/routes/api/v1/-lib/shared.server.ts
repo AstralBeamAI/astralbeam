@@ -1,7 +1,7 @@
 import { NonEmptyStringSchema, enumSchema } from "../../../../lib/schemas.ts"
 import { Context, Predicate, Schema, SchemaGetter } from "effect"
-import { HttpServerResponse } from "effect/unstable/http"
-import { HttpApiMiddleware, HttpApiSchema } from "effect/unstable/httpapi"
+import { HttpServerResponse } from "effect/http"
+import { HttpApiMiddleware, HttpApiSchema } from "effect/http-api"
 import type { OrganizationCurrentUser } from "@/lib/auth/organization-token.server"
 import type { TenantScope } from "@/lib/tenants/tenants.server"
 import { APP_HANDLE } from "../../../../lib/constants.ts"
@@ -10,11 +10,6 @@ import { TenantExternalIdSchema } from "../../../../lib/tenants/schemas.ts"
 export const restEmptyPage = { items: [], page_after: null, page_before: null }
 export const restResourceSecurity = {
   security: [{ OrganizationApiKey: [] }, { astralBeamToken: [] }, { organizationToken: [] }],
-}
-export const restExamplePageCursors = {
-  page_after:
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
-  page_before: null,
 }
 export const tenantRestKeys = {
   externalId: "external_id",

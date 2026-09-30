@@ -5,8 +5,8 @@ import {
   HttpServerError,
   HttpServerRequest,
   HttpServerResponse,
-} from "effect/unstable/http"
-import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
+} from "effect/http"
+import { HttpApiBuilder, HttpApiError } from "effect/http-api"
 
 import { Database } from "@/db/database.server"
 import { Auth } from "@/lib/auth/auth.server"

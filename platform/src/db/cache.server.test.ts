@@ -1,8 +1,8 @@
 import { assert, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
-import { KeyValueStore } from "effect/unstable/persistence"
-import { SqlClient } from "effect/unstable/sql"
+import { KeyValueStore } from "effect/persistence"
+import { SqlClient } from "effect/sql"
 import { makeDatabaseCache, withDatabaseCacheLock } from "./cache.server"
 
 it.effect("rejects oversized and malformed cache identities before accessing the database", () =>

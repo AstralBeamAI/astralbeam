@@ -1,6 +1,6 @@
 import { Cause, Context, Duration, Effect, Fiber, Layer, Schedule, Semaphore } from "effect"
-import { Sharding, ShardingConfig } from "effect/unstable/cluster"
-import { WorkflowEngine } from "effect/unstable/workflow"
+import { Sharding, ShardingConfig } from "effect/cluster"
+import { WorkflowEngine } from "effect/workflow"
 
 import { sqlState } from "../../db/lib/sqlstate.server.ts"
 import { closeDatabase } from "../../db/database.server.ts"

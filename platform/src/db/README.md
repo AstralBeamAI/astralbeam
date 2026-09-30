@@ -154,4 +154,4 @@ For durable metadata, omit TTL and reserve a namespace that ordinary cache inval
 
 The integration suite requires a disposable loopback `DATABASE_URL` whose database name ends in `_test`, with checked-in migrations applied.
 
-Reference: [Effect KeyValueStore](https://effect.website/docs/v4/api/effect/unstable/persistence/KeyValueStore).
+Reference: [Effect KeyValueStore](https://effect.website/docs/v4/api/effect/persistence/KeyValueStore).

@@ -5,11 +5,10 @@ import {
   HttpApiGroup,
   HttpApiSchema,
   OpenApi,
-} from "effect/unstable/httpapi"
+} from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
 import {
   restEmptyPage,
-  restExamplePageCursors,
   restPageFields,
   restPageHeaders,
   restResourceSecurity,
@@ -72,9 +71,10 @@ export const tenantUserRestPage = Schema.Struct({
   items: Schema.Array(TenantUserRecordSchema),
   ...restPageFields,
 }).pipe(
-  Schema.annotateEncoded({
+  // Preserve the shared record codec identity, as in tenantRestPage.
+  Schema.annotate({
     identifier: "TenantUserPage",
-    examples: [{ items: [restExampleUser], ...restExamplePageCursors }, restEmptyPage],
+    examples: [restEmptyPage],
     description:
       "Live keyset page in ascending ID order within one Tenant. Pass either non-null continuation value as the same-named request parameter.",
   }),

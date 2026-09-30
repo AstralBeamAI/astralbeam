@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm"
 import { Effect, Fiber, Layer } from "effect"
 import { TestClock } from "effect/testing"
-import { WorkflowEngine } from "effect/unstable/workflow"
+import { WorkflowEngine } from "effect/workflow"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 const deleteOrganizationIntegration = vi.hoisted(() => {

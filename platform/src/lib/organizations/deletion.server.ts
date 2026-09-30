@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm"
 import { Effect } from "effect"
-import { SqlClient } from "effect/unstable/sql"
+import { SqlClient } from "effect/sql"
 
 // The cluster runner loads this module through Nitro, which cannot resolve the `@/` alias.
 import { Database } from "../../db/database.server.ts"
