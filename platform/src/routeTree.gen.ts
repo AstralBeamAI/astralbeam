@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as ConfigureRouteRouteImport } from './routes/configure/route'
 import { Route as DocsRouteRouteImport } from './routes/docs/route'
 import { Route as DocsDotmdRouteImport } from './routes/docs[.]md'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
@@ -51,6 +52,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfigureRouteRoute = ConfigureRouteRouteImport.update({
+  id: '/configure',
+  path: '/configure',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsRouteRoute = DocsRouteRouteImport.update({
   id: '/docs',
   path: '/docs',
@@ -89,9 +95,9 @@ const ApiStatusRoute = ApiStatusRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfigureIndexRoute = ConfigureIndexRouteImport.update({
-  id: '/configure/',
-  path: '/configure/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => ConfigureRouteRoute,
 } as any)
 const DevSplatRoute = DevSplatRouteImport.update({
   id: '/dev/$',
@@ -253,6 +259,7 @@ const AuthenticatedOrgSlugSandboxesNewIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
+  '/configure': typeof ConfigureRouteRouteWithChildren
   '/docs': typeof DocsRouteRouteWithChildren
   '/docs.md': typeof DocsDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -328,6 +335,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/configure': typeof ConfigureRouteRouteWithChildren
   '/docs': typeof DocsRouteRouteWithChildren
   '/docs.md': typeof DocsDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -369,6 +377,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/configure'
     | '/docs'
     | '/docs.md'
     | '/robots.txt'
@@ -443,6 +452,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/configure'
     | '/docs'
     | '/docs.md'
     | '/robots.txt'
@@ -483,12 +493,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  ConfigureRouteRoute: typeof ConfigureRouteRouteWithChildren
   DocsRouteRoute: typeof DocsRouteRouteWithChildren
   DocsDotmdRoute: typeof DocsDotmdRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   ApiStatusRoute: typeof ApiStatusRoute
   DevSplatRoute: typeof DevSplatRoute
-  ConfigureIndexRoute: typeof ConfigureIndexRoute
   authenticationAuthPathRoute: typeof authenticationAuthPathRoute
   ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -503,6 +513,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configure': {
+      id: '/configure'
+      path: '/configure'
+      fullPath: '/configure'
+      preLoaderRoute: typeof ConfigureRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -556,10 +573,10 @@ declare module '@tanstack/react-router' {
     }
     '/configure/': {
       id: '/configure/'
-      path: '/configure'
+      path: '/'
       fullPath: '/configure/'
       preLoaderRoute: typeof ConfigureIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ConfigureRouteRoute
     }
     '/dev/$': {
       id: '/dev/$'
@@ -843,6 +860,18 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface ConfigureRouteRouteChildren {
+  ConfigureIndexRoute: typeof ConfigureIndexRoute
+}
+
+const ConfigureRouteRouteChildren: ConfigureRouteRouteChildren = {
+  ConfigureIndexRoute: ConfigureIndexRoute,
+}
+
+const ConfigureRouteRouteWithChildren = ConfigureRouteRoute._addFileChildren(
+  ConfigureRouteRouteChildren,
+)
+
 interface DocsRouteRouteChildren {
   DocsSitemapDotxmlRoute: typeof DocsSitemapDotxmlRoute
   DocsIndexRoute: typeof DocsIndexRoute
@@ -868,12 +897,12 @@ const DocsRouteRouteWithChildren = DocsRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  ConfigureRouteRoute: ConfigureRouteRouteWithChildren,
   DocsRouteRoute: DocsRouteRouteWithChildren,
   DocsDotmdRoute: DocsDotmdRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   ApiStatusRoute: ApiStatusRoute,
   DevSplatRoute: DevSplatRoute,
-  ConfigureIndexRoute: ConfigureIndexRoute,
   authenticationAuthPathRoute: authenticationAuthPathRoute,
   ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

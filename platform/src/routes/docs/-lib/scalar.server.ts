@@ -18,6 +18,7 @@ const apiDocsStyles = `${apiDocsTheme}\n${scalarStyles}\n${docsHeaderStyles}`
 const apiDocsScalarOptions = {
   withDefaultFonts: false,
   hideClientButton: true,
+  hideDarkModeToggle: true,
   showDeveloperTools: "never",
   documentDownloadType: "none",
   agent: { disabled: true },
@@ -61,44 +62,36 @@ const apiDocsScalarOptions = {
 
 const apiDocsThemeScript = `(function () {
   var storageKey = "theme"
-  var themes = ["system", "light", "dark"]
-  function readTheme() {
+  function resolvedTheme() {
+    var stored = null
     try {
-      var stored = localStorage.getItem(storageKey)
-      return themes.indexOf(stored) !== -1 ? stored : "system"
-    } catch (error) {
-      return "system"
-    }
-  }
-  function resolvedTheme(theme) {
-    if (theme !== "system") return theme
+      stored = localStorage.getItem(storageKey)
+    } catch (error) {}
+    if (stored === "light" || stored === "dark") return stored
     return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light"
   }
+  // Scalar reads \`colorMode\` once at startup and paints its own body class, so both follow ours.
   function applyTheme(theme) {
-    var resolved = resolvedTheme(theme)
     var root = document.documentElement
     root.classList.remove("dark", "light", "dark-mode", "light-mode")
-    root.classList.add(resolved, resolved === "dark" ? "dark-mode" : "light-mode")
-    root.style.colorScheme = resolved
-    var button = document.querySelector("[data-docs-theme-toggle]")
-    if (!button) return
-    var label = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System"
-    button.setAttribute("aria-label", "Theme: " + label)
-    button.querySelectorAll("[data-theme-icon]").forEach(function (icon) {
-      icon.toggleAttribute("hidden", icon.getAttribute("data-theme-icon") !== theme)
-    })
+    root.classList.add(theme, theme === "dark" ? "dark-mode" : "light-mode")
+    root.style.colorScheme = theme
+    if (document.body) {
+      document.body.classList.remove("dark-mode", "light-mode")
+      document.body.classList.add(theme === "dark" ? "dark-mode" : "light-mode")
+    }
+    try {
+      localStorage.setItem("colorMode", theme)
+    } catch (error) {}
   }
-  applyTheme(readTheme())
-  document.addEventListener("DOMContentLoaded", function () {
-    applyTheme(readTheme())
-  })
+  applyTheme(resolvedTheme())
   document.addEventListener("click", function (event) {
     var target = event.target
     if (!(target instanceof Element)) return
     if (!target.closest("[data-docs-theme-toggle]")) return
-    var next = themes[(themes.indexOf(readTheme()) + 1) % themes.length]
+    var next = resolvedTheme() === "dark" ? "light" : "dark"
     try {
       localStorage.setItem(storageKey, next)
     } catch (error) {

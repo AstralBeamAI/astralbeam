@@ -1,3 +1,4 @@
+/* Mirrors the React `Navbar` for the Scalar page, which cannot load the app's Tailwind build. */
 .docs-header {
   position: sticky;
   top: 0;
@@ -5,86 +6,105 @@
   display: flex;
   box-sizing: border-box;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
   height: 56px;
-  padding: 0 20px;
+  padding: 0 12px;
   background: var(--background);
   border-bottom: 1px solid var(--border);
   font:
-    500 14px "Inter Variable",
+    500 12px "Inter Variable",
     sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .docs-header nav,
-.docs-header ol,
-.docs-header li,
-.docs-header a {
+.docs-logo,
+.docs-nav-link,
+.docs-theme-toggle {
   display: flex;
   align-items: center;
 }
 
 .docs-header nav {
-  min-width: 0;
-  height: 100%;
+  gap: 4px;
+  margin-inline-start: auto;
 }
 
-.docs-theme-toggle {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted-foreground);
-  cursor: pointer;
+.docs-mark {
+  width: 32px;
+  height: 32px;
 }
 
-.docs-theme-toggle:hover {
-  background: var(--muted);
-  color: var(--foreground);
-}
-
-.docs-header ol {
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.docs-header li + li::before {
-  content: "/";
-  margin-right: 12px;
-  color: var(--muted-foreground);
-}
-
-.docs-header a {
-  color: var(--muted-foreground);
-  text-decoration: none;
-}
-
-.docs-header a:hover {
-  color: var(--foreground);
-}
-
-.docs-header [aria-current] {
-  color: var(--foreground);
-}
-
-.docs-header img {
-  width: 164px;
+.docs-wordmark {
+  height: 18px;
   aspect-ratio: 1241 / 136;
-  height: auto;
 }
 
-.docs-header .docs-wordmark-dark,
-:is(.dark, .dark-mode) .docs-wordmark-light {
+.docs-dark,
+:is(.dark, .dark-mode) .docs-light,
+.docs-wordmarks {
   display: none;
 }
 
-:is(.dark, .dark-mode) .docs-wordmark-dark {
+:is(.dark, .dark-mode) .docs-dark {
   display: block;
+}
+
+.docs-nav-link,
+.docs-theme-toggle {
+  box-sizing: border-box;
+  height: 28px;
+  border: 1px solid transparent;
+  color: var(--foreground);
+  font: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.docs-nav-link {
+  gap: 4px;
+  padding: 0 10px;
+}
+
+.docs-nav-link:hover,
+.docs-theme-toggle:hover {
+  background: var(--muted);
+}
+
+.docs-nav-primary {
+  margin-inline-start: 10px;
+}
+
+.docs-nav-primary,
+.docs-nav-primary:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.docs-nav-primary:hover {
+  opacity: 0.8;
+}
+
+.docs-theme-toggle {
+  justify-content: center;
+  width: 28px;
+  margin-inline-end: 4px;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .docs-header {
+    padding: 0 16px;
+  }
+
+  .docs-marks {
+    display: none;
+  }
+
+  .docs-wordmarks {
+    display: contents;
+  }
 }

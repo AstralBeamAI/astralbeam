@@ -2,6 +2,7 @@ import { parseAuthResult, viewPaths } from "@better-auth-ui/core"
 import { createFileRoute, notFound, redirect } from "@tanstack/react-router"
 
 import { Auth } from "@/components/auth/auth"
+import { PublicNavbar } from "@/components/navbar"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
 import { normalizeReturnPath, normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
 import { AUTH_ALLOWED_RETURN_PATHS, INERT_REDIRECT_ORIGIN } from "@/lib/constants"
@@ -69,8 +70,11 @@ function AuthRoute() {
   const { path } = Route.useParams()
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-muted/30 px-4 py-10 sm:px-6">
-      <Auth path={path} />
-    </main>
+    <div className="flex min-h-svh flex-col">
+      <PublicNavbar />
+      <main className="flex flex-1 items-center justify-center bg-muted/30 px-4 py-10 sm:px-6">
+        <Auth path={path} />
+      </main>
+    </div>
   )
 }

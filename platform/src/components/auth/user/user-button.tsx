@@ -1,9 +1,9 @@
 // Added with: deno task ui add @better-auth-ui/user-button
-// Local changes: Remove multi-session support, use Phosphor icons, retain typed plugin items, add a stable trigger label and hover title, apply strict typing, and keep internal visibility types module-private.
+// Local changes: Remove multi-session support, use Phosphor icons, retain typed plugin items, add a stable trigger label and hover title, show a vertical dots trigger icon, apply strict typing, and keep internal visibility types module-private.
 
 import { useAuth, useSession } from "@better-auth-ui/react"
 import {
-  CaretUpDownIcon as ChevronsUpDown,
+  DotsThreeVerticalIcon,
   GearIcon as Settings,
   SignInIcon as LogIn,
   SignOutIcon as LogOut,
@@ -149,7 +149,7 @@ export function UserButton({
               </>
             )}
 
-            <ChevronsUpDown className="ms-auto size-4" />
+            <DotsThreeVerticalIcon className="ms-auto size-4" />
           </>
         )}
       </DropdownMenuTrigger>

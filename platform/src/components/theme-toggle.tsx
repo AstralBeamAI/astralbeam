@@ -1,56 +1,23 @@
-import { MonitorIcon, MoonIcon, SunIcon } from "@phosphor-icons/react"
+import { MoonIcon, SunIcon } from "@phosphor-icons/react"
 import { useTheme } from "tanstack-router-theme-provider"
 
-import { buttonVariants } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { cn } from "cn"
-
-const themeToggleOptions = [
-  { value: "system", label: "System", icon: MonitorIcon },
-  { value: "light", label: "Light", icon: SunIcon },
-  { value: "dark", label: "Dark", icon: MoonIcon },
-] as const
-
-function isThemeToggleValue(value: unknown): value is (typeof themeToggleOptions)[number]["value"] {
-  return themeToggleOptions.some((option) => option.value === value)
-}
+import { Button } from "@/components/ui/button"
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, setTheme, mounted } = useTheme()
-  const current = mounted ? theme : "system"
-  const CurrentIcon =
-    themeToggleOptions.find((option) => option.value === current)?.icon ?? MonitorIcon
+  const { resolvedTheme, setTheme } = useTheme()
 
+  // The icons follow the root `dark` class, so server markup matches before the theme resolves.
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), className)}
-        aria-label="Theme"
-        title="Theme"
-      >
-        <CurrentIcon />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup
-          value={current}
-          onValueChange={(value) => {
-            if (isThemeToggleValue(value)) setTheme(value)
-          }}
-        >
-          {themeToggleOptions.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              <option.icon />
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      className={className}
+      aria-label="Toggle theme"
+      title="Toggle theme"
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+    >
+      <SunIcon className="hidden dark:block" />
+      <MoonIcon className="dark:hidden" />
+    </Button>
   )
 }

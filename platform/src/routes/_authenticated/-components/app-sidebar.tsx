@@ -2,7 +2,6 @@
 
 import { useAuth } from "@better-auth-ui/react"
 import {
-  BookOpenTextIcon,
   BriefcaseIcon,
   CubeIcon,
   HouseIcon,
@@ -28,12 +27,12 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import type { OrganizationAccess, OrganizationPermissions } from "@/lib/organizations/access"
@@ -135,7 +134,6 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       <SidebarContent>
         {organization && (
           <SidebarGroup>
-            <SidebarGroupLabel>Organization</SidebarGroupLabel>
             <SidebarGroupContent>
               <nav aria-label="Organization navigation">
                 <SidebarMenu>
@@ -169,42 +167,35 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link href="/docs" onClick={() => setOpenMobile(false)} />}
-              tooltip="Documentation"
-            >
-              <BookOpenTextIcon aria-hidden="true" />
-              <span>Documentation</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-        <UserButton
-          align="start"
-          hideSettings
-          links={[
-            {
-              href: "/settings/account",
-              icon: <UserCircleIcon className="text-muted-foreground" />,
-              label: localization.settings.account,
-              visibility: "authenticated",
-            },
-            {
-              href: "/settings/security",
-              icon: <ShieldCheckIcon className="text-muted-foreground" />,
-              label: localization.settings.security,
-              visibility: "authenticated",
-            },
-            {
-              href: "/organizations",
-              icon: <BriefcaseIcon className="text-muted-foreground" />,
-              label: "Organizations",
-              visibility: "authenticated",
-            },
-          ]}
-          className="w-full justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
-        />
+        {/* Collapsed, the column stacks the expand trigger above the avatar. */}
+        <div className="flex items-center group-data-[collapsible=icon]:flex-col-reverse group-data-[collapsible=icon]:gap-1">
+          <UserButton
+            align="start"
+            hideSettings
+            links={[
+              {
+                href: "/settings/account",
+                icon: <UserCircleIcon className="text-muted-foreground" />,
+                label: localization.settings.account,
+                visibility: "authenticated",
+              },
+              {
+                href: "/settings/security",
+                icon: <ShieldCheckIcon className="text-muted-foreground" />,
+                label: localization.settings.security,
+                visibility: "authenticated",
+              },
+              {
+                href: "/organizations",
+                icon: <BriefcaseIcon className="text-muted-foreground" />,
+                label: "Organizations",
+                visibility: "authenticated",
+              },
+            ]}
+            className="min-w-0 flex-1 justify-start pe-0 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
+          />
+          {!isMobile && <SidebarTrigger />}
+        </div>
       </SidebarFooter>
 
       <SidebarRail />
