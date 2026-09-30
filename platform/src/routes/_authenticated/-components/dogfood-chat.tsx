@@ -72,16 +72,16 @@ export function DogfoodChat({ children }: { children: ReactNode }) {
 
 export function DogfoodChatTrigger({ className }: { className?: string }) {
   const chat = useContext(DogfoodChatContext)
-  if (!chat) return null
+  // The open panel's header already closes it, so the trigger only offers to open.
+  if (!chat || chat.open) return null
   return (
     <Button
       id={chat.triggerId}
       variant="outline"
       size="sm"
       className={className}
-      aria-expanded={chat.open}
       aria-controls={chat.hasOpened ? chat.panelId : undefined}
-      onClick={() => chat.setOpen(!chat.open)}
+      onClick={() => chat.setOpen(true)}
     >
       <SparkleIcon aria-hidden="true" weight="fill" className="text-primary" /> Ask {ASSISTANT_NAME}
     </Button>
