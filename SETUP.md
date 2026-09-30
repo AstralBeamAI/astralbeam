@@ -86,14 +86,6 @@ The platform starts one embedded Effect Cluster runner with automatic PostgreSQL
 
 Codex Cloud runs on Ubuntu and uses `INSTALL_EXTRA=codex-db SKIP_DOCKER_COMPOSE=true` so the explicit setup extra installs and starts host PostgreSQL and Valkey without starting Docker Compose.
 
-The host database extra also supports Debian 13 and requires root or `sudo`. On a pre-provisioned Debian image with Docker access but no host package privileges, run from the repository root:
-
-```sh
-SKIP_DOCKER_COMPOSE=false INSTALL_EXTRA= bash scripts/setup.sh
-```
-
-Setup automatically skips OS package installation when neither root nor `sudo` is available and uses the image's existing tools. Compose supplies PostgreSQL, PgBouncer, Valkey, and Mailpit. Deno installation, frozen project dependencies, migrations, seeding, and the SDK build still run.
-
 See the setup guides for [Codex](.codex/README.md) and [Cursor Cloud Agents](.cursor/README.md).
 
 ## Authentication and transactional email
