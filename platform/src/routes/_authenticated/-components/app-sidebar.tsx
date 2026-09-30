@@ -27,7 +27,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -135,7 +134,6 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       <SidebarContent>
         {organization && (
           <SidebarGroup>
-            <SidebarGroupLabel>Organization</SidebarGroupLabel>
             <SidebarGroupContent>
               <nav aria-label="Organization navigation">
                 <SidebarMenu>
@@ -170,7 +168,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
 
       <SidebarFooter>
         {/* Collapsed, the column stacks the expand trigger above the avatar. */}
-        <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col-reverse">
+        <div className="flex items-center group-data-[collapsible=icon]:flex-col-reverse group-data-[collapsible=icon]:gap-1">
           <UserButton
             align="start"
             hideSettings
@@ -194,7 +192,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
                 visibility: "authenticated",
               },
             ]}
-            className="min-w-0 flex-1 justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
+            className="min-w-0 flex-1 justify-start pe-0 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
           />
           {!isMobile && <SidebarTrigger />}
         </div>
