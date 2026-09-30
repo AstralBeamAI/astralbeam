@@ -11,8 +11,8 @@ export type OrganizationSection =
   | "Settings"
 
 /**
- * The sidebar every organization page shares: navigation, the organization switcher, and the user
- * menu. Tracks `src/routes/_authenticated/-components/app-sidebar.tsx`.
+ * The shell every organization page shares: sidebar navigation, the navbar's organization switcher,
+ * and the user menu. Tracks `src/routes/_authenticated/-components/app-shell.tsx`.
  */
 export function dashboardShell(page: Page) {
   const navigation = page.getByRole("navigation", { name: "Organization navigation" })

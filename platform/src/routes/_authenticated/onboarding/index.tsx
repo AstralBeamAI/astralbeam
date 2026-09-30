@@ -6,7 +6,6 @@ import { Spinner } from "@/components/ui/spinner"
 import { authClient } from "@/lib/auth/client"
 import { APP_NAME } from "@/lib/constants"
 import { AppShell } from "../-components/app-shell"
-import { AppSidebar } from "../-components/app-sidebar"
 import { getUserInvitations } from "../-functions/get-user-invitations"
 import { OrganizationOnboarding } from "./-components/organization-onboarding"
 
@@ -40,7 +39,7 @@ function OnboardingRoute() {
   }
 
   return (
-    <AppShell sidebar={<AppSidebar organization={null} />}>
+    <AppShell organization={null}>
       <OrganizationOnboarding
         email={session.data.user.email}
         onInvitationAction={() => router.invalidate()}

@@ -53,7 +53,7 @@ const organizationNavigation = [
   { label: "Members", segment: "members", icon: UsersThreeIcon },
   { label: "Tenants", segment: "tenants", icon: BriefcaseIcon, permission: "readTenants" },
   {
-    label: "Tenant users",
+    label: "Users",
     segment: "tenant-users",
     icon: UsersThreeIcon,
     permission: "readTenants",
@@ -88,15 +88,14 @@ function organizationSwitchPath(pathname: string, currentSlug: string, nextSlug:
   return carriedSegments.has(segment) ? `/${nextSlug}/${segment}` : `/${nextSlug}`
 }
 
-export function AppSidebar({ organization, ...props }: AppSidebarProps) {
-  const { Link, localization } = useAuth()
+/** Sits in the navbar from the `md` breakpoint up, and in the sidebar header below it. */
+export function AppOrganizationSwitcher({
+  organization,
+  className,
+}: Pick<AppSidebarProps, "organization"> & { className: string }) {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { isMobile, setOpenMobile } = useSidebar()
-
-  useEffect(() => {
-    setOpenMobile(false)
-  }, [pathname, setOpenMobile])
 
   const switchOrganization = (next: Organization | null) => {
     setOpenMobile(false)
@@ -109,27 +108,43 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
   }
 
   return (
+    <OrganizationSwitcher
+      align="start"
+      size={isMobile ? "md" : "sm"}
+      hidePersonal
+      hideSettings
+      {...(organization
+        ? {
+            organization: {
+              id: organization.organizationId,
+              name: organization.organizationName,
+              slug: organization.organizationSlug,
+            },
+          }
+        : {})}
+      setActive={switchOrganization}
+      onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}` })}
+      className={className}
+    />
+  )
+}
+
+export function AppSidebar({ organization, ...props }: AppSidebarProps) {
+  const { Link, localization } = useAuth()
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  useEffect(() => {
+    setOpenMobile(false)
+  }, [pathname, setOpenMobile])
+
+  return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <OrganizationSwitcher
-          align="start"
-          side={isMobile ? "bottom" : "right"}
-          hidePersonal
-          hideSettings
-          {...(organization
-            ? {
-                organization: {
-                  id: organization.organizationId,
-                  name: organization.organizationName,
-                  slug: organization.organizationSlug,
-                },
-              }
-            : {})}
-          setActive={switchOrganization}
-          onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}` })}
-          className="w-full justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
-        />
-      </SidebarHeader>
+      {isMobile && (
+        <SidebarHeader>
+          <AppOrganizationSwitcher organization={organization} className="w-full justify-start" />
+        </SidebarHeader>
+      )}
 
       <SidebarContent>
         {organization && (

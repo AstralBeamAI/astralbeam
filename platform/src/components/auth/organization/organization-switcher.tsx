@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Replace Lucide with Phosphor icons, add a stable accessible trigger name and hover title, address organizations by their root-level slug path, and let a URL-scoped page supply the active organization.
+// Local changes: Replace Lucide with Phosphor icons, add a stable accessible trigger name and hover title, address organizations by their root-level slug path, let a URL-scoped page supply the active organization, and size the trigger's organization row.
 
 "use client"
 
@@ -29,6 +29,7 @@ import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { cn } from "cn"
 import { UserView } from "../user/user-view"
 import { CreateOrganizationDialog } from "./create-organization-dialog"
+import type { OrganizationLogoSize } from "./organization-logo"
 import { OrganizationView } from "./organization-view"
 
 /** Props for the `OrganizationSwitcher` component. */
@@ -42,6 +43,7 @@ export type OrganizationSwitcherProps = {
   hidePersonal?: boolean
   hideSettings?: boolean
   hideSlug?: boolean
+  size?: OrganizationLogoSize
   setActive?: (organization: Organization | null) => void
   onOrganizationCreated?: (organization: Organization) => unknown
   /** The organization the URL addresses, which the session's own active organization follows. */
@@ -61,6 +63,7 @@ export function OrganizationSwitcher({
   hidePersonal,
   hideSettings,
   hideSlug = true,
+  size = "md",
   setActive,
   onOrganizationCreated,
   organization: routeOrganization,
@@ -116,15 +119,21 @@ export function OrganizationSwitcher({
             disabled={!session || isPending}
           >
             {isPending ? (
-              <OrganizationView isPending hideRole hideSlug={hideSlug} />
+              <OrganizationView isPending hideRole hideSlug={hideSlug} size={size} />
             ) : activeOrganization ? (
-              <OrganizationView hideRole hideSlug={hideSlug} organization={activeOrganization} />
+              <OrganizationView
+                hideRole
+                hideSlug={hideSlug}
+                size={size}
+                organization={activeOrganization}
+              />
             ) : session && !hidePersonal ? (
               <UserView hideSubtitle={hideSlug} />
             ) : (
               <OrganizationView
                 hideRole
                 hideSlug={hideSlug}
+                size={size}
                 organization={{ name: organizationLocalization.organization }}
               />
             )}

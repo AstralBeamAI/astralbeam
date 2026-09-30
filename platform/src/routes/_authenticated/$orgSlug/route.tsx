@@ -2,12 +2,10 @@ import { createFileRoute, Link, notFound, Outlet } from "@tanstack/react-router"
 import { useEffect } from "react"
 
 import { PublicNavbar } from "@/components/navbar"
-import { Sidebar, SidebarContent, SidebarHeader } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { authClient } from "@/lib/auth/client"
 import { isValidSlug } from "@/lib/organizations/slug"
 import { AppShell } from "../-components/app-shell"
-import { AppSidebar } from "../-components/app-sidebar"
 import { getOrganizationRouteContext } from "../-functions/get-organization-route-context"
 import { throwOrganizationRouteError } from "./-lib/route-errors"
 
@@ -38,29 +36,15 @@ function OrganizationLayout() {
   }, [landingOrganizationId, organization.organizationId])
 
   return (
-    <AppShell sidebar={<AppSidebar organization={organization} />}>
+    <AppShell organization={organization}>
       <Outlet key={organization.organizationId} />
     </AppShell>
   )
 }
 
-/** Static, so a pending navigation mounts none of the sidebar's live queries. */
 function OrganizationLayoutSkeleton() {
   return (
-    <AppShell
-      sidebar={
-        <Sidebar collapsible="icon">
-          <SidebarHeader>
-            <Skeleton className="h-12 w-full" />
-          </SidebarHeader>
-          <SidebarContent className="gap-2 p-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </SidebarContent>
-        </Sidebar>
-      }
-    >
+    <AppShell>
       <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8" aria-busy="true">
         <Skeleton className="h-9 w-56" />
         <Skeleton className="h-48 w-full max-w-4xl rounded-xl" />

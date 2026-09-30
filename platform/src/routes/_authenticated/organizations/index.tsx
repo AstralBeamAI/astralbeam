@@ -5,7 +5,6 @@ import { Organizations } from "@/components/auth/organization/organizations"
 import { UserInvitations } from "@/components/auth/organization/user-invitations"
 import { APP_NAME } from "@/lib/constants"
 import { AppShell } from "../-components/app-shell"
-import { AppSidebar } from "../-components/app-sidebar"
 import { getUserInvitations } from "../-functions/get-user-invitations"
 import { getLandingOrganization } from "../-lib/landing-organization"
 
@@ -27,7 +26,7 @@ function OrganizationsRoute() {
   const { organization } = Route.useLoaderData()
 
   return (
-    <AppShell sidebar={<AppSidebar organization={organization} />}>
+    <AppShell organization={organization}>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Organizations</h1>
