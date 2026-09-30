@@ -1,5 +1,4 @@
 import { useSession } from "@better-auth-ui/react"
-import { BookOpenTextIcon, HouseIcon } from "@phosphor-icons/react"
 import { Link, useLocation } from "@tanstack/react-router"
 import { createContext, type ReactNode, useContext } from "react"
 
@@ -10,7 +9,6 @@ import {
   APP_LOGO_DARK_SVG_URL,
   APP_LOGO_LIGHT_SVG_URL,
   APP_NAME,
-  APP_WEBSITE_URL,
   APP_WORDMARK_DARK_SVG_URL,
   APP_WORDMARK_LIGHT_SVG_URL,
 } from "@/lib/constants"
@@ -53,9 +51,10 @@ export function Navbar({ logoTo = "/", wordmark = false, start, children }: Navb
           </span>
         )}
       </Link>
+      {/* The margins even out the visible gaps beside the toggle icon and the boxed buttons. */}
       <nav aria-label="Main" className="ms-auto flex items-center gap-1">
+        <ThemeToggle className="me-1" />
         {children}
-        <ThemeToggle />
       </nav>
     </header>
   )
@@ -64,7 +63,6 @@ export function Navbar({ logoTo = "/", wordmark = false, start, children }: Navb
 export function DocsLink() {
   return (
     <Link to="/docs" className={navLinkClassName}>
-      <BookOpenTextIcon aria-hidden="true" data-icon="inline-start" />
       Docs
     </Link>
   )
@@ -86,7 +84,7 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
         to="/auth/$path"
         params={{ path: "sign-up" }}
         reloadDocument={reloadDocument}
-        className={buttonVariants({ size: "sm" })}
+        className={cn(buttonVariants({ size: "sm" }), "ms-2.5")}
       >
         Sign Up
       </Link>
@@ -97,8 +95,7 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
 export function DocsNavbar() {
   return (
     <Navbar logoTo="/docs" wordmark>
-      <a href={APP_WEBSITE_URL} className={navLinkClassName}>
-        <HouseIcon aria-hidden="true" data-icon="inline-start" />
+      <a href="/" className={navLinkClassName}>
         Home
       </a>
       <AuthLinks reloadDocument />
@@ -112,7 +109,6 @@ function SessionLinks() {
   if (!session.data) return <AuthLinks />
   return (
     <Link to="/" className={navLinkClassName}>
-      <HouseIcon aria-hidden="true" data-icon="inline-start" />
       Home
     </Link>
   )

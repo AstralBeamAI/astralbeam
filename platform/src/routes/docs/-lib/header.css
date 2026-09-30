@@ -14,6 +14,8 @@
   font:
     500 12px "Inter Variable",
     sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .docs-header nav,
@@ -65,13 +67,13 @@
   padding: 0 10px;
 }
 
-.docs-nav-link:has(svg) {
-  padding-inline-start: 6px;
-}
-
 .docs-nav-link:hover,
 .docs-theme-toggle:hover {
   background: var(--muted);
+}
+
+.docs-nav-primary {
+  margin-inline-start: 10px;
 }
 
 .docs-nav-primary,
@@ -87,6 +89,7 @@
 .docs-theme-toggle {
   justify-content: center;
   width: 28px;
+  margin-inline-end: 4px;
   padding: 0;
   background: transparent;
   cursor: pointer;

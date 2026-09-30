@@ -39,7 +39,7 @@ function AppNavbar() {
       }
     >
       <DocsLink />
-      <DogfoodChatTrigger />
+      <DogfoodChatTrigger className="ms-2.5" />
     </Navbar>
   )
 }

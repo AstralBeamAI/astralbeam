@@ -1,6 +1,5 @@
 export const APP_NAME = "AstralBeam"
 export const APP_HANDLE = "astralbeam"
-export const APP_WEBSITE_URL = "https://astralbeam.ai"
 export const ASSISTANT_NAME = "Astro"
 export const APP_RELEASES_REPOSITORY = "AstralBeamAI/astralbeam"
 export const APP_LOGO_LIGHT_PNG_URL = "/astralbeam-logo-light.png"

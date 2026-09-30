@@ -70,7 +70,7 @@ export function DogfoodChat({ children }: { children: ReactNode }) {
   )
 }
 
-export function DogfoodChatTrigger() {
+export function DogfoodChatTrigger({ className }: { className?: string }) {
   const chat = useContext(DogfoodChatContext)
   if (!chat) return null
   return (
@@ -78,6 +78,7 @@ export function DogfoodChatTrigger() {
       id={chat.triggerId}
       variant="outline"
       size="sm"
+      className={className}
       aria-expanded={chat.open}
       aria-controls={chat.hasOpened ? chat.panelId : undefined}
       onClick={() => chat.setOpen(!chat.open)}

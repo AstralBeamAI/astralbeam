@@ -18,6 +18,7 @@ const apiDocsStyles = `${apiDocsTheme}\n${scalarStyles}\n${docsHeaderStyles}`
 const apiDocsScalarOptions = {
   withDefaultFonts: false,
   hideClientButton: true,
+  hideDarkModeToggle: true,
   showDeveloperTools: "never",
   documentDownloadType: "none",
   agent: { disabled: true },
@@ -71,11 +72,19 @@ const apiDocsThemeScript = `(function () {
       ? "dark"
       : "light"
   }
+  // Scalar reads \`colorMode\` once at startup and paints its own body class, so both follow ours.
   function applyTheme(theme) {
     var root = document.documentElement
     root.classList.remove("dark", "light", "dark-mode", "light-mode")
     root.classList.add(theme, theme === "dark" ? "dark-mode" : "light-mode")
     root.style.colorScheme = theme
+    if (document.body) {
+      document.body.classList.remove("dark-mode", "light-mode")
+      document.body.classList.add(theme === "dark" ? "dark-mode" : "light-mode")
+    }
+    try {
+      localStorage.setItem("colorMode", theme)
+    } catch (error) {}
   }
   applyTheme(resolvedTheme())
   document.addEventListener("click", function (event) {

@@ -9,7 +9,6 @@ import {
   KeyIcon,
   RobotIcon,
   ShieldCheckIcon,
-  SidebarIcon,
   SlidersHorizontalIcon,
   UserCircleIcon,
   UsersThreeIcon,
@@ -34,6 +33,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import type { OrganizationAccess, OrganizationPermissions } from "@/lib/organizations/access"
@@ -93,7 +93,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
   const { Link, localization } = useAuth()
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const { isMobile, open, setOpenMobile, toggleSidebar } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
 
   useEffect(() => {
     setOpenMobile(false)
@@ -169,41 +169,35 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
-        {!isMobile && (
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={toggleSidebar} tooltip="Expand sidebar">
-                <SidebarIcon aria-hidden="true" className="rtl:rotate-180" />
-                <span>{open ? "Collapse sidebar" : "Expand sidebar"}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        )}
-        <UserButton
-          align="start"
-          hideSettings
-          links={[
-            {
-              href: "/settings/account",
-              icon: <UserCircleIcon className="text-muted-foreground" />,
-              label: localization.settings.account,
-              visibility: "authenticated",
-            },
-            {
-              href: "/settings/security",
-              icon: <ShieldCheckIcon className="text-muted-foreground" />,
-              label: localization.settings.security,
-              visibility: "authenticated",
-            },
-            {
-              href: "/organizations",
-              icon: <BriefcaseIcon className="text-muted-foreground" />,
-              label: "Organizations",
-              visibility: "authenticated",
-            },
-          ]}
-          className="w-full justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
-        />
+        {/* Collapsed, the column stacks the expand trigger above the avatar. */}
+        <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col-reverse">
+          <UserButton
+            align="start"
+            hideSettings
+            links={[
+              {
+                href: "/settings/account",
+                icon: <UserCircleIcon className="text-muted-foreground" />,
+                label: localization.settings.account,
+                visibility: "authenticated",
+              },
+              {
+                href: "/settings/security",
+                icon: <ShieldCheckIcon className="text-muted-foreground" />,
+                label: localization.settings.security,
+                visibility: "authenticated",
+              },
+              {
+                href: "/organizations",
+                icon: <BriefcaseIcon className="text-muted-foreground" />,
+                label: "Organizations",
+                visibility: "authenticated",
+              },
+            ]}
+            className="min-w-0 flex-1 justify-start group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>div>div]:hidden group-data-[collapsible=icon]:[&>svg]:hidden"
+          />
+          {!isMobile && <SidebarTrigger />}
+        </div>
       </SidebarFooter>
 
       <SidebarRail />
