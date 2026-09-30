@@ -16,7 +16,7 @@ import { Route as DocsDotmdRouteImport } from './routes/docs[.]md'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedOrgSlugRouteRouteImport } from './routes/_authenticated/$orgSlug/route'
-import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
+import { Route as AuthenticatedUserRouteRouteImport } from './routes/_authenticated/_user/route'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
 import { Route as DevSplatRouteImport } from './routes/dev/$'
@@ -24,8 +24,6 @@ import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsSitemapDotxmlRouteImport } from './routes/docs/sitemap[.]xml'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
 import { Route as AuthenticatedOrgSlugIndexRouteImport } from './routes/_authenticated/$orgSlug/index'
-import { Route as AuthenticatedOnboardingIndexRouteImport } from './routes/_authenticated/onboarding/index'
-import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations/index'
 import { Route as ApiAstralbeamTokenRouteImport } from './routes/api/astralbeam/token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
@@ -39,14 +37,17 @@ import { Route as AuthenticatedOrgSlugSandboxesIndexRouteImport } from './routes
 import { Route as AuthenticatedOrgSlugSettingsIndexRouteImport } from './routes/_authenticated/$orgSlug/settings/index'
 import { Route as AuthenticatedOrgSlugTenantUsersIndexRouteImport } from './routes/_authenticated/$orgSlug/tenant-users/index'
 import { Route as AuthenticatedOrgSlugTenantsIndexRouteImport } from './routes/_authenticated/$orgSlug/tenants/index'
-import { Route as AuthenticatedSettingsAccountIndexRouteImport } from './routes/_authenticated/settings/account/index'
-import { Route as AuthenticatedSettingsSecurityIndexRouteImport } from './routes/_authenticated/settings/security/index'
+import { Route as AuthenticatedUserOnboardingIndexRouteImport } from './routes/_authenticated/_user/onboarding/index'
+import { Route as AuthenticatedUserOrganizationsIndexRouteImport } from './routes/_authenticated/_user/organizations/index'
+import { Route as AuthenticatedUserSettingsIndexRouteImport } from './routes/_authenticated/_user/settings/index'
 import { Route as DocsSectionPageIndexRouteImport } from './routes/docs/$section/$page/index'
 import { Route as DocsSectionChar123pageChar125DotmdIndexRouteImport } from './routes/docs/$section/{$page}[.]md/index'
 import { Route as AuthenticatedOrgSlugAgentsAgentIdIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/$agentId/index'
 import { Route as AuthenticatedOrgSlugAgentsNewIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/new/index'
 import { Route as AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/index'
 import { Route as AuthenticatedOrgSlugSandboxesNewIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/new/index'
+import { Route as AuthenticatedUserSettingsAccountIndexRouteImport } from './routes/_authenticated/_user/settings/account/index'
+import { Route as AuthenticatedUserSettingsSecurityIndexRouteImport } from './routes/_authenticated/_user/settings/security/index'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -83,12 +84,10 @@ const AuthenticatedOrgSlugRouteRoute =
     path: '/$orgSlug',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedSettingsRouteRoute =
-  AuthenticatedSettingsRouteRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
+const AuthenticatedUserRouteRoute = AuthenticatedUserRouteRouteImport.update({
+  id: '/_user',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
@@ -124,18 +123,6 @@ const AuthenticatedOrgSlugIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
-  } as any)
-const AuthenticatedOnboardingIndexRoute =
-  AuthenticatedOnboardingIndexRouteImport.update({
-    id: '/onboarding/',
-    path: '/onboarding/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedOrganizationsIndexRoute =
-  AuthenticatedOrganizationsIndexRouteImport.update({
-    id: '/organizations/',
-    path: '/organizations/',
-    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
   id: '/api/astralbeam/token',
@@ -209,17 +196,23 @@ const AuthenticatedOrgSlugTenantsIndexRoute =
     path: '/tenants/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
-const AuthenticatedSettingsAccountIndexRoute =
-  AuthenticatedSettingsAccountIndexRouteImport.update({
-    id: '/account/',
-    path: '/account/',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+const AuthenticatedUserOnboardingIndexRoute =
+  AuthenticatedUserOnboardingIndexRouteImport.update({
+    id: '/onboarding/',
+    path: '/onboarding/',
+    getParentRoute: () => AuthenticatedUserRouteRoute,
   } as any)
-const AuthenticatedSettingsSecurityIndexRoute =
-  AuthenticatedSettingsSecurityIndexRouteImport.update({
-    id: '/security/',
-    path: '/security/',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+const AuthenticatedUserOrganizationsIndexRoute =
+  AuthenticatedUserOrganizationsIndexRouteImport.update({
+    id: '/organizations/',
+    path: '/organizations/',
+    getParentRoute: () => AuthenticatedUserRouteRoute,
+  } as any)
+const AuthenticatedUserSettingsIndexRoute =
+  AuthenticatedUserSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
+    getParentRoute: () => AuthenticatedUserRouteRoute,
   } as any)
 const DocsSectionPageIndexRoute = DocsSectionPageIndexRouteImport.update({
   id: '/$section/$page/',
@@ -256,6 +249,18 @@ const AuthenticatedOrgSlugSandboxesNewIndexRoute =
     path: '/sandboxes/new/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
+const AuthenticatedUserSettingsAccountIndexRoute =
+  AuthenticatedUserSettingsAccountIndexRouteImport.update({
+    id: '/settings/account/',
+    path: '/settings/account/',
+    getParentRoute: () => AuthenticatedUserRouteRoute,
+  } as any)
+const AuthenticatedUserSettingsSecurityIndexRoute =
+  AuthenticatedUserSettingsSecurityIndexRouteImport.update({
+    id: '/settings/security/',
+    path: '/settings/security/',
+    getParentRoute: () => AuthenticatedUserRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -264,7 +269,6 @@ export interface FileRoutesByFullPath {
   '/docs.md': typeof DocsDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/$orgSlug': typeof AuthenticatedOrgSlugRouteRouteWithChildren
-  '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/docs/sitemap.xml': typeof DocsSitemapDotxmlRoute
@@ -276,8 +280,6 @@ export interface FileRoutesByFullPath {
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/$orgSlug/': typeof AuthenticatedOrgSlugIndexRoute
-  '/onboarding/': typeof AuthenticatedOnboardingIndexRoute
-  '/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
   '/docs/api/': typeof DocsApiIndexRoute
   '/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
@@ -287,23 +289,25 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/$orgSlug/tenants/': typeof AuthenticatedOrgSlugTenantsIndexRoute
-  '/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
-  '/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/onboarding/': typeof AuthenticatedUserOnboardingIndexRoute
+  '/organizations/': typeof AuthenticatedUserOrganizationsIndexRoute
+  '/settings/': typeof AuthenticatedUserSettingsIndexRoute
   '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
   '/docs/$section/{$page}.md/': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/$orgSlug/agents/$agentId/': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/$orgSlug/agents/new/': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   '/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
+  '/settings/account/': typeof AuthenticatedUserSettingsAccountIndexRoute
+  '/settings/security/': typeof AuthenticatedUserSettingsSecurityIndexRoute
 }
 export interface FileRoutesByTo {
   '/docs.md': typeof DocsDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
-  '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/': typeof AuthenticatedIndexRoute
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/docs/sitemap.xml': typeof DocsSitemapDotxmlRoute
-  '/': typeof AuthenticatedIndexRoute
   '/configure': typeof ConfigureIndexRoute
   '/docs': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
@@ -312,8 +316,6 @@ export interface FileRoutesByTo {
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/$orgSlug': typeof AuthenticatedOrgSlugIndexRoute
-  '/onboarding': typeof AuthenticatedOnboardingIndexRoute
-  '/organizations': typeof AuthenticatedOrganizationsIndexRoute
   '/docs/$section': typeof DocsSectionIndexRoute
   '/docs/api': typeof DocsApiIndexRoute
   '/$orgSlug/agents': typeof AuthenticatedOrgSlugAgentsIndexRoute
@@ -323,14 +325,17 @@ export interface FileRoutesByTo {
   '/$orgSlug/settings': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/$orgSlug/tenant-users': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/$orgSlug/tenants': typeof AuthenticatedOrgSlugTenantsIndexRoute
-  '/settings/account': typeof AuthenticatedSettingsAccountIndexRoute
-  '/settings/security': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/onboarding': typeof AuthenticatedUserOnboardingIndexRoute
+  '/organizations': typeof AuthenticatedUserOrganizationsIndexRoute
+  '/settings': typeof AuthenticatedUserSettingsIndexRoute
   '/docs/$section/$page': typeof DocsSectionPageIndexRoute
   '/docs/$section/{$page}.md': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/$orgSlug/agents/$agentId': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/$orgSlug/agents/new': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   '/$orgSlug/sandboxes/$sandboxProviderId': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/$orgSlug/sandboxes/new': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
+  '/settings/account': typeof AuthenticatedUserSettingsAccountIndexRoute
+  '/settings/security': typeof AuthenticatedUserSettingsSecurityIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -340,7 +345,7 @@ export interface FileRoutesById {
   '/docs.md': typeof DocsDotmdRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/_authenticated/$orgSlug': typeof AuthenticatedOrgSlugRouteRouteWithChildren
-  '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/_authenticated/_user': typeof AuthenticatedUserRouteRouteWithChildren
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/docs/sitemap.xml': typeof DocsSitemapDotxmlRoute
@@ -353,8 +358,6 @@ export interface FileRoutesById {
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/_authenticated/$orgSlug/': typeof AuthenticatedOrgSlugIndexRoute
-  '/_authenticated/onboarding/': typeof AuthenticatedOnboardingIndexRoute
-  '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
   '/docs/api/': typeof DocsApiIndexRoute
   '/_authenticated/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
@@ -364,14 +367,17 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/_authenticated/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/_authenticated/$orgSlug/tenants/': typeof AuthenticatedOrgSlugTenantsIndexRoute
-  '/_authenticated/settings/account/': typeof AuthenticatedSettingsAccountIndexRoute
-  '/_authenticated/settings/security/': typeof AuthenticatedSettingsSecurityIndexRoute
+  '/_authenticated/_user/onboarding/': typeof AuthenticatedUserOnboardingIndexRoute
+  '/_authenticated/_user/organizations/': typeof AuthenticatedUserOrganizationsIndexRoute
+  '/_authenticated/_user/settings/': typeof AuthenticatedUserSettingsIndexRoute
   '/docs/$section/$page/': typeof DocsSectionPageIndexRoute
   '/docs/$section/{$page}.md/': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/_authenticated/$orgSlug/agents/$agentId/': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/_authenticated/$orgSlug/agents/new/': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/_authenticated/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
+  '/_authenticated/_user/settings/account/': typeof AuthenticatedUserSettingsAccountIndexRoute
+  '/_authenticated/_user/settings/security/': typeof AuthenticatedUserSettingsSecurityIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -382,7 +388,6 @@ export interface FileRouteTypes {
     | '/docs.md'
     | '/robots.txt'
     | '/$orgSlug'
-    | '/settings'
     | '/api/status'
     | '/dev/$'
     | '/docs/sitemap.xml'
@@ -394,8 +399,6 @@ export interface FileRouteTypes {
     | '/api/chat/$'
     | '/api/v1/$'
     | '/$orgSlug/'
-    | '/onboarding/'
-    | '/organizations/'
     | '/docs/$section/'
     | '/docs/api/'
     | '/$orgSlug/agents/'
@@ -405,23 +408,25 @@ export interface FileRouteTypes {
     | '/$orgSlug/settings/'
     | '/$orgSlug/tenant-users/'
     | '/$orgSlug/tenants/'
-    | '/settings/account/'
-    | '/settings/security/'
+    | '/onboarding/'
+    | '/organizations/'
+    | '/settings/'
     | '/docs/$section/$page/'
     | '/docs/$section/{$page}.md/'
     | '/$orgSlug/agents/$agentId/'
     | '/$orgSlug/agents/new/'
     | '/$orgSlug/sandboxes/$sandboxProviderId/'
     | '/$orgSlug/sandboxes/new/'
+    | '/settings/account/'
+    | '/settings/security/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/docs.md'
     | '/robots.txt'
-    | '/settings'
+    | '/'
     | '/api/status'
     | '/dev/$'
     | '/docs/sitemap.xml'
-    | '/'
     | '/configure'
     | '/docs'
     | '/auth/$path'
@@ -430,8 +435,6 @@ export interface FileRouteTypes {
     | '/api/chat/$'
     | '/api/v1/$'
     | '/$orgSlug'
-    | '/onboarding'
-    | '/organizations'
     | '/docs/$section'
     | '/docs/api'
     | '/$orgSlug/agents'
@@ -441,14 +444,17 @@ export interface FileRouteTypes {
     | '/$orgSlug/settings'
     | '/$orgSlug/tenant-users'
     | '/$orgSlug/tenants'
-    | '/settings/account'
-    | '/settings/security'
+    | '/onboarding'
+    | '/organizations'
+    | '/settings'
     | '/docs/$section/$page'
     | '/docs/$section/{$page}.md'
     | '/$orgSlug/agents/$agentId'
     | '/$orgSlug/agents/new'
     | '/$orgSlug/sandboxes/$sandboxProviderId'
     | '/$orgSlug/sandboxes/new'
+    | '/settings/account'
+    | '/settings/security'
   id:
     | '__root__'
     | '/_authenticated'
@@ -457,7 +463,7 @@ export interface FileRouteTypes {
     | '/docs.md'
     | '/robots.txt'
     | '/_authenticated/$orgSlug'
-    | '/_authenticated/settings'
+    | '/_authenticated/_user'
     | '/api/status'
     | '/dev/$'
     | '/docs/sitemap.xml'
@@ -470,8 +476,6 @@ export interface FileRouteTypes {
     | '/api/chat/$'
     | '/api/v1/$'
     | '/_authenticated/$orgSlug/'
-    | '/_authenticated/onboarding/'
-    | '/_authenticated/organizations/'
     | '/docs/$section/'
     | '/docs/api/'
     | '/_authenticated/$orgSlug/agents/'
@@ -481,14 +485,17 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/settings/'
     | '/_authenticated/$orgSlug/tenant-users/'
     | '/_authenticated/$orgSlug/tenants/'
-    | '/_authenticated/settings/account/'
-    | '/_authenticated/settings/security/'
+    | '/_authenticated/_user/onboarding/'
+    | '/_authenticated/_user/organizations/'
+    | '/_authenticated/_user/settings/'
     | '/docs/$section/$page/'
     | '/docs/$section/{$page}.md/'
     | '/_authenticated/$orgSlug/agents/$agentId/'
     | '/_authenticated/$orgSlug/agents/new/'
     | '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/'
     | '/_authenticated/$orgSlug/sandboxes/new/'
+    | '/_authenticated/_user/settings/account/'
+    | '/_authenticated/_user/settings/security/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -557,11 +564,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
+    '/_authenticated/_user': {
+      id: '/_authenticated/_user'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedUserRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/status': {
@@ -612,20 +619,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/$orgSlug/'
       preLoaderRoute: typeof AuthenticatedOrgSlugIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
-    }
-    '/_authenticated/onboarding/': {
-      id: '/_authenticated/onboarding/'
-      path: '/onboarding'
-      fullPath: '/onboarding/'
-      preLoaderRoute: typeof AuthenticatedOnboardingIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/organizations/': {
-      id: '/_authenticated/organizations/'
-      path: '/organizations'
-      fullPath: '/organizations/'
-      preLoaderRoute: typeof AuthenticatedOrganizationsIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/astralbeam/token': {
       id: '/api/astralbeam/token'
@@ -718,19 +711,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugTenantsIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
-    '/_authenticated/settings/account/': {
-      id: '/_authenticated/settings/account/'
-      path: '/account'
-      fullPath: '/settings/account/'
-      preLoaderRoute: typeof AuthenticatedSettingsAccountIndexRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    '/_authenticated/_user/onboarding/': {
+      id: '/_authenticated/_user/onboarding/'
+      path: '/onboarding'
+      fullPath: '/onboarding/'
+      preLoaderRoute: typeof AuthenticatedUserOnboardingIndexRouteImport
+      parentRoute: typeof AuthenticatedUserRouteRoute
     }
-    '/_authenticated/settings/security/': {
-      id: '/_authenticated/settings/security/'
-      path: '/security'
-      fullPath: '/settings/security/'
-      preLoaderRoute: typeof AuthenticatedSettingsSecurityIndexRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    '/_authenticated/_user/organizations/': {
+      id: '/_authenticated/_user/organizations/'
+      path: '/organizations'
+      fullPath: '/organizations/'
+      preLoaderRoute: typeof AuthenticatedUserOrganizationsIndexRouteImport
+      parentRoute: typeof AuthenticatedUserRouteRoute
+    }
+    '/_authenticated/_user/settings/': {
+      id: '/_authenticated/_user/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedUserSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedUserRouteRoute
     }
     '/docs/$section/$page/': {
       id: '/docs/$section/$page/'
@@ -773,6 +773,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/$orgSlug/sandboxes/new/'
       preLoaderRoute: typeof AuthenticatedOrgSlugSandboxesNewIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/_user/settings/account/': {
+      id: '/_authenticated/_user/settings/account/'
+      path: '/settings/account'
+      fullPath: '/settings/account/'
+      preLoaderRoute: typeof AuthenticatedUserSettingsAccountIndexRouteImport
+      parentRoute: typeof AuthenticatedUserRouteRoute
+    }
+    '/_authenticated/_user/settings/security/': {
+      id: '/_authenticated/_user/settings/security/'
+      path: '/settings/security'
+      fullPath: '/settings/security/'
+      preLoaderRoute: typeof AuthenticatedUserSettingsSecurityIndexRouteImport
+      parentRoute: typeof AuthenticatedUserRouteRoute
     }
   }
 }
@@ -823,38 +837,42 @@ const AuthenticatedOrgSlugRouteRouteWithChildren =
     AuthenticatedOrgSlugRouteRouteChildren,
   )
 
-interface AuthenticatedSettingsRouteRouteChildren {
-  AuthenticatedSettingsAccountIndexRoute: typeof AuthenticatedSettingsAccountIndexRoute
-  AuthenticatedSettingsSecurityIndexRoute: typeof AuthenticatedSettingsSecurityIndexRoute
+interface AuthenticatedUserRouteRouteChildren {
+  AuthenticatedUserOnboardingIndexRoute: typeof AuthenticatedUserOnboardingIndexRoute
+  AuthenticatedUserOrganizationsIndexRoute: typeof AuthenticatedUserOrganizationsIndexRoute
+  AuthenticatedUserSettingsIndexRoute: typeof AuthenticatedUserSettingsIndexRoute
+  AuthenticatedUserSettingsAccountIndexRoute: typeof AuthenticatedUserSettingsAccountIndexRoute
+  AuthenticatedUserSettingsSecurityIndexRoute: typeof AuthenticatedUserSettingsSecurityIndexRoute
 }
 
-const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
+const AuthenticatedUserRouteRouteChildren: AuthenticatedUserRouteRouteChildren =
   {
-    AuthenticatedSettingsAccountIndexRoute:
-      AuthenticatedSettingsAccountIndexRoute,
-    AuthenticatedSettingsSecurityIndexRoute:
-      AuthenticatedSettingsSecurityIndexRoute,
+    AuthenticatedUserOnboardingIndexRoute:
+      AuthenticatedUserOnboardingIndexRoute,
+    AuthenticatedUserOrganizationsIndexRoute:
+      AuthenticatedUserOrganizationsIndexRoute,
+    AuthenticatedUserSettingsIndexRoute: AuthenticatedUserSettingsIndexRoute,
+    AuthenticatedUserSettingsAccountIndexRoute:
+      AuthenticatedUserSettingsAccountIndexRoute,
+    AuthenticatedUserSettingsSecurityIndexRoute:
+      AuthenticatedUserSettingsSecurityIndexRoute,
   }
 
-const AuthenticatedSettingsRouteRouteWithChildren =
-  AuthenticatedSettingsRouteRoute._addFileChildren(
-    AuthenticatedSettingsRouteRouteChildren,
+const AuthenticatedUserRouteRouteWithChildren =
+  AuthenticatedUserRouteRoute._addFileChildren(
+    AuthenticatedUserRouteRouteChildren,
   )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedOrgSlugRouteRoute: typeof AuthenticatedOrgSlugRouteRouteWithChildren
-  AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedUserRouteRoute: typeof AuthenticatedUserRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedOnboardingIndexRoute: typeof AuthenticatedOnboardingIndexRoute
-  AuthenticatedOrganizationsIndexRoute: typeof AuthenticatedOrganizationsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOrgSlugRouteRoute: AuthenticatedOrgSlugRouteRouteWithChildren,
-  AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedUserRouteRoute: AuthenticatedUserRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedOnboardingIndexRoute: AuthenticatedOnboardingIndexRoute,
-  AuthenticatedOrganizationsIndexRoute: AuthenticatedOrganizationsIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

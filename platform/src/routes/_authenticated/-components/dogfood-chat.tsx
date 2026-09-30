@@ -34,16 +34,9 @@ const DogfoodChatContext = createContext<DogfoodChatState | null>(null)
 /** Renders the chat panel beside `children`, whose header shows `DogfoodChatTrigger`. */
 export function DogfoodChat({ children }: { children: ReactNode }) {
   const organization = useMatches({
-    select: (matches) => {
-      const dashboard = matches.find((match) => match.routeId === "/_authenticated/$orgSlug")
-      if (dashboard) return dashboard.context.organization
-      const userPage = matches.find(
-        (match) =>
-          match.routeId === "/_authenticated/settings" ||
-          match.routeId === "/_authenticated/organizations/",
-      )
-      return userPage?.loaderData?.organization ?? null
-    },
+    select: (matches) =>
+      matches.find((match) => match.routeId === "/_authenticated/$orgSlug")?.context.organization ??
+      null,
   })
   const { access } = dogfoodChatRoute.useRouteContext()
   const panelId = useId()

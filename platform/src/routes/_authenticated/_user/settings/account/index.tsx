@@ -4,7 +4,7 @@ import { Settings } from "@/components/auth/settings/settings"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
 
-export const Route = createFileRoute("/_authenticated/settings/account/")({
+export const Route = createFileRoute("/_authenticated/_user/settings/account/")({
   component: AccountSettingsRoute,
   pendingComponent: AccountSettingsSkeleton,
   head: () => ({ meta: [{ title: `Account settings · ${APP_NAME}` }] }),
