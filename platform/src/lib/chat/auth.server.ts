@@ -9,7 +9,7 @@ import {
   ORGANIZATION_API_KEY_CONFIG_ID,
   parseApiKeyId,
 } from "@/lib/api-keys/schemas"
-import { ChatAuthTokenPayloadSchema } from "@/lib/schemas"
+import { ChatAuthTokenPayloadSchema } from "./schemas.ts"
 import {
   CHAT_AUTH_TOKEN_AUDIENCE,
   CHAT_AUTH_TOKEN_IDENTITY_MAX_BYTES,

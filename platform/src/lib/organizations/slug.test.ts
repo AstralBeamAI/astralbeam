@@ -1,8 +1,7 @@
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { SlugSchema } from "../schemas.ts"
-import { generateSlugSuggestion, isValidSlug } from "./slug.ts"
+import { generateSlugSuggestion, isValidSlug, SlugSchema } from "./slug.ts"
 
 describe("public slugs", () => {
   it("suggests the name's words joined by hyphens, blank without any", () => {

@@ -2,7 +2,7 @@ import process from "node:process"
 
 import { and, eq, isNull, sql } from "drizzle-orm"
 
-import { isValidOpenaiApiKey } from "../../src/lib/schemas.ts"
+import { isValidOpenaiApiKey } from "../../src/lib/organizations/schemas.ts"
 
 import {
   invitation,

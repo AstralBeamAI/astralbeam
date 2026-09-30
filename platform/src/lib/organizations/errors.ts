@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import { OPENAI_API_KEY_VALIDATION_MESSAGE } from "@/lib/schemas"
+import { OPENAI_API_KEY_VALIDATION_MESSAGE } from "./schemas.ts"
 
 export class SignInRequired extends Schema.TaggedError<SignInRequired>()(
   "SignInRequired",

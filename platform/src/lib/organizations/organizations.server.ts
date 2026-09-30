@@ -11,7 +11,8 @@ import {
 } from "@/db/schema/organizations.server"
 import { Auth } from "@/lib/auth/auth.server"
 import { Config } from "@/lib/config/config.server"
-import { SlugSchema, UuidV7Schema } from "@/lib/schemas"
+import { UuidV7Schema } from "@/lib/schemas"
+import { SlugSchema } from "./slug.ts"
 import {
   authorizeOrganizationRole,
   deriveOrganizationPermissions,

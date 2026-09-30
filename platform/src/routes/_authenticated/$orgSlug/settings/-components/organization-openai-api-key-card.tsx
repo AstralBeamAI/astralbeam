@@ -17,7 +17,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { isValidOpenaiApiKey, OPENAI_API_KEY_VALIDATION_MESSAGE } from "@/lib/schemas"
+import { isValidOpenaiApiKey, OPENAI_API_KEY_VALIDATION_MESSAGE } from "@/lib/organizations/schemas"
 import { updateOrganizationOpenaiApiKey } from "../-functions/update-organization-openai-api-key"
 
 export type OrganizationOpenaiApiKeyCardProps = {

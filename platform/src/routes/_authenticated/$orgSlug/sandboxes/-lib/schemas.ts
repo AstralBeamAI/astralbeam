@@ -4,7 +4,8 @@ import {
   SandboxProviderConfigurationSchema,
   SandboxProviderNameSchema,
 } from "@/lib/sandboxes/schemas"
-import { LockVersionSchema, SlugSchema, UuidV7Schema } from "@/lib/schemas"
+import { SlugSchema } from "@/lib/organizations/slug"
+import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
 
 export const SaveSandboxProviderInputSchema = SandboxProviderConfigurationSchema.mapMembers(
   Tuple.map(

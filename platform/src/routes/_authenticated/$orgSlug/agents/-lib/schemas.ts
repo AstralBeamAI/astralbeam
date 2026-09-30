@@ -1,7 +1,8 @@
 import { Schema } from "effect"
 
 import { AgentFieldsSchema, AgentIdSchema } from "@/lib/agents/schemas"
-import { LockVersionSchema, SlugSchema } from "@/lib/schemas"
+import { SlugSchema } from "@/lib/organizations/slug"
+import { LockVersionSchema } from "@/lib/schemas"
 
 export const CreateAgentInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,

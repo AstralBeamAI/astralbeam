@@ -7,7 +7,7 @@ import {
   SmtpSecuritySchema,
 } from "@/lib/email/schemas"
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
-import { generateSecret } from "@/lib/generate-secret.server"
+import { generateSecret } from "@/lib/utils.server"
 import {
   EmailAddressSchema,
   NonEmptyStringSchema,

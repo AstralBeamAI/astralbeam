@@ -1,3 +1,9 @@
+import { randomBytes } from "node:crypto"
+
+export function generateSecret(): string {
+  return randomBytes(32).toString("base64url")
+}
+
 // The reverse proxy terminates TLS on this host over loopback and nothing else sits in front, so a
 // forwarded header only means anything when the connection it arrived on came from that proxy.
 export const LOOPBACK_PROXY_ADDRESSES: readonly string[] = ["127.0.0.1", "::1"]

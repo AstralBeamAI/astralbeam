@@ -1,7 +1,5 @@
 import * as Schema from "effect/Schema"
 
-import { SLUG_PATTERN, SLUG_VALIDATION_MESSAGE } from "./organizations/slug.ts"
-
 export const validationParseOptions = { errors: "all", reportInput: false } as const
 
 export const strictParseOptions = {
@@ -50,53 +48,6 @@ export const UuidV7Schema = Schema.String.pipe(
   Schema.check(Schema.isUUID(7, { message: "Must be a valid UUID v7" })),
 )
 
-export const SlugSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(SLUG_PATTERN, { message: SLUG_VALIDATION_MESSAGE })),
-)
-
-export const OPENAI_API_KEY_VALIDATION_MESSAGE =
-  "Enter an OpenAI API key, which starts with 'sk-' and contains no spaces"
-
-// Shape only: every key OpenAI issues is one `sk-` token, so a pasted env line or project ID is
-// refused here instead of failing every chat run. https://platform.openai.com/docs/api-reference/authentication
-export const OpenaiApiKeySchema = Schema.String.pipe(
-  Schema.check(
-    Schema.isPattern(/^sk-[\w-]{16,500}$/, {
-      message: OPENAI_API_KEY_VALIDATION_MESSAGE,
-    }),
-  ),
-)
-
-export const isValidOpenaiApiKey = Schema.is(OpenaiApiKeySchema)
-
 export const LockVersionSchema = Schema.Int.check(
   Schema.isGreaterThanOrEqualTo(0, { message: "Must be 0 or greater" }),
-)
-
-const ChatExternalIdSchema = NonEmptyStringSchema.pipe(Schema.check(Schema.isMaxLength(255)))
-
-const ChatTenantSchema = Schema.Struct({
-  id: ChatExternalIdSchema,
-  name: Schema.optional(Schema.String),
-  metadata: Schema.optional(Schema.JsonObject),
-})
-
-const ChatTenantUserSchema = Schema.Struct({
-  id: ChatExternalIdSchema,
-  name: Schema.optional(Schema.String),
-  admin: Schema.optional(Schema.Boolean),
-  metadata: Schema.optional(Schema.JsonObject),
-})
-
-export const ChatAuthTokenPayloadSchema = Schema.StructWithRest(
-  Schema.Struct({
-    ver: Schema.Literal(4),
-    iat: Schema.Int,
-    exp: Schema.Int,
-    iss: UuidV7Schema,
-    aud: Schema.Literal("astralbeam"),
-    user: ChatTenantUserSchema,
-    tenant: ChatTenantSchema,
-  }),
-  [Schema.JsonObject],
 )

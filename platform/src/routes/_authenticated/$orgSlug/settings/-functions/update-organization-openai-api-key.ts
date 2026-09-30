@@ -5,7 +5,9 @@ import { OrganizationOpenaiApiKeyInvalid } from "@/lib/organizations/errors"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { writeOrganizationOpenaiApiKey } from "@/lib/organizations/openai-api-key.server"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
-import { isValidOpenaiApiKey, SlugSchema, toValidationSchema } from "@/lib/schemas"
+import { isValidOpenaiApiKey } from "@/lib/organizations/schemas"
+import { SlugSchema } from "@/lib/organizations/slug"
+import { toValidationSchema } from "@/lib/schemas"
 
 export const updateOrganizationOpenaiApiKey = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])

@@ -4,7 +4,8 @@ import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { Config } from "@/lib/config/config.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
-import { SlugSchema, validationParseOptions } from "@/lib/schemas"
+import { SlugSchema } from "@/lib/organizations/slug"
+import { validationParseOptions } from "@/lib/schemas"
 import { readRequestJson } from "../../-lib/request-body.server"
 
 const decodeDashboardTokenRequest = Schema.decodeUnknownResult(
