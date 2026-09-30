@@ -72,6 +72,18 @@
   background: var(--muted);
 }
 
+.docs-crumbs {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted-foreground);
+}
+
+.docs-crumbs > span {
+  padding: 0 4px;
+}
+
 .docs-nav-primary {
   margin-inline-start: 10px;
 }
@@ -106,5 +118,9 @@
 
   .docs-wordmarks {
     display: contents;
+  }
+
+  .docs-crumbs {
+    display: flex;
   }
 }
