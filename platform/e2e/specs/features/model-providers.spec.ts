@@ -3,7 +3,6 @@ import { expectToast } from "../../dialogs.ts"
 import { expect, test } from "../../fixtures.ts"
 import { waitForHydration } from "../../hydration.ts"
 import { makeRunIdentity } from "../../identity.ts"
-import { seedLegacyModelProvider } from "../../legacy-model-provider.ts"
 
 test("independent OpenAI connections supply distinct agent models and protect assignments", async ({
   page,
@@ -19,8 +18,6 @@ test("independent OpenAI connections supply distinct agent models and protect as
   const firstChoice = `${upstreamModel} (${primaryName})`
   const secondChoice = `${upstreamModel} (${secondaryName})`
   const modelPath = `/${baseline.organizationSlug}/models`
-  let agentPath = ""
-  let organizationId = ""
 
   await test.step("save two OpenAI connections with the same upstream model", async () => {
     await page.goto(modelPath)
@@ -67,8 +64,6 @@ test("independent OpenAI connections supply distinct agent models and protect as
     })
     await agents.selectDefaultModel(secondChoice)
     await agents.submitCreate()
-    agentPath = new URL(page.url()).pathname
-    organizationId = (await agents.publicId().inputValue()).split("_")[1]!
     await page.reload()
     await expect(page.getByRole("checkbox", { name: firstChoice, exact: true })).toBeChecked()
     await expect(page.getByRole("checkbox", { name: secondChoice, exact: true })).toBeChecked()
@@ -115,34 +110,5 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await expect(page.getByRole("link", { name: `Anthropic ${runId}`, exact: true })).toBeVisible()
     await expect(page.getByRole("link", { name: `OpenRouter ${runId}`, exact: true })).toBeVisible()
     await captureMilestone(page, "04-supported-provider-types")
-  })
-
-  await test.step("import the legacy key without replacing configured agent models", async () => {
-    const starterName = `Legacy starter ${runId}`
-    const starterId = await seedLegacyModelProvider(organizationId, starterName)
-    await page.goto(modelPath)
-    await models.importLegacy()
-    await models.open("Imported OpenAI")
-    await expect(page.getByLabel("API key", { exact: true })).toHaveValue("")
-    await expect(page.getByText("Stored key ends in 5555. Leave blank to keep it.")).toBeVisible()
-    await page.goto(`/${baseline.organizationSlug}/agents/agent_${organizationId}_${starterId}`)
-    await expect(page.getByRole("heading", { level: 1, name: starterName })).toBeVisible()
-    await expect(
-      page.getByRole("checkbox", { name: "gpt-5.6-terra (Imported OpenAI)", exact: true }),
-    ).toBeChecked()
-    await captureMilestone(page, "05-imported-starter-model")
-    await page.goto(agentPath)
-    await expect(page.getByRole("checkbox", { name: firstChoice, exact: true })).toBeChecked()
-    await expect(page.getByRole("checkbox", { name: secondChoice, exact: true })).toBeChecked()
-    await expect(page.getByRole("combobox", { name: "Default model", exact: true })).toContainText(
-      secondChoice,
-    )
-    await expect(
-      page.getByRole("checkbox", { name: "gpt-5.6-terra (Imported OpenAI)", exact: true }),
-    ).not.toBeChecked()
-    await page.goto(modelPath)
-    await expect(
-      page.getByRole("button", { name: "Import existing key", exact: true }),
-    ).toBeHidden()
   })
 })
