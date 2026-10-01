@@ -87,9 +87,9 @@ Point a process supervisor or load balancer probe at `/api/status`. It counts or
 
 ## Shutdown
 
-SIGTERM and SIGINT start a single shutdown sequence. Nitro stops accepting requests and allows active responses, including streams, to finish. It then closes the cluster runner and both database pools. The entire sequence has a five-second deadline. Cleanup failure or timeout exits with status 1. Give the process supervisor more than five seconds before sending SIGKILL.
+SIGTERM and SIGINT start a single shutdown sequence. The server stops accepting requests and gives active responses, including streams, up to five seconds to finish. It then stops the cluster runner, destroys live chat sandboxes, closes both database pools, and exits. That cleanup has five seconds of its own, and a failure or timeout exits with status 1. Give the process supervisor more than ten seconds before sending SIGKILL.
 
-Long-lived streams can exceed that deadline and be disconnected. Durably accepted workflows remain recoverable through PostgreSQL, but their callers must reconnect to inspect the result. Development reloads close the runner scope while retaining the shared database pools.
+Long-lived streams such as chat runs can outlast the drain and be disconnected. Durably accepted workflows remain recoverable through PostgreSQL, but their callers must reconnect to inspect the result. Development reloads close the runner scope while retaining the shared database pools.
 
 ## Cluster readiness and recovery
 
@@ -122,7 +122,8 @@ Counters live in the shared `rate_limit` table, so every replica enforces the sa
 | Bucket | Limit | Scope |
 | --- | --- | --- |
 | Operator sign-in at `/configure` | 5 per minute | The whole deployment. Cleared by a successful sign-in |
-| Chat requests | 200 per 60 seconds | Organization, Tenant, and tenant user combined |
+| Chat turns | 20 per 60 seconds | Organization, Tenant, and tenant user combined |
+| Chat host-tool continuations | 200 per 60 seconds | Organization, Tenant, and tenant user combined |
 | Sign-up, password reset, verification email, and organization invite | 5 per 60 seconds each | The requesting client address |
 | Management API with an API key | 100 per 5 minutes | The API key |
 | Management API with a chat token | 100 per 5 minutes | The token's identity |

@@ -31,15 +31,7 @@ function sandboxOperation<A>(
 
 const createSandbox = (provider: {
   create: (options: { signal: AbortSignal }) => Promise<SandboxHandle>
-}) => {
-  let pending: Promise<SandboxHandle> | undefined
-  // Docker's create ignores the signal, so a timed-out or interrupted create destroys a late handle.
-  return sandboxOperation((signal) => (pending = provider.create({ signal })), "30 seconds").pipe(
-    Effect.onError(() =>
-      Effect.sync(() => void pending?.then((handle) => handle.destroy()).catch(() => undefined)),
-    ),
-  )
-}
+}) => sandboxOperation((signal) => provider.create({ signal }), "30 seconds")
 
 const destroySandbox = (handle: SandboxHandle) =>
   sandboxOperation(() => handle.destroy(), "15 seconds")

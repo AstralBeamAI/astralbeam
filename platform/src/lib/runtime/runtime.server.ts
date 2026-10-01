@@ -55,19 +55,37 @@ export function getAppLayer() {
 
 export type AppServices = Layer.Success<ReturnType<typeof makeAppLayer>>
 
+// Nitro plugins and request handlers load separate copies of this module, each with its own
+// runtime, so shutdown disposes them all through this process-wide set.
+const appRuntimesKey = Symbol.for("platform.appRuntimes")
+type AppRuntime = ManagedRuntime.ManagedRuntime<AppServices, never>
+const appRuntimes = ((globalThis as typeof globalThis & { [appRuntimesKey]?: Set<AppRuntime> })[
+  appRuntimesKey
+] ??= new Set())
+
 // Pools stay process-wide in `src/db/database.server.ts`, so a reload rebuilds only these services.
 // https://vite.dev/guide/api-hmr.html#hot-dispose-cb
-let appRuntime: ManagedRuntime.ManagedRuntime<AppServices, never> | undefined
+let appRuntime: AppRuntime | undefined
 
 export function getAppRuntime() {
-  return (appRuntime ??= ManagedRuntime.make(getAppLayer().pipe(Layer.orDie)))
+  if (appRuntime) return appRuntime
+  appRuntime = ManagedRuntime.make(getAppLayer().pipe(Layer.orDie))
+  appRuntimes.add(appRuntime)
+  return appRuntime
 }
 
-/** Runs the services' finalizers, such as destroying chat sandboxes, without closing the pools. */
-export function disposeAppRuntime(): Promise<void> {
-  const runtime = appRuntime
+function disposeRuntime(runtime: AppRuntime): Promise<void> {
+  appRuntimes.delete(runtime)
+  return runtime.dispose()
+}
+
+/** Runs every copy's finalizers, such as destroying chat sandboxes, without closing the pools. */
+export async function disposeAppRuntimes(): Promise<void> {
   appRuntime = undefined
-  return runtime ? runtime.dispose() : Promise.resolve()
+  await Promise.all([...appRuntimes].map(disposeRuntime))
 }
 
-import.meta.hot?.dispose(() => void disposeAppRuntime())
+import.meta.hot?.dispose(() => {
+  if (appRuntime) void disposeRuntime(appRuntime)
+  appRuntime = undefined
+})

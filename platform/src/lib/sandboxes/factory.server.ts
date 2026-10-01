@@ -1,7 +1,6 @@
 import type { SandboxProvider } from "@tanstack/ai-sandbox"
 import * as Effect from "effect/Effect"
 
-import { dockerKeepAliveCommand } from "./docker.server.ts"
 import { SandboxProviderUnavailable } from "./errors.ts"
 import {
   decodeProviderCredentials,
@@ -10,6 +9,9 @@ import {
   type SandboxProviderId,
   type SandboxProviderOptions,
 } from "./schemas.ts"
+
+// `tail` as PID 1 ignores SIGTERM, so without the trap every destroy waits out Docker's stop timeout.
+const DOCKER_KEEP_ALIVE_COMMAND = ["sh", "-c", "trap 'exit 0' TERM; tail -f /dev/null & wait"]
 
 type ProviderConfiguration<Provider extends SandboxProviderId> = {
   options: SandboxProviderOptions[Provider]
@@ -30,7 +32,7 @@ const factories: {
   docker: (configuration: ProviderConfiguration<"docker">) =>
     loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-docker")).pipe(
       Effect.map(({ dockerSandbox }) =>
-        dockerSandbox({ ...configuration.options, keepAliveCommand: dockerKeepAliveCommand() }),
+        dockerSandbox({ ...configuration.options, keepAliveCommand: DOCKER_KEEP_ALIVE_COMMAND }),
       ),
     ),
   sprites: (configuration: ProviderConfiguration<"sprites">) =>

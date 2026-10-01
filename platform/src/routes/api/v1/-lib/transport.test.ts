@@ -85,7 +85,10 @@ import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
-import { CHAT_RATE_LIMIT_MAX_REQUESTS } from "@/lib/chat/constants.server"
+import {
+  CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
+  CHAT_RATE_LIMIT_MAX_REQUESTS,
+} from "@/lib/chat/constants.server"
 import { ChatAgentNotFound } from "@/lib/chat/errors"
 import { ChatArtifactUnavailable, ChatSandboxOperationFailed } from "@/lib/chat/sandbox/errors"
 
@@ -556,9 +559,22 @@ describe("REST API through the Effect Fetch handler", () => {
         }),
       ),
     )
-    const limited = await restRequest("/chat", { method: "POST", headers, body: "{}" })
+    // A host-tool result continues the agent's turn, so it must not spend the new-turn bucket.
+    const continuation = JSON.stringify({
+      threadId: "thread",
+      runId: "run",
+      messages: [{ id: "result", role: "tool", toolCallId: "call", content: "{}" }],
+      tools: [],
+      context: [],
+      state: {},
+      forwardedProps: {},
+    })
+    const limited = await restRequest("/chat", { method: "POST", headers, body: continuation })
     expect(limited.status).toBe(429)
     expect(limited.headers.get("retry-after")).toBe("2")
+    const [continuationLimit] = restTestState.consume.mock.calls.at(-1)!
+    expect(continuationLimit.key).toMatch(/^chat-continuation:/)
+    expect(continuationLimit).toHaveProperty("limit", CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS)
   })
 
   test("artifact tickets serve unchanged bytes and security headers without bearer auth", async () => {

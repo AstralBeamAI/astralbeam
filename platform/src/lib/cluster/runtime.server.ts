@@ -4,7 +4,7 @@ import { WorkflowEngine } from "effect/workflow"
 
 import { sqlState } from "../../db/lib/sqlstate.server.ts"
 import { closeDatabase } from "../../db/database.server.ts"
-import { disposeAppRuntime, getAppRuntime } from "../runtime/runtime.server.ts"
+import { disposeAppRuntimes, getAppRuntime } from "../runtime/runtime.server.ts"
 import { registeredWorkflowLayers } from "../workflows/registry.server.ts"
 import { ClusterUnavailableError } from "./errors.ts"
 import { clusterRunnerLayer, clusterRunnerSettings } from "./runner.server.ts"
@@ -112,6 +112,6 @@ export const stopClusterRunner = Semaphore.withPermit(
 /** Stops the runner before the app services it borrows, and those before the pools they use. */
 export const closeClusterProcess = Effect.gen(function* () {
   yield* stopClusterRunner
-  yield* Effect.promise(() => disposeAppRuntime())
+  yield* Effect.promise(() => disposeAppRuntimes())
   yield* Effect.promise(() => closeDatabase())
 })
