@@ -5,6 +5,7 @@ import { vi } from "vitest"
 
 const connectionTestSandbox = vi.hoisted(() => ({
   createError: undefined as Error | undefined,
+  pendingCreate: undefined as Promise<unknown> | undefined,
   exec: vi.fn<() => Promise<{ exitCode: number; stdout: string }>>(),
   destroy: vi.fn(() => Promise.resolve()),
 }))
@@ -13,12 +14,13 @@ vi.mock("./factory.server.ts", () => ({
   createSandboxProvider: () =>
     Effect.succeed({
       create: () =>
-        connectionTestSandbox.createError === undefined
+        connectionTestSandbox.pendingCreate ??
+        (connectionTestSandbox.createError === undefined
           ? Promise.resolve({
               process: { exec: connectionTestSandbox.exec },
               destroy: connectionTestSandbox.destroy,
             })
-          : Promise.reject(connectionTestSandbox.createError),
+          : Promise.reject(connectionTestSandbox.createError)),
     }),
 }))
 
@@ -51,6 +53,30 @@ describe("runSandboxConnectionTest", () => {
       const result = yield* Fiber.join(fiber)
       assert.deepInclude(result, { status: "failure", errorCode: "timeout" })
       assert.strictEqual(connectionTestSandbox.destroy.mock.calls.length, 1)
+    }),
+  )
+
+  // Docker's adapter ignores the abort signal, so its create can still finish after the test ends.
+  it.effect("destroys a sandbox whose create finishes after a timeout or interruption", () =>
+    Effect.gen(function* () {
+      for (const end of ["timeout", "interrupt"] as const) {
+        connectionTestSandbox.destroy.mockClear()
+        const late = Promise.withResolvers<unknown>()
+        connectionTestSandbox.pendingCreate = late.promise
+        const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
+        if (end === "timeout") {
+          yield* TestClock.adjust("30 seconds")
+          assert.deepInclude(yield* Fiber.join(fiber), { status: "failure", errorCode: "timeout" })
+        } else {
+          yield* TestClock.adjust("1 second")
+          yield* Fiber.interrupt(fiber)
+        }
+        connectionTestSandbox.pendingCreate = undefined
+        assert.strictEqual(connectionTestSandbox.destroy.mock.calls.length, 0)
+        late.resolve({ destroy: connectionTestSandbox.destroy })
+        yield* Effect.promise(() => late.promise)
+        assert.strictEqual(connectionTestSandbox.destroy.mock.calls.length, 1, end)
+      }
     }),
   )
 
