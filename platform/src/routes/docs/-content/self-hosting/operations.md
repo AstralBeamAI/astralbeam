@@ -13,7 +13,7 @@ Effect manages the separate `effect_cluster_*` tables automatically at runner st
 Three things happen when you apply application migrations.
 
 - The run takes a PostgreSQL advisory lock, so only one migration run happens at a time across all replicas. A second attempt returns `A migration run is already in progress`.
-- The page approves the exact set it showed you, by name and SQL digest. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
+- The page approves the exact set it showed you, by name and a digest of its SQL and any data conversion code. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
 - Each migration runs in its own transaction and is recorded before the next one starts.
 
 A failure stops the run and reports `Migration '<name>' failed: <code>: <message>`. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run.
@@ -22,7 +22,7 @@ A failure stops the run and reports `Migration '<name>' failed: <code>: <message
 
 ## Database commands
 
-The operator page, the binary's `migrate` command, and the Drizzle CLI write the same bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name, so the three are interchangeable. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
+The operator page, the binary's `migrate` command, and `deno task db migrate` share the application's migration steps and bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
 
 Run this command with the new binary to list the migrations it would apply, without changing the database:
 
@@ -44,6 +44,8 @@ Run this command to apply every checked-in migration that has not run yet from a
 deno task --cwd platform db migrate
 ```
 
+**NOTE**: Existing organization model keys need the same `DATABASE_ENCRYPTION_KEY` keyring that encrypted them. The upgrade automatically creates an OpenAI connection for each stored key, assigns its model to agents without model selections, and removes the old field. An unreadable key rolls back the conversion. Keep existing decryption keys available until the upgrade completes.
+
 Run this command to validate the consistency of the migration history on disk, which says nothing about the state of the live database:
 
 ```sh
@@ -62,7 +64,7 @@ Run this command to take that dump:
 pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
 ```
 
-Two things make an AstralBeam dump different from an ordinary one. The dump is useless without the matching `DATABASE_ENCRYPTION_KEY`, because deployment settings and sandbox provider credentials are stored as ciphertext keyed from it, as described in [Security](./security.md). Restoring also needs a server at the same PostgreSQL major version or newer, with the `citext` extension available.
+Two things make an AstralBeam dump different from an ordinary one. The dump is useless without the matching `DATABASE_ENCRYPTION_KEY`, because deployment settings, model provider credentials, and sandbox provider credentials are stored as ciphertext keyed from it, as described in [Security](./security.md). Restoring also needs a server at the same PostgreSQL major version or newer, with the `citext` extension available.
 
 **NOTE**: Back the keyring up in your secret manager, separately from the dump, and never in the same place.
 
