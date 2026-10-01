@@ -2,10 +2,14 @@ import { Schema } from "effect"
 
 import { DisplayNameSchema, enumSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
 
-export const MODEL_PROVIDER_TYPES = ["openai", "openai-compatible"] as const
+export const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "opencode"] as const
 export const ModelProviderTypeSchema = enumSchema(MODEL_PROVIDER_TYPES)
 export type ModelProviderType = typeof ModelProviderTypeSchema.Type
-export const ModelProviderApiSchema = enumSchema(["responses", "chat-completions"])
+export const ModelProviderApiSchema = enumSchema([
+  "responses",
+  "chat-completions",
+  "anthropic-messages",
+])
 export type ModelProviderApi = typeof ModelProviderApiSchema.Type
 
 export const ModelProviderApiKeySchema = NonEmptyStringSchema.pipe(
@@ -42,6 +46,7 @@ export const ProviderModelFieldsSchema = Schema.Struct({
     Schema.check(Schema.isMaxLength(256)),
   ),
   name: DisplayNameSchema,
+  api: Schema.optionalKey(Schema.NullOr(ModelProviderApiSchema)),
 })
 export type ProviderModelFields = typeof ProviderModelFieldsSchema.Type
 
@@ -60,7 +65,28 @@ export const ModelProviderFieldsSchema = Schema.Struct({
       ),
     ),
   ),
-})
+}).pipe(
+  Schema.check(
+    Schema.makeFilter((provider) => {
+      const supportsApi = (api: ModelProviderApi) =>
+        provider.providerType === "opencode" ||
+        (provider.providerType === "anthropic"
+          ? api === "anthropic-messages"
+          : api !== "anthropic-messages")
+      if (!supportsApi(provider.api))
+        return { path: ["api"], issue: "Select a supported API format for this provider" }
+      const invalidModel = provider.models.findIndex(
+        (model) => !supportsApi(model.api ?? provider.api),
+      )
+      if (invalidModel !== -1)
+        return {
+          path: ["models", invalidModel, "api"],
+          issue: "Select a supported API format for this provider",
+        }
+      return undefined
+    }),
+  ),
+)
 export type ModelProviderFields = typeof ModelProviderFieldsSchema.Type
 
 export const ModelProviderCredentialsPayloadSchema = Schema.Struct({

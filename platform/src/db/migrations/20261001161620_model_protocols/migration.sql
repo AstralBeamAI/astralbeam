@@ -1,0 +1,1 @@
+ALTER TABLE "provider_model" ADD COLUMN "api" text;

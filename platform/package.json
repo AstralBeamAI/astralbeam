@@ -47,6 +47,7 @@
     "@react-email/render": "2.1.0",
     "@scalar/api-reference": "^1.67.0",
     "@tanstack/ai": "^0.63.0",
+    "@tanstack/ai-anthropic": "^0.19.3",
     "@tanstack/ai-openai": "^0.25.1",
     "@tanstack/ai-sandbox": "^0.5.17",
     "@tanstack/ai-sandbox-daytona": "^0.3.4",

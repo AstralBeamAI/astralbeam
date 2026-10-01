@@ -239,6 +239,66 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     expect(edited.modelIds).toEqual(modelIds)
   })
 
+  test("routes different models through one OpenCode instance using their saved API formats", async () => {
+    const id = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        providerType: "opencode",
+        name: "OpenCode Zen",
+        api: "responses",
+        baseUrl: "https://opencode.ai/zen/v1",
+        models: [
+          { modelId: "gpt-example", name: "GPT", api: null },
+          { modelId: "claude-example", name: "Claude", api: "anthropic-messages" },
+        ],
+      }),
+    )
+    const provider = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id })),
+    )
+    const [second] = await db
+      .insert(agent)
+      .values({ organizationId, name: "Claude agent", systemPrompt: "Help" })
+      .returning()
+    await db.insert(agentModel).values([
+      {
+        organizationId,
+        agentId,
+        providerModelId: provider!.models.find((model) => model.modelId === "gpt-example")!.id,
+        position: 0,
+      },
+      {
+        organizationId,
+        agentId: second!.id,
+        providerModelId: provider!.models.find((model) => model.modelId === "claude-example")!.id,
+        position: 0,
+      },
+    ])
+    const gpt = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.resolveForAgent({ organizationId, agentId }),
+      ),
+    )
+    const claude = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.resolveForAgent({ organizationId, agentId: second!.id }),
+      ),
+    )
+    expect(gpt).toMatchObject({
+      providerId: id,
+      providerType: "opencode",
+      modelId: "gpt-example",
+      api: "responses",
+      apiKey: modelIntegrationKey,
+    })
+    expect(claude).toMatchObject({
+      providerId: id,
+      providerType: "opencode",
+      modelId: "claude-example",
+      api: "anthropic-messages",
+      apiKey: modelIntegrationKey,
+    })
+  })
+
   test("imports an organization key once without replacing assigned agents", async () => {
     const providerId = await runAppEffect(saveIntegrationProvider(organizationId))
     const provider = await runAppEffect(
