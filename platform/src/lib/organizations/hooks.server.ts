@@ -1,14 +1,12 @@
 import type { BetterAuthPlugin } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
-import { Config, ConfigProvider, Effect, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { SLUG_VALIDATION_MESSAGE, SlugSchema } from "@/lib/organizations/slug"
-import { isValidOpenaiApiKey } from "./schemas.ts"
-import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 import { organizationRoles } from "./access.ts"
 import { ORGANIZATION_API_KEY_PREFIX } from "../api-keys/schemas.ts"
 import { isReservedOrganizationSlug, RESERVED_ORGANIZATION_SLUG_MESSAGE } from "./reserved-slugs.ts"
@@ -83,24 +81,16 @@ export const organizationRoleHooks = {
 
 /**
  * Kept apart from the validation hooks above, which stay usable without a database, so a new
- * organization can be chatted with before anyone opens the dashboard.
+ * organization starts with an agent that can be configured after adding a model provider.
  */
 export const organizationProvisioningHooks = {
   afterCreateOrganization: async ({ organization }) => {
     await runAppEffect(
       Effect.gen(function* () {
-        // Read afresh, as the Config service rereads the environment it overrides.
-        const openaiApiKey = IS_DEVELOPMENT_SERVER
-          ? (yield* Config.String("OPENAI_API_KEY").pipe(
-              Config.withDefault(""),
-              Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-            )).trim()
-          : undefined
         const agents = yield* Agents
         yield* agents.provisionDefault({
           organizationId: organization.id,
           organizationName: organization.name,
-          openaiApiKey: isValidOpenaiApiKey(openaiApiKey) ? openaiApiKey : undefined,
         })
       }).pipe(
         // The organization already exists and its owner can add an agent by hand, so a failure

@@ -146,7 +146,7 @@ deno task --cwd platform db migrate
 deno task --cwd platform db-seed
 ```
 
-The seed prints every account with its password, each agent's public ID, and each API key's full value. It skips any setting that has an environment override, and stores `OPENAI_API_KEY` from the environment as every seeded organization's own OpenAI API key.
+The seed prints every account with its password, each agent's public ID, and each API key's full value. It skips any setting that has an environment override. When `OPENAI_API_KEY` is set, it creates a **Development OpenAI** connection, enables its default model, and assigns that model to agents in seeded organizations and dogfood that have no provider or legacy key. Existing provider settings and model assignments are preserved. If you have a legacy organization key, import it from **Models** when you are ready to move it to a provider.
 
 It refuses anything but a loopback database host, reporting `Refusing to seed the database at '<host>': seeding writes fixed development credentials and is limited to a loopback host`, because it writes fixed, published credentials. It also requires `DATABASE_ENCRYPTION_KEY`, refuses to run against an unmigrated database, runs in one transaction, and can be re-run to restore the fixture values.
 

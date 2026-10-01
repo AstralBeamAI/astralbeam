@@ -17,7 +17,8 @@ import {
   SEED_TODOS_TARGET,
   SEED_USERS,
 } from "./seed/fixtures.ts"
-import { seedOrganizationOpenaiApiKeys, seedOrganizations } from "./seed/organizations.ts"
+import { seedOrganizations } from "./seed/organizations.ts"
+import { seedModelProviders } from "./seed/models.ts"
 import { seedTenants } from "./seed/tenants.ts"
 import { seedUsers } from "./seed/users.ts"
 import { seedDogfood } from "./seed/dogfood.ts"
@@ -47,8 +48,8 @@ try {
     const apiKeys = await seedApiKeys(transaction)
     const tenantUserCount = await seedTenants(transaction)
     await seedDogfood(transaction, userIdsByEmail)
-    const openaiApiKey = await seedOrganizationOpenaiApiKeys(transaction)
-    return { config, agents, apiKeys, openaiApiKey, tenantUserCount }
+    const modelProviders = await seedModelProviders(transaction)
+    return { config, agents, apiKeys, modelProviders, tenantUserCount }
   })
 
   console.log(`\nSeeded database '${databaseName}'.\n`)
@@ -98,13 +99,15 @@ try {
     for (const line of env.trimEnd().split("\n")) console.log(`  ${line}`)
   }
 
-  if (summary.openaiApiKey === "written") {
-    console.log("\nStored OPENAI_API_KEY as every seeded organization's own OpenAI API key.")
+  if (summary.modelProviders === "written") {
+    console.log(
+      "\nPrepared Development OpenAI providers and agent models for seeded organizations without providers or legacy keys.",
+    )
   } else {
     console.warn(
       `\nOPENAI_API_KEY is ${
-        summary.openaiApiKey === "invalid" ? "not a well-formed 'sk-' key" : "not set"
-      }, so chat requests answer 503 until each organization's\nkey is set in the dashboard under Settings. Put a key in platform/.env.local to seed it instead.`,
+        summary.modelProviders === "invalid" ? "not a well-formed 'sk-' key" : "not set"
+      }, so configure each organization's provider in Models, then assign its models to an agent. Put a key in platform/.env.local to seed development providers instead.`,
     )
   }
   console.log()
