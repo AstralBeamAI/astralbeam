@@ -24,6 +24,7 @@ import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsSitemapDotxmlRouteImport } from './routes/docs/sitemap[.]xml'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
 import { Route as AuthenticatedOrgSlugIndexRouteImport } from './routes/_authenticated/$orgSlug/index'
+import { Route as AuthenticatedChar126SplatRouteImport } from './routes/_authenticated/~/$'
 import { Route as ApiAstralbeamTokenRouteImport } from './routes/api/astralbeam/token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
@@ -123,6 +124,12 @@ const AuthenticatedOrgSlugIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedChar126SplatRoute =
+  AuthenticatedChar126SplatRouteImport.update({
+    id: '/~/$',
+    path: '/~/$',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
   id: '/api/astralbeam/token',
@@ -275,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
+  '/~/$': typeof AuthenticatedChar126SplatRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
@@ -311,6 +319,7 @@ export interface FileRoutesByTo {
   '/configure': typeof ConfigureIndexRoute
   '/docs': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
+  '/~/$': typeof AuthenticatedChar126SplatRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
@@ -353,6 +362,7 @@ export interface FileRoutesById {
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
+  '/_authenticated/~/$': typeof AuthenticatedChar126SplatRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/configure/'
     | '/docs/'
     | '/auth/$path'
+    | '/~/$'
     | '/api/astralbeam/token'
     | '/api/auth/$'
     | '/api/chat/$'
@@ -430,6 +441,7 @@ export interface FileRouteTypes {
     | '/configure'
     | '/docs'
     | '/auth/$path'
+    | '/~/$'
     | '/api/astralbeam/token'
     | '/api/auth/$'
     | '/api/chat/$'
@@ -471,6 +483,7 @@ export interface FileRouteTypes {
     | '/configure/'
     | '/docs/'
     | '/(authentication)/auth/$path'
+    | '/_authenticated/~/$'
     | '/api/astralbeam/token'
     | '/api/auth/$'
     | '/api/chat/$'
@@ -619,6 +632,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$orgSlug/'
       preLoaderRoute: typeof AuthenticatedOrgSlugIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/~/$': {
+      id: '/_authenticated/~/$'
+      path: '/~/$'
+      fullPath: '/~/$'
+      preLoaderRoute: typeof AuthenticatedChar126SplatRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/astralbeam/token': {
       id: '/api/astralbeam/token'
@@ -867,12 +887,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOrgSlugRouteRoute: typeof AuthenticatedOrgSlugRouteRouteWithChildren
   AuthenticatedUserRouteRoute: typeof AuthenticatedUserRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedChar126SplatRoute: typeof AuthenticatedChar126SplatRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOrgSlugRouteRoute: AuthenticatedOrgSlugRouteRouteWithChildren,
   AuthenticatedUserRouteRoute: AuthenticatedUserRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedChar126SplatRoute: AuthenticatedChar126SplatRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
