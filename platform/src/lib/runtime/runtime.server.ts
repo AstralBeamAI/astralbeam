@@ -13,6 +13,7 @@ import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
 import { Config } from "@/lib/config/config.server"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { Mailer } from "@/lib/email/email.server"
+import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
@@ -36,6 +37,7 @@ function makeAppLayer() {
     Dogfood.layer,
     Mailer.layer,
     Organizations.layer,
+    ModelProviders.layer,
     SandboxProviders.layer,
     Tenants.layer,
     TenantUsers.layer,

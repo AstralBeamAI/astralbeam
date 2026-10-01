@@ -76,7 +76,7 @@ describe("optimistic locking", () => {
           expectedLockVersion: 7,
         }),
       ),
-    ).resolves.toEqual(deleted)
+    ).resolves.toBeUndefined()
 
     expect(calls).toHaveLength(1)
     expect(calls[0]?.operation).toBe("delete")

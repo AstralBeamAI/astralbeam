@@ -56,6 +56,18 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
       from: relations.organization.id,
       to: relations.organizationConfiguration.organizationId,
     }),
+    modelProviders: relations.many.modelProvider({
+      from: relations.organization.id,
+      to: relations.modelProvider.organizationId,
+    }),
+    providerModels: relations.many.providerModel({
+      from: relations.organization.id,
+      to: relations.providerModel.organizationId,
+    }),
+    agentModels: relations.many.agentModel({
+      from: relations.organization.id,
+      to: relations.agentModel.organizationId,
+    }),
     sandboxProviders: relations.many.sandboxProvider({
       from: relations.organization.id,
       to: relations.sandboxProvider.organizationId,

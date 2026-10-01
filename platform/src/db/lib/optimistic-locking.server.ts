@@ -59,10 +59,25 @@ export function updateWithOptimisticLock<TTable extends LockedTable>(
 
 export function deleteWithOptimisticLock<TTable extends LockedTable>(
   options: OptimisticLockOptions<TTable>,
-): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError | EffectDrizzleQueryError> {
+): Effect.Effect<void, OptimisticLockError | EffectDrizzleQueryError> {
   return validateLockVersion(options).pipe(
-    Effect.andThen(options.executor.delete(options.table).where(lockedWhere(options)).returning()),
-    Effect.flatMap((rows) => mutationResult(rows, options)),
+    Effect.andThen(
+      // A deleted row's credentials may be unreadable. https://orm.drizzle.team/docs/delete#delete-with-returning
+      options.executor
+        .delete(options.table)
+        .where(lockedWhere(options))
+        .returning({ id: options.table.id }),
+    ),
+    Effect.flatMap((rows) =>
+      rows.length > 0
+        ? Effect.void
+        : Effect.fail(
+            new OptimisticLockError({
+              expectedLockVersion: options.expectedLockVersion,
+              tableName: getTableName(options.table),
+            }),
+          ),
+    ),
   )
 }
 

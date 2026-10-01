@@ -1,8 +1,12 @@
-import { OpenAITextAdapter } from "@tanstack/ai-openai"
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
 
-/** Model every chat run streams from. */
-const CHAT_MODEL = "gpt-5.6-terra"
+import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
-export function createChatAdapter(apiKey: string) {
-  return new OpenAITextAdapter({ apiKey }, CHAT_MODEL)
+export function createChatAdapter(configuration: ChatModelConfiguration) {
+  return openaiCompatibleText(configuration.modelId, {
+    apiKey: configuration.apiKey,
+    baseURL: configuration.baseUrl,
+    api: configuration.api,
+    name: configuration.providerName,
+  })
 }

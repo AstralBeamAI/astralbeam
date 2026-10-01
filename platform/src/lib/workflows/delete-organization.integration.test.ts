@@ -22,6 +22,9 @@ import { Mailer } from "@/lib/email/email.server"
 import { revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
 import {
   agent,
+  agentModel,
+  modelProvider,
+  providerModel,
   member,
   organization,
   organizationConfiguration,
@@ -57,6 +60,28 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       .insert(agent)
       .values({ organizationId, name: slug, systemPrompt: "Help", sandboxProviderId: provider!.id })
       .returning()
+    const [models] = await db
+      .insert(modelProvider)
+      .values({
+        organizationId,
+        name: "Models",
+        providerType: "openai",
+        api: "responses",
+        baseUrl: "https://api.openai.com/v1",
+      })
+      .returning()
+    const [model] = await db
+      .insert(providerModel)
+      .values({ organizationId, modelProviderId: models!.id, modelId: "test", name: "Test" })
+      .returning()
+    await db
+      .insert(agentModel)
+      .values({
+        organizationId,
+        agentId: defaultAgent!.id,
+        providerModelId: model!.id,
+        position: 0,
+      })
     await db.insert(organizationConfiguration).values({
       organizationId,
       defaultAgentId: defaultAgent!.id,
@@ -107,6 +132,11 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       .from(tenantUser)
     expect(new Set(tenantUsers.map((row) => row.organizationId))).toEqual(new Set([keptId]))
     expect(tenantUsers).toHaveLength(2001)
+    for (const table of [modelProvider, providerModel, agentModel]) {
+      expect(await db.select({ organizationId: table.organizationId }).from(table)).toEqual([
+        { organizationId: keptId },
+      ])
+    }
   })
 
   test("keeps retrying a failed purge past any backoff window until the database recovers", async () => {

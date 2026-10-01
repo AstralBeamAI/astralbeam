@@ -1,0 +1,310 @@
+import { and, eq, sql } from "drizzle-orm"
+import { Effect } from "effect"
+import { beforeEach, describe, expect, test, vi } from "vitest"
+
+const modelProviderIntegration = vi.hoisted(() => {
+  const configured = globalThis.process.env.DATABASE_URL
+  const url = configured === "postgres://test:test@127.0.0.1:5432/test" ? undefined : configured
+  if (url) {
+    const parsed = new URL(url)
+    if (parsed.hostname !== "127.0.0.1" || !parsed.pathname.endsWith("_test"))
+      throw new Error("Use a disposable loopback database ending in _test")
+  }
+  return { url }
+})
+
+import { getAuthDatabase } from "@/db/database.server"
+import {
+  agent,
+  agentModel,
+  modelProvider,
+  organization,
+  organizationConfiguration,
+} from "@/db/schema.server"
+import { Agents } from "@/lib/agents/agents.server"
+import { formatAgentId } from "@/lib/agents/schemas"
+import { runAppEffect } from "@/lib/runtime/app-effect.server"
+import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
+
+const modelIntegrationKey = `sk-${"x".repeat(32)}`
+
+function saveIntegrationProvider(
+  organizationId: string,
+  fields: Partial<SaveModelProviderInput> = {},
+) {
+  return Effect.flatMap(ModelProviders, (providers) =>
+    providers.save({
+      organizationId,
+      id: null,
+      lockVersion: null,
+      name: "Production",
+      providerType: "openai",
+      api: "responses",
+      baseUrl: "https://api.openai.com/v1",
+      apiKey: modelIntegrationKey,
+      models: [{ modelId: "same-model", name: "Shared model name" }],
+      ...fields,
+    }),
+  )
+}
+
+describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () => {
+  let db: ReturnType<typeof getAuthDatabase>
+  let organizationId: string
+  let agentId: string
+  beforeEach(async () => {
+    db = getAuthDatabase()
+    await db.execute(sql`truncate "organization" cascade`)
+    const [created] = await db
+      .insert(organization)
+      .values({ name: "Models", slug: "models" })
+      .returning()
+    organizationId = created!.id
+    const [createdAgent] = await db
+      .insert(agent)
+      .values({ organizationId, name: "Assistant", systemPrompt: "Help" })
+      .returning()
+    agentId = createdAgent!.id
+  })
+
+  test("keeps identical upstream models in distinct provider instances and binds ciphertext to its row", async () => {
+    await runAppEffect(saveIntegrationProvider(organizationId))
+    const gatewayId = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        name: "Gateway",
+        providerType: "openai",
+        api: "chat-completions",
+        baseUrl: "https://gateway.example/v1",
+        apiKey: "gateway-secret",
+      }),
+    )
+    const providers = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) => service.list({ organizationId })),
+    )
+    expect(providers).toHaveLength(2)
+    const gateway = providers.find((provider) => provider.id === gatewayId)!
+    const production = providers.find((provider) => provider.id !== gatewayId)!
+    expect(gateway.models[0]!.id).not.toBe(production.models[0]!.id)
+    expect(JSON.stringify(providers)).not.toContain(modelIntegrationKey)
+    expect(JSON.stringify(providers)).not.toContain("gateway-secret")
+    await db
+      .insert(agentModel)
+      .values({ organizationId, agentId, providerModelId: gateway.models[0]!.id, position: 0 })
+    const configuration = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.resolveForAgent({ organizationId, agentId }),
+      ),
+    )
+    expect(configuration).toMatchObject({
+      apiKey: "gateway-secret",
+      baseUrl: "https://gateway.example/v1",
+      modelId: "same-model",
+      providerId: gatewayId,
+      api: "chat-completions",
+    })
+    const [source] = await db
+      .select({ ciphertext: sql<string>`${modelProvider.credentials}::text` })
+      .from(modelProvider)
+      .where(
+        and(eq(modelProvider.organizationId, organizationId), eq(modelProvider.id, production.id)),
+      )
+    await db.execute(
+      sql`update model_provider set credentials = ${source!.ciphertext}, updated_at = now() where organization_id = ${organizationId} and id = ${gatewayId}`,
+    )
+    const refused = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.resolveForAgent({ organizationId, agentId }),
+      ).pipe(Effect.flip),
+    )
+    expect(refused._tag).toBe("ModelProviderUnreadable")
+  })
+
+  test("rejects foreign model assignments and protects models in use, including stale provider writes", async () => {
+    const providerId = await runAppEffect(saveIntegrationProvider(organizationId))
+    const provider = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id: providerId })),
+    )
+    const modelId = provider!.models[0]!.id
+    const [foreign] = await db
+      .insert(organization)
+      .values({ name: "Foreign", slug: "foreign" })
+      .returning()
+    const refusal = await runAppEffect(
+      Effect.flatMap(Agents, (service) =>
+        service.create({
+          organizationId: foreign!.id,
+          fields: {
+            name: "Foreign agent",
+            systemPrompt: "Help",
+            attachmentsEnabled: true,
+            sandboxProviderId: null,
+            modelIds: [modelId],
+          },
+        }),
+      ).pipe(Effect.flip),
+    )
+    expect(refusal._tag).toBe("AgentModelInvalid")
+    expect(await db.select().from(agent).where(eq(agent.organizationId, foreign!.id))).toEqual([])
+    await db
+      .insert(agentModel)
+      .values({ organizationId, agentId, providerModelId: modelId, position: 0 })
+    const disable = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id: providerId,
+        lockVersion: 0,
+        models: [],
+        apiKey: null,
+      }).pipe(Effect.flip),
+    )
+    expect(disable._tag).toBe("ModelProviderInUse")
+    const remove = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.remove({ organizationId, id: providerId, lockVersion: 0 }),
+      ).pipe(Effect.flip),
+    )
+    expect(remove._tag).toBe("ModelProviderInUse")
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id: providerId,
+        lockVersion: 0,
+        name: "Renamed",
+        apiKey: null,
+      }),
+    )
+    const stale = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id: providerId,
+        lockVersion: 0,
+        apiKey: null,
+      }).pipe(Effect.flip),
+    )
+    expect(stale._tag).toBe("ModelProviderChanged")
+  })
+
+  test("deletes an unassigned provider even when its encrypted key is unreadable", async () => {
+    const id = await runAppEffect(saveIntegrationProvider(organizationId))
+    await db.execute(
+      sql`update model_provider set credentials = 'corrupt', updated_at = now() where organization_id = ${organizationId} and id = ${id}`,
+    )
+    await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.remove({ organizationId, id, lockVersion: 0 }),
+      ),
+    )
+    expect(
+      await db.select().from(modelProvider).where(eq(modelProvider.organizationId, organizationId)),
+    ).toEqual([])
+  })
+
+  test("replaces ordered agent assignments atomically and makes the first model the default", async () => {
+    const providerId = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        models: [
+          { modelId: "first", name: "First" },
+          { modelId: "second", name: "Second" },
+        ],
+      }),
+    )
+    const provider = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id: providerId })),
+    )
+    const modelIds = provider!.models.map((model) => model.id).reverse()
+    await runAppEffect(
+      Effect.flatMap(Agents, (service) =>
+        service.update({
+          organizationId,
+          agentId: formatAgentId({ organizationId, id: agentId }),
+          lockVersion: 0,
+          fields: {
+            name: "Assistant",
+            systemPrompt: "Help",
+            attachmentsEnabled: true,
+            sandboxProviderId: null,
+            modelIds,
+          },
+        }),
+      ),
+    )
+    const configuration = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.resolveForAgent({ organizationId, agentId }),
+      ),
+    )
+    expect(configuration!.modelId).toBe("second")
+    const edited = await runAppEffect(
+      Effect.flatMap(Agents, (service) =>
+        service.get({ organizationId, agentId: formatAgentId({ organizationId, id: agentId }) }),
+      ),
+    )
+    expect(edited.modelIds).toEqual(modelIds)
+  })
+
+  test("imports an organization key once without replacing assigned agents", async () => {
+    const providerId = await runAppEffect(saveIntegrationProvider(organizationId))
+    const provider = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id: providerId })),
+    )
+    await db
+      .insert(agentModel)
+      .values({ organizationId, agentId, providerModelId: provider!.models[0]!.id, position: 0 })
+    const [unassigned] = await db
+      .insert(agent)
+      .values({ organizationId, name: "Unassigned", systemPrompt: "Help" })
+      .returning()
+    await db
+      .insert(organizationConfiguration)
+      .values({ organizationId, openaiApiKey: { organizationId, apiKey: modelIntegrationKey } })
+    const importedId = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) => service.importLegacy({ organizationId })),
+    )
+    expect(importedId).not.toBeNull()
+    expect(
+      await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) => service.importLegacy({ organizationId })),
+      ),
+    ).toBeNull()
+    const assigned = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.resolveForAgent({ organizationId, agentId }),
+      ),
+    )
+    const imported = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.resolveForAgent({ organizationId, agentId: unassigned!.id }),
+      ),
+    )
+    expect(assigned!.providerId).toBe(providerId)
+    expect(imported).toMatchObject({
+      providerId: importedId,
+      modelId: "gpt-5.6-terra",
+      apiKey: modelIntegrationKey,
+    })
+    const [configuration] = await db
+      .select()
+      .from(organizationConfiguration)
+      .where(eq(organizationConfiguration.organizationId, organizationId))
+    expect(configuration!.openaiApiKey).toBeNull()
+    const [importedAgent] = await db
+      .select({ lockVersion: agent.lockVersion })
+      .from(agent)
+      .where(and(eq(agent.organizationId, organizationId), eq(agent.id, unassigned!.id)))
+    expect(importedAgent!.lockVersion).toBe(1)
+    const staleEdit = await runAppEffect(
+      Effect.flatMap(Agents, (service) =>
+        service.update({
+          organizationId,
+          agentId: formatAgentId({ organizationId, id: unassigned!.id }),
+          lockVersion: 0,
+          fields: {
+            name: "Unassigned",
+            systemPrompt: "Help",
+            attachmentsEnabled: true,
+            sandboxProviderId: null,
+            modelIds: [provider!.models[0]!.id],
+          },
+        }),
+      ).pipe(Effect.flip),
+    )
+    expect(staleEdit._tag).toBe("AgentChanged")
+  })
+})

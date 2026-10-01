@@ -15,7 +15,12 @@ export const createAgent = createServerFn({ method: "POST" })
     runEffect(
       Effect.flatMap(Agents, (agents) =>
         agents.create({ organizationId: context.organizationId, fields: data.fields }),
-      ).pipe(Effect.catchTag(["AgentNameTaken", "AgentSandboxProviderInvalid"], exposeError)),
+      ).pipe(
+        Effect.catchTag(
+          ["AgentNameTaken", "AgentSandboxProviderInvalid", "AgentModelInvalid"],
+          exposeError,
+        ),
+      ),
       serverFnMeta.name,
     ),
   )
