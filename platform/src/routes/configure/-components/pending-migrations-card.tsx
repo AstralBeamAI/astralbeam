@@ -62,7 +62,7 @@ export function PendingMigrationsCard({
       <CardContent className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           {pending.length} pending migration{pending.length === 1 ? "" : "s"} must run before
-          configuration ({appliedCount} already applied). Review the SQL, then apply.
+          configuration ({appliedCount} already applied). Review the migration code, then apply.
         </p>
         {error && (
           <Alert variant="destructive">
@@ -80,7 +80,7 @@ export function PendingMigrationsCard({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <pre className="max-h-80 overflow-auto border-t bg-muted/50 p-3 text-xs">
-                    {migration.sql}
+                    {migration.data ? `${migration.data}\n\n${migration.sql}` : migration.sql}
                   </pre>
                 </CollapsibleContent>
               </Collapsible>

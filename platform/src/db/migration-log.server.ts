@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 
 export const CONFIG_MIGRATION_LOCK_KEY = "config_migrations"
 
-// Same bookkeeping DDL as drizzle-orm's migrator, so the drizzle-kit CLI remains usable.
+// Keep the bookkeeping format compatible with existing Drizzle migration history.
 export const MIGRATION_LOG_DDL = [
   "CREATE SCHEMA IF NOT EXISTS drizzle",
   `CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
@@ -17,6 +17,7 @@ export const MIGRATION_LOG_DDL = [
 export interface BundledMigration {
   name: string
   sql: string
+  data?: string
   hash: string
   folderMillis: number
 }
@@ -35,11 +36,18 @@ function folderMillisFromName(name: string): number {
   )
 }
 
-export function bundledMigration(name: string, migrationSql: string): BundledMigration {
+export function bundledMigration(
+  name: string,
+  migrationSql: string,
+  data?: string,
+): BundledMigration {
   return {
     name,
     sql: migrationSql,
-    hash: createHash("sha256").update(migrationSql).digest("hex"),
+    ...(data === undefined ? {} : { data }),
+    hash: createHash("sha256")
+      .update(data === undefined ? migrationSql : JSON.stringify([migrationSql, data]))
+      .digest("hex"),
     folderMillis: folderMillisFromName(name),
   }
 }

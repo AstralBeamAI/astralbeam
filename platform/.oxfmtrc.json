@@ -6,7 +6,8 @@
   "ignorePatterns": [
     "public/api/openapi.json",
     "src/components/ui/**",
-    "src/db/migrations/**",
+    "src/db/migrations/**/*.sql",
+    "src/db/migrations/**/snapshot.json",
     "src/routeTree.gen.ts"
   ]
 }

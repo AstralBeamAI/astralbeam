@@ -176,7 +176,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
       const [configuration] = await db.select().from(organizationConfiguration)
       const [defaultAgent] = await db.select().from(agent)
-      expect(configuration).toMatchObject({ organizationId, openaiApiKey: null })
+      expect(configuration).toMatchObject({ organizationId })
       expect(defaultAgent).toMatchObject({ organizationId, id: configuration!.defaultAgentId })
       expect(await db.select().from(modelProvider)).toHaveLength(0)
       const providerId = await runAppEffect(
@@ -218,10 +218,9 @@ describe.skipIf(!dogfoodIntegration.url)(
         { agentId: defaultAgent!.id, providerModelId: model!.id },
       ])
       expect(await db.select().from(agent)).toHaveLength(1)
-      expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey).toBeNull()
     })
 
-    test("development seeds preserve legacy keys and edited provider models", async () => {
+    test("development seeds assign models and preserve edited providers", async () => {
       await provisionDogfood()
       for (const fixture of SEED_ORGANIZATIONS) {
         await db
@@ -233,16 +232,10 @@ describe.skipIf(!dogfoodIntegration.url)(
           systemPrompt: "Help with local tests",
         })
       }
-      const legacyOrganizationId = SEED_ORGANIZATIONS[0].id
-      const legacyApiKey = "sk-owner-legacy-key-different-from-environment"
-      await db.insert(organizationConfiguration).values({
-        organizationId: legacyOrganizationId,
-        openaiApiKey: { organizationId: legacyOrganizationId, apiKey: legacyApiKey },
-      })
       await db.transaction(seedModelProviders)
       const providers = await db.select().from(modelProvider)
-      expect(providers).toHaveLength(SEED_ORGANIZATIONS.length)
-      expect(await db.select().from(agentModel)).toHaveLength(SEED_ORGANIZATIONS.length)
+      expect(providers).toHaveLength(SEED_ORGANIZATIONS.length + 1)
+      expect(await db.select().from(agentModel)).toHaveLength(SEED_ORGANIZATIONS.length + 1)
       const dogfoodId = (await getDatabaseConfig()).values.dogfood_organization_id!
       const original = providers.find((provider) => provider.organizationId === dogfoodId)!
       await db
@@ -275,26 +268,6 @@ describe.skipIf(!dogfoodIntegration.url)(
       ).toHaveLength(0)
       expect(
         await db.select().from(agentModel).where(eq(agentModel.organizationId, dogfoodId)),
-      ).toHaveLength(0)
-      const [legacyConfiguration] = await db
-        .select()
-        .from(organizationConfiguration)
-        .where(eq(organizationConfiguration.organizationId, legacyOrganizationId))
-      expect(legacyConfiguration?.openaiApiKey).toEqual({
-        organizationId: legacyOrganizationId,
-        apiKey: legacyApiKey,
-      })
-      expect(
-        await db
-          .select()
-          .from(modelProvider)
-          .where(eq(modelProvider.organizationId, legacyOrganizationId)),
-      ).toHaveLength(0)
-      expect(
-        await db
-          .select()
-          .from(agentModel)
-          .where(eq(agentModel.organizationId, legacyOrganizationId)),
       ).toHaveLength(0)
     })
 

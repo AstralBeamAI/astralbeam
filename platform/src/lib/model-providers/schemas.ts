@@ -84,3 +84,18 @@ export const ModelProviderCredentialsPayloadSchema = Schema.Struct({
   providerType: ModelProviderTypeSchema,
   apiKey: ModelProviderApiKeySchema,
 })
+
+const OPENAI_API_KEY_VALIDATION_MESSAGE =
+  "Enter an OpenAI API key, which starts with 'sk-' and contains no spaces"
+
+// Shape only: every key OpenAI issues is one `sk-` token, so a pasted env line or project ID is
+// refused here instead of failing every chat run. https://platform.openai.com/docs/api-reference/authentication
+const OpenaiApiKeySchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^sk-[\w-]{16,500}$/, {
+      message: OPENAI_API_KEY_VALIDATION_MESSAGE,
+    }),
+  ),
+)
+
+export const isValidOpenaiApiKey = Schema.is(OpenaiApiKeySchema)

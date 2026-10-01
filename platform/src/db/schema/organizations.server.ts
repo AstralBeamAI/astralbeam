@@ -27,7 +27,6 @@ import {
   type ModelProviderType,
   type ModelProviderApi,
 } from "../../lib/model-providers/schemas.ts"
-import { OpenaiApiKeySchema } from "../../lib/organizations/schemas.ts"
 import { UuidV7Schema } from "../../lib/schemas.ts"
 
 import {
@@ -263,11 +262,6 @@ export const agentModel = snakeCase.table(
   ],
 )
 
-export const OrganizationOpenaiApiKeyPayloadSchema = Schema.Struct({
-  organizationId: UuidV7Schema,
-  apiKey: OpenaiApiKeySchema,
-})
-
 export const organizationConfiguration = snakeCase.table(
   "organization_configuration",
   {
@@ -278,8 +272,6 @@ export const organizationConfiguration = snakeCase.table(
         onDelete: "cascade",
       }),
     defaultAgentId: uuid(),
-    // Every chat run streams on the organization's own key; the deployment holds none.
-    openaiApiKey: encryptedJson({ schema: OrganizationOpenaiApiKeyPayloadSchema }),
     lockVersion: lockVersion(),
     ...timestamps(),
   },

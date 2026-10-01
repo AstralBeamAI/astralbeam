@@ -10,6 +10,7 @@ import {
   CONFIG_MIGRATION_LOCK_KEY,
   MIGRATION_LOG_DDL,
 } from "@/db/migration-log.server"
+import { runMigrationStatements } from "./migration-steps.server.ts"
 
 /** Carries the migration runner's reason, which names the migration and SQLSTATE for operators. */
 export class MigrationsNotApplied extends Schema.TaggedError<MigrationsNotApplied>()(
@@ -33,8 +34,19 @@ function bundledMigrations(): BundledMigration[] {
     import: "default",
     eager: true,
   })
+  const migrationDataByPath = import.meta.glob<string>("/src/db/migrations/*/data.server.ts", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  })
   return Object.entries(migrationSqlByPath)
-    .map(([path, migrationSql]) => bundledMigration(path.split("/").at(-2) ?? path, migrationSql))
+    .map(([path, migrationSql]) =>
+      bundledMigration(
+        path.split("/").at(-2) ?? path,
+        migrationSql,
+        migrationDataByPath[path.replace(/migration\.sql$/, "data.server.ts")],
+      ),
+    )
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
@@ -121,9 +133,10 @@ function migrationErrorDetail(cause: unknown): string {
 const applyMigration = Effect.fn("applyMigration")(function* (migration: BundledMigration) {
   yield* inPoolTransaction(getAuthDatabase().$client, (client) =>
     Effect.gen(function* () {
-      for (const statement of migration.sql.split("--> statement-breakpoint")) {
-        yield* queryPoolClient(client, statement)
-      }
+      yield* Effect.tryPromise({
+        try: () => runMigrationStatements(client, migration),
+        catch: (cause) => cause,
+      })
       yield* queryPoolClient(
         client,
         'insert into drizzle.__drizzle_migrations ("hash", "created_at", "name") values ($1, $2, $3)',
@@ -177,7 +190,7 @@ export class DatabaseMigrations extends Context.Service<
             Effect.gen(function* () {
               const appliedNames = yield* readAppliedMigrationNames()
               const pending = pendingMigrations(appliedNames)
-              // The operator approves exactly the SQL digests they reviewed.
+              // Approval covers the reviewed SQL and any credential conversion code.
               if (!approvedMigrationsMatch(pending, approved)) {
                 return yield* new MigrationsNotApplied({
                   message: "The pending migrations changed; review them again",

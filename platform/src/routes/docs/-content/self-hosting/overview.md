@@ -47,7 +47,7 @@ Everything is a row in the one PostgreSQL database, so a backup of that database
 | `rate_limit` | Shared authentication, operator login, and chat counters |
 | `drizzle.__drizzle_migrations` | Which migrations have been applied |
 
-`config.value`, `sandbox_provider.credentials`, and `model_provider.credentials` hold ciphertext encrypted with keys derived from `DATABASE_ENCRYPTION_KEY`, so their secrets cannot be read from a database dump without that value. The deprecated `organization_configuration.openai_api_key` column keeps existing encrypted keys until their owners import them from **Models**.
+`config.value`, `sandbox_provider.credentials`, and `model_provider.credentials` hold ciphertext encrypted with keys derived from `DATABASE_ENCRYPTION_KEY`, so their secrets cannot be read from a database dump without that value. Database migration automatically converts existing organization OpenAI keys to provider connections and removes the old column.
 
 ## Bootstrap variables and stored settings
 

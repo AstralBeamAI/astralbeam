@@ -101,7 +101,7 @@ try {
 
   if (summary.modelProviders === "written") {
     console.log(
-      "\nPrepared Development OpenAI providers and agent models for seeded organizations without providers or legacy keys.",
+      "\nPrepared Development OpenAI providers and agent models for seeded organizations without providers.",
     )
   } else {
     console.warn(

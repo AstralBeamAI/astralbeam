@@ -6,11 +6,11 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 
 - `database.server.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
 - `schema/config.server.ts` defines the global `config` table, whose Drizzle column codec owns encryption. The `Config` service in `src/lib/config` validates stored values, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching.
-- `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`.
+- `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`. `migrate-command.server.ts` serves the compiled CLI and `deno task db migrate`. Both execute `migration-steps.server.ts` so encrypted data conversions and SQL share a transaction.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
 - `schema/` contains responsibility-named domain table and relation modules.
-- `migrations/` contains generated migration SQL and Drizzle snapshots.
+- `migrations/` contains generated migration SQL, Drizzle snapshots, and colocated data conversions when SQL alone cannot transform encrypted values.
 
 `schema/tables.server.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.server.ts` creates the base relation definition, adds Better Auth's generated-shape relation part, and exports the single composition root passed to `drizzle()`.
 
@@ -71,6 +71,8 @@ deno task --cwd platform db-reset
 deno task --cwd platform db migrate
 ```
 
+`db migrate` uses the application runner. Other `db` commands invoke the installed Drizzle Kit version. Upgrading a database with organization model keys requires its existing `DATABASE_ENCRYPTION_KEY` keyring. The migration creates identity-bound OpenAI connections, assigns unconfigured agents, and removes the old column atomically. An unreadable credential aborts the conversion, preserving the stored keys and allowing a retry after the keyring is corrected. Fresh databases need no encryption key for migrations.
+
 `db-reset` only recreates the selected disposable database. Apply migrations separately and never reset shared Compose volumes. Drizzle `check` validates migration-history consistency, not the live database's applied migrations.
 
 ## Seed sample data
@@ -87,7 +89,7 @@ The seed runs in one transaction and can be rerun to restore fixture values. It 
 
 It prints every account with its password, each agent's public ID, each API key's full value, and ready-to-paste blocks for `examples/todos/.env` and `examples/todos-rails/.env`. `scripts/seed/fixtures.ts` is the single source of those values, and `examples/todos/e2e` imports it directly.
 
-The seed skips configuration keys with an uppercase environment override. When `OPENAI_API_KEY` is present, it creates a **Development OpenAI** connection, enables its model, and assigns it to agents in sample organizations and dogfood that have no provider or legacy key. Rerunning the seed preserves existing provider credentials, enabled models, and agent assignments. Legacy keys remain active until their owner explicitly imports them in **Models**. Put the OpenAI key in `platform/.env.local`, which `scripts/copy-worktree-env.sh` copies into every worktree. See [environment configuration](../../../SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
+The seed skips configuration keys with an uppercase environment override. When `OPENAI_API_KEY` is present, it creates a **Development OpenAI** connection, enables its model, and assigns it to agents in sample organizations and dogfood that have no provider. Rerunning the seed preserves existing provider credentials, enabled models, and agent assignments, including connections created automatically from organization keys during migration. Put the OpenAI key in `platform/.env.local`, which `scripts/copy-worktree-env.sh` copies into every worktree. See [environment configuration](../../../SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
 
 ## Drizzle migration workflow
 
@@ -96,6 +98,7 @@ Drizzle is schema-first: `src/db/schema.server.ts` is the hand-authored schema e
 Each generated `src/db/migrations/<timestamp>_<name>/` directory is one migration unit:
 
 - `migration.sql` is the forward SQL that `migrate` executes and records in the database migration log.
+- Optional `data.server.ts` contains a registered data conversion that runs before the SQL in the same transaction. Register its execution in `migration-steps.server.ts`. Its source participates in the migration digest and the existing `/configure` code review. Keep conversions independent of application services so the compiled CLI can execute them.
 - `snapshot.json` is Drizzle Kit-owned metadata describing the complete Drizzle-managed schema after that migration and its place in migration history. PostgreSQL never executes it, and it is not a database or data backup.
 
 Review the SQL and commit it with its matching snapshot and TypeScript schema change. Do not edit snapshots by hand.

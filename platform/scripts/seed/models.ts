@@ -1,16 +1,15 @@
 import process from "node:process"
 
-import { and, eq, isNotNull } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import {
   agent,
   agentModel,
   configTable,
   modelProvider,
-  organizationConfiguration,
   providerModel,
 } from "../../src/db/schema.server.ts"
-import { isValidOpenaiApiKey } from "../../src/lib/organizations/schemas.ts"
+import { isValidOpenaiApiKey } from "../../src/lib/model-providers/schemas.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_MODEL_PROVIDER, SEED_ORGANIZATIONS } from "./fixtures.ts"
@@ -39,18 +38,6 @@ export async function seedModelProviders(
       .limit(1)
     // A configured organization owns its model choices, including intentionally disabled models.
     if (existingProvider) continue
-    const [legacyConfiguration] = await transaction
-      .select({ id: organizationConfiguration.id })
-      .from(organizationConfiguration)
-      .where(
-        and(
-          eq(organizationConfiguration.organizationId, organizationId),
-          isNotNull(organizationConfiguration.openaiApiKey),
-        ),
-      )
-      .limit(1)
-    // Legacy credentials remain active until their owner explicitly imports them in Models.
-    if (legacyConfiguration) continue
     const [createdProvider] = await transaction
       .insert(modelProvider)
       .values({
