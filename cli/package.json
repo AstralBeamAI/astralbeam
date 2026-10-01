@@ -26,6 +26,7 @@
     "build": "tsdown",
     "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
     "check:fix": "deno task lint:fix && deno task format && deno task knip:fix",
+    "count-lines": "deno run --allow-read --allow-env --allow-run=git ../scripts/count-lines.ts",
     "compile": "deno task build && deno compile --no-check --engine quickjs --config deno.jsonc -P=runtime --include skills --output .output/astralbeam dist/astralbeam.js",
     "dev": "deno run --node-modules-dir=manual --config deno.jsonc -P=runtime src/main.ts",
     "format": "oxfmt",
@@ -34,7 +35,7 @@
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install --frozen",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "ready": "deno task check && deno task test && deno task build",
+    "ready": "deno task check && deno task test && deno task build && deno task count-lines",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
