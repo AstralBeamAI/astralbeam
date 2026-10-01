@@ -5,6 +5,7 @@ import { type SyntheticEvent, useState } from "react"
 import { Schema } from "effect"
 
 import type { Agent, AgentSandboxProvider } from "@/lib/agents/agents.server"
+import type { ModelChoice } from "@/lib/model-providers/model-providers.server"
 import { AgentNameSchema, AgentSystemPromptSchema } from "@/lib/agents/schemas"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 
@@ -31,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { createAgent } from "../-functions/create-agent"
 import { updateAgent } from "../-functions/update-agent"
+import { AgentModelFields } from "./agent-model-fields"
 
 /** Stands in for a null provider, which the Select cannot represent with an empty value. */
 const NO_SANDBOX_PROVIDER = "none"
@@ -43,6 +45,7 @@ export type AgentFormProps = {
   /** Null on the create page, where the agent's ID does not exist yet. */
   agent: Agent | null
   sandboxProviders: readonly AgentSandboxProvider[]
+  models: readonly ModelChoice[]
   readOnly: boolean
 }
 
@@ -50,6 +53,7 @@ export function AgentForm({
   organizationSlug,
   agent: existing,
   sandboxProviders,
+  models,
   readOnly,
 }: AgentFormProps) {
   const navigate = useNavigate()
@@ -60,6 +64,7 @@ export function AgentForm({
   const [sandboxProviderId, setSandboxProviderId] = useState(
     existing?.sandboxProviderId ?? NO_SANDBOX_PROVIDER,
   )
+  const [modelIds, setModelIds] = useState<string[]>([...(existing?.modelIds ?? [])])
   const [saving, setSaving] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
 
@@ -75,7 +80,9 @@ export function AgentForm({
     sandboxProviderId === NO_SANDBOX_PROVIDER ? null : sandboxProviderId
   const normalizedName = name.trim()
   const valid =
-    Schema.is(AgentNameSchema)(normalizedName) && Schema.is(AgentSystemPromptSchema)(systemPrompt)
+    Schema.is(AgentNameSchema)(normalizedName) &&
+    Schema.is(AgentSystemPromptSchema)(systemPrompt) &&
+    modelIds.length > 0
 
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -86,6 +93,7 @@ export function AgentForm({
       name: normalizedName,
       systemPrompt,
       attachmentsEnabled,
+      modelIds,
       sandboxProviderId: selectedSandboxProviderId,
     }
     try {
@@ -184,6 +192,14 @@ export function AgentForm({
                 The agent&apos;s instructions. They are owned here; the SDK cannot override them.
               </FieldDescription>
             </Field>
+
+            <AgentModelFields
+              organizationSlug={organizationSlug}
+              models={models}
+              modelIds={modelIds}
+              disabled={disabled}
+              onChange={setModelIds}
+            />
 
             <Field orientation="horizontal">
               <Checkbox

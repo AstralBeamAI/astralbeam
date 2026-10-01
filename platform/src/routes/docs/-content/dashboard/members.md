@@ -8,13 +8,13 @@ Every member can open this page and see who else is in the organization, whateve
 
 A role decides what a member may do, and there are three.
 
-| Capability                                          | Owner | Developer | Viewer |
-| --------------------------------------------------- | ----- | --------- | ------ |
-| See the organization home and the member list       | Yes   | Yes       | Yes    |
-| Read and change agents and sandbox providers        | Yes   | Yes       | No     |
-| List, create, rename, and delete API keys           | Yes   | Yes       | No     |
-| Invite members, change their roles, and remove them | Yes   | No        | No     |
-| Change the organization's name and slug             | Yes   | No        | No     |
+| Capability                                                     | Owner | Developer | Viewer |
+| -------------------------------------------------------------- | ----- | --------- | ------ |
+| See the organization home and the member list                  | Yes   | Yes       | Yes    |
+| Read and change agents, model providers, and sandbox providers | Yes   | Yes       | No     |
+| List, create, rename, and delete API keys                      | Yes   | Yes       | No     |
+| Invite members, change their roles, and remove them            | Yes   | No        | No     |
+| Change the organization's name and slug                        | Yes   | No        | No     |
 
 Developer is the working role for anyone configuring the product, and Owner adds control over people and the organization itself. Viewer is deliberately narrow: a viewer sees that the organization exists and who is in it, and nothing about its configuration or credentials.
 
@@ -44,11 +44,11 @@ An owner can change any member's role using the dropdown. If a member already ha
 
 A change applies on the member's next request. Anyone with the page already open keeps the sidebar they loaded until they navigate or reload, and a page they no longer have access to fails at that point rather than continuing to work.
 
-Demoting a developer to viewer immediately closes off agents, sandbox providers, and API keys. It does not invalidate any API key they created, because keys belong to the organization, so rotate the key when that person should lose the access it grants. See [API keys](./api-keys.md).
+Demoting a developer to viewer immediately closes off agents, model providers, sandbox providers, and API keys. It does not invalidate any API key they created, because keys belong to the organization, so rotate the key when that person should lose the access it grants. See [API keys](./api-keys.md).
 
 ## Removing a member and leaving
 
-Removing a member ends their dashboard access. Everything they configured stays exactly as it is, including agents, sandbox providers, and API keys, so removal alone revokes no credential they may still hold a copy of.
+Removing a member ends their dashboard access. Everything they configured stays exactly as it is, including agents, model providers, sandbox providers, and API keys, so removal alone revokes no credential they may still hold a copy of.
 
 Leaving an organization yourself has the same effect and returns you to your list of organizations, and rejoining requires a fresh invitation.
 

@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Replace Lucide with Phosphor icons, link each row to that organization's slug-scoped dashboard, and colocate private row and empty states.
+// Local changes: Replace Lucide with Phosphor icons, link each row to that organization's slug-scoped dashboard, open Models after creating an organization, and colocate private row and empty states.
 "use client"
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
@@ -35,7 +35,7 @@ export type OrganizationsProps = {
  * Owns `CreateOrganizationDialog` open state and the create actions.
  */
 export function Organizations({ className }: OrganizationsProps) {
-  const { authClient } = useAuth<OrganizationAuthClient>()
+  const { authClient, navigate } = useAuth<OrganizationAuthClient>()
   const {
     allowOrganizationCreation,
     localization: organizationLocalization,
@@ -98,7 +98,13 @@ export function Organizations({ className }: OrganizationsProps) {
         </div>
       </div>
 
-      {canCreate && <CreateOrganizationDialog open={createOpen} onOpenChange={setCreateOpen} />}
+      {canCreate && (
+        <CreateOrganizationDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onOrganizationCreated={(created) => navigate({ to: `/${created.slug}/models` })}
+        />
+      )}
     </>
   )
 }

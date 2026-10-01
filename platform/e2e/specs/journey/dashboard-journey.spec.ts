@@ -20,6 +20,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   auth,
   configure,
   members,
+  models,
   onboarding,
   organizationDialog,
   organizationSettings,
@@ -31,6 +32,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   const ownerEmail = `owner-${identity.runId}@example.com`
   const renamedOrganization = `${identity.organizationName} Renamed`
   const movedSlug = `${identity.organizationSlug}-moved`
+  const modelProviderName = `Journey OpenAI ${identity.runId}`
+  const journeyModelId = "gpt-5.6-terra"
+  const journeyModelLabel = `${journeyModelId} (${modelProviderName})`
 
   await test.step("an operator configures an unconfigured deployment", async () => {
     await configure.open()
@@ -83,10 +87,19 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await captureMilestone(page, "03-onboarding")
     await onboarding.openCreateOrganization()
     await organizationDialog.create(identity.organizationName, identity.organizationSlug)
-    await page.waitForURL(`**/${identity.organizationSlug}`)
-    await expect(
-      page.getByRole("heading", { level: 1, name: identity.organizationName }),
-    ).toBeVisible()
+    await page.waitForURL(`**/${identity.organizationSlug}/models`)
+    await expect(page.getByRole("heading", { level: 1, name: "Models", exact: true })).toBeVisible()
+    await captureMilestone(page, "04-model-onboarding")
+  })
+
+  await test.step("the owner adds a provider and enables a model before configuring agents", async () => {
+    await models.create({
+      name: modelProviderName,
+      modelId: journeyModelId,
+      apiKey: "sk-browser-fixture-0000",
+    })
+    await captureMilestone(page, "04-model-provider")
+    await shell.openSection("Home", identity.organizationName)
     await captureMilestone(page, "04-dashboard")
   })
 
@@ -96,6 +109,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(page.getByRole("link", { name: /^Members 1/ })).toBeVisible()
     expect(await shell.visibleSections()).toEqual([
       "Home",
+      "Models",
       "Agents",
       "Sandboxes",
       "API Keys",
@@ -117,6 +131,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await agents.fillForm({
       name: starterAgent,
       systemPrompt: "You answer questions about this end-to-end run and nothing else.",
+      models: [journeyModelLabel],
     })
     await agents.saveChanges()
 
@@ -126,6 +141,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       name: `Support agent ${identity.runId}`,
       systemPrompt: "You are a support assistant created by the end-to-end suite.",
       attachmentsEnabled: false,
+      models: [journeyModelLabel],
     })
     await agents.submitCreate()
     await agents.setAsDefault()
@@ -197,10 +213,10 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       identity.secondOrganizationName,
       identity.secondOrganizationSlug,
     )
-    await page.waitForURL(`**/${identity.secondOrganizationSlug}`)
+    await page.waitForURL(`**/${identity.secondOrganizationSlug}/models`)
 
     await shell.switchOrganization(identity.secondOrganizationName, renamedOrganization)
-    await page.waitForURL(`**/${movedSlug}`)
+    await page.waitForURL(`**/${movedSlug}/models`)
 
     await page.goto("/organizations")
     await expect(page.getByRole("heading", { level: 1, name: "Organizations" })).toBeVisible()

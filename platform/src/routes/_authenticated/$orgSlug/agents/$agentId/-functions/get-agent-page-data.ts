@@ -15,7 +15,7 @@ export const getAgentPageData = createServerFn({ method: "GET" })
     runEffect(
       Effect.gen(function* () {
         const agents = yield* Agents
-        const [agent, { sandboxProviders, defaultAgentId }] = yield* Effect.all(
+        const [agent, { sandboxProviders, defaultAgentId, models }] = yield* Effect.all(
           [
             agents.get({ organizationId: context.organizationId, agentId: data.agentId }),
             agents.formOptions(context.organizationId),
@@ -23,7 +23,7 @@ export const getAgentPageData = createServerFn({ method: "GET" })
           { concurrency: "unbounded" },
         )
         return {
-          data: { agent, sandboxProviders, isDefault: agent.id === defaultAgentId },
+          data: { agent, sandboxProviders, models, isDefault: agent.id === defaultAgentId },
           permissions: context.permissions,
         }
       }).pipe(Effect.catchTag("AgentNotFound", () => Effect.succeed(null))),

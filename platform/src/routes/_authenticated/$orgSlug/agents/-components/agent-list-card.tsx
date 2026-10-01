@@ -53,6 +53,11 @@ export function AgentListCard({ organizationSlug, agent, isDefault }: AgentListC
             </Button>
           </div>
         </div>
+        <p className="text-sm text-muted-foreground">
+          {agent.modelIds.length === 0
+            ? "No models assigned"
+            : `${agent.modelIds.length} ${agent.modelIds.length === 1 ? "model" : "models"} assigned`}
+        </p>
         <p className="line-clamp-3 whitespace-pre-wrap text-sm text-muted-foreground">
           {agent.systemPrompt}
         </p>

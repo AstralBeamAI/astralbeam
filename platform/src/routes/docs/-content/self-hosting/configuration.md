@@ -87,11 +87,13 @@ For SES, we should leave both AWS credential fields unset so the deployment uses
 
 **TIP**: Configure one provider per deployment and leave the other providers' credentials unset.
 
-## Model provider
+## Model providers
 
-Model provider keys are not deployment settings and are not on this page. Each organization stores its own OpenAI API key in the dashboard, under **Settings**, encrypted per organization the way sandbox credentials are.
+Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.
 
-Because the deployment holds no key, the application opens to users whether or not any organization has set one. Until an organization sets its key, its chat requests are refused with `503` and the detail `Org OpenAI key is not configured`, which reaches the embedded widget as an error rather than a reply. The organization's home page carries a banner until then.
+The application opens to users before model setup is complete. Let's add a provider, enable its models, then assign a default model to an agent. Until an agent has a usable model configuration, its chat requests fail with `503` and the widget shows an error. The organization's home page shows the remaining setup steps.
+
+The deployment's dogfood organization follows the same process. After accepting the owner invitation, open that organization's **Models** page and configure the provider and agent that power Astro.
 
 ## Sandbox providers
 

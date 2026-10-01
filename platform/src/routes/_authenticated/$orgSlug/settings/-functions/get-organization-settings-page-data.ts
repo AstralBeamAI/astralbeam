@@ -3,7 +3,6 @@ import { Effect } from "effect"
 
 import { Config } from "@/lib/config/config.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { readOrganizationOpenaiApiKeyHint } from "@/lib/organizations/openai-api-key.server"
 import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
 import { runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
@@ -17,14 +16,6 @@ export const getOrganizationSettingsPageData = createServerFn({ method: "GET" })
         const dogfoodOrganizationId = yield* Effect.flatMap(Config, (config) =>
           config.get("dogfood_organization_id"),
         )
-        // The last four characters name the stored key for whoever is about to replace it.
-        // Nothing more of it reaches the browser.
-        const openaiApiKeyLast4 = yield* readOrganizationOpenaiApiKeyHint(
-          context.organizationId,
-        ).pipe(
-          // An unreadable key reads as none, so its owner can replace it here.
-          Effect.catchTag("OrganizationOpenaiApiKeyUnreadable", () => Effect.succeed(null)),
-        )
         return {
           data: {
             organization: {
@@ -33,7 +24,6 @@ export const getOrganizationSettingsPageData = createServerFn({ method: "GET" })
               slug: context.organizationSlug,
               dogfood: dogfoodOrganizationId === context.organizationId,
             },
-            openaiApiKeyLast4,
           },
           permissions: context.permissions,
         }

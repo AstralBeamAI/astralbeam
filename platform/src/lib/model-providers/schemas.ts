@@ -36,13 +36,15 @@ const ModelProviderBaseUrlSchema = Schema.String.pipe(
   ),
 )
 
-const ProviderModelFieldsSchema = Schema.Struct({
+export const ProviderModelFieldsSchema = Schema.Struct({
   modelId: NonEmptyStringSchema.pipe(
     Schema.check(Schema.isTrimmed()),
     Schema.check(Schema.isMaxLength(256)),
   ),
   name: DisplayNameSchema,
 })
+
+export type ProviderModelFields = typeof ProviderModelFieldsSchema.Type
 
 export const ModelProviderFieldsSchema = Schema.Struct({
   name: DisplayNameSchema,
