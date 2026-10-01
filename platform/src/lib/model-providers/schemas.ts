@@ -2,14 +2,10 @@ import { Schema } from "effect"
 
 import { DisplayNameSchema, enumSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
 
-const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "opencode"] as const
+const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "openrouter"] as const
 const ModelProviderTypeSchema = enumSchema(MODEL_PROVIDER_TYPES)
 export type ModelProviderType = typeof ModelProviderTypeSchema.Type
-const ModelProviderApiSchema = enumSchema([
-  "responses",
-  "chat-completions",
-  "anthropic-messages",
-])
+const ModelProviderApiSchema = enumSchema(["responses", "chat-completions", "anthropic-messages"])
 export type ModelProviderApi = typeof ModelProviderApiSchema.Type
 
 const ModelProviderApiKeySchema = NonEmptyStringSchema.pipe(
@@ -46,7 +42,6 @@ const ProviderModelFieldsSchema = Schema.Struct({
     Schema.check(Schema.isMaxLength(256)),
   ),
   name: DisplayNameSchema,
-  api: Schema.optionalKey(Schema.NullOr(ModelProviderApiSchema)),
 })
 
 export const ModelProviderFieldsSchema = Schema.Struct({
@@ -67,21 +62,14 @@ export const ModelProviderFieldsSchema = Schema.Struct({
 }).pipe(
   Schema.check(
     Schema.makeFilter((provider) => {
-      const supportsApi = (api: ModelProviderApi) =>
-        provider.providerType === "opencode" ||
-        (provider.providerType === "anthropic"
-          ? api === "anthropic-messages"
-          : api !== "anthropic-messages")
-      if (!supportsApi(provider.api))
+      const supported =
+        provider.providerType === "anthropic"
+          ? provider.api === "anthropic-messages"
+          : provider.providerType === "openrouter"
+            ? provider.api === "chat-completions"
+            : provider.api !== "anthropic-messages"
+      if (!supported)
         return { path: ["api"], issue: "Select a supported API format for this provider" }
-      const invalidModel = provider.models.findIndex(
-        (model) => !supportsApi(model.api ?? provider.api),
-      )
-      if (invalidModel !== -1)
-        return {
-          path: ["models", invalidModel, "api"],
-          issue: "Select a supported API format for this provider",
-        }
       return undefined
     }),
   ),

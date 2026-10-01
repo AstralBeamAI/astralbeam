@@ -35,7 +35,6 @@ interface ModelProviderModel {
   readonly id: string
   readonly modelId: string
   readonly name: string
-  readonly api: ModelProviderApi | null
 }
 
 export interface OrganizationModelProvider {
@@ -190,7 +189,7 @@ export class ModelProviders extends Context.Service<
             credentialsReadable: apiKey !== null,
             models: models
               .filter((model) => model.modelProviderId === row.id)
-              .map(({ id, modelId, name, api }) => ({ id, modelId, name, api })),
+              .map(({ id, modelId, name }) => ({ id, modelId, name })),
           }
         })
       }, Effect.orDie)
@@ -208,7 +207,6 @@ export class ModelProviders extends Context.Service<
             id: providerModel.id,
             modelId: providerModel.modelId,
             name: providerModel.name,
-            api: providerModel.api,
           })
           .from(providerModel)
           .where(
@@ -234,7 +232,6 @@ export class ModelProviders extends Context.Service<
             id: providerModel.id,
             modelId: providerModel.modelId,
             name: providerModel.name,
-            api: providerModel.api,
             providerId: modelProvider.id,
             providerName: modelProvider.name,
           })
@@ -340,7 +337,6 @@ export class ModelProviders extends Context.Service<
                     ],
                     set: {
                       name: sql`excluded.name`,
-                      api: sql`excluded.api`,
                       updatedAt: sql`now()`,
                     },
                   })
@@ -514,7 +510,7 @@ export class ModelProviders extends Context.Service<
             providerId: modelProvider.id,
             providerName: modelProvider.name,
             providerType: modelProvider.providerType,
-            api: sql<ModelProviderApi>`coalesce(${providerModel.api}, ${modelProvider.api})`,
+            api: modelProvider.api,
             baseUrl: modelProvider.baseUrl,
             modelId: providerModel.modelId,
             storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,

@@ -13,21 +13,19 @@ const modelProviderSchemaFixture = {
 }
 
 describe("model provider protocols", () => {
-  test("accepts mixed protocol models for one OpenCode instance", () => {
+  test("accepts OpenRouter slash model IDs through Chat Completions", () => {
     expect(
       Schema.is(ModelProviderFieldsSchema)({
         ...modelProviderSchemaFixture,
-        providerType: "opencode",
-        models: [
-          { modelId: "gpt", name: "GPT", api: "responses" },
-          { modelId: "claude", name: "Claude", api: "anthropic-messages" },
-          { modelId: "deepseek", name: "DeepSeek", api: "chat-completions" },
-        ],
+        providerType: "openrouter",
+        api: "chat-completions",
+        baseUrl: "https://openrouter.ai/api/v1",
+        models: [{ modelId: "anthropic/claude-sonnet-4.6", name: "Claude Sonnet 4.6" }],
       }),
     ).toBe(true)
   })
 
-  test("rejects native provider protocol mismatches and unknown providers", () => {
+  test("rejects unsupported provider protocols and unknown providers", () => {
     expect(
       Schema.is(ModelProviderFieldsSchema)({
         ...modelProviderSchemaFixture,
@@ -43,7 +41,7 @@ describe("model provider protocols", () => {
     expect(
       Schema.is(ModelProviderFieldsSchema)({
         ...modelProviderSchemaFixture,
-        models: [{ modelId: "claude", name: "Claude", api: "anthropic-messages" }],
+        providerType: "openrouter",
       }),
     ).toBe(false)
     expect(
@@ -57,7 +55,6 @@ describe("model provider protocols", () => {
         ...modelProviderSchemaFixture,
         providerType: "anthropic",
         api: "anthropic-messages",
-        models: [{ modelId: "claude", name: "Claude", api: null }],
       }),
     ).toBe(true)
   })

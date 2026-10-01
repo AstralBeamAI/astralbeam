@@ -168,7 +168,6 @@ export const providerModel = snakeCase.table(
       .references(() => organization.id, { onDelete: "cascade" }),
     modelProviderId: uuid().notNull(),
     modelId: text().notNull(),
-    api: text().$type<ModelProviderApi>(),
     name: text().notNull(),
     ...timestamps(),
   },

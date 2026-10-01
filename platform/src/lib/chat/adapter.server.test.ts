@@ -31,25 +31,11 @@ const chatAdapterCases: readonly (Pick<
     path: "/v1/messages",
   },
   {
-    providerType: "opencode",
-    api: "responses",
-    baseUrl: "https://opencode.example/zen/v1",
-    modelId: "gpt-example",
-    path: "/zen/v1/responses",
-  },
-  {
-    providerType: "opencode",
-    api: "anthropic-messages",
-    baseUrl: "https://opencode.example/zen/v1",
-    modelId: "claude-example",
-    path: "/zen/v1/messages",
-  },
-  {
-    providerType: "opencode",
+    providerType: "openrouter",
     api: "chat-completions",
-    baseUrl: "https://opencode.example/zen/v1",
-    modelId: "deepseek-example",
-    path: "/zen/v1/chat/completions",
+    baseUrl: "https://openrouter.ai/api/v1",
+    modelId: "anthropic/claude-sonnet-4.6",
+    path: "/api/v1/chat/completions",
   },
 ]
 
@@ -65,6 +51,7 @@ describe("chat provider request routing", () => {
       const requests: { url: URL; headers: Headers; body: { model: string } }[] = []
       vi.stubEnv("OPENAI_API_KEY", "unused-environment-openai-key")
       vi.stubEnv("ANTHROPIC_API_KEY", "unused-environment-anthropic-key")
+      vi.stubEnv("OPENROUTER_API_KEY", "unused-environment-openrouter-key")
       vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
         if (typeof init.body !== "string") throw new Error("Expected a JSON request body")
         requests.push({

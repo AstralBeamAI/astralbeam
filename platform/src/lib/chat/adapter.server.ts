@@ -10,8 +10,7 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
       createModel(configuration.modelId, ["text", "image", "document"]),
     ])
     return createAnthropicModel(configuration.modelId, configuration.apiKey, {
-      // The SDK appends /v1/messages. Zen's shared API URL already ends in /v1. https://opencode.ai/docs/zen/#endpoints
-      baseURL: configuration.baseUrl.replace(/\/v1\/?$/, ""),
+      baseURL: configuration.baseUrl,
     })
   }
   return openaiCompatibleText(configuration.modelId, {
