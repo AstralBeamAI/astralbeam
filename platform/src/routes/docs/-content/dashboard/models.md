@@ -21,9 +21,9 @@ Models connect your organization's agents to model providers. Let's add a provid
 
 The enabled provider models define what can be assigned to agents. Remove a model from its agents before disabling it on the provider or deleting the provider. See [Agents](/docs/dashboard/agents) for the other agent settings.
 
-## Move an existing organization key
+## Existing organization keys
 
-If the organization still has its earlier OpenAI key setting, **Models** offers **Import existing key**. Importing creates an `Imported OpenAI` provider with the previous chat model, assigns it to agents without models, and clears the old setting. Existing agent model selections stay unchanged.
+When you upgrade, existing organization OpenAI keys migrate automatically to named providers with the previous chat model. Agents without model assignments receive that model. Your existing provider configurations and agent model selections stay unchanged.
 
 ## Troubleshooting
 

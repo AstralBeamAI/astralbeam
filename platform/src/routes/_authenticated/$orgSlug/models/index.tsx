@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
-import { LegacyModelProviderNotice } from "./-components/legacy-model-provider-notice"
 import { ModelProviderListCard } from "./-components/model-provider-list-card"
 import { getModelsPageData } from "./-functions/get-models-page-data"
 
@@ -46,12 +45,6 @@ function ModelsPage() {
           </Link>
         )}
       </div>
-      {data.legacyKeyConfigured && (
-        <LegacyModelProviderNotice
-          organizationSlug={orgSlug}
-          canImport={permissions.updateConfiguration}
-        />
-      )}
       {data.modelProviders.length === 0 ? (
         <Empty className="max-w-4xl">
           <EmptyHeader>
