@@ -128,6 +128,8 @@ Counters live in the shared `rate_limit` table, so every replica enforces the sa
 | Management API with an API key | 100 per 5 minutes | The API key |
 | Management API with a chat token | 100 per 5 minutes | The token's identity |
 
+The two chat buckets are independent, and the request body decides which one a request spends, so budget for up to 220 chat requests per minute from one tenant user.
+
 Exceeding a limit returns `429` with a `Retry-After` header. Before the first migration the `rate_limit` table does not exist yet, and the two callers behave differently: operator sign-in lets the attempt through so first boot is possible, while the chat endpoint answers `500` with `Request limit could not be checked.`. Apply the migrations and the counters start working.
 
 **TIP**: The operator bucket counts attempts for the deployment as a whole rather than per client address, so add an ingress-level limit in front of `/configure` if you want per-address throttling during setup.
