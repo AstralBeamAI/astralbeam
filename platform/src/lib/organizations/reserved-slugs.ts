@@ -30,6 +30,7 @@ export const RESERVED_ORGANIZATION_SLUGS = [
   "sign-up",
   "sitemap.xml",
   "static",
+  "~",
 ] as const
 
 export const RESERVED_ORGANIZATION_SLUG_MESSAGE = "Slug is reserved; choose another one"
