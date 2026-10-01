@@ -10,21 +10,6 @@ import {
 } from "@/db/schema/organizations.server"
 import { OrganizationOpenaiApiKeyUnreadable } from "./errors.ts"
 
-/** Whether the organization has a key, tested in SQL so the common page read decrypts nothing. */
-export const readOrganizationOpenaiApiKeyConfigured = Effect.fn(
-  "readOrganizationOpenaiApiKeyConfigured",
-)(function* (organizationId: string) {
-  const db = yield* Database
-  const rows = yield* db
-    .select({
-      configured: sql<boolean>`${organizationConfiguration.openaiApiKey} is not null`,
-    })
-    .from(organizationConfiguration)
-    .where(eq(organizationConfiguration.organizationId, organizationId))
-    .limit(1)
-  return rows[0]?.configured ?? false
-})
-
 /** Legacy chat fallback until the owner imports the key into a named provider. Unreadable or
  * cross-organization ciphertext fails typed, never as plaintext. */
 export const readOrganizationOpenaiApiKey = Effect.fn("readOrganizationOpenaiApiKey")(function* (
