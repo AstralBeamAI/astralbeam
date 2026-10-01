@@ -2,22 +2,22 @@ import { Schema } from "effect"
 
 import { DisplayNameSchema, enumSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
 
-export const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "opencode"] as const
-export const ModelProviderTypeSchema = enumSchema(MODEL_PROVIDER_TYPES)
+const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "opencode"] as const
+const ModelProviderTypeSchema = enumSchema(MODEL_PROVIDER_TYPES)
 export type ModelProviderType = typeof ModelProviderTypeSchema.Type
-export const ModelProviderApiSchema = enumSchema([
+const ModelProviderApiSchema = enumSchema([
   "responses",
   "chat-completions",
   "anthropic-messages",
 ])
 export type ModelProviderApi = typeof ModelProviderApiSchema.Type
 
-export const ModelProviderApiKeySchema = NonEmptyStringSchema.pipe(
+const ModelProviderApiKeySchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isTrimmed()),
   Schema.check(Schema.isMaxLength(16_384)),
 )
 
-export const ModelProviderBaseUrlSchema = Schema.String.pipe(
+const ModelProviderBaseUrlSchema = Schema.String.pipe(
   Schema.check(Schema.isMaxLength(2048)),
   Schema.check(
     Schema.makeFilter(
@@ -40,7 +40,7 @@ export const ModelProviderBaseUrlSchema = Schema.String.pipe(
   ),
 )
 
-export const ProviderModelFieldsSchema = Schema.Struct({
+const ProviderModelFieldsSchema = Schema.Struct({
   modelId: NonEmptyStringSchema.pipe(
     Schema.check(Schema.isTrimmed()),
     Schema.check(Schema.isMaxLength(256)),
@@ -48,7 +48,6 @@ export const ProviderModelFieldsSchema = Schema.Struct({
   name: DisplayNameSchema,
   api: Schema.optionalKey(Schema.NullOr(ModelProviderApiSchema)),
 })
-export type ProviderModelFields = typeof ProviderModelFieldsSchema.Type
 
 export const ModelProviderFieldsSchema = Schema.Struct({
   name: DisplayNameSchema,
