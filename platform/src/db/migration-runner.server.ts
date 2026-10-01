@@ -79,7 +79,7 @@ function inPoolTransaction<A, E>(
         Effect.onError(() => Effect.ignore(queryPoolClient(client, "rollback"))),
       ),
     (client) => Effect.sync(() => client.release()),
-  )
+  ).pipe(Effect.uninterruptible)
 }
 
 /**
