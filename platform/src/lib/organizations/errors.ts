@@ -1,7 +1,5 @@
 import { Schema } from "effect"
 
-import { OPENAI_API_KEY_VALIDATION_MESSAGE } from "./schemas.ts"
-
 export class SignInRequired extends Schema.TaggedError<SignInRequired>()(
   "SignInRequired",
   {},
@@ -25,14 +23,6 @@ export class OrganizationAccessDenied extends Schema.TaggedError<OrganizationAcc
   { httpApiStatus: 403 },
 ) {
   override readonly message = "Organization is unavailable"
-}
-
-export class OrganizationOpenaiApiKeyInvalid extends Schema.TaggedError<OrganizationOpenaiApiKeyInvalid>()(
-  "OrganizationOpenaiApiKeyInvalid",
-  {},
-  { httpApiStatus: 422 },
-) {
-  override readonly message = OPENAI_API_KEY_VALIDATION_MESSAGE
 }
 
 /** The stored key does not decrypt with the active keyring, or belongs to another organization. */

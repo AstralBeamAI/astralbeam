@@ -24,7 +24,7 @@ Each tagged release publishes prebuilt platform binaries for Linux, macOS, and W
 - A transaction-pooling connection pooler such as PgBouncer. The application sends prepared queries, so the pooler also needs a prepared statement allowance. The reference Compose setup runs one and sets `MAX_PREPARED_STATEMENTS: 200`.
 - An email path: an SMTP server, a Resend API key, or Amazon SES. Sign-up verification, password reset, password-change notices, and organization invitations all send mail.
 - A reverse proxy that terminates TLS. Production requires HTTPS.
-- An OpenAI API key per organization. Each organization stores its own in the dashboard, and its chat requests fail until it does. The deployment holds no key of its own.
+- A model provider for each organization. Owners or developers add connections in **Models**, enable models, and assign them to agents. Each connection stores its own credentials and API URL.
 
 Nothing else is required. There is no object storage, no queue, and no separate cache server.
 
@@ -39,14 +39,15 @@ Everything is a row in the one PostgreSQL database, so a backup of that database
 | `user`, `account`, `session`, `verification` | Dashboard identity and authentication |
 | `organization`, `member`, `invitation` | Customer organizations and their employees' access |
 | `api_key` | Organization API key digests, lifecycle, and quotas |
-| `agent`, `organization_configuration` | Agent definitions, default agent, and OpenAI API key |
+| `agent`, `organization_configuration` | Agent definitions and default agent |
+| `model_provider`, `provider_model`, `agent_model` | Named model connections, enabled models, and agent assignments |
 | `sandbox_provider` | Named sandbox providers and their encrypted credentials |
 | `tenant`, `tenant_user` | Your customers' external identities and metadata |
 | `config` | Encrypted deployment settings edited at `/configure` |
 | `rate_limit` | Shared authentication, operator login, and chat counters |
 | `drizzle.__drizzle_migrations` | Which migrations have been applied |
 
-`config.value`, `sandbox_provider.credentials`, and `organization_configuration.openai_api_key` hold ciphertext encrypted with keys derived from `DATABASE_ENCRYPTION_KEY`, so a database dump is unusable without that value.
+`config.value`, `sandbox_provider.credentials`, and `model_provider.credentials` hold ciphertext encrypted with keys derived from `DATABASE_ENCRYPTION_KEY`, so their secrets cannot be read from a database dump without that value. The deprecated `organization_configuration.openai_api_key` column keeps existing encrypted keys until their owners import them from **Models**.
 
 ## Bootstrap variables and stored settings
 

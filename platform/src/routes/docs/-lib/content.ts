@@ -86,9 +86,11 @@ export const DOCS_SECTIONS: DocsSection[] = [
   {
     slug: "dashboard",
     title: "Dashboard",
-    description: "Configure the agents, sandboxes, keys, and members your organization uses.",
+    description:
+      "Configure the models, agents, sandboxes, keys, and members your organization uses.",
     draft: false,
     pages: [
+      { slug: "models", title: "Models" },
       { slug: "agents", title: "Agents" },
       { slug: "sandboxes", title: "Sandboxes" },
       { slug: "api-keys", title: "API keys" },

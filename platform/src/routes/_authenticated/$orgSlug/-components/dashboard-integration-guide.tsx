@@ -8,14 +8,21 @@ import { APP_NAME } from "@/lib/constants"
 
 export function DashboardIntegrationGuide({
   organizationSlug,
-  openaiApiKeyConfigured,
+  modelSetup,
   apiKeyCount,
   permissions,
 }: {
   organizationSlug: string
-  openaiApiKeyConfigured: boolean | null
+  modelSetup: {
+    providerCount: number
+    enabledModelCount: number
+    readyAgentCount: number
+  } | null
   apiKeyCount: number | null
-  permissions: Pick<OrganizationPermissions, "updateOrganization" | "createApiKey" | "readApiKey">
+  permissions: Pick<
+    OrganizationPermissions,
+    "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey"
+  >
 }) {
   return (
     <Card aria-labelledby="dashboard-integration-title">
@@ -30,32 +37,50 @@ export function DashboardIntegrationGuide({
       <CardContent>
         <ol className="list-decimal space-y-5 ps-5 text-sm marker:text-muted-foreground">
           <li className="space-y-2 ps-1">
-            <h3 className="font-medium">Connect OpenAI</h3>
-            {openaiApiKeyConfigured === false ? (
+            <h3 className="font-medium">Add a provider and enable models</h3>
+            {modelSetup !== null && modelSetup.enabledModelCount === 0 ? (
               <Alert variant="destructive">
                 <WarningCircleIcon aria-hidden="true" />
-                <AlertTitle>This organization has no OpenAI API key</AlertTitle>
+                <AlertTitle>No provider models are enabled</AlertTitle>
                 <AlertDescription>
-                  Every embedded chat message is refused until one is set.
-                  {!permissions.updateOrganization &&
-                    " Ask an owner to add one in the organization settings."}
+                  {modelSetup.providerCount === 0
+                    ? "Add a named provider with its API key and API URL, then enable the models your agents can use."
+                    : "Enable at least one model on a provider before configuring your agent."}
                 </AlertDescription>
               </Alert>
             ) : (
               <p className="text-muted-foreground">
-                {openaiApiKeyConfigured === true
-                  ? "An OpenAI key is saved for this organization."
-                  : "Ask an owner to configure the organization's OpenAI key."}{" "}
-                Model usage is billed to its OpenAI account.
+                {modelSetup !== null
+                  ? "Provider models are enabled for this organization. Each connection keeps its own credentials and API URL."
+                  : "Ask an owner or developer to configure a model provider and enable models."}
               </p>
             )}
-            {permissions.updateOrganization && (
+            {permissions.readConfiguration && (
               <Link
-                to="/$orgSlug/settings"
+                to="/$orgSlug/models"
                 params={{ orgSlug: organizationSlug }}
                 className="inline-block text-primary underline underline-offset-4"
               >
-                {openaiApiKeyConfigured ? "Review OpenAI key" : "Add OpenAI key"}
+                {modelSetup?.providerCount === 0 && permissions.updateConfiguration
+                  ? "Add model provider"
+                  : "Manage models"}
+              </Link>
+            )}
+          </li>
+          <li className="space-y-2 ps-1">
+            <h3 className="font-medium">Choose your agent&apos;s models</h3>
+            <p className="text-muted-foreground">
+              {modelSetup !== null && modelSetup.readyAgentCount > 0
+                ? "An agent has models assigned. Review its instructions and default model before embedding it."
+                : "Open your starter agent, select models from your providers, and choose the default model for its replies."}
+            </p>
+            {permissions.readConfiguration && (
+              <Link
+                to="/$orgSlug/agents"
+                params={{ orgSlug: organizationSlug }}
+                className="inline-block text-primary underline underline-offset-4"
+              >
+                Set up an agent
               </Link>
             )}
           </li>

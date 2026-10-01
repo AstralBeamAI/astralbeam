@@ -13,8 +13,8 @@ export const getNewAgentPageData = createServerFn({ method: "GET" })
   .handler(({ context, serverFnMeta }) =>
     runEffect(
       Effect.flatMap(Agents, (agents) => agents.formOptions(context.organizationId)).pipe(
-        Effect.map(({ sandboxProviders }) => ({
-          data: { sandboxProviders },
+        Effect.map(({ sandboxProviders, models }) => ({
+          data: { sandboxProviders, models },
           permissions: context.permissions,
         })),
       ),

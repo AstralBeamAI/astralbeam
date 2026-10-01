@@ -34,6 +34,7 @@ import { Route as DocsApiIndexRouteImport } from './routes/docs/api/index'
 import { Route as AuthenticatedOrgSlugAgentsIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/index'
 import { Route as AuthenticatedOrgSlugApiKeysIndexRouteImport } from './routes/_authenticated/$orgSlug/api-keys/index'
 import { Route as AuthenticatedOrgSlugMembersIndexRouteImport } from './routes/_authenticated/$orgSlug/members/index'
+import { Route as AuthenticatedOrgSlugModelsIndexRouteImport } from './routes/_authenticated/$orgSlug/models/index'
 import { Route as AuthenticatedOrgSlugSandboxesIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/index'
 import { Route as AuthenticatedOrgSlugSettingsIndexRouteImport } from './routes/_authenticated/$orgSlug/settings/index'
 import { Route as AuthenticatedOrgSlugTenantUsersIndexRouteImport } from './routes/_authenticated/$orgSlug/tenant-users/index'
@@ -45,6 +46,8 @@ import { Route as DocsSectionPageIndexRouteImport } from './routes/docs/$section
 import { Route as DocsSectionChar123pageChar125DotmdIndexRouteImport } from './routes/docs/$section/{$page}[.]md/index'
 import { Route as AuthenticatedOrgSlugAgentsAgentIdIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/$agentId/index'
 import { Route as AuthenticatedOrgSlugAgentsNewIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/new/index'
+import { Route as AuthenticatedOrgSlugModelsModelProviderIdIndexRouteImport } from './routes/_authenticated/$orgSlug/models/$modelProviderId/index'
+import { Route as AuthenticatedOrgSlugModelsNewIndexRouteImport } from './routes/_authenticated/$orgSlug/models/new/index'
 import { Route as AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/index'
 import { Route as AuthenticatedOrgSlugSandboxesNewIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/new/index'
 import { Route as AuthenticatedUserSettingsAccountIndexRouteImport } from './routes/_authenticated/_user/settings/account/index'
@@ -179,6 +182,12 @@ const AuthenticatedOrgSlugMembersIndexRoute =
     path: '/members/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
+const AuthenticatedOrgSlugModelsIndexRoute =
+  AuthenticatedOrgSlugModelsIndexRouteImport.update({
+    id: '/models/',
+    path: '/models/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
 const AuthenticatedOrgSlugSandboxesIndexRoute =
   AuthenticatedOrgSlugSandboxesIndexRouteImport.update({
     id: '/sandboxes/',
@@ -244,6 +253,18 @@ const AuthenticatedOrgSlugAgentsNewIndexRoute =
     path: '/agents/new/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
+const AuthenticatedOrgSlugModelsModelProviderIdIndexRoute =
+  AuthenticatedOrgSlugModelsModelProviderIdIndexRouteImport.update({
+    id: '/models/$modelProviderId/',
+    path: '/models/$modelProviderId/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedOrgSlugModelsNewIndexRoute =
+  AuthenticatedOrgSlugModelsNewIndexRouteImport.update({
+    id: '/models/new/',
+    path: '/models/new/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
 const AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute =
   AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport.update({
     id: '/sandboxes/$sandboxProviderId/',
@@ -293,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/$orgSlug/api-keys/': typeof AuthenticatedOrgSlugApiKeysIndexRoute
   '/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
+  '/$orgSlug/models/': typeof AuthenticatedOrgSlugModelsIndexRoute
   '/$orgSlug/sandboxes/': typeof AuthenticatedOrgSlugSandboxesIndexRoute
   '/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
@@ -304,6 +326,8 @@ export interface FileRoutesByFullPath {
   '/docs/$section/{$page}.md/': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/$orgSlug/agents/$agentId/': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/$orgSlug/agents/new/': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
+  '/$orgSlug/models/$modelProviderId/': typeof AuthenticatedOrgSlugModelsModelProviderIdIndexRoute
+  '/$orgSlug/models/new/': typeof AuthenticatedOrgSlugModelsNewIndexRoute
   '/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
   '/settings/account/': typeof AuthenticatedUserSettingsAccountIndexRoute
@@ -330,6 +354,7 @@ export interface FileRoutesByTo {
   '/$orgSlug/agents': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/$orgSlug/api-keys': typeof AuthenticatedOrgSlugApiKeysIndexRoute
   '/$orgSlug/members': typeof AuthenticatedOrgSlugMembersIndexRoute
+  '/$orgSlug/models': typeof AuthenticatedOrgSlugModelsIndexRoute
   '/$orgSlug/sandboxes': typeof AuthenticatedOrgSlugSandboxesIndexRoute
   '/$orgSlug/settings': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/$orgSlug/tenant-users': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
@@ -341,6 +366,8 @@ export interface FileRoutesByTo {
   '/docs/$section/{$page}.md': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/$orgSlug/agents/$agentId': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/$orgSlug/agents/new': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
+  '/$orgSlug/models/$modelProviderId': typeof AuthenticatedOrgSlugModelsModelProviderIdIndexRoute
+  '/$orgSlug/models/new': typeof AuthenticatedOrgSlugModelsNewIndexRoute
   '/$orgSlug/sandboxes/$sandboxProviderId': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/$orgSlug/sandboxes/new': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
   '/settings/account': typeof AuthenticatedUserSettingsAccountIndexRoute
@@ -373,6 +400,7 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/_authenticated/$orgSlug/api-keys/': typeof AuthenticatedOrgSlugApiKeysIndexRoute
   '/_authenticated/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
+  '/_authenticated/$orgSlug/models/': typeof AuthenticatedOrgSlugModelsIndexRoute
   '/_authenticated/$orgSlug/sandboxes/': typeof AuthenticatedOrgSlugSandboxesIndexRoute
   '/_authenticated/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/_authenticated/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
@@ -384,6 +412,8 @@ export interface FileRoutesById {
   '/docs/$section/{$page}.md/': typeof DocsSectionChar123pageChar125DotmdIndexRoute
   '/_authenticated/$orgSlug/agents/$agentId/': typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   '/_authenticated/$orgSlug/agents/new/': typeof AuthenticatedOrgSlugAgentsNewIndexRoute
+  '/_authenticated/$orgSlug/models/$modelProviderId/': typeof AuthenticatedOrgSlugModelsModelProviderIdIndexRoute
+  '/_authenticated/$orgSlug/models/new/': typeof AuthenticatedOrgSlugModelsNewIndexRoute
   '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/_authenticated/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
   '/_authenticated/_user/settings/account/': typeof AuthenticatedUserSettingsAccountIndexRoute
@@ -415,6 +445,7 @@ export interface FileRouteTypes {
     | '/$orgSlug/agents/'
     | '/$orgSlug/api-keys/'
     | '/$orgSlug/members/'
+    | '/$orgSlug/models/'
     | '/$orgSlug/sandboxes/'
     | '/$orgSlug/settings/'
     | '/$orgSlug/tenant-users/'
@@ -426,6 +457,8 @@ export interface FileRouteTypes {
     | '/docs/$section/{$page}.md/'
     | '/$orgSlug/agents/$agentId/'
     | '/$orgSlug/agents/new/'
+    | '/$orgSlug/models/$modelProviderId/'
+    | '/$orgSlug/models/new/'
     | '/$orgSlug/sandboxes/$sandboxProviderId/'
     | '/$orgSlug/sandboxes/new/'
     | '/settings/account/'
@@ -452,6 +485,7 @@ export interface FileRouteTypes {
     | '/$orgSlug/agents'
     | '/$orgSlug/api-keys'
     | '/$orgSlug/members'
+    | '/$orgSlug/models'
     | '/$orgSlug/sandboxes'
     | '/$orgSlug/settings'
     | '/$orgSlug/tenant-users'
@@ -463,6 +497,8 @@ export interface FileRouteTypes {
     | '/docs/$section/{$page}.md'
     | '/$orgSlug/agents/$agentId'
     | '/$orgSlug/agents/new'
+    | '/$orgSlug/models/$modelProviderId'
+    | '/$orgSlug/models/new'
     | '/$orgSlug/sandboxes/$sandboxProviderId'
     | '/$orgSlug/sandboxes/new'
     | '/settings/account'
@@ -494,6 +530,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/agents/'
     | '/_authenticated/$orgSlug/api-keys/'
     | '/_authenticated/$orgSlug/members/'
+    | '/_authenticated/$orgSlug/models/'
     | '/_authenticated/$orgSlug/sandboxes/'
     | '/_authenticated/$orgSlug/settings/'
     | '/_authenticated/$orgSlug/tenant-users/'
@@ -505,6 +542,8 @@ export interface FileRouteTypes {
     | '/docs/$section/{$page}.md/'
     | '/_authenticated/$orgSlug/agents/$agentId/'
     | '/_authenticated/$orgSlug/agents/new/'
+    | '/_authenticated/$orgSlug/models/$modelProviderId/'
+    | '/_authenticated/$orgSlug/models/new/'
     | '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/'
     | '/_authenticated/$orgSlug/sandboxes/new/'
     | '/_authenticated/_user/settings/account/'
@@ -703,6 +742,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugMembersIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
+    '/_authenticated/$orgSlug/models/': {
+      id: '/_authenticated/$orgSlug/models/'
+      path: '/models'
+      fullPath: '/$orgSlug/models/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugModelsIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
     '/_authenticated/$orgSlug/sandboxes/': {
       id: '/_authenticated/$orgSlug/sandboxes/'
       path: '/sandboxes'
@@ -780,6 +826,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugAgentsNewIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
+    '/_authenticated/$orgSlug/models/$modelProviderId/': {
+      id: '/_authenticated/$orgSlug/models/$modelProviderId/'
+      path: '/models/$modelProviderId'
+      fullPath: '/$orgSlug/models/$modelProviderId/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugModelsModelProviderIdIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/$orgSlug/models/new/': {
+      id: '/_authenticated/$orgSlug/models/new/'
+      path: '/models/new'
+      fullPath: '/$orgSlug/models/new/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugModelsNewIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
     '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/': {
       id: '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/'
       path: '/sandboxes/$sandboxProviderId'
@@ -816,12 +876,15 @@ interface AuthenticatedOrgSlugRouteRouteChildren {
   AuthenticatedOrgSlugAgentsIndexRoute: typeof AuthenticatedOrgSlugAgentsIndexRoute
   AuthenticatedOrgSlugApiKeysIndexRoute: typeof AuthenticatedOrgSlugApiKeysIndexRoute
   AuthenticatedOrgSlugMembersIndexRoute: typeof AuthenticatedOrgSlugMembersIndexRoute
+  AuthenticatedOrgSlugModelsIndexRoute: typeof AuthenticatedOrgSlugModelsIndexRoute
   AuthenticatedOrgSlugSandboxesIndexRoute: typeof AuthenticatedOrgSlugSandboxesIndexRoute
   AuthenticatedOrgSlugSettingsIndexRoute: typeof AuthenticatedOrgSlugSettingsIndexRoute
   AuthenticatedOrgSlugTenantUsersIndexRoute: typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   AuthenticatedOrgSlugTenantsIndexRoute: typeof AuthenticatedOrgSlugTenantsIndexRoute
   AuthenticatedOrgSlugAgentsAgentIdIndexRoute: typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   AuthenticatedOrgSlugAgentsNewIndexRoute: typeof AuthenticatedOrgSlugAgentsNewIndexRoute
+  AuthenticatedOrgSlugModelsModelProviderIdIndexRoute: typeof AuthenticatedOrgSlugModelsModelProviderIdIndexRoute
+  AuthenticatedOrgSlugModelsNewIndexRoute: typeof AuthenticatedOrgSlugModelsNewIndexRoute
   AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute: typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   AuthenticatedOrgSlugSandboxesNewIndexRoute: typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
 }
@@ -834,6 +897,7 @@ const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChil
       AuthenticatedOrgSlugApiKeysIndexRoute,
     AuthenticatedOrgSlugMembersIndexRoute:
       AuthenticatedOrgSlugMembersIndexRoute,
+    AuthenticatedOrgSlugModelsIndexRoute: AuthenticatedOrgSlugModelsIndexRoute,
     AuthenticatedOrgSlugSandboxesIndexRoute:
       AuthenticatedOrgSlugSandboxesIndexRoute,
     AuthenticatedOrgSlugSettingsIndexRoute:
@@ -846,6 +910,10 @@ const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChil
       AuthenticatedOrgSlugAgentsAgentIdIndexRoute,
     AuthenticatedOrgSlugAgentsNewIndexRoute:
       AuthenticatedOrgSlugAgentsNewIndexRoute,
+    AuthenticatedOrgSlugModelsModelProviderIdIndexRoute:
+      AuthenticatedOrgSlugModelsModelProviderIdIndexRoute,
+    AuthenticatedOrgSlugModelsNewIndexRoute:
+      AuthenticatedOrgSlugModelsNewIndexRoute,
     AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute:
       AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute,
     AuthenticatedOrgSlugSandboxesNewIndexRoute:

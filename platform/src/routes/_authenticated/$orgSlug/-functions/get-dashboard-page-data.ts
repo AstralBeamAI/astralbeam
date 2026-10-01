@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
-import { readOrganizationOpenaiApiKeyConfigured } from "@/lib/organizations/openai-api-key.server"
+import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
@@ -24,11 +24,13 @@ export const getDashboardPageData = createServerFn({ method: "GET" })
         )
         // Null where the reader's role does not permit configuration, which is also why no
         // banner appears for them.
-        const openaiApiKeyConfigured = context.permissions.readConfiguration
-          ? yield* readOrganizationOpenaiApiKeyConfigured(context.organizationId)
+        const modelSetup = context.permissions.readConfiguration
+          ? yield* Effect.flatMap(ModelProviders, (providers) =>
+              providers.setupState({ organizationId: context.organizationId }),
+            )
           : null
         return {
-          data: { organizationName: context.organizationName, counts, openaiApiKeyConfigured },
+          data: { organizationName: context.organizationName, counts, modelSetup },
           permissions: context.permissions,
         }
       }),

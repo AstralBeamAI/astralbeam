@@ -88,6 +88,7 @@ function AgentPage() {
         organizationSlug={orgSlug}
         agent={data.agent}
         sandboxProviders={data.sandboxProviders}
+        models={data.models}
         readOnly={!permissions.updateConfiguration}
       />
     </div>

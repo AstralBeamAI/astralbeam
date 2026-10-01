@@ -44,6 +44,7 @@ function NewAgentPage() {
         organizationSlug={orgSlug}
         agent={null}
         sandboxProviders={data.sandboxProviders}
+        models={data.models}
         readOnly={false}
       />
     </div>
