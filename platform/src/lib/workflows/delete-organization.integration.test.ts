@@ -74,14 +74,12 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       .insert(providerModel)
       .values({ organizationId, modelProviderId: models!.id, modelId: "test", name: "Test" })
       .returning()
-    await db
-      .insert(agentModel)
-      .values({
-        organizationId,
-        agentId: defaultAgent!.id,
-        providerModelId: model!.id,
-        position: 0,
-      })
+    await db.insert(agentModel).values({
+      organizationId,
+      agentId: defaultAgent!.id,
+      providerModelId: model!.id,
+      position: 0,
+    })
     await db.insert(organizationConfiguration).values({
       organizationId,
       defaultAgentId: defaultAgent!.id,
