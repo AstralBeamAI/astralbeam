@@ -56,18 +56,27 @@ describe("runSandboxConnectionTest", () => {
     }),
   )
 
-  it.effect("destroys a sandbox whose create resolves after the timeout", () =>
+  // Docker's adapter ignores the abort signal, so its create can still finish after the test ends.
+  it.effect("destroys a sandbox whose create finishes after a timeout or interruption", () =>
     Effect.gen(function* () {
-      connectionTestSandbox.destroy.mockClear()
-      const late = Promise.withResolvers<unknown>()
-      connectionTestSandbox.pendingCreate = late.promise
-      const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
-      yield* TestClock.adjust("30 seconds")
-      assert.deepInclude(yield* Fiber.join(fiber), { status: "failure", errorCode: "timeout" })
-      connectionTestSandbox.pendingCreate = undefined
-      late.resolve({ destroy: connectionTestSandbox.destroy })
-      yield* Effect.promise(() => late.promise)
-      assert.strictEqual(connectionTestSandbox.destroy.mock.calls.length, 1)
+      for (const end of ["timeout", "interrupt"] as const) {
+        connectionTestSandbox.destroy.mockClear()
+        const late = Promise.withResolvers<unknown>()
+        connectionTestSandbox.pendingCreate = late.promise
+        const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
+        if (end === "timeout") {
+          yield* TestClock.adjust("30 seconds")
+          assert.deepInclude(yield* Fiber.join(fiber), { status: "failure", errorCode: "timeout" })
+        } else {
+          yield* TestClock.adjust("1 second")
+          yield* Fiber.interrupt(fiber)
+        }
+        connectionTestSandbox.pendingCreate = undefined
+        assert.strictEqual(connectionTestSandbox.destroy.mock.calls.length, 0)
+        late.resolve({ destroy: connectionTestSandbox.destroy })
+        yield* Effect.promise(() => late.promise)
+        assert.strictEqual(connectionTestSandbox.destroy.mock.calls.length, 1, end)
+      }
     }),
   )
 

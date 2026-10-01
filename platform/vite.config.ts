@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process"
 import { readdirSync, readFileSync } from "node:fs"
 import { extname } from "node:path"
 import process from "node:process"
@@ -32,20 +31,7 @@ const legalAssets = [
     })),
 ]
 
-// dockerode reads only `DOCKER_HOST` and otherwise prefers a Docker Desktop socket that may be
-// stale, so the dev server pins the CLI's active context. https://docs.docker.com/engine/manage-resources/contexts/
-function pinDockerHost(): void {
-  if (process.env.DOCKER_HOST) return
-  const probe = spawnSync(
-    "docker",
-    ["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
-    { encoding: "utf8" },
-  )
-  if (probe.status === 0 && probe.stdout.trim()) process.env.DOCKER_HOST = probe.stdout.trim()
-}
-
-const viteConfig = defineConfig(({ command, mode }) => {
-  if (command === "serve" && !process.env.VITEST) pinDockerHost()
+const viteConfig = defineConfig(({ mode }) => {
   return {
     resolve: { tsconfigPaths: true },
     // `strictPort` keeps a busy port an error instead of a silent move to the next one, which
@@ -117,6 +103,13 @@ const viteConfig = defineConfig(({ command, mode }) => {
               environment.hot.on("astralbeam:closed", closed)
               environment.hot.send("astralbeam:close")
             }))
+          // Vite closes itself only on SIGTERM, so Ctrl-C would skip the cleanup above. `deno task`
+          // forwards a second SIGINT, which must not kill the process mid-cleanup either.
+          let interrupted: Promise<void> | undefined
+          const closeOnInterrupt = () =>
+            void (interrupted ??= server.close().finally(() => process.exit()))
+          process.on("SIGINT", closeOnInterrupt)
+          server.httpServer?.once("close", () => process.off("SIGINT", closeOnInterrupt))
           for (const serverEnvironment of Object.values(server.environments)) {
             if (serverEnvironment.config.consumer !== "server") continue
             const close = serverEnvironment.close.bind(serverEnvironment)

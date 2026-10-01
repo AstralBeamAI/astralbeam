@@ -13,7 +13,6 @@ vi.mock("@tanstack/ai-sandbox-docker", () => ({ dockerSandbox: sandboxFactoryMoc
 vi.mock("@tanstack/ai-sandbox-sprites", () => ({ spritesSandbox: sandboxFactoryMocks.sprites }))
 vi.mock("@tanstack/ai-sandbox-vercel", () => ({ vercelSandbox: sandboxFactoryMocks.vercel }))
 
-import { dockerKeepAliveCommand } from "./docker.server.ts"
 import { createSandboxProvider } from "./factory.server.ts"
 
 test.each([
@@ -27,7 +26,10 @@ test.each([
     provider: "docker",
     options: { image: "custom/image:tag" },
     credentials: {},
-    expected: { image: "custom/image:tag", keepAliveCommand: dockerKeepAliveCommand() },
+    expected: {
+      image: "custom/image:tag",
+      keepAliveCommand: ["sh", "-c", "trap 'exit 0' TERM; tail -f /dev/null & wait"],
+    },
   },
   {
     provider: "sprites",

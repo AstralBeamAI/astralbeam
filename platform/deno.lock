@@ -44,7 +44,6 @@
     "npm:@tanstack/react-router-ssr-query@1.167.3": "1.167.3_@tanstack+query-core@5.102.0_@tanstack+react-query@5.102.0_@tanstack+react-router@1.170.41_react@19.2.8_react-dom@19.2.8_@tanstack+router-core@1.171.34",
     "npm:@tanstack/react-router@^1.170.41": "1.170.41_react@19.2.8_react-dom@19.2.8",
     "npm:@tanstack/react-start@^1.168.60": "1.168.60_react@19.2.8_react-dom@19.2.8_vite@8.2.1",
-    "npm:@types/dockerode@^4.0.1": "4.0.1",
     "npm:@types/nodemailer@^8.0.1": "8.0.1",
     "npm:@types/pg@^8.23.1": "8.23.1",
     "npm:@types/react-dom@19": "19.2.4_@types+react@19.2.18",
@@ -59,7 +58,6 @@
     "npm:cn@*": "0.2.4",
     "npm:cn@~0.2.4": "0.2.4",
     "npm:commander@15": "15.0.0",
-    "npm:dockerode@^4.0.12": "4.0.12",
     "npm:drizzle-kit@^1.0.0-rc.5": "1.0.0-rc.5-ab785fc",
     "npm:drizzle-orm@^1.0.0-rc.5": "1.0.0-rc.5-ab785fc_@effect+sql-pg@4.0.0-rc.118_@types+pg@8.23.1_effect@4.0.0-rc.118_pg@8.23.0_zod@4.6.5",
     "npm:effect@^4.0.0-rc.118": "4.0.0-rc.118",
@@ -4240,21 +4238,6 @@
     "@types/deep-eql@4.0.2": {
       "integrity": "sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw=="
     },
-    "@types/docker-modem@3.0.6": {
-      "integrity": "sha512-yKpAGEuKRSS8wwx0joknWxsmLha78wNMe9R2S3UNsVOkZded8UqOrV8KoeDXoXsjndxwyF3eIhyClGbO1SEhEg==",
-      "dependencies": [
-        "@types/node@26.4.0",
-        "@types/ssh2"
-      ]
-    },
-    "@types/dockerode@4.0.1": {
-      "integrity": "sha512-cmUpB+dPN955PxBEuXE3f6lKO1hHiIGYJA46IVF3BJpNsZGvtBDcRnlrHYHtOH/B6vtDOyl2kZ2ShAu3mgc27Q==",
-      "dependencies": [
-        "@types/docker-modem",
-        "@types/node@26.4.0",
-        "@types/ssh2"
-      ]
-    },
     "@types/esrecurse@4.3.1": {
       "integrity": "sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw=="
     },
@@ -4281,12 +4264,6 @@
     },
     "@types/ms@2.1.0": {
       "integrity": "sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA=="
-    },
-    "@types/node@18.19.130": {
-      "integrity": "sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg==",
-      "dependencies": [
-        "undici-types@5.26.5"
-      ]
     },
     "@types/node@24.13.3": {
       "integrity": "sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==",
@@ -4324,12 +4301,6 @@
       "integrity": "sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==",
       "dependencies": [
         "csstype"
-      ]
-    },
-    "@types/ssh2@1.15.6": {
-      "integrity": "sha512-oGdxhBqcRTwSTKFm+9EiKzkNVYRLEFkcW44lhguvBalGJbWfGnDt/ezwSUZc+SF9m9bMc3VyklNAtp7zICjS5w==",
-      "dependencies": [
-        "@types/node@18.19.130"
       ]
     },
     "@types/unist@3.0.3": {
@@ -9079,9 +9050,6 @@
     "unbash@4.0.10": {
       "integrity": "sha512-b7zoBQvpWp0vuN5q2vK2RRBR2SvuruQAs50DApdDveBSn3eSYd84IaHodFqQIMlvY9K2VnyBUEXgwOBuGU9GBg=="
     },
-    "undici-types@5.26.5": {
-      "integrity": "sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA=="
-    },
     "undici-types@7.18.2": {
       "integrity": "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="
     },
@@ -9510,7 +9478,6 @@
         "npm:@tanstack/react-router-ssr-query@1.167.3",
         "npm:@tanstack/react-router@^1.170.41",
         "npm:@tanstack/react-start@^1.168.60",
-        "npm:@types/dockerode@^4.0.1",
         "npm:@types/nodemailer@^8.0.1",
         "npm:@types/pg@^8.23.1",
         "npm:@types/react-dom@19",
@@ -9523,7 +9490,6 @@
         "npm:class-variance-authority@~0.7.1",
         "npm:cn@~0.2.4",
         "npm:commander@15",
-        "npm:dockerode@^4.0.12",
         "npm:drizzle-kit@^1.0.0-rc.5",
         "npm:drizzle-orm@^1.0.0-rc.5",
         "npm:effect@^4.0.0-rc.118",

@@ -23,68 +23,57 @@ import {
   logChatSandboxFailure,
 } from "./sandbox.server"
 import { resolveSandboxPath } from "./paths.server"
+import { chatToolInputSchema } from "../tool-schema.server"
 
 const sandboxPath = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(CHAT_SANDBOX_MAX_PATH_LENGTH)),
 )
 
-// Each input goes through both conversions: `toStandardSchemaV1` gives TanStack the validator it
-// runs before `execute`, and `toStandardJSONSchemaV1` the JSON Schema it declares to the model.
-const WriteSandboxFileInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(
-    Schema.Struct({
-      path: sandboxPath.annotate({
-        description: "File to create or replace, relative to the workspace or absolute inside it.",
-      }),
-      content: Schema.String.annotate({
-        description: "The complete new contents of the file, replacing anything already there.",
-      }),
+const WriteSandboxFileInputSchema = chatToolInputSchema(
+  Schema.Struct({
+    path: sandboxPath.annotate({
+      description: "File to create or replace, relative to the workspace or absolute inside it.",
     }),
-  ),
+    content: Schema.String.annotate({
+      description: "The complete new contents of the file, replacing anything already there.",
+    }),
+  }),
 )
 
-const ReadSandboxFileInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(
-    Schema.Struct({
-      path: sandboxPath.annotate({ description: "File to read, inside the workspace." }),
-    }),
-  ),
+const ReadSandboxFileInputSchema = chatToolInputSchema(
+  Schema.Struct({
+    path: sandboxPath.annotate({ description: "File to read, inside the workspace." }),
+  }),
 )
 
-const ListSandboxFilesInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(
-    Schema.Struct({
-      path: Schema.optionalKey(
-        sandboxPath.annotate({ description: "Directory to list. Defaults to the workspace root." }),
-      ),
-    }),
-  ),
+const ListSandboxFilesInputSchema = chatToolInputSchema(
+  Schema.Struct({
+    path: Schema.optionalKey(
+      sandboxPath.annotate({ description: "Directory to list. Defaults to the workspace root." }),
+    ),
+  }),
 )
 
-const PublishSandboxArtifactInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(
-    Schema.Struct({
-      path: sandboxPath.annotate({
-        description: "File to share with the user, inside the workspace.",
+const PublishSandboxArtifactInputSchema = chatToolInputSchema(
+  Schema.Struct({
+    path: sandboxPath.annotate({
+      description: "File to share with the user, inside the workspace.",
+    }),
+  }),
+)
+
+const RunSandboxCommandInputSchema = chatToolInputSchema(
+  Schema.Struct({
+    command: NonEmptyStringSchema.annotate({
+      description:
+        "Shell command to run. It goes through the sandbox's shell, so pipes and redirection work.",
+    }),
+    cwd: Schema.optionalKey(
+      sandboxPath.annotate({
+        description: "Working directory for the command. Defaults to the workspace root.",
       }),
-    }),
-  ),
-)
-
-const RunSandboxCommandInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(
-    Schema.Struct({
-      command: NonEmptyStringSchema.annotate({
-        description:
-          "Shell command to run. It goes through the sandbox's shell, so pipes and redirection work.",
-      }),
-      cwd: Schema.optionalKey(
-        sandboxPath.annotate({
-          description: "Working directory for the command. Defaults to the workspace root.",
-        }),
-      ),
-    }),
-  ),
+    ),
+  }),
 )
 
 /** What the sandbox tools need from TanStack's tool execution context, which is itself optional. */

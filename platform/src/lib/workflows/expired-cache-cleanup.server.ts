@@ -9,7 +9,7 @@ const expiredCacheCleanup = Effect.gen(function* () {
       schedule: Schedule.spaced("10 millis"),
     }),
   )
-  yield* Effect.logInfo("Expired cache cleanup completed")
+  yield* Effect.logDebug("Expired cache cleanup completed")
 })
 
 export default expiredCacheCleanup

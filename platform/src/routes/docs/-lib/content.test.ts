@@ -17,6 +17,7 @@ import {
   CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS,
   CHAT_AUTH_TOKEN_MIN_LIFETIME_SECONDS,
   CHAT_MAX_REQUEST_BYTES,
+  CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_WINDOW_MS,
 } from "@/lib/chat/constants.server"
@@ -34,7 +35,8 @@ test("the Limits page quotes the caps the chat endpoint enforces", () => {
     ...Object.values(CHAT_ATTACHMENT_MAX_BYTES_BY_KIND).map(megabytes),
     megabytes(CHAT_ATTACHMENT_MAX_TOTAL_BYTES),
     megabytes(CHAT_MAX_REQUEST_BYTES),
-    `${CHAT_RATE_LIMIT_MAX_REQUESTS} requests per ${CHAT_RATE_LIMIT_WINDOW_MS / 1_000} seconds`,
+    `${CHAT_RATE_LIMIT_MAX_REQUESTS} new turns per ${CHAT_RATE_LIMIT_WINDOW_MS / 1_000} seconds`,
+    `${CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS} requests per ${CHAT_RATE_LIMIT_WINDOW_MS / 1_000} seconds`,
     `${CHAT_AUTH_TOKEN_MIN_LIFETIME_SECONDS}–${CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS} seconds`,
   ]
   for (const value of expected) expect(limits).toContain(value)

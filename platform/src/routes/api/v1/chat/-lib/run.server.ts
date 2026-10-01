@@ -7,24 +7,32 @@ import { Duration, Effect, Stream } from "effect"
 import { HttpServerResponse } from "effect/http"
 
 import {
+  CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
   CHAT_MAX_REQUEST_BYTES,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_WINDOW_MS,
 } from "@/lib/chat/constants.server"
-import type { ChatPrincipal } from "@/lib/chat/types"
+import type { ChatParams, ChatPrincipal } from "@/lib/chat/types"
 import { readRequestJson } from "@/routes/api/-lib/request-body.server"
 import { consumeRestRateLimit } from "../../-lib/auth.server"
 import { ChatRunInputInvalid, ChatRunTooLarge } from "./errors.ts"
 
 /**
- * Chat's own bucket, keyed by all three of organization, tenant, and tenant-user id, and
- * independent of Better Auth API-key usage, which a chat run never consumes.
+ * Chat's own buckets, keyed by organization, tenant, and tenant-user id. A request ending in the
+ * agent's own turn carries host-tool results, so it spends the continuation bucket instead.
  */
-export function consumeChatRateLimit(principal: ChatPrincipal) {
+export function consumeChatRateLimit(principal: ChatPrincipal, params: ChatParams) {
+  const role = params.messages.at(-1)?.role
+  const continuation = role === "assistant" || role === "tool"
   return consumeRestRateLimit(
-    "chat",
+    continuation ? "chat-continuation" : "chat",
     [principal.organization.id, principal.tenantUser.tenant.id, principal.tenantUser.id],
-    { limit: CHAT_RATE_LIMIT_MAX_REQUESTS, window: Duration.millis(CHAT_RATE_LIMIT_WINDOW_MS) },
+    {
+      limit: continuation
+        ? CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS
+        : CHAT_RATE_LIMIT_MAX_REQUESTS,
+      window: Duration.millis(CHAT_RATE_LIMIT_WINDOW_MS),
+    },
   )
 }
 

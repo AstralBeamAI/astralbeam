@@ -1,10 +1,10 @@
 import { convertSchemaToJsonSchema, type SchemaInput } from "@tanstack/ai/client"
 import type { JsonSchemaObject, ParametersSchema, StandardSchemaV1 } from "../lib/types.ts"
 
-// Standard Schemas convert when the library exposes Standard JSON Schema (Zod v4+,
-// ArkType); validate-only ones fall back to an open object, still validated client-side.
+// Standard Schemas convert when the library exposes Standard JSON Schema (Zod v4+, ArkType). Others
+// fall back to an open object, validated client-side, and none to an empty one OpenAI runs strictly.
 export function toJsonSchema(parameters?: ParametersSchema): JsonSchemaObject {
-  if (!parameters) return { type: "object" }
+  if (!parameters) return { type: "object", properties: {} }
   if (!("~standard" in parameters)) return parameters
   try {
     return convertSchemaToJsonSchema(parameters as SchemaInput) as JsonSchemaObject

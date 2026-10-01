@@ -46,7 +46,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       .annotate(OpenApi.Summary, "Run chat")
       .annotate(
         OpenApi.Description,
-        "Stream an AG-UI agent run using a tenant user JWT. No admin claim required. HTTP failures before streaming use AstralBeamApiError. Once streaming starts, failures use RUN_ERROR events. Tool results continue in a subsequent request. Disconnecting cancels the run. Limited to 200 requests per minute per organization, tenant, and user.",
+        "Stream an AG-UI agent run using a tenant user JWT. No admin claim required. HTTP failures before streaming use AstralBeamApiError. Once streaming starts, failures use RUN_ERROR events. Tool results continue in a subsequent request. Disconnecting cancels the run. Limited to 20 new turns and 200 tool-result continuations per minute per organization, tenant, and user.",
       ),
     HttpApiEndpoint.get("getChatConfig", "/chat/config", {
       query: Schema.Struct({ agentId: Schema.optionalKey(Schema.String) }),
@@ -110,9 +110,9 @@ export function chatHandlers(api: typeof ApiV1) {
           "runChat",
           Effect.fn("runChat")(function* ({ request }) {
             const principal = yield* authenticate(request)
-            yield* consumeChatRateLimit(principal).pipe(Effect.provideContext(services))
             const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
             const params = yield* readChatRunParams(native)
+            yield* consumeChatRateLimit(principal, params).pipe(Effect.provideContext(services))
             return yield* chatRunResponse(yield* chat.run({ params, principal }))
           }),
         )

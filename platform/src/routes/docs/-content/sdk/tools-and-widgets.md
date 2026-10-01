@@ -46,6 +46,7 @@ widgets: {
 - A Standard Schema is enforced in the browser before your `execute` or `render` runs.
 - With plain JSON Schema, nothing validates in the browser: treat the agent's input as untrusted.
 - Models sometimes send numbers as strings. With Zod, prefer `z.coerce.number()` over `z.number()`.
+- The model is held to a schema only when every object in it lists its `properties` and allows no other keys. A free-form object such as `z.record()`, or a validator that cannot export JSON Schema, still works, but the model may then send input that does not match.
 
 ## Typed definitions
 

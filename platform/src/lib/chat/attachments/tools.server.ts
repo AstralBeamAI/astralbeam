@@ -4,6 +4,7 @@ import { NonEmptyStringSchema } from "../../schemas.ts"
 
 import { CHAT_ATTACHMENT_READ_MAX_CHARACTERS } from "./constants.server"
 import type { ChatAttachmentFile } from "./types"
+import { chatToolInputSchema } from "../tool-schema.server"
 
 /**
  * The tool that gives an attached file's contents to the agent.
@@ -17,24 +18,22 @@ import type { ChatAttachmentFile } from "./types"
  * and works for every agent.
  */
 
-const ReadAttachmentInputSchema = Schema.toStandardJSONSchemaV1(
-  Schema.toStandardSchemaV1(
-    Schema.Struct({
-      file: NonEmptyStringSchema.annotate({
-        description: "Name of the attached file, exactly as the user's message gives it.",
-      }),
-      offset: Schema.optionalKey(
-        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
-          description: "Character to start at. Defaults to the beginning of the file.",
-        }),
-      ),
-      limit: Schema.optionalKey(
-        Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({
-          description: `Characters to read, up to ${CHAT_ATTACHMENT_READ_MAX_CHARACTERS}, which is the default.`,
-        }),
-      ),
+const ReadAttachmentInputSchema = chatToolInputSchema(
+  Schema.Struct({
+    file: NonEmptyStringSchema.annotate({
+      description: "Name of the attached file, exactly as the user's message gives it.",
     }),
-  ),
+    offset: Schema.optionalKey(
+      Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
+        description: "Character to start at. Defaults to the beginning of the file.",
+      }),
+    ),
+    limit: Schema.optionalKey(
+      Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({
+        description: `Characters to read, up to ${CHAT_ATTACHMENT_READ_MAX_CHARACTERS}, which is the default.`,
+      }),
+    ),
+  }),
 )
 
 /**
@@ -73,9 +72,9 @@ export function createChatAttachmentTools(files: readonly ChatAttachmentFile[]):
       }
     }
     // A page is bounded whatever the agent asks for: the limit is model context, not a preference.
-    const start = Math.min(Math.floor(offset), file.text.length)
+    const start = Math.min(offset, file.text.length)
     const size = Math.min(
-      limit === undefined ? CHAT_ATTACHMENT_READ_MAX_CHARACTERS : Math.floor(limit),
+      limit === undefined ? CHAT_ATTACHMENT_READ_MAX_CHARACTERS : limit,
       CHAT_ATTACHMENT_READ_MAX_CHARACTERS,
     )
     const content = file.text.slice(start, start + size)
