@@ -31,7 +31,7 @@ import {
   type ModelProviderType,
 } from "./schemas.ts"
 
-export interface ModelProviderModel {
+interface ModelProviderModel {
   readonly id: string
   readonly modelId: string
   readonly name: string
