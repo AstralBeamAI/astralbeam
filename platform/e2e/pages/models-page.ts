@@ -44,14 +44,6 @@ export function modelsPage(page: Page) {
         .getByRole("button", { name: "Delete provider", exact: true })
         .click()
     },
-
-    async importLegacy(): Promise<void> {
-      const button = page.getByRole("button", { name: "Import existing key", exact: true })
-      await waitForHydration(button)
-      await button.click()
-      await expectToast(page, "OpenAI provider imported")
-      await expect(button).toBeHidden()
-    },
   }
 }
 
