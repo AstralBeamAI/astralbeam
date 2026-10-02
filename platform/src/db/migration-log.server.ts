@@ -17,7 +17,6 @@ export const MIGRATION_LOG_DDL = [
 export interface BundledMigration {
   name: string
   sql: string
-  data?: string
   hash: string
   folderMillis: number
 }
@@ -36,18 +35,11 @@ function folderMillisFromName(name: string): number {
   )
 }
 
-export function bundledMigration(
-  name: string,
-  migrationSql: string,
-  data?: string,
-): BundledMigration {
+export function bundledMigration(name: string, migrationSql: string): BundledMigration {
   return {
     name,
     sql: migrationSql,
-    ...(data === undefined ? {} : { data }),
-    hash: createHash("sha256")
-      .update(data === undefined ? migrationSql : JSON.stringify([migrationSql, data]))
-      .digest("hex"),
+    hash: createHash("sha256").update(migrationSql).digest("hex"),
     folderMillis: folderMillisFromName(name),
   }
 }
