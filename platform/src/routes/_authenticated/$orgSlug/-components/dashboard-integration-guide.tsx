@@ -52,7 +52,7 @@ export function DashboardIntegrationGuide({
             ) : (
               <p className="text-muted-foreground">
                 {modelSetup !== null
-                  ? "Provider models are saved. Saving a key or enabling a model does not verify provider access."
+                  ? "Provider models are enabled for this organization. Each connection keeps its own credentials and API URL."
                   : "Ask an owner or developer to configure a model provider and enable models."}
               </p>
             )}
@@ -77,7 +77,7 @@ export function DashboardIntegrationGuide({
                   ? "Choose an agent and set it as the organization's default."
                   : modelSetup.defaultAgentModelCount === 0
                     ? "Your default agent has no model and cannot reply yet. Assign an enabled provider model."
-                    : "Your default agent has models assigned. Verify a reply in your application to check provider access."}
+                    : "Your default agent has models assigned. Review its instructions and default model before embedding it."}
             </p>
             {permissions.readConfiguration &&
               (modelSetup?.defaultAgentId ? (

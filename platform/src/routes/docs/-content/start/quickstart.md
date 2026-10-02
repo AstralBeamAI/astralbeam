@@ -12,8 +12,8 @@ Creating one makes you its owner and provisions a starter agent, already set as 
 
 Let's configure it before creating an API key:
 
-1. Open **Models**, add your provider's API key and API URL, and enable a model your account can access.
-2. Open **Agents**, choose the starter agent, assign the enabled model, and save.
+1. Open **Models**, add a provider with its API key and API URL, enable a model your provider account can access, and choose **Save provider**.
+2. Open **Agents**, choose the starter agent, select that model, and choose **Save changes**.
 
 Saving these settings does not verify provider access. We will check that by sending a message from your application in step 6. [Models](/docs/dashboard/models) and [Agents](/docs/dashboard/agents) cover the settings in detail.
 
@@ -103,7 +103,7 @@ The system prompt lives with the agent, so an embedding application cannot overr
 | Composer disabled with a retry link | The token fetch failed or returned something other than `{ token }` |
 | `401` from your own endpoint | No application session on the request |
 | `503` from your own endpoint | The API key is missing from the server environment |
-| The agent has no model configured | Add a provider in Models, enable a model, and assign it to the agent on hosted or self-hosted deployments |
+| The agent has no model configured | Add a provider in Models, enable a model, and assign it to the agent |
 | Attachments refused | The agent does not allow them, and the chat endpoint enforces that whatever the client sends |
 
 ## Next
