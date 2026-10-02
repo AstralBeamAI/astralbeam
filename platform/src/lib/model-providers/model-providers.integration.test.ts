@@ -252,7 +252,10 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       runAppEffect(
         Effect.flatMap(ModelProviders, (service) => service.setupState({ organizationId })),
       )
-    expect((await setup()).defaultAgentModelCount).toBe(0)
+    expect(await setup()).toMatchObject({
+      defaultAgentId: formatAgentId({ organizationId, id: defaultAgent!.id }),
+      defaultAgentModelCount: 0,
+    })
     await db.insert(agentModel).values({
       organizationId,
       agentId: defaultAgent!.id,
@@ -260,6 +263,11 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       position: 0,
     })
     expect((await setup()).defaultAgentModelCount).toBe(1)
+    await db
+      .update(organizationConfiguration)
+      .set({ defaultAgentId: null })
+      .where(eq(organizationConfiguration.organizationId, organizationId))
+    expect(await setup()).toMatchObject({ defaultAgentId: null, defaultAgentModelCount: 0 })
   })
 
   test("replaces ordered agent assignments atomically and makes the first model the default", async () => {

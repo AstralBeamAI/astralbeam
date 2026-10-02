@@ -17,6 +17,7 @@ export function DashboardIntegrationGuide({
     providerCount: number
     enabledModelCount: number
     defaultAgentModelCount: number
+    defaultAgentId: string | null
   } | null
   apiKeyCount: number | null
   permissions: Pick<
@@ -51,7 +52,7 @@ export function DashboardIntegrationGuide({
             ) : (
               <p className="text-muted-foreground">
                 {modelSetup !== null
-                  ? "Provider models are enabled for this organization. Each connection keeps its own credentials and API URL."
+                  ? "Provider models are saved. Saving a key or enabling a model does not verify provider access."
                   : "Ask an owner or developer to configure a model provider and enable models."}
               </p>
             )}
@@ -70,19 +71,32 @@ export function DashboardIntegrationGuide({
           <li className="space-y-2 ps-1">
             <h3 className="font-medium">Choose your agent&apos;s models</h3>
             <p className="text-muted-foreground">
-              {modelSetup !== null && modelSetup.defaultAgentModelCount > 0
-                ? "Your default agent has models assigned. Review its instructions and default model before embedding it."
-                : "Open your default agent, select models from your providers, and choose the default model for its replies."}
+              {modelSetup === null
+                ? "Ask an owner or developer to configure the default agent's model."
+                : !modelSetup.defaultAgentId
+                  ? "Choose an agent and set it as the organization's default."
+                  : modelSetup.defaultAgentModelCount === 0
+                    ? "Your default agent has no model and cannot reply yet. Assign an enabled provider model."
+                    : "Your default agent has models assigned. Verify a reply in your application to check provider access."}
             </p>
-            {permissions.readConfiguration && (
-              <Link
-                to="/$orgSlug/agents"
-                params={{ orgSlug: organizationSlug }}
-                className="inline-block text-primary underline underline-offset-4"
-              >
-                Set up an agent
-              </Link>
-            )}
+            {permissions.readConfiguration &&
+              (modelSetup?.defaultAgentId ? (
+                <Link
+                  to="/$orgSlug/agents/$agentId"
+                  params={{ orgSlug: organizationSlug, agentId: modelSetup.defaultAgentId }}
+                  className="inline-block text-primary underline underline-offset-4"
+                >
+                  Configure default agent
+                </Link>
+              ) : (
+                <Link
+                  to="/$orgSlug/agents"
+                  params={{ orgSlug: organizationSlug }}
+                  className="inline-block text-primary underline underline-offset-4"
+                >
+                  Set up an agent
+                </Link>
+              ))}
           </li>
           <li className="space-y-2 ps-1">
             <h3 className="font-medium">Prepare your server API key</h3>
