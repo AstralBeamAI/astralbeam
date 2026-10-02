@@ -202,14 +202,16 @@ export class Chat extends Context.Service<
           }),
         ).pipe(
           Stream.mapEffect((chunk): Effect.Effect<StreamChunk> => {
-            if (chunk.type !== EventType.RUN_ERROR || chunk.code === "aborted")
-              return Effect.succeed(chunk)
+            if (chunk.type !== EventType.RUN_ERROR) return Effect.succeed(chunk)
+            // Providers can send their own `aborted` code, so it keeps only TanStack's fixed shape.
+            const aborted = chunk.code === "aborted"
+            const message = aborted ? "Request aborted" : CHAT_MODEL_UNAVAILABLE_MESSAGE
             const runError = {
               ...chunk,
-              message: CHAT_MODEL_UNAVAILABLE_MESSAGE,
-              error: { message: CHAT_MODEL_UNAVAILABLE_MESSAGE },
+              message,
+              error: aborted ? { message, code: "aborted" } : { message },
             }
-            delete runError.code
+            if (!aborted) delete runError.code
             delete runError.rawEvent
             return Effect.as(
               Effect.logWarning("Chat model request failed").pipe(

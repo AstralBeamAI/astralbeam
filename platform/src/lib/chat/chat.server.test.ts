@@ -188,6 +188,28 @@ describe("Chat.run", () => {
     }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 
+  it.effect("keeps only the fixed abort shape when a provider reports an aborted code", () =>
+    Effect.gen(function* () {
+      const upstream = "400 Bad request: internal-gateway.example rejected sk-inval****"
+      chatRunTest.runError = {
+        type: EventType.RUN_ERROR,
+        runId: "run",
+        message: upstream,
+        code: "aborted",
+        rawEvent: { error: { message: upstream } },
+        error: { message: upstream, code: "aborted" },
+      }
+      const events = yield* Stream.runCollect(Stream.take(yield* runChat(), 2))
+      assert.deepStrictEqual(events[1], {
+        type: EventType.RUN_ERROR,
+        runId: "run",
+        message: "Request aborted",
+        code: "aborted",
+        error: { message: "Request aborted", code: "aborted" },
+      })
+    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
+  )
+
   it.effect("keeps high reasoning effort for native OpenAI reasoning models", () =>
     Effect.gen(function* () {
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
