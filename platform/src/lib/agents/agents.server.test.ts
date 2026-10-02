@@ -5,6 +5,7 @@ import { PgDialect } from "drizzle-orm/pg-core"
 import { Cause, Effect, Exit, Layer } from "effect"
 
 import { Database, type EffectDatabase } from "@/db/database.server"
+import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Agents, defaultAgentName } from "./agents.server.ts"
 import { formatAgentId } from "./schemas.ts"
 
@@ -42,7 +43,10 @@ function selectRecording(rows: readonly unknown[]) {
   const database = { select: () => query } as unknown as EffectDatabase
   return {
     predicates,
-    layer: Agents.layerNoDeps.pipe(Layer.provide(Layer.succeed(Database, database))),
+    layer: Agents.layerNoDeps.pipe(
+      Layer.provide(Layer.succeed(ModelProviders, {} as ModelProviders["Service"])),
+      Layer.provide(Layer.succeed(Database, database)),
+    ),
   }
 }
 
@@ -52,9 +56,11 @@ function agentSql(expression: SQL | undefined) {
 
 function insertFailing(cause: object) {
   const failure = new EffectDrizzleQueryError({ query: "insert", params: ["secret"], cause })
-  return Layer.succeed(Database, {
+  const database = {
     insert: () => ({ values: () => ({ returning: () => Effect.fail(failure) }) }),
-  } as unknown as EffectDatabase)
+    transaction: (body: (transaction: unknown) => Effect.Effect<unknown>) => body(database),
+  } as unknown as EffectDatabase
+  return Layer.succeed(Database, database)
 }
 
 describe("Agents", () => {
@@ -68,7 +74,14 @@ describe("Agents", () => {
       assert.strictEqual((yield* Effect.flip(agents.remove(versioned)))._tag, "AgentChanged")
       const update = agents.update({ ...versioned, fields: FIELDS })
       assert.strictEqual((yield* Effect.flip(update))._tag, "AgentChanged")
-    }).pipe(Effect.provide(Agents.layerNoDeps.pipe(Layer.provide(untouchedDatabase)))),
+    }).pipe(
+      Effect.provide(
+        Agents.layerNoDeps.pipe(
+          Layer.provide(Layer.succeed(ModelProviders, {} as ModelProviders["Service"])),
+          Layer.provide(untouchedDatabase),
+        ),
+      ),
+    ),
   )
 
   it.effect("maps the name constraint to a user-facing error and other failures to defects", () =>
@@ -79,14 +92,24 @@ describe("Agents", () => {
       const nameTaken = insertFailing({ constraint: "agent_organization_id_name_uidx" })
       const taken = yield* create.pipe(
         Effect.flip,
-        Effect.provide(Agents.layerNoDeps.pipe(Layer.provide(nameTaken))),
+        Effect.provide(
+          Agents.layerNoDeps.pipe(
+            Layer.provide(Layer.succeed(ModelProviders, {} as ModelProviders["Service"])),
+            Layer.provide(nameTaken),
+          ),
+        ),
       )
       assert.strictEqual(taken._tag, "AgentNameTaken")
 
       const outage = insertFailing({ code: "08006" })
       const exit = yield* create.pipe(
         Effect.exit,
-        Effect.provide(Agents.layerNoDeps.pipe(Layer.provide(outage))),
+        Effect.provide(
+          Agents.layerNoDeps.pipe(
+            Layer.provide(Layer.succeed(ModelProviders, {} as ModelProviders["Service"])),
+            Layer.provide(outage),
+          ),
+        ),
       )
       assert.isTrue(Exit.isFailure(exit) && Cause.hasDies(exit.cause))
     }),
@@ -126,7 +149,14 @@ describe("Agents", () => {
         )
         assert.strictEqual(refused._tag, "AgentNotFound")
       }
-    }).pipe(Effect.provide(Agents.layerNoDeps.pipe(Layer.provide(untouchedDatabase)))),
+    }).pipe(
+      Effect.provide(
+        Agents.layerNoDeps.pipe(
+          Layer.provide(Layer.succeed(ModelProviders, {} as ModelProviders["Service"])),
+          Layer.provide(untouchedDatabase),
+        ),
+      ),
+    ),
   )
 
   it.effect("joins the default chat agent through both organization-owned rows", () => {

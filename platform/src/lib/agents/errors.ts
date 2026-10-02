@@ -34,3 +34,11 @@ export class AgentChanged extends Schema.TaggedError<AgentChanged>()(
 ) {
   override readonly message = "This agent changed since you opened it. Reload and try again"
 }
+
+export class AgentModelInvalid extends Schema.TaggedError<AgentModelInvalid>()(
+  "AgentModelInvalid",
+  {},
+  { httpApiStatus: 422 },
+) {
+  override readonly message = "Select enabled models from this organization"
+}

@@ -8,11 +8,13 @@ import {
   updateWithOptimisticLock,
 } from "@/db/lib/optimistic-locking.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
-import { agent, organizationConfiguration } from "@/db/schema/organizations.server"
+import { agent, agentModel, organizationConfiguration } from "@/db/schema/organizations.server"
 import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandboxes/schemas"
+import { ModelProviders, type ModelChoice } from "@/lib/model-providers/model-providers.server"
 import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
 import {
   AgentChanged,
+  AgentModelInvalid,
   AgentNameTaken,
   AgentNotFound,
   AgentSandboxProviderInvalid,
@@ -35,7 +37,7 @@ const AgentRowSchema = createSelectSchema(agent, {
 })
 
 /** An agent as the dashboard sees it, addressed by its public ID. */
-export type Agent = typeof AgentRowSchema.Type
+export type Agent = typeof AgentRowSchema.Type & { readonly modelIds: readonly string[] }
 
 const AgentSandboxProviderSchema = Schema.Struct({
   id: UuidV7Schema,
@@ -45,7 +47,7 @@ const AgentSandboxProviderSchema = Schema.Struct({
 
 export type AgentSandboxProvider = typeof AgentSandboxProviderSchema.Type
 
-/** The agent configuration a chat run reads, which carries no model. */
+/** The agent policy a chat run reads before resolving its selected model. */
 export interface ChatAgent {
   readonly id: string
   readonly systemPrompt: string
@@ -76,6 +78,7 @@ const decodeAgentFormOptions = Schema.decodeUnknownEffect(
 const decodeAgentRow = Schema.decodeUnknownEffect(AgentRowSchema, { onExcessProperty: "error" })
 
 const mapAgentWriteErrors = mapDatabaseErrors({
+  agent_model_provider_model_fk: () => new AgentModelInvalid(),
   agent_organization_id_name_uidx: () => new AgentNameTaken(),
   agent_organization_id_sandbox_provider_id_fk: () => new AgentSandboxProviderInvalid(),
 })
@@ -128,6 +131,7 @@ export class Agents extends Context.Service<
     }>
     /** The sandbox providers an agent form can select, and the current default agent. */
     readonly formOptions: (organizationId: string) => Effect.Effect<{
+      readonly models: readonly ModelChoice[]
       readonly sandboxProviders: readonly AgentSandboxProvider[]
       readonly defaultAgentId: string | null
     }>
@@ -139,13 +143,16 @@ export class Agents extends Context.Service<
     readonly create: (input: {
       readonly organizationId: string
       readonly fields: AgentFields
-    }) => Effect.Effect<string, AgentNameTaken | AgentSandboxProviderInvalid>
+    }) => Effect.Effect<string, AgentNameTaken | AgentSandboxProviderInvalid | AgentModelInvalid>
     readonly update: (input: {
       readonly organizationId: string
       readonly agentId: string
       readonly lockVersion: number
       readonly fields: AgentFields
-    }) => Effect.Effect<void, AgentChanged | AgentNameTaken | AgentSandboxProviderInvalid>
+    }) => Effect.Effect<
+      void,
+      AgentChanged | AgentNameTaken | AgentSandboxProviderInvalid | AgentModelInvalid
+    >
     readonly remove: (input: {
       readonly organizationId: string
       readonly agentId: string
@@ -175,6 +182,21 @@ export class Agents extends Context.Service<
     Agents,
     Effect.gen(function* () {
       const db = yield* Database
+      const modelProviders = yield* ModelProviders
+
+      const readAgentModelIds = Effect.fnUntraced(function* (
+        agentId: string,
+        organizationId: string,
+      ) {
+        const models = yield* db
+          .select({ id: agentModel.providerModelId })
+          .from(agentModel)
+          .where(
+            and(eq(agentModel.organizationId, organizationId), eq(agentModel.agentId, agentId)),
+          )
+          .orderBy(agentModel.position)
+        return models.map((model) => model.id)
+      }, Effect.orDie)
 
       const list = Effect.fn("Agents.list")(function* (organizationId: string) {
         const organization = yield* db.query.organization.findFirst({
@@ -186,8 +208,20 @@ export class Agents extends Context.Service<
           },
         })
         const { agents, configuration } = yield* decodeAgentList(organization)
+        const models = yield* db
+          .select({ agentId: agentModel.agentId, modelId: agentModel.providerModelId })
+          .from(agentModel)
+          .where(eq(agentModel.organizationId, organizationId))
+          .orderBy(agentModel.position)
         return {
-          agents: agents.map(publicAgent),
+          agents: agents.map((row) =>
+            publicAgent({
+              ...row,
+              modelIds: models
+                .filter((model) => model.agentId === row.id)
+                .map((model) => model.modelId),
+            }),
+          ),
           defaultAgentId: publicDefaultAgentId(organizationId, configuration),
         }
       }, Effect.orDie)
@@ -207,6 +241,7 @@ export class Agents extends Context.Service<
         const { sandboxProviders, configuration } = yield* decodeAgentFormOptions(organization)
         return {
           sandboxProviders,
+          models: yield* modelProviders.choices({ organizationId }),
           defaultAgentId: publicDefaultAgentId(organizationId, configuration),
         }
       }, Effect.orDie)
@@ -223,19 +258,37 @@ export class Agents extends Context.Service<
           .limit(1)
           .pipe(Effect.orDie)
         if (!row) return yield* new AgentNotFound()
-        return publicAgent(yield* decodeAgentRow(row).pipe(Effect.orDie))
+        return publicAgent({
+          ...(yield* decodeAgentRow(row).pipe(Effect.orDie)),
+          modelIds: yield* readAgentModelIds(id, input.organizationId),
+        })
       })
 
       const create = Effect.fn("Agents.create")(function* (input: {
         organizationId: string
         fields: AgentFields
       }) {
-        const [created] = yield* db
-          .insert(agent)
-          .values({ organizationId: input.organizationId, ...input.fields })
-          .returning({ id: agent.id })
+        const { modelIds, ...fields } = input.fields
+        return yield* db
+          .transaction((transaction) =>
+            Effect.gen(function* () {
+              const [created] = yield* transaction
+                .insert(agent)
+                .values({ organizationId: input.organizationId, ...fields })
+                .returning({ id: agent.id })
+              if (modelIds)
+                yield* transaction.insert(agentModel).values(
+                  modelIds.map((providerModelId, position) => ({
+                    organizationId: input.organizationId,
+                    agentId: created!.id,
+                    providerModelId,
+                    position,
+                  })),
+                )
+              return formatAgentId({ organizationId: input.organizationId, id: created!.id })
+            }),
+          )
           .pipe(mapAgentWriteErrors)
-        return formatAgentId({ organizationId: input.organizationId, id: created!.id })
       })
 
       const update = Effect.fn("Agents.update")(
@@ -246,14 +299,39 @@ export class Agents extends Context.Service<
           fields: AgentFields
         }) {
           const id = yield* ownAgentId(input.organizationId, input.agentId)
-          yield* updateWithOptimisticLock({
-            executor: db,
-            table: agent,
-            id,
-            scope: eq(agent.organizationId, input.organizationId),
-            expectedLockVersion: input.lockVersion,
-            set: input.fields,
-          }).pipe(mapAgentWriteErrors)
+          const { modelIds, ...fields } = input.fields
+          yield* db
+            .transaction((transaction) =>
+              Effect.gen(function* () {
+                yield* updateWithOptimisticLock({
+                  executor: transaction,
+                  table: agent,
+                  id,
+                  scope: eq(agent.organizationId, input.organizationId),
+                  expectedLockVersion: input.lockVersion,
+                  set: fields,
+                })
+                if (modelIds) {
+                  yield* transaction
+                    .delete(agentModel)
+                    .where(
+                      and(
+                        eq(agentModel.organizationId, input.organizationId),
+                        eq(agentModel.agentId, id),
+                      ),
+                    )
+                  yield* transaction.insert(agentModel).values(
+                    modelIds.map((providerModelId, position) => ({
+                      organizationId: input.organizationId,
+                      agentId: id,
+                      providerModelId,
+                      position,
+                    })),
+                  )
+                }
+              }),
+            )
+            .pipe(mapAgentWriteErrors)
         },
         Effect.catchTags({
           AgentNotFound: () => Effect.fail(new AgentChanged()),
@@ -420,5 +498,7 @@ export class Agents extends Context.Service<
     }),
   )
 
-  static readonly layer = Agents.layerNoDeps.pipe(Layer.provide(Database.layer))
+  static readonly layer = Agents.layerNoDeps.pipe(
+    Layer.provide([Database.layer, ModelProviders.layer]),
+  )
 }

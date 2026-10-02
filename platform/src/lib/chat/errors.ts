@@ -41,7 +41,8 @@ export class ChatModelKeyMissing extends Schema.TaggedError<ChatModelKeyMissing>
   {},
   { httpApiStatus: 503 },
 ) {
-  override readonly message = "Org OpenAI key is not configured"
+  override readonly message =
+    "This agent has no model configured. Add a provider and select a model in the dashboard"
 }
 
 /** The stored key failed to decrypt or belongs to another organization. */
@@ -50,7 +51,7 @@ export class ChatModelKeyUnreadable extends Schema.TaggedError<ChatModelKeyUnrea
   {},
   { httpApiStatus: 503 },
 ) {
-  override readonly message = "Org OpenAI key could not be read; save it again in the dashboard"
+  override readonly message = "The model provider key could not be read. Save it again in Models"
 }
 
 export class ChatAttachmentsDisabled extends Schema.TaggedError<ChatAttachmentsDisabled>()(

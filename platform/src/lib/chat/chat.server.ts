@@ -3,6 +3,7 @@ import { Cause, Context, Effect, identity, Layer, Stream } from "effect"
 
 import { Database } from "@/db/database.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
+import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { readOrganizationOpenaiApiKey } from "@/lib/organizations/openai-api-key.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
@@ -88,6 +89,7 @@ export class Chat extends Context.Service<
       const agents = yield* Agents
       const database = yield* Database
       const sandboxes = yield* ChatSandboxes
+      const modelProviders = yield* ModelProviders
 
       // The widget shows a missing or unreadable organization key to the tenant user as a 503.
       const readModelKey = (organizationId: string) =>
@@ -118,22 +120,32 @@ export class Chat extends Context.Service<
         if (systemPrompt !== undefined && systemPrompt !== null) {
           return yield* new ChatSystemPromptRefused()
         }
-        // The key is read beside the agent lookup, and judged after it so an unknown agent wins.
-        const [agent, modelKey] = yield* Effect.all(
-          [
-            agents
-              .resolveForChat({ organizationId: principal.organization.id, agentId })
-              .pipe(
-                Effect.mapError(() =>
-                  agentId === undefined || agentId === null
-                    ? new ChatDefaultAgentMissing()
-                    : new ChatAgentNotFound(),
-                ),
-              ),
-            Effect.result(readModelKey(principal.organization.id)),
-          ],
-          { concurrency: "unbounded" },
-        )
+        const agent = yield* agents
+          .resolveForChat({ organizationId: principal.organization.id, agentId })
+          .pipe(
+            Effect.mapError(() =>
+              agentId === undefined || agentId === null
+                ? new ChatDefaultAgentMissing()
+                : new ChatAgentNotFound(),
+            ),
+          )
+        const assignedModel = yield* modelProviders
+          .resolveForAgent({ organizationId: principal.organization.id, agentId: agent.id })
+          .pipe(
+            Effect.catchTag("ModelProviderUnreadable", () =>
+              Effect.fail(new ChatModelKeyUnreadable()),
+            ),
+          )
+        // Only unassigned agents may use the deprecated organization key until it is imported.
+        const model = assignedModel ?? {
+          providerId: "legacy",
+          providerName: "OpenAI",
+          providerType: "openai" as const,
+          api: "responses" as const,
+          baseUrl: "https://api.openai.com/v1",
+          apiKey: yield* readModelKey(principal.organization.id),
+          modelId: "gpt-5.6-terra",
+        }
         // The SDK's `debug` mount option rides along in the forwarded props and its log prints
         // whole conversations, so, like the refused `systemPrompt`, it is honored only in DEV.
         const log = debug === true && IS_DEVELOPMENT_SERVER ? chatDebugLog(params.runId) : undefined
@@ -149,7 +161,6 @@ export class Chat extends Context.Service<
           yield* log("request", "conversation messages", redactChatAttachmentData(params.messages))
           yield* log("request", `client-declared tools (${params.tools.length})`, params.tools)
         }
-        const openaiApiKey = yield* Effect.fromResult(modelKey)
         // Attachments become what the model reads before the run, since the provider adapter throws
         // on a part it cannot map. A file with no text view needs a sandbox to go to.
         const { messages, attachments, files } = normalizeChatAttachments(params.messages, {
@@ -184,7 +195,7 @@ export class Chat extends Context.Service<
         }
         const events = chatEventStream((abortController) =>
           chat({
-            adapter: createChatAdapter(openaiApiKey),
+            adapter: createChatAdapter(model),
             messages,
             systemPrompts: [
               CHAT_SYSTEM_PROMPT,
@@ -210,7 +221,13 @@ export class Chat extends Context.Service<
             runId: params.runId,
             parentRunId: params.parentRunId,
             resume: params.resume,
-            modelOptions: { reasoning: { effort: "high" } },
+            // Native OpenAI reasoning models keep main's effort. Other models reject the option.
+            ...(model.providerType === "openai" &&
+              model.api === "responses" &&
+              /^(?:gpt-5|o\d)/.test(model.modelId) &&
+              !model.modelId.endsWith("-chat-latest") && {
+                modelOptions: { reasoning: { effort: "high" } },
+              }),
             abortController,
           }),
         )
@@ -235,6 +252,6 @@ export class Chat extends Context.Service<
   )
 
   static readonly layer = Chat.layerNoDeps.pipe(
-    Layer.provide([Agents.layer, Database.layer, ChatSandboxes.layer]),
+    Layer.provide([Agents.layer, Database.layer, ChatSandboxes.layer, ModelProviders.layer]),
   )
 }

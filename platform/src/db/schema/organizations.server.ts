@@ -22,6 +22,11 @@ import {
   type SandboxProviderOptions,
   type SandboxTestMetadata,
 } from "../../lib/sandboxes/schemas.ts"
+import {
+  ModelProviderCredentialsPayloadSchema,
+  type ModelProviderType,
+  type ModelProviderApi,
+} from "../../lib/model-providers/schemas.ts"
 import { OpenaiApiKeySchema } from "../../lib/organizations/schemas.ts"
 import { UuidV7Schema } from "../../lib/schemas.ts"
 
@@ -133,6 +138,54 @@ export const sandboxProvider = snakeCase.table(
   ],
 )
 
+export const modelProvider = snakeCase.table(
+  "model_provider",
+  {
+    id: uuidV7(),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: caseInsensitiveText().notNull(),
+    providerType: text().$type<ModelProviderType>().notNull(),
+    api: text().$type<ModelProviderApi>().notNull(),
+    baseUrl: text().notNull(),
+    credentials: encryptedJson({ schema: ModelProviderCredentialsPayloadSchema }),
+    lockVersion: lockVersion(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ name: "model_provider_pkey", columns: [table.organizationId, table.id] }),
+    uniqueIndex("model_provider_organization_id_name_uidx").on(table.organizationId, table.name),
+  ],
+)
+
+export const providerModel = snakeCase.table(
+  "provider_model",
+  {
+    id: uuidV7(),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    modelProviderId: uuid().notNull(),
+    modelId: text().notNull(),
+    name: text().notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ name: "provider_model_pkey", columns: [table.organizationId, table.id] }),
+    uniqueIndex("provider_model_provider_model_uidx").on(
+      table.organizationId,
+      table.modelProviderId,
+      table.modelId,
+    ),
+    foreignKey({
+      name: "provider_model_provider_fk",
+      columns: [table.organizationId, table.modelProviderId],
+      foreignColumns: [modelProvider.organizationId, modelProvider.id],
+    }).onDelete("cascade"),
+  ],
+)
+
 export const agent = snakeCase.table(
   "agent",
   {
@@ -168,6 +221,44 @@ export const agent = snakeCase.table(
       name: "agent_organization_id_sandbox_provider_id_fk",
       columns: [table.organizationId, table.sandboxProviderId],
       foreignColumns: [sandboxProvider.organizationId, sandboxProvider.id],
+    }).onDelete("restrict"),
+  ],
+)
+
+export const agentModel = snakeCase.table(
+  "agent_model",
+  {
+    id: uuidV7(),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    agentId: uuid().notNull(),
+    providerModelId: uuid().notNull(),
+    position: integer().notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ name: "agent_model_pkey", columns: [table.organizationId, table.id] }),
+    uniqueIndex("agent_model_assignment_uidx").on(
+      table.organizationId,
+      table.agentId,
+      table.providerModelId,
+    ),
+    uniqueIndex("agent_model_position_uidx").on(
+      table.organizationId,
+      table.agentId,
+      table.position,
+    ),
+    check("agent_model_position_check", sql`${table.position} >= 0`),
+    foreignKey({
+      name: "agent_model_agent_fk",
+      columns: [table.organizationId, table.agentId],
+      foreignColumns: [agent.organizationId, agent.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "agent_model_provider_model_fk",
+      columns: [table.organizationId, table.providerModelId],
+      foreignColumns: [providerModel.organizationId, providerModel.id],
     }).onDelete("restrict"),
   ],
 )

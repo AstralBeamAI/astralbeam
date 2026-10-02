@@ -21,7 +21,7 @@ export const updateAgent = createServerFn({ method: "POST" })
         }),
       ).pipe(
         Effect.catchTag(
-          ["AgentChanged", "AgentNameTaken", "AgentSandboxProviderInvalid"],
+          ["AgentChanged", "AgentNameTaken", "AgentSandboxProviderInvalid", "AgentModelInvalid"],
           exposeError,
         ),
       ),

@@ -4,7 +4,12 @@ import { Effect, Layer, Stream } from "effect"
 import { beforeAll, beforeEach, vi } from "vitest"
 
 const chatRunTest = vi.hoisted(() => ({
-  options: [] as Array<{ systemPrompts: string[]; tools: Array<{ name: string }> }>,
+  options: [] as Array<{
+    systemPrompts: string[]
+    tools: Array<{ name: string }>
+    adapter: { model: string }
+    modelOptions?: unknown
+  }>,
   order: [] as string[],
 }))
 
@@ -14,6 +19,7 @@ vi.mock("@tanstack/ai", async (original) => ({
   chat: (options: {
     systemPrompts: string[]
     tools: Array<{ name: string }>
+    adapter: { model: string }
     abortController: AbortController
   }) => {
     chatRunTest.options.push(options)
@@ -35,6 +41,11 @@ vi.mock("@tanstack/ai", async (original) => ({
 
 import { Database, type EffectDatabase } from "@/db/database.server"
 import { organizationConfiguration } from "@/db/schema/organizations.server"
+import {
+  ModelProviders,
+  type ChatModelConfiguration,
+} from "@/lib/model-providers/model-providers.server"
+import { ModelProviderUnreadable } from "@/lib/model-providers/errors"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
@@ -65,6 +76,7 @@ beforeAll(() => {
 
 function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
+  readonly model?: ChatModelConfiguration | typeof undecryptable
   readonly key?: { readonly apiKey: string } | typeof undecryptable | null
 }) {
   const agents = {
@@ -92,6 +104,12 @@ function chatTestLayer(options: {
   return Chat.layerNoDeps.pipe(
     Layer.provide([
       Layer.succeed(Agents, agents),
+      Layer.succeed(ModelProviders, {
+        resolveForAgent: () =>
+          options.model === undecryptable
+            ? Effect.fail(new ModelProviderUnreadable())
+            : Effect.succeed(options.model ?? null),
+      } as unknown as ModelProviders["Service"]),
       Layer.succeed(Database, database),
       Layer.succeed(ChatSandboxes, sandboxes),
     ]),
@@ -158,6 +176,63 @@ describe("Chat.run", () => {
       assert.strictEqual(missing._tag, "ChatModelKeyMissing")
       assert.strictEqual(declaredHttpApiStatus(missing), 503)
     }),
+  )
+
+  it.effect("keeps high reasoning effort for native OpenAI reasoning models", () =>
+    Effect.gen(function* () {
+      yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+      assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, {
+        reasoning: { effort: "high" },
+      })
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
+      ),
+    ),
+  )
+
+  it.effect(
+    "uses the assigned model without reading a broken legacy key or sending reasoning options",
+    () =>
+      Effect.gen(function* () {
+        const events = yield* runChat()
+        yield* Stream.runCollect(Stream.take(events, 1))
+        assert.strictEqual(chatRunTest.options[0]!.adapter.model, "gateway-model")
+        assert.isUndefined(chatRunTest.options[0]!.modelOptions)
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: sandboxedAgent,
+            key: undecryptable,
+            model: {
+              providerId: "provider",
+              providerName: "Gateway",
+              providerType: "openai-compatible",
+              api: "chat-completions",
+              baseUrl: "https://gateway.example/v1",
+              apiKey: "gateway-key",
+              modelId: "gateway-model",
+            },
+          }),
+        ),
+      ),
+  )
+
+  it.effect(
+    "never falls back to the organization key when assigned credentials are unreadable",
+    () =>
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(runChat())
+        assert.strictEqual(failure._tag, "ChatModelKeyUnreadable")
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: sandboxedAgent,
+            key: { apiKey: CHAT_TEST_OPENAI_API_KEY },
+            model: undecryptable,
+          }),
+        ),
+      ),
   )
 
   it.effect("refuses attachments the agent does not accept", () =>

@@ -1,8 +1,27 @@
-import { OpenAITextAdapter } from "@tanstack/ai-openai"
+import { createModel, extendAdapter } from "@tanstack/ai"
+import { createOpenaiChat } from "@tanstack/ai-openai"
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
 
-/** Model every chat run streams from. */
-const CHAT_MODEL = "gpt-5.6-terra"
+import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
-export function createChatAdapter(apiKey: string) {
-  return new OpenAITextAdapter({ apiKey }, CHAT_MODEL)
+export function createChatAdapter(configuration: ChatModelConfiguration) {
+  if (configuration.providerType === "openai" && configuration.api === "responses") {
+    const createOpenaiModel = extendAdapter(createOpenaiChat, [
+      createModel(configuration.modelId, ["text", "image", "document"]),
+    ])
+    // Null stops the SDK reading OPENAI_ORG_ID and OPENAI_PROJECT_ID from the deployment.
+    return createOpenaiModel(configuration.modelId, configuration.apiKey, {
+      baseURL: configuration.baseUrl,
+      organization: null,
+      project: null,
+    })
+  }
+  return openaiCompatibleText(configuration.modelId, {
+    apiKey: configuration.apiKey,
+    baseURL: configuration.baseUrl,
+    organization: null,
+    project: null,
+    api: configuration.api,
+    name: configuration.providerName,
+  })
 }

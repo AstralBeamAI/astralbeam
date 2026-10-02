@@ -27,6 +27,17 @@ export const AgentFieldsSchema = Schema.Struct({
   systemPrompt: AgentSystemPromptSchema,
   attachmentsEnabled: Schema.Boolean,
   sandboxProviderId: Schema.NullOr(UuidV7Schema),
+  modelIds: Schema.optionalKey(
+    Schema.Array(UuidV7Schema).pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.check(Schema.isMaxLength(100)),
+      Schema.check(
+        Schema.makeFilter((ids) => new Set(ids).size === ids.length, {
+          message: "Select each model only once",
+        }),
+      ),
+    ),
+  ),
 })
 
 export type AgentFields = typeof AgentFieldsSchema.Type
