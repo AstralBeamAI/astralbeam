@@ -14,7 +14,13 @@ const modelProviderIntegration = vi.hoisted(() => {
 })
 
 import { getAuthDatabase } from "@/db/database.server"
-import { agent, agentModel, modelProvider, organization } from "@/db/schema.server"
+import {
+  agent,
+  agentModel,
+  modelProvider,
+  organization,
+  organizationConfiguration,
+} from "@/db/schema.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { formatAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"

@@ -9,7 +9,12 @@ import {
   updateWithOptimisticLock,
 } from "@/db/lib/optimistic-locking.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
-import { agentModel, modelProvider, providerModel } from "@/db/schema/organizations.server"
+import {
+  agentModel,
+  modelProvider,
+  organizationConfiguration,
+  providerModel,
+} from "@/db/schema/organizations.server"
 import {
   ModelProviderChanged,
   ModelProviderInUse,
