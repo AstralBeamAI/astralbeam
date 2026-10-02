@@ -33,7 +33,7 @@ describe("model provider save boundary", () => {
   test.each([
     { providerType: "openai", api: "responses" },
     { providerType: "openai", api: "chat-completions" },
-    { providerType: "anthropic", api: "anthropic-messages" },
+    { providerType: "anthropic", api: "anthropic-messages", baseUrl: "https://api.anthropic.com" },
     { providerType: "openrouter", api: "chat-completions" },
   ])("accepts $providerType with $api", (protocol) => {
     expect(
