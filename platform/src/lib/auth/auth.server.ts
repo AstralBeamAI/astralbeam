@@ -326,8 +326,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
-        // Check before token consumption until Better Auth ships this ordering fix.
-        // https://github.com/better-auth/better-auth/pull/10717
+        // Remove this precheck and its import when the installed release fixes token consumption.
+        // https://github.com/better-auth/better-auth/issues/10632
         if (
           context.path === "/reset-password" &&
           !IS_TEST_RUNTIME &&
@@ -408,6 +408,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       turnstileAuthPlugin,
       haveIBeenPwned({
         enabled: !IS_TEST_RUNTIME,
+        // Restore "/reset-password" here when removing the precheck after upgrading to this fix.
+        // https://github.com/better-auth/better-auth/pull/10717
         paths: ["/sign-up/email", "/change-password"],
       }),
       organization({

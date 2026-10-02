@@ -128,6 +128,8 @@ test.each(["compromised", "unavailable"])(
     const replay = await reset()
     expect(replay.status).toBe(400)
     expect(await replay.json()).toMatchObject({ code: "INVALID_TOKEN" })
+    // Remove this workaround-only count with the precheck. Keep the retry and single-use assertions.
+    // https://github.com/better-auth/better-auth/issues/10632
     expect(fetch).toHaveBeenCalledTimes(3)
   },
 )
