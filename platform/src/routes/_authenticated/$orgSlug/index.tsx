@@ -33,7 +33,7 @@ function DashboardPage() {
       </div>
       <DashboardIntegrationGuide
         organizationSlug={orgSlug}
-        openaiApiKeyConfigured={data.openaiApiKeyConfigured}
+        modelSetup={data.modelSetup}
         apiKeyCount={data.counts.apiKeys}
         permissions={permissions}
       />

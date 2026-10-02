@@ -6,6 +6,7 @@ import { expect, test } from "../../fixtures.ts"
  */
 
 const ORGANIZATION_SECTIONS = [
+  ["models", "Models"],
   ["agents", "Agents"],
   ["sandboxes", "Sandboxes"],
   ["api-keys", "API keys"],

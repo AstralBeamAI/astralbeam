@@ -1,22 +1,34 @@
 # Agents
 
-An agent is one named configuration the embedded chat runs with: its instructions, whether it accepts file attachments, and whether it can run code in a sandbox. Your application selects an agent by its public ID, so one organization can serve several chat experiences from a single integration.
+An agent is one named configuration the embedded chat runs with: its instructions, models, whether it accepts file attachments, and whether it can run code in a sandbox. Let's configure an agent, then use its public ID to select it in your application.
 
-An agent carries no model choice and no limits of its own, as every run uses the deployment's model and the caps in [Limits](/docs/sdk/limits).
+Each agent selects models from the organization's configured providers and uses one as its default. Request, attachment, and sandbox caps still come from the deployment's [Limits](/docs/sdk/limits).
 
 ## What an agent holds
 
-Let's walk through the four settings that make up an agent.
+Let's walk through the settings that make up an agent.
 
 The name is up to 100 characters and unique within the organization ignoring case. It stays in the dashboard, as it never reaches the widget or the model.
 
 The system prompt holds the agent's instructions, up to 32,768 characters, and every agent needs one.
 
+Models come from providers configured in [Models](./models.md). Select at least one enabled model, then choose the default model. The provider name distinguishes the same upstream model configured with different keys or API URLs.
+
 File attachments are allowed by default. Turn the setting off and the agent refuses files.
 
 A sandbox provider is optional, and selecting one of the organization's [sandbox providers](./sandboxes.md) is what lets the agent write and run code.
 
-You can change all four later, and a change applies to the next request rather than to a reply already streaming.
+You can change these settings later, and a change applies to the next request rather than to a reply already streaming.
+
+## Model selection
+
+1. Open **Models**, add a named provider, and enable the models we want to use.
+2. Open the agent, select models from those providers, and choose its default model.
+3. Save the agent. New chat requests use the selected default and the credentials of that model's provider.
+
+The default is a model choice for this agent, separate from the organization's default agent. Selecting several models does not enable automatic fallback between providers. Models assigned to an agent must be removed from that agent before they can be disabled on their provider.
+
+**NOTE**: model usage is billed to the provider account whose credentials the selected model uses. Adding two OpenAI connections lets you separate accounts, keys, or API URLs without changing the upstream model ID.
 
 ## The public agent ID
 
@@ -50,7 +62,7 @@ A sandbox is scratch space. It is reclaimed once it sits idle, and the next turn
 
 ## The default agent
 
-The default agent answers every chat request that carries no agent ID. A new organization is created with a starter agent, already set as its default, so an application can mount the widget before anyone opens the dashboard.
+The default agent answers every chat request that carries no agent ID. A new organization is created with a starter agent, already set as its default. Let's configure a provider and assign a model to that starter agent before mounting the widget.
 
 Changing the default affects only requests that send no agent ID. Applications pinning an ID are untouched, so moving them to a new agent is an application change rather than a dashboard change.
 

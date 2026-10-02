@@ -4,6 +4,7 @@ import { waitForHydration } from "../hydration.ts"
 
 export type OrganizationSection =
   | "Home"
+  | "Models"
   | "Agents"
   | "Sandboxes"
   | "API Keys"

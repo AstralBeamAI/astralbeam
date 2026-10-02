@@ -2,7 +2,12 @@ import { expect, type Locator, type Page } from "@playwright/test"
 
 import { expectToast } from "../dialogs.ts"
 
-export type AgentDraft = { name: string; systemPrompt: string; attachmentsEnabled?: boolean }
+export type AgentDraft = {
+  name: string
+  systemPrompt: string
+  attachmentsEnabled?: boolean
+  models?: readonly string[]
+}
 
 /**
  * The agents list, the shared create/edit form, and the agent detail actions under
@@ -37,14 +42,17 @@ export function agentsPage(page: Page) {
       await expect(page.getByRole("heading", { level: 1, name: "Add agent" })).toBeVisible()
     },
 
-    async fillForm({ name, systemPrompt, attachmentsEnabled }: AgentDraft): Promise<void> {
+    async fillForm({ name, systemPrompt, attachmentsEnabled, models }: AgentDraft): Promise<void> {
       await page.locator("#agent-name").fill(name)
       await page.locator("#agent-system-prompt").fill(systemPrompt)
       if (attachmentsEnabled !== undefined) {
         // The shadcn checkbox keeps its id on a hidden proxy input, so drive it through its role.
-        const checkbox = page.locator("form").getByRole("checkbox")
+        const checkbox = page.getByRole("checkbox", { name: "Allow file attachments", exact: true })
         if ((await checkbox.isChecked()) !== attachmentsEnabled) await checkbox.click()
         await expect(checkbox).toBeChecked({ checked: attachmentsEnabled })
+      }
+      for (const model of models ?? []) {
+        await page.getByRole("checkbox", { name: model, exact: true }).check()
       }
     },
 
@@ -58,6 +66,11 @@ export function agentsPage(page: Page) {
     async saveChanges(): Promise<void> {
       await page.getByRole("button", { name: "Save changes" }).click()
       await expectToast(page, "Agent saved")
+    },
+
+    async selectDefaultModel(label: string): Promise<void> {
+      await page.getByRole("combobox", { name: "Default model", exact: true }).click()
+      await page.getByRole("option", { name: label, exact: true }).click()
     },
 
     async setAsDefault(): Promise<void> {

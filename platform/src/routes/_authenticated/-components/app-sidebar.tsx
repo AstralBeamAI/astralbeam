@@ -4,6 +4,7 @@ import { useAuth } from "@better-auth-ui/react"
 import {
   BriefcaseIcon,
   CubeIcon,
+  CpuIcon,
   HouseIcon,
   type Icon,
   IdentificationBadgeIcon,
@@ -46,6 +47,7 @@ type OrganizationNavigationEntry = {
 /** The sub-paths a switch carries over to the organization being switched to. */
 const organizationNavigation = [
   { label: "Home", segment: "", icon: HouseIcon },
+  { label: "Models", segment: "models", icon: CpuIcon, permission: "readConfiguration" },
   { label: "Agents", segment: "agents", icon: RobotIcon, permission: "readConfiguration" },
   { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
   { label: "API Keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
@@ -115,7 +117,7 @@ export function AppOrganizationSwitcher({
         slug: organization.organizationSlug,
       }}
       setActive={switchOrganization}
-      onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}` })}
+      onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}/models` })}
       className={className}
     />
   )
