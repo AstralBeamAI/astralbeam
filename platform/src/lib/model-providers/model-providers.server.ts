@@ -18,6 +18,7 @@ import {
   providerModel,
 } from "@/db/schema/organizations.server"
 import { fetchPublicModelEndpoint, isPublicModelEndpointUrl } from "./endpoints.server.ts"
+import { formatAgentId } from "../agents/schemas.ts"
 import {
   ModelProviderChanged,
   ModelProviderEndpointNotAllowed,
@@ -150,6 +151,7 @@ export class ModelProviders extends Context.Service<
       readonly providerCount: number
       readonly enabledModelCount: number
       readonly defaultAgentModelCount: number
+      readonly defaultAgentId: string | null
     }>
     readonly resolveForAgent: (input: {
       readonly organizationId: string
@@ -439,23 +441,30 @@ export class ModelProviders extends Context.Service<
               .from(providerModel)
               .where(eq(providerModel.organizationId, input.organizationId)),
             db
-              .select({ count: sql<number>`count(*)::integer` })
-              .from(agentModel)
-              .innerJoin(
-                organizationConfiguration,
+              .select({
+                id: organizationConfiguration.defaultAgentId,
+                count: sql<number>`count(${agentModel.agentId})::integer`,
+              })
+              .from(organizationConfiguration)
+              .leftJoin(
+                agentModel,
                 and(
                   eq(organizationConfiguration.organizationId, agentModel.organizationId),
                   eq(organizationConfiguration.defaultAgentId, agentModel.agentId),
                 ),
               )
-              .where(eq(agentModel.organizationId, input.organizationId)),
+              .where(eq(organizationConfiguration.organizationId, input.organizationId))
+              .groupBy(organizationConfiguration.defaultAgentId),
           ],
           { concurrency: "unbounded" },
         )
         return {
           providerCount: providers[0]!.count,
           enabledModelCount: models[0]!.count,
-          defaultAgentModelCount: defaultAgentModels[0]!.count,
+          defaultAgentModelCount: defaultAgentModels[0]?.count ?? 0,
+          defaultAgentId: defaultAgentModels[0]?.id
+            ? formatAgentId({ organizationId: input.organizationId, id: defaultAgentModels[0].id })
+            : null,
         }
       }, Effect.orDie)
 
