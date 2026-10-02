@@ -1,4 +1,4 @@
-import { chat, maxIterations, mergeAgentTools, type StreamChunk } from "@tanstack/ai"
+import { chat, EventType, maxIterations, mergeAgentTools, type StreamChunk } from "@tanstack/ai"
 import { Cause, Context, Effect, identity, Layer, Stream } from "effect"
 
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
@@ -16,6 +16,7 @@ import {
   CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT,
   CHAT_SANDBOX_SYSTEM_PROMPT,
   CHAT_MAX_MODEL_TURNS,
+  CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_SYSTEM_PROMPT,
 } from "./constants.server"
 import { chatDebugLog, withChatDebugLog } from "./debug.server"
@@ -198,6 +199,29 @@ export class Chat extends Context.Service<
                 modelOptions: { reasoning: { effort: "high" } },
               }),
             abortController,
+          }),
+        ).pipe(
+          Stream.mapEffect((chunk): Effect.Effect<StreamChunk> => {
+            if (chunk.type !== EventType.RUN_ERROR || chunk.code === "aborted")
+              return Effect.succeed(chunk)
+            const runError = {
+              ...chunk,
+              message: CHAT_MODEL_UNAVAILABLE_MESSAGE,
+              error: { message: CHAT_MODEL_UNAVAILABLE_MESSAGE },
+            }
+            delete runError.code
+            delete runError.rawEvent
+            return Effect.as(
+              Effect.logWarning("Chat model request failed").pipe(
+                Effect.annotateLogs({
+                  organizationId: principal.organization.id,
+                  providerId: model.providerId,
+                  code: chunk.code,
+                  message: chunk.message,
+                }),
+              ),
+              runError,
+            )
           }),
         )
         return log ? events.pipe(withChatDebugLog(log)) : events
