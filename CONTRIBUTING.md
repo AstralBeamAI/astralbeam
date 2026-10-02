@@ -60,7 +60,7 @@ The [seed](platform/src/db/README.md#seed-sample-data) creates local accounts an
 
 ### Chat credentials
 
-Chat runs on the organization's own OpenAI API key, which owners set in the dashboard under **Settings**. Put a key of your own in `platform/.env.local` and the seed gives it to every seeded organization:
+Chat runs on the model provider connections each organization configures in the dashboard under **Models**. Put an OpenAI key of your own in `platform/.env.local`, and the seed creates a **Development OpenAI** connection for sample organizations and dogfood that have no provider:
 
 ```sh
 OPENAI_API_KEY=sk-...

@@ -16,8 +16,8 @@ Acme and Orbit have separate projects, issues, and teams. You can create, edit, 
    ```
 
 2. Set `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` in `.env.local`. Choose your own values. The app returns `503` until both are configured.
-3. In the AstralBeam dashboard, create an Organization or use an existing one. Set its OpenAI API key under **Settings**, create an organization API key, and put the one-time value in `ASTRALBEAM_API_KEY` in `.env.local`.
-4. Create an agent named **Astro**, paste the prompt below into its system prompt, and copy its public ID to `VITE_ASTRALBEAM_AGENT_ID`. The agent and API key must belong to the same Organization. Leaving the ID empty uses that Organization's default agent.
+3. In the AstralBeam dashboard, create an Organization or use an existing one. Add a provider connection under **Models** and enable a model, create an organization API key, and put the one-time value in `ASTRALBEAM_API_KEY` in `.env.local`.
+4. Create an agent named **Astro**, select one of the enabled models, paste the prompt below into its system prompt, and copy its public ID to `VITE_ASTRALBEAM_AGENT_ID`. The agent and API key must belong to the same Organization. Leaving the ID empty uses that Organization's default agent.
 5. Keep `VITE_ASTRALBEAM_API_URL=https://app.astralbeam.ai/api` for AstralBeam Cloud. For a local platform, use its full `/api` base, such as `http://localhost:4500/api`. The key must come from that same platform.
 6. From `examples/linearity-react`, start the app:
 
