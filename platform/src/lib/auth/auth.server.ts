@@ -44,6 +44,7 @@ import {
 } from "./email-delivery.server.ts"
 import type { AuthEmailNotDelivered } from "./errors.ts"
 import { acceptedAtForUserCreation, assertLegalAcceptance, recordValue } from "./legal.server.ts"
+import { assertResetPasswordSafe } from "./password-reset.server.ts"
 import { createSyntheticUser } from "./synthetic-user.server.ts"
 
 // Better Auth 1.7.2 keeps these defaults inline, so each passes to both its option and its email
@@ -325,6 +326,9 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     },
     hooks: {
       before: createAuthMiddleware(async (context) => {
+        if (context.path === "/reset-password" && !IS_TEST_RUNTIME) {
+          await assertResetPasswordSafe(context)
+        }
         const body = recordValue(context.body)
         if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
           // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
@@ -392,7 +396,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       turnstileAuthPlugin,
       haveIBeenPwned({
         enabled: !IS_TEST_RUNTIME,
-        paths: ["/sign-up/email", "/change-password", "/reset-password"],
+        paths: ["/sign-up/email", "/change-password"],
       }),
       organization({
         ac: organizationAccessControl,

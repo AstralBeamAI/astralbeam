@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use the contextual Base UI Toast manager, suppress field-handled errors, sanitize backend details, surface email and API-key protection codes, and repair strict cache-handler cleanup.
+// Local changes: Use the contextual Base UI Toast manager, suppress field-handled errors, sanitize backend details, surface email, invalid-link, and API-key protection codes, and repair strict cache-handler cleanup.
 
 import {
   authMutationKeys,
@@ -32,6 +32,9 @@ export function isOrganizationSlugTakenError(error: unknown): boolean {
 
 function safeAuthError(error: unknown): string {
   if (isAuthEmailDeliveryError(error)) return AUTH_EMAIL_DELIVERY_FAILED_MESSAGE
+  if (authErrorCode(error) === "INVALID_TOKEN") {
+    return "This link is invalid or has expired. Please request a new link."
+  }
   if (authErrorCode(error) === "LAST_API_KEY") {
     return "The last API key cannot be deleted. Create another key first."
   }
