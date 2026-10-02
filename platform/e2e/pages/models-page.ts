@@ -23,8 +23,16 @@ export function modelsPage(page: Page) {
       if (input.baseUrl) await page.getByLabel("API URL", { exact: true }).fill(input.baseUrl)
       await page.getByLabel("Custom model ID", { exact: true }).fill(input.modelId)
       await page.getByRole("button", { name: "Add model", exact: true }).click()
+      // A successful save must not flash the missing-key error before navigating.
+      await page.evaluate(() => {
+        new MutationObserver(() => {
+          if (document.body.innerText.includes("Enter an API key"))
+            document.body.dataset.keyErrorShown = "true"
+        }).observe(document.body, { childList: true, subtree: true })
+      })
       await page.getByRole("button", { name: "Save provider", exact: true }).click()
       await expect(page.getByRole("heading", { level: 1, name: input.name })).toBeVisible()
+      await expect(page.locator("body")).not.toHaveAttribute("data-key-error-shown")
     },
 
     async open(name: string): Promise<void> {

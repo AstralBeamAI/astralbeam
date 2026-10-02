@@ -29,7 +29,6 @@ export type FieldDraft = { kind: "unchanged" } | { kind: "set"; value: string } 
 export interface PendingMigration {
   name: string
   sql: string
-  data?: string | undefined
   hash: string
 }
 

@@ -15,7 +15,6 @@ export type CompactJweProtectedHeader = Readonly<Record<string, unknown>> & {
   readonly enc: "A256GCM"
 }
 
-// Keep the shared cipher independent of Effect so database migrations fit the standalone binary.
 function attemptCompactJwe<A>(operation: () => A | undefined): A | undefined {
   try {
     return operation()

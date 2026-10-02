@@ -119,7 +119,6 @@ export function ModelProviderForm({
     setServerFieldError(null)
     try {
       const modelProviderId = await saveModelProvider({ data: input.success })
-      setApiKey("")
       toast.add({ title: "Provider saved", type: "success" })
       if (existing) {
         await router.invalidate()
@@ -255,6 +254,11 @@ export function ModelProviderForm({
               errors={fieldErrors("apiKey")}
               disabled={disabled}
               secret
+              placeholder={
+                existing?.credentialsReadable && existing.apiKeyHint && !baseUrlChanged
+                  ? `${"•".repeat(12)}${existing.apiKeyHint}`
+                  : undefined
+              }
               description={
                 existing?.credentialsReadable
                   ? baseUrlChanged

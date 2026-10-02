@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import process from "node:process"
 
 import { Client } from "pg"
@@ -10,7 +10,6 @@ import {
   CONFIG_MIGRATION_LOCK_KEY,
   MIGRATION_LOG_DDL,
 } from "./migration-log.server.ts"
-import { runMigrationStatements } from "./migration-steps.server.ts"
 
 // `deno compile --include` embeds this folder. Plain `pg` keeps drizzle-orm and effect, tens of
 // megabytes each, out of the binary's npm payload.
@@ -18,14 +17,12 @@ const MIGRATIONS_DIRECTORY = new URL("migrations/", import.meta.url)
 
 function readEmbeddedMigrations(): BundledMigration[] {
   return readdirSync(MIGRATIONS_DIRECTORY)
-    .map((name) => {
-      const dataPath = new URL(`${name}/data.server.ts`, MIGRATIONS_DIRECTORY)
-      return bundledMigration(
+    .map((name) =>
+      bundledMigration(
         name,
         readFileSync(new URL(`${name}/migration.sql`, MIGRATIONS_DIRECTORY), "utf8"),
-        existsSync(dataPath) ? readFileSync(dataPath, "utf8") : undefined,
-      )
-    })
+      ),
+    )
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
@@ -56,7 +53,9 @@ export async function migrateDatabase(options: { dryRun: boolean }): Promise<str
     if (options.dryRun) return pending.map((migration) => migration.name)
     for (const migration of pending) {
       try {
-        await runMigrationStatements(client, migration)
+        for (const statement of migration.sql.split("--> statement-breakpoint")) {
+          await client.query(statement)
+        }
       } catch (error) {
         const { code, message } = error as { code?: string; message?: string }
         throw new Error(

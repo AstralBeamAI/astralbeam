@@ -13,7 +13,7 @@ Effect manages the separate `effect_cluster_*` tables automatically at runner st
 Three things happen when you apply application migrations.
 
 - The run takes a PostgreSQL advisory lock, so only one migration run happens at a time across all replicas. A second attempt returns `A migration run is already in progress`.
-- The page approves the exact set it showed you, by name and a digest of its SQL and any data conversion code. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
+- The page approves the exact set it showed you, by name and a digest of its SQL. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
 - Each migration runs in its own transaction and is recorded before the next one starts.
 
 A failure stops the run and reports `Migration '<name>' failed: <code>: <message>`. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run.
@@ -22,7 +22,7 @@ A failure stops the run and reports `Migration '<name>' failed: <code>: <message
 
 ## Database commands
 
-The operator page, the binary's `migrate` command, and `deno task db migrate` share the application's migration steps and bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
+The operator page, the binary's `migrate` command, and `deno task db migrate` share the application's bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
 
 Run this command with the new binary to list the migrations it would apply, without changing the database:
 
@@ -42,14 +42,6 @@ Run this command to apply every checked-in migration that has not run yet from a
 
 ```sh
 deno task --cwd platform db migrate
-```
-
-**NOTE**: Existing organization model keys need the same `DATABASE_ENCRYPTION_KEY` keyring that encrypted them. The upgrade automatically creates an OpenAI connection for each stored key, assigns its model to agents without model selections, and removes the old field. An unreadable key rolls back the whole upgrade with `Could not read the model key of organization <id>. Add the key that encrypted it to DATABASE_ENCRYPTION_KEY as a fallback, or set openai_api_key to NULL to discard it`. Keep existing decryption keys available until the upgrade completes.
-
-To recover from that error, either restore the retired keyring entry after the active one, as `DATABASE_ENCRYPTION_KEY=new,old`, and retry, or run this statement to discard the unreadable key. Its owner then adds a connection again under **Models**.
-
-```sql
-UPDATE organization_configuration SET openai_api_key = NULL WHERE organization_id = '<id>';
 ```
 
 Run this command to validate the consistency of the migration history on disk, which says nothing about the state of the live database:
@@ -154,7 +146,7 @@ deno task --cwd platform db migrate
 deno task --cwd platform db-seed
 ```
 
-The seed prints every account with its password, each agent's public ID, and each API key's full value. It skips any setting that has an environment override. When `OPENAI_API_KEY` is set, it creates a **Development OpenAI** connection, enables its default model, and assigns that model to agents in seeded organizations and dogfood that have no provider. Existing provider settings and model assignments are preserved, including connections created automatically from organization keys during migration.
+The seed prints every account with its password, each agent's public ID, and each API key's full value. It skips any setting that has an environment override. When `OPENAI_API_KEY` is set, it creates a **Development OpenAI** connection, enables its default model, and assigns that model to agents in seeded organizations and dogfood that have no provider. Existing provider settings and model assignments are preserved.
 
 It refuses anything but a loopback database host, reporting `Refusing to seed the database at '<host>': seeding writes fixed development credentials and is limited to a loopback host`, because it writes fixed, published credentials. It also requires `DATABASE_ENCRYPTION_KEY`, refuses to run against an unmigrated database, runs in one transaction, and can be re-run to restore the fixture values.
 

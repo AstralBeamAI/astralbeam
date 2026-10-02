@@ -21,7 +21,7 @@ import { APP_HANDLE, APP_RELEASES_REPOSITORY } from "./lib/constants.ts"
 const CLI_HELP_FOOTER = `
 Environment:
   DATABASE_URL             PostgreSQL connection URL (required)
-  DATABASE_ENCRYPTION_KEY  keyring for encrypted settings and credential migrations
+  DATABASE_ENCRYPTION_KEY  keyring for encrypted settings (required by start)
   PORT                     port the server listens on (default 3000)
 
 Missing database variables are prompted for once and saved to ~/.astralbeam/platform.json.`
@@ -142,7 +142,7 @@ program
   .description("apply pending database migrations in one transaction")
   .option("--dry-run", "list pending migrations without applying them")
   .action(async (options: { dryRun?: boolean }) => {
-    loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
+    loadBootstrapEnvironment(["DATABASE_URL"])
     const dryRun = options.dryRun ?? false
     try {
       const names = await migrateDatabase({ dryRun })
