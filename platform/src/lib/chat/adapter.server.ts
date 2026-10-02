@@ -10,21 +10,28 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
     const createOpenaiModel = extendAdapter(createOpenaiChat, [
       createModel(configuration.modelId, ["text", "image", "document"]),
     ])
+    // Null stops the SDK reading OPENAI_ORG_ID and OPENAI_PROJECT_ID from the deployment.
     return createOpenaiModel(configuration.modelId, configuration.apiKey, {
       baseURL: configuration.baseUrl,
+      organization: null,
+      project: null,
     })
   }
   if (configuration.api === "anthropic-messages") {
     const createAnthropicModel = extendAdapter(createAnthropicChat, [
       createModel(configuration.modelId, ["text", "image", "document"]),
     ])
+    // Null stops the SDK sending a deployment ANTHROPIC_AUTH_TOKEN as a bearer header.
     return createAnthropicModel(configuration.modelId, configuration.apiKey, {
       baseURL: configuration.baseUrl,
+      authToken: null,
     })
   }
   return openaiCompatibleText(configuration.modelId, {
     apiKey: configuration.apiKey,
     baseURL: configuration.baseUrl,
+    organization: null,
+    project: null,
     api: configuration.api,
     name: configuration.providerName,
   })

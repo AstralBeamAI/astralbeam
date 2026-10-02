@@ -72,6 +72,12 @@ export const ModelProviderFieldsSchema = Schema.Struct({
             : provider.api !== "anthropic-messages"
       if (!supported)
         return { path: ["api"], issue: "Select a supported API format for this provider" }
+      // The Anthropic SDK appends /v1/messages itself. https://docs.anthropic.com/en/api/messages
+      if (provider.api === "anthropic-messages" && /\/v1\/?$/.test(provider.baseUrl))
+        return {
+          path: ["baseUrl"],
+          issue: "Remove /v1 from the Anthropic API URL. The client adds it to each request",
+        }
       return undefined
     }),
   ),

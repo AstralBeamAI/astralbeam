@@ -16,7 +16,7 @@ export function DashboardIntegrationGuide({
   modelSetup: {
     providerCount: number
     enabledModelCount: number
-    readyAgentCount: number
+    defaultAgentModelCount: number
   } | null
   apiKeyCount: number | null
   permissions: Pick<
@@ -70,9 +70,9 @@ export function DashboardIntegrationGuide({
           <li className="space-y-2 ps-1">
             <h3 className="font-medium">Choose your agent&apos;s models</h3>
             <p className="text-muted-foreground">
-              {modelSetup !== null && modelSetup.readyAgentCount > 0
-                ? "An agent has models assigned. Review its instructions and default model before embedding it."
-                : "Open your starter agent, select models from your providers, and choose the default model for its replies."}
+              {modelSetup !== null && modelSetup.defaultAgentModelCount > 0
+                ? "Your default agent has models assigned. Review its instructions and default model before embedding it."
+                : "Open your default agent, select models from your providers, and choose the default model for its replies."}
             </p>
             {permissions.readConfiguration && (
               <Link

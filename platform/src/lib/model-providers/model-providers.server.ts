@@ -135,7 +135,7 @@ export class ModelProviders extends Context.Service<
     readonly setupState: (input: { readonly organizationId: string }) => Effect.Effect<{
       readonly providerCount: number
       readonly enabledModelCount: number
-      readonly readyAgentCount: number
+      readonly defaultAgentModelCount: number
     }>
     readonly resolveForAgent: (input: {
       readonly organizationId: string
@@ -246,9 +246,12 @@ export class ModelProviders extends Context.Service<
             : !existing || existing.lockVersion !== input.lockVersion
         )
           return yield* new ModelProviderChanged()
-        const apiKey = input.apiKey ?? (existing ? readModelProviderKey(existing) : null)
+        // A stored key never follows its connection to another URL or provider type.
+        const keyKept =
+          existing?.baseUrl === input.baseUrl && existing.providerType === input.providerType
+        const apiKey = input.apiKey ?? (keyKept ? readModelProviderKey(existing) : null)
         if (!apiKey)
-          return yield* existing ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
+          return yield* keyKept ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
         return yield* db
           .transaction((transaction) =>
             Effect.gen(function* () {
@@ -356,7 +359,7 @@ export class ModelProviders extends Context.Service<
       const setupState = Effect.fn("ModelProviders.setupState")(function* (input: {
         organizationId: string
       }) {
-        const [providers, models, agents] = yield* Effect.all(
+        const [providers, models, defaultAgentModels] = yield* Effect.all(
           [
             db
               .select({ count: sql<number>`count(*)::integer` })
@@ -367,8 +370,15 @@ export class ModelProviders extends Context.Service<
               .from(providerModel)
               .where(eq(providerModel.organizationId, input.organizationId)),
             db
-              .select({ count: sql<number>`count(distinct ${agentModel.agentId})::integer` })
+              .select({ count: sql<number>`count(*)::integer` })
               .from(agentModel)
+              .innerJoin(
+                organizationConfiguration,
+                and(
+                  eq(organizationConfiguration.organizationId, agentModel.organizationId),
+                  eq(organizationConfiguration.defaultAgentId, agentModel.agentId),
+                ),
+              )
               .where(eq(agentModel.organizationId, input.organizationId)),
           ],
           { concurrency: "unbounded" },
@@ -376,7 +386,7 @@ export class ModelProviders extends Context.Service<
         return {
           providerCount: providers[0]!.count,
           enabledModelCount: models[0]!.count,
-          readyAgentCount: agents[0]!.count,
+          defaultAgentModelCount: defaultAgentModels[0]!.count,
         }
       }, Effect.orDie)
 
@@ -426,7 +436,15 @@ export class ModelProviders extends Context.Service<
           providerType: selected.providerType,
           storedCredentials,
         })
-        if (!apiKey) return yield* new ModelProviderUnreadable()
+        if (!apiKey) {
+          yield* Effect.logWarning("Model provider key could not be read").pipe(
+            Effect.annotateLogs({
+              organizationId: input.organizationId,
+              providerId: selected.providerId,
+            }),
+          )
+          return yield* new ModelProviderUnreadable()
+        }
         return { ...configuration, apiKey }
       })
 

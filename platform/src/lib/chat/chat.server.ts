@@ -190,6 +190,13 @@ export class Chat extends Context.Service<
             runId: params.runId,
             parentRunId: params.parentRunId,
             resume: params.resume,
+            // Native OpenAI reasoning models keep main's effort. Other models reject the option.
+            ...(model.providerType === "openai" &&
+              model.api === "responses" &&
+              /^(?:gpt-5|o\d)/.test(model.modelId) &&
+              !model.modelId.endsWith("-chat-latest") && {
+                modelOptions: { reasoning: { effort: "high" } },
+              }),
             abortController,
           }),
         )

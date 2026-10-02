@@ -52,6 +52,8 @@ describe("chat provider request routing", () => {
       vi.stubEnv("OPENAI_API_KEY", "unused-environment-openai-key")
       vi.stubEnv("ANTHROPIC_API_KEY", "unused-environment-anthropic-key")
       vi.stubEnv("OPENROUTER_API_KEY", "unused-environment-openrouter-key")
+      vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "unused-environment-anthropic-token")
+      vi.stubEnv("OPENAI_ORG_ID", "unused-environment-openai-organization")
       vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
         if (typeof init.body !== "string") throw new Error("Expected a JSON request body")
         requests.push({
@@ -92,6 +94,10 @@ describe("chat provider request routing", () => {
           ? "configured-instance-key"
           : "Bearer configured-instance-key",
       )
+      expect(request.headers.get("authorization")).toBe(
+        configuration.api === "anthropic-messages" ? null : "Bearer configured-instance-key",
+      )
+      expect(request.headers.get("openai-organization")).toBeNull()
     },
   )
 })
