@@ -174,7 +174,6 @@ export class Agents extends Context.Service<
     readonly provisionDefault: (input: {
       readonly organizationId: string
       readonly organizationName: string
-      readonly openaiApiKey?: string | undefined
     }) => Effect.Effect<string>
   }
 >()("astralbeam/agents/Agents") {
@@ -437,7 +436,6 @@ export class Agents extends Context.Service<
       const provisionDefault = Effect.fn("Agents.provisionDefault")(function* (input: {
         organizationId: string
         organizationName: string
-        openaiApiKey?: string | undefined
       }) {
         return yield* db.transaction((transaction) =>
           Effect.gen(function* () {
@@ -445,9 +443,6 @@ export class Agents extends Context.Service<
               .insert(organizationConfiguration)
               .values({
                 organizationId: input.organizationId,
-                openaiApiKey: input.openaiApiKey
-                  ? { organizationId: input.organizationId, apiKey: input.openaiApiKey }
-                  : undefined,
               })
               .onConflictDoNothing()
             const [configuration] = yield* transaction

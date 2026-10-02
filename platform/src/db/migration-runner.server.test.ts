@@ -18,6 +18,33 @@ function lockPool(locked: boolean) {
 }
 
 describe("migration advisory lock", () => {
+  it("finishes an asynchronous migration before releasing its client after interruption", async () => {
+    const { pool, queries } = lockPool(true)
+    const started = Promise.withResolvers<void>()
+    const finish = Promise.withResolvers<void>()
+    const controller = new AbortController()
+    const execution = Effect.runPromiseExit(
+      withMigrationLock(
+        pool,
+        Effect.promise(async () => {
+          queries.push("apply-start")
+          started.resolve()
+          await finish.promise
+          queries.push("apply-end")
+        }),
+      ),
+      { signal: controller.signal },
+    )
+    await started.promise
+    controller.abort()
+    const duringInterruption = [...queries]
+    finish.resolve()
+    await execution
+    assert.notInclude(duringInterruption, "rollback")
+    assert.notInclude(duringInterruption, "release")
+    assert.deepStrictEqual(queries.slice(2), ["apply-start", "apply-end", "commit", "release"])
+  })
+
   it.effect("runs migrations while the transaction-scoped lock is held", () =>
     Effect.gen(function* () {
       const { pool, queries } = lockPool(true)

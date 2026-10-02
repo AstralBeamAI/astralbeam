@@ -93,7 +93,7 @@ Model provider keys are not deployment settings and are not on this page. Each o
 
 The application opens to users before model setup is complete. Let's add a provider, enable its models, then assign a default model to an agent. Until an agent has a usable model configuration, its chat requests fail with `503` and the widget shows an error. The organization's home page shows the remaining setup steps.
 
-The deployment's dogfood organization follows the same process. After accepting the owner invitation, open that organization's **Models** page and configure the provider and agent that power Astro.
+The deployment's dogfood organization follows the same process. After accepting the owner invitation, open that organization's **Models** page and configure the provider and agent that power Astro. Saving deployment configuration or sending the invitation does not copy a model key from the server environment.
 
 ## Sandbox providers
 

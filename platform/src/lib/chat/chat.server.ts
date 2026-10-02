@@ -1,11 +1,8 @@
 import { chat, maxIterations, mergeAgentTools, type StreamChunk } from "@tanstack/ai"
 import { Cause, Context, Effect, identity, Layer, Stream } from "effect"
 
-import { Database } from "@/db/database.server"
-import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
-import { readOrganizationOpenaiApiKey } from "@/lib/organizations/openai-api-key.server"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { createChatAdapter } from "./adapter.server"
 import { createChatAttachmentTools } from "./attachments/tools.server"
@@ -26,7 +23,7 @@ import {
   ChatAgentNotFound,
   ChatAttachmentsDisabled,
   ChatDefaultAgentMissing,
-  ChatModelKeyMissing,
+  ChatModelMissing,
   ChatModelKeyUnreadable,
   ChatSystemPromptRefused,
 } from "./errors.ts"
@@ -72,7 +69,7 @@ export class Chat extends Context.Service<
       | ChatAgentNotFound
       | ChatAttachmentsDisabled
       | ChatDefaultAgentMissing
-      | ChatModelKeyMissing
+      | ChatModelMissing
       | ChatModelKeyUnreadable
       | ChatSystemPromptRefused
     >
@@ -87,27 +84,8 @@ export class Chat extends Context.Service<
     Chat,
     Effect.gen(function* () {
       const agents = yield* Agents
-      const database = yield* Database
       const sandboxes = yield* ChatSandboxes
       const modelProviders = yield* ModelProviders
-
-      // The widget shows a missing or unreadable organization key to the tenant user as a 503.
-      const readModelKey = (organizationId: string) =>
-        readOrganizationOpenaiApiKey(organizationId).pipe(
-          Effect.provideService(Database, database),
-          mapDatabaseErrors(),
-          Effect.catchTag("OrganizationOpenaiApiKeyUnreadable", () =>
-            Effect.fail(new ChatModelKeyUnreadable()),
-          ),
-          Effect.tapErrorTag("ChatModelKeyUnreadable", () =>
-            Effect.logWarning("Chat model key could not be read").pipe(
-              Effect.annotateLogs({ organizationId }),
-            ),
-          ),
-          Effect.flatMap((key) =>
-            key ? Effect.succeed(key) : Effect.fail(new ChatModelKeyMissing()),
-          ),
-        )
 
       const run = Effect.fn("Chat.run")(function* (input: {
         params: ChatParams
@@ -129,23 +107,14 @@ export class Chat extends Context.Service<
                 : new ChatAgentNotFound(),
             ),
           )
-        const assignedModel = yield* modelProviders
+        const model = yield* modelProviders
           .resolveForAgent({ organizationId: principal.organization.id, agentId: agent.id })
           .pipe(
             Effect.catchTag("ModelProviderUnreadable", () =>
               Effect.fail(new ChatModelKeyUnreadable()),
             ),
           )
-        // Only unassigned agents may use the deprecated organization key until it is imported.
-        const model = assignedModel ?? {
-          providerId: "legacy",
-          providerName: "OpenAI",
-          providerType: "openai" as const,
-          api: "responses" as const,
-          baseUrl: "https://api.openai.com/v1",
-          apiKey: yield* readModelKey(principal.organization.id),
-          modelId: "gpt-5.6-terra",
-        }
+        if (!model) return yield* new ChatModelMissing()
         // The SDK's `debug` mount option rides along in the forwarded props and its log prints
         // whole conversations, so, like the refused `systemPrompt`, it is honored only in DEV.
         const log = debug === true && IS_DEVELOPMENT_SERVER ? chatDebugLog(params.runId) : undefined
@@ -252,6 +221,6 @@ export class Chat extends Context.Service<
   )
 
   static readonly layer = Chat.layerNoDeps.pipe(
-    Layer.provide([Agents.layer, Database.layer, ChatSandboxes.layer, ModelProviders.layer]),
+    Layer.provide([Agents.layer, ChatSandboxes.layer, ModelProviders.layer]),
   )
 }

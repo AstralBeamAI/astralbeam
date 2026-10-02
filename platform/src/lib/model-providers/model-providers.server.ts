@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm"
+import { and, asc, eq, notInArray, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Result } from "effect"
 
 import { Database } from "@/db/database.server"
@@ -10,11 +10,9 @@ import {
 } from "@/db/lib/optimistic-locking.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import {
-  agent,
   agentModel,
   modelProvider,
   organizationConfiguration,
-  OrganizationOpenaiApiKeyPayloadSchema,
   providerModel,
 } from "@/db/schema/organizations.server"
 import {
@@ -144,9 +142,6 @@ export class ModelProviders extends Context.Service<
       readonly enabledModelCount: number
       readonly defaultAgentModelCount: number
     }>
-    readonly importLegacy: (input: {
-      readonly organizationId: string
-    }) => Effect.Effect<string | null, ModelProviderNameTaken | ModelProviderUnreadable>
     readonly resolveForAgent: (input: {
       readonly organizationId: string
       readonly agentId: string
@@ -400,117 +395,6 @@ export class ModelProviders extends Context.Service<
         }
       }, Effect.orDie)
 
-      const importLegacy = Effect.fn("ModelProviders.importLegacy")(function* (input: {
-        organizationId: string
-      }) {
-        return yield* db
-          .transaction((transaction) =>
-            Effect.gen(function* () {
-              const [legacy] = yield* transaction
-                .select({
-                  storedValue: sql<string | null>`${organizationConfiguration.openaiApiKey}::text`,
-                })
-                .from(organizationConfiguration)
-                .where(eq(organizationConfiguration.organizationId, input.organizationId))
-                .for("update")
-              if (!legacy?.storedValue) return null
-              const decoded = decryptDatabaseValue({
-                storedValue: legacy.storedValue,
-                schema: OrganizationOpenaiApiKeyPayloadSchema,
-                keyring: getDatabaseEncryptionKeyring(),
-              })
-              if (
-                Result.isFailure(decoded) ||
-                decoded.success.value.organizationId !== input.organizationId
-              )
-                return yield* new ModelProviderUnreadable()
-              const [created] = yield* transaction
-                .insert(modelProvider)
-                .values({
-                  organizationId: input.organizationId,
-                  name: "Imported OpenAI",
-                  providerType: "openai",
-                  api: "responses",
-                  baseUrl: "https://api.openai.com/v1",
-                })
-                .returning({ id: modelProvider.id })
-              const id = created!.id
-              yield* transaction
-                .update(modelProvider)
-                .set({
-                  credentials: {
-                    organizationId: input.organizationId,
-                    modelProviderId: id,
-                    providerType: "openai",
-                    apiKey: decoded.success.value.apiKey,
-                  },
-                })
-                .where(
-                  and(
-                    eq(modelProvider.organizationId, input.organizationId),
-                    eq(modelProvider.id, id),
-                  ),
-                )
-              const [model] = yield* transaction
-                .insert(providerModel)
-                .values({
-                  organizationId: input.organizationId,
-                  modelProviderId: id,
-                  modelId: "gpt-5.6-terra",
-                  name: "gpt-5.6-terra",
-                })
-                .returning({ id: providerModel.id })
-              // Lock agent edits first, then read assignments with a fresh statement snapshot.
-              const agents = yield* transaction
-                .select({ id: agent.id })
-                .from(agent)
-                .where(eq(agent.organizationId, input.organizationId))
-                .for("update")
-              const assigned = yield* transaction
-                .select({ agentId: agentModel.agentId })
-                .from(agentModel)
-                .where(eq(agentModel.organizationId, input.organizationId))
-              const assignedIds = new Set(assigned.map((row) => row.agentId))
-              const unassigned = agents.filter((row) => !assignedIds.has(row.id))
-              if (unassigned.length > 0) {
-                yield* transaction.insert(agentModel).values(
-                  unassigned.map((row) => ({
-                    organizationId: input.organizationId,
-                    agentId: row.id,
-                    providerModelId: model!.id,
-                    position: 0,
-                  })),
-                )
-                yield* transaction
-                  .update(agent)
-                  .set({ lockVersion: sql`${agent.lockVersion} + 1` })
-                  .where(
-                    and(
-                      eq(agent.organizationId, input.organizationId),
-                      inArray(
-                        agent.id,
-                        unassigned.map((row) => row.id),
-                      ),
-                    ),
-                  )
-              }
-              yield* transaction
-                .update(organizationConfiguration)
-                .set({
-                  openaiApiKey: null,
-                  lockVersion: sql`${organizationConfiguration.lockVersion} + 1`,
-                })
-                .where(eq(organizationConfiguration.organizationId, input.organizationId))
-              return id
-            }),
-          )
-          .pipe(
-            mapDatabaseErrors({
-              model_provider_organization_id_name_uidx: () => new ModelProviderNameTaken(),
-            }),
-          )
-      })
-
       const resolveForAgent = Effect.fn("ModelProviders.resolveForAgent")(function* (input: {
         organizationId: string
         agentId: string
@@ -576,7 +460,6 @@ export class ModelProviders extends Context.Service<
         save,
         remove,
         setupState,
-        importLegacy,
         resolveForAgent,
       })
     }),

@@ -97,7 +97,7 @@ describe("synchronous compact JWE profile", () => {
     const plaintext = new TextEncoder().encode("value")
     const protectedHeader = { alg: "dir" as const, enc: "A256GCM" as const, kid: "test" }
 
-    const synchronousJwe = Result.getOrThrow(encryptCompactJwe({ plaintext, protectedHeader, key }))
+    const synchronousJwe = encryptCompactJwe({ plaintext, protectedHeader, key })!
     const joseResult = await compactDecrypt(synchronousJwe, key, {
       keyManagementAlgorithms: ["dir"],
       contentEncryptionAlgorithms: ["A256GCM"],
@@ -107,9 +107,7 @@ describe("synchronous compact JWE profile", () => {
     const joseJwe = await new CompactEncrypt(plaintext)
       .setProtectedHeader(protectedHeader)
       .encrypt(key)
-    const synchronousResult = Result.getOrThrow(
-      decryptCompactJwe({ compactJwe: joseJwe, resolveKey: () => key }),
-    )
+    const synchronousResult = decryptCompactJwe({ compactJwe: joseJwe, resolveKey: () => key })!
     expect(new TextDecoder().decode(synchronousResult.plaintext)).toBe("value")
   })
 })

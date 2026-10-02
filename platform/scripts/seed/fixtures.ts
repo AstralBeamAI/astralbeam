@@ -21,6 +21,12 @@ export const SEED_DOGFOOD = {
   slug: "dogfood",
 } as const
 
+export const SEED_MODEL_PROVIDER = {
+  name: "Development OpenAI",
+  modelId: "gpt-5.6-terra",
+  modelName: "GPT-5.6 Terra",
+} as const
+
 /** Shared fixture names for dashboard routes, providers, and tenant identity. */
 const SEED_NAMES = {
   acme: "acme",

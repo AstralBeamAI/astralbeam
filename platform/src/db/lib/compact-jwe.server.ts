@@ -1,8 +1,6 @@
 import { Buffer } from "node:buffer"
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
 
-import { Predicate, Result, Schema } from "effect"
-
 const ALGORITHM = "dir"
 const CONTENT_ENCRYPTION = "A256GCM"
 const KEY_LENGTH = 32
@@ -17,22 +15,12 @@ export type CompactJweProtectedHeader = Readonly<Record<string, unknown>> & {
   readonly enc: "A256GCM"
 }
 
-/** Every rejection reads alike, so a stored value's defect is never described. */
-class CompactJweError extends Schema.TaggedError<CompactJweError>()("CompactJweError", {}) {
-  override readonly message = "Compact JWE could not be processed"
-}
-
-type CompactJweResult<A> = Result.Result<A, CompactJweError>
-
-const compactJweError = Result.fail(new CompactJweError())
-
-// Node's cipher and JSON APIs throw, so this is the one place their failures become Results.
-function attemptCompactJwe<A>(operation: () => A | undefined): CompactJweResult<A> {
+// Keep the shared cipher independent of Effect so database migrations fit the standalone binary.
+function attemptCompactJwe<A>(operation: () => A | undefined): A | undefined {
   try {
-    const value = operation()
-    return value === undefined ? compactJweError : Result.succeed(value)
+    return operation()
   } catch {
-    return compactJweError
+    return undefined
   }
 }
 
@@ -40,9 +28,9 @@ export function encryptCompactJwe(options: {
   plaintext: Uint8Array
   protectedHeader: CompactJweProtectedHeader
   key: Uint8Array
-}): CompactJweResult<string> {
+}): string | undefined {
   const protectedHeader = serializeProtectedHeader(options.protectedHeader)
-  if (protectedHeader === undefined || !isKey(options.key)) return compactJweError
+  if (protectedHeader === undefined || !isKey(options.key)) return undefined
   return attemptCompactJwe(() => {
     const iv = randomBytes(IV_LENGTH)
     const cipher = createCipheriv("aes-256-gcm", options.key, iv, { authTagLength: TAG_LENGTH })
@@ -62,7 +50,7 @@ export function encryptCompactJwe(options: {
 export function decryptCompactJwe(options: {
   compactJwe: string
   resolveKey: (protectedHeader: CompactJweProtectedHeader) => Uint8Array | undefined
-}): CompactJweResult<{ plaintext: Uint8Array; protectedHeader: CompactJweProtectedHeader }> {
+}): { plaintext: Uint8Array; protectedHeader: CompactJweProtectedHeader } | undefined {
   const parts = splitCompactJwe(options.compactJwe)
   const protectedHeader = parts && parseProtectedHeader(parts[0])
   const key = protectedHeader && options.resolveKey(protectedHeader)
@@ -78,7 +66,7 @@ export function decryptCompactJwe(options: {
     !ciphertext ||
     authenticationTag?.byteLength !== TAG_LENGTH
   ) {
-    return compactJweError
+    return undefined
   }
   return attemptCompactJwe(() => {
     const decipher = createDecipheriv("aes-256-gcm", key, iv, { authTagLength: TAG_LENGTH })
@@ -91,9 +79,8 @@ export function decryptCompactJwe(options: {
 
 function serializeProtectedHeader(header: CompactJweProtectedHeader): string | undefined {
   if (!isSupportedHeader(header)) return undefined
-  const serialized = Result.getOrUndefined(attemptCompactJwe(() => JSON.stringify(header)))
-  const roundTripped =
-    serialized && Result.getOrUndefined(attemptCompactJwe<unknown>(() => JSON.parse(serialized)))
+  const serialized = attemptCompactJwe(() => JSON.stringify(header))
+  const roundTripped = serialized && attemptCompactJwe<unknown>(() => JSON.parse(serialized))
   if (!serialized || !isSupportedHeader(roundTripped)) return undefined
   const encoded = encodeBase64url(new TextEncoder().encode(serialized))
   return encoded.length <= MAX_PROTECTED_HEADER_LENGTH ? encoded : undefined
@@ -104,21 +91,20 @@ function parseProtectedHeader(value: string): CompactJweProtectedHeader | undefi
   const bytes = decodeBase64url(value)
   const header =
     bytes &&
-    Result.getOrUndefined(
-      attemptCompactJwe<unknown>(() =>
-        JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
-      ),
+    attemptCompactJwe<unknown>(() =>
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
     )
   return isSupportedHeader(header) ? header : undefined
 }
 
 function isSupportedHeader(value: unknown): value is CompactJweProtectedHeader {
   return (
-    Predicate.isObject(value) &&
+    typeof value === "object" &&
+    value !== null &&
     !Array.isArray(value) &&
-    Predicate.hasProperty(value, "alg") &&
+    "alg" in value &&
     value.alg === ALGORITHM &&
-    Predicate.hasProperty(value, "enc") &&
+    "enc" in value &&
     value.enc === CONTENT_ENCRYPTION &&
     !("crit" in value) &&
     !("zip" in value)
@@ -126,7 +112,7 @@ function isSupportedHeader(value: unknown): value is CompactJweProtectedHeader {
 }
 
 function splitCompactJwe(value: unknown): [string, string, string, string, string] | undefined {
-  if (!Predicate.isString(value) || value.length > MAX_COMPACT_JWE_LENGTH) return undefined
+  if (typeof value !== "string" || value.length > MAX_COMPACT_JWE_LENGTH) return undefined
   const parts = value.split(".")
   return parts.length === 5 && parts[1] === ""
     ? (parts as [string, string, string, string, string])

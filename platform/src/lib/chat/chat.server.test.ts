@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { chatParamsFromRequestBody } from "@tanstack/ai"
 import { Effect, Layer, Stream } from "effect"
-import { beforeAll, beforeEach, vi } from "vitest"
+import { beforeEach, vi } from "vitest"
 
 const chatRunTest = vi.hoisted(() => ({
   options: [] as Array<{
@@ -39,8 +39,6 @@ vi.mock("@tanstack/ai", async (original) => ({
   },
 }))
 
-import { Database, type EffectDatabase } from "@/db/database.server"
-import { organizationConfiguration } from "@/db/schema/organizations.server"
 import {
   ModelProviders,
   type ChatModelConfiguration,
@@ -68,36 +66,24 @@ const sandboxedAgent: ChatAgent = {
 }
 
 const undecryptable = "undecryptable"
-const CHAT_TEST_OPENAI_API_KEY = `sk-${"a".repeat(32)}`
-
-beforeAll(() => {
-  vi.stubEnv("DATABASE_ENCRYPTION_KEY", "a".repeat(64))
-})
+const CHAT_TEST_MODEL: ChatModelConfiguration = {
+  providerId: "provider",
+  providerName: "OpenAI",
+  providerType: "openai",
+  api: "responses",
+  baseUrl: "https://api.openai.com/v1",
+  apiKey: "sk-chat-test-provider-key",
+  modelId: "gpt-5.6-terra",
+}
 
 function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
   readonly model?: ChatModelConfiguration | typeof undecryptable
-  readonly key?: { readonly apiKey: string } | typeof undecryptable | null
 }) {
   const agents = {
     resolveForChat: () =>
       options.agent ? Effect.succeed(options.agent) : Effect.fail(new AgentNotFound()),
   } as unknown as Agents["Service"]
-  // The key read selects the column's raw ciphertext and decrypts it itself.
-  const storedValue =
-    options.key === undecryptable
-      ? "not-a-compact-jwe"
-      : options.key &&
-        String(
-          organizationConfiguration.openaiApiKey.mapToDriverValue({
-            organizationId: ORGANIZATION_ID,
-            ...options.key,
-          }),
-        )
-  const limit = () =>
-    Effect.succeed(storedValue ? [{ organizationId: ORGANIZATION_ID, storedValue }] : [])
-  const query = { from: () => query, where: () => query, limit }
-  const database = { select: () => query } as unknown as EffectDatabase
   const sandboxes = {
     session: () => Effect.fail(new ChatSandboxConfigurationUnreadable()),
   } as unknown as ChatSandboxes["Service"]
@@ -110,7 +96,6 @@ function chatTestLayer(options: {
             ? Effect.fail(new ModelProviderUnreadable())
             : Effect.succeed(options.model ?? null),
       } as unknown as ModelProviders["Service"]),
-      Layer.succeed(Database, database),
       Layer.succeed(ChatSandboxes, sandboxes),
     ]),
   )
@@ -148,7 +133,7 @@ describe("Chat.run", () => {
       )
       assert.strictEqual(failure._tag, "ChatSystemPromptRefused")
       assert.strictEqual(declaredHttpApiStatus(failure), 400)
-    }).pipe(Effect.provide(chatTestLayer({ key: undecryptable }))),
+    }).pipe(Effect.provide(chatTestLayer({ model: undecryptable }))),
   )
 
   it.effect("reports an unknown agent before an unreadable key", () =>
@@ -158,22 +143,22 @@ describe("Chat.run", () => {
       const byDefault = yield* Effect.flip(runChat())
       assert.strictEqual(byDefault._tag, "ChatDefaultAgentMissing")
       assert.strictEqual(declaredHttpApiStatus(byDefault), 404)
-    }).pipe(Effect.provide(chatTestLayer({ key: undecryptable }))),
+    }).pipe(Effect.provide(chatTestLayer({ model: undecryptable }))),
   )
 
-  it.effect("answers an undecryptable or missing organization key with a 503", () =>
+  it.effect("answers an unreadable provider or missing model assignment with a 503", () =>
     Effect.gen(function* () {
       const unreadable = yield* Effect.flip(
         runChat().pipe(
-          Effect.provide(chatTestLayer({ agent: sandboxedAgent, key: undecryptable })),
+          Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: undecryptable })),
         ),
       )
       assert.strictEqual(unreadable._tag, "ChatModelKeyUnreadable")
       assert.strictEqual(declaredHttpApiStatus(unreadable), 503)
       const missing = yield* Effect.flip(
-        runChat().pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, key: null }))),
+        runChat().pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent }))),
       )
-      assert.strictEqual(missing._tag, "ChatModelKeyMissing")
+      assert.strictEqual(missing._tag, "ChatModelMissing")
       assert.strictEqual(declaredHttpApiStatus(missing), 503)
     }),
   )
@@ -184,55 +169,31 @@ describe("Chat.run", () => {
       assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, {
         reasoning: { effort: "high" },
       })
+    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
+  )
+
+  it.effect("uses the assigned model without forcing reasoning options", () =>
+    Effect.gen(function* () {
+      const events = yield* runChat()
+      yield* Stream.runCollect(Stream.take(events, 1))
+      assert.strictEqual(chatRunTest.options[0]!.adapter.model, "gateway-model")
+      assert.isUndefined(chatRunTest.options[0]!.modelOptions)
     }).pipe(
       Effect.provide(
-        chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
+        chatTestLayer({
+          agent: sandboxedAgent,
+          model: {
+            providerId: "provider",
+            providerName: "Gateway",
+            providerType: "openai",
+            api: "chat-completions",
+            baseUrl: "https://gateway.example/v1",
+            apiKey: "gateway-key",
+            modelId: "gateway-model",
+          },
+        }),
       ),
     ),
-  )
-
-  it.effect(
-    "uses the assigned model without reading a broken legacy key or sending reasoning options",
-    () =>
-      Effect.gen(function* () {
-        const events = yield* runChat()
-        yield* Stream.runCollect(Stream.take(events, 1))
-        assert.strictEqual(chatRunTest.options[0]!.adapter.model, "gateway-model")
-        assert.isUndefined(chatRunTest.options[0]!.modelOptions)
-      }).pipe(
-        Effect.provide(
-          chatTestLayer({
-            agent: sandboxedAgent,
-            key: undecryptable,
-            model: {
-              providerId: "provider",
-              providerName: "Gateway",
-              providerType: "openai",
-              api: "chat-completions",
-              baseUrl: "https://gateway.example/v1",
-              apiKey: "gateway-key",
-              modelId: "gateway-model",
-            },
-          }),
-        ),
-      ),
-  )
-
-  it.effect(
-    "never falls back to the organization key when assigned credentials are unreadable",
-    () =>
-      Effect.gen(function* () {
-        const failure = yield* Effect.flip(runChat())
-        assert.strictEqual(failure._tag, "ChatModelKeyUnreadable")
-      }).pipe(
-        Effect.provide(
-          chatTestLayer({
-            agent: sandboxedAgent,
-            key: { apiKey: CHAT_TEST_OPENAI_API_KEY },
-            model: undecryptable,
-          }),
-        ),
-      ),
   )
 
   it.effect("refuses attachments the agent does not accept", () =>
@@ -246,11 +207,7 @@ describe("Chat.run", () => {
         runChat({ messages: [{ id: "user-1", role: "user", content: [document] }] }),
       )
       assert.strictEqual(failure._tag, "ChatAttachmentsDisabled")
-    }).pipe(
-      Effect.provide(
-        chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
-      ),
-    ),
+    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 
   it.effect(
@@ -263,11 +220,7 @@ describe("Chat.run", () => {
         assert.isFalse(options?.systemPrompts.includes(CHAT_SANDBOX_SYSTEM_PROMPT))
         assert.isFalse(options?.tools.some((tool) => tool.name.startsWith("sandbox_")))
         assert.include(options?.systemPrompts, sandboxedAgent.systemPrompt)
-      }).pipe(
-        Effect.provide(
-          chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
-        ),
-      ),
+      }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 
   it.effect("aborts the provider request before closing the run when the client goes away", () =>
@@ -281,10 +234,6 @@ describe("Chat.run", () => {
       yield* Effect.promise(() => iterator.return!())
       yield* Effect.promise(() => pending)
       assert.deepStrictEqual(chatRunTest.order, ["aborted", "closed"])
-    }).pipe(
-      Effect.provide(
-        chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
-      ),
-    ),
+    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 })

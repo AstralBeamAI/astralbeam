@@ -1,9 +1,6 @@
 import { Buffer } from "node:buffer"
 import { createHash } from "node:crypto"
 import process from "node:process"
-import { NonEmptyStringSchema } from "../../lib/schemas.ts"
-
-import { Schema } from "effect"
 
 export type DatabaseKeyringEntry = {
   readonly kid: string
@@ -12,18 +9,15 @@ export type DatabaseKeyringEntry = {
 
 export type DatabaseEncryptionKeyring = readonly [DatabaseKeyringEntry, ...DatabaseKeyringEntry[]]
 
-const decodeDatabaseUrl = Schema.decodeUnknownSync(NonEmptyStringSchema)
-
 let databaseUrl: string | undefined
 
 export function getDatabaseUrl(): string {
   if (databaseUrl) return databaseUrl
-  try {
-    return (databaseUrl = decodeDatabaseUrl(process.env.DATABASE_URL))
-  } catch (error) {
-    if (!Schema.isSchemaError(error)) throw error
+  const value = process.env.DATABASE_URL
+  if (typeof value !== "string" || value.length === 0) {
     throw new Error("'DATABASE_URL' environment variable is not set")
   }
+  return (databaseUrl = value)
 }
 
 function databaseKeyringEntry(secret: string): DatabaseKeyringEntry {

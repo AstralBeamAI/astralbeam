@@ -62,10 +62,13 @@ import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import {
   account,
   agent,
+  agentModel,
   apiKey,
   member,
+  modelProvider,
   organization,
   organizationConfiguration,
+  providerModel,
   tenant,
   tenantUser,
   user,
@@ -74,7 +77,6 @@ import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.se
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
 import { Auth } from "@/lib/auth/auth.server"
-import { Agents } from "@/lib/agents/agents.server"
 import { Config } from "@/lib/config/config.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import type { ConfigValues } from "@/lib/config/types"
@@ -86,6 +88,8 @@ import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import type { OwnerOnboarding } from "./schemas.ts"
+import { seedModelProviders } from "../../../scripts/seed/models.ts"
+import { SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures.ts"
 
 const ownerOnboardingFixture = {
   email: "provisioning-owner@example.com",
@@ -165,37 +169,66 @@ describe.skipIf(!dogfoodIntegration.url)(
       await invalidateGlobalConfig()
     })
 
-    test.each([undefined, "invalid-key", "sk-development-provisioning-test-only"])(
-      "local organization creation tolerates model key %s and preserves settings on retry",
-      async (apiKey) => {
-        if (apiKey === undefined) delete process.env.OPENAI_API_KEY
-        else process.env.OPENAI_API_KEY = apiKey
-        await provisionDogfood()
-        const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
-        const expectedKey = apiKey?.startsWith("sk-")
-          ? {
-              organizationId,
-              apiKey,
-            }
-          : null
-        const [configuration] = await db.select().from(organizationConfiguration)
-        const [defaultAgent] = await db.select().from(agent)
-        expect(configuration).toMatchObject({ organizationId, openaiApiKey: expectedKey })
-        expect(defaultAgent).toMatchObject({ organizationId, id: configuration!.defaultAgentId })
-        await runAppEffect(
-          Effect.flatMap(Agents, (agents) =>
-            agents.provisionDefault({
-              organizationId,
-              organizationName: "dogfood",
-              openaiApiKey: "sk-different-development-test-key",
-            }),
-          ),
-        )
-        expect((await db.select().from(organizationConfiguration))[0]?.openaiApiKey).toEqual(
-          expectedKey,
-        )
-      },
-    )
+    test("dogfood provisioning leaves model setup to its owner", async () => {
+      await provisionDogfood()
+      const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
+      const [configuration] = await db.select().from(organizationConfiguration)
+      const [defaultAgent] = await db.select().from(agent)
+      expect(configuration).toMatchObject({ organizationId })
+      expect(defaultAgent).toMatchObject({ organizationId, id: configuration!.defaultAgentId })
+      expect(await db.select().from(modelProvider)).toHaveLength(0)
+    })
+
+    test("development seeds assign models and preserve edited providers", async () => {
+      await provisionDogfood()
+      for (const fixture of SEED_ORGANIZATIONS) {
+        await db
+          .insert(organization)
+          .values({ id: fixture.id, name: fixture.name, slug: fixture.slug })
+        await db.insert(agent).values({
+          organizationId: fixture.id,
+          name: fixture.agents[0].name,
+          systemPrompt: "Help with local tests",
+        })
+      }
+      await db.transaction(seedModelProviders)
+      const providers = await db.select().from(modelProvider)
+      expect(providers).toHaveLength(SEED_ORGANIZATIONS.length + 1)
+      expect(await db.select().from(agentModel)).toHaveLength(SEED_ORGANIZATIONS.length + 1)
+      const dogfoodId = (await getDatabaseConfig()).values.dogfood_organization_id!
+      const original = providers.find((provider) => provider.organizationId === dogfoodId)!
+      await db
+        .update(modelProvider)
+        .set({
+          name: "Owner's gateway",
+          credentials: {
+            organizationId: dogfoodId,
+            modelProviderId: original.id,
+            providerType: "openai",
+            apiKey: "sk-owner-replaced-dogfood-model-key",
+          },
+        })
+        .where(eq(modelProvider.organizationId, dogfoodId))
+      await db.delete(agentModel).where(eq(agentModel.organizationId, dogfoodId))
+      await db.delete(providerModel).where(eq(providerModel.organizationId, dogfoodId))
+      await db.transaction(seedModelProviders)
+      expect(await db.select().from(modelProvider)).toHaveLength(providers.length)
+      const [preserved] = await db
+        .select()
+        .from(modelProvider)
+        .where(eq(modelProvider.organizationId, dogfoodId))
+      expect(preserved).toMatchObject({
+        id: original.id,
+        name: "Owner's gateway",
+        credentials: { apiKey: "sk-owner-replaced-dogfood-model-key" },
+      })
+      expect(
+        await db.select().from(providerModel).where(eq(providerModel.organizationId, dogfoodId)),
+      ).toHaveLength(0)
+      expect(
+        await db.select().from(agentModel).where(eq(agentModel.organizationId, dogfoodId)),
+      ).toHaveLength(0)
+    })
 
     test("two tab selectors and concurrent JIT upserts preserve tenant isolation and ordinary JWT privileges", async () => {
       await provisionDogfood()
