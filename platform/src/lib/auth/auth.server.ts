@@ -326,20 +326,19 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
-        const newPassword = body?.newPassword
-        const token = body?.token || recordValue(context.query)?.token
         // Remove this precheck and its imports when the installed release fixes token consumption.
         // https://github.com/better-auth/better-auth/issues/10632
-        if (
-          context.path === "/reset-password" &&
-          !IS_TEST_RUNTIME &&
-          Predicate.isString(token) &&
-          token.length > 0 &&
-          Predicate.isString(newPassword) &&
-          newPassword.length >= context.context.password.config.minPasswordLength &&
-          newPassword.length <= context.context.password.config.maxPasswordLength &&
-          (await runAppEffect(
+        if (context.path === "/reset-password" && !IS_TEST_RUNTIME) {
+          await runAppEffect(
             Effect.gen(function* () {
+              const token = body?.token || recordValue(context.query)?.token
+              const newPassword = body?.newPassword
+              if (!Predicate.isString(token) || !token || !Predicate.isString(newPassword)) return
+
+              const { minPasswordLength, maxPasswordLength } = context.context.password.config
+              if (newPassword.length < minPasswordLength || newPassword.length > maxPasswordLength)
+                return
+
               const verification = yield* tryPromiseInServerRequest(() =>
                 context.context.internalAdapter.findVerificationValue(`reset-password:${token}`),
               )
@@ -347,17 +346,21 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
                 !verification ||
                 verification.expiresAt.getTime() < (yield* Clock.currentTimeMillis)
               ) {
-                return false
+                return
               }
-              return yield* tryPromiseInServerRequest(() => isPasswordCompromised(newPassword))
+
+              if (!(yield* tryPromiseInServerRequest(() => isPasswordCompromised(newPassword))))
+                return
+              return yield* Effect.fail(
+                new APIError("BAD_REQUEST", {
+                  code: "PASSWORD_COMPROMISED",
+                  message:
+                    "The password you entered has been compromised. Please choose a different password.",
+                }),
+              )
             }).pipe(Effect.orDie),
-          ))
-        ) {
-          throw new APIError("BAD_REQUEST", {
-            code: "PASSWORD_COMPROMISED",
-            message:
-              "The password you entered has been compromised. Please choose a different password.",
-          })
+          )
+          return
         }
         if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
           // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
