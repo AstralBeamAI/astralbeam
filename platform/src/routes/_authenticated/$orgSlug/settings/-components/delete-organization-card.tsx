@@ -71,7 +71,7 @@ export function DeleteOrganizationCard({
         <CardDescription>
           {dogfood
             ? "This deployment's own organization powers the dashboard assistant and cannot be deleted."
-            : "Remove every member, API key, agent, sandbox provider, tenant, and tenant user. This cannot be undone."}
+            : "Remove every member, API key, agent, model provider, sandbox provider, tenant, and tenant user. This cannot be undone."}
         </CardDescription>
       </CardHeader>
       <CardFooter className="justify-end">

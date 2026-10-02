@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import type { OrganizationModelProvider } from "@/lib/model-providers/model-providers.server"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { deleteModelProvider } from "../-functions/delete-model-provider"
+import { deleteModelProvider } from "../../-functions/delete-model-provider"
 
 export function ModelProviderActions({
   organizationSlug,
