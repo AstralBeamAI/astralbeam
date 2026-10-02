@@ -54,6 +54,8 @@ export interface OrganizationModelProvider {
   readonly models: readonly ModelProviderModel[]
 }
 
+export type ModelProviderListItem = Omit<OrganizationModelProvider, "apiKeyHint" | "organizationId">
+
 export interface ModelChoice extends ModelProviderModel {
   readonly providerId: string
   readonly providerName: string
@@ -130,7 +132,7 @@ export class ModelProviders extends Context.Service<
   {
     readonly list: (input: {
       readonly organizationId: string
-    }) => Effect.Effect<readonly OrganizationModelProvider[]>
+    }) => Effect.Effect<readonly ModelProviderListItem[]>
     readonly get: (input: {
       readonly organizationId: string
       readonly id: string
@@ -226,11 +228,10 @@ export class ModelProviders extends Context.Service<
           .from(providerModel)
           .where(eq(providerModel.organizationId, input.organizationId))
           .orderBy(asc(providerModel.name), asc(providerModel.id))
-        return rows.map(({ storedCredentials, ...row }) => {
-          const apiKey = readModelProviderKey({ ...row, storedCredentials })
+        return rows.map(({ storedCredentials, organizationId, ...row }) => {
+          const apiKey = readModelProviderKey({ ...row, organizationId, storedCredentials })
           return {
             ...row,
-            apiKeyHint: apiKey?.slice(-4) ?? null,
             credentialsReadable: apiKey !== null,
             models: models
               .filter((model) => model.modelProviderId === row.id)

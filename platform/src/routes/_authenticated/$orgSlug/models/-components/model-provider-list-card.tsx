@@ -4,14 +4,14 @@ import { Link } from "@tanstack/react-router"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { modelProviderDescriptors } from "../-lib/constants"
-import type { OrganizationModelProvider } from "@/lib/model-providers/model-providers.server"
+import type { ModelProviderListItem } from "@/lib/model-providers/model-providers.server"
 
 export function ModelProviderListCard({
   organizationSlug,
   provider,
 }: {
   organizationSlug: string
-  provider: OrganizationModelProvider
+  provider: ModelProviderListItem
 }) {
   return (
     <Card>
