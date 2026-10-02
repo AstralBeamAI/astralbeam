@@ -196,6 +196,35 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     ).toEqual([])
   })
 
+  test("reports setup readiness from the default agent's assignments only", async () => {
+    const providerId = await runAppEffect(saveIntegrationProvider(organizationId))
+    const provider = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id: providerId })),
+    )
+    const [defaultAgent] = await db
+      .insert(agent)
+      .values({ organizationId, name: "Default", systemPrompt: "Help" })
+      .returning()
+    await db
+      .insert(organizationConfiguration)
+      .values({ organizationId, defaultAgentId: defaultAgent!.id })
+    await db
+      .insert(agentModel)
+      .values({ organizationId, agentId, providerModelId: provider!.models[0]!.id, position: 0 })
+    const setup = () =>
+      runAppEffect(
+        Effect.flatMap(ModelProviders, (service) => service.setupState({ organizationId })),
+      )
+    expect((await setup()).defaultAgentModelCount).toBe(0)
+    await db.insert(agentModel).values({
+      organizationId,
+      agentId: defaultAgent!.id,
+      providerModelId: provider!.models[0]!.id,
+      position: 0,
+    })
+    expect((await setup()).defaultAgentModelCount).toBe(1)
+  })
+
   test("replaces ordered agent assignments atomically and makes the first model the default", async () => {
     const providerId = await runAppEffect(
       saveIntegrationProvider(organizationId, {

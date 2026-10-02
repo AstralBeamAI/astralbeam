@@ -89,11 +89,22 @@ export function ModelProviderForm({
   const issues = Result.isFailure(input)
     ? formatModelProviderIssues(input.failure.issue).issues
     : []
-  const missingKey = !apiKey.trim() && (!existing || !existing.credentialsReadable)
+  // A stored key is reused only for the API URL it was saved with.
+  const baseUrlChanged = existing !== null && baseUrl.trim() !== existing.baseUrl
+  const missingKey =
+    !apiKey.trim() && (!existing || !existing.credentialsReadable || baseUrlChanged)
   const missingModels = !existing && models.length === 0
   const fieldErrors = (field: string) => [
     ...(submitted ? issues.filter((issue) => issue.path?.[0] === field) : []),
-    ...(submitted && field === "apiKey" && missingKey ? [{ message: "Enter an API key" }] : []),
+    ...(submitted && field === "apiKey" && missingKey
+      ? [
+          {
+            message: baseUrlChanged
+              ? "Enter the key again to use a new API URL"
+              : "Enter an API key",
+          },
+        ]
+      : []),
     ...(submitted && field === "models" && missingModels
       ? [{ message: "Enable at least one model" }]
       : []),
@@ -163,7 +174,7 @@ export function ModelProviderForm({
               <Select
                 items={modelProviderTypeItems}
                 value={providerType}
-                disabled={disabled}
+                disabled={disabled || existing !== null}
                 onValueChange={(value) => {
                   if (!value) return
                   const next = value
@@ -184,6 +195,11 @@ export function ModelProviderForm({
                   ))}
                 </SelectContent>
               </Select>
+              {existing && (
+                <FieldDescription>
+                  A connection keeps its provider. Add a new provider to switch.
+                </FieldDescription>
+              )}
             </Field>
             <ModelProviderField
               id="model-provider-url"
@@ -227,13 +243,18 @@ export function ModelProviderForm({
               id="model-provider-key"
               label="API key"
               value={apiKey}
-              onChange={setApiKey}
+              onChange={(value) => {
+                setApiKey(value)
+                if (serverFieldError?.field === "apiKey") setServerFieldError(null)
+              }}
               errors={fieldErrors("apiKey")}
               disabled={disabled}
               secret
               description={
                 existing?.credentialsReadable
-                  ? `Stored key ends in ${existing.apiKeyHint}. Leave blank to keep it.`
+                  ? baseUrlChanged
+                    ? `Stored key ends in ${existing.apiKeyHint}. It applies only to the saved API URL.`
+                    : `Stored key ends in ${existing.apiKeyHint}. Leave blank to keep it.`
                   : "Encrypted when saved. The stored key is never returned to your browser."
               }
             />

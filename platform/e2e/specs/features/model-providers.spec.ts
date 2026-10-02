@@ -44,6 +44,13 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await models.open(primaryName)
     await expect(page.getByLabel("API key", { exact: true })).toHaveValue("")
     await expect(page.getByText("Stored key ends in 1111. Leave blank to keep it.")).toBeVisible()
+    await expect(page.getByRole("combobox", { name: "Provider", exact: true })).toBeDisabled()
+    await page.getByLabel("API URL", { exact: true }).fill("https://moved.example.test/v1")
+    await page.getByRole("button", { name: "Save provider", exact: true }).click()
+    await expect(
+      page.getByText("Enter the key again to use a new API URL", { exact: true }),
+    ).toBeVisible()
+    await page.getByLabel("API URL", { exact: true }).fill("https://primary.example.test/v1")
     await models.save()
     await page.reload()
     await waitForHydration(page.locator("#model-provider-name"))

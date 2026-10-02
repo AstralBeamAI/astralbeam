@@ -1,12 +1,13 @@
 import { ArrowLeftIcon } from "@phosphor-icons/react"
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router"
+import { cn } from "cn"
 import { Schema } from "effect"
 
 import { buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
 import { UuidV7Schema } from "@/lib/schemas"
-import { ModelProviderActions } from "../-components/model-provider-actions"
+import { ModelProviderActions } from "./-components/model-provider-actions"
 import { ModelProviderForm } from "../-components/model-provider-form"
 import { getModelProviderPageData } from "../-functions/get-model-provider-page-data"
 
@@ -60,7 +61,7 @@ function ModelProviderPage() {
           <Link
             to="/$orgSlug/agents"
             params={{ orgSlug }}
-            className={buttonVariants({ variant: "outline" })}
+            className={cn(buttonVariants({ variant: "outline" }))}
           >
             Set up an agent
           </Link>

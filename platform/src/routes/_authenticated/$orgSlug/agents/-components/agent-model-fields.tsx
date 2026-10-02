@@ -4,7 +4,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
   FieldDescription,
-  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -38,7 +37,7 @@ export function AgentModelFields({
     label: `${model.name} (${model.providerName})`,
   }))
   return (
-    <FieldSet aria-describedby="agent-models-description agent-models-error">
+    <FieldSet aria-describedby="agent-models-description agent-models-hint">
       <FieldLegend>Models</FieldLegend>
       <FieldDescription id="agent-models-description">
         Choose models from your configured providers. The default model handles new chat runs.
@@ -72,8 +71,10 @@ export function AgentModelFields({
           ))}
         </FieldGroup>
       )}
-      {modelIds.length === 0 && (
-        <FieldError id="agent-models-error">Select at least one model.</FieldError>
+      {models.length > 0 && modelIds.length === 0 && (
+        <FieldDescription id="agent-models-hint">
+          Select at least one model to save.
+        </FieldDescription>
       )}
       {defaultItems.length > 0 && (
         <Field>

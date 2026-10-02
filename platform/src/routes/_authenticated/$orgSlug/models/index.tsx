@@ -1,5 +1,6 @@
 import { CpuIcon, PlusIcon } from "@phosphor-icons/react"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { cn } from "cn"
 
 import { buttonVariants } from "@/components/ui/button"
 import {
@@ -84,7 +85,7 @@ function ModelsPage() {
             <Link
               to="/$orgSlug/agents"
               params={{ orgSlug }}
-              className={buttonVariants({ variant: "outline" })}
+              className={cn(buttonVariants({ variant: "outline" }))}
             >
               Set up an agent
             </Link>

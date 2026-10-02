@@ -142,7 +142,7 @@ export class ModelProviders extends Context.Service<
     readonly setupState: (input: { readonly organizationId: string }) => Effect.Effect<{
       readonly providerCount: number
       readonly enabledModelCount: number
-      readonly readyAgentCount: number
+      readonly defaultAgentModelCount: number
     }>
     readonly importLegacy: (input: {
       readonly organizationId: string
@@ -366,7 +366,7 @@ export class ModelProviders extends Context.Service<
       const setupState = Effect.fn("ModelProviders.setupState")(function* (input: {
         organizationId: string
       }) {
-        const [providers, models, agents] = yield* Effect.all(
+        const [providers, models, defaultAgentModels] = yield* Effect.all(
           [
             db
               .select({ count: sql<number>`count(*)::integer` })
@@ -377,8 +377,15 @@ export class ModelProviders extends Context.Service<
               .from(providerModel)
               .where(eq(providerModel.organizationId, input.organizationId)),
             db
-              .select({ count: sql<number>`count(distinct ${agentModel.agentId})::integer` })
+              .select({ count: sql<number>`count(*)::integer` })
               .from(agentModel)
+              .innerJoin(
+                organizationConfiguration,
+                and(
+                  eq(organizationConfiguration.organizationId, agentModel.organizationId),
+                  eq(organizationConfiguration.defaultAgentId, agentModel.agentId),
+                ),
+              )
               .where(eq(agentModel.organizationId, input.organizationId)),
           ],
           { concurrency: "unbounded" },
@@ -386,7 +393,7 @@ export class ModelProviders extends Context.Service<
         return {
           providerCount: providers[0]!.count,
           enabledModelCount: models[0]!.count,
-          readyAgentCount: agents[0]!.count,
+          defaultAgentModelCount: defaultAgentModels[0]!.count,
         }
       }, Effect.orDie)
 
