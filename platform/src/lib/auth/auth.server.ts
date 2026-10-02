@@ -11,7 +11,7 @@ import {
 } from "better-auth/api"
 import { captcha, haveIBeenPwned, isPasswordCompromised, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
-import { Context, Effect, Layer, Predicate, Ref } from "effect"
+import { Clock, Context, Effect, Layer, Predicate, Ref } from "effect"
 
 import { getAuthDatabase } from "@/db/database.server"
 import { tables } from "@/db/schema.server"
@@ -326,15 +326,32 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
-        // Remove this precheck and its import when the installed release fixes token consumption.
+        const newPassword = body?.newPassword
+        const token = body?.token || recordValue(context.query)?.token
+        // Remove this precheck and its imports when the installed release fixes token consumption.
         // https://github.com/better-auth/better-auth/issues/10632
         if (
           context.path === "/reset-password" &&
           !IS_TEST_RUNTIME &&
-          Predicate.isString(body?.newPassword) &&
-          body.newPassword.length >= context.context.password.config.minPasswordLength &&
-          body.newPassword.length <= context.context.password.config.maxPasswordLength &&
-          (await isPasswordCompromised(body.newPassword))
+          Predicate.isString(token) &&
+          token.length > 0 &&
+          Predicate.isString(newPassword) &&
+          newPassword.length >= context.context.password.config.minPasswordLength &&
+          newPassword.length <= context.context.password.config.maxPasswordLength &&
+          (await runAppEffect(
+            Effect.gen(function* () {
+              const verification = yield* tryPromiseInServerRequest(() =>
+                context.context.internalAdapter.findVerificationValue(`reset-password:${token}`),
+              )
+              if (
+                !verification ||
+                verification.expiresAt.getTime() < (yield* Clock.currentTimeMillis)
+              ) {
+                return false
+              }
+              return yield* tryPromiseInServerRequest(() => isPasswordCompromised(newPassword))
+            }).pipe(Effect.orDie),
+          ))
         ) {
           throw new APIError("BAD_REQUEST", {
             code: "PASSWORD_COMPROMISED",
