@@ -185,7 +185,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     const id = await runAppEffect(saveIntegrationProvider(organizationId))
     for (const change of [
       { baseUrl: "https://elsewhere.example/v1" },
-      { providerType: "openai-compatible" as const },
+      { providerType: "anthropic" as const, api: "anthropic-messages" as const },
     ]) {
       const refused = await runAppEffect(
         saveIntegrationProvider(organizationId, {

@@ -207,7 +207,7 @@ describe("Chat.run", () => {
             model: {
               providerId: "provider",
               providerName: "Gateway",
-              providerType: "openai-compatible",
+              providerType: "openai",
               api: "chat-completions",
               baseUrl: "https://gateway.example/v1",
               apiKey: "gateway-key",

@@ -338,7 +338,10 @@ export class ModelProviders extends Context.Service<
                       providerModel.modelProviderId,
                       providerModel.modelId,
                     ],
-                    set: { name: sql`excluded.name`, updatedAt: sql`now()` },
+                    set: {
+                      name: sql`excluded.name`,
+                      updatedAt: sql`now()`,
+                    },
                   })
               return id!
             }),

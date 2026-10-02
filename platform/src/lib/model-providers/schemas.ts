@@ -2,10 +2,10 @@ import { Schema } from "effect"
 
 import { DisplayNameSchema, enumSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
 
-const MODEL_PROVIDER_TYPES = ["openai", "openai-compatible"] as const
+const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "openrouter"] as const
 const ModelProviderTypeSchema = enumSchema(MODEL_PROVIDER_TYPES)
 export type ModelProviderType = typeof ModelProviderTypeSchema.Type
-const ModelProviderApiSchema = enumSchema(["responses", "chat-completions"])
+const ModelProviderApiSchema = enumSchema(["responses", "chat-completions", "anthropic-messages"])
 export type ModelProviderApi = typeof ModelProviderApiSchema.Type
 
 const ModelProviderApiKeySchema = NonEmptyStringSchema.pipe(
@@ -44,7 +44,7 @@ const ProviderModelFieldsSchema = Schema.Struct({
   name: DisplayNameSchema,
 })
 
-const ModelProviderFieldsSchema = Schema.Struct({
+export const ModelProviderFieldsSchema = Schema.Struct({
   name: DisplayNameSchema,
   providerType: ModelProviderTypeSchema,
   api: ModelProviderApiSchema,
@@ -59,7 +59,27 @@ const ModelProviderFieldsSchema = Schema.Struct({
       ),
     ),
   ),
-})
+}).pipe(
+  Schema.check(
+    Schema.makeFilter((provider) => {
+      const supported =
+        provider.providerType === "anthropic"
+          ? provider.api === "anthropic-messages"
+          : provider.providerType === "openrouter"
+            ? provider.api === "chat-completions"
+            : provider.api !== "anthropic-messages"
+      if (!supported)
+        return { path: ["api"], issue: "Select a supported API format for this provider" }
+      // The Anthropic SDK appends /v1/messages itself. https://docs.anthropic.com/en/api/messages
+      if (provider.api === "anthropic-messages" && /\/v1\/?$/.test(provider.baseUrl))
+        return {
+          path: ["baseUrl"],
+          issue: "Remove /v1 from the Anthropic API URL. The client adds it to each request",
+        }
+      return undefined
+    }),
+  ),
+)
 export type ModelProviderFields = typeof ModelProviderFieldsSchema.Type
 
 export const ModelProviderCredentialsPayloadSchema = Schema.Struct({

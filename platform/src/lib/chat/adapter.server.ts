@@ -1,4 +1,5 @@
 import { createModel, extendAdapter } from "@tanstack/ai"
+import { createAnthropicChat } from "@tanstack/ai-anthropic"
 import { createOpenaiChat } from "@tanstack/ai-openai"
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
 
@@ -14,6 +15,16 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
       baseURL: configuration.baseUrl,
       organization: null,
       project: null,
+    })
+  }
+  if (configuration.api === "anthropic-messages") {
+    const createAnthropicModel = extendAdapter(createAnthropicChat, [
+      createModel(configuration.modelId, ["text", "image", "document"]),
+    ])
+    // Null stops the SDK sending a deployment ANTHROPIC_AUTH_TOKEN as a bearer header.
+    return createAnthropicModel(configuration.modelId, configuration.apiKey, {
+      baseURL: configuration.baseUrl,
+      authToken: null,
     })
   }
   return openaiCompatibleText(configuration.modelId, {

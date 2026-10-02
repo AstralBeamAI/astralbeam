@@ -22,6 +22,7 @@
     "npm:@react-email/render@2.1.0": "2.1.0_react@19.2.8_react-dom@19.2.8",
     "npm:@scalar/api-reference@^1.67.0": "1.67.0_zod@4.6.5",
     "npm:@tailwindcss/vite@4": "4.3.3_vite@8.2.1",
+    "npm:@tanstack/ai-anthropic@~0.19.3": "0.19.3_@tanstack+ai@0.63.0",
     "npm:@tanstack/ai-openai@~0.25.1": "0.25.1_@tanstack+ai@0.63.0_@opentelemetry+api@1.9.0_ws@8.21.3_zod@4.6.5",
     "npm:@tanstack/ai-sandbox-daytona@~0.3.4": "0.3.4_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_ws@8.21.3_zod@4.6.5",
     "npm:@tanstack/ai-sandbox-docker@~0.3.2": "0.3.2_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_zod@4.6.5",
@@ -137,6 +138,14 @@
         "swrv",
         "vue"
       ]
+    },
+    "@anthropic-ai/sdk@0.97.1": {
+      "integrity": "sha512-wOf7AUeJPitcVpvKO4UMu63mWH5SaVipkGd7OOQJt/G6VYGlV8D2Gp9dLxOrttDJh/9gqPqdaBwDGcBevumeAg==",
+      "dependencies": [
+        "json-schema-to-ts",
+        "standardwebhooks"
+      ],
+      "bin": true
     },
     "@aws-sdk/checksums@3.1001.1": {
       "integrity": "sha512-x12Q17KYlJAd3nKf8LV5LV0vt8sh8/6YfQLGPtrGnQf/tW4jqxPGq5GPpuVitpQYM3eUR4XB7CbxZf751NMbLw==",
@@ -3717,6 +3726,14 @@
         "vite"
       ]
     },
+    "@tanstack/ai-anthropic@0.19.3_@tanstack+ai@0.63.0": {
+      "integrity": "sha512-XNcwwUwRMIQGDZggPHCZTqOT6ekNIppEFuQB0EPwRvuLkvKhPBg2AP7iP0oI5dTXjiKGxcbIYQ5jc39tj2ZbQg==",
+      "dependencies": [
+        "@anthropic-ai/sdk",
+        "@tanstack/ai",
+        "@tanstack/ai-utils"
+      ]
+    },
     "@tanstack/ai-event-client@0.13.0": {
       "integrity": "sha512-qGN7saScQHqDd06DE5CNG+wl1O9v6anwsGCCeP4N7zFbZd5k9/2C1u4cdJ2+Qxl2aA8drusLFZMhY/ljhBJqLQ==",
       "dependencies": [
@@ -6661,6 +6678,13 @@
     "json-parse-even-better-errors@2.3.1": {
       "integrity": "sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w=="
     },
+    "json-schema-to-ts@3.1.1": {
+      "integrity": "sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==",
+      "dependencies": [
+        "@babel/runtime",
+        "ts-algebra"
+      ]
+    },
     "json-schema-traverse@0.4.1": {
       "integrity": "sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg=="
     },
@@ -8972,6 +8996,9 @@
         "string-byte-slice"
       ]
     },
+    "ts-algebra@2.0.0": {
+      "integrity": "sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw=="
+    },
     "ts-api-utils@2.5.0_typescript@6.0.3": {
       "integrity": "sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA==",
       "dependencies": [
@@ -9458,6 +9485,7 @@
         "npm:@react-email/render@2.1.0",
         "npm:@scalar/api-reference@^1.67.0",
         "npm:@tailwindcss/vite@4",
+        "npm:@tanstack/ai-anthropic@~0.19.3",
         "npm:@tanstack/ai-openai@~0.25.1",
         "npm:@tanstack/ai-sandbox-daytona@~0.3.4",
         "npm:@tanstack/ai-sandbox-docker@~0.3.2",
