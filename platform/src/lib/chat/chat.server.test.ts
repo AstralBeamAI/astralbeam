@@ -178,8 +178,21 @@ describe("Chat.run", () => {
     }),
   )
 
+  it.effect("keeps high reasoning effort for native OpenAI reasoning models", () =>
+    Effect.gen(function* () {
+      yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+      assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, {
+        reasoning: { effort: "high" },
+      })
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({ agent: sandboxedAgent, key: { apiKey: CHAT_TEST_OPENAI_API_KEY } }),
+      ),
+    ),
+  )
+
   it.effect(
-    "uses the assigned model without reading a broken legacy key or forcing reasoning options",
+    "uses the assigned model without reading a broken legacy key or sending reasoning options",
     () =>
       Effect.gen(function* () {
         const events = yield* runChat()

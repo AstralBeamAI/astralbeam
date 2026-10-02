@@ -256,9 +256,12 @@ export class ModelProviders extends Context.Service<
             : !existing || existing.lockVersion !== input.lockVersion
         )
           return yield* new ModelProviderChanged()
-        const apiKey = input.apiKey ?? (existing ? readModelProviderKey(existing) : null)
+        // A stored key never follows its connection to another URL or provider type.
+        const keyKept =
+          existing?.baseUrl === input.baseUrl && existing.providerType === input.providerType
+        const apiKey = input.apiKey ?? (keyKept ? readModelProviderKey(existing) : null)
         if (!apiKey)
-          return yield* existing ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
+          return yield* keyKept ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
         return yield* db
           .transaction((transaction) =>
             Effect.gen(function* () {
@@ -544,7 +547,15 @@ export class ModelProviders extends Context.Service<
           providerType: selected.providerType,
           storedCredentials,
         })
-        if (!apiKey) return yield* new ModelProviderUnreadable()
+        if (!apiKey) {
+          yield* Effect.logWarning("Model provider key could not be read").pipe(
+            Effect.annotateLogs({
+              organizationId: input.organizationId,
+              providerId: selected.providerId,
+            }),
+          )
+          return yield* new ModelProviderUnreadable()
+        }
         return { ...configuration, apiKey }
       })
 
