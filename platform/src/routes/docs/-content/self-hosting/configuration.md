@@ -33,6 +33,7 @@ Values are parsed as JSON when they happen to be valid JSON, and otherwise taken
 | `app_base_url` | Yes | none | Public origin the deployment is served from. Used for OAuth callbacks and links in email |
 | `privacy_policy_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
 | `terms_of_service_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
+| `allow_private_model_endpoints` | No | `false` | `true` lets model provider connections use HTTP and private network hosts |
 
 The base URL must be an origin and nothing more: no path, query, fragment, or embedded credentials. HTTPS is required unless the host is loopback (`localhost`, `127.0.0.1`, or `[::1]`), which keeps plain HTTP available for local development only. A rejected value reports `Application base URL must be an HTTP(S) origin without credentials, path, query, or fragment, and must use HTTPS outside local development`.
 
@@ -92,6 +93,8 @@ For SES, we should leave both AWS credential fields unset so the deployment uses
 Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.
 
 The application opens to users before model setup is complete. Let's add a provider, enable its models, then assign a default model to an agent. Until an agent has a usable model configuration, its chat requests fail with `503` and the widget shows an error. The organization's home page shows the remaining setup steps.
+
+Provider API URLs must use HTTPS and reach a public address by default. A save refuses a loopback, private, carrier-grade NAT, link-local, unique local, or unspecified host, including the cloud metadata address `169.254.169.254`, with `Use a public HTTPS API URL. This server does not allow HTTP or private network endpoints`. Every provider request also resolves the host, refuses a private address, and does not follow redirects. Set `allow_private_model_endpoints` to `true` when your organizations need a LAN gateway such as Ollama. Keep it off when untrusted organizations share the deployment, because a connection's URL receives its key, the conversation, and tool calls.
 
 The deployment's dogfood organization follows the same process. After accepting the owner invitation, open that organization's **Models** page and configure the provider and agent that power Astro. Saving deployment configuration or sending the invitation does not copy a model key from the server environment.
 

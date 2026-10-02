@@ -1,0 +1,1 @@
+CREATE INDEX "agent_model_organization_id_provider_model_id_idx" ON "agent_model" ("organization_id","provider_model_id");

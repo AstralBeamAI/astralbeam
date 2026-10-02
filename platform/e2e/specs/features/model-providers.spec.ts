@@ -86,7 +86,7 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await models.requestDelete()
     await expectToast(
       page,
-      "Remove these models from their agents before disabling them or deleting the provider",
+      `Remove these models from the agent Multi-provider agent ${runId} before disabling them or deleting the provider`,
     )
     await expect(page.getByRole("heading", { level: 1, name: primaryName })).toBeVisible()
     await captureMilestone(page, "03-assigned-provider-protected")

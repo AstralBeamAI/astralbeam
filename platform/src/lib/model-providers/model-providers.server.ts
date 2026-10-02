@@ -2,6 +2,7 @@ import { and, asc, eq, notInArray, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Result } from "effect"
 
 import { Database } from "@/db/database.server"
+import { Config } from "@/lib/config/config.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import {
@@ -10,13 +11,16 @@ import {
 } from "@/db/lib/optimistic-locking.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import {
+  agent,
   agentModel,
   modelProvider,
   organizationConfiguration,
   providerModel,
 } from "@/db/schema/organizations.server"
+import { fetchPublicModelEndpoint, isPublicModelEndpointUrl } from "./endpoints.server.ts"
 import {
   ModelProviderChanged,
+  ModelProviderEndpointNotAllowed,
   ModelProviderInUse,
   ModelProviderKeyMissing,
   ModelProviderNameTaken,
@@ -50,6 +54,8 @@ export interface OrganizationModelProvider {
   readonly models: readonly ModelProviderModel[]
 }
 
+export type ModelProviderListItem = Omit<OrganizationModelProvider, "apiKeyHint" | "organizationId">
+
 export interface ModelChoice extends ModelProviderModel {
   readonly providerId: string
   readonly providerName: string
@@ -63,6 +69,8 @@ export interface ChatModelConfiguration {
   readonly baseUrl: string
   readonly apiKey: string
   readonly modelId: string
+  /** Enforces the deployment's private endpoint policy on every provider request. */
+  readonly fetch: typeof fetch
 }
 
 export type SaveModelProviderInput = ModelProviderFields & {
@@ -73,6 +81,7 @@ export type SaveModelProviderInput = ModelProviderFields & {
 
 type ModelProviderWriteError =
   | ModelProviderChanged
+  | ModelProviderEndpointNotAllowed
   | ModelProviderInUse
   | ModelProviderNameTaken
   | ModelProviderKeyMissing
@@ -123,7 +132,7 @@ export class ModelProviders extends Context.Service<
   {
     readonly list: (input: {
       readonly organizationId: string
-    }) => Effect.Effect<readonly OrganizationModelProvider[]>
+    }) => Effect.Effect<readonly ModelProviderListItem[]>
     readonly get: (input: {
       readonly organizationId: string
       readonly id: string
@@ -152,6 +161,11 @@ export class ModelProviders extends Context.Service<
     ModelProviders,
     Effect.gen(function* () {
       const db = yield* Database
+      const config = yield* Config
+      const allowsPrivateEndpoints = Effect.map(
+        config.get("allow_private_model_endpoints"),
+        (value) => value === "true",
+      )
 
       const readModelProviderRow = Effect.fnUntraced(function* (
         organizationId: string,
@@ -165,6 +179,44 @@ export class ModelProviders extends Context.Service<
         return row ?? null
       }, Effect.orDie)
 
+      // Names the agents still assigned a provider's models, other than those kept by a save.
+      const failInUse = Effect.fnUntraced(function* (
+        organizationId: string,
+        modelProviderId: string,
+        keptModelIds: string[],
+      ) {
+        const agents = yield* db
+          .selectDistinct({ name: agent.name })
+          .from(agentModel)
+          .innerJoin(
+            providerModel,
+            and(
+              eq(agentModel.organizationId, providerModel.organizationId),
+              eq(agentModel.providerModelId, providerModel.id),
+            ),
+          )
+          .innerJoin(
+            agent,
+            and(
+              eq(agentModel.organizationId, agent.organizationId),
+              eq(agentModel.agentId, agent.id),
+            ),
+          )
+          .where(
+            and(
+              eq(agentModel.organizationId, organizationId),
+              eq(providerModel.modelProviderId, modelProviderId),
+              keptModelIds.length > 0 ? notInArray(providerModel.modelId, keptModelIds) : undefined,
+            ),
+          )
+          .orderBy(asc(agent.name))
+          .pipe(Effect.orDie)
+        return yield* new ModelProviderInUse({
+          agentNames: agents.slice(0, 3).map(({ name }) => name),
+          agentCount: agents.length,
+        })
+      })
+
       const list = Effect.fn("ModelProviders.list")(function* (input: { organizationId: string }) {
         const rows = yield* db
           .select(modelProviderReadColumns)
@@ -176,11 +228,10 @@ export class ModelProviders extends Context.Service<
           .from(providerModel)
           .where(eq(providerModel.organizationId, input.organizationId))
           .orderBy(asc(providerModel.name), asc(providerModel.id))
-        return rows.map(({ storedCredentials, ...row }) => {
-          const apiKey = readModelProviderKey({ ...row, storedCredentials })
+        return rows.map(({ storedCredentials, organizationId, ...row }) => {
+          const apiKey = readModelProviderKey({ ...row, organizationId, storedCredentials })
           return {
             ...row,
-            apiKeyHint: apiKey?.slice(-4) ?? null,
             credentialsReadable: apiKey !== null,
             models: models
               .filter((model) => model.modelProviderId === row.id)
@@ -251,6 +302,8 @@ export class ModelProviders extends Context.Service<
             : !existing || existing.lockVersion !== input.lockVersion
         )
           return yield* new ModelProviderChanged()
+        if (!(yield* allowsPrivateEndpoints) && !isPublicModelEndpointUrl(new URL(input.baseUrl)))
+          return yield* new ModelProviderEndpointNotAllowed()
         // A stored key never follows its connection to another URL or provider type.
         const keyKept =
           existing?.baseUrl === input.baseUrl && existing.providerType === input.providerType
@@ -344,6 +397,13 @@ export class ModelProviders extends Context.Service<
           .pipe(
             mapModelProviderWriteErrors,
             Effect.catchTag("OptimisticLockError", () => Effect.fail(new ModelProviderChanged())),
+            Effect.catchTag("ModelProviderInUse", () =>
+              failInUse(
+                input.organizationId,
+                existing!.id,
+                input.models.map((model) => model.modelId),
+              ),
+            ),
           )
       })
 
@@ -359,6 +419,10 @@ export class ModelProviders extends Context.Service<
         },
         mapDatabaseErrors({ agent_model_provider_model_fk: () => new ModelProviderInUse() }),
         Effect.catchTag("OptimisticLockError", () => Effect.fail(new ModelProviderChanged())),
+        (effect, input) =>
+          Effect.catchTag(effect, "ModelProviderInUse", () =>
+            failInUse(input.organizationId, input.id, []),
+          ),
       )
 
       const setupState = Effect.fn("ModelProviders.setupState")(function* (input: {
@@ -450,7 +514,11 @@ export class ModelProviders extends Context.Service<
           )
           return yield* new ModelProviderUnreadable()
         }
-        return { ...configuration, apiKey }
+        return {
+          ...configuration,
+          apiKey,
+          fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
+        }
       })
 
       return ModelProviders.of({
@@ -465,5 +533,7 @@ export class ModelProviders extends Context.Service<
     }),
   )
 
-  static readonly layer = ModelProviders.layerNoDeps.pipe(Layer.provide(Database.layer))
+  static readonly layer = ModelProviders.layerNoDeps.pipe(
+    Layer.provide([Database.layer, Config.layer]),
+  )
 }

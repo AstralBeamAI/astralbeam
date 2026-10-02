@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { chatParamsFromRequestBody } from "@tanstack/ai"
+import { chatParamsFromRequestBody, EventType } from "@tanstack/ai"
 import { Effect, Layer, Stream } from "effect"
 import { beforeEach, vi } from "vitest"
 
@@ -11,6 +11,7 @@ const chatRunTest = vi.hoisted(() => ({
     modelOptions?: unknown
   }>,
   order: [] as string[],
+  runError: undefined as object | undefined,
 }))
 
 // TanStack's `chat()` is the vendor boundary: it would call the model provider.
@@ -26,6 +27,7 @@ vi.mock("@tanstack/ai", async (original) => ({
     return (async function* () {
       try {
         yield { type: "RUN_STARTED", threadId: "thread", runId: "run" }
+        if (chatRunTest.runError) yield chatRunTest.runError
         await new Promise<void>((resolve) =>
           options.abortController.signal.addEventListener("abort", () => {
             chatRunTest.order.push("aborted")
@@ -48,7 +50,7 @@ import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
 import { Chat } from "./chat.server.ts"
-import { CHAT_SANDBOX_SYSTEM_PROMPT } from "./constants.server.ts"
+import { CHAT_MODEL_UNAVAILABLE_MESSAGE, CHAT_SANDBOX_SYSTEM_PROMPT } from "./constants.server.ts"
 import { ChatSandboxConfigurationUnreadable } from "./sandbox/errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox.server.ts"
 import type { ChatPrincipal } from "./types.ts"
@@ -74,6 +76,7 @@ const CHAT_TEST_MODEL: ChatModelConfiguration = {
   baseUrl: "https://api.openai.com/v1",
   apiKey: "sk-chat-test-provider-key",
   modelId: "gpt-5.6-terra",
+  fetch,
 }
 
 function chatTestLayer(options: {
@@ -123,6 +126,7 @@ const runChat = (body?: Record<string, unknown>) =>
 beforeEach(() => {
   chatRunTest.options = []
   chatRunTest.order = []
+  chatRunTest.runError = undefined
 })
 
 describe("Chat.run", () => {
@@ -163,6 +167,49 @@ describe("Chat.run", () => {
     }),
   )
 
+  it.effect("replaces upstream provider errors before they reach the tenant user", () =>
+    Effect.gen(function* () {
+      const upstream = "401 Incorrect API key provided: sk-inval****"
+      chatRunTest.runError = {
+        type: EventType.RUN_ERROR,
+        runId: "run",
+        message: upstream,
+        code: "invalid_api_key",
+        rawEvent: { error: { message: upstream } },
+        error: { message: upstream, code: "invalid_api_key" },
+      }
+      const events = yield* Stream.runCollect(Stream.take(yield* runChat(), 2))
+      assert.deepStrictEqual(events[1], {
+        type: EventType.RUN_ERROR,
+        runId: "run",
+        message: CHAT_MODEL_UNAVAILABLE_MESSAGE,
+        error: { message: CHAT_MODEL_UNAVAILABLE_MESSAGE },
+      })
+    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
+  )
+
+  it.effect("keeps only the fixed abort shape when a provider reports an aborted code", () =>
+    Effect.gen(function* () {
+      const upstream = "400 Bad request: internal-gateway.example rejected sk-inval****"
+      chatRunTest.runError = {
+        type: EventType.RUN_ERROR,
+        runId: "run",
+        message: upstream,
+        code: "aborted",
+        rawEvent: { error: { message: upstream } },
+        error: { message: upstream, code: "aborted" },
+      }
+      const events = yield* Stream.runCollect(Stream.take(yield* runChat(), 2))
+      assert.deepStrictEqual(events[1], {
+        type: EventType.RUN_ERROR,
+        runId: "run",
+        message: "Request aborted",
+        code: "aborted",
+        error: { message: "Request aborted", code: "aborted" },
+      })
+    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
+  )
+
   it.effect("keeps high reasoning effort for native OpenAI reasoning models", () =>
     Effect.gen(function* () {
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
@@ -190,6 +237,7 @@ describe("Chat.run", () => {
             baseUrl: "https://gateway.example/v1",
             apiKey: "gateway-key",
             modelId: "gateway-model",
+            fetch,
           },
         }),
       ),

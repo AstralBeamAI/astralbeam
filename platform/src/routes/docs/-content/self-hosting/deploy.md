@@ -189,7 +189,7 @@ Let's move a running deployment to a newer release. Read the release notes first
    astralbeam-platform migrate
    ```
 
-   It prompts for `DATABASE_URL` when neither the environment nor [the saved file](#3-set-the-bootstrap-environment) has it. You can skip this step and apply them from `/configure` after the restart instead, where the gate redirects every page until you review and apply the new SQL.
+   It prompts for `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` when neither the environment nor [the saved file](#3-set-the-bootstrap-environment) has them. You can skip this step and apply them from `/configure` after the restart instead, where the gate redirects every page until you review and apply the new SQL.
 
 3. Run this command to restart the service, since the running process keeps serving the old binary until then:
 

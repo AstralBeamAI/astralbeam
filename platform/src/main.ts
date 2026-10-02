@@ -51,14 +51,14 @@ type BootstrapVariable = keyof typeof BOOTSTRAP_PROMPTS
 
 // Fills unset variables from the saved file, prompts on a terminal for any still missing, and
 // reports where each value came from.
-function loadBootstrapEnvironment(names: BootstrapVariable[], promptMissing = true): void {
+function loadBootstrapEnvironment(names: BootstrapVariable[]): void {
   const saved = (
     existsSync(BOOTSTRAP_ENVIRONMENT_FILE)
       ? JSON.parse(readFileSync(BOOTSTRAP_ENVIRONMENT_FILE, "utf8"))
       : {}
   ) as Partial<Record<BootstrapVariable, string>>
   const missing = names.filter((name) => !process.env[name] && !saved[name])
-  for (const name of promptMissing ? missing : []) {
+  for (const name of missing) {
     const value = prompt(BOOTSTRAP_PROMPTS[name])?.trim()
     if (value) saved[name] = value
   }
@@ -142,8 +142,7 @@ program
   .description("apply pending database migrations in one transaction")
   .option("--dry-run", "list pending migrations without applying them")
   .action(async (options: { dryRun?: boolean }) => {
-    loadBootstrapEnvironment(["DATABASE_URL"])
-    loadBootstrapEnvironment(["DATABASE_ENCRYPTION_KEY"], false)
+    loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
     const dryRun = options.dryRun ?? false
     try {
       const names = await migrateDatabase({ dryRun })

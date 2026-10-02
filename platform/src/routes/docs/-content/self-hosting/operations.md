@@ -44,7 +44,13 @@ Run this command to apply every checked-in migration that has not run yet from a
 deno task --cwd platform db migrate
 ```
 
-**NOTE**: Existing organization model keys need the same `DATABASE_ENCRYPTION_KEY` keyring that encrypted them. The upgrade automatically creates an OpenAI connection for each stored key, assigns its model to agents without model selections, and removes the old field. An unreadable key rolls back the conversion. Keep existing decryption keys available until the upgrade completes.
+**NOTE**: Existing organization model keys need the same `DATABASE_ENCRYPTION_KEY` keyring that encrypted them. The upgrade automatically creates an OpenAI connection for each stored key, assigns its model to agents without model selections, and removes the old field. An unreadable key rolls back the whole upgrade with `Could not read the model key of organization <id>. Add the key that encrypted it to DATABASE_ENCRYPTION_KEY as a fallback, or set openai_api_key to NULL to discard it`. Keep existing decryption keys available until the upgrade completes.
+
+To recover from that error, either restore the retired keyring entry after the active one, as `DATABASE_ENCRYPTION_KEY=new,old`, and retry, or run this statement to discard the unreadable key. Its owner then adds a connection again under **Models**.
+
+```sql
+UPDATE organization_configuration SET openai_api_key = NULL WHERE organization_id = '<id>';
+```
 
 Run this command to validate the consistency of the migration history on disk, which says nothing about the state of the live database:
 

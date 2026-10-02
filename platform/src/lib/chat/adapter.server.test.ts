@@ -40,7 +40,6 @@ const chatAdapterCases: readonly (Pick<
 ]
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.unstubAllEnvs()
 })
 
@@ -54,10 +53,10 @@ describe("chat provider request routing", () => {
       vi.stubEnv("OPENROUTER_API_KEY", "unused-environment-openrouter-key")
       vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "unused-environment-anthropic-token")
       vi.stubEnv("OPENAI_ORG_ID", "unused-environment-openai-organization")
-      vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
-        if (typeof init.body !== "string") throw new Error("Expected a JSON request body")
+      const configuredFetch: typeof fetch = (input, init) => {
+        if (typeof init?.body !== "string") throw new Error("Expected a JSON request body")
         requests.push({
-          url: new URL(url),
+          url: new URL(input instanceof Request ? input.url : input),
           headers: new Headers(init.headers),
           body: Schema.decodeUnknownSync(Schema.Struct({ model: Schema.String }))(
             JSON.parse(init.body),
@@ -69,12 +68,13 @@ describe("chat provider request routing", () => {
             { status: 401 },
           ),
         )
-      })
+      }
       const adapter = createChatAdapter({
         ...configuration,
         providerId: "provider-instance",
         providerName: "Configured provider",
         apiKey: "configured-instance-key",
+        fetch: configuredFetch,
       })
       const events: StreamChunk[] = []
       for await (const event of chat({ adapter, messages: [{ role: "user", content: "Hello" }] }))

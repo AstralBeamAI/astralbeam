@@ -31,6 +31,10 @@ export const CHAT_ATTACHMENT_SYSTEM_PROMPT =
 // runs, and fixes a script outgrows. https://tanstack.com/ai/latest/docs/reference/functions/maxIterations
 export const CHAT_MAX_MODEL_TURNS = 25
 
+// Provider errors can quote keys, hosts, or account details, so tenant users see this instead.
+export const CHAT_MODEL_UNAVAILABLE_MESSAGE =
+  "The assistant is unavailable right now. Please contact the site owner if this continues."
+
 // This limit uses the shared database store and an opaque organization + tenant + tenant-user key. It is
 // deliberately independent of Better Auth API-key usage and never touches API-key counters.
 export const CHAT_RATE_LIMIT_WINDOW_MS = 60_000

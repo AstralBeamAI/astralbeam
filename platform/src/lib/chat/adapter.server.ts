@@ -13,6 +13,7 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
     // Null stops the SDK reading OPENAI_ORG_ID and OPENAI_PROJECT_ID from the deployment.
     return createOpenaiModel(configuration.modelId, configuration.apiKey, {
       baseURL: configuration.baseUrl,
+      fetch: configuration.fetch,
       organization: null,
       project: null,
     })
@@ -24,12 +25,14 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
     // Null stops the SDK sending a deployment ANTHROPIC_AUTH_TOKEN as a bearer header.
     return createAnthropicModel(configuration.modelId, configuration.apiKey, {
       baseURL: configuration.baseUrl,
+      fetch: configuration.fetch,
       authToken: null,
     })
   }
   return openaiCompatibleText(configuration.modelId, {
     apiKey: configuration.apiKey,
     baseURL: configuration.baseUrl,
+    fetch: configuration.fetch,
     organization: null,
     project: null,
     api: configuration.api,

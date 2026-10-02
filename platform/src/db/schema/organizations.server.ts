@@ -248,6 +248,11 @@ export const agentModel = snakeCase.table(
       table.agentId,
       table.position,
     ),
+    // Serves the RESTRICT check when a provider model is deleted.
+    index("agent_model_organization_id_provider_model_id_idx").on(
+      table.organizationId,
+      table.providerModelId,
+    ),
     check("agent_model_position_check", sql`${table.position} >= 0`),
     foreignKey({
       name: "agent_model_agent_fk",

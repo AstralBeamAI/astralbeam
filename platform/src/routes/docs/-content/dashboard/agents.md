@@ -22,7 +22,9 @@ You can change these settings later, and a change applies to the next request ra
 
 ## Model selection
 
-1. Open **Models**, add a named provider, and enable the models we want to use.
+Let's give the agent its models.
+
+1. Open **Models**, add a named provider, and enable the models the agent should use.
 2. Open the agent, select models from those providers, and choose its default model.
 3. Save the agent. New chat requests use the selected default and the credentials of that model's provider.
 

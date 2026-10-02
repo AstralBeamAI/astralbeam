@@ -10,6 +10,7 @@ import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/sc
 import { generateSecret } from "@/lib/utils.server"
 import {
   EmailAddressSchema,
+  enumSchema,
   NonEmptyStringSchema,
   strictParseOptions,
   UuidV7Schema,
@@ -63,6 +64,18 @@ const PublicHttpUrlSchema = Schema.URLFromString.check(
     encode: SchemaGetter.transform((value) => new URL(value)),
   }),
 )
+
+// Environment values parse as JSON, so ALLOW_PRIVATE_MODEL_ENDPOINTS=true arrives as a boolean.
+const BooleanSettingLiteralSchema = enumSchema(["false", "true"])
+const BooleanSettingSchema = Schema.Union([
+  BooleanSettingLiteralSchema,
+  Schema.Boolean.pipe(
+    Schema.decodeTo(BooleanSettingLiteralSchema, {
+      decode: SchemaGetter.transform((value) => (value ? "true" : "false")),
+      encode: SchemaGetter.transform((value) => value === "true"),
+    }),
+  ),
+])
 
 /** Fails with a generated message that never repeats the rejected value. */
 export function decodeConfigValue(
@@ -325,6 +338,21 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     required: false,
     isPublic: true,
     schema: PublicHttpUrlSchema,
+  },
+  {
+    key: "allow_private_model_endpoints",
+    group: "General",
+    label: "Allow Private Model Endpoints",
+    description:
+      "Lets organizations use HTTP model provider URLs and loopback, private, or link-local hosts, such as a LAN gateway. Keep it off when untrusted organizations share this deployment.",
+    kind: "enum",
+    required: false,
+    defaultValue: "false",
+    options: [
+      { value: "false", label: "Off (public HTTPS endpoints only)" },
+      { value: "true", label: "On (also allow HTTP and private networks)" },
+    ],
+    schema: BooleanSettingSchema,
   },
 ]
 
