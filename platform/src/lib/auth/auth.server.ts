@@ -9,7 +9,7 @@ import {
   createEmailVerificationToken,
   isAPIError,
 } from "better-auth/api"
-import { captcha, haveIBeenPwned, isPasswordCompromised, organization } from "better-auth/plugins"
+import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { Clock, Context, Effect, Layer, Predicate, Ref } from "effect"
 
@@ -326,41 +326,45 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
-        // Remove this precheck and its imports when the installed release fixes token consumption.
-        // https://github.com/better-auth/better-auth/issues/10632
-        if (context.path === "/reset-password" && !IS_TEST_RUNTIME) {
-          await runAppEffect(
-            Effect.gen(function* () {
-              const token = body?.token || recordValue(context.query)?.token
-              const newPassword = body?.newPassword
-              if (!Predicate.isString(token) || !token || !Predicate.isString(newPassword)) return
-
-              const { minPasswordLength, maxPasswordLength } = context.context.password.config
-              if (newPassword.length < minPasswordLength || newPassword.length > maxPasswordLength)
-                return
-
-              const verification = yield* tryPromiseInServerRequest(() =>
-                context.context.internalAdapter.findVerificationValue(`reset-password:${token}`),
-              )
-              if (
-                !verification ||
-                verification.expiresAt.getTime() < (yield* Clock.currentTimeMillis)
-              ) {
-                return
-              }
-
-              if (!(yield* tryPromiseInServerRequest(() => isPasswordCompromised(newPassword))))
-                return
-              return yield* Effect.fail(
-                new APIError("BAD_REQUEST", {
-                  code: "PASSWORD_COMPROMISED",
-                  message:
-                    "The password you entered has been compromised. Please choose a different password.",
-                }),
-              )
-            }).pipe(Effect.orDie),
+        // Hash once before the original token consumption, leaving the endpoint and plugins intact.
+        // Remove this request-scoped wrapper after https://github.com/better-auth/better-auth/pull/10717 ships.
+        if (context.path === "/reset-password" && Predicate.isString(body?.newPassword)) {
+          const { internalAdapter, password } = context.context
+          const newPassword = body.newPassword
+          const hashPassword: Effect.Effect<string> = await runAppEffect(
+            Effect.cached(
+              tryPromiseInServerRequest(() => password.hash(newPassword)).pipe(Effect.orDie),
+            ),
           )
-          return
+          return {
+            context: {
+              context: {
+                password: { ...password, hash: (): Promise<string> => runAppEffect(hashPassword) },
+                internalAdapter: {
+                  ...internalAdapter,
+                  consumeVerificationValue: (
+                    identifier: string,
+                  ): ReturnType<typeof internalAdapter.consumeVerificationValue> =>
+                    runAppEffect(
+                      Effect.gen(function* () {
+                        const verification = yield* tryPromiseInServerRequest(() =>
+                          internalAdapter.findVerificationValue(identifier),
+                        )
+                        if (
+                          verification &&
+                          verification.expiresAt.getTime() >= (yield* Clock.currentTimeMillis)
+                        ) {
+                          yield* hashPassword
+                        }
+                        return yield* tryPromiseInServerRequest(() =>
+                          internalAdapter.consumeVerificationValue(identifier),
+                        )
+                      }).pipe(Effect.orDie),
+                    ),
+                },
+              },
+            },
+          }
         }
         if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
           // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
@@ -428,9 +432,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       turnstileAuthPlugin,
       haveIBeenPwned({
         enabled: !IS_TEST_RUNTIME,
-        // Restore "/reset-password" here when removing the precheck after upgrading to this fix.
-        // https://github.com/better-auth/better-auth/pull/10717
-        paths: ["/sign-up/email", "/change-password"],
+        paths: ["/sign-up/email", "/change-password", "/reset-password"],
       }),
       organization({
         ac: organizationAccessControl,
