@@ -9,7 +9,7 @@ import {
   createEmailVerificationToken,
   isAPIError,
 } from "better-auth/api"
-import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
+import { captcha, haveIBeenPwned, isPasswordCompromised, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { Context, Effect, Layer, Predicate, Ref } from "effect"
 
@@ -44,7 +44,6 @@ import {
 } from "./email-delivery.server.ts"
 import type { AuthEmailNotDelivered } from "./errors.ts"
 import { acceptedAtForUserCreation, assertLegalAcceptance, recordValue } from "./legal.server.ts"
-import { assertResetPasswordSafe } from "./password-reset.server.ts"
 import { createSyntheticUser } from "./synthetic-user.server.ts"
 
 // Better Auth 1.7.2 keeps these defaults inline, so each passes to both its option and its email
@@ -326,10 +325,23 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     },
     hooks: {
       before: createAuthMiddleware(async (context) => {
-        if (context.path === "/reset-password" && !IS_TEST_RUNTIME) {
-          await assertResetPasswordSafe(context)
-        }
         const body = recordValue(context.body)
+        // Check before token consumption until Better Auth ships this ordering fix.
+        // https://github.com/better-auth/better-auth/pull/10717
+        if (
+          context.path === "/reset-password" &&
+          !IS_TEST_RUNTIME &&
+          Predicate.isString(body?.newPassword) &&
+          body.newPassword.length >= context.context.password.config.minPasswordLength &&
+          body.newPassword.length <= context.context.password.config.maxPasswordLength &&
+          (await isPasswordCompromised(body.newPassword))
+        ) {
+          throw new APIError("BAD_REQUEST", {
+            code: "PASSWORD_COMPROMISED",
+            message:
+              "The password you entered has been compromised. Please choose a different password.",
+          })
+        }
         if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
           // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
           await runAppEffect(
