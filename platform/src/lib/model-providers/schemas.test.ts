@@ -55,7 +55,16 @@ describe("model provider protocols", () => {
         ...modelProviderSchemaFixture,
         providerType: "anthropic",
         api: "anthropic-messages",
+        baseUrl: "https://api.anthropic.com",
       }),
     ).toBe(true)
+    expect(
+      Schema.is(ModelProviderFieldsSchema)({
+        ...modelProviderSchemaFixture,
+        providerType: "anthropic",
+        api: "anthropic-messages",
+        baseUrl: "https://api.anthropic.com/v1",
+      }),
+    ).toBe(false)
   })
 })

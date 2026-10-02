@@ -181,6 +181,24 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     expect(stale._tag).toBe("ModelProviderChanged")
   })
 
+  test("requires the key again when a connection moves to another URL or provider type", async () => {
+    const id = await runAppEffect(saveIntegrationProvider(organizationId))
+    for (const change of [
+      { baseUrl: "https://elsewhere.example/v1" },
+      { providerType: "anthropic" as const, api: "anthropic-messages" as const },
+    ]) {
+      const refused = await runAppEffect(
+        saveIntegrationProvider(organizationId, {
+          id,
+          lockVersion: 0,
+          apiKey: null,
+          ...change,
+        }).pipe(Effect.flip),
+      )
+      expect(refused._tag).toBe("ModelProviderKeyMissing")
+    }
+  })
+
   test("deletes an unassigned provider even when its encrypted key is unreadable", async () => {
     const id = await runAppEffect(saveIntegrationProvider(organizationId))
     await db.execute(

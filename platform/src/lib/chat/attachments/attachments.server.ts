@@ -341,7 +341,7 @@ export function normalizeChatAttachments(
         entry: {
           ...entry,
           type: kind === "image" ? "image" : "document",
-          metadata: { ...(Predicate.isObject(entry.metadata) ? entry.metadata : {}), filename },
+          metadata: { filename },
         },
       }
     }
@@ -369,7 +369,7 @@ export function normalizeChatAttachments(
 
   /**
    * Rewrites one user message: media parts become provider parts, refusals, or one line naming
-   * the files that arrived with it. The user's own text is never touched.
+   * the files that arrived with it. The user's own text is kept, without its metadata.
    *
    * That line is all a file leaves in the conversation, and it ties the file to its turn. A
    * transcript that echoes this message therefore reads as the user attaching a file rather than
@@ -383,7 +383,11 @@ export function normalizeChatAttachments(
     let position = 0
     for (const entry of entries) {
       if (!isMediaEntry(entry)) {
-        next.push(entry)
+        // Adapters may spread part metadata onto provider blocks, so a caller's never travels.
+        if (Predicate.hasProperty(entry, "metadata")) {
+          const { metadata: _metadata, ...part } = entry
+          next.push(part)
+        } else next.push(entry)
         continue
       }
       position += 1
