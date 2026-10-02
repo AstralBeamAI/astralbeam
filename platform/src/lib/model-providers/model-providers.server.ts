@@ -11,6 +11,7 @@ import {
 } from "@/db/lib/optimistic-locking.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import {
+  agent,
   agentModel,
   modelProvider,
   organizationConfiguration,
@@ -175,6 +176,44 @@ export class ModelProviders extends Context.Service<
           .limit(1)
         return row ?? null
       }, Effect.orDie)
+
+      // Names the agents still assigned a provider's models, other than those kept by a save.
+      const failInUse = Effect.fnUntraced(function* (
+        organizationId: string,
+        modelProviderId: string,
+        keptModelIds: string[],
+      ) {
+        const agents = yield* db
+          .selectDistinct({ name: agent.name })
+          .from(agentModel)
+          .innerJoin(
+            providerModel,
+            and(
+              eq(agentModel.organizationId, providerModel.organizationId),
+              eq(agentModel.providerModelId, providerModel.id),
+            ),
+          )
+          .innerJoin(
+            agent,
+            and(
+              eq(agentModel.organizationId, agent.organizationId),
+              eq(agentModel.agentId, agent.id),
+            ),
+          )
+          .where(
+            and(
+              eq(agentModel.organizationId, organizationId),
+              eq(providerModel.modelProviderId, modelProviderId),
+              keptModelIds.length > 0 ? notInArray(providerModel.modelId, keptModelIds) : undefined,
+            ),
+          )
+          .orderBy(asc(agent.name))
+          .pipe(Effect.orDie)
+        return yield* new ModelProviderInUse({
+          agentNames: agents.slice(0, 3).map(({ name }) => name),
+          agentCount: agents.length,
+        })
+      })
 
       const list = Effect.fn("ModelProviders.list")(function* (input: { organizationId: string }) {
         const rows = yield* db
@@ -357,6 +396,13 @@ export class ModelProviders extends Context.Service<
           .pipe(
             mapModelProviderWriteErrors,
             Effect.catchTag("OptimisticLockError", () => Effect.fail(new ModelProviderChanged())),
+            Effect.catchTag("ModelProviderInUse", () =>
+              failInUse(
+                input.organizationId,
+                existing!.id,
+                input.models.map((model) => model.modelId),
+              ),
+            ),
           )
       })
 
@@ -372,6 +418,10 @@ export class ModelProviders extends Context.Service<
         },
         mapDatabaseErrors({ agent_model_provider_model_fk: () => new ModelProviderInUse() }),
         Effect.catchTag("OptimisticLockError", () => Effect.fail(new ModelProviderChanged())),
+        (effect, input) =>
+          Effect.catchTag(effect, "ModelProviderInUse", () =>
+            failInUse(input.organizationId, input.id, []),
+          ),
       )
 
       const setupState = Effect.fn("ModelProviders.setupState")(function* (input: {

@@ -157,13 +157,15 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
         apiKey: null,
       }).pipe(Effect.flip),
     )
-    expect(disable._tag).toBe("ModelProviderInUse")
+    expect(disable.message).toBe(
+      "Remove these models from the agent Assistant before disabling them or deleting the provider",
+    )
     const remove = await runAppEffect(
       Effect.flatMap(ModelProviders, (service) =>
         service.remove({ organizationId, id: providerId, lockVersion: 0 }),
       ).pipe(Effect.flip),
     )
-    expect(remove._tag).toBe("ModelProviderInUse")
+    expect(remove.message).toBe(disable.message)
     await runAppEffect(
       saveIntegrationProvider(organizationId, {
         id: providerId,
