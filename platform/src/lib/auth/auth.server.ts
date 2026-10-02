@@ -331,40 +331,29 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         if (context.path === "/reset-password" && Predicate.isString(body?.newPassword)) {
           const { internalAdapter, password } = context.context
           const newPassword = body.newPassword
-          const hashPassword: Effect.Effect<string> = await runAppEffect(
+          const hashPassword = await runAppEffect(
             Effect.cached(
               tryPromiseInServerRequest(() => password.hash(newPassword)).pipe(Effect.orDie),
             ),
           )
-          return {
-            context: {
-              context: {
-                password: { ...password, hash: (): Promise<string> => runAppEffect(hashPassword) },
-                internalAdapter: {
-                  ...internalAdapter,
-                  consumeVerificationValue: (
-                    identifier: string,
-                  ): ReturnType<typeof internalAdapter.consumeVerificationValue> =>
-                    runAppEffect(
-                      Effect.gen(function* () {
-                        const verification = yield* tryPromiseInServerRequest(() =>
-                          internalAdapter.findVerificationValue(identifier),
-                        )
-                        if (
-                          verification &&
-                          verification.expiresAt.getTime() >= (yield* Clock.currentTimeMillis)
-                        ) {
-                          yield* hashPassword
-                        }
-                        return yield* tryPromiseInServerRequest(() =>
-                          internalAdapter.consumeVerificationValue(identifier),
-                        )
-                      }).pipe(Effect.orDie),
-                    ),
-                },
-              },
-            },
+          context.context.password = { ...password, hash: () => runAppEffect(hashPassword) }
+          context.context.internalAdapter = {
+            ...internalAdapter,
+            consumeVerificationValue: (identifier) =>
+              runAppEffect(
+                Effect.gen(function* () {
+                  const verification = yield* tryPromiseInServerRequest(() =>
+                    internalAdapter.findVerificationValue(identifier),
+                  )
+                  const now = yield* Clock.currentTimeMillis
+                  if (verification && verification.expiresAt.getTime() >= now) yield* hashPassword
+                  return yield* tryPromiseInServerRequest(() =>
+                    internalAdapter.consumeVerificationValue(identifier),
+                  )
+                }).pipe(Effect.orDie),
+              ),
           }
+          return
         }
         if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
           // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
