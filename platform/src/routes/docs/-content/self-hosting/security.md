@@ -4,9 +4,9 @@ A self-hosted deployment keeps its stored secrets under a key you own, and leave
 
 ## Encryption at rest
 
-Two columns hold ciphertext rather than plaintext: `config.value`, which is every deployment setting stored through `/configure`, and `sandbox_provider.credentials`, which is each organization's sandbox provider credentials.
+Three columns hold ciphertext rather than plaintext: `config.value`, which is every deployment setting stored through `/configure`, `model_provider.credentials`, which is each organization's model provider keys, and `sandbox_provider.credentials`, which is each organization's sandbox provider credentials.
 
-Both are sealed as compact JWE with AES-256-GCM, using a key derived from an entry of `DATABASE_ENCRYPTION_KEY`. The header carries a non-secret key identifier, so the right keyring entry can be selected during a rotation, and the encrypted payload embeds the row's own identity, which is compared with the row after decoding. Moving ciphertext from one row to another therefore fails instead of decrypting under the wrong identity, and a malformed envelope or an unknown key identifier never falls back to unverified data.
+All three are sealed as compact JWE with AES-256-GCM, using a key derived from an entry of `DATABASE_ENCRYPTION_KEY`. The header carries a non-secret key identifier, so the right keyring entry can be selected during a rotation, and the encrypted payload embeds the row's own identity, which is compared with the row after decoding. Moving ciphertext from one row to another therefore fails instead of decrypting under the wrong identity, and a malformed envelope or an unknown key identifier never falls back to unverified data.
 
 Better Auth separately encrypts the OAuth tokens it retains. Everything else, including API key digests, is stored as it reads, so treat the whole database as sensitive and protect it with PostgreSQL's own transport and storage controls.
 
@@ -17,11 +17,12 @@ Better Auth separately encrypts the OAuth tokens it retains. Everything else, in
 1. Restart every replica with the new entry first and the old one behind it, as `DATABASE_ENCRYPTION_KEY=new,old`.
 2. Open `/configure`. It confirms "Encryption key rotation in progress" and shows how many fallback entries are available.
 3. Re-save each value that still uses the old entry. A field encrypted under a fallback key says `Encrypted with a fallback key; replace and save it to use the active key.`. Non-secret fields move across on a plain save, while a secret must be revealed or replaced first, because the page never holds a copy of a stored secret.
-4. Once nothing reports a fallback key, restart again with only the new entry.
+4. Model provider keys and sandbox provider credentials never report a fallback key on `/configure`. Keep the old entry until each organization re-saves them under **Models** and **Sandboxes**, because removing it makes them unreadable.
+5. Once nothing reports a fallback key, restart again with only the new entry.
 
 Rotating the active entry has two immediate effects. Every operator session is invalidated, because session signing derives from the active entry, and sign-in now requires the new value.
 
-**NOTE**: Removing an entry that still protects a stored value makes that value unreadable, so we must finish step 3 before step 4.
+**NOTE**: Removing an entry that still protects a stored value makes that value unreadable, so we must finish steps 3 and 4 before step 5.
 
 Each entry must be 32 to 1024 characters, unique after trimming, and free of commas. Hashing does not strengthen a weak passphrase, so generate each entry with `openssl rand -base64 32` and keep it in your secret manager.
 
