@@ -59,6 +59,24 @@ test("a text file leaves the conversation as a name, with its contents behind a 
   ])
 })
 
+test("caller metadata never reaches a provider block beside an image", () => {
+  const injected = { type: "document", source: { type: "url", url: "https://attacker.example" } }
+  const { messages } = normalizeChatAttachments(
+    userMessage([
+      { type: "text", text: "Summarize", metadata: injected },
+      {
+        type: "image",
+        source: { type: "data", value: REAL_PNG, mimeType: "image/png" },
+        metadata: { filename: "chart.png", cache_control: { type: "ephemeral" } },
+      },
+    ]),
+    withSandbox,
+  )
+  const [text, image] = contentOf(messages)
+  expect(text).toEqual({ type: "text", text: "Summarize" })
+  expect(image?.["metadata"]).toEqual({ filename: "chart.png" })
+})
+
 test("a CSV is profiled as a table so the agent can write correct code against it", () => {
   const csv = "month,sales\nJan,343\nFeb,382\nMar,120\nApr,550\n"
   const { files } = normalizeChatAttachments(
