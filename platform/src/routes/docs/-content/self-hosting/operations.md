@@ -44,8 +44,6 @@ Run this command to apply every checked-in migration that has not run yet from a
 deno task --cwd platform db migrate
 ```
 
-**NOTE**: Upgrade a deployment older than 0.14.0 to 0.14.0 first, because that release converts stored organization OpenAI keys to model provider connections. Later releases refuse the upgrade while such keys remain.
-
 Run this command to validate the consistency of the migration history on disk, which says nothing about the state of the live database:
 
 ```sh

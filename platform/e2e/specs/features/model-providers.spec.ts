@@ -43,6 +43,10 @@ test("independent OpenAI connections supply distinct agent models and protect as
   await test.step("a blank-key edit preserves credentials without returning them", async () => {
     await models.open(primaryName)
     await expect(page.getByLabel("API key", { exact: true })).toHaveValue("")
+    await expect(page.getByLabel("API key", { exact: true })).toHaveAttribute(
+      "placeholder",
+      "••••••••••••1111",
+    )
     await expect(page.getByText("Stored key ends in 1111. Leave blank to keep it.")).toBeVisible()
     await expect(page.getByRole("combobox", { name: "Provider", exact: true })).toBeDisabled()
     await page.getByLabel("API URL", { exact: true }).fill("https://moved.example.test/v1")
