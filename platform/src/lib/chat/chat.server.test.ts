@@ -74,6 +74,7 @@ const CHAT_TEST_MODEL: ChatModelConfiguration = {
   baseUrl: "https://api.openai.com/v1",
   apiKey: "sk-chat-test-provider-key",
   modelId: "gpt-5.6-terra",
+  fetch,
 }
 
 function chatTestLayer(options: {
@@ -190,6 +191,7 @@ describe("Chat.run", () => {
             baseUrl: "https://gateway.example/v1",
             apiKey: "gateway-key",
             modelId: "gateway-model",
+            fetch,
           },
         }),
       ),

@@ -2,6 +2,7 @@ import { and, asc, eq, notInArray, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Result } from "effect"
 
 import { Database } from "@/db/database.server"
+import { Config } from "@/lib/config/config.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import {
@@ -9,9 +10,16 @@ import {
   updateWithOptimisticLock,
 } from "@/db/lib/optimistic-locking.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
-import { agentModel, modelProvider, providerModel } from "@/db/schema/organizations.server"
+import {
+  agentModel,
+  modelProvider,
+  organizationConfiguration,
+  providerModel,
+} from "@/db/schema/organizations.server"
+import { fetchPublicModelEndpoint, isPublicModelEndpointUrl } from "./endpoints.server.ts"
 import {
   ModelProviderChanged,
+  ModelProviderEndpointNotAllowed,
   ModelProviderInUse,
   ModelProviderKeyMissing,
   ModelProviderNameTaken,
@@ -58,6 +66,8 @@ export interface ChatModelConfiguration {
   readonly baseUrl: string
   readonly apiKey: string
   readonly modelId: string
+  /** Enforces the deployment's private endpoint policy on every provider request. */
+  readonly fetch: typeof fetch
 }
 
 export type SaveModelProviderInput = ModelProviderFields & {
@@ -68,6 +78,7 @@ export type SaveModelProviderInput = ModelProviderFields & {
 
 type ModelProviderWriteError =
   | ModelProviderChanged
+  | ModelProviderEndpointNotAllowed
   | ModelProviderInUse
   | ModelProviderNameTaken
   | ModelProviderKeyMissing
@@ -147,6 +158,11 @@ export class ModelProviders extends Context.Service<
     ModelProviders,
     Effect.gen(function* () {
       const db = yield* Database
+      const config = yield* Config
+      const allowsPrivateEndpoints = Effect.map(
+        config.get("allow_private_model_endpoints"),
+        (value) => value === "true",
+      )
 
       const readModelProviderRow = Effect.fnUntraced(function* (
         organizationId: string,
@@ -246,6 +262,8 @@ export class ModelProviders extends Context.Service<
             : !existing || existing.lockVersion !== input.lockVersion
         )
           return yield* new ModelProviderChanged()
+        if (!(yield* allowsPrivateEndpoints) && !isPublicModelEndpointUrl(new URL(input.baseUrl)))
+          return yield* new ModelProviderEndpointNotAllowed()
         // A stored key never follows its connection to another URL or provider type.
         const keyKept =
           existing?.baseUrl === input.baseUrl && existing.providerType === input.providerType
@@ -445,7 +463,11 @@ export class ModelProviders extends Context.Service<
           )
           return yield* new ModelProviderUnreadable()
         }
-        return { ...configuration, apiKey }
+        return {
+          ...configuration,
+          apiKey,
+          fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
+        }
       })
 
       return ModelProviders.of({
@@ -460,5 +482,7 @@ export class ModelProviders extends Context.Service<
     }),
   )
 
-  static readonly layer = ModelProviders.layerNoDeps.pipe(Layer.provide(Database.layer))
+  static readonly layer = ModelProviders.layerNoDeps.pipe(
+    Layer.provide([Database.layer, Config.layer]),
+  )
 }

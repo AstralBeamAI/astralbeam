@@ -14,8 +14,15 @@ const modelProviderIntegration = vi.hoisted(() => {
 })
 
 import { getAuthDatabase } from "@/db/database.server"
-import { agent, agentModel, modelProvider, organization } from "@/db/schema.server"
+import {
+  agent,
+  agentModel,
+  modelProvider,
+  organization,
+  organizationConfiguration,
+} from "@/db/schema.server"
 import { Agents } from "@/lib/agents/agents.server"
+import { Config } from "@/lib/config/config.server"
 import { formatAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
@@ -173,6 +180,22 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       }).pipe(Effect.flip),
     )
     expect(stale._tag).toBe("ModelProviderChanged")
+  })
+
+  test("refuses private provider endpoints unless the deployment allows them", async () => {
+    for (const baseUrl of ["http://169.254.169.254/latest", "https://127.0.0.1:11434/v1"]) {
+      const refused = await runAppEffect(
+        saveIntegrationProvider(organizationId, { baseUrl }).pipe(Effect.flip),
+      )
+      expect(refused._tag).toBe("ModelProviderEndpointNotAllowed")
+    }
+    vi.stubEnv("ALLOW_PRIVATE_MODEL_ENDPOINTS", "true")
+    await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, { baseUrl: "http://127.0.0.1:11434/v1" }),
+    )
+    vi.unstubAllEnvs()
+    await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
   })
 
   test("requires the key again when a connection moves to another URL or provider type", async () => {

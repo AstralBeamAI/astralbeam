@@ -22,6 +22,14 @@ export class ModelProviderInUse extends Schema.TaggedError<ModelProviderInUse>()
   override readonly message =
     "Remove these models from their agents before disabling them or deleting the provider"
 }
+export class ModelProviderEndpointNotAllowed extends Schema.TaggedError<ModelProviderEndpointNotAllowed>()(
+  "ModelProviderEndpointNotAllowed",
+  {},
+  { httpApiStatus: 422 },
+) {
+  override readonly message =
+    "Use a public HTTPS API URL. This server does not allow HTTP or private network endpoints"
+}
 export class ModelProviderUnreadable extends Schema.TaggedError<ModelProviderUnreadable>()(
   "ModelProviderUnreadable",
   {},

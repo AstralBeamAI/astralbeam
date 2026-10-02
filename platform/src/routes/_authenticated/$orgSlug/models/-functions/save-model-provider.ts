@@ -28,6 +28,7 @@ export const saveModelProvider = createServerFn({ method: "POST" })
         Effect.catchTag(
           [
             "ModelProviderChanged",
+            "ModelProviderEndpointNotAllowed",
             "ModelProviderNameTaken",
             "ModelProviderInUse",
             "ModelProviderUnreadable",

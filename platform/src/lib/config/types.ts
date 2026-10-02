@@ -33,6 +33,7 @@ export type ConfigKey =
   | "aws_secret_access_key"
   | "privacy_policy_url"
   | "terms_of_service_url"
+  | "allow_private_model_endpoints"
 
 export interface ConfigDefinition {
   /** System-managed database-only value, never editable or revealable through generic configuration. */

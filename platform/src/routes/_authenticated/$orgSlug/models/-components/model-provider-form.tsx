@@ -134,6 +134,8 @@ export function ModelProviderForm({
       const failure = parseServerFnError(error)
       if (failure.tag === "ModelProviderNameTaken")
         setServerFieldError({ field: "name", message: failure.message })
+      else if (failure.tag === "ModelProviderEndpointNotAllowed")
+        setServerFieldError({ field: "baseUrl", message: failure.message })
       else if (
         failure.tag === "ModelProviderKeyMissing" ||
         failure.tag === "ModelProviderUnreadable"
@@ -205,7 +207,10 @@ export function ModelProviderForm({
               id="model-provider-url"
               label="API URL"
               value={baseUrl}
-              onChange={setBaseUrl}
+              onChange={(value) => {
+                setBaseUrl(value)
+                setServerFieldError(null)
+              }}
               errors={fieldErrors("baseUrl")}
               disabled={disabled}
               description={
