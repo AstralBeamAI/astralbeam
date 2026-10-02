@@ -103,6 +103,8 @@ try {
     console.log(
       "\nPrepared Development OpenAI providers and agent models for seeded organizations without providers.",
     )
+  } else if (summary.modelProviders === "unchanged") {
+    console.log("\nKept the existing model providers of every seeded organization.")
   } else {
     console.warn(
       `\nOPENAI_API_KEY is ${

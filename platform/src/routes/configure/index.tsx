@@ -52,7 +52,7 @@ function ConfigurePage() {
           <PendingMigrationsCard
             pending={state.migrations.pending}
             appliedCount={state.migrations.appliedCount}
-            onApplied={refresh}
+            onChanged={refresh}
           />
           <ConfigureActions setupComplete={state.setupComplete} />
         </>

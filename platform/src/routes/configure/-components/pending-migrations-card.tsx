@@ -27,11 +27,11 @@ import type { PendingMigration } from "../-lib/types"
 export function PendingMigrationsCard({
   pending,
   appliedCount,
-  onApplied,
+  onChanged,
 }: {
   pending: PendingMigration[]
   appliedCount: number
-  onApplied: () => void
+  onChanged: () => void
 }) {
   const [error, setError] = useState<string | null>(null)
   const [pendingApply, setPendingApply] = useState(false)
@@ -46,11 +46,12 @@ export function PendingMigrationsCard({
           approvedMigrations: pending.map(({ name, hash }) => ({ name, hash })),
         },
       })
-      onApplied()
     } catch (applyError) {
       setError(parseServerFnError(applyError).message)
     } finally {
       setPendingApply(false)
+      // Earlier migrations may have committed before a failure, so the pending list is reloaded.
+      onChanged()
     }
   }
 
@@ -80,7 +81,9 @@ export function PendingMigrationsCard({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <pre className="max-h-80 overflow-auto border-t bg-muted/50 p-3 text-xs">
-                    {migration.data ? `${migration.data}\n\n${migration.sql}` : migration.sql}
+                    {migration.data
+                      ? `// data.server.ts\n${migration.data}\n-- migration.sql\n${migration.sql}`
+                      : migration.sql}
                   </pre>
                 </CollapsibleContent>
               </Collapsible>

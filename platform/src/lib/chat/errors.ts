@@ -36,8 +36,8 @@ export class ChatDefaultAgentMissing extends Schema.TaggedError<ChatDefaultAgent
     "This organization has no default agent; pass an agentId or set a default."
 }
 
-export class ChatModelKeyMissing extends Schema.TaggedError<ChatModelKeyMissing>()(
-  "ChatModelKeyMissing",
+export class ChatModelMissing extends Schema.TaggedError<ChatModelMissing>()(
+  "ChatModelMissing",
   {},
   { httpApiStatus: 503 },
 ) {

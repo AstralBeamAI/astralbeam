@@ -23,7 +23,7 @@ import {
   ChatAgentNotFound,
   ChatAttachmentsDisabled,
   ChatDefaultAgentMissing,
-  ChatModelKeyMissing,
+  ChatModelMissing,
   ChatModelKeyUnreadable,
   ChatSystemPromptRefused,
 } from "./errors.ts"
@@ -69,7 +69,7 @@ export class Chat extends Context.Service<
       | ChatAgentNotFound
       | ChatAttachmentsDisabled
       | ChatDefaultAgentMissing
-      | ChatModelKeyMissing
+      | ChatModelMissing
       | ChatModelKeyUnreadable
       | ChatSystemPromptRefused
     >
@@ -114,7 +114,7 @@ export class Chat extends Context.Service<
               Effect.fail(new ChatModelKeyUnreadable()),
             ),
           )
-        if (!model) return yield* new ChatModelKeyMissing()
+        if (!model) return yield* new ChatModelMissing()
         // The SDK's `debug` mount option rides along in the forwarded props and its log prints
         // whole conversations, so, like the refused `systemPrompt`, it is honored only in DEV.
         const log = debug === true && IS_DEVELOPMENT_SERVER ? chatDebugLog(params.runId) : undefined

@@ -59,9 +59,12 @@ export async function migrateDatabase(options: { dryRun: boolean }): Promise<str
         await runMigrationStatements(client, migration)
       } catch (error) {
         const { code, message } = error as { code?: string; message?: string }
-        throw new Error(`Migration '${migration.name}' failed: ${code}: ${message}`, {
-          cause: error,
-        })
+        throw new Error(
+          `Migration '${migration.name}' failed: ${code ? `${code}: ` : ""}${message}`,
+          {
+            cause: error,
+          },
+        )
       }
       await client.query(
         'insert into drizzle.__drizzle_migrations ("hash", "created_at", "name") values ($1, $2, $3)',

@@ -12,26 +12,40 @@ type OrganizationModelKeyMigrationClient = Pick<Client, "query">
 export async function migrateOrganizationModelKeys(
   client: OrganizationModelKeyMigrationClient,
 ): Promise<void> {
-  // Hold writes until the runner commits the conversion and column removal together.
+  // Lock the dropped column's table first, so its removal never upgrades a lock, and bound waits.
   // https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-TABLES
+  await client.query("SET LOCAL lock_timeout = '30s'")
+  await client.query("LOCK TABLE organization_configuration IN ACCESS EXCLUSIVE MODE")
   await client.query(
-    "LOCK TABLE organization_configuration, agent, model_provider, provider_model, agent_model IN SHARE ROW EXCLUSIVE MODE",
+    "LOCK TABLE agent, model_provider, provider_model, agent_model IN SHARE ROW EXCLUSIVE MODE",
   )
+  await client.query("SET LOCAL lock_timeout TO DEFAULT")
   const legacy = await client.query<{ organization_id: string; openai_api_key: string }>(
     "SELECT organization_id, openai_api_key FROM organization_configuration WHERE openai_api_key IS NOT NULL ORDER BY organization_id",
   )
   if (legacy.rows.length === 0) return
+  if (!process.env.DATABASE_ENCRYPTION_KEY) {
+    throw new Error(
+      "DATABASE_ENCRYPTION_KEY is required to convert stored organization model keys. Run the migration with the deployment keyring or apply it from /configure",
+    )
+  }
   const keyring = parseDatabaseEncryptionKeyring(process.env.DATABASE_ENCRYPTION_KEY)
-  for (const row of legacy.rows) {
+  const keys = legacy.rows.map((row) => {
     const decrypted = decryptDatabaseJson({ storedValue: row.openai_api_key, keyring })
-    if (!decrypted || !isLegacyOrganizationModelKey(decrypted.value, row.organization_id)) {
-      throw new Error("Stored organization model credentials could not be migrated")
-    }
-    await migrateOrganizationModelKey(client, {
-      organizationId: row.organization_id,
-      apiKey: decrypted.value.apiKey,
-      keyring,
-    })
+    return decrypted && isLegacyOrganizationModelKey(decrypted.value, row.organization_id)
+      ? { organizationId: row.organization_id, apiKey: decrypted.value.apiKey }
+      : row.organization_id
+  })
+  const unreadable = keys.filter((key) => typeof key === "string")
+  if (unreadable.length > 0) {
+    const [others, them] =
+      unreadable.length > 1 ? [` and ${unreadable.length - 1} more`, "them"] : ["", "it"]
+    throw new Error(
+      `Could not read the model key of organization ${unreadable[0]}${others}. Add the key that encrypted ${them} to DATABASE_ENCRYPTION_KEY as a fallback, or set openai_api_key to NULL to discard ${them}`,
+    )
+  }
+  for (const key of keys) {
+    if (typeof key !== "string") await migrateOrganizationModelKey(client, { ...key, keyring })
   }
 }
 

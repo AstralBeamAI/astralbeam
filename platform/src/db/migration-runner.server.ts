@@ -190,7 +190,7 @@ export class DatabaseMigrations extends Context.Service<
             Effect.gen(function* () {
               const appliedNames = yield* readAppliedMigrationNames()
               const pending = pendingMigrations(appliedNames)
-              // Approval covers the reviewed SQL and any credential conversion code.
+              // Approval covers the reviewed SQL and the source of its colocated data step.
               if (!approvedMigrationsMatch(pending, approved)) {
                 return yield* new MigrationsNotApplied({
                   message: "The pending migrations changed; review them again",

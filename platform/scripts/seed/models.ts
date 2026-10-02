@@ -9,17 +9,17 @@ import {
   modelProvider,
   providerModel,
 } from "../../src/db/schema.server.ts"
-import { isValidOpenaiApiKey } from "../../src/lib/model-providers/schemas.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_MODEL_PROVIDER, SEED_ORGANIZATIONS } from "./fixtures.ts"
 
 export async function seedModelProviders(
   transaction: SeedTransaction,
-): Promise<"written" | "invalid" | "missing"> {
+): Promise<"written" | "unchanged" | "invalid" | "missing"> {
   const apiKey = process.env.OPENAI_API_KEY?.trim()
   if (!apiKey) return "missing"
-  if (!isValidOpenaiApiKey(apiKey)) return "invalid"
+  // OpenAI issues one `sk-` token, so a pasted env line is refused before it reaches every agent.
+  if (!/^sk-[\w-]{16,500}$/.test(apiKey)) return "invalid"
   const [dogfood] = await transaction
     .select({ value: configTable.value })
     .from(configTable)
@@ -28,6 +28,7 @@ export async function seedModelProviders(
     throw new Error("Dogfood organization configuration has a mismatched identity")
   }
   const organizationIds = new Set<string>(SEED_ORGANIZATIONS.map(({ id }) => id))
+  let written = false
   if (dogfood?.value?.value) organizationIds.add(dogfood.value.value)
 
   for (const organizationId of organizationIds) {
@@ -85,6 +86,7 @@ export async function seedModelProviders(
         position: 0,
       }))
     if (assignments.length > 0) await transaction.insert(agentModel).values(assignments)
+    written = true
   }
-  return "written"
+  return written ? "written" : "unchanged"
 }

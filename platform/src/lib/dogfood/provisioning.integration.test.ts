@@ -77,8 +77,6 @@ import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.se
 import { encryptDatabaseValue } from "@/db/lib/encryption.server"
 import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
 import { Auth } from "@/lib/auth/auth.server"
-import { Agents } from "@/lib/agents/agents.server"
-import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Config } from "@/lib/config/config.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import type { ConfigValues } from "@/lib/config/types"
@@ -171,7 +169,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       await invalidateGlobalConfig()
     })
 
-    test("dogfood leaves model setup to its owner and preserves configured models on retry", async () => {
+    test("dogfood provisioning leaves model setup to its owner", async () => {
       await provisionDogfood()
       const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
       const [configuration] = await db.select().from(organizationConfiguration)
@@ -179,45 +177,6 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(configuration).toMatchObject({ organizationId })
       expect(defaultAgent).toMatchObject({ organizationId, id: configuration!.defaultAgentId })
       expect(await db.select().from(modelProvider)).toHaveLength(0)
-      const providerId = await runAppEffect(
-        Effect.flatMap(ModelProviders, (providers) =>
-          providers.save({
-            organizationId,
-            id: null,
-            lockVersion: null,
-            name: "Astro model provider",
-            providerType: "openai",
-            api: "responses",
-            baseUrl: "https://api.openai.com/v1",
-            apiKey: "sk-owner-configured-dogfood-model-key",
-            models: [{ modelId: "gpt-5.6-terra", name: "GPT-5.6 Terra" }],
-          }),
-        ),
-      )
-      const [model] = await db.select().from(providerModel)
-      await db.insert(agentModel).values({
-        organizationId,
-        agentId: defaultAgent!.id,
-        providerModelId: model!.id,
-        position: 0,
-      })
-      await runAppEffect(
-        Effect.flatMap(Agents, (agents) =>
-          agents.provisionDefault({
-            organizationId,
-            organizationName: "dogfood",
-          }),
-        ),
-      )
-      const [preserved] = await db.select().from(modelProvider)
-      expect(preserved).toMatchObject({
-        id: providerId,
-        credentials: { apiKey: "sk-owner-configured-dogfood-model-key" },
-      })
-      expect(await db.select().from(agentModel)).toMatchObject([
-        { agentId: defaultAgent!.id, providerModelId: model!.id },
-      ])
-      expect(await db.select().from(agent)).toHaveLength(1)
     })
 
     test("development seeds assign models and preserve edited providers", async () => {

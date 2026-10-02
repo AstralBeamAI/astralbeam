@@ -158,7 +158,7 @@ describe("Chat.run", () => {
       const missing = yield* Effect.flip(
         runChat().pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent }))),
       )
-      assert.strictEqual(missing._tag, "ChatModelKeyMissing")
+      assert.strictEqual(missing._tag, "ChatModelMissing")
       assert.strictEqual(declaredHttpApiStatus(missing), 503)
     }),
   )

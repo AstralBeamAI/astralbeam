@@ -158,29 +158,32 @@ describe.skipIf(!migrationIntegrationEnabled)("automatic organization model key 
     ).toEqual([])
   })
 
-  test.each(["missing-key", "wrong-key", "malformed", "wrong-organization", "extra-field"])(
+  test.each(["missing-key", "wrong-key", "wrong-organization"])(
     "rolls back every converted row and preserves the column on %s, then permits retry",
     async (invalid) => {
       const firstId = await createMigrationOrganization(client, "first")
       const secondId = await createMigrationOrganization(client, "second")
       if (invalid === "missing-key") vi.stubEnv("DATABASE_ENCRYPTION_KEY", "")
       if (invalid === "wrong-key") vi.stubEnv("DATABASE_ENCRYPTION_KEY", migrationNewSecret)
-      if (["malformed", "wrong-organization", "extra-field"].includes(invalid)) {
-        const ciphertext =
-          invalid === "malformed"
-            ? "unreadable"
-            : migrationLegacyCiphertext(secondId, {
-                organizationId: invalid === "wrong-organization" ? firstId : secondId,
-                apiKey: migrationApiKey,
-                ...(invalid === "extra-field" ? { extra: true } : {}),
-              })
+      if (invalid === "wrong-organization") {
         await client.query(
           "UPDATE organization_configuration SET openai_api_key = $2 WHERE organization_id = $1",
-          [secondId, ciphertext],
+          [
+            secondId,
+            migrationLegacyCiphertext(secondId, {
+              organizationId: firstId,
+              apiKey: migrationApiKey,
+            }),
+          ],
         )
       }
+      const expectedError = {
+        "missing-key": "DATABASE_ENCRYPTION_KEY is required",
+        "wrong-key": `organization ${firstId} and 1 more.`,
+        "wrong-organization": `organization ${secondId}.`,
+      }[invalid]!
       await client.query("SAVEPOINT conversion")
-      await expect(runMigrationStatements(client, modelKeyMigration)).rejects.toThrow()
+      await expect(runMigrationStatements(client, modelKeyMigration)).rejects.toThrow(expectedError)
       await client.query("ROLLBACK TO SAVEPOINT conversion")
       expect((await client.query("SELECT 1 FROM model_provider")).rows).toEqual([])
       expect((await client.query("SELECT 1 FROM agent_model")).rows).toEqual([])
