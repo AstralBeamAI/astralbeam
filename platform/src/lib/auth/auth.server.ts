@@ -11,7 +11,7 @@ import {
 } from "better-auth/api"
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
-import { Context, Effect, Layer, Predicate, Ref } from "effect"
+import { Clock, Context, Effect, Layer, Predicate, Ref } from "effect"
 
 import { getAuthDatabase } from "@/db/database.server"
 import { tables } from "@/db/schema.server"
@@ -326,6 +326,35 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
+        // Hash once before the original token consumption, leaving the endpoint and plugins intact.
+        // Remove this request-scoped wrapper after https://github.com/better-auth/better-auth/pull/10717 ships.
+        if (context.path === "/reset-password" && Predicate.isString(body?.newPassword)) {
+          const { internalAdapter, password } = context.context
+          const newPassword = body.newPassword
+          const hashPassword = await runAppEffect(
+            Effect.cached(
+              tryPromiseInServerRequest(() => password.hash(newPassword)).pipe(Effect.orDie),
+            ),
+          )
+          context.context.password = { ...password, hash: () => runAppEffect(hashPassword) }
+          context.context.internalAdapter = {
+            ...internalAdapter,
+            consumeVerificationValue: (identifier) =>
+              runAppEffect(
+                Effect.gen(function* () {
+                  const verification = yield* tryPromiseInServerRequest(() =>
+                    internalAdapter.findVerificationValue(identifier),
+                  )
+                  const now = yield* Clock.currentTimeMillis
+                  if (verification && verification.expiresAt.getTime() >= now) yield* hashPassword
+                  return yield* tryPromiseInServerRequest(() =>
+                    internalAdapter.consumeVerificationValue(identifier),
+                  )
+                }).pipe(Effect.orDie),
+              ),
+          }
+          return
+        }
         if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
           // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
           await runAppEffect(
