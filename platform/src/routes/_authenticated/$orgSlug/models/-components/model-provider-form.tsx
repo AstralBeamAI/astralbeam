@@ -1,6 +1,7 @@
 "use client"
 
 import { useNavigate, useRouter } from "@tanstack/react-router"
+import { useIsMutating } from "@tanstack/react-query"
 import { type SyntheticEvent, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
 
@@ -23,10 +24,11 @@ import {
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import type { OrganizationModelProvider } from "@/lib/model-providers/model-providers.server"
-import type {
-  ModelProviderApi,
-  ModelProviderType,
-  ProviderModelFields,
+import {
+  ModelProviderFieldsSchema,
+  type ModelProviderApi,
+  type ModelProviderType,
+  type ProviderModelFields,
 } from "@/lib/model-providers/schemas"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { strictParseOptions } from "@/lib/schemas"
@@ -35,8 +37,10 @@ import { modelProviderApiItems, modelProviderDescriptors } from "../-lib/constan
 import { SaveModelProviderInputSchema } from "../-lib/schemas"
 import { ModelProviderField } from "./model-provider-field"
 import { ProviderModelPicker } from "./provider-model-picker"
+import { ModelProviderTest } from "./model-provider-test"
 
 const formatModelProviderIssues = SchemaIssue.makeFormatterStandardSchemaV1()
+const equalModelProviderFields = Schema.toEquivalence(ModelProviderFieldsSchema)
 const modelProviderTypeItems = [
   { label: "OpenAI", value: "openai" },
   { label: "Anthropic", value: "anthropic" },
@@ -56,6 +60,7 @@ export function ModelProviderForm({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
+  const testing = useIsMutating({ mutationKey: ["test-model-provider", existing?.id] }) > 0
   const [name, setName] = useState(existing?.name ?? "")
   const [providerType, setProviderType] = useState<ModelProviderType>(
     existing?.providerType ?? "openai",
@@ -110,11 +115,16 @@ export function ModelProviderForm({
       : []),
     ...(serverFieldError?.field === field ? [{ message: serverFieldError.message }] : []),
   ]
-  const disabled = saving || readOnly
+  const disabled = saving || readOnly || testing
+  const testDisabled =
+    saving ||
+    existing === null ||
+    Result.isFailure(input) ||
+    !equalModelProviderFields(input.success, { ...existing, apiKey: null })
   const saveProvider = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitted(true)
-    if (Result.isFailure(input) || missingKey || missingModels || readOnly) return
+    if (Result.isFailure(input) || missingKey || missingModels || disabled) return
     setSaving(true)
     setServerFieldError(null)
     try {
@@ -147,7 +157,7 @@ export function ModelProviderForm({
     }
   }
   return (
-    <form className="max-w-2xl" onSubmit={(event) => void saveProvider(event)}>
+    <form className="max-w-2xl space-y-6" onSubmit={(event) => void saveProvider(event)}>
       <Card>
         <CardHeader>
           <CardTitle>{existing ? "Configuration" : "Provider configuration"}</CardTitle>
@@ -285,12 +295,19 @@ export function ModelProviderForm({
         </CardContent>
         {!readOnly && (
           <CardFooter>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={disabled}>
               {saving ? "Saving…" : "Save provider"}
             </Button>
           </CardFooter>
         )}
       </Card>
+      {existing && !readOnly && (
+        <ModelProviderTest
+          organizationSlug={organizationSlug}
+          provider={existing}
+          disabled={testDisabled}
+        />
+      )}
     </form>
   )
 }
