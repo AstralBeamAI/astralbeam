@@ -9,6 +9,7 @@ import type { ChatModelConfiguration } from "./model-providers.server.ts"
 const modelTestHttpFailures: Record<number, ModelProviderTestFailed["reason"]> = {
   400: "configuration",
   401: "credentials",
+  402: "allowance",
   403: "credentials",
   404: "model",
   422: "configuration",

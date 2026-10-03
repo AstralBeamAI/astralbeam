@@ -88,6 +88,7 @@ describe("testProviderModel", () => {
         ["chat-completions", 401, "credentials"],
         ["responses", 401, "credentials"],
         ["anthropic-messages", 401, "credentials"],
+        ["chat-completions", 402, "allowance"],
         ["chat-completions", 404, "model"],
         ["chat-completions", 400, "configuration"],
         ["chat-completions", 429, "allowance"],
