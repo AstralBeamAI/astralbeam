@@ -10,6 +10,7 @@ import {
   updateWithOptimisticLock,
 } from "@/db/lib/optimistic-locking.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
+import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter.server"
 import {
   agent,
   agentModel,
@@ -26,7 +27,10 @@ import {
   ModelProviderKeyMissing,
   ModelProviderNameTaken,
   ModelProviderUnreadable,
+  ModelProviderTestFailed,
+  ModelProviderTestRateLimited,
 } from "./errors.ts"
+import { testProviderModel } from "./test-model.server.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
   type ModelProviderFields,
@@ -78,6 +82,13 @@ export type SaveModelProviderInput = ModelProviderFields & {
   readonly organizationId: string
   readonly id: string | null
   readonly lockVersion: number | null
+}
+
+type TestModelProviderInput = {
+  readonly organizationId: string
+  readonly id: string
+  readonly lockVersion: number
+  readonly modelId: string
 }
 
 type ModelProviderWriteError =
@@ -157,6 +168,15 @@ export class ModelProviders extends Context.Service<
       readonly organizationId: string
       readonly agentId: string
     }) => Effect.Effect<ChatModelConfiguration | null, ModelProviderUnreadable>
+    readonly testModel: (
+      input: TestModelProviderInput,
+    ) => Effect.Effect<
+      void,
+      | ModelProviderChanged
+      | ModelProviderUnreadable
+      | ModelProviderTestFailed
+      | ModelProviderTestRateLimited
+    >
   }
 >()("astralbeam/model-providers/ModelProviders") {
   static readonly layerNoDeps = Layer.effect(
@@ -164,6 +184,7 @@ export class ModelProviders extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const config = yield* Config
+      const rateLimiter = yield* DatabaseRateLimiter
       const allowsPrivateEndpoints = Effect.map(
         config.get("allow_private_model_endpoints"),
         (value) => value === "true",
@@ -530,6 +551,54 @@ export class ModelProviders extends Context.Service<
         }
       })
 
+      const testModel = Effect.fn("ModelProviders.testModel")(function* (
+        input: TestModelProviderInput,
+      ) {
+        const provider = yield* readModelProviderRow(input.organizationId, input.id)
+        if (provider?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
+        const [model] = yield* db
+          .select({ modelId: providerModel.modelId })
+          .from(providerModel)
+          .where(
+            and(
+              eq(providerModel.organizationId, input.organizationId),
+              eq(providerModel.modelProviderId, input.id),
+              eq(providerModel.id, input.modelId),
+            ),
+          )
+          .limit(1)
+          .pipe(Effect.orDie)
+        if (!model) return yield* new ModelProviderChanged()
+        const apiKey = readModelProviderKey(provider)
+        if (!apiKey) return yield* new ModelProviderUnreadable()
+        yield* rateLimiter
+          .consume({
+            key: hashedRateLimitKey("model-test", [input.organizationId]),
+            limit: 5,
+            window: "1 minute",
+          })
+          .pipe(
+            Effect.catchReason(
+              "RateLimiterError",
+              "RateLimitExceeded",
+              () => Effect.fail(new ModelProviderTestRateLimited()),
+              (_reason, error) => Effect.die(error),
+            ),
+          )
+        yield* testProviderModel({
+          providerId: provider.id,
+          providerName: provider.name,
+          providerType: provider.providerType,
+          api: provider.api,
+          baseUrl: provider.baseUrl,
+          modelId: model.modelId,
+          apiKey,
+          fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
+        })
+        const current = yield* readModelProviderRow(input.organizationId, input.id)
+        if (current?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
+      })
+
       return ModelProviders.of({
         list,
         get,
@@ -538,11 +607,12 @@ export class ModelProviders extends Context.Service<
         remove,
         setupState,
         resolveForAgent,
+        testModel,
       })
     }),
   )
 
   static readonly layer = ModelProviders.layerNoDeps.pipe(
-    Layer.provide([Database.layer, Config.layer]),
+    Layer.provide([Database.layer, Config.layer, DatabaseRateLimiter.layer]),
   )
 }
