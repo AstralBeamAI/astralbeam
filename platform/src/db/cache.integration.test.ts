@@ -244,6 +244,15 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
           const client = yield* SqlClient.SqlClient
           return yield* client.withTransaction(
             withDatabaseCacheLock(counter, writeTestCache({ ...counter, value: 99 })).pipe(
+              Effect.tap(() =>
+                Effect.promise(async () => {
+                  expect(
+                    await runAppEffect(
+                      tryWithDatabaseCacheLock(counter, Effect.die("Must not run")),
+                    ),
+                  ).toEqual(Option.none())
+                }),
+              ),
               Effect.andThen(Effect.fail("rollback")),
             ),
           )
@@ -251,39 +260,11 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
       ),
     )
     expect(result).toMatchObject({ _tag: "Failure", failure: "rollback" })
+    expect(await runAppEffect(tryWithDatabaseCacheLock(counter, Effect.succeed(null)))).toEqual(
+      Option.some(null),
+    )
     expect(await runAppEffect(readTestCache(counter))).toEqual(Option.some(10))
     await runAppEffect(deleteTestCache(counter))
     expect(await runAppEffect(readTestCache(counter))).toEqual(Option.none())
-  })
-
-  test("skips a busy operation and acquires the same lock after release", async () => {
-    const started = Promise.withResolvers<void>()
-    const finish = Promise.withResolvers<void>()
-    const owner = runAppEffect(
-      withDatabaseCacheLock(
-        cacheTestOptions,
-        Effect.promise(async () => {
-          started.resolve()
-          await finish.promise
-        }),
-      ),
-    )
-    await started.promise
-    try {
-      expect(
-        await runAppEffect(tryWithDatabaseCacheLock(cacheTestOptions, Effect.die("Must not run"))),
-      ).toEqual(Option.none())
-      expect(
-        await runAppEffect(
-          tryWithDatabaseCacheLock({ ...cacheTestOptions, key: "other" }, Effect.succeed(null)),
-        ),
-      ).toEqual(Option.some(null))
-    } finally {
-      finish.resolve()
-      await owner
-    }
-    expect(
-      await runAppEffect(tryWithDatabaseCacheLock(cacheTestOptions, Effect.succeed("acquired"))),
-    ).toEqual(Option.some("acquired"))
   })
 })

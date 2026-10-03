@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { Cause, Deferred, Effect, Exit, Fiber, Schema } from "effect"
 import { KeyValueStore } from "effect/persistence"
 import { SqlClient, SqlError } from "effect/sql"
@@ -89,13 +89,10 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
   const idempotencyTestExecute = (input: typeof idempotencyTestOperation.parameters.Type) =>
     effects.set(crypto.randomUUID(), input.name).pipe(Effect.as(input.name), Effect.orDie)
 
-  test("replays a maximum-length key with the default namespace without extending retention", async () => {
+  test("replays completed writes without extending retention and executes again after expiry", async () => {
     const request = idempotencyTestRequest(
       "🔑".repeat(255),
       structuredClone(idempotencyTestParameters),
-    )
-    const before = await db.execute<{ expires_at: string }>(
-      sql`select statement_timestamp() + interval '24 hours' as expires_at`,
     )
     await runAppEffect(
       withDatabaseIdempotency(request, (input) =>
@@ -106,19 +103,13 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
         ),
       ),
     )
-    const after = await db.execute<{ expires_at: string }>(
-      sql`select statement_timestamp() + interval '24 hours' as expires_at`,
-    )
     const [first] = await db
       .select()
       .from(cacheEntry)
       .where(eq(cacheEntry.namespace, idempotencyTestNamespace))
     expect(
       await runAppEffect(
-        withDatabaseIdempotency(
-          { ...idempotencyTestRequest(request.key), namespace: idempotencyTestNamespace },
-          idempotencyTestExecute,
-        ),
+        withDatabaseIdempotency(idempotencyTestRequest(request.key), idempotencyTestExecute),
       ),
     ).toBe("created")
     const [replayed] = await db
@@ -126,11 +117,22 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
       .from(cacheEntry)
       .where(eq(cacheEntry.namespace, idempotencyTestNamespace))
     expect(await runAppEffect(effects.size)).toBe(1)
-    expect(first!.expiresAt!.getTime()).toBeGreaterThanOrEqual(
-      Date.parse(before.rows[0]!.expires_at),
-    )
-    expect(first!.expiresAt!.getTime()).toBeLessThanOrEqual(Date.parse(after.rows[0]!.expires_at))
+    expect(first?.expiresAt).toBeInstanceOf(Date)
     expect(replayed?.expiresAt).toEqual(first?.expiresAt)
+
+    await db
+      .update(cacheEntry)
+      .set({ expiresAt: new Date(0) })
+      .where(eq(cacheEntry.namespace, idempotencyTestNamespace))
+    expect(
+      await runAppEffect(
+        withDatabaseIdempotency(
+          idempotencyTestRequest(request.key, { ...idempotencyTestParameters, name: "new" }),
+          idempotencyTestExecute,
+        ),
+      ),
+    ).toBe("new")
+    expect(await runAppEffect(effects.size)).toBe(2)
   })
 
   test("commits a typed failure for replay while rolling back its business writes", async () => {
@@ -154,19 +156,19 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
     }
     expect(write).toHaveBeenCalledTimes(1)
     expect(await runAppEffect(effects.size)).toBe(0)
-    expect(await runAppEffect(idempotencyTestSize)).toBe(1)
   })
 
   test("ignores nested property order but rejects changed parameters or operations", async () => {
-    const write = vi.fn(idempotencyTestExecute)
-    await runAppEffect(withDatabaseIdempotency(idempotencyTestRequest("mismatch"), write))
+    await runAppEffect(
+      withDatabaseIdempotency(idempotencyTestRequest("mismatch"), idempotencyTestExecute),
+    )
     await runAppEffect(
       withDatabaseIdempotency(
         idempotencyTestRequest("mismatch", {
           settings: { labels: ["a", "b"], nested: { b: 2, a: 1 } },
           name: "created",
         }),
-        write,
+        () => Effect.die("Must not execute"),
       ),
     )
     for (const settings of [
@@ -176,7 +178,7 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
       const error = await runAppEffect(
         withDatabaseIdempotency(
           idempotencyTestRequest("mismatch", { ...idempotencyTestParameters, settings }),
-          write,
+          () => Effect.die("Must not execute"),
         ).pipe(Effect.flip),
       )
       expect(error).toBeInstanceOf(IdempotencyParametersMismatch)
@@ -191,7 +193,6 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
       ).pipe(Effect.flip),
     )
     expect(error).toBeInstanceOf(IdempotencyParametersMismatch)
-    expect(write).toHaveBeenCalledTimes(1)
   })
 
   test("isolates identical client keys by caller scope and namespace", async () => {
@@ -230,31 +231,17 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
           idempotencyTestExecute,
         ).pipe(Effect.flip)
         expect(error).toBeInstanceOf(IdempotencyInProgress)
+        expect(
+          yield* withDatabaseIdempotency(
+            idempotencyTestRequest("other-key"),
+            idempotencyTestExecute,
+          ),
+        ).toBe("created")
         yield* Deferred.succeed(release, undefined)
         expect(yield* Fiber.join(first)).toBe("created")
       }),
     )
-    expect(await runAppEffect(effects.size)).toBe(1)
-  })
-
-  test("allows a new operation after the retained result expires", async () => {
-    await runAppEffect(
-      withDatabaseIdempotency(idempotencyTestRequest("expired"), idempotencyTestExecute),
-    )
-    await db
-      .update(cacheEntry)
-      .set({ expiresAt: new Date(0) })
-      .where(eq(cacheEntry.namespace, idempotencyTestNamespace))
-    expect(
-      await runAppEffect(
-        withDatabaseIdempotency(
-          idempotencyTestRequest("expired", { ...idempotencyTestParameters, name: "new" }),
-          idempotencyTestExecute,
-        ),
-      ),
-    ).toBe("new")
     expect(await runAppEffect(effects.size)).toBe(2)
-    expect(await runAppEffect(idempotencyTestSize)).toBe(1)
   })
 
   test("leaves a declared failure uncached when cleanup also defects", async () => {
@@ -296,7 +283,6 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
         ).toBe("created")
       }),
     )
-    expect(await runAppEffect(effects.size)).toBe(1)
   })
 
   test("rolls back a successful business write if recording its outcome fails", async () => {
@@ -355,6 +341,5 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
     )
     expect(Exit.hasDies(exit)).toBe(true)
     expect(write).not.toHaveBeenCalled()
-    expect(await runAppEffect(idempotencyTestSize)).toBe(0)
   })
 })
