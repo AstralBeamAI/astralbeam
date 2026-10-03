@@ -54,11 +54,11 @@
     "@tanstack/ai-sandbox-docker": "^0.3.2",
     "@tanstack/ai-sandbox-sprites": "^0.2.5",
     "@tanstack/ai-sandbox-vercel": "^0.2.5",
-    "@tanstack/highlight": "^0.0.10",
-    "@tanstack/markdown": "^0.0.13",
+    "@tanstack/highlight": "^1.0.0",
+    "@tanstack/markdown": "^1.0.0",
     "@tanstack/react-devtools": "^0.10.9",
     "@tanstack/react-pacer": "^0.23.0",
-    "@tanstack/react-query": "5.102.0",
+    "@tanstack/react-query": "5.104.1",
     "@tanstack/react-router": "^1.170.41",
     "@tanstack/react-router-devtools": "^1.167.2",
     "@tanstack/react-router-ssr-query": "1.167.3",
@@ -90,7 +90,7 @@
     "@csstools/css-parser-algorithms": "4.0.0",
     "@csstools/css-tokenizer": "4.0.0",
     "@effect/vitest": "^4.0.0",
-    "@playwright/test": "^1.58.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4",
     "@tanstack/devtools-vite": "^0.8.3",
     "@tanstack/eslint-plugin-query": "^5.103.2",
@@ -116,7 +116,7 @@
     "seroval": "1.6.8",
     "sharp": "^0.35.5",
     "tailwindcss": "^4",
-    "vite": "^8.0.16",
-    "vitest": "^5.0.1"
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
   }
 }

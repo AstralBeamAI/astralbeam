@@ -3,55 +3,55 @@
   "specifiers": {
     "npm:@aws-sdk/client-sesv2@^3.1115.0": "3.1115.0",
     "npm:@base-ui/react@^1.6.0": "1.7.0_@types+react@19.3.0_react@19.3.0_react-dom@19.3.0",
-    "npm:@better-auth-ui/core@1.7.12": "1.7.12_@better-auth+api-key@1.7.7_better-auth@1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_better-call@1.4.0_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.1",
-    "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12__@better-auth+api-key@1.7.7__better-auth@1.7.7__@better-auth+core@1.7.7___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.2___better-call@1.4.0___jose@6.2.10___kysely@0.29.6___nanostores@1.5.4__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.2.1__better-call@1.4.0__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0___@types+pg@8.23.1___effect@4.0.0___pg@8.23.1___zod@4.6.5__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.1_@better-auth+api-key@1.7.7_@tanstack+react-query@5.102.0__react@19.3.0_better-auth@1.7.7_react@19.3.0_react-dom@19.3.0_react-email@6.9.2__react@19.3.0__react-dom@19.3.0_tailwindcss@4.3.3_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_better-call@1.4.0_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1_vitest@5.0.1",
-    "npm:@better-auth/api-key@^1.7.7": "1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_better-auth@1.7.7_better-call@1.4.0_@better-fetch+fetch@1.3.2_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.1",
-    "npm:@better-auth/drizzle-adapter@^1.7.7": "1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1",
+    "npm:@better-auth-ui/core@1.7.12": "1.7.12_@better-auth+api-key@1.7.7__better-auth@1.7.7___@tanstack+react-start@1.168.60____react@19.3.0____react-dom@19.3.0____vite@8.3.2___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.1___react@19.3.0___react-dom@19.3.0___vitest@5.0.3___vite@8.3.2__vite@8.3.2__vitest@5.0.3_better-auth@1.7.7__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.3.2__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.3__vite@8.3.2_vite@8.3.2_vitest@5.0.3",
+    "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12__@better-auth+api-key@1.7.7___better-auth@1.7.7____@tanstack+react-start@1.168.60_____react@19.3.0_____react-dom@19.3.0_____vite@8.3.2____drizzle-kit@1.0.0-rc.5-ab785fc____drizzle-orm@1.0.0-rc.5-ab785fc____pg@8.23.1____react@19.3.0____react-dom@19.3.0____vitest@5.0.3____vite@8.3.2___vite@8.3.2___vitest@5.0.3__better-auth@1.7.7___@tanstack+react-start@1.168.60____react@19.3.0____react-dom@19.3.0____vite@8.3.2___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.1___react@19.3.0___react-dom@19.3.0___vitest@5.0.3___vite@8.3.2__vite@8.3.2__vitest@5.0.3_@better-auth+api-key@1.7.7__better-auth@1.7.7___@tanstack+react-start@1.168.60____react@19.3.0____react-dom@19.3.0____vite@8.3.2___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.1___react@19.3.0___react-dom@19.3.0___vitest@5.0.3___vite@8.3.2__vite@8.3.2__vitest@5.0.3_@tanstack+react-query@5.104.1_better-auth@1.7.7__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.3.2__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.3__vite@8.3.2_react@19.3.0_react-dom@19.3.0_react-email@6.9.2_tailwindcss@4.3.3_vite@8.3.2_vitest@5.0.3",
+    "npm:@better-auth/api-key@^1.7.7": "1.7.7_better-auth@1.7.7__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.3.2__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.3__vite@8.3.2_vite@8.3.2_vitest@5.0.3",
+    "npm:@better-auth/drizzle-adapter@^1.7.7": "1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1",
     "npm:@csstools/color-helpers@6.1.0": "6.1.0",
     "npm:@csstools/css-color-parser@4.1.10": "4.1.10_@csstools+css-parser-algorithms@4.0.0_@csstools+css-tokenizer@4.0.0",
     "npm:@csstools/css-parser-algorithms@4.0.0": "4.0.0_@csstools+css-tokenizer@4.0.0",
     "npm:@csstools/css-tokenizer@4.0.0": "4.0.0",
     "npm:@effect/platform-deno@4": "4.0.0_effect@4.0.0",
     "npm:@effect/sql-pg@4": "4.0.0_effect@4.0.0",
-    "npm:@effect/vitest@4": "4.0.0_effect@4.0.0_vitest@5.0.1",
+    "npm:@effect/vitest@4": "4.0.0_effect@4.0.0_vitest@5.0.3_vite@8.3.2",
     "npm:@fontsource-variable/inter@^5.2.8": "5.3.0",
     "npm:@fontsource-variable/manrope@^5.2.8": "5.3.0",
     "npm:@marsidev/react-turnstile@^1.6.0": "1.6.0_react@19.3.0_react-dom@19.3.0",
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.3.0_react-dom@19.3.0",
-    "npm:@playwright/test@^1.58.0": "1.62.1",
+    "npm:@playwright/test@^1.63.0": "1.63.0",
     "npm:@react-email/render@2.1.0": "2.1.0_react@19.3.0_react-dom@19.3.0",
     "npm:@scalar/api-reference@^1.67.0": "1.67.0_zod@4.6.5",
-    "npm:@tailwindcss/vite@4": "4.3.3_vite@8.2.1",
+    "npm:@tailwindcss/vite@4": "4.3.3_vite@8.3.2",
     "npm:@tanstack/ai-anthropic@~0.19.3": "0.19.3_@tanstack+ai@0.63.0",
     "npm:@tanstack/ai-openai@~0.25.1": "0.25.1_@tanstack+ai@0.63.0_@opentelemetry+api@1.9.0_ws@8.21.3_zod@4.6.5",
-    "npm:@tanstack/ai-sandbox-daytona@~0.3.4": "0.3.4_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_ws@8.21.3_zod@4.6.5",
-    "npm:@tanstack/ai-sandbox-docker@~0.3.2": "0.3.2_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_zod@4.6.5",
-    "npm:@tanstack/ai-sandbox-sprites@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_zod@4.6.5",
-    "npm:@tanstack/ai-sandbox-vercel@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_zod@4.6.5",
-    "npm:@tanstack/ai-sandbox@~0.5.17": "0.5.17_@tanstack+ai@0.63.0_vitest@5.0.1_@opentelemetry+api@1.9.0_zod@4.6.5",
+    "npm:@tanstack/ai-sandbox-daytona@~0.3.4": "0.3.4_@tanstack+ai-sandbox@0.5.17__@tanstack+ai@0.63.0__vitest@5.0.1___vite@8.3.2__vite@8.3.2_vite@8.3.2",
+    "npm:@tanstack/ai-sandbox-docker@~0.3.2": "0.3.2_@tanstack+ai-sandbox@0.5.17__@tanstack+ai@0.63.0__vitest@5.0.1___vite@8.3.2__vite@8.3.2_vite@8.3.2",
+    "npm:@tanstack/ai-sandbox-sprites@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.17__@tanstack+ai@0.63.0__vitest@5.0.1___vite@8.3.2__vite@8.3.2_vite@8.3.2",
+    "npm:@tanstack/ai-sandbox-vercel@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.17__@tanstack+ai@0.63.0__vitest@5.0.1___vite@8.3.2__vite@8.3.2_vite@8.3.2",
+    "npm:@tanstack/ai-sandbox@~0.5.17": "0.5.17_@tanstack+ai@0.63.0_vitest@5.0.1__vite@8.3.2_vite@8.3.2",
     "npm:@tanstack/ai@0.63": "0.63.0_@opentelemetry+api@1.9.0_zod@4.6.5",
-    "npm:@tanstack/devtools-vite@~0.8.3": "0.8.3_vite@8.2.1_@emnapi+core@1.11.2_@emnapi+runtime@1.11.2",
+    "npm:@tanstack/devtools-vite@~0.8.3": "0.8.3_vite@8.3.2",
     "npm:@tanstack/eslint-plugin-query@^5.103.2": "5.103.2_eslint@10.11.0_typescript@6.0.3",
     "npm:@tanstack/eslint-plugin-router@*": "1.162.0_eslint@10.11.0_typescript@6.0.3",
     "npm:@tanstack/eslint-plugin-router@^1.162.0": "1.162.0_eslint@10.11.0_typescript@6.0.3",
     "npm:@tanstack/eslint-plugin-start@*": "0.1.0_eslint@10.9.1_typescript@6.0.3",
     "npm:@tanstack/eslint-plugin-start@0.1": "0.1.0_eslint@10.9.1_typescript@6.0.3",
-    "npm:@tanstack/highlight@^0.0.10": "0.0.10",
-    "npm:@tanstack/markdown@^0.0.13": "0.0.13_react@19.3.0",
+    "npm:@tanstack/highlight@1": "1.0.0",
+    "npm:@tanstack/markdown@1": "1.0.0_react@19.3.0",
     "npm:@tanstack/react-devtools@~0.10.9": "0.10.10_@types+react@19.3.0_@types+react-dom@19.3.0_react@19.3.0_react-dom@19.3.0",
     "npm:@tanstack/react-pacer@0.23": "0.23.0_react@19.3.0_react-dom@19.3.0",
-    "npm:@tanstack/react-query@5.102.0": "5.102.0_react@19.3.0",
-    "npm:@tanstack/react-router-devtools@^1.167.2": "1.167.2_@tanstack+react-router@1.170.41__react@19.3.0__react-dom@19.3.0_react@19.3.0_react-dom@19.3.0",
-    "npm:@tanstack/react-router-ssr-query@1.167.3": "1.167.3_@tanstack+react-query@5.102.0__react@19.3.0_@tanstack+react-router@1.170.41__react@19.3.0__react-dom@19.3.0_react@19.3.0_react-dom@19.3.0",
+    "npm:@tanstack/react-query@5.104.1": "5.104.1_react@19.3.0",
+    "npm:@tanstack/react-router-devtools@^1.167.2": "1.167.2_@tanstack+react-router@1.170.41_react@19.3.0_react-dom@19.3.0",
+    "npm:@tanstack/react-router-ssr-query@1.167.3": "1.167.3_@tanstack+react-query@5.104.1_@tanstack+react-router@1.170.41_react@19.3.0_react-dom@19.3.0",
     "npm:@tanstack/react-router@^1.170.41": "1.170.41_react@19.3.0_react-dom@19.3.0",
-    "npm:@tanstack/react-start@^1.168.60": "1.168.60_react@19.3.0_react-dom@19.3.0_vite@8.2.1",
+    "npm:@tanstack/react-start@^1.168.60": "1.168.60_react@19.3.0_react-dom@19.3.0_vite@8.3.2",
     "npm:@types/pg@^8.23.1": "8.23.1",
     "npm:@types/react-dom@^19.3.0": "19.3.0_@types+react@19.3.0",
     "npm:@types/react@^19.3.0": "19.3.0",
-    "npm:@vitejs/plugin-react@6": "6.0.5_@rolldown+plugin-babel@0.2.3_babel-plugin-react-compiler@1.0.0_vite@8.2.1_@babel+core@7.29.7_rolldown@1.2.4",
-    "npm:@vitest/eslint-plugin@*": "1.6.27_vitest@5.0.1_@opentelemetry+api@1.9.0",
-    "npm:@vitest/eslint-plugin@^1.6.27": "1.6.27_vitest@5.0.1_@opentelemetry+api@1.9.0",
-    "npm:better-auth@^1.7.7": "1.7.7_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.1",
+    "npm:@vitejs/plugin-react@6": "6.0.5_vite@8.3.2",
+    "npm:@vitest/eslint-plugin@*": "1.6.27_vitest@5.0.3_vite@8.3.2",
+    "npm:@vitest/eslint-plugin@^1.6.27": "1.6.27_vitest@5.0.3_vite@8.3.2",
+    "npm:better-auth@^1.7.7": "1.7.7_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.3.2_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.3_vite@8.3.2",
     "npm:bowser@^2.14.1": "2.14.1",
     "npm:busboy@^1.6.0": "1.6.0",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
@@ -83,17 +83,16 @@
     "npm:react-email@6.9.2": "6.9.2_react@19.3.0_react-dom@19.3.0",
     "npm:react-email@^6.9.2": "6.9.2_react@19.3.0_react-dom@19.3.0",
     "npm:react@^19.3.0": "19.3.0",
-    "npm:resend@^6.21.0": "6.21.0_@react-email+render@2.1.0__react@19.3.0__react-dom@19.3.0_react@19.3.0_react-dom@19.3.0",
+    "npm:resend@^6.21.0": "6.21.0_@react-email+render@2.1.0_react@19.3.0_react-dom@19.3.0",
     "npm:seroval@1.6.8": "1.6.8",
     "npm:shadcn@^4.20.1": "4.20.1_typescript@6.0.3",
     "npm:sharp@~0.35.5": "0.35.5",
     "npm:tailwindcss@4": "4.3.3",
-    "npm:tanstack-router-theme-provider@~0.1.5": "0.1.5_@tanstack+react-router@1.170.41__react@19.3.0__react-dom@19.3.0_react@19.3.0_react-dom@19.3.0",
+    "npm:tanstack-router-theme-provider@~0.1.5": "0.1.5_@tanstack+react-router@1.170.41_react@19.3.0_react-dom@19.3.0",
     "npm:tslib@^2.8.1": "2.8.1",
     "npm:tw-animate-css@^1.4.0": "1.4.0",
-    "npm:vite@*": "8.2.1",
-    "npm:vite@^8.0.16": "8.2.1",
-    "npm:vitest@^5.0.1": "5.0.1_@opentelemetry+api@1.9.0_vite@8.2.1"
+    "npm:vite@^8.3.2": "8.3.2",
+    "npm:vitest@^5.0.3": "5.0.3_vite@8.3.2"
   },
   "npm": {
     "@ag-ui/core@1.0.0_zod@4.6.5": {
@@ -645,14 +644,13 @@
         "@types/react"
       ]
     },
-    "@better-auth-ui/core@1.7.12_@better-auth+api-key@1.7.7_better-auth@1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_better-call@1.4.0_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.1": {
+    "@better-auth-ui/core@1.7.12_@better-auth+api-key@1.7.7__better-auth@1.7.7___@tanstack+react-start@1.168.60____react@19.3.0____react-dom@19.3.0____vite@8.3.2___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.1___react@19.3.0___react-dom@19.3.0___vitest@5.0.3___vite@8.3.2__vite@8.3.2__vitest@5.0.3_better-auth@1.7.7__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.3.2__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.3__vite@8.3.2_vite@8.3.2_vitest@5.0.3": {
       "integrity": "sha512-+qUo2ED4fJ97PvIkk7ZdvdzV20vuSn2jCFeAieAdqyjYOIm9CD8Il3wqN+8uR+jqv5ODxB7Yi8uycZ8ItFhkXw==",
       "dependencies": [
         "@better-auth/agent-auth",
         "@better-auth/api-key",
         "@better-auth/passkey",
         "@mikkelscheike/email-provider-links",
-        "@tanstack/query-core",
         "better-auth",
         "libphonenumber-js",
         "uqr"
@@ -662,13 +660,12 @@
         "@better-auth/passkey"
       ]
     },
-    "@better-auth-ui/react@1.7.12_@better-auth-ui+core@1.7.12__@better-auth+api-key@1.7.7__better-auth@1.7.7__@better-auth+core@1.7.7___@better-auth+utils@0.4.2___@better-fetch+fetch@1.3.2___better-call@1.4.0___jose@6.2.10___kysely@0.29.6___nanostores@1.5.4__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.2.1__better-call@1.4.0__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc___@effect+sql-pg@4.0.0___@types+pg@8.23.1___effect@4.0.0___pg@8.23.1___zod@4.6.5__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.1_@better-auth+api-key@1.7.7_@tanstack+react-query@5.102.0__react@19.3.0_better-auth@1.7.7_react@19.3.0_react-dom@19.3.0_react-email@6.9.2__react@19.3.0__react-dom@19.3.0_tailwindcss@4.3.3_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_better-call@1.4.0_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1_vitest@5.0.1": {
+    "@better-auth-ui/react@1.7.12_@better-auth-ui+core@1.7.12__@better-auth+api-key@1.7.7___better-auth@1.7.7____@tanstack+react-start@1.168.60_____react@19.3.0_____react-dom@19.3.0_____vite@8.3.2____drizzle-kit@1.0.0-rc.5-ab785fc____drizzle-orm@1.0.0-rc.5-ab785fc____pg@8.23.1____react@19.3.0____react-dom@19.3.0____vitest@5.0.3____vite@8.3.2___vite@8.3.2___vitest@5.0.3__better-auth@1.7.7___@tanstack+react-start@1.168.60____react@19.3.0____react-dom@19.3.0____vite@8.3.2___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.1___react@19.3.0___react-dom@19.3.0___vitest@5.0.3___vite@8.3.2__vite@8.3.2__vitest@5.0.3_@better-auth+api-key@1.7.7__better-auth@1.7.7___@tanstack+react-start@1.168.60____react@19.3.0____react-dom@19.3.0____vite@8.3.2___drizzle-kit@1.0.0-rc.5-ab785fc___drizzle-orm@1.0.0-rc.5-ab785fc___pg@8.23.1___react@19.3.0___react-dom@19.3.0___vitest@5.0.3___vite@8.3.2__vite@8.3.2__vitest@5.0.3_@tanstack+react-query@5.104.1_better-auth@1.7.7__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.3.2__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.3__vite@8.3.2_react@19.3.0_react-dom@19.3.0_react-email@6.9.2_tailwindcss@4.3.3_vite@8.3.2_vitest@5.0.3": {
       "integrity": "sha512-4k8g4ygCt7tg0/28CkRVLMKrROoIdiL/yVxw55/TcLHBl44Gxm3RqWvipJWJTz3dty7y5Q4CRkB13o49U9LX1A==",
       "dependencies": [
         "@better-auth-ui/core",
         "@better-auth/api-key",
         "@better-auth/passkey",
-        "@tanstack/query-core",
         "@tanstack/react-query",
         "better-auth",
         "clsx",
@@ -682,51 +679,23 @@
         "react-email"
       ]
     },
-    "@better-auth/agent-auth@0.6.2_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.3.2__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_better-auth@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.1": {
+    "@better-auth/agent-auth@0.6.2_better-auth@1.7.7__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.3.2__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.3__vite@8.3.2_vite@8.3.2_vitest@5.0.3": {
       "integrity": "sha512-bXJ31rkZtCd27TuUfaAqNLbeZOMfJih5fO9HGq8mrU/23E9ljxScCkIPA3RJmUJ0SBGtaHA9GKVwIlFce0slvg==",
       "dependencies": [
-        "@better-auth/core@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_better-call@1.3.2_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4",
+        "@better-auth/core@1.7.7_better-call@1.3.2_jose@6.2.10",
         "@simplewebauthn/server",
         "better-auth",
         "better-call@1.3.2_zod@4.6.5",
         "jose@6.2.10"
       ]
     },
-    "@better-auth/api-key@1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_better-auth@1.7.7_better-call@1.4.0_@better-fetch+fetch@1.3.2_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.1": {
+    "@better-auth/api-key@1.7.7_better-auth@1.7.7__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.3.2__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.3__vite@8.3.2_vite@8.3.2_vitest@5.0.3": {
       "integrity": "sha512-XWtZxF37A7BURHh/GvsYh2Vype1p+R1ZxvQHkRzB4tK3uniZpILe2WRIXfVj3m8NIBHdg8Ez8S8sZJY/ewTu7w==",
       "dependencies": [
         "@better-auth/core@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4",
         "@better-auth/utils@0.4.2",
         "better-auth",
         "better-call@1.4.0_zod@4.6.5",
-        "zod@4.6.5"
-      ]
-    },
-    "@better-auth/core@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4": {
-      "integrity": "sha512-srgFzHEjB2WWlokFz1i4BfG41sNhsA105Pukgqu6RrEh5A+LSkzf1mCHydVipkjt9l5qswtBMi7IL6ouHbZL4Q==",
-      "dependencies": [
-        "@better-auth/utils@0.4.2",
-        "@better-fetch/fetch@1.3.1",
-        "@opentelemetry/semantic-conventions",
-        "@standard-schema/spec",
-        "better-call@1.4.0_zod@4.6.5",
-        "jose@6.2.10",
-        "kysely",
-        "nanostores",
-        "zod@4.6.5"
-      ]
-    },
-    "@better-auth/core@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_better-call@1.3.2_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4": {
-      "integrity": "sha512-srgFzHEjB2WWlokFz1i4BfG41sNhsA105Pukgqu6RrEh5A+LSkzf1mCHydVipkjt9l5qswtBMi7IL6ouHbZL4Q==",
-      "dependencies": [
-        "@better-auth/utils@0.4.2",
-        "@better-fetch/fetch@1.3.2",
-        "@opentelemetry/semantic-conventions",
-        "@standard-schema/spec",
-        "better-call@1.3.2_zod@4.6.5",
-        "jose@6.2.10",
-        "kysely",
-        "nanostores",
         "zod@4.6.5"
       ]
     },
@@ -744,7 +713,21 @@
         "zod@4.6.5"
       ]
     },
-    "@better-auth/drizzle-adapter@1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1": {
+    "@better-auth/core@1.7.7_better-call@1.3.2_jose@6.2.10": {
+      "integrity": "sha512-srgFzHEjB2WWlokFz1i4BfG41sNhsA105Pukgqu6RrEh5A+LSkzf1mCHydVipkjt9l5qswtBMi7IL6ouHbZL4Q==",
+      "dependencies": [
+        "@better-auth/utils@0.4.2",
+        "@better-fetch/fetch@1.3.2",
+        "@opentelemetry/semantic-conventions",
+        "@standard-schema/spec",
+        "better-call@1.3.2_zod@4.6.5",
+        "jose@6.2.10",
+        "kysely",
+        "nanostores",
+        "zod@4.6.5"
+      ]
+    },
+    "@better-auth/drizzle-adapter@1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1": {
       "integrity": "sha512-qon0U94PR5FQysuyGoAlGVQpIIiNg5dtDpwjE63sN/HjoRWZadZzHPcS9mn7JsJyQZK6iTNhd7LD0AaXt2f78w==",
       "dependencies": [
         "@better-auth/core@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4",
@@ -780,10 +763,10 @@
         "@better-auth/utils@0.4.2"
       ]
     },
-    "@better-auth/passkey@1.7.1_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.1__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-auth@1.7.7_better-call@1.4.0_nanostores@1.5.4_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_jose@6.2.10_kysely@0.29.6_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.1": {
+    "@better-auth/passkey@1.7.1_better-auth@1.7.7__@tanstack+react-start@1.168.60___react@19.3.0___react-dom@19.3.0___vite@8.3.2__drizzle-kit@1.0.0-rc.5-ab785fc__drizzle-orm@1.0.0-rc.5-ab785fc__pg@8.23.1__react@19.3.0__react-dom@19.3.0__vitest@5.0.3__vite@8.3.2_vite@8.3.2_vitest@5.0.3": {
       "integrity": "sha512-bGnCBDL2udKniHI4IZpjh4lU8lQWRVk3SG/ZtTtZz6QZLCJ2YpVjjwv2O0VJt/jw9SLuXyccx3IFh4s0PKGTRQ==",
       "dependencies": [
-        "@better-auth/core@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.1_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4",
+        "@better-auth/core@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4",
         "@better-auth/utils@0.4.2",
         "@better-fetch/fetch@1.3.1",
         "@simplewebauthn/browser",
@@ -1085,11 +1068,11 @@
         "effect"
       ]
     },
-    "@effect/vitest@4.0.0_effect@4.0.0_vitest@5.0.1": {
+    "@effect/vitest@4.0.0_effect@4.0.0_vitest@5.0.3_vite@8.3.2": {
       "integrity": "sha512-kGElCPFGtP+CgMCwV/HjJWqtE3zYo6I1+8MSA54l+EI24lPU9p2Efa+TBp1jfkg9j711KKzEqgSAy3VzTsb76Q==",
       "dependencies": [
         "effect",
-        "vitest"
+        "vitest@5.0.3_vite@8.3.2"
       ]
     },
     "@emnapi/core@1.11.2": {
@@ -2619,8 +2602,8 @@
     "@oxc-project/types@0.143.0": {
       "integrity": "sha512-u6JZdLBTLotrNC9Vd6vPssINdzcCzleKAH6EJKImQb7GtYvX5keN2dxkoK44stCc4tffE6QQRtZTXVSzsLUlWA=="
     },
-    "@oxc-project/types@0.150.0": {
-      "integrity": "sha512-rDS5/31E9HfPl/CIzGrn0DOlvBbXFseQ5URJ9sYMfstbKLD/c6Gm9vmRzRGDdAXyOIL4zmO37lc9RIwYqVruZw=="
+    "@oxc-project/types@0.152.0": {
+      "integrity": "sha512-oM/5rLBm2tPkg0iBgkH/FOeR3PCDpY19GTgAZjMFM8h9WI9VW7cLgzp6nwtarYKmovavIQZ+Fe/RKX/8C8O/Rw=="
     },
     "@oxc-resolver/binding-android-arm-eabi@11.24.2": {
       "integrity": "sha512-y09e0L0SRI2OA2tUIrjBgoV3eH5hvUKXNkJqXmNo5V2WxIjyC7I7aJfRLMEVpA8yi95f90gFDvO0VMgrDw+vwA==",
@@ -3077,8 +3060,8 @@
         "react-dom"
       ]
     },
-    "@playwright/test@1.62.1": {
-      "integrity": "sha512-DTcUc8qii+cpHvtOwggMtBRMjKZHXYWdw8syRYu2vtzuq4Wxphqq4NfCs5Zt44L6mA8rfDfj+PHnxFc/FeK6mQ==",
+    "@playwright/test@1.63.0": {
+      "integrity": "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==",
       "dependencies": [
         "playwright"
       ],
@@ -3136,82 +3119,82 @@
         "@codemirror/view"
       ]
     },
-    "@rolldown/binding-android-arm-eabi@1.2.9": {
-      "integrity": "sha512-tNISae1QEf/vkb3xkRcjV5SEdzPE97We5IVaa2Z8jSszQPZ8U60B/YCYpw4QI7VidYsBtKavczXf+DyDs9WGxw==",
+    "@rolldown/binding-android-arm-eabi@1.2.12": {
+      "integrity": "sha512-dB/a1214qKfHMXCpgqR4OZT+jS4kTyEXbQGJPqzobt5EwH5rX080pxE37alt3RzvR1bf1Yz/yGqRfrYAxuPw0A==",
       "os": ["android"],
       "cpu": ["arm"]
     },
-    "@rolldown/binding-android-arm64@1.2.9": {
-      "integrity": "sha512-YC8YsI30o606GTZi0VyzYlsDKFP8W61i/QzayHDkLbNEz/IShqAmTa+hsJRj13xTHA0H+6fk4b2UmGn+Q/cMlg==",
+    "@rolldown/binding-android-arm64@1.2.12": {
+      "integrity": "sha512-7KHFgQ5VJxIHcLlrwrc3Xbds7oTNQT7Pgi9gQCJKrd2VGab/UksIOYp6VD8MzCstGxOKMgNamPwUCfxPdP1OHg==",
       "os": ["android"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-darwin-arm64@1.2.9": {
-      "integrity": "sha512-IwhlH3qK5urrY8hZiEgGkHKEFN901p/p2bjxCxJlr4GyNnF7wYpUvK+Y43uaRYuC4hpfjzbR3SJC3arX1jGvmw==",
+    "@rolldown/binding-darwin-arm64@1.2.12": {
+      "integrity": "sha512-3YIhqHD96nA5SaYNRBR16HnGv4oavZvXfD/ayHM+oYZ0WD/8lBAtf6zQua4kEyAvpqrluKXl0lnOBoiNby7x9w==",
       "os": ["darwin"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-darwin-x64@1.2.9": {
-      "integrity": "sha512-XxpJfVzFh+jilRxIXUqcfYAYcunIc/XEzIizsOL1fcJee5Sf7H3mH8WlLmfHfluz5amqR88QQo9izKtmMlavAw==",
+    "@rolldown/binding-darwin-x64@1.2.12": {
+      "integrity": "sha512-UuuJ35MFw4gmFOrE9pEqIV+K3syIKveph+Qc1/ljHZVdoDW4pz/JHR/eMVom+TZGl/5OOvGJOWaOCVt3ZfqhxA==",
       "os": ["darwin"],
       "cpu": ["x64"]
     },
-    "@rolldown/binding-freebsd-x64@1.2.9": {
-      "integrity": "sha512-kSfvhmgeWyfkbT3p/1s5vSgboogoah2zkm9fX2zjg2hHxSV7T4KhMWRUUaRk4OXNqoD3QAUeRqLcs1aZOK4U1g==",
+    "@rolldown/binding-freebsd-x64@1.2.12": {
+      "integrity": "sha512-uMvssit0a4W+/7D8CbHUvG719mH3R2jwXAlh/XcPvuHTE0g++LymF88DCGNX0HM2rBOn0xrzgXktIB6fLSJBTQ==",
       "os": ["freebsd"],
       "cpu": ["x64"]
     },
-    "@rolldown/binding-linux-arm-gnueabihf@1.2.9": {
-      "integrity": "sha512-1RVzG17pxqbTfYLC352JlLt6kKLG+6Hr30n8DlIJqsnV5luUDd2Qdx9Ayw1Cabfyb1K9k0jXEZ7evxkRoT+uiw==",
+    "@rolldown/binding-linux-arm-gnueabihf@1.2.12": {
+      "integrity": "sha512-XcFu0R0xWnwzSf4IQgFH1rJIckPN1pLy2R+4r9IDB7Yfu/ys9cVqfa4pBrMHj7a3gl8mIR4nRNPg0e5IvEVs6g==",
       "os": ["linux"],
       "cpu": ["arm"]
     },
-    "@rolldown/binding-linux-arm64-gnu@1.2.9": {
-      "integrity": "sha512-BXqPvZ2drqVD+/Z8UpKwcs4Mp7grM+eGFku4CAEKrEtcbAsUpzREphK1sogCRZGreVPiMkiiBtw0n3TPteuqvw==",
+    "@rolldown/binding-linux-arm64-gnu@1.2.12": {
+      "integrity": "sha512-260UrKgn8tz39ak+SMDOirKzr7V04M9dWPw5llW00SwBivCZoWcRBKV1d8cXnRkUmSZA3BdiUmBHWk7734Ulpw==",
       "os": ["linux"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-linux-arm64-musl@1.2.9": {
-      "integrity": "sha512-11vWvo8YDwLzukt27J3aYDWU+gg2P7J+ZOmiJ0hkF5BXZDW7pVya7r40MXDy6ya0i9KamoENSVKIugvJNgFXIA==",
+    "@rolldown/binding-linux-arm64-musl@1.2.12": {
+      "integrity": "sha512-5YK1I9SqDkbPgc1IA8BgDl34suqUS2q0KWnBrirm0E51YjOs6eo6dV6jbQfNE/argHRSvd0QUGgtpIoYx+WWpw==",
       "os": ["linux"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-linux-ppc64-gnu@1.2.9": {
-      "integrity": "sha512-a1tijMkdwsIARtc0F39ApURROkf3NwqinI6TOiSSWCTR7dT96dffNvMUtDHnq64wKNTIZOIlzKrFvvFUznJiyw==",
+    "@rolldown/binding-linux-ppc64-gnu@1.2.12": {
+      "integrity": "sha512-Rkcrmp7eFRg74yL5fXEU91JEWbdEPLevWwGtXpmhbjlD1StScbWTmO94Bhly+Mo+ketKYkdmM1vNUKeWSlx8cQ==",
       "os": ["linux"],
       "cpu": ["ppc64"]
     },
-    "@rolldown/binding-linux-s390x-gnu@1.2.9": {
-      "integrity": "sha512-x6SQNdAvv4c3hWqTMaWuawzMX9myaCs/yEmlGsxJzkdClnHW7FbrjQuSiRDhuSYzEYoEMhsaJy9qHG/XNemJPQ==",
+    "@rolldown/binding-linux-s390x-gnu@1.2.12": {
+      "integrity": "sha512-qvK4DuAsQc2BSjlx+Xr+IzOIvvxbGZqxFwdWfG6F518Erj0GGISyQbJ6pIappnOxlNPzNHvo/L0BwB30GZ+zVw==",
       "os": ["linux"],
       "cpu": ["s390x"]
     },
-    "@rolldown/binding-linux-x64-gnu@1.2.9": {
-      "integrity": "sha512-9s0AZ8BFK5/n7B/TBoa2yJE3gI3KURrbXcPBlsAsvjU4VeJKgE90y1YtNxyEUIcHPQkg6/yfF3qihUrcM/Kf0Q==",
+    "@rolldown/binding-linux-x64-gnu@1.2.12": {
+      "integrity": "sha512-Q9uLBO53Xd4QIq1WOycVQyPP1O4HhraEV2qqb3uTrnVw6QZih9duY4vNXOivL1xoUS1/z+W8eF4NMfl2a8Sdjw==",
       "os": ["linux"],
       "cpu": ["x64"]
     },
-    "@rolldown/binding-linux-x64-musl@1.2.9": {
-      "integrity": "sha512-P7VWAmV+WdJluH7ovnRGoiv2i8To7GAZ+kGzfGup635cyL7SyYl3lSUaA3Gp5THf0n/Co5EyEqb2zbqq+nMOHQ==",
+    "@rolldown/binding-linux-x64-musl@1.2.12": {
+      "integrity": "sha512-3IBxWFMjbOZskDPKv8Lf9BCnahlKuHthWkYnyIxOH/QcJrFcS4EmcenthApkwr/5+nEqZlLzeYbxeMaX7A5u4g==",
       "os": ["linux"],
       "cpu": ["x64"]
     },
-    "@rolldown/binding-openharmony-arm64@1.2.9": {
-      "integrity": "sha512-1qixtsE4BK8h+yS3BfmZ09UhA7O/N4IACva6YBr7EBvCJraByTuRcgOTaiA62Tm0vey3UcKXLOaoGHtYmNGEVg==",
+    "@rolldown/binding-openharmony-arm64@1.2.12": {
+      "integrity": "sha512-xtX61xg4LKPkPWilZU1ynKClz5Gj4bf74LML4r3eVLWumKnGjoEr1OSHQhMdbBDoYTi+yjrujvpZe2pUnqCrrA==",
       "os": ["openharmony"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-win32-arm64-msvc@1.2.9": {
-      "integrity": "sha512-ok8IQjcEPs1AKZfuEUznVBrJw+gK4soq+bx8b1X2XoMqVClarc1q5JDmVtWXY1xfr6ZuHTAsPXHTgTrqKTZeww==",
+    "@rolldown/binding-win32-arm64-msvc@1.2.12": {
+      "integrity": "sha512-At7fPB6PCaIjzgIhEZFxuT+BBFqiQibJDT4d3PhiR3f4E7bbMZF4aKblbFfEM3sETRDd1YiQx/+U/g/B/ou5Ew==",
       "os": ["win32"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-win32-x64-msvc@1.2.9": {
-      "integrity": "sha512-Ip2mXoU0hM0boq3Rf+ekuT653OROSo6aSYcPT1VHE4q52KvyxgFkQgrgb/IEsxOuvQ2fZZbs8khJAyCEPM24/g==",
+    "@rolldown/binding-win32-x64-msvc@1.2.12": {
+      "integrity": "sha512-WIw2haVKwjuYdXkHaoC0mF8Le71TuCBxjrdKqLbJGctbBABj+ClfmNvtbOnzpq3RokNo5+V1qhtSzJyXorsklQ==",
       "os": ["win32"],
       "cpu": ["x64"]
     },
-    "@rolldown/plugin-babel@0.2.3_@babel+core@7.29.7_rolldown@1.2.4_vite@8.2.1": {
+    "@rolldown/plugin-babel@0.2.3_vite@8.3.2": {
       "integrity": "sha512-+zEk16yGlz1F9STiRr6uG9hmIXb6nprjLczV/htGptYuLoCuxb+itZ03RKCEeOhBpDDd1NU7qF6x1VLMUp62bw==",
       "dependencies": [
         "@babel/core",
@@ -3742,7 +3725,7 @@
         "@tailwindcss/oxide-win32-x64-msvc"
       ]
     },
-    "@tailwindcss/vite@4.3.3_vite@8.2.1": {
+    "@tailwindcss/vite@4.3.3_vite@8.3.2": {
       "integrity": "sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw==",
       "dependencies": [
         "@tailwindcss/node",
@@ -3774,54 +3757,54 @@
         "openai"
       ]
     },
-    "@tanstack/ai-sandbox-daytona@0.3.4_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_ws@8.21.3_zod@4.6.5": {
+    "@tanstack/ai-sandbox-daytona@0.3.4_@tanstack+ai-sandbox@0.5.17__@tanstack+ai@0.63.0__vitest@5.0.1___vite@8.3.2__vite@8.3.2_vite@8.3.2": {
       "integrity": "sha512-AumlHSt2v3GylYW3kcVG+VJaRH2tKqvt4szsJQIiEqPazgIleGQKcF9g2J3vuPOfVqv8CdCdxuN5fwNU0sSlwA==",
       "dependencies": [
         "@daytona/sdk",
         "@tanstack/ai-sandbox"
       ]
     },
-    "@tanstack/ai-sandbox-docker@0.3.2_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_zod@4.6.5": {
+    "@tanstack/ai-sandbox-docker@0.3.2_@tanstack+ai-sandbox@0.5.17__@tanstack+ai@0.63.0__vitest@5.0.1___vite@8.3.2__vite@8.3.2_vite@8.3.2": {
       "integrity": "sha512-HD8uefHrL6zP+6lJhxDf6lBvZ6Effu/V38XgSvNOxE5Xbqt4qzLLMlL11/zuAw70275kgwoaFO5GE3GQyEnGxA==",
       "dependencies": [
         "@tanstack/ai-sandbox",
         "dockerode"
       ]
     },
-    "@tanstack/ai-sandbox-sprites@0.2.5_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_zod@4.6.5": {
+    "@tanstack/ai-sandbox-sprites@0.2.5_@tanstack+ai-sandbox@0.5.17__@tanstack+ai@0.63.0__vitest@5.0.1___vite@8.3.2__vite@8.3.2_vite@8.3.2": {
       "integrity": "sha512-GaRsC05LCWyX2Knp29v85KKeIroyAEnTZnR4F1kEcmSUoWdKmF/GuPv4k/DkuBslFp1qcu/FDmgRIW7cGR+bdA==",
       "dependencies": [
         "@tanstack/ai-sandbox"
       ]
     },
-    "@tanstack/ai-sandbox-vercel@0.2.5_@tanstack+ai-sandbox@0.5.17_@opentelemetry+api@1.9.0_@tanstack+ai@0.63.0_vitest@5.0.1_zod@4.6.5": {
+    "@tanstack/ai-sandbox-vercel@0.2.5_@tanstack+ai-sandbox@0.5.17__@tanstack+ai@0.63.0__vitest@5.0.1___vite@8.3.2__vite@8.3.2_vite@8.3.2": {
       "integrity": "sha512-H89hBiH3bL+Yr3f5+mkoLOgD5yJTGuO8WxAuXjQ/9r8uEiW1AorOgmrvfVTFq6whe1CguSGTsFEDbnxC5h+/FA==",
       "dependencies": [
         "@tanstack/ai-sandbox",
         "@vercel/sandbox"
       ]
     },
-    "@tanstack/ai-sandbox@0.5.17_@tanstack+ai@0.63.0_vitest@5.0.1_@opentelemetry+api@1.9.0_zod@4.6.5": {
+    "@tanstack/ai-sandbox@0.5.17_@tanstack+ai@0.63.0_vitest@5.0.1__vite@8.3.2_vite@8.3.2": {
       "integrity": "sha512-W5BkZSzMRwrTMq5+YO/SOQd0OYJo64QBCe/cnjZpjIBRH3xPMOvHGvUO6TUB/HokRB1365BdKQAE0HPfbyh41A==",
       "dependencies": [
         "@modelcontextprotocol/sdk@1.30.0_zod@4.6.5",
         "@tanstack/ai",
         "@tanstack/ai-skills",
-        "vitest"
+        "vitest@5.0.1_vite@8.3.2"
       ],
       "optionalPeers": [
-        "vitest"
+        "vitest@5.0.1_vite@8.3.2"
       ]
     },
-    "@tanstack/ai-skills@0.1.13_@tanstack+ai@0.63.0_vitest@5.0.1_zod@4.6.5_@opentelemetry+api@1.9.0": {
+    "@tanstack/ai-skills@0.1.13_@tanstack+ai@0.63.0_vitest@5.0.1__vite@8.3.2_vite@8.3.2": {
       "integrity": "sha512-sqrToBWSomvwyLm8zS9ulOjjfJZ70+2R4SE3teGw+WBtCIClCsdNh+dJAALYJCst7wDBHqW9gPkAqGyr7OCaUA==",
       "dependencies": [
         "@tanstack/ai",
-        "vitest",
+        "vitest@5.0.1_vite@8.3.2",
         "zod@4.6.5"
       ],
       "optionalPeers": [
-        "vitest"
+        "vitest@5.0.1_vite@8.3.2"
       ]
     },
     "@tanstack/ai-utils@0.4.1": {
@@ -3882,7 +3865,7 @@
         "solid-js"
       ]
     },
-    "@tanstack/devtools-vite@0.8.3_vite@8.2.1_@emnapi+core@1.11.2_@emnapi+runtime@1.11.2": {
+    "@tanstack/devtools-vite@0.8.3_vite@8.3.2": {
       "integrity": "sha512-MqqE4/rdQUG55Y8Zux1Jj1I2wIBHdqYgjAJzP1grMUtFqSZ2XIDB7BHEV9UW/vrbhK7ocl4yFgVaJWROv0zeDA==",
       "dependencies": [
         "@tanstack/devtools-bundler-core",
@@ -3936,14 +3919,14 @@
         "typescript"
       ]
     },
-    "@tanstack/highlight@0.0.10": {
-      "integrity": "sha512-RNWn4BYgroDnHSdWduHVUN3hXM5OZUVwynuY2Fwh4el2hVy0woe9XZBZ5IIxC50h1y8SEYkBipS+cPgdzRc7Zg=="
+    "@tanstack/highlight@1.0.0": {
+      "integrity": "sha512-nrg2iZSQUZlDZGTPKh/CNlg6Orm3vFHIaIi/9DqPC1rUpfe/M6rD2iokrckWTc2Z5jYDz185BK76GUh9VIjQRw=="
     },
     "@tanstack/history@1.162.4": {
       "integrity": "sha512-utTS5L2OkeYUzXGohL1Z8sefu1GLNOJcxe8Hd6iIdc/Xo1K1nDB2JEp4iSFhvYh33xKC9V91TxrS8qfrpoKobQ=="
     },
-    "@tanstack/markdown@0.0.13_react@19.3.0": {
-      "integrity": "sha512-ZSQP2ulBvlPzdpZeRheBJnaELo7e4ET/D/XrfgweHyqhhLMN5vUJJAUl7ufSRd7GlfO/vwdzjKPh0E0JwqJkDA==",
+    "@tanstack/markdown@1.0.0_react@19.3.0": {
+      "integrity": "sha512-zE07RepFMbSQlHdnE82twgiVOKy50rP6a/X9UPOOBt8Z8x9lzaPvGpn2zioCnjXMvNt/IQkW5sSalXQ25C/FKw==",
       "dependencies": [
         "react"
       ],
@@ -3966,8 +3949,8 @@
         "@tanstack/store"
       ]
     },
-    "@tanstack/query-core@5.102.0": {
-      "integrity": "sha512-tvBzr11Q7StuMCEsIJdqX8TAWt6WZIzfw/yrSAjObZDerwTTPeCxeLXN2R8ZSn4ZxFpQV819Xn8QmoO+vtnDvw=="
+    "@tanstack/query-core@5.104.1": {
+      "integrity": "sha512-TiRghcrGkUTE+M4JBxvpPSpBhxvIzQairw+cksrHYGr+2uwC77yW1SY9nYxnYRYOppvucf8rEg6b5byoz4rTpw=="
     },
     "@tanstack/react-devtools@0.10.10_@types+react@19.3.0_@types+react-dom@19.3.0_react@19.3.0_react-dom@19.3.0": {
       "integrity": "sha512-hYH34MSVbajs1pUc22ftSapyKQp2gOh0w34a7ouYOdIcbXD6YPckSR2YpAWGq1rrs6N0l/rvV6LM/G1pgN5ARg==",
@@ -3988,14 +3971,14 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-query@5.102.0_react@19.3.0": {
-      "integrity": "sha512-0GyVyEcGt9M7jHPCua16hNVtstUXE2R4HsnNubFYcDs7DJaLzh1dSiXsADDU/cNn/SqrLfa0vRKyjUmbx4rZLA==",
+    "@tanstack/react-query@5.104.1_react@19.3.0": {
+      "integrity": "sha512-Zz70EgjahNI7aCz8BZxM3vUGU44ycxEAzMuCUjLeA7SVhhOkg3ZgPjPJPvHjs6Rmky/dtmnu1WzjGHNHmhCoZQ==",
       "dependencies": [
         "@tanstack/query-core",
         "react"
       ]
     },
-    "@tanstack/react-router-devtools@1.167.2_@tanstack+react-router@1.170.41__react@19.3.0__react-dom@19.3.0_react@19.3.0_react-dom@19.3.0": {
+    "@tanstack/react-router-devtools@1.167.2_@tanstack+react-router@1.170.41_react@19.3.0_react-dom@19.3.0": {
       "integrity": "sha512-VuoqB7OhDUrBa4WOFSKiAQ8xI8sJpeZdo9sYE1hQa89iMuVFUQu1iWE4iCiQhB+6TYOZDZ9e+iHKxYjop4ZVYw==",
       "dependencies": [
         "@tanstack/react-router",
@@ -4008,10 +3991,9 @@
         "@tanstack/router-core"
       ]
     },
-    "@tanstack/react-router-ssr-query@1.167.3_@tanstack+react-query@5.102.0__react@19.3.0_@tanstack+react-router@1.170.41__react@19.3.0__react-dom@19.3.0_react@19.3.0_react-dom@19.3.0": {
+    "@tanstack/react-router-ssr-query@1.167.3_@tanstack+react-query@5.104.1_@tanstack+react-router@1.170.41_react@19.3.0_react-dom@19.3.0": {
       "integrity": "sha512-HA0pxuPuhU+rwoe+z1Xcbytuoo6ZbcROpgNgNSm38s3/hGLmgzOBLzDg+Vyx6ex26QilnPbZ+5Ypet5mImm9bQ==",
       "dependencies": [
-        "@tanstack/query-core",
         "@tanstack/react-query",
         "@tanstack/react-router",
         "@tanstack/router-ssr-query-core",
@@ -4040,7 +4022,7 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-start-rsc@0.1.59_react@19.3.0_react-dom@19.3.0": {
+    "@tanstack/react-start-rsc@0.1.59_react@19.3.0_react-dom@19.3.0_vite@8.3.2": {
       "integrity": "sha512-M2Lqxkk5C1zQncQs5paqX+/OLdOht51pg6D84YfLMrNsjhU/nzb6wd92MIja0mi5i23+L+fxLLjQYR2DObjBlw==",
       "dependencies": [
         "@tanstack/react-router",
@@ -4065,7 +4047,7 @@
         "react-dom"
       ]
     },
-    "@tanstack/react-start@1.168.60_react@19.3.0_react-dom@19.3.0_vite@8.2.1": {
+    "@tanstack/react-start@1.168.60_react@19.3.0_react-dom@19.3.0_vite@8.3.2": {
       "integrity": "sha512-WMOM0Xlh2lPbVlbjYM6uOxOpiaWRPvODm/dwkLsGKq5tjyHOHZmKckJgwlrZl7OQUqFlOZHYj8bKUTgoeg8cUQ==",
       "dependencies": [
         "@tanstack/react-router",
@@ -4128,7 +4110,7 @@
         "zod@4.6.5"
       ]
     },
-    "@tanstack/router-plugin@1.168.42_@tanstack+react-router@1.170.41__react@19.3.0__react-dom@19.3.0_vite@8.2.1_react@19.3.0_react-dom@19.3.0": {
+    "@tanstack/router-plugin@1.168.42_@tanstack+react-router@1.170.41_vite@8.3.2": {
       "integrity": "sha512-vAR5WXJh/ErseEWQftDhsJcr2c++ucRQ6FbqN3ygMO44+ZxxRfW3sIpZmddHROVSmBk8jc6MrwjTPNjVhd62Vw==",
       "dependencies": [
         "@babel/core",
@@ -4151,7 +4133,6 @@
     "@tanstack/router-ssr-query-core@1.169.3_@tanstack+query-core@5.102.0_@tanstack+router-core@1.171.34": {
       "integrity": "sha512-0EE3mFa753mExMJEfWhZMi+EKViSLmZHoiYADZJzr5+2S/T4T12soHg8fMn67jCvDwL2dpd1mE7aL/XXzDPfhA==",
       "dependencies": [
-        "@tanstack/query-core",
         "@tanstack/router-core"
       ]
     },
@@ -4180,7 +4161,7 @@
     "@tanstack/start-fn-stubs@1.162.0": {
       "integrity": "sha512-QWfUZ3Yo923tdQn38LyKMU8rcTw69zc+T4dAvgTWV4O56SqFRsGfS0lSWIMhJRwXIx/bvdi7nTUBDdZtTHtpTQ=="
     },
-    "@tanstack/start-plugin-core@1.171.49_vite@8.2.1_react@19.3.0_react-dom@19.3.0": {
+    "@tanstack/start-plugin-core@1.171.49_vite@8.3.2": {
       "integrity": "sha512-HPOb7LnMc71k38cd5uvMybPPUU/Q/56KvSqQzSWz7cps1ZDFXaxUM6EFaFHLCdgTWqGexNGDdRE+sUVPVBM4Xg==",
       "dependencies": [
         "@babel/code-frame",
@@ -4458,7 +4439,7 @@
         "zod@4.6.5"
       ]
     },
-    "@vitejs/plugin-react@6.0.5_@rolldown+plugin-babel@0.2.3_babel-plugin-react-compiler@1.0.0_vite@8.2.1_@babel+core@7.29.7_rolldown@1.2.4": {
+    "@vitejs/plugin-react@6.0.5_vite@8.3.2": {
       "integrity": "sha512-BOVzne/NL162sMdResB25mUv+vWMF5NoAjNf09TeGlE7ZpszZWSD3winycicLJw72yeVsoCn/2kOhEuCvEShMA==",
       "dependencies": [
         "@rolldown/plugin-babel",
@@ -4471,25 +4452,38 @@
         "babel-plugin-react-compiler"
       ]
     },
-    "@vitest/eslint-plugin@1.6.27_vitest@5.0.1_@opentelemetry+api@1.9.0": {
+    "@vitest/eslint-plugin@1.6.27_vitest@5.0.3_vite@8.3.2": {
       "integrity": "sha512-X1RCAfwbatG4GFbJ/1PIHP9MSZMt0JJThqbYID+vS4L783k6QGlLPe421wQE8dHXuGCcenVLsydiM4qzsYWxhg==",
       "dependencies": [
         "@typescript-eslint/scope-manager",
         "@typescript-eslint/utils@8.70.1_eslint@10.11.0_typescript@6.0.3",
         "eslint@10.11.0",
         "typescript",
-        "vitest"
+        "vitest@5.0.3_vite@8.3.2"
       ],
       "optionalPeers": [
         "typescript",
-        "vitest"
+        "vitest@5.0.3_vite@8.3.2"
       ]
     },
-    "@vitest/mocker@5.0.1_vite@8.2.1": {
+    "@vitest/mocker@5.0.1_vite@8.3.2": {
       "integrity": "sha512-6K1DoBNAPGvuOcSsGA4D6x+5zEEff/KmOOP3uetT2TrGpVfI+HRHRnJJfKi5ib/g1vx8IYHQD8s0pbJz8WQI7Q==",
       "dependencies": [
         "@jridgewell/trace-mapping",
-        "@vitest/spy",
+        "@vitest/spy@5.0.1",
+        "estree-walker@3.0.3",
+        "magic-string@1.4.1",
+        "vite"
+      ],
+      "optionalPeers": [
+        "vite"
+      ]
+    },
+    "@vitest/mocker@5.0.3_vite@8.3.2": {
+      "integrity": "sha512-T8sWAIbkSyAjkwTcaEc3Iu0o9A27X1/kdXrizhZkGuSKScRQtRzclfAMpOTcGdXCsqxeWlpGy3XjqaW8CpLORg==",
+      "dependencies": [
+        "@jridgewell/trace-mapping",
+        "@vitest/spy@5.0.3",
         "estree-walker@3.0.3",
         "magic-string@1.4.1",
         "vite"
@@ -4500,6 +4494,9 @@
     },
     "@vitest/spy@5.0.1": {
       "integrity": "sha512-rbto/mF/SGERxEgYOek7Xm6B9b+y+mVoo+f4b2LymYO8zM1b7uB5nHuhVMTP2hxdzgxvGiZYGxGIaMvL5y180Q=="
+    },
+    "@vitest/spy@5.0.3": {
+      "integrity": "sha512-XhFysQTB8AZ+P4gMi+Lpo99vg2AZi0qKpaB9yXQl37+CaMEAPO3iH/wGVnSyL5MPERiLezpqTVtrR6UZH5GCXg=="
     },
     "@vue/compiler-core@3.5.42": {
       "integrity": "sha512-2Ye1ilMtKXxl8qZUrQ5j0CdgenFp/HFQmta6rfRyfEsTG69L6Wk+tWuNoHYHMx9E8tF2Slvdg1FuwDvAXdy1LQ==",
@@ -4831,7 +4828,7 @@
         "tweetnacl"
       ]
     },
-    "better-auth@1.7.7_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.2.1_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc__@effect+sql-pg@4.0.0__@types+pg@8.23.1__effect@4.0.0__pg@8.23.1__zod@4.6.5_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.1": {
+    "better-auth@1.7.7_@tanstack+react-start@1.168.60__react@19.3.0__react-dom@19.3.0__vite@8.3.2_drizzle-kit@1.0.0-rc.5-ab785fc_drizzle-orm@1.0.0-rc.5-ab785fc_pg@8.23.1_react@19.3.0_react-dom@19.3.0_vitest@5.0.3_vite@8.3.2": {
       "integrity": "sha512-Zhgxi/c5ylmfB/sX+nwnBbsFf/j6k0L8DvL6CJXZSrXgxc5pPMC/e7j812zNd4L4B4ELmdURCPw3X8nAOUdcjw==",
       "dependencies": [
         "@better-auth/core@1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4",
@@ -4856,7 +4853,7 @@
         "pg",
         "react",
         "react-dom",
-        "vitest",
+        "vitest@5.0.3_vite@8.3.2",
         "zod@4.6.5"
       ],
       "optionalPeers": [
@@ -4866,7 +4863,7 @@
         "pg",
         "react",
         "react-dom",
-        "vitest"
+        "vitest@5.0.3_vite@8.3.2"
       ]
     },
     "better-call@1.3.2_zod@4.6.5": {
@@ -6101,11 +6098,6 @@
         "jsonfile",
         "universalify"
       ]
-    },
-    "fsevents@2.3.2": {
-      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
-      "os": ["darwin"],
-      "scripts": true
     },
     "fsevents@2.3.3": {
       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
@@ -7992,17 +7984,14 @@
         "find-up@3.0.0"
       ]
     },
-    "playwright-core@1.62.1": {
-      "integrity": "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==",
+    "playwright-core@1.63.0": {
+      "integrity": "sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==",
       "bin": true
     },
-    "playwright@1.62.1": {
-      "integrity": "sha512-0M+L3LAD8/nm554LOla9Ayx0j0tmFZ0FBcoQ7F1VuVHpM/XpiC8RcDzBQB8W5+hA8L22THxELzeF+2WcUzvcLg==",
+    "playwright@1.63.0": {
+      "integrity": "sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==",
       "dependencies": [
         "playwright-core"
-      ],
-      "optionalDependencies": [
-        "fsevents@2.3.2"
       ],
       "bin": true
     },
@@ -8016,8 +8005,8 @@
         "util-deprecate"
       ]
     },
-    "postcss@8.5.26": {
-      "integrity": "sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==",
+    "postcss@8.5.28": {
+      "integrity": "sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==",
       "dependencies": [
         "nanoid@3.3.18",
         "picocolors",
@@ -8366,7 +8355,7 @@
     "reselect@5.2.0": {
       "integrity": "sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw=="
     },
-    "resend@6.21.0_@react-email+render@2.1.0__react@19.3.0__react-dom@19.3.0_react@19.3.0_react-dom@19.3.0": {
+    "resend@6.21.0_@react-email+render@2.1.0_react@19.3.0_react-dom@19.3.0": {
       "integrity": "sha512-XT1eP2iA8rZ51NSO2CJlL1ZE2baBoPpOGMgz2p0o2uluz/YU3XfItpGymXDlL0Sp2Mc+y9+Xxsfdccfi4f2FzQ==",
       "dependencies": [
         "@react-email/render",
@@ -8399,10 +8388,10 @@
     "reusify@1.1.0": {
       "integrity": "sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw=="
     },
-    "rolldown@1.2.9": {
-      "integrity": "sha512-hx/Pv0N1haXRb11qkfnK5MXB/iqr7i0yjWQqmO9uHqZpBgQSqzc8UsSnEpalsh+j1I8qQ2CkXAkJC8Br3dKSlg==",
+    "rolldown@1.2.12": {
+      "integrity": "sha512-8wafseiaG80xmXSfqidUNqZcylTlhmPZZt+za2m+js2sFZ8dTNlhIOV2WcbIPx2hgwPBJpEUGFAMZ9bgBBLTSQ==",
       "dependencies": [
-        "@oxc-project/types@0.150.0",
+        "@oxc-project/types@0.152.0",
         "@rolldown/pluginutils"
       ],
       "optionalDependencies": [
@@ -8913,7 +8902,7 @@
     "tailwindcss@4.3.3": {
       "integrity": "sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ=="
     },
-    "tanstack-router-theme-provider@0.1.5_@tanstack+react-router@1.170.41__react@19.3.0__react-dom@19.3.0_react@19.3.0_react-dom@19.3.0": {
+    "tanstack-router-theme-provider@0.1.5_@tanstack+react-router@1.170.41_react@19.3.0_react-dom@19.3.0": {
       "integrity": "sha512-nEZDtvNI/NOw8yavyYrPEA3N2Dr9o53QjMCE6iTIezIoUKjou5wVleRJY7SoN5FTIHiGIoBov/GKi9hdl6e7CA==",
       "dependencies": [
         "@tanstack/react-router",
@@ -9178,7 +9167,7 @@
     "unpipe@1.0.0": {
       "integrity": "sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ=="
     },
-    "unplugin@3.3.0_rolldown@1.2.4_vite@8.2.1": {
+    "unplugin@3.3.0_vite@8.3.2": {
       "integrity": "sha512-qa66K+crbfyE6JK10GjvbJeRrOsuC/JpbnHctfyp/i4oBTxWOzJfRZyDiOk1PtErMFRu8JhsU/wPvOdBNWe5Rg==",
       "dependencies": [
         "@jridgewell/remapping",
@@ -9252,8 +9241,8 @@
         "vfile-message"
       ]
     },
-    "vite@8.2.1": {
-      "integrity": "sha512-EU/eS7BH3XROHh2YnBefjM6DBKA6ZeMZEYQbj7NLWg5wHYlhB8B/Mayd5XsgWq+NFYccDOTemRpdETWR6Ka/lw==",
+    "vite@8.3.2": {
+      "integrity": "sha512-SQr1x6W5vVSbROg7vsyXIaxK9b0G7zsT68acdWWRmnBUsgDieLCRG+Rep9WdZgcposvv/GSnr4GUUBqB3vXq6w==",
       "dependencies": [
         "lightningcss@1.33.0",
         "picomatch@4.0.7",
@@ -9262,11 +9251,11 @@
         "tinyglobby"
       ],
       "optionalDependencies": [
-        "fsevents@2.3.3"
+        "fsevents"
       ],
       "bin": true
     },
-    "vitefu@1.1.3_vite@8.2.1": {
+    "vitefu@1.1.3_vite@8.3.2": {
       "integrity": "sha512-ub4okH7Z5KLjb6hDyjqrGXqWtWvoYdU3IGm/NorpgHncKoLTCfRIbvlhBm7r0YstIaQRYlp4yEbFqDcKSzXSSg==",
       "dependencies": [
         "vite"
@@ -9275,12 +9264,12 @@
         "vite"
       ]
     },
-    "vitest@5.0.1_@opentelemetry+api@1.9.0_vite@8.2.1": {
+    "vitest@5.0.1_vite@8.3.2": {
       "integrity": "sha512-iA95lQbKEkvrtTkdAgnWbXfbipWiiWe/hDl2P5tMi6WFwD76G0NxXAGp/M9EOcYupeGJRr6wppMc7CoA41TQjg==",
       "dependencies": [
         "@opentelemetry/api",
         "@types/chai",
-        "@vitest/mocker",
+        "@vitest/mocker@5.0.1_vite@8.3.2",
         "chai",
         "es-module-lexer@2.3.2",
         "expect-type",
@@ -9292,10 +9281,30 @@
         "tinyexec",
         "tinyglobby",
         "vite",
-        "why-is-node-running"
+        "why-is-node-running@2.3.0"
       ],
       "optionalPeers": [
         "@opentelemetry/api"
+      ],
+      "bin": true
+    },
+    "vitest@5.0.3_vite@8.3.2": {
+      "integrity": "sha512-xMw97S3rjdtj5dkVat7jCsqWBpvchs3RlpQctUqwJD0KkERk40vz2fJ77lDwW/Vzh/pk18eItYAzkodhSes3jQ==",
+      "dependencies": [
+        "@types/chai",
+        "@vitest/mocker@5.0.3_vite@8.3.2",
+        "chai",
+        "es-module-lexer@2.3.2",
+        "expect-type",
+        "magic-string@1.4.1",
+        "obug",
+        "picomatch@4.0.7",
+        "std-env",
+        "tinybench",
+        "tinyexec",
+        "tinyglobby",
+        "vite",
+        "why-is-node-running@3.2.1"
       ],
       "bin": true
     },
@@ -9365,6 +9374,10 @@
         "siginfo",
         "stackback"
       ],
+      "bin": true
+    },
+    "why-is-node-running@3.2.1": {
+      "integrity": "sha512-Tb2FUhB4vUsGQlfSquQLYkApkuPAFQXGFzxWKHHumVz2dK+X1RUm/HnID4+TfIGYJ1kTcwOaCk/buYCEJr6YjQ==",
       "bin": true
     },
     "word-wrap@1.2.5": {
@@ -9500,7 +9513,7 @@
         "npm:@fontsource-variable/manrope@^5.2.8",
         "npm:@marsidev/react-turnstile@^1.6.0",
         "npm:@phosphor-icons/react@^2.1.10",
-        "npm:@playwright/test@^1.58.0",
+        "npm:@playwright/test@^1.63.0",
         "npm:@react-email/render@2.1.0",
         "npm:@scalar/api-reference@^1.67.0",
         "npm:@tailwindcss/vite@4",
@@ -9516,11 +9529,11 @@
         "npm:@tanstack/eslint-plugin-query@^5.103.2",
         "npm:@tanstack/eslint-plugin-router@^1.162.0",
         "npm:@tanstack/eslint-plugin-start@0.1",
-        "npm:@tanstack/highlight@^0.0.10",
-        "npm:@tanstack/markdown@^0.0.13",
+        "npm:@tanstack/highlight@1",
+        "npm:@tanstack/markdown@1",
         "npm:@tanstack/react-devtools@~0.10.9",
         "npm:@tanstack/react-pacer@0.23",
-        "npm:@tanstack/react-query@5.102.0",
+        "npm:@tanstack/react-query@5.104.1",
         "npm:@tanstack/react-router-devtools@^1.167.2",
         "npm:@tanstack/react-router-ssr-query@1.167.3",
         "npm:@tanstack/react-router@^1.170.41",
@@ -9565,8 +9578,8 @@
         "npm:tanstack-router-theme-provider@~0.1.5",
         "npm:tslib@^2.8.1",
         "npm:tw-animate-css@^1.4.0",
-        "npm:vite@^8.0.16",
-        "npm:vitest@^5.0.1"
+        "npm:vite@^8.3.2",
+        "npm:vitest@^5.0.3"
       ]
     }
   }
