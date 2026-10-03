@@ -152,8 +152,72 @@ Authorize access before cache operations. Include all input and identity dimensi
 
 `withDatabaseCacheLock({ namespace, key }, effect)` runs an Effect inside a transaction-scoped key lock, including when the key does not exist. Read the current value inside that Effect before updating it. Public writes and deletes participate in the same locking protocol. The lock remains held until the enclosing transaction commits or rolls back. Use the same SqlClient with the default PostgreSQL READ COMMITTED isolation for every participating query, and acquire multiple keys in a consistent order to avoid deadlocks. Never perform slow external calls while holding a lock. See [transaction-level advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS).
 
+`tryWithDatabaseCacheLock({ namespace, key }, effect)` uses the same locking protocol without waiting. It returns `Option.some(value)` after acquiring the lock and running the Effect, or `Option.none()` when another transaction holds the lock. Errors from the Effect still propagate.
+
 For durable metadata, omit TTL and reserve a namespace that ordinary cache invalidation must never delete. These records remain until explicitly deleted.
 
 The integration suite requires a disposable loopback `DATABASE_URL` whose database name ends in `_test`, with checked-in migrations applied.
 
 Reference: [Effect KeyValueStore](https://effect.website/docs/v4/api/effect/persistence/KeyValueStore).
+
+## Idempotent database writes
+
+`lib/idempotency.server.ts` lets us replay a write's typed value or error when a client retries the same intended operation. Call `withDatabaseIdempotency({ scope, key, operation, parameters, namespace? }, execute)`. The namespace defaults to `"idempotency"`. Override it only when callers need separate key spaces. Each operation supplies a stable versioned name and Effect Schemas for its parameters, success, and expected error. The helper validates the parameters before execution and passes their decoded value to `execute`. HTTP status, headers, and body replay belong to a future transport adapter.
+
+Keep the operation definition as module-level data, and keep its name and codecs compatible with retained records during deployments. If a framework validator has already decoded transformed parameters, use `Schema.toType(requestSchema)` for the operation's parameter schema. Include every input that affects the write, including route IDs, parent Tenant IDs, and optimistic lock versions. Comparing only the request body can replay a result for a different target.
+
+After authorizing the caller, supply an immutable Organization UUID as the scope and the client's original key and parameters:
+
+```ts
+import { Effect, Schema } from "effect"
+import { withDatabaseIdempotency } from "@/db/lib/idempotency.server"
+import { Tenants } from "@/lib/tenants/tenants.server"
+import { TenantExternalIdTaken, TenantWriteForbidden } from "@/lib/tenants/errors"
+import { TenantRecordSchema, TenantWriteSchema } from "@/lib/tenants/schemas"
+
+const tenantOperation = {
+  name: "CreateTenant/v1",
+  parameters: TenantWriteSchema,
+  success: TenantRecordSchema,
+  error: Schema.Union([TenantExternalIdTaken, TenantWriteForbidden]),
+}
+
+const example = (authorizedOrganizationId: string) =>
+  Effect.gen(function* () {
+    const tenants = yield* Tenants
+
+    return yield* withDatabaseIdempotency(
+      {
+        scope: authorizedOrganizationId,
+        key: "884793cd-bef4-46cf-8790-e3d4957a09ce",
+        operation: tenantOperation,
+        parameters: { externalId: "customer-123", name: "Example customer" },
+      },
+      (fields) => tenants.create({ scope: { organizationId: authorizedOrganizationId }, fields }),
+    )
+  })
+```
+
+Use a new key for each intended operation and reuse it for every retry. Keys contain 1 to 255 Unicode code points, and UUID v4 is a suitable default. Derive the scope from authorized immutable UUIDs, including the Tenant or principal where their access requires isolation. Recheck authorization before every call, including a replay. Never use an editable Organization slug or trust a caller-supplied scope.
+
+The helper atomically commits database writes and the Schema-encoded success. An expected failure rolls back the operation's writes and retains its typed error for replay, including errors considered retryable. Keep infrastructure errors outside the operation's declared error schema. Use the existing `mapDatabaseErrors` pattern to map constraint violations to domain errors and leave other database failures as defects. Keep retry policy inside `execute`. For database retries, wrap each attempt in `SqlClient.withTransaction` before applying `Effect.retry`, so a failed attempt rolls back before the next one runs. Retrying the wrapper after a declared failure only replays that failure.
+
+A completed result lives for 24 hours without extension on reads, matching [Stripe's minimum key retention](https://docs.stripe.com/api/idempotent_requests) and [WorkOS Audit Log Event key expiration](https://workos.com/docs/reference/audit-logs/event). After expiration, the same key can execute again. Validation failures and defects, interruption, or storage failures before commit leave no new completed record, including causes containing both a declared failure and a defect or interruption. If an acknowledgement is lost during commit, retry the same key to replay a committed outcome or execute when nothing committed. A changed operation name or parameters under the same namespace, scope, and key fails with `IdempotencyParametersMismatch`. A concurrent request fails immediately with `IdempotencyInProgress` so the caller can retry the same key later. Their error schemas carry HTTP status annotations of `400` and `409`. The wrapper performs no automatic retries.
+
+The helper owns its top-level transaction. Calling it inside an existing transaction is a programming defect. Every protected write must use the same Effect SqlClient. Let the existing runtime boundary handle storage and codec failures, and expose only declared domain errors and idempotency conflicts. Keep the namespace dedicated to idempotency records because ordinary cache invalidation would remove their protection. Parameters and results are stored without encryption, so keep credentials and other secrets outside these records. Future HTTP consumers must normalize a replayable internal error into a safe declared error before returning a `500` response. See [Effect Schema](https://effect.website/docs/v4/api/effect/Schema).
+
+**NOTE**: Direct email delivery, sandbox provisioning, and other provider calls do not belong inside this transaction. For external work, submit a [durable workflow](../lib/workflows/README.md) through storage participating in the same transaction and return an accepted handle. Because workflow journals can outlive the 24-hour cache, generate a new domain operation ID for each fresh submission and replay its accepted handle. The worker still needs a stable provider idempotency key or reconciliation for uncertain outcomes. Effect's [Workflow identity](https://effect.website/docs/v4/api/effect/workflow/Workflow) and [Activity idempotency keys](https://effect.website/docs/v4/api/effect/workflow/Activity) provide the corresponding durable execution primitives.
+
+These are candidate integrations. Existing callers are not wired to the helper:
+
+| Use case | Protected operation | Inputs to compare |
+| --- | --- | --- |
+| Tenant and TenantUser creation or update | Database write and its typed resource result | Fields or patch, target ID, parent Tenant ID |
+| Agent and other dashboard writes | Database mutation and its typed response | Fields, target ID, expected lock version |
+| Organization deletion | Durable deletion submission and its accepted handle | Organization UUID and caller's deletion intent |
+| Future email submission | Durable delivery submission and its accepted handle | Recipient, template, content, schedule |
+| Future sandbox submission | Durable provisioning submission and its accepted handle | Provider ID and provisioning options, excluding secrets |
+
+Before integrating Organization-owned writes, use a purgeable Organization namespace such as `idempotency:<organizationId>` and extend the deletion workflow and its integration test, including requests already in flight. The default namespace and hashed scope do not support selecting an Organization's retained records for deletion.
+
+Tenant and TenantUser creation are the first candidates, where retrying an accepted create would otherwise return a uniqueness conflict. Agent writes already use Effect-backed Drizzle transactions, which can join this helper's transaction as savepoints. Organization deletion needs a separate retry-access decision because its current submission revokes the caller's membership, and the normal authorization middleware will reject a later replay. This helper does not grant access to retained results.

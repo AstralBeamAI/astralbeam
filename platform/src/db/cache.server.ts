@@ -1,4 +1,4 @@
-import { Duration, Effect, Schema } from "effect"
+import { Duration, Effect, Option, Schema } from "effect"
 import { KeyValueStore } from "effect/persistence"
 import { SqlClient } from "effect/sql"
 import {
@@ -34,6 +34,10 @@ const validateDatabaseCacheIdentity = Effect.fnUntraced(function* (
   }
 })
 
+function databaseCacheLockIdentity(options: DatabaseCacheKey) {
+  return JSON.stringify(["cache", options.namespace, options.key])
+}
+
 // Transaction locks cover absent keys and work with transaction pooling, unlike session locks.
 // https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS
 function withValidatedDatabaseCacheLock<A, E, R>(
@@ -43,28 +47,44 @@ function withValidatedDatabaseCacheLock<A, E, R>(
 ) {
   return sql.withTransaction(
     Effect.gen(function* () {
-      yield* sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify([
-        "cache",
-        options.namespace,
-        options.key,
-      ])}, 0))`
+      yield* sql`select pg_advisory_xact_lock(hashtextextended(${databaseCacheLockIdentity(options)}, 0))`
       return yield* effect
     }),
   )
 }
 
-export const withDatabaseCacheLock = Effect.fnUntraced(function* <A, E, R>(
-  options: DatabaseCacheKey,
-  effect: Effect.Effect<A, E, R>,
-) {
+const validateDatabaseCacheLockKey = Effect.fnUntraced(function* (options: DatabaseCacheKey) {
   yield* validateDatabaseCacheIdentity(
     "lock",
     options.namespace,
     DATABASE_CACHE_NAMESPACE_MAX_LENGTH,
   )
   yield* validateDatabaseCacheIdentity("lock", options.key, DATABASE_CACHE_KEY_MAX_LENGTH)
+})
+
+export const withDatabaseCacheLock = Effect.fnUntraced(function* <A, E, R>(
+  options: DatabaseCacheKey,
+  effect: Effect.Effect<A, E, R>,
+) {
+  yield* validateDatabaseCacheLockKey(options)
   const sql = yield* SqlClient.SqlClient
   return yield* withValidatedDatabaseCacheLock(sql, options, effect)
+})
+
+export const tryWithDatabaseCacheLock = Effect.fnUntraced(function* <A, E, R>(
+  options: DatabaseCacheKey,
+  effect: Effect.Effect<A, E, R>,
+) {
+  yield* validateDatabaseCacheLockKey(options)
+  const sql = yield* SqlClient.SqlClient
+  return yield* sql.withTransaction(
+    Effect.gen(function* () {
+      const [lock] = yield* sql<{ acquired: boolean }>`select
+        pg_try_advisory_xact_lock(hashtextextended(${databaseCacheLockIdentity(options)}, 0)) as acquired`
+      if (!lock!.acquired) return Option.none()
+      return Option.some(yield* effect)
+    }),
+  )
 })
 
 // One schema-typed store per namespace. Writes upsert value and expiry together, never expiring
