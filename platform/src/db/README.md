@@ -218,4 +218,6 @@ These are candidate integrations. Existing callers are not wired to the helper:
 | Future email submission | Durable delivery submission and its accepted handle | Recipient, template, content, schedule |
 | Future sandbox submission | Durable provisioning submission and its accepted handle | Provider ID and provisioning options, excluding secrets |
 
+Before integrating Organization-owned writes, use a purgeable Organization namespace such as `idempotency:<organizationId>` and extend the deletion workflow and its integration test, including requests already in flight. The default namespace and hashed scope do not support selecting an Organization's retained records for deletion.
+
 Tenant and TenantUser creation are the first candidates, where retrying an accepted create would otherwise return a uniqueness conflict. Agent writes already use Effect-backed Drizzle transactions, which can join this helper's transaction as savepoints. Organization deletion needs a separate retry-access decision because its current submission revokes the caller's membership, and the normal authorization middleware will reject a later replay. This helper does not grant access to retained results.
