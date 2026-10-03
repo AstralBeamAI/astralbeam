@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect"
 
 import { KeyValueStore } from "effect/persistence"
 import { SqlClient } from "effect/sql"
-import { makeDatabaseCache, withDatabaseCacheLock } from "./cache.server"
+import { makeDatabaseCache, tryWithDatabaseCacheLock, withDatabaseCacheLock } from "./cache.server"
 
 it.effect("rejects oversized and malformed cache identities before accessing the database", () =>
   Effect.gen(function* () {
@@ -20,6 +20,7 @@ it.effect("rejects oversized and malformed cache identities before accessing the
     ]) {
       const errors = [
         yield* withDatabaseCacheLock(identity, Effect.die("Must not run")).pipe(Effect.flip),
+        yield* tryWithDatabaseCacheLock(identity, Effect.die("Must not run")).pipe(Effect.flip),
         ...(identity.namespace === "valid"
           ? [
               yield* cache.get(identity.key).pipe(Effect.flip),

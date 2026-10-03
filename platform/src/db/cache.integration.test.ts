@@ -22,6 +22,7 @@ import expiredCacheCleanup from "../lib/workflows/expired-cache-cleanup.server.t
 import {
   deleteExpiredDatabaseCacheBatch,
   makeDatabaseCache,
+  tryWithDatabaseCacheLock,
   withDatabaseCacheLock,
 } from "./cache.server"
 
@@ -253,5 +254,36 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
     expect(await runAppEffect(readTestCache(counter))).toEqual(Option.some(10))
     await runAppEffect(deleteTestCache(counter))
     expect(await runAppEffect(readTestCache(counter))).toEqual(Option.none())
+  })
+
+  test("skips a busy operation and acquires the same lock after release", async () => {
+    const started = Promise.withResolvers<void>()
+    const finish = Promise.withResolvers<void>()
+    const owner = runAppEffect(
+      withDatabaseCacheLock(
+        cacheTestOptions,
+        Effect.promise(async () => {
+          started.resolve()
+          await finish.promise
+        }),
+      ),
+    )
+    await started.promise
+    try {
+      expect(
+        await runAppEffect(tryWithDatabaseCacheLock(cacheTestOptions, Effect.die("Must not run"))),
+      ).toEqual(Option.none())
+      expect(
+        await runAppEffect(
+          tryWithDatabaseCacheLock({ ...cacheTestOptions, key: "other" }, Effect.succeed(null)),
+        ),
+      ).toEqual(Option.some(null))
+    } finally {
+      finish.resolve()
+      await owner
+    }
+    expect(
+      await runAppEffect(tryWithDatabaseCacheLock(cacheTestOptions, Effect.succeed("acquired"))),
+    ).toEqual(Option.some("acquired"))
   })
 })
