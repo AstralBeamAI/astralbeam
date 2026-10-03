@@ -61,3 +61,42 @@ export class ModelProviderKeyMissing extends Schema.TaggedError<ModelProviderKey
 ) {
   override readonly message = "Enter an API key for this provider"
 }
+
+export class ModelProviderTestFailed extends Schema.TaggedError<ModelProviderTestFailed>()(
+  "ModelProviderTestFailed",
+  {
+    reason: Schema.Literals([
+      "credentials",
+      "model",
+      "configuration",
+      "network",
+      "allowance",
+      "timeout",
+      "empty",
+    ]),
+  },
+  { httpApiStatus: 422 },
+) {
+  override readonly message = {
+    credentials:
+      "The provider refused access. Check your key's permissions, or enter a replacement API key and save the provider.",
+    model: "The model is unavailable. Check its model ID and whether your key can access it.",
+    configuration:
+      "The provider rejected the request. Check the API format, API URL, and model ID.",
+    network:
+      "The provider could not be reached or returned a server error. Check the API URL and try again.",
+    allowance:
+      "The provider limited the request. Check your quota, billing, and rate limits before retrying.",
+    timeout: "The model did not finish within 30 seconds. Try again or choose another model.",
+    empty: "The model did not return a completed text reply. Try again or choose another model.",
+  }[this.reason]
+}
+
+export class ModelProviderTestRateLimited extends Schema.TaggedError<ModelProviderTestRateLimited>()(
+  "ModelProviderTestRateLimited",
+  {},
+  { httpApiStatus: 429 },
+) {
+  override readonly message =
+    "This organization has reached five model tests per minute. Wait a minute and try again."
+}

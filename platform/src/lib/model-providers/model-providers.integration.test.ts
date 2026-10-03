@@ -200,6 +200,35 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
   })
 
+  test("validates saved model ownership and revision before reading credentials for a test", async () => {
+    const id = await runAppEffect(saveIntegrationProvider(organizationId))
+    await runAppEffect(saveIntegrationProvider(organizationId, { name: "Other provider" }))
+    const providers = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) => service.list({ organizationId })),
+    )
+    const modelId = providers.find((provider) => provider.id === id)!.models[0]!.id
+    const otherModelId = providers.find((provider) => provider.id !== id)!.models[0]!.id
+    await db.execute(
+      sql`update model_provider set credentials = 'corrupt', updated_at = now() where organization_id = ${organizationId} and id = ${id}`,
+    )
+    for (const request of [
+      { organizationId: crypto.randomUUID(), id, lockVersion: 0, modelId },
+      { organizationId, id, lockVersion: 0, modelId: otherModelId },
+      { organizationId, id, lockVersion: 1, modelId },
+    ]) {
+      const refused = await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) => service.testModel(request)).pipe(Effect.flip),
+      )
+      expect(refused._tag).toBe("ModelProviderChanged")
+    }
+    const unreadable = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.testModel({ organizationId, id, lockVersion: 0, modelId }),
+      ).pipe(Effect.flip),
+    )
+    expect(unreadable._tag).toBe("ModelProviderUnreadable")
+  })
+
   test("requires the key again when a connection moves to another URL or provider type", async () => {
     const id = await runAppEffect(saveIntegrationProvider(organizationId))
     for (const change of [

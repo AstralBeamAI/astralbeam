@@ -24,3 +24,8 @@ export const ModelProviderPageInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,
   id: Schema.NullOr(UuidV7Schema),
 })
+
+export const TestModelProviderInputSchema = Schema.Struct({
+  ...ModelProviderVersionInputSchema.fields,
+  modelId: UuidV7Schema,
+})
