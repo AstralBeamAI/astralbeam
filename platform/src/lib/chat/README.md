@@ -476,7 +476,7 @@ For writes, `prepareManagedChat` validates admission and platform idempotency, t
 
 Accepted original upload bytes are stored in attachment parts. History transfers attachment metadata, and authorized attachment reads retrieve the bytes. Provider handles and sandbox upload paths alone are not durable storage. Generated artifacts retain their existing capability and availability rules, and reopening history never reruns a generating tool to recreate a missing artifact.
 
-A manager deletion locks the thread, clears its leaf, invalidates turns, deletes its database content, and purges thread-scoped idempotency records before acknowledgment. Participants, messages, parts, and response rows are removed with the thread. A later producer write fails rather than recreating the resource. Organization deletion removes chat content before TenantUsers. Agent deletion clears live agent references while preserving historical provenance.
+A manager deletion locks the thread, clears its leaf, invalidates turns, deletes its database content, and purges thread-scoped idempotency records before acknowledgment. Participants, messages, parts, and response rows are removed with the thread. A later producer write fails rather than recreating the resource. Organization deletion delegates to Tenant deletion, which cascades chat rows and TenantUsers together, then purges the Tenant-scoped admission receipts in the same transaction. Agent deletion clears live agent references while preserving historical provenance.
 
 | Situation | Saved behavior |
 | --- | --- |

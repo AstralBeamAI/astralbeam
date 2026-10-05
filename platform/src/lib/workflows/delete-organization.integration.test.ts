@@ -114,6 +114,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   }
 
   async function createDeletionChat(scope: {
+    id?: string
     organizationId: string
     tenantId: string
     agentId: string
@@ -203,7 +204,13 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     await db
       .update(chatThread)
       .set({ currentLeafMessageId: result!.id })
-      .where(eq(chatThread.id, thread!.id))
+      .where(
+        and(
+          eq(chatThread.organizationId, scope.organizationId),
+          eq(chatThread.tenantId, scope.tenantId),
+          eq(chatThread.id, thread!.id),
+        ),
+      )
     return {
       threadId: thread!.id,
       inputMessageId: input!.id,
@@ -594,9 +601,11 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   test("commits earlier Tenant deletions when a later Tenant fails, then resumes the purge", async () => {
     const scope = await createOrganization("partial")
     const chat = await createDeletionChat(scope)
-    await db
-      .insert(cacheEntry)
-      .values({ namespace: `chat:${chat.threadId}`, key: "accepted", value: "saved input" })
+    await db.insert(cacheEntry).values({
+      namespace: "chat",
+      key: `${scope.organizationId}:${scope.tenantId}:${chat.threadId}:accepted`,
+      value: "saved input",
+    })
     const [blocked] = await db
       .insert(tenant)
       .values({ organizationId: scope.organizationId, externalId: "blocked" })
@@ -646,7 +655,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
 
   test("revokes access at once and purges only the deleted organization", async () => {
     const deleted = await createOrganization("deleted")
-    const kept = await createOrganization("kept")
+    const kept = await createOrganization("kept", deleted.tenantId)
     const { organizationId: deletedId, ownerId } = deleted
     const { organizationId: keptId } = kept
     const deletedChat = await createDeletionChat(deleted)
@@ -660,10 +669,18 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       externalId: "another",
     })
     await createDeletionChat({ ...deleted, tenantId: anotherTenant!.id })
-    const keptChat = await createDeletionChat(kept)
+    const keptChat = await createDeletionChat({ ...kept, id: deletedChat.threadId })
     await db.insert(cacheEntry).values([
-      { namespace: `chat:${deletedChat.threadId}`, key: "accepted", value: "saved input" },
-      { namespace: `chat:${keptChat.threadId}`, key: "accepted", value: "kept input" },
+      {
+        namespace: "chat",
+        key: `${deletedId}:${deleted.tenantId}:${deletedChat.threadId}:accepted`,
+        value: "saved input",
+      },
+      {
+        namespace: "chat",
+        key: `${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted`,
+        value: "kept input",
+      },
     ])
 
     expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
@@ -678,7 +695,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     try {
       await vi.waitFor(async () => {
         const waiting = await db.execute(sql`select 1 from pg_stat_activity
-          where wait_event_type = 'Lock' and query like '%chat_thread%' and query like '%for update%'`)
+          where wait_event_type = 'Lock' and query like 'delete from "tenant"%'`)
         expect(waiting.rows).not.toHaveLength(0)
       })
     } finally {
@@ -687,8 +704,8 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       await deletion
     }
 
-    expect(await db.select({ namespace: cacheEntry.namespace }).from(cacheEntry)).toEqual([
-      { namespace: `chat:${keptChat.threadId}` },
+    expect(await db.select({ key: cacheEntry.key }).from(cacheEntry)).toEqual([
+      { key: `${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted` },
     ])
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])

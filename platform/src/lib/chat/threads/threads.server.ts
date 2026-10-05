@@ -12,6 +12,7 @@ import {
   isNull,
   inArray,
   lt,
+  like,
   or,
   sql,
 } from "drizzle-orm"
@@ -1193,7 +1194,14 @@ export class ChatThreads extends Context.Service<
                   scope: scopeWhere(input.scope, input.id),
                   expectedLockVersion: input.lockVersion,
                 }).pipe(Effect.catchTag("OptimisticLockError", () => new ChatThreadConflict()))
-                yield* tx.delete(cacheEntry).where(eq(cacheEntry.namespace, `chat:${input.id}`))
+                yield* tx
+                  .delete(cacheEntry)
+                  .where(
+                    and(
+                      eq(cacheEntry.namespace, "chat"),
+                      like(cacheEntry.key, `${row.organizationId}:${row.tenantId}:${row.id}:%`),
+                    ),
+                  )
               }),
             )
             .pipe(mapDatabaseErrors()),

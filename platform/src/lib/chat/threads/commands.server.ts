@@ -202,8 +202,8 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       ? yield* accept(parameters)
       : yield* withDatabaseIdempotency(
           {
-            namespace: `chat:${id}`,
-            scope: JSON.stringify([scope.organizationId, scope.tenantId, scope.tenantUserId]),
+            namespace: "chat",
+            scope: [scope.organizationId, scope.tenantId, thread.id, scope.tenantUserId].join(":"),
             key: input.idempotencyKey,
             operation: chatAdmissionOperation,
             parameters,

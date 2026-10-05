@@ -67,9 +67,7 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
     schema: databaseIdempotencyRecordSchema,
     timeToLive: "24 hours",
   })
-  const key = createHash("sha256")
-    .update(JSON.stringify([scope, clientKey]))
-    .digest("hex")
+  const key = `${scope}:${createHash("sha256").update(clientKey).digest("hex")}`
   const locked = yield* tryWithDatabaseCacheLock(
     { namespace, key },
     Effect.gen(function* () {

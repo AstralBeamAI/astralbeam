@@ -150,7 +150,7 @@ Writes insert missing keys or atomically replace both value and expiration for a
 
 Namespaces allow at most 64 Unicode code points and keys at most 512, enforced in both the application and database. Oversized inputs and unpaired Unicode surrogates fail with `KeyValueStoreError` before a cache query. Rejecting unpaired surrogates keeps advisory-lock identities consistent with UTF-8 database keys. TTL conversion also fails before database access. Database and codec failures propagate to callers. JSON `null` is a cached value, distinct from a miss.
 
-Authorize access before cache operations. Include all input and identity dimensions in the key, using immutable Organization and Tenant UUIDs. Use a new namespace version when the value schema changes incompatibly. This table is not an encrypted secret store.
+Authorize access before cache operations. Include the entity's full primary key as a colon-joined prefix, including its immutable Organization and Tenant UUIDs, plus any other input or identity dimensions. Use a new namespace version when the value schema changes incompatibly. This table is not an encrypted secret store.
 
 `withDatabaseCacheLock({ namespace, key }, effect)` runs an Effect inside a transaction-scoped key lock, including when the key does not exist. Read the current value inside that Effect before updating it. Public writes and deletes participate in the same locking protocol. The lock remains held until the enclosing transaction commits or rolls back. Use the same SqlClient with the default PostgreSQL READ COMMITTED isolation for every participating query, and acquire multiple keys in a consistent order to avoid deadlocks. Never perform slow external calls while holding a lock. See [transaction-level advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS).
 
@@ -200,7 +200,7 @@ const example = (authorizedOrganizationId: string) =>
   })
 ```
 
-Use a new key for each intended operation and reuse it for every retry. Keys contain 1 to 255 Unicode code points, and UUID v4 is a suitable default. Derive the scope from authorized immutable UUIDs, including the Tenant or principal where their access requires isolation. Recheck authorization before every call, including a replay. Never use an editable Organization slug or trust a caller-supplied scope.
+Use a new key for each intended operation and reuse it for every retry. Keys contain 1 to 255 Unicode code points, and UUID v4 is a suitable default. Derive the scope by joining the full authorized primary key with colons, followed by the principal UUID where access requires isolation. The stored key retains this scope prefix and hashes only the client key. The scope must fit within 447 code points so the full cache key stays within its 512-code-point limit. Recheck authorization before every call, including a replay. Never use an editable Organization slug or trust a caller-supplied scope.
 
 The helper atomically commits database writes and the Schema-encoded success. An expected failure rolls back the operation's writes and retains its typed error for replay, including errors considered retryable. Keep infrastructure errors outside the operation's declared error schema. Use the existing `mapDatabaseErrors` pattern to map constraint violations to domain errors and leave other database failures as defects. Keep retry policy inside `execute`. For database retries, wrap each attempt in `SqlClient.withTransaction` before applying `Effect.retry`, so a failed attempt rolls back before the next one runs. Retrying the wrapper after a declared failure only replays that failure.
 
@@ -220,6 +220,6 @@ These are candidate integrations. Existing callers are not wired to the helper:
 | Future email submission | Durable delivery submission and its accepted handle | Recipient, template, content, schedule |
 | Future sandbox submission | Durable provisioning submission and its accepted handle | Provider ID and provisioning options, excluding secrets |
 
-Before integrating Organization-owned writes, use a purgeable Organization namespace such as `idempotency:<organizationId>` and extend the deletion workflow and its integration test, including requests already in flight. The default namespace and hashed scope do not support selecting an Organization's retained records for deletion.
+Delete retained records using both their namespace and full authorized scope prefix. For chat admission, keys start with `organizationId:tenantId:threadId:tenantUserId:`. Thread deletion purges its prefix, and Organization deletion delegates to Tenant deletion, which purges the Tenant prefix after cascading its owned rows.
 
 Tenant and TenantUser creation are the first candidates, where retrying an accepted create would otherwise return a uniqueness conflict. Agent writes already use Effect-backed Drizzle transactions, which can join this helper's transaction as savepoints. Organization deletion needs a separate retry-access decision because its current submission revokes the caller's membership, and the normal authorization middleware will reject a later replay. This helper does not grant access to retained results.

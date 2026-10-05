@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, like, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from "vitest"
 
@@ -216,7 +216,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       await db
         .select()
         .from(cacheEntry)
-        .where(eq(cacheEntry.namespace, `chat:${thread.id}`)),
+        .where(
+          and(
+            eq(cacheEntry.namespace, "chat"),
+            like(cacheEntry.key, `${scope.organizationId}:${scope.tenantId}:${thread.id}:%`),
+          ),
+        ),
     ).toHaveLength(1)
     await runtime.runPromise(
       service.removeParticipant({
@@ -232,7 +237,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       await db
         .select()
         .from(cacheEntry)
-        .where(eq(cacheEntry.namespace, `chat:${thread.id}`)),
+        .where(
+          and(
+            eq(cacheEntry.namespace, "chat"),
+            like(cacheEntry.key, `${scope.organizationId}:${scope.tenantId}:${thread.id}:%`),
+          ),
+        ),
     ).toEqual([])
     await expect(run(request)).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
     const deleted = await create()
@@ -258,7 +268,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       await db
         .select()
         .from(cacheEntry)
-        .where(eq(cacheEntry.namespace, `chat:${deleted.id}`)),
+        .where(
+          and(
+            eq(cacheEntry.namespace, "chat"),
+            like(cacheEntry.key, `${scope.organizationId}:${scope.tenantId}:${deleted.id}:%`),
+          ),
+        ),
     ).toEqual([])
   })
 
