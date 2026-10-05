@@ -80,9 +80,11 @@ test("conversation search finds unloaded titles and preserves history while typi
   await expect(search).toBeFocused()
   await search.fill("launch")
   await expect(page.getByRole("option", { name: "Launch plan 20", exact: true })).toBeAttached()
-  await page.getByRole("listbox").evaluate((list) => {
-    list.scrollTop = list.scrollHeight
-  })
+  const list = page.getByRole("listbox")
+  await expect(list).toHaveCSS("scrollbar-width", "auto")
+  await expect(page.getByRole("button", { name: "Load more", exact: true })).toHaveCount(0)
+  await list.hover()
+  await page.mouse.wheel(0, 1000)
   const match = page.getByRole("option", { name: older.title, exact: true })
   await expect(match).toBeVisible()
   expect(queries).toContain("launch")
