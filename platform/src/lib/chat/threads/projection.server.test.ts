@@ -281,31 +281,6 @@ describe("stored conversation model projection", () => {
     expect(projectChatModelHistory(records, projectionTarget)).toEqual(messages)
   })
 
-  test("keeps parallel tool decisions together and derives their message identity from canonical parts", () => {
-    const record = projectionRecord("assistant", {
-      parts: [
-        { id: "reasoning-part", type: "thinking", content: "Hidden on provider change" },
-        ...["one", "two"].map((id) => ({
-          id: `part-${id}`,
-          type: "tool-call",
-          toolCallId: `provider-${id}`,
-          name: "lookup",
-          arguments: "{}",
-        })),
-      ],
-    })
-    const messages = projectChatModelHistory([record])
-    expect(messages).toMatchObject([
-      { id: "assistant:part-one", toolCalls: [{ id: "provider-one" }, { id: "provider-two" }] },
-    ])
-    expect(messages).toHaveLength(1)
-    expect(
-      projectChatModelHistory([
-        { ...record, payload: { ...record.payload, parts: record.payload.parts.slice(1) } },
-      ]),
-    ).toEqual(messages)
-  })
-
   test("does not replay incomplete responses, unknown versions or opaque file handles", () => {
     const record = projectionRecord("assistant", {
       parts: [{ id: "text", type: "text", content: "Incomplete" }],

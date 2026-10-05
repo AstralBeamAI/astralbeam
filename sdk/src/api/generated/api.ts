@@ -984,7 +984,7 @@ export const getCreateChatThreadUrl = () => {
  */
 export const createChatThread = (
   createChatThreadInputEncoded: CreateChatThreadInputEncoded,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
@@ -1005,7 +1005,7 @@ export const createChatThread = (
     }
     return headers
   }
-  return astralBeamApiFetch<ChatThreadEncoded>(getCreateChatThreadUrl(), {
+  return astralBeamJwtFetch<ChatThreadEncoded>(getCreateChatThreadUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1034,9 +1034,9 @@ export const getListChatThreadsUrl = (params: ListChatThreadsParams) => {
  */
 export const listChatThreads = (
   params: ListChatThreadsParams,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
-  return astralBeamApiFetch<ChatThreadPage>(getListChatThreadsUrl(params), {
+  return astralBeamJwtFetch<ChatThreadPage>(getListChatThreadsUrl(params), {
     ...options,
     method: "GET",
   })
@@ -1049,8 +1049,8 @@ export const getGetChatThreadUrl = (id: string) => {
 /**
  * @summary Get a saved conversation
  */
-export const getChatThread = (id: string, options: Parameters<typeof astralBeamApiFetch>[1]) => {
-  return astralBeamApiFetch<ChatThreadEncoded>(getGetChatThreadUrl(id), {
+export const getChatThread = (id: string, options: Parameters<typeof astralBeamJwtFetch>[1]) => {
+  return astralBeamJwtFetch<ChatThreadEncoded>(getGetChatThreadUrl(id), {
     ...options,
     method: "GET",
   })
@@ -1066,7 +1066,7 @@ export const getUpdateChatThreadUrl = (id: string) => {
 export const updateChatThread = (
   id: string,
   updateChatThreadInputEncoded: UpdateChatThreadInputEncoded,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
@@ -1087,7 +1087,7 @@ export const updateChatThread = (
     }
     return headers
   }
-  return astralBeamApiFetch<ChatThreadEncoded>(getUpdateChatThreadUrl(id), {
+  return astralBeamJwtFetch<ChatThreadEncoded>(getUpdateChatThreadUrl(id), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1117,9 +1117,9 @@ export const getDeleteChatThreadUrl = (id: string, params: DeleteChatThreadParam
 export const deleteChatThread = (
   id: string,
   params: DeleteChatThreadParams,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
-  return astralBeamApiFetch<void>(getDeleteChatThreadUrl(id, params), {
+  return astralBeamJwtFetch<void>(getDeleteChatThreadUrl(id, params), {
     ...options,
     method: "DELETE",
   })
@@ -1147,9 +1147,9 @@ export const getListChatMessagesUrl = (id: string, params: ListChatMessagesParam
 export const listChatMessages = (
   id: string,
   params: ListChatMessagesParams,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
-  return astralBeamApiFetch<ChatHistoryPageEncoded>(getListChatMessagesUrl(id, params), {
+  return astralBeamJwtFetch<ChatHistoryPageEncoded>(getListChatMessagesUrl(id, params), {
     ...options,
     method: "GET",
   })
@@ -1177,9 +1177,9 @@ export const getListChatParticipantsUrl = (id: string, params: ListChatParticipa
 export const listChatParticipants = (
   id: string,
   params: ListChatParticipantsParams,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
-  return astralBeamApiFetch<ChatParticipantPage>(getListChatParticipantsUrl(id, params), {
+  return astralBeamJwtFetch<ChatParticipantPage>(getListChatParticipantsUrl(id, params), {
     ...options,
     method: "GET",
   })
@@ -1208,9 +1208,9 @@ export const getSearchChatTenantUsersUrl = (id: string, params: SearchChatTenant
 export const searchChatTenantUsers = (
   id: string,
   params: SearchChatTenantUsersParams,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
-  return astralBeamApiFetch<ChatTenantUserPage>(getSearchChatTenantUsersUrl(id, params), {
+  return astralBeamJwtFetch<ChatTenantUserPage>(getSearchChatTenantUsersUrl(id, params), {
     ...options,
     method: "GET",
   })
@@ -1227,7 +1227,7 @@ export const setChatParticipant = (
   id: string,
   tenantUserId: string,
   setChatParticipantInputEncoded: SetChatParticipantInputEncoded,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
@@ -1248,7 +1248,7 @@ export const setChatParticipant = (
     }
     return headers
   }
-  return astralBeamApiFetch<ChatParticipantEncoded>(getSetChatParticipantUrl(id, tenantUserId), {
+  return astralBeamJwtFetch<ChatParticipantEncoded>(getSetChatParticipantUrl(id, tenantUserId), {
     ...options,
     method: "PUT",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1283,9 +1283,9 @@ export const removeChatParticipant = (
   id: string,
   tenantUserId: string,
   params: RemoveChatParticipantParams,
-  options: Parameters<typeof astralBeamApiFetch>[1],
+  options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
-  return astralBeamApiFetch<void>(getRemoveChatParticipantUrl(id, tenantUserId, params), {
+  return astralBeamJwtFetch<void>(getRemoveChatParticipantUrl(id, tenantUserId, params), {
     ...options,
     method: "DELETE",
   })

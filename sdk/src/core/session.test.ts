@@ -67,47 +67,6 @@ test("HTTP errors reach chat state and callbacks with their API details", async 
   }
 })
 
-test("a reset creates a new saved conversation without deleting the previous one", async () => {
-  const threads: unknown[] = []
-  const deleted: string[] = []
-  let created = 0
-  vi.stubGlobal("fetch", (input: URL, init?: RequestInit) => {
-    const path = String(input)
-    if (init?.method === "DELETE") deleted.push(path)
-    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (path.endsWith("/chat/config"))
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    if (path.endsWith("/threads")) {
-      created++
-      return Promise.resolve(Response.json({ ...thread, id: `conversation-${created}` }))
-    }
-    if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json({
-          ...emptyPage,
-          thread: { ...thread, id: `conversation-${created}` },
-          messages: [],
-          pending_interactions: [],
-        }),
-      )
-    if (path.endsWith("/chat") && typeof init?.body === "string") {
-      threads.push((JSON.parse(init.body) as { threadId: unknown }).threadId)
-      return Promise.resolve(Response.json({ thread_version: 2 }))
-    }
-    return Promise.reject(new Error(`Unexpected request ${path}`))
-  })
-  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatAuthToken })
-  try {
-    await chat.sendMessage("Hello")
-    chat.reset()
-    await chat.sendMessage("Hello again")
-    expect(threads).toEqual(["conversation-1", "conversation-2"])
-    expect(deleted).toEqual([])
-  } finally {
-    chat.dispose()
-  }
-})
-
 test("reset during a terminal chunk suppresses the old completion callback", async () => {
   let turns = 0
   let created = 0

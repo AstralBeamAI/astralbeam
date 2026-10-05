@@ -411,6 +411,13 @@ export function chatThreadHandlers(api: typeof ApiV1) {
       const scopeFor = (request: HttpServerRequest.HttpServerRequest) =>
         authenticate(request).pipe(
           Effect.flatMap((principal) => threads.resolveScope({ principal })),
+          Effect.tap((scope) =>
+            consumeRestRateLimit("chat-resource", [
+              scope.organizationId,
+              scope.tenantId,
+              scope.tenantUserId,
+            ]).pipe(Effect.provideContext(services)),
+          ),
         )
       return handlers
         .handleRaw(
@@ -451,11 +458,6 @@ export function chatThreadHandlers(api: typeof ApiV1) {
         .handleAll({
           createChatThread: Effect.fn("createChatThread")(function* ({ request, payload }) {
             const scope = yield* scopeFor(request)
-            yield* consumeRestRateLimit("chat-resource", [
-              scope.organizationId,
-              scope.tenantId,
-              scope.tenantUserId,
-            ]).pipe(Effect.provideContext(services))
             const row = yield* threads.create({
               scope,
               ...payload,
@@ -600,11 +602,6 @@ export function chatThreadHandlers(api: typeof ApiV1) {
           }),
           getChatAttachment: Effect.fn("getChatAttachment")(function* ({ request, params }) {
             const scope = yield* scopeFor(request)
-            yield* consumeRestRateLimit("chat-resource", [
-              scope.organizationId,
-              scope.tenantId,
-              scope.tenantUserId,
-            ]).pipe(Effect.provideContext(services))
             const message = yield* threads.getMessage({
               scope,
               id: params.id,
