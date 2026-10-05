@@ -597,7 +597,7 @@ export function createAstralBeamChat(
         submission &&
         !previouslyAttempted &&
         isAstralBeamApiError(error) &&
-        (error.status === 413 || error.status === 429)
+        (error.status === 400 || error.status === 413 || error.status === 429)
       )
         delete submission.tools
       throw error

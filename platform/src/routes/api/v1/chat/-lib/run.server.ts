@@ -106,5 +106,9 @@ export const chatAdmissionResponse = Effect.fn("chatAdmissionResponse")(function
         },
       }),
     )
-  }).pipe(Effect.onError(() => threads.interrupt({ claim }).pipe(Effect.orDie)))
+  }).pipe(
+    // Invalid saved context after admission is a server failure, not a rejected new input.
+    Effect.catchTag("ChatThreadInvalid", Effect.die),
+    Effect.onError(() => threads.interrupt({ claim }).pipe(Effect.orDie)),
+  )
 })

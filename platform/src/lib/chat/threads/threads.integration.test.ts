@@ -1127,13 +1127,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       await runtime.runPromise(service.interrupt({ claim }))
       await runtime.runPromise(service.assertActive({ claim: accepted.claim! }))
       const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
-      const savedResult = history.find((message) => message.role === "tool")!
-      expect(savedResult.payload.parts[0]!.content).toBe(
-        JSON.stringify({ outcome: "unknown", output: null }),
-      )
       expect(
         projectChatModelHistory(history).find((message) => message.role === "tool")?.content,
-      ).toBe(savedResult.payload.parts[0]!.content)
+      ).toBe(JSON.stringify({ outcome: "unknown", output: null }))
       expect(await runtime.runPromise(service.pending({ scope, id: thread.id }))).toEqual([])
       const retry = await runtime.runPromise(
         service.resolveTools({

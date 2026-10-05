@@ -834,14 +834,6 @@ const appendResults = Effect.fnUntraced(function* (
         {
           ...submitted,
           toolCallId: part.toolCallId,
-          content: JSON.stringify(
-            submitted.outcome === "succeeded"
-              ? submitted.output
-              : {
-                  outcome: submitted.outcome,
-                  output: submitted.output,
-                },
-          ),
         },
       ],
     }).pipe(Effect.mapError(() => new ChatThreadInvalid()))

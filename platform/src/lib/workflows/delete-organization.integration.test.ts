@@ -593,7 +593,10 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
 
   test("commits earlier Tenant deletions when a later Tenant fails, then resumes the purge", async () => {
     const scope = await createOrganization("partial")
-    await createDeletionChat(scope)
+    const chat = await createDeletionChat(scope)
+    await db
+      .insert(cacheEntry)
+      .values({ namespace: `chat:${chat.threadId}`, key: "accepted", value: "saved input" })
     const [blocked] = await db
       .insert(tenant)
       .values({ organizationId: scope.organizationId, externalId: "blocked" })
@@ -619,6 +622,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       ).toBe("23503")
       expect(await db.select({ id: tenant.id }).from(tenant)).toEqual([{ id: blocked!.id }])
       expect(await db.select().from(chatMessage)).toEqual([])
+      expect(await db.select().from(cacheEntry)).toEqual([])
       expect(await db.select({ id: organization.id }).from(organization)).toEqual([
         { id: scope.organizationId },
       ])

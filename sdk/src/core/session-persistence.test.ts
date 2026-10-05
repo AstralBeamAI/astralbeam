@@ -262,8 +262,10 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
 })
 
 test.each([
+  { status: 400, uncertain: false },
   { status: 413, uncertain: false },
   { status: 429, uncertain: false },
+  { status: 400, uncertain: true },
   { status: 413, uncertain: true },
   { status: 429, uncertain: true },
 ])(

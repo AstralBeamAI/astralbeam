@@ -126,7 +126,6 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
                 type: "tool-result",
                 toolCallId: part.toolCallId!,
                 output,
-                content: JSON.stringify(output),
               },
             ],
           },
@@ -186,8 +185,11 @@ export function projectChatModelHistory(
         id: Schema.decodeUnknownSync(Schema.String)(part.id),
         role: "tool" as const,
         toolCallId: Schema.decodeUnknownSync(Schema.String)(part.toolCallId),
-        content:
-          typeof part.content === "string" ? part.content : JSON.stringify(part.output ?? null),
+        content: JSON.stringify(
+          part.outcome && part.outcome !== "succeeded"
+            ? { outcome: part.outcome, output: part.output ?? null }
+            : (part.output ?? null),
+        ),
       }))
     } else {
       const parts = record.payload.parts.flatMap((part) =>

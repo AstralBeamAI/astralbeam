@@ -99,6 +99,8 @@ function createDatabaseResources() {
         idleTimeout: "30 seconds",
         connectionTTL: "30 minutes",
         prepare: false,
+        // Stored uploads and tool outputs can exceed the driver's default 16 MiB row limit.
+        maxMessageSize: 64 * 1024 * 1024,
       }),
     ),
     shutdown: undefined as Promise<void> | undefined,

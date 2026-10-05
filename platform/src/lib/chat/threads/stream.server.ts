@@ -208,7 +208,6 @@ async function saveManagedToolResult(
                 type: "tool-result",
                 id: crypto.randomUUID(),
                 toolCallId,
-                content: JSON.stringify(result),
                 output: chatStoredJson({ result }).result!,
                 outcome,
               },
