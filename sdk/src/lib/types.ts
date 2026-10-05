@@ -170,7 +170,7 @@ export interface MountAstralBeamChatOptions {
   emptyDescription?: string | undefined
   /**
    * Base URL of the AstralBeam API; the widget calls `/v1/chat` and its subroutes under it. Read for
-   * every request, so a change moves the next one. Default `"https://app.astralbeam.ai/api"`, the
+   * every request, so a change moves the next one. Default `"https://astralbeam.ai/api"`, the
    * hosted cloud; self-hosted deployments must set their own origin.
    */
   apiUrl?: string | undefined

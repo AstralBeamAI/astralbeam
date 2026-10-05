@@ -18,7 +18,7 @@ Acme and Orbit have separate projects, issues, and teams. You can create, edit, 
 2. Set `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` in `.env.local`. Choose your own values. The app returns `503` until both are configured.
 3. In the AstralBeam dashboard, create an Organization or use an existing one. Add a provider connection under **Models** and enable a model, create an organization API key, and put the one-time value in `ASTRALBEAM_API_KEY` in `.env.local`.
 4. Create an agent named **Astro**, select one of the enabled models, paste the prompt below into its system prompt, and copy its public ID to `VITE_ASTRALBEAM_AGENT_ID`. The agent and API key must belong to the same Organization. Leaving the ID empty uses that Organization's default agent.
-5. Keep `VITE_ASTRALBEAM_API_URL=https://app.astralbeam.ai/api` for AstralBeam Cloud. For a local platform, use its full `/api` base, such as `http://localhost:4500/api`. The key must come from that same platform.
+5. Keep `VITE_ASTRALBEAM_API_URL=https://astralbeam.ai/api` for AstralBeam Cloud. For a local platform, use its full `/api` base, such as `http://localhost:4500/api`. The key must come from that same platform.
 6. From `examples/linearity-react`, start the app:
 
    ```sh
@@ -61,7 +61,7 @@ Reset restores both workspaces, clears their local activity, and starts a fresh 
 
 Astro sends chat messages, attachments, and tool results to the configured AstralBeam deployment. That service synchronizes Tenant and TenantUser identities and uses the Organization's model provider. The issue dataset stays local except for the data included in those requests.
 
-The token route accepts only the two known demo workspaces and a valid visitor UUID. It combines them into a visitor-specific Tenant ID and never grants admin authority. Everyone with the playground password can select either workspace. A real customer app must derive the tenant and user from its own authenticated session, as described in [SDK authentication](https://app.astralbeam.ai/docs/sdk/authentication).
+The token route accepts only the two known demo workspaces and a valid visitor UUID. It combines them into a visitor-specific Tenant ID and never grants admin authority. Everyone with the playground password can select either workspace. A real customer app must derive the tenant and user from its own authenticated session, as described in [SDK authentication](https://astralbeam.ai/docs/sdk/authentication).
 
 ## Deploy to play.astralbeam.ai
 
@@ -73,7 +73,7 @@ Linearity needs a server for Basic Auth and token minting. Build it from the rep
 | `BASIC_AUTH_PASSWORD` | Server start | Playground password. Keep it in the deployment's secret store. |
 | `ASTRALBEAM_API_KEY` | Server start | Confidential organization key from the selected AstralBeam deployment. |
 | `APP_ORIGIN` | Server start | Set to `https://play.astralbeam.ai` behind a TLS proxy, without a trailing slash. Used for token-request origin checks. |
-| `VITE_ASTRALBEAM_API_URL` | Build | Public API base, normally `https://app.astralbeam.ai/api`. |
+| `VITE_ASTRALBEAM_API_URL` | Build | Public API base, normally `https://astralbeam.ai/api`. |
 | `VITE_ASTRALBEAM_AGENT_ID` | Build | Public ID of Astro. Optional when Astro is the default agent. |
 | `PORT` | Server start | HTTP listener port. Defaults to `3000` in production and `4900` in development. |
 

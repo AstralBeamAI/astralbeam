@@ -6,7 +6,7 @@ import { dirname, join, sep } from "node:path"
 import { cwd, env, pid, platform, stderr } from "node:process"
 import { terminalSafe } from "./output.ts"
 
-export const DEFAULT_API_URL = "https://app.astralbeam.ai/api"
+export const DEFAULT_API_URL = "https://astralbeam.ai/api"
 // key_<organization ID>_<key ID>_abo_<secret>, the format the dashboard issues.
 const API_KEY_PATTERN = /^key_([0-9a-f-]{36})_[0-9a-f-]{36}_abo_[A-Za-z]{64}$/
 

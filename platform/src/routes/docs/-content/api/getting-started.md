@@ -10,7 +10,7 @@ In the dashboard, select your organization and open **API keys** as an owner or 
 
 Reference keys, records, and abbreviated cursors are illustrative. Use your own credentials and IDs, and reuse complete cursors returned by the API.
 
-The hosted API base is `https://app.astralbeam.ai/api`. Self-hosted installations use their own origin with the `/api` base, for example `https://beam.example.com/api`.
+The hosted API base is `https://astralbeam.ai/api`. Self-hosted installations use their own origin with the `/api` base, for example `https://beam.example.com/api`.
 
 Run the example once with your own stable identities. Creating them again returns `409`. Each request is independent, not one transaction.
 
@@ -19,7 +19,7 @@ Run the example once with your own stable identities. Creating them again return
 With `ASTRALBEAM_API_KEY` already set securely, create a Tenant:
 
 ```sh
-export ASTRALBEAM_API_URL="https://app.astralbeam.ai/api"
+export ASTRALBEAM_API_URL="https://astralbeam.ai/api"
 curl --include "$ASTRALBEAM_API_URL/v1/tenants" \
   -H "X-API-Key: $ASTRALBEAM_API_KEY" \
   -H "Content-Type: application/json" \

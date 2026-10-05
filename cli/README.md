@@ -98,4 +98,4 @@ astralbeam skill install
 
 Pass `--dir ~/.claude/skills` to install it for every project, or `--dir .agents/skills` for agents that read that directory. Then give the agent credentials by logging in from the project directory or through `ASTRALBEAM_API_KEY`, never in the prompt.
 
-The full guide is at [app.astralbeam.ai/docs/cli/getting-started](https://app.astralbeam.ai/docs/cli/getting-started).
+The full guide is at [astralbeam.ai/docs/cli/getting-started](https://astralbeam.ai/docs/cli/getting-started).

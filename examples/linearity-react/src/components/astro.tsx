@@ -30,7 +30,7 @@ export function Astro({
     <AstralBeamChat
       title="Astro"
       colorScheme="light"
-      apiUrl={import.meta.env.VITE_ASTRALBEAM_API_URL || "https://app.astralbeam.ai/api"}
+      apiUrl={import.meta.env.VITE_ASTRALBEAM_API_URL || "https://astralbeam.ai/api"}
       agentId={import.meta.env.VITE_ASTRALBEAM_AGENT_ID || undefined}
       fetchAstralBeamToken={{
         url: "/api/astralbeam/token",
