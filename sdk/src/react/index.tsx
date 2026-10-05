@@ -86,7 +86,7 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
   stop: () => void
   reload: () => Promise<void>
   reset: () => void
-  /** The underlying headless session, for anything the flattened surface does not carry. */
+  /** Conversation management, participant actions, and the full headless session. */
   core: AstralBeamChatCore
 }
 
@@ -162,6 +162,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
   function AstralBeamChat(
     {
       agentId,
+      threadId,
       title,
       showHeader,
       header,
@@ -278,6 +279,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     const live = useMemo(
       () => ({
         agentId,
+        threadId,
         apiUrl,
         fetchAstralBeamToken,
         title,
@@ -296,6 +298,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       }),
       [
         agentId,
+        threadId,
         apiUrl,
         fetchAstralBeamToken,
         title,

@@ -80,6 +80,239 @@ export type CurrentUser =
       }
     }
 
+export interface ChatSubmissionReceiptEncoded {
+  thread_id: string
+  accepted_message_id: string
+  /** @minimum 0 */
+  thread_version: number
+}
+
+export type ResolveChatToolResultInputEncodedResultsItemOutcome =
+  (typeof ResolveChatToolResultInputEncodedResultsItemOutcome)[keyof typeof ResolveChatToolResultInputEncodedResultsItemOutcome]
+
+export const ResolveChatToolResultInputEncodedResultsItemOutcome = {
+  succeeded: "succeeded",
+  failed: "failed",
+  skipped: "skipped",
+  unknown: "unknown",
+} as const
+
+export type ResolveChatToolResultInputEncodedResultsItem = {
+  source_message_id: string
+  /** @minLength 1 */
+  source_part_id: string
+  response_target_id: string
+  outcome: ResolveChatToolResultInputEncodedResultsItemOutcome
+  output: unknown
+}
+
+export interface ResolveChatToolResultInputEncoded {
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  results: ResolveChatToolResultInputEncodedResultsItem[]
+  client_id: string
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  run_id?: string
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  parent_run_id?: string
+}
+
+export type ChatParticipantEncodedRole =
+  (typeof ChatParticipantEncodedRole)[keyof typeof ChatParticipantEncodedRole]
+
+export const ChatParticipantEncodedRole = {
+  viewer: "viewer",
+  member: "member",
+  manager: "manager",
+} as const
+
+export interface ChatParticipantEncoded {
+  tenant_user_id: string
+  role: ChatParticipantEncodedRole
+  name: string | null
+  external_id: string
+  email: string | null
+}
+
+export type SetChatParticipantInputEncodedRole =
+  (typeof SetChatParticipantInputEncodedRole)[keyof typeof SetChatParticipantInputEncodedRole]
+
+export const SetChatParticipantInputEncodedRole = {
+  viewer: "viewer",
+  member: "member",
+  manager: "manager",
+} as const
+
+export interface SetChatParticipantInputEncoded {
+  role: SetChatParticipantInputEncodedRole
+  /** @minimum 0 */
+  expected_version: number
+}
+
+export interface ChatTenantUserEncoded {
+  id: string
+  name: string | null
+  external_id: string
+  email: string | null
+}
+
+export interface ChatTenantUserPage {
+  items: ChatTenantUserEncoded[]
+  /** Pass as page_after to fetch the next page; null means no next page. */
+  page_after: string | null
+  /** Pass as page_before to fetch the previous page; null means no previous page. */
+  page_before: string | null
+}
+
+export interface ChatParticipantPage {
+  items: ChatParticipantEncoded[]
+  /** Pass as page_after to fetch the next page; null means no next page. */
+  page_after: string | null
+  /** Pass as page_before to fetch the previous page; null means no previous page. */
+  page_before: string | null
+}
+
+export type ChatHistoryPageEncodedMessagesItemRole =
+  (typeof ChatHistoryPageEncodedMessagesItemRole)[keyof typeof ChatHistoryPageEncodedMessagesItemRole]
+
+export const ChatHistoryPageEncodedMessagesItemRole = {
+  user: "user",
+  assistant: "assistant",
+  tool: "tool",
+} as const
+
+export type ChatHistoryPageEncodedMessagesItemState =
+  (typeof ChatHistoryPageEncodedMessagesItemState)[keyof typeof ChatHistoryPageEncodedMessagesItemState]
+
+export const ChatHistoryPageEncodedMessagesItemState = {
+  draft: "draft",
+  complete: "complete",
+  interrupted: "interrupted",
+} as const
+
+export type ChatHistoryPageEncodedMessagesItemPartsItem = { [key: string]: unknown }
+
+export type ChatHistoryPageEncodedMessagesItem = {
+  id: string
+  role: ChatHistoryPageEncodedMessagesItemRole
+  state: ChatHistoryPageEncodedMessagesItemState
+  parent_message_id: string | null
+  parts: ChatHistoryPageEncodedMessagesItemPartsItem[]
+  author_tenant_user_id: string | null
+  source_assistant_message_id: string | null
+  source_tool_part_id: string | null
+  response_target_id: string | null
+  created_at: string
+}
+
+export type ChatHistoryPageEncodedThreadRole =
+  (typeof ChatHistoryPageEncodedThreadRole)[keyof typeof ChatHistoryPageEncodedThreadRole]
+
+export const ChatHistoryPageEncodedThreadRole = {
+  viewer: "viewer",
+  member: "member",
+  manager: "manager",
+} as const
+
+export type ChatHistoryPageEncodedThread = {
+  id: string
+  title: string | null
+  agent_id: string | null
+  /** @minimum 0 */
+  version: number
+  current_leaf_message_id: string | null
+  role: ChatHistoryPageEncodedThreadRole
+  writer_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type ChatHistoryPageEncodedPendingInteractionsItemExecutionLocation =
+  (typeof ChatHistoryPageEncodedPendingInteractionsItemExecutionLocation)[keyof typeof ChatHistoryPageEncodedPendingInteractionsItemExecutionLocation]
+
+export const ChatHistoryPageEncodedPendingInteractionsItemExecutionLocation = {
+  server_api: "server_api",
+  sandbox: "sandbox",
+  browser: "browser",
+} as const
+
+export type ChatHistoryPageEncodedPendingInteractionsItem = {
+  source_message_id: string
+  source_part_id: string
+  response_target_id: string
+  tool_call_id: string
+  target_tenant_user_id: string | null
+  target_client_id: string | null
+  execution_location: ChatHistoryPageEncodedPendingInteractionsItemExecutionLocation
+}
+
+export interface ChatHistoryPageEncoded {
+  messages: ChatHistoryPageEncodedMessagesItem[]
+  thread: ChatHistoryPageEncodedThread
+  pending_interactions: ChatHistoryPageEncodedPendingInteractionsItem[]
+  /** Pass as page_after to fetch the next page; null means no next page. */
+  page_after: string | null
+  /** Pass as page_before to fetch the previous page; null means no previous page. */
+  page_before: string | null
+}
+
+export type ChatThreadEncodedRole =
+  (typeof ChatThreadEncodedRole)[keyof typeof ChatThreadEncodedRole]
+
+export const ChatThreadEncodedRole = {
+  viewer: "viewer",
+  member: "member",
+  manager: "manager",
+} as const
+
+export interface ChatThreadEncoded {
+  id: string
+  title: string | null
+  agent_id: string | null
+  /** @minimum 0 */
+  version: number
+  current_leaf_message_id: string | null
+  role: ChatThreadEncodedRole
+  writer_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UpdateChatThreadInputEncoded {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  title: string
+  /** @minimum 0 */
+  expected_version: number
+}
+
+export interface ChatThreadPage {
+  items: ChatThreadEncoded[]
+  /** Pass as page_after to fetch the next page; null means no next page. */
+  page_after: string | null
+  /** Pass as page_before to fetch the previous page; null means no previous page. */
+  page_before: string | null
+}
+
+export interface CreateChatThreadInputEncoded {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  title?: string
+  agent_id?: string
+}
+
 export type ChatConfigurationCapabilities = {
   attachments: boolean
 }
@@ -88,7 +321,9 @@ export interface ChatConfiguration {
   capabilities: ChatConfigurationCapabilities
 }
 
-export type ChatRunInputForwardedProps = { [key: string]: unknown }
+export type ChatRunInputForwardedProps = { [key: string]: unknown } & {
+  clientId: string
+}
 
 /**
  * Legacy mirror of forwardedProps sent by TanStack AI clients.
@@ -96,7 +331,7 @@ export type ChatRunInputForwardedProps = { [key: string]: unknown }
 export type ChatRunInputData = { [key: string]: unknown }
 
 /**
- * AG-UI RunAgentInput, validated by TanStack AI. Messages, tools, context, and resume entries follow AG-UI. forwardedProps accepts agentId and development-only debug. systemPrompt is rejected. Maximum request size: 32 MiB.
+ * AG-UI RunAgentInput, validated by TanStack AI. Use the saved conversation UUID as threadId, send exactly one new user message and set forwardedProps.clientId. The server appends to the current history path, loads saved context, and uses the conversation's selected agent. Replacement history, resume entries, and systemPrompt are rejected. forwardedProps.debug is development-only. Maximum request size: 32 MiB.
  */
 export interface ChatRunInput {
   threadId: string
@@ -104,12 +339,11 @@ export interface ChatRunInput {
   messages: unknown[]
   tools: unknown[]
   context: unknown[]
-  forwardedProps?: ChatRunInputForwardedProps
+  forwardedProps: ChatRunInputForwardedProps
   /** Legacy mirror of forwardedProps sent by TanStack AI clients. */
   data?: ChatRunInputData
   state?: unknown
   parentRunId?: string
-  resume?: unknown[]
 }
 
 export interface Organization {
@@ -280,6 +514,98 @@ export type GetChatConfigParams = {
 
 export type GetChatFileParams = {
   ticket: string
+}
+
+export type ListChatThreadsParams = {
+  /**
+   * Positive integer, default 20. Values above 100 are accepted and capped. page_after and page_before are mutually exclusive.
+   * @minimum 1
+   */
+  page_size?: number
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  page_after?: string
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  page_before?: string
+  /**
+   * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
+   * @maxLength 255
+   * @pattern ^[^\u0000]*$
+   */
+  q?: string
+}
+
+export type DeleteChatThreadParams = {
+  expected_version: string
+}
+
+export type ListChatMessagesParams = {
+  /**
+   * Positive integer, default 20. Values above 100 are accepted and capped. page_after and page_before are mutually exclusive.
+   * @minimum 1
+   */
+  page_size?: number
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  page_after?: string
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  page_before?: string
+}
+
+export type ListChatParticipantsParams = {
+  /**
+   * Positive integer, default 20. Values above 100 are accepted and capped. page_after and page_before are mutually exclusive.
+   * @minimum 1
+   */
+  page_size?: number
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  page_after?: string
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  page_before?: string
+}
+
+export type SearchChatTenantUsersParams = {
+  /**
+   * Positive integer, default 20. Values above 100 are accepted and capped. page_after and page_before are mutually exclusive.
+   * @minimum 1
+   */
+  page_size?: number
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  page_after?: string
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  page_before?: string
+  /**
+   * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
+   * @maxLength 255
+   * @pattern ^[^\u0000]*$
+   */
+  q?: string
+}
+
+export type RemoveChatParticipantParams = {
+  expected_version: string
 }
 
 export const getListTenantsUrl = (params: ListTenantsParams) => {
@@ -555,7 +881,7 @@ export const getRunChatUrl = () => {
 }
 
 /**
- * Stream an AG-UI agent run using a tenant user JWT. No admin claim required. HTTP failures before streaming use AstralBeamApiError. Once streaming starts, failures use RUN_ERROR events. Tool results continue in a subsequent request. Disconnecting cancels the run. Limited to 20 new turns and 200 tool-result continuations per minute per organization, tenant, and user.
+ * Save one new user message and stream an AG-UI agent run for a conversation participant using a synchronized tenant user JWT. An optional Idempotency-Key retains acceptance for 24 hours. An identical retry returns an application/json admission receipt without generation. Changed input under the same key returns 400 and simultaneous use returns 409. HTTP failures before streaming use AstralBeamApiError. Once streaming starts, failures use RUN_ERROR events. Submit tool results to the conversation's tool-results endpoint. Disconnecting cancels the foreground run and preserves saved history. Limited to 20 new turns per minute per organization, tenant, and user.
  * @summary Run chat
  */
 export const runChat = (
@@ -581,7 +907,7 @@ export const runChat = (
     }
     return headers
   }
-  return astralBeamChatFetch<Blob>(getRunChatUrl(), {
+  return astralBeamChatFetch<ChatSubmissionReceiptEncoded | Blob>(getRunChatUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -644,6 +970,383 @@ export const getChatFile = (
   options?: Parameters<typeof astralBeamFileFetch>[1],
 ) => {
   return astralBeamFileFetch<Blob>(getGetChatFileUrl(params), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getCreateChatThreadUrl = () => {
+  return `/api/v1/chat/threads`
+}
+
+/**
+ * @summary Create a saved conversation
+ */
+export const createChatThread = (
+  createChatThreadInputEncoded: CreateChatThreadInputEncoded,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamApiFetch<ChatThreadEncoded>(getCreateChatThreadUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(createChatThreadInputEncoded),
+  })
+}
+
+export const getListChatThreadsUrl = (params: ListChatThreadsParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/threads?${stringifiedParams}`
+    : `/api/v1/chat/threads`
+}
+
+/**
+ * @summary List your conversations
+ */
+export const listChatThreads = (
+  params: ListChatThreadsParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<ChatThreadPage>(getListChatThreadsUrl(params), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getGetChatThreadUrl = (id: string) => {
+  return `/api/v1/chat/threads/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Get a saved conversation
+ */
+export const getChatThread = (id: string, options: Parameters<typeof astralBeamApiFetch>[1]) => {
+  return astralBeamApiFetch<ChatThreadEncoded>(getGetChatThreadUrl(id), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getUpdateChatThreadUrl = (id: string) => {
+  return `/api/v1/chat/threads/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Rename a conversation
+ */
+export const updateChatThread = (
+  id: string,
+  updateChatThreadInputEncoded: UpdateChatThreadInputEncoded,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamApiFetch<ChatThreadEncoded>(getUpdateChatThreadUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateChatThreadInputEncoded),
+  })
+}
+
+export const getDeleteChatThreadUrl = (id: string, params: DeleteChatThreadParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/threads/${encodeURIComponent(String(id))}?${stringifiedParams}`
+    : `/api/v1/chat/threads/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Delete a conversation
+ */
+export const deleteChatThread = (
+  id: string,
+  params: DeleteChatThreadParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<void>(getDeleteChatThreadUrl(id, params), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getListChatMessagesUrl = (id: string, params: ListChatMessagesParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/threads/${encodeURIComponent(String(id))}/messages?${stringifiedParams}`
+    : `/api/v1/chat/threads/${encodeURIComponent(String(id))}/messages`
+}
+
+/**
+ * @summary Read conversation history
+ */
+export const listChatMessages = (
+  id: string,
+  params: ListChatMessagesParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<ChatHistoryPageEncoded>(getListChatMessagesUrl(id, params), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getListChatParticipantsUrl = (id: string, params: ListChatParticipantsParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/threads/${encodeURIComponent(String(id))}/participants?${stringifiedParams}`
+    : `/api/v1/chat/threads/${encodeURIComponent(String(id))}/participants`
+}
+
+/**
+ * @summary List conversation participants
+ */
+export const listChatParticipants = (
+  id: string,
+  params: ListChatParticipantsParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<ChatParticipantPage>(getListChatParticipantsUrl(id, params), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getSearchChatTenantUsersUrl = (id: string, params: SearchChatTenantUsersParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/threads/${encodeURIComponent(String(id))}/tenant-users?${stringifiedParams}`
+    : `/api/v1/chat/threads/${encodeURIComponent(String(id))}/tenant-users`
+}
+
+/**
+ * Requires a conversation manager. Searches names and external IDs within the conversation's Tenant. Returns only identity and display fields, without user metadata or administrative flags.
+ * @summary Search same-Tenant users for sharing
+ */
+export const searchChatTenantUsers = (
+  id: string,
+  params: SearchChatTenantUsersParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<ChatTenantUserPage>(getSearchChatTenantUsersUrl(id, params), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getSetChatParticipantUrl = (id: string, tenantUserId: string) => {
+  return `/api/v1/chat/threads/${encodeURIComponent(String(id))}/participants/${encodeURIComponent(String(tenantUserId))}`
+}
+
+/**
+ * @summary Add a participant or change their role
+ */
+export const setChatParticipant = (
+  id: string,
+  tenantUserId: string,
+  setChatParticipantInputEncoded: SetChatParticipantInputEncoded,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamApiFetch<ChatParticipantEncoded>(getSetChatParticipantUrl(id, tenantUserId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(setChatParticipantInputEncoded),
+  })
+}
+
+export const getRemoveChatParticipantUrl = (
+  id: string,
+  tenantUserId: string,
+  params: RemoveChatParticipantParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/threads/${encodeURIComponent(String(id))}/participants/${encodeURIComponent(String(tenantUserId))}?${stringifiedParams}`
+    : `/api/v1/chat/threads/${encodeURIComponent(String(id))}/participants/${encodeURIComponent(String(tenantUserId))}`
+}
+
+/**
+ * @summary Remove a conversation participant
+ */
+export const removeChatParticipant = (
+  id: string,
+  tenantUserId: string,
+  params: RemoveChatParticipantParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<void>(getRemoveChatParticipantUrl(id, tenantUserId, params), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getResolveChatToolResultUrl = (id: string) => {
+  return `/api/v1/chat/threads/${encodeURIComponent(String(id))}/tool-results`
+}
+
+/**
+ * @summary Submit a pending tool result
+ */
+export const resolveChatToolResult = (
+  id: string,
+  resolveChatToolResultInputEncoded: ResolveChatToolResultInputEncoded,
+  options: Parameters<typeof astralBeamChatFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamChatFetch<unknown | ChatSubmissionReceiptEncoded>(
+    getResolveChatToolResultUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+      body: JSON.stringify(resolveChatToolResultInputEncoded),
+    },
+  )
+}
+
+export const getGetChatAttachmentUrl = (id: string, messageId: string, partId: string) => {
+  return `/api/v1/chat/threads/${encodeURIComponent(String(id))}/messages/${encodeURIComponent(String(messageId))}/attachments/${encodeURIComponent(String(partId))}`
+}
+
+/**
+ * @summary Download a saved attachment
+ */
+export const getChatAttachment = (
+  id: string,
+  messageId: string,
+  partId: string,
+  options: Parameters<typeof astralBeamChatFetch>[1],
+) => {
+  return astralBeamChatFetch<Blob>(getGetChatAttachmentUrl(id, messageId, partId), {
     ...options,
     method: "GET",
   })

@@ -2,6 +2,7 @@ import { HttpApi, OpenApi } from "effect/http-api"
 import { APP_NAME } from "../../../../lib/constants.ts"
 import { ApiBoundary, RestAuthorization } from "./shared.server"
 import { chatApi } from "../chat/-lib/chat.server"
+import { chatThreadApi } from "../chat/-lib/threads.server"
 import { tenantApi } from "./tenant.server"
 import { tenantUserApi } from "./tenant-user.server"
 
@@ -20,6 +21,7 @@ export const ApiV1 = HttpApi.make("ApiV1")
       .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
       .middleware(RestAuthorization),
     chatApi,
+    chatThreadApi,
     currentUserApi,
   )
   .prefix("/api/v1")

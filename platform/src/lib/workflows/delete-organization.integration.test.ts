@@ -660,7 +660,23 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
     expect(await db.select().from(member).where(eq(member.organizationId, deletedId))).toEqual([])
 
-    await runAppEffect(organizationDeletion(deletedId))
+    const connection = await db.$client.connect()
+    await connection.query("begin")
+    await connection.query("select id from chat_thread where organization_id = $1 for update", [
+      deletedId,
+    ])
+    const deletion = runAppEffect(organizationDeletion(deletedId))
+    try {
+      await vi.waitFor(async () => {
+        const waiting = await db.execute(sql`select 1 from pg_stat_activity
+          where wait_event_type = 'Lock' and query like '%chat_thread%' and query like '%for update%'`)
+        expect(waiting.rows).not.toHaveLength(0)
+      })
+    } finally {
+      await connection.query("rollback")
+      connection.release()
+      await deletion
+    }
 
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])

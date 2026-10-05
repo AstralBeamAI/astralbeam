@@ -1,5 +1,6 @@
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
+import { SqlClient } from "effect/sql"
 import { RateLimiter } from "effect/persistence"
 import type { SQL } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
@@ -14,7 +15,15 @@ import { OrganizationMembershipError } from "@/lib/auth/errors"
 import { Config } from "@/lib/config/config.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { Chat } from "@/lib/chat/chat.server"
-import { CHAT_MODEL_UNAVAILABLE_MESSAGE } from "@/lib/chat/constants.server"
+import { Agents } from "@/lib/agents/agents.server"
+import {
+  ChatThreads,
+  type ChatAdmission,
+  type ThreadRecord,
+  type MessageRecord,
+  type ParticipantRecord,
+} from "@/lib/chat/threads/threads.server"
+import { ChatThreadNotFound, ChatIdentityNotSynchronized } from "@/lib/chat/threads/errors"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
@@ -46,6 +55,16 @@ const restTestState = vi.hoisted(() => ({
   agent: vi.fn(),
   run: vi.fn(),
   readFile: vi.fn(),
+  threadScope: vi.fn(),
+  threadList: vi.fn(),
+  thread: vi.fn(),
+  threadSnapshot: vi.fn(),
+  threadMessage: vi.fn(),
+  threadParticipants: vi.fn(),
+  threadSetParticipant: vi.fn(),
+  threadResolveTools: vi.fn(),
+  threadAdmission: vi.fn(),
+  threadInterrupt: vi.fn(),
   appLayer: undefined as Layer.Layer<never> | undefined,
   appRuntime: undefined as ManagedRuntime.ManagedRuntime<never, never> | undefined,
 }))
@@ -86,6 +105,7 @@ import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
 import {
   CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
+  CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
 } from "@/lib/chat/constants.server"
 import { ChatAgentNotFound } from "@/lib/chat/errors"
@@ -148,6 +168,7 @@ function queryFailure(cause: object) {
 }
 
 const restTestServices = Layer.mergeAll(
+  Layer.succeed(SqlClient.SqlClient, {} as typeof SqlClient.SqlClient.Service),
   TenantUsers.layerNoDeps.pipe(Layer.provideMerge(Tenants.layerNoDeps)),
   Layer.succeed(
     DatabaseRateLimiter,
@@ -174,6 +195,22 @@ const restTestServices = Layer.mergeAll(
     session: () => Effect.die("unused"),
     readArtifact: (ticket) => restTestState.readFile(ticket) as never,
   }),
+  Layer.succeed(Agents, {
+    resolveForChat: () =>
+      Effect.succeed({ id: restOtherId, attachmentsEnabled: true, sandboxProviderId: null }),
+  } as unknown as typeof Agents.Service),
+  Layer.succeed(ChatThreads, {
+    resolveScope: (input: unknown) => restTestState.threadScope(input) as never,
+    list: (input: unknown) => restTestState.threadList(input) as never,
+    get: (input: unknown) => restTestState.thread(input) as never,
+    snapshot: (input: unknown) => restTestState.threadSnapshot(input) as never,
+    getMessage: (input: unknown) => restTestState.threadMessage(input) as never,
+    participants: (input: unknown) => restTestState.threadParticipants(input) as never,
+    setParticipant: (input: unknown) => restTestState.threadSetParticipant(input) as never,
+    resolveTools: (input: unknown) => restTestState.threadResolveTools(input) as never,
+    admit: (input: unknown) => restTestState.threadAdmission(input) as never,
+    interrupt: (input: unknown) => restTestState.threadInterrupt(input) as never,
+  } as unknown as typeof ChatThreads.Service),
   Organizations.layerNoDeps,
   Logger.layer([Logger.map(Logger.formatJson, (line) => restTestState.logs.push(line))]),
 ).pipe(
@@ -223,6 +260,42 @@ const restUserRow = { ...restTenantRow, id: restUserId, tenantId: restTenantId, 
 const restPrincipal = {
   organization: { id: restOrgId },
   tenantUser: { id: "caller-not-persisted", admin: true, tenant: { id: restTenantRow.externalId } },
+}
+const restThreadScope = {
+  organizationId: restOrgId,
+  tenantId: restTenantId,
+  tenantUserId: restUserId,
+}
+const restThread: ThreadRecord = {
+  organizationId: restOrgId,
+  tenantId: restTenantId,
+  id: restOtherId,
+  agentId: restOtherId,
+  title: "Stored conversation",
+  currentLeafMessageId: null,
+  lockVersion: 0,
+  role: "manager",
+  writerActive: false,
+  createdAt: restTenantRow.createdAt,
+  updatedAt: restTenantRow.createdAt,
+}
+const restSavedMessage: MessageRecord = {
+  ...restThreadScope,
+  id: restUserId,
+  threadId: restOtherId,
+  parentMessageId: null,
+  authorTenantUserId: restUserId,
+  role: "user",
+  state: "complete",
+  turnMessageId: null,
+  turnState: "completed",
+  metadata: { version: 1 },
+  payload: { version: 1, parts: [{ id: "part", type: "text", content: "Saved history" }] },
+  sourceAssistantMessageId: null,
+  sourceToolPartId: null,
+  responseTargetId: null,
+  createdAt: restTenantRow.createdAt,
+  updatedAt: restTenantRow.createdAt,
 }
 function restRequest(path: string, init: RequestInit = {}) {
   return restWebHandler.handler(
@@ -289,6 +362,9 @@ beforeEach(() => {
   })
   restTestState.chat.mockResolvedValue(restPrincipal)
   restTestState.consume.mockReturnValue(Effect.void)
+  restTestState.threadScope.mockReturnValue(Effect.succeed(restThreadScope))
+  restTestState.thread.mockReturnValue(Effect.succeed(restThread))
+  restTestState.threadInterrupt.mockReturnValue(Effect.void)
 })
 afterEach(() => {
   vi.restoreAllMocks()
@@ -466,7 +542,52 @@ describe("REST API through the Effect Fetch handler", () => {
     })
   })
 
+  test("conversation search binds pagination to the search and participant identity", async () => {
+    restTestState.threadList.mockReturnValue(
+      Effect.succeed({
+        items: [restThread],
+        nextPosition: { id: restOtherId },
+        previousPosition: null,
+      }),
+    )
+    const headers = { Authorization: `Bearer ${restTenantJwt}` }
+    const path = "/chat/threads?q=launch&page_size=1"
+    const response = await restRequest(path, { headers })
+    expect(response.status).toBe(200)
+    expect(restTestState.threadList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: restThreadScope,
+        search: "launch",
+        pageSize: 1,
+      }),
+    )
+    const page = (await response.json()) as { page_after: string }
+    const cursor = `&page_after=${encodeURIComponent(page.page_after)}`
+    expect((await restRequest(path + cursor, { headers })).status).toBe(200)
+    expect((await restRequest(path.replace("launch", "other") + cursor, { headers })).status).toBe(
+      400,
+    )
+    restTestState.threadScope.mockReturnValue(
+      Effect.succeed({ ...restThreadScope, tenantUserId: restOtherId }),
+    )
+    expect((await restRequest(path + cursor, { headers })).status).toBe(400)
+  })
+
   test("chat logs safe stream diagnostics and hides thrown middleware errors", async () => {
+    restTestState.threadAdmission.mockReturnValue(
+      Effect.succeed({
+        thread: restThread,
+        inputMessage: restSavedMessage,
+        assistantMessage: null,
+        claim: {
+          scope: restThreadScope,
+          threadId: restOtherId,
+          assistantMessageId: restOtherId,
+          inputMessageId: restUserId,
+          invocationId: crypto.randomUUID(),
+        },
+      } satisfies ChatAdmission),
+    )
     const failure = new AggregateError(
       [new Error("private server details sk-private-credential")],
       "2 middleware onFinish hooks failed: chat-persistence, managed-thread",
@@ -474,7 +595,7 @@ describe("REST API through the Effect Fetch handler", () => {
     restTestState.run.mockReturnValue(Effect.succeed(Stream.die(failure)))
     const response = await sdkRunChat(
       {
-        threadId: "thread",
+        threadId: restOtherId,
         runId: "run",
         messages: [{ id: "new", role: "user", content: "private chat transcript" }],
         tools: [],
@@ -509,6 +630,20 @@ describe("REST API through the Effect Fetch handler", () => {
       tenantUser: { ...restPrincipal.tenantUser, admin: false },
     })
     let stopped = false
+    restTestState.threadAdmission.mockReturnValue(
+      Effect.succeed({
+        thread: restThread,
+        inputMessage: restSavedMessage,
+        assistantMessage: null,
+        claim: {
+          scope: restThreadScope,
+          threadId: restOtherId,
+          assistantMessageId: restOtherId,
+          inputMessageId: restUserId,
+          invocationId: crypto.randomUUID(),
+        },
+      } satisfies ChatAdmission),
+    )
     restTestState.run.mockReturnValue(
       Effect.succeed(
         Stream.make({ type: "RUN_STARTED", threadId: "thread", runId: "run" }).pipe(
@@ -523,11 +658,12 @@ describe("REST API through the Effect Fetch handler", () => {
     )
     const response = await sdkRunChat(
       {
-        threadId: "thread",
+        threadId: restOtherId,
         runId: "run",
-        messages: [],
+        messages: [{ id: "new", role: "user", content: "Hello" }],
         tools: [],
         context: [],
+        forwardedProps: { clientId: restUserId },
       },
       {
         astralBeamToken: restTenantJwt,
@@ -555,22 +691,386 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.predicates).toEqual([])
   })
 
+  test("saved history exposes scoped messages without internal writer or idempotency data", async () => {
+    const attachment = {
+      id: "upload",
+      type: "image",
+      source: { type: "data", value: btoa("saved image"), mimeType: "image/png" },
+      metadata: { filename: "upload.png", size: 11 },
+    }
+    const savedMessage = {
+      ...restSavedMessage,
+      payload: {
+        ...restSavedMessage.payload,
+        parts: [...restSavedMessage.payload.parts, attachment],
+      },
+    }
+    restTestState.threadSnapshot.mockReturnValue(
+      Effect.succeed({
+        thread: restThread,
+        messages: { items: [savedMessage], nextPosition: null, previousPosition: null },
+        pending: [],
+      }),
+    )
+    const headers = { Authorization: `Bearer ${restTenantJwt}` }
+    const response = await restRequest(`/chat/threads/${restOtherId}/messages`, { headers })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      thread: {
+        id: restOtherId,
+        title: restThread.title,
+        agent_id: `agent_${restOrgId}_${restOtherId}`,
+        version: 0,
+        current_leaf_message_id: null,
+        role: "manager",
+        writer_active: false,
+        created_at: restTenantRow.createdAt.toISOString(),
+        updated_at: restTenantRow.updatedAt.toISOString(),
+      },
+      messages: [
+        {
+          id: restUserId,
+          role: "user",
+          state: "complete",
+          parent_message_id: null,
+          parts: [
+            ...restSavedMessage.payload.parts,
+            { ...attachment, source: { type: "attachment", mimeType: "image/png" } },
+          ],
+          author_tenant_user_id: restUserId,
+          source_assistant_message_id: null,
+          source_tool_part_id: null,
+          response_target_id: null,
+          created_at: restTenantRow.createdAt.toISOString(),
+        },
+      ],
+      pending_interactions: [],
+      page_after: null,
+      page_before: null,
+    })
+    expect(restTestState.threadSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: restThreadScope, id: restOtherId }),
+    )
+    restTestState.threadMessage.mockReturnValue(Effect.succeed(savedMessage))
+    const download = await restRequest(
+      `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
+      { headers },
+    )
+    expect(download.status).toBe(200)
+    expect(download.headers.get("content-type")).toBe("image/png")
+    expect(await download.text()).toBe("saved image")
+    expect(restTestState.threadMessage).toHaveBeenCalledWith({
+      scope: restThreadScope,
+      id: restOtherId,
+      messageId: restUserId,
+    })
+    restTestState.threadMessage.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    const deniedDownload = await restRequest(
+      `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
+      { headers },
+    )
+    expect(deniedDownload.status).toBe(404)
+    restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    const inaccessible = await restRequest(`/chat/threads/${restOtherId}`, { headers })
+    expect(inaccessible.status).toBe(404)
+    expect(await inaccessible.text()).not.toContain(restThread.title)
+  })
+
+  test("conversation managers search only their Tenant without directory admin access", async () => {
+    restTestState.chat.mockResolvedValue({
+      ...restPrincipal,
+      tenantUser: { ...restPrincipal.tenantUser, admin: false },
+    })
+    const headers = { Authorization: `Bearer ${restTenantJwt}` }
+    const path = `/chat/threads/${restOtherId}/tenant-users?q=Alice&page_size=1`
+    restTestState.rows.push([
+      {
+        ...restUserRow,
+        name: "Alice",
+        externalId: "alice",
+        metadata: { email: "alice@example.com", private_note: "hidden" },
+      },
+      { ...restUserRow, id: restOtherId, name: "Alice Two", externalId: "alice-two" },
+    ])
+    const response = await restRequest(path, { headers })
+    expect(response.status).toBe(200)
+    const page = (await response.json()) as { items: unknown[]; page_after: string }
+    expect(page.items).toEqual([
+      { id: restUserId, name: "Alice", external_id: "alice", email: "alice@example.com" },
+    ])
+    expect(restLastPredicate().params).toEqual([
+      restOrgId,
+      restTenantId,
+      restTenantId,
+      "%Alice%",
+      "%Alice%",
+    ])
+    restTestState.rows.push([])
+    expect(
+      (await restRequest(`${path}&page_after=${encodeURIComponent(page.page_after)}`, { headers }))
+        .status,
+    ).toBe(200)
+    expect(
+      (
+        await restRequest(
+          `${path.replace("Alice", "Bob")}&page_after=${encodeURIComponent(page.page_after)}`,
+          { headers },
+        )
+      ).status,
+    ).toBe(400)
+    for (const role of ["member", "viewer"] as const) {
+      restTestState.thread.mockReturnValue(Effect.succeed({ ...restThread, role }))
+      expect((await restRequest(path, { headers })).status).toBe(403)
+    }
+    restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    expect((await restRequest(path, { headers })).status).toBe(404)
+  })
+
+  test("participant listing and sharing project full database rows into the public contract", async () => {
+    const participant: ParticipantRecord = {
+      ...restThreadScope,
+      id: restOtherId,
+      threadId: restOtherId,
+      role: "manager",
+      name: "Example participant",
+      externalId: "external-participant",
+      email: null,
+      createdAt: restTenantRow.createdAt,
+      updatedAt: restTenantRow.updatedAt,
+    }
+    restTestState.threadParticipants.mockReturnValue(
+      Effect.succeed({
+        items: [participant],
+        nextPosition: { id: participant.id },
+        previousPosition: null,
+      }),
+    )
+    restTestState.threadSetParticipant.mockReturnValue(
+      Effect.succeed({
+        ...participant,
+        role: "member",
+      }),
+    )
+    const headers = { Authorization: `Bearer ${restTenantJwt}` }
+    const listed = await restRequest(`/chat/threads/${restOtherId}/participants`, { headers })
+    expect(listed.status).toBe(200)
+    expect(await listed.json()).toEqual({
+      items: [
+        {
+          tenant_user_id: restUserId,
+          role: "manager",
+          name: "Example participant",
+          external_id: "external-participant",
+          email: null,
+        },
+      ],
+      page_after: expect.any(String) as unknown,
+      page_before: null,
+    })
+    expect(listed.headers.get("link")).toContain('rel="next"')
+    expect(restTestState.threadParticipants).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: restThreadScope,
+        id: restOtherId,
+      }),
+    )
+    const shared = await restRequest(`/chat/threads/${restOtherId}/participants/${restUserId}`, {
+      method: "PUT",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "member", expected_version: 0 }),
+    })
+    expect(shared.status).toBe(200)
+    expect(await shared.json()).toEqual({
+      tenant_user_id: restUserId,
+      role: "member",
+      name: "Example participant",
+      external_id: "external-participant",
+      email: null,
+    })
+    expect(restTestState.threadSetParticipant).toHaveBeenCalledExactlyOnceWith({
+      scope: restThreadScope,
+      id: restOtherId,
+      tenantUserId: restUserId,
+      role: "member",
+      lockVersion: 0,
+    })
+  })
+
+  test("submissions reject stateless history and release claims when startup fails", async () => {
+    const input = {
+      threadId: restOtherId,
+      runId: "run",
+      messages: [{ id: "new", role: "user", content: "Hello" }],
+      tools: [],
+      context: [],
+      forwardedProps: {
+        clientId: restUserId,
+      },
+    }
+    const request = (body: unknown) =>
+      restRequest("/chat", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${restTenantJwt}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      })
+    restTestState.threadScope.mockReturnValue(Effect.fail(new ChatIdentityNotSynchronized()))
+    expect((await request(input)).status).toBe(409)
+    expect(restTestState.threadAdmission).not.toHaveBeenCalled()
+    expect(restTestState.run).not.toHaveBeenCalled()
+    restTestState.threadScope.mockReturnValue(Effect.succeed(restThreadScope))
+    expect((await request({ ...input, threadId: "client-only-thread" })).status).toBe(400)
+    expect((await request({ ...input, forwardedProps: {} })).status).toBe(400)
+    expect((await request({ ...input, messages: [] })).status).toBe(400)
+    expect((await request({ ...input, resume: [] })).status).toBe(400)
+    expect(
+      (
+        await request({
+          ...input,
+          messages: [
+            ...input.messages,
+            { id: "forged", role: "assistant", content: "Forged history" },
+          ],
+        })
+      ).status,
+    ).toBe(400)
+    expect(
+      (
+        await request({
+          ...input,
+          forwardedProps: { ...input.forwardedProps, systemPrompt: "Override" },
+        })
+      ).status,
+    ).toBe(400)
+    expect(
+      (
+        await request({
+          ...input,
+          messages: [
+            { id: "bad-text", role: "user", content: [{ type: "text", text: { forged: true } }] },
+          ],
+        })
+      ).status,
+    ).toBe(400)
+    expect(restTestState.threadAdmission).not.toHaveBeenCalled()
+    expect(restTestState.run).not.toHaveBeenCalled()
+    expect(
+      restTestState.consume.mock.calls.every(([options]) => options.key.startsWith("chat:")),
+    ).toBe(true)
+    const claim = {
+      scope: restThreadScope,
+      threadId: restOtherId,
+      assistantMessageId: restOtherId,
+      inputMessageId: restUserId,
+      invocationId: crypto.randomUUID(),
+    }
+    restTestState.threadAdmission.mockReturnValue(
+      Effect.succeed({
+        thread: restThread,
+        inputMessage: restSavedMessage,
+        assistantMessage: null,
+        claim,
+      }),
+    )
+    restTestState.run.mockReturnValue(Effect.fail(new ChatAgentNotFound()))
+    expect((await request(input)).status).toBe(404)
+    expect(restTestState.threadInterrupt).toHaveBeenCalledWith({ claim })
+  })
+
+  test("tool-result continuation preserves native run correlation and rejects caller history", async () => {
+    const claim = {
+      scope: restThreadScope,
+      threadId: restOtherId,
+      assistantMessageId: restOtherId,
+      inputMessageId: restUserId,
+      invocationId: crypto.randomUUID(),
+    }
+    restTestState.threadMessage.mockReturnValue(
+      Effect.succeed({
+        ...restSavedMessage,
+        role: "assistant",
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: "tool-part",
+              type: "tool-call",
+              toolCallId: "provider-call",
+              name: "lookup",
+              arguments: "{}",
+            },
+          ],
+        },
+      }),
+    )
+    restTestState.threadResolveTools.mockReturnValue(
+      Effect.succeed({
+        thread: restThread,
+        inputMessage: restSavedMessage,
+        assistantMessage: null,
+        claim,
+      } satisfies ChatAdmission),
+    )
+    restTestState.run.mockReturnValue(Effect.succeed(Stream.empty))
+    const body = {
+      client_id: restUserId,
+      run_id: "run-native-continuation",
+      parent_run_id: "run-native-parent",
+      results: [
+        {
+          source_message_id: restOtherId,
+          source_part_id: "tool-part",
+          response_target_id: restUserId,
+          outcome: "succeeded",
+          output: { found: true },
+        },
+      ],
+    }
+    const request = (payload: unknown) =>
+      restRequest(`/chat/threads/${restOtherId}/tool-results`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    const response = await request(body)
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("text/event-stream")
+    await response.text()
+    expect(restTestState.run.mock.calls[0]?.[0]).toMatchObject({
+      params: { runId: body.run_id, parentRunId: body.parent_run_id, messages: [] },
+      managed: { claim },
+    })
+    expect((await request({ ...body, run_id: "" })).status).toBe(400)
+    expect((await request({ ...body, parent_run_id: "r".repeat(201) })).status).toBe(400)
+    expect((await request({ ...body, resume: [] })).status).toBe(400)
+    expect((await request({ ...body, messages: [] })).status).toBe(400)
+    expect(restTestState.run).toHaveBeenCalledTimes(1)
+    expect(restTestState.threadResolveTools).toHaveBeenCalledTimes(1)
+  })
+
   test("chat HTTP failures share v1 errors, CORS, challenges, and retry information", async () => {
-    const headers = { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" }
+    const headers = {
+      Authorization: `Bearer ${restTenantJwt}`,
+      "Content-Type": "application/json",
+    }
     for (const [body, extra, status] of [
       ["{", {}, 400],
       ["{}", { "content-length": String(33 * 1024 * 1024) }, 413],
       ["{}", { "content-type": "text/plain" }, 415],
     ] as const) {
-      const response = await restRequest("/chat", {
-        method: "POST",
-        headers: { ...headers, ...extra },
-        body,
-      })
-      expect(response.status).toBe(status)
-      expect(response.headers.get("content-type")).toContain("application/problem+json")
-      expect(response.headers.get("access-control-allow-origin")).toBe("*")
-      expect(await response.json()).toMatchObject({ status })
+      for (const path of ["/chat", `/chat/threads/${restOtherId}/tool-results`]) {
+        const response = await restRequest(path, {
+          method: "POST",
+          headers: { ...headers, ...extra },
+          body,
+        })
+        expect(response.status).toBe(status)
+        expect(response.headers.get("content-type")).toContain("application/problem+json")
+        expect(response.headers.get("access-control-allow-origin")).toBe("*")
+        expect(await response.json()).toMatchObject({ status })
+      }
     }
     restTestState.agent.mockReturnValue(Effect.fail(new ChatAgentNotFound()))
     const missing = await restRequest("/chat/config", { headers })
@@ -596,17 +1096,23 @@ describe("REST API through the Effect Fetch handler", () => {
         }),
       ),
     )
-    // A host-tool result continues the agent's turn, so it must not spend the new-turn bucket.
     const continuation = JSON.stringify({
-      threadId: "thread",
-      runId: "run",
-      messages: [{ id: "result", role: "tool", toolCallId: "call", content: "{}" }],
-      tools: [],
-      context: [],
-      state: {},
-      forwardedProps: {},
+      client_id: restUserId,
+      results: [
+        {
+          source_message_id: restOtherId,
+          source_part_id: "tool-part",
+          response_target_id: restUserId,
+          outcome: "succeeded",
+          output: {},
+        },
+      ],
     })
-    const limited = await restRequest("/chat", { method: "POST", headers, body: continuation })
+    const limited = await restRequest(`/chat/threads/${restOtherId}/tool-results`, {
+      method: "POST",
+      headers,
+      body: continuation,
+    })
     expect(limited.status).toBe(429)
     expect(limited.headers.get("retry-after")).toBe("2")
     const [continuationLimit] = restTestState.consume.mock.calls.at(-1)!

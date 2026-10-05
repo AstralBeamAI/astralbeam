@@ -1,6 +1,21 @@
-import { chat, EventType, maxIterations, mergeAgentTools, type StreamChunk } from "@tanstack/ai"
+import {
+  chat,
+  convertMessagesToModelMessages,
+  EventType,
+  maxIterations,
+  mergeAgentTools,
+  type StreamChunk,
+} from "@tanstack/ai"
 import { Context, Effect, identity, Layer, Stream } from "effect"
 
+import { ChatThreads } from "./threads/threads.server"
+import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
+import { projectChatModelHistory } from "./threads/projection.server"
+import {
+  managedChatDelivery,
+  managedChatMiddleware,
+  type ManagedChatExecution,
+} from "./threads/stream.server"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter.server"
@@ -71,6 +86,7 @@ export class Chat extends Context.Service<
     readonly run: (input: {
       readonly params: ChatParams
       readonly principal: ChatPrincipal
+      readonly managed: ManagedChatExecution
     }) => Effect.Effect<
       Stream.Stream<StreamChunk>,
       | ChatAgentNotFound
@@ -79,6 +95,7 @@ export class Chat extends Context.Service<
       | ChatModelMissing
       | ChatModelKeyUnreadable
       | ChatSystemPromptRefused
+      | ChatThreadError
     >
     /** The selected agent's attachment grant, which a client may narrow but never widen. */
     readonly capabilities: (input: {
@@ -93,12 +110,15 @@ export class Chat extends Context.Service<
       const agents = yield* Agents
       const sandboxes = yield* ChatSandboxes
       const modelProviders = yield* ModelProviders
+      const threads = yield* ChatThreads
 
       const run = Effect.fn("Chat.run")(function* (input: {
         params: ChatParams
         principal: ChatPrincipal
+        managed: ManagedChatExecution
       }) {
         const { params, principal } = input
+        yield* threads.assertActive({ claim: input.managed.claim })
         const { agentId, systemPrompt, debug } = params.forwardedProps
         // Instructions are agent configuration: a browser-supplied prompt would let any tenant
         // user rewrite them from devtools, so the endpoint refuses rather than ignores it.
@@ -122,11 +142,31 @@ export class Chat extends Context.Service<
             ),
           )
         if (!model) return yield* new ChatModelMissing()
+        const history = yield* threads.history({
+          scope: input.managed.claim.scope,
+          id: input.managed.claim.threadId,
+          messageId: input.managed.claim.assistantMessageId,
+        })
+        const inputMessages = yield* Effect.try({
+          try: () =>
+            projectChatModelHistory(history, {
+              providerId: model.providerId,
+              protocol: model.api,
+              modelId: model.modelId,
+            }),
+          catch: () => new ChatThreadInvalid(),
+        })
+        const unknownOutcome = history.some(
+          (message) =>
+            message.role === "tool" &&
+            message.turnMessageId === input.managed.claim.inputMessageId &&
+            message.payload.parts.some((part) => part.outcome === "unknown"),
+        )
         // The SDK's `debug` mount option rides along in the forwarded props and its log prints
         // whole conversations, so, like the refused `systemPrompt`, it is honored only in DEV.
         const log = debug === true && IS_DEVELOPMENT_SERVER ? chatDebugLog(params.runId) : undefined
         if (log) {
-          yield* log("request", `POST /api/v1/chat, ${params.messages.length} messages`, {
+          yield* log("request", `POST /api/v1/chat, ${inputMessages.length} messages`, {
             threadId: params.threadId,
             runId: params.runId,
             parentRunId: params.parentRunId,
@@ -134,14 +174,16 @@ export class Chat extends Context.Service<
             agentId,
             debug,
           })
-          yield* log("request", "conversation messages", redactChatAttachmentData(params.messages))
+          yield* log("request", "conversation messages", redactChatAttachmentData(inputMessages))
           yield* log("request", `client-declared tools (${params.tools.length})`, params.tools)
         }
         // Attachments become what the model reads before the run, since the provider adapter throws
         // on a part it cannot map. A file with no text view needs a sandbox to go to.
-        const { messages, attachments, files } = normalizeChatAttachments(params.messages, {
+        const { messages, attachments, files } = normalizeChatAttachments(inputMessages, {
           sandbox: agent.sandboxProviderId !== null,
         })
+        if (attachments.some((attachment) => attachment.result === "rejected"))
+          return yield* new ChatThreadInvalid()
         // Agent capability policy, enforced here regardless of what the client narrowed.
         if (!agent.attachmentsEnabled && attachments.length > 0) {
           return yield* new ChatAttachmentsDisabled()
@@ -169,45 +211,116 @@ export class Chat extends Context.Service<
         if (log && sandboxTools.length > 0) {
           yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
         }
-        const events = chatEventStream((abortController) =>
-          chat({
-            adapter: createChatAdapter(model),
-            messages,
-            systemPrompts: [
-              CHAT_SYSTEM_PROMPT,
-              // Only the generic policy: what each attached file is reaches the model through
-              // `read_attachment`, so nothing a file chose to say lands at deployment authority.
-              ...(files.length > 0 ? [CHAT_ATTACHMENT_SYSTEM_PROMPT] : []),
-              ...(sandboxTools.length > 0
-                ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT]
-                : []),
-              agent.systemPrompt,
-            ],
-            // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
-            // drops a client tool named like a server tool.
-            tools: mergeAgentTools(
-              [...sandboxTools, ...createChatAttachmentTools(files)],
-              params.tools,
-            ),
-            // A sandbox command or publication can depend on an earlier tool's file write.
-            // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
-            toolExecution: "sequential",
-            // The client rebuilds its transcript from the snapshot an interrupt boundary emits,
-            // so the turns it sent have to survive the rewrite above.
-            middleware: [createChatAttachmentSnapshotMiddleware(params.messages)],
-            agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
-            threadId: params.threadId,
-            runId: params.runId,
-            parentRunId: params.parentRunId,
-            resume: params.resume,
-            // Native OpenAI reasoning models keep main's effort. Other models reject the option.
-            ...(model.providerType === "openai" &&
-              model.api === "responses" &&
-              /^(?:gpt-5|o\d)/.test(model.modelId) &&
-              !model.modelId.endsWith("-chat-latest") && {
-                modelOptions: { reasoning: { effort: "high" } },
+        const tools = unknownOutcome
+          ? []
+          : [
+              ...mergeAgentTools(
+                [...sandboxTools, ...createChatAttachmentTools(files)],
+                params.tools,
+              ),
+            ]
+        const systemPrompts = [
+          CHAT_SYSTEM_PROMPT,
+          ...(unknownOutcome
+            ? [
+                "An earlier action in this turn has an unknown outcome. It may already have taken effect. Explain the uncertainty and ask the user to verify it before requesting another action. Do not assert failure.",
+              ]
+            : []),
+          ...(files.length > 0 ? [CHAT_ATTACHMENT_SYSTEM_PROMPT] : []),
+          ...(sandboxTools.length > 0
+            ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT]
+            : []),
+          agent.systemPrompt,
+        ]
+        const services = yield* Effect.context<never>()
+        const managed = managedChatMiddleware({
+          managed: input.managed,
+          threads,
+          history: convertMessagesToModelMessages(messages),
+          tools,
+          model,
+          agentId: agent.id,
+          execute: Effect.runPromiseWith(services),
+          refreshContext: (claim) =>
+            Effect.runPromiseWith(services)(
+              Effect.gen(function* () {
+                const saved = yield* threads.history({
+                  scope: claim.scope,
+                  id: claim.threadId,
+                })
+                const projected = projectChatModelHistory(saved, {
+                  providerId: model.providerId,
+                  protocol: model.api,
+                  modelId: model.modelId,
+                })
+                const normalized = normalizeChatAttachments(projected, {
+                  sandbox: agent.sandboxProviderId !== null,
+                })
+                if (normalized.attachments.some((file) => file.result === "rejected"))
+                  return yield* new ChatThreadInvalid()
+                if (!agent.attachmentsEnabled && normalized.attachments.length)
+                  return yield* new ChatAttachmentsDisabled()
+                files.splice(0, files.length, ...normalized.files)
+                inputMessages.splice(0, inputMessages.length, ...projected)
+                if (session) yield* session.prepareUploads(files)
+                if (!unknownOutcome)
+                  tools.splice(
+                    0,
+                    tools.length,
+                    ...mergeAgentTools(
+                      [...sandboxTools, ...createChatAttachmentTools(files)],
+                      params.tools,
+                    ),
+                  )
+                if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
+                  systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
+                return {
+                  providerMessages: convertMessagesToModelMessages(normalized.messages),
+                  tools,
+                  systemPrompts,
+                }
               }),
-            abortController,
+            ),
+        })
+        const events = Stream.unwrap(
+          Effect.gen(function* () {
+            yield* Effect.addFinalizer(() =>
+              threads
+                .interrupt({ claim: managed.state.claim })
+                .pipe(Effect.timeout("5 seconds"), Effect.ignore),
+            )
+            return chatEventStream((abortController) => {
+              const source = chat({
+                adapter: createChatAdapter(model),
+                messages,
+                systemPrompts,
+                // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
+                // drops a client tool named like a server tool.
+                tools,
+                // A sandbox command or publication can depend on an earlier tool's file write.
+                // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
+                toolExecution: "sequential",
+                // Interrupt snapshots preserve original uploads after provider normalization.
+                middleware: [
+                  createChatAttachmentSnapshotMiddleware(inputMessages),
+                  ...managed.middleware,
+                ],
+                agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
+                threadId: params.threadId,
+                runId: params.runId,
+                parentRunId: params.parentRunId,
+                resume: params.resume,
+                // Native OpenAI reasoning models keep main's effort. Other models reject the option.
+                ...(model.providerType === "openai" &&
+                  model.api === "responses" &&
+                  /^(?:gpt-5|o\d)/.test(model.modelId) &&
+                  !model.modelId.endsWith("-chat-latest") && {
+                    modelOptions: { reasoning: { effort: "high" } },
+                  }),
+                abortController,
+              })
+              return managedChatDelivery({ source, managed: input.managed, state: managed.state })
+            })
           }),
         ).pipe(
           Stream.mapEffect((chunk): Effect.Effect<StreamChunk> => {
@@ -261,6 +374,6 @@ export class Chat extends Context.Service<
   )
 
   static readonly layer = Chat.layerNoDeps.pipe(
-    Layer.provide([Agents.layer, ChatSandboxes.layer, ModelProviders.layer]),
+    Layer.provide([Agents.layer, ChatSandboxes.layer, ModelProviders.layer, ChatThreads.layer]),
   )
 }

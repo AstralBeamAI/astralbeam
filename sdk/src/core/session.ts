@@ -1,14 +1,35 @@
 import {
   ChatClient,
   type ChatClientState,
+  type ConnectionAdapter,
   fetchServerSentEvents,
   type MultimodalContent,
   type UIMessage,
 } from "@tanstack/ai-client"
-import type { StreamChunk } from "@tanstack/ai/client"
-import { DEFAULT_CHAT_AUTH_TOKEN_URL } from "../lib/constants.ts"
-import { getChatConfig, getRunChatUrl } from "../api/generated/api.ts"
-import { astralBeamChatFetch, isAstralBeamApiError, resolveApiUrl } from "../api/api.ts"
+import { EventType, type StreamChunk } from "@tanstack/ai/client"
+import { DEFAULT_API_URL, DEFAULT_CHAT_AUTH_TOKEN_URL } from "../lib/constants.ts"
+import {
+  createChatThread,
+  deleteChatThread,
+  getChatAttachment,
+  getChatThread,
+  getChatConfig,
+  getResolveChatToolResultUrl,
+  getRunChatUrl,
+  listChatThreads,
+  listChatParticipants,
+  searchChatTenantUsers,
+  type ChatTenantUserPage,
+  setChatParticipant,
+  removeChatParticipant,
+  updateChatThread,
+} from "../api/generated/api.ts"
+import {
+  astralBeamChatFetch,
+  isAstralBeamApiError,
+  resolveApiUrl,
+  type JwtOptions,
+} from "../api/api.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
@@ -25,10 +46,20 @@ import {
 } from "./auth.ts"
 import { startAuthentication } from "./auth-lifecycle.ts"
 import { isSettledToolCall } from "./messages.ts"
-import { ASK_QUESTIONNAIRE_TOOL, SANDBOX_STATUS_EVENT } from "./protocol.ts"
+import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL, SANDBOX_STATUS_EVENT } from "./protocol.ts"
 import { collectSandboxActivity } from "./sandbox.ts"
 import { validateParameters } from "./schema.ts"
 import type { RenderWidgetInput, SandboxActivity, SandboxStatus } from "./types.ts"
+import {
+  type ChatThread,
+  type ChatPendingInteraction,
+  threadFromRecord,
+  newUuid,
+  loadThreadMessages,
+  projectThreadMessages,
+  savedToolCallId,
+  selectedThread,
+} from "./threads.ts"
 
 /** A widget render the agent requested, handed to the host's `onRenderWidget`. */
 export interface WidgetRenderRequest {
@@ -54,13 +85,20 @@ export interface ChatStreamCallbacks {
   onError?: ((error: Error) => void) | undefined
 }
 
+export interface ChatSubmissionCallbacks {
+  /** Identifies the conversation before its input is sent, including a newly created chat. */
+  onThreadReady?: ((threadId: string) => void) | undefined
+  /** Called once after the server acknowledges input, before generation finishes. */
+  onAccepted?: (() => void) | undefined
+}
+
 /**
  * The transport and tool options of the drop-in widget, minus everything about its UI, plus this
  * session's own rendering hooks. The shared options are documented on `MountAstralBeamChatOptions`.
  */
 export interface AstralBeamChatCoreOptions extends Pick<
   MountAstralBeamChatOptions,
-  "agentId" | "apiUrl" | "fetchAstralBeamToken" | "tools" | "debug"
+  "agentId" | "apiUrl" | "fetchAstralBeamToken" | "tools" | "debug" | "threadId"
 > {
   /** Widgets declared to the agent, without a `render`; `onRenderWidget` is asked to draw them. */
   widgets?: Record<string, WidgetDeclaration> | undefined
@@ -74,6 +112,7 @@ export interface AstralBeamChatCoreOptions extends Pick<
 // React hook) cannot forget one: a missing or unknown key fails the typecheck below.
 export const CORE_OPTION_KEYS = Object.keys({
   agentId: true,
+  threadId: true,
   apiUrl: true,
   fetchAstralBeamToken: true,
   tools: true,
@@ -115,6 +154,26 @@ export interface AstralBeamChatState {
   agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
   sandbox: SandboxActivity
+  /** Saved conversations available to the authenticated participant. */
+  threads: readonly ChatThread[]
+  thread: ChatThread | undefined
+  threadsLoading: boolean
+  threadLoading: boolean
+  threadLoadFailed: boolean
+  threadsCursor: string | undefined
+  messagesCursor: string | undefined
+  olderMessagesLoading: boolean
+  /** Retained until the server acknowledges the send, including after an uncertain network failure. */
+  unsentMessage: string | MultimodalContent | undefined
+  activeToolCallIds: readonly string[]
+  participants: readonly {
+    tenantUserId: string
+    role: "viewer" | "member" | "manager"
+    name: string | null
+    externalId: string
+    email: string | null
+  }[]
+  pendingInteractions: readonly ChatPendingInteraction[]
 }
 
 export interface AstralBeamChatCore {
@@ -128,18 +187,45 @@ export interface AstralBeamChatCore {
    * the chat session. Only the keys given are replaced.
    */
   updateOptions: (options: Partial<AstralBeamChatCoreOptions>) => void
-  /** Sends a message, first settling any dangling tool calls so the run can proceed. */
-  sendMessage: (content: string | MultimodalContent) => Promise<void>
+  /** Sends a message, persisting it before generation begins. */
+  sendMessage: (
+    content: string | MultimodalContent,
+    callbacks?: ChatSubmissionCallbacks,
+  ) => Promise<void>
   /** Resolves a client tool call the host executed itself (a questionnaire, an approval). */
   addToolResult: ChatClient["addToolResult"]
   /** Stops the in-flight generation; the transcript keeps what already streamed. */
   stop: () => void
   /** Mints a fresh chat auth token, ignoring the cached one; for a retry after a failure. */
   retryAuthentication: () => void
-  /** Re-runs the last exchange. */
+  /** Refreshes saved history and retries delivery of retained tool results. */
   reload: () => Promise<void>
-  /** Clears the conversation and disposes live widget renders. */
+  /** Starts an empty conversation and disposes widget renders, preserving any saved chat. */
   reset: () => void
+  /** Refreshes saved conversations, or appends the next page. */
+  listThreads: (cursor?: string) => Promise<void>
+  /** Searches all authorized conversation titles using server pagination. */
+  searchThreads: (
+    q: string,
+    cursor: string | undefined,
+    signal: AbortSignal,
+  ) => Promise<{ items: ChatThread[]; page_after: string | null }>
+  /** Loads saved history before accepting another send. */
+  openThread: (id: string) => Promise<void>
+  renameThread: (title: string) => Promise<void>
+  deleteThread: () => Promise<void>
+  refreshThread: () => Promise<void>
+  loadOlderMessages: () => Promise<void>
+  listParticipants: () => Promise<void>
+  searchTenantUsers: (
+    q: string,
+    cursor: string | undefined,
+    signal: AbortSignal,
+  ) => Promise<ChatTenantUserPage>
+  setParticipant: (tenantUserId: string, role: "viewer" | "member" | "manager") => Promise<void>
+  removeParticipant: (tenantUserId: string) => Promise<void>
+  abandonToolCall: (toolCallId: string) => Promise<void>
+  getAttachment: (messageId: string, partId: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
 }
@@ -165,6 +251,18 @@ export function createAstralBeamChat(
     agentTools: [],
     sandboxStatus: undefined,
     sandbox: { files: [], commands: [] },
+    threads: [],
+    thread: undefined,
+    threadsLoading: false,
+    threadLoading: false,
+    threadLoadFailed: false,
+    threadsCursor: undefined,
+    messagesCursor: undefined,
+    olderMessagesLoading: false,
+    unsentMessage: undefined,
+    activeToolCallIds: [],
+    participants: [],
+    pendingInteractions: [],
   }
   const update = (next: Partial<AstralBeamChatState>) => {
     state = { ...state, ...next }
@@ -180,6 +278,64 @@ export function createAstralBeamChat(
   let unsubscribeAuthentication: (() => void) | undefined
   let identity: string | undefined
   let started = false
+  let selectionGeneration = 0
+  let navigationGeneration = 0
+  let historyGeneration = 0
+  let hydration: Promise<unknown> = Promise.resolve()
+  let listGeneration = 0
+  let requestController = new AbortController()
+  let threadKey: string | undefined
+  let startWithNewThread = false
+  let threadRecords: Awaited<ReturnType<typeof loadThreadMessages>>["messages"] = []
+  const clientId = newUuid()
+  let pendingSend:
+    | {
+        content: string | MultimodalContent
+        accepted: boolean
+        key: string
+        tools?: Array<Record<string, unknown>>
+        callbacks?: ChatSubmissionCallbacks | undefined
+      }
+    | undefined
+  let sending = false
+  const pendingSends = new Map<string, NonNullable<typeof pendingSend>>()
+  const acceptPendingSend = () => {
+    if (!pendingSend || pendingSend.accepted) return
+    pendingSend.accepted = true
+    if (state.thread) update({ thread: { ...state.thread, hasMessages: true } })
+    void listThreads()
+    pendingSend.callbacks?.onAccepted?.()
+  }
+  const liveToolCalls = new Set<string>()
+  const liveToolMessageIds = new Map<string, string>()
+  const historicalToolIds = new Map<string, Map<string, string>>()
+  const toolResults = new Map<
+    string,
+    { outcome: "succeeded" | "failed" | "skipped" | "unknown"; output: unknown }
+  >()
+
+  const reportError = (error: unknown) => {
+    if (error instanceof Error && error.name === "AbortError") return
+    const failure = error instanceof Error ? error : new Error(String(error))
+    update({ error: failure, status: "error" })
+    live.streamCallbacks?.onError?.(failure)
+  }
+  const requestOptions = async (): Promise<JwtOptions> => {
+    const generation = selectionGeneration
+    const token = await getValidChatAuthToken(authentication)
+    if (generation !== selectionGeneration)
+      throw new DOMException("Conversation changed", "AbortError")
+    return {
+      apiUrl: authentication.apiUrl,
+      astralBeamToken: token,
+      cache: "no-store",
+      signal: AbortSignal.any([
+        requestController.signal,
+        authentication.session.abortController.signal,
+      ]),
+      fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
+    }
+  }
 
   // Agent capability handshake; fails open for state (the endpoint still enforces its policy).
   // Generation-checked, so a slower response for a superseded agent or API base is dropped
@@ -188,16 +344,18 @@ export function createAstralBeamChat(
   let capabilityIdentity: string | undefined
   const resolveCapabilities = async () => {
     const generation = ++capabilitiesGeneration
+    const selection = selectionGeneration
+    const agentId = state.thread?.agentId ?? live.agentId
     try {
       const token = await getValidChatAuthToken(authentication)
-      if (generation !== capabilitiesGeneration) return
-      const body = await getChatConfig(live.agentId ? { agentId: live.agentId } : {}, {
+      if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
+      const body = await getChatConfig(agentId ? { agentId } : {}, {
         apiUrl: authentication.apiUrl,
         astralBeamToken: token,
         signal: authentication.session.abortController.signal,
         fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
       })
-      if (generation !== capabilitiesGeneration) return
+      if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
       const attachments = body.capabilities?.attachments !== false
       update({ capabilities: { attachments } })
       debug?.("mount", "agent capabilities resolved", { attachments })
@@ -209,17 +367,21 @@ export function createAstralBeamChat(
   // Live widget renders, keyed per tool call like the styled widget's, so a repeated call
   // replaces its own render and a reset disposes them all.
   const renderCleanups = new Map<string, () => void>()
+  const restoredWidgets = new Set<string>()
   const disposeRenders = () => {
     for (const cleanup of renderCleanups.values()) cleanup()
     renderCleanups.clear()
+    restoredWidgets.clear()
   }
   const renderWidget = async (input: RenderWidgetInput, toolCallId: string) => {
+    const generation = selectionGeneration
     const widgets = live.widgets ?? {}
     if (!Object.hasOwn(widgets, input.widget)) {
       throw new Error(`Unknown widget "${input.widget}"`)
     }
     const declaration = widgets[input.widget]
     const validated = await validateParameters(declaration?.parameters, input.props ?? {})
+    if (generation !== selectionGeneration) return { widget: input.widget, rendered: false }
     if (validated == null) {
       throw new Error(`Props for widget "${input.widget}" failed validation`)
     }
@@ -241,11 +403,98 @@ export function createAstralBeamChat(
       registered = cleanup
       renderCleanups.set(toolCallId, cleanup)
     }
+    restoredWidgets.add(toolCallId)
     return { widget: input.widget, rendered: live.onRenderWidget !== undefined }
   }
 
+  const restoreCompletedWidgets = (messages: readonly UIMessage[]) => {
+    const renderIds = new Map<string, string>()
+    for (const message of state.messages) {
+      for (const part of message.parts) {
+        if (part.type !== "tool-call" || part.name !== RENDER_WIDGET_TOOL) continue
+        const stored = part as typeof part & {
+          applicationPartId?: string
+          responseTargetId?: string
+          widgetRenderId?: string
+        }
+        if (stored.applicationPartId && stored.widgetRenderId)
+          renderIds.set(
+            savedToolCallId(message.id, stored.applicationPartId, stored.responseTargetId),
+            stored.widgetRenderId,
+          )
+      }
+    }
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (
+          part.type !== "tool-call" ||
+          part.name !== RENDER_WIDGET_TOOL ||
+          part.state !== "complete" ||
+          !part.input
+        )
+          continue
+        const stored = part as typeof part & {
+          upstreamToolCallId?: string
+          applicationPartId?: string
+          responseTargetId?: string
+          widgetRenderId?: string
+        }
+        const upstream = stored.upstreamToolCallId
+        const renderId =
+          stored.widgetRenderId ??
+          (stored.applicationPartId
+            ? renderIds.get(
+                savedToolCallId(message.id, stored.applicationPartId, stored.responseTargetId),
+              )
+            : undefined) ??
+          (upstream &&
+          liveToolMessageIds.get(upstream) === message.id &&
+          restoredWidgets.has(upstream)
+            ? upstream
+            : part.id)
+        stored.widgetRenderId = renderId
+        if (restoredWidgets.has(renderId)) continue
+        restoredWidgets.add(renderId)
+        void renderWidget(part.input as RenderWidgetInput, renderId).catch((error: unknown) =>
+          debug?.("error", "Saved widget could not be rendered", error),
+        )
+      }
+    }
+  }
+
   const buildTools = () =>
-    buildAgentTools(live.widgets ?? {}, live.tools ?? {}, renderWidget, debug)
+    buildAgentTools(live.widgets ?? {}, live.tools ?? {}, renderWidget, debug).map((tool) => {
+      if (!tool.execute) return tool
+      const execute = tool.execute
+      return {
+        ...tool,
+        execute: async (
+          input: Parameters<typeof execute>[0],
+          context: Parameters<typeof execute>[1],
+        ) => {
+          const toolCallId = context?.toolCallId
+          if (!toolCallId || !liveToolCalls.has(toolCallId)) {
+            throw new Error(
+              "A saved tool call cannot execute again. Send a new message to request it.",
+            )
+          }
+          const generation = selectionGeneration
+          try {
+            const output: unknown = await execute(input, context)
+            if (generation === selectionGeneration)
+              toolResults.set(toolCallId, { outcome: "succeeded", output: output ?? null })
+            return output
+          } catch (error) {
+            if (generation === selectionGeneration)
+              toolResults.set(toolCallId, {
+                outcome: "unknown",
+                output: { error: error instanceof Error ? error.message : String(error) },
+              })
+            throw error
+          }
+        },
+      }
+    })
   // Published as state so a UI can label a tool's transcript entry with its own title, including
   // the widget and questionnaire tools this session declares itself.
   const declareTools = () => {
@@ -262,10 +511,91 @@ export function createAstralBeamChat(
     if (!sameAgentTools(state.agentTools, agentTools)) update({ agentTools })
     return tools
   }
-  const forwardedProps = () => ({
-    ...(live.agentId ? { agentId: live.agentId } : {}),
-    ...(live.debug ? { debug: true } : {}),
-  })
+  const forwardedProps = () => (live.debug ? { debug: true } : {})
+
+  const threadRequest = async (init: RequestInit, auth: JwtOptions): Promise<Response> => {
+    const thread = state.thread
+    if (!thread || typeof init.body !== "string")
+      throw new Error("Open a conversation before sending.")
+    const generation = selectionGeneration
+    const body = JSON.parse(init.body) as {
+      messages: Array<{ role: string }>
+      tools: Array<Record<string, unknown>>
+      forwardedProps?: Record<string, unknown>
+      runId: string
+      parentRunId?: string
+    }
+    let path = getRunChatUrl()
+    let payload: unknown
+    const submission = body.messages.at(-1)?.role === "user" ? pendingSend : undefined
+    if (submission) {
+      payload = {
+        ...body,
+        threadId: thread.id,
+        resume: undefined,
+        parentRunId: undefined,
+        messages: [body.messages.at(-1)],
+        tools: (submission.tools ??= body.tools),
+        forwardedProps: {
+          ...body.forwardedProps,
+          clientId,
+        },
+      }
+    } else {
+      scopeCompletedToolCalls()
+      const history = await loadThreadMessages(thread.id, auth, undefined, liveToolMessageIds)
+      if (generation !== selectionGeneration)
+        throw new DOMException("Conversation changed", "AbortError")
+      update({
+        thread: threadFromRecord(history.thread, history.messages.length > 0),
+      })
+      const results = history.pendingInteractions.flatMap((pending) => {
+        const submitted = toolResults.get(pending.toolCallId)
+        return submitted
+          ? [
+              {
+                source_message_id: pending.sourceMessageId,
+                source_part_id: pending.sourcePartId,
+                response_target_id: pending.responseTargetId,
+                ...submitted,
+              },
+            ]
+          : []
+      })
+      if (results.length === 0)
+        return new Response("", { headers: { "Content-Type": "text/event-stream" } })
+      path = getResolveChatToolResultUrl(thread.id)
+      payload = {
+        client_id: clientId,
+        run_id: body.runId,
+        ...(body.parentRunId ? { parent_run_id: body.parentRunId } : {}),
+        results,
+      }
+    }
+    liveToolCalls.clear()
+    update({ activeToolCallIds: [] })
+    const headers = new Headers(init.headers)
+    if (submission) headers.set("Idempotency-Key", submission.key)
+    const response = await astralBeamChatFetch(path, {
+      ...auth,
+      ...init,
+      headers,
+      body: JSON.stringify(payload),
+    })
+    if (generation !== selectionGeneration)
+      throw new DOMException("Conversation changed", "AbortError")
+    if (response.headers.get("Content-Type")?.includes("application/json")) {
+      const receipt = (await response.json()) as { thread_version: number }
+      if (generation !== selectionGeneration)
+        throw new DOMException("Conversation changed", "AbortError")
+      update({
+        thread: { ...state.thread!, version: receipt.thread_version },
+      })
+      if (submission) acceptPendingSend()
+      return new Response("", { headers: { "Content-Type": "text/event-stream" } })
+    }
+    return response
+  }
 
   // Read the live API base for each request without recreating the conversation.
   const connection = fetchServerSentEvents(
@@ -277,14 +607,17 @@ export function createAstralBeamChat(
         throw new DOMException("Identity changed", "AbortError")
       }
       return {
-        fetchClient: (_input, init) =>
-          astralBeamChatFetch(getRunChatUrl(), {
-            ...init,
+        fetchClient: (_input, init) => {
+          const auth: JwtOptions = {
             apiUrl: authentication.apiUrl,
             astralBeamToken: token,
+            ...(init?.signal ? { signal: init.signal } : {}),
+            cache: "no-store",
             fetchClient: (input, request) =>
               fetchAuthenticatedChat({ ...authentication, input, init: request }),
-          }),
+          }
+          return threadRequest(init ?? {}, auth)
+        },
       }
     },
   )
@@ -292,16 +625,148 @@ export function createAstralBeamChat(
   // Unwrap before ChatClient converts thrown errors into RUN_ERROR messages.
   connection.connect = async function* (...args) {
     try {
-      yield* connect(...args)
+      for await (const chunk of connect(...args)) {
+        if (chunk.type === EventType.TOOL_CALL_START && chunk.parentMessageId)
+          liveToolMessageIds.set(chunk.toolCallId, chunk.parentMessageId)
+        if (chunk.type !== EventType.MESSAGES_SNAPSHOT) {
+          yield chunk
+          continue
+        }
+        let aliases: Map<string, string> | undefined
+        yield {
+          ...chunk,
+          messages: chunk.messages.map((message) => {
+            if (message.role === "assistant") {
+              aliases = historicalToolIds.get(message.id)
+              return aliases && message.toolCalls
+                ? {
+                    ...message,
+                    toolCalls: message.toolCalls.map((call) => ({
+                      ...call,
+                      id: aliases?.get(call.id) ?? call.id,
+                    })),
+                  }
+                : message
+            }
+            if (message.role === "tool")
+              return {
+                ...message,
+                toolCallId: aliases?.get(message.toolCallId) ?? message.toolCallId,
+              }
+            aliases = undefined
+            return message
+          }),
+        }
+      }
     } catch (error) {
       throw error instanceof Error && isAstralBeamApiError(error.cause) ? error.cause : error
     }
   }
   // The thread ID is fixed per client and keys the server's sandbox lease, so a new conversation
   // gets a new client instead of `clear()`. A replaced client's late callbacks are dropped.
-  const createClient = (): ChatClient => {
+  const createClient = (threadId = state.thread?.id): ChatClient => {
+    const generation = selectionGeneration
+    const adapter: ConnectionAdapter = {
+      ...connection,
+    }
+    // Local empty chats have no saved resource for native hydration.
+    // Saved threads use the authorized REST hydration below.
+    delete adapter.hydrate
+    if (threadId)
+      adapter.hydrate = (_id, options) => {
+        const readGeneration = ++historyGeneration
+        if (!options?.before) update({ threadLoading: true })
+        const read = (async () => {
+          let history = await loadThreadMessages(
+            threadId,
+            await requestOptions(),
+            options?.before,
+            liveToolMessageIds,
+          )
+          // Result rows can straddle pages. Join them with their decision before projecting
+          // the older UI window, while ChatClient owns prepending and pagination state.
+          while (
+            options?.before &&
+            history.messages.every((message) => message.role === "tool") &&
+            history.page_after
+          ) {
+            const earlier = await loadThreadMessages(
+              threadId,
+              await requestOptions(),
+              history.page_after,
+              liveToolMessageIds,
+            )
+            history = { ...earlier, messages: [...earlier.messages, ...history.messages] }
+          }
+          if (generation !== selectionGeneration || readGeneration !== historyGeneration)
+            throw new DOMException("Conversation changed", "AbortError")
+          // Retain known browser outcomes when hydration replaces native tool IDs with saved target IDs.
+          for (const pending of history.pendingInteractions) {
+            const previous = state.pendingInteractions.find(
+              (item) => item.responseTargetId === pending.responseTargetId,
+            )
+            if (previous && previous.toolCallId !== pending.toolCallId) {
+              const result = toolResults.get(previous.toolCallId)
+              if (result) {
+                toolResults.set(pending.toolCallId, result)
+                toolResults.delete(previous.toolCallId)
+              }
+            }
+          }
+          threadRecords = options?.before
+            ? [...history.messages, ...threadRecords]
+            : history.messages
+          const pageIds = new Set(history.messages.map((message) => message.id))
+          const messages = projectThreadMessages(
+            threadRecords,
+            history.pendingInteractions,
+            liveToolMessageIds,
+          ).filter((message) => pageIds.has(message.id))
+          restoreCompletedWidgets(messages)
+          const agentChanged = state.thread?.agentId !== history.thread.agent_id
+          update({
+            thread: threadFromRecord(history.thread, history.messages.length > 0),
+            messagesCursor: history.page_after ?? undefined,
+            pendingInteractions: history.pendingInteractions,
+            threadLoadFailed: false,
+          })
+          if (!options?.before && agentChanged) void resolveCapabilities()
+          // TanStack leaves local messages unchanged for an empty hydration page.
+          // An empty saved thread must remove rejected optimistic input.
+          if (!options?.before && messages.length === 0) next.setMessagesManually([])
+          // Foreground execution has no replay stream to join. Pending interactions remain
+          // application-owned because several turns can wait independently in one thread.
+          return {
+            messages,
+            activeRun: null,
+            interrupts: null,
+            page: history.page_after
+              ? { truncated: true as const, cursor: history.page_after }
+              : { truncated: false as const },
+          }
+        })()
+        if (!options?.before) {
+          hydration = read
+          // Complete loading after ChatClient applies the page, including hydration on React remount.
+          const settled = (failed: boolean) =>
+            queueMicrotask(() => {
+              if (generation === selectionGeneration && readGeneration === historyGeneration)
+                update({ threadLoading: false, threadLoadFailed: failed })
+            })
+          void read.then(
+            () => settled(false),
+            () => settled(true),
+          )
+        }
+        return read
+      }
     const next: ChatClient = new ChatClient({
-      connection,
+      connection: adapter,
+      // An empty local view uses its client ID until a stored thread is created before sending.
+      threadId: threadId ?? clientId,
+      persistence: true,
+      history: { pageSize: 100 },
+      queue: "drop",
       tools: declareTools(),
       forwardedProps: forwardedProps(),
       onMessagesChange: (messages) => {
@@ -311,8 +776,34 @@ export function createAstralBeamChat(
       onStatusChange: (status) => {
         if (client === next) update({ status, error: next.getError() })
       },
+      onInterruptStateChange: (interrupts) => {
+        if (client === next) debug?.("tool", "interrupt state changed", interrupts)
+      },
       onCustomEvent: (eventType, data) => {
         if (client !== next) return
+        if (eventType === "astralbeam_thread") {
+          const event = data as {
+            threadId: string
+            version: number
+            saved?: boolean
+            acceptedMessageId?: string
+            executableToolCallIds?: string[]
+          }
+          if (state.thread?.id === event.threadId) {
+            if (event.acceptedMessageId) acceptPendingSend()
+            if (event.saved)
+              for (const id of event.executableToolCallIds ?? []) {
+                if (!liveToolCalls.has(id)) toolResults.delete(id)
+                liveToolCalls.add(id)
+              }
+            update({
+              thread: { ...state.thread, version: event.version },
+              activeToolCallIds: [...liveToolCalls],
+              ...(event.acceptedMessageId ? { unsentMessage: undefined } : {}),
+            })
+          }
+          return
+        }
         const value = (data as { state?: unknown } | undefined)?.state
         if (
           eventType === SANDBOX_STATUS_EVENT &&
@@ -342,39 +833,454 @@ export function createAstralBeamChat(
     return next
   }
   let client = createClient()
-  const replaceClient = () => {
+  const replaceClient = (threadId = state.thread?.id) => {
     client.stop()
     const previous = client
-    client = createClient()
+    previous.detach()
+    liveToolCalls.clear()
+    liveToolMessageIds.clear()
+    update({ activeToolCallIds: [] })
+    client = createClient(threadId)
+    if (started) client.attach()
     previous.dispose()
   }
 
-  // A run input holding an unresolved tool call never reaches the model, so a send settles
-  // every dangling call first: questionnaires as skipped, unknown tools as errors.
-  const settleDanglingToolCalls = () => {
-    for (const message of state.messages) {
-      for (const part of message.parts) {
-        if (part.type !== "tool-call" || isSettledToolCall(part)) continue
-        if (part.name === ASK_QUESTIONNAIRE_TOOL) {
-          debug?.("questionnaire", "skipping pending questionnaire before send", { id: part.id })
-          void client.addToolResult({
-            toolCallId: part.id,
-            tool: part.name,
-            output: { answers: [], skipped: true },
-          })
-        } else {
-          debug?.("tool", `settling unimplemented tool call "${part.name}" as error`, {
-            id: part.id,
-          })
-          void client.addToolResult({
-            toolCallId: part.id,
-            tool: part.name,
-            output: null,
-            state: "output-error",
-            errorText: `The application hosting this chat has no implementation for "${part.name}"`,
-          })
-        }
+  // Hydrated tool IDs identify one stored target. Native stream IDs remain unchanged
+  // while their originating client's interrupt bindings are active.
+  const scopeCompletedToolCalls = () => {
+    historicalToolIds.clear()
+    client.setMessagesManually(
+      state.messages.map((message) => {
+        const aliases = new Map<string, string>()
+        const parts = message.parts.map((part) => {
+          if (part.type !== "tool-call") return part
+          const stored = part as typeof part & {
+            upstreamToolCallId?: string
+            applicationPartId?: string
+            responseTargetId?: string
+            widgetRenderId?: string
+          }
+          const upstreamToolCallId = stored.upstreamToolCallId ?? part.id
+          if (liveToolMessageIds.get(upstreamToolCallId) === message.id && !isSettledToolCall(part))
+            return part
+          const id = savedToolCallId(
+            message.id,
+            stored.applicationPartId ?? upstreamToolCallId,
+            stored.responseTargetId,
+          )
+          aliases.set(upstreamToolCallId, id)
+          return {
+            ...part,
+            upstreamToolCallId,
+            id,
+            ...(part.name === RENDER_WIDGET_TOOL &&
+            liveToolMessageIds.get(upstreamToolCallId) === message.id
+              ? { widgetRenderId: stored.widgetRenderId ?? part.id }
+              : {}),
+          }
+        })
+        if (aliases.size) historicalToolIds.set(message.id, aliases)
+        return { ...message, parts }
+      }),
+    )
+  }
+
+  const listThreads = async (cursor?: string) => {
+    const generation = ++listGeneration
+    update({ threadsLoading: true })
+    try {
+      const page = await listChatThreads(
+        { page_size: 50, ...(cursor ? { page_after: cursor } : {}) },
+        await requestOptions(),
+      )
+      if (generation !== listGeneration) return
+      const items = page.items.map((record) => threadFromRecord(record))
+      update({
+        threads: cursor ? [...state.threads, ...items] : items,
+        threadsCursor: page.page_after ?? undefined,
+      })
+    } catch (error) {
+      if (generation === listGeneration) reportError(error)
+    } finally {
+      if (generation === listGeneration) update({ threadsLoading: false })
+    }
+  }
+
+  const changeSelection = (threadId?: string) => {
+    const previousId = state.thread?.id
+    if (previousId) {
+      if (pendingSend && !pendingSend.accepted) pendingSends.set(previousId, pendingSend)
+      else pendingSends.delete(previousId)
+    }
+    selectionGeneration++
+    historyGeneration++
+    sending = false
+    requestController.abort()
+    requestController = new AbortController()
+    pendingSend = undefined
+    toolResults.clear()
+    historicalToolIds.clear()
+    threadRecords = []
+    disposeRenders()
+    update({
+      thread: undefined,
+      messages: [],
+      unsentMessage: undefined,
+      error: undefined,
+      status: "ready",
+      sandbox: { files: [], commands: [] },
+      sandboxStatus: undefined,
+      participants: [],
+      pendingInteractions: [],
+      threadLoadFailed: false,
+      messagesCursor: undefined,
+      olderMessagesLoading: false,
+    })
+    replaceClient(threadId)
+  }
+
+  const openThread = async (id: string, restoring = false) => {
+    if (!restoring) navigationGeneration++
+    changeSelection(id)
+    const generation = selectionGeneration
+    update({ threadLoading: true })
+    try {
+      pendingSend = pendingSends.get(id)
+      update({ unsentMessage: pendingSend?.content })
+      if (!started) client.attach()
+      await hydration
+      if (generation !== selectionGeneration) return
+      if (threadKey) selectedThread(threadKey, id)
+    } catch (error) {
+      if (generation === selectionGeneration) {
+        update({ threadLoadFailed: true })
+        reportError(error)
       }
+    } finally {
+      if (generation === selectionGeneration) update({ threadLoading: false })
+    }
+  }
+
+  const newThread = () => {
+    navigationGeneration++
+    changeSelection()
+    update({ threadLoading: false })
+    if (started) void resolveCapabilities()
+    if (threadKey) selectedThread(threadKey, null)
+    else startWithNewThread = true
+  }
+
+  const selectConfiguredThread = (restoring = false) => {
+    let selected = live.threadId
+    if (selected === undefined || selected === "auto") {
+      if (!threadKey) return
+      selected = selectedThread(threadKey)
+    }
+    if (selected && selected !== "new") void openThread(selected, restoring)
+    else if (!restoring) newThread()
+  }
+
+  const ensureThread = async () => {
+    if (state.thread) return
+    const generation = selectionGeneration
+    const options = await requestOptions()
+    const record = await createChatThread(live.agentId ? { agent_id: live.agentId } : {}, options)
+    if (generation !== selectionGeneration)
+      throw new DOMException("Conversation changed", "AbortError")
+    const thread = threadFromRecord(record, false)
+    update({ thread })
+    replaceClient()
+    await hydration
+    void resolveCapabilities()
+    if (threadKey) selectedThread(threadKey, thread.id)
+  }
+
+  const refreshThread = async (preserveError = false, resetClient = true) => {
+    const id = state.thread?.id
+    if (!id) return
+    const generation = selectionGeneration
+    const previousError = state.error
+    update({ threadLoading: true, olderMessagesLoading: false })
+    try {
+      if (resetClient) replaceClient()
+      else {
+        client.detach()
+        client.attach()
+      }
+      await hydration
+      if (generation !== selectionGeneration) return
+      if (preserveError && previousError) update({ error: previousError, status: "error" })
+    } catch (error) {
+      if (generation === selectionGeneration) {
+        if (isAstralBeamApiError(error) && error.status === 404) {
+          newThread()
+          void listThreads()
+        }
+        reportError(error)
+      }
+    } finally {
+      if (generation === selectionGeneration) update({ threadLoading: false })
+    }
+  }
+
+  const loadOlderMessages = async () => {
+    if (
+      !client.getHasOlderMessages() ||
+      state.olderMessagesLoading ||
+      state.threadLoading ||
+      sending
+    )
+      return
+    const generation = selectionGeneration
+    update({ olderMessagesLoading: true })
+    try {
+      await client.loadOlderMessages()
+    } catch (error) {
+      if (generation === selectionGeneration) reportError(error)
+    } finally {
+      if (generation === selectionGeneration) update({ olderMessagesLoading: false })
+    }
+  }
+
+  const renameThread = async (title: string) => {
+    const thread = state.thread
+    if (!thread || thread.role !== "manager") return
+    const generation = selectionGeneration
+    try {
+      const record = await updateChatThread(
+        thread.id,
+        { title, expected_version: thread.version },
+        await requestOptions(),
+      )
+      if (generation !== selectionGeneration) return
+      const renamed = threadFromRecord(record, thread.hasMessages)
+      update({ thread: renamed })
+      await listThreads()
+    } catch (error) {
+      if (generation === selectionGeneration) reportError(error)
+    }
+  }
+
+  const deleteThread = async () => {
+    const thread = state.thread
+    if (!thread || thread.role !== "manager") return
+    const generation = selectionGeneration
+    try {
+      await deleteChatThread(
+        thread.id,
+        { expected_version: String(thread.version) },
+        await requestOptions(),
+      )
+      if (generation !== selectionGeneration) return
+      newThread()
+      update({ threads: state.threads.filter((item) => item.id !== thread.id) })
+    } catch (error) {
+      if (generation === selectionGeneration) reportError(error)
+    }
+  }
+
+  const listParticipants = async () => {
+    const thread = state.thread
+    if (!thread) return
+    const generation = selectionGeneration
+    try {
+      const options = await requestOptions()
+      const participants: AstralBeamChatState["participants"][number][] = []
+      let cursor: string | undefined
+      do {
+        const page = await listChatParticipants(
+          thread.id,
+          { page_size: 100, ...(cursor ? { page_after: cursor } : {}) },
+          options,
+        )
+        participants.push(
+          ...page.items.map((item) => ({
+            tenantUserId: item.tenant_user_id,
+            role: item.role,
+            name: item.name,
+            externalId: item.external_id,
+            email: item.email,
+          })),
+        )
+        cursor = page.page_after ?? undefined
+      } while (cursor)
+      if (generation === selectionGeneration) update({ participants })
+    } catch (error) {
+      if (generation === selectionGeneration) reportError(error)
+    }
+  }
+  const updateParticipant = async (
+    tenantUserId: string,
+    role?: "viewer" | "member" | "manager",
+  ) => {
+    const thread = state.thread
+    if (!thread || thread.role !== "manager") return
+    const generation = selectionGeneration
+    try {
+      const options = await requestOptions()
+      if (role)
+        await setChatParticipant(
+          thread.id,
+          tenantUserId,
+          { role, expected_version: thread.version },
+          options,
+        )
+      else
+        await removeChatParticipant(
+          thread.id,
+          tenantUserId,
+          { expected_version: String(thread.version) },
+          options,
+        )
+      if (generation !== selectionGeneration) return
+      const record = await getChatThread(thread.id, options)
+      if (generation !== selectionGeneration) return
+      update({ thread: threadFromRecord(record, state.thread!.hasMessages) })
+      if (record.role === "viewer") client.stop()
+      await listParticipants()
+    } catch (error) {
+      if (generation === selectionGeneration) {
+        if (isAstralBeamApiError(error) && error.status === 404) {
+          newThread()
+          void listThreads()
+        }
+        reportError(error)
+      }
+    }
+  }
+
+  const addToolResult = async (
+    result: Parameters<ChatClient["addToolResult"]>[0] | { toolCallId: string },
+  ) => {
+    const generation = selectionGeneration
+    if (sending || client.getIsLoading()) {
+      reportError(new Error("Wait for this client's current request to finish before responding."))
+      return
+    }
+    const current = authenticationState(authentication)
+    const pending = state.pendingInteractions.find((item) => item.toolCallId === result.toolCallId)
+    const closure =
+      !("tool" in result) &&
+      pending &&
+      (state.thread?.role === "manager" ||
+        (current.status === "ready" && pending.targetTenantUserId === current.currentUser.user.id))
+    const questionnaire =
+      "tool" in result &&
+      result.tool === ASK_QUESTIONNAIRE_TOOL &&
+      current.status === "ready" &&
+      pending?.targetTenantUserId === current.currentUser.user.id
+    if (
+      state.thread?.role === "viewer" ||
+      (!liveToolCalls.has(result.toolCallId) &&
+        !questionnaire &&
+        !closure &&
+        !toolResults.has(result.toolCallId))
+    ) {
+      reportError(
+        new Error("This tool call belongs to another session and cannot be executed here."),
+      )
+      return
+    }
+    if (closure) toolResults.set(result.toolCallId, { outcome: "unknown", output: null })
+    else if (!toolResults.has(result.toolCallId) && "tool" in result) {
+      const output: unknown = result.output
+      toolResults.set(result.toolCallId, {
+        outcome: result.state === "output-error" ? "failed" : "succeeded",
+        output: output ?? null,
+      })
+    }
+    scopeCompletedToolCalls()
+    if (
+      pending &&
+      (!("tool" in result) ||
+        result.toolCallId ===
+          savedToolCallId(pending.sourceMessageId, pending.sourcePartId, pending.responseTargetId))
+    ) {
+      replaceClient()
+      await hydration
+      if (generation !== selectionGeneration) return
+      update({ threadLoading: false })
+      await client.append({
+        role: "tool",
+        toolCallId: result.toolCallId,
+        content: JSON.stringify(toolResults.get(result.toolCallId)),
+      })
+    } else if ("tool" in result) {
+      await client.addToolResult(result)
+    }
+    if (generation === selectionGeneration)
+      await refreshThread(client.getError() !== undefined, false)
+  }
+  const abandonToolCall = (toolCallId: string) => addToolResult({ toolCallId })
+
+  const sendMessage = async (
+    content: string | MultimodalContent,
+    callbacks?: ChatSubmissionCallbacks,
+  ) => {
+    const navigation = navigationGeneration
+    try {
+      await getValidChatAuthToken(authentication)
+    } catch (error) {
+      if (navigation !== navigationGeneration) return
+      update({ unsentMessage: content })
+      reportError(error)
+      return
+    }
+    if (navigation !== navigationGeneration) return
+    if (sending || state.threadLoading || state.status === "streaming") {
+      reportError(new Error("Wait for this client's current request to finish before sending."))
+      return
+    }
+    if (state.threadLoadFailed) {
+      reportError(new Error("Reopen this conversation or start a new one before sending."))
+      return
+    }
+    if (state.thread?.role === "viewer") {
+      reportError(new Error("You have read-only access to this conversation."))
+      return
+    }
+    const generation = selectionGeneration
+    historyGeneration++
+    update({ olderMessagesLoading: false })
+    sending = true
+    if (
+      !pendingSend ||
+      pendingSend.accepted ||
+      JSON.stringify(pendingSend.content) !== JSON.stringify(content)
+    ) {
+      pendingSend = {
+        content,
+        accepted: false,
+        key: newUuid(),
+        callbacks,
+      }
+      toolResults.clear()
+      liveToolCalls.clear()
+      scopeCompletedToolCalls()
+      liveToolMessageIds.clear()
+      update({ activeToolCallIds: [] })
+    }
+    pendingSend.callbacks ??= callbacks
+    update({ unsentMessage: content, error: undefined, status: "submitted" })
+    try {
+      await ensureThread()
+      if (generation !== selectionGeneration) return
+      pendingSend.callbacks?.onThreadReady?.(state.thread!.id)
+      if (generation !== selectionGeneration) return
+      scopeCompletedToolCalls()
+      await client.sendMessage(content)
+      if (generation !== selectionGeneration) return
+      const failed = client.getError() !== undefined
+      if (pendingSend?.accepted) {
+        pendingSend = undefined
+        update({ unsentMessage: undefined })
+      }
+      await refreshThread(failed, false)
+      void listThreads()
+    } catch (error) {
+      if (generation === selectionGeneration) reportError(error)
+    } finally {
+      if (generation === selectionGeneration) sending = false
     }
   }
 
@@ -383,11 +1289,25 @@ export function createAstralBeamChat(
     if (auth.status === "ready") {
       const nextIdentity = authenticationIdentity(auth.currentUser)
       if (identity !== undefined && identity !== nextIdentity) {
-        replaceClient()
-        disposeRenders()
-        update({ messages: [], sandbox: { files: [], commands: [] }, sandboxStatus: undefined })
+        navigationGeneration++
+        pendingSends.clear()
+        pendingSend = undefined
       }
       identity = nextIdentity
+      const nextThreadKey = `astralbeam:thread:${live.apiUrl ?? DEFAULT_API_URL}:${nextIdentity}`
+      if (threadKey !== nextThreadKey) {
+        changeSelection()
+        listGeneration++
+        update({ threads: [], threadsCursor: undefined })
+        threadKey = nextThreadKey
+        if (startWithNewThread) {
+          selectedThread(nextThreadKey, null)
+          startWithNewThread = false
+        } else {
+          selectConfiguredThread(true)
+        }
+        void listThreads()
+      }
       if (capabilityIdentity !== nextIdentity) {
         capabilityIdentity = nextIdentity
         void resolveCapabilities()
@@ -398,6 +1318,8 @@ export function createAstralBeamChat(
   const start = () => {
     if (started) return
     started = true
+    client.attach()
+    if (requestController.signal.aborted) requestController = new AbortController()
     unsubscribeAuthentication = subscribeAuthentication(authentication, observeAuthentication)
     observeAuthentication()
     stopAuthentication = startAuthentication(authentication)
@@ -414,6 +1336,7 @@ export function createAstralBeamChat(
     updateOptions: (next) => {
       const agent = live.agentId
       const apiUrl = live.apiUrl
+      const selectedId = live.threadId
       live = { ...live, ...next }
       debug = createDebugLogger(live.debug)
       updateAuthentication(authentication, {
@@ -422,33 +1345,100 @@ export function createAstralBeamChat(
       })
       authentication.debug = debug
       client.updateOptions({ tools: declareTools(), forwardedProps: forwardedProps() })
+      if (live.apiUrl !== apiUrl) {
+        navigationGeneration++
+        pendingSends.clear()
+        pendingSend = undefined
+        changeSelection()
+        listGeneration++
+        threadKey = undefined
+        update({
+          threads: [],
+          threadsCursor: undefined,
+          threadsLoading: false,
+          threadLoading: false,
+        })
+        observeAuthentication()
+      } else if (live.threadId !== selectedId) {
+        selectConfiguredThread()
+      }
       if (started && (live.agentId !== agent || live.apiUrl !== apiUrl)) void resolveCapabilities()
     },
-    sendMessage: (content) => {
-      settleDanglingToolCalls()
-      return client.sendMessage(content)
-    },
-    addToolResult: (result) => client.addToolResult(result),
+    sendMessage,
+    addToolResult,
     stop: () => client.stop(),
     retryAuthentication: () => {
       void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
     },
-    reload: () => client.reload(),
+    reload: async () => {
+      const pending = state.pendingInteractions.find((item) => toolResults.has(item.toolCallId))
+      const saved = pending && toolResults.get(pending.toolCallId)
+      const part =
+        pending &&
+        state.messages
+          .find((message) => message.id === pending.sourceMessageId)
+          ?.parts.find((item) => item.type === "tool-call" && item.id === pending.toolCallId)
+      if (saved && part?.type === "tool-call")
+        return addToolResult({
+          toolCallId: part.id,
+          tool: part.name,
+          output: saved.output,
+          state: saved.outcome === "succeeded" ? "output-available" : "output-error",
+          ...(saved.outcome !== "succeeded"
+            ? { errorText: "The tool did not confirm success." }
+            : {}),
+        })
+      return refreshThread()
+    },
+    listThreads,
+    searchThreads: async (q, cursor, signal) => {
+      const options = await requestOptions()
+      const page = await listChatThreads(
+        { q, page_size: 50, ...(cursor ? { page_after: cursor } : {}) },
+        { ...options, signal: AbortSignal.any([signal, options.signal!]) },
+      )
+      return {
+        items: page.items.map((record) => threadFromRecord(record)),
+        page_after: page.page_after,
+      }
+    },
+    openThread,
+    renameThread,
+    deleteThread,
+    refreshThread,
+    loadOlderMessages,
+    getAttachment: async (messageId, partId) => {
+      const thread = state.thread
+      if (!thread) throw new Error("Open a conversation before downloading attachments.")
+      const response = await getChatAttachment(thread.id, messageId, partId, await requestOptions())
+      return response.blob()
+    },
+    listParticipants,
+    searchTenantUsers: async (q, cursor, signal) => {
+      const thread = state.thread
+      if (!thread) throw new Error("Open a conversation before searching TenantUsers.")
+      const options = await requestOptions()
+      return searchChatTenantUsers(
+        thread.id,
+        { q, ...(cursor ? { page_after: cursor } : {}) },
+        { ...options, signal: AbortSignal.any([signal, options.signal!]) },
+      )
+    },
+    setParticipant: updateParticipant,
+    removeParticipant: (tenantUserId) => updateParticipant(tenantUserId),
+    abandonToolCall,
     reset: () => {
       debug?.("status", "conversation reset")
-      replaceClient()
-      disposeRenders()
-      update({
-        messages: [],
-        status: "ready",
-        sandbox: { files: [], commands: [] },
-        sandboxStatus: undefined,
-        error: undefined,
-      })
+      newThread()
     },
     dispose: () => {
+      client.detach()
       disposeRenders()
       client.stop()
+      requestController.abort()
+      selectionGeneration++
+      listGeneration++
+      threadKey = undefined
       capabilitiesGeneration++
       capabilityIdentity = undefined
       stopAuthentication?.()

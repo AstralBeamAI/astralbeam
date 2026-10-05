@@ -5,6 +5,7 @@ import { Activity, Workflow } from "effect/workflow"
 import { Mailer } from "../email/email.server.ts"
 import {
   deleteOrganization as deleteOrganizationFn,
+  deleteOrganizationThreadBatch,
   deleteOrganizationTenantBatch,
   readUserEmails,
 } from "../organizations/deletion.server.ts"
@@ -71,6 +72,10 @@ const notifyOrganizationOwners = Effect.fn("notifyOrganizationOwners")(function*
 export const deleteOrganizationWorkflowLayer = deleteOrganization.toLayer((payload) =>
   Effect.gen(function* () {
     const { organizationId } = payload
+    yield* purgeOrganizationStep(
+      "DeleteThreads",
+      drainOrganizationBatches(deleteOrganizationThreadBatch(organizationId)),
+    )
     yield* purgeOrganizationStep(
       "DeleteTenants",
       drainOrganizationBatches(deleteOrganizationTenantBatch(organizationId)),

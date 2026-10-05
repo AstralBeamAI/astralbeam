@@ -1,4 +1,5 @@
 import type { UIMessage } from "@tanstack/ai-client"
+import { WarningCircleIcon } from "@phosphor-icons/react"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/widget/components/ui/empty"
 import { Marker, MarkerContent, MarkerIcon } from "@/widget/components/ui/marker"
 import { Message, MessageContent } from "@/widget/components/ui/message"
@@ -11,8 +12,10 @@ import {
   MessageScrollerViewport,
 } from "@/widget/components/ui/message-scroller"
 import { Spinner } from "@/widget/components/ui/spinner"
+import { Button } from "@/widget/components/ui/button"
 import { DEFAULT_EMPTY_DESCRIPTION, DEFAULT_EMPTY_TITLE } from "../../lib/constants.ts"
 import type { WidgetDefinition } from "../../lib/types.ts"
+import type { SavedMessageMetadata } from "../../core/threads.ts"
 import type { QuestionnaireAnswer } from "../lib/types.ts"
 import { AssistantPart } from "./assistant-part.tsx"
 import { PartErrorBoundary } from "./part-error-boundary.tsx"
@@ -31,6 +34,12 @@ interface ChatTranscriptProps {
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
   activeSlots: ReadonlyMap<string, string>
+  interactiveToolIds: ReadonlySet<string>
+  getAttachment: (messageId: string, partId: string) => Promise<Blob>
+  currentTenantUserId?: string | undefined
+  hasOlder: boolean
+  loadingOlder: boolean
+  onLoadOlder: () => Promise<void>
   isBusy: boolean
   /** The stream is busy but nothing visible has progressed yet; shows the "Thinking…" marker. */
   awaitingReply: boolean
@@ -46,11 +55,17 @@ export function ChatTranscript({
   widgets,
   toolTitles,
   activeSlots,
+  interactiveToolIds,
+  getAttachment,
+  currentTenantUserId,
+  hasOlder,
+  loadingOlder,
+  onLoadOlder,
   isBusy,
   awaitingReply,
   onQuestionnaireAnswers,
 }: ChatTranscriptProps) {
-  if (messages.length === 0) {
+  if (messages.length === 0 && !hasOlder) {
     if (emptySlot) {
       // The host's own empty state; the wrapper gives the projected content the full height.
       return (
@@ -75,32 +90,74 @@ export function ChatTranscript({
      * shorter than the viewport — common in a narrow sidebar. */
     <MessageScrollerProvider autoScroll>
       <MessageScroller className="h-full">
-        <MessageScrollerViewport>
+        <MessageScrollerViewport preserveScrollOnPrepend>
           <MessageScrollerContent aria-busy={isBusy} className="p-(--card-spacing)">
-            {messages.map((message) => (
-              <MessageScrollerItem key={message.id} messageId={message.id}>
-                <Message align={message.role === "user" ? "end" : "start"}>
-                  <MessageContent>
-                    {message.role === "user" ? (
-                      <UserMessageBody message={message} />
-                    ) : (
-                      message.parts.map((part, partIndex) => (
-                        <PartErrorBoundary key={partIndex}>
-                          <AssistantPart
-                            part={part}
-                            apiUrl={apiUrl}
-                            widgets={widgets}
-                            toolTitles={toolTitles}
-                            activeSlots={activeSlots}
-                            onQuestionnaireAnswers={onQuestionnaireAnswers}
-                          />
-                        </PartErrorBoundary>
-                      ))
-                    )}
-                  </MessageContent>
-                </Message>
-              </MessageScrollerItem>
-            ))}
+            {hasOlder && (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingOlder}
+                  onClick={() => void onLoadOlder()}
+                >
+                  {loadingOlder ? "Loading earlier messages…" : "Load earlier messages"}
+                </Button>
+              </div>
+            )}
+            {messages.map((message) => {
+              const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
+              const anotherParticipant =
+                message.role === "user" &&
+                saved?.authorTenantUserId != null &&
+                saved.authorTenantUserId !== currentTenantUserId
+              return (
+                <MessageScrollerItem key={message.id} messageId={message.id}>
+                  <Message align={message.role === "user" && !anotherParticipant ? "end" : "start"}>
+                    <MessageContent>
+                      {anotherParticipant && (
+                        <span className="text-xs text-muted-foreground">Participant</span>
+                      )}
+                      {message.role === "user" ? (
+                        <UserMessageBody message={message} getAttachment={getAttachment} />
+                      ) : (
+                        message.parts.map((part, partIndex) => (
+                          <PartErrorBoundary key={partIndex}>
+                            <AssistantPart
+                              part={part}
+                              apiUrl={apiUrl}
+                              widgets={widgets}
+                              toolTitles={toolTitles}
+                              activeSlots={activeSlots}
+                              interactiveToolIds={interactiveToolIds}
+                              interrupted={saved?.state === "interrupted"}
+                              onQuestionnaireAnswers={onQuestionnaireAnswers}
+                            />
+                          </PartErrorBoundary>
+                        ))
+                      )}
+                      {message.role === "assistant" && saved?.state === "interrupted" && (
+                        <Marker>
+                          <MarkerIcon>
+                            <WarningCircleIcon />
+                          </MarkerIcon>
+                          <MarkerContent>
+                            Response interrupted. The saved content may be incomplete.
+                          </MarkerContent>
+                        </Marker>
+                      )}
+                      {message.role === "assistant" && saved?.state === "draft" && (
+                        <Marker role="status">
+                          <MarkerIcon>
+                            <Spinner />
+                          </MarkerIcon>
+                          <MarkerContent>Response in progress.</MarkerContent>
+                        </Marker>
+                      )}
+                    </MessageContent>
+                  </Message>
+                </MessageScrollerItem>
+              )
+            })}
             {awaitingReply && (
               <MessageScrollerItem messageId="astralbeam-thinking">
                 <Marker role="status">

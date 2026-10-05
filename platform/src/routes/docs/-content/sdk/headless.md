@@ -26,7 +26,8 @@ function MyChat() {
 ```
 
 - State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`.
-- Actions: `sendMessage`, `addToolResult`, `stop`, `reload`, `reset`. `core` exposes the raw session.
+- Actions: `sendMessage`, `addToolResult`, `stop`, `reload`, `reset`. `reload` refreshes saved history and can deliver retained tool results, without resubmitting user input.
+- Retrying an unchanged unsent draft reuses its admission key. Within 24 hours, an accepted retry restores saved history without starting another response.
 - Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Nothing needs a remount.
 - No shadow root and no bundled styles: your markup, your CSS.
 
@@ -47,7 +48,7 @@ chat.dispose()
 - `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` re-mints a rejected token.
 - Call the request's `release()` if you dispose a render yourself (an eviction cap of your own), so the session stops holding its cleanup.
 - `chat.updateOptions({ agentId })` merges option changes into the running session, keeping the transcript.
-- Sending settles dangling tool calls first (questionnaires as skipped), the same as the widget.
+- Unresolved tool outcomes require an explicit response or closure before their turn continues. Other participants can still send.
 - `capabilities` reflects the agent's dashboard policy. Render only what it grants.
 
 ## Reading the transcript
@@ -57,3 +58,20 @@ The core exports the part helpers the widget itself renders with.
 - `isSandboxTool`, `readSandboxFileWrite`, `readSandboxCommandRun`, `readSandboxArtifact`, `collectSandboxActivity`.
 - `isSettledToolCall`, `lastPartInProgress`, `hasPendingToolRun` for busy states.
 - Protocol names (`RENDER_WIDGET_TOOL`, `ASK_QUESTIONNAIRE_TOOL`, sandbox tool names) for custom renderers.
+
+## Saved conversation controls
+
+Let's load the saved conversations the current user can access.
+
+```ts
+const chat = createAstralBeamChat({ tools })
+await chat.listThreads()
+await chat.openThread(threadId)
+await chat.sendMessage("Continue from here")
+```
+
+- Read `thread`, `threads`, and `threadLoading` from session state. Wait for hydration before enabling your composer.
+- Use `reset()` to start a fresh conversation, and `renameThread(title)` and `deleteThread()` to manage saved threads.
+- Managers use `listParticipants()`, `setParticipant(tenantUserId, role)`, and `removeParticipant(tenantUserId)` with an existing same-Tenant user.
+- Keep tool responses associated with their stored call and target. Participant identity and browser-client identity are different.
+- Multiple clients can read saved state. Live event replay, background recovery, branching controls, and tool fan-out are not available yet.

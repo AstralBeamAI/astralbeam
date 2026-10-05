@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { EventType } from "@tanstack/ai/client"
 
+import type { UIMessage } from "@tanstack/ai-client"
+
 import { ASK_QUESTIONNAIRE_TOOL } from "./protocol.ts"
 import { createAstralBeamChat } from "./session.ts"
 
@@ -17,7 +19,20 @@ const currentUser = {
   user: { id: "user" },
 }
 
+const thread = {
+  id: "00000000-0000-4000-8000-000000000001",
+  title: null,
+  agent_id: null,
+  version: 1,
+  role: "manager",
+  writer_active: false,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}
+const emptyPage = { items: [], page_after: null, page_before: null }
+
 beforeEach(() => {
+  vi.stubGlobal("sessionStorage", undefined)
   // No test should reach the network; the capability handshake fails closed on this.
   vi.stubGlobal("fetch", () => Promise.reject(new Error("the network is unavailable in tests")))
 })
@@ -52,23 +67,43 @@ test("HTTP errors reach chat state and callbacks with their API details", async 
   }
 })
 
-// The platform keys a sandbox lease on the thread, so a reset must not reuse the old sandbox.
-test("a reset starts a new thread", async () => {
+test("a reset creates a new saved conversation without deleting the previous one", async () => {
   const threads: unknown[] = []
+  const deleted: string[] = []
+  let created = 0
   vi.stubGlobal("fetch", (input: URL, init?: RequestInit) => {
-    if (String(input).endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (typeof init?.body === "string")
+    const path = String(input)
+    if (init?.method === "DELETE") deleted.push(path)
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/chat/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    if (path.includes("/threads?")) return Promise.resolve(Response.json(emptyPage))
+    if (path.endsWith("/threads")) {
+      created++
+      return Promise.resolve(Response.json({ ...thread, id: `conversation-${created}` }))
+    }
+    if (path.includes("/messages?"))
+      return Promise.resolve(
+        Response.json({
+          ...emptyPage,
+          thread: { ...thread, id: `conversation-${created}` },
+          messages: [],
+          pending_interactions: [],
+        }),
+      )
+    if (path.endsWith("/chat") && typeof init?.body === "string") {
       threads.push((JSON.parse(init.body) as { threadId: unknown }).threadId)
-    return Promise.resolve(new Response(null, { status: 500 }))
+      return Promise.resolve(Response.json({ thread_version: 2 }))
+    }
+    return Promise.reject(new Error(`Unexpected request ${path}`))
   })
   const chat = createAstralBeamChat({ fetchAstralBeamToken: chatAuthToken })
   try {
     await chat.sendMessage("Hello")
     chat.reset()
     await chat.sendMessage("Hello again")
-    expect(threads).toHaveLength(2)
-    expect(threads[0]).toEqual(expect.any(String))
-    expect(threads[1]).not.toBe(threads[0])
+    expect(threads).toEqual(["conversation-1", "conversation-2"])
+    expect(deleted).toEqual([])
   } finally {
     chat.dispose()
   }
@@ -117,7 +152,7 @@ test("reset during a terminal chunk suppresses the old completion callback", asy
 
 // Trimmed from a recorded sandbox turn: the server runs the tool and streams the reply in one body.
 test("the reply after a server tool round keeps its first text delta", async () => {
-  const run = { runId: "run-1", threadId: "thread" }
+  const run = { runId: "run-1", threadId: thread.id }
   const finished = (finishReason: string) => ({
     type: "RUN_FINISHED",
     ...run,
@@ -144,26 +179,36 @@ test("the reply after a server tool round keeps its first text delta", async () 
     finished("stop"),
   ]
   const body = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")
-  vi.stubGlobal("fetch", (input: URL, init?: RequestInit) =>
-    Promise.resolve(
-      String(input).endsWith("/me")
-        ? Response.json(currentUser)
-        : new Response(typeof init?.body === "string" ? body : null, {
-            status: typeof init?.body === "string" ? 200 : 500,
-          }),
-    ),
-  )
-  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatAuthToken })
+  vi.stubGlobal("fetch", (input: URL) => {
+    const path = String(input)
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/chat/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    if (path.includes("/threads?")) return Promise.resolve(Response.json(emptyPage))
+    if (path.endsWith("/threads")) return Promise.resolve(Response.json(thread))
+    if (path.includes("/messages?"))
+      return Promise.resolve(
+        Response.json({ ...emptyPage, thread, messages: [], pending_interactions: [] }),
+      )
+    return Promise.resolve(new Response(body, { headers: { "Content-Type": "text/event-stream" } }))
+  })
+  const onFinish = vi.fn<(message: UIMessage) => void>()
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: chatAuthToken,
+    streamCallbacks: { onFinish },
+  })
   const statuses: string[] = []
   chat.subscribe(() => statuses.push(chat.getState().status))
   try {
     await chat.sendMessage("Write a file")
-    expect(chat.getState().messages.at(-1)?.parts.at(-1)).toEqual({
+    expect(onFinish.mock.calls.at(-1)?.[0].parts.at(-1)).toEqual({
       type: "text",
       content: "I wrote it.",
     })
     // The tool round's intermediate RUN_FINISHED must not make the widget look idle mid-turn.
-    expect(statuses.slice(statuses.indexOf("submitted"), -1)).not.toContain("ready")
+    expect(
+      statuses.slice(statuses.indexOf("streaming"), statuses.lastIndexOf("streaming")),
+    ).not.toContain("ready")
   } finally {
     chat.dispose()
   }
@@ -214,13 +259,15 @@ test("a capability response for a superseded agent does not overwrite the curren
   vi.stubGlobal("fetch", (input: URL) =>
     String(input).endsWith("/me")
       ? Promise.resolve(Response.json(currentUser))
-      : new Promise<Response>((resolve) => {
-          requests.push({
-            url: String(input),
-            answer: (attachments) =>
-              resolve(new Response(JSON.stringify({ capabilities: { attachments } }))),
-          })
-        }),
+      : String(input).includes("/threads?")
+        ? Promise.resolve(Response.json(emptyPage))
+        : new Promise<Response>((resolve) => {
+            requests.push({
+              url: String(input),
+              answer: (attachments) =>
+                resolve(new Response(JSON.stringify({ capabilities: { attachments } }))),
+            })
+          }),
   )
   const chat = createAstralBeamChat({
     agentId: "agt_acme_first",
@@ -246,14 +293,20 @@ test("a rejected capability request renews once without a refresh notification l
     Promise.resolve(
       String(input).endsWith("/me")
         ? Response.json(currentUser)
-        : new Response(null, { status: 401 }),
+        : String(input).includes("/threads?")
+          ? Response.json(emptyPage)
+          : new Response(null, { status: 401 }),
     ),
   )
   vi.stubGlobal("fetch", fetch)
   const source = vi.fn(chatAuthToken)
   const chat = createAstralBeamChat({ fetchAstralBeamToken: source })
   try {
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(4))
+    await vi.waitFor(() =>
+      expect(
+        fetch.mock.calls.filter(([input]) => String(input).includes("/chat/config")),
+      ).toHaveLength(2),
+    )
     expect(source).toHaveBeenCalledTimes(2)
   } finally {
     chat.dispose()

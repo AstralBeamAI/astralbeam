@@ -28,8 +28,18 @@ const decodeRestCursorPayload = Schema.decodeUnknownEffect(
   { onExcessProperty: "error" },
 )
 
-export type RestCollection = "tenants" | "tenant_users"
-type RestCursorScope = RestScope["Service"] & {
+export type RestCollection =
+  | "tenants"
+  | "tenant_users"
+  | "chat_threads"
+  | "chat_messages"
+  | "chat_participants"
+  | "chat_tenant_users"
+type RestPaginationScope = RestScope["Service"] & {
+  readonly tenantUserId?: string | undefined
+  readonly threadId?: string | undefined
+}
+type RestCursorScope = RestPaginationScope & {
   externalId?: string | undefined
   search?: string | undefined
   admin?: boolean | undefined
@@ -63,6 +73,9 @@ function restCursorBinding(collection: RestCollection, scope: RestCursorScope) {
         scope.externalId ?? null,
         scope.search ?? null,
         scope.admin ?? null,
+        ...(collection.startsWith("chat_")
+          ? [scope.tenantId, scope.tenantUserId, scope.threadId ?? null]
+          : []),
       ]),
     )
     .digest("base64url")
@@ -116,7 +129,7 @@ export const decodeRestCursor = Effect.fn("decodeRestCursor")(function* (
 export const restPageOptions = Effect.fn("restPageOptions")(function* (
   query: RestPageQuery & { "filter[admin]"?: "true" | "false" | undefined },
   collection: RestCollection,
-  scope: RestScope["Service"],
+  scope: RestPaginationScope,
 ) {
   const externalId = query["filter[external_id]"]
   const search = query.q?.trim() || undefined
@@ -143,7 +156,7 @@ export const restPage = Effect.fn("restPage")(function* <T>(
   page: DatabasePage<T>,
   options: {
     collection: RestCollection
-    scope: RestScope["Service"]
+    scope: RestPaginationScope
     url: string
     backward: boolean
     externalId?: string | undefined

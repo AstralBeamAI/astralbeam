@@ -6,6 +6,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 
 | Option | Default | Meaning |
 | --- | --- | --- |
+| `threadId` | `"auto"` | Restore this tab's selection, use `"new"` for a fresh chat, or pass a saved thread UUID |
 | `agentId` | organization's default agent | `agent_<orgId>_<id>`, copied from the dashboard |
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API, the widget streams from `/v1/chat` |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
@@ -23,8 +24,8 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 - For self-hosting, set `apiUrl` to your deployment’s `/api` base. Send tokens only to the deployment that issued the API key.
 - `apiUrl` is a base, not a route: the widget appends `/v1/chat` for the stream and its subroutes for the agent handshake and artifact downloads.
 - `fetchAstralBeamToken` is the only chat auth token option. The request form's init reaches `fetch` as given. See [Authentication](./authentication.md).
-- Transport options are read per request. Updated `apiUrl`, `fetchAstralBeamToken`, and `agentId` values apply to the next request or run.
-- Changing `agentId` keeps the transcript, which the new agent then sees as history. Call `reset()` first for a clean conversation.
+- Transport options are read per request. Updating `apiUrl` clears the previous deployment's local session. An updated `fetchAstralBeamToken` applies to the next token request.
+- Saved conversations retain their selected agent. Updating `agentId` applies to new threads.
 - Every option accepts an explicit `undefined` and reads as unset, so a value you do not have yet needs no conditional prop under `exactOptionalPropertyTypes`.
 
 ## Chrome slots
@@ -50,7 +51,7 @@ The React component exposes a ref. The vanilla handle has the same methods.
 ```tsx
 const chatRef = useRef<AstralBeamChatRef>(null)
 // After mounting <AstralBeamChat ref={chatRef} />:
-chatRef.current?.reset() // clears transcript, drafts, attachments, widget renders
+chatRef.current?.reset() // starts another thread and preserves saved history
 chatRef.current?.stop() // stops the in-flight generation
 ```
 
@@ -59,4 +60,25 @@ chatRef.current?.stop() // stops the in-flight generation
 - Assistant replies render as Markdown. Raw HTML is escaped and executable link protocols are dropped.
 - An update that turns attachments off also drops files already picked into the composer.
 - Dropping a widget from `widgets` disposes any render of it still in the transcript.
-- To defer the chat chunk, render the component only on first open. Hide with CSS afterwards, since unmounting discards the transcript.
+- To defer the chat chunk, render the component only on first open. Hide with CSS afterwards, since unmounting stops the foreground response. History remains saved.
+- The host controls sidebar visibility. Persist its boolean in `sessionStorage` to restore it after reload within the same tab.
+
+## Saved conversations
+
+Conversations are saved automatically, so you can reopen, rename, and continue them across devices without an extra option. Your existing token endpoint supplies the identity. Conversations start with one manager and can include explicit participants within the same Tenant.
+
+- Viewers can read. Members can send. Managers can rename, delete, and manage participants. A Tenant admin does not automatically receive access.
+- Participants can send while other clients generate responses. Each client waits for its own foreground request to finish before sending again.
+- Disconnecting may interrupt generation. Saved input, accepted tool results, and the last saved partial response remain available.
+- Reopening never repeats a business tool. An unconfirmed action needs an explicit response or closure before its turn can continue.
+- `reset()` starts another conversation. Deletion removes saved messages and uploaded files but does not undo tool actions.
+- Uploaded files remain available with their conversation. Generated sandbox files can expire independently.
+- `threadId` defaults to `"auto"`, restoring this tab's selection after authentication. Fresh independent tabs start a new chat. Use `"new"` to bypass restoration or a UUID to open explicitly.
+
+```tsx
+<AstralBeamChat />                    // Restore this tab, or start new
+<AstralBeamChat threadId="new" />      // Start fresh
+<AstralBeamChat threadId={threadId} /> // Open a saved thread
+```
+
+Duplicating a tab or opening one through an opener can copy its initial session storage. The tabs maintain independent selections afterwards.

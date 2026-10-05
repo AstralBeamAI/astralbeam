@@ -28,6 +28,7 @@ import {
 import { currentUserHandlers } from "./current-user.server"
 import { organizationHandlers } from "./organization.server"
 import { chatHandlers } from "../chat/-lib/chat.server"
+import { chatThreadHandlers } from "../chat/-lib/threads.server"
 import { authenticateRestRequest } from "./auth.server"
 import { tenantHandlers } from "./tenant.server"
 import { tenantUserHandlers } from "./tenant-user.server"
@@ -110,8 +111,9 @@ const RestAuthorizationLive = Layer.effect(
 
 const REST_CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, content-type, x-api-key, last-event-id, x-run-id",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, content-type, x-api-key, last-event-id, x-run-id, idempotency-key",
   "Access-Control-Expose-Headers":
     "Location, Link, Retry-After, Content-Disposition, WWW-Authenticate",
   "Access-Control-Max-Age": "86400",
@@ -180,6 +182,7 @@ export const ApiV1Routes = Layer.mergeAll(
       tenantHandlers(ApiV1),
       tenantUserHandlers(ApiV1),
       chatHandlers(ApiV1),
+      chatThreadHandlers(ApiV1),
       currentUserHandlers(ApiV1),
       organizationHandlers(ApiV1),
     ]),

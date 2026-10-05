@@ -91,6 +91,7 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `agentId` | organization's default | `agent_<orgId>_<id>`, copied from the dashboard |
+| `threadId` | `"auto"` | Restore this tab's selection, use `"new"` for a fresh chat, or pass a saved thread UUID |
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API. The widget calls `/v1/chat` there |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header and reset button show |
@@ -104,6 +105,12 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `debug` | `false` | Log SDK actions in the browser, with server logs in development only |
 
 A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
+
+Conversations are saved automatically. The widget searches conversation titles across history and includes sharing controls. New conversations are private. Managers can add other Tenant users as viewers, members, or managers. Reopening history does not execute earlier tool calls. Participants can send messages while another client generates a response. Disconnecting still stops that client's generation.
+
+The headless session exposes conversation navigation, search, pagination, and participant actions. With `useAstralBeamChat`, access these through `chat.core`, for example `chat.core.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.
+
+By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account and API. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget's unsent text per thread stays in local storage and never sends automatically. Selected attachments remain in memory. The host owns sidebar visibility and can persist it separately in session storage.
 
 ## Tools and widgets
 
