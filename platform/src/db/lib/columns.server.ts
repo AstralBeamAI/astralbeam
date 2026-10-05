@@ -7,7 +7,6 @@ import {
   uuid,
   type AnyPgColumn,
   type ForeignKey,
-  type UpdateDeleteAction,
 } from "drizzle-orm/pg-core"
 import { Result, Schema } from "effect"
 
@@ -22,7 +21,6 @@ type EncryptedJsonOptions<Value> = {
   keyring?: DatabaseEncryptionKeyring
 }
 
-type DeferrableReferentialAction = Exclude<UpdateDeleteAction, "restrict">
 type ForeignKeyDeferrability = "immediate" | "deferred"
 
 // Drizzle retains the columns array on built constraints, so timing survives introspection.
@@ -46,20 +44,11 @@ export function deferrableForeignKey<
   columns: TColumns
   foreignColumns: { [Key in keyof TColumns]: AnyPgColumn<{ tableName: TForeignTableName }> }
   deferrable?: ForeignKeyDeferrability
-  onDelete?: DeferrableReferentialAction
-  onUpdate?: DeferrableReferentialAction
 }) {
-  const {
-    deferrable = "immediate",
-    onDelete = "no action",
-    onUpdate = "no action",
-    ...reference
-  } = options
+  const { deferrable = "immediate", ...reference } = options
   const columns: TColumns = [...reference.columns]
   foreignKeyDeferrability.set(columns, deferrable)
   return foreignKey({ ...reference, columns })
-    .onDelete(onDelete)
-    .onUpdate(onUpdate)
 }
 
 export function getForeignKeyDeferrability(constraint: ForeignKey) {

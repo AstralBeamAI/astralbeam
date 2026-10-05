@@ -107,8 +107,7 @@ export const apiKey = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -134,8 +133,7 @@ export const sandboxProvider = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -158,8 +156,7 @@ export const modelProvider = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -188,8 +185,7 @@ export const providerModel = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -228,8 +224,7 @@ export const agent = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -274,8 +269,7 @@ export const agentModel = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -304,8 +298,7 @@ export const organizationConfiguration = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -331,8 +324,7 @@ export const tenant = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -385,13 +377,11 @@ export const member = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
     deferrableForeignKey({
       columns: [table.userId],
       foreignColumns: [user.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -413,12 +403,10 @@ export const invitation = snakeCase.table(
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
     deferrableForeignKey({
       columns: [table.inviterId],
       foreignColumns: [user.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )

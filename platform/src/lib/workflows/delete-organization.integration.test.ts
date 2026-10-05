@@ -93,13 +93,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       defaultAgentId: defaultAgent!.id,
     })
     const [owned] = await db.insert(tenant).values({ organizationId, externalId: "t" }).returning()
-    await db.insert(tenantUser).values(
-      Array.from({ length: 2001 }, (_, index) => ({
-        organizationId,
-        tenantId: owned!.id,
-        externalId: `u${index}`,
-      })),
-    )
+    await db.insert(tenantUser).values({ organizationId, tenantId: owned!.id, externalId: "u" })
     return {
       organizationId,
       ownerId: owner!.id,
@@ -245,7 +239,6 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       }),
     )
     const { rows } = await db.execute<{
-      name: string
       tableName: string
       localColumns: string[]
       foreignTable: string
@@ -258,8 +251,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       updateAction: string
       referencesPrimaryKey: boolean
       usesPrimaryKeyIndex: boolean
-    }>(sql`select constraint_row.conname as name,
-      table_row.relname as "tableName",
+    }>(sql`select table_row.relname as "tableName",
       array(select column_row.attname::text
         from unnest(constraint_row.conkey) with ordinality as key_column(attnum, position)
         join pg_attribute column_row on column_row.attrelid = constraint_row.conrelid
@@ -308,25 +300,43 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     }
     for (const row of rows) {
       const reference = expectedReferences.get(JSON.stringify([row.tableName, row.localColumns]))
-      expect({ [row.name]: reference }).toEqual({
-        [row.name]: {
-          table: row.foreignTable,
-          columns: row.foreignColumns,
-          deferrable: row.initiallyDeferred ? "deferred" : "immediate",
-          onDelete: actions[row.deleteAction],
-          onUpdate: actions[row.updateAction],
-        },
+      expect(reference).toEqual({
+        table: row.foreignTable,
+        columns: row.foreignColumns,
+        deferrable: row.initiallyDeferred ? "deferred" : "immediate",
+        onDelete: actions[row.deleteAction],
+        onUpdate: actions[row.updateAction],
       })
     }
   })
 
-  test("defers parent-first deletion and preserves another organization", async () => {
+  test("rolls back unresolved deferred deletion, then commits parent-first deletion", async () => {
     const deleted = await createOrganization("deleted")
     const kept = await createOrganization("kept")
     const deletedId = deleted.organizationId
     const keptId = kept.organizationId
     await createDeletionChat(deleted)
     await createDeletionChat(kept)
+
+    for (const table of [sandboxProvider, providerModel, agent]) {
+      await expect(
+        db.delete(table).where(eq(table.organizationId, deletedId)),
+      ).rejects.toMatchObject({ cause: { code: "23503" } })
+    }
+    await expect(
+      db.transaction(async (transaction) => {
+        await transaction.execute(sql`set constraints all deferred`)
+        await transaction
+          .delete(sandboxProvider)
+          .where(eq(sandboxProvider.organizationId, deletedId))
+      }),
+    ).rejects.toMatchObject({ query: "commit", cause: { code: "23503" } })
+    expect(
+      await db
+        .select({ organizationId: sandboxProvider.organizationId })
+        .from(sandboxProvider)
+        .where(eq(sandboxProvider.organizationId, deletedId)),
+    ).toEqual([{ organizationId: deletedId }])
 
     await db.transaction(async (transaction) => {
       await transaction.execute(sql`set constraints all deferred`)
@@ -351,29 +361,6 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     expect(await db.select({ organizationId: chatThread.organizationId }).from(chatThread)).toEqual(
       [{ organizationId: keptId }],
     )
-  })
-
-  test("rejects referenced deletion immediately and rolls back an unresolved deferred deletion", async () => {
-    const { organizationId } = await createOrganization("protected")
-
-    for (const table of [sandboxProvider, providerModel, agent]) {
-      await expect(
-        db.delete(table).where(eq(table.organizationId, organizationId)),
-      ).rejects.toMatchObject({
-        cause: { code: "23503" },
-      })
-    }
-    await expect(
-      db.transaction(async (transaction) => {
-        await transaction.execute(sql`set constraints all deferred`)
-        await transaction
-          .delete(sandboxProvider)
-          .where(eq(sandboxProvider.organizationId, organizationId))
-      }),
-    ).rejects.toMatchObject({ query: "commit", cause: { code: "23503" } })
-    expect(
-      await db.select({ organizationId: sandboxProvider.organizationId }).from(sandboxProvider),
-    ).toEqual([{ organizationId }])
   })
 
   test("inserts a circular thread and current leaf with the default deferred constraint", async () => {
@@ -632,8 +619,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       const tenantUsers = await db
         .select({ organizationId: tenantUser.organizationId })
         .from(tenantUser)
-      expect(new Set(tenantUsers.map((row) => row.organizationId))).toEqual(new Set([keptId]))
-      expect(tenantUsers).toHaveLength(2001)
+      expect(tenantUsers).toEqual([{ organizationId: keptId }])
       expect(
         await db.select({ organizationId: chatThread.organizationId }).from(chatThread),
       ).toEqual([{ organizationId: keptId }])

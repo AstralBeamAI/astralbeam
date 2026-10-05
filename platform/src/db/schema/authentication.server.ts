@@ -41,8 +41,7 @@ export const session = snakeCase.table(
     deferrableForeignKey({
       columns: [table.userId],
       foreignColumns: [user.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
@@ -68,8 +67,7 @@ export const account = snakeCase.table(
     deferrableForeignKey({
       columns: [table.userId],
       foreignColumns: [user.id],
-      onDelete: "cascade",
-    }),
+    }).onDelete("cascade"),
   ],
 )
 
