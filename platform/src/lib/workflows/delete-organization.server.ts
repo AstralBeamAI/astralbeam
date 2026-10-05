@@ -4,13 +4,13 @@ import { Activity, Workflow } from "effect/workflow"
 
 import { Mailer } from "../email/email.server.ts"
 import {
-  deleteOrganization,
+  deleteOrganization as deleteOrganizationFn,
   deleteOrganizationTenantBatch,
   readUserEmails,
 } from "../organizations/deletion.server.ts"
 import { UuidV7Schema } from "../schemas.ts"
 
-const deleteOrganizationWorkflow = Workflow.make("DeleteOrganization/v2", {
+const deleteOrganization = Workflow.make("DeleteOrganization/v2", {
   payload: {
     organizationId: UuidV7Schema,
     operationId: Schema.String,
@@ -68,17 +68,17 @@ const notifyOrganizationOwners = Effect.fn("notifyOrganizationOwners")(function*
   )
 })
 
-export const deleteOrganizationWorkflowLayer = deleteOrganizationWorkflow.toLayer((payload) =>
+export const deleteOrganizationWorkflowLayer = deleteOrganization.toLayer((payload) =>
   Effect.gen(function* () {
     const { organizationId } = payload
     yield* purgeOrganizationStep(
       "DeleteTenants",
       drainOrganizationBatches(deleteOrganizationTenantBatch(organizationId)),
     )
-    yield* purgeOrganizationStep("DeleteOrganization", deleteOrganization(organizationId))
+    yield* purgeOrganizationStep("DeleteOrganization", deleteOrganizationFn(organizationId))
     yield* Effect.logInfo("Organization deleted", { organizationId })
     yield* Activity.make({ name: "NotifyOwners", execute: notifyOrganizationOwners(payload) })
   }),
 )
 
-export default deleteOrganizationWorkflow
+export default deleteOrganization

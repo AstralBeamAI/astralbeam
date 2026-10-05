@@ -24,7 +24,7 @@ import { sqlState } from "@/db/lib/sqlstate.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { Mailer } from "@/lib/email/email.server"
 import {
-  deleteOrganization,
+  deleteOrganization as deleteOrganizationFn,
   deleteOrganizationTenantBatch,
   revokeOrganizationAccess,
 } from "@/lib/organizations/deletion.server"
@@ -48,7 +48,7 @@ import {
   tables,
   user,
 } from "@/db/schema.server"
-import deleteOrganizationWorkflow, {
+import deleteOrganization, {
   deleteOrganizationWorkflowLayer,
 } from "./delete-organization.server.ts"
 
@@ -213,7 +213,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   }
 
   function organizationDeletion(organizationId: string) {
-    return deleteOrganizationWorkflow
+    return deleteOrganization
       .execute({
         organizationId,
         operationId: crypto.randomUUID(),
@@ -558,7 +558,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     ["Tenant", (scope: { organizationId: string; tenantId: string }) => deleteTenant(scope)],
     [
       "Organization",
-      (scope: { organizationId: string }) => deleteOrganization(scope.organizationId),
+      (scope: { organizationId: string }) => deleteOrganizationFn(scope.organizationId),
     ],
   ] as const)(
     "defers constraints for the %s purge even in an immediate transaction",
