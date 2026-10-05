@@ -1297,7 +1297,8 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await db.insert(chatMessage).values(messages.map((row) => ({ ...row, threadId: separate.id })))
     await db.insert(chatMessagePart).values(parts.map((row) => ({ ...row, threadId: separate.id })))
     const pending = await runtime.runPromise(service.pending({ scope, id: thread.id }))
-    expect(pending.map(({ target }) => target.id).sort()).toEqual([targetA, targetB])
+    expect(pending).toHaveLength(2)
+    expect(pending.map(({ target }) => target.id)).toEqual(expect.arrayContaining([targetA, targetB]))
     expect(pending.every(({ message }) => message.threadId === thread.id)).toBe(true)
     const rows = await db
       .select()
