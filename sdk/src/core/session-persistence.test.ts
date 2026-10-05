@@ -135,7 +135,6 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
   const chat = createAstralBeamChat({ fetchAstralBeamToken: token })
   try {
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-    await vi.waitFor(() => expect(chat.getState().threadsLoading).toBe(false))
     expect(chat.getState().status).toBe("ready")
     expect(chat.getState().error).toBeUndefined()
     chat.reset()
@@ -143,12 +142,12 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
     await chat.sendMessage("First message")
     expect(created).toBe(1)
     expect(chat.getState().thread?.hasMessages).toBe(false)
-    expect(chat.getState().threads).toEqual([])
+    expect((await chat.searchThreads()).items).toEqual([])
     expect(chat.getState().messages).toEqual([])
     expect(chat.getState().unsentMessage).toBe("First message")
     expect(chat.getState().status).toBe("error")
     await chat.sendMessage("First message")
-    await vi.waitFor(() => expect(chat.getState().threads[0]?.title).toBe("First message"))
+    expect((await chat.searchThreads()).items[0]?.title).toBe("First message")
     expect(created).toBe(1)
     expect(chat.getState().thread?.hasMessages).toBe(true)
   } finally {
@@ -184,10 +183,6 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
             agent_id: changed && mode === "deleted" ? null : thread.agent_id,
           },
         }),
-      )
-    if (path.includes("/threads?"))
-      return Promise.resolve(
-        Response.json({ items: [thread], page_after: null, page_before: null }),
       )
     if (path.endsWith("/chat")) {
       if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
@@ -329,10 +324,6 @@ test("reset before authentication resolves does not restore the previous convers
       })
     if (path.endsWith("/chat/config"))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    if (path.includes("/threads?"))
-      return Promise.resolve(
-        Response.json({ items: [thread], page_after: null, page_before: null }),
-      )
     historyReads.push(path)
     return Promise.resolve(Response.json(page()))
   })
@@ -344,7 +335,7 @@ test("reset before authentication resolves does not restore the previous convers
     await vi.waitFor(() => expect(resolveIdentity).toBeDefined())
     chat.reset()
     resolveIdentity!(Response.json(currentUser))
-    await vi.waitFor(() => expect(chat.getState().threads).toHaveLength(1))
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
     expect(chat.getState().thread).toBeUndefined()
     expect(historyReads).toEqual([])
   } finally {
@@ -392,10 +383,6 @@ test("opening saved tool calls restores their results without executing host too
     const path = String(input)
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
     if (path.includes("/messages?")) return Promise.resolve(Response.json(page(messages)))
-    if (path.includes("/threads?"))
-      return Promise.resolve(
-        Response.json({ items: [thread], page_after: null, page_before: null }),
-      )
     return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
   })
   const chat = createAstralBeamChat({
@@ -438,10 +425,6 @@ test("changing API scope drops saved history before the replacement account reso
           ]),
         ),
       )
-    if (path.includes("/threads?"))
-      return Promise.resolve(
-        Response.json({ items: [thread], page_after: null, page_before: null }),
-      )
     return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
   })
   const chat = createAstralBeamChat({
@@ -457,7 +440,6 @@ test("changing API scope drops saved history before the replacement account reso
     chat.updateOptions({ apiUrl: "https://replacement.example/api" })
     expect(chat.getState().messages).toEqual([])
     expect(chat.getState().thread).toBeUndefined()
-    expect(chat.getState().threads).toEqual([])
   } finally {
     chat.dispose()
   }
@@ -503,10 +485,6 @@ test("an explicit unknown outcome continues while another response is active wit
           thread: { ...thread, writer_active: true },
           pending_interactions: posted ? [] : [pending],
         }),
-      )
-    if (path.includes("/threads?"))
-      return Promise.resolve(
-        Response.json({ items: [thread], page_after: null, page_before: null }),
       )
     if (path.endsWith("/tool-results")) {
       if (typeof init?.body !== "string") throw new Error("Expected a tool result body")
@@ -708,10 +686,6 @@ test.each([
                 : [],
           }),
         )
-      if (path.includes("/threads?"))
-        return Promise.resolve(
-          Response.json({ items: [thread], page_after: null, page_before: null }),
-        )
       if (path.endsWith("/tool-results")) {
         if (typeof init?.body !== "string") throw new Error("Expected a tool result body")
         resultBody = JSON.parse(init.body)
@@ -907,8 +881,6 @@ test("retained outcomes retry by source without loading older source messages", 
   vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
     const path = String(input)
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (path.includes("/threads?"))
-      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
     if (path.includes("/messages?"))
       return Promise.resolve(
         Response.json({
@@ -1146,8 +1118,6 @@ test("a browser tool and widget can continue through consecutive committed turns
     new Request(url, init)
     const path = String(url)
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (path.includes("/threads?"))
-      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
     if (path.includes("/messages?"))
       return Promise.resolve(
         Response.json({
@@ -1316,8 +1286,6 @@ test("hydrated results address an unloaded target when concurrent calls reuse a 
   vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
     const path = String(input)
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (path.includes("/threads?"))
-      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
     if (path.includes("/messages?"))
       return Promise.resolve(
         Response.json({

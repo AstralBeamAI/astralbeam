@@ -90,6 +90,7 @@ function managedToolPart(
   return {
     ...part,
     id: toolPartId,
+    type: "tool-call",
     toolCallId: nativeId,
     executionLocation: browser
       ? "browser"
@@ -134,7 +135,7 @@ function managedAssistantPayload(
         const json = chatStoredJson(part)
         if (part.type === "tool-call") return managedToolPart(options, state, json)
         const key = `${message.id}:${part.type}:${"stepId" in part ? part.stepId : ""}`
-        return { ...json, id: managedPartId(state.partIds, occurrenceKey(key)) }
+        return { ...json, type: part.type, id: managedPartId(state.partIds, occurrenceKey(key)) }
       }),
     )
   return {

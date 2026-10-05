@@ -65,12 +65,14 @@ New conversations start private. Let's load the saved conversations the current 
 
 ```ts
 const chat = createAstralBeamChat({ tools })
-await chat.listThreads()
+const page = await chat.searchThreads()
+const threadId = page.items[0]?.id
+if (!threadId) throw new Error("No saved conversations yet.")
 await chat.openThread(threadId)
 await chat.sendMessage("Continue from here")
 ```
 
-- Read `thread`, `threads`, and `threadLoading` from session state. Wait for hydration before enabling your composer.
+- `searchThreads(query?, cursor?, signal?)` returns a page of conversations. Read `thread` and `threadLoading` from session state. Wait for hydration before enabling your composer.
 - Use `reset()` for a fresh conversation. Managers can rename and delete saved threads with `renameThread(title)` and `deleteThread()`.
 - Keep tool responses associated with their stored call and target across browser clients.
 - You can reopen saved state from another client. Live event replay, background recovery, branching controls, and tool fan-out are not available yet.

@@ -77,7 +77,6 @@ test("a reset creates a new saved conversation without deleting the previous one
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
     if (path.endsWith("/chat/config"))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    if (path.includes("/threads?")) return Promise.resolve(Response.json(emptyPage))
     if (path.endsWith("/threads")) {
       created++
       return Promise.resolve(Response.json({ ...thread, id: `conversation-${created}` }))
@@ -117,7 +116,6 @@ test("reset during a terminal chunk suppresses the old completion callback", asy
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
     if (path.includes("/chat/config"))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    if (path.includes("/threads?")) return Promise.resolve(Response.json(emptyPage))
     if (path.endsWith("/threads"))
       return Promise.resolve(Response.json({ ...thread, id: `conversation-${++created}` }))
     if (path.includes("/messages?"))
@@ -200,7 +198,6 @@ test("the reply after a server tool round keeps its first text delta", async () 
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
     if (path.endsWith("/chat/config"))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    if (path.includes("/threads?")) return Promise.resolve(Response.json(emptyPage))
     if (path.endsWith("/threads")) return Promise.resolve(Response.json(thread))
     if (path.includes("/messages?"))
       return Promise.resolve(
@@ -275,15 +272,13 @@ test("a capability response for a superseded agent does not overwrite the curren
   vi.stubGlobal("fetch", (input: URL) =>
     String(input).endsWith("/me")
       ? Promise.resolve(Response.json(currentUser))
-      : String(input).includes("/threads?")
-        ? Promise.resolve(Response.json(emptyPage))
-        : new Promise<Response>((resolve) => {
-            requests.push({
-              url: String(input),
-              answer: (attachments) =>
-                resolve(new Response(JSON.stringify({ capabilities: { attachments } }))),
-            })
-          }),
+      : new Promise<Response>((resolve) => {
+          requests.push({
+            url: String(input),
+            answer: (attachments) =>
+              resolve(new Response(JSON.stringify({ capabilities: { attachments } }))),
+          })
+        }),
   )
   const chat = createAstralBeamChat({
     agentId: "agt_acme_first",
@@ -309,9 +304,7 @@ test("a rejected capability request renews once without a refresh notification l
     Promise.resolve(
       String(input).endsWith("/me")
         ? Response.json(currentUser)
-        : String(input).includes("/threads?")
-          ? Response.json(emptyPage)
-          : new Response(null, { status: 401 }),
+        : new Response(null, { status: 401 }),
     ),
   )
   vi.stubGlobal("fetch", fetch)

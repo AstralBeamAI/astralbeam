@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { LockVersionSchema } from "../../schemas.ts"
+import { LockVersionSchema, NonEmptyStringSchema } from "../../schemas.ts"
 import { ApiUuidSchema } from "../../tenants/schemas.ts"
 
 export const ChatSubmissionReceiptSchema = Schema.Struct({
@@ -11,14 +11,9 @@ export const ChatSubmissionReceiptSchema = Schema.Struct({
 const ChatParticipantRoleSchema = Schema.Literals(["viewer", "member", "manager"])
 export type ChatParticipantRole = typeof ChatParticipantRoleSchema.Type
 
-const ChatPartSchema = Schema.JsonObject.check(
-  Schema.makeFilter(
-    (part) =>
-      typeof part.id === "string" &&
-      part.id.length > 0 &&
-      typeof part.type === "string" &&
-      part.type.length > 0,
-  ),
+const ChatPartSchema = Schema.StructWithRest(
+  Schema.Struct({ id: NonEmptyStringSchema, type: NonEmptyStringSchema }),
+  [Schema.JsonObject],
 )
 
 export const ChatToolDecisionSchema = Schema.StructWithRest(

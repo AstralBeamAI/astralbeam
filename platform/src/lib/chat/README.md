@@ -292,8 +292,8 @@ const unsubscribe = chat.subscribe(() => {
   console.log(state.status, state.thread?.id, state.error?.message)
 })
 
-await chat.listThreads()
-const existing = chat.getState().threads[0]
+const page = await chat.searchThreads()
+const existing = page.items[0]
 if (existing) await chat.openThread(existing.id)
 else chat.reset()
 
@@ -302,30 +302,19 @@ const threadId = chat.getState().thread?.id
 if (!threadId) throw chat.getState().error ?? new Error("No saved thread was selected.")
 ```
 
-`listThreads()` updates session state rather than returning an array. Resource actions report recoverable failures through `getState().error`, so the host UI should observe that state before continuing dependent actions. `threadId` is the conversation UUID, and passing it in options opens that saved thread after authentication.
+`searchThreads(query?, cursor?, signal?)` returns conversation records in `items` and the next page cursor in `page_after`. The caller owns list loading and error state. Resource actions report recoverable failures through `getState().error`, so the host UI should observe that state before continuing dependent actions. `threadId` is the conversation UUID, and passing it in options opens that saved thread after authentication.
 
-For a selected conversation where the current user is a manager, sharing and metadata actions use the session's current revision:
-
-```ts
-await chat.renameThread("Payments incident")
-await chat.setParticipant(otherTenantUserId, "member")
-await chat.listParticipants()
-
-// Another authenticated participant can open the same UUID in their session.
-await otherParticipantChat.openThread(threadId)
-await otherParticipantChat.sendMessage("The deploy finished at 10:30.")
-```
-
-Here `otherTenantUserId` is an existing internal same-Tenant UUID, and `threadId` is a confirmed saved conversation UUID. The participant picker uses `searchTenantUsers` to find synchronized users. It does not provision identities during sharing.
+Managers can rename and delete the selected conversation. Participant management remains available through the HTTP API, while SDK sharing controls are deferred.
 
 | Session operation | Behavior |
 | --- | --- |
-| `newThread()` or `reset()` | Select an empty local chat and retain the previous saved conversation. Create the resource on its first send. |
+| `reset()` | Select an empty local chat and retain the previous saved conversation. Create the resource on its first send. |
 | `openThread(id)` | Load authorized history before enabling sends. |
 | `loadOlderMessages()` | Prepend the next saved history page. |
 | `refreshThread()` | Refresh saved state, without attaching to another client's stream. |
 | `reload()` | Refresh history and retry delivery of retained tool results. It does not regenerate saved responses. |
 | `stop()` | Cancel this session's foreground request. |
+| `renameThread(title)` | Rename the selected conversation using its current revision. |
 | `deleteThread()` | Delete the selected conversation with manager authorization and the current revision. |
 | `abandonToolCall(toolCallId)` | Explicitly close an unconfirmed pending action through the permitted resolution path, rather than rerunning it. |
 

@@ -122,7 +122,7 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
             version: 1,
             parts: [
               {
-                id: first.payload.parts[0]!.id!,
+                id: first.payload.parts[0]!.id,
                 type: "tool-result",
                 toolCallId: part.toolCallId!,
                 output,

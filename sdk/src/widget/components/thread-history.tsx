@@ -19,7 +19,6 @@ export function ThreadHistory({
   const [renaming, setRenaming] = useState(false)
   const [title, setTitle] = useState("")
   const selected = state.thread
-  const busy = state.threadLoading || state.threadsLoading
   const writing = state.status === "submitted" || state.status === "streaming"
   return (
     <div className="flex flex-col gap-2 border-b px-4 py-2" data-slot="thread-history">
@@ -58,7 +57,7 @@ export function ThreadHistory({
               size="icon-sm"
               aria-label="Rename conversation"
               title="Rename conversation"
-              disabled={busy || writing}
+              disabled={state.threadLoading || writing}
               onClick={() => {
                 setTitle(selected.title ?? "")
                 setRenaming(!renaming)
@@ -71,7 +70,7 @@ export function ThreadHistory({
               size="icon-sm"
               aria-label="Delete conversation"
               title="Delete conversation"
-              disabled={busy || writing}
+              disabled={state.threadLoading || writing}
               onClick={() => {
                 void chat.deleteThread().then(() => {
                   if (!chat.getState().thread) {

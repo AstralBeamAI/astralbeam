@@ -63,8 +63,6 @@ beforeEach(() => {
       )
     if (path.endsWith("/chat/config"))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    if (path.includes("/threads?"))
-      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
     const older = new URL(input).searchParams.has("page_after")
     return Promise.resolve(
       Response.json({

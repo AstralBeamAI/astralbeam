@@ -149,13 +149,9 @@ export interface AstralBeamChatState {
   agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
   sandbox: SandboxActivity
-  /** Saved conversations available to the authenticated participant. */
-  threads: readonly ChatThread[]
   thread: ChatThread | undefined
-  threadsLoading: boolean
   threadLoading: boolean
   threadLoadFailed: boolean
-  threadsCursor: string | undefined
   messagesCursor: string | undefined
   olderMessagesLoading: boolean
   /** Retained until the server acknowledges the send, including after an uncertain network failure. */
@@ -190,13 +186,11 @@ export interface AstralBeamChatCore {
   reload: () => Promise<void>
   /** Starts an empty conversation and disposes widget renders, preserving any saved chat. */
   reset: () => void
-  /** Refreshes saved conversations, or appends the next page. */
-  listThreads: (cursor?: string) => Promise<void>
   /** Searches all authorized conversation titles using server pagination. */
   searchThreads: (
-    q: string,
-    cursor: string | undefined,
-    signal: AbortSignal,
+    q?: string,
+    cursor?: string,
+    signal?: AbortSignal,
   ) => Promise<{ items: ChatThread[]; page_after: string | null }>
   /** Loads saved history before accepting another send. */
   openThread: (id: string) => Promise<void>
@@ -231,12 +225,9 @@ export function createAstralBeamChat(
     agentTools: [],
     sandboxStatus: undefined,
     sandbox: { files: [], commands: [] },
-    threads: [],
     thread: undefined,
-    threadsLoading: false,
     threadLoading: false,
     threadLoadFailed: false,
-    threadsCursor: undefined,
     messagesCursor: undefined,
     olderMessagesLoading: false,
     unsentMessage: undefined,
@@ -261,7 +252,6 @@ export function createAstralBeamChat(
   let navigationGeneration = 0
   let historyGeneration = 0
   let hydration: Promise<unknown> = Promise.resolve()
-  let listGeneration = 0
   let requestController = new AbortController()
   let threadKey: string | undefined
   let startWithNewThread = false
@@ -282,7 +272,6 @@ export function createAstralBeamChat(
     if (!pendingSend || pendingSend.accepted) return
     pendingSend.accepted = true
     if (state.thread) update({ thread: { ...state.thread, hasMessages: true } })
-    void listThreads()
     pendingSend.callbacks?.onAccepted?.()
   }
   const liveToolCalls = new Set<string>()
@@ -899,27 +888,6 @@ export function createAstralBeamChat(
     )
   }
 
-  const listThreads = async (cursor?: string) => {
-    const generation = ++listGeneration
-    update({ threadsLoading: true })
-    try {
-      const page = await listChatThreads(
-        { page_size: 50, ...(cursor ? { page_after: cursor } : {}) },
-        await requestOptions(),
-      )
-      if (generation !== listGeneration) return
-      const items = page.items.map((record) => threadFromRecord(record))
-      update({
-        threads: cursor ? [...state.threads, ...items] : items,
-        threadsCursor: page.page_after ?? undefined,
-      })
-    } catch (error) {
-      if (generation === listGeneration) reportError(error)
-    } finally {
-      if (generation === listGeneration) update({ threadsLoading: false })
-    }
-  }
-
   const changeSelection = (threadId?: string) => {
     const previousId = state.thread?.id
     if (previousId) {
@@ -1037,7 +1005,6 @@ export function createAstralBeamChat(
       if (generation === selectionGeneration) {
         if (isAstralBeamApiError(error) && error.status === 404) {
           newThread()
-          void listThreads()
           return
         }
         reportError(error)
@@ -1079,7 +1046,6 @@ export function createAstralBeamChat(
       if (generation !== selectionGeneration) return
       const renamed = threadFromRecord(record, thread.hasMessages)
       update({ thread: renamed })
-      await listThreads()
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
     }
@@ -1097,7 +1063,6 @@ export function createAstralBeamChat(
       )
       if (generation !== selectionGeneration) return
       newThread()
-      update({ threads: state.threads.filter((item) => item.id !== thread.id) })
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
     }
@@ -1249,7 +1214,6 @@ export function createAstralBeamChat(
         update({ unsentMessage: undefined })
       }
       await refreshThread(failed, false)
-      void listThreads()
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
     } finally {
@@ -1272,8 +1236,6 @@ export function createAstralBeamChat(
       const nextThreadKey = `astralbeam:thread:${live.apiUrl ?? DEFAULT_API_URL}:${nextIdentity}`
       if (threadKey !== nextThreadKey) {
         changeSelection()
-        listGeneration++
-        update({ threads: [], threadsCursor: undefined })
         threadKey = nextThreadKey
         if (startWithNewThread) {
           selectedThread(nextThreadKey, null)
@@ -1281,7 +1243,6 @@ export function createAstralBeamChat(
         } else {
           selectConfiguredThread(true)
         }
-        void listThreads()
       }
       if (capabilityIdentity !== nextIdentity) {
         capabilityIdentity = nextIdentity
@@ -1328,14 +1289,8 @@ export function createAstralBeamChat(
         toolResults.clear()
         pendingSend = undefined
         changeSelection()
-        listGeneration++
         threadKey = undefined
-        update({
-          threads: [],
-          threadsCursor: undefined,
-          threadsLoading: false,
-          threadLoading: false,
-        })
+        update({ threadLoading: false })
         observeAuthentication()
       } else if (live.threadId !== selectedId) {
         selectConfiguredThread()
@@ -1366,12 +1321,11 @@ export function createAstralBeamChat(
         if (state.error) return
       }
     },
-    listThreads,
-    searchThreads: async (q, cursor, signal) => {
+    searchThreads: async (q = "", cursor, signal) => {
       const options = await requestOptions()
       const page = await listChatThreads(
         { q, page_size: 50, ...(cursor ? { page_after: cursor } : {}) },
-        { ...options, signal: AbortSignal.any([signal, options.signal!]) },
+        { ...options, signal: AbortSignal.any([options.signal!, ...(signal ? [signal] : [])]) },
       )
       return {
         items: page.items.map((record) => threadFromRecord(record)),
@@ -1400,7 +1354,6 @@ export function createAstralBeamChat(
       client.stop()
       requestController.abort()
       selectionGeneration++
-      listGeneration++
       threadKey = undefined
       capabilitiesGeneration++
       capabilityIdentity = undefined
