@@ -599,8 +599,14 @@ export function chatThreadHandlers(api: typeof ApiV1) {
             })
           }),
           getChatAttachment: Effect.fn("getChatAttachment")(function* ({ request, params }) {
+            const scope = yield* scopeFor(request)
+            yield* consumeRestRateLimit("chat-resource", [
+              scope.organizationId,
+              scope.tenantId,
+              scope.tenantUserId,
+            ]).pipe(Effect.provideContext(services))
             const message = yield* threads.getMessage({
-              scope: yield* scopeFor(request),
+              scope,
               id: params.id,
               messageId: params.messageId,
             })

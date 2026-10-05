@@ -693,7 +693,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.predicates).toEqual([])
   })
 
-  test("empty thread creation consumes a scoped resource limit before writing", async () => {
+  test("thread creation and attachment reads consume a scoped resource limit before access", async () => {
     restTestState.threadCreate.mockReturnValue(Effect.succeed(restThread))
     const request = {
       method: "POST",
@@ -718,6 +718,16 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(rejected.status).toBe(429)
     expect(rejected.headers.get("retry-after")).toBe("5")
     expect(restTestState.threadCreate).toHaveBeenCalledTimes(1)
+    const download = await restRequest(
+      `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
+      { headers: { Authorization: `Bearer ${restTenantJwt}` } },
+    )
+    expect(download.status).toBe(429)
+    expect(download.headers.get("retry-after")).toBe("5")
+    expect(restTestState.threadMessage).not.toHaveBeenCalled()
+    expect(restTestState.consume.mock.calls.at(-1)![0].key).toBe(
+      restTestState.consume.mock.calls[0]![0].key,
+    )
   })
 
   test("saved history exposes scoped messages without internal writer or idempotency data", async () => {

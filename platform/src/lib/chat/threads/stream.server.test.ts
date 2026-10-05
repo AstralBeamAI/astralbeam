@@ -2,6 +2,7 @@ import {
   chat,
   EventType,
   toolDefinition,
+  type ChatMiddleware,
   type ModelMessage,
   type StreamChunk,
   type Tool,
@@ -65,6 +66,7 @@ async function exerciseManagedStream(options: {
   invalidInput?: boolean
   failResult?: boolean
   unknownTool?: boolean
+  snapshots?: boolean
   authorizationFailure?: "model" | "tool"
   refresh?: boolean
 }) {
@@ -75,6 +77,8 @@ async function exerciseManagedStream(options: {
   const nextAssistantId = crypto.randomUUID()
   let requests = 0
   let executed = 0
+  let snapshotVersion = 0
+  let bufferedSnapshots = 0
   const model = {
     providerId: "provider",
     providerName: "Synthetic",
@@ -185,7 +189,31 @@ async function exerciseManagedStream(options: {
     tools: options.refresh ? [] : [tool],
     threadId: managed.claim.threadId,
     runId: "run",
-    middleware: bridge.middleware,
+    middleware: [
+      ...(options.snapshots
+        ? [
+            {
+              name: "synthetic-snapshots",
+              onChunk(_ctx, chunk) {
+                bufferedSnapshots = Math.max(
+                  bufferedSnapshots,
+                  bridge.state.buffered.filter(
+                    (event) => event.type === EventType.MESSAGES_SNAPSHOT,
+                  ).length,
+                )
+                if (!chunk.type.startsWith("TOOL_CALL_")) return
+                const snapshot = (): StreamChunk => ({
+                  type: EventType.MESSAGES_SNAPSHOT,
+                  timestamp: ++snapshotVersion,
+                  messages: [{ id: "snapshot", role: "user", content: "Saved upload context" }],
+                })
+                return [snapshot(), chunk, snapshot()]
+              },
+            } satisfies ChatMiddleware,
+          ]
+        : []),
+      ...bridge.middleware,
+    ],
   })
   const chunks: StreamChunk[] = []
   let failed = false
@@ -197,7 +225,19 @@ async function exerciseManagedStream(options: {
   } catch {
     failed = true
   }
-  return { order, saved, results, requests, executed, chunks, failed, nextAssistantId, prompts }
+  return {
+    order,
+    saved,
+    results,
+    requests,
+    executed,
+    chunks,
+    failed,
+    nextAssistantId,
+    prompts,
+    snapshotVersion,
+    bufferedSnapshots,
+  }
 }
 
 describe("managed TanStack persistence boundaries", () => {
@@ -315,6 +355,28 @@ describe("managed TanStack persistence boundaries", () => {
     expect(targets[0]!.tenantUserId).toBe(managedStreamClaim.scope.tenantUserId)
   })
 
+  test("retains only the latest deferred snapshot while preserving tool-event order", async () => {
+    const result = await exerciseManagedStream({ snapshots: true })
+    expect(result.failed).toBe(false)
+    expect(result.bufferedSnapshots).toBe(1)
+    const snapshots = result.chunks.filter((chunk) => chunk.type === EventType.MESSAGES_SNAPSHOT)
+    expect(snapshots).toHaveLength(1)
+    expect(snapshots[0]!.timestamp).toBe(result.snapshotVersion)
+    expect(
+      result.chunks
+        .filter((chunk) => chunk.type.startsWith("TOOL_CALL_"))
+        .map((chunk) => chunk.type),
+    ).toEqual([
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_ARGS,
+      EventType.TOOL_CALL_END,
+      EventType.TOOL_CALL_RESULT,
+    ])
+    expect(result.chunks.indexOf(snapshots[0]!)).toBeGreaterThan(
+      result.chunks.findIndex((chunk) => chunk.type === EventType.TOOL_CALL_RESULT),
+    )
+  })
+
   test("native terminal persistence failure prevents the application completion acknowledgment", async () => {
     const result = await exerciseManagedStream({ failSnapshot: true })
     expect(result.failed).toBe(true)
@@ -329,11 +391,14 @@ describe("managed TanStack persistence boundaries", () => {
   })
 
   test("final-save failure cannot advertise durable completion or browser execution", async () => {
-    const result = await exerciseManagedStream({ browser: true, failFinal: true })
+    const result = await exerciseManagedStream({ browser: true, failFinal: true, snapshots: true })
     expect(result.failed).toBe(true)
     expect(
       result.chunks.some(
-        (chunk) => chunk.type === EventType.RUN_FINISHED || chunk.type === EventType.TOOL_CALL_END,
+        (chunk) =>
+          chunk.type === EventType.RUN_FINISHED ||
+          chunk.type === EventType.TOOL_CALL_END ||
+          chunk.type === EventType.MESSAGES_SNAPSHOT,
       ),
     ).toBe(false)
     expect(

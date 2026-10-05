@@ -1191,6 +1191,16 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const thread = await create()
     const admitted = await admit(thread.id)
     await runtime.runPromise(service.finish({ claim: admitted.claim!, payload }))
+    const continued = await admit(thread.id)
+    await runtime.runPromise(
+      service.finish({
+        claim: continued.claim!,
+        payload: {
+          ...payload,
+          parts: payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+        },
+      }),
+    )
     const [branch] = await db
       .insert(chatMessage)
       .values({
@@ -1207,23 +1217,31 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
     expect(history.map((message) => message.id)).not.toContain(branch!.id)
     const { messages: page } = await runtime.runPromise(
-      service.snapshot({ scope, id: thread.id, pageSize: 1 }),
+      service.snapshot({ scope, id: thread.id, pageSize: 2 }),
     )
-    expect(page.items[0]!.id).toBe(admitted.assistantMessage!.id)
+    expect(page.items.map((message) => message.id)).toEqual([
+      continued.inputMessage.id,
+      continued.assistantMessage!.id,
+    ])
     const { messages: older } = await runtime.runPromise(
-      service.snapshot({ scope, id: thread.id, pageSize: 1, position: page.nextPosition! }),
+      service.snapshot({ scope, id: thread.id, pageSize: 2, position: page.nextPosition! }),
     )
-    expect(older.items[0]!.id).toBe(admitted.inputMessage.id)
+    expect(older.items.map((message) => message.id)).toEqual([
+      admitted.inputMessage.id,
+      admitted.assistantMessage!.id,
+    ])
     const { messages: newer } = await runtime.runPromise(
       service.snapshot({
         scope,
         id: thread.id,
-        pageSize: 1,
+        pageSize: 2,
         position: older.previousPosition!,
         backward: true,
       }),
     )
-    expect(newer.items[0]!.id).toBe(admitted.assistantMessage!.id)
+    expect(newer.items.map((message) => message.id)).toEqual(
+      page.items.map((message) => message.id),
+    )
     expect(
       (
         await runtime.runPromise(
@@ -1233,7 +1251,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         )
       )._tag,
     ).toBe("ChatThreadNotFound")
-    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 1 }))
+    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 2 }))
     expect(await db.select().from(chatMessage).where(eq(chatMessage.threadId, thread.id))).toEqual(
       [],
     )

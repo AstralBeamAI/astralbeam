@@ -367,10 +367,12 @@ export function createAstralBeamChat(
   // replaces its own render and a reset disposes them all.
   const renderCleanups = new Map<string, () => void>()
   const restoredWidgets = new Set<string>()
+  const restoringWidgets = new Set<string>()
   const disposeRenders = () => {
     for (const cleanup of renderCleanups.values()) cleanup()
     renderCleanups.clear()
     restoredWidgets.clear()
+    restoringWidgets.clear()
   }
   const renderWidget = async (input: RenderWidgetInput, toolCallId: string) => {
     const generation = selectionGeneration
@@ -380,10 +382,13 @@ export function createAstralBeamChat(
     }
     const declaration = widgets[input.widget]
     const validated = await validateParameters(declaration?.parameters, input.props ?? {})
-    if (generation !== selectionGeneration) return { widget: input.widget, rendered: false }
+    if (generation !== selectionGeneration || declaration !== live.widgets?.[input.widget])
+      return { widget: input.widget, rendered: false }
     if (validated == null) {
       throw new Error(`Props for widget "${input.widget}" failed validation`)
     }
+    const onRenderWidget = live.onRenderWidget
+    if (!onRenderWidget) return { widget: input.widget, rendered: false }
     renderCleanups.get(toolCallId)?.()
     renderCleanups.delete(toolCallId)
     // Compared by identity, so a late release cannot forget the cleanup of a newer render that
@@ -392,7 +397,7 @@ export function createAstralBeamChat(
     const release = () => {
       if (renderCleanups.get(toolCallId) === registered) renderCleanups.delete(toolCallId)
     }
-    const cleanup = live.onRenderWidget?.({
+    const cleanup = onRenderWidget({
       widget: input.widget,
       props: validated,
       toolCallId,
@@ -403,7 +408,7 @@ export function createAstralBeamChat(
       renderCleanups.set(toolCallId, cleanup)
     }
     restoredWidgets.add(toolCallId)
-    return { widget: input.widget, rendered: live.onRenderWidget !== undefined }
+    return { widget: input.widget, rendered: true }
   }
 
   const restoreCompletedWidgets = (messages: readonly UIMessage[]) => {
@@ -446,11 +451,18 @@ export function createAstralBeamChat(
             ? upstream
             : part.id)
         stored.widgetRenderId = renderId
-        if (restoredWidgets.has(renderId)) continue
-        restoredWidgets.add(renderId)
-        void renderWidget(part.input as RenderWidgetInput, renderId).catch((error: unknown) =>
-          debug?.("error", "Saved widget could not be rendered", error),
-        )
+        if (restoredWidgets.has(renderId) || restoringWidgets.has(renderId)) continue
+        restoringWidgets.add(renderId)
+        const generation = selectionGeneration
+        const { widgets, onRenderWidget } = live
+        void renderWidget(part.input as RenderWidgetInput, renderId)
+          .catch((error: unknown) => debug?.("error", "Saved widget could not be rendered", error))
+          .finally(() => {
+            if (generation !== selectionGeneration) return
+            restoringWidgets.delete(renderId)
+            if (widgets !== live.widgets || onRenderWidget !== live.onRenderWidget)
+              restoreCompletedWidgets(state.messages)
+          })
       }
     }
   }
@@ -1300,6 +1312,7 @@ export function createAstralBeamChat(
       const agent = live.agentId
       const apiUrl = live.apiUrl
       const selectedId = live.threadId
+      const { widgets, onRenderWidget } = live
       live = { ...live, ...next }
       debug = createDebugLogger(live.debug)
       updateAuthentication(authentication, {
@@ -1327,6 +1340,8 @@ export function createAstralBeamChat(
       } else if (live.threadId !== selectedId) {
         selectConfiguredThread()
       }
+      if (widgets !== live.widgets || onRenderWidget !== live.onRenderWidget)
+        restoreCompletedWidgets(state.messages)
       if (started && (live.agentId !== agent || live.apiUrl !== apiUrl)) void resolveCapabilities()
     },
     sendMessage,

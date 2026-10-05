@@ -204,6 +204,104 @@ test("refresh and older history restore new widgets once without executing saved
   }
 })
 
+test.each(["definition", "renderer", "failed-render"])(
+  "saved widgets recover when an unavailable %s is supplied in place",
+  async (missing) => {
+    savedMessages = savedWidget("card", "late")
+    const widgets = { card: { description: "A host card" } }
+    const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
+    const chat = createAstralBeamChat({
+      fetchAstralBeamToken: chatAuthToken,
+      threadId: thread.id,
+      widgets: missing === "definition" ? {} : widgets,
+      onRenderWidget:
+        missing === "renderer"
+          ? undefined
+          : missing === "failed-render"
+            ? () => {
+                throw new Error("Host is not ready")
+              }
+            : onRenderWidget,
+    })
+    try {
+      await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
+      chat.updateOptions({ widgets, onRenderWidget })
+      await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+      chat.updateOptions({ widgets: { ...widgets } })
+      await chat.refreshThread()
+      expect(onRenderWidget).toHaveBeenCalledTimes(1)
+      expect(onRenderWidget.mock.calls[0]?.[0].toolCallId).toBe("saved:assistant-late:part-late")
+    } finally {
+      chat.dispose()
+    }
+  },
+)
+
+test("a widget definition changed during validation retries with the new schema", async () => {
+  savedMessages = savedWidget("card", "late")
+  const validation = Promise.withResolvers<{ value: Record<string, unknown> }>()
+  const validate = vi.fn(() => validation.promise)
+  const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
+  const card = {
+    description: "A host card",
+    parameters: { "~standard": { version: 1 as const, vendor: "test", validate } },
+  }
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: chatAuthToken,
+    threadId: thread.id,
+    widgets: { card },
+    onRenderWidget,
+  })
+  try {
+    await vi.waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
+    chat.updateOptions({
+      widgets: { card: { description: "A card without parameter transforms" } },
+    })
+    validation.resolve({ value: { obsolete: true } })
+    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+    expect(onRenderWidget.mock.calls[0]?.[0].props).toEqual({})
+  } finally {
+    chat.dispose()
+  }
+})
+
+test("an old async restoration cannot release a newly selected thread's pending render", async () => {
+  savedMessages = savedWidget("card", "late")
+  const complete: Array<(result: { value: Record<string, unknown> }) => void> = []
+  const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: chatAuthToken,
+    threadId: thread.id,
+    widgets: {
+      card: {
+        description: "A host card",
+        parameters: {
+          "~standard": {
+            version: 1,
+            vendor: "test",
+            validate: () => new Promise((resolve) => complete.push(resolve)),
+          },
+        },
+      },
+    },
+    onRenderWidget,
+  })
+  try {
+    await vi.waitFor(() => expect(complete).toHaveLength(1))
+    await chat.openThread(thread.id)
+    expect(complete).toHaveLength(2)
+    complete[0]!({ value: {} })
+    await Promise.resolve()
+    chat.updateOptions({ onRenderWidget: (request) => onRenderWidget(request) })
+    await chat.refreshThread()
+    expect(complete).toHaveLength(2)
+    complete[1]!({ value: {} })
+    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+  } finally {
+    chat.dispose()
+  }
+})
+
 test("later stream snapshots preserve a live widget without rendering it again", async () => {
   const fetchHistory = fetch
   let sends = 0

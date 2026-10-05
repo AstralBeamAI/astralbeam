@@ -389,6 +389,12 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
         chunk.type === EventType.RUN_FINISHED ||
         chunk.type.startsWith("TOOL_CALL_")
       ) {
+        if (chunk.type === EventType.MESSAGES_SNAPSHOT) {
+          const previous = state.buffered.findIndex(
+            (event) => event.type === EventType.MESSAGES_SNAPSHOT,
+          )
+          if (previous !== -1) state.buffered.splice(previous, 1)
+        }
         state.buffered.push(output)
         return null
       }
