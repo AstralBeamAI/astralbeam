@@ -6,7 +6,7 @@ import { SqlClient } from "effect/sql"
 import { Database } from "../../db/database.server.ts"
 import { user } from "../../db/schema/authentication.server.ts"
 import { apiKey, invitation, member, organization } from "../../db/schema/organizations.server.ts"
-import { deleteTenantRow } from "../tenants/deletion.server.ts"
+import { deleteTenant } from "../tenants/deletion.server.ts"
 
 /** Ends dashboard, REST, and SDK access at once and returns the owners' user IDs to notify. */
 export const revokeOrganizationAccess = Effect.fn("revokeOrganizationAccess")(function* (
@@ -41,14 +41,14 @@ export const deleteOrganizationTenantBatch = Effect.fn("deleteOrganizationTenant
   const sql = yield* SqlClient.SqlClient
   const tenants = yield* sql<{ id: string }>`select id from tenant
     where organization_id = ${organizationId} limit 1000`
-  yield* Effect.forEach(tenants, ({ id }) => deleteTenantRow({ organizationId, tenantId: id }), {
+  yield* Effect.forEach(tenants, ({ id }) => deleteTenant({ organizationId, tenantId: id }), {
     discard: true,
   })
   return tenants.length
 })
 
 /** Cascades to the organization's remaining agents, sandbox providers, and configuration. */
-export const deleteOrganizationRow = Effect.fn("deleteOrganizationRow")(function* (
+export const deleteOrganization = Effect.fn("deleteOrganization")(function* (
   organizationId: string,
 ) {
   const sql = yield* SqlClient.SqlClient

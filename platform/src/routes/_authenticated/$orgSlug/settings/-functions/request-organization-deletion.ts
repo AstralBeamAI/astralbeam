@@ -14,7 +14,7 @@ import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { SlugSchema } from "@/lib/organizations/slug"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema, UuidV7Schema } from "@/lib/schemas"
-import deleteOrganization from "@/lib/workflows/delete-organization.server"
+import deleteOrganizationWorkflow from "@/lib/workflows/delete-organization.server"
 
 export const requestOrganizationDeletion = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["delete"] })])
@@ -39,7 +39,7 @@ export const requestOrganizationDeletion = createServerFn({ method: "POST" })
           .withTransaction(
             Effect.gen(function* () {
               const ownerUserIds = yield* revokeOrganizationAccess(organizationId)
-              yield* deleteOrganization.execute(
+              yield* deleteOrganizationWorkflow.execute(
                 {
                   organizationId,
                   operationId: crypto.randomUUID(),

@@ -22,11 +22,8 @@ import { Database, getAuthDatabase } from "@/db/database.server"
 import { getForeignKeyDeferrability } from "@/db/lib/columns.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { Mailer } from "@/lib/email/email.server"
-import {
-  deleteOrganizationRow,
-  revokeOrganizationAccess,
-} from "@/lib/organizations/deletion.server"
-import { deleteTenantRow } from "@/lib/tenants/deletion.server"
+import { deleteOrganization, revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
+import { deleteTenant } from "@/lib/tenants/deletion.server"
 import {
   agent,
   agentModel,
@@ -46,7 +43,7 @@ import {
   tables,
   user,
 } from "@/db/schema.server"
-import deleteOrganization, {
+import deleteOrganizationWorkflow, {
   deleteOrganizationWorkflowLayer,
 } from "./delete-organization.server.ts"
 
@@ -204,7 +201,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
 
   function organizationDeletion(
     organizationId: string,
-    workflow: Pick<typeof deleteOrganization, "execute"> = deleteOrganization,
+    workflow: Pick<typeof deleteOrganizationWorkflow, "execute"> = deleteOrganizationWorkflow,
   ) {
     return workflow
       .execute({
@@ -601,10 +598,10 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   })
 
   test.each([
-    ["Tenant row", (scope: { organizationId: string; tenantId: string }) => deleteTenantRow(scope)],
+    ["Tenant", (scope: { organizationId: string; tenantId: string }) => deleteTenant(scope)],
     [
-      "Organization row",
-      (scope: { organizationId: string }) => deleteOrganizationRow(scope.organizationId),
+      "Organization",
+      (scope: { organizationId: string }) => deleteOrganization(scope.organizationId),
     ],
   ] as const)(
     "defers constraints for the %s purge even in an immediate transaction",
@@ -679,8 +676,8 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     const scope = await createOrganization("legacy")
     await createDeletionChat(scope)
     const legacyWorkflow = Workflow.make("DeleteOrganization/v1", {
-      payload: deleteOrganization.payloadSchema,
-      idempotencyKey: deleteOrganization.idempotencyKey,
+      payload: deleteOrganizationWorkflow.payloadSchema,
+      idempotencyKey: deleteOrganizationWorkflow.idempotencyKey,
     })
     await runAppEffect(organizationDeletion(scope.organizationId, legacyWorkflow))
     expect(await db.select().from(organization)).toEqual([])

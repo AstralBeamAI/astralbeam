@@ -3,7 +3,7 @@ import { Activity, Workflow } from "effect/workflow"
 
 import { Mailer } from "../email/email.server.ts"
 import {
-  deleteOrganizationRow,
+  deleteOrganization,
   deleteOrganizationTenantBatch,
   readUserEmails,
 } from "../organizations/deletion.server.ts"
@@ -20,7 +20,7 @@ const legacyDeleteOrganization = Workflow.make("DeleteOrganization/v1", {
   idempotencyKey: ({ organizationId, operationId }) => `${organizationId}:${operationId}`,
 })
 
-const deleteOrganization = Workflow.make("DeleteOrganization/v2", {
+const deleteOrganizationWorkflow = Workflow.make("DeleteOrganization/v2", {
   payload: legacyDeleteOrganization.payloadSchema,
   idempotencyKey: legacyDeleteOrganization.idempotencyKey,
 })
@@ -68,20 +68,20 @@ const notifyOrganizationOwners = Effect.fn("notifyOrganizationOwners")(function*
 })
 
 const purgeOrganization = Effect.fn("purgeOrganization")(function* (
-  payload: typeof deleteOrganization.payloadSchema.Type,
+  payload: typeof deleteOrganizationWorkflow.payloadSchema.Type,
 ) {
   const { organizationId } = payload
   yield* purgeOrganizationStep(
     "DeleteTenants",
     drainOrganizationBatches(deleteOrganizationTenantBatch(organizationId)),
   )
-  yield* purgeOrganizationStep("DeleteOrganization", deleteOrganizationRow(organizationId))
+  yield* purgeOrganizationStep("DeleteOrganization", deleteOrganization(organizationId))
   yield* Effect.logInfo("Organization deleted", { organizationId })
   yield* Activity.make({ name: "NotifyOwners", execute: notifyOrganizationOwners(payload) })
 })
 
 export const deleteOrganizationWorkflowLayer = Layer.mergeAll(
-  deleteOrganization.toLayer(purgeOrganization),
+  deleteOrganizationWorkflow.toLayer(purgeOrganization),
   legacyDeleteOrganization.toLayer((payload) =>
     Effect.gen(function* () {
       // Preserve v1's journal checkpoint, with user deletion now handled by Tenant cascades.
@@ -92,4 +92,4 @@ export const deleteOrganizationWorkflowLayer = Layer.mergeAll(
   ),
 )
 
-export default deleteOrganization
+export default deleteOrganizationWorkflow

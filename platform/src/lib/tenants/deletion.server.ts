@@ -7,7 +7,7 @@ import { Database } from "../../db/database.server.ts"
 import { tenant } from "../../db/schema/organizations.server.ts"
 
 /** Cascades to the Tenant's users and chat rows in one transaction. */
-export const deleteTenantRow = Effect.fn("deleteTenantRow")(function* (input: {
+export const deleteTenant = Effect.fn("deleteTenant")(function* (input: {
   organizationId: string
   tenantId: string
 }) {
