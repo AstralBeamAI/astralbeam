@@ -11,6 +11,7 @@ import { attachmentAcceptAttribute } from "../lib/attachments.ts"
 import type { DraftAttachment, ResolvedAttachmentOptions } from "../lib/types.ts"
 import { cn } from "cn"
 import { describeError } from "../lib/utils.ts"
+import { isAstralBeamApiError } from "../../api/api.ts"
 import { ComposerAttachments } from "./composer-attachments.tsx"
 
 interface ChatComposerProps {
@@ -115,10 +116,10 @@ export function ChatComposer({
           className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive"
         >
           <div className="min-w-0 flex-1">
-            <div>{describeError(error)}</div>
-            {error?.message && (
-              <div className="mt-0.5 truncate text-muted-foreground" title={error.message}>
-                {error.message}
+            <div className="break-words">{describeError(error)}</div>
+            {isAstralBeamApiError(error) && error.body?.reference && (
+              <div className="mt-0.5 text-muted-foreground">
+                Support reference: {error.body.reference}
               </div>
             )}
           </div>

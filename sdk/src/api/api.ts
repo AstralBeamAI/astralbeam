@@ -41,6 +41,7 @@ function isApiErrorBody(value: unknown, status: number): value is AstralBeamApiE
     typeof body.type === "string" &&
     typeof body.title === "string" &&
     typeof body.detail === "string" &&
+    (body.reference === undefined || typeof body.reference === "string") &&
     (body.issues === undefined ||
       (Array.isArray(body.issues) &&
         body.issues.every(
@@ -90,6 +91,7 @@ async function apiResponse(path: string, options: ApiOptions | FileOptions): Pro
 
 export async function astralBeamApiFetch<T>(path: string, options: ApiOptions): Promise<T> {
   const response = await apiResponse(path, options)
+  if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
 

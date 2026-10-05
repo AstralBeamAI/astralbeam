@@ -32,10 +32,11 @@ const rejected = (cursor: string, input: Partial<Parameters<typeof decodeRestCur
   )
 
 describe("opaque pagination cursors", () => {
-  it.effect("maximum-length Unicode cursors fit the limit and survive retained-key rotation", () =>
+  it.effect("maximum-length compound cursors retain positions across key rotation", () =>
     Effect.gen(function* () {
+      const position = { ...cursorPosition, updatedAt: "2026-10-05T12:00:00.000Z" }
       const cursor = yield* encodeRestCursor({
-        position: cursorPosition,
+        position,
         collection,
         scope: cursorScope,
         keyring: cursorOldKeyring,
@@ -47,7 +48,7 @@ describe("opaque pagination cursors", () => {
         scope: cursorScope,
         keyring: cursorRotatedKeyring,
       })
-      assert.deepStrictEqual(decoded, cursorPosition)
+      assert.deepStrictEqual(decoded, position)
       yield* rejected(cursor, { keyring: parseDatabaseEncryptionKeyring(cursorNewSecret) })
     }),
   )

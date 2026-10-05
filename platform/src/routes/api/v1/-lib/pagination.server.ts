@@ -1,7 +1,7 @@
 import { createHash, hkdfSync } from "node:crypto"
 import { Effect, Schema } from "effect"
 import { HttpApiSchema } from "effect/http-api"
-import type { DatabasePage } from "@/db/lib/pagination.server"
+import type { DatabasePage, DatabasePageOptions } from "@/db/lib/pagination.server"
 import { CompactSign, compactVerify, decodeProtectedHeader } from "jose"
 import {
   type DatabaseEncryptionKeyring,
@@ -18,7 +18,12 @@ const REST_CURSOR_KEY_INFO = new TextEncoder().encode("pagination-cursor:hs256:v
 
 const decodeRestCursorPayload = Schema.decodeUnknownEffect(
   Schema.fromJsonString(
-    Schema.Struct({ version: Schema.Literal(1), binding: Schema.String, id: ApiUuidSchema }),
+    Schema.Struct({
+      version: Schema.Literal(1),
+      binding: Schema.String,
+      id: ApiUuidSchema,
+      updatedAt: Schema.optional(Schema.String),
+    }),
   ),
   { onExcessProperty: "error" },
 )
@@ -64,13 +69,13 @@ function restCursorBinding(collection: RestCollection, scope: RestCursorScope) {
 }
 
 export const encodeRestCursor = Effect.fn("encodeRestCursor")(function* (
-  input: RestCursorInput & { readonly position: { readonly id: string } },
+  input: RestCursorInput & { readonly position: NonNullable<DatabasePageOptions["position"]> },
 ) {
   const [activeKey] = input.keyring ?? getDatabaseEncryptionKeyring()
   const cursor = {
     version: 1,
     binding: restCursorBinding(input.collection, input.scope),
-    id: input.position.id,
+    ...input.position,
   }
   return yield* Effect.tryPromise({
     try: () =>
@@ -105,7 +110,7 @@ export const decodeRestCursor = Effect.fn("decodeRestCursor")(function* (
   if (decoded.binding !== restCursorBinding(input.collection, input.scope)) {
     return yield* new RestInvalidCursor()
   }
-  return { id: decoded.id }
+  return { id: decoded.id, ...(decoded.updatedAt ? { updatedAt: decoded.updatedAt } : {}) }
 })
 
 export const restPageOptions = Effect.fn("restPageOptions")(function* (
@@ -134,7 +139,7 @@ export const restPageOptions = Effect.fn("restPageOptions")(function* (
   }
 })
 
-export const restPage = Effect.fn("restPage")(function* <T extends { readonly id: string }>(
+export const restPage = Effect.fn("restPage")(function* <T>(
   page: DatabasePage<T>,
   options: {
     collection: RestCollection
@@ -147,7 +152,7 @@ export const restPage = Effect.fn("restPage")(function* <T extends { readonly id
   },
 ) {
   const { collection, scope, url, backward, externalId, search, admin } = options
-  const cursorFor = (position: { readonly id: string } | null) =>
+  const cursorFor = (position: DatabasePage<T>["nextPosition"]) =>
     position
       ? encodeRestCursor({
           position,

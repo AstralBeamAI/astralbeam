@@ -30,7 +30,6 @@ export function directoriesPage(page: Page) {
     },
     showAdmin: page.getByRole("checkbox", { name: "Show stored admin fields" }),
     tenantContext: users.locator("header p"),
-    loadMore: users.getByRole("button", { name: "Load more", exact: true }),
     tenantOption: (name: string) => users.getByRole("option", { name: new RegExp(name) }),
     tenant: (name: string) => tenants.getByRole("button", { name, exact: true }),
     user: (name: string) => users.getByRole("button", { name, exact: true }),

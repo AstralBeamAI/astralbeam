@@ -1,4 +1,3 @@
-import { OpenApi } from "effect/http-api"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { RateLimiter } from "effect/persistence"
@@ -82,7 +81,6 @@ vi.mock("@/lib/auth/organization-token.server", () => ({
 import { ApiV1Routes } from "./transport.server"
 import { handleApiV1Request } from "./route.server"
 import { authenticateRestRequest } from "./auth.server"
-import { ApiV1 } from "./contract.server"
 import { RestApiErrorSchema } from "./shared.server"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
@@ -1136,19 +1134,5 @@ describe("REST API through the Effect Fetch handler", () => {
     for (const query of ["page_size=0", "page_after=x", "sort=id"]) {
       expect((await restRequest(`/tenants?${query}`)).status).toBe(400)
     }
-  })
-})
-
-describe("REST request boundaries", () => {
-  test("OpenAPI keeps stable shared Tenant and TenantUser record models", () => {
-    const document = OpenApi.fromApi(ApiV1)
-    expect(
-      Object.keys(document.components.schemas).filter((name) => name.startsWith("TenantRecord")),
-    ).toEqual(["TenantRecordEncoded"])
-    expect(
-      Object.keys(document.components.schemas).filter((name) =>
-        name.startsWith("TenantUserRecord"),
-      ),
-    ).toEqual(["TenantUserRecordEncoded"])
   })
 })

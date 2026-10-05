@@ -325,10 +325,19 @@ export function createAstralBeamChat(
         debug?.("stream", `custom event "${eventType}"`, data)
       },
       // Read per event rather than captured, so a `debug` update reaches the next chunk.
-      onChunk: (chunk) => live.streamCallbacks?.onChunk?.(chunk),
-      onResponse: (response) => live.streamCallbacks?.onResponse?.(response),
-      onFinish: (message) => live.streamCallbacks?.onFinish?.(message),
-      onError: (error) => live.streamCallbacks?.onError?.(error),
+      onChunk: (chunk) => {
+        if (client !== next) return
+        live.streamCallbacks?.onChunk?.(chunk)
+      },
+      onResponse: (response) => {
+        if (client === next) live.streamCallbacks?.onResponse?.(response)
+      },
+      onFinish: (message) => {
+        if (client === next) live.streamCallbacks?.onFinish?.(message)
+      },
+      onError: (error) => {
+        if (client === next) live.streamCallbacks?.onError?.(error)
+      },
     })
     return next
   }

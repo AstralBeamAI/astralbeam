@@ -5,8 +5,8 @@
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.3.0_react-dom@19.3.0",
     "npm:@shadcn/react@0.3": "0.3.0_@types+react@19.3.0_react@19.3.0",
     "npm:@tailwindcss/cli@^4.3.3": "4.3.3",
-    "npm:@tanstack/ai-client@0.36": "0.36.0",
-    "npm:@tanstack/ai@0.63": "0.63.0",
+    "npm:@tanstack/ai-client@~0.36.1": "0.36.1",
+    "npm:@tanstack/ai@0.64": "0.64.0",
     "npm:@tanstack/eslint-plugin-query@^5.103.2": "5.103.2_eslint@10.11.0_typescript@6.0.3",
     "npm:@tanstack/markdown@1": "1.0.0_react@19.3.0",
     "npm:@tanstack/react-pacer@0.23": "0.23.0_react@19.3.0_react-dom@19.3.0",
@@ -1756,8 +1756,8 @@
         "@tailwindcss/oxide-win32-x64-msvc"
       ]
     },
-    "@tanstack/ai-client@0.36.0": {
-      "integrity": "sha512-fXqf2r+PeV79jZwY6ZJ3QwL5yKC56qB60nOSDbHYJfmCcW/sOkFN8/Z4SIrQdwsDpDYlAJNuXzSs4xx2M3s6VA==",
+    "@tanstack/ai-client@0.36.1": {
+      "integrity": "sha512-IULs3+suIMXvXAbMVHV+HI0r0U2YsUdwiHIqfHyJEJv9ZWW1ZC/0q+yhByTJBW+Fps55dfGigu3Nn1LxNts6wA==",
       "dependencies": [
         "@tanstack/ai",
         "@tanstack/ai-event-client",
@@ -1773,8 +1773,8 @@
     "@tanstack/ai-utils@0.4.1": {
       "integrity": "sha512-B3PGn2WYiRtivZCt7MUN2iXeoK9fwZhgdbrPIz5hPqVR8r8sNDZMmMqtiOkp7sxzPvVlCBItFVHw7QpZ9g6e9w=="
     },
-    "@tanstack/ai@0.63.0": {
-      "integrity": "sha512-4S4hOOc/2LvxNkMzwuBaECtchPQsxrlLNqnmi/WjcXmX8gyboy8UNPwwS/9XzFFJ4VwSEW2Md+h+OtTGmf6Y/g==",
+    "@tanstack/ai@0.64.0": {
+      "integrity": "sha512-8/ambmqJIGgwTkNad5/y4R5s9kwAr4ylDVeQVLDxSvkzp9FydL/QkVKsQuLWbuG9wu66UQ0GkNWmlWwxQojObg==",
       "dependencies": [
         "@ag-ui/core",
         "@standard-schema/spec",
@@ -4623,8 +4623,8 @@
         "npm:@phosphor-icons/react@^2.1.10",
         "npm:@shadcn/react@0.3",
         "npm:@tailwindcss/cli@^4.3.3",
-        "npm:@tanstack/ai-client@0.36",
-        "npm:@tanstack/ai@0.63",
+        "npm:@tanstack/ai-client@~0.36.1",
+        "npm:@tanstack/ai@0.64",
         "npm:@tanstack/eslint-plugin-query@^5.103.2",
         "npm:@tanstack/markdown@1",
         "npm:@tanstack/react-pacer@0.23",
