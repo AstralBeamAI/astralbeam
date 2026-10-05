@@ -385,7 +385,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(admitted.thread.updatedAt.getTime()).toBeGreaterThanOrEqual(afterWait.getTime())
   })
 
-  test("rejects concurrent uploads beyond the restored file budget before admitting input", async () => {
+  test("counts uploads only in their thread and rejects concurrent uploads beyond its budget", async () => {
     const thread = await create()
     const file = Buffer.alloc(10 * 1024 * 1024, " ")
     file.write("%PDF-1.7")
@@ -405,6 +405,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       })
     await runtime.runPromise(upload())
+    const separate = await runtime.runPromise(service.create({ scope: other }))
+    const [original] = await db
+      .select()
+      .from(chatMessage)
+      .where(and(eq(chatMessage.threadId, thread.id), eq(chatMessage.role, "user")))
+    await db.insert(chatMessage).values({ ...original!, threadId: separate.id })
     const results = await Promise.allSettled([
       runtime.runPromise(upload()),
       runtime.runPromise(upload()),
@@ -1282,6 +1288,17 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       service.checkpoint({ claim: accepted.claim!, payload: decision, state: "complete" }),
     )
     await runtime.runPromise(service.finish({ claim: accepted.claim! }))
+    const separate = await runtime.runPromise(service.create({ scope: other }))
+    const messages = await db.select().from(chatMessage).where(eq(chatMessage.threadId, thread.id))
+    const parts = await db
+      .select()
+      .from(chatMessagePart)
+      .where(eq(chatMessagePart.threadId, thread.id))
+    await db.insert(chatMessage).values(messages.map((row) => ({ ...row, threadId: separate.id })))
+    await db.insert(chatMessagePart).values(parts.map((row) => ({ ...row, threadId: separate.id })))
+    const pending = await runtime.runPromise(service.pending({ scope, id: thread.id }))
+    expect(pending.map(({ target }) => target.id).sort()).toEqual([targetA, targetB])
+    expect(pending.every(({ message }) => message.threadId === thread.id)).toBe(true)
     const rows = await db
       .select()
       .from(chatToolResponse)
@@ -1294,7 +1311,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       rows.every((row) => row.tenantUserId === scope.tenantUserId && row.resultMessageId === null),
     ).toBe(true)
     const restored = await db.query.chatMessage.findFirst({
-      where: { id: accepted.assistantMessage!.id },
+      where: { threadId: thread.id, id: accepted.assistantMessage!.id },
       with: { parts: { with: { responses: true } } },
     })
     expect(restored!.parts[0]!.responses).toHaveLength(2)
@@ -1305,14 +1322,14 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         .where(eq(chatMessage.id, accepted.inputMessage.id)),
     ).rejects.toThrow()
     await db.execute(
-      sql`update chat_message_part set payload = '{"version":2,"type":"text","content":"unsupported"}'::jsonb, execution_location = null, updated_at = now() where id = ${partId}`,
+      sql`update chat_message_part set payload = '{"version":2,"type":"text","content":"unsupported"}'::jsonb, execution_location = null, updated_at = now() where thread_id = ${thread.id} and id = ${partId}`,
     )
     await expect(
       db.select().from(chatMessagePart).where(eq(chatMessagePart.id, partId)),
     ).rejects.toThrow()
     await expect(
       db.query.chatMessage.findFirst({
-        where: { id: accepted.assistantMessage!.id },
+        where: { threadId: thread.id, id: accepted.assistantMessage!.id },
         with: { parts: true },
       }),
     ).rejects.toThrow()

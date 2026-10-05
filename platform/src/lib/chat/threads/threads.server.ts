@@ -186,6 +186,7 @@ const readChatMessages = Effect.fnUntraced(function* (
       and(
         eq(chatMessagePart.organizationId, chatToolResponse.organizationId),
         eq(chatMessagePart.tenantId, chatToolResponse.tenantId),
+        eq(chatMessagePart.threadId, chatToolResponse.threadId),
         eq(chatMessagePart.id, chatToolResponse.toolPartId),
       ),
     )
@@ -687,6 +688,7 @@ const unresolvedCalls = Effect.fnUntraced(function* (
       and(
         eq(chatMessagePart.organizationId, chatToolResponse.organizationId),
         eq(chatMessagePart.tenantId, chatToolResponse.tenantId),
+        eq(chatMessagePart.threadId, chatToolResponse.threadId),
         eq(chatMessagePart.id, chatToolResponse.toolPartId),
       ),
     )
@@ -695,6 +697,7 @@ const unresolvedCalls = Effect.fnUntraced(function* (
       and(
         eq(chatMessage.organizationId, chatMessagePart.organizationId),
         eq(chatMessage.tenantId, chatMessagePart.tenantId),
+        eq(chatMessage.threadId, chatMessagePart.threadId),
         eq(chatMessage.id, chatMessagePart.messageId),
       ),
     )
@@ -1427,6 +1430,7 @@ export class ChatThreads extends Context.Service<
                         and(
                           eq(chatMessage.organizationId, chatMessagePart.organizationId),
                           eq(chatMessage.tenantId, chatMessagePart.tenantId),
+                          eq(chatMessage.threadId, chatMessagePart.threadId),
                           eq(chatMessage.id, chatMessagePart.messageId),
                         ),
                       )
