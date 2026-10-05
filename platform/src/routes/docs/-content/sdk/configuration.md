@@ -12,7 +12,6 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
 | `title` | `"AstralBeam"` | Name in the widget's header |
 | `showHeader` | `true` | `false` hides the header and its reset button |
-| `showSharing` | `false` | Show participant and sharing controls in the widget |
 | `emptyTitle`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme` | `"system"` | `"light"`, `"dark"`, or follow the OS setting live |
 | `theme` | built-in palette | `{ light, dark }` CSS token overrides, see [Theming](./theming.md) |
@@ -70,7 +69,7 @@ Conversations are saved automatically and start private. Your token endpoint sup
 
 - Disconnecting may interrupt generation. Saved input, accepted tool results, and the last saved partial response remain available.
 - Reopening never repeats a business tool. An unconfirmed action needs an explicit response or closure before its turn can continue.
-- `reset()` starts another conversation. Deletion removes saved messages and uploaded files but does not undo tool actions.
+- `reset()` starts another conversation. Managers can delete conversations, including their saved messages and uploaded files. Deletion does not undo tool actions.
 - Uploaded files remain available with their conversation. Generated sandbox files can expire independently.
 - `threadId` defaults to `"auto"`, restoring this tab's selection after authentication. Fresh independent tabs start a new chat. Use `"new"` to bypass restoration or a UUID to open explicitly.
 
@@ -81,16 +80,3 @@ Conversations are saved automatically and start private. Your token endpoint sup
 ```
 
 Duplicating a tab or opening one through an opener can copy its initial session storage. The tabs maintain independent selections afterwards.
-
-## Optional sharing controls
-
-Sharing controls are hidden by default. If your application needs them, let's enable `showSharing` explicitly.
-
-```tsx
-<AstralBeamChat showSharing={true} />
-```
-
-- Managers can add existing same-Tenant users as viewers, members, or managers. A Tenant admin does not automatically receive access.
-- Viewers read, members also send, and managers also rename, delete, and manage participants.
-- Participants can send while other clients generate responses. Each client waits for its own foreground request before sending again.
-- `showSharing` controls the widget UI. Hiding it does not revoke existing access or disable [headless participant actions](./headless.md#saved-conversation-controls).

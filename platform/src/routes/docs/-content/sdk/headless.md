@@ -71,8 +71,6 @@ await chat.sendMessage("Continue from here")
 ```
 
 - Read `thread`, `threads`, and `threadLoading` from session state. Wait for hydration before enabling your composer.
-- Use `reset()` to start a fresh conversation, and `renameThread(title)` and `deleteThread()` to manage saved threads.
-- `listParticipants()` reads access grants. Managers can use `setParticipant(tenantUserId, role)` and `removeParticipant(tenantUserId)` with an existing same-Tenant user.
-- `showSharing` only controls the drop-in widget's sharing UI. Headless participant actions remain available for custom interfaces.
-- Keep tool responses associated with their stored call and target. Participant identity and browser-client identity are different.
-- Multiple clients can read saved state. Live event replay, background recovery, branching controls, and tool fan-out are not available yet.
+- Use `reset()` for a fresh conversation. Managers can rename and delete saved threads with `renameThread(title)` and `deleteThread()`.
+- Keep tool responses associated with their stored call and target across browser clients.
+- You can reopen saved state from another client. Live event replay, background recovery, branching controls, and tool fan-out are not available yet.

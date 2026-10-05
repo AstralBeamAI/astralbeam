@@ -4,18 +4,15 @@ import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session
 import { Button } from "./ui/button.tsx"
 import { Input } from "./ui/input.tsx"
 import { SearchDropdown } from "./search-dropdown.tsx"
-import { ThreadParticipants } from "./thread-participants.tsx"
 
 export function ThreadHistory({
   chat,
   state,
-  showSharing,
   onSelect,
   onDelete,
 }: {
   chat: AstralBeamChatCore
   state: AstralBeamChatState
-  showSharing: boolean
   onSelect: () => void
   onDelete: (threadId: string) => void
 }) {
@@ -86,7 +83,6 @@ export function ThreadHistory({
             >
               <TrashIcon />
             </Button>
-            {showSharing && <ThreadParticipants key={selected.id} chat={chat} state={state} />}
           </>
         )}
       </div>

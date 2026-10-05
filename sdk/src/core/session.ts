@@ -12,16 +12,10 @@ import {
   createChatThread,
   deleteChatThread,
   getChatAttachment,
-  getChatThread,
   getChatConfig,
   getResolveChatToolResultUrl,
   getRunChatUrl,
   listChatThreads,
-  listChatParticipants,
-  searchChatTenantUsers,
-  type ChatTenantUserPage,
-  setChatParticipant,
-  removeChatParticipant,
   updateChatThread,
 } from "../api/generated/api.ts"
 import {
@@ -166,13 +160,6 @@ export interface AstralBeamChatState {
   /** Retained until the server acknowledges the send, including after an uncertain network failure. */
   unsentMessage: string | MultimodalContent | undefined
   activeToolCallIds: readonly string[]
-  participants: readonly {
-    tenantUserId: string
-    role: "viewer" | "member" | "manager"
-    name: string | null
-    externalId: string
-    email: string | null
-  }[]
   pendingInteractions: readonly ChatPendingInteraction[]
 }
 
@@ -216,14 +203,6 @@ export interface AstralBeamChatCore {
   deleteThread: () => Promise<void>
   refreshThread: () => Promise<void>
   loadOlderMessages: () => Promise<void>
-  listParticipants: () => Promise<void>
-  searchTenantUsers: (
-    q: string,
-    cursor: string | undefined,
-    signal: AbortSignal,
-  ) => Promise<ChatTenantUserPage>
-  setParticipant: (tenantUserId: string, role: "viewer" | "member" | "manager") => Promise<void>
-  removeParticipant: (tenantUserId: string) => Promise<void>
   abandonToolCall: (toolCallId: string) => Promise<void>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
@@ -261,7 +240,6 @@ export function createAstralBeamChat(
     olderMessagesLoading: false,
     unsentMessage: undefined,
     activeToolCallIds: [],
-    participants: [],
     pendingInteractions: [],
   }
   const update = (next: Partial<AstralBeamChatState>) => {
@@ -962,7 +940,6 @@ export function createAstralBeamChat(
       status: "ready",
       sandbox: { files: [], commands: [] },
       sandboxStatus: undefined,
-      participants: [],
       pendingInteractions: [],
       threadLoadFailed: false,
       messagesCursor: undefined,
@@ -1118,77 +1095,6 @@ export function createAstralBeamChat(
       update({ threads: state.threads.filter((item) => item.id !== thread.id) })
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
-    }
-  }
-
-  const listParticipants = async () => {
-    const thread = state.thread
-    if (!thread) return
-    const generation = selectionGeneration
-    try {
-      const options = await requestOptions()
-      const participants: AstralBeamChatState["participants"][number][] = []
-      let cursor: string | undefined
-      do {
-        const page = await listChatParticipants(
-          thread.id,
-          { page_size: 100, ...(cursor ? { page_after: cursor } : {}) },
-          options,
-        )
-        participants.push(
-          ...page.items.map((item) => ({
-            tenantUserId: item.tenant_user_id,
-            role: item.role,
-            name: item.name,
-            externalId: item.external_id,
-            email: item.email,
-          })),
-        )
-        cursor = page.page_after ?? undefined
-      } while (cursor)
-      if (generation === selectionGeneration) update({ participants })
-    } catch (error) {
-      if (generation === selectionGeneration) reportError(error)
-    }
-  }
-  const updateParticipant = async (
-    tenantUserId: string,
-    role?: "viewer" | "member" | "manager",
-  ) => {
-    const thread = state.thread
-    if (!thread || thread.role !== "manager") return
-    const generation = selectionGeneration
-    try {
-      const options = await requestOptions()
-      if (role)
-        await setChatParticipant(
-          thread.id,
-          tenantUserId,
-          { role, expected_version: thread.version },
-          options,
-        )
-      else
-        await removeChatParticipant(
-          thread.id,
-          tenantUserId,
-          { expected_version: String(thread.version) },
-          options,
-        )
-      if (generation !== selectionGeneration) return
-      const record = await getChatThread(thread.id, options)
-      if (generation !== selectionGeneration) return
-      update({ thread: threadFromRecord(record, state.thread!.hasMessages) })
-      if (record.role === "viewer") client.stop()
-      await listParticipants()
-    } catch (error) {
-      if (generation === selectionGeneration) {
-        if (isAstralBeamApiError(error) && error.status === 404) {
-          newThread()
-          void listThreads()
-          return
-        }
-        reportError(error)
-      }
     }
   }
 
@@ -1489,19 +1395,6 @@ export function createAstralBeamChat(
       const response = await getChatAttachment(thread.id, messageId, partId, await requestOptions())
       return response.blob()
     },
-    listParticipants,
-    searchTenantUsers: async (q, cursor, signal) => {
-      const thread = state.thread
-      if (!thread) throw new Error("Open a conversation before searching TenantUsers.")
-      const options = await requestOptions()
-      return searchChatTenantUsers(
-        thread.id,
-        { q, ...(cursor ? { page_after: cursor } : {}) },
-        { ...options, signal: AbortSignal.any([signal, options.signal!]) },
-      )
-    },
-    setParticipant: updateParticipant,
-    removeParticipant: (tenantUserId) => updateParticipant(tenantUserId),
     abandonToolCall,
     reset: () => {
       debug?.("status", "conversation reset")

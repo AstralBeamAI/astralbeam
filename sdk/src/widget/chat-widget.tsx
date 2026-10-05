@@ -399,7 +399,6 @@ export function ChatWidget({
         key={`${apiUrl}:${draftIdentity}`}
         chat={chat}
         state={chatState}
-        showSharing={options.showSharing ?? false}
         onDelete={(id) => {
           storedThreadDraft(apiUrl, draftIdentity, id, "")
           setDrafts((current) => {

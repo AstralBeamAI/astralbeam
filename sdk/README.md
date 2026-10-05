@@ -95,7 +95,6 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API. The widget calls `/v1/chat` there |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header and reset button show |
-| `showSharing` | `false` | Show participant and sharing controls in the widget |
 | `emptyTitle`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme`, `theme` | `"system"`, built-in palette | Light/dark/system, and shadcn token overrides |
 | `customCss` | None | Trusted CSS inside the widget's Shadow DOM |
@@ -107,7 +106,7 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 
 A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
 
-Conversations are saved automatically and start private. The widget searches saved titles and hides sharing controls unless you set `showSharing: true`. Reopening history does not execute earlier tool calls. Disconnecting can interrupt the current response.
+Conversations are saved automatically and start private. The widget searches saved conversation titles. Reopening history does not execute earlier tool calls. Disconnecting can interrupt the current response.
 
 The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat.core`, for example `chat.core.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.
 

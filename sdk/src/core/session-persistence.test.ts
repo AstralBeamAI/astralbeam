@@ -883,16 +883,16 @@ test.each([
   },
 )
 
-test("sharing preserves generation, while revoking the sender's write access stops it", async () => {
+test("server-side revocation interrupts generation and blocks subsequent sends", async () => {
   let record = { ...thread }
-  let aborted = 0
-  let stream: ReadableStreamDefaultController<Uint8Array>
+  let sends = 0
+  let stream!: ReadableStreamDefaultController<Uint8Array>
   const response = new ReadableStream<Uint8Array>({
     start(controller) {
       stream = controller
     },
   })
-  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+  vi.stubGlobal("fetch", (input: string | URL) => {
     const path = String(input)
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
     if (path.includes("/messages?"))
@@ -901,22 +901,8 @@ test("sharing preserves generation, while revoking the sender's write access sto
       return Promise.resolve(
         Response.json({ items: [record], page_after: null, page_before: null }),
       )
-    if (path.includes("/participants/") && init?.method === "PUT") {
-      record = {
-        ...record,
-        version: record.version + 1,
-        role: path.endsWith(`/participants/${currentUser.user.id}`) ? "viewer" : "manager",
-      }
-      return Promise.resolve(Response.json({ tenant_user_id: "other", role: "member" }))
-    }
-    if (path.includes("/participants?"))
-      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
-    if (path.endsWith(`/threads/${thread.id}`)) return Promise.resolve(Response.json(record))
     if (path.endsWith("/chat")) {
-      init?.signal?.addEventListener("abort", () => {
-        aborted++
-        stream.error(new DOMException("Cancelled", "AbortError"))
-      })
+      sends++
       const chunks = [
         { type: "RUN_STARTED", threadId: thread.id, runId: "run" },
         { type: "TEXT_MESSAGE_START", messageId: "assistant", role: "assistant" },
@@ -938,13 +924,19 @@ test("sharing preserves generation, while revoking the sender's write access sto
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
     const send = chat.sendMessage("Start")
     await vi.waitFor(() => expect(chat.getState().status).toBe("streaming"))
-    await chat.setParticipant("other", "member")
-    expect(aborted).toBe(0)
-    expect(chat.getState().status).toBe("streaming")
-    await chat.setParticipant(currentUser.user.id, "viewer")
+    record = { ...record, role: "viewer", version: record.version + 1 }
+    stream.enqueue(
+      new TextEncoder().encode(
+        `data: ${JSON.stringify({ type: "RUN_ERROR", message: "Write access was revoked." })}\n\n`,
+      ),
+    )
+    stream.close()
     await send
-    expect(aborted).toBe(1)
     expect(chat.getState().thread?.role).toBe("viewer")
+    expect(chat.getState().error?.message).toContain("Write access was revoked")
+    await chat.sendMessage("A new input")
+    expect(sends).toBe(1)
+    expect(chat.getState().error?.message).toContain("read-only")
   } finally {
     chat.dispose()
   }
@@ -1494,42 +1486,35 @@ test("a deleted agent disables generation without resolving the default agent", 
   }
 })
 
-test("successful manager self-removal leaves a fresh conversation without an error", async () => {
+test("refresh after membership removal leaves a fresh conversation without an error", async () => {
   let removed = false
-  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+  vi.stubGlobal("fetch", (input: string | URL) => {
     const path = new URL(input).pathname
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
-    if (path.includes("/participants/") && init?.method === "DELETE") {
-      removed = true
-      return Promise.resolve(new Response(null, { status: 204 }))
-    }
-    if (path.endsWith(`/threads/${thread.id}`) && removed)
+    if (path.endsWith("/messages") && removed)
       return Promise.resolve(
         Response.json(
           { status: 404, title: "Not found", detail: "Conversation not found." },
           { status: 404 },
         ),
       )
+    if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
     if (path.endsWith("/config"))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
     return Promise.resolve(
       Response.json({ items: removed ? [] : [thread], page_after: null, page_before: null }),
     )
   })
-  const onError = vi.fn()
   const chat = createAstralBeamChat({
     threadId: thread.id,
     fetchAstralBeamToken: token,
-    streamCallbacks: { onError },
   })
   try {
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-    await chat.removeParticipant(currentUser.user.id)
-    expect(removed).toBe(true)
+    removed = true
+    await chat.refreshThread()
     expect(chat.getState().thread).toBeUndefined()
     expect(chat.getState().error).toBeUndefined()
-    expect(onError).not.toHaveBeenCalled()
   } finally {
     chat.dispose()
   }

@@ -86,7 +86,7 @@ export interface UseAstralBeamChatResult extends AstralBeamChatState {
   stop: () => void
   reload: () => Promise<void>
   reset: () => void
-  /** Conversation management, participant actions, and the full headless session. */
+  /** Conversation management and the full headless session. */
   core: AstralBeamChatCore
 }
 
@@ -165,7 +165,6 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       threadId,
       title,
       showHeader,
-      showSharing,
       header,
       empty,
       composerActions,
@@ -285,7 +284,6 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         fetchAstralBeamToken,
         title,
         showHeader,
-        showSharing,
         emptyTitle,
         emptyDescription,
         colorScheme,
@@ -305,7 +303,6 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         fetchAstralBeamToken,
         title,
         showHeader,
-        showSharing,
         emptyTitle,
         emptyDescription,
         colorScheme,
