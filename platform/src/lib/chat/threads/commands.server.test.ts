@@ -30,10 +30,11 @@ const commandParams: ChatParams = {
 describe("managed conversation commands", () => {
   it.effect("validates uploaded content before accepting input", () => {
     const admitted: AdmitInput[] = []
+    let attachmentsEnabled = true
     const layer = Layer.mergeAll(
       Layer.succeed(SqlClient.SqlClient, {} as SqlClient.SqlClient),
       Layer.succeed(Agents, {
-        resolveForChat: () => Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
+        resolveForChat: () => Effect.succeed({ attachmentsEnabled, sandboxProviderId: null }),
       } as unknown as typeof Agents.Service),
       Layer.succeed(ChatThreads, {
         get: () => Effect.succeed({ agentId: commandThreadId }),
@@ -79,6 +80,26 @@ describe("managed conversation commands", () => {
         }).pipe(Effect.result)
         assert.equal(invalid._tag, "Failure")
       }
+      attachmentsEnabled = false
+      const disabled = yield* prepareManagedChat({
+        ...input,
+        params: {
+          ...commandParams,
+          messages: [
+            {
+              id: "upload",
+              role: "user",
+              content: [
+                {
+                  type: "document",
+                  source: { type: "data", value: btoa("hello"), mimeType: "text/plain" },
+                },
+              ],
+            },
+          ],
+        },
+      }).pipe(Effect.flip)
+      assert.equal(disabled._tag, "ChatAttachmentsDisabled")
       assert.lengthOf(admitted, 1)
     }).pipe(Effect.provide(layer))
   })

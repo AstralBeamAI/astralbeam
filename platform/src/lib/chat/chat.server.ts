@@ -8,7 +8,7 @@ import {
 } from "@tanstack/ai"
 import { Context, Effect, identity, Layer, Stream } from "effect"
 
-import { ChatThreads } from "./threads/threads.server"
+import { ChatThreads, type MessageRecord } from "./threads/threads.server"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory } from "./threads/projection.server"
 import {
@@ -16,7 +16,10 @@ import {
   managedChatMiddleware,
   type ManagedChatExecution,
 } from "./threads/stream.server"
-import { ModelProviders } from "@/lib/model-providers/model-providers.server"
+import {
+  ModelProviders,
+  type ChatModelConfiguration,
+} from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter.server"
 import { createChatAttachmentTools } from "./attachments/tools.server"
@@ -36,7 +39,6 @@ import {
 import { chatDebugLog, withChatDebugLog } from "./debug.server"
 import {
   ChatAgentNotFound,
-  ChatAttachmentsDisabled,
   ChatDefaultAgentMissing,
   ChatModelMissing,
   ChatModelKeyUnreadable,
@@ -79,6 +81,31 @@ function chatEventStream(start: (abortController: AbortController) => AsyncItera
   )
 }
 
+const prepareChatHistory = Effect.fnUntraced(function* ({
+  history,
+  model,
+  sandbox,
+}: {
+  readonly history: readonly MessageRecord[]
+  readonly model: ChatModelConfiguration
+  readonly sandbox: boolean
+}) {
+  const projected = yield* Effect.try({
+    try: () =>
+      projectChatModelHistory(history, {
+        providerId: model.providerId,
+        protocol: model.api,
+        modelId: model.modelId,
+      }),
+    catch: () => new ChatThreadInvalid(),
+  })
+  const normalized = normalizeChatAttachments(projected, { sandbox })
+  if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
+    return yield* new ChatThreadInvalid()
+  // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
+  return { projected, ...normalized }
+})
+
 export class Chat extends Context.Service<
   Chat,
   {
@@ -90,7 +117,6 @@ export class Chat extends Context.Service<
     }) => Effect.Effect<
       Stream.Stream<StreamChunk>,
       | ChatAgentNotFound
-      | ChatAttachmentsDisabled
       | ChatDefaultAgentMissing
       | ChatModelMissing
       | ChatModelKeyUnreadable
@@ -147,14 +173,15 @@ export class Chat extends Context.Service<
           id: input.managed.claim.threadId,
           messageId: input.managed.claim.assistantMessageId,
         })
-        const inputMessages = yield* Effect.try({
-          try: () =>
-            projectChatModelHistory(history, {
-              providerId: model.providerId,
-              protocol: model.api,
-              modelId: model.modelId,
-            }),
-          catch: () => new ChatThreadInvalid(),
+        const {
+          projected: inputMessages,
+          messages,
+          attachments,
+          files,
+        } = yield* prepareChatHistory({
+          history,
+          model,
+          sandbox: agent.sandboxProviderId !== null,
         })
         const unknownOutcome = history.some(
           (message) =>
@@ -176,17 +203,6 @@ export class Chat extends Context.Service<
           })
           yield* log("request", "conversation messages", redactChatAttachmentData(inputMessages))
           yield* log("request", `client-declared tools (${params.tools.length})`, params.tools)
-        }
-        // Attachments become what the model reads before the run, since the provider adapter throws
-        // on a part it cannot map. A file with no text view needs a sandbox to go to.
-        const { messages, attachments, files } = normalizeChatAttachments(inputMessages, {
-          sandbox: agent.sandboxProviderId !== null,
-        })
-        if (attachments.some((attachment) => attachment.result === "rejected"))
-          return yield* new ChatThreadInvalid()
-        // Agent capability policy, enforced here regardless of what the client narrowed.
-        if (!agent.attachmentsEnabled && attachments.length > 0) {
-          return yield* new ChatAttachmentsDisabled()
         }
         if (log && attachments.length > 0) {
           yield* log("attachment", `${attachments.length} attachment(s) normalized`, attachments)
@@ -248,20 +264,13 @@ export class Chat extends Context.Service<
                   scope: claim.scope,
                   id: claim.threadId,
                 })
-                const projected = projectChatModelHistory(saved, {
-                  providerId: model.providerId,
-                  protocol: model.api,
-                  modelId: model.modelId,
-                })
-                const normalized = normalizeChatAttachments(projected, {
+                const normalized = yield* prepareChatHistory({
+                  history: saved,
+                  model,
                   sandbox: agent.sandboxProviderId !== null,
                 })
-                if (normalized.attachments.some((file) => file.result === "rejected"))
-                  return yield* new ChatThreadInvalid()
-                if (!agent.attachmentsEnabled && normalized.attachments.length)
-                  return yield* new ChatAttachmentsDisabled()
                 files.splice(0, files.length, ...normalized.files)
-                inputMessages.splice(0, inputMessages.length, ...projected)
+                inputMessages.splice(0, inputMessages.length, ...normalized.projected)
                 if (session) yield* session.prepareUploads(files)
                 if (!unknownOutcome)
                   tools.splice(

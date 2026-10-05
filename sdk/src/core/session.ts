@@ -47,6 +47,7 @@ import type { RenderWidgetInput, SandboxActivity, SandboxStatus } from "./types.
 import {
   type ChatThread,
   type ChatPendingInteraction,
+  type ChatToolCallPart,
   threadFromRecord,
   newUuid,
   loadThreadMessages,
@@ -350,14 +351,9 @@ export function createAstralBeamChat(
     }
     const agentId = state.thread ? state.thread.agentId : live.agentId
     try {
-      const token = await getValidChatAuthToken(authentication)
+      const auth = await requestOptions()
       if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
-      const body = await getChatConfig(agentId ? { agentId } : {}, {
-        apiUrl: authentication.apiUrl,
-        astralBeamToken: token,
-        signal: authentication.session.abortController.signal,
-        fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
-      })
+      const body = await getChatConfig(agentId ? { agentId } : {}, auth)
       if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
       const attachments = body.capabilities?.attachments !== false
       update({ capabilities: { attachments } })
@@ -415,11 +411,7 @@ export function createAstralBeamChat(
     for (const message of state.messages) {
       for (const part of message.parts) {
         if (part.type !== "tool-call" || part.name !== RENDER_WIDGET_TOOL) continue
-        const stored = part as typeof part & {
-          applicationPartId?: string
-          responseTargetId?: string
-          widgetRenderId?: string
-        }
+        const stored = part as ChatToolCallPart
         if (stored.applicationPartId && stored.widgetRenderId)
           renderIds.set(
             savedToolCallId(message.id, stored.applicationPartId, stored.responseTargetId),
@@ -436,12 +428,7 @@ export function createAstralBeamChat(
           !part.input
         )
           continue
-        const stored = part as typeof part & {
-          upstreamToolCallId?: string
-          applicationPartId?: string
-          responseTargetId?: string
-          widgetRenderId?: string
-        }
+        const stored = part as ChatToolCallPart
         const upstream = stored.upstreamToolCallId
         const renderId =
           stored.widgetRenderId ??
@@ -863,12 +850,7 @@ export function createAstralBeamChat(
         const aliases = new Map<string, string>()
         const parts = message.parts.map((part) => {
           if (part.type !== "tool-call") return part
-          const stored = part as typeof part & {
-            upstreamToolCallId?: string
-            applicationPartId?: string
-            responseTargetId?: string
-            widgetRenderId?: string
-          }
+          const stored = part as ChatToolCallPart
           const upstreamToolCallId = stored.upstreamToolCallId ?? part.id
           if (liveToolMessageIds.get(upstreamToolCallId) === message.id && !isSettledToolCall(part))
             return part
@@ -1185,10 +1167,11 @@ export function createAstralBeamChat(
       reportError(new Error("Reopen this conversation or start a new one before sending."))
       return
     }
-    const retrying =
-      pendingSend?.tools !== undefined &&
-      !pendingSend.accepted &&
-      JSON.stringify(pendingSend.content) === JSON.stringify(content)
+    const samePendingContent =
+      pendingSend !== undefined && JSON.stringify(pendingSend.content) === JSON.stringify(content)
+    const uncertainSend =
+      pendingSend?.tools !== undefined && !pendingSend.accepted ? pendingSend : undefined
+    const retrying = uncertainSend !== undefined && samePendingContent
     if (state.thread?.agentId === null && !retrying) {
       reportError(
         new Error(
@@ -1201,13 +1184,8 @@ export function createAstralBeamChat(
       reportError(new Error("You have read-only access to this conversation."))
       return
     }
-    if (
-      pendingSend &&
-      !pendingSend.accepted &&
-      pendingSend.tools !== undefined &&
-      JSON.stringify(pendingSend.content) !== JSON.stringify(content)
-    ) {
-      update({ unsentMessage: pendingSend.content })
+    if (uncertainSend && !samePendingContent) {
+      update({ unsentMessage: uncertainSend.content })
       reportError(
         new Error(
           "The previous message’s acceptance is unconfirmed. Retry that message before sending different text, or start a new conversation.",
@@ -1219,11 +1197,7 @@ export function createAstralBeamChat(
     historyGeneration++
     update({ olderMessagesLoading: false })
     sending = true
-    if (
-      !pendingSend ||
-      pendingSend.accepted ||
-      JSON.stringify(pendingSend.content) !== JSON.stringify(content)
-    ) {
+    if (!pendingSend || pendingSend.accepted || !samePendingContent) {
       pendingSend = {
         content,
         accepted: false,

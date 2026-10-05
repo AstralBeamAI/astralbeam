@@ -8,6 +8,7 @@ import type { WidgetDefinition } from "../../lib/types.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../../core/protocol.ts"
 import { isSandboxTool } from "../../core/sandbox.ts"
 import type { RenderWidgetInput } from "../../core/types.ts"
+import type { ChatToolCallPart } from "../../core/threads.ts"
 import type { QuestionnaireAnswer } from "../lib/types.ts"
 import {
   formatToolJson,
@@ -20,8 +21,6 @@ import { InlineQuestionnaire } from "./inline-questionnaire.tsx"
 import { MarkdownMessage } from "./markdown-message.tsx"
 import { SandboxPart } from "./sandbox-part.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
-
-type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
 
 interface AssistantPartProps {
   part: MessagePart
@@ -73,7 +72,7 @@ function ToolCallDisclosure({
   title,
   failed,
 }: {
-  part: ToolCallPart
+  part: ChatToolCallPart
   title: string | undefined
   failed: boolean
 }) {
@@ -121,7 +120,7 @@ function WidgetCallPart({
   widgets,
   activeSlots,
 }: Pick<AssistantPartProps, "widgets" | "activeSlots"> & {
-  part: ToolCallPart
+  part: ChatToolCallPart
 }) {
   const input = part.input as RenderWidgetInput | undefined
   const definition = input ? getWidget(widgets, input.widget) : undefined
@@ -134,7 +133,7 @@ function WidgetCallPart({
       <ToolCallMarker running>Preparing a widget</ToolCallMarker>
     )
   }
-  const renderId = (part as ToolCallPart & { widgetRenderId?: string }).widgetRenderId ?? part.id
+  const renderId = part.widgetRenderId ?? part.id
   const slotName = slotNameForToolCall(renderId)
   // A saved call without a render may be incompatible, unavailable, or evicted.
   // Its stored success describes the original rendering, not this client's view.
@@ -162,7 +161,7 @@ function QuestionnaireCallPart({
   part,
   onQuestionnaireAnswers,
 }: Pick<AssistantPartProps, "onQuestionnaireAnswers"> & {
-  part: ToolCallPart
+  part: ChatToolCallPart
 }) {
   if (part.output != null) {
     const skipped = (part.output as { skipped?: boolean }).skipped === true
@@ -217,7 +216,7 @@ export function AssistantPart({
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       if (interrupted && !isSettledToolCall(part))
         return <FailureMarker>This action request was interrupted.</FailureMarker>
-      if ((part as ToolCallPart & { resultOutcome?: unknown }).resultOutcome === "unknown") {
+      if ((part as ChatToolCallPart).resultOutcome === "unknown") {
         return (
           <FailureMarker>
             The outcome of {title ?? part.name} is unknown. It was not retried.

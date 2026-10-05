@@ -29,6 +29,16 @@ export interface SavedMessageMetadata {
   authorTenantUserId: string | null
 }
 
+/** Application identities extend TanStack's tool part without replacing its provider identity. */
+export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool-call" }> & {
+  upstreamToolCallId?: string
+  applicationPartId?: string
+  sourceMessageId?: string
+  responseTargetId?: string
+  widgetRenderId?: string
+  resultOutcome?: "succeeded" | "failed" | "skipped" | "unknown"
+}
+
 export function newUuid(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16))
   bytes[6] = (bytes[6]! & 15) | 64
@@ -106,7 +116,7 @@ export function projectThreadMessages(
   liveToolMessageIds: ReadonlyMap<string, string> = new Map(),
 ) {
   const messages: UIMessage[] = []
-  const calls = new Map<string, Extract<UIMessage["parts"][number], { type: "tool-call" }>>()
+  const calls = new Map<string, ChatToolCallPart>()
   for (const message of records) {
     if (message.role === "tool") {
       for (const part of message.parts) {
@@ -168,7 +178,7 @@ export function projectThreadMessages(
           applicationPartId: part.id,
           sourceMessageId: message.id,
           responseTargetId,
-        } as unknown as Extract<UIMessage["parts"][number], { type: "tool-call" }>
+        } as unknown as ChatToolCallPart
         calls.set(savedId, call)
         return call
       })

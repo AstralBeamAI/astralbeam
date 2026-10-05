@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { chatParamsFromRequestBody, EventType } from "@tanstack/ai"
+import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tanstack/ai"
 import { Effect, Layer, Stream } from "effect"
 import { beforeEach, vi } from "vitest"
 
@@ -11,6 +11,7 @@ const chatRunTest = vi.hoisted(() => ({
     adapter: { model: string }
     modelOptions?: unknown
     toolExecution?: string
+    middleware: ChatMiddleware[]
   }>,
   order: [] as string[],
   runError: undefined as object | undefined,
@@ -25,6 +26,7 @@ vi.mock("@tanstack/ai", async (original) => ({
     tools: Array<{ name: string }>
     adapter: { model: string }
     abortController: AbortController
+    middleware: ChatMiddleware[]
   }) => {
     chatRunTest.options.push(options)
     return (async function* () {
@@ -415,10 +417,21 @@ describe("Chat.run", () => {
     ),
   )
 
-  it.effect("refuses attachments the agent does not accept", () =>
+  it.effect("replays saved attachments after uploads are disabled, including context refresh", () =>
     Effect.gen(function* () {
-      const failure = yield* Effect.flip(runChat())
-      assert.strictEqual(failure._tag, "ChatAttachmentsDisabled")
+      yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+      const options = chatRunTest.options[0]!
+      assert.isTrue(options.tools.some((tool) => tool.name === "read_attachment"))
+      assert.include(JSON.stringify(options.messages), "[Attached: notes.txt]")
+      const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
+      const refreshed = yield* Effect.promise(async () =>
+        gate.onConfig!(
+          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
+          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
+        ),
+      )
+      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: notes.txt]")
+      assert.isTrue(refreshed?.tools?.some((tool) => tool.name === "read_attachment"))
     }).pipe(
       Effect.provide(
         chatTestLayer({
