@@ -189,6 +189,9 @@ export class Chat extends Context.Service<
               [...sandboxTools, ...createChatAttachmentTools(files)],
               params.tools,
             ),
+            // A sandbox command or publication can depend on an earlier tool's file write.
+            // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
+            toolExecution: "sequential",
             // The client rebuilds its transcript from the snapshot an interrupt boundary emits,
             // so the turns it sent have to survive the rewrite above.
             middleware: [createChatAttachmentSnapshotMiddleware(params.messages)],

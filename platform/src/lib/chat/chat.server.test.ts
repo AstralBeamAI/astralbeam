@@ -9,6 +9,7 @@ const chatRunTest = vi.hoisted(() => ({
     tools: Array<{ name: string }>
     adapter: { model: string }
     modelOptions?: unknown
+    toolExecution?: string
   }>,
   order: [] as string[],
   runError: undefined as object | undefined,
@@ -226,12 +227,13 @@ describe("Chat.run", () => {
     }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 
-  it.effect("uses the assigned model without forcing reasoning options", () =>
+  it.effect("uses the assigned model with sequential tools and no forced reasoning", () =>
     Effect.gen(function* () {
       const events = yield* runChat()
       yield* Stream.runCollect(Stream.take(events, 1))
       assert.strictEqual(chatRunTest.options[0]!.adapter.model, "gateway-model")
       assert.isUndefined(chatRunTest.options[0]!.modelOptions)
+      assert.strictEqual(chatRunTest.options[0]!.toolExecution, "sequential")
     }).pipe(
       Effect.provide(
         chatTestLayer({

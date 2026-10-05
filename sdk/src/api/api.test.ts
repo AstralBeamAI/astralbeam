@@ -60,6 +60,25 @@ test("204 successes do not attempt to decode an absent response body", async () 
   ).resolves.toBeUndefined()
 })
 
+test.each([undefined, "support-id", { id: "support-id" }])(
+  "only accepts error bodies with optional string references: %j",
+  async (reference) => {
+    const body = {
+      type: "about:blank",
+      title: "Unavailable",
+      detail: "Try later",
+      status: 503,
+      reference,
+    }
+    const fetchClient = () => Promise.resolve(Response.json(body, { status: 503 }))
+    const error = await listTenants({}, { apiKey: "key", fetchClient }).catch(
+      (error: unknown) => error,
+    )
+    assert(isAstralBeamApiError(error))
+    expect(error.body).toEqual(typeof reference === "object" ? undefined : body)
+  },
+)
+
 test("invalid JSON successes and native abort errors propagate", async () => {
   const fetchClient = vi.fn<typeof fetch>().mockResolvedValue(new Response("invalid json"))
   await expect(listTenants({}, { apiKey: "key", fetchClient })).rejects.toBeInstanceOf(SyntaxError)
