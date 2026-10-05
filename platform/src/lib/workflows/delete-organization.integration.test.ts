@@ -3,7 +3,7 @@ import { getTableConfig } from "drizzle-orm/pg-core"
 import { Cause, Effect, Exit, Fiber, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
-import { Workflow, WorkflowEngine } from "effect/workflow"
+import { WorkflowEngine } from "effect/workflow"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 const deleteOrganizationIntegration = vi.hoisted(() => {
@@ -212,11 +212,8 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     }
   }
 
-  function organizationDeletion(
-    organizationId: string,
-    workflow: Pick<typeof deleteOrganizationWorkflow, "execute"> = deleteOrganizationWorkflow,
-  ) {
-    return workflow
+  function organizationDeletion(organizationId: string) {
+    return deleteOrganizationWorkflow
       .execute({
         organizationId,
         operationId: crypto.randomUUID(),
@@ -735,17 +732,6 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         { organizationId: keptId },
       ])
     }
-  })
-
-  test("finishes legacy v1 deletions with historical authors and tool responders", async () => {
-    const scope = await createOrganization("legacy")
-    await createDeletionChat(scope)
-    const legacyWorkflow = Workflow.make("DeleteOrganization/v1", {
-      payload: deleteOrganizationWorkflow.payloadSchema,
-      idempotencyKey: deleteOrganizationWorkflow.idempotencyKey,
-    })
-    await runAppEffect(organizationDeletion(scope.organizationId, legacyWorkflow))
-    expect(await db.select().from(organization)).toEqual([])
   })
 
   test("keeps retrying a failed purge past any backoff window until the database recovers", async () => {
