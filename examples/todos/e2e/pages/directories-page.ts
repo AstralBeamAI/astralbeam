@@ -32,13 +32,8 @@ export function directoriesPage(page: Page) {
     tenantOption: (name: string) => users.getByRole("option", { name: new RegExp(name) }),
     tenant: (name: string) => tenants.getByRole("button", { name, exact: true }),
     user: (name: string) => users.getByRole("button", { name, exact: true }),
-    selectAdmin: async (label: string) => {
-      const picker = users.getByRole("combobox", { name: "Stored admin status" })
-      await picker.click()
-      await picker.fill(label)
-      await picker.press("ArrowDown")
-      await users.getByRole("option", { name: label, exact: true }).click()
-    },
+    selectAdmin: (label: string) =>
+      users.getByRole("combobox", { name: "Stored admin status" }).selectOption({ label }),
     adminFilter: users.getByRole("combobox", { name: "Stored admin status" }),
     metadata: users.locator("pre"),
     tenantPicker: users.getByRole("combobox", { name: "Tenant", exact: true }),

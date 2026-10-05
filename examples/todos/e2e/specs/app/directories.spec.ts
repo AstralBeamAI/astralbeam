@@ -172,7 +172,7 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   await directory.tenantOption(second.name).click()
   await expect(directory.user(second.users[0].name)).toBeVisible()
   await directory.tenantPicker.fill("missing-tenant-for-search")
-  await expect(directory.users.getByText("No tenants match.")).toBeVisible()
+  await expect(directory.users.getByText("No matches.")).toBeVisible()
   await expect(directory.tenantContext).toContainText(second.name)
   await directory.clearTenant.click()
   await expect(directory.user(second.users[0].name)).toHaveCount(0)
