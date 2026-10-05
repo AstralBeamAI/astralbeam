@@ -18,7 +18,7 @@ export function directoriesPage(page: Page) {
     reset: page.getByRole("button", { name: "Reset", exact: true }),
     unmount: page.getByRole("button", { name: "Unmount", exact: true }),
     remount: page.getByRole("button", { name: "Remount", exact: true }),
-    clearTenant: users.getByRole("button", { name: "Clear tenant" }),
+    clearTenant: users.getByRole("button", { name: "Clear selection" }),
     theme: page.getByRole("button", { name: /^Theme:/ }),
     customTheme: page.getByRole("button", { name: /^Custom theme:/ }),
     open: () => page.goto("/tenant-users"),
