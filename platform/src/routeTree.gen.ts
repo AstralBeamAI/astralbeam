@@ -22,7 +22,6 @@ import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
 import { Route as DevSplatRouteImport } from './routes/dev/$'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsSitemapDotxmlRouteImport } from './routes/docs/sitemap[.]xml'
-import { Route as SchemasThemeDotschemaDotjsonRouteImport } from './routes/schemas/theme[.]schema[.]json'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
 import { Route as AuthenticatedOrgSlugIndexRouteImport } from './routes/_authenticated/$orgSlug/index'
 import { Route as AuthenticatedChar126SplatRouteImport } from './routes/_authenticated/~/$'
@@ -118,12 +117,6 @@ const DocsSitemapDotxmlRoute = DocsSitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => DocsRouteRoute,
 } as any)
-const SchemasThemeDotschemaDotjsonRoute =
-  SchemasThemeDotschemaDotjsonRouteImport.update({
-    id: '/schemas/theme.schema.json',
-    path: '/schemas/theme.schema.json',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const authenticationAuthPathRoute = authenticationAuthPathRouteImport.update({
   id: '/(authentication)/auth/$path',
   path: '/auth/$path',
@@ -307,7 +300,6 @@ export interface FileRoutesByFullPath {
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/docs/sitemap.xml': typeof DocsSitemapDotxmlRoute
-  '/schemas/theme.schema.json': typeof SchemasThemeDotschemaDotjsonRoute
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
@@ -348,7 +340,6 @@ export interface FileRoutesByTo {
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/docs/sitemap.xml': typeof DocsSitemapDotxmlRoute
-  '/schemas/theme.schema.json': typeof SchemasThemeDotschemaDotjsonRoute
   '/configure': typeof ConfigureIndexRoute
   '/docs': typeof DocsIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
@@ -394,7 +385,6 @@ export interface FileRoutesById {
   '/api/status': typeof ApiStatusRoute
   '/dev/$': typeof DevSplatRoute
   '/docs/sitemap.xml': typeof DocsSitemapDotxmlRoute
-  '/schemas/theme.schema.json': typeof SchemasThemeDotschemaDotjsonRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
@@ -441,7 +431,6 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/dev/$'
     | '/docs/sitemap.xml'
-    | '/schemas/theme.schema.json'
     | '/configure/'
     | '/docs/'
     | '/auth/$path'
@@ -482,7 +471,6 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/dev/$'
     | '/docs/sitemap.xml'
-    | '/schemas/theme.schema.json'
     | '/configure'
     | '/docs'
     | '/auth/$path'
@@ -527,7 +515,6 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/dev/$'
     | '/docs/sitemap.xml'
-    | '/schemas/theme.schema.json'
     | '/_authenticated/'
     | '/configure/'
     | '/docs/'
@@ -571,7 +558,6 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   ApiStatusRoute: typeof ApiStatusRoute
   DevSplatRoute: typeof DevSplatRoute
-  SchemasThemeDotschemaDotjsonRoute: typeof SchemasThemeDotschemaDotjsonRoute
   authenticationAuthPathRoute: typeof authenticationAuthPathRoute
   ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -671,13 +657,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/docs/sitemap.xml'
       preLoaderRoute: typeof DocsSitemapDotxmlRouteImport
       parentRoute: typeof DocsRouteRoute
-    }
-    '/schemas/theme.schema.json': {
-      id: '/schemas/theme.schema.json'
-      path: '/schemas/theme.schema.json'
-      fullPath: '/schemas/theme.schema.json'
-      preLoaderRoute: typeof SchemasThemeDotschemaDotjsonRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/(authentication)/auth/$path': {
       id: '/(authentication)/auth/$path'
@@ -1032,7 +1011,6 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   ApiStatusRoute: ApiStatusRoute,
   DevSplatRoute: DevSplatRoute,
-  SchemasThemeDotschemaDotjsonRoute: SchemasThemeDotschemaDotjsonRoute,
   authenticationAuthPathRoute: authenticationAuthPathRoute,
   ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

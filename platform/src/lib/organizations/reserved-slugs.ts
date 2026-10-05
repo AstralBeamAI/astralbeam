@@ -28,7 +28,6 @@ export const RESERVED_ORGANIZATION_SLUGS = [
   "privacy",
   "public",
   "robots.txt",
-  "schemas",
   "settings",
   "sign-in",
   "sign-up",

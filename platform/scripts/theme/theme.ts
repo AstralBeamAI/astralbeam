@@ -23,7 +23,7 @@ import { parseListOfComponentValues } from "@csstools/css-parser-algorithms"
 import { tokenize } from "@csstools/css-tokenizer"
 import { Schema, SchemaIssue } from "effect"
 
-import themeAuthoringSchema from "../../src/theme/theme.schema.json" with { type: "json" }
+import themeAuthoringSchema from "./theme.schema.json" with { type: "json" }
 
 export type ThemeToken = keyof typeof themeAuthoringSchema.$defs.lightColors.properties
 export const themeTokenNames: readonly ThemeToken[] = Object.freeze(
@@ -31,7 +31,7 @@ export const themeTokenNames: readonly ThemeToken[] = Object.freeze(
 )
 export type ThemeMode = "light" | "dark"
 export const defaultThemeRadius = themeAuthoringSchema.$defs.geometry.properties.radius.default
-export const themeDefinitionSchemaUrl = themeAuthoringSchema.$id
+export const themeDefinitionSchemaUrl = themeAuthoringSchema.properties.$schema.default
 const maximumThemeColorLength = findSchemaMaximumLength(
   themeAuthoringSchema.$defs.themeColor.allOf,
   "theme color",
