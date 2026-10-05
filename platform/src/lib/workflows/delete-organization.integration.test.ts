@@ -1,6 +1,7 @@
 import { eq, getTableName, sql } from "drizzle-orm"
 import { getTableConfig } from "drizzle-orm/pg-core"
 import { Effect, Fiber, Layer } from "effect"
+import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
 import { Workflow, WorkflowEngine } from "effect/workflow"
 import { beforeEach, describe, expect, test, vi } from "vitest"
@@ -21,7 +22,11 @@ import { Database, getAuthDatabase } from "@/db/database.server"
 import { getForeignKeyDeferrability } from "@/db/lib/columns.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { Mailer } from "@/lib/email/email.server"
-import { revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
+import {
+  deleteOrganizationRow,
+  revokeOrganizationAccess,
+} from "@/lib/organizations/deletion.server"
+import { deleteTenantRow } from "@/lib/tenants/deletion.server"
 import {
   agent,
   agentModel,
@@ -595,12 +600,58 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     }
   })
 
+  test.each([
+    ["Tenant row", (scope: { organizationId: string; tenantId: string }) => deleteTenantRow(scope)],
+    [
+      "Organization row",
+      (scope: { organizationId: string }) => deleteOrganizationRow(scope.organizationId),
+    ],
+  ] as const)(
+    "defers constraints for the %s purge even in an immediate transaction",
+    async (_, purge) => {
+      const scope = await createOrganization("deleted")
+      const kept = await createOrganization("kept")
+      await createDeletionChat(scope)
+      await createDeletionChat(kept)
+      await runAppEffect(
+        Effect.gen(function* () {
+          const sqlClient = yield* SqlClient.SqlClient
+          yield* sqlClient.withTransaction(
+            Effect.gen(function* () {
+              yield* sqlClient`SET CONSTRAINTS ALL IMMEDIATE`
+              yield* purge(scope)
+            }),
+          )
+        }),
+      )
+      expect(await db.select({ organizationId: tenant.organizationId }).from(tenant)).toEqual([
+        { organizationId: kept.organizationId },
+      ])
+      const messages = await db
+        .select({ organizationId: chatMessage.organizationId })
+        .from(chatMessage)
+      expect(new Set(messages.map((row) => row.organizationId))).toEqual(
+        new Set([kept.organizationId]),
+      )
+    },
+  )
+
   test("revokes access at once and purges only the deleted organization", async () => {
     const deleted = await createOrganization("deleted")
     const kept = await createOrganization("kept")
     const { organizationId: deletedId, ownerId } = deleted
     const { organizationId: keptId } = kept
     await createDeletionChat(deleted)
+    const [anotherTenant] = await db
+      .insert(tenant)
+      .values({ organizationId: deletedId, externalId: "another" })
+      .returning()
+    await db.insert(tenantUser).values({
+      organizationId: deletedId,
+      tenantId: anotherTenant!.id,
+      externalId: "another",
+    })
+    await createDeletionChat({ ...deleted, tenantId: anotherTenant!.id })
     await createDeletionChat(kept)
 
     expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
