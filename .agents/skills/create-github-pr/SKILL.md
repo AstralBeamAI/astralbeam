@@ -31,7 +31,7 @@ For authorized updates to an existing PR or explicit metrics refreshes, use the 
 
 ## Project metrics comment
 
-- Keep one conversation comment starting with `<!-- astralbeam-pr-metrics -->` and `## Project metrics`. Use `Project`, `Metric`, `Base`, `Head`, and `Delta` columns for handwritten source lines, generated source lines, test lines, and build size of affected `platform`, `sdk`, and `cli` projects, including shared build inputs. Remove unaffected rows, or state that no measured projects are affected.
+- Keep one conversation comment starting with `<!-- astralbeam-pr-metrics -->` and `## Project metrics`. Post metrics in a Markdown table with `Metric`, `Base`, `Head`, and `Delta` columns, including the project name in each metric label, for handwritten source lines, generated source lines, test lines, and build size of affected `platform`, `sdk`, and `cli` projects, including shared build inputs. Remove unaffected rows, or state that no measured projects are affected.
 - Fetch the PR's current base and head. Compare the head with their merge base, recording the target branch, base SHA, merge-base SHA, and head SHA in the comment.
 - Build clean, isolated snapshots with the same OS, architecture, Deno version, and options, using each revision's frozen dependencies. Run `deno task --cwd <project> count-lines` even if a build fails. Reuse measurements, including `ready` output, only for matching commits and environments. Use build sizes only from successful builds.
 - Publish signed head-minus-baseline deltas using the task's units and precision. Publish available metrics when a measurement fails, marking missing values and their deltas `Unavailable` with a short reason.
