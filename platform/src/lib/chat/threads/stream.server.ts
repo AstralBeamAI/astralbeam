@@ -85,7 +85,7 @@ function managedToolPart(
 ) {
   const nativeId = Schema.decodeUnknownSync(Schema.String)(part.id)
   const tool = state.tools.find((candidate) => candidate.name === part.name)
-  const browser = !tool?.execute
+  const browser = tool !== undefined && !tool.execute
   const toolPartId = managedPartId(state.partIds, `tool:${nativeId}`)
   return {
     ...part,
@@ -374,10 +374,6 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       // https://tanstack.com/ai/latest/docs/guides/middleware
       for (const result of info.results) {
         if (state.settledToolCalls.has(result.toolCallId)) continue
-        const part = state.payload.parts.find(
-          (candidate) => candidate.toolCallId === result.toolCallId,
-        )
-        if (part?.executionLocation === "browser") continue
         await saveManagedToolResult(options, state, result.toolCallId, "failed", result.result)
       }
     },

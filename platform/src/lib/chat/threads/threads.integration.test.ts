@@ -606,6 +606,72 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await runtime.runPromise(service.finish({ claim: next }))
   })
 
+  test("server input rejection settles a browser decision without authorizing its execution", async () => {
+    const thread = await create()
+    const { claim } = await admit(thread.id)
+    const partId = crypto.randomUUID()
+    await runtime.runPromise(
+      service.checkpoint({
+        claim: claim!,
+        state: "complete",
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: partId,
+              type: "tool-call",
+              toolCallId: "invalid-input",
+              name: "update_record",
+              arguments: "{",
+              executionLocation: "browser",
+              targets: [{ id: targetA, tenantUserId: scope.tenantUserId, clientId: targetA }],
+            },
+          ],
+        },
+      }),
+    )
+    const result: ChatToolResolution = {
+      assistantMessageId: claim!.assistantMessageId,
+      toolPartId: partId,
+      responseTargetId: targetA,
+      payload: {
+        version: 1,
+        parts: [
+          {
+            id: crypto.randomUUID(),
+            type: "tool-result",
+            outcome: "failed",
+            output: { error: "Invalid tool input" },
+          },
+        ],
+      },
+    }
+    for (const outcome of ["succeeded", "unknown"]) {
+      await expect(
+        runtime.runPromise(
+          service.appendToolResults({
+            claim: claim!,
+            results: [
+              {
+                ...result,
+                payload: { ...result.payload, parts: [{ ...result.payload.parts[0]!, outcome }] },
+              },
+            ],
+          }),
+        ),
+      ).rejects.toMatchObject({ _tag: "ChatThreadForbidden" })
+    }
+    await runtime.runPromise(service.appendToolResults({ claim: claim!, results: [result] }))
+    const next = await runtime.runPromise(service.nextDraft({ claim: claim! }))
+    await runtime.runPromise(service.finish({ claim: next, payload }))
+    const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
+    expect(history[0]!.turnState).toBe("completed")
+    expect(history.filter((message) => message.role === "tool")).toMatchObject([
+      { authorTenantUserId: null, payload: { parts: [{ outcome: "failed" }] } },
+    ])
+    expect(await runtime.runPromise(service.pending({ scope, id: thread.id }))).toEqual([])
+  })
+
   test("unfinished foreground turns survive reload without blocking new turns", async () => {
     const thread = await create()
     const abandoned = await admit(thread.id)

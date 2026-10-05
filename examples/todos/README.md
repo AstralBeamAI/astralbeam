@@ -2,6 +2,8 @@
 
 A TanStack Start app demonstrating the SDK chat sidebar and tenant-user listing, host tools, inline `TodoCard` widgets, attachments, and the optional sandbox panel. Its plain CSS stays separate from the widgets' shadow-root styles.
 
+Tasks are saved in this browser's localStorage, so edits and inline cards survive reloads. This storage belongs to the fixed demo user and does not sync across devices. Production applications should persist their own task data under the authenticated user's identity.
+
 ## Demo agent prompt
 
 Use the todos agent prompt from [`platform/scripts/seed/fixtures.ts`](../../platform/scripts/seed/fixtures.ts). `db-seed` installs it automatically. For manual setup, copy it into the agent in the dashboard.

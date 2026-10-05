@@ -47,7 +47,7 @@ chat.dispose()
 - Widgets declare `{ description, parameters }`. The session validates props and calls `onRenderWidget`, which draws the widget and may return cleanup.
 - `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` re-mints a rejected token.
 - Call the request's `release()` if you dispose a render yourself (an eviction cap of your own), so the session stops holding its cleanup.
-- `chat.updateOptions({ agentId })` merges option changes into the running session, keeping the transcript.
+- `chat.updateOptions({ agentId })` applies the agent to new conversations. The current saved conversation retains its agent and transcript.
 - Unresolved tool outcomes require an explicit response or closure before their turn continues.
 - `capabilities` reflects the agent's dashboard policy. Render only what it grants.
 

@@ -15,7 +15,7 @@ tools: {
 }
 ```
 
-- The resolved value is returned to the agent as the tool result. A thrown error becomes a tool error.
+- The resolved value is returned to the agent as the tool result. A thrown error leaves the action's outcome unknown, because it may already have changed external state.
 - Return JSON-compatible values. Omit absent object fields instead of setting them to `undefined`, and convert dates or custom objects to plain values.
 - The SDK names the tool when its result cannot be sent. Its action may already have happened, so read current state before retrying.
 - A string `metadata.title` labels the tool's transcript entry in prose instead of its registry name.
@@ -38,6 +38,7 @@ widgets: {
 - Clicking a widget does not send a chat message or return a tool result. Have the agent read current state before its next change so it sees edits made through your UI.
 - Several renders of one widget can be live at once. The oldest collapse to a summary past a cap.
 - Dropping a widget disposes any render of it still in the transcript.
+- Reopening saved history restores widget props without rerunning business tools. Persist the host records those props reference, and render a fallback when a record was deleted.
 
 ## Schemas
 

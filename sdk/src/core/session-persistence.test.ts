@@ -881,6 +881,96 @@ test.each([
   },
 )
 
+test("retained outcomes retry by source without loading older source messages", async () => {
+  const pending = ["first", "second"].map((source) => ({
+    source_message_id: source,
+    source_part_id: "part",
+    response_target_id: `${source}-target`,
+    tool_call_id: "reused-provider-id",
+    target_tenant_user_id: "user",
+    target_client_id: "previous-client",
+    execution_location: "browser",
+  }))
+  const requests: Array<Array<Record<string, unknown>>> = []
+  const accepted = new Set<string>()
+  let disconnected = true
+  let newestPageOnly = false
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const path = String(input)
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.includes("/threads?"))
+      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
+    if (path.includes("/messages?"))
+      return Promise.resolve(
+        Response.json({
+          ...page(
+            pending.slice(newestPageOnly ? 1 : 0).map((item) => ({
+              id: item.source_message_id,
+              role: "assistant",
+              state: "complete",
+              created_at: thread.created_at,
+              parts: [
+                {
+                  id: "part",
+                  type: "tool-call",
+                  toolCallId: item.tool_call_id,
+                  name: "ask_questionnaire",
+                  arguments: "{}",
+                  input: {},
+                  state: "input-complete",
+                },
+              ],
+            })),
+          ),
+          page_after: newestPageOnly ? "older" : null,
+          pending_interactions: pending.filter((item) => !accepted.has(item.source_message_id)),
+        }),
+      )
+    if (path.endsWith("/tool-results") && typeof init?.body === "string") {
+      const body = JSON.parse(init.body) as { results: Array<Record<string, unknown>> }
+      requests.push(body.results)
+      if (disconnected) return Promise.reject(new TypeError("Disconnected"))
+      for (const result of body.results) accepted.add(String(result.source_message_id))
+      return Promise.resolve(Response.json({ thread_version: 2 }))
+    }
+    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+  })
+  const chat = createAstralBeamChat({ threadId: thread.id, fetchAstralBeamToken: token })
+  try {
+    await vi.waitFor(() => expect(chat.getState().pendingInteractions).toHaveLength(2))
+    for (const item of pending)
+      await chat.addToolResult({
+        toolCallId: `saved:${item.source_message_id}:part:${item.response_target_id}`,
+        tool: "ask_questionnaire",
+        output: { answer: item.source_message_id },
+      })
+    newestPageOnly = true
+    await chat.refreshThread()
+    expect(chat.getState().messages.map((message) => message.id)).toEqual(["second"])
+    disconnected = false
+    await chat.reload()
+    expect(requests.map((results) => results.map((result) => result.source_message_id))).toEqual([
+      ["first"],
+      ["second"],
+      ["first"],
+      ["second"],
+    ])
+    expect(requests.slice(2).flat()).toEqual(
+      pending.map((item) => ({
+        source_message_id: item.source_message_id,
+        source_part_id: item.source_part_id,
+        response_target_id: item.response_target_id,
+        outcome: "succeeded",
+        output: { answer: item.source_message_id },
+      })),
+    )
+    expect(chat.getState().pendingInteractions).toEqual([])
+    expect(chat.getState().error).toBeUndefined()
+  } finally {
+    chat.dispose()
+  }
+})
+
 test("server-side revocation interrupts generation and blocks subsequent sends", async () => {
   let record = { ...thread }
   let sends = 0

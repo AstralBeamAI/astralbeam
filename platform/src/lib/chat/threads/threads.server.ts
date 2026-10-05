@@ -782,12 +782,13 @@ const appendResults = Effect.fnUntraced(function* (
       result.payload.parts[0]?.outcome === "unknown" && (targetUser || row.role === "manager")
     const browserDenied =
       part.executionLocation === "browser" &&
-      (server ||
-        !(
-          abandon ||
-          (targetUser &&
-            (interaction || target.clientId === undefined || target.clientId === clientId))
-        ))
+      (server
+        ? result.payload.parts[0]?.outcome !== "failed"
+        : !(
+            abandon ||
+            (targetUser &&
+              (interaction || target.clientId === undefined || target.clientId === clientId))
+          ))
     const serverDenied = part.executionLocation !== "browser" && !server && !abandon
     if (browserDenied || serverDenied) return yield* new ChatThreadForbidden()
     if (existing) {

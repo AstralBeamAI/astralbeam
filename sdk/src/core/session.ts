@@ -518,7 +518,7 @@ export function createAstralBeamChat(
       throw new Error("Open a conversation before sending.")
     const generation = selectionGeneration
     const body = JSON.parse(init.body) as {
-      messages: Array<{ role: string }>
+      messages: Array<{ role: string; toolCallId?: string }>
       tools: Array<Record<string, unknown>>
       forwardedProps?: Record<string, unknown>
       runId: string
@@ -550,9 +550,15 @@ export function createAstralBeamChat(
         thread: threadFromRecord(history.thread, history.messages.length > 0),
       })
       retainToolResults(history)
+      const available = history.pendingInteractions.filter((pending) =>
+        toolResults.has(toolResultKey(pending.toolCallId)),
+      )
+      const source =
+        available.find((pending) => pending.toolCallId === body.messages.at(-1)?.toolCallId) ??
+        available[0]
       const results = history.pendingInteractions.flatMap((pending) => {
         const submitted = toolResults.get(toolResultKey(pending.toolCallId))
-        return submitted
+        return submitted && pending.sourceMessageId === source?.sourceMessageId
           ? [
               {
                 source_message_id: pending.sourceMessageId,
@@ -1117,7 +1123,7 @@ export function createAstralBeamChat(
       )
       return
     }
-    if (closure)
+    if (closure && !toolResults.has(toolResultKey(result.toolCallId)))
       toolResults.set(toolResultKey(result.toolCallId), { outcome: "unknown", output: null })
     else if (!toolResults.has(toolResultKey(result.toolCallId)) && "tool" in result) {
       const output: unknown = result.output
@@ -1330,26 +1336,21 @@ export function createAstralBeamChat(
       void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
     },
     reload: async () => {
-      const pending = state.pendingInteractions.find((item) =>
-        toolResults.has(toolResultKey(item.toolCallId)),
-      )
-      const saved = pending && toolResults.get(toolResultKey(pending.toolCallId))
-      const part =
-        pending &&
-        state.messages
-          .find((message) => message.id === pending.sourceMessageId)
-          ?.parts.find((item) => item.type === "tool-call" && item.id === pending.toolCallId)
-      if (saved && part?.type === "tool-call")
-        return addToolResult({
-          toolCallId: part.id,
-          tool: part.name,
-          output: saved.output,
-          state: saved.outcome === "succeeded" ? "output-available" : "output-error",
-          ...(saved.outcome !== "succeeded"
-            ? { errorText: "The tool did not confirm success." }
-            : {}),
-        })
-      return refreshThread()
+      const generation = selectionGeneration
+      const attempted = new Set<string>()
+      while (generation === selectionGeneration) {
+        const pending = state.pendingInteractions.find(
+          (item) =>
+            !attempted.has(item.sourceMessageId) && toolResults.has(toolResultKey(item.toolCallId)),
+        )
+        if (!pending) {
+          if (attempted.size === 0) await refreshThread()
+          return
+        }
+        attempted.add(pending.sourceMessageId)
+        await addToolResult({ toolCallId: pending.toolCallId })
+        if (state.error) return
+      }
     },
     listThreads,
     searchThreads: async (q, cursor, signal) => {

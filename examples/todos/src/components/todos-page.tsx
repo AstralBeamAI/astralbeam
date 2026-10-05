@@ -1,30 +1,22 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import type { AstralBeamChatColorScheme, ToolDefinition } from "@astralbeam/sdk/react"
 
 import { TodoList } from "@/components/todo-list.tsx"
 import { TodosAssistant } from "@/components/todos-assistant.tsx"
 import { toggleDebug, useDebug } from "@/hooks/use-debug.ts"
 import { useSystemDark } from "@/hooks/use-system-dark.ts"
-import { COLOR_SCHEME_CYCLE, INITIAL_TODOS, TODO_TOOL_METADATA } from "@/lib/constants.ts"
-import {
-  createTodoFromToolInput,
-  deleteTodoFromToolInput,
-  updateTodoFromToolInput,
-} from "@/lib/todo-tools.ts"
+import { useTodos } from "@/hooks/use-todos.ts"
+import { COLOR_SCHEME_CYCLE, TODO_TOOL_METADATA } from "@/lib/constants.ts"
+import { deleteTodoFromToolInput, updateTodoFromToolInput } from "@/lib/todo-tools.ts"
 
 export function TodosPage() {
   const debug = useDebug()
   const systemIsDark = useSystemDark()
-  const [todos, setTodos] = useState(INITIAL_TODOS)
+  const { todos, getTodos, setTodos, createTodo } = useTodos()
   const [draft, setDraft] = useState("")
   const [chatOpen, setChatOpen] = useState(true)
   const [colorScheme, setColorScheme] = useState<AstralBeamChatColorScheme>("system")
   const [customTheme, setCustomTheme] = useState(true)
-  const todosRef = useRef(todos)
-  useEffect(() => {
-    todosRef.current = todos
-  }, [todos])
-  const nextTodoId = useRef(Math.max(0, ...INITIAL_TODOS.map((todo) => todo.id)) + 1)
 
   const toggleTodo = (id: number) =>
     setTodos((current) =>
@@ -34,27 +26,23 @@ export function TodosPage() {
   const addTodo = () => {
     const text = draft.trim()
     if (!text) return
-    setTodos((current) => [...current, { id: nextTodoId.current++, text, completed: false }])
+    createTodo({ text })
     setDraft("")
   }
 
   const tools: Record<string, ToolDefinition> = {
     get_todos: {
       ...TODO_TOOL_METADATA.get_todos,
-      execute: () => ({ todos: todosRef.current }),
+      execute: () => ({ todos: getTodos() }),
     },
     create_todo: {
       ...TODO_TOOL_METADATA.create_todo,
-      execute: (input) => {
-        const todo = createTodoFromToolInput({ id: nextTodoId.current++, input })
-        setTodos((current) => [...current, todo])
-        return { created: todo }
-      },
+      execute: (input) => ({ created: createTodo(input) }),
     },
     update_todo: {
       ...TODO_TOOL_METADATA.update_todo,
       execute: (input) => {
-        const updated = updateTodoFromToolInput({ input, todos: todosRef.current })
+        const updated = updateTodoFromToolInput({ input, todos: getTodos() })
         setTodos((current) =>
           current.map((candidate) => (candidate.id === updated.id ? updated : candidate)),
         )
@@ -64,7 +52,7 @@ export function TodosPage() {
     delete_todo: {
       ...TODO_TOOL_METADATA.delete_todo,
       execute: (input) => {
-        const deleted = deleteTodoFromToolInput({ input, todos: todosRef.current })
+        const deleted = deleteTodoFromToolInput({ input, todos: getTodos() })
         setTodos((current) => current.filter((candidate) => candidate.id !== deleted.id))
         return { deleted }
       },

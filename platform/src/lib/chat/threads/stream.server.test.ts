@@ -64,6 +64,7 @@ async function exerciseManagedStream(options: {
   failTool?: boolean
   invalidInput?: boolean
   failResult?: boolean
+  unknownTool?: boolean
   authorizationFailure?: "model" | "tool"
   refresh?: boolean
 }) {
@@ -90,7 +91,7 @@ async function exerciseManagedStream(options: {
     },
   }
   const definition = toolDefinition({
-    name: "change",
+    name: options.unknownTool ? "different" : "change",
     description: "Test action",
     inputSchema: options.invalidInput
       ? chatToolInputSchema(Schema.Struct({ required: Schema.String }))
@@ -264,6 +265,19 @@ describe("managed TanStack persistence boundaries", () => {
     expect(JSON.stringify(output.output)).toContain("Input validation failed")
     expect(result.order.indexOf("result")).toBeLessThan(result.order.indexOf("next-draft"))
   })
+
+  test.each([{ browser: true, invalidInput: true }, { unknownTool: true }])(
+    "persists rejected tool calls without leaving an executable browser response: %j",
+    async (options) => {
+      const result = await exerciseManagedStream(options)
+      expect(result.failed).toBe(false)
+      expect(result.executed).toBe(0)
+      expect(result.requests).toBe(2)
+      expect(result.results).toHaveLength(1)
+      expect(result.results[0]!.payload.parts[0]!.outcome).toBe("failed")
+      expect(result.order.indexOf("result")).toBeLessThan(result.order.indexOf("next-draft"))
+    },
+  )
 
   test("a rejected tool result must be saved before another model attempt", async () => {
     const result = await exerciseManagedStream({ invalidInput: true, failResult: true })
