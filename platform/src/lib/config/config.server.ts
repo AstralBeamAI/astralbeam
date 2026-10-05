@@ -117,6 +117,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
     turnstileSiteKey: values.turnstile_site_key ?? "",
     privacyPolicyUrl: values.privacy_policy_url,
     termsOfServiceUrl: values.terms_of_service_url,
+    hasWebsite: values.website_url !== undefined,
   }
 }
 

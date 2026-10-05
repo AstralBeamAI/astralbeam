@@ -2,6 +2,7 @@ import { useSession } from "@better-auth-ui/react"
 import { Link, useLocation } from "@tanstack/react-router"
 import { createContext, type ReactNode, useContext } from "react"
 
+import { useHasWebsite } from "@/components/public-config-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { buttonVariants } from "@/components/ui/button"
 import { authClient } from "@/lib/auth/client"
@@ -168,13 +169,14 @@ function SessionLinks() {
 /** The navbar of pages outside the dashboard, which offers a signed-in visitor a way back home. */
 export function PublicNavbar() {
   const underNavbar = useContext(UnderNavbarContext)
+  const hasWebsite = useHasWebsite()
   const isDocs = useLocation({
     select: ({ pathname }) => pathname === "/docs" || pathname.startsWith("/docs/"),
   })
   if (underNavbar) return null
   if (isDocs) return <DocsNavbar />
   return (
-    <Navbar wordmark>
+    <Navbar wordmark reloadDocument={hasWebsite}>
       <DocsLink />
       <SessionLinks />
     </Navbar>

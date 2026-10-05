@@ -6,6 +6,7 @@ export interface PublicConfig {
   turnstileSiteKey: string
   privacyPolicyUrl: string | undefined
   termsOfServiceUrl: string | undefined
+  hasWebsite: boolean
 }
 
 export type ConfigKey =
