@@ -235,33 +235,50 @@ test.each(["definition", "renderer", "failed-render"])(
   },
 )
 
-test("a widget definition changed during validation retries with the new schema", async () => {
-  savedMessages = savedWidget("card", "late")
-  const validation = Promise.withResolvers<{ value: Record<string, unknown> }>()
-  const validate = vi.fn(() => validation.promise)
-  const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
-  const card = {
-    description: "A host card",
-    parameters: { "~standard": { version: 1 as const, vendor: "test", validate } },
-  }
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
-    threadId: thread.id,
-    widgets: { card },
-    onRenderWidget,
-  })
-  try {
-    await vi.waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
-    chat.updateOptions({
-      widgets: { card: { description: "A card without parameter transforms" } },
+test.each(["saved", "live"])(
+  "%s widget definition changes revalidate before rendering",
+  async (mode) => {
+    savedMessages = mode === "saved" ? savedWidget("card", "late") : []
+    const validation = Promise.withResolvers<{ value: Record<string, unknown> }>()
+    const validate = vi.fn(() => validation.promise)
+    const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
+    const card = {
+      description: "A host card",
+      parameters: { "~standard": { version: 1 as const, vendor: "test", validate } },
+    }
+    const chat = createAstralBeamChat({
+      fetchAstralBeamToken: chatAuthToken,
+      threadId: thread.id,
+      widgets: { card },
+      onRenderWidget,
     })
-    validation.resolve({ value: { obsolete: true } })
-    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
-    expect(onRenderWidget.mock.calls[0]?.[0].props).toEqual({})
-  } finally {
-    chat.dispose()
-  }
-})
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+      mocked.onCustomEvent?.("astralbeam_thread", {
+        threadId: thread.id,
+        version: 1,
+        saved: true,
+        executableToolCallIds: ["call"],
+      })
+      const execution =
+        mode === "live"
+          ? mocked.tools
+              .find((tool) => tool.name === RENDER_WIDGET_TOOL)
+              ?.execute?.({ widget: "card", props: {} }, { toolCallId: "call" })
+          : undefined
+      await vi.waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
+      chat.updateOptions({
+        widgets: { card: { description: "A card without parameter transforms" } },
+      })
+      validation.resolve({ value: { obsolete: true } })
+      await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+      expect(onRenderWidget.mock.calls[0]?.[0].props).toEqual({})
+      await execution
+    } finally {
+      chat.dispose()
+    }
+  },
+)
 
 test("an old async restoration cannot release a newly selected thread's pending render", async () => {
   savedMessages = savedWidget("card", "late")

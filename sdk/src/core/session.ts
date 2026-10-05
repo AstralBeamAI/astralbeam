@@ -363,7 +363,10 @@ export function createAstralBeamChat(
     restoredWidgets.clear()
     restoringWidgets.clear()
   }
-  const renderWidget = async (input: RenderWidgetInput, toolCallId: string) => {
+  const renderWidget = async (
+    input: RenderWidgetInput,
+    toolCallId: string,
+  ): Promise<{ widget: string; rendered: boolean }> => {
     const generation = selectionGeneration
     const widgets = live.widgets ?? {}
     if (!Object.hasOwn(widgets, input.widget)) {
@@ -371,8 +374,8 @@ export function createAstralBeamChat(
     }
     const declaration = widgets[input.widget]
     const validated = await validateParameters(declaration?.parameters, input.props ?? {})
-    if (generation !== selectionGeneration || declaration !== live.widgets?.[input.widget])
-      return { widget: input.widget, rendered: false }
+    if (generation !== selectionGeneration) return { widget: input.widget, rendered: false }
+    if (declaration !== live.widgets?.[input.widget]) return renderWidget(input, toolCallId)
     if (validated == null) {
       throw new Error(`Props for widget "${input.widget}" failed validation`)
     }
