@@ -194,7 +194,7 @@ export interface AstralBeamChatCore {
   ) => Promise<{ items: ChatThread[]; page_after: string | null }>
   /** Loads saved history before accepting another send. */
   openThread: (id: string) => Promise<void>
-  renameThread: (title: string) => Promise<void>
+  renameThread: (title: string) => Promise<boolean>
   deleteThread: () => Promise<void>
   refreshThread: () => Promise<void>
   loadOlderMessages: () => Promise<void>
@@ -1035,7 +1035,7 @@ export function createAstralBeamChat(
 
   const renameThread = async (title: string) => {
     const thread = state.thread
-    if (!thread || thread.role !== "manager") return
+    if (!thread || thread.role !== "manager") return false
     const generation = selectionGeneration
     try {
       const record = await updateChatThread(
@@ -1043,11 +1043,13 @@ export function createAstralBeamChat(
         { title, expected_version: thread.version },
         await requestOptions(),
       )
-      if (generation !== selectionGeneration) return
+      if (generation !== selectionGeneration) return false
       const renamed = threadFromRecord(record, thread.hasMessages)
-      update({ thread: renamed })
+      update({ thread: renamed, error: client.getError(), status: client.getStatus() })
+      return true
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
+      return false
     }
   }
 

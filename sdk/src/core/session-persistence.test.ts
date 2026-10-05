@@ -31,6 +31,37 @@ const page = (messages: unknown[] = []) => ({
 beforeEach(() => vi.stubGlobal("sessionStorage", undefined))
 afterEach(() => vi.unstubAllGlobals())
 
+test("successful rename clears a previous metadata failure without reloading history", async () => {
+  let fail = true
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const path = String(input)
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.includes("/messages?")) return Promise.resolve(Response.json(page()))
+    if (init?.method === "PATCH")
+      return Promise.resolve(
+        fail
+          ? Response.json({ title: "Try again", status: 503 }, { status: 503 })
+          : Response.json({ ...thread, title: "Renamed", version: 2 }),
+      )
+    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+  })
+  const chat = createAstralBeamChat({ threadId: thread.id, fetchAstralBeamToken: token })
+  try {
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    await vi.waitFor(() => expect(chat.getState().threadLoading).toBe(false))
+    expect(await chat.renameThread("Renamed")).toBe(false)
+    expect(chat.getState().error).toBeDefined()
+    expect(chat.getState().thread?.title).toBe(thread.title)
+    fail = false
+    expect(await chat.renameThread("Renamed")).toBe(true)
+    expect(chat.getState().thread).toMatchObject({ title: "Renamed", version: 2 })
+    expect(chat.getState().error).toBeUndefined()
+    expect(chat.getState().status).toBe("ready")
+  } finally {
+    chat.dispose()
+  }
+})
+
 test.each([
   { threadId: undefined, cached: thread.id, expected: thread.id },
   { threadId: "new", cached: thread.id, expected: undefined },

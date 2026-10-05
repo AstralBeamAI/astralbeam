@@ -396,7 +396,7 @@ export function ChatWidget({
         </CardHeader>
       )}
       <ThreadHistory
-        key={`${apiUrl}:${draftIdentity}`}
+        key={`${apiUrl}:${draftIdentity}:${chatState.thread?.id ?? ""}`}
         chat={chat}
         state={chatState}
         onDelete={(id) => {

@@ -18,6 +18,7 @@ export function ThreadHistory({
 }) {
   const [renaming, setRenaming] = useState(false)
   const [title, setTitle] = useState("")
+  const [saving, setSaving] = useState(false)
   const selected = state.thread
   const writing = state.status === "submitted" || state.status === "streaming"
   return (
@@ -91,8 +92,11 @@ export function ThreadHistory({
           onSubmit={(event) => {
             event.preventDefault()
             if (title.trim()) {
-              void chat.renameThread(title.trim())
-              setRenaming(false)
+              setSaving(true)
+              void chat.renameThread(title.trim()).then((saved) => {
+                setSaving(false)
+                if (saved) setRenaming(false)
+              })
             }
           }}
         >
@@ -100,10 +104,11 @@ export function ThreadHistory({
             aria-label="Conversation title"
             value={title}
             maxLength={200}
+            disabled={saving}
             onChange={(event) => setTitle(event.currentTarget.value)}
           />
-          <Button type="submit" size="sm" disabled={!title.trim()}>
-            Save
+          <Button type="submit" size="sm" disabled={!title.trim() || saving}>
+            {saving ? "Saving…" : "Save"}
           </Button>
         </form>
       )}

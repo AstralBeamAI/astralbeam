@@ -24,6 +24,17 @@ test("lists todos as live host widgets", async ({ page, todos, chat }) => {
     await todos.projectedCard("Write the launch announcement").getByRole("checkbox").check()
     await expect(todos.checkbox("Write the launch announcement")).toBeChecked()
   })
+
+  await test.step("reload saved history and restore the interactive widgets", async () => {
+    await page.reload()
+    await chat.waitForReady()
+    await expect(todos.projectedCards()).toHaveCount(3)
+    await expect(
+      todos.projectedCard("Write the launch announcement").getByRole("checkbox"),
+    ).toBeChecked()
+    await expect(chat.toolRow(/List the todos/)).toHaveCount(1)
+    await captureMoment(page, "saved widgets restored after reload")
+  })
 })
 
 test("creates, updates, and deletes a todo through the host tools", async ({ todos, chat }) => {
