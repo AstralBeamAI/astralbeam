@@ -49,29 +49,36 @@ describe("managed conversation commands", () => {
     return Effect.gen(function* () {
       const input = { scope: commandScope, params: commandParams }
       yield* prepareManagedChat(input)
-      const invalid = yield* prepareManagedChat({
-        ...input,
-        params: {
-          ...commandParams,
-          messages: [
-            {
-              id: "upload",
-              role: "user",
-              content: [
-                {
-                  type: "image",
-                  source: {
-                    type: "url",
-                    value: "http://internal.invalid/image",
-                    mimeType: "image/png",
-                  },
-                },
-              ],
-            },
-          ],
+      for (const source of [
+        { type: "url", value: "http://internal.invalid/image", mimeType: "image/png" },
+        {
+          type: "data",
+          value: `${btoa("\x89PNG\r\n\x1a\n" + "x".repeat(30))}!`,
+          mimeType: "image/png",
         },
-      }).pipe(Effect.result)
-      assert.equal(invalid._tag, "Failure")
+        {
+          type: "data",
+          value: `data:application/pdf;base64,${btoa("%PDF-1.7" + "x".repeat(30))}!`,
+          mimeType: "application/pdf",
+        },
+      ] as const) {
+        const invalid = yield* prepareManagedChat({
+          ...input,
+          params: {
+            ...commandParams,
+            messages: [
+              {
+                id: "upload",
+                role: "user",
+                content: [
+                  { type: source.mimeType === "application/pdf" ? "document" : "image", source },
+                ],
+              },
+            ],
+          },
+        }).pipe(Effect.result)
+        assert.equal(invalid._tag, "Failure")
+      }
       assert.lengthOf(admitted, 1)
     }).pipe(Effect.provide(layer))
   })

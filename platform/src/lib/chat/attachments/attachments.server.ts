@@ -332,6 +332,8 @@ export function normalizeChatAttachments(
     if (!hasDeclaredFileSignature(entry.source.value, mimeType)) {
       return refuse(`its contents are not a ${mimeType} file.`)
     }
+    const bytes = decodeAttachmentBytes(entry.source.value)
+    if (bytes === undefined) return refuse("its contents could not be decoded.")
     if (kind === "image" || kind === "pdf") {
       totalBytes += size
       attachments.push({ filename, mimeType, bytes: size, result: kind })
@@ -345,8 +347,6 @@ export function normalizeChatAttachments(
         },
       }
     }
-    const bytes = decodeAttachmentBytes(entry.source.value)
-    if (bytes === undefined) return refuse("its contents could not be decoded.")
     const content = readAttachmentContent(bytes, mimeType)
     if ("reason" in content) return refuse(content.reason)
     if (content.text === undefined && !options.sandbox) {
