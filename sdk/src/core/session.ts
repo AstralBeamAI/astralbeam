@@ -309,10 +309,31 @@ export function createAstralBeamChat(
   const liveToolCalls = new Set<string>()
   const liveToolMessageIds = new Map<string, string>()
   const historicalToolIds = new Map<string, Map<string, string>>()
-  const toolResults = new Map<
-    string,
-    { outcome: "succeeded" | "failed" | "skipped" | "unknown"; output: unknown }
-  >()
+  type ToolResult = { outcome: "succeeded" | "failed" | "skipped" | "unknown"; output: unknown }
+  let toolResults = new Map<string, ToolResult>()
+  const threadToolResults = new Map<string, typeof toolResults>()
+  const toolResultKey = (id: string) => {
+    const messageId = liveToolMessageIds.get(id)
+    return messageId ? `live:${messageId}:${id}` : id
+  }
+  const retainToolResults = (history: Awaited<ReturnType<typeof loadThreadMessages>>) => {
+    const retained: typeof toolResults = new Map()
+    for (const pending of history.pending_interactions) {
+      const nativeKey = `live:${pending.source_message_id}:${pending.tool_call_id}`
+      const savedKey = savedToolCallId(
+        pending.source_message_id,
+        pending.source_part_id,
+        pending.response_target_id,
+      )
+      const result = toolResults.get(nativeKey) ?? toolResults.get(savedKey)
+      if (!result) continue
+      retained.set(savedKey, result)
+      if (liveToolMessageIds.get(pending.tool_call_id) === pending.source_message_id)
+        retained.set(nativeKey, result)
+    }
+    toolResults.clear()
+    for (const [id, result] of retained) toolResults.set(id, result)
+  }
 
   const reportError = (error: unknown) => {
     if (error instanceof Error && error.name === "AbortError") return
@@ -482,15 +503,21 @@ export function createAstralBeamChat(
               "A saved tool call cannot execute again. Send a new message to request it.",
             )
           }
-          const generation = selectionGeneration
+          const results = toolResults
+          const key = toolResultKey(toolCallId)
+          const resultIdentity = identity
+          const apiUrl = authentication.apiUrl
           try {
             const output: unknown = await execute(input, context)
-            if (generation === selectionGeneration)
-              toolResults.set(toolCallId, { outcome: "succeeded", output: output ?? null })
+            if (identity === resultIdentity && authentication.apiUrl === apiUrl)
+              results.set(key, {
+                outcome: "succeeded",
+                output: output ?? null,
+              })
             return output
           } catch (error) {
-            if (generation === selectionGeneration)
-              toolResults.set(toolCallId, {
+            if (identity === resultIdentity && authentication.apiUrl === apiUrl)
+              results.set(key, {
                 outcome: "unknown",
                 output: { error: error instanceof Error ? error.message : String(error) },
               })
@@ -532,6 +559,7 @@ export function createAstralBeamChat(
     let path = getRunChatUrl()
     let payload: unknown
     const submission = body.messages.at(-1)?.role === "user" ? pendingSend : undefined
+    const previouslyAttempted = submission?.tools !== undefined
     if (submission) {
       payload = {
         ...body,
@@ -553,8 +581,9 @@ export function createAstralBeamChat(
       update({
         thread: threadFromRecord(history.thread, history.messages.length > 0),
       })
+      retainToolResults(history)
       const results = history.pendingInteractions.flatMap((pending) => {
-        const submitted = toolResults.get(pending.toolCallId)
+        const submitted = toolResults.get(toolResultKey(pending.toolCallId))
         return submitted
           ? [
               {
@@ -585,6 +614,15 @@ export function createAstralBeamChat(
       ...init,
       headers,
       body: JSON.stringify(payload),
+    }).catch((error: unknown) => {
+      if (
+        submission &&
+        !previouslyAttempted &&
+        isAstralBeamApiError(error) &&
+        (error.status === 413 || error.status === 429)
+      )
+        delete submission.tools
+      throw error
     })
     if (generation !== selectionGeneration)
       throw new DOMException("Conversation changed", "AbortError")
@@ -704,19 +742,7 @@ export function createAstralBeamChat(
           }
           if (generation !== selectionGeneration || readGeneration !== historyGeneration)
             throw new DOMException("Conversation changed", "AbortError")
-          // Retain known browser outcomes when hydration replaces native tool IDs with saved target IDs.
-          for (const pending of history.pendingInteractions) {
-            const previous = state.pendingInteractions.find(
-              (item) => item.responseTargetId === pending.responseTargetId,
-            )
-            if (previous && previous.toolCallId !== pending.toolCallId) {
-              const result = toolResults.get(previous.toolCallId)
-              if (result) {
-                toolResults.set(pending.toolCallId, result)
-                toolResults.delete(previous.toolCallId)
-              }
-            }
-          }
+          retainToolResults(history)
           threadRecords = options?.before
             ? [...history.messages, ...threadRecords]
             : history.messages
@@ -798,7 +824,7 @@ export function createAstralBeamChat(
             if (event.acceptedMessageId) acceptPendingSend()
             if (event.saved)
               for (const id of event.executableToolCallIds ?? []) {
-                if (!liveToolCalls.has(id)) toolResults.delete(id)
+                if (!liveToolCalls.has(id)) toolResults.delete(toolResultKey(id))
                 liveToolCalls.add(id)
               }
             update({
@@ -916,6 +942,7 @@ export function createAstralBeamChat(
     if (previousId) {
       if (pendingSend && !pendingSend.accepted) pendingSends.set(previousId, pendingSend)
       else pendingSends.delete(previousId)
+      threadToolResults.set(previousId, toolResults)
     }
     selectionGeneration++
     historyGeneration++
@@ -923,7 +950,7 @@ export function createAstralBeamChat(
     requestController.abort()
     requestController = new AbortController()
     pendingSend = undefined
-    toolResults.clear()
+    toolResults = threadToolResults.get(threadId ?? "") ?? new Map<string, ToolResult>()
     historicalToolIds.clear()
     threadRecords = []
     disposeRenders()
@@ -1190,17 +1217,18 @@ export function createAstralBeamChat(
       (!liveToolCalls.has(result.toolCallId) &&
         !questionnaire &&
         !closure &&
-        !toolResults.has(result.toolCallId))
+        !toolResults.has(toolResultKey(result.toolCallId)))
     ) {
       reportError(
         new Error("This tool call belongs to another session and cannot be executed here."),
       )
       return
     }
-    if (closure) toolResults.set(result.toolCallId, { outcome: "unknown", output: null })
-    else if (!toolResults.has(result.toolCallId) && "tool" in result) {
+    if (closure)
+      toolResults.set(toolResultKey(result.toolCallId), { outcome: "unknown", output: null })
+    else if (!toolResults.has(toolResultKey(result.toolCallId)) && "tool" in result) {
       const output: unknown = result.output
-      toolResults.set(result.toolCallId, {
+      toolResults.set(toolResultKey(result.toolCallId), {
         outcome: result.state === "output-error" ? "failed" : "succeeded",
         output: output ?? null,
       })
@@ -1219,7 +1247,7 @@ export function createAstralBeamChat(
       await client.append({
         role: "tool",
         toolCallId: result.toolCallId,
-        content: JSON.stringify(toolResults.get(result.toolCallId)),
+        content: JSON.stringify(toolResults.get(toolResultKey(result.toolCallId))),
       })
     } else if ("tool" in result) {
       await client.addToolResult(result)
@@ -1251,7 +1279,11 @@ export function createAstralBeamChat(
       reportError(new Error("Reopen this conversation or start a new one before sending."))
       return
     }
-    if (state.thread?.agentId === null) {
+    const retrying =
+      pendingSend?.tools !== undefined &&
+      !pendingSend.accepted &&
+      JSON.stringify(pendingSend.content) === JSON.stringify(content)
+    if (state.thread?.agentId === null && !retrying) {
       reportError(
         new Error(
           "This conversation’s agent is unavailable. Start a new conversation to continue.",
@@ -1259,7 +1291,7 @@ export function createAstralBeamChat(
       )
       return
     }
-    if (state.thread?.role === "viewer") {
+    if (state.thread?.role === "viewer" && !retrying) {
       reportError(new Error("You have read-only access to this conversation."))
       return
     }
@@ -1292,7 +1324,7 @@ export function createAstralBeamChat(
         key: newUuid(),
         callbacks,
       }
-      toolResults.clear()
+      client.stop()
       liveToolCalls.clear()
       scopeCompletedToolCalls()
       liveToolMessageIds.clear()
@@ -1329,6 +1361,8 @@ export function createAstralBeamChat(
       if (identity !== undefined && identity !== nextIdentity) {
         navigationGeneration++
         pendingSends.clear()
+        threadToolResults.clear()
+        toolResults.clear()
         pendingSend = undefined
       }
       identity = nextIdentity
@@ -1386,6 +1420,8 @@ export function createAstralBeamChat(
       if (live.apiUrl !== apiUrl) {
         navigationGeneration++
         pendingSends.clear()
+        threadToolResults.clear()
+        toolResults.clear()
         pendingSend = undefined
         changeSelection()
         listGeneration++
@@ -1409,8 +1445,10 @@ export function createAstralBeamChat(
       void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
     },
     reload: async () => {
-      const pending = state.pendingInteractions.find((item) => toolResults.has(item.toolCallId))
-      const saved = pending && toolResults.get(pending.toolCallId)
+      const pending = state.pendingInteractions.find((item) =>
+        toolResults.has(toolResultKey(item.toolCallId)),
+      )
+      const saved = pending && toolResults.get(toolResultKey(pending.toolCallId))
       const part =
         pending &&
         state.messages

@@ -1478,7 +1478,11 @@ export class ChatThreads extends Context.Service<
                   : row.title
               yield* tx
                 .update(chatThread)
-                .set({ title: initialTitle, lockVersion: sql`${chatThread.lockVersion} + 1` })
+                .set({
+                  title: initialTitle,
+                  lockVersion: sql`${chatThread.lockVersion} + 1`,
+                  updatedAt: sql`clock_timestamp()`,
+                })
                 .where(scopeWhere(input.scope, input.id))
               return {
                 thread: yield* readThread(tx, input),

@@ -65,6 +65,7 @@ interface ManagedChatStreamState {
   readonly partIds: Map<string, string>
   readonly modelIds: Map<string, string>
   readonly messageIds: Map<string, string>
+  readonly settledToolCalls: Set<string>
   readonly ready: StreamChunk[]
   readonly buffered: StreamChunk[]
 }
@@ -181,6 +182,46 @@ async function saveManagedProjection(
   if (complete) state.committed = true
 }
 
+async function saveManagedToolResult(
+  options: ManagedChatStreamOptions,
+  state: ManagedChatStreamState,
+  toolCallId: string,
+  outcome: "succeeded" | "failed" | "unknown",
+  result: unknown,
+) {
+  const part = state.payload.parts.find((candidate) => candidate.toolCallId === toolCallId)
+  if (!part || !Array.isArray(part.targets)) throw new Error("Uncommitted tool decision")
+  const target = part.targets[0] as typeof Schema.JsonObject.Type
+  await options.execute(
+    options.threads.appendToolResults({
+      claim: state.claim,
+      results: [
+        {
+          assistantMessageId: state.claim.assistantMessageId,
+          toolPartId: Schema.decodeUnknownSync(Schema.String)(part.id),
+          responseTargetId: Schema.decodeUnknownSync(Schema.String)(target.id),
+          payload: {
+            version: 1,
+            parts: [
+              {
+                type: "tool-result",
+                id: crypto.randomUUID(),
+                toolCallId,
+                content: JSON.stringify(result),
+                output: chatStoredJson({ result }).result!,
+                outcome,
+              },
+            ],
+            invocationId: state.claim.invocationId,
+            turnId: state.claim.inputMessageId,
+          },
+        },
+      ],
+    }),
+  )
+  state.settledToolCalls.add(toolCallId)
+}
+
 function managedPublicChunk(state: ManagedChatStreamState, chunk: StreamChunk): StreamChunk {
   if (chunk.type === EventType.MESSAGES_SNAPSHOT) {
     return {
@@ -220,6 +261,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     partIds: new Map(),
     modelIds: new Map(),
     messageIds: new Map(),
+    settledToolCalls: new Set(),
     ready: [],
     buffered: [],
   }
@@ -296,6 +338,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       state.usage = undefined
       state.partIds.clear()
       state.modelIds.clear()
+      state.settledToolCalls.clear()
       state.messageIds.set(info.messageId, state.claim.assistantMessageId)
     },
     onUsage(_ctx, usage) {
@@ -314,43 +357,28 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       await options.execute(options.threads.assertActive({ claim: state.claim }))
     },
     async onAfterToolCall(_ctx, info) {
-      const part = state.payload.parts.find((candidate) => candidate.toolCallId === info.toolCallId)
-      if (!part || !Array.isArray(part.targets)) throw new Error("Uncommitted tool decision")
-      const target = part.targets[0] as typeof Schema.JsonObject.Type
-      const result = info.ok
-        ? (info.result ?? null)
-        : { error: "Tool execution failed", outcome: "unknown" }
-      const payload: ChatMessagePayload = {
-        version: 1,
-        parts: [
-          {
-            type: "tool-result",
-            id: crypto.randomUUID(),
-            toolCallId: info.toolCallId,
-            content: JSON.stringify(result),
-            output: chatStoredJson({ result }).result!,
-            outcome: info.ok ? "succeeded" : "unknown",
-          },
-        ],
-        invocationId: state.claim.invocationId,
-        turnId: state.claim.inputMessageId,
-      }
-      await options.execute(
-        options.threads.appendToolResults({
-          claim: state.claim,
-          results: [
-            {
-              assistantMessageId: state.claim.assistantMessageId,
-              toolPartId: Schema.decodeUnknownSync(Schema.String)(part.id),
-              responseTargetId: Schema.decodeUnknownSync(Schema.String)(target.id),
-              payload,
-            },
-          ],
-        }),
+      await saveManagedToolResult(
+        options,
+        state,
+        info.toolCallId,
+        info.ok ? "succeeded" : "unknown",
+        info.ok ? (info.result ?? null) : { error: "Tool execution failed", outcome: "unknown" },
       )
       if (!info.ok) {
         state.failed = true
         throw new Error("The tool outcome is unconfirmed")
+      }
+    },
+    async onToolPhaseComplete(_ctx, info) {
+      // Input validation failures bypass execution hooks. Settle them before the next draft.
+      // https://tanstack.com/ai/latest/docs/guides/middleware
+      for (const result of info.results) {
+        if (state.settledToolCalls.has(result.toolCallId)) continue
+        const part = state.payload.parts.find(
+          (candidate) => candidate.toolCallId === result.toolCallId,
+        )
+        if (part?.executionLocation === "browser") continue
+        await saveManagedToolResult(options, state, result.toolCallId, "failed", result.result)
       }
     },
     onChunk(_ctx, chunk) {

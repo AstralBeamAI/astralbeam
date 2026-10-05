@@ -209,14 +209,26 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         role: "viewer",
       }),
     )
-    await expect(run(request)).rejects.toMatchObject({ _tag: "ChatThreadForbidden" })
+    expect(await run(request)).toMatchObject({ admission: undefined, receipt: first.receipt })
+    await expect(run({ ...request, idempotencyKey: "new-intent" })).rejects.toMatchObject({
+      _tag: "ChatThreadForbidden",
+    })
     expect(
       await db
         .select()
         .from(cacheEntry)
         .where(eq(cacheEntry.namespace, `chat:${thread.id}`)),
     ).toHaveLength(1)
-    await runtime.runPromise(service.remove({ scope: other, id: thread.id, lockVersion: 3 }))
+    await runtime.runPromise(
+      service.removeParticipant({
+        scope: other,
+        id: thread.id,
+        lockVersion: 3,
+        tenantUserId: scope.tenantUserId,
+      }),
+    )
+    await expect(run(request)).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
+    await runtime.runPromise(service.remove({ scope: other, id: thread.id, lockVersion: 4 }))
     expect(
       await db
         .select()
@@ -351,6 +363,26 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         )
       )._tag,
     ).toBe("ChatThreadConflict")
+  })
+
+  test("orders admission activity by append time rather than transaction start", async () => {
+    const thread = await create()
+    const { admitted, afterWait } = await runtime.runPromise(
+      Effect.gen(function* () {
+        const database = yield* Database
+        return yield* database.transaction((tx) =>
+          Effect.gen(function* () {
+            const [waited] = yield* tx.execute<{ after_wait: string }>(
+              sql`select clock_timestamp()::text as after_wait from pg_sleep(0.02)`,
+              "objects",
+            )
+            const admitted = yield* service.admit({ scope, id: thread.id, payload })
+            return { admitted, afterWait: new Date(waited!.after_wait) }
+          }),
+        )
+      }),
+    )
+    expect(admitted.thread.updatedAt.getTime()).toBeGreaterThanOrEqual(afterWait.getTime())
   })
 
   test("rejects concurrent uploads beyond the restored file budget before admitting input", async () => {

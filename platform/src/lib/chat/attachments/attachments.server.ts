@@ -161,7 +161,7 @@ export function base64ByteLength(value: string): number {
  * concurrent request on the replica. `Uint8Array.fromBase64` would be faster still, but it is a
  * Stage 3 proposal that this TypeScript's lib does not declare.
  */
-function decodeAttachmentBytes(value: string): Uint8Array | undefined {
+export function decodeAttachmentBytes(value: string): Uint8Array | undefined {
   const binary = Result.try(() => atob(base64Payload(value).replace(/\s/g, "")))
   if (Result.isFailure(binary)) return undefined
   const bytes = new Uint8Array(binary.success.length)

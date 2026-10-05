@@ -158,7 +158,13 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
   }
 })
 
-test("sends append during active execution and reload never resubmits uncertain input", async () => {
+test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", async (mode) => {
+  let changed = false
+  const downgraded = mode !== "unchanged"
+  const unavailable =
+    "This conversation’s agent is unavailable. Start a new conversation to continue."
+  const denied =
+    mode === "deleted" ? unavailable : "You have read-only access to this conversation."
   const sent: Array<{
     key: string | null
     body: { messages: unknown[]; tools: unknown[]; forwardedProps: Record<string, unknown> }
@@ -171,7 +177,15 @@ test("sends append during active execution and reload never resubmits uncertain 
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
     if (path.includes("/messages?"))
       return Promise.resolve(
-        Response.json({ ...page(), thread: { ...thread, writer_active: true } }),
+        Response.json({
+          ...page(),
+          thread: {
+            ...thread,
+            writer_active: true,
+            role: changed && mode === "viewer" ? "viewer" : "manager",
+            agent_id: changed && mode === "deleted" ? null : thread.agent_id,
+          },
+        }),
       )
     if (path.includes("/threads?"))
       return Promise.resolve(
@@ -220,13 +234,16 @@ test("sends append during active execution and reload never resubmits uncertain 
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
     await chat.sendMessage("Hello", { onAccepted })
     expect(chat.getState().unsentMessage).toBe("Hello")
+    changed = true
     await chat.reload()
     expect(sent).toHaveLength(1)
     expect(chat.getState().unsentMessage).toBe("Hello")
     await chat.sendMessage("Edited uncertain input")
     expect(sent).toHaveLength(1)
     expect(chat.getState().unsentMessage).toBe("Hello")
-    expect(chat.getState().error?.message).toContain("acceptance is unconfirmed")
+    expect(chat.getState().error?.message).toContain(
+      downgraded ? denied : "acceptance is unconfirmed",
+    )
     chat.updateOptions({
       tools: { changed: { description: "Changed declaration", execute: () => null } },
     })
@@ -242,12 +259,66 @@ test("sends append during active execution and reload never resubmits uncertain 
     expect(chat.getState().error).toBeUndefined()
     expect(onAccepted).toHaveBeenCalledOnce()
     await chat.sendMessage("Another intent")
-    expect(sent[2]?.key).not.toBe(sent[0]?.key)
-    expect(sent[2]?.body.tools).not.toEqual(sent[0]?.body.tools)
+    expect(sent).toHaveLength(downgraded ? 2 : 3)
+    expect(sent.at(-1)?.key === sent[0]?.key).toBe(downgraded)
+    expect(JSON.stringify(sent.at(-1)?.body.tools) === JSON.stringify(sent[0]?.body.tools)).toBe(
+      downgraded,
+    )
+    expect(chat.getState().error?.message).toBe(downgraded ? denied : undefined)
   } finally {
     chat.dispose()
   }
 })
+
+test.each([
+  { status: 413, uncertain: false },
+  { status: 429, uncertain: false },
+  { status: 413, uncertain: true },
+  { status: 429, uncertain: true },
+])(
+  "a rejection $status permits editing only without earlier uncertainty=$uncertain",
+  async ({ status, uncertain }) => {
+    const keys: Array<string | null> = []
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+      if (path.endsWith("/config"))
+        return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
+      if (path.endsWith("/threads"))
+        return Promise.resolve(Response.json({ items: [thread], page_after: null }))
+      keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      if (uncertain && keys.length === 1)
+        return Promise.reject(new TypeError("Acknowledgment lost"))
+      return Promise.resolve(
+        Response.json(
+          {
+            type: "about:blank",
+            title: "Rejected",
+            status,
+            detail: "Input was not admitted.",
+          },
+          { status },
+        ),
+      )
+    })
+    const chat = createAstralBeamChat({ threadId: thread.id, fetchAstralBeamToken: token })
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+      await chat.sendMessage("Original input")
+      if (uncertain) await chat.sendMessage("Original input")
+      await chat.sendMessage("Corrected input")
+      expect(keys).toHaveLength(2)
+      expect(keys[1] === keys[0]).toBe(uncertain)
+      expect(chat.getState().unsentMessage).toBe(uncertain ? "Original input" : "Corrected input")
+      expect(chat.getState().error?.message).toContain(
+        uncertain ? "acceptance is unconfirmed" : "Input was not admitted",
+      )
+    } finally {
+      chat.dispose()
+    }
+  },
+)
 
 test("reset before authentication resolves does not restore the previous conversation", async () => {
   let resolveIdentity: ((response: Response) => void) | undefined
@@ -480,17 +551,84 @@ test("an explicit unknown outcome continues while another response is active wit
 })
 
 test.each([
+  {
+    grant: true,
+    saved: true,
+    expectedExecutions: 1,
+    failOnce: false,
+    throwsAfterCommit: false,
+    delayed: "navigation",
+  },
+  {
+    grant: true,
+    saved: true,
+    expectedExecutions: 1,
+    failOnce: false,
+    throwsAfterCommit: false,
+    delayed: "api",
+  },
+  {
+    grant: true,
+    saved: true,
+    expectedExecutions: 1,
+    failOnce: false,
+    throwsAfterCommit: false,
+    delayed: "identity",
+  },
+  {
+    grant: true,
+    saved: true,
+    expectedExecutions: 0,
+    failOnce: false,
+    throwsAfterCommit: false,
+    questionnaire: true,
+  },
   { grant: true, saved: true, expectedExecutions: 1, failOnce: false, throwsAfterCommit: false },
   { grant: false, saved: true, expectedExecutions: 0, failOnce: false, throwsAfterCommit: false },
   { grant: true, saved: false, expectedExecutions: 0, failOnce: false, throwsAfterCommit: false },
   { grant: true, saved: true, expectedExecutions: 1, failOnce: true, throwsAfterCommit: false },
+  {
+    grant: true,
+    saved: true,
+    expectedExecutions: 1,
+    failOnce: true,
+    throwsAfterCommit: false,
+    navigate: true,
+  },
+  {
+    grant: true,
+    saved: true,
+    expectedExecutions: 1,
+    failOnce: true,
+    throwsAfterCommit: false,
+    advance: true,
+  },
   { grant: true, saved: true, expectedExecutions: 1, failOnce: true, throwsAfterCommit: true },
 ])(
-  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit",
-  async ({ grant, saved, expectedExecutions, failOnce, throwsAfterCommit }) => {
+  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed",
+  async ({
+    grant,
+    saved,
+    expectedExecutions,
+    failOnce,
+    throwsAfterCommit,
+    navigate,
+    advance,
+    questionnaire,
+    delayed,
+  }) => {
+    const toolName = questionnaire ? "ask_questionnaire" : "change_data"
+    let chatRequests = 0
     let mutations = 0
-    const execute = vi.fn(() => {
+    let signedInUser = currentUser
+    let finishTool: () => void = () => {}
+    const toolFinished = new Promise<void>((resolve) => {
+      finishTool = resolve
+    })
+    const delivered = expectedExecutions > 0 && delayed !== "api" && delayed !== "identity"
+    const execute = vi.fn(async () => {
       mutations++
+      if (delayed) await toolFinished
       if (throwsAfterCommit) throw new TypeError("Response lost after mutation")
       return { changed: true }
     })
@@ -511,7 +649,7 @@ test.each([
           id: "application-part",
           type: "tool-call",
           toolCallId: "provider-call",
-          name: "change_data",
+          name: toolName,
           arguments: "{}",
           input: {},
           state: "input-complete",
@@ -543,7 +681,7 @@ test.each([
     vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
       new Request(input, init)
       const path = String(input)
-      if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+      if (path.endsWith("/me")) return Promise.resolve(Response.json(signedInUser))
       if (path.includes("/messages?"))
         return Promise.resolve(
           Response.json({
@@ -571,7 +709,8 @@ test.each([
       if (path.endsWith("/tool-results")) {
         if (typeof init?.body !== "string") throw new Error("Expected a tool result body")
         resultBody = JSON.parse(init.body)
-        if (failOnce && ++resultRequests === 1) return Promise.reject(new TypeError("Disconnected"))
+        resultRequests++
+        if (failOnce && resultRequests === 1) return Promise.reject(new TypeError("Disconnected"))
         phase = "resolved"
         return Promise.resolve(
           events([
@@ -586,6 +725,19 @@ test.each([
         )
       }
       if (path.endsWith("/chat")) {
+        chatRequests++
+        if (phase === "decision")
+          return Promise.resolve(
+            events([
+              { type: "RUN_STARTED", threadId: thread.id, runId: "independent" },
+              {
+                type: "CUSTOM",
+                name: "astralbeam_thread",
+                value: { threadId: thread.id, version: 3, acceptedMessageId: "another-input" },
+              },
+              { type: "RUN_FINISHED", threadId: thread.id, runId: "independent" },
+            ]),
+          )
         if (typeof init?.body !== "string") throw new Error("Expected a chat body")
         targetClientId = (JSON.parse(init.body) as { forwardedProps: { clientId: string } })
           .forwardedProps.clientId
@@ -607,7 +759,7 @@ test.each([
             {
               type: "TOOL_CALL_START",
               toolCallId: "provider-call",
-              toolCallName: "change_data",
+              toolCallName: toolName,
               parentMessageId: "assistant",
             },
             { type: "TOOL_CALL_ARGS", toolCallId: "provider-call", delta: "{}" },
@@ -623,7 +775,7 @@ test.each([
                     {
                       id: "provider-call",
                       type: "function",
-                      function: { name: "change_data", arguments: "{}" },
+                      function: { name: toolName, arguments: "{}" },
                     },
                   ],
                 },
@@ -641,7 +793,7 @@ test.each([
                     {
                       id: "provider-call",
                       type: "function",
-                      function: { name: "change_data", arguments: "{}" },
+                      function: { name: toolName, arguments: "{}" },
                     },
                   ],
                 },
@@ -659,7 +811,7 @@ test.each([
                     id: "client_tool_provider-call",
                     reason: "tanstack:client_tool_execution",
                     toolCallId: "provider-call",
-                    metadata: { kind: "client_tool", toolName: "change_data", input: {} },
+                    metadata: { kind: "client_tool", toolName, input: {} },
                   },
                 ],
               },
@@ -676,13 +828,32 @@ test.each([
     })
     try {
       await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-      await chat.sendMessage("Change it")
-      await vi.waitFor(() => expect(resultRequests).toBe(failOnce ? 1 : 0))
+      const sending = chat.sendMessage("Change it")
+      if (delayed) {
+        await vi.waitUntil(() => execute.mock.calls.length === 1)
+        chat.reset()
+        if (delayed === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+        if (delayed === "identity") {
+          signedInUser = { ...currentUser, user: { id: "another-user" } }
+          chat.retryAuthentication()
+          await vi.waitUntil(() => {
+            const auth = chat.getState().auth
+            return auth.status === "ready" && auth.currentUser.user.id === signedInUser.user.id
+          })
+        }
+        finishTool()
+        await sending
+        await chat.openThread(thread.id)
+        await chat.reload()
+      } else await sending
+      await vi.waitFor(() => expect(resultRequests).toBe(failOnce || delivered ? 1 : 0))
       if (failOnce) {
-        await chat.refreshThread()
+        if (navigate) await chat.openThread(thread.id)
+        else if (advance) await chat.sendMessage("An independent input")
+        else await chat.refreshThread()
         await chat.reload()
       }
-      await vi.waitFor(() => expect(resultRequests).toBe(failOnce ? 2 : 0))
+      await vi.waitFor(() => expect(resultRequests).toBe(failOnce ? 2 : delivered ? 1 : 0))
       expect(chat.getState().error).toBeUndefined()
       expect(execute).toHaveBeenCalledTimes(expectedExecutions)
       const expectedResult: unknown = expect.objectContaining({
@@ -698,11 +869,13 @@ test.each([
           },
         ],
       })
-      await vi.waitFor(() =>
-        expect(resultBody).toEqual(expectedExecutions ? expectedResult : undefined),
-      )
+      await vi.waitFor(() => expect(resultBody).toEqual(delivered ? expectedResult : undefined))
       expect(execute).toHaveBeenCalledTimes(expectedExecutions)
       expect(mutations).toBe(expectedExecutions)
+      if (questionnaire) await chat.sendMessage("Leave the question unanswered")
+      expect(chatRequests).toBe(questionnaire || advance ? 2 : 1)
+      expect(chat.getState().error).toBeUndefined()
+      expect(chat.getState().pendingInteractions).toHaveLength(delivered ? 0 : 1)
       expect(chat.getState().messages[0]?.parts[0]).toMatchObject({ output: { previous: true } })
     } finally {
       chat.dispose()
@@ -786,7 +959,7 @@ test("a browser tool and widget can continue through consecutive committed turns
   const call = (index: number) => ({
     id: `part-${index}`,
     type: "tool-call",
-    toolCallId: `call-${index}`,
+    toolCallId: "reused-call",
     name: index === 1 ? "change_data" : "render_widget",
     arguments: JSON.stringify(index === 1 ? {} : input),
     input: index === 1 ? {} : input,
@@ -908,7 +1081,7 @@ test("a browser tool and widget can continue through consecutive committed turns
                     source_message_id: `assistant-${phase}`,
                     source_part_id: `part-${phase}`,
                     response_target_id: `target-${phase}`,
-                    tool_call_id: `call-${phase}`,
+                    tool_call_id: "reused-call",
                     target_tenant_user_id: "user",
                     target_client_id: null,
                     execution_location: "browser",
@@ -942,7 +1115,21 @@ test("a browser tool and widget can continue through consecutive committed turns
     await chat.sendMessage("Change and show")
     expect(executed).toHaveBeenCalledTimes(1)
     expect(rendered).toHaveBeenCalledTimes(1)
-    expect(outputs).toHaveLength(2)
+    expect(outputs).toEqual([
+      expect.objectContaining({
+        results: [
+          expect.objectContaining({ source_message_id: "assistant-1", output: { done: true } }),
+        ],
+      }),
+      expect.objectContaining({
+        results: [
+          expect.objectContaining({
+            source_message_id: "assistant-2",
+            output: { widget: "card", rendered: true },
+          }),
+        ],
+      }),
+    ])
     expect(chat.getState().error).toBeUndefined()
     expect(chat.getState().pendingInteractions).toEqual([])
   } finally {

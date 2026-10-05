@@ -391,6 +391,9 @@ export function chatThreadHandlers(api: typeof ApiV1) {
       const { chatAdmissionResponse, consumeChatRateLimit, readChatRequestBody } =
         yield* Effect.promise(() => import("./run.server"))
       const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
+      const { decodeAttachmentBytes } = yield* Effect.promise(
+        () => import("@/lib/chat/attachments/attachments.server"),
+      )
       const { HttpServerResponse } = yield* Effect.promise(() => import("effect/http"))
       const threads = yield* ChatThreads
       const tenantUsers = yield* TenantUsers
@@ -618,13 +621,8 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               typeof source.mimeType === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(source.mimeType)
                 ? source.mimeType
                 : "application/octet-stream"
-            const bytes = yield* Effect.try({
-              try: () =>
-                Uint8Array.from(atob(source.value as string), (character) =>
-                  character.charCodeAt(0),
-                ),
-              catch: () => new ChatThreadNotFound(),
-            })
+            const bytes = decodeAttachmentBytes(source.value)
+            if (!bytes) return yield* new ChatThreadNotFound()
             return chatArtifactResponse({ bytes, mimeType, path })
           }),
         })

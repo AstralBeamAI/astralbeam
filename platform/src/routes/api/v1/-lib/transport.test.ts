@@ -724,7 +724,11 @@ describe("REST API through the Effect Fetch handler", () => {
     const attachment = {
       id: "upload",
       type: "image",
-      source: { type: "data", value: btoa("saved image"), mimeType: "image/png" },
+      source: {
+        type: "data",
+        value: `data:image/png;base64,${btoa("saved image")}`,
+        mimeType: "image/png",
+      },
       metadata: { filename: "upload.png", size: 11 },
     }
     const savedMessage = {

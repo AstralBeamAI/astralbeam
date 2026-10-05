@@ -10,8 +10,9 @@ import { Effect, Schema } from "effect"
 import { describe, expect, test } from "vitest"
 
 import { createChatAdapter } from "../adapter.server"
+import { chatToolInputSchema } from "../tool-schema.server"
 import type { ChatThreads } from "./threads.server"
-import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
+import type { ChatMessagePayload, ChatToolResolution, ChatWriterClaim } from "./schemas"
 import { managedChatDelivery, managedChatMiddleware } from "./stream.server"
 
 const managedStreamClaim: ChatWriterClaim = {
@@ -61,11 +62,14 @@ async function exerciseManagedStream(options: {
   failFinal?: boolean
   failSnapshot?: boolean
   failTool?: boolean
+  invalidInput?: boolean
+  failResult?: boolean
   authorizationFailure?: "model" | "tool"
   refresh?: boolean
 }) {
   const order: string[] = []
   const saved: ChatMessagePayload[] = []
+  const results: ChatToolResolution[] = []
   const prompts: unknown[] = []
   const nextAssistantId = crypto.randomUUID()
   let requests = 0
@@ -88,7 +92,9 @@ async function exerciseManagedStream(options: {
   const definition = toolDefinition({
     name: "change",
     description: "Test action",
-    inputSchema: { type: "object", properties: {} },
+    inputSchema: options.invalidInput
+      ? chatToolInputSchema(Schema.Struct({ required: Schema.String }))
+      : { type: "object", properties: {} },
   })
   const tool = options.browser
     ? definition.client()
@@ -126,8 +132,10 @@ async function exerciseManagedStream(options: {
         order.push("next-draft")
         return { ...claim, assistantMessageId: nextAssistantId }
       }),
-    appendToolResults: () =>
+    appendToolResults: (input: { results: readonly ChatToolResolution[] }) =>
       Effect.sync(() => {
+        if (options.failResult) throw new Error("Synthetic result save failure")
+        results.push(...input.results)
         order.push("result")
       }),
     finish: () =>
@@ -188,7 +196,7 @@ async function exerciseManagedStream(options: {
   } catch {
     failed = true
   }
-  return { order, saved, requests, executed, chunks, failed, nextAssistantId, prompts }
+  return { order, saved, results, requests, executed, chunks, failed, nextAssistantId, prompts }
 }
 
 describe("managed TanStack persistence boundaries", () => {
@@ -208,6 +216,7 @@ describe("managed TanStack persistence boundaries", () => {
     expect(result.failed).toBe(false)
     expect(result.executed).toBe(1)
     expect(result.requests).toBe(2)
+    expect(result.results).toHaveLength(1)
     expect(result.order.indexOf("decision")).toBeLessThan(result.order.indexOf("execute"))
     expect(result.order.indexOf("result")).toBeLessThan(result.order.lastIndexOf("decision"))
     expect(
@@ -244,11 +253,33 @@ describe("managed TanStack persistence boundaries", () => {
     expect(result.chunks.some((chunk) => chunk.type === EventType.TOOL_CALL_END)).toBe(false)
   })
 
+  test("saves input validation failures before continuing without executing the tool", async () => {
+    const result = await exerciseManagedStream({ invalidInput: true })
+    expect(result.failed).toBe(false)
+    expect(result.executed).toBe(0)
+    expect(result.requests).toBe(2)
+    expect(result.results).toHaveLength(1)
+    const output = result.results[0]!.payload.parts[0]!
+    expect(output.outcome).toBe("failed")
+    expect(JSON.stringify(output.output)).toContain("Input validation failed")
+    expect(result.order.indexOf("result")).toBeLessThan(result.order.indexOf("next-draft"))
+  })
+
+  test("a rejected tool result must be saved before another model attempt", async () => {
+    const result = await exerciseManagedStream({ invalidInput: true, failResult: true })
+    expect(result.failed).toBe(true)
+    expect(result.executed).toBe(0)
+    expect(result.requests).toBe(1)
+    expect(result.order).not.toContain("next-draft")
+    expect(result.order).not.toContain("finish")
+  })
+
   test("an unconfirmed server tool outcome is saved without another model attempt", async () => {
     const result = await exerciseManagedStream({ failTool: true })
     expect(result.executed).toBe(1)
     expect(result.requests).toBe(1)
     expect(result.order).toContain("result")
+    expect(result.results[0]!.payload.parts[0]!.outcome).toBe("unknown")
     expect(result.failed).toBe(true)
   })
 

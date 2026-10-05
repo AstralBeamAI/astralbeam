@@ -151,7 +151,6 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
     if (tool.outputSchema !== undefined) yield* storedResponseSchema(tool.outputSchema)
   }
   const thread = yield* threads.get({ scope, id })
-  if (thread.role === "viewer") return yield* new ChatThreadForbidden()
   let admission: ChatAdmission | undefined
   let rejected: ChatThreadError | ChatAttachmentsDisabled | undefined
   const parameters = {
@@ -164,8 +163,9 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   const accept = Effect.fnUntraced(function* (
     command: typeof chatAdmissionOperation.parameters.Type,
   ) {
-    // Recovery returns the authorized receipt even after agent configuration changes.
+    // Recovery returns the authorized receipt even after write access or agent configuration changes.
     // These checks apply only to a new admission, not to a previously accepted intent.
+    if (thread.role === "viewer") return yield* new ChatThreadForbidden()
     const agentId =
       thread.agentId === null ? null : `agent_${scope.organizationId}_${thread.agentId}`
     if (agentId === null) return yield* new ChatThreadNotFound()
