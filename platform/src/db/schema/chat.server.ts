@@ -14,7 +14,13 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { ApiUuidSchema } from "../../lib/tenants/schemas.ts"
-import { deferrableForeignKey, schemaJsonb, lockVersion, timestamps, uuidV7 } from "../lib/columns.server.ts"
+import {
+  deferrableForeignKey,
+  schemaJsonb,
+  lockVersion,
+  timestamps,
+  uuidV7,
+} from "../lib/columns.server.ts"
 import { agent, tenant, tenantUser } from "./organizations.server.ts"
 
 const boundedChatJson = Schema.makeFilter(

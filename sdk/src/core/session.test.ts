@@ -111,12 +111,26 @@ test("a reset creates a new saved conversation without deleting the previous one
 
 test("reset during a terminal chunk suppresses the old completion callback", async () => {
   let turns = 0
+  let created = 0
   vi.stubGlobal("fetch", (input: URL) => {
     const path = String(input)
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (path.endsWith("/chat/config"))
+    if (path.includes("/chat/config"))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    const run = { runId: `run-${++turns}`, threadId: "thread" }
+    if (path.includes("/threads?")) return Promise.resolve(Response.json(emptyPage))
+    if (path.endsWith("/threads"))
+      return Promise.resolve(Response.json({ ...thread, id: `conversation-${++created}` }))
+    if (path.includes("/messages?"))
+      return Promise.resolve(
+        Response.json({
+          ...emptyPage,
+          thread: { ...thread, id: `conversation-${created}` },
+          messages: [],
+          pending_interactions: [],
+        }),
+      )
+    if (!path.endsWith("/chat")) return Promise.reject(new Error(`Unexpected request ${path}`))
+    const run = { runId: `run-${++turns}`, threadId: `conversation-${created}` }
     const text = { messageId: `reply-${turns}` }
     const events = [
       { type: "RUN_STARTED", ...run },
@@ -126,7 +140,9 @@ test("reset during a terminal chunk suppresses the old completion callback", asy
       { type: "RUN_FINISHED", ...run },
     ]
     return Promise.resolve(
-      new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")),
+      new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
     )
   })
   const onFinish = vi.fn()

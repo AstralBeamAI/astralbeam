@@ -304,7 +304,12 @@ const saveChatParts = Effect.fnUntraced(function* (
       .insert(chatMessagePart)
       .values(values)
       .onConflictDoUpdate({
-        target: [chatMessagePart.organizationId, chatMessagePart.tenantId, chatMessagePart.id],
+        target: [
+          chatMessagePart.organizationId,
+          chatMessagePart.tenantId,
+          chatMessagePart.threadId,
+          chatMessagePart.id,
+        ],
         set: { payload: values.payload, executionLocation: location, position },
         setWhere: eq(chatMessagePart.messageId, messageId),
       })

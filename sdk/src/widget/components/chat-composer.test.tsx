@@ -12,6 +12,7 @@ test("normalized transport failures do not repeat the raw error in the alert or 
       onSend={() => {}}
       onStop={() => {}}
       onRetry={undefined}
+      retryLabel="Retry"
       showError
       error={new Error("HTTP error! status: 500: private server exception")}
       streamBusy={false}
