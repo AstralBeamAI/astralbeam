@@ -1,4 +1,4 @@
-import { DateTime, Duration, Effect, Schedule, Schema } from "effect"
+import { DateTime, Duration, Effect, Layer, Schedule, Schema } from "effect"
 import { Activity, Workflow } from "effect/workflow"
 
 import { Mailer } from "../email/email.server.ts"
@@ -9,7 +9,7 @@ import {
 } from "../organizations/deletion.server.ts"
 import { UuidV7Schema } from "../schemas.ts"
 
-const deleteOrganization = Workflow.make("DeleteOrganization/v1", {
+const legacyDeleteOrganization = Workflow.make("DeleteOrganization/v1", {
   payload: {
     organizationId: UuidV7Schema,
     operationId: Schema.String,
@@ -18,6 +18,11 @@ const deleteOrganization = Workflow.make("DeleteOrganization/v1", {
   },
   // Seeds and restores can recreate an organization under the same UUID.
   idempotencyKey: ({ organizationId, operationId }) => `${organizationId}:${operationId}`,
+})
+
+const deleteOrganization = Workflow.make("DeleteOrganization/v2", {
+  payload: legacyDeleteOrganization.payloadSchema,
+  idempotencyKey: legacyDeleteOrganization.idempotencyKey,
 })
 
 // Access is already revoked, so no user can retry a failed purge. Keep retrying.
@@ -62,17 +67,29 @@ const notifyOrganizationOwners = Effect.fn("notifyOrganizationOwners")(function*
   )
 })
 
-export const deleteOrganizationWorkflowLayer = deleteOrganization.toLayer((payload) =>
-  Effect.gen(function* () {
-    const { organizationId } = payload
-    yield* purgeOrganizationStep(
-      "DeleteTenants",
-      drainOrganizationBatches(deleteOrganizationTenantBatch(organizationId)),
-    )
-    yield* purgeOrganizationStep("DeleteOrganization", deleteOrganizationRow(organizationId))
-    yield* Effect.logInfo("Organization deleted", { organizationId })
-    yield* Activity.make({ name: "NotifyOwners", execute: notifyOrganizationOwners(payload) })
-  }),
+const purgeOrganization = Effect.fn("purgeOrganization")(function* (
+  payload: typeof deleteOrganization.payloadSchema.Type,
+) {
+  const { organizationId } = payload
+  yield* purgeOrganizationStep(
+    "DeleteTenants",
+    drainOrganizationBatches(deleteOrganizationTenantBatch(organizationId)),
+  )
+  yield* purgeOrganizationStep("DeleteOrganization", deleteOrganizationRow(organizationId))
+  yield* Effect.logInfo("Organization deleted", { organizationId })
+  yield* Activity.make({ name: "NotifyOwners", execute: notifyOrganizationOwners(payload) })
+})
+
+export const deleteOrganizationWorkflowLayer = Layer.mergeAll(
+  deleteOrganization.toLayer(purgeOrganization),
+  legacyDeleteOrganization.toLayer((payload) =>
+    Effect.gen(function* () {
+      // Preserve v1's journal checkpoint, with user deletion now handled by Tenant cascades.
+      // Keep this handler until v1 executions finish. See ./README.md#define-and-register-a-workflow.
+      yield* purgeOrganizationStep("DeleteTenantUsers", Effect.void)
+      yield* purgeOrganization(payload)
+    }),
+  ),
 )
 
 export default deleteOrganization

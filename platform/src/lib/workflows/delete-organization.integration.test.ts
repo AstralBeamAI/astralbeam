@@ -2,7 +2,7 @@ import { eq, getTableName, sql } from "drizzle-orm"
 import { getTableConfig } from "drizzle-orm/pg-core"
 import { Effect, Fiber, Layer } from "effect"
 import { TestClock } from "effect/testing"
-import { WorkflowEngine } from "effect/workflow"
+import { Workflow, WorkflowEngine } from "effect/workflow"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 const deleteOrganizationIntegration = vi.hoisted(() => {
@@ -203,8 +203,11 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     }
   }
 
-  function organizationDeletion(organizationId: string) {
-    return deleteOrganization
+  function organizationDeletion(
+    organizationId: string,
+    workflow: Pick<typeof deleteOrganization, "execute"> = deleteOrganization,
+  ) {
+    return workflow
       .execute({
         organizationId,
         operationId: crypto.randomUUID(),
@@ -605,35 +608,42 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     }
   })
 
-  test("revokes access at once and purges only the deleted organization", async () => {
-    const deleted = await createOrganization("deleted")
-    const kept = await createOrganization("kept")
-    const { organizationId: deletedId, ownerId } = deleted
-    const { organizationId: keptId } = kept
-    await createDeletionChat(deleted)
-    await createDeletionChat(kept)
+  test.each(["v1", "v2"])(
+    "%s revokes access at once and purges only the deleted organization",
+    async (version) => {
+      const deleted = await createOrganization("deleted")
+      const kept = await createOrganization("kept")
+      const { organizationId: deletedId, ownerId } = deleted
+      const { organizationId: keptId } = kept
+      await createDeletionChat(deleted)
+      await createDeletionChat(kept)
 
-    expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
-    expect(await db.select().from(member).where(eq(member.organizationId, deletedId))).toEqual([])
+      expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
+      expect(await db.select().from(member).where(eq(member.organizationId, deletedId))).toEqual([])
 
-    await runAppEffect(organizationDeletion(deletedId))
+      const workflow = Workflow.make(`DeleteOrganization/${version}`, {
+        payload: deleteOrganization.payloadSchema,
+        idempotencyKey: deleteOrganization.idempotencyKey,
+      })
+      await runAppEffect(organizationDeletion(deletedId, workflow))
 
-    const remaining = await db.select({ id: organization.id }).from(organization)
-    expect(remaining).toEqual([{ id: keptId }])
-    const tenantUsers = await db
-      .select({ organizationId: tenantUser.organizationId })
-      .from(tenantUser)
-    expect(new Set(tenantUsers.map((row) => row.organizationId))).toEqual(new Set([keptId]))
-    expect(tenantUsers).toHaveLength(2001)
-    expect(await db.select({ organizationId: chatThread.organizationId }).from(chatThread)).toEqual(
-      [{ organizationId: keptId }],
-    )
-    for (const table of [modelProvider, providerModel, agentModel]) {
-      expect(await db.select({ organizationId: table.organizationId }).from(table)).toEqual([
-        { organizationId: keptId },
-      ])
-    }
-  })
+      const remaining = await db.select({ id: organization.id }).from(organization)
+      expect(remaining).toEqual([{ id: keptId }])
+      const tenantUsers = await db
+        .select({ organizationId: tenantUser.organizationId })
+        .from(tenantUser)
+      expect(new Set(tenantUsers.map((row) => row.organizationId))).toEqual(new Set([keptId]))
+      expect(tenantUsers).toHaveLength(2001)
+      expect(
+        await db.select({ organizationId: chatThread.organizationId }).from(chatThread),
+      ).toEqual([{ organizationId: keptId }])
+      for (const table of [modelProvider, providerModel, agentModel]) {
+        expect(await db.select({ organizationId: table.organizationId }).from(table)).toEqual([
+          { organizationId: keptId },
+        ])
+      }
+    },
+  )
 
   test("keeps retrying a failed purge past any backoff window until the database recovers", async () => {
     const { organizationId } = await createOrganization("deleted")
