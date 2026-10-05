@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm"
 import {
   boolean,
   check,
-  foreignKey,
   index,
   integer,
   primaryKey,
@@ -30,6 +29,7 @@ import { UuidV7Schema } from "../../lib/schemas.ts"
 
 import {
   caseInsensitiveText,
+  deferrableForeignKey,
   encryptedJson,
   schemaJsonb,
   lockVersion,
@@ -80,11 +80,7 @@ export const apiKey = snakeCase.table(
     configId: text().default("default").notNull(),
     name: text().notNull(),
     start: text(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: uuid().notNull(),
     prefix: text(),
     // Better Auth stores a SHA-256 digest, not the bearer key. https://better-auth.com/docs/plugins/api-key/reference#schema
     key: text().notNull(),
@@ -108,6 +104,10 @@ export const apiKey = snakeCase.table(
     index("api_key_config_id_idx").on(table.configId),
     index("api_key_organization_id_idx").on(table.organizationId),
     uniqueIndex("api_key_key_idx").on(table.key),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
   ],
 )
 
@@ -115,11 +115,7 @@ export const sandboxProvider = snakeCase.table(
   "sandbox_provider",
   {
     id: uuidV7(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: uuid().notNull(),
     name: caseInsensitiveText().notNull(),
     providerType: text().$type<SandboxProviderId>().notNull(),
     options: schemaJsonb(SandboxProviderOptionsSchema).notNull(),
@@ -134,6 +130,10 @@ export const sandboxProvider = snakeCase.table(
       columns: [table.organizationId, table.id],
     }),
     uniqueIndex("sandbox_provider_organization_id_name_uidx").on(table.organizationId, table.name),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
   ],
 )
 
@@ -141,9 +141,7 @@ export const modelProvider = snakeCase.table(
   "model_provider",
   {
     id: uuidV7(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: uuid().notNull(),
     name: caseInsensitiveText().notNull(),
     providerType: text().$type<ModelProviderType>().notNull(),
     api: text().$type<ModelProviderApi>().notNull(),
@@ -155,6 +153,10 @@ export const modelProvider = snakeCase.table(
   (table) => [
     primaryKey({ name: "model_provider_pkey", columns: [table.organizationId, table.id] }),
     uniqueIndex("model_provider_organization_id_name_uidx").on(table.organizationId, table.name),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
   ],
 )
 
@@ -162,9 +164,7 @@ export const providerModel = snakeCase.table(
   "provider_model",
   {
     id: uuidV7(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: uuid().notNull(),
     modelProviderId: uuid().notNull(),
     modelId: text().notNull(),
     name: text().notNull(),
@@ -177,10 +177,14 @@ export const providerModel = snakeCase.table(
       table.modelProviderId,
       table.modelId,
     ),
-    foreignKey({
+    deferrableForeignKey({
       name: "provider_model_provider_fk",
       columns: [table.organizationId, table.modelProviderId],
       foreignColumns: [modelProvider.organizationId, modelProvider.id],
+    }).onDelete("cascade"),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
     }).onDelete("cascade"),
   ],
 )
@@ -189,11 +193,7 @@ export const agent = snakeCase.table(
   "agent",
   {
     id: uuidV7(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: uuid().notNull(),
     name: caseInsensitiveText().notNull(),
     systemPrompt: text().notNull(),
     // Agent capability policy the chat endpoint enforces; the SDK can narrow it, never grant it.
@@ -216,11 +216,15 @@ export const agent = snakeCase.table(
       "agent_system_prompt_length_check",
       sql`char_length(${table.systemPrompt}) between 1 and 32768`,
     ),
-    foreignKey({
+    deferrableForeignKey({
       name: "agent_organization_id_sandbox_provider_id_fk",
       columns: [table.organizationId, table.sandboxProviderId],
       foreignColumns: [sandboxProvider.organizationId, sandboxProvider.id],
-    }).onDelete("restrict"),
+    }).onDelete("no action"),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
   ],
 )
 
@@ -228,9 +232,7 @@ export const agentModel = snakeCase.table(
   "agent_model",
   {
     id: uuidV7(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: uuid().notNull(),
     agentId: uuid().notNull(),
     providerModelId: uuid().notNull(),
     position: integer().notNull(),
@@ -248,22 +250,26 @@ export const agentModel = snakeCase.table(
       table.agentId,
       table.position,
     ),
-    // Serves the RESTRICT check when a provider model is deleted.
+    // Serves the foreign key check when a provider model is deleted.
     index("agent_model_organization_id_provider_model_id_idx").on(
       table.organizationId,
       table.providerModelId,
     ),
     check("agent_model_position_check", sql`${table.position} >= 0`),
-    foreignKey({
+    deferrableForeignKey({
       name: "agent_model_agent_fk",
       columns: [table.organizationId, table.agentId],
       foreignColumns: [agent.organizationId, agent.id],
     }).onDelete("cascade"),
-    foreignKey({
+    deferrableForeignKey({
       name: "agent_model_provider_model_fk",
       columns: [table.organizationId, table.providerModelId],
       foreignColumns: [providerModel.organizationId, providerModel.id],
-    }).onDelete("restrict"),
+    }).onDelete("no action"),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
   ],
 )
 
@@ -271,11 +277,7 @@ export const organizationConfiguration = snakeCase.table(
   "organization_configuration",
   {
     id: uuidV7(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: uuid().notNull(),
     defaultAgentId: uuid(),
     lockVersion: lockVersion(),
     ...timestamps(),
@@ -286,25 +288,24 @@ export const organizationConfiguration = snakeCase.table(
       columns: [table.organizationId, table.id],
     }),
     uniqueIndex("organization_configuration_organization_id_uidx").on(table.organizationId),
-    // The composite reference keeps the default agent inside its own organization. MATCH SIMPLE
-    // leaves the row unchecked while the default is null, and the restricted delete makes an
-    // agent removal clear the default first. https://www.postgresql.org/docs/18/ddl-constraints.html#DDL-CONSTRAINTS-FK
-    foreignKey({
+    // Migration SQL limits SET NULL to default_agent_id, preserving organization_id.
+    // https://www.postgresql.org/docs/18/sql-createtable.html
+    deferrableForeignKey({
       name: "organization_configuration_default_agent_id_fk",
       columns: [table.organizationId, table.defaultAgentId],
       foreignColumns: [agent.organizationId, agent.id],
-    }).onDelete("restrict"),
+    }).onDelete("set null"),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
   ],
 )
 
 export const tenant = snakeCase.table(
   "tenant",
   {
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: uuid().notNull(),
     id: uuidV7(),
     externalId: text().notNull(),
     name: text(),
@@ -320,6 +321,10 @@ export const tenant = snakeCase.table(
     check("tenant_metadata_object_check", sql`jsonb_typeof(${table.metadata}) = 'object'`),
     index("tenant_name_trgm_idx").using("gin", table.name.op("gin_trgm_ops")),
     index("tenant_external_id_trgm_idx").using("gin", table.externalId.op("gin_trgm_ops")),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
   ],
 )
 
@@ -348,7 +353,7 @@ export const tenantUser = snakeCase.table(
     check("tenant_user_metadata_object_check", sql`jsonb_typeof(${table.metadata}) = 'object'`),
     index("tenant_user_name_trgm_idx").using("gin", table.name.op("gin_trgm_ops")),
     index("tenant_user_external_id_trgm_idx").using("gin", table.externalId.op("gin_trgm_ops")),
-    foreignKey({
+    deferrableForeignKey({
       name: "tenant_user_organization_id_tenant_id_fk",
       columns: [table.organizationId, table.tenantId],
       foreignColumns: [tenant.organizationId, tenant.id],
@@ -360,14 +365,8 @@ export const member = snakeCase.table(
   "member",
   {
     id: uuidV7PrimaryKey(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
-    userId: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    organizationId: uuid().notNull(),
+    userId: uuid().notNull(),
     role: text().default("viewer").notNull(),
     ...timestamps(),
   },
@@ -375,6 +374,14 @@ export const member = snakeCase.table(
     // Keep Better Auth's generated member shape: organization and user are referenced independently, while its official APIs enforce membership creation. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/schema.ts#L140-L166
     index("member_organization_id_idx").on(table.organizationId),
     index("member_user_id_idx").on(table.userId),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
+    deferrableForeignKey({
+      columns: [table.userId],
+      foreignColumns: [user.id],
+    }).onDelete("cascade"),
   ],
 )
 
@@ -382,22 +389,24 @@ export const invitation = snakeCase.table(
   "invitation",
   {
     id: uuidV7PrimaryKey(),
-    organizationId: uuid()
-      .notNull()
-      .references(() => organization.id, {
-        onDelete: "cascade",
-      }),
+    organizationId: uuid().notNull(),
     email: caseInsensitiveText().notNull(),
     role: text(),
     status: text().default("pending").notNull(),
     expiresAt: timestampWithTimeZone().notNull(),
-    inviterId: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    inviterId: uuid().notNull(),
     ...timestamps(),
   },
   (table) => [
     index("invitation_organization_id_idx").on(table.organizationId),
     index("invitation_email_idx").on(table.email),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
+    deferrableForeignKey({
+      columns: [table.inviterId],
+      foreignColumns: [user.id],
+    }).onDelete("cascade"),
   ],
 )

@@ -208,6 +208,35 @@ export default defineConfig({
   rules: baseRules,
   overrides: [
     {
+      files: ["src/**/*.{ts,tsx}"],
+      excludeFiles: ["src/db/lib/columns.server.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                regex: "^(?:npm:)?drizzle-orm(?:@[^/]+)?/pg-core(?:/|$)",
+                importNames: ["foreignKey"],
+                message: "Use deferrableForeignKey from src/db/lib/columns.server.ts.",
+              },
+            ],
+          },
+        ],
+        "no-restricted-properties": [
+          "error",
+          {
+            property: "foreignKey",
+            message: "Use deferrableForeignKey from src/db/lib/columns.server.ts.",
+          },
+          {
+            property: "references",
+            message: "Use deferrableForeignKey from src/db/lib/columns.server.ts.",
+          },
+        ],
+      },
+    },
+    {
       files: ["**/*.test.{ts,tsx}"],
       rules: recommendedRules.vitest,
     },

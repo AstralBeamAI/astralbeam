@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm"
 import { Schema } from "effect"
 import {
   check,
-  foreignKey,
   index,
   integer,
   jsonb,
@@ -16,7 +15,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { ApiUuidSchema } from "../../lib/tenants/schemas.ts"
-import { lockVersion, timestamps, uuidV7 } from "../lib/columns.server.ts"
+import { deferrableForeignKey, lockVersion, timestamps, uuidV7 } from "../lib/columns.server.ts"
 import { agent, tenant, tenantUser } from "./organizations.server.ts"
 
 const boundedChatJson = Schema.makeFilter(
@@ -97,7 +96,7 @@ export const chatThread = snakeCase.table(
     tenantId: uuid().notNull(),
     id: uuidV7(),
     // Selected Organization-owned agent, bound at creation rather than following default-agent changes.
-    // Clear this reference before agent deletion. Null preserves readable history but prevents new generation.
+    // Agent deletion clears only this reference. Null preserves readable history but prevents new generation.
     agentId: uuid(),
     // Empty uses the client's generic label. Renaming updates activity ordering.
     title: text().default("").notNull(),
@@ -115,17 +114,22 @@ export const chatThread = snakeCase.table(
       table.updatedAt,
       table.id,
     ),
-    foreignKey({
+    deferrableForeignKey({
       columns: [table.organizationId, table.tenantId],
       foreignColumns: [tenant.organizationId, tenant.id],
     }).onDelete("cascade"),
-    foreignKey({
+    // Migration SQL limits SET NULL to agent_id, preserving organization_id.
+    // https://www.postgresql.org/docs/18/sql-createtable.html
+    deferrableForeignKey({
       name: "chat_thread_agent_fk",
       columns: [table.organizationId, table.agentId],
       foreignColumns: [agent.organizationId, agent.id],
-    }),
-    foreignKey({
+    }).onDelete("set null"),
+    // Defer this circular reference until commit.
+    // https://www.postgresql.org/docs/18/ddl-constraints.html#DDL-CONSTRAINTS-FK
+    deferrableForeignKey({
       name: "chat_thread_current_leaf_fk",
+      deferrable: "deferred",
       columns: [table.organizationId, table.tenantId, table.id, table.currentLeafMessageId],
       foreignColumns: [
         chatMessage.organizationId,
@@ -170,11 +174,11 @@ export const chatParticipant = snakeCase.table(
       table.tenantUserId,
       table.threadId,
     ),
-    foreignKey({
+    deferrableForeignKey({
       columns: [table.organizationId, table.tenantId, table.threadId],
       foreignColumns: [chatThread.organizationId, chatThread.tenantId, chatThread.id],
     }).onDelete("cascade"),
-    foreignKey({
+    deferrableForeignKey({
       columns: [table.organizationId, table.tenantId, table.tenantUserId],
       foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
     }).onDelete("cascade"),
@@ -224,13 +228,9 @@ export const chatMessage = snakeCase.table(
     ...timestamps(),
   },
   (table): PgTableExtraConfigValue[] => [
-    primaryKey({ columns: [table.organizationId, table.tenantId, table.id] }),
-    uniqueIndex("chat_message_thread_id_uidx").on(
-      table.organizationId,
-      table.tenantId,
-      table.threadId,
-      table.id,
-    ),
+    primaryKey({
+      columns: [table.organizationId, table.tenantId, table.threadId, table.id],
+    }),
     uniqueIndex("chat_message_turn_draft_uidx")
       .on(table.organizationId, table.tenantId, table.threadId, table.turnMessageId)
       .where(sql`${table.state} = 'draft'`),
@@ -246,22 +246,23 @@ export const chatMessage = snakeCase.table(
       table.threadId,
       table.turnMessageId,
     ),
-    foreignKey({
+    deferrableForeignKey({
       columns: [table.organizationId, table.tenantId, table.threadId],
       foreignColumns: [chatThread.organizationId, chatThread.tenantId, chatThread.id],
     }).onDelete("cascade"),
-    foreignKey({
+    deferrableForeignKey({
       name: "chat_message_parent_fk",
       columns: [table.organizationId, table.tenantId, table.threadId, table.parentMessageId],
       foreignColumns: [table.organizationId, table.tenantId, table.threadId, table.id],
     }),
-    foreignKey({
+    deferrableForeignKey({
       name: "chat_message_turn_fk",
       columns: [table.organizationId, table.tenantId, table.threadId, table.turnMessageId],
       foreignColumns: [table.organizationId, table.tenantId, table.threadId, table.id],
     }),
-    foreignKey({
+    deferrableForeignKey({
       name: "chat_message_author_user_fk",
+      deferrable: "deferred",
       columns: [table.organizationId, table.tenantId, table.authorTenantUserId],
       foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
     }),
@@ -302,20 +303,17 @@ export const chatMessagePart = snakeCase.table(
     ...timestamps(),
   },
   (table): PgTableExtraConfigValue[] => [
-    primaryKey({ columns: [table.organizationId, table.tenantId, table.id] }),
-    uniqueIndex("chat_message_part_thread_id_uidx").on(
-      table.organizationId,
-      table.tenantId,
-      table.threadId,
-      table.id,
-    ),
+    primaryKey({
+      columns: [table.organizationId, table.tenantId, table.threadId, table.id],
+    }),
     uniqueIndex("chat_message_part_position_uidx").on(
       table.organizationId,
       table.tenantId,
+      table.threadId,
       table.messageId,
       table.position,
     ),
-    foreignKey({
+    deferrableForeignKey({
       columns: [table.organizationId, table.tenantId, table.threadId, table.messageId],
       foreignColumns: [
         chatMessage.organizationId,
@@ -365,9 +363,9 @@ export const chatToolResponse = snakeCase.table(
       table.toolPartId,
     ),
     uniqueIndex("chat_tool_response_result_uidx")
-      .on(table.organizationId, table.tenantId, table.resultMessageId)
+      .on(table.organizationId, table.tenantId, table.threadId, table.resultMessageId)
       .where(sql`${table.resultMessageId} is not null`),
-    foreignKey({
+    deferrableForeignKey({
       columns: [table.organizationId, table.tenantId, table.threadId, table.toolPartId],
       foreignColumns: [
         chatMessagePart.organizationId,
@@ -376,7 +374,7 @@ export const chatToolResponse = snakeCase.table(
         chatMessagePart.id,
       ],
     }).onDelete("cascade"),
-    foreignKey({
+    deferrableForeignKey({
       name: "chat_tool_response_result_fk",
       columns: [table.organizationId, table.tenantId, table.threadId, table.resultMessageId],
       foreignColumns: [
@@ -386,7 +384,8 @@ export const chatToolResponse = snakeCase.table(
         chatMessage.id,
       ],
     }).onDelete("cascade"),
-    foreignKey({
+    deferrableForeignKey({
+      deferrable: "deferred",
       columns: [table.organizationId, table.tenantId, table.tenantUserId],
       foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
     }),

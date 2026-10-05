@@ -1,16 +1,16 @@
 import { DateTime, Duration, Effect, Schedule, Schema } from "effect"
+import { SqlError } from "effect/sql"
 import { Activity, Workflow } from "effect/workflow"
 
 import { Mailer } from "../email/email.server.ts"
 import {
-  deleteOrganizationRow,
+  deleteOrganization as deleteOrganizationFn,
   deleteOrganizationTenantBatch,
-  deleteOrganizationTenantUserBatch,
   readUserEmails,
 } from "../organizations/deletion.server.ts"
 import { UuidV7Schema } from "../schemas.ts"
 
-const deleteOrganization = Workflow.make("DeleteOrganization/v1", {
+const deleteOrganization = Workflow.make("DeleteOrganization/v2", {
   payload: {
     organizationId: UuidV7Schema,
     operationId: Schema.String,
@@ -33,6 +33,11 @@ function purgeOrganizationStep<E, R>(name: string, execute: Effect.Effect<unknow
     name,
     execute: execute.pipe(
       Effect.asVoid,
+      // Effect SQL turns commit failures into defects. Purges are safe to retry after uncertain commits.
+      // https://github.com/Effect-TS/effect/blob/main/packages/effect/src/sql/SqlClient.ts
+      Effect.catchDefect((defect) =>
+        SqlError.isSqlError(defect) ? Effect.fail(defect) : Effect.die(defect),
+      ),
       Effect.tapError(() => Effect.logWarning("Organization purge step failed", { step: name })),
       Effect.retry(organizationPurgeRetry),
       Effect.orDie,
@@ -67,14 +72,10 @@ export const deleteOrganizationWorkflowLayer = deleteOrganization.toLayer((paylo
   Effect.gen(function* () {
     const { organizationId } = payload
     yield* purgeOrganizationStep(
-      "DeleteTenantUsers",
-      drainOrganizationBatches(deleteOrganizationTenantUserBatch(organizationId)),
-    )
-    yield* purgeOrganizationStep(
       "DeleteTenants",
       drainOrganizationBatches(deleteOrganizationTenantBatch(organizationId)),
     )
-    yield* purgeOrganizationStep("DeleteOrganization", deleteOrganizationRow(organizationId))
+    yield* purgeOrganizationStep("DeleteOrganization", deleteOrganizationFn(organizationId))
     yield* Effect.logInfo("Organization deleted", { organizationId })
     yield* Activity.make({ name: "NotifyOwners", execute: notifyOrganizationOwners(payload) })
   }),

@@ -343,8 +343,7 @@ export class Agents extends Context.Service<
           const id = yield* ownAgentId(input.organizationId, input.agentId)
           yield* db.transaction((transaction) =>
             Effect.gen(function* () {
-              // The default agent reference restricts the delete, so release it in the same
-              // transaction.
+              // Clear the selection explicitly so the configuration's optimistic lock and timestamp advance too.
               yield* transaction
                 .update(organizationConfiguration)
                 .set({
