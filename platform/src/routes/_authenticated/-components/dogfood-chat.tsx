@@ -3,6 +3,7 @@ import { ArrowCounterClockwiseIcon, SparkleIcon, XIcon } from "@phosphor-icons/r
 import {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useId,
@@ -14,6 +15,7 @@ import { getRouteApi, useMatches } from "@tanstack/react-router"
 import { useTheme } from "tanstack-router-theme-provider"
 
 import { Button } from "@/components/ui/button"
+import { useIsHydrated } from "@/components/auth/use-is-hydrated"
 
 import type { OrganizationAccess } from "@/lib/organizations/access"
 import { ASSISTANT_NAME } from "@/lib/constants"
@@ -31,6 +33,18 @@ type DogfoodChatState = {
 
 const DogfoodChatContext = createContext<DogfoodChatState | null>(null)
 
+function dogfoodChatVisibility(chatKey: string | null, open?: boolean): boolean {
+  if (!chatKey) return false
+  try {
+    const key = `astralbeam:sidebar:${chatKey}`
+    if (open === undefined) return sessionStorage.getItem(key) === "open"
+    sessionStorage.setItem(key, open ? "open" : "closed")
+  } catch {
+    // The panel remains usable when browser storage is unavailable.
+  }
+  return open ?? false
+}
+
 /** Renders the chat panel beside `children`, whose header shows `DogfoodChatTrigger`. */
 export function DogfoodChat({ children }: { children: ReactNode }) {
   const organization = useMatches({
@@ -41,17 +55,25 @@ export function DogfoodChat({ children }: { children: ReactNode }) {
   const { access } = dogfoodChatRoute.useRouteContext()
   const panelId = useId()
   const triggerId = useId()
-  const [open, setOpen] = useState(false)
+  const hydrated = useIsHydrated()
+  const [open, setOpenState] = useState(false)
   const [hasOpened, setHasOpened] = useState(false)
   if (open && !hasOpened) setHasOpened(true)
   const chatKey = organization ? `${access.userId}:${organization.organizationId}` : null
-  // Another user or organization closes the chat and defers its token request until reopened.
-  const [previousChatKey, setPreviousChatKey] = useState(chatKey)
-  if (chatKey !== previousChatKey) {
-    setPreviousChatKey(chatKey)
-    setOpen(false)
+  const readyChatKey = hydrated ? chatKey : null
+  const [previousChatKey, setPreviousChatKey] = useState<string | null>(null)
+  if (readyChatKey !== previousChatKey) {
+    setPreviousChatKey(readyChatKey)
+    setOpenState(dogfoodChatVisibility(readyChatKey))
     setHasOpened(false)
   }
+  const setOpen = useCallback(
+    (value: boolean) => {
+      dogfoodChatVisibility(chatKey, value)
+      setOpenState(value)
+    },
+    [chatKey],
+  )
   const chat: DogfoodChatState = { panelId, triggerId, open, hasOpened, setOpen }
   return (
     <DogfoodChatContext.Provider value={organization ? chat : null}>

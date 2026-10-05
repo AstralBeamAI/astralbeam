@@ -15,6 +15,7 @@ import { OrganizationMembershipError } from "@/lib/auth/errors"
 import { Config } from "@/lib/config/config.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { Chat } from "@/lib/chat/chat.server"
+import { CHAT_MODEL_UNAVAILABLE_MESSAGE } from "@/lib/chat/constants.server"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
@@ -467,6 +468,43 @@ describe("REST API through the Effect Fetch handler", () => {
     })
   })
 
+  test("chat logs safe stream diagnostics and hides thrown middleware errors", async () => {
+    const failure = new AggregateError(
+      [new Error("private server details sk-private-credential")],
+      "2 middleware onFinish hooks failed: chat-persistence, managed-thread",
+    )
+    restTestState.run.mockReturnValue(Effect.succeed(Stream.die(failure)))
+    const response = await sdkRunChat(
+      {
+        threadId: "thread",
+        runId: "run",
+        messages: [{ id: "new", role: "user", content: "private chat transcript" }],
+        tools: [],
+        context: [],
+        forwardedProps: { clientId: restUserId },
+      },
+      { astralBeamToken: restTenantJwt, apiUrl: "http://localhost/api", fetchClient: restSdkFetch },
+    )
+    const body = await response.text()
+    expect(response.status).toBe(200)
+    expect(body).toContain("RUN_ERROR")
+    expect(body).toContain(CHAT_MODEL_UNAVAILABLE_MESSAGE)
+    expect(body).not.toMatch(
+      /onFinish|chat-persistence|managed-thread|private server details|sk-private-credential/,
+    )
+    expect(restTestState.logs).toHaveLength(1)
+    expect(JSON.parse(restTestState.logs[0]!)).toMatchObject({
+      message: "Request failed",
+      annotations: {
+        operation: "chatRunResponse",
+        reasons: [{ kind: "defect", type: "AggregateError" }],
+      },
+    })
+    expect(restTestState.logs[0]).not.toMatch(
+      /onFinish|chat-persistence|managed-thread|private server details|sk-private-credential|private chat transcript/,
+    )
+  })
+
   test("chat streams for non-admin JWTs and cancellation reaches the producer", async () => {
     restTestState.chat.mockResolvedValue({
       ...restPrincipal,
@@ -506,6 +544,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(new TextDecoder().decode((await reader.read()).value)).toContain("RUN_STARTED")
     await reader.cancel()
     await vi.waitFor(() => expect(stopped).toBe(true))
+    expect(restTestState.logs).toEqual([])
     expect(restTestState.consume.mock.calls[0]![0]).toHaveProperty(
       "limit",
       CHAT_RATE_LIMIT_MAX_REQUESTS,

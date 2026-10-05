@@ -1,18 +1,21 @@
 import {
   chatParamsFromRequestBody,
+  EventType,
   type StreamChunk,
   toServerSentEventsResponse,
 } from "@tanstack/ai"
-import { Duration, Effect, Stream } from "effect"
+import { Cause, Duration, Effect, Stream } from "effect"
 import { HttpServerResponse } from "effect/http"
 
 import {
   CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
   CHAT_MAX_REQUEST_BYTES,
+  CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_WINDOW_MS,
 } from "@/lib/chat/constants.server"
 import type { ChatParams, ChatPrincipal } from "@/lib/chat/types"
+import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { readRequestJson } from "@/routes/api/-lib/request-body.server"
 import { consumeRestRateLimit } from "../../-lib/auth.server"
 import { ChatRunInputInvalid, ChatRunTooLarge } from "./errors.ts"
@@ -55,7 +58,21 @@ export const readChatRunParams = Effect.fn("readChatRunParams")(function* (reque
  * wire stays its own, and cancelling the response body interrupts the run's stream.
  */
 export function chatRunResponse(events: Stream.Stream<StreamChunk>) {
-  return Effect.map(Stream.toAsyncIterableEffect(events), (iterable) =>
+  const safeEvents = events.pipe(
+    Stream.catchCause((cause) =>
+      Cause.hasInterruptsOnly(cause)
+        ? Stream.failCause(cause)
+        : Stream.fromEffect(
+            reportFailure("chatRunResponse", cause).pipe(
+              Effect.as<StreamChunk>({
+                type: EventType.RUN_ERROR,
+                message: CHAT_MODEL_UNAVAILABLE_MESSAGE,
+              }),
+            ),
+          ),
+    ),
+  )
+  return Effect.map(Stream.toAsyncIterableEffect(safeEvents), (iterable) =>
     HttpServerResponse.fromWeb(toServerSentEventsResponse(iterable)),
   )
 }

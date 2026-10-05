@@ -31,6 +31,8 @@ export const listOrganizationAgents = (organizationId: string) =>
 
 Database imports belong in server-only code and do not initialize resources. Database operations require `DATABASE_URL`, and encrypted values require `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration go through the cached, environment-aware `Config` service. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
 
+JSONB columns use `schemaJsonb(schema)` from `lib/columns.server.ts`. Its synchronous Effect Schema codec validates Drizzle inserts, updates, ordinary reads, and relational JSON reads. Invalid values fail without including their content in the validation error. Structured records reject unknown fields, while Tenant and TenantUser metadata retain arbitrary JSON object keys. Raw SQL expressions and direct database access bypass this application validation. The PostgreSQL column types and existing constraints remain unchanged.
+
 ## Local services
 
 On macOS, run Deno natively and use Docker Compose or Podman Compose for database services. PgBouncer is the only host-published database endpoint. From the repository root, choose one:
