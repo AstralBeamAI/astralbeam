@@ -12,6 +12,7 @@ import {
   isNull,
   inArray,
   lt,
+  or,
   sql,
 } from "drizzle-orm"
 import { Array as EffectArray, Context, Effect, Layer, Schema } from "effect"
@@ -164,6 +165,7 @@ const readChatMessages = Effect.fnUntraced(function* (
   partIds?: readonly string[],
 ) {
   if (rows.length === 0) return []
+  const messageIds = rows.map((row) => row.id)
   const parts = yield* db
     .select()
     .from(chatMessagePart)
@@ -171,10 +173,7 @@ const readChatMessages = Effect.fnUntraced(function* (
       and(
         chatPartWhere(scope, id),
         partIds ? inArray(chatMessagePart.id, partIds) : undefined,
-        inArray(
-          chatMessagePart.messageId,
-          rows.map((row) => row.id),
-        ),
+        inArray(chatMessagePart.messageId, messageIds),
       ),
     )
     .orderBy(asc(chatMessagePart.position))
@@ -193,13 +192,10 @@ const readChatMessages = Effect.fnUntraced(function* (
     .where(
       and(
         chatResponseWhere(scope, id),
-        sql`(${inArray(
-          chatMessagePart.messageId,
-          rows.map((row) => row.id),
-        )} or ${inArray(
-          chatToolResponse.resultMessageId,
-          rows.map((row) => row.id),
-        )})`,
+        or(
+          inArray(chatMessagePart.messageId, messageIds),
+          inArray(chatToolResponse.resultMessageId, messageIds),
+        ),
       ),
     )
     .orderBy(asc(chatToolResponse.id))
