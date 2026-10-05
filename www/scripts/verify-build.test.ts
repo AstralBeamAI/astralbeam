@@ -6,12 +6,11 @@ import { describe, expect, test } from "vitest"
 import { palette } from "../src/brand/palette"
 import { siteMetadata } from "../src/lib/site"
 
-const origin = "https://www.astralbeam.ai"
+const origin = "https://astralbeam.ai"
 const homeUrl = `${origin}/`
 const iconUrl = `${origin}${siteMetadata.icon.path}`
 const iconSize = `${siteMetadata.icon.size}x${siteMetadata.icon.size}`
 const distUrl = new URL("../.output/public/", import.meta.url)
-const themeSchemaUrl = new URL("../src/brand/theme.schema.json", import.meta.url)
 
 function readText(path: string) {
   return readFile(new URL(path, distUrl), "utf8")
@@ -22,6 +21,7 @@ describe("production website build", () => {
     const html = await readText("index.html")
 
     expect(html).toContain(`<link rel="canonical" href="${homeUrl}"/>`)
+    expect(await readText("home.html")).toContain(`<link rel="canonical" href="${homeUrl}"/>`)
     expect(html).toContain('<meta name="robots" content="index,follow"/>')
     expect(html).toContain(
       `<meta name="theme-color" content="${palette.dark.background.srgbHex}"/>`,
@@ -69,7 +69,7 @@ describe("production website build", () => {
   })
 
   test("ships brand colors without Node APIs", async () => {
-    const assetDirectory = new URL("assets/", distUrl)
+    const assetDirectory = new URL("website-assets/", distUrl)
     const assets = await readdir(assetDirectory)
     const [stylesheets, scripts] = await Promise.all([
       Promise.all(
@@ -137,16 +137,6 @@ describe("production website build", () => {
           purpose: "any",
         },
       ],
-    })
-  })
-
-  test("publishes the local theme authoring schema", async () => {
-    const publishedSchemaText = await readText("schemas/theme.schema.json")
-
-    expect(publishedSchemaText).toBe(await readFile(themeSchemaUrl, "utf8"))
-    expect(JSON.parse(publishedSchemaText)).toMatchObject({
-      $id: `${origin}/schemas/theme.schema.json`,
-      type: "object",
     })
   })
 

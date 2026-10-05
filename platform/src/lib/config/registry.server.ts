@@ -340,6 +340,16 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: PublicHttpUrlSchema,
   },
   {
+    key: "website_url",
+    group: "General",
+    label: "Website URL",
+    description:
+      "Origin of a separately hosted website served under this application's origin. Signed-out visitors to / and everyone at /home see its home page.",
+    kind: "url",
+    required: false,
+    schema: ServerOriginSchema,
+  },
+  {
     key: "allow_private_model_endpoints",
     group: "General",
     label: "Allow Private Model Endpoints",

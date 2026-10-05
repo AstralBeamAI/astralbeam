@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as R404RouteImport } from './routes/404'
 import { Route as FaviconDotpngRouteImport } from './routes/favicon[.]png'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as LicensesDottxtRouteImport } from './routes/licenses[.]txt'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as OgImageDotpngRouteImport } from './routes/og-image[.]png'
@@ -20,7 +21,6 @@ import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SiteDotwebmanifestRouteImport } from './routes/site[.]webmanifest'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
-import { Route as SchemasThemeDotschemaDotjsonRouteImport } from './routes/schemas/theme[.]schema[.]json'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,6 +35,11 @@ const R404Route = R404RouteImport.update({
 const FaviconDotpngRoute = FaviconDotpngRouteImport.update({
   id: '/favicon.png',
   path: '/favicon.png',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LicensesDottxtRoute = LicensesDottxtRouteImport.update({
@@ -77,17 +82,12 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SchemasThemeDotschemaDotjsonRoute =
-  SchemasThemeDotschemaDotjsonRouteImport.update({
-    id: '/schemas/theme.schema.json',
-    path: '/schemas/theme.schema.json',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/favicon.png': typeof FaviconDotpngRoute
+  '/home': typeof HomeRoute
   '/licenses.txt': typeof LicensesDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/og-image.png': typeof OgImageDotpngRoute
@@ -96,12 +96,12 @@ export interface FileRoutesByFullPath {
   '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
-  '/schemas/theme.schema.json': typeof SchemasThemeDotschemaDotjsonRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/favicon.png': typeof FaviconDotpngRoute
+  '/home': typeof HomeRoute
   '/licenses.txt': typeof LicensesDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/og-image.png': typeof OgImageDotpngRoute
@@ -110,13 +110,13 @@ export interface FileRoutesByTo {
   '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
-  '/schemas/theme.schema.json': typeof SchemasThemeDotschemaDotjsonRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/favicon.png': typeof FaviconDotpngRoute
+  '/home': typeof HomeRoute
   '/licenses.txt': typeof LicensesDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/og-image.png': typeof OgImageDotpngRoute
@@ -125,7 +125,6 @@ export interface FileRoutesById {
   '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
-  '/schemas/theme.schema.json': typeof SchemasThemeDotschemaDotjsonRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/404'
     | '/favicon.png'
+    | '/home'
     | '/licenses.txt'
     | '/llms.txt'
     | '/og-image.png'
@@ -141,12 +141,12 @@ export interface FileRouteTypes {
     | '/site.webmanifest'
     | '/sitemap.xml'
     | '/terms'
-    | '/schemas/theme.schema.json'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/404'
     | '/favicon.png'
+    | '/home'
     | '/licenses.txt'
     | '/llms.txt'
     | '/og-image.png'
@@ -155,12 +155,12 @@ export interface FileRouteTypes {
     | '/site.webmanifest'
     | '/sitemap.xml'
     | '/terms'
-    | '/schemas/theme.schema.json'
   id:
     | '__root__'
     | '/'
     | '/404'
     | '/favicon.png'
+    | '/home'
     | '/licenses.txt'
     | '/llms.txt'
     | '/og-image.png'
@@ -169,13 +169,13 @@ export interface FileRouteTypes {
     | '/site.webmanifest'
     | '/sitemap.xml'
     | '/terms'
-    | '/schemas/theme.schema.json'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   R404Route: typeof R404Route
   FaviconDotpngRoute: typeof FaviconDotpngRoute
+  HomeRoute: typeof HomeRoute
   LicensesDottxtRoute: typeof LicensesDottxtRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   OgImageDotpngRoute: typeof OgImageDotpngRoute
@@ -184,7 +184,6 @@ export interface RootRouteChildren {
   SiteDotwebmanifestRoute: typeof SiteDotwebmanifestRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
-  SchemasThemeDotschemaDotjsonRoute: typeof SchemasThemeDotschemaDotjsonRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -208,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/favicon.png'
       fullPath: '/favicon.png'
       preLoaderRoute: typeof FaviconDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/licenses.txt': {
@@ -266,13 +272,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/schemas/theme.schema.json': {
-      id: '/schemas/theme.schema.json'
-      path: '/schemas/theme.schema.json'
-      fullPath: '/schemas/theme.schema.json'
-      preLoaderRoute: typeof SchemasThemeDotschemaDotjsonRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -280,6 +279,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   R404Route: R404Route,
   FaviconDotpngRoute: FaviconDotpngRoute,
+  HomeRoute: HomeRoute,
   LicensesDottxtRoute: LicensesDottxtRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   OgImageDotpngRoute: OgImageDotpngRoute,
@@ -288,7 +288,6 @@ const rootRouteChildren: RootRouteChildren = {
   SiteDotwebmanifestRoute: SiteDotwebmanifestRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
-  SchemasThemeDotschemaDotjsonRoute: SchemasThemeDotschemaDotjsonRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

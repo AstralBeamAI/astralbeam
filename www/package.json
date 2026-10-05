@@ -2,7 +2,7 @@
   "name": "@astralbeam/www",
   "version": "0.0.0",
   "private": true,
-  "description": "https://www.astralbeam.ai/",
+  "description": "https://astralbeam.ai/",
   "license": "MIT",
   "type": "module",
   "scripts": {

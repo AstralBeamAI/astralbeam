@@ -12,6 +12,10 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ context, location }) => {
     const access = await getRouteSessionAccessDecision(context.queryClient)
     if (access.status !== "signed-out") return { access }
+    // Only a document request reaches the website rewrite in `start.ts`, which may serve this path.
+    if (location.pathname === "/" && typeof document !== "undefined") {
+      throw redirect({ href: "/", reloadDocument: true })
+    }
 
     const redirectTo = normalizeReturnPath(location.href, INERT_REDIRECT_ORIGIN)
     const search = new URLSearchParams({ redirectTo })

@@ -10,6 +10,7 @@ const workspaceDirectory = fileURLToPath(new URL("../", import.meta.url))
 // Every route the build must emit. The website has no dynamic routes, so nothing is crawled.
 const prerenderRoutes = [
   "/",
+  "/home",
   "/terms",
   "/privacy",
   "/404",
@@ -18,7 +19,6 @@ const prerenderRoutes = [
   "/licenses.txt",
   "/llms.txt",
   "/robots.txt",
-  "/schemas/theme.schema.json",
   "/site.webmanifest",
   "/sitemap.xml",
 ]
@@ -28,7 +28,8 @@ export default defineConfig(({ mode }) => ({
   // The licenses route imports repository-level files. https://vite.dev/config/server-options.html#server-fs-allow
   server: { host: true, port: 4600, strictPort: true, fs: { allow: [workspaceDirectory] } },
   preview: { host: true, port: 4001, strictPort: true },
-  build: { target: "es2025" },
+  // The platform proxies this prefix when it serves the website under its own origin.
+  build: { target: "es2025", assetsDir: "website-assets" },
   plugins: [
     // The suite reads the built output, so it has no server or prerenderer to start.
     ...(mode === "test"
