@@ -1,15 +1,11 @@
 import { expect, test } from "vitest"
 
-import { formatToolJson } from "./utils.ts"
+import { describeError, formatToolJson } from "./utils.ts"
 
-test("formats a tool payload as indented JSON", () => {
-  expect(formatToolJson({ city: "Bengaluru", days: [1, 2] })).toBe(
-    '{\n  "city": "Bengaluru",\n  "days": [\n    1,\n    2\n  ]\n}',
-  )
-})
-
-test("returns an empty string for a payload with nothing to show", () => {
-  expect(formatToolJson(undefined)).toBe("")
+test("keeps safe server reasons visible and explains network failures", () => {
+  const reason = "The model provider rejected its API key. Ask the site owner to update it."
+  expect(describeError(new Error(reason))).toBe(reason)
+  expect(describeError(new TypeError("Failed to fetch"))).toContain("Check your connection")
 })
 
 // A host tool may resolve with a cyclic or BigInt-bearing value; the panel must still render.

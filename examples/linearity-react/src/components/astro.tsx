@@ -1,4 +1,5 @@
-import { AstralBeamChat, defineWidget } from "@astralbeam/sdk/react"
+import { AstralBeamChat, type AstralBeamChatRef, defineWidget } from "@astralbeam/sdk/react"
+import type { RefObject } from "react"
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -14,11 +15,13 @@ import { createWorkspaceTools } from "@/lib/astro-tools.ts"
 import { Avatar, PriorityIcon, StatusIcon } from "./issue-bits.tsx"
 
 export function Astro({
+  ref,
   workspace,
   visitorId,
   onOpen,
   navigation,
 }: {
+  ref: RefObject<AstralBeamChatRef | null>
   workspace: Workspace
   visitorId: string
   onOpen: (issue: Issue) => void
@@ -28,6 +31,7 @@ export function Astro({
 
   return (
     <AstralBeamChat
+      ref={ref}
       title="Astro"
       colorScheme="light"
       apiUrl={import.meta.env.VITE_ASTRALBEAM_API_URL || "https://astralbeam.ai/api"}

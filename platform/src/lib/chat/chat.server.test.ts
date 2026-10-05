@@ -167,23 +167,43 @@ describe("Chat.run", () => {
     }),
   )
 
-  it.effect("replaces upstream provider errors before they reach the tenant user", () =>
+  it.effect.each([
+    {
+      code: "invalid_api_key",
+      message: "The model provider rejected its API key. Ask the site owner to update it.",
+    },
+    {
+      code: "insufficient_quota",
+      message: "The model provider has no available quota. Ask the site owner to check billing.",
+    },
+    {
+      code: "rate_limit_exceeded",
+      message: "The model provider is receiving too many requests. Please try again later.",
+    },
+    {
+      code: "model_not_found",
+      message:
+        "The configured model is unavailable or access is denied. Ask the site owner to check the model.",
+    },
+    { code: "constructor", message: CHAT_MODEL_UNAVAILABLE_MESSAGE },
+  ])("explains $code without exposing upstream provider details", ({ code, message }) =>
     Effect.gen(function* () {
       const upstream = "401 Incorrect API key provided: sk-inval****"
       chatRunTest.runError = {
         type: EventType.RUN_ERROR,
         runId: "run",
         message: upstream,
-        code: "invalid_api_key",
+        code,
         rawEvent: { error: { message: upstream } },
-        error: { message: upstream, code: "invalid_api_key" },
+        error: { message: upstream, code },
+        metadata: { providerError: { message: upstream } },
       }
       const events = yield* Stream.runCollect(Stream.take(yield* runChat(), 2))
       assert.deepStrictEqual(events[1], {
         type: EventType.RUN_ERROR,
         runId: "run",
-        message: CHAT_MODEL_UNAVAILABLE_MESSAGE,
-        error: { message: CHAT_MODEL_UNAVAILABLE_MESSAGE },
+        message,
+        error: { message },
       })
     }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )

@@ -5,7 +5,6 @@ import {
   foreignKey,
   index,
   integer,
-  jsonb,
   primaryKey,
   snakeCase,
   text,
@@ -19,8 +18,8 @@ import {
   SandboxProviderCredentialsSchema,
   type SandboxProviderId,
   SandboxProviderIdSchema,
-  type SandboxProviderOptions,
-  type SandboxTestMetadata,
+  SandboxProviderOptionsSchema,
+  SandboxTestMetadataSchema,
 } from "../../lib/sandboxes/schemas.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
@@ -32,6 +31,7 @@ import { UuidV7Schema } from "../../lib/schemas.ts"
 import {
   caseInsensitiveText,
   encryptedJson,
+  schemaJsonb,
   lockVersion,
   timestamps,
   timestampWithTimeZone,
@@ -122,9 +122,9 @@ export const sandboxProvider = snakeCase.table(
       }),
     name: caseInsensitiveText().notNull(),
     providerType: text().$type<SandboxProviderId>().notNull(),
-    options: jsonb().$type<SandboxProviderOptions[SandboxProviderId]>().notNull(),
+    options: schemaJsonb(SandboxProviderOptionsSchema).notNull(),
     credentials: encryptedJson({ schema: SandboxProviderCredentialsPayloadSchema }),
-    lastTest: jsonb().$type<SandboxTestMetadata>(),
+    lastTest: schemaJsonb(SandboxTestMetadataSchema),
     lockVersion: lockVersion(),
     ...timestamps(),
   },
@@ -308,7 +308,7 @@ export const tenant = snakeCase.table(
     id: uuidV7(),
     externalId: text().notNull(),
     name: text(),
-    metadata: jsonb().$type<Schema.JsonObject>().default({}).notNull(),
+    metadata: schemaJsonb(Schema.JsonObject).default({}).notNull(),
     ...timestamps(),
   },
   (table) => [
@@ -332,7 +332,7 @@ export const tenantUser = snakeCase.table(
     externalId: text().notNull(),
     name: text(),
     admin: boolean().default(false).notNull(),
-    metadata: jsonb().$type<Schema.JsonObject>().default({}).notNull(),
+    metadata: schemaJsonb(Schema.JsonObject).default({}).notNull(),
     ...timestamps(),
   },
   (table) => [

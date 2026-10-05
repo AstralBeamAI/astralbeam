@@ -130,7 +130,10 @@ export const demoStore = {
     persist({ ...snapshot.data, activeWorkspaceId: id }, snapshot.generation + 1)
   },
   reset() {
-    persist(initialData(snapshot.data.visitorId), snapshot.generation + 1)
+    persist({
+      ...initialData(snapshot.data.visitorId),
+      activeWorkspaceId: snapshot.data.activeWorkspaceId,
+    })
   },
 }
 export function useDemo() {

@@ -98,7 +98,7 @@ export function describeError(error: Error | undefined): string {
   if (/fetch|network|load failed|connection/i.test(message)) {
     return "The assistant service could not be reached. Check your connection."
   }
-  return "Something went wrong while talking to the assistant."
+  return message || "Something went wrong while talking to the assistant."
 }
 
 // Custom properties are inherited like any other, and `all` never resets them, so a host token

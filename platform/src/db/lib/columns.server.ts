@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm"
 import { customType, integer, timestamp, uuid } from "drizzle-orm/pg-core"
-import { Result, type Schema } from "effect"
+import { Result, Schema } from "effect"
 
 import {
   type DatabaseEncryptionKeyring,
@@ -37,6 +37,38 @@ export function encryptedJson<Value>(options: EncryptedJsonOptions<Value>) {
       ),
     fromDriver: decodeStoredValue,
     fromJson: decodeStoredValue,
+  })()
+}
+
+class DatabaseJsonError extends Schema.TaggedError<DatabaseJsonError>()("DatabaseJsonError", {}) {
+  override readonly message = "Database JSON does not match its column schema"
+}
+
+export function schemaJsonb<S extends Schema.ConstraintCodec<unknown, unknown>>(schema: S) {
+  const codec = Schema.toCodecJson(schema)
+  const decode = (value: unknown) =>
+    Result.getOrThrow(
+      Schema.decodeUnknownResult(codec, { onExcessProperty: "error" })(value).pipe(
+        Result.mapError(() => new DatabaseJsonError()),
+      ),
+    )
+  return customType<{
+    data: S["Type"]
+    driverData: string
+    driverOutput: unknown
+    jsonData: unknown
+  }>({
+    dataType: () => "jsonb",
+    toDriver: (value) =>
+      JSON.stringify(
+        Result.getOrThrow(
+          Schema.encodeUnknownResult(codec, { onExcessProperty: "error" })(value).pipe(
+            Result.mapError(() => new DatabaseJsonError()),
+          ),
+        ),
+      ),
+    fromDriver: decode,
+    fromJson: decode,
   })()
 }
 
