@@ -424,14 +424,14 @@ export function chatThreadHandlers(api: typeof ApiV1) {
           "resolveChatToolResult",
           Effect.fn("resolveChatToolResult")(function* ({ request, params }) {
             const principal = yield* authenticate(request)
+            yield* consumeChatRateLimit(principal, "tool-result").pipe(
+              Effect.provideContext(services),
+            )
             const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
             const body = yield* readChatRequestBody(native)
             const payload = yield* Schema.decodeUnknownEffect(resolveToolInput)(body, {
               onExcessProperty: "error",
             }).pipe(Effect.mapError(() => new ChatRunInputInvalid()))
-            yield* consumeChatRateLimit(principal, "tool-result").pipe(
-              Effect.provideContext(services),
-            )
             const scope = yield* threads.resolveScope({ principal })
             const admission = yield* resolveManagedChatTools({
               scope,

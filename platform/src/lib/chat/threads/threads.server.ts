@@ -617,57 +617,11 @@ const historyMessages = Effect.fnUntraced(function* (
   )
 })
 
-const historyRows = Effect.fnUntraced(function* (
-  db: Executor,
-  scope: ChatThreadScope,
-  id: string,
-  currentLeafMessageId: string | null,
-) {
-  return yield* historyMessages(
-    db,
-    scope,
-    id,
-    yield* historyIds(db, scope, id, currentLeafMessageId),
-  )
-})
-
 function toolTargets(part: Schema.JsonObject): readonly Schema.JsonObject[] {
   if (!Array.isArray(part.targets)) return []
   return (part.targets as readonly Schema.Json[]).filter(Schema.is(Schema.JsonObject))
 }
 
-function pendingCalls(rows: readonly MessageRecord[], assistantMessageId?: string) {
-  const resolved = new Set(
-    rows
-      .filter((row) => row.role === "tool")
-      .map(
-        (row) => `${row.sourceAssistantMessageId}:${row.sourceToolPartId}:${row.responseTargetId}`,
-      ),
-  )
-  return rows
-    .filter(
-      (row) =>
-        row.role === "assistant" &&
-        row.state === "complete" &&
-        (assistantMessageId === undefined || row.id === assistantMessageId),
-    )
-    .flatMap((row) =>
-      row.payload.parts.flatMap((part) => {
-        if (
-          part.type !== "tool-call" ||
-          typeof part.id !== "string" ||
-          !Array.isArray(part.targets)
-        )
-          return []
-        const partId = part.id
-        return toolTargets(part).flatMap((target) =>
-          typeof target.id === "string" && !resolved.has(`${row.id}:${partId}:${target.id}`)
-            ? [{ message: row, part, target }]
-            : [],
-        )
-      }),
-    )
-}
 const unresolvedCalls = Effect.fnUntraced(function* (
   db: Executor,
   scope: ChatThreadScope,
@@ -714,15 +668,22 @@ const unresolvedCalls = Effect.fnUntraced(function* (
   if (!outstanding.length) return []
   const messages = [...new Map(outstanding.map(({ message }) => [message.id, message])).values()]
   const targets = new Set(outstanding.map(({ targetId }) => targetId))
-  return pendingCalls(
-    yield* readChatMessages(
-      db,
-      scope,
-      thread.id,
-      messages,
-      outstanding.map(({ partId }) => partId),
+  const rows = yield* readChatMessages(
+    db,
+    scope,
+    thread.id,
+    messages,
+    outstanding.map(({ partId }) => partId),
+  )
+  return rows.flatMap((message) =>
+    message.payload.parts.flatMap((part) =>
+      part.type === "tool-call"
+        ? toolTargets(part)
+            .filter((target) => typeof target.id === "string" && targets.has(target.id))
+            .map((target) => ({ message, part, target }))
+        : [],
     ),
-  ).filter(({ target }) => typeof target.id === "string" && targets.has(target.id))
+  )
 })
 
 export type PendingChatInteraction = Effect.Success<ReturnType<typeof unresolvedCalls>>[number]
@@ -1085,11 +1046,16 @@ export class ChatThreads extends Context.Service<
               (tx) =>
                 Effect.gen(function* () {
                   const thread = yield* readThread(tx, input)
-                  return yield* historyRows(
+                  return yield* historyMessages(
                     tx,
                     input.scope,
                     input.id,
-                    input.messageId ?? thread.currentLeafMessageId,
+                    yield* historyIds(
+                      tx,
+                      input.scope,
+                      input.id,
+                      input.messageId ?? thread.currentLeafMessageId,
+                    ),
                   )
                 }),
               { isolationLevel: "repeatable read", accessMode: "read only" },

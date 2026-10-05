@@ -133,9 +133,9 @@ export function chatHandlers(api: typeof ApiV1) {
           "runChat",
           Effect.fn("runChat")(function* ({ request }) {
             const principal = yield* authenticate(request)
+            yield* consumeChatRateLimit(principal, "message").pipe(Effect.provideContext(services))
             const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
             const params = yield* readChatRunParams(native)
-            yield* consumeChatRateLimit(principal, "message").pipe(Effect.provideContext(services))
             const scope = yield* threads.resolveScope({ principal })
             const { admission, receipt, clientId } = yield* prepareManagedChat({
               scope,

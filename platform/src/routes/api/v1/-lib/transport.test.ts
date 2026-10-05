@@ -1142,28 +1142,29 @@ describe("REST API through the Effect Fetch handler", () => {
         }),
       ),
     )
-    const continuation = JSON.stringify({
-      client_id: restUserId,
-      results: [
-        {
-          source_message_id: restOtherId,
-          source_part_id: "tool-part",
-          response_target_id: restUserId,
-          outcome: "succeeded",
-          output: {},
-        },
-      ],
-    })
-    const limited = await restRequest(`/chat/threads/${restOtherId}/tool-results`, {
-      method: "POST",
-      headers,
-      body: continuation,
-    })
-    expect(limited.status).toBe(429)
-    expect(limited.headers.get("retry-after")).toBe("2")
-    const [continuationLimit] = restTestState.consume.mock.calls.at(-1)!
-    expect(continuationLimit.key).toMatch(/^chat-continuation:/)
-    expect(continuationLimit).toHaveProperty("limit", CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS)
+    for (const path of ["/chat", `/chat/threads/${restOtherId}/tool-results`]) {
+      for (const [body, extra] of [
+        ["{", {}],
+        ["{}", {}],
+        ["{}", { "content-length": String(33 * 1024 * 1024) }],
+      ] as const) {
+        const limited = await restRequest(path, {
+          method: "POST",
+          headers: { ...headers, ...extra },
+          body,
+        })
+        expect(limited.status).toBe(429)
+        expect(limited.headers.get("retry-after")).toBe("2")
+        const [limit] = restTestState.consume.mock.calls.at(-1)!
+        expect(limit.key).toMatch(path === "/chat" ? /^chat:/ : /^chat-continuation:/)
+        expect(limit).toHaveProperty(
+          "limit",
+          path === "/chat"
+            ? CHAT_RATE_LIMIT_MAX_REQUESTS
+            : CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
+        )
+      }
+    }
   })
 
   test("artifact tickets serve unchanged bytes and security headers without bearer auth", async () => {
