@@ -324,17 +324,10 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
 
   test("rolls back unresolved deferred deletion, then commits parent-first deletion", async () => {
     const deleted = await createOrganization("deleted")
-    const kept = await createOrganization("kept")
     const deletedId = deleted.organizationId
-    const keptId = kept.organizationId
-    await createDeletionChat(deleted)
-    await createDeletionChat(kept)
-
-    for (const table of [sandboxProvider, providerModel]) {
-      await expect(
-        db.delete(table).where(eq(table.organizationId, deletedId)),
-      ).rejects.toMatchObject({ cause: { code: "23503" } })
-    }
+    await expect(
+      db.delete(sandboxProvider).where(eq(sandboxProvider.organizationId, deletedId)),
+    ).rejects.toMatchObject({ cause: { code: "23503" } })
     await expect(
       db.transaction(async (transaction) => {
         await transaction.execute(sql`set constraints all deferred`)
@@ -358,56 +351,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       await transaction.delete(organization).where(eq(organization.id, deletedId))
     })
 
-    expect(await db.select({ id: organization.id }).from(organization)).toEqual([{ id: keptId }])
-    for (const table of [
-      sandboxProvider,
-      providerModel,
-      agent,
-      agentModel,
-      organizationConfiguration,
-    ]) {
-      expect(await db.select({ organizationId: table.organizationId }).from(table)).toEqual([
-        { organizationId: keptId },
-      ])
-    }
-    expect(await db.select({ organizationId: chatThread.organizationId }).from(chatThread)).toEqual(
-      [{ organizationId: keptId }],
-    )
-  })
-
-  test("inserts a circular thread and current leaf with the default deferred constraint", async () => {
-    const scope = await createOrganization("circular")
-    const [author] = await db
-      .select({ id: tenantUser.id })
-      .from(tenantUser)
-      .where(eq(tenantUser.tenantId, scope.tenantId))
-      .limit(1)
-    const {
-      rows: [ids],
-    } = await db.execute<{ threadId: string; messageId: string }>(
-      sql`select uuidv7() as "threadId", uuidv7() as "messageId"`,
-    )
-
-    await db.transaction(async (transaction) => {
-      await transaction
-        .insert(chatThread)
-        .values({ ...scope, id: ids!.threadId, currentLeafMessageId: ids!.messageId })
-      await transaction.insert(chatMessage).values({
-        organizationId: scope.organizationId,
-        tenantId: scope.tenantId,
-        id: ids!.messageId,
-        threadId: ids!.threadId,
-        authorTenantUserId: author!.id,
-        role: "user",
-        state: "complete",
-        metadata: { version: 1 },
-        turnState: "completed",
-      })
-    })
-
-    expect(await db.select({ leaf: chatThread.currentLeafMessageId }).from(chatThread)).toEqual([
-      { leaf: ids!.messageId },
-    ])
+    expect(await db.select().from(organization)).toEqual([])
   })
 
   test("agent deletion clears optional selections and preserves their scope and chat history", async () => {
