@@ -340,6 +340,17 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: PublicHttpUrlSchema,
   },
   {
+    key: "support_email_address",
+    group: "General",
+    label: "Support Email Address",
+    description:
+      "Copied on welcome and support request emails so replies reach your team. Leave unset to hide Contact Support.",
+    kind: "text",
+    required: false,
+    isPublic: true,
+    schema: EmailAddressSchema,
+  },
+  {
     key: "allow_private_model_endpoints",
     group: "General",
     label: "Allow Private Model Endpoints",

@@ -7,7 +7,10 @@ import OrganizationDeletedEmail from "@/emails/templates/organization-deleted"
 import OrganizationInvitationEmail from "@/emails/templates/organization-invitation"
 import PasswordChangedEmail from "@/emails/templates/password-changed"
 import ResetPasswordEmail from "@/emails/templates/reset-password"
+import SupportRequestEmail from "@/emails/templates/support-request"
+import WelcomeEmail from "@/emails/templates/welcome"
 import { APP_NAME } from "@/lib/constants"
+import type { ProviderEmailAttachment } from "./providers/providers.server.ts"
 
 /** Log label identifying which email a send outcome belongs to. */
 export type EmailKind =
@@ -17,17 +20,23 @@ export type EmailKind =
   | "organization-invitation"
   | "password-changed"
   | "reset-password"
+  | "support-request"
+  | "welcome"
 
 export interface EmailMessage {
   readonly to: string
+  /** Copies the support address so replies start a thread with the team. */
+  readonly cc?: string | undefined
   readonly subject: string
   readonly react: ReactElement
+  readonly attachments?: readonly ProviderEmailAttachment[]
 }
 
 /** Templates cannot resolve relative paths, so links and logos use the configured origin. */
 export interface EmailContext {
   readonly appBaseUrl: string
   readonly logoURL: string
+  readonly supportEmailAddress: string | undefined
   /** When the send is prepared, for templates that report the time of the event. */
   readonly now: Date
 }
@@ -60,6 +69,17 @@ export interface OrganizationDeletedEmailData {
   readonly email: string
   readonly organizationName: string
   readonly deletedAt: Date
+}
+
+export interface WelcomeEmailData {
+  readonly user: { readonly name: string; readonly email: string }
+}
+
+export interface SupportRequestEmailData {
+  readonly user: { readonly name: string; readonly email: string }
+  readonly message: string
+  readonly pageURL?: string | undefined
+  readonly attachments: readonly ProviderEmailAttachment[]
 }
 
 export function verificationEmailMessage(
@@ -168,6 +188,47 @@ export function organizationDeletedEmailMessage(
       organizationName: data.organizationName,
       timestamp: formatEmailTimestamp(data.deletedAt),
     }),
+  }
+}
+
+export function welcomeEmailMessage(
+  data: WelcomeEmailData,
+  { appBaseUrl, logoURL, supportEmailAddress }: EmailContext,
+): EmailMessage {
+  return {
+    to: data.user.email,
+    cc: supportEmailAddress,
+    subject: `Welcome to ${APP_NAME}`,
+    react: createElement(WelcomeEmail, {
+      appName: APP_NAME,
+      dashboardURL: new URL("/", appBaseUrl).toString(),
+      logoURL,
+      name: data.user.name,
+      supportEmail: supportEmailAddress,
+    }),
+  }
+}
+
+export function supportRequestEmailMessage(
+  data: SupportRequestEmailData,
+  { logoURL, supportEmailAddress }: EmailContext,
+): EmailMessage {
+  const firstLine = data.message.trim().split("\n")[0] ?? ""
+  const summary = truncateEmailGraphemes(firstLine.replaceAll(/\s+/g, " ").trim(), 80)
+  return {
+    to: data.user.email,
+    cc: supportEmailAddress,
+    subject: `${APP_NAME} support request: ${summary}`,
+    react: createElement(SupportRequestEmail, {
+      appName: APP_NAME,
+      attachmentNames: data.attachments.map((attachment) => attachment.filename),
+      email: data.user.email,
+      logoURL,
+      message: data.message,
+      name: data.user.name,
+      pageURL: data.pageURL,
+    }),
+    attachments: data.attachments,
   }
 }
 

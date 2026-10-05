@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer"
+
 import { Effect } from "effect"
 import { Resend } from "resend"
 
@@ -25,10 +27,16 @@ export const acquireSender = (settings: ResendProviderSettings) =>
         resend.emails.send({
           from: email.from,
           to: [...email.to],
+          cc: [...email.cc],
           subject: email.subject,
           html: email.html,
           text: email.text,
-          replyTo: email.from,
+          replyTo: email.replyTo,
+          attachments: email.attachments.map((attachment) => ({
+            filename: attachment.filename,
+            contentType: attachment.contentType,
+            content: Buffer.from(attachment.content),
+          })),
         }),
       ).pipe(
         Effect.flatMap(({ data, error }) =>

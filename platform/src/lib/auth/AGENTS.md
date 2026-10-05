@@ -9,7 +9,7 @@ Every authentication flow in this app is two writes with a network call between 
 - `advanced.backgroundTasks` must stay unset. A handler defers the send past the response, which is what let a failed send complete behind a "check your inbox" screen.
 - The response is `503` with the `EMAIL_DELIVERY_FAILED` code from `email-delivery.ts`. `ErrorToaster` maps that code to the only backend-sourced sentence it will render. The provider's own reason never leaves the server.
 - The `Mailer`'s shared delivery in `src/lib/email/email.server.ts` is the single place that logs a send outcome, with the provider's error code and never its message. Both outcomes carry a partially masked recipient from `maskEmailAddressForLog`. The rendered email and the token URL are never logged.
-- A password-change notice is the one exception: it is informational, its recipient is not waiting on it, and it is forked on the app runtime past the response so an email outage cannot fail a password change that already succeeded.
+- Password-change notices and welcome emails are the exceptions: they are informational, their recipient is not waiting on them, and they are forked on the app runtime past the response so an email outage cannot fail a password change or sign-up that already succeeded. A credential sign-up is welcomed from `afterEmailVerification` and an OAuth sign-up from the verified user's creation hook, so each account is welcomed once.
 
 ## What each flow leaves behind
 

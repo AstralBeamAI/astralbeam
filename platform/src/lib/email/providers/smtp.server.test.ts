@@ -18,10 +18,13 @@ import { testConnection } from "./smtp.server.ts"
 
 const smtpEmail = {
   to: ["person@example.com"],
+  cc: [],
   from: "sender@example.com",
+  replyTo: "sender@example.com",
   subject: "Hello",
   html: "<p>Hello</p>",
   text: "Hello",
+  attachments: [],
 }
 
 // Outside a test run, so the layer builds real transports over the mocked library.

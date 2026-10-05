@@ -123,6 +123,20 @@ function notifyPasswordChanged(mailer: Mailer["Service"], user: { email: string 
   return Promise.resolve()
 }
 
+// A credential sign-up completes at verification and an OAuth one at creation, and neither waits
+// on this informational email, so it runs past the response like the password-change notice.
+function welcomeNewUser(
+  mailer: Mailer["Service"],
+  user: { name: string; email: string },
+): Promise<void> {
+  forkAppEffect(
+    mailer
+      .sendWelcome({ user })
+      .pipe(Effect.catchCause(() => Effect.logError("Welcome email delivery failed"))),
+  )
+  return Promise.resolve()
+}
+
 // Replaces Better Auth's delete, whose separate last-key check let two concurrent deletions pass.
 // Its own errors reach the hook unchanged, because a run rejects with its squashed cause.
 const deleteOrganizationApiKey = Effect.fn("deleteOrganizationApiKey")(function* (input: {
@@ -223,6 +237,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       sendOnSignUp: true,
       sendOnSignIn: false,
       autoSignInAfterVerification: true,
+      // Better Auth returns before this callback for an already verified address.
+      afterEmailVerification: (user) => welcomeNewUser(mailer, user),
       sendVerificationEmail: ({ user, url }, request) =>
         deliverBlockingAuthEmail(
           request,
@@ -384,6 +400,9 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
                 termsAcceptedAt,
               },
             }
+          },
+          after: async (user) => {
+            if (user.emailVerified) await welcomeNewUser(mailer, user)
           },
         },
       },
