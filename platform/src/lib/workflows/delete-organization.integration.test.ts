@@ -32,6 +32,7 @@ import { deleteTenant } from "@/lib/tenants/deletion.server"
 import {
   agent,
   agentModel,
+  cacheEntry,
   chatMessage,
   chatMessagePart,
   chatParticipant,
@@ -56,7 +57,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   let db: ReturnType<typeof getAuthDatabase>
   beforeEach(async () => {
     db = getAuthDatabase()
-    await db.execute(sql`truncate "organization", "user" cascade`)
+    await db.execute(sql`truncate "organization", "user", "cache_entry" cascade`)
   })
 
   async function createOrganization(slug: string, tenantId?: string) {
@@ -644,7 +645,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     const kept = await createOrganization("kept")
     const { organizationId: deletedId, ownerId } = deleted
     const { organizationId: keptId } = kept
-    await createDeletionChat(deleted)
+    const deletedChat = await createDeletionChat(deleted)
     const [anotherTenant] = await db
       .insert(tenant)
       .values({ organizationId: deletedId, externalId: "another" })
@@ -655,7 +656,11 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       externalId: "another",
     })
     await createDeletionChat({ ...deleted, tenantId: anotherTenant!.id })
-    await createDeletionChat(kept)
+    const keptChat = await createDeletionChat(kept)
+    await db.insert(cacheEntry).values([
+      { namespace: `chat:${deletedChat.threadId}`, key: "accepted", value: "saved input" },
+      { namespace: `chat:${keptChat.threadId}`, key: "accepted", value: "kept input" },
+    ])
 
     expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
     expect(await db.select().from(member).where(eq(member.organizationId, deletedId))).toEqual([])
@@ -678,6 +683,9 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       await deletion
     }
 
+    expect(await db.select({ namespace: cacheEntry.namespace }).from(cacheEntry)).toEqual([
+      { namespace: `chat:${keptChat.threadId}` },
+    ])
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])
     const tenantUsers = await db

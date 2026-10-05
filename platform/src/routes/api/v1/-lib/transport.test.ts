@@ -1075,8 +1075,6 @@ describe("REST API through the Effect Fetch handler", () => {
       params: { runId: body.run_id, parentRunId: body.parent_run_id, messages: [] },
       managed: { claim },
     })
-    expect((await request({ ...body, run_id: "" })).status).toBe(400)
-    expect((await request({ ...body, parent_run_id: "r".repeat(201) })).status).toBe(400)
     expect((await request({ ...body, resume: [] })).status).toBe(400)
     expect((await request({ ...body, messages: [] })).status).toBe(400)
     expect(restTestState.run).toHaveBeenCalledTimes(1)

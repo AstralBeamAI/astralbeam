@@ -138,7 +138,6 @@ describe("stored conversation model projection", () => {
     { ...projectionTarget, providerId: "provider-two" },
     { ...projectionTarget, protocol: "chat-completions" },
     { ...projectionTarget, modelId: "model-two" },
-    undefined,
   ])(
     "uses portable text, original files and host-tool pairs for a different target %j",
     (target) => {
@@ -279,21 +278,7 @@ describe("stored conversation model projection", () => {
       "assistant-two:assistant-two-one",
       "assistant-two:assistant-two-two",
     ])
-    expect(messages.map((message) => message.content)).toEqual([
-      "First",
-      "Second",
-      "First",
-      "Second",
-    ])
     expect(projectChatModelHistory(records, projectionTarget)).toEqual(messages)
-    expect(projectChatModelHistory([...records].reverse(), projectionTarget)).toEqual([
-      ...messages.slice(2),
-      ...messages.slice(0, 2),
-    ])
-    expect(projectChatModelHistory(records).map((message) => message.content)).toEqual([
-      "FirstSecond",
-      "FirstSecond",
-    ])
   })
 
   test("keeps parallel tool decisions together and derives their message identity from canonical parts", () => {

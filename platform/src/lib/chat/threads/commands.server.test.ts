@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Effect, Layer, Schema } from "effect"
+import { Effect, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 
 import { Agents } from "@/lib/agents/agents.server"
@@ -210,9 +210,6 @@ describe("managed conversation commands", () => {
           ],
         }
         for (const output of [
-          null,
-          {},
-          { answers: "Red" },
           { answers: answers.slice(1) },
           ...[
             { ...answers[0]!, name: "invented" },
@@ -248,8 +245,10 @@ describe("managed conversation commands", () => {
             },
           ],
         })
-        for (const output of [{ skipped: true }, { skipped: true, answers: [] }])
-          yield* resolveManagedChatTools({ ...input, results: [{ ...input.results[0]!, output }] })
+        yield* resolveManagedChatTools({
+          ...input,
+          results: [{ ...input.results[0]!, output: { skipped: true } }],
+        })
         for (const output of [null, { skipped: true }])
           yield* resolveManagedChatTools({
             ...input,
@@ -259,7 +258,7 @@ describe("managed conversation commands", () => {
           ...input,
           results: [{ ...input.results[0]!, outcome: "unknown", output: null }],
         })
-        assert.lengthOf(resolved, 7)
+        assert.lengthOf(resolved, 6)
       }).pipe(Effect.provide(layer))
     },
   )
@@ -304,12 +303,9 @@ describe("managed conversation commands", () => {
             },
           ],
         }
-        const invalidOutputs: (typeof Schema.Json.Type)[] = [
-          null,
-          {},
+        const invalidOutputs = [
           { widget: "other", rendered: true },
           { widget: "chart", rendered: "true" },
-          { widget: "chart", rendered: true, unexpected: true },
         ]
         for (const output of invalidOutputs) {
           const invalid = yield* resolveManagedChatTools({

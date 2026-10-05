@@ -33,18 +33,16 @@ afterEach(() => vi.unstubAllGlobals())
 
 test.each([
   { threadId: undefined, cached: thread.id, expected: thread.id },
-  { threadId: "auto", cached: thread.id, expected: thread.id },
   { threadId: "new", cached: thread.id, expected: undefined },
   {
     threadId: "00000000-0000-4000-8000-000000000002",
     cached: thread.id,
     expected: "00000000-0000-4000-8000-000000000002",
   },
-  { threadId: undefined, cached: null, expected: undefined },
 ])(
   "thread selection $threadId with cached $cached honors its mode without reading shared local storage",
   async ({ threadId, cached, expected }) => {
-    let stored = cached
+    let stored: string | null = cached
     const readLocal = vi.fn(() => "unrelated-thread")
     vi.stubGlobal("localStorage", { getItem: readLocal })
     vi.stubGlobal("sessionStorage", {

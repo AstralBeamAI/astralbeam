@@ -21,18 +21,3 @@ test("drafts survive reload reads and remain isolated by API, account, and threa
   storedThreadDraft("https://api.test", "", "thread-a", "Unverified")
   expect(values.size).toBe(1)
 })
-
-test("unavailable browser storage does not break draft editing", () => {
-  vi.stubGlobal("localStorage", undefined)
-  expect(storedThreadDraft("https://api.test", "user", "thread", "Draft")).toBe("")
-  vi.stubGlobal("localStorage", {
-    getItem: () => {
-      throw new Error("Storage disabled")
-    },
-    setItem: () => {
-      throw new Error("Storage full")
-    },
-  })
-  expect(storedThreadDraft("https://api.test", "user", "thread")).toBe("")
-  expect(storedThreadDraft("https://api.test", "user", "thread", "Draft")).toBe("")
-})

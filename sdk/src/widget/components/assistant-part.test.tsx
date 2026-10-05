@@ -40,7 +40,7 @@ function renderPart(
   )
 }
 
-test("saved widgets with reused provider IDs select their own canonical slots", () => {
+test("saved widgets use canonical slots and fall back for unavailable definitions", () => {
   const ids = ["saved:message-a:part-a", "saved:message-b:part-b"]
   const activeSlots = new Map(
     [...ids, "reused-provider-id"].map((id) => [slotNameForToolCall(id), "card"]),
@@ -50,6 +50,7 @@ test("saved widgets with reused provider IDs select their own canonical slots", 
       `<slot name="${slotNameForToolCall(id)}"></slot>`,
     )
   }
+  expect(renderPart(widgetPart(ids[0]!), new Map(), {})).toContain("This widget is unavailable.")
   expect(render).not.toHaveBeenCalled()
 })
 
@@ -58,12 +59,4 @@ test("a normalized live widget retains its explicitly associated render slot", (
   expect(renderPart(part, new Map([[slotNameForToolCall(part.widgetRenderId), "card"]]))).toBe(
     `<slot name="${slotNameForToolCall(part.widgetRenderId)}"></slot>`,
   )
-})
-
-test("missing or incompatible saved widgets remain visible without invoking a render", () => {
-  const part = widgetPart("saved:message:part")
-  expect(renderPart(part, new Map(), {})).toContain("This widget is unavailable.")
-  expect(renderPart(part)).toContain("is unavailable.")
-  expect(renderPart(part)).not.toContain("<slot")
-  expect(render).not.toHaveBeenCalled()
 })

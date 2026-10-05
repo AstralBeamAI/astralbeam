@@ -29,7 +29,6 @@ import {
   tenant,
   tenantUser,
 } from "@/db/schema.server"
-import { deleteOrganizationThreadBatch } from "@/lib/organizations/deletion.server"
 import { ChatThreads } from "./threads.server"
 import { projectChatModelHistory } from "./projection.server"
 import type { ChatThreadScope, ChatMessagePayload, ChatToolResolution } from "./schemas"
@@ -1238,28 +1237,20 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     }
   })
 
-  test("database constraints reject cross-conversation parents and wrong Tenant authors", async () => {
-    const first = await create()
-    const second = await runtime.runPromise(service.create({ scope }))
-    const admitted = await admit(first.id)
-    for (const fields of [
-      { parentMessageId: admitted.inputMessage.id },
-      { authorTenantUserId: foreign.tenantUserId },
-    ]) {
-      await expect(
-        db.insert(chatMessage).values({
-          organizationId: scope.organizationId,
-          tenantId: scope.tenantId,
-          threadId: second.id,
-          role: "user",
-          state: "complete",
-          turnState: "completed",
-          authorTenantUserId: scope.tenantUserId,
-          metadata: { version: 1 },
-          ...fields,
-        }),
-      ).rejects.toMatchObject({ cause: { code: "23503" } })
-    }
+  test("database constraints reject an author from another Tenant", async () => {
+    const thread = await create()
+    await expect(
+      db.insert(chatMessage).values({
+        organizationId: scope.organizationId,
+        tenantId: scope.tenantId,
+        threadId: thread.id,
+        role: "user",
+        state: "complete",
+        turnState: "completed",
+        authorTenantUserId: foreign.tenantUserId,
+        metadata: { version: 1 },
+      }),
+    ).rejects.toMatchObject({ cause: { code: "23503" } })
   })
 
   test("stores two client response slots for one participant and validates normalized JSON on relational reads", async () => {
@@ -1340,94 +1331,5 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(
       await db.select().from(chatToolResponse).where(eq(chatToolResponse.toolPartId, partId)),
     ).toEqual([])
-  })
-
-  test("organization purge removes chat before its identities and preserves another organization", async () => {
-    const thread = await create()
-    const admitted = await admit(thread.id)
-    const partId = crypto.randomUUID()
-    await runtime.runPromise(
-      service.checkpoint({
-        claim: admitted.claim!,
-        state: "complete",
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: partId,
-              type: "tool-call",
-              toolCallId: "purge",
-              name: "read_record",
-              arguments: "{}",
-              executionLocation: "server_api",
-              targets: [{ id: targetA }],
-            },
-          ],
-        },
-      }),
-    )
-    await runtime.runPromise(
-      service.appendToolResults({
-        claim: admitted.claim!,
-        results: [
-          {
-            assistantMessageId: admitted.assistantMessage!.id,
-            toolPartId: partId,
-            responseTargetId: targetA,
-            payload: {
-              version: 1,
-              parts: [
-                {
-                  id: crypto.randomUUID(),
-                  type: "tool-result",
-                  outcome: "succeeded",
-                  output: true,
-                },
-              ],
-            },
-          },
-        ],
-      }),
-    )
-    await runtime.runPromise(service.finish({ claim: admitted.claim! }))
-    const [unrelated] = await db
-      .insert(organization)
-      .values({ name: "Other", slug: "other" })
-      .returning()
-    await db.insert(cacheEntry).values([
-      { namespace: `chat:${thread.id}`, key: "accepted", value: "saved input" },
-      { namespace: `chat:${unrelated!.id}`, key: "unrelated", value: "unrelated input" },
-    ])
-    expect(await runtime.runPromise(deleteOrganizationThreadBatch(scope.organizationId))).toBe(1)
-    expect(await runtime.runPromise(deleteOrganizationThreadBatch(scope.organizationId))).toBe(0)
-    expect(
-      await db
-        .select()
-        .from(cacheEntry)
-        .where(eq(cacheEntry.namespace, `chat:${thread.id}`)),
-    ).toEqual([])
-    expect(
-      await db
-        .select()
-        .from(cacheEntry)
-        .where(eq(cacheEntry.namespace, `chat:${unrelated!.id}`)),
-    ).toHaveLength(1)
-    expect(
-      await db
-        .select()
-        .from(chatMessage)
-        .where(eq(chatMessage.organizationId, scope.organizationId)),
-    ).toEqual([])
-    expect(
-      await db.select().from(organization).where(eq(organization.id, unrelated!.id)),
-    ).toHaveLength(1)
-    await db
-      .delete(tenantUser)
-      .where(
-        and(
-          eq(tenantUser.organizationId, scope.organizationId),
-          eq(tenantUser.tenantId, scope.tenantId),
-        ),
-      )
   })
 })

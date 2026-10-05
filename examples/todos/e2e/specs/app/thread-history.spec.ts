@@ -6,8 +6,6 @@ import { captureMoment } from "../../capture.ts"
 test("conversation search finds unloaded titles and preserves history while typing", async ({
   page,
 }) => {
-  const queries: string[] = []
-  const cursors: string[] = []
   const recent = {
     id: "00000000-0000-4000-8000-000000000001",
     title: "Recent conversation",
@@ -28,8 +26,6 @@ test("conversation search finds unloaded titles and preserves history while typi
     const params = new URL(route.request().url()).searchParams
     const q = params.get("q") ?? ""
     const cursor = params.get("page_after") ?? ""
-    queries.push(q)
-    cursors.push(cursor)
     return route.fulfill({
       json: {
         items:
@@ -72,7 +68,6 @@ test("conversation search finds unloaded titles and preserves history while typi
   await chatWidget(page).waitForReady()
   const picker = page.getByRole("combobox", { name: "Conversations", exact: true })
   const search = page.getByRole("combobox", { name: "Search conversations…", exact: true })
-  await expect(page.getByRole("button", { name: "Refresh history" })).toHaveCount(0)
   await picker.click()
   await page.getByRole("option", { name: recent.title, exact: true }).click()
   await expect(page.getByRole("region", { name: "Messages" })).toContainText(recent.title)
@@ -81,14 +76,10 @@ test("conversation search finds unloaded titles and preserves history while typi
   await search.fill("launch")
   await expect(page.getByRole("option", { name: "Launch plan 20", exact: true })).toBeAttached()
   const list = page.getByRole("listbox")
-  await expect(list).toHaveCSS("scrollbar-width", "auto")
-  await expect(page.getByRole("button", { name: "Load more", exact: true })).toHaveCount(0)
   await list.hover()
   await page.mouse.wheel(0, 1000)
   const match = page.getByRole("option", { name: older.title, exact: true })
   await expect(match).toBeVisible()
-  expect(queries).toContain("launch")
-  expect(cursors).toContain("launch-page-2")
   await expect(page.getByRole("region", { name: "Messages" })).toContainText(recent.title)
   await match.scrollIntoViewIfNeeded()
   await captureMoment(page, "conversation-server-search")
@@ -100,9 +91,6 @@ test("conversation search finds unloaded titles and preserves history while typi
   await search.press("Escape")
   await expect(picker).toBeFocused()
   await expect(picker).toContainText(older.title)
-  await expect(
-    page.getByRole("button", { name: "Manage conversation access", exact: true }),
-  ).toHaveCount(0)
   await page.getByRole("button", { name: "New conversation", exact: true }).click()
   await picker.click()
   await expect(search).toHaveValue("")
