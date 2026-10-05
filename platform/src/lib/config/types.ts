@@ -6,6 +6,7 @@ export interface PublicConfig {
   turnstileSiteKey: string
   privacyPolicyUrl: string | undefined
   termsOfServiceUrl: string | undefined
+  supportEmailAddress: string
   hasWebsite: boolean
 }
 
@@ -34,6 +35,7 @@ export type ConfigKey =
   | "aws_secret_access_key"
   | "privacy_policy_url"
   | "terms_of_service_url"
+  | "support_email_address"
   | "website_url"
   | "allow_private_model_endpoints"
 

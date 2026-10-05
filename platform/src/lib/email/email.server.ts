@@ -19,7 +19,11 @@ import {
   type PasswordChangedEmailData,
   passwordChangedEmailMessage,
   resetPasswordEmailMessage,
+  type SupportRequestEmailData,
+  supportRequestEmailMessage,
   verificationEmailMessage,
+  type WelcomeEmailData,
+  welcomeEmailMessage,
 } from "./messages.server.ts"
 import { EmailProviders } from "./providers/providers.server.ts"
 import { renderEmailElement } from "./render.server.ts"
@@ -54,6 +58,7 @@ const resolveEmailDelivery = Effect.fnUntraced(
     const context = {
       appBaseUrl: values.app_base_url,
       logoURL: new URL(APP_LOGO_LIGHT_PNG_URL, values.app_base_url).href,
+      supportEmailAddress: values.support_email_address,
     }
     return { settings, from, context }
   },
@@ -82,6 +87,10 @@ export class Mailer extends Context.Service<
     ) => Effect.Effect<void, EmailDeliveryError>
     readonly sendOrganizationDeleted: (
       data: OrganizationDeletedEmailData,
+    ) => Effect.Effect<void, EmailDeliveryError>
+    readonly sendWelcome: (data: WelcomeEmailData) => Effect.Effect<void, EmailDeliveryError>
+    readonly sendSupportRequest: (
+      data: SupportRequestEmailData,
     ) => Effect.Effect<void, EmailDeliveryError>
     /** Verifies submitted provider settings without sending, for the configuration page. */
     readonly testConnection: (
@@ -118,7 +127,17 @@ export class Mailer extends Context.Service<
         const messageId = yield* providers
           .send({
             settings: delivery.settings,
-            email: { to: [message.to], from: delivery.from, subject: message.subject, html, text },
+            email: {
+              to: [message.to],
+              cc: message.cc ? [message.cc] : [],
+              from: delivery.from,
+              // Replies to a copied email reach the support team instead of the sender.
+              replyTo: message.cc ?? delivery.from,
+              subject: message.subject,
+              html,
+              text,
+              attachments: message.attachments ?? [],
+            },
           })
           .pipe(
             Effect.tapError((error) =>
@@ -173,6 +192,14 @@ export class Mailer extends Context.Service<
           yield* deliver("organization-deleted", (context) =>
             organizationDeletedEmailMessage(data, context),
           )
+        }),
+        sendWelcome: Effect.fn("Mailer.sendWelcome")(function* (data: WelcomeEmailData) {
+          yield* deliver("welcome", (context) => welcomeEmailMessage(data, context))
+        }),
+        sendSupportRequest: Effect.fn("Mailer.sendSupportRequest")(function* (
+          data: SupportRequestEmailData,
+        ) {
+          yield* deliver("support-request", (context) => supportRequestEmailMessage(data, context))
         }),
         testConnection: Effect.fn("Mailer.testConnection")(function* (
           input: EmailProviderConnectionInput,

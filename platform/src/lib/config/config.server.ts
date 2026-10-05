@@ -113,10 +113,11 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
   if (values.github_client_id && values.github_client_secret) enabledSocialProviders.push("github")
   return {
     enabledSocialProviders,
-    // Setup cannot complete without the site key.
+    // Setup cannot complete without the site key or the support address.
     turnstileSiteKey: values.turnstile_site_key ?? "",
     privacyPolicyUrl: values.privacy_policy_url,
     termsOfServiceUrl: values.terms_of_service_url,
+    supportEmailAddress: values.support_email_address ?? "",
     hasWebsite: values.website_url !== undefined,
   }
 }

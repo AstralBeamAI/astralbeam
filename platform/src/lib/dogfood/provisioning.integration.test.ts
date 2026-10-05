@@ -162,6 +162,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       process.env.OPENAI_API_KEY = "sk-development-provisioning-test-only"
       process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
       process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
+      process.env.SUPPORT_EMAIL_ADDRESS = "support@example.com"
       process.env.TERMS_OF_SERVICE_URL = "https://example.com/terms"
       dogfoodIntegration.failEmail = false
       dogfoodIntegration.resetUrl = ""

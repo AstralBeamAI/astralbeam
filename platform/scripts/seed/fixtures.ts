@@ -82,6 +82,7 @@ export const SEED_CONFIG_VALUES = {
   better_auth_secret: "onlyForDevelopmentNotASecretSeedBetterAuthKey",
   turnstile_site_key: "1x00000000000000000000AA",
   turnstile_secret_key: "1x0000000000000000000000000000000AA",
+  support_email_address: "support@example.com",
 } as const
 
 /** Dashboard accounts, created already email-verified so no SMTP sink is needed to sign in. */

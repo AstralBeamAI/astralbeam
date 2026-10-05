@@ -33,6 +33,7 @@ Values are parsed as JSON when they happen to be valid JSON, and otherwise taken
 | `app_base_url` | Yes | none | Public origin the deployment is served from. Used for OAuth callbacks and links in email |
 | `privacy_policy_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
 | `terms_of_service_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
+| `support_email_address` | Yes | none | Copied on welcome and support request emails, so replies and **Contact Support** requests reach your team |
 | `website_url` | No | none | Origin of a separately hosted website to serve under this deployment's origin |
 | `allow_private_model_endpoints` | No | `false` | `true` lets model provider connections use HTTP and private network hosts |
 

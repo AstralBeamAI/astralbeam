@@ -340,6 +340,17 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: PublicHttpUrlSchema,
   },
   {
+    key: "support_email_address",
+    group: "General",
+    label: "Support Email Address",
+    description:
+      "Copied on welcome and support request emails so replies reach your team, and where Contact Support requests go.",
+    kind: "text",
+    required: true,
+    isPublic: true,
+    schema: EmailAddressSchema,
+  },
+  {
     key: "website_url",
     group: "General",
     label: "Website URL",
