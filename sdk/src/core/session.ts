@@ -412,7 +412,9 @@ export function createAstralBeamChat(
       for (const part of message.parts) {
         if (part.type !== "tool-call" || part.name !== RENDER_WIDGET_TOOL) continue
         const stored = part as ChatToolCallPart
-        if (stored.applicationPartId && stored.widgetRenderId)
+        if (!stored.widgetRenderId) continue
+        renderIds.set(savedToolCallId(message.id, part.id), stored.widgetRenderId)
+        if (stored.applicationPartId)
           renderIds.set(
             savedToolCallId(message.id, stored.applicationPartId, stored.responseTargetId),
             stored.widgetRenderId,
@@ -432,6 +434,7 @@ export function createAstralBeamChat(
         const upstream = stored.upstreamToolCallId
         const renderId =
           stored.widgetRenderId ??
+          renderIds.get(savedToolCallId(message.id, part.id)) ??
           (stored.applicationPartId
             ? renderIds.get(
                 savedToolCallId(message.id, stored.applicationPartId, stored.responseTargetId),
@@ -766,6 +769,8 @@ export function createAstralBeamChat(
       forwardedProps: forwardedProps(),
       onMessagesChange: (messages) => {
         if (client !== next || generation !== selectionGeneration) return
+        // Model snapshots omit client render IDs. Retain the existing slot before publishing them.
+        restoreCompletedWidgets(messages)
         update({ messages, sandbox: collectSandboxActivity(messages), error: next.getError() })
       },
       onStatusChange: (status) => {

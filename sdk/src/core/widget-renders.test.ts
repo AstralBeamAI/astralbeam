@@ -204,7 +204,7 @@ test("refresh and older history restore new widgets once without executing saved
   }
 })
 
-test("the next send preserves a live widget's render identity without rendering it again", async () => {
+test("later stream snapshots preserve a live widget without rendering it again", async () => {
   const fetchHistory = fetch
   let sends = 0
   let renderedPartDuringSend: unknown
@@ -250,7 +250,34 @@ test("the next send preserves a live widget's render identity without rendering 
               content: '{"widget":"card","rendered":true}',
             },
           ]
-        : []),
+        : [
+            {
+              type: "MESSAGES_SNAPSHOT",
+              messages: [
+                {
+                  id: "assistant-live",
+                  role: "assistant",
+                  content: "",
+                  toolCalls: [
+                    {
+                      id: "reused-provider-id",
+                      type: "function",
+                      function: {
+                        name: RENDER_WIDGET_TOOL,
+                        arguments: '{"widget":"card","props":{}}',
+                      },
+                    },
+                  ],
+                },
+                {
+                  id: "result-live",
+                  role: "tool",
+                  toolCallId: "reused-provider-id",
+                  content: '{"widget":"card","rendered":true}',
+                },
+              ],
+            },
+          ]),
       { type: "RUN_FINISHED", ...run, metadata: { tanstack: { finishReason: "stop" } } },
     ]
     return Promise.resolve(
@@ -272,7 +299,15 @@ test("the next send preserves a live widget's render identity without rendering 
     expect(chat.getState().error).toBeUndefined()
     await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
     expect(onRenderWidget.mock.calls[0]?.[0].toolCallId).toBe("reused-provider-id")
+    const renderIds: unknown[] = []
+    const unsubscribe = chat.subscribe(() => {
+      const part = chat.getState().messages.find((message) => message.id === "assistant-live")
+        ?.parts[0]
+      if (part?.type === "tool-call")
+        renderIds.push("widgetRenderId" in part ? part.widgetRenderId : undefined)
+    })
     await chat.sendMessage("Continue")
+    unsubscribe()
     expect(chat.getState().error).toBeUndefined()
     expect(renderedPartDuringSend).toMatchObject({
       id: "saved:assistant-live:part-live",
@@ -282,6 +317,8 @@ test("the next send preserves a live widget's render identity without rendering 
       widgetRenderId: "reused-provider-id",
     })
     expect(onRenderWidget).toHaveBeenCalledTimes(1)
+    expect(renderIds.length).toBeGreaterThan(0)
+    expect(new Set(renderIds)).toEqual(new Set(["reused-provider-id"]))
   } finally {
     chat.dispose()
   }
