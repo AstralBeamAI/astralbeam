@@ -1,6 +1,6 @@
 ---
 name: create-github-pr
-description: Create and verify a GitHub pull request when explicitly asked to publish local changes. Maintain its project metrics comment during authorized PR updates or explicit refreshes. Preserve scope, use a concise title and bullet-only body, and provide copyable text if publication fails. Do not use for text-only drafts, read-only reviews, unrelated comments, or CI repair.
+description: Create and verify a GitHub pull request when explicitly asked to publish local changes. Preserve scope, use a concise title and bullet-only body, and provide copyable text if publication fails. Do not use for text-only drafts, reviews, comments, or CI repair.
 compatibility: Requires git, network access, and authenticated GitHub write access through the GitHub CLI or an equivalent GitHub connector. Browser-based walkthrough uploads also require an authenticated GitHub web session.
 ---
 
@@ -31,9 +31,10 @@ For authorized updates to an existing PR or explicit metrics refreshes, use the 
 
 ## Project metrics comment
 
-- Keep one conversation comment containing only a Markdown table. Put `<!-- astralbeam-pr-metrics -->` inside the `Metric` header cell. Use `Metric`, `Base`, `Head`, and `Delta` columns, including the project name in each metric label, for handwritten source lines, generated source lines, test lines, and build size of affected `platform`, `sdk`, and `cli` projects, including shared build inputs. If no measured projects are affected, tabulate the PR's file and line diff instead.
+- Keep one conversation comment containing only a Markdown table. Put `<!-- astralbeam-pr-metrics -->` inside the `Metric` header cell. Use `Metric`, `Base`, `Head`, and `Delta` columns with exactly four rows per affected subproject or folder: `Source lines`, `Generated lines`, `Test lines`, and `Build size`. Include the subproject or folder name in each metric label, including projects affected by shared build inputs. Use `N/A` for folders without a build output.
 - Fetch the PR's current base and head. Compare the head with their merge base, recording the target branch, base SHA, merge-base SHA, and head SHA in an HTML comment inside the table.
 - Build clean, isolated snapshots with the same OS, architecture, Deno version, and options, using each revision's frozen dependencies. Run `deno task --cwd <project> count-lines` even if a build fails. Reuse measurements, including `ready` output, only for matching commits and environments. Use build sizes only from successful builds.
+- Count TypeScript (`.ts` and `.tsx`) lines only, separating source from generated files using `scripts/count-lines.ts`'s hardcoded path and header rules and from tests identified by filename, such as `*.test.*` and `*.spec.*`. Apply the same counting rules to both snapshots and count each file in only one category, generated first, then tests, then source.
 - Publish signed head-minus-baseline deltas using the task's units and precision. Publish available metrics when a measurement fails, marking missing values and their deltas `Unavailable` with a short reason.
 - Paginate conversation comments and locate the comment containing the marker. Update it by ID when editable, creating one only if absent. Use a connector or GitHub's [issue-comment API](https://docs.github.com/en/rest/issues/comments#update-an-issue-comment) with a structured body or body file. Avoid `gh pr comment --edit-last`, which may overwrite another reply. Refetch after ambiguous creation failures before retrying.
 - Refresh after every authorized push and observed target/base change. Recompute affected rows and provenance, skip unchanged writes, and recheck remote base/head before writing. Recompute if they moved.
