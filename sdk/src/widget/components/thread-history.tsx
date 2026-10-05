@@ -9,11 +9,13 @@ import { ThreadParticipants } from "./thread-participants.tsx"
 export function ThreadHistory({
   chat,
   state,
+  showSharing,
   onSelect,
   onDelete,
 }: {
   chat: AstralBeamChatCore
   state: AstralBeamChatState
+  showSharing: boolean
   onSelect: () => void
   onDelete: (threadId: string) => void
 }) {
@@ -84,7 +86,7 @@ export function ThreadHistory({
             >
               <TrashIcon />
             </Button>
-            <ThreadParticipants key={selected.id} chat={chat} state={state} />
+            {showSharing && <ThreadParticipants key={selected.id} chat={chat} state={state} />}
           </>
         )}
       </div>

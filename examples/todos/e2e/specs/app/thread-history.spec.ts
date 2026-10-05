@@ -68,23 +68,6 @@ test("conversation search finds unloaded titles and preserves history while typi
       },
     })
   })
-  await page.route("**/api/v1/chat/threads/*/participants?*", (route) =>
-    route.fulfill({
-      json: {
-        items: [
-          {
-            tenant_user_id: recent.id,
-            name: "Sam",
-            external_id: "sam",
-            email: null,
-            role: "manager",
-          },
-        ],
-        page_after: null,
-        page_before: null,
-      },
-    }),
-  )
   await todosPage(page).open()
   await chatWidget(page).waitForReady()
   const picker = page.getByRole("combobox", { name: "Conversations", exact: true })
@@ -115,14 +98,9 @@ test("conversation search finds unloaded titles and preserves history while typi
   await search.press("Escape")
   await expect(picker).toBeFocused()
   await expect(picker).toContainText(older.title)
-  await page.getByRole("button", { name: "Manage conversation access", exact: true }).click()
-  const managerRole = page.getByRole("combobox", { name: "Role for Sam", exact: true })
-  await managerRole.click()
-  await managerRole.fill("viewer")
-  await managerRole.press("ArrowDown")
-  await expect(page.getByRole("option", { name: "Viewer", exact: true })).toBeDisabled()
-  await captureMoment(page, "searchable-role-last-manager")
-  await managerRole.press("Escape")
+  await expect(
+    page.getByRole("button", { name: "Manage conversation access", exact: true }),
+  ).toHaveCount(0)
   await page.getByRole("button", { name: "New conversation", exact: true }).click()
   await picker.click()
   await expect(search).toHaveValue("")

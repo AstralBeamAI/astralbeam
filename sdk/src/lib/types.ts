@@ -166,6 +166,8 @@ export interface MountAstralBeamChatOptions {
    * and gives the transcript the full height. Default `true`.
    */
   showHeader?: boolean | undefined
+  /** Shows conversation sharing controls for managers. Default `false`. Does not change access permissions. */
+  showSharing?: boolean | undefined
   /** Headline shown on the empty transcript. Default `"Ask the assistant"`. */
   emptyTitle?: string | undefined
   /** Subtitle shown under the empty transcript's headline. Default describes the app's tools and widgets. */

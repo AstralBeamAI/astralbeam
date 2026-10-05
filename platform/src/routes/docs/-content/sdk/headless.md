@@ -48,7 +48,7 @@ chat.dispose()
 - `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` re-mints a rejected token.
 - Call the request's `release()` if you dispose a render yourself (an eviction cap of your own), so the session stops holding its cleanup.
 - `chat.updateOptions({ agentId })` merges option changes into the running session, keeping the transcript.
-- Unresolved tool outcomes require an explicit response or closure before their turn continues. Other participants can still send.
+- Unresolved tool outcomes require an explicit response or closure before their turn continues.
 - `capabilities` reflects the agent's dashboard policy. Render only what it grants.
 
 ## Reading the transcript
@@ -61,7 +61,7 @@ The core exports the part helpers the widget itself renders with.
 
 ## Saved conversation controls
 
-Let's load the saved conversations the current user can access.
+New conversations start private. Let's load the saved conversations the current user can access.
 
 ```ts
 const chat = createAstralBeamChat({ tools })
@@ -72,6 +72,7 @@ await chat.sendMessage("Continue from here")
 
 - Read `thread`, `threads`, and `threadLoading` from session state. Wait for hydration before enabling your composer.
 - Use `reset()` to start a fresh conversation, and `renameThread(title)` and `deleteThread()` to manage saved threads.
-- Managers use `listParticipants()`, `setParticipant(tenantUserId, role)`, and `removeParticipant(tenantUserId)` with an existing same-Tenant user.
+- `listParticipants()` reads access grants. Managers can use `setParticipant(tenantUserId, role)` and `removeParticipant(tenantUserId)` with an existing same-Tenant user.
+- `showSharing` only controls the drop-in widget's sharing UI. Headless participant actions remain available for custom interfaces.
 - Keep tool responses associated with their stored call and target. Participant identity and browser-client identity are different.
 - Multiple clients can read saved state. Live event replay, background recovery, branching controls, and tool fan-out are not available yet.
