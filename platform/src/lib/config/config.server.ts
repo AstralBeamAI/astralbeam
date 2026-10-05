@@ -118,6 +118,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
     privacyPolicyUrl: values.privacy_policy_url,
     termsOfServiceUrl: values.terms_of_service_url,
     supportEmailAddress: values.support_email_address ?? "",
+    hasWebsite: values.website_url !== undefined,
   }
 }
 

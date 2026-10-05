@@ -1,6 +1,6 @@
 import { generateThemeCss, resolveThemeDefinition } from "./theme.ts"
 
-import brandDefinition from "../../src/theme/brand.json" with { type: "json" }
+import brandDefinition from "./brand.json" with { type: "json" }
 
 const sectionStartMarker = "/* Generated theme variables: start */\n"
 const sectionEndMarker = "/* Generated theme variables: end */"

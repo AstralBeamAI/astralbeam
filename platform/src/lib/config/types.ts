@@ -7,6 +7,7 @@ export interface PublicConfig {
   privacyPolicyUrl: string | undefined
   termsOfServiceUrl: string | undefined
   supportEmailAddress: string
+  hasWebsite: boolean
 }
 
 export type ConfigKey =
@@ -35,6 +36,7 @@ export type ConfigKey =
   | "privacy_policy_url"
   | "terms_of_service_url"
   | "support_email_address"
+  | "website_url"
   | "allow_private_model_endpoints"
 
 export interface ConfigDefinition {

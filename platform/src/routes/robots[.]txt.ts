@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import { resolveAppOrigin } from "./-lib/app-origin.server"
+import { readWebsiteUrl } from "./-lib/website-rewrite.server"
 
 // Generated rather than a static file because a crawler discovers the sitemap here and the
 // Sitemap URL must be absolute. https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap
@@ -8,13 +9,17 @@ export const Route = createFileRoute("/robots.txt")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const origin = await resolveAppOrigin(request)
+        const [origin, websiteUrl] = await Promise.all([
+          resolveAppOrigin(request),
+          readWebsiteUrl(),
+        ])
         const body = [
           "# https://www.robotstxt.org/robotstxt.html",
           "User-agent: *",
           "Disallow:",
           "",
           `Sitemap: ${origin}/docs/sitemap.xml`,
+          ...(websiteUrl === undefined ? [] : [`Sitemap: ${origin}/sitemap.xml`]),
           "",
         ].join("\n")
         return new Response(body, {

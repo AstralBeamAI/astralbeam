@@ -4,7 +4,7 @@
 
 import { pixelBasedPreset, type TailwindConfig } from "react-email"
 
-// Email clients need static sRGB, so these are the light `src/theme/brand.json` roles resolved to
+// Email clients need static sRGB, so these are the light `scripts/theme/brand.json` roles resolved to
 // hex and `--radius` in pixels. Refresh them from what `deno task generate:theme` prints.
 const emailTheme = {
   colors: {

@@ -61,9 +61,9 @@
 ## Theme and brand
 
 - Keep the semantic theme compiler design-time under `platform/scripts/theme`. It must stay a pure function of its input, without filesystem, HTTP, DOM, environment, or mutable global-state work, and nothing under `platform/src` may import it.
-- Treat `platform/src/theme/brand.json` as the concrete theme source of truth and regenerate the marked theme section of `platform/src/styles.css` from `platform` with `deno task generate:theme` after changing it.
+- Treat `platform/scripts/theme/brand.json` as the concrete theme source of truth and regenerate the marked theme section of `platform/src/styles.css` from `platform` with `deno task generate:theme` after changing it.
 - Email clients cannot read the stylesheet's OKLCH tokens, so `platform/src/emails/email-theme.ts` inlines static sRGB values. Refresh them from the palette `deno task generate:theme` prints.
-- Keep `platform/src/theme/theme.schema.json`, the compiler's schemas, and the independently published `www/src/brand/theme.schema.json` snapshot synchronized through explicit edits. Neither project may import the other.
+- Keep `platform/scripts/theme/theme.schema.json`, which `brand.json` names for editor validation, and the compiler's schemas synchronized through explicit edits.
 - Keep SVG logo masters and their generated PNG variants under `platform/public` and regenerate the PNGs from `platform` with `deno task generate:png` after SVG changes.
 
 ## Database

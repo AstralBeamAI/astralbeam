@@ -1,15 +1,17 @@
+// The platform serves this website under its own origin, so the app and website links share it.
+const origin = "https://astralbeam.ai"
+
 export const siteMetadata = {
   name: "AstralBeam",
-  origin: "https://www.astralbeam.ai",
+  origin,
   title: "AstralBeam - Add an Agent to Your App in Minutes",
   description:
     "Drop a Cursor-style agent into your product. It answers queries, interacts with your app, renders your UI components, and works with users' files.",
   email: "hello@astralbeam.ai",
   links: {
-    app: "https://app.astralbeam.ai",
-    signUp: "https://app.astralbeam.ai/auth/sign-up",
-    logIn: "https://app.astralbeam.ai/auth/sign-in",
-    docs: "https://app.astralbeam.ai/docs",
+    signUp: `${origin}/auth/sign-up`,
+    logIn: `${origin}/auth/sign-in`,
+    docs: `${origin}/docs`,
     github: "https://github.com/astralbeamai/astralbeam",
     discord: "https://discord.gg/suehFycUvW",
   },

@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.astralbeam.ai/schemas/theme.schema.json",
   "title": "Application theme definition",
   "description": "A compact theme definition. The runtime derives reasonable light defaults and a complete dark theme from optional dark background, foreground, primary, and accent values, then validates opaque CSS colors and semantic contrast.",
   "type": "object",
@@ -9,8 +8,8 @@
   "properties": {
     "$schema": {
       "type": "string",
-      "enum": ["https://www.astralbeam.ai/schemas/theme.schema.json"],
-      "default": "https://www.astralbeam.ai/schemas/theme.schema.json",
+      "enum": ["./theme.schema.json"],
+      "default": "./theme.schema.json",
       "description": "JSON Schema URL for editor validation and completion."
     },
     "colors": { "$ref": "#/$defs/colors" },
