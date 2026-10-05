@@ -33,6 +33,7 @@ Values are parsed as JSON when they happen to be valid JSON, and otherwise taken
 | `app_base_url` | Yes | none | Public origin the deployment is served from. Used for OAuth callbacks and links in email |
 | `privacy_policy_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
 | `terms_of_service_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
+| `support_email_address` | Yes | none | Copied on welcome and support request emails, so replies and **Contact Support** requests reach your team |
 | `allow_private_model_endpoints` | No | `false` | `true` lets model provider connections use HTTP and private network hosts |
 
 The base URL must be an origin and nothing more: no path, query, fragment, or embedded credentials. HTTPS is required unless the host is loopback (`localhost`, `127.0.0.1`, or `[::1]`), which keeps plain HTTP available for local development only. A rejected value reports `Application base URL must be an HTTP(S) origin without credentials, path, query, or fragment, and must use HTTPS outside local development`.

@@ -4,13 +4,22 @@ import { errorReason } from "@/lib/runtime/failure-report.server"
 import { EmailConnectionFailed, EmailDeliveryError } from "../errors.ts"
 import type { EmailProvider, EmailProviderConnectionInput } from "../schemas.ts"
 
+export interface ProviderEmailAttachment {
+  readonly filename: string
+  readonly contentType: string
+  readonly content: Uint8Array
+}
+
 /** The rendered message every provider sends. */
 export interface ProviderEmail {
   readonly to: readonly string[]
+  readonly cc: readonly string[]
   readonly from: string
+  readonly replyTo: string
   readonly subject: string
   readonly html: string
   readonly text: string
+  readonly attachments: readonly ProviderEmailAttachment[]
 }
 
 /** Sends one message, succeeding with the provider's message ID when it returns one. */

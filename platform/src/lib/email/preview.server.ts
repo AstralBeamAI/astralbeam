@@ -20,6 +20,10 @@ import PasswordChangedEmail, {
 import ResetPasswordEmail, {
   createResetPasswordPreviewProps,
 } from "@/emails/templates/reset-password"
+import SupportRequestEmail, {
+  createSupportRequestPreviewProps,
+} from "@/emails/templates/support-request"
+import WelcomeEmail, { createWelcomePreviewProps } from "@/emails/templates/welcome"
 import { renderEmailElement } from "./render.server.ts"
 
 const EMAIL_PREVIEWS = [
@@ -58,6 +62,17 @@ const EMAIL_PREVIEWS = [
     label: "Reset password",
     element: (origin: string) =>
       createElement(ResetPasswordEmail, createResetPasswordPreviewProps(origin)),
+  },
+  {
+    name: "support-request",
+    label: "Support request",
+    element: (origin: string) =>
+      createElement(SupportRequestEmail, createSupportRequestPreviewProps(origin)),
+  },
+  {
+    name: "welcome",
+    label: "Welcome",
+    element: (origin: string) => createElement(WelcomeEmail, createWelcomePreviewProps(origin)),
   },
 ] satisfies ReadonlyArray<{
   element: (origin: string) => ReactElement

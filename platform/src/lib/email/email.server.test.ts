@@ -2,6 +2,7 @@ import { assert, describe, it } from "@effect/vitest"
 import { Context, Effect, Layer, Logger } from "effect"
 
 import { Config } from "@/lib/config/config.server"
+import { APP_NAME } from "@/lib/constants"
 
 import { Mailer } from "./email.server.ts"
 import { EmailDeliveryError } from "./errors.ts"
@@ -13,6 +14,7 @@ const MAILER_TEST_CONFIG = {
   email_from_address: "Example App <auth@example.test>",
   email_provider: "resend",
   resend_api_key: "re_private_key",
+  support_email_address: "support@example.test",
 }
 
 function mailerTestLayer(options: { readonly failure?: EmailDeliveryError } = {}) {
@@ -78,6 +80,37 @@ describe("Mailer", () => {
     }).pipe(Effect.provide(layer))
   })
 
+  it.effect("copies support on welcome and support emails so replies reach the team", () => {
+    const { layer, sent } = mailerTestLayer()
+    return Effect.gen(function* () {
+      const mailer = yield* Mailer
+      const user = { name: "Alex Morgan", email: "member@example.test" }
+      const attachment = {
+        filename: "error.png",
+        contentType: "image/png",
+        content: new Uint8Array([1, 2, 3]),
+      }
+      yield* mailer.sendWelcome({ user })
+      yield* mailer.sendSupportRequest({
+        user,
+        message: "The sidebar\nstops responding",
+        attachments: [attachment],
+      })
+      yield* mailer.sendPasswordChanged({ user })
+      const [welcome, support, passwordChanged] = sent
+      for (const email of [welcome, support]) {
+        assert.deepStrictEqual(email?.to, [user.email])
+        assert.deepStrictEqual(email?.cc, ["support@example.test"])
+        assert.strictEqual(email?.replyTo, "support@example.test")
+      }
+      assert.strictEqual(support?.subject, `${APP_NAME} support request: The sidebar`)
+      assert.include(support?.text, "stops responding")
+      assert.deepStrictEqual(support?.attachments, [attachment])
+      assert.deepStrictEqual(passwordChanged?.cc, [])
+      assert.strictEqual(passwordChanged?.replyTo, MAILER_TEST_CONFIG.email_from_address)
+    }).pipe(Effect.provide(layer))
+  })
+
   it.effect("preserves Better Auth links verbatim and builds absolute application links", () => {
     const { layer, sent } = mailerTestLayer()
     return Effect.gen(function* () {
@@ -127,10 +160,13 @@ describe("EmailProviders", () => {
           settings: { provider: "resend", settings: { resend_api_key: "re_private_key" } },
           email: {
             to: ["person@example.com"],
+            cc: [],
             from: "sender@example.com",
+            replyTo: "sender@example.com",
             subject: "Test",
             html: "<p>Test</p>",
             text: "Test",
+            attachments: [],
           },
         }),
       )

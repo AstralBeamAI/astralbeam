@@ -58,8 +58,8 @@ export const acquireSender = (settings: SesProviderSettings) =>
         client.send(
           new SendEmailCommand({
             FromEmailAddress: email.from,
-            Destination: { ToAddresses: [...email.to] },
-            ReplyToAddresses: [email.from],
+            Destination: { ToAddresses: [...email.to], CcAddresses: [...email.cc] },
+            ReplyToAddresses: [email.replyTo],
             Content: {
               Simple: {
                 Subject: { Data: email.subject, Charset: "UTF-8" },
@@ -67,6 +67,11 @@ export const acquireSender = (settings: SesProviderSettings) =>
                   Html: { Data: email.html, Charset: "UTF-8" },
                   Text: { Data: email.text, Charset: "UTF-8" },
                 },
+                Attachments: email.attachments.map((attachment) => ({
+                  FileName: attachment.filename,
+                  ContentType: attachment.contentType,
+                  RawContent: attachment.content,
+                })),
               },
             },
           }),
