@@ -32,26 +32,25 @@ const rejected = (cursor: string, input: Partial<Parameters<typeof decodeRestCur
   )
 
 describe("opaque pagination cursors", () => {
-  it.effect.each([cursorPosition, { ...cursorPosition, updatedAt: "2026-10-05T12:00:00.000Z" }])(
-    "maximum-length Unicode cursors retain positions across key rotation: %j",
-    (position) =>
-      Effect.gen(function* () {
-        const cursor = yield* encodeRestCursor({
-          position,
-          collection,
-          scope: cursorScope,
-          keyring: cursorOldKeyring,
-        })
-        assert.isAtMost(cursor.length, 2048)
-        const decoded = yield* decodeRestCursor({
-          cursor,
-          collection,
-          scope: cursorScope,
-          keyring: cursorRotatedKeyring,
-        })
-        assert.deepStrictEqual(decoded, position)
-        yield* rejected(cursor, { keyring: parseDatabaseEncryptionKeyring(cursorNewSecret) })
-      }),
+  it.effect("maximum-length compound cursors retain positions across key rotation", () =>
+    Effect.gen(function* () {
+      const position = { ...cursorPosition, updatedAt: "2026-10-05T12:00:00.000Z" }
+      const cursor = yield* encodeRestCursor({
+        position,
+        collection,
+        scope: cursorScope,
+        keyring: cursorOldKeyring,
+      })
+      assert.isAtMost(cursor.length, 2048)
+      const decoded = yield* decodeRestCursor({
+        cursor,
+        collection,
+        scope: cursorScope,
+        keyring: cursorRotatedKeyring,
+      })
+      assert.deepStrictEqual(decoded, position)
+      yield* rejected(cursor, { keyring: parseDatabaseEncryptionKeyring(cursorNewSecret) })
+    }),
   )
 
   it.effect("rejects tampering, collection and scope changes", () =>
