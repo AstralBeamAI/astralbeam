@@ -12,7 +12,7 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 - `schema/` contains responsibility-named domain table and relation modules.
 - `migrations/` contains generated migration SQL and Drizzle snapshots.
 
-`schema/tables.server.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.server.ts` creates the base relation definition, adds Better Auth's generated-shape relation part, and exports the single composition root passed to `drizzle()`.
+`schema/tables.server.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.server.ts` creates the base relation definition, adds Better Auth's generated-shape and chat relation parts, and exports the single composition root passed to `drizzle()`.
 
 ## Query from server-only code
 

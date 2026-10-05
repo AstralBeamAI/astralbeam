@@ -15,4 +15,11 @@ export {
   tenant,
   tenantUser,
 } from "./organizations.server.ts"
+export {
+  chatThread,
+  chatMessage,
+  chatMessagePart,
+  chatToolResponse,
+  chatParticipant,
+} from "./chat.server.ts"
 export { rateLimit } from "./rate-limit.server.ts"

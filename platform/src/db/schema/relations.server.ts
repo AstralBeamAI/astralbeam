@@ -133,8 +133,156 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
   },
 }))
 
+const chatRelations = defineRelationsPart(schema, (relations) => ({
+  chatThread: {
+    tenant: relations.one.tenant({
+      from: [relations.chatThread.organizationId, relations.chatThread.tenantId],
+      to: [relations.tenant.organizationId, relations.tenant.id],
+    }),
+    participants: relations.many.chatParticipant({
+      from: [
+        relations.chatThread.organizationId,
+        relations.chatThread.tenantId,
+        relations.chatThread.id,
+      ],
+      to: [
+        relations.chatParticipant.organizationId,
+        relations.chatParticipant.tenantId,
+        relations.chatParticipant.threadId,
+      ],
+    }),
+    messages: relations.many.chatMessage({
+      from: [
+        relations.chatThread.organizationId,
+        relations.chatThread.tenantId,
+        relations.chatThread.id,
+      ],
+      to: [
+        relations.chatMessage.organizationId,
+        relations.chatMessage.tenantId,
+        relations.chatMessage.threadId,
+      ],
+    }),
+  },
+  chatParticipant: {
+    thread: relations.one.chatThread({
+      from: [
+        relations.chatParticipant.organizationId,
+        relations.chatParticipant.tenantId,
+        relations.chatParticipant.threadId,
+      ],
+      to: [
+        relations.chatThread.organizationId,
+        relations.chatThread.tenantId,
+        relations.chatThread.id,
+      ],
+    }),
+    tenantUser: relations.one.tenantUser({
+      from: [
+        relations.chatParticipant.organizationId,
+        relations.chatParticipant.tenantId,
+        relations.chatParticipant.tenantUserId,
+      ],
+      to: [
+        relations.tenantUser.organizationId,
+        relations.tenantUser.tenantId,
+        relations.tenantUser.id,
+      ],
+    }),
+  },
+  chatMessage: {
+    thread: relations.one.chatThread({
+      from: [
+        relations.chatMessage.organizationId,
+        relations.chatMessage.tenantId,
+        relations.chatMessage.threadId,
+      ],
+      to: [
+        relations.chatThread.organizationId,
+        relations.chatThread.tenantId,
+        relations.chatThread.id,
+      ],
+    }),
+    parts: relations.many.chatMessagePart({
+      from: [
+        relations.chatMessage.organizationId,
+        relations.chatMessage.tenantId,
+        relations.chatMessage.threadId,
+        relations.chatMessage.id,
+      ],
+      to: [
+        relations.chatMessagePart.organizationId,
+        relations.chatMessagePart.tenantId,
+        relations.chatMessagePart.threadId,
+        relations.chatMessagePart.messageId,
+      ],
+    }),
+  },
+  chatMessagePart: {
+    message: relations.one.chatMessage({
+      from: [
+        relations.chatMessagePart.organizationId,
+        relations.chatMessagePart.tenantId,
+        relations.chatMessagePart.threadId,
+        relations.chatMessagePart.messageId,
+      ],
+      to: [
+        relations.chatMessage.organizationId,
+        relations.chatMessage.tenantId,
+        relations.chatMessage.threadId,
+        relations.chatMessage.id,
+      ],
+    }),
+    responses: relations.many.chatToolResponse({
+      from: [
+        relations.chatMessagePart.organizationId,
+        relations.chatMessagePart.tenantId,
+        relations.chatMessagePart.threadId,
+        relations.chatMessagePart.id,
+      ],
+      to: [
+        relations.chatToolResponse.organizationId,
+        relations.chatToolResponse.tenantId,
+        relations.chatToolResponse.threadId,
+        relations.chatToolResponse.toolPartId,
+      ],
+    }),
+  },
+  chatToolResponse: {
+    toolPart: relations.one.chatMessagePart({
+      from: [
+        relations.chatToolResponse.organizationId,
+        relations.chatToolResponse.tenantId,
+        relations.chatToolResponse.threadId,
+        relations.chatToolResponse.toolPartId,
+      ],
+      to: [
+        relations.chatMessagePart.organizationId,
+        relations.chatMessagePart.tenantId,
+        relations.chatMessagePart.threadId,
+        relations.chatMessagePart.id,
+      ],
+    }),
+    resultMessage: relations.one.chatMessage({
+      from: [
+        relations.chatToolResponse.organizationId,
+        relations.chatToolResponse.tenantId,
+        relations.chatToolResponse.threadId,
+        relations.chatToolResponse.resultMessageId,
+      ],
+      to: [
+        relations.chatMessage.organizationId,
+        relations.chatMessage.tenantId,
+        relations.chatMessage.threadId,
+        relations.chatMessage.id,
+      ],
+    }),
+  },
+}))
+
 // Relation parts follow the base definition, and each source table belongs to one part. https://orm.drizzle.team/docs/relations#relations-parts
 export const databaseRelations = {
   ...baseRelations,
   ...authRelations,
+  ...chatRelations,
 }
