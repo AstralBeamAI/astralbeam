@@ -25,6 +25,7 @@ const COMPLETE_VALUES = {
   better_auth_secret: SECRET,
   turnstile_site_key: "turnstile-site-key",
   turnstile_secret_key: "turnstile-secret-key",
+  support_email_address: "support@example.com",
 } satisfies ConfigValues
 
 type StoredRow = { readonly key: string; readonly storedValue: string }

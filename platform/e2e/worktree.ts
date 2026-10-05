@@ -148,6 +148,7 @@ export function e2eWebServers() {
         SMTP_PASSWORD: "",
         TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
         TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+        SUPPORT_EMAIL_ADDRESS: "support@example.com",
         // Better Auth would otherwise take its base URL from stored configuration and reject
         // requests arriving on the suite's port.
         APP_BASE_URL: platformUrl,

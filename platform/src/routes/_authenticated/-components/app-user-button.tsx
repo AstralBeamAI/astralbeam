@@ -38,24 +38,18 @@ export function AppUserButton(props: Pick<UserButtonProps, "align" | "size" | "c
             label: "Organizations",
             visibility: "authenticated",
           },
-          ...(supportEmailAddress
-            ? [
-                <DropdownMenuItem key="contact-support" onClick={() => setSupportOpen(true)}>
-                  <LifebuoyIcon className="text-muted-foreground" />
-                  Contact Support
-                </DropdownMenuItem>,
-              ]
-            : []),
+          <DropdownMenuItem key="contact-support" onClick={() => setSupportOpen(true)}>
+            <LifebuoyIcon className="text-muted-foreground" />
+            Contact Support
+          </DropdownMenuItem>,
         ]}
         {...props}
       />
-      {supportEmailAddress && (
-        <ContactSupportDialog
-          open={supportOpen}
-          onOpenChange={setSupportOpen}
-          supportEmailAddress={supportEmailAddress}
-        />
-      )}
+      <ContactSupportDialog
+        open={supportOpen}
+        onOpenChange={setSupportOpen}
+        supportEmailAddress={supportEmailAddress}
+      />
     </>
   )
 }

@@ -344,9 +344,9 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "General",
     label: "Support Email Address",
     description:
-      "Copied on welcome and support request emails so replies reach your team. Leave unset to hide Contact Support.",
+      "Copied on welcome and support request emails so replies reach your team, and where Contact Support requests go.",
     kind: "text",
-    required: false,
+    required: true,
     isPublic: true,
     schema: EmailAddressSchema,
   },
