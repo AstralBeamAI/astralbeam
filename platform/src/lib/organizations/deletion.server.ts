@@ -40,7 +40,7 @@ export const deleteOrganizationTenantBatch = Effect.fn("deleteOrganizationTenant
 ) {
   const sql = yield* SqlClient.SqlClient
   const tenants = yield* sql<{ id: string }>`select id from tenant
-    where organization_id = ${organizationId} limit 1000`
+    where organization_id = ${organizationId} order by id limit 1000`
   yield* Effect.forEach(tenants, ({ id }) => deleteTenant({ organizationId, tenantId: id }), {
     discard: true,
   })

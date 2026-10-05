@@ -1,6 +1,6 @@
-import { eq, getTableName, sql } from "drizzle-orm"
+import { and, eq, getTableName, sql } from "drizzle-orm"
 import { getTableConfig } from "drizzle-orm/pg-core"
-import { Effect, Fiber, Layer } from "effect"
+import { Cause, Effect, Exit, Fiber, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
 import { Workflow, WorkflowEngine } from "effect/workflow"
@@ -20,9 +20,14 @@ const deleteOrganizationIntegration = vi.hoisted(() => {
 
 import { Database, getAuthDatabase } from "@/db/database.server"
 import { getForeignKeyDeferrability } from "@/db/lib/columns.server"
+import { sqlState } from "@/db/lib/sqlstate.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { Mailer } from "@/lib/email/email.server"
-import { deleteOrganization, revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
+import {
+  deleteOrganization,
+  deleteOrganizationTenantBatch,
+  revokeOrganizationAccess,
+} from "@/lib/organizations/deletion.server"
 import { deleteTenant } from "@/lib/tenants/deletion.server"
 import {
   agent,
@@ -54,7 +59,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     await db.execute(sql`truncate "organization", "user" cascade`)
   })
 
-  async function createOrganization(slug: string) {
+  async function createOrganization(slug: string, tenantId?: string) {
     const [owner] = await db
       .insert(user)
       .values({ name: slug, email: `${slug}@example.com` })
@@ -94,7 +99,10 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       organizationId,
       defaultAgentId: defaultAgent!.id,
     })
-    const [owned] = await db.insert(tenant).values({ organizationId, externalId: "t" }).returning()
+    const [owned] = await db
+      .insert(tenant)
+      .values({ organizationId, id: tenantId, externalId: "t" })
+      .returning()
     await db.insert(tenantUser).values({ organizationId, tenantId: owned!.id, externalId: "u" })
     return {
       organizationId,
@@ -112,7 +120,12 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     const [author] = await db
       .select({ id: tenantUser.id })
       .from(tenantUser)
-      .where(eq(tenantUser.tenantId, scope.tenantId))
+      .where(
+        and(
+          eq(tenantUser.organizationId, scope.organizationId),
+          eq(tenantUser.tenantId, scope.tenantId),
+        ),
+      )
       .limit(1)
     const [thread] = await db.insert(chatThread).values(scope).returning()
     const chatScope = {
@@ -607,7 +620,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     "defers constraints for the %s purge even in an immediate transaction",
     async (_, purge) => {
       const scope = await createOrganization("deleted")
-      const kept = await createOrganization("kept")
+      const kept = await createOrganization("kept", scope.tenantId)
       await createDeletionChat(scope)
       await createDeletionChat(kept)
       await runAppEffect(
@@ -632,6 +645,55 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       )
     },
   )
+
+  test("commits earlier Tenant deletions when a later Tenant fails, then resumes the purge", async () => {
+    const scope = await createOrganization("partial")
+    await createDeletionChat(scope)
+    const [blocked] = await db
+      .insert(tenant)
+      .values({ organizationId: scope.organizationId, externalId: "blocked" })
+      .returning()
+    await db.execute(sql`create table tenant_purge_blocker (
+      organization_id uuid not null,
+      tenant_id uuid not null,
+      primary key (organization_id, tenant_id),
+      foreign key (organization_id, tenant_id) references tenant (organization_id, id)
+        deferrable initially immediate
+    )`)
+    try {
+      await db.execute(sql`insert into tenant_purge_blocker (organization_id, tenant_id)
+        values (${scope.organizationId}, ${blocked!.id})`)
+      const failure = await runAppEffect(
+        deleteOrganizationTenantBatch(scope.organizationId).pipe(Effect.exit),
+      )
+      expect(
+        Exit.match(failure, {
+          onFailure: (cause) => sqlState(Cause.squash(cause)),
+          onSuccess: () => undefined,
+        }),
+      ).toBe("23503")
+      expect(await db.select({ id: tenant.id }).from(tenant)).toEqual([{ id: blocked!.id }])
+      expect(await db.select().from(chatMessage)).toEqual([])
+      expect(await db.select({ id: organization.id }).from(organization)).toEqual([
+        { id: scope.organizationId },
+      ])
+      await runAppEffect(
+        Effect.gen(function* () {
+          const deletion = yield* Effect.forkChild(organizationDeletion(scope.organizationId))
+          for (let step = 0; step < 4; step++) {
+            yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
+            yield* TestClock.adjust("5 minutes")
+          }
+          yield* Effect.promise(() => db.execute(sql`drop table tenant_purge_blocker`))
+          yield* TestClock.adjust("5 minutes")
+          yield* Fiber.join(deletion)
+        }).pipe(Effect.provide(TestClock.layer())),
+      )
+    } finally {
+      await db.execute(sql`drop table if exists tenant_purge_blocker`)
+    }
+    expect(await db.select().from(organization)).toEqual([])
+  })
 
   test("revokes access at once and purges only the deleted organization", async () => {
     const deleted = await createOrganization("deleted")
