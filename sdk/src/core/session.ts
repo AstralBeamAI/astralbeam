@@ -345,7 +345,11 @@ export function createAstralBeamChat(
   const resolveCapabilities = async () => {
     const generation = ++capabilitiesGeneration
     const selection = selectionGeneration
-    const agentId = state.thread?.agentId ?? live.agentId
+    if (state.thread?.agentId === null) {
+      update({ capabilities: { attachments: false } })
+      return
+    }
+    const agentId = state.thread ? state.thread.agentId : live.agentId
     try {
       const token = await getValidChatAuthToken(authentication)
       if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
@@ -770,11 +774,12 @@ export function createAstralBeamChat(
       tools: declareTools(),
       forwardedProps: forwardedProps(),
       onMessagesChange: (messages) => {
-        if (client !== next) return
+        if (client !== next || generation !== selectionGeneration) return
         update({ messages, sandbox: collectSandboxActivity(messages), error: next.getError() })
       },
       onStatusChange: (status) => {
-        if (client === next) update({ status, error: next.getError() })
+        if (client === next && generation === selectionGeneration)
+          update({ status, error: next.getError() })
       },
       onInterruptStateChange: (interrupts) => {
         if (client === next) debug?.("tool", "interrupt state changed", interrupts)
@@ -953,6 +958,15 @@ export function createAstralBeamChat(
       if (threadKey) selectedThread(threadKey, id)
     } catch (error) {
       if (generation === selectionGeneration) {
+        if (
+          restoring &&
+          (live.threadId === undefined || live.threadId === "auto") &&
+          isAstralBeamApiError(error) &&
+          error.status === 404
+        ) {
+          newThread()
+          return
+        }
         update({ threadLoadFailed: true })
         reportError(error)
       }
@@ -1015,6 +1029,7 @@ export function createAstralBeamChat(
         if (isAstralBeamApiError(error) && error.status === 404) {
           newThread()
           void listThreads()
+          return
         }
         reportError(error)
       }
@@ -1143,6 +1158,7 @@ export function createAstralBeamChat(
         if (isAstralBeamApiError(error) && error.status === 404) {
           newThread()
           void listThreads()
+          return
         }
         reportError(error)
       }
@@ -1235,8 +1251,30 @@ export function createAstralBeamChat(
       reportError(new Error("Reopen this conversation or start a new one before sending."))
       return
     }
+    if (state.thread?.agentId === null) {
+      reportError(
+        new Error(
+          "This conversation’s agent is unavailable. Start a new conversation to continue.",
+        ),
+      )
+      return
+    }
     if (state.thread?.role === "viewer") {
       reportError(new Error("You have read-only access to this conversation."))
+      return
+    }
+    if (
+      pendingSend &&
+      !pendingSend.accepted &&
+      pendingSend.tools !== undefined &&
+      JSON.stringify(pendingSend.content) !== JSON.stringify(content)
+    ) {
+      update({ unsentMessage: pendingSend.content })
+      reportError(
+        new Error(
+          "The previous message’s acceptance is unconfirmed. Retry that message before sending different text, or start a new conversation.",
+        ),
+      )
       return
     }
     const generation = selectionGeneration

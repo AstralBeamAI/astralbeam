@@ -1,5 +1,5 @@
 import type { MessagePart, UIMessage } from "@tanstack/ai-client"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Attachment,
   AttachmentContent,
@@ -27,24 +27,34 @@ function SentAttachment({
 }) {
   const { kind, title, description, href } = describeSentAttachment(part)
   const attachmentId = (part as MediaPart & { savedAttachmentId?: string }).savedAttachmentId
+  const element = useRef<HTMLDivElement>(null)
   const [preview, setPreview] = useState<string>()
   const [failed, setFailed] = useState(false)
   const [downloading, setDownloading] = useState(false)
   useEffect(() => {
-    if (kind !== "image" || !attachmentId) return
+    if (kind !== "image" || !attachmentId || !element.current) return
     let objectUrl: string | undefined
     let cancelled = false
-    void getAttachment(messageId, attachmentId)
-      .then((blob) => {
-        if (cancelled) return
-        objectUrl = URL.createObjectURL(blob)
-        setPreview(objectUrl)
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true)
-      })
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return
+        observer.disconnect()
+        void getAttachment(messageId, attachmentId)
+          .then((blob) => {
+            if (cancelled) return
+            objectUrl = URL.createObjectURL(blob)
+            setPreview(objectUrl)
+          })
+          .catch(() => {
+            if (!cancelled) setFailed(true)
+          })
+      },
+      { rootMargin: "200px" },
+    )
+    observer.observe(element.current)
     return () => {
       cancelled = true
+      observer.disconnect()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [attachmentId, getAttachment, kind, messageId])
@@ -62,47 +72,49 @@ function SentAttachment({
   }
   const thumbnail = kind === "image" ? (preview ?? href) : undefined
   return (
-    <Attachment size="sm" state={failed ? "error" : downloading ? "processing" : "done"}>
-      <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
-        {thumbnail ? (
-          <img src={thumbnail} alt="" />
-        ) : (
-          <AttachmentKindIcon kind={kind} mimeType={part.source.mimeType} />
-        )}
-      </AttachmentMedia>
-      <AttachmentContent>
-        <AttachmentTitle>{title}</AttachmentTitle>
-        {(failed || description) && (
-          <AttachmentDescription>
-            {failed ? "File unavailable. Try again." : description}
-          </AttachmentDescription>
-        )}
-      </AttachmentContent>
-      {attachmentId ? (
-        <AttachmentTrigger
-          aria-label={`Download ${title}`}
-          title={`Download ${title}`}
-          disabled={downloading}
-          onClick={() => void download()}
-        />
-      ) : href ? (
-        // The trigger covers the whole chip, making it the download control. `download` is
-        // honored for the inline `data:` source; a remote one, where browsers ignore it, opens
-        // in its own tab rather than navigating the host page away.
-        <AttachmentTrigger
-          render={
-            <a
-              href={href}
-              download={title}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={`Download ${title}`}
-              title={`Download ${title}`}
-            />
-          }
-        />
-      ) : null}
-    </Attachment>
+    <div ref={element} className="max-w-full">
+      <Attachment size="sm" state={failed ? "error" : downloading ? "processing" : "done"}>
+        <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
+          {thumbnail ? (
+            <img src={thumbnail} alt="" />
+          ) : (
+            <AttachmentKindIcon kind={kind} mimeType={part.source.mimeType} />
+          )}
+        </AttachmentMedia>
+        <AttachmentContent>
+          <AttachmentTitle>{title}</AttachmentTitle>
+          {(failed || description) && (
+            <AttachmentDescription>
+              {failed ? "File unavailable. Try again." : description}
+            </AttachmentDescription>
+          )}
+        </AttachmentContent>
+        {attachmentId ? (
+          <AttachmentTrigger
+            aria-label={`Download ${title}`}
+            title={`Download ${title}`}
+            disabled={downloading}
+            onClick={() => void download()}
+          />
+        ) : href ? (
+          // The trigger covers the whole chip, making it the download control. `download` is
+          // honored for the inline `data:` source; a remote one, where browsers ignore it, opens
+          // in its own tab rather than navigating the host page away.
+          <AttachmentTrigger
+            render={
+              <a
+                href={href}
+                download={title}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Download ${title}`}
+                title={`Download ${title}`}
+              />
+            }
+          />
+        ) : null}
+      </Attachment>
+    </div>
   )
 }
 

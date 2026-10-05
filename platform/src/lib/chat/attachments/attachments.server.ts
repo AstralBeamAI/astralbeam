@@ -148,7 +148,7 @@ function base64Payload(value: string): string {
 
 // Measured from the encoding rather than by decoding, so an oversized payload is refused before
 // anything allocates it.
-function base64ByteLength(value: string): number {
+export function base64ByteLength(value: string): number {
   const payload = base64Payload(value).replace(/\s/g, "")
   const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding)

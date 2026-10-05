@@ -384,6 +384,7 @@ export function chatThreadHandlers(api: typeof ApiV1) {
       const { TenantUsers } = yield* Effect.promise(
         () => import("@/lib/tenants/tenant-users.server"),
       )
+      const { consumeRestRateLimit } = yield* Effect.promise(() => import("../../-lib/auth.server"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("../../-lib/pagination.server"),
       )
@@ -447,6 +448,11 @@ export function chatThreadHandlers(api: typeof ApiV1) {
         .handleAll({
           createChatThread: Effect.fn("createChatThread")(function* ({ request, payload }) {
             const scope = yield* scopeFor(request)
+            yield* consumeRestRateLimit("chat-resource", [
+              scope.organizationId,
+              scope.tenantId,
+              scope.tenantUserId,
+            ]).pipe(Effect.provideContext(services))
             const row = yield* threads.create({
               scope,
               ...payload,

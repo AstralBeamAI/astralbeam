@@ -160,7 +160,7 @@ widgets: {
 
 Read-only Tenant and TenantUser widgets are available from `/client` and `/react`. See [Tenant directories](https://astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
 
-There is no root export. Conversation history is not built yet.
+There is no root export. Conversations are saved on the server and can be reopened across clients.
 
 | Entry point              | Contents                                     | Peer dependency      |
 | ------------------------ | -------------------------------------------- | -------------------- |

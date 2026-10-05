@@ -4,7 +4,7 @@ import { createAstralBeamChat } from "./session.ts"
 const thread = {
   id: "00000000-0000-4000-8000-000000000001",
   title: "Saved conversation",
-  agent_id: null,
+  agent_id: "saved-agent",
   version: 1,
   role: "manager",
   writer_active: false,
@@ -223,6 +223,10 @@ test("sends append during active execution and reload never resubmits uncertain 
     await chat.reload()
     expect(sent).toHaveLength(1)
     expect(chat.getState().unsentMessage).toBe("Hello")
+    await chat.sendMessage("Edited uncertain input")
+    expect(sent).toHaveLength(1)
+    expect(chat.getState().unsentMessage).toBe("Hello")
+    expect(chat.getState().error?.message).toContain("acceptance is unconfirmed")
     chat.updateOptions({
       tools: { changed: { description: "Changed declaration", execute: () => null } },
     })
@@ -1220,6 +1224,125 @@ test("saved threads use their bound agent capabilities and reset uses the config
     chat.reset()
     await vi.waitFor(() => expect(chat.getState().capabilities.attachments).toBe(true))
     expect(agents.at(-1)).toBe("new-default")
+  } finally {
+    chat.dispose()
+  }
+})
+
+test.each(["auto", thread.id])(
+  "inaccessible %s selections recover only automatic restoration",
+  async (threadId) => {
+    let stored: string | null = thread.id
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        stored = value
+      },
+      removeItem: () => {
+        stored = null
+      },
+    })
+    vi.stubGlobal("fetch", (input: string | URL) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+      if (path.endsWith("/messages"))
+        return Promise.resolve(
+          Response.json(
+            {
+              status: 404,
+              title: "Not found",
+              detail: "Conversation not found.",
+            },
+            { status: 404 },
+          ),
+        )
+      if (path.endsWith("/config"))
+        return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+    })
+    const chat = createAstralBeamChat({ threadId, fetchAstralBeamToken: token })
+    try {
+      await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+      await vi.waitFor(() => expect(chat.getState().threadLoading).toBe(false))
+      expect(chat.getState().threadLoadFailed).toBe(threadId !== "auto")
+      expect(stored).toBe(threadId === "auto" ? null : thread.id)
+      expect(chat.getState().error === undefined).toBe(threadId === "auto")
+    } finally {
+      chat.dispose()
+    }
+  },
+)
+
+test("a deleted agent disables generation without resolving the default agent", async () => {
+  const fallback = vi.fn()
+  const send = vi.fn()
+  vi.stubGlobal("fetch", (input: string | URL) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/messages"))
+      return Promise.resolve(Response.json({ ...page(), thread: { ...thread, agent_id: null } }))
+    if (path.endsWith("/config")) {
+      fallback()
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    }
+    if (path.endsWith("/chat")) send()
+    return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+  })
+  const chat = createAstralBeamChat({
+    threadId: thread.id,
+    agentId: "configured-agent",
+    fetchAstralBeamToken: token,
+  })
+  try {
+    await vi.waitFor(() => expect(chat.getState().thread?.agentId).toBeNull())
+    await vi.waitFor(() => expect(chat.getState().capabilities.attachments).toBe(false))
+    const prior = fallback.mock.calls.length
+    chat.updateOptions({ agentId: "different-default" })
+    await chat.sendMessage("Must not send")
+    expect(fallback).toHaveBeenCalledTimes(prior)
+    expect(send).not.toHaveBeenCalled()
+    expect(chat.getState().error?.message).toContain("agent is unavailable")
+  } finally {
+    chat.dispose()
+  }
+})
+
+test("successful manager self-removal leaves a fresh conversation without an error", async () => {
+  let removed = false
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
+    if (path.includes("/participants/") && init?.method === "DELETE") {
+      removed = true
+      return Promise.resolve(new Response(null, { status: 204 }))
+    }
+    if (path.endsWith(`/threads/${thread.id}`) && removed)
+      return Promise.resolve(
+        Response.json(
+          { status: 404, title: "Not found", detail: "Conversation not found." },
+          { status: 404 },
+        ),
+      )
+    if (path.endsWith("/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    return Promise.resolve(
+      Response.json({ items: removed ? [] : [thread], page_after: null, page_before: null }),
+    )
+  })
+  const onError = vi.fn()
+  const chat = createAstralBeamChat({
+    threadId: thread.id,
+    fetchAstralBeamToken: token,
+    streamCallbacks: { onError },
+  })
+  try {
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    await chat.removeParticipant(currentUser.user.id)
+    expect(removed).toBe(true)
+    expect(chat.getState().thread).toBeUndefined()
+    expect(chat.getState().error).toBeUndefined()
+    expect(onError).not.toHaveBeenCalled()
   } finally {
     chat.dispose()
   }

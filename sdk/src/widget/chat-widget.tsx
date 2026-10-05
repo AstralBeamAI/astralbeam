@@ -208,6 +208,7 @@ export function ChatWidget({
     chatState.threadLoading ||
     chatState.threadLoadFailed ||
     chatState.thread?.role === "viewer" ||
+    chatState.thread?.agentId === null ||
     hasPendingToolRun(
       messages.map((message) => ({
         ...message,
@@ -475,7 +476,7 @@ export function ChatWidget({
           }}
           onRetry={
             chatState.unsentMessage !== undefined
-              ? sendDraft
+              ? () => void chat.sendMessage(chatState.unsentMessage!)
               : messages.length > 0
                 ? () => void chat.reload()
                 : undefined

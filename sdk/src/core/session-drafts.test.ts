@@ -15,7 +15,7 @@ const token = () => ({
 const thread = (id: string) => ({
   id,
   title: "Saved conversation",
-  agent_id: null,
+  agent_id: "saved-agent",
   version: 1,
   role: "manager",
   writer_active: false,

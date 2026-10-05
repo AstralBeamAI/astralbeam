@@ -36,7 +36,7 @@ function chatAuthToken(): { token: string } {
 const thread = {
   id: "conversation",
   title: null,
-  agent_id: null,
+  agent_id: "saved-agent",
   version: 1,
   role: "manager",
   writer_active: false,

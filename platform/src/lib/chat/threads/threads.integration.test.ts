@@ -353,6 +353,94 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).toBe("ChatThreadConflict")
   })
 
+  test("rejects concurrent uploads beyond the restored file budget before admitting input", async () => {
+    const thread = await create()
+    const file = Buffer.alloc(10 * 1024 * 1024, " ")
+    file.write("%PDF-1.7")
+    const upload = () =>
+      service.admit({
+        scope,
+        id: thread.id,
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: crypto.randomUUID(),
+              type: "document",
+              source: { type: "data", value: file.toString("base64"), mimeType: "application/pdf" },
+            },
+          ],
+        },
+      })
+    await runtime.runPromise(upload())
+    const results = await Promise.allSettled([
+      runtime.runPromise(upload()),
+      runtime.runPromise(upload()),
+    ])
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({
+      reason: { _tag: "ChatThreadInvalid" },
+    })
+    expect(
+      await db
+        .select({ id: chatMessage.id })
+        .from(chatMessage)
+        .where(eq(chatMessage.threadId, thread.id)),
+    ).toHaveLength(4)
+    await admit(thread.id)
+    expect(
+      await db
+        .select({ id: chatMessage.id })
+        .from(chatMessage)
+        .where(eq(chatMessage.threadId, thread.id)),
+    ).toHaveLength(6)
+  })
+
+  test("retains a manager while allowing a second manager to remove themselves", async () => {
+    const thread = await create()
+    await expect(
+      runtime.runPromise(
+        service.removeParticipant({
+          scope,
+          id: thread.id,
+          lockVersion: 0,
+          tenantUserId: scope.tenantUserId,
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
+    await runtime.runPromise(
+      service.setParticipant({
+        scope,
+        id: thread.id,
+        lockVersion: 0,
+        tenantUserId: other.tenantUserId,
+        role: "manager",
+      }),
+    )
+    await runtime.runPromise(
+      service.removeParticipant({
+        scope,
+        id: thread.id,
+        lockVersion: 1,
+        tenantUserId: scope.tenantUserId,
+      }),
+    )
+    expect((await runtime.runPromise(service.get({ scope: other, id: thread.id }))).role).toBe(
+      "manager",
+    )
+    await expect(
+      runtime.runPromise(
+        service.setParticipant({
+          scope: other,
+          id: thread.id,
+          lockVersion: 2,
+          tenantUserId: other.tenantUserId,
+          role: "viewer",
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
+  })
+
   test("concurrent participants append one chain and finishing an older execution never rewinds its leaf", async () => {
     const thread = await create()
     await runtime.runPromise(
@@ -1050,6 +1138,66 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       (await runtime.runPromise(service.assertActive({ claim: admitted.claim! }).pipe(Effect.flip)))
         ._tag,
     ).toBe("ChatThreadNotFound")
+  })
+
+  test("thread activity cursors survive boundary updates and deletion", async () => {
+    const ids: string[] = []
+    for (let index = 0; index < 3; index++) {
+      const thread = await create()
+      const admitted = await admit(thread.id)
+      await runtime.runPromise(
+        service.finish({
+          claim: admitted.claim!,
+          payload: {
+            version: 1,
+            parts: [{ id: crypto.randomUUID(), type: "text", content: "Answer" }],
+          },
+        }),
+      )
+      ids.unshift(thread.id)
+    }
+    const first = await runtime.runPromise(service.list({ scope, pageSize: 1 }))
+    expect(first.items[0]!.id).toBe(ids[0])
+    await runtime.runPromise(
+      service.rename({ scope, id: ids[0]!, title: "Updated boundary", lockVersion: 1 }),
+    )
+    expect(
+      (await runtime.runPromise(service.list({ scope, position: first.nextPosition! }))).items.map(
+        (row) => row.id,
+      ),
+    ).toEqual(ids.slice(1))
+    await runtime.runPromise(service.remove({ scope, id: ids[0]!, lockVersion: 2 }))
+    expect(
+      (await runtime.runPromise(service.list({ scope, position: first.nextPosition! }))).items.map(
+        (row) => row.id,
+      ),
+    ).toEqual(ids.slice(1))
+  })
+
+  test("a history page decodes only its selected content", async () => {
+    const thread = await create()
+    for (let index = 0; index < 4; index++) {
+      const admitted = await admit(thread.id)
+      await runtime.runPromise(
+        service.finish({
+          claim: admitted.claim!,
+          payload: {
+            version: 1,
+            parts: [{ id: crypto.randomUUID(), type: "text", content: "Answer" }],
+          },
+        }),
+      )
+    }
+    const decode = vi.spyOn(chatMessagePart.payload, "mapFromDriverValue")
+    try {
+      const snapshot = await runtime.runPromise(
+        service.snapshot({ scope, id: thread.id, pageSize: 1 }),
+      )
+      expect(snapshot.messages.items).toHaveLength(1)
+      expect(decode).toHaveBeenCalledTimes(1)
+    } finally {
+      decode.mockRestore()
+    }
   })
 
   test("database constraints reject cross-conversation parents and wrong Tenant authors", async () => {

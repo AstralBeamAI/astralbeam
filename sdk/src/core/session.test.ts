@@ -22,7 +22,7 @@ const currentUser = {
 const thread = {
   id: "00000000-0000-4000-8000-000000000001",
   title: null,
-  agent_id: null,
+  agent_id: "saved-agent",
   version: 1,
   role: "manager",
   writer_active: false,

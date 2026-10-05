@@ -29,7 +29,7 @@ export function TenantUserSearch({
   return (
     <SearchDropdown
       label="Tenant user"
-      placeholder="Search name, email, or user ID…"
+      placeholder="Search name or user ID…"
       loadPage={loadPage}
       value={value}
       onValueChange={onValueChange}

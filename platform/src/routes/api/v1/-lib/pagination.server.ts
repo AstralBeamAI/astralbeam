@@ -123,6 +123,8 @@ export const decodeRestCursor = Effect.fn("decodeRestCursor")(function* (
   if (decoded.binding !== restCursorBinding(input.collection, input.scope)) {
     return yield* new RestInvalidCursor()
   }
+  if (input.collection === "chat_threads" && !decoded.updatedAt)
+    return yield* new RestInvalidCursor()
   return { id: decoded.id, ...(decoded.updatedAt ? { updatedAt: decoded.updatedAt } : {}) }
 })
 

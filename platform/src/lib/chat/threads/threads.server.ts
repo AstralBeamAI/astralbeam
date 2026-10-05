@@ -2,12 +2,14 @@ import { isDeepStrictEqual } from "node:util"
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   getTableColumns,
   gt,
   ilike,
   isNotNull,
+  isNull,
   inArray,
   lt,
   sql,
@@ -40,6 +42,8 @@ import {
   organizationConfiguration,
 } from "@/db/schema/organizations.server"
 import type { ChatPrincipal } from "../types"
+import { base64ByteLength } from "../attachments/attachments.server"
+import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants.server"
 import { parseAgentId } from "@/lib/agents/schemas"
 import { tenantUserEmail } from "@/lib/tenants/schemas"
 import { tenantSearchPattern } from "@/lib/tenants/tenants.server"
@@ -157,6 +161,7 @@ const readChatMessages = Effect.fnUntraced(function* (
   scope: ChatThreadScope,
   id: string,
   rows: StoredMessageRecord[],
+  partIds?: readonly string[],
 ) {
   if (rows.length === 0) return []
   const parts = yield* db
@@ -165,6 +170,7 @@ const readChatMessages = Effect.fnUntraced(function* (
     .where(
       and(
         chatPartWhere(scope, id),
+        partIds ? inArray(chatMessagePart.id, partIds) : undefined,
         inArray(
           chatMessagePart.messageId,
           rows.map((row) => row.id),
@@ -580,14 +586,12 @@ const appendDraft = Effect.fnUntraced(function* (
   return (yield* readChatMessages(db, scope, row.id, [message!]))[0]!
 })
 
-const historyRows = Effect.fnUntraced(function* (
+const historyMessages = Effect.fnUntraced(function* (
   db: Executor,
   scope: ChatThreadScope,
   id: string,
-  currentLeafMessageId: string | null,
+  ids: readonly { id: string }[],
 ) {
-  if (!currentLeafMessageId) return []
-  const ids = yield* historyIds(db, scope, id, currentLeafMessageId)
   if (ids.length === 0) return []
   const rows = yield* db
     .select()
@@ -607,6 +611,20 @@ const historyRows = Effect.fnUntraced(function* (
     scope,
     id,
     ids.map((item) => byId.get(item.id)!),
+  )
+})
+
+const historyRows = Effect.fnUntraced(function* (
+  db: Executor,
+  scope: ChatThreadScope,
+  id: string,
+  currentLeafMessageId: string | null,
+) {
+  return yield* historyMessages(
+    db,
+    scope,
+    id,
+    yield* historyIds(db, scope, id, currentLeafMessageId),
   )
 })
 
@@ -652,12 +670,56 @@ const unresolvedCalls = Effect.fnUntraced(function* (
   scope: ChatThreadScope,
   thread: ThreadRecord,
   assistantMessageId?: string,
+  selectedIds?: readonly { id: string }[],
 ) {
+  const ids = selectedIds ?? (yield* historyIds(db, scope, thread.id, thread.currentLeafMessageId))
+  if (!ids.length) return []
+  const outstanding = yield* db
+    .select({ message: chatMessage, partId: chatMessagePart.id, targetId: chatToolResponse.id })
+    .from(chatToolResponse)
+    .innerJoin(
+      chatMessagePart,
+      and(
+        eq(chatMessagePart.organizationId, chatToolResponse.organizationId),
+        eq(chatMessagePart.tenantId, chatToolResponse.tenantId),
+        eq(chatMessagePart.id, chatToolResponse.toolPartId),
+      ),
+    )
+    .innerJoin(
+      chatMessage,
+      and(
+        eq(chatMessage.organizationId, chatMessagePart.organizationId),
+        eq(chatMessage.tenantId, chatMessagePart.tenantId),
+        eq(chatMessage.id, chatMessagePart.messageId),
+      ),
+    )
+    .where(
+      and(
+        chatResponseWhere(scope, thread.id),
+        isNull(chatToolResponse.resultMessageId),
+        eq(chatMessage.role, "assistant"),
+        eq(chatMessage.state, "complete"),
+        inArray(
+          chatMessage.id,
+          ids.map((item) => item.id),
+        ),
+        assistantMessageId ? eq(chatMessage.id, assistantMessageId) : undefined,
+      ),
+    )
+  if (!outstanding.length) return []
+  const messages = [...new Map(outstanding.map(({ message }) => [message.id, message])).values()]
+  const targets = new Set(outstanding.map(({ targetId }) => targetId))
   return pendingCalls(
-    yield* historyRows(db, scope, thread.id, thread.currentLeafMessageId),
-    assistantMessageId,
-  )
+    yield* readChatMessages(
+      db,
+      scope,
+      thread.id,
+      messages,
+      outstanding.map(({ partId }) => partId),
+    ),
+  ).filter(({ target }) => typeof target.id === "string" && targets.has(target.id))
 })
+
 export type PendingChatInteraction = Effect.Success<ReturnType<typeof unresolvedCalls>>[number]
 
 const appendResults = Effect.fnUntraced(function* (
@@ -971,42 +1033,46 @@ export class ChatThreads extends Context.Service<
       const list = Effect.fn("ChatThreads.list")(function* (
         input: DatabasePageOptions & { scope: ChatThreadScope; search?: string | undefined },
       ) {
-        return yield* databasePage(input, (position, limit, backward) =>
-          db
-            .select({
-              ...getTableColumns(chatThread),
-              role: chatParticipant.role,
-              writerActive: threadExecutionActive,
-            })
-            .from(chatThread)
-            .innerJoin(
-              chatParticipant,
-              and(
-                eq(chatParticipant.organizationId, chatThread.organizationId),
-                eq(chatParticipant.tenantId, chatThread.tenantId),
-                eq(chatParticipant.threadId, chatThread.id),
-                eq(chatParticipant.tenantUserId, input.scope.tenantUserId),
-              ),
-            )
-            .where(
-              and(
-                eq(chatThread.organizationId, input.scope.organizationId),
-                eq(chatThread.tenantId, input.scope.tenantId),
-                isNotNull(chatThread.currentLeafMessageId),
-                input.search
-                  ? ilike(chatThread.title, tenantSearchPattern(input.search))
-                  : undefined,
-                position
-                  ? sql`(${chatThread.updatedAt}, ${chatThread.id}) ${backward ? sql`>` : sql`<`} (select updated_at, id from chat_thread cursor_row where cursor_row.organization_id = ${input.scope.organizationId} and cursor_row.tenant_id = ${input.scope.tenantId} and cursor_row.id = ${position.id})`
-                  : undefined,
-              ),
-            )
-            .orderBy(
-              (backward ? asc : desc)(chatThread.updatedAt),
-              (backward ? asc : desc)(chatThread.id),
-            )
-            .limit(limit)
-            .pipe(mapDatabaseErrors()),
+        return yield* databasePage(
+          input,
+          (position, limit, backward) =>
+            db
+              .select({
+                ...getTableColumns(chatThread),
+                role: chatParticipant.role,
+                writerActive: threadExecutionActive,
+                cursorUpdatedAt: sql<string>`${chatThread.updatedAt}::text`,
+              })
+              .from(chatThread)
+              .innerJoin(
+                chatParticipant,
+                and(
+                  eq(chatParticipant.organizationId, chatThread.organizationId),
+                  eq(chatParticipant.tenantId, chatThread.tenantId),
+                  eq(chatParticipant.threadId, chatThread.id),
+                  eq(chatParticipant.tenantUserId, input.scope.tenantUserId),
+                ),
+              )
+              .where(
+                and(
+                  eq(chatThread.organizationId, input.scope.organizationId),
+                  eq(chatThread.tenantId, input.scope.tenantId),
+                  isNotNull(chatThread.currentLeafMessageId),
+                  input.search
+                    ? ilike(chatThread.title, tenantSearchPattern(input.search))
+                    : undefined,
+                  position
+                    ? sql`(${chatThread.updatedAt}, ${chatThread.id}) ${backward ? sql`>` : sql`<`} (${position.updatedAt}::timestamptz, ${position.id}::uuid)`
+                    : undefined,
+                ),
+              )
+              .orderBy(
+                (backward ? asc : desc)(chatThread.updatedAt),
+                (backward ? asc : desc)(chatThread.id),
+              )
+              .limit(limit)
+              .pipe(mapDatabaseErrors()),
+          (row) => ({ id: row.id, updatedAt: row.cursorUpdatedAt }),
         )
       })
 
@@ -1050,7 +1116,7 @@ export class ChatThreads extends Context.Service<
               (tx) =>
                 Effect.gen(function* () {
                   const thread = yield* readThread(tx, input)
-                  const history = yield* historyRows(
+                  const history = yield* historyIds(
                     tx,
                     input.scope,
                     input.id,
@@ -1070,9 +1136,14 @@ export class ChatThreads extends Context.Service<
                     thread,
                     messages: {
                       ...page,
-                      items: page.items.reverse(),
+                      items: yield* historyMessages(
+                        tx,
+                        input.scope,
+                        input.id,
+                        page.items.reverse(),
+                      ),
                     },
-                    pending: pendingCalls(history),
+                    pending: yield* unresolvedCalls(tx, input.scope, thread, undefined, history),
                   }
                 }),
               { isolationLevel: "repeatable read", accessMode: "read only" },
@@ -1208,19 +1279,25 @@ export class ChatThreads extends Context.Service<
               )
               .limit(1)
             if (!person) return yield* new ChatThreadNotFound()
-            const all = yield* tx
-              .select()
+            const [previous] = yield* tx
+              .select({ role: chatParticipant.role })
               .from(chatParticipant)
-              .where(participantWhere(input.scope, input.id))
-            const previous = all.find(
-              (participant) => participant.tenantUserId === input.tenantUserId,
-            )
-            if (
-              previous?.role === "manager" &&
-              input.role !== "manager" &&
-              all.filter((participant) => participant.role === "manager").length === 1
-            )
-              return yield* new ChatThreadConflict()
+              .where(
+                and(
+                  participantWhere(input.scope, input.id),
+                  eq(chatParticipant.tenantUserId, input.tenantUserId),
+                ),
+              )
+              .limit(1)
+            if (previous?.role === "manager" && input.role !== "manager") {
+              const [managers] = yield* tx
+                .select({ count: count() })
+                .from(chatParticipant)
+                .where(
+                  and(participantWhere(input.scope, input.id), eq(chatParticipant.role, "manager")),
+                )
+              if (managers!.count === 1) return yield* new ChatThreadConflict()
+            }
             let result: ParticipantRecord | undefined
             if (input.role) {
               const [saved] = yield* tx
@@ -1318,6 +1395,54 @@ export class ChatThreads extends Context.Service<
               const payload = yield* decodePayload(input.payload).pipe(
                 Effect.mapError(() => new ChatThreadInvalid()),
               )
+              const attachmentBytes = payload.parts.reduce((total, part) => {
+                const source = part.source
+                return (
+                  total +
+                  (Schema.is(Schema.JsonObject)(source) && typeof source.value === "string"
+                    ? base64ByteLength(source.value)
+                    : 0)
+                )
+              }, 0)
+              if (attachmentBytes > 0) {
+                // Enforce the restored run budget under the append lock, counting encodings in SQL
+                // so concurrent uploads cannot persist a history that normalizeChatAttachments rejects.
+                const ids = yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)
+                const [saved] = ids.length
+                  ? yield* tx
+                      .select({
+                        bytes:
+                          sql<number>`coalesce(sum(length(encoded.value) * 3 / 4 - length(encoded.value) + length(rtrim(encoded.value, '='))), 0)`.mapWith(
+                            Number,
+                          ),
+                      })
+                      .from(chatMessagePart)
+                      .innerJoin(
+                        chatMessage,
+                        and(
+                          eq(chatMessage.organizationId, chatMessagePart.organizationId),
+                          eq(chatMessage.tenantId, chatMessagePart.tenantId),
+                          eq(chatMessage.id, chatMessagePart.messageId),
+                        ),
+                      )
+                      .crossJoin(
+                        sql`lateral (select regexp_replace(${chatMessagePart.payload} #>> '{source,value}', '^data:[^,]*,|[[:space:]]', '', 'g') as value) encoded`,
+                      )
+                      .where(
+                        and(
+                          chatPartWhere(input.scope, input.id),
+                          eq(chatMessage.role, "user"),
+                          sql`${chatMessagePart.payload}->>'type' in ('image', 'document', 'audio', 'video')`,
+                          inArray(
+                            chatMessagePart.messageId,
+                            ids.map((item) => item.id),
+                          ),
+                        ),
+                      )
+                  : []
+                if (attachmentBytes + (saved?.bytes ?? 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+                  return yield* new ChatThreadInvalid()
+              }
               const invocationId = crypto.randomUUID()
               const [userMessage] = yield* tx
                 .insert(chatMessage)

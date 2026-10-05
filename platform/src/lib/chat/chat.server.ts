@@ -239,7 +239,7 @@ export class Chat extends Context.Service<
           history: convertMessagesToModelMessages(messages),
           tools,
           model,
-          agentId: agent.id,
+          agentId: `agent_${input.principal.organization.id}_${agent.id}`,
           execute: Effect.runPromiseWith(services),
           refreshContext: (claim) =>
             Effect.runPromiseWith(services)(

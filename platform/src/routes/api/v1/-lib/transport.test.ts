@@ -55,6 +55,7 @@ const restTestState = vi.hoisted(() => ({
   agent: vi.fn(),
   run: vi.fn(),
   readFile: vi.fn(),
+  threadCreate: vi.fn(),
   threadScope: vi.fn(),
   threadList: vi.fn(),
   thread: vi.fn(),
@@ -200,6 +201,7 @@ const restTestServices = Layer.mergeAll(
       Effect.succeed({ id: restOtherId, attachmentsEnabled: true, sandboxProviderId: null }),
   } as unknown as typeof Agents.Service),
   Layer.succeed(ChatThreads, {
+    create: (input: unknown) => restTestState.threadCreate(input) as never,
     resolveScope: (input: unknown) => restTestState.threadScope(input) as never,
     list: (input: unknown) => restTestState.threadList(input) as never,
     get: (input: unknown) => restTestState.thread(input) as never,
@@ -546,7 +548,7 @@ describe("REST API through the Effect Fetch handler", () => {
     restTestState.threadList.mockReturnValue(
       Effect.succeed({
         items: [restThread],
-        nextPosition: { id: restOtherId },
+        nextPosition: { id: restOtherId, updatedAt: restThread.updatedAt.toISOString() },
         previousPosition: null,
       }),
     )
@@ -689,6 +691,33 @@ describe("REST API through the Effect Fetch handler", () => {
     )
     expect(restTestState.verify).not.toHaveBeenCalled()
     expect(restTestState.predicates).toEqual([])
+  })
+
+  test("empty thread creation consumes a scoped resource limit before writing", async () => {
+    restTestState.threadCreate.mockReturnValue(Effect.succeed(restThread))
+    const request = {
+      method: "POST",
+      headers: { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" },
+      body: "{}",
+    }
+    expect((await restRequest("/chat/threads", request)).status).toBe(201)
+    expect(restTestState.consume.mock.calls[0]![0].key).toMatch(/^chat-resource:/)
+    restTestState.consume.mockReturnValue(
+      Effect.fail(
+        new RateLimiter.RateLimiterError({
+          reason: new RateLimiter.RateLimitExceeded({
+            key: "test-limit",
+            limit: 100,
+            remaining: 0,
+            retryAfter: Duration.seconds(5),
+          }),
+        }),
+      ),
+    )
+    const rejected = await restRequest("/chat/threads", request)
+    expect(rejected.status).toBe(429)
+    expect(rejected.headers.get("retry-after")).toBe("5")
+    expect(restTestState.threadCreate).toHaveBeenCalledTimes(1)
   })
 
   test("saved history exposes scoped messages without internal writer or idempotency data", async () => {
