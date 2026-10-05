@@ -18,7 +18,7 @@ export const deleteTenant = Effect.fn("deleteTenant")(function* (input: {
   return yield* sql.withTransaction(
     Effect.gen(function* () {
       yield* sql`SET CONSTRAINTS ALL DEFERRED`
-      // Fence new threads and in-flight admissions before purging their cached receipts.
+      // Prevent new threads while deletion collects their cache namespaces.
       yield* db
         .select({ id: tenant.id })
         .from(tenant)
@@ -33,16 +33,15 @@ export const deleteTenant = Effect.fn("deleteTenant")(function* (input: {
             eq(chatThread.tenantId, input.tenantId),
           ),
         )
-        .for("update")
+      yield* db
+        .delete(tenant)
+        .where(and(eq(tenant.organizationId, input.organizationId), eq(tenant.id, input.tenantId)))
       yield* db.delete(cacheEntry).where(
         inArray(
           cacheEntry.namespace,
           threads.map(({ id }) => `chat:${id}`),
         ),
       )
-      return yield* db
-        .delete(tenant)
-        .where(and(eq(tenant.organizationId, input.organizationId), eq(tenant.id, input.tenantId)))
     }),
   )
 })
