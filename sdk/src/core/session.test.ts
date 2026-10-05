@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import { EventType } from "@tanstack/ai/client"
 
 import { ASK_QUESTIONNAIRE_TOOL } from "./protocol.ts"
 import { createAstralBeamChat } from "./session.ts"
@@ -68,6 +69,47 @@ test("a reset starts a new thread", async () => {
     expect(threads).toHaveLength(2)
     expect(threads[0]).toEqual(expect.any(String))
     expect(threads[1]).not.toBe(threads[0])
+  } finally {
+    chat.dispose()
+  }
+})
+
+test("reset during a terminal chunk suppresses the old completion callback", async () => {
+  let turns = 0
+  vi.stubGlobal("fetch", (input: URL) => {
+    const path = String(input)
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/chat/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    const run = { runId: `run-${++turns}`, threadId: "thread" }
+    const text = { messageId: `reply-${turns}` }
+    const events = [
+      { type: "RUN_STARTED", ...run },
+      { type: "TEXT_MESSAGE_START", ...text, role: "assistant" },
+      { type: "TEXT_MESSAGE_CONTENT", ...text, delta: "Reply" },
+      { type: "TEXT_MESSAGE_END", ...text },
+      { type: "RUN_FINISHED", ...run },
+    ]
+    return Promise.resolve(
+      new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")),
+    )
+  })
+  const onFinish = vi.fn()
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: chatAuthToken,
+    streamCallbacks: {
+      onChunk: (chunk) => {
+        if (chunk.type === EventType.RUN_FINISHED && turns === 1) chat.reset()
+      },
+      onFinish,
+    },
+  })
+  try {
+    await chat.sendMessage("First")
+    expect(chat.getState().messages).toEqual([])
+    expect(onFinish).not.toHaveBeenCalled()
+    await chat.sendMessage("Second")
+    expect(onFinish).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: "reply-2" }))
   } finally {
     chat.dispose()
   }

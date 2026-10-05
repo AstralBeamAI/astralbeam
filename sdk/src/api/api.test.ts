@@ -1,6 +1,6 @@
 import { assert, expect, expectTypeOf, test, vi } from "vitest"
 import { getChatConfig, getChatFile, listTenants, updateTenant } from "./index.ts"
-import { isAstralBeamApiError } from "./api.ts"
+import { astralBeamApiFetch, isAstralBeamApiError } from "./api.ts"
 
 test("typed credentials own authentication, preserving custom bases and queries", async () => {
   const fetchClient = vi
@@ -50,6 +50,14 @@ test("non-JSON HTTP errors preserve status and headers without retrying", async 
   expect(error.status).toBe(429)
   expect(error.headers.get("Retry-After")).toBe("2")
   expect(error.body).toBeUndefined()
+  expect(fetchClient).toHaveBeenCalledTimes(1)
+})
+
+test("204 successes do not attempt to decode an absent response body", async () => {
+  const fetchClient = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }))
+  await expect(
+    astralBeamApiFetch<void>("/resource", { method: "DELETE", apiKey: "key", fetchClient }),
+  ).resolves.toBeUndefined()
   expect(fetchClient).toHaveBeenCalledTimes(1)
 })
 

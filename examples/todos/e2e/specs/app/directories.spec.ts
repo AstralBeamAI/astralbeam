@@ -191,7 +191,6 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   )
   await directory.tenantPicker.fill("o")
   await searched
-  await directory.loadMore.click()
   await expect(directory.retry).toBeVisible()
   await directory.retry.click()
   await expect(directory.tenantOption(second.name)).toBeVisible()

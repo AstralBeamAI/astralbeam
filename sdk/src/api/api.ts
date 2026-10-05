@@ -90,6 +90,7 @@ async function apiResponse(path: string, options: ApiOptions | FileOptions): Pro
 
 export async function astralBeamApiFetch<T>(path: string, options: ApiOptions): Promise<T> {
   const response = await apiResponse(path, options)
+  if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
 

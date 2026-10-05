@@ -55,7 +55,8 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 
 - Keep `components.json` on `b0`/`base-nova`/`neutral`/RTL with Phosphor, independent of the platform.
 - Registry-added files live under `src/widget/components/ui`. Hand-written chat components one per file under `src/widget/components`.
-- Use `SearchDropdown` with official shadcn Combobox primitives for resource pickers, with server search and pagination. Let Base UI manage selected labels and input reset, keep its live regions mounted, and reuse the widget's QueryClient so refresh reaches resource choices.
+- Use `SearchDropdown` with official shadcn Combobox primitives for resource pickers, with server search and pagination. Let Base UI manage selected labels and input reset, keep its live regions mounted, and reuse the widget's QueryClient so refresh reaches resource choices. Keep small fixed choices, such as admin status and page size, in native selects.
+- Preserve native dropdown scrollbars and load additional pages as the list scrolls. Keep loading and error-retry feedback without a separate Load more button.
 
 ## Code conventions
 

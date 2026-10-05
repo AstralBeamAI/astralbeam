@@ -1,6 +1,6 @@
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { QueryClient, QueryClientContext, useInfiniteQuery } from "@tanstack/react-query"
-import { useContext, useId, useRef, useState, type ReactNode } from "react"
+import { useContext, useEffect, useId, useRef, useState } from "react"
 import { Button } from "./ui/button.tsx"
 import {
   Combobox,
@@ -20,12 +20,8 @@ export function SearchDropdown<T extends { id: string }>({
   value,
   onValueChange,
   itemLabel,
-  renderItem = itemLabel,
-  items = [],
   loadPage,
   disabled = false,
-  itemDisabled,
-  clearOnSearch = false,
   showClear = false,
   popup = false,
   id,
@@ -36,9 +32,7 @@ export function SearchDropdown<T extends { id: string }>({
   value: T | null
   onValueChange: (item: T | null) => void
   itemLabel: (item: T) => string
-  renderItem?: (item: T) => ReactNode
-  items?: readonly T[]
-  loadPage?: (
+  loadPage: (
     q: string,
     cursor: string | undefined,
     signal: AbortSignal,
@@ -47,14 +41,13 @@ export function SearchDropdown<T extends { id: string }>({
     page_after: string | null
   }>
   disabled?: boolean
-  itemDisabled?: (item: T) => boolean
-  clearOnSearch?: boolean
   showClear?: boolean
   popup?: boolean
   id?: string
   className?: string
 }) {
   const container = useRef<HTMLDivElement>(null)
+  const list = useRef<HTMLDivElement>(null)
   const [text, setText] = useState("")
   const [open, setOpen] = useState(false)
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
@@ -64,21 +57,30 @@ export function SearchDropdown<T extends { id: string }>({
   const query = useInfiniteQuery(
     {
       queryKey: ["search-dropdown", queryId, search],
-      enabled: open && !!loadPage,
+      enabled: open,
       initialPageParam: undefined as string | undefined,
-      queryFn: ({ signal, pageParam }) => loadPage!(search, pageParam, signal),
+      queryFn: ({ signal, pageParam }) => loadPage(search, pageParam, signal),
       getNextPageParam: (page) => page.page_after ?? undefined,
       retry: false,
       gcTime: 0,
     },
     sharedClient ?? client,
   )
-  const searching = !!loadPage && (text.trim() !== search || query.isPending)
-  const choices = loadPage
-    ? searching
-      ? []
-      : (query.data?.pages.flatMap((page) => page.items) ?? [])
-    : items
+  const searching = text.trim() !== search || query.isPending
+  const { hasNextPage, isFetching, isError, fetchNextPage } = query
+  useEffect(() => {
+    const element = list.current
+    if (!open || !element || searching || !hasNextPage || isFetching || isError) return
+    const loadNextPage = () => {
+      if (element.scrollHeight - element.scrollTop - element.clientHeight < 48)
+        void fetchNextPage({ cancelRefetch: false })
+    }
+    // Short pages must load the next page even when there is no overflow to scroll yet.
+    loadNextPage()
+    element.addEventListener("scroll", loadNextPage)
+    return () => element.removeEventListener("scroll", loadNextPage)
+  }, [open, searching, hasNextPage, isFetching, isError, fetchNextPage, query.data])
+  const choices = searching ? [] : (query.data?.pages.flatMap((page) => page.items) ?? [])
   const input = (
     <ComboboxInput
       id={popup ? undefined : id}
@@ -97,22 +99,15 @@ export function SearchDropdown<T extends { id: string }>({
         items={
           value && !choices.some((item) => item.id === value.id) ? [...choices, value] : choices
         }
-        filteredItems={loadPage ? choices : undefined}
+        filteredItems={choices}
         value={value}
-        // Clearing selection while typing must not erase the query. Other modes use Base UI's input state.
-        inputValue={clearOnSearch ? text || (value ? itemLabel(value) : "") : undefined}
         onValueChange={onValueChange}
         itemToStringLabel={itemLabel}
         itemToStringValue={(item) => item.id}
         isItemEqualToValue={(a, b) => a.id === b.id}
         disabled={disabled}
         onInputValueChange={(next, details) => {
-          if (details.reason === "input-change") {
-            setText(next)
-            if (clearOnSearch) onValueChange(null)
-          } else {
-            setText("")
-          }
+          setText(details.reason === "input-change" ? next : "")
         }}
         onOpenChange={(next) => {
           setOpen(next)
@@ -135,37 +130,21 @@ export function SearchDropdown<T extends { id: string }>({
         <ComboboxContent
           container={container}
           aria-label={popup ? label : undefined}
-          aria-busy={loadPage && (searching || query.isFetching) ? true : undefined}
+          aria-busy={searching || query.isFetching ? true : undefined}
         >
           {popup && input}
           <ComboboxStatus className="text-center text-sm text-muted-foreground [&:not(:empty)]:py-2">
-            {loadPage && (searching || query.isFetchingNextPage) ? "Loading…" : null}
+            {searching || query.isFetchingNextPage ? "Loading…" : null}
           </ComboboxStatus>
-          <ComboboxEmpty>
-            {!searching && !(loadPage && query.isError) ? "No matches." : null}
-          </ComboboxEmpty>
-          <ComboboxList
-            onScroll={(event) => {
-              const list = event.currentTarget
-              if (
-                loadPage &&
-                !searching &&
-                query.hasNextPage &&
-                !query.isFetching &&
-                !query.isError &&
-                list.scrollHeight - list.scrollTop - list.clientHeight < 48
-              ) {
-                void query.fetchNextPage()
-              }
-            }}
-          >
+          <ComboboxEmpty>{!searching && !query.isError ? "No matches." : null}</ComboboxEmpty>
+          <ComboboxList ref={list}>
             {(item: T) => (
-              <ComboboxItem key={item.id} value={item} disabled={itemDisabled?.(item)}>
-                {renderItem(item)}
+              <ComboboxItem key={item.id} value={item}>
+                {itemLabel(item)}
               </ComboboxItem>
             )}
           </ComboboxList>
-          {loadPage && !searching && query.isError && (
+          {!searching && query.isError && (
             <div className="p-2 text-xs" role="alert">
               Could not load options.
               <Button
@@ -179,16 +158,6 @@ export function SearchDropdown<T extends { id: string }>({
                 Retry
               </Button>
             </div>
-          )}
-          {loadPage && !searching && !query.isError && query.hasNextPage && (
-            <Button
-              variant="ghost"
-              className="w-full"
-              disabled={query.isFetching}
-              onClick={() => void query.fetchNextPage()}
-            >
-              {query.isFetchingNextPage ? "Loading…" : "Load more"}
-            </Button>
           )}
         </ComboboxContent>
       </Combobox>
