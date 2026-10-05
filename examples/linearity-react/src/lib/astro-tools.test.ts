@@ -6,6 +6,7 @@ import { demoStore } from "./store.ts"
 
 beforeEach(() => {
   vi.stubGlobal("localStorage", { setItem: vi.fn() })
+  demoStore.switchWorkspace(demoWorkspaces[0].id)
   demoStore.reset()
 })
 afterEach(() => vi.unstubAllGlobals())

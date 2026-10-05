@@ -1,5 +1,5 @@
 // Added with: deno task ui add combobox
-// Local changes: portal container for shadow-root styles, accessible trigger and clear labels.
+// Local changes: shadow-root portal, accessible trigger and clear labels, persistent empty live region, async status export.
 "use client"
 
 import * as React from "react"
@@ -16,6 +16,7 @@ import {
 import { CaretDownIcon, XIcon, CheckIcon } from "@phosphor-icons/react"
 
 const Combobox = ComboboxPrimitive.Root
+const ComboboxStatus = ComboboxPrimitive.Status
 
 function ComboboxValue({ ...props }: ComboboxPrimitive.Value.Props) {
   return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />
@@ -41,7 +42,7 @@ function ComboboxTrigger({
 function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
   return (
     <ComboboxPrimitive.Clear
-      aria-label="Clear tenant"
+      aria-label="Clear selection"
       data-slot="combobox-clear"
       render={<InputGroupButton variant="ghost" size="icon-xs" />}
       className={cn(className)}
@@ -75,7 +76,7 @@ function ComboboxInput({
             size="icon-xs"
             variant="ghost"
             render={<ComboboxTrigger />}
-            aria-label="Show tenants"
+            aria-label="Show options"
             data-slot="input-group-button"
             className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
             disabled={disabled}
@@ -196,7 +197,7 @@ function ComboboxEmpty({ className, ...props }: ComboboxPrimitive.Empty.Props) {
     <ComboboxPrimitive.Empty
       data-slot="combobox-empty"
       className={cn(
-        "hidden w-full justify-center py-2 text-center text-sm text-muted-foreground group-data-empty/combobox-content:flex",
+        "w-full text-center text-sm text-muted-foreground [&:not(:empty)]:py-2",
         className
       )}
       {...props}
@@ -283,6 +284,7 @@ function useComboboxAnchor() {
 }
 
 export {
+  ComboboxStatus,
   Combobox,
   ComboboxInput,
   ComboboxContent,

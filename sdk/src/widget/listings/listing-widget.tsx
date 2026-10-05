@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from "react"
-import { useInfiniteQuery, useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useId, useState } from "react"
+import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { ArrowClockwiseIcon, BuildingsIcon, UsersIcon } from "@phosphor-icons/react"
 import {
@@ -14,14 +14,7 @@ import type {
 import { isAstralBeamApiError } from "../../api/api.ts"
 import { Button } from "../components/ui/button.tsx"
 import { Input } from "../components/ui/input.tsx"
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "../components/ui/combobox.tsx"
+import { SearchDropdown } from "../components/search-dropdown.tsx"
 import { NativeSelect, NativeSelectOption } from "../components/ui/native-select.tsx"
 import { Skeleton } from "../components/ui/skeleton.tsx"
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert.tsx"
@@ -202,27 +195,8 @@ function TenantPicker({
   onSelect: (tenant: TenantRecordEncoded | null) => void
 }) {
   const inputId = useId()
-  const [text, setText] = useState("")
-  const [search] = useDebouncedValue(text.trim(), { wait: 300 })
-  const container = useRef<HTMLDivElement>(null)
-  const query = useInfiniteQuery({
-    queryKey: ["tenant-picker", search],
-    initialPageParam: "",
-    queryFn: ({ signal, pageParam }) =>
-      loadTenantChoices(
-        session,
-        { q: search, ...(pageParam ? { page_after: pageParam } : {}) },
-        signal,
-      ),
-    getNextPageParam: (page) => page.page_after ?? undefined,
-  })
-  const items = query.data?.pages.flatMap((page) => page.items) ?? []
   return (
-    <div
-      ref={container}
-      data-slot="directory-tenant-picker"
-      className="w-full space-y-1.5 sm:max-w-sm"
-    >
+    <div data-slot="directory-tenant-picker" className="w-full space-y-1.5 sm:max-w-sm">
       <label
         htmlFor={inputId}
         data-slot="directory-tenant-label"
@@ -230,54 +204,18 @@ function TenantPicker({
       >
         Tenant
       </label>
-      <Combobox
-        items={items}
-        filter={null}
+      <SearchDropdown
+        id={inputId}
+        label="Tenant"
+        placeholder="Search tenants…"
         value={selected}
         onValueChange={onSelect}
-        itemToStringLabel={(item) => `${item.name || item.external_id} · ${item.external_id}`}
-        isItemEqualToValue={(a, b) => a.id === b.id}
-        onInputValueChange={(value, details) => {
-          if (details.reason === "input-change" || details.reason === "clear-press") setText(value)
-        }}
-        onOpenChange={(open) => {
-          if (!open) setText("")
-        }}
-      >
-        <ComboboxInput
-          id={inputId}
-          aria-label="Tenant"
-          placeholder="Find a tenant…"
-          maxLength={255}
-          showClear
-          className="[&_[data-slot=input-group-addon]]:me-0"
-        />
-        <ComboboxContent container={container}>
-          {!query.isError && (
-            <ComboboxEmpty>
-              {query.isPending ? "Loading tenants…" : "No tenants match."}
-            </ComboboxEmpty>
-          )}
-          <ComboboxList>
-            {(item: TenantRecordEncoded) => (
-              <ComboboxItem key={item.id} value={item}>
-                {item.name || item.external_id} · {item.external_id}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-          {query.isError && <ListingError error={query.error} retry={() => void query.refetch()} />}
-          {query.hasNextPage && (
-            <Button
-              variant="ghost"
-              className="w-full"
-              disabled={query.isFetching}
-              onClick={() => void query.fetchNextPage()}
-            >
-              {query.isFetchingNextPage ? "Loading…" : "Load more tenants"}
-            </Button>
-          )}
-        </ComboboxContent>
-      </Combobox>
+        showClear
+        itemLabel={(item) => `${item.name || item.external_id} · ${item.external_id}`}
+        loadPage={(q, cursor, signal) =>
+          loadTenantChoices(session, { q, ...(cursor ? { page_after: cursor } : {}) }, signal)
+        }
+      />
     </div>
   )
 }

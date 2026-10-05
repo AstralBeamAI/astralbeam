@@ -2,6 +2,7 @@ import { expect, test } from "../../fixtures.ts"
 import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"
 import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../platform/scripts/seed/fixtures.ts"
+import type { TenantPage } from "../../../../../sdk/dist/api.js"
 // @deno-types="../../../../../sdk/dist/server.d.ts"
 import {
   createAstralBeamOrganizationToken,
@@ -22,9 +23,9 @@ test("example lists only its tenant's users and filters stored admin status", as
   await captureMoment(page, "tenant-users-page")
   await expect(directory.tenantContext).toContainText(tenant.name)
   await directory.showAdmin.check()
-  await directory.adminFilter.selectOption("false")
+  await directory.selectAdmin("Non-admins")
   await expect(directory.user(admin.name)).toHaveCount(0)
-  await directory.adminFilter.selectOption("true")
+  await directory.selectAdmin("Admins")
   await directory.user(admin.name).click()
   await expect(directory.metadata).toContainText(admin.metadata.email)
   await captureMoment(page, "filtered-user-details")
@@ -143,6 +144,11 @@ test("vanilla tenant directories enforce admin authority across reset and remoun
 
 test("directory table and tenant search follow real server cursors", async ({ page }) => {
   const directory = directoriesPage(page)
+  const [first, second] = SEED_ORGANIZATIONS[0].tenants
+  const refreshedName = `${first.name} refreshed`
+  const searchCursors: string[] = []
+  let failNextPage = true
+  let refresh = false
   const token = await createAstralBeamOrganizationToken({
     apiKey: seedTarget.apiKey,
     organizationId: seedTarget.organizationId,
@@ -151,10 +157,27 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
   await page.route("**/api/v1/tenants?*", async (route) => {
     const url = new URL(route.request().url())
+    const q = url.searchParams.get("q")
+    const cursor = url.searchParams.get("page_after") ?? ""
+    if (q === "o") searchCursors.push(cursor)
+    if (q === "o" && cursor && failNextPage) {
+      failNextPage = false
+      await route.fulfill({
+        status: 503,
+        json: { detail: "Tenant search temporarily unavailable" },
+      })
+      return
+    }
     url.searchParams.set("page_size", "1")
-    await route.fulfill({ response: await route.fetch({ url: url.href }) })
+    const response = await route.fetch({ url: url.href })
+    if (refresh && q === "o" && !cursor) {
+      const data = (await response.json()) as TenantPage
+      data.items[0]!.name = refreshedName
+      await route.fulfill({ response, json: data })
+    } else {
+      await route.fulfill({ response })
+    }
   })
-  const [first, second] = SEED_ORGANIZATIONS[0].tenants
   await openVanillaDirectories(page, { scope: "organization" })
   await expect(directory.tenant(first.name)).toBeVisible()
   await directory.next.click()
@@ -169,15 +192,37 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   await directory.tenantPicker.fill("o")
   await searched
   await directory.loadMore.click()
+  await expect(directory.retry).toBeVisible()
+  await directory.retry.click()
+  await expect(directory.tenantOption(second.name)).toBeVisible()
+  expect(searchCursors[1]).not.toBe("")
+  expect(searchCursors).toEqual(["", searchCursors[1], searchCursors[1]])
   await directory.tenantOption(second.name).click()
   await expect(directory.user(second.users[0].name)).toBeVisible()
+  const selectedLabel = `${second.name} · ${second.externalId}`
+  const selectedLabelSearch = page.waitForResponse(
+    (response) => new URL(response.url()).searchParams.get("q") === selectedLabel,
+  )
+  await directory.tenantPicker.fill("o")
+  await directory.tenantPicker.fill(selectedLabel)
+  await selectedLabelSearch
+  await directory.tenantPicker.press("Escape")
+  await expect(directory.tenantPicker).toHaveValue(selectedLabel)
+  await directory.tenantPicker.press("ArrowDown")
+  await expect(directory.tenantOption(first.name)).toBeVisible()
   await directory.tenantPicker.fill("missing-tenant-for-search")
-  await expect(directory.users.getByText("No tenants match.")).toBeVisible()
+  await expect(directory.users.getByText("No matches.")).toBeVisible()
   await expect(directory.tenantContext).toContainText(second.name)
   await directory.clearTenant.click()
+  await expect(directory.clearCount).toHaveText("1")
   await expect(directory.user(second.users[0].name)).toHaveCount(0)
   await directory.selectTenant(first.name)
   await expect(directory.user(first.users[0].name)).toBeVisible()
+  await directory.tenantPicker.fill("o")
+  await expect(directory.tenantOption(first.name)).toBeVisible()
+  refresh = true
+  await directory.refreshMounted.dispatchEvent("click")
+  await expect(directory.tenantOption(refreshedName)).toBeVisible()
   await captureMoment(page, "tenant-search-real-cursors")
 })
 
