@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import type { AstralBeamChatRef } from "@astralbeam/sdk/react"
 import { Outlet, useLocation, useNavigate, useParams, useRouter } from "@tanstack/react-router"
 import {
   ArrowsClockwiseIcon,
@@ -11,7 +12,7 @@ import { Button } from "./ui/button.tsx"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog.tsx"
 import { Sidebar, type View } from "./sidebar.tsx"
 import { Astro } from "./astro.tsx"
-import { demoWorkspaces, type Workspace } from "@/lib/model.ts"
+import type { Workspace } from "@/lib/model.ts"
 import { demoStore, useDemo } from "@/lib/store.ts"
 import { workspaceUrl } from "@/lib/navigation.ts"
 
@@ -55,6 +56,7 @@ function WorkspaceApp({
   const [chatOpen, setChatOpen] = useState(() => window.innerWidth >= 1000)
   const [navOpen, setNavOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
+  const chat = useRef<AstralBeamChatRef>(null)
   const navigate = (next: View) => {
     void route({ href: workspaceUrl(workspace.id, next.toLowerCase()) })
     setNavOpen(false)
@@ -182,6 +184,7 @@ function WorkspaceApp({
           </div>
           <div className="astro-widget">
             <Astro
+              ref={chat}
               workspace={workspace}
               visitorId={visitorId}
               onOpen={(issue) =>
@@ -220,8 +223,10 @@ function WorkspaceApp({
               <Button
                 type="button"
                 onClick={() => {
+                  chat.current?.reset()
                   demoStore.reset()
-                  void route({ href: workspaceUrl(demoWorkspaces[0].id, "overview") })
+                  setResetOpen(false)
+                  void route({ href: workspaceUrl(workspace.id, "overview") })
                 }}
               >
                 Reset everything

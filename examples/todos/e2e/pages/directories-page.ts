@@ -28,10 +28,17 @@ export function directoriesPage(page: Page) {
     },
     showAdmin: page.getByRole("checkbox", { name: "Show stored admin fields" }),
     tenantContext: users.locator("header p"),
-    loadMore: users.getByRole("button", { name: "Load more tenants" }),
+    loadMore: users.getByRole("button", { name: "Load more", exact: true }),
     tenantOption: (name: string) => users.getByRole("option", { name: new RegExp(name) }),
     tenant: (name: string) => tenants.getByRole("button", { name, exact: true }),
     user: (name: string) => users.getByRole("button", { name, exact: true }),
+    selectAdmin: async (label: string) => {
+      const picker = users.getByRole("combobox", { name: "Stored admin status" })
+      await picker.click()
+      await picker.fill(label)
+      await picker.press("ArrowDown")
+      await users.getByRole("option", { name: label, exact: true }).click()
+    },
     adminFilter: users.getByRole("combobox", { name: "Stored admin status" }),
     metadata: users.locator("pre"),
     tenantPicker: users.getByRole("combobox", { name: "Tenant", exact: true }),

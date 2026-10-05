@@ -15,6 +15,7 @@ import { OrganizationMembershipError } from "@/lib/auth/errors"
 import { Config } from "@/lib/config/config.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { Chat } from "@/lib/chat/chat.server"
+import { CHAT_MODEL_UNAVAILABLE_MESSAGE } from "@/lib/chat/constants.server"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
@@ -465,6 +466,30 @@ describe("REST API through the Effect Fetch handler", () => {
       status: 404,
       body: { status: 404 },
     })
+  })
+
+  test("chat hides thrown middleware errors from the SSE response", async () => {
+    const failure = new AggregateError(
+      [new Error("private server details")],
+      "2 middleware onFinish hooks failed: chat-persistence, managed-thread",
+    )
+    restTestState.run.mockReturnValue(Effect.succeed(Stream.die(failure)))
+    const response = await sdkRunChat(
+      {
+        threadId: "thread",
+        runId: "run",
+        messages: [{ id: "new", role: "user", content: "Hello" }],
+        tools: [],
+        context: [],
+        forwardedProps: { clientId: restUserId },
+      },
+      { astralBeamToken: restTenantJwt, apiUrl: "http://localhost/api", fetchClient: restSdkFetch },
+    )
+    const body = await response.text()
+    expect(response.status).toBe(200)
+    expect(body).toContain("RUN_ERROR")
+    expect(body).toContain(CHAT_MODEL_UNAVAILABLE_MESSAGE)
+    expect(body).not.toMatch(/onFinish|chat-persistence|managed-thread|private server details/)
   })
 
   test("chat streams for non-admin JWTs and cancellation reaches the producer", async () => {

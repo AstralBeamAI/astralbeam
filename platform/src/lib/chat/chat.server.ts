@@ -33,6 +33,19 @@ import { createChatSandboxTools } from "./sandbox/tools.server"
 import type { ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 
+// Only recognized provider codes get actionable copy. Provider messages can contain credentials.
+const modelErrorMessages: Readonly<Record<string, string>> = {
+  invalid_api_key: "The model provider rejected its API key. Ask the site owner to update it.",
+  authentication_error:
+    "The model provider rejected its credentials. Ask the site owner to check them.",
+  insufficient_quota:
+    "The model provider has no available quota. Ask the site owner to check billing.",
+  rate_limit_exceeded: "The model provider is receiving too many requests. Please try again later.",
+  rate_limit_error: "The model provider is receiving too many requests. Please try again later.",
+  model_not_found:
+    "The configured model is unavailable or access is denied. Ask the site owner to check the model.",
+}
+
 /**
  * A run's AG-UI events. Interrupting the stream, as a dropped client does, aborts the provider
  * request and then closes TanStack's iterator, so billing stops with the connection.
@@ -205,21 +218,26 @@ export class Chat extends Context.Service<
             if (chunk.type !== EventType.RUN_ERROR) return Effect.succeed(chunk)
             // Providers can send their own `aborted` code, so it keeps only TanStack's fixed shape.
             const aborted = chunk.code === "aborted"
-            const message = aborted ? "Request aborted" : CHAT_MODEL_UNAVAILABLE_MESSAGE
+            const message = aborted
+              ? "Request aborted"
+              : Object.hasOwn(modelErrorMessages, chunk.code ?? "")
+                ? modelErrorMessages[chunk.code!]!
+                : CHAT_MODEL_UNAVAILABLE_MESSAGE
             const runError = {
-              ...chunk,
+              type: chunk.type,
+              ...(chunk.timestamp === undefined ? {} : { timestamp: chunk.timestamp }),
+              ...(chunk.threadId === undefined ? {} : { threadId: chunk.threadId }),
+              ...(chunk.runId === undefined ? {} : { runId: chunk.runId }),
               message,
               error: aborted ? { message, code: "aborted" } : { message },
+              ...(aborted ? { code: "aborted" } : {}),
             }
-            if (!aborted) delete runError.code
-            delete runError.rawEvent
             return Effect.as(
               Effect.logWarning("Chat model request failed").pipe(
                 Effect.annotateLogs({
                   organizationId: principal.organization.id,
                   providerId: model.providerId,
                   code: chunk.code,
-                  message: chunk.message,
                 }),
               ),
               runError,
