@@ -34,17 +34,6 @@ export function readUserEmails(userIds: readonly string[]) {
   ).pipe(Effect.map((rows) => rows.map((row) => row.email)))
 }
 
-export const deleteOrganizationTenantUserBatch = Effect.fn("deleteOrganizationTenantUserBatch")(
-  function* (organizationId: string) {
-    const sql = yield* SqlClient.SqlClient
-    const deleted = yield* sql<{ id: string }>`delete from tenant_user
-    where organization_id = ${organizationId} and (tenant_id, id) in (
-      select tenant_id, id from tenant_user where organization_id = ${organizationId} limit 1000
-    ) returning id`
-    return deleted.length
-  },
-)
-
 export const deleteOrganizationTenantBatch = Effect.fn("deleteOrganizationTenantBatch")(function* (
   organizationId: string,
 ) {

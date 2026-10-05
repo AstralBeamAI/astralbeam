@@ -2,6 +2,7 @@ import { boolean, index, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/
 
 import {
   caseInsensitiveText,
+  deferrableForeignKey,
   timestamps,
   timestampWithTimeZone,
   uuidV7PrimaryKey,
@@ -29,9 +30,7 @@ export const session = snakeCase.table(
     token: text().notNull(),
     ipAddress: text(),
     userAgent: text(),
-    userId: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    userId: uuid().notNull(),
     // Better Auth defines the active organization as a nullable session selector without a foreign key; memberships stay authoritative and stale selections are reconciled on access. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/schema.ts#L212-L218
     activeOrganizationId: uuid(),
     ...timestamps(),
@@ -39,6 +38,11 @@ export const session = snakeCase.table(
   (table) => [
     uniqueIndex("session_token_uidx").on(table.token),
     index("session_user_id_idx").on(table.userId),
+    deferrableForeignKey({
+      columns: [table.userId],
+      foreignColumns: [user.id],
+      onDelete: "cascade",
+    }),
   ],
 )
 
@@ -48,9 +52,7 @@ export const account = snakeCase.table(
     id: uuidV7PrimaryKey(),
     accountId: text().notNull(),
     providerId: text().notNull(),
-    userId: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    userId: uuid().notNull(),
     accessToken: text(),
     refreshToken: text(),
     idToken: text(),
@@ -63,6 +65,11 @@ export const account = snakeCase.table(
   (table) => [
     uniqueIndex("account_provider_id_account_id_uidx").on(table.providerId, table.accountId),
     index("account_user_id_idx").on(table.userId),
+    deferrableForeignKey({
+      columns: [table.userId],
+      foreignColumns: [user.id],
+      onDelete: "cascade",
+    }),
   ],
 )
 

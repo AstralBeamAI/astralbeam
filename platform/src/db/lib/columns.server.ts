@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm"
-import { customType, integer, timestamp, uuid } from "drizzle-orm/pg-core"
+import {
+  customType,
+  foreignKey,
+  integer,
+  timestamp,
+  uuid,
+  type AnyPgColumn,
+  type ForeignKey,
+  type UpdateDeleteAction,
+} from "drizzle-orm/pg-core"
 import { Result, Schema } from "effect"
 
 import {
@@ -11,6 +20,50 @@ import { decryptDatabaseValue, encryptDatabaseValue } from "./encryption.server.
 type EncryptedJsonOptions<Value> = {
   schema: Schema.Decoder<Value>
   keyring?: DatabaseEncryptionKeyring
+}
+
+type DeferrableReferentialAction = Exclude<UpdateDeleteAction, "restrict">
+type ForeignKeyDeferrability = "immediate" | "deferred"
+
+// Drizzle retains the columns array on built constraints, so timing survives introspection.
+// https://github.com/drizzle-team/drizzle-orm/blob/main/drizzle-orm/src/pg-core/foreign-keys.ts
+const foreignKeyDeferrability = new WeakMap<
+  ReturnType<ForeignKey["reference"]>["columns"],
+  ForeignKeyDeferrability
+>()
+
+// Drizzle cannot represent deferrability. Preserve DEFERRABLE clauses in migration SQL.
+// https://github.com/drizzle-team/drizzle-orm/blob/main/drizzle-orm/src/pg-core/foreign-keys.ts
+export function deferrableForeignKey<
+  TTableName extends string,
+  TForeignTableName extends string,
+  TColumns extends [
+    AnyPgColumn<{ tableName: TTableName }>,
+    ...AnyPgColumn<{ tableName: TTableName }>[],
+  ],
+>(options: {
+  name?: string
+  columns: TColumns
+  foreignColumns: { [Key in keyof TColumns]: AnyPgColumn<{ tableName: TForeignTableName }> }
+  deferrable?: ForeignKeyDeferrability
+  onDelete?: DeferrableReferentialAction
+  onUpdate?: DeferrableReferentialAction
+}) {
+  const {
+    deferrable = "immediate",
+    onDelete = "no action",
+    onUpdate = "no action",
+    ...reference
+  } = options
+  const columns: TColumns = [...reference.columns]
+  foreignKeyDeferrability.set(columns, deferrable)
+  return foreignKey({ ...reference, columns })
+    .onDelete(onDelete)
+    .onUpdate(onUpdate)
+}
+
+export function getForeignKeyDeferrability(constraint: ForeignKey) {
+  return foreignKeyDeferrability.get(constraint.reference().columns)
 }
 
 // The migration installs PostgreSQL's trusted citext extension before creating these columns. https://www.postgresql.org/docs/current/citext.html
