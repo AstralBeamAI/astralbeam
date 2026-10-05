@@ -1,5 +1,5 @@
 // Added with: deno task ui add combobox
-// Local changes: shadow-root portal, accessible trigger and clear labels, persistent empty live region, async status export, native scrollbars.
+// Local changes: shadow-root portal, accessible labels, persistent empty live region, async status export, native scrollbars, React 18 list ref.
 "use client"
 
 import * as React from "react"
@@ -124,9 +124,10 @@ function ComboboxContent({
   )
 }
 
-function ComboboxList({ className, ...props }: ComboboxPrimitive.List.Props) {
+const ComboboxList = React.forwardRef<HTMLDivElement, ComboboxPrimitive.List.Props>(function ComboboxList({ className, ...props }, ref) {
   return (
     <ComboboxPrimitive.List
+      ref={ref}
       data-slot="combobox-list"
       className={cn(
         "max-h-[min(calc(--spacing(72)---spacing(9)),calc(var(--available-height)---spacing(9)))] scroll-py-1 overflow-y-auto overscroll-contain p-1 data-empty:p-0",
@@ -135,7 +136,7 @@ function ComboboxList({ className, ...props }: ComboboxPrimitive.List.Props) {
       {...props}
     />
   )
-}
+})
 
 function ComboboxItem({
   className,
