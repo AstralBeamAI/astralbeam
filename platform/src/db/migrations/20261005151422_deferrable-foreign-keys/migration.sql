@@ -36,7 +36,7 @@ ALTER TABLE "agent_model" DROP CONSTRAINT "agent_model_provider_model_fk", ADD C
 --> statement-breakpoint
 ALTER TABLE "chat_thread" DROP CONSTRAINT "chat_thread_agent_fk", ADD CONSTRAINT "chat_thread_agent_fk" FOREIGN KEY ("organization_id","agent_id") REFERENCES "agent"("organization_id","id") ON DELETE SET NULL ("agent_id") DEFERRABLE INITIALLY IMMEDIATE;
 --> statement-breakpoint
-ALTER TABLE "organization_configuration" DROP CONSTRAINT "organization_configuration_default_agent_id_fk", ADD CONSTRAINT "organization_configuration_default_agent_id_fk" FOREIGN KEY ("organization_id","default_agent_id") REFERENCES "agent"("organization_id","id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "organization_configuration" DROP CONSTRAINT "organization_configuration_default_agent_id_fk", ADD CONSTRAINT "organization_configuration_default_agent_id_fk" FOREIGN KEY ("organization_id","default_agent_id") REFERENCES "agent"("organization_id","id") ON DELETE SET NULL ("default_agent_id") DEFERRABLE INITIALLY IMMEDIATE;
 --> statement-breakpoint
 ALTER TABLE "chat_message" ADD CONSTRAINT "chat_message_parent_fk" FOREIGN KEY ("organization_id","tenant_id","thread_id","parent_message_id") REFERENCES "chat_message"("organization_id","tenant_id","thread_id","id") DEFERRABLE INITIALLY IMMEDIATE;
 --> statement-breakpoint

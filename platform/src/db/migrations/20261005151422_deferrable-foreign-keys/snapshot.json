@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ef33e81d-9882-4b38-a83c-6c704f41c009",
+  "id": "7e6f6fa2-429e-489f-8406-0a51eb7b56e5",
   "prevIds": [
     "47be3552-6683-4e78-8f52-2de7f4593985"
   ],
@@ -4683,7 +4683,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
+      "onDelete": "SET NULL",
       "name": "organization_configuration_default_agent_id_fk",
       "entityType": "fks",
       "schema": "public",

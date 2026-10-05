@@ -288,13 +288,13 @@ export const organizationConfiguration = snakeCase.table(
       columns: [table.organizationId, table.id],
     }),
     uniqueIndex("organization_configuration_organization_id_uidx").on(table.organizationId),
-    // NO ACTION permits deferred deletion while the composite reference keeps the default in its organization.
+    // Migration SQL limits SET NULL to default_agent_id, preserving organization_id.
     // https://www.postgresql.org/docs/18/sql-createtable.html
     deferrableForeignKey({
       name: "organization_configuration_default_agent_id_fk",
       columns: [table.organizationId, table.defaultAgentId],
       foreignColumns: [agent.organizationId, agent.id],
-    }).onDelete("no action"),
+    }).onDelete("set null"),
     deferrableForeignKey({
       columns: [table.organizationId],
       foreignColumns: [organization.id],

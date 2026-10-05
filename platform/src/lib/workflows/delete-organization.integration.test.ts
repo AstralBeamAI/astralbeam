@@ -333,7 +333,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     await createDeletionChat(deleted)
     await createDeletionChat(kept)
 
-    for (const table of [sandboxProvider, providerModel, agent]) {
+    for (const table of [sandboxProvider, providerModel]) {
       await expect(
         db.delete(table).where(eq(table.organizationId, deletedId)),
       ).rejects.toMatchObject({ cause: { code: "23503" } })
@@ -413,16 +413,19 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     ])
   })
 
-  test("agent deletion clears only the chat agent reference and preserves history", async () => {
+  test("agent deletion clears optional selections and preserves their scope and chat history", async () => {
     const scope = await createOrganization("history")
     const chat = await createDeletionChat(scope)
-    await db
-      .update(organizationConfiguration)
-      .set({ defaultAgentId: null })
-      .where(eq(organizationConfiguration.organizationId, scope.organizationId))
-
     await db.delete(agent).where(eq(agent.id, scope.agentId))
 
+    expect(
+      await db
+        .select({
+          organizationId: organizationConfiguration.organizationId,
+          defaultAgentId: organizationConfiguration.defaultAgentId,
+        })
+        .from(organizationConfiguration),
+    ).toEqual([{ organizationId: scope.organizationId, defaultAgentId: null }])
     expect(
       await db
         .select({
