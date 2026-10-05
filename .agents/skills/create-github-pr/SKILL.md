@@ -8,9 +8,11 @@ compatibility: Requires git, network access, and authenticated GitHub write acce
 
 Publish only the intended local changes, following repository instructions and the content contract below.
 
+For authorized updates to an existing PR or explicit metrics refreshes, use the project metrics section without repeating the creation workflow.
+
 ## Workflow
 
-1. Read applicable repository instructions and PR templates, inspect the full proposed change and target, and check whether the head already has an open PR. Report an existing PR instead of creating a duplicate. Edit it only when requested.
+1. Read applicable repository instructions and PR templates, inspect the full proposed change and target, and check whether the head already has an open PR. Report an existing PR instead of creating a duplicate. Edit its title or description only when requested.
 2. Use an applicable current plan already present in the task context and read materially related checked-out `*.plan.md` files, if any. Treat plans as optional intent context, never implementation evidence. Do not create, update, or require a plan to publish a PR.
 3. Confirm scope, leave clearly separable user work untouched, follow repository conventions, run required checks, then commit the intended changes without rewriting history.
 4. Compose the title and description using the content contract below before attempting publish, so they remain available if create fails.
@@ -24,8 +26,19 @@ Publish only the intended local changes, following repository instructions and t
    ```markdown
    <description>
    ```
-8. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back.
+8. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back. Immediately after the read-back, post the project metrics comment below, aiming for the first conversation comment, and include its URL in the handoff.
 9. Attach an approved walkthrough through the workflow below, then verify the saved attachment on GitHub.
+
+## Project metrics comment
+
+- Keep one conversation comment containing only a Markdown table. Put `<!-- astralbeam-pr-metrics -->` inside the `Metric` header cell. Use `Metric`, `Base`, `Head`, and `Delta` columns with exactly four rows per changed project, limited to example projects under `examples/`, `sdk`, `cli`, `platform`, and `www` (website): `Source lines`, `Generated lines`, `Test lines`, and `Build size`. Skip all four rows when the PR has no diff for that project or its shared build inputs. Include the project path in each metric label. Use `N/A` for projects without a build output.
+- Fetch the PR's current base and head. Compare the head with their merge base, recording the target branch, base SHA, merge-base SHA, and head SHA in an HTML comment inside the table.
+- Build clean, isolated snapshots with the same OS, architecture, Deno version, and options, using each revision's frozen dependencies. Run `deno task --cwd <project> count-lines` even if a build fails. For projects without that task, run the shared script from their folder and measure their build output. Reuse measurements, including `ready` output, only for matching commits and environments. Use build sizes only from successful builds.
+- Count TypeScript (`.ts` and `.tsx`) lines only with `scripts/count-lines.ts`'s existing hardcoded generated-path, generated-header, and test rules. Exclude generated and test lines from source lines. Apply the same rules to both snapshots and count each file in only one category.
+- Publish signed head-minus-baseline deltas using the task's units and precision. Publish available metrics when a measurement fails, marking missing values and their deltas `Unavailable` with a short reason.
+- Paginate conversation comments and locate the comment containing the marker. Update it by ID when editable, creating one only if absent. Use a connector or GitHub's [issue-comment API](https://docs.github.com/en/rest/issues/comments#update-an-issue-comment) with a structured body or body file. Avoid `gh pr comment --edit-last`, which may overwrite another reply. Refetch after ambiguous creation failures before retrying.
+- Refresh after every authorized push and observed target/base change. Recompute rows and provenance, skip unchanged writes, and recheck remote base/head before writing. Recompute if they moved.
+- Read the saved comment back and verify its body, comparison SHAs, and URL against the current PR. On comment access failure, report the blocker and provide copyable Markdown. Report PR creation and metrics publication separately.
 
 ## Walkthrough videos
 
@@ -40,14 +53,14 @@ Publish only the intended local changes, following repository instructions and t
 
 - Review the authoritative proposed diff, every included commit's subject and body relative to the target branch, relevant user-authored chat, and any applicable current plan before drafting. Extract intent, constraints, corrections, accepted decisions, terminology, and links. The final diff and later user instructions override older plans, reverted work, and superseded commit details. Never claim an unimplemented plan item.
 - Use one concise, imperative title that summarizes the whole change.
-- Write the description as concise Markdown bullets only, nesting when useful. Do not add headings, prose sections, checklists, validation commands, or test results. GitHub-generated attachment markup may sit inside the walkthrough bullet when required for an inline player, and the change-stats table below follows the bullets. These are the only formatting exceptions.
-- When the change touches `platform`, `sdk`, or `cli`, end with a table that has a row for each of those projects' handwritten source lines, generated source lines, test lines, and build size, and columns for the base, the head, and the delta. Fill it from what `deno task --cwd <project> count-lines` prints after a build of each, which `ready` already prints for the head.
+- Write the description as concise Markdown bullets only, nesting when useful. Do not add headings, prose sections, checklists, validation commands, or test results. GitHub-generated attachment markup may sit inside the walkthrough bullet when required for an inline player. This is the only formatting exception.
 - Prefer relevant links already supplied by the user or discovered in the current conversation and place them inline in the supporting bullet. Do not add a references section, revive superseded context, or invent links.
 - Honor compatible repository template requirements. Ask before creating the PR if a mandatory template conflicts with this format. Use issue-closing keywords only for a verified issue the user intends to close.
 
 ## Guardrails
 
 - Only an explicit request to create or publish a PR authorizes commits, pushes, and PR creation.
+- Authorized PR creation and updates include metrics upkeep. A metrics-only request authorizes only that comment.
 - Never stage unrelated work or stash, discard, amend, rebase, squash, or force-push without explicit authorization.
 - Fix or stop for a required check broken by the change. A demonstrably pre-existing or environmental failure may proceed in the requested PR state and belongs in the handoff, not the PR description.
 - Do not add reviewers, assignees, labels, milestones, or projects unless requested or required by repository instructions.

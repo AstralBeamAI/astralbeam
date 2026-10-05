@@ -42,7 +42,7 @@ for (const path of files) {
 
 const output = buildOutputs[basename(process.cwd())]
 const megabytes = output && existsSync(output) ? (sizeOf(output) / 1e6).toFixed(1) : undefined
-console.log(`Handwritten source lines: ${lines.handwritten}`)
-console.log(`Generated source lines: ${lines.generated}`)
+console.log(`Source lines: ${lines.handwritten}`)
+console.log(`Generated lines: ${lines.generated}`)
 console.log(`Test lines: ${lines.test}`)
 console.log(`Build size (${output ?? "none"}): ${megabytes ? `${megabytes} MB` : "not built"}`)
