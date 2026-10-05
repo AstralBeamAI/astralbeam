@@ -91,6 +91,10 @@ export interface ChatSandboxSession {
   readonly acquire: (
     report: (status: ChatSandboxStatus) => Effect.Effect<void>,
   ) => Effect.Effect<SandboxHandle, ChatSandboxUnavailable>
+  /** Refreshes uploads before a model phase without provisioning an unused sandbox. */
+  readonly prepareUploads: (
+    files: readonly ChatAttachmentFile[],
+  ) => Effect.Effect<void, ChatSandboxUnavailable>
   /** Signs a download ticket for published bytes, scoped to the run's principal and provider. */
   readonly mintArtifactTicket: (
     artifact: Pick<
@@ -283,6 +287,8 @@ export class ChatSandboxes extends Context.Service<
           }
           const started = yield* Deferred.make<SandboxHandle, ChatSandboxUnavailable>()
           const claimed = yield* Ref.make(false)
+          const uploads = yield* Ref.make(input.uploads)
+          const uploaded = new Set<string>()
 
           const start = (report: (status: ChatSandboxStatus) => Effect.Effect<void>) =>
             Effect.gen(function* () {
@@ -293,7 +299,9 @@ export class ChatSandboxes extends Context.Service<
                 (signal) => definition.ensure({ ...ensureContext, signal }),
                 CHAT_SANDBOX_START_TIMEOUT_MS,
               )
-              yield* writeChatSandboxUploads(handle, input.uploads)
+              const files = yield* Ref.get(uploads)
+              yield* writeChatSandboxUploads(handle, files)
+              for (const file of files) uploaded.add(file.handle)
               yield* report({ state: "ready" })
               return handle
             }).pipe(
@@ -317,6 +325,16 @@ export class ChatSandboxes extends Context.Service<
                       Effect.andThen(Deferred.await(started)),
                     ),
               ),
+            prepareUploads: (files) =>
+              Effect.gen(function* () {
+                yield* Ref.set(uploads, files)
+                const handle = yield* Deferred.poll(started)
+                if (Option.isNone(handle)) return
+                const running = yield* handle.value
+                const additions = files.filter((file) => !uploaded.has(file.handle))
+                yield* writeChatSandboxUploads(running, additions)
+                for (const file of additions) uploaded.add(file.handle)
+              }).pipe(Effect.mapError(() => new ChatSandboxUnavailable())),
             mintArtifactTicket: (artifact) =>
               Effect.flatMap(artifactTicketKey, (key) =>
                 mintSandboxArtifactTicket(key, {

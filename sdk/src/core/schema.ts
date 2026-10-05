@@ -1,5 +1,9 @@
-import { convertSchemaToJsonSchema, type SchemaInput } from "@tanstack/ai/client"
-import type { JsonSchemaObject, ParametersSchema, StandardSchemaV1 } from "../lib/types.ts"
+import {
+  convertSchemaToJsonSchema,
+  validateWithStandardSchema,
+  type SchemaInput,
+} from "@tanstack/ai/client"
+import type { JsonSchemaObject, ParametersSchema } from "../lib/types.ts"
 
 // Standard Schemas convert when the library exposes Standard JSON Schema (Zod v4+, ArkType). Others
 // fall back to an open object, validated client-side, and none to an empty one OpenAI runs strictly.
@@ -19,10 +23,6 @@ export async function validateParameters(
   parameters: ParametersSchema | undefined,
   input: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
-  if (!parameters || !("~standard" in parameters)) return input
-  const result = (await (parameters as StandardSchemaV1)["~standard"].validate(input)) as {
-    value?: Record<string, unknown>
-    issues?: unknown
-  }
-  return result.issues ? null : (result.value ?? {})
+  const result = await validateWithStandardSchema<Record<string, unknown>>(parameters, input)
+  return result.success ? (result.data ?? {}) : null
 }

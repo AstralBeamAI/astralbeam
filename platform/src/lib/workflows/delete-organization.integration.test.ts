@@ -32,6 +32,7 @@ import { deleteTenant } from "@/lib/tenants/deletion.server"
 import {
   agent,
   agentModel,
+  cacheEntry,
   chatMessage,
   chatMessagePart,
   chatParticipant,
@@ -56,7 +57,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   let db: ReturnType<typeof getAuthDatabase>
   beforeEach(async () => {
     db = getAuthDatabase()
-    await db.execute(sql`truncate "organization", "user" cascade`)
+    await db.execute(sql`truncate "organization", "user", "cache_entry" cascade`)
   })
 
   async function createOrganization(slug: string, tenantId?: string) {
@@ -113,6 +114,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   }
 
   async function createDeletionChat(scope: {
+    id?: string
     organizationId: string
     tenantId: string
     agentId: string
@@ -202,7 +204,13 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     await db
       .update(chatThread)
       .set({ currentLeafMessageId: result!.id })
-      .where(eq(chatThread.id, thread!.id))
+      .where(
+        and(
+          eq(chatThread.organizationId, scope.organizationId),
+          eq(chatThread.tenantId, scope.tenantId),
+          eq(chatThread.id, thread!.id),
+        ),
+      )
     return {
       threadId: thread!.id,
       inputMessageId: input!.id,
@@ -592,7 +600,12 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
 
   test("commits earlier Tenant deletions when a later Tenant fails, then resumes the purge", async () => {
     const scope = await createOrganization("partial")
-    await createDeletionChat(scope)
+    const chat = await createDeletionChat(scope)
+    await db.insert(cacheEntry).values({
+      namespace: "chat",
+      key: `${scope.organizationId}:${scope.tenantId}:${chat.threadId}:accepted`,
+      value: "saved input",
+    })
     const [blocked] = await db
       .insert(tenant)
       .values({ organizationId: scope.organizationId, externalId: "blocked" })
@@ -618,6 +631,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       ).toBe("23503")
       expect(await db.select({ id: tenant.id }).from(tenant)).toEqual([{ id: blocked!.id }])
       expect(await db.select().from(chatMessage)).toEqual([])
+      expect(await db.select().from(cacheEntry)).toEqual([])
       expect(await db.select({ id: organization.id }).from(organization)).toEqual([
         { id: scope.organizationId },
       ])
@@ -641,10 +655,10 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
 
   test("revokes access at once and purges only the deleted organization", async () => {
     const deleted = await createOrganization("deleted")
-    const kept = await createOrganization("kept")
+    const kept = await createOrganization("kept", deleted.tenantId)
     const { organizationId: deletedId, ownerId } = deleted
     const { organizationId: keptId } = kept
-    await createDeletionChat(deleted)
+    const deletedChat = await createDeletionChat(deleted)
     const [anotherTenant] = await db
       .insert(tenant)
       .values({ organizationId: deletedId, externalId: "another" })
@@ -655,13 +669,44 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       externalId: "another",
     })
     await createDeletionChat({ ...deleted, tenantId: anotherTenant!.id })
-    await createDeletionChat(kept)
+    const keptChat = await createDeletionChat({ ...kept, id: deletedChat.threadId })
+    await db.insert(cacheEntry).values([
+      {
+        namespace: "chat",
+        key: `${deletedId}:${deleted.tenantId}:${deletedChat.threadId}:accepted`,
+        value: "saved input",
+      },
+      {
+        namespace: "chat",
+        key: `${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted`,
+        value: "kept input",
+      },
+    ])
 
     expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
     expect(await db.select().from(member).where(eq(member.organizationId, deletedId))).toEqual([])
 
-    await runAppEffect(organizationDeletion(deletedId))
+    const connection = await db.$client.connect()
+    await connection.query("begin")
+    await connection.query("select id from chat_thread where organization_id = $1 for update", [
+      deletedId,
+    ])
+    const deletion = runAppEffect(organizationDeletion(deletedId))
+    try {
+      await vi.waitFor(async () => {
+        const waiting = await db.execute(sql`select 1 from pg_stat_activity
+          where wait_event_type = 'Lock' and query like 'delete from "tenant"%'`)
+        expect(waiting.rows).not.toHaveLength(0)
+      })
+    } finally {
+      await connection.query("rollback")
+      connection.release()
+      await deletion
+    }
 
+    expect(await db.select({ key: cacheEntry.key }).from(cacheEntry)).toEqual([
+      { key: `${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted` },
+    ])
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])
     const tenantUsers = await db

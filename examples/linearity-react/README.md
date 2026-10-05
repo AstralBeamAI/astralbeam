@@ -57,7 +57,7 @@ The assistant's name and empty-state copy belong to the host UI. Its behavior be
 
 All project data and edits live in this browser's `linearity-demo:v1` localStorage entry. There is no application database, account signup, or real membership system. Different browsers start independently. Tabs on the same origin share saved data while keeping their own workspace URLs. Concurrent edits use the last saved snapshot.
 
-Reset restores both workspaces, clears their local activity, and starts a fresh Astro conversation in the current workspace. It preserves the visitor ID, so repeated resets do not create new AstralBeam identities. Navigating within a workspace preserves the conversation. Conversations themselves are held in memory and are lost on refresh. Reset does not erase records already synchronized to AstralBeam.
+Reset restores both workspaces, clears their local activity, and starts a fresh Astro conversation in the current workspace. It preserves the visitor ID, so repeated resets do not create new AstralBeam identities. Navigating within a workspace preserves the conversation. AstralBeam saves conversations on the server and restores them after refresh. Reset preserves earlier saved conversations and directory identities.
 
 Astro sends chat messages, attachments, and tool results to the configured AstralBeam deployment. That service synchronizes Tenant and TenantUser identities and uses the Organization's model provider. The issue dataset stays local except for the data included in those requests.
 

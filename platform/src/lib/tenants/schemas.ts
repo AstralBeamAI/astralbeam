@@ -1,5 +1,16 @@
 import { Schema } from "effect"
-import { NonEmptyStringSchema } from "../schemas.ts"
+import { EmailAddressSchema, NonEmptyStringSchema } from "../schemas.ts"
+
+export function tenantUserEmail(user: {
+  metadata: Schema.JsonObject
+  externalId: string
+}): string | null {
+  return Schema.is(EmailAddressSchema)(user.metadata.email)
+    ? user.metadata.email
+    : Schema.is(EmailAddressSchema)(user.externalId)
+      ? user.externalId
+      : null
+}
 
 export const ApiUuidSchema = Schema.String.check(
   Schema.isUUID(undefined, { toJsonSchema: () => ({ format: "uuid" }) }),

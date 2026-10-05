@@ -148,7 +148,7 @@ function base64Payload(value: string): string {
 
 // Measured from the encoding rather than by decoding, so an oversized payload is refused before
 // anything allocates it.
-function base64ByteLength(value: string): number {
+export function base64ByteLength(value: string): number {
   const payload = base64Payload(value).replace(/\s/g, "")
   const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding)
@@ -161,7 +161,7 @@ function base64ByteLength(value: string): number {
  * concurrent request on the replica. `Uint8Array.fromBase64` would be faster still, but it is a
  * Stage 3 proposal that this TypeScript's lib does not declare.
  */
-function decodeAttachmentBytes(value: string): Uint8Array | undefined {
+export function decodeAttachmentBytes(value: string): Uint8Array | undefined {
   const binary = Result.try(() => atob(base64Payload(value).replace(/\s/g, "")))
   if (Result.isFailure(binary)) return undefined
   const bytes = new Uint8Array(binary.success.length)
@@ -332,6 +332,8 @@ export function normalizeChatAttachments(
     if (!hasDeclaredFileSignature(entry.source.value, mimeType)) {
       return refuse(`its contents are not a ${mimeType} file.`)
     }
+    const bytes = decodeAttachmentBytes(entry.source.value)
+    if (bytes === undefined) return refuse("its contents could not be decoded.")
     if (kind === "image" || kind === "pdf") {
       totalBytes += size
       attachments.push({ filename, mimeType, bytes: size, result: kind })
@@ -345,8 +347,6 @@ export function normalizeChatAttachments(
         },
       }
     }
-    const bytes = decodeAttachmentBytes(entry.source.value)
-    if (bytes === undefined) return refuse("its contents could not be decoded.")
     const content = readAttachmentContent(bytes, mimeType)
     if ("reason" in content) return refuse(content.reason)
     if (content.text === undefined && !options.sandbox) {

@@ -9,6 +9,7 @@ import { Agents } from "@/lib/agents/agents.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import { Auth } from "@/lib/auth/auth.server"
 import { Chat } from "@/lib/chat/chat.server"
+import { ChatThreads } from "@/lib/chat/threads/threads.server"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
 import { Config } from "@/lib/config/config.server"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
@@ -29,6 +30,7 @@ function makeAppLayer() {
     ApiKeys.layer,
     Auth.layer,
     Chat.layer,
+    ChatThreads.layer,
     ChatSandboxes.layer,
     Config.layer,
     Database.layer,

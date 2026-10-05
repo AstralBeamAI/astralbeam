@@ -1,5 +1,8 @@
 import { Effect, Schema } from "effect"
-import { HttpServerRequest } from "effect/http"
+import { ApiUuidSchema } from "../../../../../lib/tenants/schemas.ts"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
+import { ChatSubmissionReceiptSchema } from "./threads.server"
+import { NonEmptyStringSchema } from "../../../../../lib/schemas.ts"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
@@ -10,29 +13,33 @@ import {
 import type { ApiV1 } from "../../-lib/contract.server"
 
 const chatRunInput = Schema.Struct({
-  threadId: Schema.String,
+  threadId: ApiUuidSchema,
   runId: Schema.String,
   messages: Schema.Array(Schema.Unknown),
   tools: Schema.Array(Schema.Unknown),
   context: Schema.Array(Schema.Unknown),
-  forwardedProps: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+  forwardedProps: Schema.StructWithRest(Schema.Struct({ clientId: ApiUuidSchema }), [
+    Schema.Record(Schema.String, Schema.Unknown),
+  ]),
   data: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)).annotate({
     description: "Legacy mirror of forwardedProps sent by TanStack AI clients.",
   }),
   state: Schema.optionalKey(Schema.Unknown),
   parentRunId: Schema.optionalKey(Schema.String),
-  resume: Schema.optionalKey(Schema.Array(Schema.Unknown)),
 }).annotate({
   identifier: "ChatRunInput",
   description:
-    "AG-UI RunAgentInput, validated by TanStack AI. Messages, tools, context, and resume entries follow AG-UI. forwardedProps accepts agentId and development-only debug. systemPrompt is rejected. Maximum request size: 32 MiB.",
+    "AG-UI RunAgentInput, validated by TanStack AI. Use the saved conversation UUID as threadId, send exactly one new user message and set forwardedProps.clientId. The server appends to the current history path, loads saved context, and uses the conversation's selected agent. Replacement history, resume entries, and systemPrompt are rejected. forwardedProps.debug is development-only. Maximum request size: 32 MiB.",
   examples: [
     {
-      threadId: "conversation-42",
+      threadId: "019a0000-0000-7000-8000-000000000004",
       runId: "run-7",
       messages: [{ id: "message-1", role: "user", content: "Hello!" }],
       tools: [],
       context: [],
+      forwardedProps: {
+        clientId: "019a0000-0000-7000-8000-000000000003",
+      },
     },
   ],
 })
@@ -40,13 +47,21 @@ const chatRunInput = Schema.Struct({
 export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
   .add(
     HttpApiEndpoint.post("runChat", "/chat", {
+      headers: Schema.Struct({
+        "idempotency-key": Schema.optionalKey(
+          NonEmptyStringSchema.check(Schema.isMaxCodePoints(255)),
+        ),
+      }),
       payload: chatRunInput,
-      success: HttpApiSchema.StreamUint8Array({ contentType: "text/event-stream" }),
+      success: [
+        HttpApiSchema.StreamUint8Array({ contentType: "text/event-stream" }),
+        ChatSubmissionReceiptSchema,
+      ],
     })
       .annotate(OpenApi.Summary, "Run chat")
       .annotate(
         OpenApi.Description,
-        "Stream an AG-UI agent run using a tenant user JWT. No admin claim required. HTTP failures before streaming use AstralBeamApiError. Once streaming starts, failures use RUN_ERROR events. Tool results continue in a subsequent request. Disconnecting cancels the run. Limited to 20 new turns and 200 tool-result continuations per minute per organization, tenant, and user.",
+        "Save one new user message and stream an AG-UI agent run for a conversation participant using a synchronized tenant user JWT. An optional Idempotency-Key retains acceptance for 24 hours. An identical retry returns an application/json admission receipt without generation. Changed input under the same key returns 400 and simultaneous use returns 409. HTTP failures before streaming use AstralBeamApiError. Once streaming starts, failures use RUN_ERROR events. Submit tool results to the conversation's tool-results endpoint. Disconnecting cancels the foreground run and preserves saved history. Limited to 20 new turns per minute per organization, tenant, and user.",
       ),
     HttpApiEndpoint.get("getChatConfig", "/chat/config", {
       query: Schema.Struct({ agentId: Schema.optionalKey(Schema.String) }),
@@ -86,18 +101,26 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/auth.server"),
       )
       const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat.server"))
+      const { ChatThreads } = yield* Effect.promise(
+        () => import("@/lib/chat/threads/threads.server"),
+      )
+      const { prepareManagedChat } = yield* Effect.promise(
+        () => import("@/lib/chat/threads/commands.server"),
+      )
       const { ChatSandboxes } = yield* Effect.promise(
         () => import("@/lib/chat/sandbox/sandbox.server"),
       )
-      const { consumeChatRateLimit, readChatRunParams, chatRunResponse } = yield* Effect.promise(
-        () => import("./run.server"),
-      )
+      const { consumeChatRateLimit, readChatRunParams, chatAdmissionResponse } =
+        yield* Effect.promise(() => import("./run.server"))
       const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
       const chat = yield* Chat
+      const threads = yield* ChatThreads
       const sandboxes = yield* ChatSandboxes
       const services = yield* Effect.context<
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof consumeChatRateLimit>>
+        | Effect.Services<ReturnType<typeof prepareManagedChat>>
+        | Effect.Services<ReturnType<typeof chatAdmissionResponse>>
       >()
       const authenticate = (request: HttpServerRequest.HttpServerRequest) =>
         HttpServerRequest.toWeb(request).pipe(
@@ -110,10 +133,22 @@ export function chatHandlers(api: typeof ApiV1) {
           "runChat",
           Effect.fn("runChat")(function* ({ request }) {
             const principal = yield* authenticate(request)
+            yield* consumeChatRateLimit(principal, "message").pipe(Effect.provideContext(services))
             const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
             const params = yield* readChatRunParams(native)
-            yield* consumeChatRateLimit(principal, params).pipe(Effect.provideContext(services))
-            return yield* chatRunResponse(yield* chat.run({ params, principal }))
+            const scope = yield* threads.resolveScope({ principal })
+            const { admission, receipt, clientId } = yield* prepareManagedChat({
+              scope,
+              params,
+              idempotencyKey: native.headers.get("Idempotency-Key") ?? undefined,
+            }).pipe(Effect.provideContext(services))
+            if (!admission)
+              return HttpServerResponse.jsonUnsafe(
+                Schema.encodeSync(ChatSubmissionReceiptSchema)(receipt),
+              )
+            return yield* chatAdmissionResponse({ admission, params, principal, clientId }).pipe(
+              Effect.provideContext(services),
+            )
           }),
         )
         .handle(

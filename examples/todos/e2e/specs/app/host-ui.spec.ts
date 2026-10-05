@@ -13,11 +13,19 @@ test("renders the example's starting todos", async ({ todos }) => {
   await expect(todos.checkbox("Write the launch announcement")).not.toBeChecked()
 })
 
-test("adds and completes a todo in the host list", async ({ todos }) => {
+test("added todos and completion survive reload", async ({ todos, page }) => {
   await todos.add("Water the plants")
   await expect(todos.items()).toHaveCount(4)
   await todos.checkbox("Water the plants").check()
   await expect(todos.checkbox("Water the plants")).toBeChecked()
+  await page.reload()
+  await todos.waitForHydration()
+  await expect(todos.items()).toHaveCount(4)
+  await expect(todos.checkbox("Water the plants")).toBeChecked()
+  await todos.add("Water the garden")
+  await todos.checkbox("Water the garden").check()
+  await expect(todos.checkbox("Water the plants")).toBeChecked()
+  await expect(todos.items()).toHaveCount(5)
 })
 
 test("the widget reaches a ready composer, which proves the token round-trip", async ({ chat }) => {

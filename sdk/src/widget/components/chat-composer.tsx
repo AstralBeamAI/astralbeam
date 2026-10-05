@@ -23,8 +23,9 @@ interface ChatComposerProps {
   onDraftChange: (draft: string) => void
   onSend: () => void
   onStop: () => void
-  /** Undefined hides the retry button: with no transcript there is nothing to re-run. */
+  /** Retry unacknowledged input, or refresh saved history after an accepted response fails. */
   onRetry: (() => void) | undefined
+  retryLabel: "Retry" | "Refresh"
   /** The chat is in its error state; `error` itself may still be undefined. */
   showError: boolean
   error: Error | undefined
@@ -51,6 +52,7 @@ export function ChatComposer({
   onSend,
   onStop,
   onRetry,
+  retryLabel,
   showError,
   error,
   streamBusy,
@@ -125,7 +127,7 @@ export function ChatComposer({
           </div>
           {onRetry && (
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-              Retry
+              {retryLabel}
             </Button>
           )}
         </div>

@@ -4,7 +4,6 @@ import {
   check,
   index,
   integer,
-  jsonb,
   pgEnum,
   primaryKey,
   snakeCase,
@@ -15,7 +14,13 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { ApiUuidSchema } from "../../lib/tenants/schemas.ts"
-import { deferrableForeignKey, lockVersion, timestamps, uuidV7 } from "../lib/columns.server.ts"
+import {
+  deferrableForeignKey,
+  schemaJsonb,
+  lockVersion,
+  timestamps,
+  uuidV7,
+} from "../lib/columns.server.ts"
 import { agent, tenant, tenantUser } from "./organizations.server.ts"
 
 const boundedChatJson = Schema.makeFilter(
@@ -73,13 +78,7 @@ const ChatMessagePartPayloadSchema = Schema.Union([
   }),
   storedChatPart({ type: Schema.Literal("ui-resource"), resource: Schema.JsonObject }),
   storedChatPart({ type: Schema.Literal("subagent"), subagent: Schema.JsonObject }),
-]).check(
-  boundedChatJson,
-  Schema.makeFilter(
-    (part) =>
-      part.id === undefined && part.targets === undefined && part.executionLocation === undefined,
-  ),
-)
+]).check(boundedChatJson)
 
 const chatParticipantRoleEnum = pgEnum("chat_participant_role", ["viewer", "member", "manager"])
 const chatMessageRoleEnum = pgEnum("chat_message_role", ["user", "assistant", "tool"])
@@ -222,7 +221,7 @@ export const chatMessage = snakeCase.table(
     state: chatMessageStateEnum().notNull(),
     // Versioned, validated provenance, provider continuation, and input tool declarations. The current invocation ID fences producer writes.
     // Credentials are excluded. Visible content belongs in message parts, and provider context is derived separately.
-    metadata: jsonb().$type<typeof ChatMessageMetadataSchema.Type>().notNull(),
+    metadata: schemaJsonb(ChatMessageMetadataSchema).notNull(),
     // Lifecycle on the initiating user message. Its accepted content remains complete throughout execution.
     turnState: chatMessageTurnStateEnum(),
     ...timestamps(),
@@ -297,7 +296,7 @@ export const chatMessagePart = snakeCase.table(
     position: integer().notNull(),
     // Versioned content for text, reasoning, attachments, widgets, tool decisions, or accepted tool results.
     // Original uploads and tool declarations remain here. This table is not limited to tool-related content.
-    payload: jsonb().$type<typeof ChatMessagePartPayloadSchema.Type>().notNull(),
+    payload: schemaJsonb(ChatMessagePartPayloadSchema).notNull(),
     // Where this tool decision should execute. Specific responders are recorded in chat_tool_response.
     executionLocation: chatMessagePartExecutionLocationEnum(),
     ...timestamps(),

@@ -8,6 +8,7 @@ import type { WidgetDefinition } from "../../lib/types.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../../core/protocol.ts"
 import { isSandboxTool } from "../../core/sandbox.ts"
 import type { RenderWidgetInput } from "../../core/types.ts"
+import type { ChatToolCallPart } from "../../core/threads.ts"
 import type { QuestionnaireAnswer } from "../lib/types.ts"
 import {
   formatToolJson,
@@ -21,8 +22,6 @@ import { MarkdownMessage } from "./markdown-message.tsx"
 import { SandboxPart } from "./sandbox-part.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
 
-type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
-
 interface AssistantPartProps {
   part: MessagePart
   apiUrl: string
@@ -30,6 +29,8 @@ interface AssistantPartProps {
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
   activeSlots: ReadonlyMap<string, string>
+  interactiveToolIds: ReadonlySet<string>
+  interrupted?: boolean | undefined
   onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
 }
 
@@ -71,7 +72,7 @@ function ToolCallDisclosure({
   title,
   failed,
 }: {
-  part: ToolCallPart
+  part: ChatToolCallPart
   title: string | undefined
   failed: boolean
 }) {
@@ -118,27 +119,35 @@ function WidgetCallPart({
   part,
   widgets,
   activeSlots,
-}: Omit<AssistantPartProps, "apiUrl" | "onQuestionnaireAnswers" | "part" | "toolTitles"> & {
-  part: ToolCallPart
+}: Pick<AssistantPartProps, "widgets" | "activeSlots"> & {
+  part: ChatToolCallPart
 }) {
   const input = part.input as RenderWidgetInput | undefined
   const definition = input ? getWidget(widgets, input.widget) : undefined
   // While the agent still streams the call's input, the widget name may be absent or
   // partial; show progress rather than a blank transcript.
   if (!input || !definition) {
-    return isSettledToolCall(part) ? null : (
+    return isSettledToolCall(part) ? (
+      <FailureMarker>This widget is unavailable.</FailureMarker>
+    ) : (
       <ToolCallMarker running>Preparing a widget</ToolCallMarker>
     )
   }
-  const slotName = slotNameForToolCall(part.id)
-  // Renders coexist per tool call, but a call whose render was evicted past the active
-  // cap (or cleared by a reset) has no live container; those collapse to a summary line
-  // instead of an empty frame.
+  const renderId = part.widgetRenderId ?? part.id
+  const slotName = slotNameForToolCall(renderId)
+  // A saved call without a render may be incompatible, unavailable, or evicted.
+  // Its stored success describes the original rendering, not this client's view.
   if (!activeSlots.has(slotName)) {
-    const running = part.output == null
+    if (isSettledToolCall(part)) {
+      return (
+        <FailureMarker>
+          Widget <span className="font-mono">{input.widget}</span> is unavailable.
+        </FailureMarker>
+      )
+    }
     return (
-      <ToolCallMarker running={running}>
-        {running ? "Rendering" : "Rendered"} <span className="font-mono">{input.widget}</span>
+      <ToolCallMarker running>
+        Rendering <span className="font-mono">{input.widget}</span>
       </ToolCallMarker>
     )
   }
@@ -152,7 +161,7 @@ function QuestionnaireCallPart({
   part,
   onQuestionnaireAnswers,
 }: Pick<AssistantPartProps, "onQuestionnaireAnswers"> & {
-  part: ToolCallPart
+  part: ChatToolCallPart
 }) {
   if (part.output != null) {
     const skipped = (part.output as { skipped?: boolean }).skipped === true
@@ -188,6 +197,8 @@ export function AssistantPart({
   toolTitles,
   activeSlots,
   onQuestionnaireAnswers,
+  interactiveToolIds,
+  interrupted,
 }: AssistantPartProps) {
   switch (part.type) {
     case "text":
@@ -203,6 +214,22 @@ export function AssistantPart({
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
+      if (interrupted && !isSettledToolCall(part))
+        return <FailureMarker>This action request was interrupted.</FailureMarker>
+      if ((part as ChatToolCallPart).resultOutcome === "unknown") {
+        return (
+          <FailureMarker>
+            The outcome of {title ?? part.name} is unknown. It was not retried.
+          </FailureMarker>
+        )
+      }
+      if (!interactiveToolIds.has(part.id) && !isSettledToolCall(part)) {
+        return (
+          <ToolCallMarker running={false}>
+            Waiting for a confirmed result from <span className="font-mono">{part.name}</span>.
+          </ToolCallMarker>
+        )
+      }
       // Before the failure branch: a sandbox step that threw still reads better as "could not
       // write app.py" than as a generic tool failure.
       if (isSandboxTool(part.name)) {
