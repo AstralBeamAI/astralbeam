@@ -563,6 +563,14 @@ test.each([
     expectedExecutions: 1,
     failOnce: false,
     throwsAfterCommit: false,
+    delayed: "reopen",
+  },
+  {
+    grant: true,
+    saved: true,
+    expectedExecutions: 1,
+    failOnce: false,
+    throwsAfterCommit: false,
     delayed: "api",
   },
   {
@@ -839,9 +847,10 @@ test.each([
             return auth.status === "ready" && auth.currentUser.user.id === signedInUser.user.id
           })
         }
+        if (delayed === "reopen") await chat.openThread(thread.id)
         finishTool()
         await sending
-        await chat.openThread(thread.id)
+        if (delayed !== "reopen") await chat.openThread(thread.id)
         await chat.reload()
       } else await sending
       await vi.waitFor(() => expect(resultRequests).toBe(failOnce || delivered ? 1 : 0))

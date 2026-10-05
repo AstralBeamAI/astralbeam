@@ -1352,16 +1352,15 @@ export function createAstralBeamChat(
     },
     reload: async () => {
       const generation = selectionGeneration
+      await refreshThread()
+      if (generation !== selectionGeneration || state.error) return
       const attempted = new Set<string>()
       while (generation === selectionGeneration) {
         const pending = state.pendingInteractions.find(
           (item) =>
             !attempted.has(item.sourceMessageId) && toolResults.has(toolResultKey(item.toolCallId)),
         )
-        if (!pending) {
-          if (attempted.size === 0) await refreshThread()
-          return
-        }
+        if (!pending) return
         attempted.add(pending.sourceMessageId)
         await addToolResult({ toolCallId: pending.toolCallId })
         if (state.error) return
