@@ -12,7 +12,7 @@ export const DEFAULT_EMPTY_DESCRIPTION =
   "It can answer questions and act through this app's own tools and widgets."
 
 /** Base URL of the AstralBeam API when the mount options give none; versioned routes hang off it. */
-export const DEFAULT_API_URL = "https://app.astralbeam.ai/api"
+export const DEFAULT_API_URL = "https://astralbeam.ai/api"
 
 /** Host endpoint that mints chat JWTs when the mount options give none. */
 export const DEFAULT_CHAT_AUTH_TOKEN_URL = "/api/astralbeam/token"

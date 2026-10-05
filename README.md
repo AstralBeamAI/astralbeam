@@ -2,9 +2,9 @@
 
 [![npm](https://img.shields.io/npm/v/@astralbeam/sdk)](https://www.npmjs.com/package/@astralbeam/sdk) [![License: MIT and AGPL-3.0](https://img.shields.io/badge/license-MIT%20%2B%20AGPL--3.0-blue)](#licensing) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/suehFycUvW)
 
-Website: https://astralbeam.ai · Docs: https://app.astralbeam.ai/docs
+Website: https://astralbeam.ai · Docs: https://astralbeam.ai/docs
 
-AstralBeam adds a Cursor-style AI agent to your app in minutes. It answers queries, interacts with your app, renders your UI components, and works with users' files. Self-host it or use [AstralBeam Cloud](https://app.astralbeam.ai).
+AstralBeam adds a Cursor-style AI agent to your app in minutes. It answers queries, interacts with your app, renders your UI components, and works with users' files. Self-host it or use [AstralBeam Cloud](https://astralbeam.ai).
 
 Here's a [Linear clone](examples/linearity-react) with the AstralBeam agent embedded:
 

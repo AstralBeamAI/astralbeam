@@ -55,14 +55,14 @@ The API permits credential-free CORS for GET, POST, PATCH, and OPTIONS. Browser 
 Set `ASTRALBEAM_API_KEY` securely in your server environment, then send it with each request:
 
 ```sh
-curl "https://app.astralbeam.ai/api/v1/tenants" \
+curl "https://astralbeam.ai/api/v1/tenants" \
   -H "X-API-Key: $ASTRALBEAM_API_KEY"
 ```
 
 Alternatively, with an admin JWT in `ASTRALBEAM_TOKEN`, use Bearer authentication.
 
 ```sh
-curl "https://app.astralbeam.ai/api/v1/tenants" \
+curl "https://astralbeam.ai/api/v1/tenants" \
   -H "Authorization: Bearer $ASTRALBEAM_TOKEN"
 ```
 

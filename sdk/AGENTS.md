@@ -97,7 +97,7 @@ Verify embedded directories through the existing consumer examples and their bro
 `README.md` is the quick start. Full guides live under `platform/src/routes/docs/-content/sdk/`, served at `/docs/sdk`. Apply the section-length guidance below to both.
 
 - Keep every section scannable: one or two intro sentences (at most 30–40 words), then at most 6–8 bullets of 20–25 words each, with short code examples.
-- The README links to the hosted guides at `https://app.astralbeam.ai/docs/sdk/<page>`. Keep both in step with SDK behavior changes.
+- The README links to the hosted guides at `https://astralbeam.ai/docs/sdk/<page>`. Keep both in step with SDK behavior changes.
 - Document a release's breaking changes and their replacements in the pull request body, not in a migration section of `README.md`.
 - Lead consumer examples with tenant-scoped embeddings. Mention organization scope and management tokens briefly as uncommon internal-tool options, linking to the API guide for their full authorization contract.
 

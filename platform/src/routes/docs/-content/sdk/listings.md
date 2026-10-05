@@ -169,7 +169,7 @@ The directory styling slots are `directory`, `directory-header`, `directory-tool
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `fetchAstralBeamToken` | Required | Endpoint `{ url, ...RequestInit }` or function returning `{ token }`. Unlike chat, directories have no default token source. |
-| `apiUrl` | `https://app.astralbeam.ai/api` | AstralBeam API base. Set your deployment's `/api` URL when self-hosting. |
+| `apiUrl` | `https://astralbeam.ai/api` | AstralBeam API base. Set your deployment's `/api` URL when self-hosting. |
 | `scope` | `"tenant"` | Tenant view, or `"organization"` with an organization-management JWT. |
 | `tenantId`, `tenantExternalId` | Signed tenant in tenant scope | Pin a Tenant by internal UUID or exact external ID. Internal ID takes precedence. |
 | `pageSize` | `20` | Initial page size, one of `20`, `50`, or `100`. |

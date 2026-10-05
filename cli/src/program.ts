@@ -17,7 +17,7 @@ Environment:
   ASTRALBEAM_CONFIG_DIR  directory holding config.json
 
 Exit codes: 0 success, 1 API or runtime failure, 2 invalid usage.
-Docs: https://app.astralbeam.ai/docs/cli/getting-started`
+Docs: https://astralbeam.ai/docs/cli/getting-started`
 
 /** Runs the CLI with Node-style argv and returns the process exit code. */
 export async function run(argv: readonly string[]): Promise<number> {

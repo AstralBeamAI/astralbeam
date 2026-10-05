@@ -1,5 +1,5 @@
 # Mints the tenant token that createAstralBeamToken in @astralbeam/sdk/server mints, with the same checks.
-# Wire format: "Mint tokens without JavaScript" at https://app.astralbeam.ai/docs/sdk/authentication
+# Wire format: "Mint tokens without JavaScript" at https://astralbeam.ai/docs/sdk/authentication
 module AstralBeam
   UUID = /\h{8}-\h{4}-\h{4}-\h{4}-\h{12}/
   API_KEY = /\A(?<key_id>key_(?<organization_id>#{UUID})_#{UUID})_(?<secret>abo_[A-Za-z]{64})\z/

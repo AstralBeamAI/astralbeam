@@ -8,7 +8,7 @@ npm install @astralbeam/sdk
 
 ## Quick start
 
-One component in React, one function everywhere else. Full setup, including the required token endpoint, is in [Getting started](https://app.astralbeam.ai/docs/sdk/getting-started).
+One component in React, one function everywhere else. Full setup, including the required token endpoint, is in [Getting started](https://astralbeam.ai/docs/sdk/getting-started).
 
 ```tsx
 import { AstralBeamChat } from "@astralbeam/sdk/react"
@@ -25,11 +25,11 @@ const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
 // Update with handle.update({ colorScheme: "dark" }), then clean up with handle.unmount().
 ```
 
-Without npm or a bundler, import the same entry from jsDelivr in a module script. Pin an exact version and the full `/dist/client.js` path, because the loader imports its lazy chunks relative to itself. See [Script tag](https://app.astralbeam.ai/docs/sdk/script-tag).
+Without npm or a bundler, import the same entry from jsDelivr in a module script. Pin an exact version and the full `/dist/client.js` path, because the loader imports its lazy chunks relative to itself. See [Script tag](https://astralbeam.ai/docs/sdk/script-tag).
 
 ```html
 <script type="module">
-  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.15.1/dist/client.js"
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.15.2/dist/client.js"
 
   mountAstralBeamChat(document.getElementById("sidebar"), {})
 </script>
@@ -43,7 +43,7 @@ Without npm or a bundler, import the same entry from jsDelivr in a module script
 
 ## Authentication
 
-Your server must authenticate the host session and mint a chat token before the widget can chat. Keep the API key server-only. See [Authentication](https://app.astralbeam.ai/docs/sdk/authentication).
+Your server must authenticate the host session and mint a chat token before the widget can chat. Keep the API key server-only. See [Authentication](https://astralbeam.ai/docs/sdk/authentication).
 
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
@@ -79,19 +79,19 @@ export async function POST(request: Request) {
 - Authenticate once and derive stable `user.id` and `tenant.id` values from that trusted session.
 - Keep API keys server-only. Tokens are signed, not encrypted, so their claims must contain no secrets.
 - Return `Cache-Control: no-store` and fail closed when configuration or authentication is missing.
-- Directory access additionally requires signed `user.admin: true`, derived from trusted tenant permissions, and persisted records. Follow [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings).
-- For employee-facing Tenant management, use `createAstralBeamOrganizationToken`. The [API client guide](https://app.astralbeam.ai/docs/sdk/api) covers database-backed roles and browser integration.
+- Directory access additionally requires signed `user.admin: true`, derived from trusted tenant permissions, and persisted records. Follow [Tenant directories](https://astralbeam.ai/docs/sdk/listings).
+- For employee-facing Tenant management, use `createAstralBeamOrganizationToken`. The [API client guide](https://astralbeam.ai/docs/sdk/api) covers database-backed roles and browser integration.
 
-Existing token props and the default chat endpoint keep working. After acquiring a token, components call `POST /api/v1/me` and renew before expiry. See [authentication and refresh behavior](https://app.astralbeam.ai/docs/sdk/authentication).
+Existing token props and the default chat endpoint keep working. After acquiring a token, components call `POST /api/v1/me` and renew before expiry. See [authentication and refresh behavior](https://astralbeam.ai/docs/sdk/authentication).
 
 ## Options
 
-Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` applies any subset in place, and no option is fixed at mount. Details in [Configuration](https://app.astralbeam.ai/docs/sdk/configuration).
+Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` applies any subset in place, and no option is fixed at mount. Details in [Configuration](https://astralbeam.ai/docs/sdk/configuration).
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `agentId` | organization's default | `agent_<orgId>_<id>`, copied from the dashboard |
-| `apiUrl` | `https://app.astralbeam.ai/api` | Base URL of the AstralBeam API. The widget calls `/v1/chat` there |
+| `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API. The widget calls `/v1/chat` there |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header and reset button show |
 | `emptyTitle`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
@@ -107,7 +107,7 @@ A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `st
 
 ## Tools and widgets
 
-A tool does something: its `execute` runs in your page. A widget shows something: its `render` draws your UI into the conversation. Both are declared with a `description` and a `parameters` schema. See [Tools and widgets](https://app.astralbeam.ai/docs/sdk/tools-and-widgets).
+A tool does something: its `execute` runs in your page. A widget shows something: its `render` draws your UI into the conversation. Both are declared with a `description` and a `parameters` schema. See [Tools and widgets](https://astralbeam.ai/docs/sdk/tools-and-widgets).
 
 ```tsx
 tools: {
@@ -135,23 +135,23 @@ widgets: {
 
 | Guide | Covers |
 | --- | --- |
-| [API client](https://app.astralbeam.ai/docs/sdk/api) | Typed resource and chat requests with API keys or JWTs. |
-| [Getting started](https://app.astralbeam.ai/docs/sdk/getting-started) | install, mount, layout requirements. |
-| [Script tag](https://app.astralbeam.ai/docs/sdk/script-tag) | loading from jsDelivr without a bundler, and Ruby on Rails. |
-| [Authentication](https://app.astralbeam.ai/docs/sdk/authentication) | the token endpoint, its security rules, and minting in other languages. |
-| [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings) | provisioning, tenant-user and Tenant listings, lifecycle, and options. |
-| [Configuration](https://app.astralbeam.ai/docs/sdk/configuration) | every option, and what `update` can change. |
-| [Theming](https://app.astralbeam.ai/docs/sdk/theming) | color schemes, CSS tokens, the shadow-root boundary. |
-| [Tools and widgets](https://app.astralbeam.ai/docs/sdk/tools-and-widgets) | schemas, live state, rendering into the transcript. |
-| [Attachments](https://app.astralbeam.ai/docs/sdk/attachments) | file kinds, limits, what the endpoint enforces. |
-| [Limits](https://app.astralbeam.ai/docs/sdk/limits) | request, attachment, and sandbox limits. |
-| [Sandbox](https://app.astralbeam.ai/docs/sdk/sandbox) | steps, the opt-in panel, downloads, inline images. |
-| [Headless](https://app.astralbeam.ai/docs/sdk/headless) | own the whole chat UI on the same session. |
-| [Security model](https://app.astralbeam.ai/docs/sdk/security) | who grants, who enforces, what the client can change. |
+| [API client](https://astralbeam.ai/docs/sdk/api) | Typed resource and chat requests with API keys or JWTs. |
+| [Getting started](https://astralbeam.ai/docs/sdk/getting-started) | install, mount, layout requirements. |
+| [Script tag](https://astralbeam.ai/docs/sdk/script-tag) | loading from jsDelivr without a bundler, and Ruby on Rails. |
+| [Authentication](https://astralbeam.ai/docs/sdk/authentication) | the token endpoint, its security rules, and minting in other languages. |
+| [Tenant directories](https://astralbeam.ai/docs/sdk/listings) | provisioning, tenant-user and Tenant listings, lifecycle, and options. |
+| [Configuration](https://astralbeam.ai/docs/sdk/configuration) | every option, and what `update` can change. |
+| [Theming](https://astralbeam.ai/docs/sdk/theming) | color schemes, CSS tokens, the shadow-root boundary. |
+| [Tools and widgets](https://astralbeam.ai/docs/sdk/tools-and-widgets) | schemas, live state, rendering into the transcript. |
+| [Attachments](https://astralbeam.ai/docs/sdk/attachments) | file kinds, limits, what the endpoint enforces. |
+| [Limits](https://astralbeam.ai/docs/sdk/limits) | request, attachment, and sandbox limits. |
+| [Sandbox](https://astralbeam.ai/docs/sdk/sandbox) | steps, the opt-in panel, downloads, inline images. |
+| [Headless](https://astralbeam.ai/docs/sdk/headless) | own the whole chat UI on the same session. |
+| [Security model](https://astralbeam.ai/docs/sdk/security) | who grants, who enforces, what the client can change. |
 
 ## Entry points
 
-Read-only Tenant and TenantUser widgets are available from `/client` and `/react`. See [Tenant directories](https://app.astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
+Read-only Tenant and TenantUser widgets are available from `/client` and `/react`. See [Tenant directories](https://astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
 
 There is no root export. Conversation history is not built yet.
 

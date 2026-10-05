@@ -59,7 +59,7 @@ With `ASTRALBEAM_API_KEY` set securely in your server environment, request the f
 For exact filtering, add `--data-urlencode "filter[external_id]=customer-42"` and keep that parameter on any continuation request.
 
 ```sh
-export ASTRALBEAM_API_URL="https://app.astralbeam.ai/api"
+export ASTRALBEAM_API_URL="https://astralbeam.ai/api"
 curl --include --get "$ASTRALBEAM_API_URL/v1/tenants" \
   -H "X-API-Key: $ASTRALBEAM_API_KEY" \
   --data-urlencode "page_size=1"

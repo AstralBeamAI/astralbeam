@@ -34,7 +34,7 @@ The pinned SDK version must already be published on npm. To try unreleased SDK c
 - Toggle **Theme**, **Custom theme**, **Hide assistant**, and **Debug**. They update the widget in place, so the conversation stays put.
 - Open **Tenant users** to browse the current tenant's users with the SDK directory, and enable **Show stored admin fields**.
 
-The demo token endpoint hands a fixed identity to any caller and answers `503` in production. Before deploying, replace it with one that derives stable Tenant and tenant-local user IDs from your authenticated session. Follow the [SDK authentication guide](https://app.astralbeam.ai/docs/sdk/authentication).
+The demo token endpoint hands a fixed identity to any caller and answers `503` in production. Before deploying, replace it with one that derives stable Tenant and tenant-local user IDs from your authenticated session. Follow the [SDK authentication guide](https://astralbeam.ai/docs/sdk/authentication).
 
 ## Checks
 

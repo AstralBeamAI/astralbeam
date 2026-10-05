@@ -78,7 +78,7 @@ export function Sidebar() {
 
 The widget fills its container, so the container needs a real height. It renders inside a shadow root, so your stylesheet and its styles cannot reach each other.
 
-By default it talks to the hosted API at `https://app.astralbeam.ai/api`. A self-hosted deployment sets `apiUrl` to its own `/api` base, and a token must go to the deployment that issued its API key.
+By default it talks to the hosted API at `https://astralbeam.ai/api`. A self-hosted deployment sets `apiUrl` to its own `/api` base, and a token must go to the deployment that issued its API key.
 
 Mounting without React, updating options in place, and the layout rules are covered in [SDK getting started](/docs/sdk/getting-started).
 
