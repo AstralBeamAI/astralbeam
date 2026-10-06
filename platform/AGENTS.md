@@ -17,6 +17,8 @@
 - Render dates that depend on the reader's locale or time zone with `LocalDateTime`, because loaders seed lists into server HTML.
 - Pass the dashboard theme to embedded SDK widgets through `colorScheme`, and hide duplicate widget headers when the dashboard supplies their titles. Keep dashboard directory styling in `theme` and `customCss` props, not SDK defaults.
 - Dock dashboard chat beside the page without a modal backdrop from 1024px upward, and use a full-width panel below that. Match the dashboard's 56px header, reserve content space for the fixed launcher, and preserve chat state when closed.
+- Astro may expose only capabilities already available in the dashboard and must reuse their authorization and operation paths.
+- Keep the dashboard assistant integration inline in `src/routes/_authenticated/-components/dogfood-chat.tsx`, including tool and widget declarations and their helpers. Keep each declaration beside its schemas and helpers. Reuse existing dashboard components and operations, and keep helper names free of assistant-brand prefixes.
 
 ## Routes
 

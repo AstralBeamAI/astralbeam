@@ -1,5 +1,6 @@
 import { WarningCircleIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
+import { useId } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,11 +26,12 @@ export function DashboardIntegrationGuide({
     "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey"
   >
 }) {
+  const titleId = useId()
   return (
-    <Card aria-labelledby="dashboard-integration-title">
+    <Card aria-labelledby={titleId}>
       <CardHeader>
         <CardTitle>
-          <h2 id="dashboard-integration-title">Embed your first agent</h2>
+          <h2 id={titleId}>Embed your first agent</h2>
         </CardTitle>
         <CardDescription>
           Connect your application to {APP_NAME}, then verify a reply and an action in your app.
