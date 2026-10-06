@@ -98,6 +98,7 @@ Verify embedded directories through the existing consumer examples and their bro
 - Directory queries use TanStack Query/Table. Only Effect Schema is allowed in the SDK. Keep the Effect runtime, scheduling, and concurrency APIs on the server, where Drizzle queries use native Effects.
 - Use TanStack Table's built-in state and APIs for supported table behavior instead of parallel React state. Keep opaque API cursors outside page-index pagination.
 - Directory pagination caps rendering at 100 records, so virtualization is unnecessary.
+- Display metadata in its directory column. Tenant and TenantUser names do not expand duplicate metadata details.
 - Display customer-provided external IDs as the first column labeled "ID" in directories. Do not display AstralBeam's internal record or tenant UUIDs.
 - Keep readable minimum column widths on narrow screens and confine horizontal scrolling to the table, without collapsing identifiers or overlapping neighboring cells.
 - Keep host-specific directory styling in consumer props (`theme` and `customCss`). Preserve SDK defaults and expose stable `data-slot` hooks instead of importing a consumer's design preferences into widget primitives.

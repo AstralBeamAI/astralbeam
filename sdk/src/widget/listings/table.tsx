@@ -1,5 +1,5 @@
-import { Fragment, useMemo } from "react"
-import { type ColumnDef, rowExpandingFeature, tableFeatures, useTable } from "@tanstack/react-table"
+import { useMemo } from "react"
+import { type ColumnDef, tableFeatures, useTable } from "@tanstack/react-table"
 import { CaretRightIcon } from "@phosphor-icons/react"
 import type { TenantRecordEncoded, TenantUserRecordEncoded } from "../../api/generated/api.ts"
 import type {
@@ -17,7 +17,7 @@ import {
 import { Button } from "../components/ui/button.tsx"
 import { Badge } from "../components/ui/badge.tsx"
 
-const features = tableFeatures({ rowExpandingFeature })
+const features = tableFeatures({})
 type RecordRow = TenantRecordEncoded | TenantUserRecordEncoded
 type Options = MountAstralBeamTenantListOptions & MountAstralBeamTenantUserListOptions
 
@@ -47,7 +47,7 @@ export function DirectoryTable({
       {
         id: "name",
         header: kind === "tenants" ? "Tenant" : "User",
-        cell: ({ row, table }) => {
+        cell: ({ row }) => {
           const record = row.original
           const name = record.name || record.external_id
           return (
@@ -66,19 +66,7 @@ export function DirectoryTable({
                     .join("")}
                 </span>
               )}
-              <Button
-                variant="link"
-                className="h-auto max-w-64 justify-start p-0 text-start whitespace-normal break-words"
-                onClick={() => table.setExpanded(row.getIsExpanded() ? {} : { [row.id]: true })}
-                aria-expanded={row.getIsExpanded()}
-                title={row.getIsExpanded() ? "Hide metadata" : "Show metadata"}
-              >
-                <CaretRightIcon
-                  aria-hidden
-                  className={row.getIsExpanded() ? "rotate-90" : undefined}
-                />
-                {name}
-              </Button>
+              <span className="max-w-64 text-start whitespace-normal break-words">{name}</span>
             </div>
           )
         },
@@ -106,20 +94,14 @@ export function DirectoryTable({
           const entries = Object.entries(row.original.metadata)
           return entries.length ? (
             <dl className="min-w-32 max-w-72 space-y-1 text-xs">
-              {entries.slice(0, 3).map(([key, value]) => (
+              {entries.map(([key, value]) => (
                 <div key={key} className="flex gap-1">
-                  <dt className="max-w-24 shrink-0 truncate text-muted-foreground">{key}:</dt>
-                  <dd className="truncate">
+                  <dt className="max-w-24 shrink-0 break-all text-muted-foreground">{key}:</dt>
+                  <dd className="min-w-0 break-words">
                     {typeof value === "string" ? value : JSON.stringify(value)}
                   </dd>
                 </div>
               ))}
-              {entries.length > 3 && (
-                <div className="text-muted-foreground">
-                  <dt className="sr-only">Additional metadata</dt>
-                  <dd>+{entries.length - 3} more in details</dd>
-                </div>
-              )}
             </dl>
           ) : (
             <span className="text-muted-foreground">No metadata</span>
@@ -173,7 +155,6 @@ export function DirectoryTable({
     data: rows,
     columns,
     getRowId: (row) => row.id,
-    getRowCanExpand: () => true,
   })
   return (
     <Table className="[&_th]:h-12 [&_th]:px-4 [&_td]:px-4 [&_td]:py-3">
@@ -190,29 +171,13 @@ export function DirectoryTable({
       </TableHeader>
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <Fragment key={row.id}>
-            <TableRow>
-              {row.getAllCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  <table.FlexRender cell={cell} />
-                </TableCell>
-              ))}
-            </TableRow>
-            {row.getIsExpanded() && (
-              <TableRow>
-                <TableCell colSpan={row.getAllCells().length}>
-                  <dl className="space-y-2 break-all p-3 text-sm">
-                    <dt className="font-medium">Metadata</dt>
-                    <dd>
-                      <pre className="max-h-64 overflow-auto rounded bg-muted p-3 text-xs whitespace-pre-wrap">
-                        {JSON.stringify(row.original.metadata, null, 2)}
-                      </pre>
-                    </dd>
-                  </dl>
-                </TableCell>
-              </TableRow>
-            )}
-          </Fragment>
+          <TableRow key={row.id}>
+            {row.getAllCells().map((cell) => (
+              <TableCell key={cell.id}>
+                <table.FlexRender cell={cell} />
+              </TableCell>
+            ))}
+          </TableRow>
         ))}
         {!rows.length && (
           <TableRow>
