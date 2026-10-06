@@ -4,7 +4,7 @@ import { expect, type Locator, type Page } from "@playwright/test"
  * The host application's own UI.
  *
  * Selectors here track `src/components/todo-list.tsx`, `src/components/todo-card.tsx`, and the
- * control labels in `src/components/todos-page.tsx`. Update this file when that markup changes;
+ * control labels in `src/components/app-shell.tsx`. Update this file when that markup changes;
  * the specs should not need to.
  */
 export function todosPage(page: Page) {
@@ -12,9 +12,7 @@ export function todosPage(page: Page) {
 
   const controls = {
     theme: page.getByRole("button", { name: /^Theme:/ }),
-    customTheme: page.getByRole("button", { name: /^Custom theme:/ }),
     assistant: page.getByRole("button", { name: /assistant$/ }),
-    debug: page.getByRole("button", { name: /^Debug:/ }),
   }
 
   return {
@@ -36,11 +34,14 @@ export function todosPage(page: Page) {
 
     /** Every todo in the host list, in order. */
     items(): Locator {
-      return list.locator("li")
+      return list.locator("tbody tr").filter({ has: page.getByRole("checkbox") })
     },
 
     item(text: string | RegExp): Locator {
-      return list.locator("li").filter({ hasText: text })
+      return list
+        .locator("tbody tr")
+        .filter({ has: page.getByRole("checkbox") })
+        .filter({ hasText: text })
     },
 
     checkbox(text: string | RegExp): Locator {
@@ -66,6 +67,12 @@ export function todosPage(page: Page) {
     },
 
     controls,
+    search: page.getByRole("searchbox", { name: "Search todos", exact: true }),
+    navigate: (name: "Todos" | "Users") =>
+      page
+        .getByRole("navigation", { name: "Example pages" })
+        .getByRole("link", { name, exact: true })
+        .click(),
 
     /** The app writes its own dark class from the same preference it passes to the widget. */
     isDark(): Promise<boolean> {
@@ -78,18 +85,6 @@ export function todosPage(page: Page) {
 
     async toggleAssistant(): Promise<void> {
       await controls.assistant.click()
-    },
-
-    async toggleCustomTheme(): Promise<void> {
-      await controls.customTheme.click()
-    },
-
-    /** The app carries the debug flag in the query string, so toggling it reloads the page. */
-    async toggleDebug(): Promise<void> {
-      const search = new URL(page.url()).search
-      await controls.debug.click()
-      await page.waitForURL((url) => url.search !== search)
-      await this.waitForHydration()
     },
   }
 }

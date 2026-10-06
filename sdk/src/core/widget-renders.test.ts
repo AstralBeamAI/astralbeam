@@ -47,6 +47,7 @@ let savedMessages: unknown[] = []
 let olderMessages: unknown[] = []
 let savedCursor: string | null = null
 beforeEach(() => {
+  thread.role = "manager"
   savedMessages = []
   olderMessages = []
   savedCursor = null
@@ -149,58 +150,73 @@ test("hydration restores distinct widget calls and skips missing or incompatible
   }
 })
 
-test("refresh and older history restore new widgets once without executing saved business calls", async () => {
-  const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
-  const execute = vi.fn()
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
-    threadId: thread.id,
-    widgets: { card: { description: "A host card" } },
-    tools: { change_data: { description: "Change data", execute } },
-    onRenderWidget,
-  })
-  try {
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-    expect(onRenderWidget).not.toHaveBeenCalled()
-    savedMessages = savedWidget("card", "refresh")
-    savedCursor = "older-page"
-    await chat.refreshThread()
-    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+test.each(["manager", "viewer"])(
+  "%s history only restores authorized widgets and never executes saved business calls",
+  async (role) => {
+    thread.role = role
+    if (role === "viewer") savedMessages = savedWidget("card", "initial")
+    const cleanup = vi.fn()
+    const onRenderWidget = vi.fn((_request: WidgetRenderRequest) => cleanup)
+    const execute = vi.fn()
+    const chat = createAstralBeamChat({
+      fetchAstralBeamToken: chatAuthToken,
+      threadId: thread.id,
+      widgets: { card: { description: "A host card" } },
+      tools: { change_data: { description: "Change data", execute } },
+      onRenderWidget,
+    })
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+      expect(onRenderWidget).not.toHaveBeenCalled()
+      savedMessages = savedWidget("card", "refresh")
+      savedCursor = "older-page"
+      await chat.refreshThread()
+      await vi.waitFor(() =>
+        expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 1),
+      )
 
-    olderMessages = [
-      ...savedWidget("card", "older"),
-      {
-        id: "saved-business-call",
-        role: "assistant",
-        created_at: thread.created_at,
-        parts: [
-          {
-            id: "business-part",
-            type: "tool-call",
-            toolCallId: "reused-provider-id",
-            name: "change_data",
-            arguments: "{}",
-            input: {},
-            state: "input-complete",
-          },
-        ],
-      },
-    ]
-    await chat.loadOlderMessages()
-    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(2))
-    expect(onRenderWidget.mock.calls.map(([request]) => request.toolCallId)).toEqual([
-      "saved:assistant-refresh:part-refresh",
-      "saved:assistant-older:part-older",
-    ])
-    expect(chat.getState().error).toBeUndefined()
-    await chat.refreshThread()
-    await chat.loadOlderMessages()
-    expect(onRenderWidget).toHaveBeenCalledTimes(2)
-    expect(execute).not.toHaveBeenCalled()
-  } finally {
-    chat.dispose()
-  }
-})
+      olderMessages = [
+        ...savedWidget("card", "older"),
+        {
+          id: "saved-business-call",
+          role: "assistant",
+          created_at: thread.created_at,
+          parts: [
+            {
+              id: "business-part",
+              type: "tool-call",
+              toolCallId: "reused-provider-id",
+              name: "change_data",
+              arguments: "{}",
+              input: {},
+              state: "input-complete",
+            },
+          ],
+        },
+      ]
+      await chat.loadOlderMessages()
+      await vi.waitFor(() =>
+        expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2),
+      )
+      expect(onRenderWidget.mock.calls.map(([request]) => request.toolCallId)).toEqual(
+        role === "viewer"
+          ? []
+          : ["saved:assistant-refresh:part-refresh", "saved:assistant-older:part-older"],
+      )
+      expect(chat.getState().error).toBeUndefined()
+      await chat.refreshThread()
+      await chat.loadOlderMessages()
+      expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
+      expect(execute).not.toHaveBeenCalled()
+      thread.role = "viewer"
+      await chat.refreshThread()
+      expect(cleanup).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
+      expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
+    } finally {
+      chat.dispose()
+    }
+  },
+)
 
 test.each(["definition", "renderer", "failed-render"])(
   "saved widgets recover when an unavailable %s is supplied in place",

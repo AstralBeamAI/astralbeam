@@ -27,15 +27,33 @@ import {
 } from "../../core/listings.ts"
 import { DirectoryTable } from "./table.tsx"
 
+const listingKinds = {
+  tenants: {
+    title: "Tenants",
+    Icon: BuildingsIcon,
+    tenantPrompt: null,
+    showAdminFilter: false,
+  },
+  users: {
+    title: "Tenant users",
+    Icon: UsersIcon,
+    tenantPrompt: "Select a tenant to view its users.",
+    showAdminFilter: true,
+  },
+} as const
+
 type Options = MountAstralBeamTenantListOptions & MountAstralBeamTenantUserListOptions
 interface WidgetProps {
   options: Options
-  kind: "tenants" | "users"
+  kind: keyof typeof listingKinds
   session: ListingSession
 }
 type Cursor = ListingPageOptions["cursor"]
 
 export function ListingWidget({ options, kind, session }: WidgetProps) {
+  const config = listingKinds[kind]
+  const { Icon } = config
+  const requiresTenant = config.tenantPrompt !== null
   const queryClient = useQueryClient()
   const fetching = useIsFetching()
   const [selectedTenant, setSelectedTenant] = useState<TenantRecordEncoded | null>(null)
@@ -51,7 +69,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
   }
   const scope = options.scope ?? "tenant"
   const pinned = options.tenantId !== undefined || options.tenantExternalId !== undefined
-  const resolve = pinned || (kind === "users" && scope === "tenant")
+  const resolve = pinned || (requiresTenant && scope === "tenant")
   const tenant = useQuery({
     queryKey: ["identity-tenant", options.tenantId, options.tenantExternalId],
     enabled: resolve,
@@ -59,9 +77,9 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
   })
   const currentTenant = resolve ? tenant.data : selectedTenant
   const tenantId = currentTenant?.id
-  const needsPicker = kind === "users" && scope === "organization" && !pinned
-  const awaitingTenant = (kind === "users" || pinned) && !tenantId
-  const title = options.title ?? (kind === "tenants" ? "Tenants" : "Tenant users")
+  const needsPicker = requiresTenant && scope === "organization" && !pinned
+  const awaitingTenant = (requiresTenant || resolve) && !tenantId
+  const title = options.title ?? config.title
   return (
     <section
       data-slot="directory"
@@ -70,11 +88,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
     >
       {options.showHeader !== false && (
         <header data-slot="directory-header" className="flex items-center gap-3">
-          {kind === "tenants" ? (
-            <BuildingsIcon size={22} aria-hidden />
-          ) : (
-            <UsersIcon size={22} aria-hidden />
-          )}
+          <Icon size={22} aria-hidden />
           <div>
             <h2 className="font-heading text-lg font-semibold">{title}</h2>
             <p className="text-sm text-muted-foreground">
@@ -112,7 +126,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full min-w-0 sm:w-72"
         />
-        {kind === "users" && options.showAdmin && (
+        {config.showAdminFilter && options.showAdmin && (
           <NativeSelect
             disabled={awaitingTenant}
             aria-label="Stored admin status"
@@ -163,7 +177,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
         >
           <p role="status" className="text-muted-foreground">
             {needsPicker
-              ? "Select a tenant to view its users."
+              ? config.tenantPrompt
               : "No persisted tenant found. Create the tenant, then refresh."}
           </p>
         </div>

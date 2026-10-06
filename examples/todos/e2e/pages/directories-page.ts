@@ -4,7 +4,7 @@ import { platformUrl } from "../worktree.ts"
 
 export function directoriesPage(page: Page) {
   const tenants = page.getByRole("region", { name: "Tenants", exact: true })
-  const users = page.getByRole("region", { name: "Tenant users", exact: true })
+  const users = page.getByRole("region", { name: /^(Users|Tenant users)$/ })
   return {
     tenants,
     users,
@@ -31,12 +31,12 @@ export function directoriesPage(page: Page) {
     showAdmin: page.getByRole("checkbox", { name: "Show stored admin fields" }),
     tenantContext: users.locator("header p"),
     tenantOption: (name: string) => users.getByRole("option", { name: new RegExp(name) }),
-    tenant: (name: string) => tenants.getByRole("button", { name, exact: true }),
-    user: (name: string) => users.getByRole("button", { name, exact: true }),
+    tenant: (name: string) => tenants.getByText(name, { exact: true }),
+    user: (name: string) => users.getByText(name, { exact: true }),
     selectAdmin: (label: string) =>
       users.getByRole("combobox", { name: "Stored admin status" }).selectOption({ label }),
     adminFilter: users.getByRole("combobox", { name: "Stored admin status" }),
-    metadata: users.locator("pre"),
+    metadata: users.getByRole("cell").filter({ has: page.locator("dl") }),
     tenantPicker: users.getByRole("combobox", { name: "Tenant", exact: true }),
   }
 }

@@ -374,7 +374,8 @@ export function createAstralBeamChat(
     }
     const declaration = widgets[input.widget]
     const validated = await validateParameters(declaration?.parameters, input.props ?? {})
-    if (generation !== selectionGeneration) return { widget: input.widget, rendered: false }
+    if (generation !== selectionGeneration || state.thread?.role === "viewer")
+      return { widget: input.widget, rendered: false }
     if (declaration !== live.widgets?.[input.widget]) return renderWidget(input, toolCallId)
     if (validated == null) {
       throw new Error(`Props for widget "${input.widget}" failed validation`)
@@ -404,6 +405,7 @@ export function createAstralBeamChat(
   }
 
   const restoreCompletedWidgets = (messages: readonly UIMessage[]) => {
+    if (state.thread?.role === "viewer") return
     const renderIds = new Map<string, string>()
     for (const message of state.messages) {
       for (const part of message.parts) {
@@ -730,7 +732,7 @@ export function createAstralBeamChat(
             history.pendingInteractions,
             liveToolMessageIds,
           ).filter((message) => pageIds.has(message.id))
-          restoreCompletedWidgets(messages)
+          if (history.thread.role === "viewer") disposeRenders()
           const agentChanged = state.thread?.agentId !== history.thread.agent_id
           update({
             thread: threadFromRecord(history.thread, history.messages.length > 0),
@@ -738,6 +740,7 @@ export function createAstralBeamChat(
             pendingInteractions: history.pendingInteractions,
             threadLoadFailed: false,
           })
+          restoreCompletedWidgets(messages)
           if (!options?.before && agentChanged) void resolveCapabilities()
           // TanStack leaves local messages unchanged for an empty hydration page.
           // An empty saved thread must remove rejected optimistic input.

@@ -39,7 +39,7 @@ test("standalone function props synchronize current user and refresh on rejectio
       : route.continue()
   })
   await openAuthentication(page)
-  await expect(page.getByRole("button", { name: seedTarget.user.name, exact: true })).toBeVisible()
+  await expect(page.getByText(seedTarget.user.name, { exact: true })).toBeVisible()
   expect(issued).toBe(2)
   expect(synchronized).toBe(2)
   admin = undefined
@@ -57,7 +57,7 @@ test("standalone function props synchronize current user and refresh on rejectio
   const currentUser = (await (await refreshed).json()) as { user: { admin?: boolean } }
   expect(currentUser.user.admin).toBe(true)
   await expect(page.getByRole("alert")).toBeVisible()
-  await expect(page.getByRole("button", { name: seedTarget.user.name, exact: true })).toHaveCount(0)
+  await expect(page.getByText(seedTarget.user.name, { exact: true })).toHaveCount(0)
 })
 
 test("host callbacks and refresh recover initial and background authentication failures", async ({
@@ -77,7 +77,7 @@ test("host callbacks and refresh recover initial and background authentication f
     denied ? route.fulfill({ status: 403, json: {} }) : route.continue(),
   )
   await openAuthentication(page)
-  const row = page.getByRole("button", { name: seedTarget.user.name, exact: true })
+  const row = page.getByText(seedTarget.user.name, { exact: true })
   const errors = page.getByLabel("Host errors")
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(errors).toHaveText("1")

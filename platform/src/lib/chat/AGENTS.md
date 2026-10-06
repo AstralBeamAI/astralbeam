@@ -70,7 +70,7 @@
 
 ## Saved conversations
 
-- Authorize conversation access through same-Tenant participant grants, never an implicit owner or Tenant admin flag. Preserve individual message authorship independently of current membership.
+- Authorize chat actions through same-Tenant participant grants and their permitted roles, never implicit Organization membership or a Tenant admin flag. Administrative directory and transcript reads do not grant edits, message submission, tool responses, or participant creation. Preserve individual message authorship independently of current membership.
 - Use the shared database idempotency helper for admission receipts, after authorization and before generation. Apply execution eligibility checks only to new admissions so authorized receipt recovery survives agent configuration changes. Purge conversation-scoped records on deletion. Do not store admission keys or request/result hashes on chat rows.
 - Keep format versions inside validated JSON, with producing-agent provenance in message metadata and ordered content in part rows. Preserve provenance through checkpoints and agent deletion.
 - Separate conversation participants, message parts, and expected tool responses where they have 1:N relationships. Keep each initiating user message’s turn lifecycle and claim together, without a separate 1:1 run or tool-call table. Every table uses `timestamps()`.

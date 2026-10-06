@@ -75,6 +75,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Keep SDK option and model names camelCase, map AstralBeam-owned multiword JWT claim names to snake_case on the wire, and preserve caller-owned `metadata` keys verbatim.
 - Every chat uses server-persisted threads. Use `threadId` for saved-thread selection and identity across SDK options and chat events. Do not add a stateless fallback or persistence mode option. Hydrating saved history must never execute business tools. Authorize live browser execution only from committed server grants, bind saved results to their source message and part, and isolate reused provider tool IDs from earlier turns. Preserve request run IDs on continuations because native interrupt bindings include the interrupted run ID.
 - Keep sidebar visibility in the host app. `threadId` defaults to `"auto"`, restoring an authorized selection from account/API-scoped session storage within the current tab, or starting fresh when none exists. `"new"` bypasses restoration and a UUID selects that thread. Unsent text drafts remain in local storage.
+- Read-only transcript presentation shows saved tool information without projecting host widgets or accepting questionnaire answers. Saved partial output does not imply a live producer.
 - Keep conversation-sharing UI and headless participant-management actions deferred. Do not expose a sharing option in the SDK.
 - Use `ChatClient` server hydration and pagination through a scoped `ConnectionAdapter.hydrate`. Disable transport hydration until a saved thread exists, so a fresh local chat does not request history or report a spurious error. Keep authorization, rich-content projection, and multiplayer waiting state in the application adapter. Do not advertise a resumable active run until stream replay exists.
 - Consume the canonical saved-history format directly. Do not add legacy transcript or tool-result fallbacks before persistence has shipped.
@@ -94,9 +95,11 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 Verify embedded directories through the existing consumer examples and their browser-test infrastructure. Do not add a separate SDK preview server or token endpoint.
 
 - Verify vanilla and React mounts, tenant and organization scope, non-admin denial, search beyond page one, literal wildcard search, cursors, metadata, theme isolation, and unmount/remount.
+- Keep directory-kind presentation in one mapping at the top of `listing-widget.tsx` rather than repeating kind conditionals.
 - Directory queries use TanStack Query/Table. Only Effect Schema is allowed in the SDK. Keep the Effect runtime, scheduling, and concurrency APIs on the server, where Drizzle queries use native Effects.
 - Use TanStack Table's built-in state and APIs for supported table behavior instead of parallel React state. Keep opaque API cursors outside page-index pagination.
 - Directory pagination caps rendering at 100 records, so virtualization is unnecessary.
+- Display metadata in its directory column. Tenant and TenantUser names do not expand duplicate metadata details.
 - Display customer-provided external IDs as the first column labeled "ID" in directories. Do not display AstralBeam's internal record or tenant UUIDs.
 - Keep readable minimum column widths on narrow screens and confine horizontal scrolling to the table, without collapsing identifiers or overlapping neighboring cells.
 - Keep host-specific directory styling in consumer props (`theme` and `customCss`). Preserve SDK defaults and expose stable `data-slot` hooks instead of importing a consumer's design preferences into widget primitives.

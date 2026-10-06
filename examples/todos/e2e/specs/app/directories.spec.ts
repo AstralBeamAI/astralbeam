@@ -20,15 +20,20 @@ test("example lists only its tenant's users and filters stored admin status", as
   await expect(directory.tenantPicker).toHaveCount(0)
   await expect(directory.user(SEED_ORGANIZATIONS[0].tenants[1].users[0].name)).toHaveCount(0)
   await expect(directory.adminFilter).toHaveCount(0)
-  await captureMoment(page, "tenant-users-page")
-  await expect(directory.tenantContext).toContainText(tenant.name)
+  await directory.users.getByRole("searchbox").focus()
+  await captureMoment(page, "tenant-users-search-focus")
+  await directory.users.getByRole("combobox", { name: "Rows per page" }).click()
+  await captureMoment(page, "tenant-users-themed-page-menu")
+  await directory.users.getByRole("combobox", { name: "Rows per page" }).press("Escape")
+  await directory.refresh.focus()
+  await captureMoment(page, "tenant-users-refresh-focus")
   await directory.showAdmin.check()
   await directory.selectAdmin("Non-admins")
   await expect(directory.user(admin.name)).toHaveCount(0)
   await directory.selectAdmin("Admins")
-  await directory.user(admin.name).click()
+  await expect(directory.user(admin.name)).toBeVisible()
   await expect(directory.metadata).toContainText(admin.metadata.email)
-  await captureMoment(page, "filtered-user-details")
+  await captureMoment(page, "filtered-user-metadata")
   await directory.showAdmin.uncheck()
   await expect(directory.adminFilter).toHaveCount(0)
   await expect(directory.user(admin.name)).toBeVisible()
@@ -143,6 +148,7 @@ test("vanilla tenant directories enforce admin authority across reset and remoun
 })
 
 test("directory table and tenant search follow real server cursors", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   const directory = directoriesPage(page)
   const [first, second] = SEED_ORGANIZATIONS[0].tenants
   const refreshedName = `${first.name} refreshed`
@@ -170,16 +176,24 @@ test("directory table and tenant search follow real server cursors", async ({ pa
     }
     url.searchParams.set("page_size", "1")
     const response = await route.fetch({ url: url.href })
-    if (refresh && q === "o" && !cursor) {
-      const data = (await response.json()) as TenantPage
-      data.items[0]!.name = refreshedName
-      await route.fulfill({ response, json: data })
-    } else {
-      await route.fulfill({ response })
+    const data = (await response.json()) as TenantPage
+    for (const item of data.items) {
+      item.metadata = { details: "x".repeat(300), context: { note: "y".repeat(300) } }
     }
+    if (refresh && q === "o" && !cursor) data.items[0]!.name = refreshedName
+    await route.fulfill({ response, json: data })
   })
   await openVanillaDirectories(page, { scope: "organization" })
   await expect(directory.tenant(first.name)).toBeVisible()
+  expect(
+    await directory.tenants
+      .locator("dl dd")
+      .evaluateAll(
+        (values) =>
+          values.length > 0 && values.every((value) => value.scrollWidth <= value.clientWidth),
+      ),
+  ).toBe(true)
+  await captureMoment(page, "wrapped-tenant-metadata-mobile")
   await directory.next.click()
   await expect(directory.tenant(second.name)).toBeVisible()
   await expect(directory.tenant(first.name)).toHaveCount(0)

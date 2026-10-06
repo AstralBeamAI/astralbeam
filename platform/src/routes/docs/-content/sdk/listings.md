@@ -139,7 +139,7 @@ Let's connect user row actions and terminal request failures to your application
 />
 ```
 
-`openUserDetails` and `reportDirectoryError` are host functions. Providing `onTenantSelect` or `onTenantUserSelect` adds an Open action. Clicking the name still expands metadata. Callbacks receive API records with snake_case field names.
+`openUserDetails` and `reportDirectoryError` are host functions. Providing `onTenantSelect` or `onTenantUserSelect` adds an Open action. Callbacks receive API records with snake_case field names.
 
 `onError` reports each failed request after the automatic authentication retry finishes. It includes initial and background authentication failures, excludes cancellations and identity-change resets, and preserves the widget's error UI. Shared authentication failures report once, including when several requests are waiting. Use `isAstralBeamApiError` from `/api` to inspect HTTP status and structured problem details. Multiple failed requests can report separately, so deduplicate host notifications if needed. A `403` is a permission failure, not necessarily an expired session.
 
@@ -186,7 +186,7 @@ The directory styling slots are `directory`, `directory-header`, `directory-tool
 - Previous/Next follow server cursors, with no estimated totals or client-side sorting.
 - Search is debounced and matches literal text in names or external IDs. Collections use server-side search, while an explicitly selected single Tenant is filtered locally. Filters reset the current page.
 - Hiding stored admin fields removes any active admin filter.
-- Rows show external IDs under **ID**, names, metadata previews, and creation dates. Expand a name for full metadata. Internal UUIDs are not displayed.
+- Rows show external IDs under **ID**, names, metadata, and creation dates. Names do not expand rows. Internal UUIDs are not displayed.
 - Tokens refresh once on HTTP `401`. Other failures offer explicit retry.
 
 **NOTE**: For uncommon internal-management use cases, both components also support `scope="organization"` with an [organization-management token](./api.md). The user directory then offers a searchable Tenant picker. Set `tenantId` or `tenantExternalId` to pin one Tenant, or when using that token with tenant scope. Tokens retain their delegated permissions even though the UI is read-only.

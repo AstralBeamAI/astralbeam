@@ -2,6 +2,7 @@
 
 - Use Deno for every command and keep this app a standalone consumer of the built SDK through its `file:../../sdk` dependency.
 - Keep the host app on plain CSS with no Tailwind or shadcn/ui so it continues to demonstrate the SDK shadow-root boundary.
+- Keep Todos and Users in one shared layout with a persistent assistant and appearance controls. Keep TodosPage and UsersPage separate. If a Conversations page is added, give it a separate component. Customize SDK styling through existing props in this app, and change the SDK only when an additional prop is needed.
 - Use plain data and helper functions with explicit options objects for application logic. Do not use classes or closure-based state factories.
 - Keep TanStack page and server entries under `src/routes`. Route files should select or compose components rather than accumulating unrelated application logic.
 - Keep reusable UI one component per file under `src/components` and reusable browser subscriptions under `src/hooks`.

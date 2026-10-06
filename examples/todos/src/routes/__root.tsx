@@ -1,6 +1,7 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
+import { AppShell } from "@/components/app-shell.tsx"
 import { APP_NAME } from "@/lib/config.ts"
 import appCss from "../styles.css?url"
 
@@ -13,6 +14,7 @@ export const Route = createRootRoute({
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
+  component: AppShell,
   shellComponent: RootDocument,
 })
 

@@ -23,6 +23,7 @@ const decodeRestCursorPayload = Schema.decodeUnknownEffect(
       binding: Schema.String,
       id: ApiUuidSchema,
       updatedAt: Schema.optional(Schema.String),
+      tenantId: Schema.optional(ApiUuidSchema),
     }),
   ),
   { onExcessProperty: "error" },
@@ -125,7 +126,11 @@ export const decodeRestCursor = Effect.fn("decodeRestCursor")(function* (
   }
   if (input.collection === "chat_threads" && !decoded.updatedAt)
     return yield* new RestInvalidCursor()
-  return { id: decoded.id, ...(decoded.updatedAt ? { updatedAt: decoded.updatedAt } : {}) }
+  return {
+    id: decoded.id,
+    ...(decoded.updatedAt ? { updatedAt: decoded.updatedAt } : {}),
+    ...(decoded.tenantId ? { tenantId: decoded.tenantId } : {}),
+  }
 })
 
 export const restPageOptions = Effect.fn("restPageOptions")(function* (

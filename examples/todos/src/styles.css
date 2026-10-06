@@ -20,10 +20,6 @@ body {
 }
 
 .app {
-  height: 100vh;
-}
-
-.app {
   --fg: #3d2f1e;
   --bg: #faf6ef;
   --border: #c9b892;
@@ -32,7 +28,6 @@ body {
   --field: #fff;
   --card: #fdf9f0;
   --highlight: #b4762a;
-  display: flex;
   background: var(--bg);
   color: var(--fg);
   color-scheme: light;
@@ -51,6 +46,11 @@ body {
   color-scheme: dark;
 }
 
+.app {
+  display: flex;
+  height: 100dvh;
+}
+
 .todos {
   flex: 1;
   min-width: 0;
@@ -59,93 +59,142 @@ body {
 }
 
 .todos-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.todos-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+.todos-header nav {
+  gap: 0.25rem;
+}
+
+.todos-header nav a {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+}
+
+.todos-header nav a:hover,
+.todos-header nav a.active {
+  background: var(--surface);
+}
+
+.todos-header h1,
+.todos-header p {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 .todos-header h1 {
-  margin: 0 0 1rem;
   font-size: 2.25rem;
 }
 
-.directories {
+.todos-header p,
+.app-name {
+  opacity: 0.75;
+}
+
+.app-name {
+  font-size: 0.875rem;
+}
+
+.todos-actions,
+.listing-toolbar,
+.todos-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.todos-actions {
+  margin-bottom: 1.5rem;
+}
+
+.page-content {
   display: grid;
   align-content: start;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
-.directories .todos-header nav {
-  margin-bottom: 1rem;
-}
-
-.directories .todos-header h1,
-.directories > p,
-.directories .todos-actions {
-  margin: 0;
-}
-
-.directories > label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.directories > label input {
-  margin: 0;
+.todos button,
+.todos input[type="search"],
+.todos-form input {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
 }
 
 .todos button {
-  padding: 0.5rem 1rem;
-  border: 2px solid var(--fg);
-  border-radius: 999px;
+  cursor: pointer;
   background: var(--surface);
-  color: inherit;
-  font: inherit;
-  font-size: 0.9rem;
+}
+
+.todos :is(input, button, a):focus {
+  border-color: var(--highlight);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight) 50%, transparent);
 }
 
 .todos button:hover {
   background: var(--surface-hover);
 }
 
-.todos-form {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+.todos input[type="search"] {
+  width: min(100%, 18rem);
 }
 
 .todos-form input {
   flex: 1;
   min-width: 0;
-  padding: 0.5rem 0.75rem;
-  border: 2px solid var(--border);
-  border-radius: 6px;
-  background: var(--field);
-  font: inherit;
+}
+
+.listing-table {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
 }
 
 .todos-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
 }
 
-.todos-list li {
-  padding: 0.75rem 0.25rem;
-  border-bottom: 1px dotted var(--border);
+.todos-list th,
+.todos-list td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.todos-list th {
+  height: 3rem;
+  font-weight: 500;
+}
+
+.todos-list th:last-child {
+  width: 8rem;
+}
+
+.todos-list tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.todos-list tbody tr:hover {
+  background: var(--surface);
 }
 
 .todos-list label,
+.admin-toggle,
 .todo-card-row {
   display: flex;
   align-items: center;
@@ -153,16 +202,71 @@ body {
   cursor: pointer;
 }
 
+.admin-toggle {
+  font-size: 0.875rem;
+}
+
+.todo-status {
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
 .todo-done {
   text-decoration: line-through;
   opacity: 0.55;
 }
 
+.listing-empty {
+  height: 8rem;
+  text-align: center;
+}
+
 .chat-sidebar {
   width: 380px;
   flex-shrink: 0;
+  min-width: 0;
   height: 100%;
-  border-left: 2px solid var(--border);
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+}
+
+.directory-error {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .app {
+    height: auto;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
+
+  .todos {
+    overflow: visible;
+  }
+
+  .chat-sidebar {
+    width: 100%;
+    height: min(42rem, 80dvh);
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 600px) {
+  .todos-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-name {
+    display: none;
+  }
+
+  .todos input[type="search"] {
+    width: 100%;
+  }
 }
 
 /* The todo representation that the chat widget projects into the conversation. */

@@ -2,15 +2,25 @@ import { Effect } from "effect"
 
 export interface DatabasePageOptions {
   readonly pageSize?: number | undefined
-  readonly position?: { readonly id: string; readonly updatedAt?: string } | undefined
+  readonly position?:
+    | { readonly id: string; readonly updatedAt?: string; readonly tenantId?: string }
+    | undefined
   readonly backward?: boolean | undefined
 }
 
 export interface DatabasePage<T> {
   readonly items: T[]
-  readonly nextPosition: { readonly id: string; readonly updatedAt?: string } | null
+  readonly nextPosition: {
+    readonly id: string
+    readonly updatedAt?: string
+    readonly tenantId?: string
+  } | null
   /** Null means no page in the opposite direction. */
-  readonly previousPosition: { readonly id: string; readonly updatedAt?: string } | null
+  readonly previousPosition: {
+    readonly id: string
+    readonly updatedAt?: string
+    readonly tenantId?: string
+  } | null
 }
 
 /**

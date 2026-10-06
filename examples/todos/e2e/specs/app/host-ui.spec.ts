@@ -1,17 +1,35 @@
 import { expect, test } from "../../fixtures.ts"
+import { captureMoment } from "../../capture.ts"
+
+test("the assistant and appearance persist across all example pages", async ({
+  todos,
+  chat,
+  page,
+}) => {
+  await chat.waitForReady()
+  await todos.search.fill("launch")
+  await expect(todos.items()).toHaveCount(1)
+  await todos.search.fill("")
+  await todos.cycleTheme()
+  await chat.composer().fill("Keep this draft while browsing")
+  for (const name of ["Users", "Todos"] as const) {
+    await todos.navigate(name)
+    await expect(page.getByRole("heading", { name, level: 1, exact: true })).toBeVisible()
+    await expect(chat.composer()).toHaveValue("Keep this draft while browsing")
+    await expect(todos.controls.theme).toHaveText("Theme: light")
+    await captureMoment(page, `shared-assistant-${name.toLowerCase().replaceAll(" ", "-")}`)
+  }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await todos.navigate("Users")
+  await expect(chat.composer()).toHaveValue("Keep this draft while browsing")
+  await expect(page.locator(".app")).toHaveJSProperty("scrollWidth", 390)
+  await captureMoment(page, "shared-assistant-mobile")
+})
 
 /**
  * The host application and the widget's chrome, with no model involved. Everything asserted here
  * is deterministic, so a failure is a real regression rather than an unlucky reply.
  */
-
-test("renders the example's starting todos", async ({ todos }) => {
-  await expect(todos.items()).toHaveCount(3)
-  await expect(todos.item("Write the launch announcement")).toBeVisible()
-  // The third starting todo ships completed, which is what makes the checkbox state meaningful.
-  await expect(todos.checkbox("Book the offsite venue")).toBeChecked()
-  await expect(todos.checkbox("Write the launch announcement")).not.toBeChecked()
-})
 
 test("added todos and completion survive reload", async ({ todos, page }) => {
   await todos.add("Water the plants")
@@ -51,17 +69,6 @@ test("one theme control retunes the app and the widget together", async ({ todos
   await expect(chat.composer()).toBeVisible()
 })
 
-test("the custom theme prop can be toggled without unmounting the widget", async ({
-  todos,
-  chat,
-}) => {
-  await chat.waitForReady()
-  await expect(todos.controls.customTheme).toHaveText("Custom theme: on")
-  await todos.toggleCustomTheme()
-  await expect(todos.controls.customTheme).toHaveText("Custom theme: off")
-  await expect(chat.composer()).toBeVisible()
-})
-
 test("hiding the assistant unmounts the widget and showing it mounts a new one", async ({
   todos,
   chat,
@@ -74,12 +81,6 @@ test("hiding the assistant unmounts the widget and showing it mounts a new one",
   await todos.toggleAssistant()
   await expect(todos.controls.assistant).toHaveText("Hide assistant")
   await chat.waitForReady()
-})
-
-test("the debug switch reports its state", async ({ todos }) => {
-  await expect(todos.controls.debug).toHaveText("Debug: off")
-  await todos.toggleDebug()
-  await expect(todos.controls.debug).toHaveText("Debug: on")
 })
 
 test("a tap beside the text focuses the message input", async ({ chat }) => {
