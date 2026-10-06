@@ -30,17 +30,20 @@ export function ThreadDirectoryPage({
         id: "participants",
         header: "Participants",
         cell: ({ row }) => (
-          <div className="min-w-40 max-w-64 space-y-2">
+          <div className="min-w-0 max-w-64 space-y-2 @4xl/directory:min-w-40">
             {row.original.participants.length === 0
               ? "No participants"
               : row.original.participants.map((participant) => (
                   <div key={participant.external_id}>
-                    <div className="truncate" title={participant.name || participant.external_id}>
+                    <div
+                      className="line-clamp-3 whitespace-normal [overflow-wrap:anywhere]"
+                      title={participant.name || participant.external_id}
+                    >
                       {participant.name || participant.external_id}
                     </div>
                     {participant.name && (
                       <div
-                        className="truncate font-mono text-xs text-muted-foreground"
+                        className="line-clamp-3 break-all font-mono text-xs text-muted-foreground"
                         title={participant.external_id}
                       >
                         {participant.external_id}
@@ -57,7 +60,7 @@ export function ThreadDirectoryPage({
         cell: ({ row }) => (
           <Button
             variant="link"
-            className="h-auto min-w-48 max-w-96 justify-start p-0 text-start whitespace-normal break-words"
+            className="h-auto min-w-0 max-w-full @4xl/directory:min-w-48 @4xl/directory:max-w-96 justify-start p-0 text-start whitespace-normal break-words"
             onClick={() => setSelected(row.original)}
           >
             {row.original.title || "Untitled conversation"}
@@ -69,7 +72,7 @@ export function ThreadDirectoryPage({
         header: "Last activity",
         cell: ({ row }) => (
           <time
-            className="whitespace-nowrap text-muted-foreground"
+            className="text-muted-foreground"
             dateTime={row.original.updated_at}
             title={row.original.updated_at}
           >

@@ -33,7 +33,6 @@ export function DirectoryTable({
   options: Options
   filtered: boolean
 }) {
-  const tableId = useId()
   const { onTenantSelect, onTenantUserSelect, showAdmin } = options
   const columns = useMemo<ColumnDef<typeof features, RecordRow>[]>(
     () => [
@@ -176,6 +175,7 @@ export function ListingTable<T extends { id: string }>({
   emptyText: string
   getRowId?: (row: T) => string
 }) {
+  const tableId = useId()
   const table = useTable({
     features,
     data: rows,
@@ -217,19 +217,21 @@ export function ListingTable<T extends { id: string }>({
                 role="cell"
                 headers={`${tableId}-${cell.column.id}`}
                 className={
-                  cell.column.id === "name"
+                  cell.column.id === "name" || cell.column.id === "title"
                     ? "order-first block min-w-0 font-medium whitespace-normal @4xl/directory:table-cell @4xl/directory:font-normal"
                     : "block min-w-0 whitespace-normal @4xl/directory:table-cell"
                 }
               >
-                {cell.column.id !== "name" && cell.column.id !== "actions" && (
-                  <span
-                    aria-hidden
-                    className="mb-1 block text-xs font-medium text-muted-foreground @4xl/directory:hidden"
-                  >
-                    {cell.column.columnDef.header as string}
-                  </span>
-                )}
+                {cell.column.id !== "name" &&
+                  cell.column.id !== "title" &&
+                  cell.column.id !== "actions" && (
+                    <span
+                      aria-hidden
+                      className="mb-1 block text-xs font-medium text-muted-foreground @4xl/directory:hidden"
+                    >
+                      {cell.column.columnDef.header as string}
+                    </span>
+                  )}
                 <table.FlexRender cell={cell} />
               </TableCell>
             ))}

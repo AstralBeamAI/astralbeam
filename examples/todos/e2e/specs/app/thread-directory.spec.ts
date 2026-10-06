@@ -160,9 +160,12 @@ test("React conversation directory reads saved pages, uploads and decisions with
   await directory.back.click()
   await directory.search.fill("missing")
   await expect(directory.directory).toContainText("No conversations match your filters")
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize({ width: 320, height: 844 })
   await directory.search.fill("")
   await expect(directory.conversation(savedThread.title)).toBeVisible()
+  expect(
+    await directory.directory.evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true)
   await captureMoment(page, "conversation-directory-mobile")
   hasConversations = false
   await directory.refresh.click()
