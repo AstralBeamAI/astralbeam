@@ -3,7 +3,7 @@ import { useState } from "react"
 import type { AstralBeamChatColorScheme } from "@astralbeam/sdk/react"
 
 import { TodosAssistant } from "@/components/todos-assistant.tsx"
-import { AppearanceContext } from "@/hooks/use-appearance.ts"
+import { AppearanceContext } from "@/lib/appearance.ts"
 import { toggleDebug, useDebug } from "@/hooks/use-debug.ts"
 import { useSystemDark } from "@/hooks/use-system-dark.ts"
 import { APP_NAME } from "@/lib/config.ts"

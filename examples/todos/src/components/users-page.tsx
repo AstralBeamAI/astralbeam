@@ -1,12 +1,12 @@
-import { useState } from "react"
+import { useContext, useState } from "react"
 import { AstralBeamTenantUserList } from "@astralbeam/sdk/react"
 import { ASTRALBEAM_API_URL } from "@/lib/config.ts"
 import { WIDGET_THEME } from "@/lib/constants.ts"
-import { useAppearance } from "@/hooks/use-appearance.ts"
+import { AppearanceContext } from "@/lib/appearance.ts"
 import directoryCss from "./directory.css?inline"
 
-export function DirectoryPage() {
-  const { colorScheme, customTheme } = useAppearance()
+export function UsersPage() {
+  const { colorScheme, customTheme } = useContext(AppearanceContext)
   const [showAdmin, setShowAdmin] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   return (
