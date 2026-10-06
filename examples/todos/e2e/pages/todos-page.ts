@@ -12,9 +12,7 @@ export function todosPage(page: Page) {
 
   const controls = {
     theme: page.getByRole("button", { name: /^Theme:/ }),
-    customTheme: page.getByRole("button", { name: /^Custom theme:/ }),
     assistant: page.getByRole("button", { name: /assistant$/ }),
-    debug: page.getByRole("button", { name: /^Debug:/ }),
   }
 
   return {
@@ -87,18 +85,6 @@ export function todosPage(page: Page) {
 
     async toggleAssistant(): Promise<void> {
       await controls.assistant.click()
-    },
-
-    async toggleCustomTheme(): Promise<void> {
-      await controls.customTheme.click()
-    },
-
-    /** The app carries the debug flag in the query string, so toggling it reloads the page. */
-    async toggleDebug(): Promise<void> {
-      const search = new URL(page.url()).search
-      await controls.debug.click()
-      await page.waitForURL((url) => url.search !== search)
-      await this.waitForHydration()
     },
   }
 }

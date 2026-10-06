@@ -137,6 +137,12 @@ body {
   background: var(--surface);
 }
 
+.todos :is(input, button, a):focus {
+  border-color: var(--highlight);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight) 50%, transparent);
+}
+
 .todos button:hover {
   background: var(--surface-hover);
 }

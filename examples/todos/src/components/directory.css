@@ -1,5 +1,7 @@
 [data-slot="directory"] {
   gap: 1rem;
+  height: auto;
+  overflow: visible;
 }
 
 [data-slot="directory-toolbar"] {
@@ -22,11 +24,6 @@
 [data-slot="directory-toolbar"] [data-slot="native-select"] {
   background: var(--card);
   border-color: var(--border);
-  box-shadow: none;
-}
-
-[data-slot="directory-toolbar"] [data-slot="native-select"]:focus-visible {
-  border-color: var(--ring);
 }
 
 [data-slot="directory-table"] {
@@ -43,4 +40,57 @@
   height: 3rem;
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+[data-slot="directory"] :is(input, button, select):focus,
+[data-slot="native-select"]:open {
+  border-color: var(--ring);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+}
+
+/* Keep the native select while theming its popup where customizable selects are supported.
+   https://developer.chrome.com/blog/a-customizable-select */
+@supports (appearance: base-select) {
+  [data-slot="native-select"],
+  [data-slot="native-select"]::picker(select) {
+    appearance: base-select;
+  }
+
+  [data-slot="native-select"] {
+    align-items: center;
+    min-width: 8rem;
+  }
+
+  [data-slot="native-select"]::picker-icon {
+    display: none;
+  }
+
+  [data-slot="native-select"]::picker(select) {
+    margin: 0.5rem 0 0;
+    width: anchor-size(width);
+    padding: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--card);
+    color: var(--card-foreground);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--foreground) 15%, transparent);
+    font: inherit;
+  }
+}
+
+[data-slot="native-select-option"]::checkmark {
+  display: none;
+}
+
+[data-slot="native-select-option"] {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+[data-slot="native-select-option"]:is(:checked, :hover, :focus-visible) {
+  background: var(--accent);
+  color: var(--accent-foreground);
 }

@@ -93,7 +93,7 @@ export function DirectoryTable({
         cell: ({ row }) => {
           const entries = Object.entries(row.original.metadata)
           return entries.length ? (
-            <dl className="min-w-32 max-w-72 space-y-1 text-xs">
+            <dl className="min-w-32 max-w-72 space-y-1 text-xs whitespace-normal">
               {entries.map(([key, value]) => (
                 <div key={key} className="flex gap-1">
                   <dt className="max-w-24 shrink-0 break-all text-muted-foreground">{key}:</dt>
