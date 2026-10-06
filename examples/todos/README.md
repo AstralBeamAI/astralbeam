@@ -23,7 +23,7 @@ The quickest path is `deno task --cwd platform db-seed`, which creates the `acme
 
 ## Try it
 
-- Open **Tenant users** (`/tenant-users`) to browse the current tenant's users. It shares the chat token endpoint and uses the SDK's default tenant scope. The demo user's signed admin claim permits reading and writing TenantUsers through the API, although the widget itself is read-only. It grants no access to other tenants or dashboard administration.
+- Open **Users** (`/tenant-users`) to browse the current tenant's users. It shares the chat token endpoint and uses the SDK's default tenant scope. The demo user's signed admin claim permits reading and writing TenantUsers through the API, although the widget itself is read-only. It grants no access to other tenants or dashboard administration.
 - Enable **Show stored admin fields** to reveal the optional column and filter. Metadata appears in its own column. The tenant comes from the signed JWT, with no tenant picker or organization token.
 - Toggle **Hide assistant**, **Theme**, and **Custom theme** to compare layout and palettes.
 - Ask the assistant to edit todos, then toggle a `TodoCard` inside the chat and confirm the host list updates.

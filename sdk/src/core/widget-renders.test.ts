@@ -155,7 +155,8 @@ test.each(["manager", "viewer"])(
   async (role) => {
     thread.role = role
     if (role === "viewer") savedMessages = savedWidget("card", "initial")
-    const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
+    const cleanup = vi.fn()
+    const onRenderWidget = vi.fn((_request: WidgetRenderRequest) => cleanup)
     const execute = vi.fn()
     const chat = createAstralBeamChat({
       fetchAstralBeamToken: chatAuthToken,
@@ -207,6 +208,10 @@ test.each(["manager", "viewer"])(
       await chat.loadOlderMessages()
       expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
       expect(execute).not.toHaveBeenCalled()
+      thread.role = "viewer"
+      await chat.refreshThread()
+      expect(cleanup).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
+      expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
     } finally {
       chat.dispose()
     }
