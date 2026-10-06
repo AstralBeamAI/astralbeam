@@ -1,0 +1,36 @@
+[data-slot="directory"] {
+  gap: 1rem;
+}
+
+[data-slot="directory-toolbar"] {
+  gap: 0.75rem;
+}
+
+[data-slot="directory-toolbar"] [data-slot="input"],
+[data-slot="directory-toolbar"] [data-slot="native-select"],
+[data-slot="directory-page-controls"] [data-slot="button"],
+[data-slot="directory-pagination"] [data-slot="button"] {
+  min-height: 2.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+[data-slot="directory-toolbar"] [data-slot="input"] {
+  background: var(--card);
+}
+
+[data-slot="directory-table"] {
+  border-color: var(--border);
+  border-radius: 0.5rem;
+}
+
+[data-slot="table-head"],
+[data-slot="table-cell"] {
+  padding: 0.875rem 1rem;
+}
+
+[data-slot="table-head"] {
+  height: 3rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}

@@ -1,4 +1,30 @@
 import { expect, test } from "../../fixtures.ts"
+import { captureMoment } from "../../capture.ts"
+
+test("the assistant and appearance persist across all example pages", async ({
+  todos,
+  chat,
+  page,
+}) => {
+  await chat.waitForReady()
+  await todos.search.fill("launch")
+  await expect(todos.items()).toHaveCount(1)
+  await todos.search.fill("")
+  await todos.cycleTheme()
+  await chat.composer().fill("Keep this draft while browsing")
+  for (const name of ["Users", "Todos"] as const) {
+    await todos.navigate(name)
+    await expect(page.getByRole("heading", { name, level: 1, exact: true })).toBeVisible()
+    await expect(chat.composer()).toHaveValue("Keep this draft while browsing")
+    await expect(todos.controls.theme).toHaveText("Theme: light")
+    await captureMoment(page, `shared-assistant-${name.toLowerCase().replaceAll(" ", "-")}`)
+  }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await todos.navigate("Users")
+  await expect(chat.composer()).toHaveValue("Keep this draft while browsing")
+  await expect(page.locator(".app")).toHaveJSProperty("scrollWidth", 390)
+  await captureMoment(page, "shared-assistant-mobile")
+})
 
 /**
  * The host application and the widget's chrome, with no model involved. Everything asserted here

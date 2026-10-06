@@ -4,7 +4,7 @@ import { platformUrl } from "../worktree.ts"
 
 export function directoriesPage(page: Page) {
   const tenants = page.getByRole("region", { name: "Tenants", exact: true })
-  const users = page.getByRole("region", { name: "Tenant users", exact: true })
+  const users = page.getByRole("region", { name: /^(Users|Tenant users)$/ })
   return {
     tenants,
     users,

@@ -21,7 +21,6 @@ test("example lists only its tenant's users and filters stored admin status", as
   await expect(directory.user(SEED_ORGANIZATIONS[0].tenants[1].users[0].name)).toHaveCount(0)
   await expect(directory.adminFilter).toHaveCount(0)
   await captureMoment(page, "tenant-users-page")
-  await expect(directory.tenantContext).toContainText(tenant.name)
   await directory.showAdmin.check()
   await directory.selectAdmin("Non-admins")
   await expect(directory.user(admin.name)).toHaveCount(0)

@@ -1,47 +1,71 @@
-import type { AstralBeamChatColorScheme } from "@astralbeam/sdk/react"
-import { Link } from "@tanstack/react-router"
-
 import type { Todo } from "@/lib/types.ts"
 
 interface TodoListProps {
-  chatOpen: boolean
-  colorScheme: AstralBeamChatColorScheme
-  customTheme: boolean
-  debug: boolean
   draft: string
+  search: string
   todos: Todo[]
   onAddTodo: () => void
   onChangeDraft: (draft: string) => void
-  onCycleColorScheme: () => void
-  onToggleChat: () => void
-  onToggleCustomTheme: () => void
-  onToggleDebug: () => void
+  onSearch: (search: string) => void
   onToggleTodo: (id: number) => void
 }
 
 export function TodoList({
-  chatOpen,
-  colorScheme,
-  customTheme,
-  debug,
   draft,
+  search,
   todos,
   onAddTodo,
   onChangeDraft,
-  onCycleColorScheme,
-  onToggleChat,
-  onToggleCustomTheme,
-  onToggleDebug,
+  onSearch,
   onToggleTodo,
 }: TodoListProps) {
   return (
-    <main className="todos">
-      <header className="todos-header">
-        <h1>Todos</h1>
-        <nav aria-label="Example pages">
-          <Link to="/tenant-users">Tenant users</Link>
-        </nav>
-      </header>
+    <section className="page-content">
+      <div className="listing-toolbar">
+        <input
+          type="search"
+          aria-label="Search todos"
+          placeholder="Search todos…"
+          value={search}
+          onChange={(event) => onSearch(event.currentTarget.value)}
+        />
+      </div>
+      <div className="listing-table">
+        <table className="todos-list">
+          <thead>
+            <tr>
+              <th>Todo</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {todos.map((todo) => (
+              <tr key={todo.id}>
+                <td>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={todo.completed}
+                      onChange={() => onToggleTodo(todo.id)}
+                    />
+                    <span className={todo.completed ? "todo-done" : ""}>{todo.text}</span>
+                  </label>
+                </td>
+                <td>
+                  <span className="todo-status">{todo.completed ? "Completed" : "Pending"}</span>
+                </td>
+              </tr>
+            ))}
+            {!todos.length && (
+              <tr>
+                <td colSpan={2} className="listing-empty">
+                  No todos match your search.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <form
         className="todos-form"
         onSubmit={(event) => {
@@ -57,34 +81,6 @@ export function TodoList({
         />
         <button type="submit">Add</button>
       </form>
-      <ul className="todos-list">
-        {todos.map((todo) => (
-          <li key={todo.id}>
-            <label>
-              <input
-                type="checkbox"
-                checked={todo.completed}
-                onChange={() => onToggleTodo(todo.id)}
-              />
-              <span className={todo.completed ? "todo-done" : ""}>{todo.text}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      <div className="todos-actions">
-        <button type="button" onClick={onCycleColorScheme}>
-          Theme: {colorScheme}
-        </button>
-        <button type="button" onClick={onToggleCustomTheme}>
-          Custom theme: {customTheme ? "on" : "off"}
-        </button>
-        <button type="button" onClick={onToggleChat}>
-          {chatOpen ? "Hide assistant" : "Show assistant"}
-        </button>
-        <button type="button" onClick={onToggleDebug}>
-          Debug: {debug ? "on" : "off"}
-        </button>
-      </div>
-    </main>
+    </section>
   )
 }
