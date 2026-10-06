@@ -432,6 +432,56 @@ for (const status of [503, 403]) {
   })
 }
 
+for (const status of [401, 403, 404]) {
+  test(`attachment denial ${status} hides cached administrative history`, async ({ page }) => {
+    const directory = threadDirectoryPage(page)
+    await page.route("**/api/v1/threads?*", (route) =>
+      route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
+    )
+    await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) =>
+      route.fulfill({
+        json: {
+          thread: savedThread,
+          messages: [
+            {
+              id: "input",
+              role: "user",
+              state: "complete",
+              parts: [
+                { id: "text", type: "text", content: "Private saved context" },
+                {
+                  id: "upload",
+                  type: "document",
+                  source: { type: "attachment", mimeType: "text/plain" },
+                  metadata: { filename: "support-notes.txt" },
+                },
+              ],
+            },
+          ],
+          page_after: null,
+          page_before: null,
+        },
+      }),
+    )
+    await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) =>
+      route.fulfill({
+        status,
+        json: { type: "about:blank", title: "Access denied", status, detail: "Access denied" },
+      }),
+    )
+    await directory.openReact()
+    await directory.conversation(savedThread.title).click()
+    await expect(directory.transcript).toContainText("Private saved context")
+    await directory.transcript.getByRole("button", { name: "Download support-notes.txt" }).click()
+    await expect(directory.transcript.getByRole("alert")).toContainText("Access denied")
+    await expect(directory.messages).toHaveCount(0)
+    await expect(directory.transcript).not.toContainText("Private saved context")
+    await directory.transcript.getByRole("button", { name: "Retry", exact: true }).click()
+    await expect(directory.transcript).toContainText("Private saved context")
+    await expect(directory.transcript.getByRole("alert")).toHaveCount(0)
+  })
+}
+
 test("refresh preserves saved image previews without downloading again", async ({ page }) => {
   const directory = threadDirectoryPage(page)
   const thread = savedThread

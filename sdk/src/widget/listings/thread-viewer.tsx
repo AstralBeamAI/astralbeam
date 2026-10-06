@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type ComponentType } from "react"
+import { useCallback, useMemo, useState, type ComponentType } from "react"
 import { parsePartialJSON } from "@tanstack/ai-client"
 import { useInfiniteQuery } from "@tanstack/react-query"
 import { ArrowLeftIcon } from "@phosphor-icons/react"
@@ -27,6 +27,7 @@ export function ThreadViewer({
   ErrorFeedback: ComponentType<{ error: Error; retry: () => void }>
   LoadingFeedback: ComponentType
 }) {
+  const [attachmentError, setAttachmentError] = useState<Error | null>(null)
   const query = useInfiniteQuery({
     queryKey: ["directory-history", thread.tenant_id, thread.id],
     initialPageParam: undefined as string | undefined,
@@ -35,15 +36,22 @@ export function ThreadViewer({
     getNextPageParam: (page) => page.page_after ?? undefined,
   })
   const getAttachment = useCallback(
-    (messageId: string, partId: string) =>
-      loadDirectoryThreadAttachment(
-        session,
-        thread.tenant_id,
-        thread.id,
-        messageId,
-        partId,
-        session.abortController.signal,
-      ),
+    async (messageId: string, partId: string) => {
+      try {
+        return await loadDirectoryThreadAttachment(
+          session,
+          thread.tenant_id,
+          thread.id,
+          messageId,
+          partId,
+          session.abortController.signal,
+        )
+      } catch (error) {
+        if (isAstralBeamApiError(error) && [401, 403, 404].includes(error.status))
+          setAttachmentError(error)
+        throw error
+      }
+    },
     [session, thread.tenant_id, thread.id],
   )
   const messages = useMemo(() => {
@@ -60,8 +68,8 @@ export function ThreadViewer({
     }
     return projected
   }, [query.data])
-  const inaccessible =
-    isAstralBeamApiError(query.error) && [401, 403, 404].includes(query.error.status)
+  const error = attachmentError ?? query.error
+  const inaccessible = isAstralBeamApiError(error) && [401, 403, 404].includes(error.status)
   const latest = query.data?.pages[0]?.thread ?? thread
   return (
     <section
@@ -79,10 +87,18 @@ export function ThreadViewer({
           <p className="text-sm text-muted-foreground">Saved conversation · Read only</p>
         </div>
       </header>
-      {query.isError && (
+      {error && (
         <ErrorFeedback
-          error={query.error}
-          retry={() => void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())}
+          error={error}
+          retry={() => {
+            void (
+              attachmentError || !query.isFetchNextPageError
+                ? query.refetch()
+                : query.fetchNextPage()
+            ).then((result) => {
+              if (result.isSuccess) setAttachmentError(null)
+            })
+          }}
         />
       )}
       {query.isPending ? (
