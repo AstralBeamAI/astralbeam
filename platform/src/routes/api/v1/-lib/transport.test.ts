@@ -1697,7 +1697,12 @@ describe("REST API through the Effect Fetch handler", () => {
 })
 
 describe("administrative conversation reads", () => {
-  const directoryThread = { ...restThread, tenantName: "Customer", tenantExternalId: "customer" }
+  const directoryThread = {
+    ...restThread,
+    tenantName: "Customer",
+    tenantExternalId: "customer",
+    participants: [{ name: "Customer user", externalId: "customer-user" }],
+  }
   const paths = `/tenants/${restTenantId}/threads/${restOtherId}`
   const organizationJwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
   const tenantJwt = `${btoa(JSON.stringify({ typ: "astralbeam+jwt" }))}.e30.c2ln`
@@ -1751,6 +1756,9 @@ describe("administrative conversation reads", () => {
       const list = await restRequest("/threads", { headers })
       expect(list.status).toBe(200)
       const body = (await list.json()) as { items: Record<string, unknown>[] }
+      expect(body.items[0]!.participants).toEqual([
+        { name: "Customer user", external_id: "customer-user" },
+      ])
       expect(body.items[0]).toMatchObject({
         tenant_id: restTenantId,
         tenant_external_id: "customer",

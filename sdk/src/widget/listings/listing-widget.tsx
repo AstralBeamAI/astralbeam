@@ -202,7 +202,6 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           tenantId={tenantId}
           q={q}
           size={size}
-          showTenant={scope === "organization"}
         />
       ) : (
         <DirectoryPage

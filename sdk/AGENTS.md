@@ -100,7 +100,7 @@ Verify embedded directories through the existing consumer examples and their bro
 - Use TanStack Table's built-in state and APIs for supported table behavior instead of parallel React state. Keep opaque API cursors outside page-index pagination.
 - Directory pagination caps rendering at 100 records, so virtualization is unnecessary.
 - Display metadata in its directory column or labeled field in stacked records. Tenant and TenantUser names do not expand duplicate metadata details.
-- Display customer-provided external IDs as the first table column labeled "ID" in Tenant and TenantUser directories. Conversation directories show titles, Tenant labels, and activity because threads have no external IDs. Do not display AstralBeam's internal record or tenant UUIDs.
+- Display customer-provided external IDs as the first table column labeled "ID" in Tenant and TenantUser directories. Conversation directories show participants, titles, and activity because threads have no external IDs. Do not display AstralBeam's internal record or tenant UUIDs.
 - Base directory layouts on container width so they work on mobile and inside chat. Stack records with names first and labeled fields at narrow widths, wrapping identifiers and metadata without horizontal scrolling, with ellipsis allowed for unusually long content. Keep search inputs and tenant pickers within that same container.
 - Keep host-specific directory styling in consumer props (`theme` and `customCss`). Preserve SDK defaults and expose stable `data-slot` hooks instead of importing a consumer's design preferences into widget primitives.
 

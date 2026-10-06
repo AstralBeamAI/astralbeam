@@ -147,6 +147,7 @@ const handle = mountAstralBeamThreadList(element, {
 })
 ```
 
+- Rows show participants, conversation titles and last activity. Participant names fall back to external IDs.
 - Search matches literal title text, ordered by last activity. Open a title to read metadata, saved messages and uploads, load earlier messages, or refresh the saved view.
 - Tools and widgets show stored information without repeating actions or accepting answers. Partial output does not confirm that generation is running. Administrative reads grant no participant permissions.
 - Organization scope requires a selected Tenant, like the user directory. Clearing it clears the list. Use `tenantId` or `tenantExternalId` to pin a Tenant.

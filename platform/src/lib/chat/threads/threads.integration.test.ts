@@ -162,6 +162,14 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   })
 
   test("administrative activity pages order equal timestamps across Tenants and search literal titles", async () => {
+    await db
+      .update(tenantUser)
+      .set({ name: "Local participant" })
+      .where(eq(tenantUser.id, scope.tenantUserId))
+    await db
+      .update(tenantUser)
+      .set({ name: "Foreign participant" })
+      .where(eq(tenantUser.id, foreign.tenantUserId))
     const ids = [] as { id: string; tenantId: string }[]
     await create()
     for (const current of [scope, foreign]) {
@@ -192,6 +200,13 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(previous.items.map((row) => row.id)).toEqual([expected[0]])
     const all = await runtime.runPromise(service.directoryList({ scope: input.scope }))
     expect(all.items.map((row) => row.id)).toEqual(expected)
+    for (const row of all.items)
+      expect(row.participants).toEqual([
+        {
+          name: row.tenantId === scope.tenantId ? "Local participant" : "Foreign participant",
+          externalId: "same",
+        },
+      ])
     expect(
       (await runtime.runPromise(service.directoryList({ scope: input.scope, search: "50%_" })))
         .items,

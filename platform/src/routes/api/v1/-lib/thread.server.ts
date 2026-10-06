@@ -31,6 +31,11 @@ const directoryThreadRecord = Schema.Struct({
   tenantId: ApiUuidSchema,
   tenantName: Schema.NullOr(Schema.String),
   tenantExternalId: Schema.String,
+  participants: Schema.Array(
+    Schema.Struct({ name: Schema.NullOr(Schema.String), externalId: Schema.String }).pipe(
+      Schema.encodeKeys({ externalId: "external_id" }),
+    ),
+  ),
   title: Schema.NullOr(Schema.String),
   agentId: Schema.NullOr(Schema.String),
   createdAt: directoryThreadDate,
@@ -121,6 +126,7 @@ function directoryThreadResource(row: DirectoryThreadRecord) {
     tenantId: row.tenantId,
     tenantName: row.tenantName,
     tenantExternalId: row.tenantExternalId,
+    participants: row.participants,
     title: row.title,
     agentId: row.agentId === null ? null : `agent_${row.organizationId}_${row.agentId}`,
     createdAt: row.createdAt,

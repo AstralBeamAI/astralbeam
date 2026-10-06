@@ -380,11 +380,17 @@ export interface ChatMessageEncoded {
   created_at: string
 }
 
+export type DirectoryThreadEncodedParticipantsItem = {
+  name: string | null
+  external_id: string
+}
+
 export interface DirectoryThreadEncoded {
   id: string
   tenant_id: string
   tenant_name: string | null
   tenant_external_id: string
+  participants: DirectoryThreadEncodedParticipantsItem[]
   title: string | null
   agent_id: string | null
   created_at: string

@@ -12,13 +12,11 @@ export function ThreadDirectoryPage({
   tenantId,
   q,
   size,
-  showTenant,
 }: {
   session: ListingSession
   tenantId: string | undefined
   q: string
   size: number
-  showTenant: boolean
 }) {
   const [cursor, setCursor] = useState<{ page_after?: string; page_before?: string }>({})
   const [selected, setSelected] = useState<DirectoryThreadEncoded | null>(null)
@@ -28,30 +26,31 @@ export function ThreadDirectoryPage({
   })
   const columns = useMemo<DirectoryColumns<DirectoryThreadEncoded>>(
     () => [
-      ...(showTenant
-        ? [
-            {
-              id: "tenant",
-              header: "Tenant",
-              cell: ({ row }: { row: { original: DirectoryThreadEncoded } }) => (
-                <div className="min-w-40 max-w-64">
-                  <div
-                    className="truncate"
-                    title={row.original.tenant_name ?? row.original.tenant_external_id}
-                  >
-                    {row.original.tenant_name || row.original.tenant_external_id}
+      {
+        id: "participants",
+        header: "Participants",
+        cell: ({ row }) => (
+          <div className="min-w-40 max-w-64 space-y-2">
+            {row.original.participants.length === 0
+              ? "No participants"
+              : row.original.participants.map((participant) => (
+                  <div key={participant.external_id}>
+                    <div className="truncate" title={participant.name || participant.external_id}>
+                      {participant.name || participant.external_id}
+                    </div>
+                    {participant.name && (
+                      <div
+                        className="truncate font-mono text-xs text-muted-foreground"
+                        title={participant.external_id}
+                      >
+                        {participant.external_id}
+                      </div>
+                    )}
                   </div>
-                  <div
-                    className="truncate font-mono text-xs text-muted-foreground"
-                    title={row.original.tenant_external_id}
-                  >
-                    {row.original.tenant_external_id}
-                  </div>
-                </div>
-              ),
-            },
-          ]
-        : []),
+                ))}
+          </div>
+        ),
+      },
       {
         id: "title",
         header: "Conversation",
@@ -79,7 +78,7 @@ export function ThreadDirectoryPage({
         ),
       },
     ],
-    [showTenant],
+    [],
   )
   if (selected)
     return <ThreadViewer session={session} thread={selected} onClose={() => setSelected(null)} />

@@ -10277,6 +10277,32 @@
           "tenant_external_id": {
             "type": "string"
           },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "external_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "external_id"
+              ],
+              "additionalProperties": false
+            }
+          },
           "title": {
             "anyOf": [
               {
@@ -10311,6 +10337,7 @@
           "tenant_id",
           "tenant_name",
           "tenant_external_id",
+          "participants",
           "title",
           "agent_id",
           "created_at",

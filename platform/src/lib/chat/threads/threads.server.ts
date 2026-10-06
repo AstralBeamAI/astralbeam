@@ -77,6 +77,7 @@ export interface DirectoryThreadInput {
 export type DirectoryThreadRecord = typeof chatThread.$inferSelect & {
   tenantName: string | null
   tenantExternalId: string
+  participants: Pick<ParticipantRecord, "name" | "externalId">[]
 }
 type StoredMessageRecord = typeof chatMessage.$inferSelect
 export type MessageRecord = StoredMessageRecord & {
@@ -657,6 +658,17 @@ const directoryThreadColumns = {
   ...getTableColumns(chatThread),
   tenantName: tenant.name,
   tenantExternalId: tenant.externalId,
+  participants: sql<DirectoryThreadRecord["participants"]>`coalesce((
+    select json_agg(json_build_object('name', ${tenantUser.name}, 'externalId', ${tenantUser.externalId})
+      order by ${tenantUser.name} nulls last, ${tenantUser.externalId}, ${tenantUser.id})
+    from ${chatParticipant}
+    inner join ${tenantUser} on ${tenantUser.organizationId} = ${chatParticipant.organizationId}
+      and ${tenantUser.tenantId} = ${chatParticipant.tenantId}
+      and ${tenantUser.id} = ${chatParticipant.tenantUserId}
+    where ${chatParticipant.organizationId} = ${chatThread.organizationId}
+      and ${chatParticipant.tenantId} = ${chatThread.tenantId}
+      and ${chatParticipant.threadId} = ${chatThread.id}
+  ), '[]'::json)`,
 }
 const directoryTenantJoin = and(
   eq(tenant.organizationId, chatThread.organizationId),

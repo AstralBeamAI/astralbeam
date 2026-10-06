@@ -17,6 +17,10 @@ const savedThread = {
   title: "Support review",
   tenant_name: "Todos Example",
   tenant_external_id: "todos-tenant-1",
+  participants: [
+    { name: "Ada Example", external_id: "ada" },
+    { name: null, external_id: "guest" },
+  ],
   agent_id: null,
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-06T00:00:00Z",
@@ -114,6 +118,18 @@ test("React conversation directory reads saved pages, uploads and decisions with
     route.fulfill({ body: "Saved upload", contentType: "text/plain" }),
   )
   await directory.openReact()
+  await expect(
+    directory.directory.getByRole("columnheader", { name: "Participants", exact: true }),
+  ).toBeVisible()
+  await expect(
+    directory.directory.getByRole("columnheader", { name: "Tenant", exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    directory.directory.getByRole("row").filter({ hasText: savedThread.title }),
+  ).toContainText("Ada Example")
+  await expect(
+    directory.directory.getByRole("row").filter({ hasText: savedThread.title }),
+  ).toContainText("guest")
   await directory.conversation(savedThread.title).click()
   await expect(directory.transcript).toContainText("Saved partial response")
   await expect(directory.transcript.getByRole("textbox")).toHaveCount(0)
