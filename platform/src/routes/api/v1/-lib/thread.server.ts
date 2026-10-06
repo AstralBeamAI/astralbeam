@@ -12,6 +12,7 @@ import {
   restPageFields,
   restPageHeaders,
   restPageQuery,
+  restPaginationQuery,
   restResourceSecurity,
 } from "./shared.server"
 import { ApiUuidSchema } from "../../../../lib/tenants/schemas.ts"
@@ -51,15 +52,8 @@ const directoryThreadRecord = Schema.Struct({
     updatedAt: "updated_at",
   }),
 )
-const directoryPageQuery = Schema.Struct({
-  page_size: restPageQuery.fields.page_size,
-  page_after: restPageQuery.fields.page_after,
-  page_before: restPageQuery.fields.page_before,
-}).check(
-  Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
-)
 const directoryThreadQuery = Schema.Struct({
-  ...directoryPageQuery.fields,
+  ...restPaginationQuery.fields,
   q: restPageQuery.fields.q.annotate({
     description:
       "Case-insensitive literal substring of the conversation title. Trimmed, blank means no search.",
@@ -88,7 +82,7 @@ export const threadDirectoryApi = HttpApiGroup.make("threadDirectory", { topLeve
       ),
     HttpApiEndpoint.get("listThreadMessages", "/tenants/:tenantId/threads/:id/messages", {
       params: directoryThreadParams,
-      query: directoryPageQuery,
+      query: restPaginationQuery,
       success: HttpApiSchema.WithHeaders(
         Schema.Struct({
           messages: Schema.Array(chatMessageRecord),
@@ -181,12 +175,12 @@ export function threadDirectoryHandlers(api: typeof ApiV1) {
             { ...messages, items: messages.items.map(messageResource) },
             { ...options, scope: cursorScope, collection: "directory_messages", url: request.url },
           )
+          const { items, ...pagination } = response.body
           return HttpApiSchema.withHeaders({
             body: {
-              messages: response.body.items,
+              messages: items,
+              ...pagination,
               thread: directoryThreadResource(thread),
-              page_after: response.body.page_after,
-              page_before: response.body.page_before,
             },
             headers: response.headers,
           })

@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ComponentProps, type ComponentType } from "react"
 import { useQuery } from "@tanstack/react-query"
 import type { DirectoryThreadEncoded } from "../../api/generated/api.ts"
 import { loadThreadDirectory, type ListingSession } from "../../core/listings.ts"
 import { Button } from "../components/ui/button.tsx"
-import { ListingError, ListingLoading, PageNavigation } from "./listing-widget.tsx"
 import { ThreadViewer } from "./thread-viewer.tsx"
 import { ListingTable, type DirectoryColumns } from "./table.tsx"
 
@@ -12,12 +11,20 @@ export function ThreadDirectoryPage({
   tenantId,
   q,
   size,
+  ErrorFeedback,
+  LoadingFeedback,
+  Pagination,
 }: {
   session: ListingSession
   tenantId: string | undefined
   q: string
   size: number
-}) {
+  Pagination: ComponentType<{
+    page: { page_before: string | null; page_after: string | null } | undefined
+    busy: boolean
+    onPage: (cursor: { page_after?: string; page_before?: string }) => void
+  }>
+} & Pick<ComponentProps<typeof ThreadViewer>, "ErrorFeedback" | "LoadingFeedback">) {
   const [cursor, setCursor] = useState<{ page_after?: string; page_before?: string }>({})
   const [selected, setSelected] = useState<DirectoryThreadEncoded | null>(null)
   const query = useQuery({
@@ -84,13 +91,21 @@ export function ThreadDirectoryPage({
     [],
   )
   if (selected)
-    return <ThreadViewer session={session} thread={selected} onClose={() => setSelected(null)} />
+    return (
+      <ThreadViewer
+        session={session}
+        thread={selected}
+        onClose={() => setSelected(null)}
+        ErrorFeedback={ErrorFeedback}
+        LoadingFeedback={LoadingFeedback}
+      />
+    )
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
       {query.isError ? (
-        <ListingError error={query.error} retry={() => void query.refetch()} />
+        <ErrorFeedback error={query.error} retry={() => void query.refetch()} />
       ) : query.isPending ? (
-        <ListingLoading />
+        <LoadingFeedback />
       ) : (
         <div
           data-slot="directory-table"
@@ -105,7 +120,7 @@ export function ThreadDirectoryPage({
         </div>
       )}
       <div data-slot="directory-pagination">
-        <PageNavigation
+        <Pagination
           page={query.isError ? undefined : query.data}
           busy={query.isFetching}
           onPage={setCursor}

@@ -12,7 +12,12 @@ import {
 import { LockVersionSchema, NonEmptyStringSchema } from "../../../../../lib/schemas.ts"
 import { ApiUuidSchema, tenantUserEmail } from "../../../../../lib/tenants/schemas.ts"
 import type { ApiV1 } from "../../-lib/contract.server"
-import { restPageFields, restPageHeaders, restPageQuery } from "../../-lib/shared.server"
+import {
+  restPageFields,
+  restPageHeaders,
+  restPageQuery,
+  restPaginationQuery,
+} from "../../-lib/shared.server"
 import type {
   ThreadRecord,
   MessageRecord,
@@ -27,15 +32,8 @@ const threadDate = Schema.DateFromString.pipe(Schema.annotateEncoded({ format: "
 const threadTitle = NonEmptyStringSchema.check(Schema.isMaxLength(200))
 const threadParams = { id: ApiUuidSchema }
 const participantParams = { ...threadParams, tenantUserId: ApiUuidSchema }
-const threadPageQuery = Schema.Struct({
-  page_size: restPageQuery.fields.page_size,
-  page_after: restPageQuery.fields.page_after,
-  page_before: restPageQuery.fields.page_before,
-}).check(
-  Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
-)
 const threadSearchQuery = Schema.Struct({
-  ...threadPageQuery.fields,
+  ...restPaginationQuery.fields,
   q: restPageQuery.fields.q,
 }).check(
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
@@ -238,12 +236,12 @@ export const chatThreadApi = HttpApiGroup.make("chatThreads", { topLevel: true }
     }).annotate(OpenApi.Summary, "Delete a conversation"),
     HttpApiEndpoint.get("listChatMessages", "/chat/threads/:id/messages", {
       params: threadParams,
-      query: threadPageQuery,
+      query: restPaginationQuery,
       success: HttpApiSchema.WithHeaders(chatHistoryPage, restPageHeaders),
     }).annotate(OpenApi.Summary, "Read conversation history"),
     HttpApiEndpoint.get("listChatParticipants", "/chat/threads/:id/participants", {
       params: threadParams,
-      query: threadPageQuery,
+      query: restPaginationQuery,
       success: HttpApiSchema.WithHeaders(
         Schema.Struct({
           items: Schema.Array(chatParticipantRecord),
@@ -507,11 +505,11 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               { ...page, items: page.items.map(messageResource) },
               { ...options, scope: cursorScope, collection: "chat_messages", url: request.url },
             )
+            const { items, ...pagination } = response.body
             return HttpApiSchema.withHeaders({
               body: {
-                messages: response.body.items,
-                page_after: response.body.page_after,
-                page_before: response.body.page_before,
+                messages: items,
+                ...pagination,
                 thread: threadResource(thread),
                 pendingInteractions: pending.map(({ message, part, target }) => ({
                   sourceMessageId: message.id,

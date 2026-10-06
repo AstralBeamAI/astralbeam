@@ -960,9 +960,6 @@ export class ChatThreads extends Context.Service<
     readonly history: (
       input: ThreadInput & { messageId?: string },
     ) => Effect.Effect<MessageRecord[], ChatThreadError>
-    readonly pending: (
-      input: ThreadInput,
-    ) => Effect.Effect<PendingChatInteraction[], ChatThreadError>
     readonly getMessage: (
       input: ThreadInput & { messageId: string },
     ) => Effect.Effect<MessageRecord, ChatThreadError>
@@ -1015,6 +1012,10 @@ export class ChatThreads extends Context.Service<
     ChatThreads,
     Effect.gen(function* () {
       const db = yield* Database
+      const readSnapshot = <A, E, R>(read: (tx: Executor) => Effect.Effect<A, E, R>) =>
+        db
+          .transaction(read, { isolationLevel: "repeatable read", accessMode: "read only" })
+          .pipe(mapDatabaseErrors())
       const directoryList = Effect.fn("ChatThreads.directoryList")(function* (
         input: DatabasePageOptions & { scope: TenantScope; search?: string | undefined },
       ) {
@@ -1052,50 +1053,36 @@ export class ChatThreads extends Context.Service<
       })
       const directorySnapshot = Effect.fn("ChatThreads.directorySnapshot")(
         (input: DirectoryThreadInput & DatabasePageOptions) =>
-          db
-            .transaction(
-              (tx) =>
-                Effect.gen(function* () {
-                  const thread = yield* readDirectoryThread(tx, input)
-                  const { messages } = yield* readHistoryPage(
-                    tx,
-                    {
-                      ...input,
-                      scope: {
-                        organizationId: input.scope.organizationId,
-                        tenantId: input.tenantId,
-                      },
-                    },
-                    thread.currentLeafMessageId,
-                  )
-                  return { thread, messages }
-                }),
-              { isolationLevel: "repeatable read", accessMode: "read only" },
-            )
-            .pipe(mapDatabaseErrors()),
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const thread = yield* readDirectoryThread(tx, input)
+              const { messages } = yield* readHistoryPage(
+                tx,
+                {
+                  ...input,
+                  scope: thread,
+                },
+                thread.currentLeafMessageId,
+              )
+              return { thread, messages }
+            }),
+          ),
       )
       const directoryMessage = Effect.fn("ChatThreads.directoryMessage")(
         (input: DirectoryThreadInput & { messageId: string }) =>
-          db
-            .transaction(
-              (tx) =>
-                Effect.gen(function* () {
-                  yield* readDirectoryThread(tx, input)
-                  return yield* readMessage(
-                    tx,
-                    {
-                      id: input.id,
-                      scope: {
-                        organizationId: input.scope.organizationId,
-                        tenantId: input.tenantId,
-                      },
-                    },
-                    input.messageId,
-                  )
-                }),
-              { isolationLevel: "repeatable read", accessMode: "read only" },
-            )
-            .pipe(mapDatabaseErrors()),
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const thread = yield* readDirectoryThread(tx, input)
+              return yield* readMessage(
+                tx,
+                {
+                  id: thread.id,
+                  scope: thread,
+                },
+                input.messageId,
+              )
+            }),
+          ),
       )
 
       const resolveScope = Effect.fn("ChatThreads.resolveScope")(function* ({
@@ -1223,59 +1210,40 @@ export class ChatThreads extends Context.Service<
 
       const history = Effect.fn("ChatThreads.history")(
         (input: ThreadInput & { messageId?: string }) =>
-          db
-            .transaction(
-              (tx) =>
-                Effect.gen(function* () {
-                  const thread = yield* readThread(tx, input)
-                  return yield* historyMessages(
-                    tx,
-                    input.scope,
-                    input.id,
-                    yield* historyIds(
-                      tx,
-                      input.scope,
-                      input.id,
-                      input.messageId ?? thread.currentLeafMessageId,
-                    ),
-                  )
-                }),
-              { isolationLevel: "repeatable read", accessMode: "read only" },
-            )
-            .pipe(mapDatabaseErrors()),
-      )
-      const pending = Effect.fn("ChatThreads.pending")((input: ThreadInput) =>
-        db
-          .transaction(
-            (tx) =>
-              Effect.gen(function* () {
-                return yield* unresolvedCalls(tx, input.scope, yield* readThread(tx, input))
-              }),
-            { isolationLevel: "repeatable read", accessMode: "read only" },
-          )
-          .pipe(mapDatabaseErrors()),
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const thread = yield* readThread(tx, input)
+              return yield* historyMessages(
+                tx,
+                input.scope,
+                input.id,
+                yield* historyIds(
+                  tx,
+                  input.scope,
+                  input.id,
+                  input.messageId ?? thread.currentLeafMessageId,
+                ),
+              )
+            }),
+          ),
       )
       const snapshot = Effect.fn("ChatThreads.snapshot")(
         (input: ThreadInput & DatabasePageOptions) =>
-          db
-            .transaction(
-              (tx) =>
-                Effect.gen(function* () {
-                  const thread = yield* readThread(tx, input)
-                  const { history, messages } = yield* readHistoryPage(
-                    tx,
-                    input,
-                    thread.currentLeafMessageId,
-                  )
-                  return {
-                    thread,
-                    messages,
-                    pending: yield* unresolvedCalls(tx, input.scope, thread, undefined, history),
-                  }
-                }),
-              { isolationLevel: "repeatable read", accessMode: "read only" },
-            )
-            .pipe(mapDatabaseErrors()),
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const thread = yield* readThread(tx, input)
+              const { history, messages } = yield* readHistoryPage(
+                tx,
+                input,
+                thread.currentLeafMessageId,
+              )
+              return {
+                thread,
+                messages,
+                pending: yield* unresolvedCalls(tx, input.scope, thread, undefined, history),
+              }
+            }),
+          ),
       )
       const getMessage = Effect.fn("ChatThreads.getMessage")(function* (
         input: ThreadInput & { messageId: string },
@@ -1834,7 +1802,6 @@ export class ChatThreads extends Context.Service<
         get,
         snapshot,
         history,
-        pending,
         getMessage,
         rename,
         remove,

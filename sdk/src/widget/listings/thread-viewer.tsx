@@ -1,8 +1,9 @@
-import { useCallback } from "react"
+import { useCallback, useMemo, type ComponentType } from "react"
 import { parsePartialJSON } from "@tanstack/ai-client"
 import { useInfiniteQuery } from "@tanstack/react-query"
 import { ArrowLeftIcon } from "@phosphor-icons/react"
 import type { DirectoryThreadEncoded } from "../../api/generated/api.ts"
+import { isAstralBeamApiError } from "../../api/api.ts"
 import { DEFAULT_API_URL } from "../../lib/constants.ts"
 import {
   loadDirectoryThreadHistory,
@@ -12,16 +13,19 @@ import {
 import { projectThreadMessages } from "../../core/threads.ts"
 import { Button } from "../components/ui/button.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
-import { ListingError, ListingLoading } from "./listing-widget.tsx"
 
 export function ThreadViewer({
   session,
   thread,
   onClose,
+  ErrorFeedback,
+  LoadingFeedback,
 }: {
   session: ListingSession
   thread: DirectoryThreadEncoded
   onClose: () => void
+  ErrorFeedback: ComponentType<{ error: Error; retry: () => void }>
+  LoadingFeedback: ComponentType
 }) {
   const query = useInfiniteQuery({
     queryKey: ["directory-history", thread.tenant_id, thread.id],
@@ -42,17 +46,22 @@ export function ThreadViewer({
       ),
     [session, thread.tenant_id, thread.id],
   )
-  const messages = projectThreadMessages(
-    query.data?.pages.toReversed().flatMap((page) => page.messages) ?? [],
-  )
-  for (const message of messages) {
-    for (const part of message.parts) {
-      if (part.type === "tool-call") {
-        part.input = parsePartialJSON(part.arguments) as unknown
-        part.state ??= "input-complete"
+  const messages = useMemo(() => {
+    const projected = projectThreadMessages(
+      query.data?.pages.toReversed().flatMap((page) => page.messages) ?? [],
+    )
+    for (const message of projected) {
+      for (const part of message.parts) {
+        if (part.type === "tool-call") {
+          part.input = parsePartialJSON(part.arguments) as unknown
+          part.state ??= "input-complete"
+        }
       }
     }
-  }
+    return projected
+  }, [query.data])
+  const inaccessible =
+    isAstralBeamApiError(query.error) && [401, 403, 404].includes(query.error.status)
   const latest = query.data?.pages[0]?.thread ?? thread
   return (
     <section
@@ -70,11 +79,15 @@ export function ThreadViewer({
           <p className="text-sm text-muted-foreground">Saved conversation · Read only</p>
         </div>
       </header>
-      {query.isError ? (
-        <ListingError error={query.error} retry={() => void query.refetch()} />
-      ) : query.isPending ? (
-        <ListingLoading />
-      ) : (
+      {query.isError && (
+        <ErrorFeedback
+          error={query.error}
+          retry={() => void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())}
+        />
+      )}
+      {query.isPending ? (
+        <LoadingFeedback />
+      ) : query.data && !inaccessible ? (
         <div className="h-[32rem] min-h-64 overflow-hidden rounded-lg border border-foreground/10 bg-background text-foreground [--card-spacing:--spacing(4)]">
           <ChatTranscript
             messages={messages}
@@ -85,7 +98,7 @@ export function ThreadViewer({
             interactiveToolIds={new Set()}
             readOnly
             getAttachment={getAttachment}
-            hasOlder={query.hasNextPage}
+            hasOlder={query.hasNextPage && !query.isError}
             loadingHistory={query.isFetching}
             loadingOlder={query.isFetchingNextPage}
             onLoadOlder={async () => {
@@ -96,7 +109,7 @@ export function ThreadViewer({
             onQuestionnaireAnswers={() => {}}
           />
         </div>
-      )}
+      ) : null}
     </section>
   )
 }

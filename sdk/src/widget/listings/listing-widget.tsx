@@ -202,6 +202,9 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           tenantId={tenantId}
           q={q}
           size={size}
+          ErrorFeedback={ListingError}
+          LoadingFeedback={ListingLoading}
+          Pagination={PageNavigation}
         />
       ) : (
         <DirectoryPage
@@ -304,7 +307,7 @@ function DirectoryPage({
   )
 }
 
-export function PageNavigation({
+function PageNavigation({
   page,
   busy,
   onPage,
@@ -338,7 +341,7 @@ export function PageNavigation({
   )
 }
 
-export function ListingLoading() {
+function ListingLoading() {
   return (
     <div role="status" aria-label="Loading directory" className="space-y-3 p-4">
       {[0, 1, 2].map((i) => (
@@ -348,7 +351,7 @@ export function ListingLoading() {
   )
 }
 
-export function ListingError({ error, retry }: { error: Error; retry: () => void }) {
+function ListingError({ error, retry }: { error: Error; retry: () => void }) {
   const apiError = isAstralBeamApiError(error) ? error : undefined
   const status = apiError?.status
   const titles: Record<number, string> = {

@@ -99,6 +99,7 @@ Verify embedded directories through the existing consumer examples and their bro
 - Directory queries use TanStack Query/Table. Only Effect Schema is allowed in the SDK. Keep the Effect runtime, scheduling, and concurrency APIs on the server, where Drizzle queries use native Effects.
 - Use TanStack Table's built-in state and APIs for supported table behavior instead of parallel React state. Keep opaque API cursors outside page-index pagination.
 - Directory pagination caps rendering at 100 records, so virtualization is unnecessary.
+- Preserve loaded transcript pages and scroll position when earlier-message loading fails transiently. Hide administrative history when authentication, authorization, or resource access fails.
 - Display metadata in its directory column or labeled field in stacked records. Tenant and TenantUser names do not expand duplicate metadata details.
 - Display customer-provided external IDs as the first table column labeled "ID" in Tenant and TenantUser directories. Conversation directories show participants, titles, and activity because threads have no external IDs. Do not display AstralBeam's internal record or tenant UUIDs.
 - Base directory layouts on container width so they work on mobile and inside chat. Stack records with names first and labeled fields at narrow widths, wrapping identifiers and metadata without horizontal scrolling, with ellipsis allowed for unusually long content. Keep search inputs and tenant pickers within that same container.

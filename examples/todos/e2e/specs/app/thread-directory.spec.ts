@@ -371,6 +371,67 @@ test("scrolling during refresh waits without canceling the latest history", asyn
   expect(earlierRequests).toBe(1)
 })
 
+for (const status of [503, 403]) {
+  test(`earlier history failure ${status} preserves history only while access remains valid`, async ({
+    page,
+  }) => {
+    const directory = threadDirectoryPage(page)
+    let earlierRequests = 0
+    await page.route("**/api/v1/threads?*", (route) =>
+      route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
+    )
+    await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) => {
+      const earlier = new URL(route.request().url()).searchParams.has("page_after")
+      if (earlier && ++earlierRequests === 1)
+        return route.fulfill({
+          status,
+          json: {
+            type: "about:blank",
+            title: "History unavailable",
+            status,
+            detail: "Earlier history unavailable",
+          },
+        })
+      return route.fulfill({
+        json: {
+          thread: savedThread,
+          messages: Array.from({ length: earlier ? 1 : 20 }, (_, i) => ({
+            id: `${earlier ? "older" : "saved"}-${i}`,
+            role: "user",
+            state: "complete",
+            parts: [
+              { id: "text", type: "text", content: `${earlier ? "Older" : "Saved"} context ${i}` },
+            ],
+          })),
+          page_after: earlier ? null : "earlier",
+          page_before: null,
+        },
+      })
+    })
+    await directory.openReact()
+    await directory.conversation(savedThread.title).click()
+    await expect(directory.transcript).toContainText("Saved context 19")
+    const viewport = await directory.messages.elementHandle()
+    await directory.messages.press("Home")
+    await expect(directory.transcript.getByRole("alert")).toContainText(
+      "Earlier history unavailable",
+    )
+    if (status === 403) {
+      await expect(directory.messages).toHaveCount(0)
+      await expect(directory.transcript).not.toContainText("Saved context 19")
+    } else {
+      expect(await viewport.evaluate((element) => element.isConnected)).toBe(true)
+      await expect(directory.transcript).toContainText("Saved context 19")
+      expect(await directory.messages.evaluate((element) => element.scrollTop)).toBe(0)
+      await captureMoment(page, "Pagination failure retains saved history")
+      await directory.transcript.getByRole("button", { name: "Retry", exact: true }).click()
+      await expect(directory.transcript).toContainText("Older context 0")
+      await expect(directory.transcript.getByRole("alert")).toHaveCount(0)
+      expect(earlierRequests).toBe(2)
+    }
+  })
+}
+
 test("refresh preserves saved image previews without downloading again", async ({ page }) => {
   const directory = threadDirectoryPage(page)
   const thread = savedThread

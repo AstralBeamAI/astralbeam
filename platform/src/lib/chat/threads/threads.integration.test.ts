@@ -820,7 +820,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(history.filter((message) => message.role === "tool")).toMatchObject([
       { authorTenantUserId: null, payload: { parts: [{ outcome: "failed" }] } },
     ])
-    expect(await runtime.runPromise(service.pending({ scope, id: thread.id }))).toEqual([])
+    expect((await runtime.runPromise(service.snapshot({ scope, id: thread.id }))).pending).toEqual(
+      [],
+    )
   })
 
   test("unfinished foreground turns survive reload without blocking new turns", async () => {
@@ -962,7 +964,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
     await runtime.runPromise(service.finish({ claim }))
     const newer = await admit(thread.id)
-    expect(await runtime.runPromise(service.pending({ scope, id: thread.id }))).toHaveLength(2)
+    expect(
+      (await runtime.runPromise(service.snapshot({ scope, id: thread.id }))).pending,
+    ).toHaveLength(2)
     const result: ChatToolResolution = {
       assistantMessageId: claim.assistantMessageId,
       toolPartId: "019a0800-0000-7000-8000-000000000003",
@@ -1281,7 +1285,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       expect(
         projectChatModelHistory(history).find((message) => message.role === "tool")?.content,
       ).toBe(JSON.stringify({ outcome: "unknown", output: null }))
-      expect(await runtime.runPromise(service.pending({ scope, id: thread.id }))).toEqual([])
+      expect(
+        (await runtime.runPromise(service.snapshot({ scope, id: thread.id }))).pending,
+      ).toEqual([])
       const retry = await runtime.runPromise(
         service.resolveTools({
           scope,
@@ -1518,7 +1524,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       .where(eq(chatMessagePart.threadId, thread.id))
     await db.insert(chatMessage).values(messages.map((row) => ({ ...row, threadId: separate.id })))
     await db.insert(chatMessagePart).values(parts.map((row) => ({ ...row, threadId: separate.id })))
-    const pending = await runtime.runPromise(service.pending({ scope, id: thread.id }))
+    const pending = (await runtime.runPromise(service.snapshot({ scope, id: thread.id }))).pending
     expect(pending).toHaveLength(2)
     expect(pending.map(({ target }) => target.id)).toEqual(
       expect.arrayContaining([targetA, targetB]),
