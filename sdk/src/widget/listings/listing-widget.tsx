@@ -84,12 +84,12 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
     <section
       data-slot="directory"
       aria-label={title}
-      className="flex h-full flex-col gap-4 overflow-auto text-foreground"
+      className="@container/directory flex h-full min-w-0 flex-col gap-4 overflow-y-auto text-foreground"
     >
       {options.showHeader !== false && (
         <header data-slot="directory-header" className="flex items-center gap-3">
           <Icon size={22} aria-hidden />
-          <div>
+          <div className="min-w-0 [overflow-wrap:anywhere]">
             <h2 className="font-heading text-lg font-semibold">{title}</h2>
             <p className="text-sm text-muted-foreground">
               {currentTenant
@@ -124,7 +124,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           value={search}
           maxLength={255}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full min-w-0 sm:w-72"
+          className="w-full min-w-0 max-w-full @lg/directory:w-72"
         />
         {config.showAdminFilter && options.showAdmin && (
           <NativeSelect
@@ -138,10 +138,14 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
             <NativeSelectOption value="false">Non-admins</NativeSelectOption>
           </NativeSelect>
         )}
-        <div data-slot="directory-page-controls" className="flex items-center gap-2 sm:ms-auto">
+        <div
+          data-slot="directory-page-controls"
+          className="ms-auto flex shrink-0 items-center gap-2"
+        >
           <NativeSelect
             disabled={awaitingTenant}
             aria-label="Rows per page"
+            className="min-w-32"
             value={size}
             onChange={(e) => setSize(Number(e.target.value) as typeof size)}
           >
@@ -210,7 +214,10 @@ function TenantPicker({
 }) {
   const inputId = useId()
   return (
-    <div data-slot="directory-tenant-picker" className="w-full space-y-1.5 sm:max-w-sm">
+    <div
+      data-slot="directory-tenant-picker"
+      className="w-full min-w-0 space-y-1.5 [&_input]:min-w-0 [&_[data-slot=input-group-addon]]:me-0 @lg/directory:max-w-sm"
+    >
       <label
         htmlFor={inputId}
         data-slot="directory-tenant-label"
@@ -295,7 +302,10 @@ function PageNavigation({
   onPage: (cursor: Cursor) => void
 }) {
   return (
-    <nav aria-label="Directory pages" className="grid grid-cols-2 justify-end gap-2 sm:flex">
+    <nav
+      aria-label="Directory pages"
+      className="grid grid-cols-2 justify-end gap-2 @lg/directory:flex"
+    >
       <Button
         variant="outline"
         size="sm"

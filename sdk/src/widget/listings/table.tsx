@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useId, useMemo } from "react"
 import { type ColumnDef, tableFeatures, useTable } from "@tanstack/react-table"
 import { CaretRightIcon } from "@phosphor-icons/react"
 import type { TenantRecordEncoded, TenantUserRecordEncoded } from "../../api/generated/api.ts"
@@ -32,6 +32,7 @@ export function DirectoryTable({
   options: Options
   filtered: boolean
 }) {
+  const tableId = useId()
   const { onTenantSelect, onTenantUserSelect, showAdmin } = options
   const columns = useMemo<ColumnDef<typeof features, RecordRow>[]>(
     () => [
@@ -39,7 +40,7 @@ export function DirectoryTable({
         accessorKey: "external_id",
         header: "ID",
         cell: ({ row }) => (
-          <span className="block w-72 break-all font-mono text-xs whitespace-normal">
+          <span className="line-clamp-3 break-all font-mono text-xs whitespace-normal">
             {row.original.external_id}
           </span>
         ),
@@ -51,7 +52,7 @@ export function DirectoryTable({
           const record = row.original
           const name = record.name || record.external_id
           return (
-            <div className="flex min-w-48 items-center gap-3 py-1">
+            <div className="flex min-w-0 items-center gap-3 py-1">
               {kind === "users" && (
                 <span
                   data-slot="directory-avatar"
@@ -66,7 +67,9 @@ export function DirectoryTable({
                     .join("")}
                 </span>
               )}
-              <span className="max-w-64 text-start whitespace-normal break-words">{name}</span>
+              <span className="line-clamp-3 min-w-0 text-start whitespace-normal [overflow-wrap:anywhere]">
+                {name}
+              </span>
             </div>
           )
         },
@@ -93,11 +96,13 @@ export function DirectoryTable({
         cell: ({ row }) => {
           const entries = Object.entries(row.original.metadata)
           return entries.length ? (
-            <dl className="min-w-32 max-w-72 space-y-1 text-xs whitespace-normal">
+            <dl className="space-y-1 text-xs whitespace-normal">
               {entries.map(([key, value]) => (
                 <div key={key} className="flex gap-1">
-                  <dt className="max-w-24 shrink-0 break-all text-muted-foreground">{key}:</dt>
-                  <dd className="min-w-0 break-words">
+                  <dt className="line-clamp-3 max-w-1/2 shrink-0 break-all text-muted-foreground">
+                    {key}:
+                  </dt>
+                  <dd className="line-clamp-6 min-w-0 [overflow-wrap:anywhere]">
                     {typeof value === "string" ? value : JSON.stringify(value)}
                   </dd>
                 </div>
@@ -157,33 +162,64 @@ export function DirectoryTable({
     getRowId: (row) => row.id,
   })
   return (
-    <Table className="[&_th]:h-12 [&_th]:px-4 [&_td]:px-4 [&_td]:py-3">
-      <TableHeader>
+    <Table
+      role="table"
+      className="block table-fixed @4xl/directory:table [&_th]:h-12 [&_th]:px-4 [&_td]:px-4 [&_td]:py-3"
+    >
+      <TableHeader role="rowgroup" className="sr-only @4xl/directory:not-sr-only">
         {table.getHeaderGroups().map((group) => (
-          <TableRow key={group.id}>
+          <TableRow key={group.id} role="row">
             {group.headers.map((header) => (
-              <TableHead key={header.id}>
+              <TableHead
+                key={header.id}
+                id={`${tableId}-${header.column.id}`}
+                role="columnheader"
+                scope="col"
+                className={header.column.id === "actions" ? "w-16" : undefined}
+              >
                 <table.FlexRender header={header} />
               </TableHead>
             ))}
           </TableRow>
         ))}
       </TableHeader>
-      <TableBody>
+      <TableBody role="rowgroup" className="block @4xl/directory:table-row-group">
         {table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id}>
+          <TableRow
+            key={row.id}
+            role="row"
+            className="flex flex-col py-2 @4xl/directory:table-row @4xl/directory:py-0"
+          >
             {row.getAllCells().map((cell) => (
-              <TableCell key={cell.id}>
+              <TableCell
+                key={cell.id}
+                role="cell"
+                headers={`${tableId}-${cell.column.id}`}
+                className={
+                  cell.column.id === "name"
+                    ? "order-first block min-w-0 font-medium whitespace-normal @4xl/directory:table-cell @4xl/directory:font-normal"
+                    : "block min-w-0 whitespace-normal @4xl/directory:table-cell"
+                }
+              >
+                {cell.column.id !== "name" && cell.column.id !== "actions" && (
+                  <span
+                    aria-hidden
+                    className="mb-1 block text-xs font-medium text-muted-foreground @4xl/directory:hidden"
+                  >
+                    {cell.column.columnDef.header as string}
+                  </span>
+                )}
                 <table.FlexRender cell={cell} />
               </TableCell>
             ))}
           </TableRow>
         ))}
         {!rows.length && (
-          <TableRow>
+          <TableRow role="row" className="block @4xl/directory:table-row">
             <TableCell
+              role="cell"
               colSpan={table.getAllLeafColumns().length}
-              className="h-32 text-center text-muted-foreground"
+              className="block content-center h-32 text-center text-muted-foreground @4xl/directory:table-cell"
             >
               {filtered ? "No records match your filters." : "No records yet."}
             </TableCell>
