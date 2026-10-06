@@ -22,7 +22,7 @@ import {
   loadTenantChoices,
   resolveListingTenant,
 } from "../../core/listings.ts"
-import { ListingLoading, ListingError, PageNavigation } from "./listing-feedback.tsx"
+import { ListingLoading, ListingError } from "./listing-feedback.tsx"
 import { DirectoryTable } from "./table.tsx"
 
 const listingKinds = {
@@ -285,5 +285,36 @@ function DirectoryPage({
         />
       </div>
     </div>
+  )
+}
+
+function PageNavigation({
+  page,
+  busy,
+  onPage,
+}: {
+  page: TenantPage | TenantUserPage | undefined
+  busy: boolean
+  onPage: (cursor: Cursor) => void
+}) {
+  return (
+    <nav aria-label="Directory pages" className="grid grid-cols-2 justify-end gap-2 sm:flex">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={busy || !page?.page_before}
+        onClick={() => onPage({ page_before: page!.page_before! })}
+      >
+        Previous
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={busy || !page?.page_after}
+        onClick={() => onPage({ page_after: page!.page_after! })}
+      >
+        Next
+      </Button>
+    </nav>
   )
 }
