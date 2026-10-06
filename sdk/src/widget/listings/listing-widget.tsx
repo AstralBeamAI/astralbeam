@@ -11,10 +11,13 @@ import type {
   MountAstralBeamTenantListOptions,
   MountAstralBeamTenantUserListOptions,
 } from "../../client/listings.ts"
+import { isAstralBeamApiError } from "../../api/api.ts"
 import { Button } from "../components/ui/button.tsx"
 import { Input } from "../components/ui/input.tsx"
 import { SearchDropdown } from "../components/search-dropdown.tsx"
 import { NativeSelect, NativeSelectOption } from "../components/ui/native-select.tsx"
+import { Skeleton } from "../components/ui/skeleton.tsx"
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert.tsx"
 import {
   type ListingPageOptions,
   type ListingSession,
@@ -22,25 +25,20 @@ import {
   loadTenantChoices,
   resolveListingTenant,
 } from "../../core/listings.ts"
-import { ListingLoading, ListingError } from "./listing-feedback.tsx"
 import { DirectoryTable } from "./table.tsx"
 
 const listingKinds = {
   tenants: {
     title: "Tenants",
     Icon: BuildingsIcon,
-    searchLabel: "Search by name or external ID",
     tenantPrompt: null,
     showAdminFilter: false,
-    pageKind: "tenants",
   },
   users: {
     title: "Tenant users",
     Icon: UsersIcon,
-    searchLabel: "Search by name or external ID",
     tenantPrompt: "Select a tenant to view its users.",
     showAdminFilter: true,
-    pageKind: "users",
   },
 } as const
 
@@ -121,8 +119,8 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
         <Input
           type="search"
           disabled={awaitingTenant}
-          aria-label={config.searchLabel}
-          placeholder={`${config.searchLabel}…`}
+          aria-label="Search by name or external ID"
+          placeholder="Search by name or external ID…"
           value={search}
           maxLength={255}
           onChange={(e) => setSearch(e.target.value)}
@@ -187,9 +185,9 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
         <DirectoryPage
           key={JSON.stringify([tenantId, q, adminFilter, size])}
           admin={adminFilter}
-          kind={config.pageKind}
           {...{
             options,
+            kind,
             session,
             tenantId,
             q,
@@ -244,8 +242,7 @@ function DirectoryPage({
   q,
   admin,
   size,
-}: Omit<WidgetProps, "kind"> & {
-  kind: "tenants" | "users"
+}: WidgetProps & {
   tenantId: string | undefined
   q: string
   admin: "all" | "true" | "false"
@@ -316,5 +313,38 @@ function PageNavigation({
         Next
       </Button>
     </nav>
+  )
+}
+
+function ListingLoading() {
+  return (
+    <div role="status" aria-label="Loading directory" className="space-y-3 p-4">
+      {[0, 1, 2].map((i) => (
+        <Skeleton key={i} className="h-10 w-full" />
+      ))}
+    </div>
+  )
+}
+
+function ListingError({ error, retry }: { error: Error; retry: () => void }) {
+  const apiError = isAstralBeamApiError(error) ? error : undefined
+  const status = apiError?.status
+  const titles: Record<number, string> = {
+    401: "Authentication required",
+    403: "Access denied",
+    404: "Tenant not found",
+    429: "Too many requests",
+  }
+  const retryAfter = apiError?.headers.get("retry-after")
+  return (
+    <Alert variant="destructive">
+      <AlertTitle>{titles[status ?? 0] ?? "Unable to load directory"}</AlertTitle>
+      <AlertDescription>
+        {status === 429 ? `Please retry after ${retryAfter ?? "a few"} seconds.` : error.message}
+      </AlertDescription>
+      <Button variant="outline" size="sm" onClick={retry}>
+        Retry
+      </Button>
+    </Alert>
   )
 }

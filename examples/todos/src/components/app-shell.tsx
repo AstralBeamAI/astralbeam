@@ -29,7 +29,7 @@ export function AppShell() {
   const dark = colorScheme === "dark" || (colorScheme === "system" && systemDark)
   return (
     <AppearanceContext value={{ colorScheme, customTheme }}>
-      <div className={`app${dark ? " dark" : ""}${chatOpen ? "" : " assistant-hidden"}`}>
+      <div className={dark ? "app dark" : "app"}>
         <main className="todos">
           <header className="todos-header">
             <nav aria-label="Example pages">
