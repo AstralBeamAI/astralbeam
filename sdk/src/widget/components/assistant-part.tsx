@@ -23,6 +23,7 @@ import { SandboxPart } from "./sandbox-part.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
 
 interface AssistantPartProps {
+  readOnly?: boolean | undefined
   part: MessagePart
   apiUrl: string
   widgets: Record<string, WidgetDefinition>
@@ -71,13 +72,15 @@ function ToolCallDisclosure({
   part,
   title,
   failed,
+  readOnly = false,
 }: {
+  readOnly?: boolean | undefined
   part: ChatToolCallPart
   title: string | undefined
   failed: boolean
 }) {
   const settled = isSettledToolCall(part)
-  const running = !failed && !settled
+  const running = !readOnly && !failed && !settled
   // A declared title is prose and reads as such; a bare registry name stays monospaced.
   const label = title ? (
     <span>&ldquo;{title}&rdquo;</span>
@@ -95,7 +98,7 @@ function ToolCallDisclosure({
           <>{label} failed</>
         ) : (
           <>
-            {running ? "Running" : "Ran"} {label}
+            {readOnly ? "Saved" : running ? "Running" : "Ran"} {label}
           </>
         )
       }
@@ -108,7 +111,11 @@ function ToolCallDisclosure({
       <div className="mt-1 flex flex-col gap-2 rounded-md border border-border bg-muted p-2">
         <ToolCallSection title="Input">{formatToolJson(part.input) || "\u2014"}</ToolCallSection>
         <ToolCallSection title="Output">
-          {settled ? formatToolJson(part.output) || "\u2014" : "Waiting for the result\u2026"}
+          {settled
+            ? formatToolJson(part.output) || "\u2014"
+            : readOnly
+              ? "No saved result."
+              : "Waiting for the result\u2026"}
         </ToolCallSection>
       </div>
     </ToolDisclosure>
@@ -191,6 +198,7 @@ function QuestionnaireCallPart({
 }
 
 export function AssistantPart({
+  readOnly = false,
   part,
   apiUrl,
   widgets,
@@ -214,6 +222,13 @@ export function AssistantPart({
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
+      if (readOnly) {
+        if (isSandboxTool(part.name) && isSettledToolCall(part))
+          return <SandboxPart part={part} apiUrl={apiUrl} />
+        return (
+          <ToolCallDisclosure part={part} title={title} failed={part.state === "error"} readOnly />
+        )
+      }
       if (interrupted && !isSettledToolCall(part))
         return <FailureMarker>This action request was interrupted.</FailureMarker>
       if ((part as ChatToolCallPart).resultOutcome === "unknown") {

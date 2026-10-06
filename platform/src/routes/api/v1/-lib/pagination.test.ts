@@ -34,7 +34,11 @@ const rejected = (cursor: string, input: Partial<Parameters<typeof decodeRestCur
 describe("opaque pagination cursors", () => {
   it.effect("maximum-length compound cursors retain positions across key rotation", () =>
     Effect.gen(function* () {
-      const position = { ...cursorPosition, updatedAt: "2026-10-05T12:00:00.000Z" }
+      const position = {
+        ...cursorPosition,
+        updatedAt: "2026-10-05T12:00:00.000Z",
+        tenantId: cursorScope.tenantFilter,
+      }
       const cursor = yield* encodeRestCursor({
         position,
         collection,

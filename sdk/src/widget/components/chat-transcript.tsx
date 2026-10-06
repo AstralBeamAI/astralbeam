@@ -22,6 +22,7 @@ import { PartErrorBoundary } from "./part-error-boundary.tsx"
 import { UserMessageBody } from "./user-message-body.tsx"
 
 interface ChatTranscriptProps {
+  readOnly?: boolean | undefined
   messages: UIMessage[]
   apiUrl: string
   /** Name of the host's empty-state slot; when set, it replaces the default empty state. */
@@ -47,6 +48,7 @@ interface ChatTranscriptProps {
 }
 
 export function ChatTranscript({
+  readOnly = false,
   messages,
   apiUrl,
   emptySlot,
@@ -123,6 +125,7 @@ export function ChatTranscript({
                         message.parts.map((part, partIndex) => (
                           <PartErrorBoundary key={partIndex}>
                             <AssistantPart
+                              readOnly={readOnly}
                               part={part}
                               apiUrl={apiUrl}
                               widgets={widgets}
@@ -147,10 +150,12 @@ export function ChatTranscript({
                       )}
                       {message.role === "assistant" && saved?.state === "draft" && (
                         <Marker role="status">
-                          <MarkerIcon>
-                            <Spinner />
-                          </MarkerIcon>
-                          <MarkerContent>Response in progress.</MarkerContent>
+                          <MarkerIcon>{readOnly ? <WarningCircleIcon /> : <Spinner />}</MarkerIcon>
+                          <MarkerContent>
+                            {readOnly
+                              ? "Saved partial response. Completion has not been recorded."
+                              : "Response in progress."}
+                          </MarkerContent>
                         </Marker>
                       )}
                     </MessageContent>
