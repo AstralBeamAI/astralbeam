@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 
@@ -25,6 +25,7 @@ export function ModelProviderTest({
   provider: OrganizationModelProvider
   disabled: boolean
 }) {
+  const modelInputId = useId()
   const [modelId, setModelId] = useState(provider.models[0]?.id ?? "")
   const test = useMutation({
     mutationKey: ["test-model-provider", provider.id],
@@ -54,7 +55,7 @@ export function ModelProviderTest({
       </CardHeader>
       <CardContent className="space-y-4">
         <Field>
-          <FieldLabel htmlFor="model-provider-test-model">Model to test</FieldLabel>
+          <FieldLabel htmlFor={modelInputId}>Model to test</FieldLabel>
           <Select
             items={provider.models.map((model) => ({ value: model.id, label: model.name }))}
             value={modelId}
@@ -64,7 +65,7 @@ export function ModelProviderTest({
               test.reset()
             }}
           >
-            <SelectTrigger id="model-provider-test-model" className="w-full">
+            <SelectTrigger id={modelInputId} className="w-full">
               <SelectValue placeholder="Enable a model to test" />
             </SelectTrigger>
             <SelectContent>
