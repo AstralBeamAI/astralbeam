@@ -43,7 +43,8 @@ export function directoriesPage(page: Page) {
 
 export async function openVanillaDirectories(
   page: Page,
-  options: { scope?: "organization"; tenantExternalId?: string } = {},
+  options: { scope?: "tenant" | "organization"; tenantExternalId?: string } = {},
+  kinds: ("tenants" | "users" | "threads")[] = ["tenants", "users"],
 ) {
   await page.route("**/__listing-sdk/*.js", (route) =>
     route.fulfill({
@@ -64,9 +65,9 @@ export async function openVanillaDirectories(
   await page.setContent(`<!doctype html><html lang="en"><title>Vanilla directories</title>
         <button id="reset">Reset</button><button id="refresh">Refresh mounts</button>
         <button id="unmount">Unmount</button><button id="remount">Remount</button>
-        <output id="clear-count">0</output><div id="tenants"></div><div id="users"></div>
+        <output id="clear-count">0</output><div id="tenants"></div><div id="users"></div><div id="threads"></div>
         <script type="module">
-          import { mountAstralBeamTenantList, mountAstralBeamTenantUserList } from '/__listing-sdk/client.js';
+          import { mountAstralBeamTenantList, mountAstralBeamTenantUserList, mountAstralBeamThreadList } from '/__listing-sdk/client.js';
           const options = { apiUrl: ${JSON.stringify(
             `${platformUrl}/api`,
           )}, fetchAstralBeamToken: { url: '/__listing-token' }, ...${JSON.stringify(options)},
@@ -76,10 +77,8 @@ export async function openVanillaDirectories(
               output.textContent = String(Number(output.textContent) + 1);
             },
           };
-          const mount = () => [
-            mountAstralBeamTenantList(document.getElementById('tenants'), options),
-            mountAstralBeamTenantUserList(document.getElementById('users'), options),
-          ];
+          const mounts = { tenants: mountAstralBeamTenantList, users: mountAstralBeamTenantUserList, threads: mountAstralBeamThreadList };
+          const mount = () => ${JSON.stringify(kinds)}.map(kind => mounts[kind](document.getElementById(kind), options));
           let handles = mount();
           document.getElementById('reset').onclick = () => handles.forEach(handle => handle.reset());
           document.getElementById('refresh').onclick = () => handles.forEach(handle => handle.refresh());

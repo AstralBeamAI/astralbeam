@@ -98,6 +98,127 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
+  test("administrative history and uploads preserve scope without granting participant actions", async () => {
+    const thread = await create()
+    await runtime.runPromise(
+      service.admit({
+        scope,
+        id: thread.id,
+        payload: {
+          version: 1,
+          parts: [
+            { id: crypto.randomUUID(), type: "text", content: "Administrative history" },
+            {
+              id: crypto.randomUUID(),
+              type: "document",
+              source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
+              metadata: { filename: "note.txt" },
+            },
+          ],
+        },
+      }),
+    )
+    const input = {
+      scope: { organizationId: scope.organizationId },
+      tenantId: scope.tenantId,
+      id: thread.id,
+    }
+    const snapshot = await runtime.runPromise(service.directorySnapshot(input))
+    expect(snapshot.messages.items.map((message) => message.role)).toEqual(["user", "assistant"])
+    const message = await runtime.runPromise(
+      service.directoryMessage({ ...input, messageId: snapshot.messages.items[0]!.id }),
+    )
+    expect(message.payload.parts[1]).toMatchObject({ source: { value: "SGVsbG8=" } })
+    expect(snapshot.thread).not.toHaveProperty("role")
+    for (const operation of [
+      service.directorySnapshot({ ...input, scope: { organizationId: crypto.randomUUID() } }),
+      service.directorySnapshot({
+        ...input,
+        scope: { organizationId: scope.organizationId, tenantId: foreign.tenantId },
+      }),
+      service.directoryMessage({ ...input, tenantId: foreign.tenantId, messageId: message.id }),
+      service.get({ scope: other, id: thread.id }),
+      service.admit({ scope: other, id: thread.id, payload }),
+      service.rename({ scope: other, id: thread.id, title: "Forbidden", lockVersion: 1 }),
+      service.remove({ scope: other, id: thread.id, lockVersion: 1 }),
+      service.setParticipant({
+        scope: other,
+        id: thread.id,
+        tenantUserId: other.tenantUserId,
+        role: "manager",
+        lockVersion: 1,
+      }),
+      service.resolveTools({ scope: other, id: thread.id, clientId: "browser", results: [] }),
+    ])
+      expect(await runtime.runPromise(Effect.result(operation))).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "ChatThreadNotFound" },
+      })
+    expect(
+      (await runtime.runPromise(service.participants({ scope, id: thread.id }))).items.map(
+        (participant) => participant.tenantUserId,
+      ),
+    ).toEqual([scope.tenantUserId])
+  })
+
+  test("administrative activity pages order equal timestamps across Tenants and search literal titles", async () => {
+    const ids = [] as { id: string; tenantId: string }[]
+    await create()
+    for (const current of [scope, foreign]) {
+      for (const title of ["Budget 50%_done", "Budget other"]) {
+        const thread = await runtime.runPromise(service.create({ scope: current, title }))
+        await runtime.runPromise(service.admit({ scope: current, id: thread.id, payload }))
+        ids.push({ id: thread.id, tenantId: current.tenantId })
+      }
+    }
+    await db
+      .update(chatThread)
+      .set({ updatedAt: sql`'2026-10-06 01:02:03.123456+00'::timestamptz` })
+      .where(eq(chatThread.organizationId, scope.organizationId))
+    const input = { scope: { organizationId: scope.organizationId }, pageSize: 1 }
+    const expected = ids
+      .toSorted((a, b) => b.tenantId.localeCompare(a.tenantId) || b.id.localeCompare(a.id))
+      .map((row) => row.id)
+    const first = await runtime.runPromise(service.directoryList(input))
+    const second = await runtime.runPromise(
+      service.directoryList({ ...input, position: first.nextPosition! }),
+    )
+    expect(first.items[0]!.id).toBe(expected[0])
+    expect(second.items[0]!.id).toBe(expected[1])
+    expect(first.nextPosition!.updatedAt).toContain(".123456")
+    const previous = await runtime.runPromise(
+      service.directoryList({ ...input, position: second.previousPosition!, backward: true }),
+    )
+    expect(previous.items.map((row) => row.id)).toEqual([expected[0]])
+    const all = await runtime.runPromise(service.directoryList({ scope: input.scope }))
+    expect(all.items.map((row) => row.id)).toEqual(expected)
+    expect(
+      (await runtime.runPromise(service.directoryList({ scope: input.scope, search: "50%_" })))
+        .items,
+    ).toHaveLength(2)
+    expect(
+      (
+        await runtime.runPromise(
+          service.directoryList({ scope: { ...input.scope, tenantId: scope.tenantId } }),
+        )
+      ).items,
+    ).toHaveLength(2)
+    expect(
+      (
+        await runtime.runPromise(
+          service.directoryList({ scope: { organizationId: crypto.randomUUID() } }),
+        )
+      ).items,
+    ).toEqual([])
+    expect(
+      (
+        await runtime.runPromise(
+          service.directoryList({ scope: { ...input.scope, tenantId: null } }),
+        )
+      ).items,
+    ).toEqual([])
+  })
+
   test("lists only accepted history and initializes a blank title once", async () => {
     const empty = await create()
     const thread = await create()

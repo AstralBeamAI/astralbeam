@@ -2,6 +2,7 @@
 
 import { useAuth } from "@better-auth-ui/react"
 import {
+  ChatCircleIcon,
   BriefcaseIcon,
   CubeIcon,
   CpuIcon,
@@ -51,6 +52,7 @@ const organizationNavigation = [
   { label: "Agents", segment: "agents", icon: RobotIcon, permission: "readConfiguration" },
   { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
   { label: "API Keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
+  { label: "Conversations", segment: "threads", icon: ChatCircleIcon, permission: "readTenants" },
   { label: "Tenants", segment: "tenants", icon: BriefcaseIcon, permission: "readTenants" },
   {
     label: "Users",

@@ -30,6 +30,8 @@ const decodeRestCursorPayload = Schema.decodeUnknownEffect(
 )
 
 export type RestCollection =
+  | "directory_threads"
+  | "directory_messages"
   | "tenants"
   | "tenant_users"
   | "chat_threads"
@@ -74,7 +76,7 @@ function restCursorBinding(collection: RestCollection, scope: RestCursorScope) {
         scope.externalId ?? null,
         scope.search ?? null,
         scope.admin ?? null,
-        ...(collection.startsWith("chat_")
+        ...(collection.startsWith("chat_") || collection.startsWith("directory_")
           ? [scope.tenantId, scope.tenantUserId, scope.threadId ?? null]
           : []),
       ]),
@@ -124,7 +126,12 @@ export const decodeRestCursor = Effect.fn("decodeRestCursor")(function* (
   if (decoded.binding !== restCursorBinding(input.collection, input.scope)) {
     return yield* new RestInvalidCursor()
   }
-  if (input.collection === "chat_threads" && !decoded.updatedAt)
+  if (
+    (input.collection === "chat_threads" || input.collection === "directory_threads") &&
+    !decoded.updatedAt
+  )
+    return yield* new RestInvalidCursor()
+  if (input.collection === "directory_threads" && !decoded.tenantId)
     return yield* new RestInvalidCursor()
   return {
     id: decoded.id,

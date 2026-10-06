@@ -22,7 +22,7 @@ export interface ListingRenderer {
   style: HTMLStyleElement
   client: QueryClient
   options: Options
-  kind: "tenants" | "users"
+  kind: "tenants" | "users" | "threads"
   stopAuthentication?: (() => void) | undefined
   unsubscribeAuthentication?: (() => void) | undefined
   revision: number
@@ -33,7 +33,7 @@ export function renderListing(
   shadow: ShadowRoot,
   container: HTMLElement,
   options: Options,
-  kind: "tenants" | "users",
+  kind: "tenants" | "users" | "threads",
 ): ListingRenderer {
   const style = document.createElement("style")
   style.textContent = chatStyles + (options.customCss ?? "")

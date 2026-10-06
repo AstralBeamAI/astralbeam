@@ -33,12 +33,18 @@ export type {
 } from "../lib/types.ts"
 export { defineTool, defineWidget } from "../lib/define.ts"
 export type { TypedToolDefinition, TypedWidgetDefinition } from "../lib/define.ts"
-export { mountAstralBeamTenantList, mountAstralBeamTenantUserList } from "./listings.ts"
+export {
+  mountAstralBeamThreadList,
+  mountAstralBeamTenantList,
+  mountAstralBeamTenantUserList,
+} from "./listings.ts"
 export type {
   AstralBeamListingHandle,
   AstralBeamListingOptions,
   AstralBeamTenantListHandle,
   AstralBeamTenantUserListHandle,
+  MountAstralBeamThreadListOptions,
+  AstralBeamThreadListHandle,
   MountAstralBeamTenantListOptions,
   MountAstralBeamTenantUserListOptions,
 } from "./listings.ts"

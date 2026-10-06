@@ -146,7 +146,7 @@ widgets: {
 | [Getting started](https://astralbeam.ai/docs/sdk/getting-started) | install, mount, layout requirements. |
 | [Script tag](https://astralbeam.ai/docs/sdk/script-tag) | loading from jsDelivr without a bundler, and Ruby on Rails. |
 | [Authentication](https://astralbeam.ai/docs/sdk/authentication) | the token endpoint, its security rules, and minting in other languages. |
-| [Tenant directories](https://astralbeam.ai/docs/sdk/listings) | provisioning, tenant-user and Tenant listings, lifecycle, and options. |
+| [Tenant directories](https://astralbeam.ai/docs/sdk/listings) | provisioning, Tenant and user listings, saved conversation browsing, lifecycle, and options. |
 | [Configuration](https://astralbeam.ai/docs/sdk/configuration) | every option, and what `update` can change. |
 | [Theming](https://astralbeam.ai/docs/sdk/theming) | color schemes, CSS tokens, the shadow-root boundary. |
 | [Tools and widgets](https://astralbeam.ai/docs/sdk/tools-and-widgets) | schemas, live state, rendering into the transcript. |
@@ -158,7 +158,7 @@ widgets: {
 
 ## Entry points
 
-Read-only Tenant and TenantUser widgets are available from `/client` and `/react`. See [Tenant directories](https://astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
+Read-only Tenant, TenantUser and conversation widgets are available from `/client` and `/react`. See [Tenant directories](https://astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
 
 There is no root export. Conversations are saved on the server and can be reopened across clients.
 

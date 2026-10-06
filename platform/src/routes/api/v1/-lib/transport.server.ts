@@ -30,6 +30,7 @@ import { organizationHandlers } from "./organization.server"
 import { chatHandlers } from "../chat/-lib/chat.server"
 import { chatThreadHandlers } from "../chat/-lib/threads.server"
 import { authenticateRestRequest } from "./auth.server"
+import { threadDirectoryHandlers } from "./thread.server"
 import { tenantHandlers } from "./tenant.server"
 import { tenantUserHandlers } from "./tenant-user.server"
 import {
@@ -183,6 +184,7 @@ export const ApiV1Routes = Layer.mergeAll(
       tenantUserHandlers(ApiV1),
       chatHandlers(ApiV1),
       chatThreadHandlers(ApiV1),
+      threadDirectoryHandlers(ApiV1),
       currentUserHandlers(ApiV1),
       organizationHandlers(ApiV1),
     ]),

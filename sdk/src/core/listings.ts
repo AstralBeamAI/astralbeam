@@ -11,6 +11,9 @@ import {
 } from "./auth.ts"
 import { isAstralBeamApiError, type JwtOptions } from "../api/api.ts"
 import {
+  listThreads,
+  listThreadMessages,
+  getThreadAttachment,
   getTenant,
   listTenants,
   type ListTenantsParams,
@@ -216,4 +219,56 @@ async function requestListing<T>(
     }
   }
   throw new Error("Authentication failed")
+}
+
+export function loadThreadDirectory(
+  session: ListingSession,
+  page: Omit<ListingPageOptions, "kind" | "admin">,
+  signal: AbortSignal,
+) {
+  return listingRequest(session, signal, (auth) =>
+    listThreads(
+      {
+        q: page.q,
+        page_size: page.size,
+        ...page.cursor,
+        ...(page.tenantId ? { "filter[tenant_id]": page.tenantId } : {}),
+      },
+      auth,
+    ),
+  )
+}
+
+export function loadDirectoryThreadHistory(
+  session: ListingSession,
+  tenantId: string,
+  id: string,
+  pageAfter: string | undefined,
+  signal: AbortSignal,
+) {
+  return listingRequest(session, signal, (auth) =>
+    listThreadMessages(
+      tenantId,
+      id,
+      {
+        page_size: 100,
+        ...(pageAfter ? { page_after: pageAfter } : {}),
+      },
+      auth,
+    ),
+  )
+}
+
+export function loadDirectoryThreadAttachment(
+  session: ListingSession,
+  tenantId: string,
+  id: string,
+  messageId: string,
+  partId: string,
+  signal: AbortSignal,
+) {
+  return listingRequest(session, signal, async (auth) => {
+    const response = await getThreadAttachment(tenantId, id, messageId, partId, auth)
+    return response.blob()
+  })
 }

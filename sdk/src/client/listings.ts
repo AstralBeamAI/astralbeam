@@ -31,6 +31,12 @@ export interface MountAstralBeamTenantUserListOptions extends AstralBeamListingO
   onTenantUserSelect?: ((user: TenantUserRecord) => void) | undefined
 }
 
+export interface MountAstralBeamThreadListOptions extends AstralBeamListingOptions {
+  onTenantChange?: ((tenant: TenantRecord | null) => void) | undefined
+}
+
+export type AstralBeamThreadListHandle = AstralBeamListingHandle<MountAstralBeamThreadListOptions>
+
 export interface AstralBeamListingHandle<
   T extends AstralBeamListingOptions = AstralBeamListingOptions,
 > {
@@ -49,7 +55,7 @@ type ListingOptions = MountAstralBeamTenantListOptions & MountAstralBeamTenantUs
 type ListingRuntime = typeof import("../widget/listings/index.tsx")
 interface ListingMount {
   options: ListingOptions
-  kind: "tenants" | "users"
+  kind: "tenants" | "users" | "threads"
   shadow: ShadowRoot
   container: HTMLDivElement
   media: MediaQueryList
@@ -74,10 +80,17 @@ export function mountAstralBeamTenantUserList(
   return mountListing(target, options, "users")
 }
 
+export function mountAstralBeamThreadList(
+  target: HTMLElement,
+  options: MountAstralBeamThreadListOptions,
+): AstralBeamThreadListHandle {
+  return mountListing(target, options, "threads")
+}
+
 function mountListing(
   target: HTMLElement,
   options: ListingOptions,
-  kind: "tenants" | "users",
+  kind: "tenants" | "users" | "threads",
 ): AstralBeamListingHandle<ListingOptions> {
   const shadow = target.shadowRoot ?? target.attachShadow({ mode: "open" })
   const container = document.createElement("div")

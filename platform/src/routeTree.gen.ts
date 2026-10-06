@@ -39,6 +39,7 @@ import { Route as AuthenticatedOrgSlugSandboxesIndexRouteImport } from './routes
 import { Route as AuthenticatedOrgSlugSettingsIndexRouteImport } from './routes/_authenticated/$orgSlug/settings/index'
 import { Route as AuthenticatedOrgSlugTenantUsersIndexRouteImport } from './routes/_authenticated/$orgSlug/tenant-users/index'
 import { Route as AuthenticatedOrgSlugTenantsIndexRouteImport } from './routes/_authenticated/$orgSlug/tenants/index'
+import { Route as AuthenticatedOrgSlugThreadsIndexRouteImport } from './routes/_authenticated/$orgSlug/threads/index'
 import { Route as AuthenticatedUserOnboardingIndexRouteImport } from './routes/_authenticated/_user/onboarding/index'
 import { Route as AuthenticatedUserOrganizationsIndexRouteImport } from './routes/_authenticated/_user/organizations/index'
 import { Route as AuthenticatedUserSettingsIndexRouteImport } from './routes/_authenticated/_user/settings/index'
@@ -212,6 +213,12 @@ const AuthenticatedOrgSlugTenantsIndexRoute =
     path: '/tenants/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
+const AuthenticatedOrgSlugThreadsIndexRoute =
+  AuthenticatedOrgSlugThreadsIndexRouteImport.update({
+    id: '/threads/',
+    path: '/threads/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
 const AuthenticatedUserOnboardingIndexRoute =
   AuthenticatedUserOnboardingIndexRouteImport.update({
     id: '/onboarding/',
@@ -319,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/$orgSlug/tenants/': typeof AuthenticatedOrgSlugTenantsIndexRoute
+  '/$orgSlug/threads/': typeof AuthenticatedOrgSlugThreadsIndexRoute
   '/onboarding/': typeof AuthenticatedUserOnboardingIndexRoute
   '/organizations/': typeof AuthenticatedUserOrganizationsIndexRoute
   '/settings/': typeof AuthenticatedUserSettingsIndexRoute
@@ -359,6 +367,7 @@ export interface FileRoutesByTo {
   '/$orgSlug/settings': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/$orgSlug/tenant-users': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/$orgSlug/tenants': typeof AuthenticatedOrgSlugTenantsIndexRoute
+  '/$orgSlug/threads': typeof AuthenticatedOrgSlugThreadsIndexRoute
   '/onboarding': typeof AuthenticatedUserOnboardingIndexRoute
   '/organizations': typeof AuthenticatedUserOrganizationsIndexRoute
   '/settings': typeof AuthenticatedUserSettingsIndexRoute
@@ -405,6 +414,7 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/settings/': typeof AuthenticatedOrgSlugSettingsIndexRoute
   '/_authenticated/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/_authenticated/$orgSlug/tenants/': typeof AuthenticatedOrgSlugTenantsIndexRoute
+  '/_authenticated/$orgSlug/threads/': typeof AuthenticatedOrgSlugThreadsIndexRoute
   '/_authenticated/_user/onboarding/': typeof AuthenticatedUserOnboardingIndexRoute
   '/_authenticated/_user/organizations/': typeof AuthenticatedUserOrganizationsIndexRoute
   '/_authenticated/_user/settings/': typeof AuthenticatedUserSettingsIndexRoute
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | '/$orgSlug/settings/'
     | '/$orgSlug/tenant-users/'
     | '/$orgSlug/tenants/'
+    | '/$orgSlug/threads/'
     | '/onboarding/'
     | '/organizations/'
     | '/settings/'
@@ -490,6 +501,7 @@ export interface FileRouteTypes {
     | '/$orgSlug/settings'
     | '/$orgSlug/tenant-users'
     | '/$orgSlug/tenants'
+    | '/$orgSlug/threads'
     | '/onboarding'
     | '/organizations'
     | '/settings'
@@ -535,6 +547,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/settings/'
     | '/_authenticated/$orgSlug/tenant-users/'
     | '/_authenticated/$orgSlug/tenants/'
+    | '/_authenticated/$orgSlug/threads/'
     | '/_authenticated/_user/onboarding/'
     | '/_authenticated/_user/organizations/'
     | '/_authenticated/_user/settings/'
@@ -777,6 +790,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugTenantsIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
+    '/_authenticated/$orgSlug/threads/': {
+      id: '/_authenticated/$orgSlug/threads/'
+      path: '/threads'
+      fullPath: '/$orgSlug/threads/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugThreadsIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
     '/_authenticated/_user/onboarding/': {
       id: '/_authenticated/_user/onboarding/'
       path: '/onboarding'
@@ -881,6 +901,7 @@ interface AuthenticatedOrgSlugRouteRouteChildren {
   AuthenticatedOrgSlugSettingsIndexRoute: typeof AuthenticatedOrgSlugSettingsIndexRoute
   AuthenticatedOrgSlugTenantUsersIndexRoute: typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   AuthenticatedOrgSlugTenantsIndexRoute: typeof AuthenticatedOrgSlugTenantsIndexRoute
+  AuthenticatedOrgSlugThreadsIndexRoute: typeof AuthenticatedOrgSlugThreadsIndexRoute
   AuthenticatedOrgSlugAgentsAgentIdIndexRoute: typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   AuthenticatedOrgSlugAgentsNewIndexRoute: typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   AuthenticatedOrgSlugModelsModelProviderIdIndexRoute: typeof AuthenticatedOrgSlugModelsModelProviderIdIndexRoute
@@ -906,6 +927,8 @@ const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChil
       AuthenticatedOrgSlugTenantUsersIndexRoute,
     AuthenticatedOrgSlugTenantsIndexRoute:
       AuthenticatedOrgSlugTenantsIndexRoute,
+    AuthenticatedOrgSlugThreadsIndexRoute:
+      AuthenticatedOrgSlugThreadsIndexRoute,
     AuthenticatedOrgSlugAgentsAgentIdIndexRoute:
       AuthenticatedOrgSlugAgentsAgentIdIndexRoute,
     AuthenticatedOrgSlugAgentsNewIndexRoute:

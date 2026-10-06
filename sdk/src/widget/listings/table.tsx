@@ -18,6 +18,7 @@ import { Button } from "../components/ui/button.tsx"
 import { Badge } from "../components/ui/badge.tsx"
 
 const features = tableFeatures({})
+export type DirectoryColumns<T extends { id: string }> = ColumnDef<typeof features, T>[]
 type RecordRow = TenantRecordEncoded | TenantUserRecordEncoded
 type Options = MountAstralBeamTenantListOptions & MountAstralBeamTenantUserListOptions
 
@@ -155,11 +156,31 @@ export function DirectoryTable({
     ],
     [kind, onTenantSelect, onTenantUserSelect, showAdmin],
   )
+  return (
+    <ListingTable
+      rows={rows}
+      columns={columns}
+      emptyText={filtered ? "No records match your filters." : "No records yet."}
+    />
+  )
+}
+
+export function ListingTable<T extends { id: string }>({
+  rows,
+  columns,
+  emptyText,
+  getRowId = (row: T) => row.id,
+}: {
+  rows: T[]
+  columns: DirectoryColumns<T>
+  emptyText: string
+  getRowId?: (row: T) => string
+}) {
   const table = useTable({
     features,
     data: rows,
     columns,
-    getRowId: (row) => row.id,
+    getRowId,
   })
   return (
     <Table
@@ -221,7 +242,7 @@ export function DirectoryTable({
               colSpan={table.getAllLeafColumns().length}
               className="block content-center h-32 text-center text-muted-foreground @4xl/directory:table-cell"
             >
-              {filtered ? "No records match your filters." : "No records yet."}
+              {emptyText}
             </TableCell>
           </TableRow>
         )}
