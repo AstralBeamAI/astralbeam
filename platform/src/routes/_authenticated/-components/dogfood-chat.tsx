@@ -1,4 +1,4 @@
-import { AstralBeamChat, type AstralBeamChatRef } from "@astralbeam/sdk/react"
+import { AstralBeamChat, type AstralBeamChatRef, type ToolDefinition } from "@astralbeam/sdk/react"
 import { ArrowCounterClockwiseIcon, SparkleIcon, XIcon } from "@phosphor-icons/react"
 import {
   createContext,
@@ -18,10 +18,38 @@ import { Button } from "@/components/ui/button"
 import { useIsHydrated } from "@/components/auth/use-is-hydrated"
 
 import type { OrganizationAccess } from "@/lib/organizations/access"
-import { ASSISTANT_NAME } from "@/lib/constants"
+import { APP_NAME, ASSISTANT_NAME } from "@/lib/constants"
 import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "../-lib/widget-theme"
 
 const dogfoodChatRoute = getRouteApi("/_authenticated")
+
+// The index and its Markdown load on the first lookup, keeping them out of the dashboard bundle.
+const loadDocsSearch = () => import("../../docs/-lib/search")
+
+const docsTools: Record<string, ToolDefinition> = {
+  search_docs: {
+    metadata: { title: "Search the docs" },
+    description:
+      `Full-text search of the ${APP_NAME} documentation, returning the best-matching sections. ` +
+      "Search before answering how-to, configuration, or behavior questions, and link result URLs.",
+    parameters: {
+      type: "object",
+      properties: { query: { type: "string", description: "Keywords to search for" } },
+      required: ["query"],
+    },
+    execute: async ({ query }) => (await loadDocsSearch()).searchDocs(String(query)),
+  },
+  read_docs: {
+    metadata: { title: "Read a docs page" },
+    description: "Read a whole documentation page as Markdown by a search result's path.",
+    parameters: {
+      type: "object",
+      properties: { path: { type: "string", description: "Page path, such as sdk/theming" } },
+      required: ["path"],
+    },
+    execute: async ({ path }) => (await loadDocsSearch()).readDocsPage(String(path)),
+  },
+}
 
 type DogfoodChatState = {
   panelId: string
@@ -179,6 +207,7 @@ function DogfoodChatPanel({
           showHeader={false}
           title={ASSISTANT_NAME}
           theme={widgetDashboardTheme}
+          tools={docsTools}
           fetchAstralBeamToken={{
             url: "/api/astralbeam/token",
             headers: { "Content-Type": "application/json" },
