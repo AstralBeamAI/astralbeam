@@ -48,6 +48,7 @@ import { base64ByteLength } from "../attachments/attachments.server"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants.server"
 import { parseAgentId } from "@/lib/agents/schemas"
 import { tenantUserEmail } from "@/lib/tenants/schemas"
+import type { TenantScope } from "@/lib/tenants/tenants.server"
 import { tenantSearchPattern } from "@/lib/tenants/tenants.server"
 import {
   ChatThreadConflict,
@@ -67,6 +68,17 @@ import {
   type ChatWriterClaim,
 } from "./schemas.ts"
 
+type ChatReadScope = Pick<ChatThreadScope, "organizationId" | "tenantId">
+export interface DirectoryThreadInput {
+  readonly scope: TenantScope
+  readonly tenantId: string
+  readonly id: string
+}
+export type DirectoryThreadRecord = typeof chatThread.$inferSelect & {
+  tenantName: string | null
+  tenantExternalId: string
+  participants: Pick<ParticipantRecord, "name" | "externalId">[]
+}
 type StoredMessageRecord = typeof chatMessage.$inferSelect
 export type MessageRecord = StoredMessageRecord & {
   payload: ChatMessagePayload
@@ -109,13 +121,13 @@ const threadExecutionActive = sql<boolean>`exists (
     and execution.thread_id = ${chatThread.id}
     and execution.turn_state = 'running'
 )`.mapWith(Boolean)
-const scopeWhere = (scope: ChatThreadScope, id: string) =>
+const scopeWhere = (scope: ChatReadScope, id: string) =>
   and(
     eq(chatThread.organizationId, scope.organizationId),
     eq(chatThread.tenantId, scope.tenantId),
     eq(chatThread.id, id),
   )!
-const messageWhere = (scope: ChatThreadScope, id: string) =>
+const messageWhere = (scope: ChatReadScope, id: string) =>
   and(
     eq(chatMessage.organizationId, scope.organizationId),
     eq(chatMessage.tenantId, scope.tenantId),
@@ -140,13 +152,13 @@ const validateCompletePayload = Effect.fnUntraced(function* (payload: ChatMessag
   }
 })
 
-const chatPartWhere = (scope: ChatThreadScope, id: string) =>
+const chatPartWhere = (scope: ChatReadScope, id: string) =>
   and(
     eq(chatMessagePart.organizationId, scope.organizationId),
     eq(chatMessagePart.tenantId, scope.tenantId),
     eq(chatMessagePart.threadId, id),
   )
-const chatResponseWhere = (scope: ChatThreadScope, id: string) =>
+const chatResponseWhere = (scope: ChatReadScope, id: string) =>
   and(
     eq(chatToolResponse.organizationId, scope.organizationId),
     eq(chatToolResponse.tenantId, scope.tenantId),
@@ -160,7 +172,7 @@ function chatMetadata(payload: ChatMessagePayload): typeof chatMessage.$inferIns
 
 const readChatMessages = Effect.fnUntraced(function* (
   db: Executor,
-  scope: ChatThreadScope,
+  scope: ChatReadScope,
   id: string,
   rows: StoredMessageRecord[],
   partIds?: readonly string[],
@@ -393,7 +405,7 @@ function requireRole(row: ThreadRecord, manager = false) {
 
 const readMessage = Effect.fnUntraced(function* (
   db: Executor,
-  input: ThreadInput,
+  input: { scope: ChatReadScope; id: string },
   messageId: string,
 ) {
   const [row] = yield* db
@@ -407,7 +419,7 @@ const readMessage = Effect.fnUntraced(function* (
 
 const historyIds = Effect.fnUntraced(function* (
   db: Executor,
-  scope: ChatThreadScope,
+  scope: ChatReadScope,
   id: string,
   leaf: string | null,
   turnId?: string,
@@ -591,7 +603,7 @@ const appendDraft = Effect.fnUntraced(function* (
 
 const historyMessages = Effect.fnUntraced(function* (
   db: Executor,
-  scope: ChatThreadScope,
+  scope: ChatReadScope,
   id: string,
   ids: readonly { id: string }[],
 ) {
@@ -615,6 +627,81 @@ const historyMessages = Effect.fnUntraced(function* (
     id,
     ids.map((item) => byId.get(item.id)!),
   )
+})
+
+const readHistoryPage = Effect.fnUntraced(function* (
+  db: Executor,
+  input: { scope: ChatReadScope; id: string } & DatabasePageOptions,
+  leaf: string | null,
+) {
+  const history = yield* historyIds(db, input.scope, input.id, leaf)
+  const page = yield* databasePage(input, (position, limit, backward) =>
+    Effect.gen(function* () {
+      if (!position) return history.slice(-limit).reverse()
+      const index = history.findIndex((message) => message.id === position.id)
+      if (index < 0) return yield* new ChatThreadNotFound()
+      return backward
+        ? history.slice(index + 1, index + 1 + limit)
+        : history.slice(Math.max(0, index - limit), index).reverse()
+    }),
+  )
+  return {
+    history,
+    messages: {
+      ...page,
+      items: yield* historyMessages(db, input.scope, input.id, page.items.reverse()),
+    },
+  }
+})
+
+const directoryThreadColumns = {
+  ...getTableColumns(chatThread),
+  tenantName: tenant.name,
+  tenantExternalId: tenant.externalId,
+  participants: sql<DirectoryThreadRecord["participants"]>`coalesce((
+    select json_agg(json_build_object('name', ${tenantUser.name}, 'externalId', ${tenantUser.externalId})
+      order by ${tenantUser.name} nulls last, ${tenantUser.externalId}, ${tenantUser.id})
+    from ${chatParticipant}
+    inner join ${tenantUser} on ${tenantUser.organizationId} = ${chatParticipant.organizationId}
+      and ${tenantUser.tenantId} = ${chatParticipant.tenantId}
+      and ${tenantUser.id} = ${chatParticipant.tenantUserId}
+    where ${chatParticipant.organizationId} = ${chatThread.organizationId}
+      and ${chatParticipant.tenantId} = ${chatThread.tenantId}
+      and ${chatParticipant.threadId} = ${chatThread.id}
+  ), '[]'::json)`,
+}
+const directoryTenantJoin = and(
+  eq(tenant.organizationId, chatThread.organizationId),
+  eq(tenant.id, chatThread.tenantId),
+)
+function directoryThreadWhere(scope: TenantScope) {
+  return and(
+    eq(chatThread.organizationId, scope.organizationId),
+    scope.tenantId === undefined
+      ? undefined
+      : scope.tenantId === null
+        ? sql`false`
+        : eq(chatThread.tenantId, scope.tenantId),
+  )
+}
+const readDirectoryThread = Effect.fnUntraced(function* (
+  db: Executor,
+  input: DirectoryThreadInput,
+) {
+  const [row] = yield* db
+    .select(directoryThreadColumns)
+    .from(chatThread)
+    .innerJoin(tenant, directoryTenantJoin)
+    .where(
+      and(
+        directoryThreadWhere(input.scope),
+        eq(chatThread.tenantId, input.tenantId),
+        eq(chatThread.id, input.id),
+      ),
+    )
+    .limit(1)
+  if (!row) return yield* new ChatThreadNotFound()
+  return row
 })
 
 function toolTargets(part: Schema.JsonObject): readonly Schema.JsonObject[] {
@@ -838,6 +925,18 @@ const appendResults = Effect.fnUntraced(function* (
 export class ChatThreads extends Context.Service<
   ChatThreads,
   {
+    readonly directoryList: (
+      input: DatabasePageOptions & { scope: TenantScope; search?: string | undefined },
+    ) => Effect.Effect<DatabasePage<DirectoryThreadRecord>>
+    readonly directorySnapshot: (
+      input: DirectoryThreadInput & DatabasePageOptions,
+    ) => Effect.Effect<
+      { thread: DirectoryThreadRecord; messages: DatabasePage<MessageRecord> },
+      ChatThreadNotFound
+    >
+    readonly directoryMessage: (
+      input: DirectoryThreadInput & { messageId: string },
+    ) => Effect.Effect<MessageRecord, ChatThreadNotFound>
     readonly resolveScope: (input: {
       principal: ChatPrincipal
     }) => Effect.Effect<ChatThreadScope, ChatIdentityNotSynchronized>
@@ -861,9 +960,6 @@ export class ChatThreads extends Context.Service<
     readonly history: (
       input: ThreadInput & { messageId?: string },
     ) => Effect.Effect<MessageRecord[], ChatThreadError>
-    readonly pending: (
-      input: ThreadInput,
-    ) => Effect.Effect<PendingChatInteraction[], ChatThreadError>
     readonly getMessage: (
       input: ThreadInput & { messageId: string },
     ) => Effect.Effect<MessageRecord, ChatThreadError>
@@ -916,6 +1012,79 @@ export class ChatThreads extends Context.Service<
     ChatThreads,
     Effect.gen(function* () {
       const db = yield* Database
+      const readSnapshot = <A, E, R>(read: (tx: Executor) => Effect.Effect<A, E, R>) =>
+        db
+          .transaction(read, { isolationLevel: "repeatable read", accessMode: "read only" })
+          .pipe(mapDatabaseErrors())
+      const directoryList = Effect.fn("ChatThreads.directoryList")(function* (
+        input: DatabasePageOptions & { scope: TenantScope; search?: string | undefined },
+      ) {
+        return yield* databasePage(
+          input,
+          (position, limit, backward) =>
+            db
+              .select({
+                ...directoryThreadColumns,
+                cursorUpdatedAt: sql<string>`${chatThread.updatedAt}::text`,
+              })
+              .from(chatThread)
+              .innerJoin(tenant, directoryTenantJoin)
+              .where(
+                and(
+                  directoryThreadWhere(input.scope),
+                  isNotNull(chatThread.currentLeafMessageId),
+                  input.search
+                    ? ilike(chatThread.title, tenantSearchPattern(input.search))
+                    : undefined,
+                  position
+                    ? sql`(${chatThread.updatedAt}, ${chatThread.tenantId}, ${chatThread.id}) ${backward ? sql`>` : sql`<`} (${position.updatedAt}::timestamptz, ${position.tenantId}::uuid, ${position.id}::uuid)`
+                    : undefined,
+                ),
+              )
+              .orderBy(
+                (backward ? asc : desc)(chatThread.updatedAt),
+                (backward ? asc : desc)(chatThread.tenantId),
+                (backward ? asc : desc)(chatThread.id),
+              )
+              .limit(limit)
+              .pipe(mapDatabaseErrors()),
+          (row) => ({ id: row.id, tenantId: row.tenantId, updatedAt: row.cursorUpdatedAt }),
+        )
+      })
+      const directorySnapshot = Effect.fn("ChatThreads.directorySnapshot")(
+        (input: DirectoryThreadInput & DatabasePageOptions) =>
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const thread = yield* readDirectoryThread(tx, input)
+              const { messages } = yield* readHistoryPage(
+                tx,
+                {
+                  ...input,
+                  scope: thread,
+                },
+                thread.currentLeafMessageId,
+              )
+              return { thread, messages }
+            }),
+          ),
+      )
+      const directoryMessage = Effect.fn("ChatThreads.directoryMessage")(
+        (input: DirectoryThreadInput & { messageId: string }) =>
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const thread = yield* readDirectoryThread(tx, input)
+              return yield* readMessage(
+                tx,
+                {
+                  id: thread.id,
+                  scope: thread,
+                },
+                input.messageId,
+              )
+            }),
+          ),
+      )
+
       const resolveScope = Effect.fn("ChatThreads.resolveScope")(function* ({
         principal,
       }: {
@@ -1041,78 +1210,40 @@ export class ChatThreads extends Context.Service<
 
       const history = Effect.fn("ChatThreads.history")(
         (input: ThreadInput & { messageId?: string }) =>
-          db
-            .transaction(
-              (tx) =>
-                Effect.gen(function* () {
-                  const thread = yield* readThread(tx, input)
-                  return yield* historyMessages(
-                    tx,
-                    input.scope,
-                    input.id,
-                    yield* historyIds(
-                      tx,
-                      input.scope,
-                      input.id,
-                      input.messageId ?? thread.currentLeafMessageId,
-                    ),
-                  )
-                }),
-              { isolationLevel: "repeatable read", accessMode: "read only" },
-            )
-            .pipe(mapDatabaseErrors()),
-      )
-      const pending = Effect.fn("ChatThreads.pending")((input: ThreadInput) =>
-        db
-          .transaction(
-            (tx) =>
-              Effect.gen(function* () {
-                return yield* unresolvedCalls(tx, input.scope, yield* readThread(tx, input))
-              }),
-            { isolationLevel: "repeatable read", accessMode: "read only" },
-          )
-          .pipe(mapDatabaseErrors()),
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const thread = yield* readThread(tx, input)
+              return yield* historyMessages(
+                tx,
+                input.scope,
+                input.id,
+                yield* historyIds(
+                  tx,
+                  input.scope,
+                  input.id,
+                  input.messageId ?? thread.currentLeafMessageId,
+                ),
+              )
+            }),
+          ),
       )
       const snapshot = Effect.fn("ChatThreads.snapshot")(
         (input: ThreadInput & DatabasePageOptions) =>
-          db
-            .transaction(
-              (tx) =>
-                Effect.gen(function* () {
-                  const thread = yield* readThread(tx, input)
-                  const history = yield* historyIds(
-                    tx,
-                    input.scope,
-                    input.id,
-                    thread.currentLeafMessageId,
-                  )
-                  const page = yield* databasePage(input, (position, limit, backward) =>
-                    Effect.gen(function* () {
-                      if (!position) return history.slice(-limit).reverse()
-                      const index = history.findIndex((message) => message.id === position.id)
-                      if (index < 0) return yield* new ChatThreadNotFound()
-                      return backward
-                        ? history.slice(index + 1, index + 1 + limit)
-                        : history.slice(Math.max(0, index - limit), index).reverse()
-                    }).pipe(mapDatabaseErrors()),
-                  )
-                  return {
-                    thread,
-                    messages: {
-                      ...page,
-                      items: yield* historyMessages(
-                        tx,
-                        input.scope,
-                        input.id,
-                        page.items.reverse(),
-                      ),
-                    },
-                    pending: yield* unresolvedCalls(tx, input.scope, thread, undefined, history),
-                  }
-                }),
-              { isolationLevel: "repeatable read", accessMode: "read only" },
-            )
-            .pipe(mapDatabaseErrors()),
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const thread = yield* readThread(tx, input)
+              const { history, messages } = yield* readHistoryPage(
+                tx,
+                input,
+                thread.currentLeafMessageId,
+              )
+              return {
+                thread,
+                messages,
+                pending: yield* unresolvedCalls(tx, input.scope, thread, undefined, history),
+              }
+            }),
+          ),
       )
       const getMessage = Effect.fn("ChatThreads.getMessage")(function* (
         input: ThreadInput & { messageId: string },
@@ -1662,13 +1793,15 @@ export class ChatThreads extends Context.Service<
       )
 
       return ChatThreads.of({
+        directoryList,
+        directorySnapshot,
+        directoryMessage,
         resolveScope,
         create,
         list,
         get,
         snapshot,
         history,
-        pending,
         getMessage,
         rename,
         remove,

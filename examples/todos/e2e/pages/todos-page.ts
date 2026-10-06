@@ -68,7 +68,7 @@ export function todosPage(page: Page) {
 
     controls,
     search: page.getByRole("searchbox", { name: "Search todos", exact: true }),
-    navigate: (name: "Todos" | "Users") =>
+    navigate: (name: "Todos" | "Users" | "Conversations") =>
       page
         .getByRole("navigation", { name: "Example pages" })
         .getByRole("link", { name, exact: true })

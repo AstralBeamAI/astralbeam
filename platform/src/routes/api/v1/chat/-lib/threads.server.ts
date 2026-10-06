@@ -12,7 +12,12 @@ import {
 import { LockVersionSchema, NonEmptyStringSchema } from "../../../../../lib/schemas.ts"
 import { ApiUuidSchema, tenantUserEmail } from "../../../../../lib/tenants/schemas.ts"
 import type { ApiV1 } from "../../-lib/contract.server"
-import { restPageFields, restPageHeaders, restPageQuery } from "../../-lib/shared.server"
+import {
+  restPageFields,
+  restPageHeaders,
+  restPageQuery,
+  restPaginationQuery,
+} from "../../-lib/shared.server"
 import type {
   ThreadRecord,
   MessageRecord,
@@ -27,15 +32,8 @@ const threadDate = Schema.DateFromString.pipe(Schema.annotateEncoded({ format: "
 const threadTitle = NonEmptyStringSchema.check(Schema.isMaxLength(200))
 const threadParams = { id: ApiUuidSchema }
 const participantParams = { ...threadParams, tenantUserId: ApiUuidSchema }
-const threadPageQuery = Schema.Struct({
-  page_size: restPageQuery.fields.page_size,
-  page_after: restPageQuery.fields.page_after,
-  page_before: restPageQuery.fields.page_before,
-}).check(
-  Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
-)
 const threadSearchQuery = Schema.Struct({
-  ...threadPageQuery.fields,
+  ...restPaginationQuery.fields,
   q: restPageQuery.fields.q,
 }).check(
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
@@ -92,7 +90,7 @@ const chatTenantUserRecord = Schema.Struct({
   Schema.encodeKeys({ externalId: "external_id" }),
 )
 
-const chatMessageRecord = Schema.Struct({
+export const chatMessageRecord = Schema.Struct({
   id: ApiUuidSchema,
   role: Schema.Literals(["user", "assistant", "tool"]),
   state: Schema.Literals(["draft", "complete", "interrupted"]),
@@ -238,12 +236,12 @@ export const chatThreadApi = HttpApiGroup.make("chatThreads", { topLevel: true }
     }).annotate(OpenApi.Summary, "Delete a conversation"),
     HttpApiEndpoint.get("listChatMessages", "/chat/threads/:id/messages", {
       params: threadParams,
-      query: threadPageQuery,
+      query: restPaginationQuery,
       success: HttpApiSchema.WithHeaders(chatHistoryPage, restPageHeaders),
     }).annotate(OpenApi.Summary, "Read conversation history"),
     HttpApiEndpoint.get("listChatParticipants", "/chat/threads/:id/participants", {
       params: threadParams,
-      query: threadPageQuery,
+      query: restPaginationQuery,
       success: HttpApiSchema.WithHeaders(
         Schema.Struct({
           items: Schema.Array(chatParticipantRecord),
@@ -333,7 +331,7 @@ function chatParticipantResource(row: ParticipantRecord) {
   }
 }
 
-function messageResource(row: MessageRecord) {
+export function messageResource(row: MessageRecord) {
   return {
     id: row.id,
     role: row.role,
@@ -378,7 +376,7 @@ export function chatThreadHandlers(api: typeof ApiV1) {
       const { resolveManagedChatTools } = yield* Effect.promise(
         () => import("@/lib/chat/threads/commands.server"),
       )
-      const { ChatThreadNotFound, ChatThreadForbidden } = yield* Effect.promise(
+      const { ChatThreadForbidden } = yield* Effect.promise(
         () => import("@/lib/chat/threads/errors"),
       )
       const { TenantUsers } = yield* Effect.promise(
@@ -390,10 +388,6 @@ export function chatThreadHandlers(api: typeof ApiV1) {
       )
       const { chatAdmissionResponse, consumeChatRateLimit, readChatRequestBody } =
         yield* Effect.promise(() => import("./run.server"))
-      const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
-      const { decodeAttachmentBytes } = yield* Effect.promise(
-        () => import("@/lib/chat/attachments/attachments.server"),
-      )
       const { HttpServerResponse } = yield* Effect.promise(() => import("effect/http"))
       const threads = yield* ChatThreads
       const tenantUsers = yield* TenantUsers
@@ -511,11 +505,11 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               { ...page, items: page.items.map(messageResource) },
               { ...options, scope: cursorScope, collection: "chat_messages", url: request.url },
             )
+            const { items, ...pagination } = response.body
             return HttpApiSchema.withHeaders({
               body: {
-                messages: response.body.items,
-                page_after: response.body.page_after,
-                page_before: response.body.page_before,
+                messages: items,
+                ...pagination,
                 thread: threadResource(thread),
                 pendingInteractions: pending.map(({ message, part, target }) => ({
                   sourceMessageId: message.id,
@@ -607,28 +601,40 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               id: params.id,
               messageId: params.messageId,
             })
-            const part = message.payload.parts.find((entry) => entry.id === params.partId)
-            const source = part?.source
-            if (
-              !Schema.is(Schema.JsonObject)(source) ||
-              source.type !== "data" ||
-              typeof source.value !== "string"
-            )
-              return yield* new ChatThreadNotFound()
-            const metadata = part?.metadata
-            const path =
-              Schema.is(Schema.JsonObject)(metadata) && typeof metadata.filename === "string"
-                ? metadata.filename
-                : "attachment"
-            const mimeType =
-              typeof source.mimeType === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(source.mimeType)
-                ? source.mimeType
-                : "application/octet-stream"
-            const bytes = decodeAttachmentBytes(source.value)
-            if (!bytes) return yield* new ChatThreadNotFound()
-            return chatArtifactResponse({ bytes, mimeType, path })
+            return yield* savedChatAttachmentResponse(message, params.partId)
           }),
         })
     }),
   )
 }
+
+export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentResponse")(function* (
+  message: MessageRecord,
+  partId: string,
+) {
+  const { decodeAttachmentBytes } = yield* Effect.promise(
+    () => import("@/lib/chat/attachments/attachments.server"),
+  )
+  const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
+  const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
+  const part = message.payload.parts.find((entry) => entry.id === partId)
+  const source = part?.source
+  if (
+    !Schema.is(Schema.JsonObject)(source) ||
+    source.type !== "data" ||
+    typeof source.value !== "string"
+  )
+    return yield* new ChatThreadNotFound()
+  const metadata = part?.metadata
+  const path =
+    Schema.is(Schema.JsonObject)(metadata) && typeof metadata.filename === "string"
+      ? metadata.filename
+      : "attachment"
+  const mimeType =
+    typeof source.mimeType === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(source.mimeType)
+      ? source.mimeType
+      : "application/octet-stream"
+  const bytes = decodeAttachmentBytes(source.value)
+  if (!bytes) return yield* new ChatThreadNotFound()
+  return chatArtifactResponse({ bytes, mimeType, path })
+})

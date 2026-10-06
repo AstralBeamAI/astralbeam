@@ -11,6 +11,9 @@ import {
   type AstralBeamListingHandle,
   type AstralBeamTenantListHandle,
   type AstralBeamTenantUserListHandle,
+  mountAstralBeamThreadList,
+  type MountAstralBeamThreadListOptions,
+  type AstralBeamThreadListHandle,
   mountAstralBeamTenantList,
   type MountAstralBeamTenantListOptions,
   mountAstralBeamTenantUserList,
@@ -34,6 +37,15 @@ export const AstralBeamTenantUserList = forwardRef<
   AstralBeamTenantUserListProps
 >(function AstralBeamTenantUserList({ className, style, ...options }, ref) {
   const target = useListingMount(mountAstralBeamTenantUserList, options, ref)
+  return <div ref={target} className={className} style={style} />
+})
+
+export type AstralBeamThreadListProps = MountAstralBeamThreadListOptions & ContainerProps
+export const AstralBeamThreadList = forwardRef<
+  AstralBeamThreadListHandle,
+  AstralBeamThreadListProps
+>(function AstralBeamThreadList({ className, style, ...options }, ref) {
+  const target = useListingMount(mountAstralBeamThreadList, options, ref)
   return <div ref={target} className={className} style={style} />
 })
 

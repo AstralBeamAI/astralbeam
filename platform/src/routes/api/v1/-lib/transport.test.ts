@@ -55,6 +55,9 @@ const restTestState = vi.hoisted(() => ({
   agent: vi.fn(),
   run: vi.fn(),
   readFile: vi.fn(),
+  directoryList: vi.fn(),
+  directorySnapshot: vi.fn(),
+  directoryMessage: vi.fn(),
   threadCreate: vi.fn(),
   threadScope: vi.fn(),
   threadList: vi.fn(),
@@ -201,6 +204,9 @@ const restTestServices = Layer.mergeAll(
       Effect.succeed({ id: restOtherId, attachmentsEnabled: true, sandboxProviderId: null }),
   } as unknown as typeof Agents.Service),
   Layer.succeed(ChatThreads, {
+    directoryList: (input: unknown) => restTestState.directoryList(input) as never,
+    directorySnapshot: (input: unknown) => restTestState.directorySnapshot(input) as never,
+    directoryMessage: (input: unknown) => restTestState.directoryMessage(input) as never,
     create: (input: unknown) => restTestState.threadCreate(input) as never,
     resolveScope: (input: unknown) => restTestState.threadScope(input) as never,
     list: (input: unknown) => restTestState.threadList(input) as never,
@@ -1687,5 +1693,187 @@ describe("REST API through the Effect Fetch handler", () => {
     for (const query of ["page_size=0", "page_after=x", "sort=id"]) {
       expect((await restRequest(`/tenants?${query}`)).status).toBe(400)
     }
+  })
+})
+
+describe("administrative conversation reads", () => {
+  const directoryThread = {
+    ...restThread,
+    tenantName: "Customer",
+    tenantExternalId: "customer",
+    participants: [{ name: "Customer user", externalId: "customer-user" }],
+  }
+  const paths = `/tenants/${restTenantId}/threads/${restOtherId}`
+  const organizationJwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
+  const tenantJwt = `${btoa(JSON.stringify({ typ: "astralbeam+jwt" }))}.e30.c2ln`
+  const emptyPage = { items: [], nextPosition: null, previousPosition: null }
+  beforeEach(() => {
+    restTestState.directoryList.mockReturnValue(
+      Effect.succeed({ ...emptyPage, items: [directoryThread] }),
+    )
+    restTestState.directorySnapshot.mockReturnValue(
+      Effect.succeed({
+        thread: directoryThread,
+        messages: { ...emptyPage, items: [restSavedMessage] },
+      }),
+    )
+    restTestState.directoryMessage.mockReturnValue(
+      Effect.succeed({
+        ...restSavedMessage,
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: "upload",
+              type: "document",
+              source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
+              metadata: { filename: "note.txt" },
+            },
+          ],
+        },
+      }),
+    )
+  })
+  test.each(["api-key", "owner", "developer", "viewer", "tenant-admin"])(
+    "%s can read listings, history and uploads without participant grants",
+    async (role) => {
+      const headers =
+        role === "api-key"
+          ? { "X-API-Key": restTestApiKey }
+          : { Authorization: `Bearer ${role === "tenant-admin" ? tenantJwt : organizationJwt}` }
+      restTestState.organizationAuth.mockReturnValue(
+        Effect.succeed({
+          organizationId: restOrgId,
+          currentUser: { id: restUserId, name: "Operator", email: "operator@example.com", role },
+        }),
+      )
+      restTestState.chat.mockResolvedValue({
+        ...restPrincipal,
+        tenantUser: { ...restPrincipal.tenantUser, admin: true },
+      })
+      if (role === "tenant-admin")
+        restTestState.rows.push(...Array.from({ length: 3 }, () => [{ id: restTenantId }]))
+      const list = await restRequest("/threads", { headers })
+      expect(list.status).toBe(200)
+      const body = (await list.json()) as { items: Record<string, unknown>[] }
+      expect(body.items[0]!.participants).toEqual([
+        { name: "Customer user", external_id: "customer-user" },
+      ])
+      expect(body.items[0]).toMatchObject({
+        tenant_id: restTenantId,
+        tenant_external_id: "customer",
+        agent_id: `agent_${restOrgId}_${restOtherId}`,
+      })
+      expect(body.items[0]).not.toHaveProperty("role")
+      expect(body.items[0]).not.toHaveProperty("writer_active")
+      const history = await restRequest(`${paths}/messages`, { headers })
+      expect(await history.json()).toMatchObject({
+        messages: [{ parts: [{ content: "Saved history" }] }],
+      })
+      const upload = await restRequest(`${paths}/messages/${restUserId}/attachments/upload`, {
+        headers,
+      })
+      expect(upload.status).toBe(200)
+      expect(await upload.text()).toBe("Hello")
+      expect(upload.headers.get("cache-control")).toContain("no-store")
+      expect(restTestState.threadScope).not.toHaveBeenCalled()
+      expect(restTestState.threadCreate).not.toHaveBeenCalled()
+      expect(restTestState.run).not.toHaveBeenCalled()
+      expect(
+        (restTestState.directorySnapshot.mock.calls[0]![0] as { scope: { tenantId?: string } })
+          .scope.tenantId,
+      ).toBe(role === "tenant-admin" ? restTenantId : undefined)
+    },
+  )
+  test("non-admin and revoked organization members fail before directory reads", async () => {
+    restTestState.chat.mockResolvedValue({
+      ...restPrincipal,
+      tenantUser: { ...restPrincipal.tenantUser, admin: false },
+    })
+    expect(
+      (await restRequest("/threads", { headers: { Authorization: `Bearer ${tenantJwt}` } })).status,
+    ).toBe(403)
+    restTestState.organizationAuth.mockReturnValue(Effect.fail(new OrganizationMembershipError()))
+    expect(
+      (
+        await restRequest(`${paths}/messages`, {
+          headers: { Authorization: `Bearer ${organizationJwt}` },
+        })
+      ).status,
+    ).toBe(403)
+    expect(restTestState.directoryList).not.toHaveBeenCalled()
+    expect(restTestState.directorySnapshot).not.toHaveBeenCalled()
+  })
+  test("activity cursors bind collection, title search and Tenant filter", async () => {
+    restTestState.directoryList.mockReturnValue(
+      Effect.succeed({
+        items: [directoryThread],
+        nextPosition: {
+          id: restOtherId,
+          tenantId: restTenantId,
+          updatedAt: "2026-09-01 00:00:00.123456+00",
+        },
+        previousPosition: null,
+      }),
+    )
+    const response = await restRequest(
+      `/threads?q=Budget&filter[tenant_id]=${restTenantId}&page_size=1`,
+    )
+    const { page_after } = (await response.json()) as { page_after: string }
+    expect(
+      (
+        await restRequest(
+          `/threads?q=Budget&filter[tenant_id]=${restTenantId}&page_after=${page_after}`,
+        )
+      ).status,
+    ).toBe(200)
+    expect(restTestState.directoryList).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        position: {
+          id: restOtherId,
+          tenantId: restTenantId,
+          updatedAt: "2026-09-01 00:00:00.123456+00",
+        },
+      }),
+    )
+    for (const path of [
+      `/threads?q=Other&filter[tenant_id]=${restTenantId}`,
+      `/threads?q=Budget`,
+      `${paths}/messages`,
+    ]) {
+      expect(
+        (await restRequest(`${path}${path.includes("?") ? "&" : "?"}page_after=${page_after}`))
+          .status,
+      ).toBe(400)
+    }
+  })
+  test("signed Tenant scope cannot be replaced by a filter or resource path", async () => {
+    restTestState.chat.mockResolvedValue({
+      ...restPrincipal,
+      tenantUser: { ...restPrincipal.tenantUser, admin: true },
+    })
+    restTestState.rows.push([{ id: restTenantId }], [{ id: restTenantId }])
+    const headers = { Authorization: `Bearer ${tenantJwt}` }
+    expect(
+      (await restRequest(`/threads?filter[tenant_id]=${restOtherId}`, { headers })).status,
+    ).toBe(200)
+    expect(
+      (
+        restTestState.directoryList.mock.calls[0]![0] as {
+          scope: { organizationId: string; tenantId: string | null }
+        }
+      ).scope,
+    ).toMatchObject({ organizationId: restOrgId, tenantId: null })
+    restTestState.directorySnapshot.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    expect(
+      (await restRequest(`/tenants/${restOtherId}/threads/${restOtherId}/messages`, { headers }))
+        .status,
+    ).toBe(404)
+    const input = restTestState.directorySnapshot.mock.calls[0]![0] as {
+      tenantId: string
+      scope: { tenantId: string }
+    }
+    expect(input.tenantId).toBe(restOtherId)
+    expect(input.scope.tenantId).toBe(restTenantId)
   })
 })

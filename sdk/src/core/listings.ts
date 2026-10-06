@@ -11,6 +11,9 @@ import {
 } from "./auth.ts"
 import { isAstralBeamApiError, type JwtOptions } from "../api/api.ts"
 import {
+  listThreads,
+  listThreadMessages,
+  getThreadAttachment,
   getTenant,
   listTenants,
   type ListTenantsParams,
@@ -138,28 +141,7 @@ export function loadListingPage(
   })
 }
 
-export function listingRequest<T>(
-  session: ListingSession,
-  signal: AbortSignal,
-  request: (auth: JwtOptions) => Promise<T>,
-): Promise<T> {
-  const result = requestListing(session, signal, request)
-  void result.catch((error: unknown) => {
-    const auth = authenticationState(session.auth)
-    if (
-      !(auth.status === "error" && auth.error === error) &&
-      !session.abortController.signal.aborted &&
-      !signal.aborted &&
-      !session.auth.session.abortController.signal.aborted &&
-      !(error instanceof Error && error.name === "AbortError")
-    ) {
-      reportListingError(session, error)
-    }
-  })
-  return result
-}
-
-async function requestListing<T>(
+export async function listingRequest<T>(
   session: ListingSession,
   signal: AbortSignal,
   request: (auth: JwtOptions) => Promise<T>,
@@ -169,51 +151,118 @@ async function requestListing<T>(
     session.abortController.signal,
     session.auth.session.abortController.signal,
   ])
-  for (let attempt = 0; attempt < 2; attempt++) {
-    combined.throwIfAborted()
-    updateAuthentication(session.auth, {
-      apiUrl: session.options.apiUrl,
-      fetchAstralBeamToken: session.options.fetchAstralBeamToken,
-    })
-    const token = await getValidChatAuthToken({ ...session.auth, retryUnauthorized: attempt === 0 })
-    combined.throwIfAborted()
-    const state = authenticationState(session.auth)
-    if (state.status !== "ready") throw new Error("Authentication is not ready")
-    const organization = state.currentUser.scope === "organization"
-    const identity = authenticationIdentity(
-      state.currentUser,
-      session.auth.session.cached!.tenantAdmin,
-    )
-    if (session.identity !== undefined && session.identity !== identity) {
-      session.onIdentityChange()
-      throw new DOMException("Identity changed", "AbortError")
-    }
-    session.identity = identity
-    if (session.options.scope === "organization" && !organization) {
-      throw new Error("Organization mode requires an organization-management token.")
-    }
-    if (
-      (session.options.scope ?? "tenant") === "tenant" &&
-      organization &&
-      !session.options.tenantId &&
-      session.options.tenantExternalId === undefined
-    ) {
-      throw new Error(
-        "tenantId or tenantExternalId is required for a tenant view using an organization token.",
-      )
-    }
-    try {
-      const result = await request({
-        apiUrl: session.auth.apiUrl,
-        astralBeamToken: token,
-        signal: combined,
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      combined.throwIfAborted()
+      updateAuthentication(session.auth, {
+        apiUrl: session.options.apiUrl,
+        fetchAstralBeamToken: session.options.fetchAstralBeamToken,
+      })
+      const token = await getValidChatAuthToken({
+        ...session.auth,
+        retryUnauthorized: attempt === 0,
       })
       combined.throwIfAborted()
-      return result
-    } catch (error) {
-      if (attempt || !isAstralBeamApiError(error) || error.status !== 401) throw error
-      await refreshRejectedAuthentication(session.auth, token)
+      const state = authenticationState(session.auth)
+      if (state.status !== "ready") throw new Error("Authentication is not ready")
+      const organization = state.currentUser.scope === "organization"
+      const identity = authenticationIdentity(
+        state.currentUser,
+        session.auth.session.cached!.tenantAdmin,
+      )
+      if (session.identity !== undefined && session.identity !== identity) {
+        session.onIdentityChange()
+        throw new DOMException("Identity changed", "AbortError")
+      }
+      session.identity = identity
+      if (session.options.scope === "organization" && !organization) {
+        throw new Error("Organization mode requires an organization-management token.")
+      }
+      if (
+        (session.options.scope ?? "tenant") === "tenant" &&
+        organization &&
+        !session.options.tenantId &&
+        session.options.tenantExternalId === undefined
+      ) {
+        throw new Error(
+          "tenantId or tenantExternalId is required for a tenant view using an organization token.",
+        )
+      }
+      try {
+        const result = await request({
+          apiUrl: session.auth.apiUrl,
+          astralBeamToken: token,
+          signal: combined,
+        })
+        combined.throwIfAborted()
+        return result
+      } catch (error) {
+        if (attempt || !isAstralBeamApiError(error) || error.status !== 401) throw error
+        await refreshRejectedAuthentication(session.auth, token)
+      }
     }
+    throw new Error("Authentication failed")
+  } catch (error) {
+    const auth = authenticationState(session.auth)
+    if (
+      !(auth.status === "error" && auth.error === error) &&
+      !combined.aborted &&
+      !(error instanceof Error && error.name === "AbortError")
+    ) {
+      reportListingError(session, error)
+    }
+    throw error
   }
-  throw new Error("Authentication failed")
+}
+
+export function loadThreadDirectory(
+  session: ListingSession,
+  page: Omit<ListingPageOptions, "kind" | "admin">,
+  signal: AbortSignal,
+) {
+  return listingRequest(session, signal, (auth) =>
+    listThreads(
+      {
+        q: page.q,
+        page_size: page.size,
+        ...page.cursor,
+        ...(page.tenantId ? { "filter[tenant_id]": page.tenantId } : {}),
+      },
+      auth,
+    ),
+  )
+}
+
+export function loadDirectoryThreadHistory(
+  session: ListingSession,
+  tenantId: string,
+  id: string,
+  pageAfter: string | undefined,
+  signal: AbortSignal,
+) {
+  return listingRequest(session, signal, (auth) =>
+    listThreadMessages(
+      tenantId,
+      id,
+      {
+        page_size: 100,
+        ...(pageAfter ? { page_after: pageAfter } : {}),
+      },
+      auth,
+    ),
+  )
+}
+
+export function loadDirectoryThreadAttachment(
+  session: ListingSession,
+  tenantId: string,
+  id: string,
+  messageId: string,
+  partId: string,
+  signal: AbortSignal,
+) {
+  return listingRequest(session, signal, async (auth) => {
+    const response = await getThreadAttachment(tenantId, id, messageId, partId, auth)
+    return response.blob()
+  })
 }

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import type { UIMessage } from "@tanstack/ai-client"
 import { WarningCircleIcon } from "@phosphor-icons/react"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/widget/components/ui/empty"
@@ -12,7 +13,6 @@ import {
   MessageScrollerViewport,
 } from "@/widget/components/ui/message-scroller"
 import { Spinner } from "@/widget/components/ui/spinner"
-import { Button } from "@/widget/components/ui/button"
 import { DEFAULT_EMPTY_DESCRIPTION, DEFAULT_EMPTY_TITLE } from "../../lib/constants.ts"
 import type { WidgetDefinition } from "../../lib/types.ts"
 import type { SavedMessageMetadata } from "../../core/threads.ts"
@@ -39,6 +39,7 @@ interface ChatTranscriptProps {
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   currentTenantUserId?: string | undefined
   hasOlder: boolean
+  loadingHistory?: boolean | undefined
   loadingOlder: boolean
   onLoadOlder: () => Promise<void>
   isBusy: boolean
@@ -61,12 +62,36 @@ export function ChatTranscript({
   getAttachment,
   currentTenantUserId,
   hasOlder,
+  loadingHistory = false,
   loadingOlder,
   onLoadOlder,
   isBusy,
   awaitingReply,
   onQuestionnaireAnswers,
 }: ChatTranscriptProps) {
+  const loadingEarlier = useRef(false)
+  const viewport = useRef<HTMLDivElement>(null)
+  const automaticPage = useRef<UIMessage[] | undefined>(undefined)
+  useEffect(() => {
+    const element = viewport.current
+    if (!element || !hasOlder || loadingOlder || loadingHistory) return
+    const loadEarlier = (event?: Event) => {
+      if (element.scrollTop > 100 || loadingEarlier.current) return
+      if (!event && automaticPage.current === messages) return
+      automaticPage.current = messages
+      loadingEarlier.current = true
+      void onLoadOlder().finally(() => {
+        loadingEarlier.current = false
+      })
+    }
+    // Check after scroll restoration. Retry a failed page only on another scroll or history update.
+    const frame = requestAnimationFrame(() => loadEarlier())
+    element.addEventListener("scroll", loadEarlier)
+    return () => {
+      cancelAnimationFrame(frame)
+      element.removeEventListener("scroll", loadEarlier)
+    }
+  }, [hasOlder, loadingOlder, loadingHistory, messages, onLoadOlder])
   if (messages.length === 0 && !hasOlder) {
     if (emptySlot) {
       // The host's own empty state; the wrapper gives the projected content the full height.
@@ -90,26 +115,26 @@ export function ChatTranscript({
      * alternative, anchoring each user message to the top, grows a spacer sized to make
      * that scroll position reachable, which reads as dead space whenever the reply is
      * shorter than the viewport — common in a narrow sidebar. */
-    <MessageScrollerProvider autoScroll>
+    <MessageScrollerProvider autoScroll={!readOnly}>
       <MessageScroller className="h-full">
-        <MessageScrollerViewport preserveScrollOnPrepend>
+        {loadingOlder && (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center"
+            role="status"
+          >
+            <span className="flex items-center gap-2 rounded-md bg-background px-3 py-1 text-sm text-muted-foreground shadow-sm">
+              <Spinner />
+              Loading earlier messages…
+            </span>
+          </div>
+        )}
+        <MessageScrollerViewport preserveScrollOnPrepend ref={viewport}>
           <MessageScrollerContent aria-busy={isBusy} className="p-(--card-spacing)">
-            {hasOlder && (
-              <div className="flex justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={loadingOlder}
-                  onClick={() => void onLoadOlder()}
-                >
-                  {loadingOlder ? "Loading earlier messages…" : "Load earlier messages"}
-                </Button>
-              </div>
-            )}
             {messages.map((message) => {
               const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
               const anotherParticipant =
                 message.role === "user" &&
+                currentTenantUserId !== undefined &&
                 saved?.authorTenantUserId != null &&
                 saved.authorTenantUserId !== currentTenantUserId
               return (

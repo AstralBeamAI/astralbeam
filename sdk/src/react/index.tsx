@@ -8,9 +8,18 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
-export { AstralBeamTenantList, AstralBeamTenantUserList } from "./listings.tsx"
-export type { AstralBeamTenantListProps, AstralBeamTenantUserListProps } from "./listings.tsx"
+export {
+  AstralBeamThreadList,
+  AstralBeamTenantList,
+  AstralBeamTenantUserList,
+} from "./listings.tsx"
 export type {
+  AstralBeamThreadListProps,
+  AstralBeamTenantListProps,
+  AstralBeamTenantUserListProps,
+} from "./listings.tsx"
+export type {
+  AstralBeamThreadListHandle,
   AstralBeamTenantListHandle,
   AstralBeamTenantUserListHandle,
 } from "../client/listings.ts"

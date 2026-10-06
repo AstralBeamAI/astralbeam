@@ -99,6 +99,10 @@ export function astralBeamJwtFetch<T>(path: string, options: JwtOptions): Promis
   return astralBeamApiFetch<T>(path, options)
 }
 
+export function astralBeamResourceFetch<_T>(path: string, options: ApiOptions): Promise<Response> {
+  return apiResponse(path, options)
+}
+
 export function astralBeamChatFetch<_T>(path: string, options: JwtOptions): Promise<Response> {
   return apiResponse(path, options)
 }

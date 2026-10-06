@@ -16,6 +16,11 @@ const pages = [
     title: "Users",
     description: "Browse and filter the users in your tenant.",
   },
+  {
+    path: "/conversations",
+    title: "Conversations",
+    description: "Browse saved conversations and transcripts in your tenant.",
+  },
 ] as const
 
 export function AppShell() {

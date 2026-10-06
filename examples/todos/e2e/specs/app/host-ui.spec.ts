@@ -12,7 +12,7 @@ test("the assistant and appearance persist across all example pages", async ({
   await todos.search.fill("")
   await todos.cycleTheme()
   await chat.composer().fill("Keep this draft while browsing")
-  for (const name of ["Users", "Todos"] as const) {
+  for (const name of ["Users", "Conversations", "Todos"] as const) {
     await todos.navigate(name)
     await expect(page.getByRole("heading", { name, level: 1, exact: true })).toBeVisible()
     await expect(chat.composer()).toHaveValue("Keep this draft while browsing")
@@ -20,7 +20,7 @@ test("the assistant and appearance persist across all example pages", async ({
     await captureMoment(page, `shared-assistant-${name.toLowerCase().replaceAll(" ", "-")}`)
   }
   await page.setViewportSize({ width: 390, height: 844 })
-  await todos.navigate("Users")
+  await todos.navigate("Conversations")
   await expect(chat.composer()).toHaveValue("Keep this draft while browsing")
   await expect(page.locator(".app")).toHaveJSProperty("scrollWidth", 390)
   await captureMoment(page, "shared-assistant-mobile")

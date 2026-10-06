@@ -197,6 +197,13 @@ export const restPageQuery = Schema.Struct({
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
 )
 export type RestPageQuery = typeof restPageQuery.Type
+export const restPaginationQuery = Schema.Struct({
+  page_size: restPageQuery.fields.page_size,
+  page_after: restPageQuery.fields.page_after,
+  page_before: restPageQuery.fields.page_before,
+}).check(
+  Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
+)
 export const restUserPageQuery = Schema.Struct({
   ...restPageQuery.fields,
   "filter[admin]": Schema.optionalKey(enumSchema(["true", "false"])),

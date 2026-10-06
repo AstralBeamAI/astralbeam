@@ -33,7 +33,7 @@ A thread belongs to one Organization and Tenant. Access comes from explicit part
 | `member` | Viewer permissions, plus send messages and submit permitted tool responses. |
 | `manager` | Member permissions, plus rename, delete, search same-Tenant users, and manage participants. |
 
-All authenticated browser clients of a TenantUser share that user's grant. A tool response can additionally target one browser instance. Tenant administration or Organization dashboard membership does not implicitly grant conversation access. Removing a participant preserves their historical authorship, and the service prevents removing or demoting the last manager.
+All authenticated browser clients of a TenantUser share that user's grant. A tool response can additionally target one browser instance. Tenant administration or Organization dashboard membership does not grant participant permissions. Separate administrative directory endpoints allow Organization directory readers and signed Tenant admins to read metadata, saved transcripts and uploads within their verified scope. Removing a participant preserves their historical authorship, and the service prevents removing or demoting the last manager.
 
 ## Schema
 
@@ -448,6 +448,14 @@ After a delivered browser operation has actually produced a known result, submit
 Send this body to `/chat/threads/{id}/tool-results`. Source identities are available from committed delivery and `pending_interactions`. Optional `run_id` and `parent_run_id` preserve native invocation correlation. The endpoint returns SSE only when it newly reserves a continuation, otherwise a JSON acceptance receipt. Inspect the content type for both admission and tool-result requests.
 
 If acknowledgment is lost, repost the known result without rerunning the business operation. An explicit `unknown` closure records uncertainty and can invalidate an abandoned invocation before continuing. An explicit `skipped` questionnaire outcome records that no answer was provided. Neither means an external mutation failed.
+
+## Administrative browsing
+
+The dashboard's Conversations directory and the SDK's `AstralBeamThreadList` use read-only management endpoints. Let's list saved conversations with `GET /api/v1/threads`, then read its metadata and messages through `/api/v1/tenants/{tenantId}/threads/{id}/messages`. Saved uploads use the same scoped message and attachment path beneath that resource.
+
+Organization API keys and management tokens with current directory-read permission can read their Organization. Signed Tenant admins can read their Tenant. These reads do not insert participant grants or permit sending, renaming, deleting, sharing or resolving tools. The existing participant endpoints retain their independent authorization.
+
+Lists exclude empty conversations, search literal title text and sort by activity, Tenant ID and thread ID descending. Cursors bind the verified scope, collection and filters. History uses the canonical ancestry order from one database snapshot. Administrative display never executes tools, invokes host widgets or submits questionnaires, and saved drafts do not establish producer liveness.
 
 ## Using the Effect service
 

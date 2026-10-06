@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConversationsIndexRouteImport } from './routes/conversations/index'
 import { Route as TenantUsersIndexRouteImport } from './routes/tenant-users/index'
 import { Route as ApiAstralbeamTokenRouteImport } from './routes/api/astralbeam/token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConversationsIndexRoute = ConversationsIndexRouteImport.update({
+  id: '/conversations/',
+  path: '/conversations/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TenantUsersIndexRoute = TenantUsersIndexRouteImport.update({
@@ -31,30 +37,40 @@ const ApiAstralbeamTokenRoute = ApiAstralbeamTokenRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/conversations/': typeof ConversationsIndexRoute
   '/tenant-users/': typeof TenantUsersIndexRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/conversations': typeof ConversationsIndexRoute
   '/tenant-users': typeof TenantUsersIndexRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/conversations/': typeof ConversationsIndexRoute
   '/tenant-users/': typeof TenantUsersIndexRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tenant-users/' | '/api/astralbeam/token'
+  fullPaths:
+    '/' | '/conversations/' | '/tenant-users/' | '/api/astralbeam/token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tenant-users' | '/api/astralbeam/token'
-  id: '__root__' | '/' | '/tenant-users/' | '/api/astralbeam/token'
+  to: '/' | '/conversations' | '/tenant-users' | '/api/astralbeam/token'
+  id:
+    | '__root__'
+    | '/'
+    | '/conversations/'
+    | '/tenant-users/'
+    | '/api/astralbeam/token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConversationsIndexRoute: typeof ConversationsIndexRoute
   TenantUsersIndexRoute: typeof TenantUsersIndexRoute
   ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
 }
@@ -66,6 +82,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conversations/': {
+      id: '/conversations/'
+      path: '/conversations'
+      fullPath: '/conversations/'
+      preLoaderRoute: typeof ConversationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tenant-users/': {
@@ -87,6 +110,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConversationsIndexRoute: ConversationsIndexRoute,
   TenantUsersIndexRoute: TenantUsersIndexRoute,
   ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
 }

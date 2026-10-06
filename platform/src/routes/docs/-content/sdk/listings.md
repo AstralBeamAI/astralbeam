@@ -1,6 +1,6 @@
-# Tenant directories
+# Directories
 
-Tenant directories show tenant records and their users inside your application. Let's provision records and embed a read-only user directory for a customer administrator, scoped to their own tenant.
+Directories show tenants, their users and saved conversations inside your application. Let's provision records and embed a read-only user directory for a customer administrator, scoped to their own tenant.
 
 ## From records to a working directory
 
@@ -127,6 +127,33 @@ Use an `accountId` that changes with either the signed-in user or tenant, and se
 - `refresh()` reloads data and may reuse the cached JWT. Token-source updates apply on the next token acquisition. Use `reset()` to reacquire authentication with a ready host session. API URL changes clear authentication and cached rows.
 - Changing scope or a pinned tenant clears the view. Changing page size restarts pagination while preserving filters.
 
+## Browse saved conversations
+
+Conversation directories let administrators review saved conversations and uploads. Let's embed a Tenant-scoped directory with the same trusted administrator token source:
+
+```tsx
+import { AstralBeamThreadList } from "@astralbeam/sdk/react"
+
+;<AstralBeamThreadList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
+```
+
+For a vanilla application, let's mount the same directory:
+
+```ts
+import { mountAstralBeamThreadList } from "@astralbeam/sdk/client"
+
+const handle = mountAstralBeamThreadList(element, {
+  fetchAstralBeamToken: { url: "/api/astralbeam/token" },
+})
+```
+
+- Rows show participants, conversation titles and last activity. Participant names fall back to external IDs.
+- Search matches literal title text, ordered by last activity. Open a title to read metadata, saved messages and uploads, load earlier messages, or refresh the saved view.
+- Tools and widgets show stored information without repeating actions or accepting answers. Partial output does not confirm that generation is running. Administrative reads grant no participant permissions.
+- Organization scope requires a selected Tenant, like the user directory. Clearing it clears the list. Use `tenantId` or `tenantExternalId` to pin a Tenant.
+
+**NOTE**: Use the same options and lifecycle handles as the other directories, with signed Tenant-admin authority or an Organization-management token with current read permission.
+
 ## Host callbacks
 
 Let's connect user row actions and terminal request failures to your application:
@@ -164,7 +191,7 @@ Because directories render inside a Shadow DOM, host styles and React `className
 
 `customCss` is ordinary CSS, not uncompiled Tailwind classes. It applies only inside this widget. Changing or removing it updates styles without resetting filters, pagination, or authentication. Use `handle.update({ customCss })` with vanilla mounts, or change the React prop. Pass only trusted application CSS, never user-supplied content.
 
-The directory styling slots are `directory`, `directory-header`, `directory-toolbar`, `directory-page-controls`, `directory-tenant-picker`, `directory-tenant-label`, `directory-empty`, `directory-page`, `directory-pagination`, and `directory-avatar`. Shared control slots include `input`, `input-group`, `native-select`, `button`, `combobox-content`, `alert`, `table-container`, `table`, `table-head`, and `table-cell`. Select them with `[data-slot="..."]`. Prefer `theme` for colors and fonts, and `customCss` for layout, spacing, focus treatment, and component sizing.
+Conversation views also expose `directory-transcript`. The directory styling slots are `directory`, `directory-header`, `directory-toolbar`, `directory-page-controls`, `directory-tenant-picker`, `directory-tenant-label`, `directory-empty`, `directory-page`, `directory-pagination`, and `directory-avatar`. Shared control slots include `input`, `input-group`, `native-select`, `button`, `combobox-content`, `alert`, `table-container`, `table`, `table-head`, and `table-cell`. Select them with `[data-slot="..."]`. Prefer `theme` for colors and fonts, and `customCss` for layout, spacing, focus treatment, and component sizing.
 
 | Option | Default | Purpose |
 | --- | --- | --- |
@@ -173,14 +200,14 @@ The directory styling slots are `directory`, `directory-header`, `directory-tool
 | `scope` | `"tenant"` | Tenant view, or `"organization"` with an organization-management JWT. |
 | `tenantId`, `tenantExternalId` | Signed tenant in tenant scope | Pin a Tenant by internal UUID or exact external ID. Internal ID takes precedence. |
 | `pageSize` | `20` | Initial page size, one of `20`, `50`, or `100`. |
-| `title` | `"Tenants"` or `"Tenant users"` | Header and accessible region name. |
+| `title` | `"Tenants"`, `"Tenant users"` or `"Conversations"` | Header and accessible region name. |
 | `showHeader` | `true` | Show the directory heading and tenant context. |
 | `customCss` | None | Trusted CSS inside the widget's Shadow DOM. Omit to retain SDK styles. |
 | `showAdmin` | `false` | User directory only. Show the stored admin column and filter, without changing permissions. |
 | `colorScheme`, `theme` | `"system"`, SDK palette | Chat-compatible appearance options. |
 | `onTenantSelect` | None | Tenant directory's Open action. |
 | `onTenantUserSelect` | None | User directory's Open action. |
-| `onTenantChange` | None | User directory's organization-scope picker changes. |
+| `onTenantChange` | None | User or conversation directory's organization-scope picker changes. |
 | `onError` | None | Failed requests after authentication retry, excluding cancellations. |
 
 - Previous/Next follow server cursors, with no estimated totals or client-side sorting.

@@ -18,6 +18,7 @@ import { Button } from "../components/ui/button.tsx"
 import { Badge } from "../components/ui/badge.tsx"
 
 const features = tableFeatures({})
+export type DirectoryColumns<T extends { id: string }> = ColumnDef<typeof features, T>[]
 type RecordRow = TenantRecordEncoded | TenantUserRecordEncoded
 type Options = MountAstralBeamTenantListOptions & MountAstralBeamTenantUserListOptions
 
@@ -32,7 +33,6 @@ export function DirectoryTable({
   options: Options
   filtered: boolean
 }) {
-  const tableId = useId()
   const { onTenantSelect, onTenantUserSelect, showAdmin } = options
   const columns = useMemo<ColumnDef<typeof features, RecordRow>[]>(
     () => [
@@ -155,11 +155,32 @@ export function DirectoryTable({
     ],
     [kind, onTenantSelect, onTenantUserSelect, showAdmin],
   )
+  return (
+    <ListingTable
+      rows={rows}
+      columns={columns}
+      emptyText={filtered ? "No records match your filters." : "No records yet."}
+    />
+  )
+}
+
+export function ListingTable<T extends { id: string }>({
+  rows,
+  columns,
+  emptyText,
+  getRowId = (row: T) => row.id,
+}: {
+  rows: T[]
+  columns: DirectoryColumns<T>
+  emptyText: string
+  getRowId?: (row: T) => string
+}) {
+  const tableId = useId()
   const table = useTable({
     features,
     data: rows,
     columns,
-    getRowId: (row) => row.id,
+    getRowId,
   })
   return (
     <Table
@@ -196,19 +217,21 @@ export function DirectoryTable({
                 role="cell"
                 headers={`${tableId}-${cell.column.id}`}
                 className={
-                  cell.column.id === "name"
+                  cell.column.id === "name" || cell.column.id === "title"
                     ? "order-first block min-w-0 font-medium whitespace-normal @4xl/directory:table-cell @4xl/directory:font-normal"
                     : "block min-w-0 whitespace-normal @4xl/directory:table-cell"
                 }
               >
-                {cell.column.id !== "name" && cell.column.id !== "actions" && (
-                  <span
-                    aria-hidden
-                    className="mb-1 block text-xs font-medium text-muted-foreground @4xl/directory:hidden"
-                  >
-                    {cell.column.columnDef.header as string}
-                  </span>
-                )}
+                {cell.column.id !== "name" &&
+                  cell.column.id !== "title" &&
+                  cell.column.id !== "actions" && (
+                    <span
+                      aria-hidden
+                      className="mb-1 block text-xs font-medium text-muted-foreground @4xl/directory:hidden"
+                    >
+                      {cell.column.columnDef.header as string}
+                    </span>
+                  )}
                 <table.FlexRender cell={cell} />
               </TableCell>
             ))}
@@ -221,7 +244,7 @@ export function DirectoryTable({
               colSpan={table.getAllLeafColumns().length}
               className="block content-center h-32 text-center text-muted-foreground @4xl/directory:table-cell"
             >
-              {filtered ? "No records match your filters." : "No records yet."}
+              {emptyText}
             </TableCell>
           </TableRow>
         )}

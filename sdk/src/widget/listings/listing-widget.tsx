@@ -1,7 +1,7 @@
 import { useId, useState } from "react"
 import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import { ArrowClockwiseIcon, BuildingsIcon, UsersIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, BuildingsIcon, UsersIcon, ChatsIcon } from "@phosphor-icons/react"
 import {
   type TenantPage,
   type TenantRecordEncoded,
@@ -25,20 +25,30 @@ import {
   loadTenantChoices,
   resolveListingTenant,
 } from "../../core/listings.ts"
+import { ThreadDirectoryPage } from "./thread-directory.tsx"
 import { DirectoryTable } from "./table.tsx"
 
 const listingKinds = {
   tenants: {
     title: "Tenants",
+    searchLabel: "Search by name or external ID",
     Icon: BuildingsIcon,
     tenantPrompt: null,
     showAdminFilter: false,
   },
   users: {
     title: "Tenant users",
+    searchLabel: "Search by name or external ID",
     Icon: UsersIcon,
     tenantPrompt: "Select a tenant to view its users.",
     showAdminFilter: true,
+  },
+  threads: {
+    title: "Conversations",
+    Icon: ChatsIcon,
+    searchLabel: "Search conversations",
+    tenantPrompt: "Select a tenant to view its conversations.",
+    showAdminFilter: false,
   },
 } as const
 
@@ -119,8 +129,8 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
         <Input
           type="search"
           disabled={awaitingTenant}
-          aria-label="Search by name or external ID"
-          placeholder="Search by name or external ID…"
+          aria-label={config.searchLabel}
+          placeholder={`${config.searchLabel}…`}
           value={search}
           maxLength={255}
           onChange={(e) => setSearch(e.target.value)}
@@ -185,18 +195,22 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
               : "No persisted tenant found. Create the tenant, then refresh."}
           </p>
         </div>
+      ) : kind === "threads" ? (
+        <ThreadDirectoryPage
+          key={JSON.stringify([tenantId, q, size])}
+          session={session}
+          tenantId={tenantId}
+          q={q}
+          size={size}
+          ErrorFeedback={ListingError}
+          LoadingFeedback={ListingLoading}
+          Pagination={PageNavigation}
+        />
       ) : (
         <DirectoryPage
           key={JSON.stringify([tenantId, q, adminFilter, size])}
           admin={adminFilter}
-          {...{
-            options,
-            kind,
-            session,
-            tenantId,
-            q,
-            size,
-          }}
+          {...{ options, kind, session, tenantId, q, size }}
         />
       )}
     </section>
@@ -249,7 +263,8 @@ function DirectoryPage({
   q,
   admin,
   size,
-}: WidgetProps & {
+}: Omit<WidgetProps, "kind"> & {
+  kind: "tenants" | "users"
   tenantId: string | undefined
   q: string
   admin: "all" | "true" | "false"
@@ -297,7 +312,7 @@ function PageNavigation({
   busy,
   onPage,
 }: {
-  page: TenantPage | TenantUserPage | undefined
+  page: { page_before: string | null; page_after: string | null } | undefined
   busy: boolean
   onPage: (cursor: Cursor) => void
 }) {

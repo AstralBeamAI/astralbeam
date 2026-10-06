@@ -419,6 +419,7 @@ export function ChatWidget({
           getAttachment={chat.getAttachment}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
+          loadingHistory={chatState.threadLoading}
           loadingOlder={chatState.olderMessagesLoading}
           onLoadOlder={chat.loadOlderMessages}
           apiUrl={apiUrl}
