@@ -55,7 +55,10 @@ const directoryPageQuery = Schema.Struct({
 )
 const directoryThreadQuery = Schema.Struct({
   ...directoryPageQuery.fields,
-  q: restPageQuery.fields.q,
+  q: restPageQuery.fields.q.annotate({
+    description:
+      "Case-insensitive literal substring of the conversation title. Trimmed, blank means no search.",
+  }),
   "filter[tenant_id]": Schema.optionalKey(ApiUuidSchema),
 }).check(
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),

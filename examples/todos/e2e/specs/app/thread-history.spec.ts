@@ -1,6 +1,7 @@
 import { expect, test } from "../../fixtures.ts"
 import { todosPage } from "../../pages/todos-page.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
+import { seedTarget } from "../../worktree.ts"
 import { captureMoment } from "../../capture.ts"
 
 test("conversation search, conflicting renames, and reset preserve the correct local state", async ({
@@ -136,3 +137,77 @@ test("conversation search, conflicting renames, and reset preserve the correct l
   await expect(page.getByRole("option", { name: "New conversation", exact: true })).toHaveCount(0)
   await expect(page.getByRole("option", { name: recent.title, exact: true })).toBeVisible()
 })
+
+for (const role of ["member", "manager", "viewer"]) {
+  test(`${role} chats automatically page through empty projected history`, async ({ page }) => {
+    const thread = {
+      id: "00000000-0000-4000-8000-000000000003",
+      title: "Saved history",
+      agent_id: seedTarget.agentId,
+      version: 1,
+      role,
+      writer_active: false,
+      current_leaf_message_id: null,
+      created_at: "2026-10-01T00:00:00Z",
+      updated_at: "2026-10-06T00:00:00Z",
+    }
+    let earlierRequests = 0
+    await page.route(/\/api\/v1\/chat\/threads\?/, (route) =>
+      route.fulfill({ json: { items: [thread], page_after: null, page_before: null } }),
+    )
+    await page.route("**/api/v1/chat/threads/*/messages?*", (route) => {
+      const earlier = new URL(route.request().url()).searchParams.has("page_after")
+      if (earlier) earlierRequests++
+      return route.fulfill({
+        json: {
+          thread,
+          messages:
+            earlierRequests === 2
+              ? [
+                  {
+                    id: "context",
+                    role: "user",
+                    state: "complete",
+                    parts: [{ id: "text", type: "text", content: "Earlier support context" }],
+                  },
+                ]
+              : [
+                  {
+                    id: `result-${earlierRequests}`,
+                    role: "tool",
+                    state: "complete",
+                    source_assistant_message_id: "assistant",
+                    source_tool_part_id: "call",
+                    response_target_id: "target",
+                    parts: [
+                      {
+                        id: "result",
+                        type: "tool-result",
+                        output: { ok: true },
+                        outcome: "succeeded",
+                      },
+                    ],
+                  },
+                ],
+          pending_interactions: [],
+          page_after: earlierRequests === 2 ? null : `earlier-${earlierRequests}`,
+          page_before: null,
+        },
+      })
+    })
+    await todosPage(page).open()
+    await chatWidget(page).waitForReady()
+    await page.getByRole("combobox", { name: "Conversations", exact: true }).click()
+    await page.getByRole("option", { name: thread.title, exact: true }).click()
+    await expect(page.getByRole("region", { name: "Messages" })).toContainText(
+      "Earlier support context",
+    )
+    const composer = page.getByRole("textbox", { name: "Message", exact: true })
+    await composer.fill("Unsaved text")
+    const send = page.getByRole("button", { name: "Send", exact: true })
+    if (role === "viewer") await expect(send).toBeDisabled()
+    else await expect(send).toBeEnabled()
+    expect(earlierRequests).toBe(2)
+    await captureMoment(page, `${role}-automatically-loaded-history`)
+  })
+}

@@ -3015,7 +3015,7 @@
               "type": "string",
               "maxLength": 255,
               "pattern": "^[^\\u0000]*$",
-              "description": "Case-insensitive literal substring of name or external_id. Trimmed, blank means no search."
+              "description": "Case-insensitive literal substring of the conversation title. Trimmed, blank means no search."
             },
             "required": false
           },

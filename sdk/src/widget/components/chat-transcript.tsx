@@ -39,6 +39,7 @@ interface ChatTranscriptProps {
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   currentTenantUserId?: string | undefined
   hasOlder: boolean
+  loadingHistory?: boolean | undefined
   loadingOlder: boolean
   onLoadOlder: () => Promise<void>
   isBusy: boolean
@@ -61,6 +62,7 @@ export function ChatTranscript({
   getAttachment,
   currentTenantUserId,
   hasOlder,
+  loadingHistory = false,
   loadingOlder,
   onLoadOlder,
   isBusy,
@@ -69,24 +71,27 @@ export function ChatTranscript({
 }: ChatTranscriptProps) {
   const loadingEarlier = useRef(false)
   const viewport = useRef<HTMLDivElement>(null)
+  const automaticPage = useRef<UIMessage[] | undefined>(undefined)
   useEffect(() => {
     const element = viewport.current
-    if (!element || !hasOlder || loadingOlder || (readOnly && isBusy)) return
-    const loadEarlier = () => {
+    if (!element || !hasOlder || loadingOlder || loadingHistory) return
+    const loadEarlier = (event?: Event) => {
       if (element.scrollTop > 100 || loadingEarlier.current) return
+      if (!event && automaticPage.current === messages) return
+      automaticPage.current = messages
       loadingEarlier.current = true
       void onLoadOlder().finally(() => {
         loadingEarlier.current = false
       })
     }
-    // Check after the scroller restores its position, including pages with no visible messages.
-    const frame = readOnly ? requestAnimationFrame(loadEarlier) : undefined
+    // Check after scroll restoration. Retry a failed page only on another scroll or history update.
+    const frame = requestAnimationFrame(() => loadEarlier())
     element.addEventListener("scroll", loadEarlier)
     return () => {
-      if (frame !== undefined) cancelAnimationFrame(frame)
+      cancelAnimationFrame(frame)
       element.removeEventListener("scroll", loadEarlier)
     }
-  }, [hasOlder, loadingOlder, readOnly, isBusy, messages, onLoadOlder])
+  }, [hasOlder, loadingOlder, loadingHistory, messages, onLoadOlder])
   if (messages.length === 0 && !hasOlder) {
     if (emptySlot) {
       // The host's own empty state; the wrapper gives the projected content the full height.

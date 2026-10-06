@@ -587,7 +587,7 @@ export type ListThreadsParams = {
    */
   page_before?: string
   /**
-   * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
+   * Case-insensitive literal substring of the conversation title. Trimmed, blank means no search.
    * @maxLength 255
    * @pattern ^[^\u0000]*$
    */

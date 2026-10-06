@@ -98,9 +98,7 @@ export function ThreadDirectoryPage({
             rows={query.data.items}
             columns={columns}
             getRowId={(row) => `${row.tenant_id}:${row.id}`}
-            emptyText={
-              q || tenantId ? "No conversations match your filters." : "No conversations yet."
-            }
+            emptyText={q ? "No conversations match your filters." : "No conversations yet."}
           />
         </div>
       )}

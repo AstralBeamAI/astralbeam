@@ -86,6 +86,7 @@ export function ThreadViewer({
             readOnly
             getAttachment={getAttachment}
             hasOlder={query.hasNextPage}
+            loadingHistory={query.isFetching}
             loadingOlder={query.isFetchingNextPage}
             onLoadOlder={async () => {
               await query.fetchNextPage({ cancelRefetch: false })

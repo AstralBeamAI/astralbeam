@@ -27,6 +27,7 @@ test("React conversation directory reads saved pages, uploads and decisions with
 }) => {
   const directory = threadDirectoryPage(page)
   const mutations: string[] = []
+  let hasConversations = true
   let previousTop: number | undefined
   page.on("request", (request) => {
     if (
@@ -40,7 +41,10 @@ test("React conversation directory reads saved pages, uploads and decisions with
     const q = new URL(route.request().url()).searchParams.get("q") ?? ""
     return route.fulfill({
       json: {
-        items: !q || savedThread.title.toLowerCase().includes(q.toLowerCase()) ? [savedThread] : [],
+        items:
+          hasConversations && (!q || savedThread.title.toLowerCase().includes(q.toLowerCase()))
+            ? [savedThread]
+            : [],
         page_after: null,
         page_before: null,
       },
@@ -144,6 +148,9 @@ test("React conversation directory reads saved pages, uploads and decisions with
   await directory.search.fill("")
   await expect(directory.conversation(savedThread.title)).toBeVisible()
   await captureMoment(page, "conversation-directory-mobile")
+  hasConversations = false
+  await directory.refresh.click()
+  await expect(directory.directory).toContainText("No conversations yet.")
 })
 
 test("vanilla conversation directory follows cursors, filters Tenants and clears selected history on identity changes", async ({
