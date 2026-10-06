@@ -19,6 +19,16 @@
   background: var(--card);
 }
 
+[data-slot="directory-toolbar"] [data-slot="native-select"] {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+[data-slot="directory-toolbar"] [data-slot="native-select"]:focus-visible {
+  border-color: var(--ring);
+}
+
 [data-slot="directory-table"] {
   border-color: var(--border);
   border-radius: 0.5rem;
