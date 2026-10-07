@@ -80,6 +80,7 @@ const root = (await run(["git", "rev-parse", "--show-toplevel"], ".")).output.tr
 const countLines = `${root}/scripts/count-lines.ts`
 const target = Deno.env.get("BASE_REF") || "main"
 const headSha = await git("rev-parse", "HEAD")
+if (await git("status", "--porcelain")) console.warn("Uncommitted changes are not measured.")
 const baseSha = await git("rev-parse", `origin/${target}`)
 const mergeBase = await git("merge-base", baseSha, headSha)
 const changed = (await git("diff", "--name-only", mergeBase, headSha)).split("\n")

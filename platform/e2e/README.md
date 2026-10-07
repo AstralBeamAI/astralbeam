@@ -15,7 +15,7 @@ deno task --cwd platform e2e
 - `deno task e2e --project=features` runs only the focused specs, after their dependencies.
 - `E2E_SANDBOX=docker deno task e2e` adds the `sandbox` project. Its specs save a sandbox provider, which runs the product's real connection test, so they create, use, and destroy a container and may pull `node:22` first. The project does not exist without that variable, so a run without it is deterministic rather than dependent on whether a daemon happens to be up.
 - `deno task e2e --ui` opens Playwright's runner for stepping through a flow.
-- It is not part of `check`, `test`, or `ready`, and it does not run in CI. Run it deliberately.
+- It is not part of `check`, `test`, or `ready`. CI's `Platform end-to-end` job runs the default projects on every push, without video, and uploads `e2e/.output` on failure.
 
 Every run drops and recreates the suite's database, so it is repeatable and leaves no state behind between runs. Nothing needs seeding first.
 
