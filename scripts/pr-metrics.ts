@@ -1,5 +1,5 @@
 // Builds each changed project at the merge base and at HEAD, then upserts the PR metrics comment.
-// CI's Metrics job runs it with PR_NUMBER set. Without it, the table is only printed.
+// Without PR_NUMBER or an open PR for the branch, the table is only printed.
 const PROJECTS = ["examples/linearity-react", "examples/todos", "cli", "platform", "sdk", "www"]
 // These consume `sdk/dist` through file dependencies, so an SDK change changes their builds.
 const SDK_CONSUMERS = new Set(["examples/linearity-react", "examples/todos", "cli", "platform"])
@@ -81,6 +81,7 @@ const countLines = `${root}/scripts/count-lines.ts`
 const target = Deno.env.get("BASE_REF") || "main"
 const headSha = await git("rev-parse", "HEAD")
 if (await git("status", "--porcelain")) console.warn("Uncommitted changes are not measured.")
+await git("fetch", "--quiet", "origin", target)
 const baseSha = await git("rev-parse", `origin/${target}`)
 const mergeBase = await git("merge-base", baseSha, headSha)
 const changed = (await git("diff", "--name-only", mergeBase, headSha)).split("\n")
@@ -93,17 +94,21 @@ const projects = PROJECTS.filter(
     (sdkChanged && SDK_CONSUMERS.has(project)),
 )
 
+// HEAD builds in its own checkout too, so it never rewrites the `sdk/dist` a running suite serves.
 const baseCheckout = await Deno.makeTempDir({ prefix: "pr-metrics-base-" })
+const headCheckout = await Deno.makeTempDir({ prefix: "pr-metrics-head-" })
 await git("worktree", "add", "--detach", baseCheckout, mergeBase)
+await git("worktree", "add", "--detach", headCheckout, headSha)
 let base: Metrics
 let head: Metrics
 try {
   ;[base, head] = await Promise.all([
     measure("base", baseCheckout, projects),
-    measure("head", root, projects),
+    measure("head", headCheckout, projects),
   ])
 } finally {
   await git("worktree", "remove", "--force", baseCheckout)
+  await git("worktree", "remove", "--force", headCheckout)
 }
 
 const rows = projects.flatMap((project) =>
@@ -121,12 +126,13 @@ const body = [
   `<!-- target: ${target}, base: ${baseSha}, merge-base: ${mergeBase}, head: ${headSha} -->`,
 ].join("\n")
 console.log(`\n${body}`)
-const summary = Deno.env.get("GITHUB_STEP_SUMMARY")
-if (summary) await Deno.writeTextFile(summary, `${body}\n`, { append: true })
 
-const pr = Deno.env.get("PR_NUMBER")
-const repository = Deno.env.get("GITHUB_REPOSITORY")
-if (pr && repository) {
+const pr =
+  Deno.env.get("PR_NUMBER") ||
+  (await run(["gh", "pr", "view", "--json", "number", "--jq", ".number"], root)).output.trim()
+// gh fills `{owner}/{repo}` from the checkout's remote. https://cli.github.com/manual/gh_api
+const repository = "{owner}/{repo}"
+if (/^\d+$/.test(pr)) {
   const bodyFile = await Deno.makeTempFile({ suffix: ".md" })
   await Deno.writeTextFile(bodyFile, body)
   const existing = await run(
