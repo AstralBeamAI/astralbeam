@@ -18,6 +18,7 @@
     "db-seed": "deno run -P=tooling scripts/seed-database.ts",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
+    "e2e:seeded": "E2E_SEEDED=1 playwright test --config e2e/playwright.config.ts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "generate:png": "deno run -P=tooling scripts/export-png.ts",
@@ -26,7 +27,7 @@
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen",
     "lint": "oxlint --type-check",
     "lint:fix": "oxlint --fix",
-    "ready": "deno task check && deno task test && deno task build && deno task count-lines",
+    "ready": "deno run --allow-env=CI --allow-run=deno ../scripts/ready.ts check test build count-lines",
     "test": "vitest run",
     "ui": "shadcn"
   },

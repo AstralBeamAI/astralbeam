@@ -35,7 +35,7 @@
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install --frozen",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "ready": "deno task check && deno task test && deno task build && deno task count-lines",
+    "ready": "deno run --allow-env=CI --allow-run=deno ../scripts/ready.ts check test build count-lines",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

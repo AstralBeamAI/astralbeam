@@ -114,6 +114,39 @@ jobs:
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: deno task ${{ matrix.tasks }}
 
+  metrics:
+    name: PR metrics
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The PR head rather than the merge commit, with history for the merge base.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: latest
+          cache: true
+          cache-hash: metrics-${{ hashFiles('**/deno.lock') }}
+
+      - name: Build base and head, then comment
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          # A fork's token cannot comment, so its table goes only to the job summary.
+          PR_NUMBER: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.number || '' }}
+          GH_TOKEN: ${{ github.token }}
+          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
+        run: deno run -A scripts/pr-metrics.ts
+
   todos-rails:
     name: Check examples/todos-rails
     runs-on: ubuntu-latest

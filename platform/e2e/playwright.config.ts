@@ -1,7 +1,13 @@
 import { defineConfig } from "@playwright/test"
 
-import { baselineStatePath } from "./baseline.ts"
-import { captureEverything, e2eWebServers, sandboxSpecsEnabled, platformUrl } from "./worktree.ts"
+import { baselineStatePath, seededStatePath } from "./baseline.ts"
+import {
+  captureEverything,
+  e2eWebServers,
+  platformUrl,
+  sandboxSpecsEnabled,
+  seededMode,
+} from "./worktree.ts"
 
 /**
  * One platform, one database, and one mail sink serve every spec, so the suite runs serially and
@@ -11,6 +17,7 @@ import { captureEverything, e2eWebServers, sandboxSpecsEnabled, platformUrl } fr
  * - `journey` drives the whole product from an unconfigured deployment and records its baseline.
  * - `features` holds focused specs, which start from that baseline and the owner's session.
  * - `sandbox` exists only under `E2E_SANDBOX=docker`, because its specs run real containers.
+ * - `E2E_SEEDED=1` replaces them all with `specs/seeded`, run against the seeded database.
  */
 export default defineConfig({
   fullyParallel: false,
@@ -38,7 +45,24 @@ export default defineConfig({
     screenshot: captureEverything ? "on" : "only-on-failure",
     trace: captureEverything ? "on" : "retain-on-failure",
   },
-  projects: [
+  projects: seededMode ? seededProjects() : defaultProjects(),
+  webServer: e2eWebServers(),
+})
+
+function seededProjects() {
+  return [
+    { name: "sign-in", testMatch: /sign-in\.setup\.ts/ },
+    {
+      name: "seeded",
+      testDir: "./specs/seeded",
+      dependencies: ["sign-in"],
+      use: { storageState: seededStatePath },
+    },
+  ]
+}
+
+function defaultProjects() {
+  return [
     { name: "preflight", testMatch: /preflight\.setup\.ts/ },
     {
       name: "journey",
@@ -65,6 +89,5 @@ export default defineConfig({
           },
         ]
       : []),
-  ],
-  webServer: e2eWebServers(),
-})
+  ]
+}

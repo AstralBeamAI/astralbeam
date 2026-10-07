@@ -18,7 +18,7 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "preview": "vite preview",
-    "ready": "deno task check && deno task test && deno task build",
+    "ready": "deno run --allow-env=CI --allow-run=deno ../../scripts/ready.ts check test build",
     "start": "deno run --config deno.jsonc -P=runtime .output/server/index.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

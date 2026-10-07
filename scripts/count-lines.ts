@@ -1,5 +1,5 @@
 // Reports the current project's handwritten, generated, and test lines and its build size.
-// Run from `platform`, `sdk`, or `cli`, whose `ready` tasks end with it.
+// Run from a project folder. `scripts/pr-metrics.ts` runs it for CI's PR metrics comment.
 import { execFileSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, join } from "node:path"
@@ -15,6 +15,9 @@ const buildOutputs: Record<string, string> = {
   platform: ".output/astralbeam-platform",
   sdk: "dist",
   cli: "dist",
+  www: ".output/public",
+  todos: ".output",
+  "linearity-react": ".output",
 }
 
 function sizeOf(path: string): number {

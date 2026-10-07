@@ -33,6 +33,21 @@ playwright show-trace e2e/.output/test-results/<test>/trace.zip
 
 Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `captureMilestone(page, name)` writes a named screenshot to the test's output directory and attaches it to the report, so `e2e/.output/test-results/<test>/01-configure-complete.png` is ready to attach to a pull request.
 
+## Seeded evidence runs
+
+Most pull requests need a video of one flow against realistic data rather than the cold-start journey. The `e2e:seeded` task runs `specs/seeded` against the worktree's own database after `deno task db-seed`, already signed in as `owner@example.com`, with video, trace, and screenshots always on.
+
+```sh
+deno task --cwd platform db-seed
+deno task --cwd platform e2e:seeded                                        # starts its own server
+E2E_PLATFORM_URL=http://localhost:4500 deno task --cwd platform e2e:seeded  # reuses a running one
+```
+
+- `sign-in.setup.ts` signs in once and saves the session to `e2e/.output/seeded-state.json`. Later runs reuse it while the server still accepts it, so they skip the Turnstile wait.
+- The setup is its own project, so each spec's video starts at the spec's first navigation and shows only the flow.
+- Add a spec under `specs/seeded` for the flow you are proving, composed from the page objects. `astro-history.spec.ts` shows the shape: open a page, open Astro, and assert on seeded content.
+- Keep a spec that protects durable behavior, and delete one that only recorded a one-off walkthrough.
+
 ## Layout
 
 | File | Owns |
@@ -53,6 +68,8 @@ Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `c
 | `specs/journey/` | The full cold-start journey, which is also the suite's setup project |
 | `specs/features/` | Focused specs, which start from the journey's baseline |
 | `specs/sandbox/` | Specs that run real containers, present only under `E2E_SANDBOX=docker` |
+| `sign-in.setup.ts` | Signs in as the seeded owner once for `specs/seeded`, reusing a still-valid session |
+| `specs/seeded/` | Evidence specs against the seeded database, present only under `E2E_SEEDED=1` |
 
 ## Projects, and the baseline between them
 

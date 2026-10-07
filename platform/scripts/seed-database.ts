@@ -22,6 +22,7 @@ import { seedModelProviders } from "./seed/models.ts"
 import { seedTenants } from "./seed/tenants.ts"
 import { seedUsers } from "./seed/users.ts"
 import { seedDogfood } from "./seed/dogfood.ts"
+import { seedConversations } from "./seed/conversations.ts"
 
 // Resolved from this file, not the cwd, so the seed writes the same path from anywhere.
 const examplesDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "examples")
@@ -48,8 +49,9 @@ try {
     const apiKeys = await seedApiKeys(transaction)
     const tenantUserCount = await seedTenants(transaction)
     await seedDogfood(transaction, userIdsByEmail)
+    const conversations = await seedConversations(transaction, userIdsByEmail)
     const modelProviders = await seedModelProviders(transaction)
-    return { config, agents, apiKeys, modelProviders, tenantUserCount }
+    return { config, agents, apiKeys, modelProviders, tenantUserCount, conversations }
   })
 
   console.log(`\nSeeded database '${databaseName}'.\n`)
@@ -84,6 +86,14 @@ try {
   }
 
   console.log(`\nTenant users: ${summary.tenantUserCount}`)
+
+  const { todos, astro } = summary.conversations
+  console.log(`\nConversations created: ${todos} for ${SEED_TODOS_TARGET.user.id} in todos`)
+  console.log(
+    astro === "no dogfood"
+      ? "  skipped Astro conversations, because dogfood is not provisioned"
+      : `  ${astro} for ${SEED_USERS[0].email} in Astro on ${SEED_ORGANIZATIONS[0].slug}`,
+  )
 
   for (const [example, agentIdVariable] of Object.entries(exampleAgentIdVariables)) {
     const envFile = join(examplesDirectory, example, ".env")

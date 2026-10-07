@@ -227,6 +227,81 @@ export const SEED_ORGANIZATIONS = [
 ] as const
 
 /**
+ * Saved conversations with fixed thread IDs, for the todos tenant user and for the `acme` owner's
+ * Astro identity, so history and transcript views have content without a model call.
+ */
+export const SEED_CONVERSATIONS = {
+  todos: [
+    {
+      id: "01990a5d-0000-7000-8000-000000000031",
+      title: "Plan the product launch",
+      hoursAgo: 2,
+      turns: [
+        [
+          "Break the launch into todos for this week.",
+          "I added four todos: draft the announcement, record the demo video, update the pricing page, and email the beta list.",
+        ],
+        [
+          "Move the demo video to Friday.",
+          "Done. The demo video todo now says Friday, and the other three are unchanged.",
+        ],
+      ],
+    },
+    {
+      id: "01990a5d-0000-7000-8000-000000000032",
+      title: "Groceries for the weekend",
+      hoursAgo: 26,
+      turns: [
+        [
+          "Add eggs, spinach, and coffee beans.",
+          "Added three todos: eggs, spinach, and coffee beans.",
+        ],
+      ],
+    },
+    {
+      id: "01990a5d-0000-7000-8000-000000000033",
+      title: "Tidy up completed todos",
+      hoursAgo: 72,
+      turns: [
+        [
+          "Which todos are already done?",
+          "Two are complete: renew the passport and book the dentist. Want me to delete them?",
+        ],
+        ["Yes, delete both.", "Deleted both completed todos."],
+      ],
+    },
+  ],
+  astro: [
+    {
+      id: "01990a5d-0000-7000-8000-000000000041",
+      title: "Embed the chat widget",
+      hoursAgo: 1,
+      turns: [
+        [
+          "How do I add the chat widget to my app?",
+          "Create an API key under API keys, mint a chat token from your server with `createAstralBeamToken`, then mount `AstralBeamChat` with your agent ID.",
+        ],
+      ],
+    },
+    {
+      id: "01990a5d-0000-7000-8000-000000000042",
+      title: "Which model does the todos agent use?",
+      hoursAgo: 30,
+      turns: [
+        [
+          "Which model does the Todos Assistant use?",
+          "It uses the Development OpenAI connection. You can change its ordered models on the agent's configuration page.",
+        ],
+        [
+          "Can it run code?",
+          "Yes. The Todos Assistant has the Local Docker sandbox provider, so it can run commands and write files.",
+        ],
+      ],
+    },
+  ],
+} as const
+
+/**
  * The one entry point the todos example and its end-to-end suite read. Composed from the same
  * IDs the rows above use, so fixture credentials always identify the persisted rows.
  */

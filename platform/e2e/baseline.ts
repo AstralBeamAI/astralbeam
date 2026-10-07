@@ -19,6 +19,9 @@ const baselinePath = join(outputDirectory, "baseline.json")
 /** The signed-in owner's cookies, which `playwright.config.ts` gives the feature project. */
 export const baselineStatePath = join(outputDirectory, "baseline-state.json")
 
+/** The seeded owner's cookies, which `sign-in.setup.ts` saves for `specs/seeded`. */
+export const seededStatePath = join(outputDirectory, "seeded-state.json")
+
 export function writeBaseline(baseline: Baseline): void {
   mkdirSync(outputDirectory, { recursive: true })
   writeFileSync(baselinePath, JSON.stringify(baseline, null, 2))

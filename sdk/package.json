@@ -62,7 +62,7 @@
   },
   "scripts": {
     "build": "deno task generate:styles && tsdown",
-    "dev": "deno task generate:styles && tsdown --watch",
+    "dev": "deno task generate:styles && (tailwindcss --input src/styles.css --output .generated/styles.css --minify --watch=always & deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts --watch & tsdown --watch --no-clean)",
     "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts",
     "generate:api": "orval && oxfmt src/api/generated",
     "api:check": "deno task generate:api && git diff --exit-code -- src/api/generated",
@@ -75,7 +75,7 @@
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install --frozen",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "ready": "deno task check && deno task test && deno task build && deno task count-lines",
+    "ready": "deno run --allow-env=CI --allow-run=deno ../scripts/ready.ts check test build count-lines",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "ui": "shadcn"
