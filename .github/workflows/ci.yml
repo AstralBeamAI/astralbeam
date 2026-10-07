@@ -93,6 +93,13 @@ jobs:
           SHARP_IGNORE_GLOBAL_LIBVIPS: 1
         run: deno install --frozen
 
+      - name: Prefetch the Platform binary's npm packages
+        if: matrix.leg == 'platform build'
+        working-directory: platform
+        # `deno compile` reads npm packages from Deno's global cache, not `node_modules`, so this fills
+        # it in the background while the database starts and the bundle builds.
+        run: deno install --frozen --node-modules-dir=none --entrypoint src/main.ts > /dev/null 2>&1 &
+
       - name: Prepare Platform test database
         if: matrix.database
         working-directory: platform
@@ -104,7 +111,8 @@ jobs:
           docker compose exec -T postgres createdb -U astralbeam ci_binary_check
           deno task db migrate
 
-      - name: Check, test, and build
+      # Named for each leg's tasks, since the platform legs each run only part of `ready`.
+      - name: Run deno task ${{ matrix.tasks }}
         working-directory: ${{ matrix.project }}
         env:
           DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}

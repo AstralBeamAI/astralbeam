@@ -56,11 +56,19 @@ const viteConfig = defineConfig(({ mode }) => {
       // https://vite.dev/config/build-options.html#build-license
       license: { fileName: "THIRD_PARTY_LICENSES.md" },
       rolldownOptions: {
+        // Skip compiling unused re-exports of side-effect-free barrels such as @phosphor-icons/react.
+        // https://rolldown.rs/in-depth/lazy-barrel-optimization
+        experimental: { lazyBarrel: true },
         output: {
           postBanner:
             "/*! See LICENSE-AGPL, THIRD_PARTY_LICENSES.md, and THIRD_PARTY_NOTICES.md in this distribution. */",
         },
       },
+    },
+    // Server bundles gain nothing from code splitting. Their dynamic imports break import cycles or
+    // keep the OpenAPI export's graph database-free, so only the client keeps this check.
+    environments: {
+      ssr: { build: { rolldownOptions: { checks: { ineffectiveDynamicImport: false } } } },
     },
     plugins: [
       {
@@ -77,12 +85,16 @@ const viteConfig = defineConfig(({ mode }) => {
         // React maps Deno to its browser server build, whose referenced MessageChannel prevents
         // process shutdown after the first request. Use the full Node server API in the SSR bundle.
         // https://github.com/denoland/deno/issues/28919
-        resolveId(source, importer, options) {
-          if (!options.ssr || source !== "react-dom/server") return null
-          return this.resolve("react-dom/server.node", importer, {
-            ...options,
-            skipSelf: true,
-          })
+        resolveId: {
+          // Matched natively, so other imports skip the JavaScript call. https://vite.dev/guide/api-plugin#hook-filters
+          filter: { id: /^react-dom\/server$/ },
+          handler(_source, importer, options) {
+            if (!options.ssr) return null
+            return this.resolve("react-dom/server.node", importer, {
+              ...options,
+              skipSelf: true,
+            })
+          },
         },
       },
       {
@@ -138,6 +150,11 @@ const viteConfig = defineConfig(({ mode }) => {
             // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
             // https://nitro.build/config#alias
             alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+            // Like SSR, skip the dynamic-import check, and the "use client" directives Vite already hides,
+            // which only React Server Components use. https://rolldown.rs/in-depth/directives
+            rolldownConfig: {
+              checks: { moduleLevelDirective: false, ineffectiveDynamicImport: false },
+            },
             // Nitro prerenders before indexing static assets, including their content-based ETags.
             // https://nitro.build/docs/prerender
             prerender: {
