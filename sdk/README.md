@@ -29,7 +29,7 @@ Without npm or a bundler, import the same entry from jsDelivr in a module script
 
 ```html
 <script type="module">
-  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.15.2/dist/client.js"
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.16.0/dist/client.js"
 
   mountAstralBeamChat(document.getElementById("sidebar"), {})
 </script>
@@ -95,7 +95,8 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API. The widget calls `/v1/chat` there |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header with its chat history and new chat buttons shows |
-| `emptyTitle`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
+| `showConversationTitle` | `false` | Bar with a titled conversation's title and a rename, delete, and Copy Markdown menu |
+| `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme`, `theme` | `"system"`, built-in palette | Light/dark/system, and shadcn token overrides |
 | `customCss` | None | Trusted CSS inside the widget's Shadow DOM |
 | `attachments` | `true` | `false` hides the feature, or pass limits |

@@ -13,6 +13,7 @@ import { Button } from "@/widget/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/components/ui/card"
 import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
+import { ConversationTitle } from "./components/conversation-title.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
 import { SandboxPanel } from "./components/sandbox-panel.tsx"
 import { SandboxStatusPill } from "./components/sandbox-status.tsx"
@@ -351,6 +352,16 @@ export function ChatWidget({
   const focusComposer = () =>
     requestAnimationFrame(() => host.shadowRoot?.querySelector("textarea")?.focus())
 
+  const forgetDraft = (id: string) => {
+    storedThreadDraft(apiUrl, draftIdentity, id, "")
+    setDrafts((current) => {
+      if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
+      const threads = new Map(current.threads)
+      threads.delete(id)
+      return { ...current, threads }
+    })
+  }
+
   // Re-registered every render so the loader's handle always calls the latest closures.
   useImperativeHandle(controller, () => ({ reset: resetThread, stop: chat.stop }))
 
@@ -376,15 +387,7 @@ export function ChatWidget({
             key={`${apiUrl}:${draftIdentity}`}
             chat={chat}
             state={chatState}
-            onDelete={(id) => {
-              storedThreadDraft(apiUrl, draftIdentity, id, "")
-              setDrafts((current) => {
-                if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
-                const threads = new Map(current.threads)
-                threads.delete(id)
-                return { ...current, threads }
-              })
-            }}
+            onDelete={forgetDraft}
             onSelect={focusComposer}
           />
           <Button
@@ -403,6 +406,15 @@ export function ChatWidget({
           {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
         </CardHeader>
       )}
+      {options.showConversationTitle === true && chatState.thread?.title && (
+        <ConversationTitle
+          key={`${apiUrl}:${draftIdentity}:${chatState.thread.id}`}
+          chat={chat}
+          state={chatState}
+          thread={chatState.thread}
+          onDelete={forgetDraft}
+        />
+      )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
           readOnly={chatState.thread?.role === "viewer"}
@@ -415,7 +427,7 @@ export function ChatWidget({
           onLoadOlder={chat.loadOlderMessages}
           apiUrl={apiUrl}
           emptySlot={hostSlots.has("empty") ? hostSlotName("empty") : undefined}
-          emptyTitle={options.emptyTitle}
+          emptyHeadline={options.emptyHeadline}
           emptyDescription={options.emptyDescription}
           widgets={widgets}
           toolTitles={toolTitles}

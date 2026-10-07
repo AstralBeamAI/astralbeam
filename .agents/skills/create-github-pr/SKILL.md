@@ -28,6 +28,7 @@ For authorized updates to an existing PR or explicit metrics refreshes, use the 
    ```
 8. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back. Immediately after the read-back, post the project metrics comment below, aiming for the first conversation comment, and include its URL in the handoff.
 9. Attach an approved walkthrough through the workflow below, then verify the saved attachment on GitHub.
+10. After the handoff, reflect on the session that produced the PR and tell the user how the development workflow could be faster, cheaper in tokens, or less error-prone, prioritizing speed. Cite concrete stalls, retries, and reruns from the session, and record durable fixes in the closest `AGENTS.md` or skill only when the user approves them.
 
 ## Project metrics comment
 

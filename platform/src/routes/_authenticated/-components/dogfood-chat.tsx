@@ -325,6 +325,7 @@ function DogfoodChatPanel({
         <AstralBeamChat
           apiUrl="/api"
           colorScheme={theme === "dark" || theme === "light" ? theme : "system"}
+          showConversationTitle
           header={
             <div className="min-w-0">
               <h2 className="truncate text-sm font-medium">Ask {ASSISTANT_NAME}</h2>

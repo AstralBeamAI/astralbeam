@@ -12,7 +12,8 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
 | `title` | `"AstralBeam"` | Name in the widget's header |
 | `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
-| `emptyTitle`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
+| `showConversationTitle` | `false` | Shows a bar under the header with a titled conversation's title and a menu to rename, delete, or copy it as Markdown |
+| `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme` | `"system"` | `"light"`, `"dark"`, or follow the OS setting live |
 | `theme` | built-in palette | `{ light, dark }` CSS token overrides, see [Theming](./theming.md) |
 | `customCss` | None | Trusted CSS inside the widget's Shadow DOM, updated without resetting chat |

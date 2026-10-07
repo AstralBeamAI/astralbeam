@@ -1,5 +1,5 @@
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
-import { CheckIcon, ClockCounterClockwiseIcon, TrashIcon } from "@phosphor-icons/react"
+import { ClockCounterClockwiseIcon, TrashIcon } from "@phosphor-icons/react"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { QueryClient, QueryClientContext, useInfiniteQuery } from "@tanstack/react-query"
 import { type SyntheticEvent, useContext, useEffect, useId, useRef, useState } from "react"
@@ -69,13 +69,15 @@ export function ThreadHistory({
   const list = useRef<HTMLDivElement>(null)
   const [text, setText] = useState("")
   const [open, setOpen] = useState(false)
+  // Each opening fetches afresh, since the title bar can rename or delete chats while it is closed.
+  const [openings, setOpenings] = useState(0)
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
   const sharedClient = useContext(QueryClientContext)
   const [client] = useState(() => new QueryClient())
   const queryId = useId()
   const query = useInfiniteQuery(
     {
-      queryKey: ["thread-history", queryId, search],
+      queryKey: ["thread-history", queryId, openings, search],
       enabled: open,
       initialPageParam: undefined as string | undefined,
       queryFn: ({ signal, pageParam }) => chat.searchThreads(search, pageParam, signal),
@@ -129,7 +131,8 @@ export function ThreadHistory({
         }}
         onOpenChange={(next) => {
           setOpen(next)
-          if (!next) setText("")
+          if (next) setOpenings((count) => count + 1)
+          else setText("")
         }}
       >
         <ComboboxPrimitive.Trigger
@@ -173,12 +176,11 @@ export function ThreadHistory({
                         // Keeps the delete button's label out of the option's accessible name.
                         aria-label={threadTitle(thread)}
                         aria-current={current ? "true" : undefined}
-                        className={cn("group/thread pe-1", current && "font-medium")}
+                        className={cn(
+                          "group/thread ps-2 pe-1",
+                          current && "bg-muted font-semibold",
+                        )}
                       >
-                        <CheckIcon
-                          aria-hidden="true"
-                          className={cn("text-primary", !current && "invisible")}
-                        />
                         <span className="min-w-0 flex-1 truncate">{threadTitle(thread)}</span>
                         {thread.role === "manager" && (
                           <Button

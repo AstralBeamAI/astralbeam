@@ -3,7 +3,7 @@ import {
   DEFAULT_API_URL,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_EMPTY_DESCRIPTION,
-  DEFAULT_EMPTY_TITLE,
+  DEFAULT_EMPTY_HEADLINE,
   DEFAULT_TITLE,
   WIDGET_CONTAINER_CLASS,
 } from "../lib/constants.ts"
@@ -63,7 +63,7 @@ export function mountAstralBeamChat(
     agentId: live.agentId ?? "(organization default)",
     title: live.title ?? DEFAULT_TITLE,
     showHeader: live.showHeader ?? true,
-    emptyTitle: live.emptyTitle ?? DEFAULT_EMPTY_TITLE,
+    emptyHeadline: live.emptyHeadline ?? DEFAULT_EMPTY_HEADLINE,
     emptyDescription: live.emptyDescription ?? DEFAULT_EMPTY_DESCRIPTION,
     apiUrl: live.apiUrl ?? DEFAULT_API_URL,
     authentication: "configured",

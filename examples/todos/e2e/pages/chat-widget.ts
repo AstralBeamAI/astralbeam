@@ -163,7 +163,7 @@ export function chatWidget(page: Page) {
     },
 
     emptyState(): Locator {
-      // The widget's own empty transcript, from DEFAULT_EMPTY_TITLE in `sdk/src/lib/constants.ts`;
+      // The widget's own empty transcript, from DEFAULT_EMPTY_HEADLINE in `sdk/src/lib/constants.ts`;
       // the host registers no `empty` slot.
       return root.getByText("Ask the assistant", { exact: false })
     },
