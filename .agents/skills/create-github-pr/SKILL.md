@@ -32,14 +32,13 @@ For authorized updates to an existing PR, follow the relevant steps without repe
 
 ## Post-PR checks
 
-CI skips the browser suites and metrics to stay fast, so run them locally right after creating the PR and again after every later push.
+CI skips the browser suites to stay fast, so run them locally right after creating the PR and again after every later push.
 
 1. Prepare the worktree: migrate and seed its database with `deno task --cwd platform db migrate` and `deno task --cwd platform db-seed`, build `sdk/dist` with `deno task --cwd sdk build`, and install Chromium once with each suite's `e2e:install` task.
-2. Start these three commands as parallel background jobs, logging outside the worktree. Their ports, databases, and build checkouts do not collide.
+2. Start both suites as parallel background jobs, logging outside the worktree. Their ports and databases do not collide.
    - `deno task --cwd platform e2e` runs the platform suite's default projects against its own `_e2e` database.
    - `deno task --cwd examples/todos e2e --project=app` runs the deterministic todos specs against the seeded worktree database.
-   - `deno run -A scripts/pr-metrics.ts` builds each changed project at the merge base and the head in temporary worktrees, counts lines with `scripts/count-lines.ts`, and creates or updates the branch PR's comment marked `<!-- astralbeam-pr-metrics -->`.
-3. When all three finish, post one `gh pr comment` listing each suite's result, test count, and duration, the metrics comment URL, and the head SHA they ran against. Do not post a comment until every job has finished.
+3. When both finish, post one `gh pr comment` listing each suite's result, test count, and duration, and the head SHA they ran against.
 4. Fix a failure the change caused and push again. Report an environmental failure with its error and the suite's `e2e/.output/report` path instead of retrying blindly.
 
 ## Walkthrough videos
