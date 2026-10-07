@@ -107,9 +107,9 @@ jobs:
       - name: Check, test, and build
         working-directory: ${{ matrix.project }}
         env:
-          DATABASE_URL: ${{ matrix.database && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
+          DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
           # Left empty so `binary:check` can require `migrate --dry-run` to list every migration.
-          BINARY_CHECK_DATABASE_URL: ${{ matrix.database && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_binary_check' || '' }}
+          BINARY_CHECK_DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_binary_check' || '' }}
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: deno task ${{ matrix.tasks }}
 
