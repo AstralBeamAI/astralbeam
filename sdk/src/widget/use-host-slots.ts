@@ -5,11 +5,16 @@ import { HOST_SLOT_PREFIX } from "./lib/style-bridge.ts"
 
 export type HostSlotName = keyof AstralBeamChatSlots
 
-const HOST_SLOT_NAMES: readonly HostSlotName[] = ["header", "empty", "composerActions"]
+const HOST_SLOT_NAMES: readonly HostSlotName[] = [
+  "header",
+  "headerActions",
+  "empty",
+  "composerActions",
+]
 
 /** The `slot` attribute (and `<slot name>`) for a named chrome slot. */
 export function hostSlotName(name: HostSlotName): string {
-  return `${HOST_SLOT_PREFIX}${name === "composerActions" ? "composer-actions" : name}`
+  return `${HOST_SLOT_PREFIX}${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`
 }
 
 interface ActiveHostSlot {

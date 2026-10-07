@@ -5,7 +5,7 @@
 export const DEFAULT_TITLE = "AstralBeam"
 
 /** Headline of the empty transcript when the mount options give none. */
-export const DEFAULT_EMPTY_TITLE = "Ask the assistant"
+export const DEFAULT_EMPTY_HEADLINE = "Ask the assistant"
 
 /** Subtitle of the empty transcript when the mount options give none. */
 export const DEFAULT_EMPTY_DESCRIPTION =

@@ -13,7 +13,7 @@ import {
   MessageScrollerViewport,
 } from "@/widget/components/ui/message-scroller"
 import { Spinner } from "@/widget/components/ui/spinner"
-import { DEFAULT_EMPTY_DESCRIPTION, DEFAULT_EMPTY_TITLE } from "../../lib/constants.ts"
+import { DEFAULT_EMPTY_DESCRIPTION, DEFAULT_EMPTY_HEADLINE } from "../../lib/constants.ts"
 import type { WidgetDefinition } from "../../lib/types.ts"
 import type { SavedMessageMetadata } from "../../core/threads.ts"
 import type { QuestionnaireAnswer } from "../lib/types.ts"
@@ -27,8 +27,8 @@ interface ChatTranscriptProps {
   apiUrl: string
   /** Name of the host's empty-state slot; when set, it replaces the default empty state. */
   emptySlot?: string | undefined
-  /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_TITLE`. */
-  emptyTitle?: string | undefined
+  /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_HEADLINE`. */
+  emptyHeadline?: string | undefined
   /** Subtitle of the empty transcript; defaults to `DEFAULT_EMPTY_DESCRIPTION`. */
   emptyDescription?: string | undefined
   widgets: Record<string, WidgetDefinition>
@@ -53,7 +53,7 @@ export function ChatTranscript({
   messages,
   apiUrl,
   emptySlot,
-  emptyTitle,
+  emptyHeadline,
   emptyDescription,
   widgets,
   toolTitles,
@@ -104,7 +104,7 @@ export function ChatTranscript({
     return (
       <Empty className="h-full">
         <EmptyHeader>
-          <EmptyTitle>{emptyTitle ?? DEFAULT_EMPTY_TITLE}</EmptyTitle>
+          <EmptyTitle>{emptyHeadline ?? DEFAULT_EMPTY_HEADLINE}</EmptyTitle>
           <EmptyDescription>{emptyDescription ?? DEFAULT_EMPTY_DESCRIPTION}</EmptyDescription>
         </EmptyHeader>
       </Empty>

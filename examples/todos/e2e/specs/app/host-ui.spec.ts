@@ -50,7 +50,7 @@ test("the widget reaches a ready composer, which proves the token round-trip", a
   await chat.waitForReady()
   // Nothing has been sent, so the widget offers its own empty transcript and no reset.
   await expect(chat.emptyState()).toBeVisible()
-  await expect(chat.resetButton()).toBeDisabled()
+  await expect(chat.newChatButton()).toBeDisabled()
 })
 
 test("one theme control retunes the app and the widget together", async ({ todos, chat }) => {

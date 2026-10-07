@@ -99,7 +99,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       apiKey: "sk-browser-fixture-0000",
     })
     await captureMilestone(page, "04-model-provider")
-    await shell.openSection("Home", identity.organizationName)
+    await shell.openSection("Dashboard", identity.organizationName)
     await captureMilestone(page, "04-dashboard")
   })
 
@@ -108,7 +108,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(page.getByRole("link", { name: /^Agents 1/ })).toBeVisible()
     await expect(page.getByRole("link", { name: /^Members 1/ })).toBeVisible()
     expect(await shell.visibleSections()).toEqual([
-      "Home",
+      "Dashboard",
       "Models",
       "Agents",
       "Sandboxes",

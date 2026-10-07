@@ -3,7 +3,7 @@ import { expect, type Locator, type Page } from "@playwright/test"
 import { waitForHydration } from "../hydration.ts"
 
 export type OrganizationSection =
-  | "Home"
+  | "Dashboard"
   | "Models"
   | "Agents"
   | "Sandboxes"

@@ -1,10 +1,5 @@
-import {
-  AstralBeamChat,
-  type AstralBeamChatRef,
-  type ToolDefinition,
-  type WidgetDefinition,
-} from "@astralbeam/sdk/react"
-import { ArrowCounterClockwiseIcon, SparkleIcon, XIcon } from "@phosphor-icons/react"
+import { AstralBeamChat, type ToolDefinition, type WidgetDefinition } from "@astralbeam/sdk/react"
+import { SparkleIcon, XIcon } from "@phosphor-icons/react"
 import { apiKeyQueryKeys } from "@better-auth-ui/core/plugins/api-key"
 import {
   createContext,
@@ -254,7 +249,6 @@ function DogfoodChatPanel({
   const { theme } = useTheme()
   const router = useRouter()
   const { organizationSlug, permissions } = organization
-  const chat = useRef<AstralBeamChatRef>(null)
   const panel = useRef<HTMLDivElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
@@ -327,42 +321,34 @@ function DogfoodChatPanel({
         !open && "hidden",
       )}
     >
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-medium">Ask {ASSISTANT_NAME}</h2>
-          <p
-            className="truncate text-xs text-muted-foreground"
-            title={organization.organizationName}
-          >
-            Assistant for {organization.organizationName}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Reset conversation"
-          title="Reset conversation"
-          onClick={() => chat.current?.reset()}
-        >
-          <ArrowCounterClockwiseIcon aria-hidden="true" />
-        </Button>
-        <Button
-          ref={closeButton}
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close chat"
-          title="Close chat"
-          onClick={() => setOpen(false)}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      </header>
       <div className={cn("min-h-0 flex-1", widgetThemeClassName)} style={widgetThemeStyle}>
         <AstralBeamChat
-          ref={chat}
           apiUrl="/api"
           colorScheme={theme === "dark" || theme === "light" ? theme : "system"}
-          showHeader={false}
+          showConversationTitle
+          header={
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-medium">Ask {ASSISTANT_NAME}</h2>
+              <p
+                className="truncate text-xs text-muted-foreground"
+                title={organization.organizationName}
+              >
+                Assistant for {organization.organizationName}
+              </p>
+            </div>
+          }
+          headerActions={
+            <Button
+              ref={closeButton}
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Close chat"
+              title="Close chat"
+              onClick={() => setOpen(false)}
+            >
+              <XIcon aria-hidden="true" />
+            </Button>
+          }
           title={ASSISTANT_NAME}
           theme={widgetDashboardTheme}
           tools={tools}

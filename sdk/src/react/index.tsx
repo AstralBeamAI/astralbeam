@@ -150,8 +150,10 @@ export interface AstralBeamChatRef {
 export interface AstralBeamChatProps extends Omit<MountAstralBeamChatOptions, "widgets" | "slots"> {
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition> | undefined
-  /** Replaces the header's content with the host's own React content; `showHeader` still applies. */
+  /** Replaces the header's title with the host's own React content; `showHeader` still applies. */
   header?: ReactNode
+  /** Extra host controls at the end of the header, after the history and new chat buttons. */
+  headerActions?: ReactNode
   /** Replaces the empty-transcript state with the host's own React content. */
   empty?: ReactNode
   /** Extra host controls at the end of the composer's button row, next to send. */
@@ -164,7 +166,7 @@ interface ActiveRender {
   props: Record<string, unknown>
 }
 
-const CHROME_SLOT_NAMES = ["header", "empty", "composerActions"] as const
+const CHROME_SLOT_NAMES = ["header", "headerActions", "empty", "composerActions"] as const
 type ChromeSlotName = (typeof CHROME_SLOT_NAMES)[number]
 
 export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>(
@@ -174,10 +176,12 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       threadId,
       title,
       showHeader,
+      showConversationTitle,
       header,
+      headerActions,
       empty,
       composerActions,
-      emptyTitle,
+      emptyHeadline,
       emptyDescription,
       apiUrl,
       fetchAstralBeamToken,
@@ -262,6 +266,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       ReadonlyMap<ChromeSlotName, HTMLElement>
     >(new Map())
     const hasHeader = header !== undefined
+    const hasHeaderActions = headerActions !== undefined
     const hasEmpty = empty !== undefined
     const hasComposerActions = composerActions !== undefined
     const chromeSlots = useMemo(() => {
@@ -279,10 +284,11 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         }
       return {
         ...(hasHeader ? { header: build("header") } : {}),
+        ...(hasHeaderActions ? { headerActions: build("headerActions") } : {}),
         ...(hasEmpty ? { empty: build("empty") } : {}),
         ...(hasComposerActions ? { composerActions: build("composerActions") } : {}),
       }
-    }, [hasHeader, hasEmpty, hasComposerActions])
+    }, [hasHeader, hasHeaderActions, hasEmpty, hasComposerActions])
     // The one set of updatable options, so mounting and updating cannot drift apart as options are
     // added. Memoized because the update effect keys off it.
     const live = useMemo(
@@ -293,7 +299,8 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         fetchAstralBeamToken,
         title,
         showHeader,
-        emptyTitle,
+        showConversationTitle,
+        emptyHeadline,
         emptyDescription,
         colorScheme,
         theme,
@@ -312,7 +319,8 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         fetchAstralBeamToken,
         title,
         showHeader,
-        emptyTitle,
+        showConversationTitle,
+        emptyHeadline,
         emptyDescription,
         colorScheme,
         theme,
@@ -345,6 +353,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     // Read current props at render time so live host state flows into every projected slot.
     const chromeContent: Record<ChromeSlotName, ReactNode> = {
       header,
+      headerActions,
       empty,
       composerActions,
     }

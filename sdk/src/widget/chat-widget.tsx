@@ -1,4 +1,4 @@
-import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
+import { NotePencilIcon } from "@phosphor-icons/react"
 import {
   type RefObject,
   type SetStateAction,
@@ -10,16 +10,10 @@ import {
   useSyncExternalStore,
 } from "react"
 import { Button } from "@/widget/components/ui/button"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/widget/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/components/ui/card"
 import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
+import { ConversationTitle } from "./components/conversation-title.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
 import { SandboxPanel } from "./components/sandbox-panel.tsx"
 import { SandboxStatusPill } from "./components/sandbox-status.tsx"
@@ -38,7 +32,6 @@ import { createDebugCallbacks } from "./lib/stream-debug.ts"
 import { type AstralBeamChatCoreOptions, createAstralBeamChat } from "../core/session.ts"
 import { authenticationIdentity } from "../core/auth.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
-import { cn } from "cn"
 import { hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
 import type { ChatController } from "./index.tsx"
 import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
@@ -356,6 +349,19 @@ export function ChatWidget({
     })
   }
 
+  const focusComposer = () =>
+    requestAnimationFrame(() => host.shadowRoot?.querySelector("textarea")?.focus())
+
+  const forgetDraft = (id: string) => {
+    storedThreadDraft(apiUrl, draftIdentity, id, "")
+    setDrafts((current) => {
+      if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
+      const threads = new Map(current.threads)
+      threads.delete(id)
+      return { ...current, threads }
+    })
+  }
+
   // Re-registered every render so the loader's handle always calls the latest closures.
   useImperativeHandle(controller, () => ({ reset: resetThread, stop: chat.stop }))
 
@@ -365,53 +371,50 @@ export function ChatWidget({
   const showHeader = options.showHeader !== false
   return (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
-    // host page's own surface; with no header its top padding goes too, as the transcript pads.
-    <Card
-      className={cn(
-        "h-full w-full gap-0 rounded-none bg-background text-foreground ring-0",
-        !showHeader && "pt-0",
-      )}
-    >
+    // host page's own surface. The fixed-height header replaces the card's top padding.
+    <Card className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0">
       {showHeader && (
-        <CardHeader className="gap-1 border-b">
-          {hostSlots.has("header") ? (
-            // The host's own header content, projected in the host page's style.
-            <slot name={hostSlotName("header")} />
-          ) : (
-            <>
-              <CardTitle>{options.title ?? DEFAULT_TITLE}</CardTitle>
-              <CardAction>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Reset conversation"
-                  disabled={streamBusy || messages.length === 0}
-                  onClick={resetThread}
-                >
-                  <ArrowCounterClockwiseIcon />
-                </Button>
-              </CardAction>
-            </>
-          )}
+        <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
+          <div className="min-w-0 flex-1">
+            {hostSlots.has("header") ? (
+              // The host's own title content, projected in the host page's style.
+              <slot name={hostSlotName("header")} />
+            ) : (
+              <CardTitle className="truncate">{options.title ?? DEFAULT_TITLE}</CardTitle>
+            )}
+          </div>
+          <ThreadHistory
+            key={`${apiUrl}:${draftIdentity}`}
+            chat={chat}
+            state={chatState}
+            onDelete={forgetDraft}
+            onSelect={focusComposer}
+          />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="New chat"
+            title="New chat"
+            disabled={!chatState.thread && messages.length === 0}
+            onClick={() => {
+              resetThread()
+              focusComposer()
+            }}
+          >
+            <NotePencilIcon />
+          </Button>
+          {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
         </CardHeader>
       )}
-      <ThreadHistory
-        key={`${apiUrl}:${draftIdentity}:${chatState.thread?.id ?? ""}`}
-        chat={chat}
-        state={chatState}
-        onDelete={(id) => {
-          storedThreadDraft(apiUrl, draftIdentity, id, "")
-          setDrafts((current) => {
-            if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
-            const threads = new Map(current.threads)
-            threads.delete(id)
-            return { ...current, threads }
-          })
-        }}
-        onSelect={() => {
-          requestAnimationFrame(() => host.shadowRoot?.querySelector("textarea")?.focus())
-        }}
-      />
+      {options.showConversationTitle === true && chatState.thread?.title && (
+        <ConversationTitle
+          key={`${apiUrl}:${draftIdentity}:${chatState.thread.id}`}
+          chat={chat}
+          state={chatState}
+          thread={chatState.thread}
+          onDelete={forgetDraft}
+        />
+      )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
           readOnly={chatState.thread?.role === "viewer"}
@@ -424,7 +427,7 @@ export function ChatWidget({
           onLoadOlder={chat.loadOlderMessages}
           apiUrl={apiUrl}
           emptySlot={hostSlots.has("empty") ? hostSlotName("empty") : undefined}
-          emptyTitle={options.emptyTitle}
+          emptyHeadline={options.emptyHeadline}
           emptyDescription={options.emptyDescription}
           widgets={widgets}
           toolTitles={toolTitles}
@@ -438,6 +441,19 @@ export function ChatWidget({
       {/* No border, bg-muted band, or full top padding on the composer: the scroller already
           fades messages at the edge, so the footer needs no separation of its own. */}
       <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
+        {chatState.threadLoading ? (
+          <span role="status" className="w-full text-xs text-muted-foreground">
+            Loading conversation…
+          </span>
+        ) : chatState.thread?.role === "viewer" ? (
+          <span className="w-full text-xs text-muted-foreground">
+            You can read this conversation.
+          </span>
+        ) : chatState.thread?.writerActive && !streamBusy ? (
+          <span role="status" className="w-full text-xs text-muted-foreground">
+            A turn is unfinished. Reopen the conversation to see updates.
+          </span>
+        ) : null}
         {chatState.thread?.role !== "viewer" &&
           chatState.pendingInteractions
             .filter(

@@ -8,7 +8,7 @@ import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
-import { defineConfig } from "vite"
+import { defineConfig, searchForWorkspaceRoot } from "vite"
 import { configDefaults } from "vitest/config"
 
 const licensesDirectory = new URL("../docs/legal/LICENSES/", import.meta.url)
@@ -36,7 +36,13 @@ const viteConfig = defineConfig(({ mode }) => {
     resolve: { tsconfigPaths: true },
     // `strictPort` keeps a busy port an error instead of a silent move to the next one, which
     // would leave APP_BASE_URL, auth cookies, and email links pointing at another server.
-    server: { port: Number(process.env.PORT ?? 4500), strictPort: true },
+    server: {
+      port: Number(process.env.PORT ?? 4500),
+      strictPort: true,
+      // The linked SDK sits outside this root, so Vite would refuse its lazy chunks' shared imports.
+      // https://vite.dev/config/server-options.html#server-fs-allow
+      fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../sdk/dist"] },
+    },
     // @tanstack/ai-sandbox-docker uses dockerode, whose optional SSH transport includes a native module that Vite cannot prebundle. https://github.com/apocas/dockerode#connecting-to-docker
     optimizeDeps: {
       exclude: ["dockerode"],

@@ -1,5 +1,11 @@
 import { useAuth } from "@better-auth-ui/react"
-import { BriefcaseIcon, LifebuoyIcon, ShieldCheckIcon, UserCircleIcon } from "@phosphor-icons/react"
+import {
+  BriefcaseIcon,
+  GlobeIcon,
+  LifebuoyIcon,
+  ShieldCheckIcon,
+  UserCircleIcon,
+} from "@phosphor-icons/react"
 import { useState } from "react"
 
 import { UserButton, type UserButtonProps } from "@/components/auth/user/user-button"
@@ -12,7 +18,7 @@ import { ContactSupportDialog } from "./contact-support-dialog"
 /** The signed-in user's menu, linking to the user-level pages. */
 export function AppUserButton(props: Pick<UserButtonProps, "align" | "size" | "className">) {
   const { localization } = useAuth()
-  const { supportEmailAddress } = usePublicConfig()
+  const { supportEmailAddress, hasWebsite } = usePublicConfig()
   // The dialog lives outside the menu, which unmounts its items when it closes.
   const [supportOpen, setSupportOpen] = useState(false)
   return (
@@ -38,6 +44,15 @@ export function AppUserButton(props: Pick<UserButtonProps, "align" | "size" | "c
             label: "Organizations",
             visibility: "authenticated",
           },
+          // The website is served by a server rewrite, so leave the client router with a full page load.
+          ...(hasWebsite
+            ? [
+                <DropdownMenuItem key="homepage" onClick={() => window.location.assign("/home")}>
+                  <GlobeIcon className="text-muted-foreground" />
+                  Homepage
+                </DropdownMenuItem>,
+              ]
+            : []),
           <DropdownMenuItem key="contact-support" onClick={() => setSupportOpen(true)}>
             <LifebuoyIcon className="text-muted-foreground" />
             Contact Support

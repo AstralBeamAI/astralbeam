@@ -49,6 +49,16 @@ export function getMessageText(message: UIMessage): string {
   return message.parts.map((part) => (part.type === "text" ? part.content : "")).join("")
 }
 
+/** The conversation's visible text as Markdown, one section per user or assistant message. */
+export function transcriptMarkdown(title: string, messages: UIMessage[]): string {
+  const sections = messages.flatMap((message) => {
+    const text = getMessageText(message).trim()
+    if (!text || (message.role !== "user" && message.role !== "assistant")) return []
+    return [`## ${message.role === "user" ? "User" : "Assistant"}\n\n${text}`]
+  })
+  return [`# ${title}`, ...sections].join("\n\n") + "\n"
+}
+
 // Questionnaire items arrive from the agent unvalidated, so malformed ones degrade to
 // "not shown": an item needs a string name and title plus a choice or free-form input.
 export function sanitizeQuestionnaireItems(rawInput: unknown): QuestionnaireItemSpec[] {

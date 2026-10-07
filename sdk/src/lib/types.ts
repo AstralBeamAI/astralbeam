@@ -98,8 +98,10 @@ export type AstralBeamChatSlotRenderer = (container: HTMLElement) => (() => void
 
 /** Host-rendered replacements for the widget's own chrome; each renders in the host page's style. */
 export interface AstralBeamChatSlots {
-  /** Replaces the header's content (title and reset button); `showHeader: false` still hides the row. */
+  /** Replaces the header's title; `showHeader: false` still hides the row. */
   header?: AstralBeamChatSlotRenderer | undefined
+  /** Extra controls at the end of the header, after the history and new chat buttons. */
+  headerActions?: AstralBeamChatSlotRenderer | undefined
   /** Replaces the empty-transcript state (icon, headline, and subtitle). */
   empty?: AstralBeamChatSlotRenderer | undefined
   /** Extra controls at the end of the composer's button row, next to send. */
@@ -162,12 +164,17 @@ export interface MountAstralBeamChatOptions {
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
   title?: string | undefined
   /**
-   * Shows the widget's header, which carries the title and the reset button. `false` hides both
-   * and gives the transcript the full height. Default `true`.
+   * Shows the widget's header, which carries the title and the chat history and new chat buttons.
+   * `false` hides it and gives the transcript the full height. Default `true`.
    */
   showHeader?: boolean | undefined
+  /**
+   * Shows a bar under the header with the open conversation's title, once it has one, and a menu
+   * to rename, delete, or copy it as Markdown. Default `false`.
+   */
+  showConversationTitle?: boolean | undefined
   /** Headline shown on the empty transcript. Default `"Ask the assistant"`. */
-  emptyTitle?: string | undefined
+  emptyHeadline?: string | undefined
   /** Subtitle shown under the empty transcript's headline. Default describes the app's tools and widgets. */
   emptyDescription?: string | undefined
   /**
