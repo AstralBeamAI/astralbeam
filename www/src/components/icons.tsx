@@ -25,6 +25,35 @@ export function FileIcon() {
   )
 }
 
+export function ChatIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3 2.5h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6l-4 3v-11a1 1 0 0 1 1-1z"></path>
+      <path d="M5 5.5h6M5 8.5h4"></path>
+    </svg>
+  )
+}
+
+export function SlidersIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2 4h2m4 0h6M2 12h6m4 0h2"></path>
+      <circle cx="6" cy="4" r="2"></circle>
+      <circle cx="10" cy="12" r="2"></circle>
+    </svg>
+  )
+}
+
+export function ServerIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2" y="2" width="12" height="5" rx="1"></rect>
+      <rect x="2" y="9" width="12" height="5" rx="1"></rect>
+      <path d="M5 4.5h.01M5 11.5h.01M9 4.5h2M9 11.5h2"></path>
+    </svg>
+  )
+}
+
 export function CopyIcon() {
   return (
     <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">

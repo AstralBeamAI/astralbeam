@@ -1,8 +1,11 @@
 import { Fragment, type ReactNode } from "react"
 
+import { ChatIcon, FileIcon, ServerIcon, SlidersIcon } from "@/components/icons"
+
 interface Benefit {
   name: string
   desc: string
+  icon?: ReactNode
   soon?: boolean
 }
 
@@ -19,7 +22,7 @@ export const steps: Step[] = [
   {
     index: "01",
     title: "ADD THE FRONTEND SDK",
-    desc: "Install one package and mount one component. You get a complete agent sidebar that already streams, retries, reads files, and matches your product.",
+    desc: "Install the SDK and mount the agentic chat component in your app. You get robust message streaming, file uploads, and style customization out of the box.",
     file: "sidebar.tsx",
     code: `$ npm install @astralbeam/sdk
 + added 1 package
@@ -46,27 +49,22 @@ export function Sidebar() {
       {
         name: "Cursor-style agentic chat",
         desc: "Streaming replies, visible tool calls, and follow-up questions. A React component, or a one-line mount anywhere else.",
-      },
-      {
-        name: "Managed backend",
-        desc: "Model calls, tool orchestration, and file handling run on AstralBeam. Nothing for you to deploy or scale.",
+        icon: <ChatIcon />,
       },
       {
         name: "Fully customizable",
         desc: "Your title, copy, color scheme, and design tokens, or swap the header and empty state for your own components.",
+        icon: <SlidersIcon />,
       },
       {
-        name: "Users' files",
-        desc: "Users drop in screenshots, PDFs, spreadsheets, and code. The agent reads them and answers from them.",
+        name: "Files and artifacts",
+        desc: "Upload files, work with their contents, and download generated results.",
+        icon: <FileIcon />,
       },
       {
-        name: "Sandboxes and artifacts",
-        desc: "Give the agent a sandbox to run code against uploaded data. The files it produces arrive as signed downloads.",
-      },
-      {
-        name: "Resumable streaming",
-        desc: "Reload mid-answer and the stream picks up where it left off, on the same device or another one.",
-        soon: true,
+        name: "Managed backend",
+        desc: "Model calls, tool orchestration, and file handling run on AstralBeam. Nothing for you to deploy or scale.",
+        icon: <ServerIcon />,
       },
     ],
   },
