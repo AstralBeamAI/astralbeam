@@ -21,11 +21,13 @@ jobs:
       # Every project reports its own result, so one failing leg does not hide the others.
       fail-fast: false
       matrix:
-        # The platform splits `ready` across two legs so its checks and tests overlap its build. The CLI's
+        # The platform splits `ready` across four legs so its checks, tests, and build overlap. The CLI's
         # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
         include:
-          - { project: platform, leg: platform checks, tasks: check && deno task test }
-          - { project: platform, leg: platform build, tasks: build && deno task binary:check }
+          - { project: platform, leg: platform checks, tasks: check }
+          - { project: platform, leg: platform unit tests, tasks: test --project=unit }
+          - { project: platform, leg: platform integration tests, tasks: test --project=integration, database: true }
+          - { project: platform, leg: platform build, tasks: build && deno task binary:check, database: true }
           - { project: www, tasks: ready }
           - { project: sdk, tasks: ready }
           - { project: cli, tasks: check && deno task test && deno task binary:check }
@@ -38,7 +40,7 @@ jobs:
           persist-credentials: false
 
       - name: Pull Platform test database images
-        if: matrix.project == 'platform'
+        if: matrix.database
         # Runs in the background so the images download while Deno and the dependencies install.
         run: docker compose pull --quiet postgres pgbouncer > /dev/null 2>&1 &
 
@@ -47,10 +49,6 @@ jobs:
         with:
           # setup-deno names the latest stable channel "latest". https://github.com/denoland/setup-deno#version-from-input
           deno-version: latest
-          # Caches the module cache, keyed by a hash of the per-project deno.lock files.
-          cache: true
-          # Per-leg keys keep each leg's downloads, since only a key's first saver writes it.
-          cache-hash: ${{ matrix.leg || matrix.project }}-${{ hashFiles('**/deno.lock') }}
 
       - name: Check root formatting
         run: deno task format:check
@@ -68,7 +66,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: sdk/dist
-          key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/**', '!sdk/node_modules/**', '!sdk/dist/**', '!sdk/.generated/**', '!sdk/src/widget/styles.generated.ts') }}
+          # Only build inputs, so a test or documentation change keeps the cached build.
+          key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/package.json', 'sdk/deno.lock', 'sdk/tsconfig.json', 'sdk/tsdown.config.ts', 'sdk/scripts/**', 'sdk/src/**', '!sdk/src/**/*.test.*', '!sdk/src/widget/styles.generated.ts') }}
 
       - name: Build the SDK
         if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'
@@ -95,7 +94,7 @@ jobs:
         run: deno install --frozen
 
       - name: Prepare Platform test database
-        if: matrix.project == 'platform'
+        if: matrix.database
         working-directory: platform
         env:
           DATABASE_URL: postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test
@@ -108,9 +107,9 @@ jobs:
       - name: Check, test, and build
         working-directory: ${{ matrix.project }}
         env:
-          DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
+          DATABASE_URL: ${{ matrix.database && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test' || '' }}
           # Left empty so `binary:check` can require `migrate --dry-run` to list every migration.
-          BINARY_CHECK_DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_binary_check' || '' }}
+          BINARY_CHECK_DATABASE_URL: ${{ matrix.database && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_binary_check' || '' }}
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: deno task ${{ matrix.tasks }}
 
