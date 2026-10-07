@@ -195,7 +195,8 @@ export interface AstralBeamChatCore {
   /** Loads saved history before accepting another send. */
   openThread: (id: string) => Promise<void>
   renameThread: (title: string) => Promise<boolean>
-  deleteThread: () => Promise<void>
+  /** Deletes a listed conversation, the selected one by default; resolves whether it succeeded. */
+  deleteThread: (thread?: ChatThread) => Promise<boolean>
   refreshThread: () => Promise<void>
   loadOlderMessages: () => Promise<void>
   abandonToolCall: (toolCallId: string) => Promise<void>
@@ -1059,9 +1060,8 @@ export function createAstralBeamChat(
     }
   }
 
-  const deleteThread = async () => {
-    const thread = state.thread
-    if (!thread || thread.role !== "manager") return
+  const deleteThread = async (thread = state.thread) => {
+    if (!thread || thread.role !== "manager") return false
     const generation = selectionGeneration
     try {
       await deleteChatThread(
@@ -1069,10 +1069,11 @@ export function createAstralBeamChat(
         { expected_version: String(thread.version) },
         await requestOptions(),
       )
-      if (generation !== selectionGeneration) return
-      newThread()
+      if (generation === selectionGeneration && state.thread?.id === thread.id) newThread()
+      return true
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
+      return false
     }
   }
 

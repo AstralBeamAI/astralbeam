@@ -315,7 +315,7 @@ Managers can rename and delete the selected conversation. Participant management
 | `reload()` | Refresh history and retry delivery of retained tool results. It does not regenerate saved responses. |
 | `stop()` | Cancel this session's foreground request. |
 | `renameThread(title)` | Rename the selected conversation using its current revision. |
-| `deleteThread()` | Delete the selected conversation with manager authorization and the current revision. |
+| `deleteThread(thread?)` | Delete a listed conversation, the selected one by default, with manager authorization and its revision. Resolves whether it succeeded. |
 | `abandonToolCall(toolCallId)` | Explicitly close an unconfirmed pending action through the permitted resolution path, rather than rerunning it. |
 
 When the mounted session is no longer needed, unsubscribe and dispose its foreground resources:

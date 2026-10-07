@@ -98,8 +98,10 @@ export type AstralBeamChatSlotRenderer = (container: HTMLElement) => (() => void
 
 /** Host-rendered replacements for the widget's own chrome; each renders in the host page's style. */
 export interface AstralBeamChatSlots {
-  /** Replaces the header's content (title and reset button); `showHeader: false` still hides the row. */
+  /** Replaces the header's title; `showHeader: false` still hides the row. */
   header?: AstralBeamChatSlotRenderer | undefined
+  /** Extra controls at the end of the header, after the history and new chat buttons. */
+  headerActions?: AstralBeamChatSlotRenderer | undefined
   /** Replaces the empty-transcript state (icon, headline, and subtitle). */
   empty?: AstralBeamChatSlotRenderer | undefined
   /** Extra controls at the end of the composer's button row, next to send. */

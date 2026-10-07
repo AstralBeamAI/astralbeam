@@ -4,7 +4,7 @@ import { chatWidget } from "../../pages/chat-widget.ts"
 import { seedTarget } from "../../worktree.ts"
 import { captureMoment } from "../../capture.ts"
 
-test("conversation search, conflicting renames, and reset preserve the correct local state", async ({
+test("chat history search, selection, and new chat preserve the correct local state", async ({
   page,
 }) => {
   const recent = {
@@ -23,26 +23,6 @@ test("conversation search, conflicting renames, and reset preserve the correct l
     id: "00000000-0000-4000-8000-000000000002",
     title: "Older launch plan",
   }
-  let renameAttempts = 0
-  await page.route(`**/api/v1/chat/threads/${older.id}`, (route) => {
-    if (renameAttempts++ === 0) {
-      older.version++
-      return route.fulfill({
-        status: 409,
-        contentType: "application/problem+json",
-        json: {
-          title: "Conflict",
-          status: 409,
-          detail: "This conversation changed or is busy. Reload and try again",
-        },
-      })
-    }
-    const body = route.request().postDataJSON() as { expected_version: number; title: string }
-    expect(body.expected_version).toBe(older.version)
-    older.title = body.title
-    older.version++
-    return route.fulfill({ json: older })
-  })
   await page.route(/\/api\/v1\/chat\/threads\?/, (route) => {
     const params = new URL(route.request().url()).searchParams
     const q = params.get("q") ?? ""
@@ -87,13 +67,17 @@ test("conversation search, conflicting renames, and reset preserve the correct l
   })
   await todosPage(page).open()
   await chatWidget(page).waitForReady()
-  const picker = page.getByRole("combobox", { name: "Conversations", exact: true })
-  const search = page.getByRole("combobox", { name: "Search conversations…", exact: true })
+  const picker = page.getByRole("combobox", { name: "Show older chats", exact: true })
+  const search = page.getByRole("combobox", { name: "Search chats", exact: true })
   await picker.click()
   await page.getByRole("option", { name: recent.title, exact: true }).click()
   await expect(page.getByRole("region", { name: "Messages" })).toContainText(recent.title)
   await picker.click()
   await expect(search).toBeFocused()
+  await expect(page.getByRole("option", { name: recent.title, exact: true })).toHaveAttribute(
+    "aria-current",
+    "true",
+  )
   await search.fill("launch")
   await expect(page.getByRole("option", { name: "Launch plan 20", exact: true })).toBeAttached()
   const list = page.getByRole("listbox")
@@ -108,34 +92,14 @@ test("conversation search, conflicting renames, and reset preserve the correct l
   await expect(page.getByRole("region", { name: "Messages" })).toContainText(older.title)
   await picker.click()
   await search.fill("no match")
-  await expect(page.getByText("No matches.", { exact: true })).toBeVisible()
+  await expect(page.getByText("No chats found.", { exact: true })).toBeVisible()
   await search.press("Escape")
   await expect(picker).toBeFocused()
-  await expect(picker).toContainText(older.title)
-  const rename = page.getByRole("button", { name: "Rename conversation", exact: true })
-  const title = page.getByRole("textbox", { name: "Conversation title", exact: true })
-  const save = page.getByRole("button", { name: "Save", exact: true })
-  await rename.click()
-  await title.fill("Updated launch plan")
-  await save.click()
-  await expect(page.getByRole("alert")).toBeVisible()
-  await expect(title).toHaveValue("Updated launch plan")
-  await captureMoment(page, "rename conflict preserves the attempted title")
-  await page.getByRole("button", { name: "Refresh", exact: true }).click()
-  await expect(page.getByRole("alert")).toHaveCount(0)
-  await expect(title).toHaveValue("Updated launch plan")
-  await save.click()
-  await expect(title).toHaveCount(0)
-  await expect(picker).toContainText("Updated launch plan")
-  await captureMoment(page, "rename succeeds after refreshing the saved version")
-  await rename.click()
-  await page.getByRole("button", { name: "Reset conversation", exact: true }).click()
-  await expect(title).toHaveCount(0)
-  await captureMoment(page, "reset clears the previous conversation title editor")
+  await page.getByRole("button", { name: "New chat", exact: true }).click()
   await picker.click()
   await expect(search).toHaveValue("")
-  await expect(page.getByRole("option", { name: "New conversation", exact: true })).toHaveCount(0)
   await expect(page.getByRole("option", { name: recent.title, exact: true })).toBeVisible()
+  await expect(page.locator('[role="option"][aria-current="true"]')).toHaveCount(0)
 })
 
 for (const role of ["member", "manager", "viewer"]) {
@@ -197,7 +161,7 @@ for (const role of ["member", "manager", "viewer"]) {
     })
     await todosPage(page).open()
     await chatWidget(page).waitForReady()
-    await page.getByRole("combobox", { name: "Conversations", exact: true }).click()
+    await page.getByRole("combobox", { name: "Show older chats", exact: true }).click()
     await page.getByRole("option", { name: thread.title, exact: true }).click()
     await expect(page.getByRole("region", { name: "Messages" })).toContainText(
       "Earlier support context",

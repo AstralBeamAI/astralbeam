@@ -11,7 +11,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API, the widget streams from `/v1/chat` |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
 | `title` | `"AstralBeam"` | Name in the widget's header |
-| `showHeader` | `true` | `false` hides the header and its reset button |
+| `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
 | `emptyTitle`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme` | `"system"` | `"light"`, `"dark"`, or follow the OS setting live |
 | `theme` | built-in palette | `{ light, dark }` CSS token overrides, see [Theming](./theming.md) |
@@ -34,13 +34,14 @@ Replace parts of the widget's own chrome with host-rendered content, styled by t
 
 ```tsx
 <AstralBeamChat
-  header={<MyChatHeader onReset={() => chatRef.current?.reset()} />}
+  header={<MyChatTitle />}
+  headerActions={<MyCloseButton />}
   empty={<MyWelcome />}
   composerActions={<MyVoiceButton />}
 />
 ```
 
-- `header` replaces the title and reset button. `showHeader={false}` still hides the whole row.
+- `header` replaces the title. `headerActions` adds controls after the chat history and new chat buttons. `showHeader={false}` still hides the whole row.
 - `empty` replaces the empty-transcript state. `composerActions` adds controls next to send.
 - Vanilla: `slots: { header: (container) => { ...; return cleanup } }`, updatable through `update`.
 

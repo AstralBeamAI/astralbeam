@@ -8,7 +8,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test"
  *
  * Selectors here track the SDK's own markup, all under `sdk/src/widget`:
  * `components/chat-composer.tsx` (the "Message" textbox, "Send", "Stop", "Attach files"),
- * `chat-widget.tsx` ("Reset conversation" and the header), `components/chat-transcript.tsx`
+ * `chat-widget.tsx` ("New chat" and the header), `components/chat-transcript.tsx`
  * (`aria-busy` while a run streams, and the "Thinking…" status), `components/tool-disclosure.tsx`
  * (each tool call collapses to one trigger button), and `components/sandbox-panel.tsx` (the
  * "Sandbox · N files · M commands" trigger with Files and Log tabs). Update this file when that
@@ -154,12 +154,12 @@ export function chatWidget(page: Page) {
       return root.getByRole("button", { name: `Remove ${name}` })
     },
 
-    resetButton(): Locator {
-      return root.getByRole("button", { name: "Reset conversation" })
+    newChatButton(): Locator {
+      return root.getByRole("button", { name: "New chat" })
     },
 
     async reset(): Promise<void> {
-      await this.resetButton().click()
+      await this.newChatButton().click()
     },
 
     emptyState(): Locator {
