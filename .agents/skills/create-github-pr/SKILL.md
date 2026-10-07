@@ -26,14 +26,20 @@ For authorized updates to an existing PR, follow the relevant steps without repe
    ```markdown
    <description>
    ```
-8. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back. Include the URL of the metrics comment from the project metrics section below in the handoff once CI posts it.
+8. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back. Then run the post-PR checks below and include their results comment URL in the handoff.
 9. Attach an approved walkthrough through the workflow below, then verify the saved attachment on GitHub.
 10. After the handoff, reflect on the session that produced the PR and tell the user how the development workflow could be faster, cheaper in tokens, or less error-prone, prioritizing speed. Cite concrete stalls, retries, and reruns from the session, and record durable fixes in the closest `AGENTS.md` or skill only when the user approves them.
 
-## Project metrics comment
+## Post-PR checks
 
-- CI's `PR metrics` job runs `scripts/pr-metrics.ts` on every push. It builds each changed project at the merge base and the head, counts lines with `scripts/count-lines.ts`, and creates or updates the one comment marked `<!-- astralbeam-pr-metrics -->`. Do not build snapshots or post metrics by hand.
-- A fork's PR cannot receive the comment, so the job writes the same table to its run summary. If the job fails, report its failure and link the run instead of measuring locally.
+CI skips the browser suites to stay fast, so run them locally right after creating the PR and again after every later push.
+
+1. Prepare the worktree: migrate and seed its database with `deno task --cwd platform db migrate` and `deno task --cwd platform db-seed`, build `sdk/dist` with `deno task --cwd sdk build`, and install Chromium once with each suite's `e2e:install` task.
+2. Start both suites as parallel background jobs, logging outside the worktree. Their ports and databases do not collide.
+   - `deno task --cwd platform e2e` runs the platform suite's default projects against its own `_e2e` database.
+   - `deno task --cwd examples/todos e2e --project=app` runs the deterministic todos specs against the seeded worktree database.
+3. When both finish, post one `gh pr comment` listing each suite's result, test count, and duration, and the head SHA they ran against.
+4. Fix a failure the change caused and push again. Report an environmental failure with its error and the suite's `e2e/.output/report` path instead of retrying blindly.
 
 ## Walkthrough videos
 

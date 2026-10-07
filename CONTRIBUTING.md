@@ -114,7 +114,7 @@ Documentation-only changes need source review and `git diff --check`, not a full
 
 The browser suites run through their own `e2e` tasks, for example `deno task --cwd examples/todos e2e`. They need Playwright browsers and running services, so they stay out of `check`, `test`, `ready`, and CI. Run them locally when you change a flow they cover.
 
-CI runs `ready` for all six projects, compiles and smoke-tests the platform and CLI binaries, and runs the deterministic browser specs.
+CI runs `ready` for all six projects and compiles and smoke-tests the platform and CLI binaries.
 
 ## Pull requests
 

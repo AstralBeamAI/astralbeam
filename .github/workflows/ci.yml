@@ -21,11 +21,13 @@ jobs:
       # Every project reports its own result, so one failing leg does not hide the others.
       fail-fast: false
       matrix:
-        # The platform splits `ready` across two legs so its checks and tests overlap its build. The CLI's
+        # The platform splits `ready` across four legs so its checks, tests, and build overlap. The CLI's
         # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
         include:
-          - { project: platform, leg: platform checks, tasks: check && deno task test }
-          - { project: platform, leg: platform build, tasks: build && deno task binary:check }
+          - { project: platform, leg: platform checks, tasks: check }
+          - { project: platform, leg: platform unit tests, tasks: test --project=unit }
+          - { project: platform, leg: platform integration tests, tasks: test --project=integration, database: true }
+          - { project: platform, leg: platform build, tasks: build && deno task binary:check, database: true }
           - { project: www, tasks: ready }
           - { project: sdk, tasks: ready }
           - { project: cli, tasks: check && deno task test && deno task binary:check }
@@ -38,7 +40,7 @@ jobs:
           persist-credentials: false
 
       - name: Pull Platform test database images
-        if: matrix.project == 'platform'
+        if: matrix.database
         # Runs in the background so the images download while Deno and the dependencies install.
         run: docker compose pull --quiet postgres pgbouncer > /dev/null 2>&1 &
 
@@ -47,10 +49,6 @@ jobs:
         with:
           # setup-deno names the latest stable channel "latest". https://github.com/denoland/setup-deno#version-from-input
           deno-version: latest
-          # Caches the module cache, keyed by a hash of the per-project deno.lock files.
-          cache: true
-          # Per-leg keys keep each leg's downloads, since only a key's first saver writes it.
-          cache-hash: ${{ matrix.leg || matrix.project }}-${{ hashFiles('**/deno.lock') }}
 
       - name: Check root formatting
         run: deno task format:check
@@ -68,7 +66,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: sdk/dist
-          key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/**', '!sdk/node_modules/**', '!sdk/dist/**', '!sdk/.generated/**', '!sdk/src/widget/styles.generated.ts') }}
+          # Only build inputs, so a test or documentation change keeps the cached build.
+          key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/package.json', 'sdk/deno.lock', 'sdk/tsconfig.json', 'sdk/tsdown.config.ts', 'sdk/scripts/**', 'sdk/src/**', '!sdk/src/**/*.test.*', '!sdk/src/widget/styles.generated.ts') }}
 
       - name: Build the SDK
         if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'
@@ -95,7 +94,7 @@ jobs:
         run: deno install --frozen
 
       - name: Prepare Platform test database
-        if: matrix.project == 'platform'
+        if: matrix.database
         working-directory: platform
         env:
           DATABASE_URL: postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_dogfood_test
@@ -113,39 +112,6 @@ jobs:
           BINARY_CHECK_DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_binary_check' || '' }}
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: deno task ${{ matrix.tasks }}
-
-  metrics:
-    name: PR metrics
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          # The PR head rather than the merge commit, with history for the merge base.
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Set up Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
-        with:
-          deno-version: latest
-          cache: true
-          cache-hash: metrics-${{ hashFiles('**/deno.lock') }}
-
-      - name: Build base and head, then comment
-        env:
-          BASE_REF: ${{ github.base_ref }}
-          # A fork's token cannot comment, so its table goes only to the job summary.
-          PR_NUMBER: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.number || '' }}
-          GH_TOKEN: ${{ github.token }}
-          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
-        run: deno run -A scripts/pr-metrics.ts
 
   todos-rails:
     name: Check examples/todos-rails
@@ -170,149 +136,3 @@ jobs:
       - name: Lint, audit, and test
         # Rails' own local CI runner: RuboCop, bundler-audit, importmap audit, Brakeman, and tests.
         run: bin/ci
-
-  e2e:
-    name: End-to-end
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Set up Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
-        with:
-          deno-version: latest
-          cache: true
-
-      - name: Cache Platform node_modules
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: platform/node_modules
-          key: node_modules-${{ runner.os }}-platform-${{ hashFiles('platform/deno.lock') }}
-
-      - name: Cache SDK node_modules
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: sdk/node_modules
-          key: node_modules-${{ runner.os }}-sdk-${{ hashFiles('sdk/deno.lock') }}
-
-      - name: Cache todos example node_modules
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: examples/todos/node_modules
-          key: node_modules-${{ runner.os }}-examples/todos-${{ hashFiles('examples/todos/deno.lock') }}
-
-      - name: Install dependencies
-        env:
-          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
-        run: |
-          (cd platform && deno install --frozen)
-          (cd sdk && deno install --frozen)
-          (cd examples/todos && deno install --frozen)
-
-      - name: Build the SDK
-        working-directory: sdk
-        run: deno task build
-
-      - name: Start test dependencies
-        # --wait blocks until PostgreSQL, PgBouncer, Valkey, and Mailpit are healthy.
-        run: docker compose up --detach --wait
-
-      - name: Migrate and seed the database
-        working-directory: platform
-        run: |
-          deno task db migrate
-          deno task db-seed
-
-      - name: Install Chromium
-        working-directory: examples/todos
-        run: deno task e2e:install
-
-      - name: Run deterministic browser specs
-        working-directory: examples/todos
-        # Only the `app` project, which never calls a model; the suite starts its own platform and
-        # todos servers. https://playwright.dev/docs/test-webserver
-        run: deno task e2e --project=app
-
-  platform-e2e:
-    name: Platform end-to-end
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      # Matches `.env.development`, so the suite derives its `_e2e` database without extra env.
-      # No health check, because PostgreSQL is ready long before the installs finish.
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: astralbeam
-          POSTGRES_PASSWORD: astralbeam123
-          POSTGRES_DB: astralbeam
-        ports: ["5432:5432"]
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Set up Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
-        with:
-          deno-version: latest
-          cache: true
-          cache-hash: platform-e2e-${{ hashFiles('**/deno.lock') }}
-
-      - name: Cache Platform node_modules
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: platform/node_modules
-          key: node_modules-${{ runner.os }}-platform-${{ hashFiles('platform/deno.lock') }}
-
-      - name: Cache SDK node_modules
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: sdk/node_modules
-          key: node_modules-${{ runner.os }}-sdk-${{ hashFiles('sdk/deno.lock') }}
-
-      - name: Cache SDK build
-        id: sdk-build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: sdk/dist
-          key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/**', '!sdk/node_modules/**', '!sdk/dist/**', '!sdk/.generated/**', '!sdk/src/widget/styles.generated.ts') }}
-
-      - name: Cache Playwright browsers
-        id: browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('platform/deno.lock') }}
-
-      - name: Install dependencies and build the SDK
-        env:
-          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
-          SDK_BUILD_CACHED: ${{ steps.sdk-build.outputs.cache-hit }}
-        run: |
-          (cd sdk && deno install --frozen)
-          (cd platform && deno install --frozen)
-          if [ "$SDK_BUILD_CACHED" != true ]; then deno task --cwd sdk build; fi
-
-      - name: Install the headless Chromium shell
-        if: steps.browsers.outputs.cache-hit != 'true'
-        # Headless runs need only the shell, a fraction of the full browser download.
-        run: deno task --cwd platform e2e:install --only-shell
-
-      - name: Run the platform suite
-        # The default projects need no containers or model calls. The suite prepares its own
-        # `_e2e` database, mail sink, and server. https://playwright.dev/docs/test-webserver
-        run: deno task --cwd platform e2e
-
-      - name: Upload failure traces
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: platform-e2e-output
-          path: platform/e2e/.output
-          retention-days: 7

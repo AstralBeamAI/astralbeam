@@ -1,5 +1,5 @@
 // Reports the current project's handwritten, generated, and test lines and its build size.
-// Run from a project folder. `scripts/pr-metrics.ts` runs it for CI's PR metrics comment.
+// Run from a project folder.
 import { execFileSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, join } from "node:path"
