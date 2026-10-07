@@ -113,6 +113,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       "Agents",
       "Sandboxes",
       "API Keys",
+      "Conversations",
       "Tenants",
       "Users",
       "Members",

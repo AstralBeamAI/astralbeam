@@ -34,7 +34,14 @@ const mailboxApiPort = Number(process.env.E2E_MAILBOX_PORT ?? portBase + 2)
 /** The journey types this into `/configure`, which is how the deployment learns where to send mail. */
 export const mailboxSmtpPort = Number(process.env.E2E_SMTP_PORT ?? portBase + 1)
 
-export const platformUrl = `http://localhost:${platformPort}`
+/**
+ * `E2E_SEEDED=1` (`deno task e2e:seeded`) runs `specs/seeded` against the worktree's seeded
+ * database instead, signed in as the seeded owner. `E2E_PLATFORM_URL` reuses a running server.
+ */
+export const seededMode = process.env.E2E_SEEDED === "1"
+const externalPlatformUrl = seededMode ? process.env.E2E_PLATFORM_URL : undefined
+
+export const platformUrl = externalPlatformUrl ?? `http://localhost:${platformPort}`
 export const mailboxUrl = `http://127.0.0.1:${mailboxApiPort}`
 
 /** Vite's precedence order, lowest first. Only plain `KEY=value` lines are read. https://vite.dev/guide/env-and-mode */
@@ -85,7 +92,7 @@ export const e2eDatabaseUrl = deriveE2eDatabaseUrl()
  * `E2E_CAPTURE=all` records video, a trace, and a screenshot even for a passing spec, which is
  * what you want when the run itself is the evidence for a pull request.
  */
-export const captureEverything = process.env.E2E_CAPTURE === "all"
+export const captureEverything = process.env.E2E_CAPTURE === "all" || seededMode
 
 /**
  * Pins one Docker endpoint for the whole run. The CLI resolves its endpoint through contexts while
@@ -117,6 +124,22 @@ export function dockerDaemonAvailable(): boolean {
 
 /** Playwright `webServer` entries: the mail sink first, because the platform is pointed at it. */
 export function e2eWebServers() {
+  if (seededMode) {
+    if (externalPlatformUrl) return []
+    return [
+      {
+        command: "deno task dev",
+        cwd: platformDirectory,
+        url: `${platformUrl}/api/status`,
+        env: { PORT: String(platformPort), APP_BASE_URL: platformUrl },
+        reuseExistingServer: false,
+        timeout: 240_000,
+        gracefulShutdown: { signal: "SIGTERM" as const, timeout: 8_000 },
+        stdout: "pipe" as const,
+        stderr: "pipe" as const,
+      },
+    ]
+  }
   return [
     {
       command: "deno run -P=tooling ./e2e/mailbox-server.ts",

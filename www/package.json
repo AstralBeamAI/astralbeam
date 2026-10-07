@@ -18,7 +18,7 @@
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install --frozen",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "ready": "deno task check && deno task build && deno task test",
+    "ready": "deno run --allow-env=CI --allow-run=deno ../scripts/ready.ts check build test",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "deploy": "deno task ready && wrangler deploy"

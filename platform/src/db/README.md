@@ -79,7 +79,7 @@ deno task --cwd platform db migrate
 
 ## Seed sample data
 
-`deno task --cwd platform db-seed` fills the current worktree's database with global configuration, dogfood and sample organizations, verified accounts, members, agents, organization API keys, Tenants and tenant users, and a Docker sandbox provider. It skips `/configure`, signup, email verification, and API-key creation entirely.
+`deno task --cwd platform db-seed` fills the current worktree's database with global configuration, dogfood and sample organizations, verified accounts, members, agents, organization API keys, Tenants and tenant users, a Docker sandbox provider, and saved conversations for the todos tenant user and for `owner@example.com` in Astro on `acme`. It skips `/configure`, signup, email verification, and API-key creation entirely.
 
 ```sh
 deno task --cwd platform db-reset

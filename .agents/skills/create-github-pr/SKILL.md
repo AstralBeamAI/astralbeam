@@ -8,7 +8,7 @@ compatibility: Requires git, network access, and authenticated GitHub write acce
 
 Publish only the intended local changes, following repository instructions and the content contract below.
 
-For authorized updates to an existing PR or explicit metrics refreshes, use the project metrics section without repeating the creation workflow.
+For authorized updates to an existing PR, follow the relevant steps without repeating the creation workflow.
 
 ## Workflow
 
@@ -26,27 +26,21 @@ For authorized updates to an existing PR or explicit metrics refreshes, use the 
    ```markdown
    <description>
    ```
-8. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back. Immediately after the read-back, post the project metrics comment below, aiming for the first conversation comment, and include its URL in the handoff.
+8. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back. Include the URL of the metrics comment from the project metrics section below in the handoff once CI posts it.
 9. Attach an approved walkthrough through the workflow below, then verify the saved attachment on GitHub.
 10. After the handoff, reflect on the session that produced the PR and tell the user how the development workflow could be faster, cheaper in tokens, or less error-prone, prioritizing speed. Cite concrete stalls, retries, and reruns from the session, and record durable fixes in the closest `AGENTS.md` or skill only when the user approves them.
 
 ## Project metrics comment
 
-- Keep one conversation comment containing only a Markdown table. Put `<!-- astralbeam-pr-metrics -->` inside the `Metric` header cell. Use `Metric`, `Base`, `Head`, and `Delta` columns with exactly four rows per changed project, limited to example projects under `examples/`, `sdk`, `cli`, `platform`, and `www` (website): `Source lines`, `Generated lines`, `Test lines`, and `Build size`. Skip all four rows when the PR has no diff for that project or its shared build inputs. Include the project path in each metric label. Use `N/A` for projects without a build output.
-- Fetch the PR's current base and head. Compare the head with their merge base, recording the target branch, base SHA, merge-base SHA, and head SHA in an HTML comment inside the table.
-- Build clean, isolated snapshots with the same OS, architecture, Deno version, and options, using each revision's frozen dependencies. Run `deno task --cwd <project> count-lines` even if a build fails. For projects without that task, run the shared script from their folder and measure their build output. Reuse measurements, including `ready` output, only for matching commits and environments. Use build sizes only from successful builds.
-- Count TypeScript (`.ts` and `.tsx`) lines only with `scripts/count-lines.ts`'s existing hardcoded generated-path, generated-header, and test rules. Exclude generated and test lines from source lines. Apply the same rules to both snapshots and count each file in only one category.
-- Publish signed head-minus-baseline deltas using the task's units and precision. Publish available metrics when a measurement fails, marking missing values and their deltas `Unavailable` with a short reason.
-- Paginate conversation comments and locate the comment containing the marker. Update it by ID when editable, creating one only if absent. Use a connector or GitHub's [issue-comment API](https://docs.github.com/en/rest/issues/comments#update-an-issue-comment) with a structured body or body file. Avoid `gh pr comment --edit-last`, which may overwrite another reply. Refetch after ambiguous creation failures before retrying.
-- Refresh after every authorized push and observed target/base change. Recompute rows and provenance, skip unchanged writes, and recheck remote base/head before writing. Recompute if they moved.
-- Read the saved comment back and verify its body, comparison SHAs, and URL against the current PR. On comment access failure, report the blocker and provide copyable Markdown. Report PR creation and metrics publication separately.
+- CI's `PR metrics` job runs `scripts/pr-metrics.ts` on every push. It builds each changed project at the merge base and the head, counts lines with `scripts/count-lines.ts`, and creates or updates the one comment marked `<!-- astralbeam-pr-metrics -->`. Do not build snapshots or post metrics by hand.
+- A fork's PR cannot receive the comment, so the job writes the same table to its run summary. If the job fails, report its failure and link the run instead of measuring locally.
 
 ## Walkthrough videos
 
 - Before upload, watch the complete recording and reject or redact anything containing credentials, tokens, personal data, private notifications, unrelated tabs, or other sensitive material. Treat every generated attachment URL as shareable bearer-access media, including on a private repository. See GitHub's [anonymized URL guidance](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-anonymized-urls).
 - Keep the source and any transcoded copy outside the repository worktree. Confirm neither appears in `git status --short`, the index, tracked files, or Git LFS, and never copy, stage, commit, or push walkthrough media. A repository ignore rule is not a substitute for keeping the artifact outside the worktree.
 - Prefer an H.264-encoded `.mp4` for browser compatibility. GitHub's [supported formats and limits](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files#supported-file-types) also allow `.mov` and `.webm` and currently cap videos at 10 MB on free plans or 100 MB on paid plans. Uploads over 10 MB additionally require the uploader to meet GitHub's paid-plan or repository-access eligibility rules.
-- Prefer [`gh pr create --attach`](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli) or `gh pr comment <number> --attach './file.mp4#alt text'`, which uploads the media and rewrites a matching body reference to the uploaded asset. It needs gh 2.97 or newer and push access. Screenshots go the same way.
+- Prefer [`gh pr create --attach`](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli) or `gh pr comment <number> --attach './file.mp4#alt text'`, which uploads the media and appends it to the body, screenshots before videos, with `#alt text` on images only. It needs gh 2.97 or newer and push access. A body-file reference is not rewritten, so to place media inline, read back the appended `user-attachments/assets/...` URLs and edit the body. Put requested before/after measurements in the same PR comment as their media, since the description excludes test results.
 - Without that flag, open the created PR in an authenticated GitHub web session, edit its description, drag the video into the description editor or use **Attach files**, and wait for GitHub to finish uploading and insert its anonymized attachment URL. Place the generated attachment inline with the walkthrough bullet, preserve the rest of the intended description, save, reload the PR, and confirm the video player renders and plays.
 - If GitHub rejects or cannot upload the video, keep the artifact outside the worktree and report its absolute local path and the blocker. Transcode outside the worktree and retry only when authorized. Never commit the recording or add Git LFS as a fallback.
 
@@ -61,7 +55,6 @@ For authorized updates to an existing PR or explicit metrics refreshes, use the 
 ## Guardrails
 
 - Only an explicit request to create or publish a PR authorizes commits, pushes, and PR creation.
-- Authorized PR creation and updates include metrics upkeep. A metrics-only request authorizes only that comment.
 - Never stage unrelated work or stash, discard, amend, rebase, squash, or force-push without explicit authorization.
 - Fix or stop for a required check broken by the change. A demonstrably pre-existing or environmental failure may proceed in the requested PR state and belongs in the handoff, not the PR description.
 - Do not add reviewers, assignees, labels, milestones, or projects unless requested or required by repository instructions.

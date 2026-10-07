@@ -4,6 +4,7 @@ import { type Baseline, readBaseline } from "./baseline.ts"
 
 import { type AgentsPage, agentsPage } from "./pages/agents-page.ts"
 import { type ApiKeysPage, apiKeysPage } from "./pages/api-keys-page.ts"
+import { type AstroPanel, astroPanel } from "./pages/astro-panel.ts"
 import { type AuthPage, authPage } from "./pages/auth-page.ts"
 import { type ConfigurePage, configurePage } from "./pages/configure-page.ts"
 import {
@@ -25,6 +26,7 @@ type Fixtures = {
   baseline: Baseline
   agents: AgentsPage
   apiKeys: ApiKeysPage
+  astro: AstroPanel
   auth: AuthPage
   configure: ConfigurePage
   members: MembersPage
@@ -58,6 +60,7 @@ export const test = base.extend<Fixtures>({
   },
   agents: async ({ page }, provide) => await provide(agentsPage(page)),
   apiKeys: async ({ page }, provide) => await provide(apiKeysPage(page)),
+  astro: async ({ page }, provide) => await provide(astroPanel(page)),
   auth: async ({ page }, provide) => await provide(authPage(page)),
   configure: async ({ page }, provide) => await provide(configurePage(page)),
   members: async ({ page }, provide) => await provide(membersPage(page)),
