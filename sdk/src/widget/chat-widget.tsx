@@ -186,6 +186,7 @@ export function ChatWidget({
             ...EMPTY_DRAFT,
             text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
           }
+          if (value.attachmentsLoaded) return current
           return {
             ...current,
             threads: new Map(current.threads).set(draftKey, {
@@ -435,12 +436,22 @@ export function ChatWidget({
           setDrafts((cached) => {
             if (cached.apiUrl !== apiUrl || cached.identity !== draftIdentity) return cached
             const value = cached.threads.get("")
-            if (!value || cached.threads.has(id)) return cached
+            if (!value) return cached
+            const destination = cached.threads.get(id)
             const threads = new Map(cached.threads)
             threads.set(id, {
               ...value,
+              text: value.text || destination?.text || "",
+              attachments: [
+                ...new Map(
+                  [...(destination?.attachments ?? []), ...value.attachments].map((file) => [
+                    file.id,
+                    file,
+                  ]),
+                ).values(),
+              ],
               settledAttachments: EMPTY_ATTACHMENTS,
-              savedAttachments: EMPTY_ATTACHMENTS,
+              savedAttachments: destination?.savedAttachments ?? EMPTY_ATTACHMENTS,
             })
             threads.delete("")
             return { ...cached, threads }

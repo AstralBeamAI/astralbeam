@@ -199,8 +199,9 @@ test("stale tabs preserve newer files and cannot restore accepted files", async 
   await captureMoment(page, "stale-tab-keeps-only-unsent-files")
 })
 
-test("a failed send retains its files in the newly created conversation without automatic resend", async ({
+test("a failed send merges its draft into a preloaded destination without losing another tab's files", async ({
   page,
+  context,
 }) => {
   let submissions = 0
   await page.route("**/api/v1/chat", (route) => {
@@ -210,19 +211,78 @@ test("a failed send retains its files in the newly created conversation without 
   await todosPage(page).open()
   const chat = chatWidget(page)
   await chat.waitForReady()
+  await chat.selectConversation(thread.title)
+  await chat.waitForReady()
+  await chat.reset()
+
+  const otherPage = await context.newPage()
+  await todosPage(otherPage).open()
+  const otherChat = chatWidget(otherPage)
+  await otherChat.waitForReady()
+  await otherChat.selectConversation(thread.title)
+  await otherChat.attach(image)
+  await expect(otherChat.sendButton()).toBeEnabled()
+
+  await chat.composer().fill("Keep my failed draft")
   await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
   await chat.sendButton().click()
   await expect(chat.errorAlert()).toBeVisible()
+  await expect(chat.composer()).toHaveValue("Keep my failed draft")
+  await expect(chat.attachmentChip(note.name)).toBeVisible()
   await page.reload()
   await expect(chat.attachmentChip(note.name)).toBeVisible()
-  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.attachmentChip(image.name)).toBeVisible()
+  await expect(chat.composer()).toHaveValue("Keep my failed draft")
   expect(submissions).toBe(1)
   await chat.attachmentChip(note.name).click()
   await expect(chat.attachmentChip(note.name)).toHaveCount(0)
   await page.reload()
   await chat.waitForReady()
   await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await expect(chat.attachmentChip(image.name)).toBeVisible()
+  await chat.reset()
+  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+})
+
+test("independent new tabs recover their own drafts and cannot move or accept another tab's files", async ({
+  page,
+  context,
+}) => {
+  await context.route("**/api/v1/chat", (route) =>
+    route.fulfill({ contentType: "text/event-stream", body: acceptedStream }),
+  )
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.composer().fill("First tab draft")
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+
+  const otherPage = await context.newPage()
+  await todosPage(otherPage).open()
+  const otherChat = chatWidget(otherPage)
+  await otherChat.waitForReady()
+  await expect(otherChat.composer()).toHaveValue("")
+  await expect(otherChat.attachmentChip(note.name)).toHaveCount(0)
+  await otherChat.composer().fill("Second tab draft")
+  await otherChat.attach(image)
+  await expect(otherChat.sendButton()).toBeEnabled()
+
+  await page.reload()
+  await expect(chat.composer()).toHaveValue("First tab draft")
+  await expect(chat.attachmentChip(note.name)).toBeVisible()
+  await expect(chat.attachmentChip(image.name)).toHaveCount(0)
+  await expect(chat.sendButton()).toBeEnabled()
+  await chat.sendButton().click()
+  await expect(chat.composer()).toHaveValue("")
+
+  await otherPage.reload()
+  await expect(otherChat.composer()).toHaveValue("Second tab draft")
+  await expect(otherChat.attachmentChip(image.name)).toBeVisible()
+  await expect(otherChat.attachmentChip(note.name)).toHaveCount(0)
+  await captureMoment(otherPage, "independent-new-tab-draft-survives-another-tab-send")
 })
 
 test("draft files remain isolated between conversations and accounts", async ({ page }) => {

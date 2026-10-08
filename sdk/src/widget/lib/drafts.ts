@@ -1,6 +1,21 @@
 import type { DraftAttachment } from "./types.ts"
+import { newUuid } from "../../core/threads.ts"
+
+let draftSessionId: string | undefined
 
 function draftStorageKey(apiUrl: string, identity: string, threadId: string): string {
+  if (!threadId) {
+    if (!draftSessionId) {
+      try {
+        const key = "astralbeam:draft-session"
+        draftSessionId = globalThis.sessionStorage?.getItem(key) ?? newUuid()
+        globalThis.sessionStorage?.setItem(key, draftSessionId)
+      } catch {
+        draftSessionId ??= newUuid()
+      }
+    }
+    threadId = `new:${draftSessionId}`
+  }
   return JSON.stringify([apiUrl.replace(/\/+$/, ""), identity, threadId])
 }
 
@@ -75,8 +90,20 @@ export async function storedThreadAttachments({
       attachments = (request.result as DraftAttachment[] | undefined) ?? []
       if (update) attachments = update(attachments).filter((file) => file.status === "ready")
       if (moveTo !== undefined) {
-        if (attachments.length) store.put(attachments, draftStorageKey(apiUrl, identity, moveTo))
-        store.delete(key)
+        const destinationKey = draftStorageKey(apiUrl, identity, moveTo)
+        const destination = store.get(destinationKey)
+        destination.onsuccess = () => {
+          attachments = [
+            ...new Map(
+              [
+                ...((destination.result as DraftAttachment[] | undefined) ?? []),
+                ...attachments,
+              ].map((file) => [file.id, file]),
+            ).values(),
+          ]
+          if (attachments.length) store.put(attachments, destinationKey)
+          store.delete(key)
+        }
       } else if (update) {
         if (attachments.length) store.put(attachments, key)
         else store.delete(key)
