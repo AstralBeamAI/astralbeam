@@ -26,6 +26,11 @@ const COMPLETE_VALUES = {
   turnstile_site_key: "turnstile-site-key",
   turnstile_secret_key: "turnstile-secret-key",
   support_email_address: "support@example.com",
+  s3_endpoint: "http://127.0.0.1:9000",
+  s3_region: "us-east-1",
+  s3_bucket: "test-files",
+  s3_access_key_id: "test-access-key",
+  s3_secret_access_key: "test-secret-key",
 } satisfies ConfigValues
 
 type StoredRow = { readonly key: string; readonly storedValue: string }

@@ -11,6 +11,8 @@ import type { EmailProvider } from "@/lib/email/schemas"
 import type { ConfigKey } from "@/lib/config/types"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
+import { StorageConnectionTest } from "./storage-connection-test"
+import type { StorageConnection } from "@/lib/storage/schemas"
 
 export function ConfigFieldGroups({
   fields,
@@ -26,6 +28,7 @@ export function ConfigFieldGroups({
   canTestEmailProvider,
   emailProviderTesting,
   emailProviderTestResult,
+  storageSettings,
 }: {
   fields: ConfigureField[]
   drafts: Record<string, FieldDraft>
@@ -40,6 +43,7 @@ export function ConfigFieldGroups({
   canTestEmailProvider: boolean
   emailProviderTesting: boolean
   emailProviderTestResult: { ok: boolean; message: string } | undefined
+  storageSettings: StorageConnection | undefined
 }) {
   const fieldsByGroup = Map.groupBy(fields, (field) => field.group)
   const providerKeys = new Set<string>(EMAIL_PROVIDER_SETTING_KEYS[emailProvider])
@@ -124,6 +128,9 @@ export function ConfigFieldGroups({
                 </Alert>
               )}
             </div>
+          )}
+          {group === "File storage" && (
+            <StorageConnectionTest settings={storageSettings} disabled={disabled} />
           )}
         </CardContent>
       </Card>

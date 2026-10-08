@@ -92,6 +92,26 @@ For SES, we should leave both AWS credential fields unset so the deployment uses
 
 **TIP**: Configure one provider per deployment and leave the other providers' credentials unset.
 
+## File storage
+
+File storage uses one private S3-compatible bucket per deployment. Let's configure it before completing setup.
+
+| Setting | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `s3_endpoint` | Yes | none | S3 API origin. Use HTTPS in production |
+| `s3_region` | Yes | none | Bucket region, or `auto` for Cloudflare R2 |
+| `s3_bucket` | Yes | none | Private bucket dedicated to this deployment |
+| `s3_access_key_id` | Yes | none | Storage access-key ID, independent of SES credentials |
+| `s3_secret_access_key` | Yes | none | Storage secret access key |
+| `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
+
+1. Create a private bucket and credentials with object read, write, and delete access.
+2. Enter its settings in **File storage** at `/configure`.
+3. Press **Test storage** to upload, inspect, download, verify, and delete a temporary object using the current values. Reveal stored credentials first if you have not entered new ones.
+4. Save the configuration and restart other running server instances.
+
+The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
+
 ## Model providers
 
 Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.

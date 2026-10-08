@@ -8,6 +8,7 @@ import {
 } from "@/lib/email/schemas"
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { generateSecret } from "@/lib/utils.server"
+import { StorageEndpointSchema } from "@/lib/storage/schemas"
 import {
   EmailAddressSchema,
   enumSchema,
@@ -86,6 +87,65 @@ export function decodeConfigValue(
 }
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
+  {
+    key: "s3_endpoint",
+    group: "File storage",
+    label: "S3 endpoint",
+    description: "Storage API origin. Use HTTPS in production and a private bucket.",
+    kind: "url",
+    required: true,
+    schema: StorageEndpointSchema,
+  },
+  {
+    key: "s3_region",
+    group: "File storage",
+    label: "S3 region",
+    description: "Bucket region, or auto for Cloudflare R2.",
+    kind: "text",
+    required: true,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "s3_bucket",
+    group: "File storage",
+    label: "S3 bucket",
+    description: "Private bucket dedicated to this deployment.",
+    kind: "text",
+    required: true,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "s3_access_key_id",
+    group: "File storage",
+    label: "S3 access-key ID",
+    description: "Storage credential with object read, write, and delete permissions.",
+    kind: "secret",
+    required: true,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "s3_secret_access_key",
+    group: "File storage",
+    label: "S3 secret access key",
+    description: "Secret belonging to the S3 access-key ID.",
+    kind: "secret",
+    required: true,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "s3_path_style",
+    group: "File storage",
+    label: "S3 addressing",
+    description: "Use path-style addressing for backends such as MinIO.",
+    kind: "enum",
+    required: true,
+    defaultValue: "false",
+    options: [
+      { value: "false", label: "Virtual host" },
+      { value: "true", label: "Path style" },
+    ],
+    schema: BooleanSettingSchema,
+  },
   {
     key: "dogfood_organization_id",
     group: "General",

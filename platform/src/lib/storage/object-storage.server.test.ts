@@ -1,0 +1,100 @@
+import { createServer } from "node:http"
+import { once } from "node:events"
+
+import { Effect, Layer } from "effect"
+import { expect, test } from "vitest"
+
+import { Config } from "@/lib/config/config.server"
+import { ObjectStorage } from "./object-storage.server"
+
+test("connection testing verifies bytes and removes its object even when verification fails", async () => {
+  const objects = new Map<string, Uint8Array>()
+  let corrupt = false
+  let stall = false
+  let notifyHead: () => void = () => undefined
+  const headStarted = new Promise<void>((resolve) => {
+    notifyHead = resolve
+  })
+  const server = createServer((request, response) => {
+    const respond = async () => {
+      const key = new URL(request.url!, "http://localhost").pathname
+      if (request.method === "PUT") {
+        const chunks = []
+        for await (const chunk of request) chunks.push(chunk as Uint8Array)
+        objects.set(key, Buffer.concat(chunks))
+        response.writeHead(200, { ETag: '"test"' }).end()
+      } else if (request.method === "DELETE") {
+        objects.delete(key)
+        response.writeHead(204).end()
+      } else {
+        const bytes = objects.get(key)
+        if (!bytes) {
+          response.writeHead(404).end()
+          return
+        }
+        if (request.method === "HEAD" && stall) {
+          notifyHead()
+          return
+        }
+        response.writeHead(200, { "Content-Length": bytes.length })
+        response.end(
+          request.method === "HEAD" ? undefined : corrupt ? new Uint8Array(bytes.length) : bytes,
+        )
+      }
+    }
+    void respond().catch(() => response.writeHead(500).end())
+  })
+  server.listen(0, "127.0.0.1")
+  await once(server, "listening")
+  const address = server.address()
+  if (!address || typeof address === "string") throw new Error("No server address")
+  const settings = {
+    endpoint: `http://127.0.0.1:${address.port}`,
+    region: "us-east-1",
+    bucket: "test",
+    accessKeyId: "test",
+    secretAccessKey: "test",
+    pathStyle: true,
+  }
+  const layer = ObjectStorage.layerNoDeps.pipe(
+    Layer.provide(
+      Layer.succeed(Config, {
+        snapshot: Effect.succeed({ values: {} }),
+      } as unknown as Config["Service"]),
+    ),
+  )
+  try {
+    await Effect.runPromise(
+      Effect.flatMap(ObjectStorage, (storage) => storage.testConnection(settings)).pipe(
+        Effect.provide(layer),
+      ),
+    )
+    expect(objects.size).toBe(0)
+    corrupt = true
+    const result = await Effect.runPromise(
+      Effect.flatMap(ObjectStorage, (storage) => storage.testConnection(settings)).pipe(
+        Effect.result,
+        Effect.provide(layer),
+      ),
+    )
+    expect(result._tag).toBe("Failure")
+    expect(objects.size).toBe(0)
+    corrupt = false
+    stall = true
+    const controller = new AbortController()
+    const interrupted = Effect.runPromiseExit(
+      Effect.flatMap(ObjectStorage, (storage) => storage.testConnection(settings)).pipe(
+        Effect.provide(layer),
+      ),
+      { signal: controller.signal },
+    )
+    await headStarted
+    controller.abort()
+    expect((await interrupted)._tag).toBe("Failure")
+    expect(objects.size).toBe(0)
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    )
+  }
+})

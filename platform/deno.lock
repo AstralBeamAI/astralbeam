@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "npm:@aws-sdk/client-s3@^3.1147.0": "3.1147.0",
     "npm:@aws-sdk/client-sesv2@^3.1115.0": "3.1115.0",
     "npm:@base-ui/react@^1.6.0": "1.7.0_@types+react@19.3.0_react@19.3.0_react-dom@19.3.0",
     "npm:@better-auth-ui/core@1.7.12": "1.7.12_@better-auth+api-key@1.7.7_better-auth@1.7.7_vite@8.3.2_vitest@5.0.3",
@@ -25,10 +26,10 @@
     "npm:@tanstack/ai-anthropic@~0.19.4": "0.19.4_@tanstack+ai@0.64.0_zod@4.6.5",
     "npm:@tanstack/ai-openai@0.26": "0.26.0_@tanstack+ai@0.64.0_zod@4.6.5",
     "npm:@tanstack/ai-persistence@0.7.2": "0.7.2_@tanstack+ai@0.64.0_vitest@5.0.3",
-    "npm:@tanstack/ai-sandbox-daytona@~0.3.4": "0.3.4_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2",
-    "npm:@tanstack/ai-sandbox-docker@~0.3.2": "0.3.2_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2",
-    "npm:@tanstack/ai-sandbox-sprites@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2",
-    "npm:@tanstack/ai-sandbox-vercel@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2",
+    "npm:@tanstack/ai-sandbox-daytona@~0.3.4": "0.3.4_@tanstack+ai-sandbox@0.5.18_@tanstack+ai-persistence@0.7.2",
+    "npm:@tanstack/ai-sandbox-docker@~0.3.2": "0.3.2_@tanstack+ai-sandbox@0.5.18_@tanstack+ai-persistence@0.7.2",
+    "npm:@tanstack/ai-sandbox-sprites@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.18_@tanstack+ai-persistence@0.7.2",
+    "npm:@tanstack/ai-sandbox-vercel@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.18_@tanstack+ai-persistence@0.7.2",
     "npm:@tanstack/ai-sandbox@~0.5.18": "0.5.18_@tanstack+ai@0.64.0_@tanstack+ai-persistence@0.7.2_vitest@5.0.3",
     "npm:@tanstack/ai@0.64": "0.64.0_zod@4.6.5",
     "npm:@tanstack/devtools-vite@~0.8.3": "0.8.3_vite@8.3.2",
@@ -161,8 +162,8 @@
         "tslib@2.8.1"
       ]
     },
-    "@aws-sdk/client-s3@3.1141.0": {
-      "integrity": "sha512-uOVH37xGLenAdJkCPCin/JJG2PgWrFcSsDnQ9+C9Zq8N9Oalo5ol4xmn5fG28iWAlA/b/9boQZgHbMh+UsIhcg==",
+    "@aws-sdk/client-s3@3.1147.0": {
+      "integrity": "sha512-uTrcJxnJKPr8bc1z7cMxopYSQyAm2dPfiMK+UiBr51L8MzimDxHbW/d9GR6X/LFbWDpMzfFPLhB4UohDrCSaPQ==",
       "dependencies": [
         "@aws-sdk/checksums",
         "@aws-sdk/core",
@@ -307,7 +308,6 @@
     "@aws-sdk/lib-storage@3.1141.0_@aws-sdk+client-s3@3.1141.0": {
       "integrity": "sha512-Qkn5bI3ESne9iJX1hX3CVkuyikgNP/3MbO5nql4sd1wcV0S79yJdCBANNJBTgW0bnd/Z2sujsy0JVbuaoMsAhQ==",
       "dependencies": [
-        "@aws-sdk/client-s3",
         "@smithy/core",
         "@smithy/types",
         "buffer",
@@ -3774,27 +3774,27 @@
         "vitest"
       ]
     },
-    "@tanstack/ai-sandbox-daytona@0.3.4_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2": {
+    "@tanstack/ai-sandbox-daytona@0.3.4_@tanstack+ai-sandbox@0.5.18_@tanstack+ai-persistence@0.7.2": {
       "integrity": "sha512-AumlHSt2v3GylYW3kcVG+VJaRH2tKqvt4szsJQIiEqPazgIleGQKcF9g2J3vuPOfVqv8CdCdxuN5fwNU0sSlwA==",
       "dependencies": [
         "@daytona/sdk",
         "@tanstack/ai-sandbox"
       ]
     },
-    "@tanstack/ai-sandbox-docker@0.3.2_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2": {
+    "@tanstack/ai-sandbox-docker@0.3.2_@tanstack+ai-sandbox@0.5.18_@tanstack+ai-persistence@0.7.2": {
       "integrity": "sha512-HD8uefHrL6zP+6lJhxDf6lBvZ6Effu/V38XgSvNOxE5Xbqt4qzLLMlL11/zuAw70275kgwoaFO5GE3GQyEnGxA==",
       "dependencies": [
         "@tanstack/ai-sandbox",
         "dockerode"
       ]
     },
-    "@tanstack/ai-sandbox-sprites@0.2.5_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2": {
+    "@tanstack/ai-sandbox-sprites@0.2.5_@tanstack+ai-sandbox@0.5.18_@tanstack+ai-persistence@0.7.2": {
       "integrity": "sha512-GaRsC05LCWyX2Knp29v85KKeIroyAEnTZnR4F1kEcmSUoWdKmF/GuPv4k/DkuBslFp1qcu/FDmgRIW7cGR+bdA==",
       "dependencies": [
         "@tanstack/ai-sandbox"
       ]
     },
-    "@tanstack/ai-sandbox-vercel@0.2.5_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2": {
+    "@tanstack/ai-sandbox-vercel@0.2.5_@tanstack+ai-sandbox@0.5.18_@tanstack+ai-persistence@0.7.2": {
       "integrity": "sha512-H89hBiH3bL+Yr3f5+mkoLOgD5yJTGuO8WxAuXjQ/9r8uEiW1AorOgmrvfVTFq6whe1CguSGTsFEDbnxC5h+/FA==",
       "dependencies": [
         "@tanstack/ai-sandbox",
@@ -9460,6 +9460,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@aws-sdk/client-s3@^3.1147.0",
         "npm:@aws-sdk/client-sesv2@^3.1115.0",
         "npm:@base-ui/react@^1.6.0",
         "npm:@better-auth-ui/core@1.7.12",
