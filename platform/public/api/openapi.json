@@ -12065,7 +12065,8 @@
           "filename": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 120
+            "maxLength": 120,
+            "pattern": "^[^\\u0000]*$"
           },
           "contentType": {
             "type": "string",

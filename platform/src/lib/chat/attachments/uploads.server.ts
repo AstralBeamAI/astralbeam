@@ -33,8 +33,7 @@ const uploadOwnerWhere = (scope: ChatThreadScope, id?: string) =>
 function uploadResource(row: UploadRow, parts: readonly StoragePart[] = []): UploadStatus {
   return {
     id: row.id,
-    status:
-      row.status !== "completed" && row.expiresAt.getTime() <= Date.now() ? "expired" : row.status,
+    status: row.expiresAt.getTime() <= Date.now() ? "expired" : row.status,
     filename: row.filename,
     contentType: row.contentType,
     byteSize: row.byteSize,
@@ -165,7 +164,14 @@ export class Uploads extends Context.Service<
             }),
           )
           .pipe(mapDatabaseErrors())
-        const uploadId = yield* safeStorage(multipart.create(row.objectKey, row.contentType))
+        const uploadId = yield* safeStorage(multipart.create(row.objectKey, row.contentType)).pipe(
+          Effect.onError(() =>
+            db
+              .delete(fileUpload)
+              .where(and(uploadOwnerWhere(scope, row.id), eq(fileUpload.status, "preparing")))
+              .pipe(mapDatabaseErrors(), Effect.asVoid),
+          ),
+        )
         const [pending] = yield* db
           .update(fileUpload)
           .set({ uploadId, status: "pending" })
@@ -276,8 +282,10 @@ export class Uploads extends Context.Service<
         const bytes = yield* safeStorage(
           objects.get({ key: row.objectKey, maxBytes: row.byteSize }),
         )
-        if (bytes.length !== row.byteSize || (yield* fileSha256(bytes)) !== row.sha256)
+        if (bytes.length !== row.byteSize || (yield* fileSha256(bytes)) !== row.sha256) {
+          yield* cancel(scope, id)
           return yield* new UploadInvalid()
+        }
         const part = {
           type: row.contentType.startsWith("image/") ? ("image" as const) : ("document" as const),
           source: {
@@ -290,8 +298,10 @@ export class Uploads extends Context.Service<
         const validated = normalizeChatAttachments([{ role: "user", content: [part] }], {
           sandbox: true,
         })
-        if (validated.attachments.some((attachment) => attachment.result === "rejected"))
+        if (validated.attachments.some((attachment) => attachment.result === "rejected")) {
+          yield* cancel(scope, id)
           return yield* new UploadInvalid()
+        }
         // Signed part URLs can be reused. Final objects always have a different server-only key.
         // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html
         const file = yield* safeStorage(
