@@ -37,6 +37,7 @@ interface ChatTranscriptProps {
   activeSlots: ReadonlyMap<string, string>
   interactiveToolIds: ReadonlySet<string>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
+  getUploadedFile?: ((id: string) => Promise<Blob>) | undefined
   currentTenantUserId?: string | undefined
   hasOlder: boolean
   loadingHistory?: boolean | undefined
@@ -60,6 +61,7 @@ export function ChatTranscript({
   activeSlots,
   interactiveToolIds,
   getAttachment,
+  getUploadedFile,
   currentTenantUserId,
   hasOlder,
   loadingHistory = false,
@@ -145,7 +147,11 @@ export function ChatTranscript({
                         <span className="text-xs text-muted-foreground">Participant</span>
                       )}
                       {message.role === "user" ? (
-                        <UserMessageBody message={message} getAttachment={getAttachment} />
+                        <UserMessageBody
+                          message={message}
+                          getAttachment={getAttachment}
+                          getUploadedFile={getUploadedFile}
+                        />
                       ) : (
                         message.parts.map((part, partIndex) => (
                           <PartErrorBoundary key={partIndex}>

@@ -24,6 +24,15 @@ import {
 } from "./lib/attachments.ts"
 import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
 import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
+import {
+  attachmentUploadState,
+  attachmentUploadPreview,
+  startAttachmentUpload,
+  pauseAttachmentUpload,
+  resumeAttachmentUpload,
+  removeAttachmentUpload,
+  disposeAttachmentUploads,
+} from "./lib/uploads.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
@@ -169,13 +178,38 @@ export function ChatWidget({
     text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
   }
   const draft = composer.text
+  const uploads = useMemo(() => attachmentUploadState(chat), [chat])
+  useEffect(() => () => disposeAttachmentUploads(uploads), [uploads, apiUrl, draftIdentity])
   const pendingAttachmentWrites = useRef(new Set<string>())
   useEffect(() => {
     if (auth.status !== "ready" || chatState.threadLoading || composer.attachmentsLoaded) return
     let cancelled = false
     void storedThreadAttachments({ apiUrl, identity: draftIdentity, threadId: draftKey })
       .then(
-        (attachments) => ({ attachments, storageError: false }),
+        async (attachments) => ({
+          attachments: await Promise.all(
+            attachments.map(async (file) => {
+              if (!file.sessionId) return file
+              try {
+                const session = await chat.getUpload(file.sessionId)
+                const preview =
+                  session.status === "completed" && session.fileId && file.kind === "image"
+                    ? attachmentUploadPreview({
+                        uploads,
+                        id: file.id,
+                        blob: await chat.getUploadedFile(session.fileId),
+                      })
+                    : undefined
+                return session.status === "completed" && session.fileId
+                  ? { ...file, status: "ready" as const, fileId: session.fileId, preview }
+                  : { ...file, status: "reselect" as const, fileId: undefined }
+              } catch {
+                return { ...file, status: "reselect" as const, fileId: undefined }
+              }
+            }),
+          ),
+          storageError: false,
+        }),
         () => ({ attachments: EMPTY_ATTACHMENTS, storageError: true }),
       )
       .then(({ attachments, storageError }) => {
@@ -210,6 +244,8 @@ export function ChatWidget({
     auth.status,
     chatState.threadLoading,
     composer.attachmentsLoaded,
+    chat,
+    uploads,
   ])
   useEffect(() => {
     for (const [key, value] of drafts.threads) {
@@ -245,11 +281,12 @@ export function ChatWidget({
             if (!value.attachments.some((current) => current.id === file.id)) stored.delete(file.id)
           }
           for (const file of value.attachments) {
+            const saved = value.savedAttachments.find((previous) => previous.id === file.id)
             if (
-              file.status === "ready" &&
-              !value.savedAttachments.some(
-                (saved) => saved.id === file.id && saved.status === "ready",
-              )
+              !saved ||
+              saved.sessionId !== file.sessionId ||
+              saved.sha256 !== file.sha256 ||
+              saved.fileId !== file.fileId
             )
               stored.set(file.id, file)
           }
@@ -330,6 +367,23 @@ export function ChatWidget({
 
   // Every picked file becomes a chip, a rejected one included, so a file the limits turn away
   // says why instead of vanishing. Reads are per file: one unreadable file must not lose the rest.
+  const settleAttachment = (id: string, update: Partial<DraftAttachment>) =>
+    setDrafts((current) => {
+      if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
+      for (const [key, value] of current.threads) {
+        if (!value.attachments.some((file) => file.id === id)) continue
+        return {
+          ...current,
+          threads: new Map(current.threads).set(key, {
+            ...value,
+            attachments: value.attachments.map((file) =>
+              file.id === id ? { ...file, ...update } : file,
+            ),
+          }),
+        }
+      }
+      return current
+    })
   const addAttachmentFiles = (files: File[]) => {
     const picked = acceptAttachmentFiles({
       files,
@@ -338,23 +392,6 @@ export function ChatWidget({
       createId: newUuid,
     })
     setAttachments((current) => [...current, ...picked.map(({ draft: pick }) => pick)])
-    const settle = (id: string, update: Partial<DraftAttachment>) =>
-      setDrafts((current) => {
-        if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
-        for (const [key, value] of current.threads) {
-          if (!value.attachments.some((file) => file.id === id)) continue
-          return {
-            ...current,
-            threads: new Map(current.threads).set(key, {
-              ...value,
-              attachments: value.attachments.map((file) =>
-                file.id === id ? { ...file, ...update } : file,
-              ),
-            }),
-          }
-        }
-        return current
-      })
     for (const { draft: pick, file } of picked) {
       if (pick.status === "error") {
         debug?.("attachment", `rejected "${pick.name}"`, {
@@ -369,11 +406,20 @@ export function ChatWidget({
         mimeType: pick.mimeType,
         size: pick.size,
       })
+      if (capabilities.uploads?.available) {
+        startAttachmentUpload({
+          uploads,
+          draft: pick,
+          file,
+          settle: (update) => settleAttachment(pick.id, update),
+        })
+        continue
+      }
       void readAttachmentData(file).then(
-        (data) => settle(pick.id, { status: "ready", data }),
+        (data) => settleAttachment(pick.id, { status: "ready", data }),
         (error: unknown) => {
           debug?.("error", `attachment "${pick.name}" could not be read`, error)
-          settle(pick.id, { status: "error", error: "The file could not be read" })
+          settleAttachment(pick.id, { status: "error", error: "The file could not be read" })
         },
       )
     }
@@ -381,7 +427,37 @@ export function ChatWidget({
 
   const removeAttachment = (id: string) => {
     debug?.("attachment", "attachment removed", { id })
+    const file = attachments.find((attachment) => attachment.id === id)
+    if (file) removeAttachmentUpload({ uploads, draft: file })
     setAttachments((current) => current.filter((attachment) => attachment.id !== id))
+  }
+  const resumeAttachment = (id: string) => {
+    const file = attachments.find((attachment) => attachment.id === id)
+    return (
+      !!file &&
+      resumeAttachmentUpload({
+        uploads,
+        draft: file,
+        settle: (update) => settleAttachment(id, update),
+      })
+    )
+  }
+  const reselectAttachment = (id: string, file: File) => {
+    const draftFile = attachments.find((attachment) => attachment.id === id)
+    if (!draftFile) return
+    if (capabilities.uploads?.available) {
+      startAttachmentUpload({
+        uploads,
+        draft: draftFile,
+        file,
+        settle: (update) => settleAttachment(id, update),
+      })
+    } else {
+      void readAttachmentData(file).then(
+        (data) => settleAttachment(id, { status: "ready", data, error: undefined }),
+        () => settleAttachment(id, { status: "error", error: "The file could not be read" }),
+      )
+    }
   }
 
   const sendDraft = () => {
@@ -389,7 +465,9 @@ export function ChatWidget({
     // Files are sent ahead of the text so the agent reads the question with them already in
     // context, and a file still being read blocks the send rather than being left behind.
     const parts = attachmentContentParts(attachments)
-    const pendingRead = attachments.some((attachment) => attachment.status === "reading")
+    const pendingRead = attachments.some(
+      (attachment) => !["ready", "error"].includes(attachment.status),
+    )
     if (isBusy || pendingRead || (text.length === 0 && parts.length === 0)) return
     debug?.(
       "send",
@@ -595,6 +673,7 @@ export function ChatWidget({
           readOnly={chatState.thread?.role === "viewer"}
           messages={messages}
           getAttachment={chat.getAttachment}
+          getUploadedFile={chat.getUploadedFile}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
           loadingHistory={chatState.threadLoading}
@@ -691,6 +770,12 @@ export function ChatWidget({
           attachmentLimits={attachmentLimits}
           onAddFiles={addAttachmentFiles}
           onRemoveAttachment={removeAttachment}
+          onPauseAttachment={(id) => {
+            pauseAttachmentUpload({ uploads, id })
+            settleAttachment(id, { status: "paused" })
+          }}
+          onResumeAttachment={resumeAttachment}
+          onReselectAttachment={reselectAttachment}
         />
       </CardFooter>
     </Card>

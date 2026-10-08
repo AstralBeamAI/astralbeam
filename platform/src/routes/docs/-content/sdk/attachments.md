@@ -4,7 +4,9 @@ The composer takes files by default: paperclip button, drag and drop, or paste. 
 
 ## Draft recovery
 
-With browser storage available, ready files and unsent text return after reloading or reopening a conversation in that browser, without sending automatically. Clearing storage removes drafts, and files still being read are not saved yet.
+Uploads show progress and support pause, resume, and retry. Completed uploads and unsent text return after reloading or reopening a conversation, without sending automatically. For an unfinished upload, let's choose the original file again so its fingerprint can be checked before resuming. Sessions last 24 hours.
+
+Browser storage retains session metadata and fingerprints, never file bytes or signed URLs. Clearing storage removes recovery metadata. Older servers accept inline files, but those files need reselection after reload.
 
 ## Options
 
@@ -40,3 +42,5 @@ For files beyond images and PDFs, the message carries a file handle and the agen
 - Parquet and SQLite have no text view and require a sandbox. Otherwise, the file is refused with an explanation.
 - A file that cannot be sent keeps its chip in the composer and says why, instead of vanishing.
 - Attachments are agent policy: when the dashboard disables them, the endpoint refuses files and the widget hides the attach button. See [Security model](./security.md).
+
+If your application sets a Content Security Policy, add the configured storage origin to `connect-src` so the browser can upload parts directly. The bucket must allow your application origin through its CORS configuration.

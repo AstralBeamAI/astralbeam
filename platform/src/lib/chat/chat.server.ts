@@ -5,10 +5,12 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
+  type ContentPart,
 } from "@tanstack/ai"
-import { Context, Effect, identity, Layer, Stream } from "effect"
+import { Context, Effect, identity, Layer, Schema, Stream } from "effect"
 
 import { ChatFiles } from "./attachments/chat-files.server"
+import { chatMediaPart } from "./attachments/stored-media"
 import { ChatThreads, type MessageRecord } from "./threads/threads.server"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory } from "./threads/projection.server"
@@ -93,33 +95,53 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   readonly sandbox: boolean
   readonly storage: typeof ChatFiles.Service
 }) {
-  const hydrated: MessageRecord[] = []
-  for (const message of history)
-    hydrated.push({
-      ...message,
-      payload: yield* storage.hydrate(
-        {
-          organizationId: message.organizationId,
-          tenantId: message.tenantId,
-          threadId: message.threadId,
-        },
-        message.payload,
-      ),
-    })
   const projected = yield* Effect.try({
     try: () =>
-      projectChatModelHistory(hydrated, {
+      projectChatModelHistory(history, {
         providerId: model.providerId,
         protocol: model.api,
         modelId: model.modelId,
       }),
     catch: () => new ChatThreadInvalid(),
   })
+  for (const message of projected) {
+    if (!Array.isArray(message.content)) continue
+    if (message.role !== "user") {
+      const retained = message.content.filter(
+        (part) => !chatMediaPart(part as unknown as Schema.JsonObject),
+      )
+      message.content = retained.length ? retained : ""
+      continue
+    }
+    const record = history.find((original) => message.id?.startsWith(`${original.id}:`))!
+    const hydrated = yield* storage.hydrate(
+      {
+        organizationId: record.organizationId,
+        tenantId: record.tenantId,
+        threadId: record.threadId,
+      },
+      {
+        version: 1,
+        parts: [],
+        modelMessages: [{ content: message.content as unknown as Schema.Json[] }],
+      },
+    )
+    message.content = hydrated.modelMessages![0]!.content as unknown as ContentPart[]
+  }
   const normalized = normalizeChatAttachments(projected, { sandbox })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
-  return { projected, ...normalized }
+  const snapshots = projected.map((message) => {
+    const original =
+      message.role === "user"
+        ? history.find((record) => message.id?.startsWith(`${record.id}:`))
+        : undefined
+    return original
+      ? { ...message, content: original.payload.parts as unknown as ContentPart[] }
+      : message
+  })
+  return { projected, snapshots, ...normalized }
 })
 
 export class Chat extends Context.Service<
@@ -192,6 +214,7 @@ export class Chat extends Context.Service<
         })
         const {
           projected: inputMessages,
+          snapshots,
           messages,
           attachments,
           files,
@@ -290,6 +313,7 @@ export class Chat extends Context.Service<
                 })
                 files.splice(0, files.length, ...normalized.files)
                 inputMessages.splice(0, inputMessages.length, ...normalized.projected)
+                snapshots.splice(0, snapshots.length, ...normalized.snapshots)
                 if (session) yield* session.prepareUploads(files)
                 if (!unknownOutcome)
                   tools.splice(
@@ -330,7 +354,7 @@ export class Chat extends Context.Service<
                 toolExecution: "sequential",
                 // Interrupt snapshots preserve original uploads after provider normalization.
                 middleware: [
-                  createChatAttachmentSnapshotMiddleware(inputMessages),
+                  createChatAttachmentSnapshotMiddleware(snapshots),
                   ...managed.middleware,
                 ],
                 agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),

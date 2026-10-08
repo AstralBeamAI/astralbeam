@@ -1,5 +1,5 @@
 import type { MessagePart, UIMessage } from "@tanstack/ai-client"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   Attachment,
   AttachmentContent,
@@ -20,26 +20,38 @@ function SentAttachment({
   part,
   messageId,
   getAttachment,
+  getUploadedFile,
 }: {
   part: MediaPart
   messageId: string
   getAttachment: GetAttachment
+  getUploadedFile?: ((id: string) => Promise<Blob>) | undefined
 }) {
   const { kind, title, description, href } = describeSentAttachment(part)
   const attachmentId = (part as MediaPart & { savedAttachmentId?: string }).savedAttachmentId
+  const fileId =
+    part.source.type === "file" && part.source.provider === "astralbeam"
+      ? part.source.value
+      : undefined
+  const hasDownload = !!attachmentId || (!!fileId && !!getUploadedFile)
+  const fetchFile = useCallback(() => {
+    if (fileId && getUploadedFile) return getUploadedFile(fileId)
+    if (attachmentId) return getAttachment(messageId, attachmentId)
+    return Promise.reject(new Error("File unavailable"))
+  }, [attachmentId, fileId, getAttachment, getUploadedFile, messageId])
   const element = useRef<HTMLDivElement>(null)
   const [preview, setPreview] = useState<string>()
   const [failed, setFailed] = useState(false)
   const [downloading, setDownloading] = useState(false)
   useEffect(() => {
-    if (kind !== "image" || !attachmentId || !element.current) return
+    if (kind !== "image" || !hasDownload || !element.current) return
     let objectUrl: string | undefined
     let cancelled = false
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return
         observer.disconnect()
-        void getAttachment(messageId, attachmentId)
+        void fetchFile()
           .then((blob) => {
             if (cancelled) return
             objectUrl = URL.createObjectURL(blob)
@@ -57,12 +69,12 @@ function SentAttachment({
       observer.disconnect()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [attachmentId, getAttachment, kind, messageId])
+  }, [fetchFile, hasDownload, kind])
   const download = async () => {
-    if (!attachmentId) return
+    if (!hasDownload) return
     setDownloading(true)
     try {
-      saveBlob(title, await getAttachment(messageId, attachmentId))
+      saveBlob(title, await fetchFile())
       setFailed(false)
     } catch {
       setFailed(true)
@@ -89,7 +101,7 @@ function SentAttachment({
             </AttachmentDescription>
           )}
         </AttachmentContent>
-        {attachmentId ? (
+        {hasDownload ? (
           <AttachmentTrigger
             aria-label={`Download ${title}`}
             title={`Download ${title}`}
@@ -121,9 +133,11 @@ function SentAttachment({
 export function UserMessageBody({
   message,
   getAttachment,
+  getUploadedFile,
 }: {
   message: UIMessage
   getAttachment: GetAttachment
+  getUploadedFile?: ((id: string) => Promise<Blob>) | undefined
 }) {
   const text = getMessageText(message)
   // Attachments read above the text, as they do in the composer that sent them.
@@ -142,6 +156,7 @@ export function UserMessageBody({
               part={part}
               messageId={message.id}
               getAttachment={getAttachment}
+              getUploadedFile={getUploadedFile}
             />
           ))}
         </div>

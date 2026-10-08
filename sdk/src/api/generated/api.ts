@@ -314,8 +314,66 @@ export interface CreateChatThreadInputEncoded {
   agent_id?: string
 }
 
+export type ChatUploadStatus = (typeof ChatUploadStatus)[keyof typeof ChatUploadStatus]
+
+export const ChatUploadStatus = {
+  preparing: "preparing",
+  pending: "pending",
+  completing: "completing",
+  completed: "completed",
+  cancelled: "cancelled",
+  expired: "expired",
+} as const
+
+export type ChatUploadPartsItem = {
+  number: number
+  size: number
+}
+
+export interface ChatUpload {
+  id: string
+  status: ChatUploadStatus
+  filename: string
+  contentType: string
+  byteSize: number
+  sha256: string
+  expiresAt: string
+  partSize: number
+  parts: ChatUploadPartsItem[]
+  fileId: string | null
+}
+
+export interface ChatUploadInput {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  filename: string
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  contentType: string
+  /**
+   * @maximum 20971520
+   * @exclusiveMinimum 0
+   */
+  byteSize: number
+  sha256: string
+  agentId?: string
+}
+
+export type ChatConfigurationCapabilitiesUploads = {
+  available: boolean
+  maxFiles: number
+  maxTotalBytes: number
+  partSize: number
+  sessionHours: number
+}
+
 export type ChatConfigurationCapabilities = {
   attachments: boolean
+  uploads: ChatConfigurationCapabilitiesUploads
 }
 
 export interface ChatConfiguration {
@@ -625,6 +683,23 @@ export type GetChatConfigParams = {
 
 export type GetChatFileParams = {
   ticket: string
+}
+
+export type SignChatUploadPartsBody = {
+  /**
+   * @minItems 1
+   * @maxItems 4
+   */
+  parts: number[]
+}
+
+export type SignChatUploadParts200PartsItem = {
+  number: number
+  url: string
+}
+
+export type SignChatUploadParts200 = {
+  parts: SignChatUploadParts200PartsItem[]
 }
 
 export type ListChatThreadsParams = {
@@ -1172,6 +1247,145 @@ export const getChatFile = (
   options?: Parameters<typeof astralBeamFileFetch>[1],
 ) => {
   return astralBeamFileFetch<Blob>(getGetChatFileUrl(params), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getPrepareChatUploadUrl = () => {
+  return `/api/v1/chat/uploads`
+}
+
+/**
+ * @summary Prepare a private file upload
+ */
+export const prepareChatUpload = (
+  chatUploadInput: ChatUploadInput,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<ChatUpload>(getPrepareChatUploadUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(chatUploadInput),
+  })
+}
+
+export const getGetChatUploadUrl = (id: string) => {
+  return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Read upload progress
+ */
+export const getChatUpload = (id: string, options: Parameters<typeof astralBeamJwtFetch>[1]) => {
+  return astralBeamJwtFetch<ChatUpload>(getGetChatUploadUrl(id), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getCancelChatUploadUrl = (id: string) => {
+  return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Cancel an unclaimed upload
+ */
+export const cancelChatUpload = (id: string, options: Parameters<typeof astralBeamJwtFetch>[1]) => {
+  return astralBeamJwtFetch<void>(getCancelChatUploadUrl(id), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getSignChatUploadPartsUrl = (id: string) => {
+  return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}/parts`
+}
+
+/**
+ * @summary Sign staging part uploads
+ */
+export const signChatUploadParts = (
+  id: string,
+  signChatUploadPartsBody: SignChatUploadPartsBody,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<SignChatUploadParts200>(getSignChatUploadPartsUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(signChatUploadPartsBody),
+  })
+}
+
+export const getCompleteChatUploadUrl = (id: string) => {
+  return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}/complete`
+}
+
+/**
+ * @summary Verify and complete an upload
+ */
+export const completeChatUpload = (
+  id: string,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  return astralBeamJwtFetch<ChatUpload>(getCompleteChatUploadUrl(id), {
+    ...options,
+    method: "POST",
+  })
+}
+
+export const getDownloadStoredChatFileUrl = (id: string) => {
+  return `/api/v1/chat/files/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Download a private conversation file
+ */
+export const downloadStoredChatFile = (
+  id: string,
+  options: Parameters<typeof astralBeamChatFetch>[1],
+) => {
+  return astralBeamChatFetch<Blob>(getDownloadStoredChatFileUrl(id), {
     ...options,
     method: "GET",
   })

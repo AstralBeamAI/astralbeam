@@ -17,6 +17,15 @@ import {
   getRunChatUrl,
   listChatThreads,
   updateChatThread,
+  prepareChatUpload,
+  getChatUpload,
+  signChatUploadParts,
+  completeChatUpload,
+  cancelChatUpload,
+  downloadStoredChatFile,
+  type ChatUpload,
+  type ChatUploadInput,
+  type ChatConfiguration,
 } from "../api/generated/api.ts"
 import {
   astralBeamChatFetch,
@@ -144,7 +153,7 @@ export interface AstralBeamChatState {
   error: Error | undefined
   auth: ChatAuthenticationState
   /** What the resolved agent grants; the UI should render only that. */
-  capabilities: { attachments: boolean }
+  capabilities: { attachments: boolean; uploads?: ChatConfiguration["capabilities"]["uploads"] }
   /** The tool set currently declared to the agent, in declaration order. */
   agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
@@ -201,6 +210,16 @@ export interface AstralBeamChatCore {
   loadOlderMessages: () => Promise<void>
   abandonToolCall: (toolCallId: string) => Promise<void>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
+  prepareUpload: (input: ChatUploadInput, signal?: AbortSignal) => Promise<ChatUpload>
+  getUpload: (id: string, signal?: AbortSignal) => Promise<ChatUpload>
+  signUploadParts: (
+    id: string,
+    parts: number[],
+    signal?: AbortSignal,
+  ) => Promise<{ parts: { number: number; url: string }[] }>
+  completeUpload: (id: string, signal?: AbortSignal) => Promise<ChatUpload>
+  cancelUpload: (id: string) => Promise<void>
+  getUploadedFile: (id: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
 }
@@ -326,6 +345,10 @@ export function createAstralBeamChat(
       fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
     }
   }
+  const uploadOptions = async (signal?: AbortSignal): Promise<JwtOptions> => {
+    const auth = await requestOptions()
+    return { ...auth, signal: AbortSignal.any([auth.signal!, ...(signal ? [signal] : [])]) }
+  }
 
   // Agent capability handshake; fails open for state (the endpoint still enforces its policy).
   // Generation-checked, so a slower response for a superseded agent or API base is dropped
@@ -346,7 +369,7 @@ export function createAstralBeamChat(
       const body = await getChatConfig(agentId ? { agentId } : {}, auth)
       if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
       const attachments = body.capabilities?.attachments !== false
-      update({ capabilities: { attachments } })
+      update({ capabilities: { attachments, uploads: body.capabilities.uploads } })
       debug?.("mount", "agent capabilities resolved", { attachments })
     } catch (error) {
       debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
@@ -1352,6 +1375,20 @@ export function createAstralBeamChat(
       const response = await getChatAttachment(thread.id, messageId, partId, await requestOptions())
       return response.blob()
     },
+    prepareUpload: async (input, signal) => {
+      const agentId = state.thread?.agentId ?? live.agentId
+      return prepareChatUpload(
+        { ...input, ...(agentId ? { agentId } : {}) },
+        await uploadOptions(signal),
+      )
+    },
+    getUpload: async (id, signal) => getChatUpload(id, await uploadOptions(signal)),
+    signUploadParts: async (id, parts, signal) =>
+      signChatUploadParts(id, { parts }, await uploadOptions(signal)),
+    completeUpload: async (id, signal) => completeChatUpload(id, await uploadOptions(signal)),
+    cancelUpload: async (id) => cancelChatUpload(id, await uploadOptions()),
+    getUploadedFile: async (id) =>
+      (await downloadStoredChatFile(id, await requestOptions())).blob(),
     abandonToolCall,
     reset: () => {
       debug?.("status", "conversation reset")

@@ -36,6 +36,7 @@
     "@astralbeam/sdk": "file:../sdk",
     "@aws-sdk/client-s3": "^3.1147.0",
     "@aws-sdk/client-sesv2": "^3.1115.0",
+    "@aws-sdk/s3-request-presigner": "^3.1148.0",
     "@base-ui/react": "^1.6.0",
     "@better-auth-ui/core": "1.7.12",
     "@better-auth-ui/react": "1.7.12",

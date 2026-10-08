@@ -79,18 +79,18 @@ test("unsent text, images, and large files recover, and accepted files stay clea
       messages: Array<{
         role: string
         content: Array<{
-          source?: { value: string }
+          source?: { type: string; provider: string; value: string }
           metadata?: { filename: string }
         }>
       }>
     }
     const parts = body.messages.find((message) => message.role === "user")!.content
-    expect(parts.find((part) => part.metadata?.filename === large.name)?.source?.value).toBe(
-      large.buffer.toString("base64"),
-    )
-    expect(parts.find((part) => part.metadata?.filename === image.name)?.source?.value).toBe(
-      image.buffer.toString("base64"),
-    )
+    for (const file of [large, image])
+      expect(parts.find((part) => part.metadata?.filename === file.name)?.source).toMatchObject({
+        type: "file",
+        provider: "astralbeam",
+        value: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      })
     expect(parts.some((part) => part.metadata?.filename === note.name)).toBe(false)
     await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
   })
@@ -100,6 +100,30 @@ test("unsent text, images, and large files recover, and accepted files stay clea
   await chat.composer().fill("  Keep my unsent question\nwith these files  ")
   await chat.attach([note, image, large])
   await expect(chat.sendButton()).toBeEnabled()
+  const saved = await page.evaluate(
+    () =>
+      new Promise<unknown[]>((resolve, reject) => {
+        const open = indexedDB.open("astralbeam:drafts", 2)
+        open.onsuccess = () => {
+          const database = open.result
+          const read = database.transaction("attachments").objectStore("attachments").getAll()
+          read.onsuccess = () => {
+            resolve(read.result as unknown[])
+            database.close()
+          }
+          read.onerror = () => reject(read.error)
+        }
+        open.onerror = () => reject(open.error)
+      }),
+  )
+  expect(saved.flat()).toHaveLength(3)
+  for (const file of saved.flat() as Record<string, unknown>[]) {
+    expect(file).toHaveProperty("sessionId")
+    expect(file).toHaveProperty("sha256")
+    expect(file).not.toHaveProperty("data")
+    expect(file).not.toHaveProperty("preview")
+    expect(JSON.stringify(file)).not.toContain("http")
+  }
   await page.reload()
   await expect(chat.composer()).toHaveValue("  Keep my unsent question\nwith these files  ")
   for (const file of [note, image, large])

@@ -39,10 +39,29 @@ export function storedThreadDraft(
 
 let attachmentDatabase: Promise<IDBDatabase> | undefined
 
+function storedAttachment(file: DraftAttachment): DraftAttachment {
+  return {
+    id: file.id,
+    name: file.name,
+    size: file.size,
+    mimeType: file.mimeType,
+    kind: file.kind,
+    sessionId: file.sessionId,
+    sha256: file.sha256,
+    fileId: file.fileId,
+    status: file.fileId ? "ready" : "reselect",
+  }
+}
+
 function openAttachmentDatabase(): Promise<IDBDatabase> {
   attachmentDatabase ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("astralbeam:drafts", 1)
-    request.onupgradeneeded = () => request.result.createObjectStore("attachments")
+    const request = indexedDB.open("astralbeam:drafts", 2)
+    request.onupgradeneeded = () => {
+      if (request.result.objectStoreNames.contains("attachments")) {
+        request.result.deleteObjectStore("attachments")
+      }
+      request.result.createObjectStore("attachments")
+    }
     request.onsuccess = () => {
       const database = request.result
       database.onversionchange = () => {
@@ -60,8 +79,7 @@ function openAttachmentDatabase(): Promise<IDBDatabase> {
   return attachmentDatabase
 }
 
-// IndexedDB keeps file contents beyond Web Storage's small string quota.
-// https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
+// Draft recovery retains session identifiers and fingerprints, never file bytes or signed URLs.
 export async function storedThreadAttachments({
   apiUrl,
   identity,
@@ -88,7 +106,10 @@ export async function storedThreadAttachments({
     let attachments: DraftAttachment[] = []
     request.onsuccess = () => {
       attachments = (request.result as DraftAttachment[] | undefined) ?? []
-      if (update) attachments = update(attachments).filter((file) => file.status === "ready")
+      if (update)
+        attachments = update(attachments)
+          .filter((file) => file.kind !== undefined)
+          .map(storedAttachment)
       if (moveTo !== undefined) {
         const destinationKey = draftStorageKey(apiUrl, identity, moveTo)
         const destination = store.get(destinationKey)

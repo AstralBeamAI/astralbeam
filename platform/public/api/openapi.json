@@ -4977,6 +4977,1870 @@
         "summary": "Download a chat artifact"
       }
     },
+    "/api/v1/chat/uploads": {
+      "post": {
+        "tags": [
+          "uploads"
+        ],
+        "operationId": "prepareChatUpload",
+        "parameters": [],
+        "security": [
+          {
+            "astralBeamToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ChatUpload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatUpload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "summary": "Prepare a private file upload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatUploadInput"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/api/v1/chat/uploads/{id}": {
+      "get": {
+        "tags": [
+          "uploads"
+        ],
+        "operationId": "getChatUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "astralBeamToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ChatUpload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatUpload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "summary": "Read upload progress"
+      },
+      "delete": {
+        "tags": [
+          "uploads"
+        ],
+        "operationId": "cancelChatUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "astralBeamToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "summary": "Cancel an unclaimed upload"
+      }
+    },
+    "/api/v1/chat/uploads/{id}/parts": {
+      "post": {
+        "tags": [
+          "uploads"
+        ],
+        "operationId": "signChatUploadParts",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "astralBeamToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "parts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "number": {
+                            "type": "integer"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "number",
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "parts"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "summary": "Sign staging part uploads",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "parts": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "minItems": 1,
+                    "maxItems": 4
+                  }
+                },
+                "required": [
+                  "parts"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/api/v1/chat/uploads/{id}/complete": {
+      "post": {
+        "tags": [
+          "uploads"
+        ],
+        "operationId": "completeChatUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "astralBeamToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ChatUpload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatUpload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "summary": "Verify and complete an upload"
+      }
+    },
+    "/api/v1/chat/files/{id}": {
+      "get": {
+        "tags": [
+          "uploads"
+        ],
+        "operationId": "downloadStoredChatFile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "astralBeamToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "x-effect-stream": {
+                  "encoding": "uint8array"
+                }
+              }
+            },
+            "headers": {
+              "content-disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
+              },
+              "content-length": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
+              }
+            }
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "summary": "Download a private conversation file"
+      }
+    },
     "/api/v1/chat/threads": {
       "post": {
         "tags": [
@@ -10114,6 +11978,120 @@
         },
         "additionalProperties": false
       },
+      "ChatUpload": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "preparing",
+              "pending",
+              "completing",
+              "completed",
+              "cancelled",
+              "expired"
+            ]
+          },
+          "filename": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "partSize": {
+            "type": "integer"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "number": {
+                  "type": "integer"
+                },
+                "size": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "number",
+                "size"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "fileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "filename",
+          "contentType",
+          "byteSize",
+          "sha256",
+          "expiresAt",
+          "partSize",
+          "parts",
+          "fileId"
+        ],
+        "additionalProperties": false
+      },
+      "ChatUploadInput": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "contentType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "byteSize": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 20971520
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "contentType",
+          "byteSize",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
       "ChatConfiguration": {
         "type": "object",
         "properties": {
@@ -10122,10 +12100,39 @@
             "properties": {
               "attachments": {
                 "type": "boolean"
+              },
+              "uploads": {
+                "type": "object",
+                "properties": {
+                  "available": {
+                    "type": "boolean"
+                  },
+                  "maxFiles": {
+                    "type": "integer"
+                  },
+                  "maxTotalBytes": {
+                    "type": "integer"
+                  },
+                  "partSize": {
+                    "type": "integer"
+                  },
+                  "sessionHours": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "available",
+                  "maxFiles",
+                  "maxTotalBytes",
+                  "partSize",
+                  "sessionHours"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
-              "attachments"
+              "attachments",
+              "uploads"
             ],
             "additionalProperties": false
           }
@@ -10816,6 +12823,9 @@
     },
     {
       "name": "chat"
+    },
+    {
+      "name": "uploads"
     },
     {
       "name": "chatThreads",

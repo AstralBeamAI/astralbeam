@@ -105,7 +105,7 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 | `s3_secret_access_key` | Yes | none | Storage secret access key |
 | `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
 
-1. Create a private bucket and credentials with object read, write, and delete access.
+1. Create a private bucket and credentials with object read, write, delete, multipart completion, abort, part listing, and multipart upload listing access.
 2. Enter its settings in **File storage** at `/configure`.
 3. Press **Test storage** to upload, inspect, download, verify, and delete a temporary object using the current values. Reveal stored credentials first if you have not entered new ones.
 4. Save the configuration and restart other running server instances.
@@ -135,6 +135,10 @@ deno task --cwd platform files verify --table cache_entry.value
 Omit `--table` to process all five sources in the order shown. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded files stop the run and retain uncommitted source data. Historical external images that return `404` or `410` are cleared and recorded in private import metadata. Unsupported provider continuation structures are reported and preserved for inspection.
 
 Saved conversation attachments keep their existing download URLs and permissions. Older clients may still submit inline files, which the server stores in S3 before accepting the message. Admission records retain content identities and the accepted result, so an authorized retry can recover its receipt during a storage outage.
+
+New SDKs upload directly to the bucket using five-minute signed part URLs. Let's allow `PUT` from each exact host application's browser origin in the bucket's CORS settings, allow upload headers, and expose `ETag`. The application does not change bucket CORS. Downloads stream through authenticated application endpoints and do not need bucket `GET` CORS. See [R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/).
+
+Upload sessions last 24 hours, with 8 MiB parts, two concurrent files, and four concurrent part requests. Configure the provider to abort incomplete multipart uploads after one day as a backup to the application's durable cleanup runner. See [AWS multipart lifecycle](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html). Keep the bucket private. Signed part URLs can be reused, so verified final files are copied to a different server-only key before acceptance.
 
 After verification, start the new server code and its runners. Replacement and SQL cascades retain deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
 

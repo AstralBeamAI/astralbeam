@@ -2,6 +2,7 @@ import { Effect } from "effect"
 import { expect, test } from "vitest"
 import type { MessageRecord } from "@/lib/chat/threads/threads.server"
 import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
+import { Config } from "@/lib/config/config.server"
 import { messageResource, savedChatAttachmentResponse } from "./threads.server"
 
 test("opaque provider file handles remain context and never reach UUID download lookup", async () => {
@@ -16,6 +17,7 @@ test("opaque provider file handles remain context and never reach UUID download 
     await Effect.runPromise(
       savedChatAttachmentResponse(message, "part").pipe(
         Effect.provideService(ChatFiles, {} as typeof ChatFiles.Service),
+        Effect.provideService(Config, {} as typeof Config.Service),
         Effect.result,
       ),
     ),

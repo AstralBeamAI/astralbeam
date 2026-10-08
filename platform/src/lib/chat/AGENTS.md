@@ -39,7 +39,7 @@
 - Office files are ZIPs, so `attachments/office.server.ts` filters entries by declared uncompressed size against one archive-wide budget before `unzipSync` inflates anything, and bounds sheet cells, rows, and columns, a worksheet's coordinates are attacker-chosen. `attachments/profile.server.ts` profiles delimited text. A profile is metadata (columns, inferred types, row counts), never content.
 - Uploads retain original validated data in the owning message and restore provider input from that content. Enforce the agent's upload grant on new input before admission, while preserving previously accepted uploads if that grant changes. Decoded bytes live in the run's `files` array for the request only. Sandbox copies at `uploads/<handle>` do not establish durable file storage.
 - `read_attachment` is declared only when the run carries files. It pages the decoded text, `CHAT_ATTACHMENT_READ_MAX_CHARACTERS` per call, clamped whatever the model asks for, and returns type, size, table columns and row counts, and the sandbox path alongside the page.
-- `createChatAttachmentSnapshotMiddleware` restores the original media entries in the `MESSAGES_SNAPSHOT` the client rebuilds its transcript from. Without it, a sent file's chip becomes literal `[Attached: …]` text, the bytes leave the client's copy of the turn, and its handles stop resolving on the next request.
+- `createChatAttachmentSnapshotMiddleware` restores canonical stored media references in the `MESSAGES_SNAPSHOT` the client rebuilds its transcript from. Keep hydrated bytes limited to model and tool execution, and resolve previews and downloads through fresh authorization.
 
 ## Tools
 

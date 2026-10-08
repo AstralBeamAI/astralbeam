@@ -19,6 +19,7 @@ import {
   schemaJsonb,
   lockVersion,
   timestamps,
+  timestampWithTimeZone,
   uuidV7,
 } from "../lib/columns.server.ts"
 import { fileObject } from "./files.server.ts"
@@ -392,7 +393,6 @@ export const chatToolResponse = snakeCase.table(
   ],
 )
 
-/** @knipignore Drizzle Kit discovers these enums through schema.server.ts. */
 export {
   chatParticipantRoleEnum,
   chatMessageRoleEnum,
@@ -422,3 +422,50 @@ export const chatFile = snakeCase.table(
     ),
   ],
 )
+
+const fileUploadStatusEnum = pgEnum("file_upload_status", [
+  "preparing",
+  "pending",
+  "completing",
+  "completed",
+  "cancelled",
+])
+
+export const fileUpload = snakeCase.table(
+  "file_upload",
+  {
+    organizationId: uuid().notNull(),
+    tenantId: uuid().notNull(),
+    id: uuidV7(),
+    tenantUserId: uuid().notNull(),
+    objectKey: text().notNull(),
+    uploadId: text(),
+    filename: text().notNull(),
+    contentType: text().notNull(),
+    byteSize: integer().notNull(),
+    sha256: text().notNull(),
+    status: fileUploadStatusEnum().notNull().default("preparing"),
+    fileId: uuid(),
+    expiresAt: timestampWithTimeZone()
+      .notNull()
+      .default(sql`now() + interval '24 hours'`),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.tenantId, table.id] }),
+    uniqueIndex("file_upload_object_key_uidx").on(table.objectKey),
+    uniqueIndex("file_upload_file_uidx").on(table.fileId),
+    index("file_upload_expiry_idx").on(table.expiresAt),
+    deferrableForeignKey({
+      columns: [table.organizationId, table.tenantId, table.tenantUserId],
+      foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
+    }).onDelete("cascade"),
+    deferrableForeignKey({ columns: [table.fileId], foreignColumns: [fileObject.id] }).onDelete(
+      "set null",
+    ),
+    check("file_upload_size_check", sql`${table.byteSize} > 0 and ${table.byteSize} <= 20971520`),
+    check("file_upload_sha256_check", sql`${table.sha256} ~ '^[0-9a-f]{64}$'`),
+  ],
+)
+
+export { fileUploadStatusEnum }

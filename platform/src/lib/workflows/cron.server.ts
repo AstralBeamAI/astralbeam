@@ -2,6 +2,7 @@ import { Cron, Effect, Layer } from "effect"
 import { ClusterCron } from "effect/cluster"
 
 import { ProfileFiles } from "@/lib/storage/profile-files.server"
+import { Uploads } from "@/lib/chat/attachments/uploads.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
 
 import expiredCacheCleanup from "./expired-cache-cleanup.server.ts"
@@ -22,6 +23,7 @@ export const scheduledWorkflowsLayer = Layer.mergeAll(
     execute: Effect.gen(function* () {
       yield* (yield* StoredFiles).cleanup
       yield* (yield* ProfileFiles).processImports
+      yield* (yield* Uploads).maintenance
     }),
   }),
 )

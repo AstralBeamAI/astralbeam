@@ -226,12 +226,18 @@ export function attachmentDataUri(mimeType: string, data: string): string {
  * the provider requires alongside PDF data.
  */
 function attachmentContentPart(attachment: DraftAttachment): ContentPart | undefined {
-  if (attachment.status !== "ready" || attachment.data === undefined) return undefined
-  const source = {
-    type: "data" as const,
-    value: attachment.data,
-    mimeType: attachment.mimeType,
-  }
+  if (attachment.status !== "ready") return undefined
+  const source = attachment.fileId
+    ? {
+        type: "file" as const,
+        provider: "astralbeam",
+        value: attachment.fileId,
+        mimeType: attachment.mimeType,
+      }
+    : attachment.data !== undefined
+      ? { type: "data" as const, value: attachment.data, mimeType: attachment.mimeType }
+      : undefined
+  if (!source) return undefined
   const metadata = { filename: attachment.name, size: attachment.size }
   return attachment.kind === "image"
     ? { type: "image", source, metadata }
@@ -256,7 +262,7 @@ function safeAttachmentHref(href: string): string | undefined {
  */
 export function describeSentAttachment(part: {
   type: "image" | "document"
-  source: { value: string; mimeType?: string }
+  source: { value: string; mimeType?: string; type?: string; provider?: string }
   metadata?: unknown
 }): {
   kind: AttachmentKind
@@ -288,7 +294,7 @@ export function describeSentAttachment(part: {
   // The part carries the bytes itself — the chat endpoint refuses a `url` source — so one data URI
   // serves both the thumbnail and the download.
   const href =
-    part.source.value.length === 0
+    part.source.value.length === 0 || part.source.type === "file"
       ? undefined
       : safeAttachmentHref(
           part.source.value.startsWith("data:")

@@ -5,7 +5,9 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { createHash } from "node:crypto"
+import { Context, Effect, Layer, Option, Schema, Stream } from "effect"
+import type { StoredFile } from "./stored-files.server"
 
 import { Config } from "@/lib/config/config.server"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
@@ -13,7 +15,7 @@ import { StorageConnectionSchema, type StorageConnection } from "./schemas"
 
 type StorageFailure = StorageObjectMissing | StorageUnavailable
 
-const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
+export const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
   Effect.tryPromise({
     try: call,
     catch: (error) =>
@@ -25,7 +27,7 @@ const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
     Effect.catchTag("TimeoutError", () => Effect.fail(new StorageUnavailable())),
   )
 
-const acquireStorageClient = (settings: StorageConnection) =>
+export const acquireStorageClient = (settings: StorageConnection) =>
   Effect.acquireRelease(
     Effect.sync(
       () =>
@@ -46,6 +48,67 @@ const acquireStorageClient = (settings: StorageConnection) =>
     ),
     (client) => Effect.sync(() => client.destroy()),
   )
+
+export const objectStorageConnection = (config: typeof Config.Service) =>
+  Effect.map(config.snapshot, ({ values, issues }) => {
+    if (issues.some((issue) => issue.key.startsWith("s3_"))) return Option.none<StorageConnection>()
+    return Schema.decodeUnknownOption(StorageConnectionSchema)({
+      endpoint: values.s3_endpoint,
+      region: values.s3_region,
+      bucket: values.s3_bucket,
+      accessKeyId: values.s3_access_key_id,
+      secretAccessKey: values.s3_secret_access_key,
+      pathStyle: values.s3_path_style === "true",
+    })
+  }).pipe(
+    Effect.flatMap((value) =>
+      Option.isSome(value) ? Effect.succeed(value.value) : Effect.fail(new StorageUnavailable()),
+    ),
+  )
+
+export function objectStorageStream(file: StoredFile, config: typeof Config.Service) {
+  return Stream.unwrap(
+    Effect.gen(function* () {
+      const connection = yield* objectStorageConnection(config)
+      const client = yield* acquireStorageClient(connection)
+      const object = yield* storageRequest((abortSignal) =>
+        client.send(new GetObjectCommand({ Bucket: connection.bucket, Key: file.objectKey }), {
+          abortSignal,
+        }),
+      )
+      if (!object.Body || object.ContentLength !== file.byteSize)
+        return yield* new StorageUnavailable()
+      const digest = createHash("sha256")
+      let size = 0
+      return Stream.fromReadableStream({
+        evaluate: () => object.Body!.transformToWebStream() as ReadableStream<Uint8Array>,
+        onError: () => new StorageUnavailable(),
+      }).pipe(
+        Stream.mapEffect((bytes) =>
+          Effect.gen(function* () {
+            size += bytes.length
+            if (size > file.byteSize) return yield* new StorageUnavailable()
+            digest.update(bytes)
+            return bytes
+          }),
+        ),
+        Stream.concat(
+          Stream.fromEffect(
+            Effect.gen(function* () {
+              if (size !== file.byteSize || digest.digest("hex") !== file.sha256)
+                return yield* new StorageUnavailable()
+              return new Uint8Array()
+            }),
+          ),
+        ),
+        Stream.timeoutOrElse({
+          duration: "30 seconds",
+          orElse: () => Stream.fail(new StorageUnavailable()),
+        }),
+      )
+    }),
+  )
+}
 
 export class ObjectStorage extends Context.Service<
   ObjectStorage,
@@ -70,24 +133,7 @@ export class ObjectStorage extends Context.Service<
     ObjectStorage,
     Effect.gen(function* () {
       const config = yield* Config
-      const settings = Effect.map(config.snapshot, ({ values, issues }) => {
-        if (issues.some((issue) => issue.key.startsWith("s3_")))
-          return Option.none<StorageConnection>()
-        return Schema.decodeUnknownOption(StorageConnectionSchema)({
-          endpoint: values.s3_endpoint,
-          region: values.s3_region,
-          bucket: values.s3_bucket,
-          accessKeyId: values.s3_access_key_id,
-          secretAccessKey: values.s3_secret_access_key,
-          pathStyle: values.s3_path_style === "true",
-        })
-      }).pipe(
-        Effect.flatMap((value) =>
-          Option.isSome(value)
-            ? Effect.succeed(value.value)
-            : Effect.fail(new StorageUnavailable()),
-        ),
-      )
+      const settings = objectStorageConnection(config)
 
       const withClient = <A>(
         run: (client: S3Client, connection: StorageConnection) => Effect.Effect<A, StorageFailure>,
