@@ -62,7 +62,6 @@ export const migrateSandboxArtifacts = Effect.fn("migrateSandboxArtifacts")(func
         id: chatMessagePart.id,
         messageId: chatMessage.id,
         payload: chatMessagePart.payload,
-        metadata: chatMessage.metadata,
         externalTenantId: tenant.externalId,
       })
       .from(chatMessagePart)
@@ -177,24 +176,21 @@ export const migrateSandboxArtifacts = Effect.fn("migrateSandboxArtifacts")(func
             availability: "unavailable",
             reason: artifact.available ? "Moved" : artifact.reason,
           }
-      const updatedMetadata = replaceArtifactContinuation(row.metadata, ticket, updatedOutput)
       const changed = yield* db
         .transaction((tx) =>
           Effect.gen(function* () {
-            const [message] = yield* tx
-              .update(chatMessage)
-              .set({ metadata: updatedMetadata })
+            const continuations = yield* tx
+              .select()
+              .from(chatMessage)
               .where(
                 and(
                   eq(chatMessage.organizationId, row.organizationId),
                   eq(chatMessage.tenantId, row.tenantId),
                   eq(chatMessage.threadId, row.threadId),
-                  eq(chatMessage.id, row.messageId),
-                  sql`${chatMessage.metadata} = ${JSON.stringify(row.metadata)}::jsonb`,
                 ),
               )
-              .returning({ id: chatMessage.id })
-            if (!message) return false
+              .for("update")
+            if (!continuations.some((message) => message.id === row.messageId)) return false
             const [part] = yield* tx
               .update(chatMessagePart)
               .set({ payload: { ...row.payload, output: updatedOutput } })
@@ -209,17 +205,6 @@ export const migrateSandboxArtifacts = Effect.fn("migrateSandboxArtifacts")(func
               )
               .returning({ id: chatMessagePart.id })
             if (!part) return yield* new ChatThreadInvalid()
-            const continuations = yield* tx
-              .select()
-              .from(chatMessage)
-              .where(
-                and(
-                  eq(chatMessage.organizationId, row.organizationId),
-                  eq(chatMessage.tenantId, row.tenantId),
-                  eq(chatMessage.threadId, row.threadId),
-                ),
-              )
-              .for("update")
             for (const continuation of continuations) {
               const metadata = replaceArtifactContinuation(
                 continuation.metadata,

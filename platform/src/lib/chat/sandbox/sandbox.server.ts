@@ -27,6 +27,7 @@ import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import {
   artifactContentDigest,
   deriveArtifactTicketKey,
+  deriveArtifactTicketKeys,
   detectSandboxArtifactMimeType,
   mintSandboxArtifactTicket,
   type SandboxArtifactTicket,
@@ -166,6 +167,7 @@ export class ChatSandboxes extends Context.Service<
     Effect.gen(function* () {
       const providers = yield* SandboxProviders
       const artifactTicketKey = yield* Effect.cached(deriveArtifactTicketKey)
+      const artifactTicketKeys = yield* Effect.cached(deriveArtifactTicketKeys)
       // Process-local, so resume works only within one replica: a conversation that lands on
       // another instance starts a new sandbox instead, which costs time but is never incorrect.
       const leases = MutableHashMap.empty<string, ChatSandboxLease>()
@@ -366,7 +368,15 @@ export class ChatSandboxes extends Context.Service<
         const provider = yield* resolveProvider(
           ticket.organizationId,
           ticket.sandboxProviderId,
-        ).pipe(Effect.orDie)
+        ).pipe(
+          Effect.catchTag("SandboxProviderNotFound", () =>
+            Effect.fail(new ChatArtifactUnavailable({ reason: "SandboxGone" })),
+          ),
+          Effect.catchTags({
+            SandboxProviderUnreadable: Effect.die,
+            SandboxProviderUnavailable: Effect.die,
+          }),
+        )
         const handle = yield* chatSandboxCall(
           (signal) => provider.resume({ id: ticket.providerSandboxId, signal }),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
@@ -419,7 +429,10 @@ export class ChatSandboxes extends Context.Service<
         organizationId: string
         tenantId: string
       }) {
-        const ticket = yield* verifyHistoricalSandboxArtifactTicket(yield* artifactTicketKey, token)
+        const ticket = yield* verifyHistoricalSandboxArtifactTicket(
+          yield* artifactTicketKeys,
+          token,
+        )
         if (ticket.organizationId !== organizationId || ticket.tenantId !== tenantId)
           return yield* new ChatArtifactUnavailable({ reason: "Moved" })
         return yield* readTicket(ticket)

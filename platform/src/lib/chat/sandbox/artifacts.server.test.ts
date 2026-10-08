@@ -7,6 +7,7 @@ import { CHAT_ARTIFACT_TICKET_AUDIENCE, CHAT_ARTIFACT_TICKET_TYPE } from "./cons
 import {
   artifactContentDisposition,
   deriveArtifactTicketKey,
+  deriveArtifactTicketKeys,
   detectSandboxArtifactMimeType,
   isInlineArtifactMimeType,
   mintSandboxArtifactTicket,
@@ -29,7 +30,10 @@ const ticket: SandboxArtifactTicket = {
 
 beforeAll(() => {
   // The ticket key derives from the deployment encryption root, so the tests get one.
-  vi.stubEnv("DATABASE_ENCRYPTION_KEY", "artifact-ticket-test-key-32-characters!!")
+  vi.stubEnv(
+    "DATABASE_ENCRYPTION_KEY",
+    "artifact-ticket-test-key-32-characters!!,fallback-artifact-test-key-32-characters!!",
+  )
 })
 
 function verifiedTicket(token: string) {
@@ -40,6 +44,19 @@ function verifiedTicket(token: string) {
 }
 
 describe("sandbox artifact tickets", () => {
+  it.effect(
+    "historical recovery verifies a retained fallback root while live verification uses the active root",
+    () =>
+      Effect.gen(function* () {
+        const keys = yield* deriveArtifactTicketKeys
+        const token = yield* mintSandboxArtifactTicket(keys[1]!, ticket)
+        assert.strictEqual(
+          (yield* Effect.option(verifySandboxArtifactTicket(keys[0], token)))._tag,
+          "None",
+        )
+        assert.deepStrictEqual(yield* verifyHistoricalSandboxArtifactTicket(keys, token), ticket)
+      }),
+  )
   it.effect(
     "historical recovery accepts expired signatures but refuses a wrong audience or tampering",
     () =>
@@ -59,14 +76,14 @@ describe("sandbox artifact tickets", () => {
           (yield* Effect.option(verifySandboxArtifactTicket(key, token)))._tag,
           "None",
         )
-        assert.deepStrictEqual(yield* verifyHistoricalSandboxArtifactTicket(key, token), ticket)
+        assert.deepStrictEqual(yield* verifyHistoricalSandboxArtifactTicket([key], token), ticket)
         assert.strictEqual(
-          (yield* Effect.option(verifyHistoricalSandboxArtifactTicket(key, yield* sign("other"))))
+          (yield* Effect.option(verifyHistoricalSandboxArtifactTicket([key], yield* sign("other"))))
             ._tag,
           "None",
         )
         assert.strictEqual(
-          (yield* Effect.option(verifyHistoricalSandboxArtifactTicket(key, `${token}corrupt`)))
+          (yield* Effect.option(verifyHistoricalSandboxArtifactTicket([key], `${token}corrupt`)))
             ._tag,
           "None",
         )

@@ -1,7 +1,10 @@
 import { Effect, Result, Schema } from "effect"
 import { base64url, compactVerify, jwtVerify, SignJWT } from "jose"
 
-import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
+import {
+  getActiveDatabaseEncryptionRoot,
+  getDatabaseEncryptionKeyring,
+} from "@/db/lib/database-credentials.server"
 import { APP_HANDLE } from "@/lib/constants"
 import {
   CHAT_ARTIFACT_TICKET_AUDIENCE,
@@ -11,17 +14,9 @@ import {
 import { CHAT_ATTACHMENT_MAGIC_BYTES } from "../attachments/constants.server"
 import { ChatArtifactUnavailable } from "./errors.ts"
 
-/** Signs artifact tickets with a key HKDF-derived from the encryption root under its own label, so
- * any replica verifies them. Rotating the first key invalidates live tickets, which is acceptable. */
-export const deriveArtifactTicketKey = Effect.gen(function* () {
+const artifactTicketKeyFromRoot = Effect.fnUntraced(function* (root: Uint8Array) {
   const material = yield* Effect.promise(() =>
-    crypto.subtle.importKey(
-      "raw",
-      getActiveDatabaseEncryptionRoot() as BufferSource,
-      "HKDF",
-      false,
-      ["deriveBits"],
-    ),
+    crypto.subtle.importKey("raw", root as BufferSource, "HKDF", false, ["deriveBits"]),
   )
   const bits = yield* Effect.promise(() =>
     crypto.subtle.deriveBits(
@@ -37,6 +32,14 @@ export const deriveArtifactTicketKey = Effect.gen(function* () {
   )
   return new Uint8Array(bits)
 })
+
+/** New tickets use the active root. Historical recovery retains configured fallback roots. */
+export const deriveArtifactTicketKey = Effect.suspend(() =>
+  artifactTicketKeyFromRoot(getActiveDatabaseEncryptionRoot()),
+)
+export const deriveArtifactTicketKeys = Effect.suspend(() =>
+  Effect.forEach(getDatabaseEncryptionKeyring(), ({ root }) => artifactTicketKeyFromRoot(root)),
+)
 
 /** Digest binding a ticket to the exact published bytes, so a same-type overwrite is refused. */
 export function artifactContentDigest(bytes: Uint8Array) {
@@ -88,8 +91,12 @@ export function verifySandboxArtifactTicket(key: Uint8Array, token: string) {
 }
 
 // Only the stopped-writer data migration uses this. Signature, type and audience remain mandatory.
-export function verifyHistoricalSandboxArtifactTicket(key: Uint8Array, token: string) {
-  return Effect.tryPromise(() => compactVerify(token, key, { algorithms: ["HS256"] })).pipe(
+export function verifyHistoricalSandboxArtifactTicket(keys: readonly Uint8Array[], token: string) {
+  return Effect.firstSuccessOf(
+    keys.map((key) =>
+      Effect.tryPromise(() => compactVerify(token, key, { algorithms: ["HS256"] })),
+    ),
+  ).pipe(
     Effect.flatMap(({ payload, protectedHeader }) => {
       if (protectedHeader.typ !== CHAT_ARTIFACT_TICKET_TYPE)
         return Effect.fail(new ChatArtifactUnavailable({ reason: "Expired" }))

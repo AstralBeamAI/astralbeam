@@ -147,6 +147,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   const saveArtifactResult = async (
     claim: NonNullable<Awaited<ReturnType<typeof admit>>["claim"]>,
     output: Record<string, string | number>,
+    resultPartId = crypto.randomUUID(),
   ) => {
     const partId = crypto.randomUUID()
     const responseTargetId = crypto.randomUUID()
@@ -180,9 +181,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             responseTargetId,
             payload: {
               version: 1,
-              parts: [
-                { id: crypto.randomUUID(), type: "tool-result", outcome: "succeeded", output },
-              ],
+              parts: [{ id: resultPartId, type: "tool-result", outcome: "succeeded", output }],
             },
           },
         ],
@@ -246,20 +245,28 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   test("historical artifact migration resumes after provider failure and marks unavailable sources", async () => {
     const thread = await create()
     const first = await admit(thread.id)
-    await saveArtifactResult(first.claim!, {
-      ticket: "historical-available",
-      path: "/workspace/report.txt",
-      mimeType: "text/plain",
-      size: 6,
-    })
+    await saveArtifactResult(
+      first.claim!,
+      {
+        ticket: "historical-available",
+        path: "/workspace/report.txt",
+        mimeType: "text/plain",
+        size: 6,
+      },
+      "019a0800-0000-7000-8000-000000000001",
+    )
     await runtime.runPromise(service.finish({ claim: first.claim! }))
     const second = await admit(thread.id)
-    await saveArtifactResult(second.claim!, {
-      ticket: "historical-gone",
-      path: "/workspace/gone.txt",
-      mimeType: "text/plain",
-      size: 6,
-    })
+    await saveArtifactResult(
+      second.claim!,
+      {
+        ticket: "historical-gone",
+        path: "/workspace/gone.txt",
+        mimeType: "text/plain",
+        size: 6,
+      },
+      "019a0800-0000-7000-8000-000000000002",
+    )
     await runtime.runPromise(service.finish({ claim: second.claim! }))
     await db
       .update(chatMessage)
@@ -278,7 +285,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           ],
         },
       })
-      .where(eq(chatMessage.id, second.claim!.assistantMessageId))
+      .where(eq(chatMessage.turnMessageId, second.claim!.inputMessageId))
     let fail = true
     const historical = ChatSandboxes.of({
       session: () => Effect.die("unused"),
@@ -303,7 +310,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await expect(migrate("migrate")).rejects.toThrow("Temporary provider outage")
     expect((await migrate("inventory")).historical).toBeGreaterThan(0)
     fail = false
-    await migrate("migrate")
+    expect(await migrate("migrate")).toMatchObject({ migrated: 2 })
     expect(await migrate("migrate")).toMatchObject({
       migrated: 0,
       historical: 0,
