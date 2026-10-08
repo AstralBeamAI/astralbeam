@@ -31,6 +31,7 @@ import {
   pauseAttachmentUpload,
   resumeAttachmentUpload,
   removeAttachmentUpload,
+  releaseAttachmentUpload,
   disposeAttachmentUploads,
 } from "./lib/uploads.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
@@ -202,7 +203,15 @@ export function ChatWidget({
                     : undefined
                 return session.status === "completed" && session.fileId
                   ? { ...file, status: "ready" as const, fileId: session.fileId, preview }
-                  : { ...file, status: "reselect" as const, fileId: undefined }
+                  : {
+                      ...file,
+                      status: "reselect" as const,
+                      fileId: undefined,
+                      sessionId:
+                        session.status === "expired" || session.status === "cancelled"
+                          ? undefined
+                          : file.sessionId,
+                    }
               } catch {
                 return { ...file, status: "reselect" as const, fileId: undefined }
               }
@@ -539,6 +548,7 @@ export function ChatWidget({
           })
         },
         onAccepted: () => {
+          for (const id of sentAttachmentIds) releaseAttachmentUpload({ uploads, id })
           if (storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey) === sentDraft)
             storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey, "")
           void storedThreadAttachments({

@@ -347,6 +347,7 @@ export interface ChatUploadInput {
   /**
    * @minLength 1
    * @maxLength 120
+   * @pattern ^[^\u0000]*$
    */
   filename: string
   /**

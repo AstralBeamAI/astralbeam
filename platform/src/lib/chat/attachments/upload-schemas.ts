@@ -4,7 +4,13 @@ import { NonEmptyStringSchema } from "../../schemas.ts"
 
 export const UPLOAD_PART_BYTES = 8 * 1024 * 1024
 export const UploadInputSchema = Schema.Struct({
-  filename: NonEmptyStringSchema.check(Schema.isMaxCodePoints(120)),
+  filename: NonEmptyStringSchema.check(
+    Schema.isMaxCodePoints(120),
+    Schema.makeFilter((value) => !value.includes("\0"), {
+      message: "Filename must not contain NUL characters.",
+      toJsonSchema: () => ({ pattern: "^[^\\u0000]*$" }),
+    }),
+  ),
   contentType: NonEmptyStringSchema.check(Schema.isMaxCodePoints(255)),
   byteSize: Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(20 * 1024 * 1024)),
   sha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)),

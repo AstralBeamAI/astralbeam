@@ -181,12 +181,14 @@ export function startAttachmentUpload({
         files.delete(draft.id)
         throw new Error("Choose the original file to resume this upload.")
       }
-      const session = draft.sessionId
-        ? await chat.getUpload(draft.sessionId, signal)
-        : await chat.prepareUpload(
-            { filename: draft.name, contentType: draft.mimeType, byteSize: file.size, sha256 },
-            signal,
-          )
+      const saved = draft.sessionId ? await chat.getUpload(draft.sessionId, signal) : undefined
+      const session =
+        saved && saved.status !== "expired" && saved.status !== "cancelled"
+          ? saved
+          : await chat.prepareUpload(
+              { filename: draft.name, contentType: draft.mimeType, byteSize: file.size, sha256 },
+              signal,
+            )
       settle({ sessionId: session.id, sha256 })
       await uploadParts({
         uploads,
@@ -236,6 +238,20 @@ export function resumeAttachmentUpload({
   return !!file
 }
 
+export function releaseAttachmentUpload({
+  uploads,
+  id,
+}: {
+  uploads: AttachmentUploads
+  id: string
+}) {
+  pauseAttachmentUpload({ uploads, id })
+  uploads.files.delete(id)
+  const url = uploads.previews.get(id)
+  if (url) URL.revokeObjectURL(url)
+  uploads.previews.delete(id)
+}
+
 export function removeAttachmentUpload({
   uploads,
   draft,
@@ -243,11 +259,7 @@ export function removeAttachmentUpload({
   uploads: AttachmentUploads
   draft: DraftAttachment
 }) {
-  pauseAttachmentUpload({ uploads, id: draft.id })
-  uploads.files.delete(draft.id)
-  const url = uploads.previews.get(draft.id)
-  if (url) URL.revokeObjectURL(url)
-  uploads.previews.delete(draft.id)
+  releaseAttachmentUpload({ uploads, id: draft.id })
   if (draft.sessionId) void uploads.chat.cancelUpload(draft.sessionId).catch(() => undefined)
 }
 

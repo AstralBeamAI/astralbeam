@@ -66,49 +66,16 @@ export const objectStorageConnection = (config: typeof Config.Service) =>
     ),
   )
 
-export function objectStorageStream(file: StoredFile, config: typeof Config.Service) {
-  return Stream.unwrap(
-    Effect.gen(function* () {
-      const connection = yield* objectStorageConnection(config)
-      const client = yield* acquireStorageClient(connection)
-      const object = yield* storageRequest((abortSignal) =>
-        client.send(new GetObjectCommand({ Bucket: connection.bucket, Key: file.objectKey }), {
-          abortSignal,
-        }),
-      )
-      if (!object.Body || object.ContentLength !== file.byteSize)
-        return yield* new StorageUnavailable()
-      const digest = createHash("sha256")
-      let size = 0
-      return Stream.fromReadableStream({
-        evaluate: () => object.Body!.transformToWebStream() as ReadableStream<Uint8Array>,
-        onError: () => new StorageUnavailable(),
-      }).pipe(
-        Stream.mapEffect((bytes) =>
-          Effect.gen(function* () {
-            size += bytes.length
-            if (size > file.byteSize) return yield* new StorageUnavailable()
-            digest.update(bytes)
-            return bytes
-          }),
-        ),
-        Stream.concat(
-          Stream.fromEffect(
-            Effect.gen(function* () {
-              if (size !== file.byteSize || digest.digest("hex") !== file.sha256)
-                return yield* new StorageUnavailable()
-              return new Uint8Array()
-            }),
-          ),
-        ),
-        Stream.timeoutOrElse({
-          duration: "30 seconds",
-          orElse: () => Stream.fail(new StorageUnavailable()),
-        }),
-      )
-    }),
+export const objectStorageStream = Effect.fn("objectStorageStream")(function* (file: StoredFile) {
+  const objects = yield* ObjectStorage
+  const bytes = yield* objects.get({ key: file.objectKey, maxBytes: file.byteSize })
+  if (
+    bytes.length !== file.byteSize ||
+    createHash("sha256").update(bytes).digest("hex") !== file.sha256
   )
-}
+    return yield* new StorageUnavailable()
+  return Stream.fromIterable([bytes])
+})
 
 export class ObjectStorage extends Context.Service<
   ObjectStorage,

@@ -1,7 +1,7 @@
 import { HttpServerResponse } from "effect/http"
 import { Effect } from "effect"
-import { Config } from "@/lib/config/config.server"
 import { objectStorageStream } from "@/lib/storage/object-storage.server"
+import { ChatThreadStorageUnavailable } from "@/lib/chat/threads/errors"
 import type { StoredFile } from "@/lib/storage/stored-files.server"
 
 import {
@@ -14,8 +14,10 @@ export const chatStoredFileResponse = Effect.fn("chatStoredFileResponse")(functi
   file: StoredFile,
   path: string,
 ) {
-  const config = yield* Config
-  return HttpServerResponse.stream(objectStorageStream(file, config), {
+  const stream = yield* objectStorageStream(file).pipe(
+    Effect.mapError(() => new ChatThreadStorageUnavailable()),
+  )
+  return HttpServerResponse.stream(stream, {
     contentType: file.contentType,
     headers: {
       "Content-Disposition": artifactContentDisposition(
