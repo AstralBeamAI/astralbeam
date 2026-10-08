@@ -355,23 +355,35 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
         (await db.select().from(userImageImport).where(eq(userImageImport.userId, owner.id)))[0]!
           .status,
       ).toBe("disabled")
+      const replacementId = await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.prepareLogo(embedded, owner.id)),
+      )
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.adoptLogo(customer!.id, replacementId)),
+      )
       const countBefore = objects.size
       await db.execute(
-        sql`update rate_limit set count = 10 where key = ${`effect-rate-limit:avatar-upload:${owner.id}`}`,
+        sql`update rate_limit set count = 10 where key = ${`effect-rate-limit:profile-upload:${owner.id}`}`,
       )
       const limited = await runtime.runPromise(
         Effect.flatMap(ProfileFiles, (files) => files.uploadAvatar(owner.id, image)).pipe(
           Effect.result,
         ),
       )
-      expect(limited._tag).toBe("Failure")
+      expect(limited).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "ImageUploadRateLimited" },
+      })
+      const limitedLogo = await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.prepareLogo(embedded, owner.id)).pipe(
+          Effect.result,
+        ),
+      )
+      expect(limitedLogo).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "ImageUploadRateLimited" },
+      })
       expect(objects.size).toBe(countBefore)
-      const replacementId = await runtime.runPromise(
-        Effect.flatMap(ProfileFiles, (files) => files.prepareLogo(embedded)),
-      )
-      await runtime.runPromise(
-        Effect.flatMap(ProfileFiles, (files) => files.adoptLogo(customer!.id, replacementId)),
-      )
       const [file] = await db.select().from(fileObject).where(eq(fileObject.id, replacementId))
       await db.delete(organization).where(eq(organization.id, customer!.id))
       expect(await db.select().from(fileObject).where(eq(fileObject.id, file!.id))).toEqual([])

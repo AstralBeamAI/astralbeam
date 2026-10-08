@@ -49,10 +49,10 @@ export class ImageImportUnavailable extends Schema.TaggedError<ImageImportUnavai
   override readonly message = "The image could not be imported. Please try again."
 }
 
-export class AvatarUploadRateLimited extends Schema.TaggedError<AvatarUploadRateLimited>()(
-  "AvatarUploadRateLimited",
+export class ImageUploadRateLimited extends Schema.TaggedError<ImageUploadRateLimited>()(
+  "ImageUploadRateLimited",
   {},
   { httpApiStatus: 429 },
 ) {
-  override readonly message = "Too many avatar uploads. Please try again in a few minutes."
+  override readonly message = "Too many image uploads. Please try again in a few minutes."
 }

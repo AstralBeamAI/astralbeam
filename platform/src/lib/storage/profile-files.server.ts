@@ -17,7 +17,7 @@ import { getGravatarAvatarUrl } from "@/lib/utils"
 import {
   ImageImportUnavailable,
   ImageSourceMissing,
-  AvatarUploadRateLimited,
+  ImageUploadRateLimited,
   InvalidImage,
   StorageObjectMissing,
   StorageUnavailable,
@@ -49,7 +49,7 @@ export class ProfileFiles extends Context.Service<
       bytes: Uint8Array,
     ) => Effect.Effect<
       string,
-      InvalidImage | StorageUnavailable | StorageObjectMissing | AvatarUploadRateLimited
+      InvalidImage | StorageUnavailable | StorageObjectMissing | ImageUploadRateLimited
     >
     readonly validateAvatar: (
       userId: string,
@@ -61,7 +61,11 @@ export class ProfileFiles extends Context.Service<
     ) => Effect.Effect<void, InvalidImage>
     readonly prepareLogo: (
       source: string,
-    ) => Effect.Effect<string, InvalidImage | StorageUnavailable | StorageObjectMissing>
+      userId: string,
+    ) => Effect.Effect<
+      string,
+      InvalidImage | StorageUnavailable | StorageObjectMissing | ImageUploadRateLimited
+    >
     readonly attachLogo: (organizationId: string, fileId: string) => Effect.Effect<string>
     readonly adoptLogo: (organizationId: string, fileId: string) => Effect.Effect<string>
     readonly queueAvatar: (input: {
@@ -132,20 +136,23 @@ export class ProfileFiles extends Context.Service<
           .pipe(mapDatabaseErrors())
         if (!row) return yield* new InvalidImage()
       })
+      const consumeUpload = Effect.fn("ProfileFiles.consumeUpload")(function* (userId: string) {
+        yield* limiter
+          .consume({ key: `profile-upload:${userId}`, limit: 10, window: "1 hour" })
+          .pipe(
+            Effect.catch((error) =>
+              error.reason._tag === "RateLimitExceeded"
+                ? Effect.fail(new ImageUploadRateLimited())
+                : Effect.die(error),
+            ),
+          )
+      })
       const uploadAvatar = Effect.fn("ProfileFiles.uploadAvatar")(function* (
         userId: string,
         bytes: Uint8Array,
       ) {
         const image = yield* verifiedImage(bytes)
-        yield* limiter
-          .consume({ key: `avatar-upload:${userId}`, limit: 10, window: "1 hour" })
-          .pipe(
-            Effect.catch((error) =>
-              error.reason._tag === "RateLimitExceeded"
-                ? Effect.fail(new AvatarUploadRateLimited())
-                : Effect.die(error),
-            ),
-          )
+        yield* consumeUpload(userId)
         const file = yield* files.prepare(image)
         yield* db
           .insert(userAvatar)
@@ -153,8 +160,12 @@ export class ProfileFiles extends Context.Service<
           .pipe(mapDatabaseErrors())
         return avatarFileUrl(file.id)
       })
-      const prepareLogo = Effect.fn("ProfileFiles.prepareLogo")(function* (source: string) {
+      const prepareLogo = Effect.fn("ProfileFiles.prepareLogo")(function* (
+        source: string,
+        userId: string,
+      ) {
         const image = yield* embeddedImage(source)
+        yield* consumeUpload(userId)
         return (yield* files.prepare(image)).id
       })
       const attachLogo = Effect.fn("ProfileFiles.attachLogo")(function* (

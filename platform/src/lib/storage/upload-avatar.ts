@@ -25,7 +25,7 @@ export const uploadAvatar = createServerFn({ method: "POST" })
             "InvalidImage",
             "StorageUnavailable",
             "StorageObjectMissing",
-            "AvatarUploadRateLimited",
+            "ImageUploadRateLimited",
           ],
           exposeError,
         ),

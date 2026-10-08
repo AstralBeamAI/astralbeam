@@ -32,7 +32,11 @@ async function imageApiEffect<A, E extends { _tag: string; message: string }>(
   const result = await runAppEffect(effect.pipe(Effect.result))
   if (Result.isFailure(result))
     throw new APIError(
-      result.failure._tag === "InvalidImage" ? "BAD_REQUEST" : "SERVICE_UNAVAILABLE",
+      result.failure._tag === "InvalidImage"
+        ? "BAD_REQUEST"
+        : result.failure._tag === "ImageUploadRateLimited"
+          ? "TOO_MANY_REQUESTS"
+          : "SERVICE_UNAVAILABLE",
       { code: result.failure._tag, message: result.failure.message },
     )
   return result.success
@@ -90,7 +94,7 @@ export const organizationImageHooks = {
     const state = await requests.get()
     if (source.startsWith("data:"))
       state.logoFileId = await imageApiEffect(
-        Effect.flatMap(ProfileFiles, (files) => files.prepareLogo(source)),
+        Effect.flatMap(ProfileFiles, (files) => files.prepareLogo(source, input.user.id)),
       )
     else if (externalImageUrl(source)) state.logoSource = source
     else
@@ -130,7 +134,7 @@ export const organizationImageHooks = {
       const logo = await imageApiEffect(
         Effect.gen(function* () {
           const files = yield* ProfileFiles
-          const fileId = yield* files.prepareLogo(source)
+          const fileId = yield* files.prepareLogo(source, input.user.id)
           return yield* files.attachLogo(input.member.organizationId, fileId)
         }),
       )
