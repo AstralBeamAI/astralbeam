@@ -1,10 +1,11 @@
 import { EventType, type ModelMessage, type StreamChunk } from "@tanstack/ai"
 import { createParser } from "eventsource-parser"
 import { Schema } from "effect"
+import { APP_HANDLE } from "@/lib/constants"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { chatStoredJson } from "./threads/projection.server"
 
-export const CHAT_WEB_EVIDENCE_EVENT = "astralbeam_private_web_evidence"
+export const CHAT_WEB_EVIDENCE_EVENT = `${APP_HANDLE}_private_web_evidence`
 
 const ChatWebSourceSchema = Schema.Struct({
   url: Schema.String,
