@@ -101,6 +101,7 @@ function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
   readonly model?: ChatModelConfiguration | typeof undecryptable
   readonly history?: MessageRecord[]
+  readonly storage?: typeof ChatFiles.Service
 }) {
   const agents = {
     resolveForChat: () =>
@@ -111,7 +112,7 @@ function chatTestLayer(options: {
   } as unknown as ChatSandboxes["Service"]
   return Chat.layerNoDeps.pipe(
     Layer.provide([
-      ChatFiles.layer,
+      options.storage ? Layer.succeed(ChatFiles, options.storage) : ChatFiles.layer,
       Layer.succeed(Agents, agents),
       Layer.succeed(ModelProviders, {
         resolveForAgent: () =>
@@ -295,6 +296,68 @@ describe("Chat.run", () => {
         }),
       ),
     ),
+  )
+
+  it.effect(
+    "projects saved context before hydration and never reads discarded assistant media",
+    () => {
+      const hydrate = vi.fn((_scope, payload) => Effect.succeed(payload))
+      return Effect.gen(function* () {
+        const events = yield* runChat()
+        yield* Stream.runCollect(Stream.take(events, 1))
+        assert.strictEqual(hydrate.mock.calls.length, 0)
+        assert.include(JSON.stringify(chatRunTest.options[0]!.messages), "Saved reply")
+        assert.notInclude(
+          JSON.stringify(chatRunTest.options[0]!.messages),
+          "01990a5d-ac96-774b-b942-6b13c85384cd",
+        )
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: sandboxedAgent,
+            model: CHAT_TEST_MODEL,
+            storage: { hydrate } as unknown as typeof ChatFiles.Service,
+            history: [
+              {
+                id: "answer",
+                role: "assistant",
+                state: "complete",
+                payload: {
+                  version: 1,
+                  parts: [
+                    { id: "text", type: "text", content: "Saved reply" },
+                    {
+                      id: "image",
+                      type: "image",
+                      source: {
+                        type: "file",
+                        provider: "astralbeam",
+                        value: "01990a5d-ac96-774b-b942-6b13c85384cd",
+                      },
+                    },
+                  ],
+                  modelMessages: [
+                    {
+                      role: "assistant",
+                      content: [
+                        {
+                          type: "image",
+                          source: {
+                            type: "file",
+                            provider: "astralbeam",
+                            value: "01990a5d-ac96-774b-b942-6b13c85384cd",
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ] as unknown as MessageRecord[],
+          }),
+        ),
+      )
+    },
   )
 
   it.effect("refuses a client system prompt before reading the agent or its key", () =>

@@ -5,10 +5,12 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
+  type ContentPart,
 } from "@tanstack/ai"
-import { Context, Effect, identity, Layer, Stream } from "effect"
+import { Context, Effect, identity, Layer, Schema, Stream } from "effect"
 
 import { ChatFiles } from "./attachments/chat-files.server"
+import { chatMediaPart } from "./attachments/stored-media"
 import { ChatThreads, type MessageRecord } from "./threads/threads.server"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory } from "./threads/projection.server"
@@ -93,28 +95,39 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   readonly sandbox: boolean
   readonly storage: typeof ChatFiles.Service
 }) {
-  const hydrated: MessageRecord[] = []
-  for (const message of history)
-    hydrated.push({
-      ...message,
-      payload: yield* storage.hydrate(
-        {
-          organizationId: message.organizationId,
-          tenantId: message.tenantId,
-          threadId: message.threadId,
-        },
-        message.payload,
-      ),
-    })
   const projected = yield* Effect.try({
     try: () =>
-      projectChatModelHistory(hydrated, {
+      projectChatModelHistory(history, {
         providerId: model.providerId,
         protocol: model.api,
         modelId: model.modelId,
       }),
     catch: () => new ChatThreadInvalid(),
   })
+  for (const message of projected) {
+    if (!Array.isArray(message.content)) continue
+    if (message.role !== "user") {
+      const retained = message.content.filter(
+        (part) => !chatMediaPart(part as unknown as Schema.JsonObject),
+      )
+      message.content = retained.length ? retained : ""
+      continue
+    }
+    const record = history.find((original) => message.id?.startsWith(`${original.id}:`))!
+    const hydrated = yield* storage.hydrate(
+      {
+        organizationId: record.organizationId,
+        tenantId: record.tenantId,
+        threadId: record.threadId,
+      },
+      {
+        version: 1,
+        parts: [],
+        modelMessages: [{ content: message.content as unknown as Schema.Json[] }],
+      },
+    )
+    message.content = hydrated.modelMessages![0]!.content as unknown as ContentPart[]
+  }
   const normalized = normalizeChatAttachments(projected, { sandbox })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
