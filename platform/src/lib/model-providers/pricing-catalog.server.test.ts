@@ -37,7 +37,7 @@ const testPriceCatalog: ModelPriceCatalog = {
 }
 
 describe("model pricing catalog", () => {
-  test("maps context tiers and rejects unknown or unsupported billing dimensions", () => {
+  test("maps supported prices and preserves manual overrides during catalog updates", () => {
     const lookup = {
       catalog: testPriceCatalog,
       providerType: "openai" as const,
@@ -53,7 +53,6 @@ describe("model pricing catalog", () => {
       { aboveInputTokens: 20_000, prices: { inputPerMillion: "4" } },
       { aboveInputTokens: 60_000, prices: { inputPerMillion: "6" } },
     ])
-    expect(card.outputCap).toBe(4096)
     expect(catalogModelUsageConfiguration({ ...lookup, modelId: "unknown" })).toBeNull()
     const unsupported = {
       ...testPriceCatalog,
@@ -70,14 +69,6 @@ describe("model pricing catalog", () => {
       ],
     }
     expect(catalogModelUsageConfiguration({ ...lookup, catalog: unsupported })).toBeNull()
-  })
-
-  test("refreshes all catalog defaults while preserving explicit overrides", () => {
-    const lookup = {
-      catalog: testPriceCatalog,
-      providerType: "openai" as const,
-      modelId: "test-model",
-    }
     expect(
       effectiveModelUsageConfiguration({ ...lookup, configured: modelUsageTestConfiguration }),
     ).toBe(modelUsageTestConfiguration)

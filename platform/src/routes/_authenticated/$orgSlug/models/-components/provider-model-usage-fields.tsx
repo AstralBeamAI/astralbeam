@@ -124,7 +124,9 @@ export function ProviderModelUsageFields({
           }
         />
       </Field>
-      <p className="text-xs text-muted-foreground">Prices in USD per million tokens.</p>
+      <p className="text-xs text-muted-foreground">
+        Prices in USD per million tokens. Token limits are saved but not enforced yet.
+      </p>
       {overridden ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2">{priceFields.slice(0, 2)}</div>
@@ -165,8 +167,8 @@ export function ProviderModelUsageFields({
             })}
           </div>
           <FieldDescription>
-            All values are tokens. Set an input maximum or a context window. The output cap limits
-            each call, including reasoning, and cannot exceed the model output maximum.
+            All values are tokens. Set an input maximum or a context window. The output cap cannot
+            exceed the model output maximum.
           </FieldDescription>
           <details>
             <summary className="cursor-pointer text-sm font-medium">Cache pricing</summary>

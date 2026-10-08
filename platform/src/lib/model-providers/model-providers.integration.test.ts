@@ -135,7 +135,22 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     expect(refused._tag).toBe("ModelProviderUnreadable")
   })
 
-  test("persists and reads normalized v2 feed constraints", async () => {
+  test("persists normalized catalog data and retains it after an invalid refresh", async () => {
+    const untrusted = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        models: [
+          {
+            modelId: "unknown",
+            name: "Unknown",
+            usageConfiguration: {
+              ...modelUsageTestConfiguration,
+              pricingSource: { kind: "catalog", modelId: "unknown" },
+            },
+          },
+        ],
+      }).pipe(Effect.flip),
+    )
+    expect(untrusted._tag).toBe("ModelUsageConfigurationMissing")
     const previous = await runAppEffect(readModelPriceCatalog)
     const providers = ["openai", "anthropic", "openrouter"].map((id) => ({
       id,
@@ -178,23 +193,15 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           modelId: "test-model",
         })?.prices,
       ).toEqual({ inputPerMillion: "3", outputPerMillion: "4" })
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve(Response.json([{ id: "openai", api_pattern: "openai.com", models: [] }])),
+      )
+      await expect(runAppEffect(refreshModelPriceCatalog)).rejects.toThrow()
+      expect(await runAppEffect(readModelPriceCatalog)).toEqual(refreshed)
     } finally {
       await runAppEffect(
         Effect.flatMap(Config, (config) => config.writeModelPriceCatalog(previous)),
       )
-      vi.unstubAllGlobals()
-    }
-  })
-
-  test("keeps the last valid catalog when refresh fails validation", async () => {
-    const previous = await runAppEffect(readModelPriceCatalog)
-    vi.stubGlobal("fetch", () =>
-      Promise.resolve(Response.json([{ id: "openai", api_pattern: "openai.com", models: [] }])),
-    )
-    try {
-      await expect(runAppEffect(refreshModelPriceCatalog)).rejects.toThrow()
-      expect(await runAppEffect(readModelPriceCatalog)).toEqual(previous)
-    } finally {
       vi.unstubAllGlobals()
     }
   })

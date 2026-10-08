@@ -41,9 +41,7 @@ export function ModelProviderListCard({
           ))}
         </div>
         {provider.models.some((model) => model.usageConfiguration === null) && (
-          <p className="text-sm text-destructive">
-            Configure prices and token limits for models that are not ready.
-          </p>
+          <p className="text-sm text-destructive">Some models need prices and token limits.</p>
         )}
         {!provider.credentialsReadable && (
           <p className="text-sm text-destructive">

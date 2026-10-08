@@ -370,7 +370,10 @@ export class ModelProviders extends Context.Service<
             catalog,
             providerType: input.providerType,
             modelId: model.modelId,
-            configured: model.usageConfiguration,
+            configured:
+              model.usageConfiguration?.pricingSource.kind === "manual"
+                ? model.usageConfiguration
+                : null,
           }),
         }))
         if (configuredModels.some((model) => model.usageConfiguration === null))
