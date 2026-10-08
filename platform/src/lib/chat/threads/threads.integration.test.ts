@@ -803,6 +803,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         version: 1 as const,
         parts: Array.from({ length: 5 }, (_, index) => ({
           ...media,
+          id: crypto.randomUUID(),
           source: { ...media.source, value: Buffer.from(`Canonical ${index}`).toString("base64") },
         })),
         modelMessages: [
@@ -825,6 +826,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         parts: [
           {
             ...media,
+            id: crypto.randomUUID(),
             source: {
               ...media.source,
               value: Buffer.alloc(11 * 1024 * 1024, 1).toString("base64"),
