@@ -225,22 +225,42 @@ export function AssistantPart({
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
-      if (metadata.providerExecuted === true)
+      if (metadata.providerExecuted === true) {
+        const settled = isSettledToolCall(part)
+        const failed = part.state === "error" || (interrupted && !settled)
+        const running = !readOnly && !failed && !settled
         return (
           <ToolDisclosure
-            icon={part.state === "error" ? <WarningCircleIcon /> : <CheckIcon />}
-            running={false}
+            icon={
+              failed ? (
+                <WarningCircleIcon />
+              ) : running ? (
+                <Spinner />
+              ) : settled ? (
+                <CheckIcon />
+              ) : (
+                <WrenchIcon />
+              )
+            }
+            running={running}
             label={
-              part.state === "error"
+              failed
                 ? "Web retrieval failed"
-                : part.name === "web_fetch"
-                  ? "Read web pages"
-                  : "Searched the web"
+                : running
+                  ? part.name === "web_fetch"
+                    ? "Reading web pages"
+                    : "Searching the web"
+                  : readOnly && !settled
+                    ? "Saved web activity"
+                    : part.name === "web_fetch"
+                      ? "Read web pages"
+                      : "Searched the web"
             }
           >
             <WebSources metadata={metadata} />
           </ToolDisclosure>
         )
+      }
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))

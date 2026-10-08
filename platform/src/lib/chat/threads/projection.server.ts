@@ -24,23 +24,9 @@ export function chatStoredJson(value: unknown): typeof Schema.JsonObject.Type {
 }
 
 function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.JsonObject.Type)[] {
-  const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
-  const web = Schema.is(Schema.JsonObject)(metadata?.web) ? metadata.web : undefined
-  const sources = Schema.is(Schema.Array(Schema.JsonObject))(web?.sources)
-    ? Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(web.sources)
-    : []
-  const citations = Schema.is(Schema.Array(Schema.JsonObject))(web?.citations)
-    ? Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(web.citations)
-    : []
-  const evidence = [...sources, ...citations].length
-    ? [{ type: "text", content: `Saved web evidence: ${JSON.stringify({ sources, citations })}` }]
-    : []
   switch (part.type) {
     case "text":
-      return [
-        { type: "text", content: Schema.decodeUnknownSync(Schema.String)(part.content) },
-        ...evidence,
-      ]
+      return [{ type: "text", content: Schema.decodeUnknownSync(Schema.String)(part.content) }]
     case "image":
     case "audio":
     case "video":
@@ -60,8 +46,7 @@ function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.J
     }
     case "tool-call": {
       const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
-      if (metadata?.providerExecuted === true || part.executionLocation === "provider")
-        return evidence
+      if (metadata?.providerExecuted === true || part.executionLocation === "provider") return []
       return [
         {
           type: "tool-call",
@@ -150,7 +135,9 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
     }
     if (missing.length > 0) {
       // An incomplete exchange is context, never an executable or unmatched provider tool call.
-      const visible = record.payload.parts.filter((part) => part.type !== "tool-call")
+      const visible = record.payload.parts.filter(
+        (part) => part.type !== "tool-call" || part.executionLocation === "provider",
+      )
       const settled = outputs.map((result) => result.payload.parts[0]!)
       return [
         {
@@ -211,6 +198,36 @@ export function projectChatModelHistory(
       const parts = record.payload.parts.flatMap((part) =>
         portableChatPart(part).map((portable) => ({ id: part.id, portable })),
       )
+      const providerEvidence = record.payload.parts.find((part) => {
+        const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
+        return (
+          (part.executionLocation === "provider" || metadata?.providerExecuted === true) &&
+          Schema.is(Schema.JsonObject)(metadata?.web)
+        )
+      })
+      const evidence = {
+        sources: new Map<string, Schema.JsonObject>(),
+        citations: new Map<string, Schema.JsonObject>(),
+      }
+      // Native activity parts share the record's aggregate evidence. Replay it once.
+      for (const part of providerEvidence ? [providerEvidence] : record.payload.parts) {
+        const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
+        const web = Schema.is(Schema.JsonObject)(metadata?.web) ? metadata.web : undefined
+        for (const key of ["sources", "citations"] as const) {
+          const items = web?.[key]
+          if (Schema.is(Schema.Array(Schema.JsonObject))(items)) {
+            for (const item of items) evidence[key].set(JSON.stringify(item), item)
+          }
+        }
+      }
+      if (evidence.sources.size || evidence.citations.size)
+        parts.push({
+          id: providerEvidence?.id ?? record.payload.parts[0]!.id,
+          portable: {
+            type: "text",
+            content: `Saved web evidence: ${JSON.stringify({ sources: [...evidence.sources.values()], citations: [...evidence.citations.values()] })}`,
+          },
+        })
       if (parts.length === 0) return []
       messages = convertMessagesToModelMessages([
         {
