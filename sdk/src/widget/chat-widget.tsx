@@ -165,9 +165,11 @@ export function ChatWidget({
     identity: "",
     threads: new Map<string, typeof EMPTY_DRAFT>(),
   })
+  const [submittedAttachmentIds, setSubmittedAttachmentIds] = useState(new Set<string>())
   const draftIdentity =
     auth.status === "ready" ? authenticationIdentity(auth.currentUser) : drafts.identity
   if (drafts.apiUrl !== apiUrl || drafts.identity !== draftIdentity) {
+    setSubmittedAttachmentIds(new Set())
     setDrafts({
       apiUrl,
       identity: draftIdentity,
@@ -183,7 +185,6 @@ export function ChatWidget({
   const uploads = useMemo(() => attachmentUploadState(chat), [chat])
   useEffect(() => () => disposeAttachmentUploads(uploads), [uploads, apiUrl, draftIdentity])
   const pendingAttachmentWrites = useRef(new Set<string>())
-  const [submittedAttachmentIds, setSubmittedAttachmentIds] = useState(new Set<string>())
   useEffect(() => {
     if (auth.status !== "ready" || chatState.threadLoading || composer.attachmentsLoaded) return
     let cancelled = false
