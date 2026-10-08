@@ -26,6 +26,7 @@ test("transport and authentication errors keep private diagnostics out of the UI
       authError={authError}
       onAuthRetry={undefined}
       attachments={[]}
+      lockedAttachmentIds={new Set()}
       attachmentLimits={resolveAttachmentOptions(false)}
       onAddFiles={() => {}}
       onRemoveAttachment={() => {}}

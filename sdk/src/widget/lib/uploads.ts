@@ -1,3 +1,4 @@
+import { isAstralBeamApiError } from "../../api/api.ts"
 import type { AstralBeamChatCore } from "../../core/session.ts"
 import type { DraftAttachment } from "./types.ts"
 
@@ -86,6 +87,23 @@ export function attachmentUploadPreview({
 
 export function pauseAttachmentUpload({ uploads, id }: { uploads: AttachmentUploads; id: string }) {
   uploads.tasks.get(id)?.abort()
+}
+
+export async function getAttachmentUpload({
+  chat,
+  id,
+  signal,
+}: {
+  chat: AstralBeamChatCore
+  id: string
+  signal?: AbortSignal
+}) {
+  try {
+    return await chat.getUpload(id, signal)
+  } catch (error) {
+    if (isAstralBeamApiError(error) && error.status === 404) return undefined
+    throw error
+  }
 }
 
 async function uploadParts({
@@ -181,12 +199,20 @@ export function startAttachmentUpload({
         files.delete(draft.id)
         throw new Error("Choose the original file to resume this upload.")
       }
-      const saved = draft.sessionId ? await chat.getUpload(draft.sessionId, signal) : undefined
+      const saved = draft.sessionId
+        ? await getAttachmentUpload({ chat, id: draft.sessionId, signal })
+        : undefined
       const session =
         saved && saved.status !== "expired" && saved.status !== "cancelled"
           ? saved
           : await chat.prepareUpload(
-              { filename: draft.name, contentType: draft.mimeType, byteSize: file.size, sha256 },
+              {
+                filename: draft.name,
+                contentType: draft.mimeType,
+                byteSize: file.size,
+                sha256,
+                ...(draft.agentId ? { agentId: draft.agentId } : {}),
+              },
               signal,
             )
       settle({ sessionId: session.id, sha256 })

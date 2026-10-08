@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime, Stream } from "effect"
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { Database, getAuthDatabase } from "@/db/database.server"
@@ -142,6 +142,32 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
     expect(
       (await db.select().from(multipartDeletion)).filter((row) => row.uploadId === null),
     ).toHaveLength(pendingBefore + 11)
+    expect((await runtime.runPromise(uploads.prepare(scope, input))).status).toBe("pending")
+  })
+
+  test("a pending-state database failure frees its unissued session and retains provider cleanup", async () => {
+    const before = (await db.select().from(multipartDeletion)).length
+    await db.execute(
+      sql`CREATE FUNCTION reject_pending_upload() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.status = 'pending' THEN RAISE EXCEPTION 'test pending update failure'; END IF; RETURN NEW; END $$`,
+    )
+    await db.execute(
+      sql`CREATE TRIGGER reject_pending_upload BEFORE UPDATE ON file_upload FOR EACH ROW EXECUTE FUNCTION reject_pending_upload()`,
+    )
+    try {
+      for (let attempt = 0; attempt < 11; attempt++)
+        await expect(runtime.runPromise(uploads.prepare(scope, input))).rejects.toMatchObject({
+          _tag: "EffectDrizzleQueryError",
+        })
+      expect(await db.select().from(fileUpload)).toHaveLength(0)
+      const targets = await db.select().from(multipartDeletion)
+      expect(targets).toHaveLength(before + 11)
+      const multipart = await runtime.runPromise(MultipartStorage)
+      const target = targets.at(-1)!
+      expect(await runtime.runPromise(multipart.find(target.objectKey))).not.toHaveLength(0)
+    } finally {
+      await db.execute(sql`DROP TRIGGER reject_pending_upload ON file_upload`)
+      await db.execute(sql`DROP FUNCTION reject_pending_upload()`)
+    }
     expect((await runtime.runPromise(uploads.prepare(scope, input))).status).toBe("pending")
   })
 
