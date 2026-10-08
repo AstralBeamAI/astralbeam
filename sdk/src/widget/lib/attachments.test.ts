@@ -243,3 +243,12 @@ test("attachments are on unless the host turns them off", () => {
   expect(resolveAttachmentOptions(false).enabled).toBe(false)
   expect(resolveAttachmentOptions({ enabled: false }).enabled).toBe(false)
 })
+
+test("provider URL media preserves allowed links and rejects active schemes", () => {
+  for (const type of ["image", "audio", "video", "document"] as const) {
+    const href = (value: string) =>
+      describeSentAttachment({ type, source: { type: "url", value, mimeType: "image/png" } }).href
+    expect(href("https://example.com/generated.png")).toBe("https://example.com/generated.png")
+    expect(href("javascript:alert(1)")).toBeUndefined()
+  }
+})

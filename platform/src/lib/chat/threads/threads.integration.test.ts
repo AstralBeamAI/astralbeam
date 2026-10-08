@@ -327,6 +327,73 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     })
   })
 
+  test("unchanged checkpoints reuse exact verified identities while migration still reads back", async () => {
+    const thread = await create()
+    const objects = ManagedRuntime.make(testStorage)
+    const storage = await objects.runPromise(ObjectStorage)
+    let reads = 0
+    const countedStorage = Layer.succeed(ObjectStorage, {
+      ...storage,
+      get: (input) => {
+        reads++
+        return storage.get(input)
+      },
+    })
+    const checkpointFiles = ManagedRuntime.make(
+      ChatFiles.layerNoDeps.pipe(
+        Layer.provide([
+          Database.layer,
+          StoredFiles.layerNoDeps.pipe(Layer.provide([Database.layer, countedStorage])),
+        ]),
+      ),
+    )
+    try {
+      const files = await checkpointFiles.runPromise(ChatFiles)
+      const part = {
+        id: crypto.randomUUID(),
+        type: "video",
+        source: {
+          type: "data",
+          value: Buffer.from("Generated clip").toString("base64"),
+          mimeType: "video/mp4",
+        },
+      }
+      const checkpoint = {
+        version: 1 as const,
+        parts: [part],
+        modelMessages: [{ role: "assistant", content: [part] }],
+      }
+      const owner = { ...scope, threadId: thread.id }
+      const first = await checkpointFiles.runPromise(
+        files.externalize(owner, checkpoint, { reuseVerified: true }),
+      )
+      expect(reads).toBe(1)
+      expect(
+        await checkpointFiles.runPromise(
+          files.externalize(owner, checkpoint, { reuseVerified: true }),
+        ),
+      ).toEqual(first)
+      expect(reads).toBe(1)
+      await checkpointFiles.runPromise(files.externalize(owner, checkpoint))
+      expect(reads).toBe(3)
+      const source = first.parts[0]!.source as { value: string }
+      await db
+        .update(fileObject)
+        .set({ sha256: "0".repeat(64) })
+        .where(eq(fileObject.id, source.value))
+      expect(
+        (
+          await checkpointFiles.runPromise(
+            files.externalize(owner, checkpoint, { reuseVerified: true }).pipe(Effect.flip),
+          )
+        )._tag,
+      ).toBe("ChatThreadStorageUnavailable")
+    } finally {
+      await checkpointFiles.dispose()
+      await objects.dispose()
+    }
+  })
+
   test("replacing checkpoint media releases only files absent from saved history", async () => {
     const thread = await create()
     const accepted = await admit(thread.id)
