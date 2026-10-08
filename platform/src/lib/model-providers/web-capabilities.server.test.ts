@@ -65,7 +65,9 @@ it.each([
 ] as const)(
   "classifies $providerType $api $modelId for creation defaults",
   ({ available, ...model }) => {
-    expect(modelWebCapabilities(model).available).toBe(available)
-    if (available === null) expect(modelWebCapabilities(model).reason).toBeNull()
+    expect(modelWebCapabilities(model)).toMatchObject({
+      available,
+      ...(available === null ? { reason: null } : {}),
+    })
   },
 )
