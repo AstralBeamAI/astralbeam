@@ -392,6 +392,63 @@ function requireRole(row: ThreadRecord, manager = false) {
     : Effect.void
 }
 
+const checkAttachmentBudget = Effect.fnUntraced(function* (
+  tx: Executor,
+  input: ThreadInput,
+  leaf: string | null,
+  payload: ChatMessagePayload,
+) {
+  const attachmentBytes = payload.parts.reduce((total, part) => {
+    const source = part.source
+    return (
+      total +
+      (Schema.is(Schema.JsonObject)(source) && typeof source.value === "string"
+        ? base64ByteLength(source.value)
+        : 0)
+    )
+  }, 0)
+  if (attachmentBytes > 0) {
+    // Enforce the restored run budget under the append lock, counting encodings in SQL
+    // so concurrent uploads cannot persist a history that normalizeChatAttachments rejects.
+    const ids = yield* historyIds(tx, input.scope, input.id, leaf)
+    const [saved] = ids.length
+      ? yield* tx
+          .select({
+            bytes:
+              sql<number>`coalesce(sum(length(encoded.value) * 3 / 4 - length(encoded.value) + length(rtrim(encoded.value, '='))), 0)`.mapWith(
+                Number,
+              ),
+          })
+          .from(chatMessagePart)
+          .innerJoin(
+            chatMessage,
+            and(
+              eq(chatMessage.organizationId, chatMessagePart.organizationId),
+              eq(chatMessage.tenantId, chatMessagePart.tenantId),
+              eq(chatMessage.threadId, chatMessagePart.threadId),
+              eq(chatMessage.id, chatMessagePart.messageId),
+            ),
+          )
+          .crossJoin(
+            sql`lateral (select regexp_replace(${chatMessagePart.payload} #>> '{source,value}', '^data:[^,]*,|[[:space:]]', '', 'g') as value) encoded`,
+          )
+          .where(
+            and(
+              chatPartWhere(input.scope, input.id),
+              eq(chatMessage.role, "user"),
+              sql`${chatMessagePart.payload}->>'type' in ('image', 'document', 'audio', 'video')`,
+              inArray(
+                chatMessagePart.messageId,
+                ids.map((item) => item.id),
+              ),
+            ),
+          )
+      : []
+    if (attachmentBytes + (saved?.bytes ?? 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+      return yield* new ChatThreadInvalid()
+  }
+})
+
 const readMessage = Effect.fnUntraced(function* (
   db: Executor,
   input: { scope: ChatReadScope; id: string },
@@ -1493,55 +1550,7 @@ export class ChatThreads extends Context.Service<
               const payload = yield* decodePayload(input.payload).pipe(
                 Effect.mapError(() => new ChatThreadInvalid()),
               )
-              const attachmentBytes = payload.parts.reduce((total, part) => {
-                const source = part.source
-                return (
-                  total +
-                  (Schema.is(Schema.JsonObject)(source) && typeof source.value === "string"
-                    ? base64ByteLength(source.value)
-                    : 0)
-                )
-              }, 0)
-              if (attachmentBytes > 0) {
-                // Enforce the restored run budget under the append lock, counting encodings in SQL
-                // so concurrent uploads cannot persist a history that normalizeChatAttachments rejects.
-                const ids = yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)
-                const [saved] = ids.length
-                  ? yield* tx
-                      .select({
-                        bytes:
-                          sql<number>`coalesce(sum(length(encoded.value) * 3 / 4 - length(encoded.value) + length(rtrim(encoded.value, '='))), 0)`.mapWith(
-                            Number,
-                          ),
-                      })
-                      .from(chatMessagePart)
-                      .innerJoin(
-                        chatMessage,
-                        and(
-                          eq(chatMessage.organizationId, chatMessagePart.organizationId),
-                          eq(chatMessage.tenantId, chatMessagePart.tenantId),
-                          eq(chatMessage.threadId, chatMessagePart.threadId),
-                          eq(chatMessage.id, chatMessagePart.messageId),
-                        ),
-                      )
-                      .crossJoin(
-                        sql`lateral (select regexp_replace(${chatMessagePart.payload} #>> '{source,value}', '^data:[^,]*,|[[:space:]]', '', 'g') as value) encoded`,
-                      )
-                      .where(
-                        and(
-                          chatPartWhere(input.scope, input.id),
-                          eq(chatMessage.role, "user"),
-                          sql`${chatMessagePart.payload}->>'type' in ('image', 'document', 'audio', 'video')`,
-                          inArray(
-                            chatMessagePart.messageId,
-                            ids.map((item) => item.id),
-                          ),
-                        ),
-                      )
-                  : []
-                if (attachmentBytes + (saved?.bytes ?? 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
-                  return yield* new ChatThreadInvalid()
-              }
+              yield* checkAttachmentBudget(tx, input, row.currentLeafMessageId, payload)
               const invocationId = crypto.randomUUID()
               const [userMessage] = yield* tx
                 .insert(chatMessage)
@@ -1624,6 +1633,7 @@ export class ChatThreads extends Context.Service<
                   steering: {},
                   provenance: { clientId: input.clientId },
                 }).pipe(Effect.orDie)
+                yield* checkAttachmentBudget(tx, input, thread.currentLeafMessageId, payload)
                 const [message] = yield* tx
                   .insert(chatMessage)
                   .values({

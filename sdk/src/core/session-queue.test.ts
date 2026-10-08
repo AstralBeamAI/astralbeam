@@ -22,17 +22,32 @@ const thread = {
   updated_at: "2026-10-08T00:00:00Z",
 }
 const options = { threadId, fetchAstralBeamToken: token }
+const history = (messages: object[] = []) =>
+  Response.json({ thread, messages, pending_interactions: [], page_after: null, page_before: null })
 const encode = (event: object) => new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)
 
-function network() {
+function network(announceTurn = true) {
   const requests: Array<{ key: string | null; body: { messages: unknown[] } }> = []
   const steering: Array<{ key: string | null; body: unknown }> = []
   let controller: ReadableStreamDefaultController<Uint8Array>
+  let historyResponse = () => Promise.resolve(history())
   let steeringResponse = () =>
     Promise.resolve(
       Response.json({ thread_id: threadId, accepted_message_id: "guidance", thread_version: 2 }),
     )
   const emit = (event: object) => controller.enqueue(encode(event))
+  const announce = () =>
+    emit({
+      type: "CUSTOM",
+      name: "astralbeam_thread",
+      value: {
+        threadId,
+        turnMessageId: turnId,
+        turnState: "running",
+        acceptedMessageId: turnId,
+        version: 2,
+      },
+    })
   const finish = () => {
     emit({
       type: "CUSTOM",
@@ -48,16 +63,7 @@ function network() {
     if (path.endsWith("/me")) return Promise.resolve(Response.json(user))
     if (path.endsWith("/config"))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    if (path.endsWith("/messages"))
-      return Promise.resolve(
-        Response.json({
-          thread,
-          messages: [],
-          pending_interactions: [],
-          page_after: null,
-          page_before: null,
-        }),
-      )
+    if (path.endsWith("/messages")) return historyResponse()
     if (path.endsWith("/steer")) {
       steering.push({
         key: new Headers(init?.headers).get("Idempotency-Key"),
@@ -84,17 +90,7 @@ function network() {
             start(next) {
               controller = next
               emit({ type: "RUN_STARTED", threadId, runId: "run" })
-              emit({
-                type: "CUSTOM",
-                name: "astralbeam_thread",
-                value: {
-                  threadId,
-                  turnMessageId: turnId,
-                  turnState: "running",
-                  acceptedMessageId: turnId,
-                  version: 2,
-                },
-              })
+              if (announceTurn) announce()
               emit({ type: "TEXT_MESSAGE_START", messageId: "answer", role: "assistant" })
               emit({ type: "TEXT_MESSAGE_CONTENT", messageId: "answer", delta: "Working" })
             },
@@ -110,6 +106,10 @@ function network() {
     steering,
     emit,
     finish,
+    announce,
+    setHistoryResponse: (next: typeof historyResponse) => {
+      historyResponse = next
+    },
     setSteeringResponse: (next: typeof steeringResponse) => {
       steeringResponse = next
     },
@@ -125,6 +125,67 @@ beforeEach(() => {
   })
 })
 afterEach(() => vi.unstubAllGlobals())
+
+test("a new send clears the previous turn before steering can target it", async () => {
+  const net = network(false)
+  net.setHistoryResponse(() =>
+    Promise.resolve(
+      history([
+        {
+          id: "previous",
+          role: "user",
+          turn_message_id: null,
+          turn_state: "completed",
+          author_tenant_user_id: "user",
+          parts: [],
+        },
+      ]),
+    ),
+  )
+  const chat = createAstralBeamChat(options)
+  try {
+    await vi.waitFor(() => expect(chat.getState().activeTurnId).toBe("previous"))
+    const active = chat.sendMessage("Next turn")
+    await vi.waitFor(() => expect(chat.getState().status).toBe("streaming"))
+    expect(chat.getState().activeTurnId).toBeUndefined()
+    await chat.sendMessage("Use blue", undefined, { whenBusy: "steer" })
+    expect(net.steering).toHaveLength(0)
+    expect(chat.getState().pendingMessages.at(-1)?.status).toBe("queued")
+    net.announce()
+    await vi.waitFor(() => expect(chat.getState().activeTurnId).toBe(turnId))
+    await chat.steerPendingMessage(chat.getState().pendingMessages.at(-1)!.id)
+    expect(net.steering[0]?.body).toMatchObject({ turn_message_id: turnId })
+    net.finish()
+    await active
+  } finally {
+    chat.dispose()
+  }
+})
+
+test("explicit resume during hydration drains after the page is applied", async () => {
+  const net = network()
+  let release!: (response: Response) => void
+  net.setHistoryResponse(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  const chat = createAstralBeamChat(options)
+  try {
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"))
+    await chat.sendMessage("After hydration")
+    await chat.resumeQueue()
+    expect(net.requests).toHaveLength(0)
+    net.setHistoryResponse(() => Promise.resolve(history()))
+    release(history())
+    await vi.waitFor(() => expect(net.requests).toHaveLength(1))
+    net.finish()
+    await vi.waitFor(() => expect(chat.getState().pendingMessages).toEqual([]))
+  } finally {
+    chat.dispose()
+  }
+})
 
 test("busy sends retain FIFO and receipts while editing holds delivery after completion", async () => {
   const net = network()

@@ -836,54 +836,67 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(admitted.thread.updatedAt.getTime()).toBeGreaterThanOrEqual(afterWait.getTime())
   })
 
-  test("counts uploads only in their thread and rejects concurrent uploads beyond its budget", async () => {
-    const thread = await create()
-    const file = Buffer.alloc(10 * 1024 * 1024, " ")
-    file.write("%PDF-1.7")
-    const upload = () =>
-      service.admit({
-        scope,
-        id: thread.id,
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: crypto.randomUUID(),
-              type: "document",
-              source: { type: "data", value: file.toString("base64"), mimeType: "application/pdf" },
-            },
-          ],
-        },
+  test.each(["message", "steering"])(
+    "counts uploads in their thread and rejects concurrent %s beyond its budget",
+    async (mode) => {
+      const thread = await create()
+      const file = Buffer.alloc(10 * 1024 * 1024, " ")
+      file.write("%PDF-1.7")
+      const uploadPayload = (): ChatMessagePayload => ({
+        version: 1,
+        provenance: { clientId: targetA },
+        parts: [
+          {
+            id: crypto.randomUUID(),
+            type: "document",
+            source: { type: "data", value: file.toString("base64"), mimeType: "application/pdf" },
+          },
+        ],
       })
-    await runtime.runPromise(upload())
-    const separate = await runtime.runPromise(service.create({ scope: other }))
-    const [original] = await db
-      .select()
-      .from(chatMessage)
-      .where(and(eq(chatMessage.threadId, thread.id), eq(chatMessage.role, "user")))
-    await db.insert(chatMessage).values({ ...original!, threadId: separate.id })
-    const results = await Promise.allSettled([
-      runtime.runPromise(upload()),
-      runtime.runPromise(upload()),
-    ])
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
-    expect(results.find((result) => result.status === "rejected")).toMatchObject({
-      reason: { _tag: "ChatThreadInvalid" },
-    })
-    expect(
-      await db
-        .select({ id: chatMessage.id })
+      const first = await runtime.runPromise(
+        service.admit({ scope, id: thread.id, payload: uploadPayload() }),
+      )
+      const upload = () =>
+        mode === "message"
+          ? service.admit({ scope, id: thread.id, payload: uploadPayload() }).pipe(Effect.asVoid)
+          : service
+              .steer({
+                scope,
+                id: thread.id,
+                turnMessageId: first.inputMessage.id,
+                clientId: targetA,
+                payload: uploadPayload(),
+              })
+              .pipe(Effect.asVoid)
+      const separate = await runtime.runPromise(service.create({ scope: other }))
+      const [original] = await db
+        .select()
         .from(chatMessage)
-        .where(eq(chatMessage.threadId, thread.id)),
-    ).toHaveLength(4)
-    await admit(thread.id)
-    expect(
-      await db
-        .select({ id: chatMessage.id })
-        .from(chatMessage)
-        .where(eq(chatMessage.threadId, thread.id)),
-    ).toHaveLength(6)
-  })
+        .where(and(eq(chatMessage.threadId, thread.id), eq(chatMessage.role, "user")))
+      await db.insert(chatMessage).values({ ...original!, threadId: separate.id })
+      const results = await Promise.allSettled([
+        runtime.runPromise(upload()),
+        runtime.runPromise(upload()),
+      ])
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+      expect(results.find((result) => result.status === "rejected")).toMatchObject({
+        reason: { _tag: "ChatThreadInvalid" },
+      })
+      expect(
+        await db
+          .select({ id: chatMessage.id })
+          .from(chatMessage)
+          .where(eq(chatMessage.threadId, thread.id)),
+      ).toHaveLength(mode === "message" ? 4 : 3)
+      await admit(thread.id)
+      expect(
+        await db
+          .select({ id: chatMessage.id })
+          .from(chatMessage)
+          .where(eq(chatMessage.threadId, thread.id)),
+      ).toHaveLength(mode === "message" ? 6 : 5)
+    },
+  )
 
   test("retains a manager while allowing a second manager to remove themselves", async () => {
     const thread = await create()

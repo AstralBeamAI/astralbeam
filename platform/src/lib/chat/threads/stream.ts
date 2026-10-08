@@ -524,6 +524,6 @@ export async function* managedChatDelivery(input: {
       type: EventType.RUN_ERROR,
       code: "turn_limit",
       message:
-        "The response reached its limit. Send a new message to continue with your saved guidance.",
+        "The response reached its limit. Review guidance marked as not delivered and resend it in a new message.",
     }
 }

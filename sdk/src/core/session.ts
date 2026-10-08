@@ -838,8 +838,10 @@ export function createAstralBeamChat(
           // Complete loading after ChatClient applies the page, including hydration on React remount.
           const settled = (failed: boolean) =>
             queueMicrotask(() => {
-              if (generation === selectionGeneration && readGeneration === historyGeneration)
+              if (generation === selectionGeneration && readGeneration === historyGeneration) {
                 update({ threadLoading: false, threadLoadFailed: failed })
+                if (!failed) void drainQueue()
+              }
             })
           void read.then(
             () => settled(false),
@@ -1310,7 +1312,7 @@ export function createAstralBeamChat(
       liveToolCalls.clear()
       scopeCompletedToolCalls()
       liveToolMessageIds.clear()
-      update({ activeToolCallIds: [] })
+      update({ activeToolCallIds: [], activeTurnId: undefined, activeTurnState: undefined })
     }
     pendingSend.callbacks ??= callbacks
     entry.status = "sending"
