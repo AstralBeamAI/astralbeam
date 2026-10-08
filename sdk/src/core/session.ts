@@ -356,6 +356,7 @@ export function createAstralBeamChat(
   let capabilitiesGeneration = 0
   let capabilityIdentity: string | undefined
   const resolveCapabilities = async () => {
+    update({ capabilities: { attachments: state.capabilities.attachments } })
     const generation = ++capabilitiesGeneration
     const selection = selectionGeneration
     if (state.thread?.agentId === null) {
@@ -1376,7 +1377,7 @@ export function createAstralBeamChat(
       return response.blob()
     },
     prepareUpload: async (input, signal) => {
-      const agentId = state.thread?.agentId ?? live.agentId
+      const agentId = input.agentId ?? state.thread?.agentId ?? live.agentId
       return prepareChatUpload(
         { ...input, ...(agentId ? { agentId } : {}) },
         await uploadOptions(signal),

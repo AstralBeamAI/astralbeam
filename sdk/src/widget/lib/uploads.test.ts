@@ -8,6 +8,8 @@ import {
   resumeAttachmentUpload,
   disposeAttachmentUploads,
   releaseAttachmentUpload,
+  removeAttachmentUpload,
+  getAttachmentUpload,
 } from "./uploads.ts"
 
 afterEach(() => vi.unstubAllGlobals())
@@ -132,7 +134,9 @@ test("upload work caps two files and four part requests, and pause releases queu
       }
     },
   )
-  const prepareUpload = vi.fn(() => Promise.resolve({ ...session, byteSize: 9 * 1024 * 1024 }))
+  const prepareUpload = vi.fn((_input: unknown) =>
+    Promise.resolve({ ...session, byteSize: 9 * 1024 * 1024 }),
+  )
   const chat = {
     prepareUpload,
     getUpload: vi.fn(() => Promise.resolve({ ...session, byteSize: 9 * 1024 * 1024 })),
@@ -147,7 +151,7 @@ test("upload work caps two files and four part requests, and pause releases queu
   for (const id of ["first", "second", "queued"])
     startAttachmentUpload({
       uploads,
-      draft: { ...draft, id, size: file.size },
+      draft: { ...draft, id, size: file.size, agentId: "origin-agent" },
       file,
       settle: () => {},
     })
@@ -156,6 +160,7 @@ test("upload work caps two files and four part requests, and pause releases queu
   pauseAttachmentUpload({ uploads, id: "first" })
   await vi.waitFor(() => expect(prepareUpload).toHaveBeenCalledTimes(3))
   expect(peak).toBe(4)
+  expect(prepareUpload.mock.calls.at(-1)?.[0]).toMatchObject({ agentId: "origin-agent" })
   disposeAttachmentUploads(uploads)
 })
 
@@ -176,7 +181,7 @@ test("acceptance releases only submitted browser resources without cancelling cl
   disposeAttachmentUploads(uploads)
 })
 
-test.each(["expired", "cancelled"] as const)(
+test.each(["expired", "cancelled", "missing"] as const)(
   "retry prepares a replacement for a %s session",
   async (status) => {
     const prepareUpload = vi.fn(() =>
@@ -188,13 +193,17 @@ test.each(["expired", "cancelled"] as const)(
       }),
     )
     const chat = {
-      getUpload: vi.fn((id) =>
-        Promise.resolve(
+      getUpload: vi.fn((id) => {
+        if (id === "old" && status === "missing")
+          return Promise.reject(
+            Object.assign(new Error("Not found"), { name: "AstralBeamApiError", status: 404 }),
+          )
+        return Promise.resolve(
           id === "old"
             ? { ...session, status }
             : { ...session, status: "completed", fileId: "new-file" },
-        ),
-      ),
+        )
+      }),
       prepareUpload,
       completeUpload: vi.fn(() =>
         Promise.resolve({ ...session, status: "completed", fileId: "new-file" }),
@@ -216,3 +225,33 @@ test.each(["expired", "cancelled"] as const)(
     disposeAttachmentUploads(uploads)
   },
 )
+
+test("missing sessions recover while transient API failures retain their identity", async () => {
+  const chat = {
+    getUpload: vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error("Not found"), { name: "AstralBeamApiError", status: 404 }),
+      ),
+  } as unknown as AstralBeamChatCore
+  expect(await getAttachmentUpload({ chat, id: "removed" })).toBeUndefined()
+  const unavailable = Object.assign(new Error("Unavailable"), {
+    name: "AstralBeamApiError",
+    status: 503,
+  })
+  vi.mocked(chat.getUpload).mockRejectedValue(unavailable)
+  await expect(getAttachmentUpload({ chat, id: "retryable" })).rejects.toBe(unavailable)
+})
+
+test("discarding a paused draft cancels its server session and releases its browser resources", () => {
+  const cancelUpload = vi.fn(() => Promise.resolve())
+  const uploads = attachmentUploadState({ cancelUpload } as unknown as AstralBeamChatCore)
+  uploads.files.set(draft.id, new File(["hello"], "note.txt"))
+  const controller = new AbortController()
+  uploads.tasks.set(draft.id, controller)
+  removeAttachmentUpload({ uploads, draft: { ...draft, sessionId: "pending", status: "paused" } })
+  expect(controller.signal.aborted).toBe(true)
+  expect(uploads.files.size).toBe(0)
+  expect(cancelUpload).toHaveBeenCalledExactlyOnceWith("pending")
+  disposeAttachmentUploads(uploads)
+})

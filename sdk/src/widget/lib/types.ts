@@ -53,6 +53,7 @@ export interface DraftAttachment {
   mimeType: string
   kind?: AttachmentKind | undefined
   status: "reading" | "uploading" | "paused" | "reselect" | "ready" | "error"
+  agentId?: string | undefined
   sessionId?: string | undefined
   sha256?: string | undefined
   fileId?: string | undefined

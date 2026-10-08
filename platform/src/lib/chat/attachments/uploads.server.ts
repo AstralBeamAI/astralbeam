@@ -164,7 +164,24 @@ export class Uploads extends Context.Service<
             }),
           )
           .pipe(mapDatabaseErrors())
-        const uploadId = yield* safeStorage(multipart.create(row.objectKey, row.contentType)).pipe(
+        return yield* Effect.gen(function* () {
+          const uploadId = yield* safeStorage(multipart.create(row.objectKey, row.contentType))
+          const [pending] = yield* db
+            .update(fileUpload)
+            .set({ uploadId, status: "pending" })
+            .where(and(uploadOwnerWhere(scope, row.id), eq(fileUpload.status, "preparing")))
+            .returning()
+            .pipe(mapDatabaseErrors())
+          if (!pending) {
+            yield* db
+              .insert(multipartDeletion)
+              .values({ objectKey: row.objectKey, uploadId })
+              .onConflictDoNothing()
+              .pipe(mapDatabaseErrors())
+            return yield* new UploadConflict()
+          }
+          return uploadResource(pending)
+        }).pipe(
           Effect.onError(() =>
             db
               .delete(fileUpload)
@@ -172,21 +189,6 @@ export class Uploads extends Context.Service<
               .pipe(mapDatabaseErrors(), Effect.asVoid),
           ),
         )
-        const [pending] = yield* db
-          .update(fileUpload)
-          .set({ uploadId, status: "pending" })
-          .where(and(uploadOwnerWhere(scope, row.id), eq(fileUpload.status, "preparing")))
-          .returning()
-          .pipe(mapDatabaseErrors())
-        if (!pending) {
-          yield* db
-            .insert(multipartDeletion)
-            .values({ objectKey: row.objectKey, uploadId })
-            .onConflictDoNothing()
-            .pipe(mapDatabaseErrors())
-          return yield* new UploadConflict()
-        }
-        return uploadResource(pending)
       })
       const sign = Effect.fn("Uploads.sign")(function* (
         scope: ChatThreadScope,
