@@ -16,3 +16,12 @@ export class StorageObjectMissing extends Schema.TaggedError<StorageObjectMissin
 ) {
   override readonly message = "The file is unavailable"
 }
+
+export class StorageDestinationLocked extends Schema.TaggedError<StorageDestinationLocked>()(
+  "StorageDestinationLocked",
+  {},
+  { httpApiStatus: 409 },
+) {
+  override readonly message =
+    "The file storage destination is locked. Moving stored files requires a storage migration."
+}

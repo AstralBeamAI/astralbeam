@@ -24,7 +24,9 @@ test.runIf(Boolean(process.env.S3_TEST_ENDPOINT))("S3-compatible object round tr
   const layer = ObjectStorage.layerNoDeps.pipe(
     Layer.provide(
       Layer.succeed(Config, {
+        reserveStorageDestination: () => Effect.void,
         snapshot: Effect.succeed({
+          issues: [],
           values: {
             s3_endpoint: settings.endpoint,
             s3_region: settings.region,

@@ -70,16 +70,18 @@ export class ObjectStorage extends Context.Service<
     ObjectStorage,
     Effect.gen(function* () {
       const config = yield* Config
-      const settings = Effect.map(config.snapshot, ({ values }) =>
-        Schema.decodeUnknownOption(StorageConnectionSchema)({
+      const settings = Effect.map(config.snapshot, ({ values, issues }) => {
+        if (issues.some((issue) => issue.key.startsWith("s3_")))
+          return Option.none<StorageConnection>()
+        return Schema.decodeUnknownOption(StorageConnectionSchema)({
           endpoint: values.s3_endpoint,
           region: values.s3_region,
           bucket: values.s3_bucket,
           accessKeyId: values.s3_access_key_id,
           secretAccessKey: values.s3_secret_access_key,
           pathStyle: values.s3_path_style === "true",
-        }),
-      ).pipe(
+        })
+      }).pipe(
         Effect.flatMap((value) =>
           Option.isSome(value)
             ? Effect.succeed(value.value)
@@ -142,17 +144,25 @@ export class ObjectStorage extends Context.Service<
       return ObjectStorage.of({
         put: Effect.fn("ObjectStorage.put")((input) =>
           withClient((client, connection) =>
-            storageRequest((abortSignal) =>
-              client.send(
-                new PutObjectCommand({
-                  Bucket: connection.bucket,
-                  Key: input.key,
-                  Body: input.bytes,
-                  ContentType: input.contentType,
-                }),
-                { abortSignal },
+            config.reserveStorageDestination(connection).pipe(
+              Effect.catchTag("StorageDestinationLocked", () =>
+                Effect.fail(new StorageUnavailable()),
               ),
-            ).pipe(Effect.asVoid),
+              Effect.andThen(
+                storageRequest((abortSignal) =>
+                  client.send(
+                    new PutObjectCommand({
+                      Bucket: connection.bucket,
+                      Key: input.key,
+                      Body: input.bytes,
+                      ContentType: input.contentType,
+                    }),
+                    { abortSignal },
+                  ),
+                ),
+              ),
+              Effect.asVoid,
+            ),
           ),
         ),
         get: Effect.fn("ObjectStorage.get")((input) =>

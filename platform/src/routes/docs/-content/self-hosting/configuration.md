@@ -112,6 +112,8 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 
 The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
 
+The first application upload pins the endpoint, region, bucket, and addressing mode. These values cannot change afterwards until a storage migration is available. Credential rotation remains supported. A failed first upload can also pin the destination because the server reserves it before contacting storage, preventing concurrent configuration changes from losing an object.
+
 ## Model providers
 
 Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.

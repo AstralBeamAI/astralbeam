@@ -139,7 +139,14 @@ describe("configuration registry", () => {
       }),
     )
     assert.include(serialized, "turnstile-site-key")
-    for (const secret of ["google-secret", "resend-secret", SECRET, "turnstile-secret-key"]) {
+    for (const secret of [
+      "google-secret",
+      "resend-secret",
+      SECRET,
+      "turnstile-secret-key",
+      COMPLETE_VALUES.s3_access_key_id,
+      COMPLETE_VALUES.s3_secret_access_key,
+    ]) {
       assert.notInclude(serialized, secret)
     }
   })
