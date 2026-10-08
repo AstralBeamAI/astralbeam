@@ -2,6 +2,37 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { expect, test, vi } from "vitest"
 import { slotNameForToolCall } from "../lib/utils.ts"
 import { ChatTranscript } from "./chat-transcript.tsx"
+import { AssistantPart } from "./assistant-part.tsx"
+import type { ChatToolCallPart } from "../../core/threads.ts"
+
+test.each([
+  ["web_search", "input-streaming", "Searching the web", true],
+  ["web_fetch", "input-complete", "Reading web pages", true],
+  ["web_search", "complete", "Searched the web", false],
+  ["web_fetch", "error", "Web retrieval failed", false],
+] as const)("native %s activity with state %s reflects progress", (name, state, label, running) => {
+  const part: ChatToolCallPart = {
+    type: "tool-call",
+    id: "native",
+    name,
+    state,
+    arguments: "{}",
+    metadata: { providerExecuted: true },
+  }
+  const html = renderToStaticMarkup(
+    <AssistantPart
+      part={part}
+      apiUrl="http://localhost/api"
+      widgets={{}}
+      toolTitles={{}}
+      activeSlots={new Map()}
+      interactiveToolIds={new Set()}
+      onQuestionnaireAnswers={vi.fn()}
+    />,
+  )
+  expect(html).toContain(label)
+  expect(html.includes('aria-live="polite"')).toBe(running)
+})
 
 test.each(["render_widget", "ask_questionnaire"])(
   "read-only transcripts show saved %s without interactive controls or live progress",

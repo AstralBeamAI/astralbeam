@@ -332,7 +332,8 @@ export function publicChatWebPart<T extends typeof Schema.JsonObject.Type>(part:
     return {
       ...part,
       metadata: { ...(metadata.providerExecuted === true ? { providerExecuted: true } : {}), web },
-      ...(metadata.providerExecuted === true
+      ...(metadata.providerExecuted === true &&
+      (part.state === "complete" || metadata.failed === true)
         ? {
             output:
               metadata.failed === true
