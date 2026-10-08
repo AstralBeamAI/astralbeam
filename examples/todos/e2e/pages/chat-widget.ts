@@ -46,6 +46,15 @@ export function chatWidget(page: Page) {
       return composer
     },
 
+    sendButton(): Locator {
+      return sendButton
+    },
+
+    async selectConversation(title: string): Promise<void> {
+      await root.getByRole("combobox", { name: "Show older chats", exact: true }).click()
+      await page.getByRole("option", { name: title, exact: true }).click()
+    },
+
     /** The composer's bottom row. Its middle is padding between the attach and send buttons. */
     composerButtonRow(): Locator {
       return root.locator('[data-slot="input-group-addon"][data-align="block-end"]')
@@ -146,8 +155,9 @@ export function chatWidget(page: Page) {
       return root.getByRole("button", { name: label })
     },
 
-    async attach(filePath: string): Promise<void> {
-      await root.locator('input[type="file"]').setInputFiles(filePath)
+    async attach(files: Parameters<Locator["setInputFiles"]>[0]): Promise<void> {
+      await expect(root.getByRole("button", { name: "Attach files", exact: true })).toBeEnabled()
+      await root.locator('input[type="file"]').setInputFiles(files)
     },
 
     attachmentChip(name: string): Locator {
