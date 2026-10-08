@@ -50,13 +50,6 @@ export function chatWidget(page: Page) {
       return sendButton
     },
 
-    attachmentPreview(name: string): Locator {
-      return root
-        .locator('[data-slot="attachment"]')
-        .filter({ has: page.getByRole("button", { name: `Remove ${name}`, exact: true }) })
-        .locator("img")
-    },
-
     async selectConversation(title: string): Promise<void> {
       await root.getByRole("combobox", { name: "Show older chats", exact: true }).click()
       await page.getByRole("option", { name: title, exact: true }).click()
