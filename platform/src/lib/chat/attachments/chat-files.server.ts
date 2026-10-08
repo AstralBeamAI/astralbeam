@@ -175,22 +175,34 @@ export class ChatFiles extends Context.Service<
             ? (message.content as readonly Schema.Json[]).filter(Schema.is(Schema.JsonObject))
             : [],
         )
+        let count = 0
+        let total = 0
+        const copies = new Map<string, number>()
         for (const entries of [payload.parts, continuation]) {
-          let count = 0
-          let total = 0
+          const representation = new Map<string, number>()
           for (const part of entries) {
             if (!chatMediaPart(part)) continue
             const source = part.source
             const stored = storedChatMediaSource(part)
+            let key: string, size: number
             if (Option.isSome(stored)) {
-              total += (yield* findPrepared(scope, stored.value.value)).byteSize
+              const file = yield* findPrepared(scope, stored.value.value)
+              size = file.byteSize
+              key = `${file.sha256}:${file.contentType}`
             } else if (Schema.is(Schema.JsonObject)(source) && source.type === "data") {
               const bytes =
                 typeof source.value === "string" ? decodeAttachmentBytes(source.value) : null
               if (!bytes) return yield* new ChatThreadInvalid()
-              total += bytes.length
+              size = bytes.length
+              key = `${createHash("sha256").update(bytes).digest("hex")}:${normalizeMimeType(source.mimeType) || "application/octet-stream"}`
             } else continue
+            const occurrence = (representation.get(key) ?? 0) + 1
+            representation.set(key, occurrence)
+            // The same file can appear in both representations. Copies within either still count.
+            if (occurrence <= (copies.get(key) ?? 0)) continue
+            copies.set(key, occurrence)
             count += 1
+            total += size
             if (count > CHAT_ATTACHMENT_MAX_COUNT || total > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
               return yield* new ChatThreadInvalid()
           }

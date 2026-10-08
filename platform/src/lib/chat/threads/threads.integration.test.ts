@@ -908,6 +908,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       await db.select().from(chatMessagePart).where(eq(chatMessagePart.id, part!.id))
     )[0]!
     expect(savedPart.payload).toMatchObject({ source: { type: "file", value: progress[0]!.id } })
+    const related = await db.query.chatThread.findFirst({
+      where: { organizationId: scope.organizationId, tenantId: scope.tenantId, id: thread.id },
+      with: { files: { with: { file: true, thread: true } } },
+    })
+    expect(related!.files[0]!.file!.id).toBe(progress[0]!.id)
+    expect(related!.files[0]!.thread!.id).toBe(thread.id)
     const savedMessage = (
       await db.select().from(chatMessage).where(eq(chatMessage.id, admitted.inputMessage.id))
     )[0]!
@@ -991,6 +997,55 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const storage = await runtime.runPromise(StoredFiles)
     const prepare = vi.fn(() => Effect.die("Oversized generated media must not reach S3"))
     for (const oversized of [
+      {
+        version: 1 as const,
+        parts: Array.from({ length: 5 }, (_, index) => ({
+          ...media,
+          id: crypto.randomUUID(),
+          source: { ...media.source, value: Buffer.from(`Canonical ${index}`).toString("base64") },
+        })),
+        modelMessages: [
+          {
+            role: "assistant",
+            content: [
+              {
+                ...media,
+                source: {
+                  ...media.source,
+                  value: Buffer.from("Distinct continuation").toString("base64"),
+                },
+              },
+            ],
+          },
+        ],
+      },
+      {
+        version: 1 as const,
+        parts: [
+          {
+            ...media,
+            id: crypto.randomUUID(),
+            source: {
+              ...media.source,
+              value: Buffer.alloc(11 * 1024 * 1024, 1).toString("base64"),
+            },
+          },
+        ],
+        modelMessages: [
+          {
+            role: "assistant",
+            content: [
+              {
+                ...media,
+                source: {
+                  ...media.source,
+                  value: Buffer.alloc(11 * 1024 * 1024, 2).toString("base64"),
+                },
+              },
+            ],
+          },
+        ],
+      },
       {
         version: 1 as const,
         parts: Array.from({ length: 6 }, () => ({ ...media, id: crypto.randomUUID() })),
