@@ -1625,6 +1625,7 @@ export class ChatThreads extends Context.Service<
         const payload = yield* files.externalize(
           { ...input.claim.scope, threadId: input.claim.threadId },
           input.payload,
+          { reuseVerified: true },
         )
         yield* db
           .transaction((tx) =>
@@ -1758,7 +1759,9 @@ export class ChatThreads extends Context.Service<
         }) =>
           Effect.gen(function* () {
             const prepared = payload
-              ? yield* files.externalize({ ...claim.scope, threadId: claim.threadId }, payload)
+              ? yield* files.externalize({ ...claim.scope, threadId: claim.threadId }, payload, {
+                  reuseVerified: true,
+                })
               : undefined
             yield* db
               .transaction((tx) =>
