@@ -128,7 +128,7 @@ Tenant JWT resource calls require signed `user.admin: true` and are restricted t
 - Pass either `page_after` or `page_before`, not both. A null continuation means there is no page in that direction. Listings are live, not snapshots.
 - PATCH sends only the fields supplied. `name: null` clears a name. Metadata replaces the whole object, and `{}` clears it.
 - Set `apiUrl` to your deployment's `/api` base and use `signal` to cancel a request.
-- Requests follow redirects by default and do not retry automatically. Use trusted API URLs and redirect destinations. A failed or aborted mutation may already have committed. Low-level JWT calls do not refresh tokens automatically.
+- API-key requests reject redirects. JWT and signed-ticket requests follow Fetch defaults unless overridden. Requests do not retry automatically. Use trusted API URLs and redirect destinations. A failed or aborted mutation may already have committed. Low-level JWT calls do not refresh tokens automatically.
 
 ```ts
 import { isAstralBeamApiError, updateTenant } from "@astralbeam/sdk/api"
@@ -159,7 +159,7 @@ The API helpers accept a token string and do not maintain a session. Tokens defa
 
 ## Chat and downloads
 
-Use the [headless chat SDK](./headless) for event parsing, tools, cancellation, and token refresh. For direct HTTP access, `getChatConfig` returns JSON, while `runChat` and `getChatFile` return native, unread `Response` objects.
+Use the [headless chat SDK](./headless.md) for event parsing, tools, cancellation, and token refresh. For direct HTTP access, `getChatConfig` returns JSON, while `runChat` and `getChatFile` return native, unread `Response` objects.
 
 ```ts
 import { getChatConfig, getChatFile, runChat } from "@astralbeam/sdk/api"

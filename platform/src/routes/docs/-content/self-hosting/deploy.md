@@ -58,9 +58,9 @@ createdb --owner=astralbeam astralbeam
 
 The application owns its schema from there. The first migration creates the `citext` extension, so the role must be permitted to run `CREATE EXTENSION`.
 
-Point `DATABASE_URL` at a transaction-pooling pooler rather than at PostgreSQL directly. The application sends prepared queries, so we must give the pooler a prepared statement allowance as well. With PgBouncer that means `pool_mode = transaction` and a non-zero `max_prepared_statements`, which the reference Compose setup sets to 200.
+Point `DATABASE_URL` at a transaction-pooling pooler rather than at PostgreSQL directly. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, use `pool_mode = transaction`. The reference Compose setup also sets `max_prepared_statements = 200` for clients that use named prepared statements.
 
-**NOTE**: A pooler in transaction mode without a prepared statement allowance fails queries as soon as a statement is prepared.
+**NOTE**: Clients that use named prepared statements need a non-zero prepared statement allowance in transaction mode.
 
 ## 3. Set the bootstrap environment
 

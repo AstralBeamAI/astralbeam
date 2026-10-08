@@ -14,7 +14,7 @@ See [authentication setup](../SETUP.md#authentication-and-transactional-email) b
 
 ## Development tools
 
-Run `deno task dev`, then open http://localhost:4500/dev. Email previews at http://localhost:4500/dev/emails use synthetic props and do not send email. Development routes return `404` in production.
+Run `deno task --cwd platform dev` from the repository root, then open http://localhost:4500/dev. Email previews at http://localhost:4500/dev/emails use synthetic props and do not send email. Development routes return `404` in production.
 
 ## Theme
 
