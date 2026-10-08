@@ -13,6 +13,7 @@ import { describe, expect, test } from "vitest"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { fetchPublicModelEndpoint } from "@/lib/model-providers/endpoints.server"
 import { createChatAdapter } from "./adapter.server"
+import { publicChatWebPart } from "./web-evidence.server"
 import { chatWebTools } from "./web.server"
 import { managedChatDelivery, managedChatMiddleware } from "./threads/stream.server"
 import { projectChatModelHistory } from "./threads/projection.server"
@@ -359,6 +360,16 @@ async function nativeWebRun(
 }
 
 describe("native web access", () => {
+  test("streamed native evidence does not complete activity before a provider result", () => {
+    const part = publicChatWebPart({
+      type: "tool-call",
+      state: "input-complete",
+      metadata: { providerExecuted: true },
+    })
+    expect(part.state).toBe("input-complete")
+    expect(part).not.toHaveProperty("output")
+  })
+
   test("interrupted native calls persist as failed activity without pending application results", async () => {
     const result = await nativeWebRun("anthropic", { cancel: true })
     expect(result.error).toMatchObject({ message: "Conversation could not be saved" })

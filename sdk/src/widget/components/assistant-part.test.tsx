@@ -3,6 +3,7 @@ import { expect, test, vi } from "vitest"
 import { slotNameForToolCall } from "../lib/utils.ts"
 import { ChatTranscript } from "./chat-transcript.tsx"
 import { AssistantPart } from "./assistant-part.tsx"
+import type { ChatToolCallPart } from "../../core/threads.ts"
 
 test.each([
   ["web_search", "input-streaming", "Searching the web", true],
@@ -10,16 +11,17 @@ test.each([
   ["web_search", "complete", "Searched the web", false],
   ["web_fetch", "error", "Web retrieval failed", false],
 ] as const)("native %s activity with state %s reflects progress", (name, state, label, running) => {
+  const part: ChatToolCallPart = {
+    type: "tool-call",
+    id: "native",
+    name,
+    state,
+    arguments: "{}",
+    metadata: { providerExecuted: true },
+  }
   const html = renderToStaticMarkup(
     <AssistantPart
-      part={{
-        type: "tool-call",
-        id: "native",
-        name,
-        state,
-        arguments: "{}",
-        metadata: { providerExecuted: true },
-      }}
+      part={part}
       apiUrl="http://localhost/api"
       widgets={{}}
       toolTitles={{}}
