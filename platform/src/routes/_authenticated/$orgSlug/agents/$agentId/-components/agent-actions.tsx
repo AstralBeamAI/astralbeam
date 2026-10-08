@@ -78,7 +78,7 @@ export function AgentActions({
     }
   }
 
-  if (!canSetDefault && !canDelete) return null
+  if ((!canSetDefault || isDefault) && !canDelete) return null
 
   return (
     <>
