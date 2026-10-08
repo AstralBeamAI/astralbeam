@@ -1,11 +1,29 @@
-import { createModel, extendAdapter } from "@tanstack/ai"
+import {
+  createModel,
+  extendAdapter,
+  EventType,
+  type ModelMessage,
+  type TextOptions,
+  type AdapterYieldChunk,
+} from "@tanstack/ai"
 import { createAnthropicChat } from "@tanstack/ai-anthropic"
 import { createOpenaiChat } from "@tanstack/ai-openai"
+import { createOpenRouterText } from "@tanstack/ai-openrouter"
+import { HTTPClient } from "@openrouter/sdk/lib/http"
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
+import { CHAT_MAX_MODEL_TURNS } from "./constants.server"
+import {
+  chatWebEvidenceChunk,
+  fetchChatWebProvider,
+  type ChatWebObservation,
+} from "./web-evidence.server"
 
-export function createChatAdapter(configuration: ChatModelConfiguration) {
+function createProviderChatAdapter(
+  configuration: ChatModelConfiguration,
+  webAccessEnabled: boolean,
+) {
   if (configuration.providerType === "openai" && configuration.api === "responses") {
     const createOpenaiModel = extendAdapter(createOpenaiChat, [
       createModel(configuration.modelId, ["text", "image", "document"]),
@@ -16,6 +34,7 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
       fetch: configuration.fetch,
       organization: null,
       project: null,
+      ...(webAccessEnabled ? { maxRetries: 0 } : {}),
     })
   }
   if (configuration.api === "anthropic-messages") {
@@ -27,6 +46,17 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
       baseURL: configuration.baseUrl,
       fetch: configuration.fetch,
       authToken: null,
+      ...(webAccessEnabled ? { maxRetries: 0 } : {}),
+    })
+  }
+  if (configuration.providerType === "openrouter" && webAccessEnabled) {
+    const createOpenRouterModel = extendAdapter(createOpenRouterText, [
+      createModel(configuration.modelId, ["text", "image", "document"]),
+    ])
+    return createOpenRouterModel(configuration.modelId, configuration.apiKey, {
+      serverURL: configuration.baseUrl,
+      httpClient: new HTTPClient({ fetcher: configuration.fetch }),
+      retryCodes: [],
     })
   }
   return openaiCompatibleText(configuration.modelId, {
@@ -38,4 +68,180 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
     api: configuration.api,
     name: configuration.providerName,
   })
+}
+
+export function createChatAdapter(configuration: ChatModelConfiguration, webAccessEnabled = false) {
+  const observation: ChatWebObservation = {
+    messages: [],
+    blocks: [],
+    inputJson: new Map(),
+    evidence: { sources: [], citations: [] },
+    usage: {},
+    stopReason: undefined,
+    requestBody: undefined,
+    continuation: undefined,
+    calls: 0,
+    textOffset: 0,
+  }
+  const adapter = createProviderChatAdapter(
+    webAccessEnabled
+      ? {
+          ...configuration,
+          fetch: (input, init) => fetchChatWebProvider(configuration, observation, input, init),
+        }
+      : configuration,
+    webAccessEnabled,
+  )
+  if (!webAccessEnabled) return adapter
+  const original = adapter.chatStream.bind(adapter) as (
+    options: TextOptions,
+  ) => AsyncIterable<AdapterYieldChunk>
+  // Preserve raw server blocks across pause_turn rather than adding a client tool-result turn.
+  // https://platform.claude.com/docs/en/agents-and-tools/tool-use/server-tools
+  adapter.chatStream = async function* (options: TextOptions): AsyncGenerator<AdapterYieldChunk> {
+    observation.messages = options.messages
+    observation.evidence = { sources: [], citations: [] }
+    observation.textOffset = 0
+    const raw: typeof observation.blocks = []
+    const calls: unknown[] = []
+    const usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+    let reportedCost: number | undefined
+    let textMessageId: string | undefined
+    let textContent = ""
+    let textEnd: Extract<AdapterYieldChunk, { type: "TEXT_MESSAGE_END" }> | undefined
+    try {
+      for (;;) {
+        if (options.request?.signal?.aborted) throw options.request.signal.reason
+        if (++observation.calls > CHAT_MAX_MODEL_TURNS) {
+          observation.blocks = raw
+          yield chatWebEvidenceChunk(observation)
+          yield {
+            type: EventType.RUN_ERROR,
+            timestamp: Date.now(),
+            code: "web_continuation_limit",
+            message: "The web operation exceeded the model-turn budget. Try a narrower request.",
+            usage: {
+              ...usage,
+              ...(reportedCost !== undefined ? { cost: reportedCost } : {}),
+              providerUsageDetails: { calls },
+            },
+          }
+          return
+        }
+        observation.blocks = []
+        observation.inputJson.clear()
+        observation.usage = {}
+        observation.stopReason = undefined
+        let finish:
+          | Extract<
+              Awaited<ReturnType<typeof original>> extends AsyncIterable<infer C> ? C : never,
+              { type: "RUN_FINISHED" }
+            >
+          | undefined
+        let failure: Extract<AdapterYieldChunk, { type: "RUN_ERROR" }> | undefined
+        // The maintained adapter rejects inline documents before serializing their supported wire format.
+        // https://github.com/TanStack/ai/blob/main/packages/ai-openrouter/src/adapters/text.ts
+        const messages =
+          configuration.providerType === "openrouter"
+            ? options.messages.map((message): ModelMessage => ({
+                ...message,
+                content: Array.isArray(message.content)
+                  ? message.content.map((part) =>
+                      part.type === "document" && part.source.type === "data"
+                        ? { type: "text", content: "[Attached document]" }
+                        : part,
+                    )
+                  : message.content,
+              }))
+            : options.messages
+        for await (const chunk of original({ ...options, messages })) {
+          if (options.request?.signal?.aborted) return
+          if (chunk.type === EventType.RUN_STARTED && observation.continuation) continue
+          if (chunk.type === EventType.TEXT_MESSAGE_START) {
+            if (textMessageId) continue
+            textMessageId = chunk.messageId
+          }
+          if (chunk.type === EventType.TEXT_MESSAGE_CONTENT && textMessageId) {
+            chunk.messageId = textMessageId
+            textContent += chunk.delta
+            chunk.content = textContent
+          }
+          if (chunk.type === EventType.TEXT_MESSAGE_END) {
+            textEnd = { ...chunk, messageId: textMessageId ?? chunk.messageId }
+            continue
+          }
+          if (chunk.type === EventType.RUN_FINISHED) {
+            finish = chunk
+            continue
+          }
+          if (chunk.type === EventType.RUN_ERROR) {
+            failure = chunk
+            if (
+              /web[_ -]?(?:search|fetch)|server[_ -]?tool|unsupported|max_tool_calls/i.test(
+                chunk.message,
+              ) ||
+              chunk.code === "400" ||
+              chunk.code === "invalid_request_error"
+            )
+              failure = {
+                ...chunk,
+                code: "web_access_unavailable",
+                message:
+                  "Web access is unavailable for this model. Ask the site owner to select a supported model or check provider web-tool permissions.",
+                error: {
+                  code: "web_access_unavailable",
+                  message: "The provider rejected this web access configuration.",
+                },
+                rawEvent: undefined,
+              }
+            continue
+          }
+          yield chunk
+        }
+        raw.push(...observation.blocks)
+        const terminal = failure ?? finish
+        calls.push({
+          ...(!Array.isArray(terminal?.usage) ? terminal?.usage : {}),
+          providerUsage: observation.usage,
+        })
+        if (terminal?.usage && !Array.isArray(terminal.usage)) {
+          usage.promptTokens += terminal.usage.promptTokens
+          usage.completionTokens += terminal.usage.completionTokens
+          usage.totalTokens += terminal.usage.totalTokens
+          if (typeof terminal.usage.cost === "number")
+            reportedCost = (reportedCost ?? 0) + terminal.usage.cost
+        }
+        if (!failure && observation.stopReason === "pause_turn") {
+          observation.textOffset += observation.blocks.reduce(
+            (length, block) => length + (typeof block.text === "string" ? block.text.length : 0),
+            0,
+          )
+          observation.continuation = {
+            messages: [
+              ...((observation.requestBody?.messages as []) ?? []),
+              { role: "assistant", content: observation.blocks },
+            ],
+          }
+          continue
+        }
+        observation.blocks = raw
+        if (textEnd) yield textEnd
+        yield chatWebEvidenceChunk(observation)
+        if (terminal)
+          yield {
+            ...terminal,
+            usage: {
+              ...(!Array.isArray(terminal.usage) ? terminal.usage : {}),
+              ...usage,
+              ...(reportedCost !== undefined ? { cost: reportedCost } : {}),
+              providerUsageDetails: { calls },
+            },
+          }
+        break
+      }
+    } finally {
+      observation.continuation = undefined
+    }
+  }
+  return adapter
 }

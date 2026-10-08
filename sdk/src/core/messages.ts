@@ -3,8 +3,17 @@ import { ASK_QUESTIONNAIRE_TOOL } from "./protocol.ts"
 
 // A tool may legitimately resolve with a null output, so "settled" checks the state
 // too; an output-only check would read such a call as still running.
-export function isSettledToolCall(part: { state: string; output?: unknown }): boolean {
-  return part.state === "complete" || part.state === "error" || part.output !== undefined
+export function isSettledToolCall(part: {
+  state: string
+  output?: unknown
+  metadata?: { providerExecuted?: unknown }
+}): boolean {
+  return (
+    part.metadata?.providerExecuted === true ||
+    part.state === "complete" ||
+    part.state === "error" ||
+    part.output !== undefined
+  )
 }
 
 // A busy stream can be silent for a while (server-side reasoning, follow-ups after tool

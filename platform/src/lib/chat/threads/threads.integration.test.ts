@@ -98,6 +98,72 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
+  test("provider web evidence completes without response slots and survives reload and provider changes", async () => {
+    const thread = await create()
+    const accepted = await admit(thread.id)
+    const evidence = {
+      sources: [{ url: "https://example.com/page", title: "Example", excerpt: "Saved excerpt" }],
+      citations: [
+        { url: "https://example.com/page", title: "Example", startIndex: 0, endIndex: 6 },
+      ],
+    }
+    const native: ChatMessagePayload = {
+      version: 1,
+      parts: [
+        {
+          id: crypto.randomUUID(),
+          type: "tool-call",
+          toolCallId: "provider-search",
+          name: "web_search",
+          arguments: "{}",
+          executionLocation: "provider",
+          targets: [],
+          state: "complete",
+          metadata: { providerExecuted: true, web: evidence },
+        },
+        { id: crypto.randomUUID(), type: "text", content: "Answer", metadata: { web: evidence } },
+      ],
+      provenance: { providerId: "original", protocol: "anthropic-messages", modelId: "model" },
+      modelMessages: [
+        {
+          id: "native",
+          role: "assistant",
+          content: "Answer",
+          metadata: {
+            astralbeamWeb: [{ type: "web_search_tool_result", content: "opaque-evidence" }],
+          },
+        },
+      ],
+    }
+    await runtime.runPromise(
+      service.checkpoint({ claim: accepted.claim!, payload: native, state: "complete" }),
+    )
+    await runtime.runPromise(service.finish({ claim: accepted.claim! }))
+    const snapshot = await runtime.runPromise(service.snapshot({ scope, id: thread.id }))
+    expect(snapshot.pending).toEqual([])
+    expect(
+      await db.select().from(chatToolResponse).where(eq(chatToolResponse.threadId, thread.id)),
+    ).toEqual([])
+    const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
+    expect(history[1]!.payload.parts).toEqual(native.parts)
+    const compatible = projectChatModelHistory(history, {
+      providerId: "original",
+      protocol: "anthropic-messages",
+      modelId: "model",
+    })
+    expect(JSON.stringify(compatible)).toContain("opaque-evidence")
+    const portable = projectChatModelHistory(history, {
+      providerId: "changed",
+      protocol: "responses",
+      modelId: "model",
+    })
+    expect(JSON.stringify(portable)).toContain("https://example.com/page")
+    expect(JSON.stringify(portable)).toContain("Saved excerpt")
+    expect(JSON.stringify(portable)).not.toContain("opaque-evidence")
+    expect(portable.some((message) => message.toolCalls?.length)).toBe(false)
+    expect((await admit(thread.id)).claim).toBeDefined()
+  })
+
   test("administrative history and uploads preserve scope without granting participant actions", async () => {
     const thread = await create()
     await runtime.runPromise(

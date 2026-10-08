@@ -1,4 +1,5 @@
 import type { UIMessage } from "@tanstack/ai-client"
+import type { WebPartMetadata } from "./web.ts"
 import type { JwtOptions } from "../api/api.ts"
 import { listChatMessages, type ChatHistoryPageEncodedMessagesItem } from "../api/generated/api.ts"
 
@@ -31,12 +32,18 @@ export interface SavedMessageMetadata {
 
 /** Application identities extend TanStack's tool part without replacing its provider identity. */
 export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool-call" }> & {
+  metadata?: WebPartMetadata
+  executionLocation?: "server_api" | "sandbox" | "browser" | "provider"
   upstreamToolCallId?: string
   applicationPartId?: string
   sourceMessageId?: string
   responseTargetId?: string
   widgetRenderId?: string
   resultOutcome?: "succeeded" | "failed" | "skipped" | "unknown"
+}
+
+export type ChatTextPart = Extract<UIMessage["parts"][number], { type: "text" }> & {
+  metadata?: WebPartMetadata
 }
 
 export function newUuid(): string {
@@ -173,7 +180,12 @@ export function projectThreadMessages(
         const savedId = savedToolCallId(message.id, String(part.id), responseTargetId)
         const call = {
           ...part,
-          id: liveToolMessageIds.get(toolCallId) === message.id ? toolCallId : savedId,
+          id:
+            part.executionLocation === "provider"
+              ? part.id
+              : liveToolMessageIds.get(toolCallId) === message.id
+                ? toolCallId
+                : savedId,
           upstreamToolCallId: toolCallId,
           applicationPartId: part.id,
           sourceMessageId: message.id,

@@ -21,6 +21,8 @@ import { InlineQuestionnaire } from "./inline-questionnaire.tsx"
 import { MarkdownMessage } from "./markdown-message.tsx"
 import { SandboxPart } from "./sandbox-part.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
+import { citedWebText, webPartMetadata } from "../../core/web.ts"
+import { WebSources } from "./web-sources.tsx"
 
 interface AssistantPartProps {
   readOnly?: boolean | undefined
@@ -208,19 +210,37 @@ export function AssistantPart({
   interactiveToolIds,
   interrupted,
 }: AssistantPartProps) {
+  const metadata = webPartMetadata(part)
   switch (part.type) {
     case "text":
       // Ghost, per the docs: assistant replies are unframed and take the container's full width.
       return (
         <Bubble variant="ghost">
           <BubbleContent>
-            <MarkdownMessage>{part.content}</MarkdownMessage>
+            <MarkdownMessage>{citedWebText(part.content, metadata)}</MarkdownMessage>
+            <WebSources metadata={metadata} />
           </BubbleContent>
         </Bubble>
       )
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
+      if (metadata.providerExecuted === true)
+        return (
+          <ToolDisclosure
+            icon={part.state === "error" ? <WarningCircleIcon /> : <CheckIcon />}
+            running={false}
+            label={
+              part.state === "error"
+                ? "Web retrieval failed"
+                : part.name === "web_fetch"
+                  ? "Read web pages"
+                  : "Searched the web"
+            }
+          >
+            <WebSources metadata={metadata} />
+          </ToolDisclosure>
+        )
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))

@@ -81,6 +81,7 @@ const sandboxedAgent: ChatAgent = {
   id: "01990a5d-ac96-774b-b942-6b13c85384cb",
   systemPrompt: "Help",
   attachmentsEnabled: false,
+  webAccessEnabled: false,
   sandboxProviderId: "01990a5d-ac96-774b-b942-6b13c85384cc",
 }
 
@@ -158,6 +159,43 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
+  it.effect.each([false, true])("only the saved agent grants web access: %s", (enabled) =>
+    Effect.gen(function* () {
+      yield* Stream.runCollect(
+        Stream.take(
+          yield* runChat({
+            webAccessEnabled: !enabled,
+            forwardedProps: { webAccessEnabled: !enabled },
+          }),
+          1,
+        ),
+      )
+      const options = chatRunTest.options[0]!
+      assert.strictEqual(
+        options.tools.some((tool) => tool.name === "web_search"),
+        enabled,
+      )
+      const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
+      const refreshed = yield* Effect.promise(async () =>
+        gate.onConfig!(
+          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
+          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
+        ),
+      )
+      assert.strictEqual(
+        refreshed?.tools?.some((tool) => tool.name === "web_search"),
+        enabled,
+      )
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({
+          agent: { ...sandboxedAgent, sandboxProviderId: null, webAccessEnabled: enabled },
+          model: CHAT_TEST_MODEL,
+        }),
+      ),
+    ),
+  )
+
   it.effect.each([true, false])(
     "suppresses tools only for this turn's unknown outcome: %s",
     (ownTurn) =>
