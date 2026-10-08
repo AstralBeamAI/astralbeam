@@ -81,4 +81,4 @@ Conversations are saved automatically and start private. Your token endpoint sup
 <AstralBeamChat threadId={threadId} /> // Open a saved thread
 ```
 
-Duplicating a tab or opening one through an opener can copy its initial session storage. The tabs maintain independent selections afterwards.
+Duplicating a tab or opening one through an opener can copy its initial session storage, including the pending draft before a conversation is saved. The tabs maintain independent selections afterwards.
