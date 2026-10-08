@@ -1,0 +1,308 @@
+import { Buffer } from "node:buffer"
+import { expect, test } from "../../fixtures.ts"
+import { chatWidget } from "../../pages/chat-widget.ts"
+import { todosPage } from "../../pages/todos-page.ts"
+import { seedTarget } from "../../worktree.ts"
+import { captureMoment } from "../../capture.ts"
+
+const thread = {
+  id: "00000000-0000-4000-8000-000000000081",
+  title: "Attachment draft",
+  agent_id: seedTarget.agentId,
+  version: 1,
+  role: "manager",
+  writer_active: false,
+  current_leaf_message_id: null,
+  created_at: "2026-10-01T00:00:00Z",
+  updated_at: "2026-10-08T00:00:00Z",
+}
+const otherThread = {
+  ...thread,
+  id: "00000000-0000-4000-8000-000000000082",
+  title: "Another draft",
+}
+const note = {
+  name: "notes.txt",
+  mimeType: "text/plain",
+  buffer: Buffer.from("Unsent file contents\n"),
+}
+const image = {
+  name: "preview.png",
+  mimeType: "image/png",
+  buffer: Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8r8AAAAASUVORK5CYII=",
+    "base64",
+  ),
+}
+const acceptedStream = [
+  { type: "RUN_STARTED", threadId: thread.id, runId: "draft-test" },
+  {
+    type: "CUSTOM",
+    name: "astralbeam_thread",
+    value: { threadId: thread.id, version: 2, acceptedMessageId: "accepted" },
+  },
+  { type: "RUN_FINISHED", threadId: thread.id, runId: "draft-test" },
+]
+  .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+  .join("")
+
+test.beforeEach(async ({ context }) => {
+  await context.route("**/api/v1/chat/threads", (route) => route.fulfill({ json: thread }))
+  await context.route(/\/api\/v1\/chat\/threads\?/, (route) =>
+    route.fulfill({ json: { items: [thread, otherThread], page_after: null, page_before: null } }),
+  )
+  await context.route("**/api/v1/chat/threads/*/messages?*", (route) =>
+    route.fulfill({
+      json: {
+        thread: route.request().url().includes(otherThread.id) ? otherThread : thread,
+        messages: [],
+        pending_interactions: [],
+        page_after: null,
+        page_before: null,
+      },
+    }),
+  )
+})
+
+test("unsent text, previews, and large files recover, and accepted files stay cleared", async ({
+  page,
+}) => {
+  const large = {
+    name: "large.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.alloc(6 * 1024 * 1024, "a"),
+  }
+  let submissions = 0
+  await page.route("**/api/v1/chat", async (route) => {
+    submissions++
+    const body = route.request().postDataJSON() as {
+      messages: Array<{
+        role: string
+        content: Array<{
+          source?: { value: string }
+          metadata?: { filename: string }
+        }>
+      }>
+    }
+    const parts = body.messages.find((message) => message.role === "user")!.content
+    expect(parts.find((part) => part.metadata?.filename === large.name)?.source?.value).toBe(
+      large.buffer.toString("base64"),
+    )
+    expect(parts.find((part) => part.metadata?.filename === image.name)?.source?.value).toBe(
+      image.buffer.toString("base64"),
+    )
+    expect(parts.some((part) => part.metadata?.filename === note.name)).toBe(false)
+    await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
+  })
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.composer().fill("  Keep my unsent question\nwith these files  ")
+  await chat.attach([note, image, large])
+  await expect(chat.sendButton()).toBeEnabled()
+  await page.reload()
+  await expect(chat.composer()).toHaveValue("  Keep my unsent question\nwith these files  ")
+  for (const file of [note, image, large])
+    await expect(chat.attachmentChip(file.name)).toBeVisible()
+  await expect(chat.attachmentPreview(image.name)).toHaveJSProperty("naturalWidth", 1)
+  expect(submissions).toBe(0)
+  await captureMoment(page, "text-image-and-large-file-recovered")
+
+  const later = { ...note, name: "later.txt" }
+  await chat.attach(later)
+  await chat.attachmentChip(note.name).click()
+  await expect(chat.sendButton()).toBeEnabled()
+  await page.reload()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  for (const file of [image, large, later])
+    await expect(chat.attachmentChip(file.name)).toBeVisible()
+  await expect(chat.sendButton()).toBeEnabled()
+  await chat.sendButton().click()
+  await expect(chat.composer()).toHaveValue("")
+  for (const file of [image, large, later])
+    await expect(chat.attachmentChip(file.name)).toHaveCount(0)
+  await page.reload()
+  await chat.waitForReady()
+  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.attachmentChip(large.name)).toHaveCount(0)
+  expect(submissions).toBe(1)
+})
+
+test("acceptance removes submitted files and preserves files and text added during the request", async ({
+  page,
+}) => {
+  let accept: (() => void) | undefined
+  await page.route("**/api/v1/chat", async (route) => {
+    await new Promise<void>((resolve) => {
+      accept = resolve
+    })
+    await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
+  })
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+  await chat.sendButton().click()
+  await expect.poll(() => accept !== undefined).toBe(true)
+  await chat.composer().fill("My next message")
+  await chat.attach(image)
+  accept!()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await expect(chat.sendButton()).toBeEnabled()
+  await page.reload()
+  await expect(chat.composer()).toHaveValue("My next message")
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await expect(chat.attachmentChip(image.name)).toBeVisible()
+})
+
+test("stale tabs preserve newer files and cannot restore accepted files", async ({
+  page,
+  context,
+}) => {
+  await context.route("**/api/v1/chat", (route) =>
+    route.fulfill({ contentType: "text/event-stream", body: acceptedStream }),
+  )
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.selectConversation(thread.title)
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+
+  const otherPage = await context.newPage()
+  await todosPage(otherPage).open()
+  const otherChat = chatWidget(otherPage)
+  await otherChat.waitForReady()
+  await otherChat.selectConversation(thread.title)
+  await expect(otherChat.attachmentChip(note.name)).toBeVisible()
+
+  await chat.attach(image)
+  await expect(chat.sendButton()).toBeEnabled()
+  const later = { ...note, name: "later.txt" }
+  await otherChat.attach(later)
+  await expect(otherChat.sendButton()).toBeEnabled()
+  await page.reload()
+  for (const file of [note, image, later])
+    await expect(chat.attachmentChip(file.name)).toBeVisible()
+  await expect(chat.sendButton()).toBeEnabled()
+  await chat.sendButton().click()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+
+  const next = { ...note, name: "next.txt" }
+  await otherChat.attach(next)
+  await expect(otherChat.sendButton()).toBeEnabled()
+  await page.reload()
+  await expect(chat.attachmentChip(next.name)).toBeVisible()
+  for (const file of [note, image, later])
+    await expect(chat.attachmentChip(file.name)).toHaveCount(0)
+  await captureMoment(page, "stale-tab-keeps-only-unsent-files")
+})
+
+test("a failed send retains its files in the newly created conversation without automatic resend", async ({
+  page,
+}) => {
+  let submissions = 0
+  await page.route("**/api/v1/chat", (route) => {
+    submissions++
+    return route.fulfill({ status: 503, json: { error: "Temporary failure" } })
+  })
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+  await chat.sendButton().click()
+  await expect(chat.errorAlert()).toBeVisible()
+  await page.reload()
+  await expect(chat.attachmentChip(note.name)).toBeVisible()
+  await expect(chat.composer()).toHaveValue("")
+  expect(submissions).toBe(1)
+  await chat.attachmentChip(note.name).click()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await page.reload()
+  await chat.waitForReady()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+})
+
+test("draft files remain isolated between conversations and accounts", async ({ page }) => {
+  let differentAccount = false
+  await page.route("**/api/v1/me", async (route) => {
+    const response = await route.fetch()
+    const body = (await response.json()) as { user: { id: string } }
+    await route.fulfill({
+      json: differentAccount
+        ? { ...body, user: { ...body.user, id: "00000000-0000-4000-8000-000000000099" } }
+        : body,
+    })
+  })
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.selectConversation(thread.title)
+  await chat.composer().fill("First conversation draft")
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+  await chat.selectConversation(otherThread.title)
+  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await chat.attach(image)
+  await expect(chat.sendButton()).toBeEnabled()
+  await page.reload()
+  await expect(chat.attachmentChip(image.name)).toBeVisible()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+
+  differentAccount = true
+  await page.reload()
+  await chat.waitForReady()
+  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.attachmentChip(image.name)).toHaveCount(0)
+  differentAccount = false
+  await page.reload()
+  await chat.waitForReady()
+  await chat.selectConversation(thread.title)
+  await expect(chat.composer()).toHaveValue("First conversation draft")
+  await expect(chat.attachmentChip(note.name)).toBeVisible()
+  await expect(chat.attachmentChip(image.name)).toHaveCount(0)
+  await chat.reset()
+  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await chat.selectConversation(thread.title)
+  await expect(chat.composer()).toHaveValue("First conversation draft")
+  await expect(chat.attachmentChip(note.name)).toBeVisible()
+})
+
+for (const failure of ["disabled", "quota"] as const) {
+  test(`${failure} browser storage does not prevent attaching or sending`, async ({ page }) => {
+    await page.addInitScript((mode) => {
+      if (mode === "disabled") {
+        Object.defineProperty(window, "indexedDB", {
+          get: () => {
+            throw new DOMException("Disabled", "SecurityError")
+          },
+        })
+      } else {
+        IDBObjectStore.prototype.put = () => {
+          throw new DOMException("Full", "QuotaExceededError")
+        }
+      }
+    }, failure)
+    await page.route("**/api/v1/chat", (route) =>
+      route.fulfill({ contentType: "text/event-stream", body: acceptedStream }),
+    )
+    await todosPage(page).open()
+    const chat = chatWidget(page)
+    await chat.waitForReady()
+    await chat.composer().fill("Still usable")
+    await chat.attach(note)
+    await expect(chat.sendButton()).toBeEnabled()
+    await expect(
+      page.getByText(
+        "Files cannot be recovered after reload because browser storage is unavailable.",
+      ),
+    ).toBeVisible()
+    await chat.sendButton().click()
+    await expect(chat.composer()).toHaveValue("")
+    await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  })
+}

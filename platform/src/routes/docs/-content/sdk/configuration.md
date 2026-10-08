@@ -60,7 +60,7 @@ chatRef.current?.stop() // stops the in-flight generation
 ## Behavior notes
 
 - Assistant replies render as Markdown. Raw HTML is escaped and executable link protocols are dropped.
-- Turning attachments off hides selected files and prevents sending them. Files remain in that conversation's in-memory draft if attachments are enabled again.
+- Turning attachments off hides selected files and prevents sending them. Ready files remain in that conversation's local draft and return when attachments are enabled again.
 - Dropping a widget from `widgets` disposes any render of it still in the transcript.
 - To defer the chat chunk, render the component only on first open. Hide with CSS afterwards, since unmounting stops the foreground response. History remains saved.
 - The host controls sidebar visibility. Persist its boolean in `sessionStorage` to restore it after reload within the same tab.
