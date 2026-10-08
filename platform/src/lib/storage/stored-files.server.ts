@@ -1,5 +1,5 @@
 import { and, eq, gt, isNull, lte, or, sql } from "drizzle-orm"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
@@ -7,6 +7,11 @@ import { fileDeletion, fileObject } from "@/db/schema/files.server"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
 import { fileSha256 } from "./images"
 import { ObjectStorage } from "./object-storage.server"
+
+class StorageIntegrityMismatch extends Schema.TaggedError<StorageIntegrityMismatch>()(
+  "StorageIntegrityMismatch",
+  {},
+) {}
 
 export type StoredFile = typeof fileObject.$inferSelect
 
@@ -32,14 +37,19 @@ export class StoredFiles extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const storage = yield* ObjectStorage
-      const read = Effect.fn("StoredFiles.read")(function* (file: StoredFile) {
+      const verifiedBytes = Effect.fn("StoredFiles.verifiedBytes")(function* (file: StoredFile) {
         const bytes = yield* storage.get({ key: file.objectKey, maxBytes: file.byteSize })
         if (bytes.length !== file.byteSize || (yield* fileSha256(bytes)) !== file.sha256)
-          return yield* new StorageUnavailable()
+          return yield* new StorageIntegrityMismatch()
         return bytes
       })
+      const read = Effect.fn("StoredFiles.read")((file: StoredFile) =>
+        verifiedBytes(file).pipe(
+          Effect.catchTag("StorageIntegrityMismatch", () => Effect.fail(new StorageUnavailable())),
+        ),
+      )
       const verifyPrepared = Effect.fn("StoredFiles.verifyPrepared")(function* (file: StoredFile) {
-        yield* read(file)
+        yield* verifiedBytes(file)
         const [verified] = yield* db
           .update(fileObject)
           .set({ verifiedAt: sql`now()` })
@@ -101,6 +111,7 @@ export class StoredFiles extends Context.Service<
           Effect.catchTag("StorageObjectMissing", () =>
             upload.pipe(Effect.andThen(verifyPrepared(file))),
           ),
+          Effect.catchTag("StorageIntegrityMismatch", () => Effect.fail(new StorageUnavailable())),
         )
       })
       const resume = Effect.fn("StoredFiles.resume")(function* (sourceIdentity: string) {
@@ -115,6 +126,9 @@ export class StoredFiles extends Context.Service<
         if (!file) return null
         return yield* verifyPrepared(file).pipe(
           Effect.catchTag("StorageObjectMissing", () => Effect.succeed(null)),
+          Effect.catchTag("StorageIntegrityMismatch", () =>
+            file.verifiedAt ? Effect.fail(new StorageUnavailable()) : Effect.succeed(null),
+          ),
         )
       })
       const cleanup = Effect.gen(function* () {

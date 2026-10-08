@@ -101,6 +101,7 @@ export const organizationImageHooks = {
     return { data: { logo: null } }
   },
   afterCreateOrganization: async (input) => {
+    await organizationProvisioningHooks.afterCreateOrganization(input)
     const state = await requests.get()
     if (state.logoFileId)
       input.organization.logo = await runAppEffect(
@@ -118,18 +119,12 @@ export const organizationImageHooks = {
           ),
         ),
       )
-    await organizationProvisioningHooks.afterCreateOrganization(input)
   },
   beforeUpdateOrganization: async (input) => {
     await organizationRoleHooks.beforeUpdateOrganization(input)
     const source = input.organization.logo
     if (source === undefined) return undefined
-    if (source === null) {
-      await imageApiEffect(
-        Effect.flatMap(ProfileFiles, (files) => files.cancelLogo(input.member.organizationId)),
-      )
-      return undefined
-    }
+    if (source === null) return undefined
     const state = await requests.get()
     if (source.startsWith("data:")) {
       const logo = await imageApiEffect(

@@ -76,7 +76,6 @@ export class ProfileFiles extends Context.Service<
       generation?: string,
     ) => Effect.Effect<void>
     readonly stageLogo: (organizationId: string, source: string) => Effect.Effect<string>
-    readonly cancelLogo: (organizationId: string) => Effect.Effect<void>
     readonly processImports: Effect.Effect<void>
     readonly migrate: (
       owner: ImageOwner,
@@ -264,16 +263,6 @@ export class ProfileFiles extends Context.Service<
           .returning({ generation: organizationImageImport.generation })
           .pipe(mapDatabaseErrors())
         return pending!.generation
-      })
-      const cancelLogo = Effect.fn("ProfileFiles.cancelLogo")(function* (organizationId: string) {
-        yield* db
-          .insert(organizationImageImport)
-          .values({ organizationId, sourceUrl: "", status: "disabled" })
-          .onConflictDoUpdate({
-            target: organizationImageImport.organizationId,
-            set: { sourceUrl: "", status: "disabled", generation: sql`uuidv7()` },
-          })
-          .pipe(mapDatabaseErrors())
       })
       const queueLogo = Effect.fn("ProfileFiles.queueLogo")(function* (
         organizationId: string,
@@ -669,7 +658,6 @@ export class ProfileFiles extends Context.Service<
         queueAvatar,
         queueLogo,
         stageLogo,
-        cancelLogo,
         processImports,
         migrate,
       })

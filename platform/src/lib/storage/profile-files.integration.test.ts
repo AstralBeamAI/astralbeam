@@ -120,6 +120,7 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
       expect((await db.select().from(user).where(eq(user.id, owner.id)))[0]!.image).toBe(embedded)
       expect(objects.size).toBe(1)
       failRead = false
+      objects.set(Array.from(objects.keys())[0]!, new Uint8Array([1, 2, 3]))
       expect(
         await runtime.runPromise(
           Effect.flatMap(ProfileFiles, (files) =>
@@ -303,8 +304,25 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
         Effect.flatMap(ProfileFiles, (files) => files.stageLogo(customer!.id, source)),
       )
       await runtime.runPromise(
-        Effect.flatMap(ProfileFiles, (files) => files.cancelLogo(customer!.id)),
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.queueLogo(customer!.id, source, logo!.logo, generation),
+        ),
       )
+      await expect(
+        db.transaction(async (tx) => {
+          await tx.update(organization).set({ logo: null }).where(eq(organization.id, customer!.id))
+          throw new Error("Rollback logo change")
+        }),
+      ).rejects.toThrow("Rollback logo change")
+      expect(
+        (
+          await db
+            .select()
+            .from(organizationImageImport)
+            .where(eq(organizationImageImport.organizationId, customer!.id))
+        )[0]!.status,
+      ).toBe("pending")
+      await db.update(organization).set({ logo: null }).where(eq(organization.id, customer!.id))
       await runtime.runPromise(
         Effect.flatMap(ProfileFiles, (files) =>
           files.queueLogo(customer!.id, source, logo!.logo, generation),
@@ -347,7 +365,13 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
       )
       expect(limited._tag).toBe("Failure")
       expect(objects.size).toBe(countBefore)
-      const [file] = await db.select().from(fileObject).where(eq(fileObject.id, logo!.logoFileId!))
+      const replacementId = await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.prepareLogo(embedded)),
+      )
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.adoptLogo(customer!.id, replacementId)),
+      )
+      const [file] = await db.select().from(fileObject).where(eq(fileObject.id, replacementId))
       await db.delete(organization).where(eq(organization.id, customer!.id))
       expect(await db.select().from(fileObject).where(eq(fileObject.id, file!.id))).toEqual([])
       expect(
