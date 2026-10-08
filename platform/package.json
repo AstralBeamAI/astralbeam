@@ -40,6 +40,7 @@
     "@better-auth-ui/core": "1.7.12",
     "@better-auth-ui/react": "1.7.12",
     "@better-auth/api-key": "^1.7.7",
+    "@better-auth/core": "1.7.7",
     "@better-auth/drizzle-adapter": "^1.7.7",
     "@effect/platform-deno": "^4.0.0",
     "@effect/sql-pg": "^4.0.0",

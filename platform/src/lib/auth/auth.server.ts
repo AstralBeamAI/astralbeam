@@ -38,7 +38,6 @@ import {
   enqueueAuthImage,
   oauthProfileImage,
   organizationImageHooks,
-  withProfileImageRequest,
 } from "@/lib/storage/auth-images.server"
 import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
 import {
@@ -426,7 +425,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       user: {
         create: {
           before: async (user, context) => {
-            if (isOAuthImageRequest()) user.image = null
+            if (await isOAuthImageRequest()) user.image = null
             await assertOwnedAvatar(undefined, user.image)
             // It needs no service, and runAppEffect's type would cycle back through `Auth`.
             const termsAcceptedAt = config.legalAcceptanceRequired
@@ -447,7 +446,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         },
         update: {
           before: async (user, context) => {
-            if (isOAuthImageRequest()) {
+            if (await isOAuthImageRequest()) {
               delete user.image
               return
             }
@@ -554,9 +553,7 @@ export class Auth extends Context.Service<
       })
 
       const callApi = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
-        Effect.flatMap(instance, (auth) =>
-          tryPromiseInServerRequest(() => withProfileImageRequest(() => call(auth.api))),
-        )
+        Effect.flatMap(instance, (auth) => tryPromiseInServerRequest(() => call(auth.api)))
 
       // Dies with Better Auth's own error, which a hook rethrows to its caller unchanged.
       const api = <A>(call: (api: AppAuth["api"]) => Promise<A>) => callApi(call).pipe(Effect.orDie)
@@ -597,9 +594,7 @@ export class Auth extends Context.Service<
 
       const handler = Effect.fn("Auth.handler")(function* (request: Request) {
         const auth = yield* instance
-        return yield* tryPromiseInServerRequest(() =>
-          withProfileImageRequest(() => auth.handler(request)),
-        ).pipe(Effect.orDie)
+        return yield* tryPromiseInServerRequest(() => auth.handler(request)).pipe(Effect.orDie)
       })
 
       const updateOrganization = Effect.fn("Auth.updateOrganization")(function* (input: {

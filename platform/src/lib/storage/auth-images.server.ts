@@ -1,4 +1,4 @@
-import { AsyncLocalStorage } from "node:async_hooks"
+import { defineRequestState } from "@better-auth/core/context"
 import { APIError } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
 import { Effect, Result } from "effect"
@@ -16,17 +16,12 @@ interface ImageRequest {
   logoSource?: string
   logoFileId?: string
 }
-const requests = new AsyncLocalStorage<ImageRequest>()
-export function withProfileImageRequest<A>(call: () => Promise<A>): Promise<A> {
-  return requests.run({}, call)
-}
+const requests = defineRequestState<ImageRequest>(() => ({}))
 
-export function oauthProfileImage(source: string | undefined): { image: string } {
-  const request = requests.getStore()
-  if (request) {
-    request.oauth = true
-    if (source && externalImageUrl(source)) request.oauthSource = source
-  }
+export async function oauthProfileImage(source: string | undefined): Promise<{ image: string }> {
+  const request = await requests.get()
+  request.oauth = true
+  if (source && externalImageUrl(source)) request.oauthSource = source
   return { image: "" }
 }
 
@@ -42,8 +37,8 @@ async function imageApiEffect<A, E extends { _tag: string; message: string }>(
   return result.success
 }
 
-export function isOAuthImageRequest(): boolean {
-  return requests.getStore()?.oauth === true
+export async function isOAuthImageRequest(): Promise<boolean> {
+  return (await requests.get()).oauth === true
 }
 
 export async function assertOwnedAvatar(
@@ -59,8 +54,8 @@ export async function assertOwnedAvatar(
   await imageApiEffect(Effect.flatMap(ProfileFiles, (files) => files.validateAvatar(userId, image)))
 }
 
-export function enqueueAuthImage(user: { id: string; email: string }): Promise<void> {
-  const source = requests.getStore()?.oauthSource
+export async function enqueueAuthImage(user: { id: string; email: string }): Promise<void> {
+  const source = (await requests.get()).oauthSource
   return runAppEffect(
     Effect.flatMap(ProfileFiles, (files) =>
       files.queueAvatar({ userId: user.id, email: user.email, ...(source ? { source } : {}) }),
@@ -91,12 +86,7 @@ export const organizationImageHooks = {
     await organizationRoleHooks.beforeCreateOrganization(input)
     const source = input.organization.logo
     if (!source) return
-    const state = requests.getStore()
-    if (!state)
-      throw new APIError("BAD_REQUEST", {
-        code: "INVALID_IMAGE",
-        message: "Image request context is unavailable.",
-      })
+    const state = await requests.get()
     if (source.startsWith("data:"))
       state.logoFileId = await imageApiEffect(
         Effect.flatMap(ProfileFiles, (files) => files.prepareLogo(source)),
@@ -110,14 +100,14 @@ export const organizationImageHooks = {
     return { data: { logo: null } }
   },
   afterCreateOrganization: async (input) => {
-    const state = requests.getStore()
-    if (state?.logoFileId)
+    const state = await requests.get()
+    if (state.logoFileId)
       input.organization.logo = await runAppEffect(
         Effect.flatMap(ProfileFiles, (files) =>
           files.adoptLogo(input.organization.id, state.logoFileId!),
         ),
       )
-    if (state?.logoSource)
+    if (state.logoSource)
       await runAppEffect(
         Effect.flatMap(ProfileFiles, (files) =>
           files.queueLogo(
@@ -133,7 +123,7 @@ export const organizationImageHooks = {
     await organizationRoleHooks.beforeUpdateOrganization(input)
     const source = input.organization.logo
     if (source == null) return undefined
-    const state = requests.getStore()
+    const state = await requests.get()
     if (source.startsWith("data:")) {
       const logo = await imageApiEffect(
         Effect.gen(function* () {
@@ -145,11 +135,6 @@ export const organizationImageHooks = {
       return { data: { logo } }
     }
     if (externalImageUrl(source)) {
-      if (!state)
-        throw new APIError("BAD_REQUEST", {
-          code: "INVALID_IMAGE",
-          message: "Image request context is unavailable.",
-        })
       state.logoSource = source
       // An import retains the prior logo until its replacement is verified.
       delete input.organization.logo
@@ -163,7 +148,7 @@ export const organizationImageHooks = {
     return undefined
   },
   afterUpdateOrganization: async (input) => {
-    const source = requests.getStore()?.logoSource
+    const source = (await requests.get()).logoSource
     if (source && input.organization)
       await runAppEffect(
         Effect.flatMap(ProfileFiles, (files) =>
