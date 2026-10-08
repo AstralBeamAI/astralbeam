@@ -74,6 +74,7 @@ export async function seedAgents(transaction: SeedTransaction): Promise<SeedAgen
           name: seedAgent.name,
           systemPrompt: seedAgent.systemPrompt,
           attachmentsEnabled: seedAgent.attachmentsEnabled,
+          webAccessEnabled: seedAgent.webAccessEnabled,
           sandboxProviderId,
         })
         .onConflictDoUpdate({
@@ -82,6 +83,7 @@ export async function seedAgents(transaction: SeedTransaction): Promise<SeedAgen
             name: seedAgent.name,
             systemPrompt: seedAgent.systemPrompt,
             attachmentsEnabled: seedAgent.attachmentsEnabled,
+            webAccessEnabled: seedAgent.webAccessEnabled,
             sandboxProviderId,
           },
         })
