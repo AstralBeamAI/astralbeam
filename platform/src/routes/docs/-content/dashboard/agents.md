@@ -76,21 +76,21 @@ A sandbox is scratch space. It is reclaimed once it sits idle, and the next turn
 
 ## The default agent
 
-The default agent answers every chat request that carries no agent ID. A new organization is created with a starter agent, already set as its default. Let's configure a provider and assign a model to that starter agent before mounting the widget.
+New conversations without an explicit agent ID select the organization's default agent. A new organization is created with a starter agent, already set as its default. Let's configure a provider and assign a model to that starter agent before mounting the widget.
 
-Changing the default affects only requests that send no agent ID. Applications pinning an ID are untouched, so moving them to a new agent is an application change rather than a dashboard change.
+Changing the default affects new conversations that omit an agent ID. Existing conversations retain their selected agent, and applications pinning an ID are untouched.
 
-If the organization has no default agent, requests without an agent ID fail and say so. You land in that state after deleting the agent that was the default.
+If the organization has no default agent, creating a conversation without an agent ID fails. You land in that state after deleting the agent that was the default.
 
 ## Deleting an agent
 
 **NOTE**: deletion is immediate and cannot be undone.
 
-The public agent ID stops resolving at once, so any application still sending it loses its chat until you repoint it at another agent or drop the option to fall back to the default.
+The public agent ID stops resolving at once. To start a new conversation, repoint the application at another agent or drop the option to fall back to the default.
 
-Deleting the agent that was the default also clears the default, so set another one or every request without an agent ID keeps failing.
+Deleting the default agent also clears the default, so set another one before creating conversations without an explicit agent ID.
 
-Saved conversations remain readable after deletion. Start a new conversation with another agent to continue chatting.
+Saved conversations remain readable after their agent is deleted, but cannot continue.
 
 ## Who can change agents
 

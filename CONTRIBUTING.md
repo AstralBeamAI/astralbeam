@@ -114,12 +114,12 @@ Documentation-only changes need source review and `git diff --check`, not a full
 
 The browser suites run through their own `e2e` tasks, for example `deno task --cwd examples/todos e2e`. They need Playwright browsers and running services, so they stay out of `check`, `test`, `ready`, and CI. Run them locally when you change a flow they cover.
 
-CI runs `ready` for all six projects and compiles and smoke-tests the platform and CLI binaries.
+CI runs checks, tests, and builds for all six projects and compiles and smoke-tests the platform and CLI binaries.
 
 ## Pull requests
 
 - Keep diffs small and focused on one change. Split unrelated work into separate pull requests.
-- Include a Validation note saying which tasks you ran and what you could not verify.
+- Keep validation results in one PR comment, including the tasks run and anything unverified. Update that comment after later pushes.
 - Update the affected documentation in the same pull request.
 - Do not bump versions or add release tags. Releases are cut by the maintainers.
 
@@ -137,9 +137,9 @@ Agreement is collected when a contribution is proposed, by ticking the CLA ackno
 
 Releases are maintainer-only. One tag `vX.Y.Z` releases the platform, the SDK, and the CLI together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put either package on npm.
 
-1. Make sure `sdk/package.json` and `cli/package.json` are both already at the version you are about to tag. They are the only versioned projects and move in lockstep, so the workflow fails immediately if the tag and either version disagree.
+1. Make sure `sdk/package.json`, `cli/package.json`, and `platform/package.json` already match the version you are about to tag. These projects move in lockstep, and the workflow fails if any version disagrees.
 2. Push the tag by running `deno task release` from the repository root on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, or without asking when you pass `-y`, and links the Actions page and npm Staged Packages page for the next steps.
-3. The workflow builds the SDK and CLI, compiles and smoke-tests the platform binary and the five CLI binaries, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build.
+3. The workflow builds the SDK and CLI, cross-compiles platform and CLI binaries for five targets and smoke-tests their Linux x86_64 builds, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build.
 4. A maintainer approves each staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is a package public. The run's job summary prints the stage ids.
 
 Before approving, inspect the staged package with `npm stage list`, `npm stage view <stage-id>`, and `npm stage download <stage-id>`.

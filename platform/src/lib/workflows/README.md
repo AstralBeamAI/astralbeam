@@ -4,7 +4,7 @@ Durable workflows run background operations through native Effect APIs and a Pos
 
 ## Scheduling
 
-Declare schedule names, cron expressions, time zones, and missed-run policies in [cron.ts](cron.server.ts), with operation logic in separate workflow modules. Use native [ClusterCron](https://effect.website/docs/v4/api/effect/cluster/ClusterCron/) for recurring operations on the existing runner. Repeatable operations can run directly. Operations requiring durable checkpoints can submit a registered workflow with a stable domain and occurrence idempotency key.
+Declare schedule names, cron expressions, time zones, and missed-run policies in [cron.server.ts](cron.server.ts), with operation logic in separate workflow modules. Use native [ClusterCron](https://effect.website/docs/v4/api/effect/cluster/ClusterCron/) for recurring operations on the existing runner. Repeatable operations can run directly. Operations requiring durable checkpoints can submit a registered workflow with a stable domain and occurrence idempotency key.
 
 Register the same cron layer on every replica using shared cluster storage and shard leases. ClusterCron coordinates scheduling and persisted delivery across replicas. Define how late an occurrence may run with `skipIfOlderThan`, and use `calculateNextRunFromPrevious: false` to calculate the next occurrence from completion time instead of replaying missed intervals. Failures are logged and the next occurrence is scheduled. Recovery can repeat an operation, so handlers must remain safe to repeat.
 
@@ -16,7 +16,7 @@ The [embedded cluster runtime](../cluster/README.md) owns private runner communi
 
 ## Define and register a workflow
 
-1. Define a versioned workflow in a `.ts` module in this folder, which TanStack's import protection marks server-only, with payload, success, and error schemas. Use immutable Organization UUIDs and resource IDs for organization-owned operations. Derive the idempotency key from stable domain identity.
+1. Define a versioned workflow in a `.server.ts` module in this folder, with payload, success, and error schemas. Use immutable Organization UUIDs and resource IDs for organization-owned operations. Derive the idempotency key from stable domain identity.
 2. Implement the workflow with `.toLayer`. Put external operations inside named `Activity.make` steps with serializable results and typed failures. Yield Effects directly inside the handler.
 3. Import the handler layer into `registry.server.ts` and include it in `registeredWorkflowLayers`, using `Layer.mergeAll` for multiple handlers. Handlers may require any service in the [app runtime](../runtime/runtime.server.ts), which the cluster supervisor runs on together with the workflow engine and shared SQL client.
 
