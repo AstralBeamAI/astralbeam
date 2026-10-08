@@ -18,15 +18,20 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 
 Tenant and TenantUser name/external-ID substring searches use `pg_trgm` GIN indexes, installed by migration. The migration role needs permission to create the extension. Short or punctuation-only terms without extractable trigrams may still scan their scope. See [PostgreSQL index support](https://www.postgresql.org/docs/18/pgtrgm.html#PGTRGM-INDEX).
 
-Use the Drizzle client from server-only code, after authorizing the organization ID at the request boundary:
+Use the Effect-backed `Database` service from server-only code, after authorizing the organization ID at the request boundary:
 
 ```ts
-import { getAuthDatabase } from "@/db/database.server"
+import { Effect } from "effect"
+import { Database } from "@/db/database.server"
 import { eq } from "drizzle-orm"
 import { agent } from "@/db/schema.server"
 
-export const listOrganizationAgents = (organizationId: string) =>
-  getAuthDatabase().select().from(agent).where(eq(agent.organizationId, organizationId))
+export const listOrganizationAgents = Effect.fn("listOrganizationAgents")(function* (
+  organizationId: string,
+) {
+  const db = yield* Database
+  return yield* db.select().from(agent).where(eq(agent.organizationId, organizationId))
+}, Effect.orDie)
 ```
 
 Database imports belong in server-only code and do not initialize resources. Database operations require `DATABASE_URL`, and encrypted values require `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration go through the cached, environment-aware `Config` service. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
@@ -210,7 +215,7 @@ The helper owns its top-level transaction. Calling it inside an existing transac
 
 **NOTE**: Direct email delivery, sandbox provisioning, and other provider calls do not belong inside this transaction. For external work, submit a [durable workflow](../lib/workflows/README.md) through storage participating in the same transaction and return an accepted handle. Because workflow journals can outlive the 24-hour cache, generate a new domain operation ID for each fresh submission and replay its accepted handle. The worker still needs a stable provider idempotency key or reconciliation for uncertain outcomes. Effect's [Workflow identity](https://effect.website/docs/v4/api/effect/workflow/Workflow) and [Activity idempotency keys](https://effect.website/docs/v4/api/effect/workflow/Activity) provide the corresponding durable execution primitives.
 
-These are candidate integrations. Existing callers are not wired to the helper:
+Chat admission already uses the helper for acceptance receipts. The following integrations remain candidates:
 
 | Use case | Protected operation | Inputs to compare |
 | --- | --- | --- |
