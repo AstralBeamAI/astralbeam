@@ -27,6 +27,7 @@ export function modelsPage(page: Page) {
         name: `Override catalog defaults for ${input.modelId}`,
         exact: true,
       })
+      await expect(override).toBeVisible()
       if (
         await page
           .getByText(
