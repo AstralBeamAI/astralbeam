@@ -378,3 +378,72 @@ for (const failure of ["disabled", "quota"] as const) {
     await expect(chat.attachmentChip(note.name)).toHaveCount(0)
   })
 }
+
+test("submitted files stay pinned while admission waits and acceptance clears them", async ({
+  page,
+}) => {
+  let accept!: () => void
+  const accepted = new Promise<void>((resolve) => {
+    accept = resolve
+  })
+  await page.route("**/api/v1/chat", async (route) => {
+    await accepted
+    await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
+  })
+  const capabilities = page.waitForResponse((response) => response.url().includes("/chat/config"))
+  await todosPage(page).open()
+  await capabilities
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+  await chat.sendButton().click()
+  await expect(
+    page.getByRole("button", { name: `Remove ${note.name}`, exact: true }),
+  ).toBeDisabled()
+  accept()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+})
+
+test("a session removed by maintenance can be replaced after original-file reselection", async ({
+  page,
+}) => {
+  const capabilities = page.waitForResponse((response) => response.url().includes("/chat/config"))
+  await todosPage(page).open()
+  await capabilities
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  const prepared = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/chat/uploads") && response.request().method() === "POST",
+  )
+  await chat.attach(note)
+  const { id } = (await (await prepared).json()) as { id: string }
+  await expect(chat.sendButton()).toBeEnabled()
+  await page.route(`**/api/v1/chat/uploads/${id}`, (route) =>
+    route.fulfill({ status: 404, json: { error: "Upload not found" } }),
+  )
+  await page.reload()
+  await expect(page.getByText("Choose the original file to resume", { exact: true })).toBeVisible()
+  const picker = page.waitForEvent("filechooser")
+  await page.getByRole("button", { name: `Resume ${note.name}`, exact: true }).click()
+  await (await picker).setFiles(note)
+  await expect(chat.sendButton()).toBeEnabled()
+})
+
+test("resetting a fresh draft cancels its unclaimed upload", async ({ page }) => {
+  const capabilities = page.waitForResponse((response) => response.url().includes("/chat/config"))
+  await todosPage(page).open()
+  await capabilities
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+  const cancelled = page.waitForResponse(
+    (response) =>
+      response.url().includes("/chat/uploads/") && response.request().method() === "DELETE",
+  )
+  await chat.reset()
+  expect((await cancelled).status()).toBe(204)
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+})

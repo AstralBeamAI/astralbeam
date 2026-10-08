@@ -31,11 +31,13 @@ const CHIP_STATE = {
  */
 export function ComposerAttachments({
   attachments,
+  lockedIds,
   onRemove,
   onPause,
   onResume,
 }: {
   attachments: readonly DraftAttachment[]
+  lockedIds: ReadonlySet<string>
   onRemove: (id: string) => void
   onPause: (id: string) => void
   onResume: (id: string) => void
@@ -109,6 +111,7 @@ export function ComposerAttachments({
               <AttachmentAction
                 type="button"
                 aria-label={`Remove ${attachment.name}`}
+                disabled={lockedIds.has(attachment.id)}
                 title="Remove"
                 onClick={() => onRemove(attachment.id)}
               >

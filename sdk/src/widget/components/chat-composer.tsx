@@ -39,6 +39,7 @@ interface ChatComposerProps {
   onAuthRetry: (() => void) | undefined
   /** Files picked for the next message, rejected ones included, in pick order. */
   attachments: readonly DraftAttachment[]
+  lockedAttachmentIds: ReadonlySet<string>
   attachmentLimits: ResolvedAttachmentOptions
   onAddFiles: (files: File[]) => void
   onRemoveAttachment: (id: string) => void
@@ -64,6 +65,7 @@ export function ChatComposer({
   authError,
   onAuthRetry,
   attachments,
+  lockedAttachmentIds,
   attachmentLimits,
   onAddFiles,
   onRemoveAttachment,
@@ -175,6 +177,7 @@ export function ChatComposer({
           <InputGroupAddon align="block-start">
             <ComposerAttachments
               attachments={attachments}
+              lockedIds={lockedAttachmentIds}
               onRemove={onRemoveAttachment}
               onPause={onPauseAttachment}
               onResume={(id) => {

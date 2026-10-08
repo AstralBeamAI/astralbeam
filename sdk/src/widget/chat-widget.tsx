@@ -27,6 +27,7 @@ import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
 import {
   attachmentUploadState,
   attachmentUploadPreview,
+  getAttachmentUpload,
   startAttachmentUpload,
   pauseAttachmentUpload,
   resumeAttachmentUpload,
@@ -182,6 +183,7 @@ export function ChatWidget({
   const uploads = useMemo(() => attachmentUploadState(chat), [chat])
   useEffect(() => () => disposeAttachmentUploads(uploads), [uploads, apiUrl, draftIdentity])
   const pendingAttachmentWrites = useRef(new Set<string>())
+  const [submittedAttachmentIds, setSubmittedAttachmentIds] = useState(new Set<string>())
   useEffect(() => {
     if (auth.status !== "ready" || chatState.threadLoading || composer.attachmentsLoaded) return
     let cancelled = false
@@ -192,7 +194,14 @@ export function ChatWidget({
             attachments.map(async (file) => {
               if (!file.sessionId) return file
               try {
-                const session = await chat.getUpload(file.sessionId)
+                const session = await getAttachmentUpload({ chat, id: file.sessionId })
+                if (!session)
+                  return {
+                    ...file,
+                    status: "reselect" as const,
+                    fileId: undefined,
+                    sessionId: undefined,
+                  }
                 const preview =
                   session.status === "completed" && session.fileId && file.kind === "image"
                     ? attachmentUploadPreview({
@@ -399,7 +408,10 @@ export function ChatWidget({
       existing: attachments,
       limits: attachmentLimits,
       createId: newUuid,
-    })
+    }).map(({ draft, file }) => ({
+      file,
+      draft: { ...draft, agentId: chatState.thread?.agentId ?? options.agentId },
+    }))
     setAttachments((current) => [...current, ...picked.map(({ draft: pick }) => pick)])
     for (const { draft: pick, file } of picked) {
       if (pick.status === "error") {
@@ -435,6 +447,7 @@ export function ChatWidget({
   }
 
   const removeAttachment = (id: string) => {
+    if (submittedAttachmentIds.has(id)) return
     debug?.("attachment", "attachment removed", { id })
     const file = attachments.find((attachment) => attachment.id === id)
     if (file) removeAttachmentUpload({ uploads, draft: file })
@@ -497,6 +510,7 @@ export function ChatWidget({
     const sentAttachmentIds = new Set(
       attachments.filter((file) => file.status === "ready").map((file) => file.id),
     )
+    setSubmittedAttachmentIds((current) => new Set([...current, ...sentAttachmentIds]))
     let submissionDraftKey = draftKey
     void chat.sendMessage(
       parts.length === 0
@@ -548,6 +562,9 @@ export function ChatWidget({
           })
         },
         onAccepted: () => {
+          setSubmittedAttachmentIds(
+            (current) => new Set([...current].filter((id) => !sentAttachmentIds.has(id))),
+          )
           for (const id of sentAttachmentIds) releaseAttachmentUpload({ uploads, id })
           if (storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey) === sentDraft)
             storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey, "")
@@ -590,6 +607,9 @@ export function ChatWidget({
     // The session's reset is the client's own: it aborts an active stream, drops queued sends,
     // resets resume state, and disposes the live widget renders.
     chat.reset()
+    setSubmittedAttachmentIds(new Set())
+    for (const file of drafts.threads.get("")?.attachments ?? [])
+      removeAttachmentUpload({ uploads, draft: file })
     storedThreadDraft(apiUrl, draftIdentity, "", "")
     void storedThreadAttachments({
       apiUrl,
@@ -608,6 +628,10 @@ export function ChatWidget({
     requestAnimationFrame(() => host.shadowRoot?.querySelector("textarea")?.focus())
 
   const forgetDraft = (id: string) => {
+    const files = drafts.threads.get(id)?.attachments ?? []
+    const removed = new Set(files.map((file) => file.id))
+    setSubmittedAttachmentIds((current) => new Set([...current].filter((id) => !removed.has(id))))
+    for (const file of files) removeAttachmentUpload({ uploads, draft: file })
     storedThreadDraft(apiUrl, draftIdentity, id, "")
     void storedThreadAttachments({
       apiUrl,
@@ -658,7 +682,9 @@ export function ChatWidget({
             size="icon-sm"
             aria-label="New chat"
             title="New chat"
-            disabled={!chatState.thread && messages.length === 0}
+            disabled={
+              !chatState.thread && messages.length === 0 && !draft && attachments.length === 0
+            }
             onClick={() => {
               resetThread()
               focusComposer()
@@ -777,6 +803,7 @@ export function ChatWidget({
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
           attachments={attachments}
+          lockedAttachmentIds={submittedAttachmentIds}
           attachmentLimits={attachmentLimits}
           onAddFiles={addAttachmentFiles}
           onRemoveAttachment={removeAttachment}
