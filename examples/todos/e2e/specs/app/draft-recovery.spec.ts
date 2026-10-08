@@ -111,9 +111,9 @@ test("unsent text, images, and large files recover, and accepted files stay clea
             resolve(read.result as unknown[])
             database.close()
           }
-          read.onerror = () => reject(read.error)
+          read.onerror = () => reject(read.error ?? new Error("Draft read failed"))
         }
-        open.onerror = () => reject(open.error)
+        open.onerror = () => reject(open.error ?? new Error("Draft database open failed"))
       }),
   )
   expect(saved.flat()).toHaveLength(3)
