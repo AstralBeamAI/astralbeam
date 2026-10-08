@@ -28,7 +28,7 @@ For authorized updates to an existing PR, follow the relevant steps without repe
    ```
 8. On success, read the PR back from GitHub, verify its URL, title, state, base, and head, then report those values with the commit and check results. Claim success only after that remote read-back. Then run the post-PR checks below and include their results comment URL in the handoff.
 9. Attach an approved walkthrough through the workflow below, then verify the saved attachment on GitHub.
-10. After the handoff, reflect on the session that produced the PR and tell the user how the development workflow could be faster, cheaper in tokens, or less error-prone, prioritizing speed. Cite concrete stalls, retries, and reruns from the session, and record durable fixes in the closest `AGENTS.md` or skill only when the user approves them.
+10. Capture durable corrections before final validation under the applicable repository policy. In the handoff, reflect on the session that produced the PR and tell the user how the development workflow could be faster, cheaper in tokens, or less error-prone, prioritizing speed. Cite concrete stalls, retries, and reruns from the session.
 
 ## Post-PR checks
 
@@ -38,7 +38,7 @@ CI skips the browser suites to stay fast, so run them locally right after creati
 2. Start both suites as parallel background jobs, logging outside the worktree. Their ports and databases do not collide.
    - `deno task --cwd platform e2e` runs the platform suite's default projects against its own `_e2e` database.
    - `deno task --cwd examples/todos e2e --project=app` runs the deterministic todos specs against the seeded worktree database.
-3. When both finish, post one `gh pr comment` listing each suite's result, test count, and duration, and the head SHA they ran against.
+3. Maintain one validation-results comment per PR. Update the first existing validation-results comment posted by the current account, or create it once if none exists. Reuse its comment ID after later pushes, mark the new head's checks pending until they finish, then replace the results with each suite's status, test count, duration, and head SHA. If a comment write fails or its outcome is uncertain, read back the comments before retrying. Do not edit an unrelated last comment or post another validation comment.
 4. Fix a failure the change caused and push again. Report an environmental failure with its error and the suite's `e2e/.output/report` path instead of retrying blindly.
 
 ## Walkthrough videos
@@ -46,7 +46,7 @@ CI skips the browser suites to stay fast, so run them locally right after creati
 - Before upload, watch the complete recording and reject or redact anything containing credentials, tokens, personal data, private notifications, unrelated tabs, or other sensitive material. Treat every generated attachment URL as shareable bearer-access media, including on a private repository. See GitHub's [anonymized URL guidance](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-anonymized-urls).
 - Keep the source and any transcoded copy outside the repository worktree. Confirm neither appears in `git status --short`, the index, tracked files, or Git LFS, and never copy, stage, commit, or push walkthrough media. A repository ignore rule is not a substitute for keeping the artifact outside the worktree.
 - Prefer an H.264-encoded `.mp4` for browser compatibility. GitHub's [supported formats and limits](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files#supported-file-types) also allow `.mov` and `.webm` and currently cap videos at 10 MB on free plans or 100 MB on paid plans. Uploads over 10 MB additionally require the uploader to meet GitHub's paid-plan or repository-access eligibility rules.
-- Prefer [`gh pr create --attach`](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli) or `gh pr comment <number> --attach './file.mp4#alt text'`, which uploads the media and appends it to the body, screenshots before videos, with `#alt text` on images only. It needs gh 2.97 or newer and push access. A body-file reference is not rewritten, so to place media inline, read back the appended `user-attachments/assets/...` URLs and edit the body. Put requested before/after measurements in the same PR comment as their media, since the description excludes test results.
+- Prefer [`gh pr create --attach`](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli) or `gh pr comment <number> --attach './file.mp4'`, which uploads the media and appends it to the body, screenshots before videos, with `#alt text` on images only. It needs gh 2.97 or newer and push access. A body-file reference is not rewritten, so to place media inline, read back the appended `user-attachments/assets/...` URLs and edit the body. Put requested before/after measurements in the same PR comment as their media, since the description excludes test results.
 - Without that flag, open the created PR in an authenticated GitHub web session, edit its description, drag the video into the description editor or use **Attach files**, and wait for GitHub to finish uploading and insert its anonymized attachment URL. Place the generated attachment inline with the walkthrough bullet, preserve the rest of the intended description, save, reload the PR, and confirm the video player renders and plays.
 - If GitHub rejects or cannot upload the video, keep the artifact outside the worktree and report its absolute local path and the blocker. Transcode outside the worktree and retry only when authorized. Never commit the recording or add Git LFS as a fallback.
 
@@ -54,13 +54,13 @@ CI skips the browser suites to stay fast, so run them locally right after creati
 
 - Review the authoritative proposed diff, every included commit's subject and body relative to the target branch, relevant user-authored chat, and any applicable current plan before drafting. Extract intent, constraints, corrections, accepted decisions, terminology, and links. The final diff and later user instructions override older plans, reverted work, and superseded commit details. Never claim an unimplemented plan item.
 - Use one concise, imperative title that summarizes the whole change.
-- Write the description as concise Markdown bullets only, nesting when useful. Do not add headings, prose sections, checklists, validation commands, or test results. GitHub-generated attachment markup may sit inside the walkthrough bullet when required for an inline player. This is the only formatting exception.
+- Write the description as concise Markdown bullets only, nesting when useful. Do not add headings, prose sections, checklists, validation commands, or test results. The only formatting exceptions are GitHub-generated attachment markup inside the walkthrough bullet when required for an inline player and a required CLA acknowledgment checkbox. Retain the acknowledgment unchecked unless the contributor explicitly accepted it.
 - Prefer relevant links already supplied by the user or discovered in the current conversation and place them inline in the supporting bullet. Do not add a references section, revive superseded context, or invent links.
 - Honor compatible repository template requirements. Ask before creating the PR if a mandatory template conflicts with this format. Use issue-closing keywords only for a verified issue the user intends to close.
 
 ## Guardrails
 
-- Only an explicit request to create or publish a PR authorizes commits, pushes, and PR creation.
+- Create a PR only when explicitly requested. Commit and push only changes authorized for its creation or update.
 - Never stage unrelated work or stash, discard, amend, rebase, squash, or force-push without explicit authorization.
 - Fix or stop for a required check broken by the change. A demonstrably pre-existing or environmental failure may proceed in the requested PR state and belongs in the handoff, not the PR description.
 - Do not add reviewers, assignees, labels, milestones, or projects unless requested or required by repository instructions.
