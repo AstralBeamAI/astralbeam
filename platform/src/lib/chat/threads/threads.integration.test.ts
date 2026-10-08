@@ -652,7 +652,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           Effect.flatMap(ChatFiles, (guarded) =>
             guarded.externalize({ ...scope, threadId: thread.id }, oversized),
           ).pipe(
-            Effect.provide(ChatFiles.layerNoDeps),
+              Effect.provide(Layer.fresh(ChatFiles.layerNoDeps)),
             Effect.provideService(StoredFiles, { ...storage, prepare }),
             Effect.result,
           ),
