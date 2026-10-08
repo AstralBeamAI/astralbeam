@@ -499,16 +499,59 @@ describe("native web access", () => {
           ),
       ).toBe(true)
       const portable = projectChatModelHistory(
-        [{ id: "saved", role: "assistant", state: "complete", payload }],
+        [
+          {
+            id: "saved",
+            role: "assistant",
+            state: "complete",
+            payload: {
+              ...payload,
+              parts: [
+                ...payload.parts,
+                ...calls.map((part, index) => ({
+                  ...part,
+                  id: `repeated-${index}`,
+                  toolCallId: `repeated-call-${index}`,
+                })),
+              ],
+            },
+          },
+        ],
         { providerId: "other", protocol: result.model.api, modelId: result.model.modelId },
       )
       expect(JSON.stringify(portable)).toContain(webTestSource.url)
       expect(JSON.stringify(portable)).not.toContain("opaque-")
+      expect(JSON.stringify(portable).match(/Saved web evidence:/g)).toHaveLength(1)
       expect(
         portable.some((message) =>
           message.toolCalls?.some((call) => call.function.name === "web_search"),
         ),
       ).toBe(false)
+      const waiting = projectChatModelHistory([
+        {
+          id: "saved",
+          role: "assistant",
+          state: "complete",
+          payload: {
+            ...payload,
+            parts: [
+              ...payload.parts,
+              {
+                id: "pending",
+                type: "tool-call",
+                toolCallId: "pending-call",
+                name: "host_action",
+                arguments: "{}",
+                executionLocation: "browser",
+                targets: [{ id: "client" }],
+              },
+            ],
+          },
+        },
+      ])
+      expect(JSON.stringify(waiting)).toContain("Saved web evidence:")
+      expect(JSON.stringify(waiting)).toContain(webTestSource.url)
+      expect(waiting.some((message) => message.toolCalls?.length)).toBe(false)
     },
   )
 
@@ -636,45 +679,52 @@ describe("native web access", () => {
     expect(JSON.stringify(body)).not.toContain("[Attached document]")
   })
 
-  test("an unknown model's web rejection becomes a safe configuration error without retry", async () => {
-    let requests = 0
-    const model: ChatModelConfiguration = {
-      providerId: "configured-instance",
-      providerType: "openai",
-      providerName: "OpenAI",
-      api: "responses",
-      modelId: "custom-model",
-      apiKey: "synthetic-secret",
-      baseUrl: "https://provider.example/v1",
-      fetch: () => {
-        requests++
-        return Promise.resolve(
-          Response.json(
-            {
-              error: {
-                type: "invalid_request_error",
-                code: "invalid_request_error",
-                message: "web_search rejected private-gateway synthetic-secret",
+  test.each([
+    ["web_search rejected private-gateway synthetic-secret", "web_access_unavailable"],
+    ["unsupported attachment format", "invalid_request_error"],
+    ["maximum context length exceeded", "invalid_request_error"],
+  ])(
+    "provider rejection %s retains the correct classification without retry",
+    async (message, code) => {
+      let requests = 0
+      const model: ChatModelConfiguration = {
+        providerId: "configured-instance",
+        providerType: "openai",
+        providerName: "OpenAI",
+        api: "responses",
+        modelId: "custom-model",
+        apiKey: "synthetic-secret",
+        baseUrl: "https://provider.example/v1",
+        fetch: () => {
+          requests++
+          return Promise.resolve(
+            Response.json(
+              {
+                error: {
+                  type: "invalid_request_error",
+                  code: "invalid_request_error",
+                  message,
+                },
               },
-            },
-            { status: 400 },
-          ),
-        )
-      },
-    }
-    const chunks: StreamChunk[] = []
-    for await (const chunk of chat({
-      adapter: createChatAdapter(model, true),
-      tools: chatWebTools(model, true, []),
-      messages: [{ role: "user", content: "Search" }],
-    }))
-      chunks.push(chunk)
-    expect(requests).toBe(1)
-    expect(chunks.find((chunk) => chunk.type === EventType.RUN_ERROR)).toMatchObject({
-      code: "web_access_unavailable",
-    })
-    expect(JSON.stringify(chunks)).not.toContain("synthetic-secret")
-  })
+              { status: 400 },
+            ),
+          )
+        },
+      }
+      const chunks: StreamChunk[] = []
+      for await (const chunk of chat({
+        adapter: createChatAdapter(model, true),
+        tools: chatWebTools(model, true, []),
+        messages: [{ role: "user", content: "Search" }],
+      }))
+        chunks.push(chunk)
+      expect(requests).toBe(1)
+      expect(chunks.find((chunk) => chunk.type === EventType.RUN_ERROR)).toMatchObject({
+        code,
+      })
+      expect(JSON.stringify(chunks)).not.toContain("synthetic-secret")
+    },
+  )
 
   test("cancellation reaches the guarded transport and prevents a pause continuation", async () => {
     const controller = new AbortController()

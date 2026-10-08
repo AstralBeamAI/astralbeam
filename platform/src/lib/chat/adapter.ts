@@ -176,13 +176,7 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
           }
           if (chunk.type === EventType.RUN_ERROR) {
             failure = chunk
-            if (
-              /web[_ -]?(?:search|fetch)|server[_ -]?tool|unsupported|max_tool_calls/i.test(
-                chunk.message,
-              ) ||
-              chunk.code === "400" ||
-              chunk.code === "invalid_request_error"
-            )
+            if (/web[_ -]?(?:search|fetch)|max_tool_calls/i.test(chunk.message))
               failure = {
                 ...chunk,
                 code: "web_access_unavailable",
