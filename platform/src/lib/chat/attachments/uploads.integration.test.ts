@@ -134,7 +134,11 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
     const config = await runtime.runPromise(Config)
     const streamed = await runtime.runPromise(Stream.runCollect(objectStorageStream(file!, config)))
     expect(Buffer.concat(streamed.map((chunk) => Buffer.from(chunk)))).toEqual(Buffer.from(bytes))
-    await expect(runtime.runPromise(Stream.runCollect(objectStorageStream({ ...file!, sha256: "0".repeat(64) }, config)))).rejects.toMatchObject({ _tag: "StorageUnavailable" })
+    await expect(
+      runtime.runPromise(
+        Stream.runCollect(objectStorageStream({ ...file!, sha256: "0".repeat(64) }, config)),
+      ),
+    ).rejects.toMatchObject({ _tag: "StorageUnavailable" })
     const offline = Uploads.layerNoDeps.pipe(
       Layer.provide(
         Layer.mergeAll(

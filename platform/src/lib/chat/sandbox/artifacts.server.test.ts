@@ -1,6 +1,8 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import { beforeAll, vi } from "vitest"
+import { SignJWT } from "jose"
+import { CHAT_ARTIFACT_TICKET_AUDIENCE, CHAT_ARTIFACT_TICKET_TYPE } from "./constants.server"
 
 import {
   artifactContentDisposition,
@@ -10,6 +12,7 @@ import {
   mintSandboxArtifactTicket,
   type SandboxArtifactTicket,
   verifySandboxArtifactTicket,
+  verifyHistoricalSandboxArtifactTicket,
 } from "./artifacts.server"
 
 const ticket: SandboxArtifactTicket = {
@@ -37,6 +40,38 @@ function verifiedTicket(token: string) {
 }
 
 describe("sandbox artifact tickets", () => {
+  it.effect(
+    "historical recovery accepts expired signatures but refuses a wrong audience or tampering",
+    () =>
+      Effect.gen(function* () {
+        const key = yield* deriveArtifactTicketKey
+        const sign = (audience: string) =>
+          Effect.promise(() =>
+            new SignJWT({ ...ticket })
+              .setProtectedHeader({ alg: "HS256", typ: CHAT_ARTIFACT_TICKET_TYPE })
+              .setAudience(audience)
+              .setIssuedAt(1)
+              .setExpirationTime(2)
+              .sign(key),
+          )
+        const token = yield* sign(CHAT_ARTIFACT_TICKET_AUDIENCE)
+        assert.strictEqual(
+          (yield* Effect.option(verifySandboxArtifactTicket(key, token)))._tag,
+          "None",
+        )
+        assert.deepStrictEqual(yield* verifyHistoricalSandboxArtifactTicket(key, token), ticket)
+        assert.strictEqual(
+          (yield* Effect.option(verifyHistoricalSandboxArtifactTicket(key, yield* sign("other"))))
+            ._tag,
+          "None",
+        )
+        assert.strictEqual(
+          (yield* Effect.option(verifyHistoricalSandboxArtifactTicket(key, `${token}corrupt`)))
+            ._tag,
+          "None",
+        )
+      }),
+  )
   it.effect("round-trips a minted ticket", () =>
     Effect.gen(function* () {
       const token = yield* mintSandboxArtifactTicket(yield* deriveArtifactTicketKey, ticket)

@@ -24,7 +24,10 @@ import type {
   ParticipantRecord,
 } from "../../../../../lib/chat/threads/threads.server"
 import { ChatRunInputInvalid } from "./errors"
-import { storedChatMediaSource } from "../../../../../lib/chat/attachments/stored-media.ts"
+import {
+  chatMediaPart,
+  storedChatMediaSource,
+} from "../../../../../lib/chat/attachments/stored-media.ts"
 import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "../../../../../lib/chat/threads/schemas.ts"
 
 const threadRole = Schema.Literals(["viewer", "member", "manager"])
@@ -341,7 +344,7 @@ export function messageResource(row: MessageRecord) {
     parts: row.payload.parts.map((part) => {
       const source = part.source
       if (
-        (part.type === "image" || part.type === "document") &&
+        chatMediaPart(part) &&
         Schema.is(Schema.JsonObject)(source) &&
         (source.type === "data" || Option.isSome(storedChatMediaSource(part)))
       ) {
@@ -621,6 +624,31 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   )
   const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
   const part = message.payload.parts.find((entry) => entry.id === partId)
+  if (
+    part?.type === "tool-result" &&
+    Schema.is(Schema.JsonObject)(part.output) &&
+    part.output.availability === "available"
+  ) {
+    const fileId = yield* Schema.decodeUnknownEffect(Schema.String.check(Schema.isUUID()))(
+      part.output.fileId,
+    ).pipe(Effect.mapError(() => new ChatThreadNotFound()))
+    const { ChatFiles } = yield* Effect.promise(
+      () => import("@/lib/chat/attachments/chat-files.server"),
+    )
+    const { chatStoredFileResponse } = yield* Effect.promise(() => import("./files.server"))
+    const file = yield* (yield* ChatFiles).metadata(
+      {
+        organizationId: message.organizationId,
+        tenantId: message.tenantId,
+        threadId: message.threadId,
+      },
+      fileId,
+    )
+    return yield* chatStoredFileResponse(
+      file,
+      typeof part.output.path === "string" ? part.output.path : "artifact",
+    )
+  }
   const source = part?.source
   if (
     !Schema.is(Schema.JsonObject)(source) ||

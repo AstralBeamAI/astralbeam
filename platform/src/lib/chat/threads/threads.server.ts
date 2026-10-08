@@ -44,6 +44,8 @@ import {
   organizationConfiguration,
 } from "@/db/schema/organizations.server"
 import type { ChatPrincipal } from "../types"
+import { detectSandboxArtifactMimeType } from "../sandbox/artifacts.server"
+import { CHAT_SANDBOX_MAX_ARTIFACT_BYTES } from "../sandbox/constants.server"
 import { ChatFiles } from "../attachments/chat-files.server"
 import { chatFile } from "@/db/schema/chat.server"
 import { fileObject } from "@/db/schema/files.server"
@@ -511,6 +513,7 @@ const persistChatOutput = Effect.fnUntraced(function* (
   if (updated.length === 0) return yield* new ChatThreadConflict()
   yield* saveChatParts(db, claim.scope, claim.threadId, claim.assistantMessageId, payload)
   yield* files.claim(db, { ...claim.scope, threadId: claim.threadId }, payload)
+  yield* files.release(db, { ...claim.scope, threadId: claim.threadId }, message.payload, payload)
 })
 
 const releaseChatTurn = Effect.fnUntraced(function* (
@@ -779,6 +782,41 @@ const unresolvedCalls = Effect.fnUntraced(function* (
 
 export type PendingChatInteraction = Effect.Success<ReturnType<typeof unresolvedCalls>>[number]
 
+const claimPublishedArtifact = Effect.fnUntraced(function* (
+  db: Executor,
+  input: ThreadInput,
+  part: Schema.JsonObject,
+  result: Schema.JsonObject,
+  server: boolean,
+) {
+  const output = result.output
+  if (
+    !server ||
+    part.executionLocation !== "sandbox" ||
+    part.name !== "sandbox_publish_artifact" ||
+    result.outcome !== "succeeded" ||
+    !Schema.is(Schema.JsonObject)(output) ||
+    output.fileId === undefined
+  )
+    return
+  const id = yield* Schema.decodeUnknownEffect(Schema.String.check(Schema.isUUID()))(
+    output.fileId,
+  ).pipe(Effect.mapError(() => new ChatThreadInvalid()))
+  const [owned] = yield* db
+    .update(fileObject)
+    .set({ expiresAt: null })
+    .where(
+      and(
+        eq(fileObject.id, id),
+        isNotNull(fileObject.verifiedAt),
+        or(isNull(fileObject.expiresAt), gt(fileObject.expiresAt, sql`now()`)),
+        sql`exists (select 1 from chat_file f where f.id = ${id}::uuid and f.organization_id = ${input.scope.organizationId}::uuid and f.tenant_id = ${input.scope.tenantId}::uuid and f.thread_id = ${input.id}::uuid)`,
+      ),
+    )
+    .returning({ id: fileObject.id })
+  if (!owned) return yield* new ChatThreadInvalid()
+})
+
 const appendResults = Effect.fnUntraced(function* (
   db: Executor,
   input: ThreadInput,
@@ -890,6 +928,7 @@ const appendResults = Effect.fnUntraced(function* (
         },
       ],
     }).pipe(Effect.mapError(() => new ChatThreadInvalid()))
+    yield* claimPublishedArtifact(db, input, part, submitted, server)
     const [message] = yield* db
       .insert(chatMessage)
       .values({
@@ -995,6 +1034,10 @@ export class ChatThreads extends Context.Service<
     readonly assertActive: (input: {
       claim: ChatWriterClaim
     }) => Effect.Effect<void, ChatThreadError>
+    readonly publishArtifact: (input: {
+      claim: ChatWriterClaim
+      bytes: Uint8Array
+    }) => Effect.Effect<string, ChatThreadError>
     readonly nextDraft: (input: {
       claim: ChatWriterClaim
     }) => Effect.Effect<ChatWriterClaim, ChatThreadError>
@@ -1642,6 +1685,54 @@ export class ChatThreads extends Context.Service<
             .pipe(mapDatabaseErrors()),
       )
 
+      const publishArtifact = Effect.fn("ChatThreads.publishArtifact")(function* ({
+        claim,
+        bytes,
+      }: {
+        claim: ChatWriterClaim
+        bytes: Uint8Array
+      }) {
+        if (bytes.length > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) return yield* new ChatThreadInvalid()
+        yield* assertActive({ claim })
+        const scope = { ...claim.scope, threadId: claim.threadId }
+        const prepared = yield* files.externalize(scope, {
+          version: 1,
+          parts: [
+            {
+              id: crypto.randomUUID(),
+              type: "document",
+              source: {
+                type: "data",
+                value: Buffer.from(bytes).toString("base64"),
+                mimeType: detectSandboxArtifactMimeType(bytes),
+              },
+            },
+          ],
+        })
+        const source = prepared.parts[0]!.source as Schema.JsonObject
+        const fileId = source.value as string
+        yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              yield* checkClaim(tx, claim)
+              const [file] = yield* tx
+                .select()
+                .from(fileObject)
+                .where(eq(fileObject.id, fileId))
+                .for("update")
+              yield* files.claim(tx, scope, prepared)
+              // Unconfirmed publications expire. Saving the sandbox tool result pins the verified file.
+              if (file!.expiresAt)
+                yield* tx
+                  .update(fileObject)
+                  .set({ expiresAt: file!.expiresAt })
+                  .where(eq(fileObject.id, fileId))
+            }),
+          )
+          .pipe(mapDatabaseErrors())
+        return fileId
+      })
+
       const nextDraft = Effect.fn("ChatThreads.nextDraft")(
         ({ claim }: { claim: ChatWriterClaim }) =>
           db
@@ -1830,6 +1921,7 @@ export class ChatThreads extends Context.Service<
         admit,
         checkpoint,
         assertActive,
+        publishArtifact,
         nextDraft,
         appendToolResults,
         resolveTools,

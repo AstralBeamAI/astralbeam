@@ -42,6 +42,8 @@ export interface SandboxCommandRun {
 
 /** One file the agent published for the user, with the ticket its download is authorized by. */
 export interface SandboxArtifact {
+  fileId?: string | undefined
+  unavailable?: boolean | undefined
   toolCallId: string
   path: string
   label: string

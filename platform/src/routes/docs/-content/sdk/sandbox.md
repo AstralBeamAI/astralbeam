@@ -8,7 +8,7 @@ Configure a sandbox provider on the agent in the dashboard to enable files, comm
 - Each sandbox step is a transcript row: a file write expands to the file, a command to its output.
 - While the sandbox provisions (tens of seconds), a slim status pill sits above the composer.
 - Generated images (PNG, JPEG, GIF, WebP) the agent publishes render inline, with a download button.
-- Any other published file appears as a download row. Downloads are authorized by short-lived tickets.
+- Any other published file appears as a download row. Downloads use your token and current conversation permissions, and published files survive sandbox shutdown.
 
 ## The sandbox panel
 
@@ -27,4 +27,4 @@ Off by default: the transcript already shows each step where it happened. `sandb
 
 - File and command output shown in the chat is clamped server-side for model context.
 - Published artifacts are capped at 10 MB and served with content-sniffed types. See [Security model](./security.md).
-- The sandbox is reused across turns of one conversation and expires after ~15 idle minutes. Expired downloads say to ask the agent to regenerate.
+- The sandbox is reused across turns of one conversation and expires after ~15 idle minutes. Working files expire with the sandbox. Published files remain available through the saved conversation.

@@ -105,12 +105,14 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 | `s3_secret_access_key` | Yes | none | Storage secret access key |
 | `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
 
-1. Create a private bucket and credentials with object read, write, delete, multipart completion, abort, part listing, and multipart upload listing access.
+1. Create a private bucket and credentials with object read, write, delete, multipart completion, abort, part listing, and multipart upload listing access. On AWS, enable [Block Public Access](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html) at the account and bucket level. On compatible providers, disable public bucket URLs and anonymous access.
 2. Enter its settings in **File storage** at `/configure`.
 3. Press **Test storage** to upload, inspect, download, verify, and delete a temporary object using the current values. Reveal stored credentials first if you have not entered new ones.
 4. Save the configuration and restart other running server instances.
 
 The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
+
+AWS IAM needs `s3:ListBucketMultipartUploads` on the bucket ARN, plus `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:AbortMultipartUpload`, and `s3:ListMultipartUploadParts` on that bucket's object ARN. A bucket encrypted with a customer-managed KMS key also needs the applicable KMS permissions. Limit credentials to this deployment's bucket. See [AWS operation permissions](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-policy-actions.html). R2 and other providers use their own bucket-scoped permissions.
 
 The first application upload pins the endpoint, region, bucket, and addressing mode. These values cannot change afterwards until a storage migration is available. Credential rotation remains supported. A failed first upload can also pin the destination because the server reserves it before contacting storage, preventing concurrent configuration changes from losing an object.
 
@@ -130,9 +132,13 @@ deno task --cwd platform files migrate --table chat_message.metadata.modelMessag
 deno task --cwd platform files verify --table chat_message.metadata.modelMessages
 deno task --cwd platform files migrate --table cache_entry.value --writers-stopped
 deno task --cwd platform files verify --table cache_entry.value
+deno task --cwd platform files migrate --table sandbox_artifacts --writers-stopped
+deno task --cwd platform files verify --table sandbox_artifacts
 ```
 
-Omit `--table` to process all five sources in the order shown. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded files stop the run and retain uncommitted source data. Historical external images that return `404` or `410` are cleared and recorded in private import metadata. Unsupported provider continuation structures are reported and preserved for inspection.
+Omit `--table` to process all six sources in the order shown. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded files stop the run and retain uncommitted source data. Historical external images that return `404` or `410` are cleared and recorded in private import metadata. Unsupported provider continuation structures are reported and preserved for inspection.
+
+Historical sandbox recovery verifies each old ticket's signature and scope, then tries its original provider and file. Recoverable files become stored references. A gone sandbox, missing file, changed content, or invalid ticket becomes an explicit unavailable result with an audit log. Temporary provider or storage failures stop the command with source data retained. Keep unsupported counts for review, because verification does not certify structures the command cannot recognize.
 
 Saved conversation attachments keep their existing download URLs and permissions. Older clients may still submit inline files, which the server stores in S3 before accepting the message. Admission records retain content identities and the accepted result, so an authorized retry can recover its receipt during a storage outage.
 
@@ -141,6 +147,14 @@ New SDKs upload directly to the bucket using five-minute signed part URLs. Let's
 Upload sessions last 24 hours, with 8 MiB parts, two concurrent files, and four concurrent part requests. Configure the provider to abort incomplete multipart uploads after one day as a backup to the application's durable cleanup runner. See [AWS multipart lifecycle](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html). Keep the bucket private. Signed part URLs can be reused, so verified final files are copied to a different server-only key before acceptance.
 
 After verification, start the new server code and its runners. Replacement and SQL cascades retain deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
+
+Published sandbox artifacts are verified in S3 before the tool returns. Saving their tool result makes them durable, and conversation permissions govern subsequent downloads. Temporary sandbox working files still expire with the sandbox.
+
+Let's rotate credentials by creating a second key with the same bucket permissions, entering both new credential fields at `/configure`, testing the object round-trip, and saving. Restart every other replica, verify uploads and downloads, then revoke the old key. Environment overrides must be changed and restarted on every replica. Keep the destination fields unchanged.
+
+For backup and restore, let's stop writers and maintenance runners while taking a coordinated database and object backup. Preserve the database encryption root separately so encrypted settings remain readable. Restore the matching object keys into the pinned destination, restore PostgreSQL, run file verification, then restart writers and runners. A database restore alone can reference objects already deleted since that snapshot. Provider versioning or a retained object backup can recover those bytes, but versioning needs its own retention policy. See [S3 Versioning](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
+
+The scheduled runner reports `File storage health` once a minute with pending imports, upload sessions, deletion targets, multipart deletion targets, and retried cleanup counts. Storage request failures, imports, completed uploads, and cleanup attempts emit safe events without file content, credentials, source URLs, or signed URLs. Monitor sustained failures and a growing cleanup backlog. During an outage, repair credentials or connectivity at `/configure`, test storage, then rerun the interrupted migration or let the durable runner retry. An authorized accepted-message replay remains available from PostgreSQL.
 
 ## Model providers
 

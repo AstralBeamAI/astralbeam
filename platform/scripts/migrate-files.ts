@@ -15,6 +15,9 @@ import { ChatFiles } from "../src/lib/chat/attachments/chat-files.server.ts"
 import { isChatMigrationTable, migrateChatFiles } from "../src/lib/storage/chat-migration.server.ts"
 import { StoredFiles } from "../src/lib/storage/stored-files.server.ts"
 
+import { ChatSandboxes } from "../src/lib/chat/sandbox/sandbox.server.ts"
+import { migrateSandboxArtifacts } from "../src/lib/storage/artifact-migration.server.ts"
+
 const environment = loadEnv("development", fileURLToPath(new URL("../", import.meta.url)), "")
 for (const [name, value] of Object.entries(environment))
   if (process.env[name] === undefined) process.env[name] = value
@@ -29,6 +32,7 @@ const command = new Command()
       "chat_message_part.payload",
       "chat_message.metadata.modelMessages",
       "cache_entry.value",
+      "sandbox_artifacts",
     ]),
   )
   .option(
@@ -46,7 +50,13 @@ if (mode === "migrate" && !options.writersStopped)
   )
 
 const runtime = ManagedRuntime.make(
-  Layer.mergeAll(Database.layer, ProfileFiles.layer, StoredFiles.layer, ChatFiles.layer),
+  Layer.mergeAll(
+    Database.layer,
+    ProfileFiles.layer,
+    StoredFiles.layer,
+    ChatFiles.layer,
+    ChatSandboxes.layer,
+  ),
 )
 try {
   await runtime.runPromise(
@@ -62,7 +72,13 @@ try {
             "chat_message_part.payload",
             "chat_message.metadata.modelMessages",
             "cache_entry.value",
+            "sandbox_artifacts",
+            "sandbox_artifacts",
           ]) {
+        if (tableName === "sandbox_artifacts") {
+          yield* migrateSandboxArtifacts(mode as "inventory" | "migrate" | "verify")
+          continue
+        }
         if (isChatMigrationTable(tableName)) {
           yield* migrateChatFiles(tableName, mode as "inventory" | "migrate" | "verify")
           continue

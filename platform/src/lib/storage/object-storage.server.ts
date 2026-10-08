@@ -25,6 +25,11 @@ export const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>)
   }).pipe(
     Effect.timeout("30 seconds"),
     Effect.catchTag("TimeoutError", () => Effect.fail(new StorageUnavailable())),
+    Effect.tapError((error) =>
+      error._tag === "StorageUnavailable"
+        ? Effect.logWarning("Object storage request failed")
+        : Effect.void,
+    ),
   )
 
 export const acquireStorageClient = (settings: StorageConnection) =>

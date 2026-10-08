@@ -5,6 +5,7 @@ import {
   TerminalWindowIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react"
+import type { ChatToolCallPart } from "../../core/threads.ts"
 import type { MessagePart } from "@tanstack/ai-client"
 import type { ReactNode } from "react"
 import { Spinner } from "@/widget/components/ui/spinner"
@@ -35,10 +36,27 @@ type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
  * a host tool the widget knows exactly what their input and output mean and can show the file it
  * wrote as a file and the command it ran as a terminal, instead of both as pretty-printed JSON.
  */
-export function SandboxPart({ part, apiUrl }: { part: ToolCallPart; apiUrl: string }) {
+export function SandboxPart({
+  part,
+  apiUrl,
+  getAttachment,
+  getUploadedFile,
+}: {
+  part: ToolCallPart
+  apiUrl: string
+  getAttachment?: ((messageId: string, partId: string) => Promise<Blob>) | undefined
+  getUploadedFile?: ((id: string) => Promise<Blob>) | undefined
+}) {
   // Published artifacts have their own rendering: inline image or download row.
   if (part.name === SANDBOX_PUBLISH_ARTIFACT_TOOL) {
-    return <SandboxArtifactPart part={part} apiUrl={apiUrl} />
+    return (
+      <SandboxArtifactPart
+        part={part as ChatToolCallPart}
+        apiUrl={apiUrl}
+        getAttachment={getAttachment}
+        getUploadedFile={getUploadedFile}
+      />
+    )
   }
   const failed = part.state === "error"
   const refusal = sandboxRefusal(part)

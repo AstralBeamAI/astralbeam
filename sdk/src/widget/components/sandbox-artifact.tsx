@@ -1,7 +1,7 @@
 import { DownloadSimpleIcon, FileArrowDownIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import { getChatFile } from "../../api/generated/api.ts"
-import type { MessagePart } from "@tanstack/ai-client"
-import { useEffect, useState } from "react"
+import type { ChatToolCallPart } from "../../core/threads.ts"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/widget/components/ui/button"
 import { Marker, MarkerContent, MarkerIcon } from "@/widget/components/ui/marker"
 import { Spinner } from "@/widget/components/ui/spinner"
@@ -9,43 +9,45 @@ import { readSandboxArtifact, sandboxRefusal } from "../../core/sandbox.ts"
 import type { SandboxArtifact } from "../../core/types.ts"
 import { formatByteSize, isSettledToolCall, saveBlob } from "../lib/utils.ts"
 
-type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
-
 function artifactBasename(path: string): string {
   const index = path.lastIndexOf("/")
   return index === -1 ? path : path.slice(index + 1)
 }
 
-async function downloadArtifact(artifact: SandboxArtifact, apiUrl: string): Promise<boolean> {
-  if (!artifact.ticket) return false
+async function downloadArtifact(
+  artifact: SandboxArtifact,
+  getFile: () => Promise<Blob>,
+): Promise<boolean> {
   try {
-    const response = await getChatFile({ ticket: artifact.ticket }, { apiUrl })
-    saveBlob(artifactBasename(artifact.path), await response.blob())
+    saveBlob(artifactBasename(artifact.path), await getFile())
     return true
   } catch {
     return false
   }
 }
 
-/** Inline preview for an image artifact, fetched once through its ticket into an object URL. */
-function ArtifactImage({ artifact, apiUrl }: { artifact: SandboxArtifact; apiUrl: string }) {
+/** Inline preview for an image artifact, fetched once through its authorized download into an object URL. */
+function ArtifactImage({
+  artifact,
+  getFile,
+}: {
+  artifact: SandboxArtifact
+  getFile: () => Promise<Blob>
+}) {
   const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
   const [failed, setFailed] = useState(false)
-  // A failed download click means the ticket died after the preview loaded; same recovery.
+  // A failed download replaces the preview with the recovery message.
   const download = () => {
-    void downloadArtifact(artifact, apiUrl).then((ok) => {
+    void downloadArtifact(artifact, getFile).then((ok) => {
       if (!ok) setFailed(true)
     })
   }
-  const ticket = artifact.ticket
   useEffect(() => {
-    if (!ticket) return
     let revoked: string | undefined
     let cancelled = false
     void (async () => {
       try {
-        const response = await getChatFile({ ticket }, { apiUrl })
-        const url = URL.createObjectURL(await response.blob())
+        const url = URL.createObjectURL(await getFile())
         if (cancelled) {
           URL.revokeObjectURL(url)
           return
@@ -60,7 +62,7 @@ function ArtifactImage({ artifact, apiUrl }: { artifact: SandboxArtifact; apiUrl
       cancelled = true
       if (revoked) URL.revokeObjectURL(revoked)
     }
-  }, [ticket, apiUrl])
+  }, [getFile])
   if (failed) {
     return <ArtifactExpired label={artifact.label} />
   }
@@ -116,13 +118,39 @@ function ArtifactExpired({ label }: { label: string }) {
 
 /**
  * A `sandbox_publish_artifact` call in the transcript: an image renders inline with a download,
- * anything else is a download row. The ticket in the tool output is the whole authorization, so
- * this component never needs the chat auth token.
+ * anything else is a download row. Stored files use current conversation authorization.
  */
-export function SandboxArtifactPart({ part, apiUrl }: { part: ToolCallPart; apiUrl: string }) {
-  // Tickets expire; a download that comes back empty-handed swaps the row for the recovery note.
+export function SandboxArtifactPart({
+  part,
+  apiUrl,
+  getAttachment,
+  getUploadedFile,
+}: {
+  part: ChatToolCallPart
+  apiUrl: string
+  getAttachment?: ((messageId: string, partId: string) => Promise<Blob>) | undefined
+  getUploadedFile?: ((id: string) => Promise<Blob>) | undefined
+}) {
+  // Unavailable downloads replace the row with the recovery message.
   const [downloadFailed, setDownloadFailed] = useState(false)
   const artifact = readSandboxArtifact(part)
+  const fileId = artifact?.fileId
+  const ticket = artifact?.ticket
+  const getFile = useCallback(async () => {
+    if (fileId && getUploadedFile) return getUploadedFile(fileId)
+    if (fileId && getAttachment && part.artifactMessageId && part.artifactPartId)
+      return getAttachment(part.artifactMessageId, part.artifactPartId)
+    if (ticket) return (await getChatFile({ ticket }, { apiUrl })).blob()
+    throw new Error("File unavailable")
+  }, [
+    fileId,
+    ticket,
+    getAttachment,
+    getUploadedFile,
+    part.artifactMessageId,
+    part.artifactPartId,
+    apiUrl,
+  ])
   const refusal = sandboxRefusal(part)
   const failed = part.state === "error" || refusal !== undefined
   if (failed) {
@@ -138,6 +166,7 @@ export function SandboxArtifactPart({ part, apiUrl }: { part: ToolCallPart; apiU
       </Marker>
     )
   }
+  if (artifact?.unavailable) return <ArtifactExpired label={artifact.label} />
   if (!artifact?.published) {
     return (
       <Marker role={isSettledToolCall(part) ? undefined : "status"}>
@@ -154,7 +183,7 @@ export function SandboxArtifactPart({ part, apiUrl }: { part: ToolCallPart; apiU
     return <ArtifactExpired label={artifact.label} />
   }
   if (artifact.mimeType?.startsWith("image/")) {
-    return <ArtifactImage artifact={artifact} apiUrl={apiUrl} />
+    return <ArtifactImage artifact={artifact} getFile={getFile} />
   }
   return (
     <div className="flex w-fit max-w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
@@ -171,7 +200,7 @@ export function SandboxArtifactPart({ part, apiUrl }: { part: ToolCallPart; apiU
         aria-label={`Download ${artifact.label}`}
         title="Download"
         onClick={() => {
-          void downloadArtifact(artifact, apiUrl).then((ok) => {
+          void downloadArtifact(artifact, getFile).then((ok) => {
             if (!ok) setDownloadFailed(true)
           })
         }}

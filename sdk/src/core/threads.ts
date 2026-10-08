@@ -36,6 +36,8 @@ export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool
   sourceMessageId?: string
   responseTargetId?: string
   widgetRenderId?: string
+  artifactMessageId?: string
+  artifactPartId?: string
   resultOutcome?: "succeeded" | "failed" | "skipped" | "unknown"
 }
 
@@ -129,6 +131,10 @@ export function projectThreadMessages(
         )
         if (!call) continue
         call.output = part.output ?? null
+        if (call.name === "sandbox_publish_artifact") {
+          call.artifactMessageId = message.id
+          call.artifactPartId = String(part.id)
+        }
         Object.assign(call, { resultOutcome: part.outcome })
         call.state = part.outcome === "succeeded" ? "complete" : "error"
       }
@@ -137,7 +143,8 @@ export function projectThreadMessages(
     const parts = message.parts.flatMap((part) => {
       const source = part.source
       if (
-        (part.type === "image" || part.type === "document") &&
+        typeof part.type === "string" &&
+        ["image", "document", "audio", "video"].includes(part.type) &&
         source &&
         typeof source === "object" &&
         !Array.isArray(source) &&

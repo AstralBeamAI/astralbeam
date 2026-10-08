@@ -1,5 +1,5 @@
 import { Effect, Result, Schema } from "effect"
-import { base64url, jwtVerify, SignJWT } from "jose"
+import { base64url, compactVerify, jwtVerify, SignJWT } from "jose"
 
 import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
 import { APP_HANDLE } from "@/lib/constants"
@@ -86,6 +86,37 @@ export function verifySandboxArtifactTicket(key: Uint8Array, token: string) {
     Effect.mapError(() => new ChatArtifactUnavailable({ reason: "Expired" })),
   )
 }
+
+// Only the stopped-writer data migration uses this. Signature, type and audience remain mandatory.
+export function verifyHistoricalSandboxArtifactTicket(key: Uint8Array, token: string) {
+  return Effect.tryPromise(() => compactVerify(token, key, { algorithms: ["HS256"] })).pipe(
+    Effect.flatMap(({ payload, protectedHeader }) => {
+      if (protectedHeader.typ !== CHAT_ARTIFACT_TICKET_TYPE)
+        return Effect.fail(new ChatArtifactUnavailable({ reason: "Expired" }))
+      return decodeHistoricalArtifactClaims(new TextDecoder().decode(payload)).pipe(
+        Effect.mapError(() => new ChatArtifactUnavailable({ reason: "Expired" })),
+      )
+    }),
+    Effect.mapError(() => new ChatArtifactUnavailable({ reason: "Expired" })),
+  )
+}
+
+const decodeHistoricalArtifactClaims = (payload: string) =>
+  Schema.decodeUnknownEffect(
+    Schema.fromJsonString(
+      Schema.Struct({
+        ...SandboxArtifactTicketSchema.fields,
+        aud: Schema.Literal(CHAT_ARTIFACT_TICKET_AUDIENCE),
+        iat: Schema.Int,
+        exp: Schema.Int,
+      }),
+    ),
+  )(payload).pipe(
+    Effect.map((ticket) => {
+      const { aud: _aud, iat: _iat, exp: _exp, ...claims } = ticket
+      return claims
+    }),
+  )
 
 function matchesMagicBytes(
   bytes: Uint8Array,

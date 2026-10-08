@@ -261,7 +261,7 @@ function safeAttachmentHref(href: string): string | undefined {
  * composer is the only thing that puts a filename on them.
  */
 export function describeSentAttachment(part: {
-  type: "image" | "document"
+  type: "image" | "document" | "audio" | "video"
   source: { value: string; mimeType?: string; type?: string; provider?: string }
   metadata?: unknown
 }): {

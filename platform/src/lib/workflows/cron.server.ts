@@ -5,6 +5,8 @@ import { ProfileFiles } from "@/lib/storage/profile-files.server"
 import { Uploads } from "@/lib/chat/attachments/uploads.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
 
+import { reportStorageHealth } from "@/lib/storage/health.server"
+
 import expiredCacheCleanup from "./expired-cache-cleanup.server.ts"
 
 export const scheduledWorkflowsLayer = Layer.mergeAll(
@@ -21,6 +23,7 @@ export const scheduledWorkflowsLayer = Layer.mergeAll(
     calculateNextRunFromPrevious: false,
     skipIfOlderThan: "10 minutes",
     execute: Effect.gen(function* () {
+      yield* reportStorageHealth
       yield* (yield* StoredFiles).cleanup
       yield* (yield* ProfileFiles).processImports
       yield* (yield* Uploads).maintenance

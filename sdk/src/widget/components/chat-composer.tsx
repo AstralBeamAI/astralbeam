@@ -159,9 +159,6 @@ export function ChatComposer({
           multiple
           className="sr-only"
           accept={attachmentAcceptAttribute(attachmentLimits)}
-          onCancel={() => {
-            reselect.current = undefined
-          }}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0]
             if (reselect.current && file) onReselectAttachment(reselect.current, file)
