@@ -6,7 +6,7 @@ The code lives in `examples/todos` in the repository, and it demonstrates four t
 
 - The agent reads and writes the host application's state through tools that run in the page, rather than through an API you expose to it.
 - The agent renders your own components inside the transcript, and those renders stay live as host state changes.
-- A user can paste an image or attach a file, and the agent can use it for that request only.
+- A user can paste an image or attach a file, and it stays available in the saved conversation.
 - With a sandbox provider on the agent, the agent can run commands and publish files the user downloads.
 
 ## 1. Seed the local data
@@ -93,9 +93,9 @@ Address host data by ID rather than passing its contents through the model. A ca
 
 ## 6. Attach a file
 
-Paste a screenshot or attach `samples/tasks.csv`, then ask the assistant about it. Attachment bytes belong to that one request and are never added to the system prompt, so the agent reads them as user-supplied material through a tool.
+Paste a screenshot or attach `samples/tasks.csv`, then ask the assistant about it. Attachments stay with the saved conversation and are never added to the system prompt, so their contents remain user-supplied material.
 
-Attachments only work while the agent allows them. That setting lives with the agent and the chat endpoint enforces it, so turning it off refuses files even when the client still sends them.
+New attachments require the agent to allow them. Turning that setting off refuses new uploads even when the client still sends them, while previously accepted attachments remain in saved history.
 
 ## 7. Add a sandbox
 

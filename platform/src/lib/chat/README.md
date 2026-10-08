@@ -54,7 +54,7 @@ The part-to-response relationship applies to tool decisions. Ordinary text, atta
 
 ### Common columns
 
-Every table has the following columns, with primary key `(organization_id, tenant_id, id)`.
+Every table has the following columns. Messages and message parts use primary key `(organization_id, tenant_id, thread_id, id)`. The other tables use `(organization_id, tenant_id, id)`.
 
 | Column            | Meaning                                                         |
 | ----------------- | --------------------------------------------------------------- |
