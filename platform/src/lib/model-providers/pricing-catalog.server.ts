@@ -32,9 +32,17 @@ export const refreshModelPriceCatalog = Effect.gen(function* () {
   const body = yield* Effect.tryPromise(async (signal) => {
     const response = await fetch(REMOTE_DATA_JSON_URL, { signal, redirect: "error" })
     if (!response.ok) throw new Error("Pricing catalog download failed")
-    const body = await response.text()
-    if (body.length > 16 * 1024 * 1024) throw new Error("Pricing catalog is too large")
-    return body
+    let bytes = 0
+    const body = response.body?.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, stream) {
+          bytes += chunk.byteLength
+          if (bytes > 16 * 1024 * 1024) throw new Error("Pricing catalog is too large")
+          stream.enqueue(chunk)
+        },
+      }),
+    )
+    return new Response(body).text()
   }).pipe(Effect.timeout("30 seconds"))
   const providers = yield* Schema.decodeUnknownEffect(
     Schema.fromJsonString(ModelPriceCatalogProvidersSchema),

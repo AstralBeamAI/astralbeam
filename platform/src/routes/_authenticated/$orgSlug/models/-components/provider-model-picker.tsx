@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { getModelUsageDefaults } from "../-functions/get-model-provider-page-data"
+import { getModelUsageDefaults } from "../-functions/get-model-usage-defaults"
 import {
   ProviderModelFieldsSchema,
   type ModelProviderType,

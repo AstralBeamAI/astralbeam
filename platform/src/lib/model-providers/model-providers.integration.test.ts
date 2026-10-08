@@ -244,6 +244,22 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       )
       await expect(runAppEffect(refreshModelPriceCatalog)).rejects.toThrow()
       expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
+      const cancelDownload = vi.fn()
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve(
+          new Response(
+            new ReadableStream<Uint8Array>({
+              pull(controller) {
+                controller.enqueue(new Uint8Array(9 * 1024 * 1024))
+              },
+              cancel: cancelDownload,
+            }),
+          ),
+        ),
+      )
+      await expect(runAppEffect(refreshModelPriceCatalog)).rejects.toThrow()
+      expect(cancelDownload).toHaveBeenCalledOnce()
+      expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
     } finally {
       await runAppEffect(
         Effect.flatMap(Config, (config) => config.writeModelPriceCatalog(previous)),

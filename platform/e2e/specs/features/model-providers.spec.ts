@@ -116,27 +116,47 @@ test("independent OpenAI connections supply distinct agent models and protect as
 
   await test.step("edit only explicit overrides and restore catalog defaults", async () => {
     await page.goto(modelPath)
-    await models.create({
-      name: `Catalog defaults ${runId}`,
-      modelId: "gpt-4.1-2025-04-14",
-      apiKey: "sk-catalog-browser-fixture",
-    })
-    await page.reload()
+    await page.getByRole("link", { name: "Add provider", exact: true }).first().click()
     await waitForHydration(page.locator("#model-provider-name"))
+    await page.getByLabel("Name", { exact: true }).fill(`Catalog defaults ${runId}`)
+    await page.getByLabel("API key", { exact: true }).fill("sk-catalog-browser-fixture")
+    await page.getByLabel("Custom model ID", { exact: true }).fill("gpt-4.1-2025-04-14")
+    await page.getByRole("button", { name: "Add model", exact: true }).click()
     const override = page.getByRole("switch", {
       name: "Override catalog defaults for gpt-4.1-2025-04-14",
       exact: true,
     })
     const inputPrice = page.getByLabel("Input price for gpt-4.1-2025-04-14", { exact: true })
+    const summary = page
+      .getByRole("group", { name: "Usage settings for gpt-4.1-2025-04-14", exact: true })
+      .locator("dl")
+    await expect(override).toBeVisible()
     await expect(override).not.toBeChecked()
+    await expect(inputPrice).toHaveCount(0)
+    await override.check()
+    await inputPrice.fill("7")
+    await override.uncheck()
+    await expect(summary).toContainText("$2")
+    await expect(summary).toContainText("4,096")
     await expect(inputPrice).toHaveCount(0)
     await override.check()
     await inputPrice.fill("7")
     await page.getByLabel("Custom model ID", { exact: true }).fill("gpt-4.1-2025-04-14")
     await page.getByRole("button", { name: "Add model", exact: true }).click()
     await expect(inputPrice).toHaveValue("7")
+    const customModel = page.getByRole("checkbox", { name: "gpt-4.1-2025-04-14", exact: true })
+    await customModel.uncheck()
+    await customModel.check()
+    await expect(inputPrice).toHaveValue("7")
+    await override.uncheck()
+    await expect(summary).toContainText("$2")
+    await override.check()
+    await inputPrice.fill("7")
     await page.getByLabel("Output cap for gpt-4.1-2025-04-14", { exact: true }).fill("1024")
-    await models.save()
+    await page.getByRole("button", { name: "Save provider", exact: true }).click()
+    await expect(
+      page.getByRole("heading", { level: 1, name: `Catalog defaults ${runId}`, exact: true }),
+    ).toBeVisible()
     await page.reload()
     await waitForHydration(page.locator("#model-provider-name"))
     await expect(override).toBeChecked()
@@ -151,9 +171,6 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await page.reload()
     await waitForHydration(page.locator("#model-provider-name"))
     await expect(override).not.toBeChecked()
-    const summary = page
-      .getByRole("group", { name: "Usage settings for gpt-4.1-2025-04-14", exact: true })
-      .locator("dl")
     await expect(summary).toContainText("$2")
     await expect(summary).toContainText("4,096")
     await captureMilestone(page, "07-catalog-defaults-restored")

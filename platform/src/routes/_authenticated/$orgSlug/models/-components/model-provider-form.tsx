@@ -83,6 +83,11 @@ export function ModelProviderForm({
       usageConfiguration,
     })) ?? [],
   )
+  const [catalogDefaults, setCatalogDefaults] = useState<readonly ProviderModelFields[]>(
+    existing?.models.filter(
+      (model) => model.usageConfiguration?.pricingSource.kind === "catalog",
+    ) ?? [],
+  )
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [serverFieldError, setServerFieldError] = useState<{
@@ -210,6 +215,7 @@ export function ModelProviderForm({
                   setApi(modelProviderDescriptors[next].api)
                   setBaseUrl(modelProviderDescriptors[next].baseUrl)
                   setModels([])
+                  setCatalogDefaults([])
                 }}
               >
                 <SelectTrigger id="model-provider-type" className="w-full">
@@ -306,7 +312,19 @@ export function ModelProviderForm({
               providerType={providerType}
               catalog={catalog[providerType]}
               models={models}
-              onChange={setModels}
+              onChange={(next) => {
+                setModels(next)
+                setCatalogDefaults((current) => [
+                  ...new Map(
+                    [
+                      ...current,
+                      ...next.filter(
+                        (model) => model.usageConfiguration?.pricingSource.kind === "catalog",
+                      ),
+                    ].map((model) => [model.modelId, model]),
+                  ).values(),
+                ])
+              }}
               disabled={disabled}
               errors={fieldErrors("models")}
             />
@@ -327,7 +345,10 @@ export function ModelProviderForm({
                 model={model}
                 catalogConfiguration={
                   catalog[providerType].find((item) => item.modelId === model.modelId)
-                    ?.usageConfiguration ?? null
+                    ?.usageConfiguration ??
+                  catalogDefaults.find((item) => item.modelId === model.modelId)
+                    ?.usageConfiguration ??
+                  null
                 }
                 disabled={disabled}
                 errors={(field) =>
