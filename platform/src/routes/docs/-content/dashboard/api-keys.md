@@ -25,7 +25,7 @@ Creating a key needs a recently authenticated session, so you may be asked to si
 
 ## Keeping a key server-side
 
-Keep the key in server configuration, such as an environment variable your token endpoint reads. It must never appear in browser code, in a client bundle, in a repository, or as an SDK option, and the SDK never accepts an API key.
+Keep the key in server configuration, such as an environment variable your token endpoint reads. It must never appear in browser code, in a client bundle, in a repository, or as a widget option. Server-side SDK helpers accept API keys for token minting and management requests.
 
 Keys belong to the organization rather than to the person who created them, so removing that person from the organization does not revoke their keys. Rotate a key when someone with access to it leaves.
 
