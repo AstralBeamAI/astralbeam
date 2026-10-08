@@ -40,6 +40,11 @@ export function ModelProviderListCard({
             </Badge>
           ))}
         </div>
+        {provider.models.some((model) => model.usageConfiguration === null) && (
+          <p className="text-sm text-destructive">
+            Configure prices and token limits for models that are not ready.
+          </p>
+        )}
         {!provider.credentialsReadable && (
           <p className="text-sm text-destructive">
             Save the API key again to restore this provider.

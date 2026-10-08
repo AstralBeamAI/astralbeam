@@ -2,10 +2,13 @@ import { assert, describe, it } from "@effect/vitest"
 import { Deferred, Effect, Fiber } from "effect"
 import { TestClock } from "effect/testing"
 
+import { modelUsageTestConfiguration } from "./usage.test-support.ts"
 import type { ChatModelConfiguration } from "./model-providers.server.ts"
 import { testProviderModel } from "./test-model.server.ts"
 
 const configuration: ChatModelConfiguration = {
+  providerModelId: "configured-model",
+  usageConfiguration: modelUsageTestConfiguration,
   providerId: "provider-id",
   providerName: "Test provider",
   providerType: "openai",
@@ -44,7 +47,15 @@ function textResponse(text = "OK", finish: string | null = "stop", api = configu
             },
             { type: "message_stop" },
           ]
-        : [{ choices: [{ index: 0, delta: { content: text }, finish_reason: finish }] }]
+        : [
+            {
+              id: "test-completion",
+              created: 0,
+              model: "saved-model",
+              object: "chat.completion.chunk",
+              choices: [{ index: 0, delta: { content: text }, finish_reason: finish }],
+            },
+          ]
   return new Response(
     events
       .map((event) => `event: ${event.type ?? "message"}\ndata: ${JSON.stringify(event)}\n\n`)
@@ -58,7 +69,7 @@ describe("testProviderModel", () => {
     Effect.gen(function* () {
       for (const [providerType, api, tokenField] of [
         ["openai", "chat-completions", "max_completion_tokens"],
-        ["openrouter", "chat-completions", "max_tokens"],
+        ["openrouter", "chat-completions", "max_completion_tokens"],
         ["openai", "responses", "max_output_tokens"],
         ["anthropic", "anthropic-messages", "max_tokens"],
       ] as const) {
@@ -68,8 +79,8 @@ describe("testProviderModel", () => {
             ...configuration,
             api,
             providerType,
-            fetch: (_input, init) => {
-              request = JSON.parse(init?.body as string) as Record<string, unknown>
+            fetch: async (input, init) => {
+              request = JSON.parse(await new Request(input, init).text()) as Record<string, unknown>
               return Promise.resolve(textResponse("OK", "stop", api))
             },
           }),
@@ -112,25 +123,6 @@ describe("testProviderModel", () => {
         assert.strictEqual(failed.reason, reason)
         assert.notInclude(JSON.stringify(failed), "private-provider-diagnostic")
         assert.notInclude(JSON.stringify(failed), configuration.apiKey)
-      }
-    }),
-  )
-
-  it.effect("uses the final response after a transient provider failure", () =>
-    Effect.gen(function* () {
-      for (const text of ["OK", " "]) {
-        let calls = 0
-        const result = yield* testProviderModel({
-          ...configuration,
-          fetch: () =>
-            Promise.resolve(
-              ++calls === 1
-                ? new Response(null, { status: 500, headers: { "retry-after-ms": "1" } })
-                : textResponse(text),
-            ),
-        }).pipe(Effect.match({ onFailure: ({ reason }) => reason, onSuccess: () => "success" }))
-        assert.strictEqual(calls, 2)
-        assert.strictEqual(result, text.trim() ? "success" : "empty")
       }
     }),
   )

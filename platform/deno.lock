@@ -17,20 +17,23 @@
     "npm:@fontsource-variable/inter@^5.2.8": "5.3.0",
     "npm:@fontsource-variable/manrope@^5.2.8": "5.3.0",
     "npm:@marsidev/react-turnstile@^1.6.0": "1.6.0_react@19.3.0_react-dom@19.3.0",
+    "npm:@openrouter/sdk@0.13.20": "0.13.20",
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.3.0_react-dom@19.3.0",
     "npm:@playwright/test@^1.63.0": "1.63.0",
+    "npm:@pydantic/genai-prices@~0.1.9": "0.1.9",
     "npm:@react-email/render@2.1.0": "2.1.0_react@19.3.0_react-dom@19.3.0",
     "npm:@scalar/api-reference@^1.67.0": "1.67.0_zod@4.6.5",
     "npm:@tailwindcss/vite@4": "4.3.3_vite@8.3.2",
-    "npm:@tanstack/ai-anthropic@~0.19.4": "0.19.4_@tanstack+ai@0.64.0_zod@4.6.5",
-    "npm:@tanstack/ai-openai@0.26": "0.26.0_@tanstack+ai@0.64.0_zod@4.6.5",
-    "npm:@tanstack/ai-persistence@0.7.2": "0.7.2_@tanstack+ai@0.64.0_vitest@5.0.3",
-    "npm:@tanstack/ai-sandbox-daytona@~0.3.4": "0.3.4_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2",
-    "npm:@tanstack/ai-sandbox-docker@~0.3.2": "0.3.2_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2",
-    "npm:@tanstack/ai-sandbox-sprites@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2",
-    "npm:@tanstack/ai-sandbox-vercel@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2",
-    "npm:@tanstack/ai-sandbox@~0.5.18": "0.5.18_@tanstack+ai@0.64.0_@tanstack+ai-persistence@0.7.2_vitest@5.0.3",
-    "npm:@tanstack/ai@0.64": "0.64.0_zod@4.6.5",
+    "npm:@tanstack/ai-anthropic@0.20": "0.20.0_@tanstack+ai@0.66.0_zod@4.6.5",
+    "npm:@tanstack/ai-openai@0.28": "0.28.0_@tanstack+ai@0.66.0_zod@4.6.5",
+    "npm:@tanstack/ai-openrouter@~0.21.2": "0.21.2_@tanstack+ai@0.66.0",
+    "npm:@tanstack/ai-persistence@0.8.1": "0.8.1_@tanstack+ai@0.66.0_vitest@5.0.3",
+    "npm:@tanstack/ai-sandbox-daytona@~0.3.4": "0.3.4_@tanstack+ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5",
+    "npm:@tanstack/ai-sandbox-docker@~0.3.2": "0.3.2_@tanstack+ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5",
+    "npm:@tanstack/ai-sandbox-sprites@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5",
+    "npm:@tanstack/ai-sandbox-vercel@~0.2.5": "0.2.5_@tanstack+ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5",
+    "npm:@tanstack/ai-sandbox@0.5.20": "0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5",
+    "npm:@tanstack/ai@0.66": "0.66.0",
     "npm:@tanstack/devtools-vite@~0.8.3": "0.8.3_vite@8.3.2",
     "npm:@tanstack/eslint-plugin-query@^5.103.2": "5.103.2_eslint@10.11.0_typescript@6.0.3",
     "npm:@tanstack/eslint-plugin-router@*": "1.162.0_eslint@10.11.0_typescript@6.0.3",
@@ -2105,6 +2108,13 @@
     "@oozcitak/util@10.0.0": {
       "integrity": "sha512-hAX0pT/73190NLqBPPWSdBVGtbY6VOhWYK3qqHqtXQ1gK7kS2yz4+ivsN07hpJ6I3aeMtKP6J6npsEKOAzuTLA=="
     },
+    "@openrouter/sdk@0.13.20": {
+      "integrity": "sha512-fx4o19FHgadEldfrSOgSbXAi32hCE3O708q1nxcoxYrW6fP6/WggX3o5PmnlnObzmxrqLMkZpqg188K+Twguhg==",
+      "dependencies": [
+        "zod@4.6.5"
+      ],
+      "scripts": true
+    },
     "@opentelemetry/api-logs@0.217.0": {
       "integrity": "sha512-Cdq0jW2lknrNfrAm92MyEAvpe2cRsKjdnQLHUL6xRA4IVUnsWx6P65E7NcUO0Y+L4w1Aee5iV8FvjSwd+lrs9A==",
       "dependencies": [
@@ -3106,6 +3116,10 @@
     "@protobufjs/utf8@1.1.2": {
       "integrity": "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug=="
     },
+    "@pydantic/genai-prices@0.1.9": {
+      "integrity": "sha512-M93O77DCs533HASyjenihMo9b2OTW6c8v49w6yS/W50osugJ1rkUX8baaDNCnw+ZPiMD6jIxUsa1Bz1MrpX3Uw==",
+      "bin": true
+    },
     "@react-email/render@2.1.0_react@19.3.0_react-dom@19.3.0": {
       "integrity": "sha512-F+zE3O6d6sW6Aj2UjvZAA17R7tJKM7kcq2mgV6k4HCT8jeLLFaVP2txMtH1lgqYFRMZ0Gxsd37q2PRyiXLXXxA==",
       "dependencies": [
@@ -3740,22 +3754,22 @@
         "vite"
       ]
     },
-    "@tanstack/ai-anthropic@0.19.4_@tanstack+ai@0.64.0_zod@4.6.5": {
-      "integrity": "sha512-4D6+UWfHp3ER2qXXEYGp2T9oGShsewXYscZ0w73bVPEQbkOUqX54w+EiuPBNAlkA+qsx4QsTcB67N+YmwGoZCw==",
+    "@tanstack/ai-anthropic@0.20.0_@tanstack+ai@0.66.0_zod@4.6.5": {
+      "integrity": "sha512-6+zPeAd2L/ZfApTk3809wg0AnGH/0SGgWiXDCal638pyK0Xbr2/Ml0HK+5IvTlXm1TUpw3hS7ZwFAlLupOOg/A==",
       "dependencies": [
         "@anthropic-ai/sdk",
         "@tanstack/ai",
         "@tanstack/ai-utils"
       ]
     },
-    "@tanstack/ai-event-client@0.13.0": {
-      "integrity": "sha512-qGN7saScQHqDd06DE5CNG+wl1O9v6anwsGCCeP4N7zFbZd5k9/2C1u4cdJ2+Qxl2aA8drusLFZMhY/ljhBJqLQ==",
+    "@tanstack/ai-event-client@0.13.1": {
+      "integrity": "sha512-lCPcshu6Sd4tFNeMSr+HXgdqCGupYU2cpJZVUent4GkFx41dXzrBaKkwOgkji6olDBT99OBagWCce1NZ15XeJA==",
       "dependencies": [
         "@tanstack/devtools-event-client@0.4.4"
       ]
     },
-    "@tanstack/ai-openai@0.26.0_@tanstack+ai@0.64.0_zod@4.6.5": {
-      "integrity": "sha512-PBdaL8SGyIWTMyWCaRkLZaum+9N4wp3Sftm6hl75hHaoJEkDLLNZMtqAH/y1uBPzbhZbaKkYLSnyAne+QgHzJA==",
+    "@tanstack/ai-openai@0.28.0_@tanstack+ai@0.66.0_zod@4.6.5": {
+      "integrity": "sha512-pfKW9fV8rzSJ94yJOUqfQJFMviSfGGeNdlkn42JpOZG82nc7UM0Hag8prnNvJALg8ELw77WyrPW6j/BBrshmvA==",
       "dependencies": [
         "@tanstack/ai",
         "@tanstack/ai-utils",
@@ -3763,8 +3777,16 @@
         "openai"
       ]
     },
-    "@tanstack/ai-persistence@0.7.2_@tanstack+ai@0.64.0_vitest@5.0.3": {
-      "integrity": "sha512-m81bTdWZQw2mGrQcBYnLylkSXGhsC6GfqxSEGv/XQUlRAEjVnlp7Fwk2fNiA3DmSaRLsoNIij6X6ZNChmN8fqg==",
+    "@tanstack/ai-openrouter@0.21.2_@tanstack+ai@0.66.0": {
+      "integrity": "sha512-BmlhXu6bdZgbK/lgmiNaoMeECaw8lbO9d3hJOt7PeMR4zhwcKGtNKUP1r0XYr82cRQmQEKzOBqY8U8hQKqLyvQ==",
+      "dependencies": [
+        "@openrouter/sdk",
+        "@tanstack/ai",
+        "@tanstack/ai-utils"
+      ]
+    },
+    "@tanstack/ai-persistence@0.8.1_@tanstack+ai@0.66.0_vitest@5.0.3": {
+      "integrity": "sha512-v3d4MaH8mNgb0X1jskSvQGoLBZTIzEzx0JIQ+51dnCg3w3pZ8hJhR+PtJibh/75yzeFVEOPjienJMJ/0eNEuyA==",
       "dependencies": [
         "@tanstack/ai",
         "@tanstack/ai-utils",
@@ -3774,35 +3796,35 @@
         "vitest"
       ]
     },
-    "@tanstack/ai-sandbox-daytona@0.3.4_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2": {
+    "@tanstack/ai-sandbox-daytona@0.3.4_@tanstack+ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5": {
       "integrity": "sha512-AumlHSt2v3GylYW3kcVG+VJaRH2tKqvt4szsJQIiEqPazgIleGQKcF9g2J3vuPOfVqv8CdCdxuN5fwNU0sSlwA==",
       "dependencies": [
         "@daytona/sdk",
         "@tanstack/ai-sandbox"
       ]
     },
-    "@tanstack/ai-sandbox-docker@0.3.2_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2": {
+    "@tanstack/ai-sandbox-docker@0.3.2_@tanstack+ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5": {
       "integrity": "sha512-HD8uefHrL6zP+6lJhxDf6lBvZ6Effu/V38XgSvNOxE5Xbqt4qzLLMlL11/zuAw70275kgwoaFO5GE3GQyEnGxA==",
       "dependencies": [
         "@tanstack/ai-sandbox",
         "dockerode"
       ]
     },
-    "@tanstack/ai-sandbox-sprites@0.2.5_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2": {
+    "@tanstack/ai-sandbox-sprites@0.2.5_@tanstack+ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5": {
       "integrity": "sha512-GaRsC05LCWyX2Knp29v85KKeIroyAEnTZnR4F1kEcmSUoWdKmF/GuPv4k/DkuBslFp1qcu/FDmgRIW7cGR+bdA==",
       "dependencies": [
         "@tanstack/ai-sandbox"
       ]
     },
-    "@tanstack/ai-sandbox-vercel@0.2.5_@tanstack+ai-sandbox@0.5.18__@tanstack+ai@0.64.0__@tanstack+ai-persistence@0.7.2__vitest@5.0.3_@tanstack+ai-persistence@0.7.2": {
+    "@tanstack/ai-sandbox-vercel@0.2.5_@tanstack+ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5": {
       "integrity": "sha512-H89hBiH3bL+Yr3f5+mkoLOgD5yJTGuO8WxAuXjQ/9r8uEiW1AorOgmrvfVTFq6whe1CguSGTsFEDbnxC5h+/FA==",
       "dependencies": [
         "@tanstack/ai-sandbox",
         "@vercel/sandbox"
       ]
     },
-    "@tanstack/ai-sandbox@0.5.18_@tanstack+ai@0.64.0_@tanstack+ai-persistence@0.7.2_vitest@5.0.3": {
-      "integrity": "sha512-42geKy+uURfKEOZ57rps5/7Lp4Y53mAIwcdBC4PtIyEZuL0EnKb0Q6fKa+7SvbLcw8nURCtn2DJARktyrf4fBw==",
+    "@tanstack/ai-sandbox@0.5.20_@tanstack+ai@0.66.0_@tanstack+ai-persistence@0.8.1_vitest@5.0.3_zod@4.6.5": {
+      "integrity": "sha512-LDEIthlxuGbPsI28BZ5+lnSRKLshFn6Za6USFOKurg+2YdpAaaEVZbkJF++RH+irieufBvW26l09OEhRgfI5VQ==",
       "dependencies": [
         "@modelcontextprotocol/sdk@1.30.0_zod@4.6.5",
         "@tanstack/ai",
@@ -3815,8 +3837,8 @@
         "vitest"
       ]
     },
-    "@tanstack/ai-skills@0.1.14_@tanstack+ai@0.64.0_vitest@5.0.3_zod@4.6.5": {
-      "integrity": "sha512-yRGJC7kUb1QZPQ5AutivhASyW7oCAlcbi6FqYTvn7N+Izlkr3kZmmGUjbiLYn7/9rENWDH1bI/cOhJlUH2XULA==",
+    "@tanstack/ai-skills@0.1.16_@tanstack+ai@0.66.0_vitest@5.0.3_zod@4.6.5": {
+      "integrity": "sha512-+T/pIjR+2u7pRdwtWMguI3vhZuFvNa1GSHB6yOZf9PAjdWalCFi4t1xGd9uMGvIz9KmSc+6qjSIlN6jW/vI9Rg==",
       "dependencies": [
         "@tanstack/ai",
         "vitest",
@@ -3829,13 +3851,14 @@
     "@tanstack/ai-utils@0.4.1": {
       "integrity": "sha512-B3PGn2WYiRtivZCt7MUN2iXeoK9fwZhgdbrPIz5hPqVR8r8sNDZMmMqtiOkp7sxzPvVlCBItFVHw7QpZ9g6e9w=="
     },
-    "@tanstack/ai@0.64.0_zod@4.6.5": {
-      "integrity": "sha512-8/ambmqJIGgwTkNad5/y4R5s9kwAr4ylDVeQVLDxSvkzp9FydL/QkVKsQuLWbuG9wu66UQ0GkNWmlWwxQojObg==",
+    "@tanstack/ai@0.66.0": {
+      "integrity": "sha512-vU520lSSrvH4Pw/znf9T49SmTcsV3k2hlKcMWVB21XDjO6zzBQGmib48iyUWIEwYOAQfDJQQPTCy+nd96gdJOg==",
       "dependencies": [
         "@ag-ui/core",
         "@standard-schema/spec",
         "@tanstack/ai-event-client",
         "@tanstack/ai-utils",
+        "fast-json-patch",
         "partial-json"
       ]
     },
@@ -3949,8 +3972,8 @@
         "react"
       ]
     },
-    "@tanstack/openai-base@0.12.2_@tanstack+ai@0.64.0_zod@4.6.5": {
-      "integrity": "sha512-Z3Zs5xAVI6wdQ2RCdzixFiYm3ZjABJg7ujzA/9iXICwlkFivq6vckBZwWFLR5Su2SvXSoH4gcF+p70jsday8PQ==",
+    "@tanstack/openai-base@0.12.6_@tanstack+ai@0.66.0_zod@4.6.5": {
+      "integrity": "sha512-mXNvpWzRfbFyz7gsobRTF10FMf6451h7W8hvLHzVdZC4HAYIQNsyDpuxC4ptrdTVwML4uO8Ld2tU30MIM2vb6g==",
       "dependencies": [
         "@tanstack/ai",
         "@tanstack/ai-utils",
@@ -5947,6 +5970,9 @@
         "micromatch"
       ]
     },
+    "fast-json-patch@3.1.1": {
+      "integrity": "sha512-vf6IHUX2SBcA+5/+4883dsIjpBTqmfBjmYiWK1savxQmFk4JfBMLa7ynTYOs1Rolp/T1betJxHiGD3g1Mn8lUQ=="
+    },
     "fast-json-stable-stringify@2.1.0": {
       "integrity": "sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw=="
     },
@@ -7624,8 +7650,8 @@
         "is-wsl@2.2.0"
       ]
     },
-    "openai@6.49.0_zod@4.6.5": {
-      "integrity": "sha512-aYCc0C6L864eR6WSYIwQGyXriw/nIyZx0ObvhzOEVuk0zoBDpynjSbrionWI7q65B5H8jJX0DXR9snEzM6bfPg==",
+    "openai@7.30.1_zod@4.6.5": {
+      "integrity": "sha512-YgiPjBgXdItqTsgAR138bu9aHxBb3/L7qiiP8ucU8e9msRfF8cjRtp8y5qYW7E3Oe9O8UWejQZERf37dtdvoTg==",
       "dependencies": [
         "zod@4.6.5"
       ],
@@ -9476,20 +9502,23 @@
         "npm:@fontsource-variable/inter@^5.2.8",
         "npm:@fontsource-variable/manrope@^5.2.8",
         "npm:@marsidev/react-turnstile@^1.6.0",
+        "npm:@openrouter/sdk@0.13.20",
         "npm:@phosphor-icons/react@^2.1.10",
         "npm:@playwright/test@^1.63.0",
+        "npm:@pydantic/genai-prices@~0.1.9",
         "npm:@react-email/render@2.1.0",
         "npm:@scalar/api-reference@^1.67.0",
         "npm:@tailwindcss/vite@4",
-        "npm:@tanstack/ai-anthropic@~0.19.4",
-        "npm:@tanstack/ai-openai@0.26",
-        "npm:@tanstack/ai-persistence@0.7.2",
+        "npm:@tanstack/ai-anthropic@0.20",
+        "npm:@tanstack/ai-openai@0.28",
+        "npm:@tanstack/ai-openrouter@~0.21.2",
+        "npm:@tanstack/ai-persistence@0.8.1",
         "npm:@tanstack/ai-sandbox-daytona@~0.3.4",
         "npm:@tanstack/ai-sandbox-docker@~0.3.2",
         "npm:@tanstack/ai-sandbox-sprites@~0.2.5",
         "npm:@tanstack/ai-sandbox-vercel@~0.2.5",
-        "npm:@tanstack/ai-sandbox@~0.5.18",
-        "npm:@tanstack/ai@0.64",
+        "npm:@tanstack/ai-sandbox@0.5.20",
+        "npm:@tanstack/ai@0.66",
         "npm:@tanstack/devtools-vite@~0.8.3",
         "npm:@tanstack/eslint-plugin-query@^5.103.2",
         "npm:@tanstack/eslint-plugin-router@^1.162.0",

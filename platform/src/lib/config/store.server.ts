@@ -1,4 +1,4 @@
-import { eq, notInArray, sql } from "drizzle-orm"
+import { and, eq, isNotNull, notInArray, sql } from "drizzle-orm"
 import { Effect, Option, Result } from "effect"
 
 import type { EffectDatabase } from "@/db/database.server"
@@ -7,6 +7,7 @@ import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { configTable } from "@/db/schema.server"
 import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
+import type { ModelPriceCatalog } from "@/lib/model-providers/pricing-catalog-schemas"
 import { CONFIG_DEFINITIONS, decodeConfigValue, findConfigDefinition } from "./registry.server.ts"
 import type { ConfigKey, ConfigStorageEntry, ConfigValues } from "./types.ts"
 
@@ -75,19 +76,23 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
   db: EffectDatabase,
   excludedKeys: readonly ConfigKey[] = [],
 ) {
-  const query = db
+  const stored = yield* db
     .select({ key: configTable.key, storedValue: sql<string>`${configTable.value}::text` })
     .from(configTable)
-  const stored = yield* (
-    excludedKeys.length === 0 ? query : query.where(notInArray(configTable.key, [...excludedKeys]))
-  ).pipe(
-    Effect.map(Option.some),
-    Effect.catchIf(
-      (error) => sqlState(error) === "42P01",
-      () => Effect.succeed(Option.none()),
-    ),
-    Effect.orDie,
-  )
+    .where(
+      and(
+        isNotNull(configTable.value),
+        excludedKeys.length > 0 ? notInArray(configTable.key, [...excludedKeys]) : undefined,
+      ),
+    )
+    .pipe(
+      Effect.map(Option.some),
+      Effect.catchIf(
+        (error) => sqlState(error) === "42P01",
+        () => Effect.succeed(Option.none()),
+      ),
+      Effect.orDie,
+    )
   const rows = Option.getOrElse(stored, () => []).map(decryptStoredConfigRow)
   const values = yield* decodeStoredConfigRows(rows)
   return {
@@ -95,6 +100,32 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
     values,
   } satisfies DatabaseConfigState
 })
+
+const MODEL_PRICE_CATALOG_CONFIG_KEY = "model_price_catalog"
+
+export const readDatabaseModelPriceCatalog = Effect.fn("readDatabaseModelPriceCatalog")(function* (
+  db: EffectDatabase,
+) {
+  const rows = yield* db
+    .select({ catalog: configTable.jsonValue })
+    .from(configTable)
+    .where(eq(configTable.key, MODEL_PRICE_CATALOG_CONFIG_KEY))
+    .limit(1)
+    .pipe(Effect.orDie)
+  return rows[0]?.catalog ?? null
+})
+
+export const writeDatabaseModelPriceCatalog = Effect.fn("writeDatabaseModelPriceCatalog")(
+  (db: EffectDatabase, catalog: ModelPriceCatalog) =>
+    db
+      .insert(configTable)
+      .values({ key: MODEL_PRICE_CATALOG_CONFIG_KEY, jsonValue: catalog })
+      .onConflictDoUpdate({
+        target: configTable.key,
+        set: { jsonValue: catalog, value: null, updatedAt: sql`now()` },
+      })
+      .pipe(Effect.asVoid, Effect.orDie),
+)
 
 const storedConfigValue = Effect.fnUntraced(function* (key: ConfigKey, value: string) {
   const decoded = yield* Effect.fromResult(decodeConfigValue(findConfigDefinition(key)!, value))

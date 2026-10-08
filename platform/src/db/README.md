@@ -5,7 +5,7 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 ## Structure
 
 - `database.server.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
-- `schema/config.server.ts` defines the global `config` table, whose Drizzle column codec owns encryption. The `Config` service in `src/lib/config` validates stored values, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching.
+- `schema/config.server.ts` defines the global `config` table. Each row holds either an encrypted `value` or a schema-validated `json_value`. The `Config` service in `src/lib/config` validates stored settings, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching. The shared model pricing catalog uses `json_value` and dedicated uncached reads so replicas see refreshed prices without restarting.
 - `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`. `migrate-command.server.ts` serves the compiled CLI and `deno task db migrate`.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.

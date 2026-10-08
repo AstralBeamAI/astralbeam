@@ -29,7 +29,13 @@ import {
   ModelProviderUnreadable,
   ModelProviderTestFailed,
   ModelProviderTestRateLimited,
+  ModelUsageConfigurationMissing,
 } from "./errors.ts"
+import {
+  effectiveModelUsageConfiguration,
+  readModelPriceCatalog,
+} from "./pricing-catalog.server.ts"
+import type { ModelUsageConfiguration } from "./usage-schemas.ts"
 import { testProviderModel } from "./test-model.server.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
@@ -42,6 +48,7 @@ interface ModelProviderModel {
   readonly id: string
   readonly modelId: string
   readonly name: string
+  readonly usageConfiguration: ModelUsageConfiguration | null
 }
 
 export interface OrganizationModelProvider {
@@ -61,7 +68,7 @@ export interface OrganizationModelProvider {
 
 export type ModelProviderListItem = Omit<OrganizationModelProvider, "apiKeyHint" | "organizationId">
 
-export interface ModelChoice extends ModelProviderModel {
+export interface ModelChoice extends Omit<ModelProviderModel, "usageConfiguration"> {
   readonly providerId: string
   readonly providerName: string
 }
@@ -74,6 +81,8 @@ export interface ChatModelConfiguration {
   readonly baseUrl: string
   readonly apiKey: string
   readonly modelId: string
+  readonly providerModelId: string
+  readonly usageConfiguration: ModelUsageConfiguration
   /** Enforces the deployment's private endpoint policy on every provider request. */
   readonly fetch: typeof fetch
 }
@@ -98,6 +107,7 @@ type ModelProviderWriteError =
   | ModelProviderNameTaken
   | ModelProviderKeyMissing
   | ModelProviderUnreadable
+  | ModelUsageConfigurationMissing
 
 const modelProviderReadColumns = {
   id: modelProvider.id,
@@ -167,13 +177,17 @@ export class ModelProviders extends Context.Service<
     readonly resolveForAgent: (input: {
       readonly organizationId: string
       readonly agentId: string
-    }) => Effect.Effect<ChatModelConfiguration | null, ModelProviderUnreadable>
+    }) => Effect.Effect<
+      ChatModelConfiguration | null,
+      ModelProviderUnreadable | ModelUsageConfigurationMissing
+    >
     readonly testModel: (
       input: TestModelProviderInput,
     ) => Effect.Effect<
       void,
       | ModelProviderChanged
       | ModelProviderUnreadable
+      | ModelUsageConfigurationMissing
       | ModelProviderTestFailed
       | ModelProviderTestRateLimited
     >
@@ -185,6 +199,7 @@ export class ModelProviders extends Context.Service<
       const db = yield* Database
       const config = yield* Config
       const rateLimiter = yield* DatabaseRateLimiter
+      const readPricing = readModelPriceCatalog.pipe(Effect.provideService(Config, config))
       const allowsPrivateEndpoints = Effect.map(
         config.get("allow_private_model_endpoints"),
         (value) => value === "true",
@@ -241,6 +256,7 @@ export class ModelProviders extends Context.Service<
       })
 
       const list = Effect.fn("ModelProviders.list")(function* (input: { organizationId: string }) {
+        const catalog = yield* readPricing
         const rows = yield* db
           .select(modelProviderReadColumns)
           .from(modelProvider)
@@ -258,7 +274,17 @@ export class ModelProviders extends Context.Service<
             credentialsReadable: apiKey !== null,
             models: models
               .filter((model) => model.modelProviderId === row.id)
-              .map(({ id, modelId, name }) => ({ id, modelId, name })),
+              .map(({ id, modelId, name, usageConfiguration }) => ({
+                id,
+                modelId,
+                name,
+                usageConfiguration: effectiveModelUsageConfiguration({
+                  catalog,
+                  providerType: row.providerType,
+                  modelId,
+                  configured: usageConfiguration,
+                }),
+              })),
           }
         })
       }, Effect.orDie)
@@ -270,12 +296,14 @@ export class ModelProviders extends Context.Service<
         const stored = yield* readModelProviderRow(input.organizationId, input.id)
         if (!stored) return null
         const { storedCredentials: _storedCredentials, ...row } = stored
+        const catalog = yield* readPricing
         const apiKey = readModelProviderKey(stored)
         const models = yield* db
           .select({
             id: providerModel.id,
             modelId: providerModel.modelId,
             name: providerModel.name,
+            usageConfiguration: providerModel.usageConfiguration,
           })
           .from(providerModel)
           .where(
@@ -289,7 +317,15 @@ export class ModelProviders extends Context.Service<
           ...row,
           apiKeyHint: apiKey?.slice(-4) ?? null,
           credentialsReadable: apiKey !== null,
-          models,
+          models: models.map((model) => ({
+            ...model,
+            usageConfiguration: effectiveModelUsageConfiguration({
+              catalog,
+              providerType: row.providerType,
+              modelId: model.modelId,
+              configured: model.usageConfiguration,
+            }),
+          })),
         }
       }, Effect.orDie)
 
@@ -333,6 +369,18 @@ export class ModelProviders extends Context.Service<
         const apiKey = input.apiKey ?? (keyKept ? readModelProviderKey(existing) : null)
         if (!apiKey)
           return yield* keyKept ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
+        const catalog = yield* readPricing
+        const configuredModels = input.models.map((model) => ({
+          ...model,
+          usageConfiguration: effectiveModelUsageConfiguration({
+            catalog,
+            providerType: input.providerType,
+            modelId: model.modelId,
+            configured: model.usageConfiguration,
+          }),
+        }))
+        if (configuredModels.some((model) => model.usageConfiguration === null))
+          return yield* new ModelUsageConfigurationMissing()
         return yield* db
           .transaction((transaction) =>
             Effect.gen(function* () {
@@ -397,7 +445,7 @@ export class ModelProviders extends Context.Service<
                 yield* transaction
                   .insert(providerModel)
                   .values(
-                    input.models.map((model) => ({
+                    configuredModels.map((model) => ({
                       organizationId: input.organizationId,
                       modelProviderId: id!,
                       ...model,
@@ -411,6 +459,7 @@ export class ModelProviders extends Context.Service<
                     ],
                     set: {
                       name: sql`excluded.name`,
+                      usageConfiguration: sql`excluded.usage_configuration`,
                       updatedAt: sql`now()`,
                     },
                   })
@@ -501,6 +550,8 @@ export class ModelProviders extends Context.Service<
             api: modelProvider.api,
             baseUrl: modelProvider.baseUrl,
             modelId: providerModel.modelId,
+            providerModelId: providerModel.id,
+            usageConfiguration: providerModel.usageConfiguration,
             storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
           })
           .from(agentModel)
@@ -528,6 +579,14 @@ export class ModelProviders extends Context.Service<
           .limit(1)
           .pipe(Effect.orDie)
         if (!selected) return null
+        const catalog = yield* readPricing
+        const usageConfiguration = effectiveModelUsageConfiguration({
+          catalog,
+          providerType: selected.providerType,
+          modelId: selected.modelId,
+          configured: selected.usageConfiguration,
+        })
+        if (!usageConfiguration) return yield* new ModelUsageConfigurationMissing()
         const { storedCredentials, ...configuration } = selected
         const apiKey = readModelProviderKey({
           id: selected.providerId,
@@ -546,6 +605,7 @@ export class ModelProviders extends Context.Service<
         }
         return {
           ...configuration,
+          usageConfiguration,
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         }
@@ -557,7 +617,10 @@ export class ModelProviders extends Context.Service<
         const provider = yield* readModelProviderRow(input.organizationId, input.id)
         if (provider?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
         const [model] = yield* db
-          .select({ modelId: providerModel.modelId })
+          .select({
+            modelId: providerModel.modelId,
+            usageConfiguration: providerModel.usageConfiguration,
+          })
           .from(providerModel)
           .where(
             and(
@@ -571,6 +634,14 @@ export class ModelProviders extends Context.Service<
         if (!model) return yield* new ModelProviderChanged()
         const apiKey = readModelProviderKey(provider)
         if (!apiKey) return yield* new ModelProviderUnreadable()
+        const catalog = yield* readPricing
+        const usageConfiguration = effectiveModelUsageConfiguration({
+          catalog,
+          providerType: provider.providerType,
+          modelId: model.modelId,
+          configured: model.usageConfiguration,
+        })
+        if (!usageConfiguration) return yield* new ModelUsageConfigurationMissing()
         yield* rateLimiter
           .consume({
             key: hashedRateLimitKey("model-test", [input.organizationId]),
@@ -592,6 +663,8 @@ export class ModelProviders extends Context.Service<
           api: provider.api,
           baseUrl: provider.baseUrl,
           modelId: model.modelId,
+          providerModelId: input.modelId,
+          usageConfiguration,
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         })

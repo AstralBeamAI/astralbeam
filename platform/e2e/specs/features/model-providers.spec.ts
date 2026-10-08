@@ -65,9 +65,39 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await expect(page.getByText("Stored key ends in 1111. Leave blank to keep it.")).toBeVisible()
   })
 
+  await test.step("persist explicit zero pricing and reject an output cap above the maximum", async () => {
+    await page.goto(modelPath)
+    await models.open(primaryName)
+    await page.getByLabel(`Input price for ${upstreamModel}`, { exact: true }).fill("0")
+    await page.getByLabel(`Output price for ${upstreamModel}`, { exact: true }).fill("0")
+    await page.getByLabel(`Output cap for ${upstreamModel}`, { exact: true }).fill("4097")
+    await page.getByRole("button", { name: "Save provider", exact: true }).click()
+    await expect(
+      page.getByText("Output cap exceeds the configured output maximum", { exact: true }),
+    ).toBeVisible()
+    await expect(
+      page.getByLabel(`Output cap for ${upstreamModel}`, { exact: true }),
+    ).toHaveAttribute("aria-invalid", "true")
+    await page.getByLabel(`Output cap for ${upstreamModel}`, { exact: true }).fill("1024")
+    await models.save()
+    await page.reload()
+    await waitForHydration(page.locator("#model-provider-name"))
+    await expect(page.getByLabel(`Input price for ${upstreamModel}`, { exact: true })).toHaveValue(
+      "0",
+    )
+    await expect(page.getByLabel(`Output price for ${upstreamModel}`, { exact: true })).toHaveValue(
+      "0",
+    )
+    await expect(page.getByLabel(`Output cap for ${upstreamModel}`, { exact: true })).toHaveValue(
+      "1024",
+    )
+    await captureMilestone(page, "05-model-pricing-and-bounds")
+  })
+
   await test.step("assign both connections and choose the second as default", async () => {
     await page.goto(`/${baseline.organizationSlug}/agents`)
     await agents.startCreate()
+    await waitForHydration(page.locator("#agent-name"))
     await agents.fillForm({
       name: `Multi-provider agent ${runId}`,
       systemPrompt: "Help the user with their application.",
@@ -82,6 +112,46 @@ test("independent OpenAI connections supply distinct agent models and protect as
       secondChoice,
     )
     await captureMilestone(page, "02-provider-qualified-agent-models")
+  })
+
+  await test.step("edit only explicit overrides and restore catalog defaults", async () => {
+    await page.goto(modelPath)
+    await models.create({
+      name: `Catalog defaults ${runId}`,
+      modelId: "gpt-4.1",
+      apiKey: "sk-catalog-browser-fixture",
+    })
+    await page.reload()
+    await waitForHydration(page.locator("#model-provider-name"))
+    const override = page.getByRole("switch", {
+      name: "Override catalog defaults for gpt-4.1",
+      exact: true,
+    })
+    const inputPrice = page.getByLabel("Input price for gpt-4.1", { exact: true })
+    await expect(override).not.toBeChecked()
+    await expect(inputPrice).toHaveCount(0)
+    await override.check()
+    await inputPrice.fill("7")
+    await page.getByLabel("Output cap for gpt-4.1", { exact: true }).fill("1024")
+    await models.save()
+    await page.reload()
+    await waitForHydration(page.locator("#model-provider-name"))
+    await expect(override).toBeChecked()
+    await expect(inputPrice).toHaveValue("7")
+    await expect(page.getByLabel("Output cap for gpt-4.1", { exact: true })).toHaveValue("1024")
+    await captureMilestone(page, "06-explicit-model-overrides")
+    await override.uncheck()
+    await expect(inputPrice).toHaveCount(0)
+    await models.save()
+    await page.reload()
+    await waitForHydration(page.locator("#model-provider-name"))
+    await expect(override).not.toBeChecked()
+    const summary = page
+      .getByRole("group", { name: "Usage settings for gpt-4.1", exact: true })
+      .locator("dl")
+    await expect(summary).toContainText("$2")
+    await expect(summary).toContainText("4,096")
+    await captureMilestone(page, "07-catalog-defaults-restored")
   })
 
   await test.step("prevent removal of a provider that the agent still uses", async () => {

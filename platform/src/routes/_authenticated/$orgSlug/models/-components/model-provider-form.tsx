@@ -38,6 +38,8 @@ import { SaveModelProviderInputSchema } from "../-lib/schemas"
 import { ModelProviderField } from "./model-provider-field"
 import { ProviderModelPicker } from "./provider-model-picker"
 import { ModelProviderTest } from "./model-provider-test"
+import { ProviderModelUsageFields } from "./provider-model-usage-fields"
+import { LocalDateTime } from "@/components/local-date-time"
 
 const formatModelProviderIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 const equalModelProviderFields = Schema.toEquivalence(ModelProviderFieldsSchema)
@@ -51,11 +53,15 @@ export function ModelProviderForm({
   organizationSlug,
   provider: existing,
   catalog,
+  pricingFetchedAt,
+  pricingIsStale,
   readOnly,
 }: {
   organizationSlug: string
   provider: OrganizationModelProvider | null
   catalog: Record<ModelProviderType, readonly ProviderModelFields[]>
+  pricingFetchedAt: string | null
+  pricingIsStale: boolean
   readOnly: boolean
 }) {
   const navigate = useNavigate()
@@ -69,7 +75,11 @@ export function ModelProviderForm({
   const [baseUrl, setBaseUrl] = useState(existing?.baseUrl ?? "https://api.openai.com/v1")
   const [apiKey, setApiKey] = useState("")
   const [models, setModels] = useState<ProviderModelFields[]>(
-    existing?.models.map(({ modelId, name: modelName }) => ({ modelId, name: modelName })) ?? [],
+    existing?.models.map(({ modelId, name: modelName, usageConfiguration }) => ({
+      modelId,
+      name: modelName,
+      usageConfiguration,
+    })) ?? [],
   )
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -98,9 +108,14 @@ export function ModelProviderForm({
   const baseUrlChanged = existing !== null && baseUrl.trim() !== existing.baseUrl
   const missingKey =
     !apiKey.trim() && (!existing || !existing.credentialsReadable || baseUrlChanged)
-  const missingModels = !existing && models.length === 0
   const fieldErrors = (field: string) => [
-    ...(submitted ? issues.filter((issue) => issue.path?.[0] === field) : []),
+    ...(submitted
+      ? issues.filter(
+          (issue) =>
+            issue.path?.[0] === field &&
+            !(field === "models" && issue.path?.[2] === "usageConfiguration"),
+        )
+      : []),
     ...(submitted && field === "apiKey" && missingKey
       ? [
           {
@@ -109,9 +124,6 @@ export function ModelProviderForm({
               : "Enter an API key",
           },
         ]
-      : []),
-    ...(submitted && field === "models" && missingModels
-      ? [{ message: "Enable at least one model" }]
       : []),
     ...(serverFieldError?.field === field ? [{ message: serverFieldError.message }] : []),
   ]
@@ -124,7 +136,7 @@ export function ModelProviderForm({
   const saveProvider = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitted(true)
-    if (Result.isFailure(input) || missingKey || missingModels || disabled) return
+    if (Result.isFailure(input) || missingKey || disabled) return
     setSaving(true)
     setServerFieldError(null)
     try {
@@ -150,6 +162,8 @@ export function ModelProviderForm({
         failure.tag === "ModelProviderUnreadable"
       )
         setServerFieldError({ field: "apiKey", message: failure.message })
+      else if (failure.tag === "ModelUsageConfigurationMissing")
+        setServerFieldError({ field: "models", message: failure.message })
       else toast.add({ title: failure.message, type: "error" })
       if (failure.tag === "ModelProviderChanged") await router.invalidate()
     } finally {
@@ -291,6 +305,46 @@ export function ModelProviderForm({
               disabled={disabled}
               errors={fieldErrors("models")}
             />
+            <FieldDescription>
+              {pricingFetchedAt === null ? (
+                "Catalog prices update daily."
+              ) : (
+                <>
+                  Catalog updated <LocalDateTime value={pricingFetchedAt} dateStyle="medium" />.
+                </>
+              )}
+              {pricingIsStale &&
+                " Automatic updates are delayed. Last known defaults remain available."}
+            </FieldDescription>
+            {models.map((model, index) => (
+              <ProviderModelUsageFields
+                key={model.modelId}
+                model={model}
+                catalogConfiguration={
+                  catalog[providerType].find((item) => item.modelId === model.modelId)
+                    ?.usageConfiguration ?? null
+                }
+                disabled={disabled}
+                errors={(field) =>
+                  submitted
+                    ? issues.filter(
+                        (issue) =>
+                          issue.path?.[0] === "models" &&
+                          issue.path?.[1] === index &&
+                          issue.path?.[2] === "usageConfiguration" &&
+                          issue.path?.at(-1) === field,
+                      )
+                    : []
+                }
+                onChange={(usageConfiguration) =>
+                  setModels((current) =>
+                    current.map((item) =>
+                      item.modelId === model.modelId ? { ...item, usageConfiguration } : item,
+                    ),
+                  )
+                }
+              />
+            ))}
           </FieldGroup>
         </CardContent>
         {!readOnly && (

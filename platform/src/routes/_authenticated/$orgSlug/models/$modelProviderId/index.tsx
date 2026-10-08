@@ -75,6 +75,8 @@ function ModelProviderPage() {
         organizationSlug={orgSlug}
         provider={data.provider}
         catalog={data.catalog}
+        pricingFetchedAt={data.pricingFetchedAt}
+        pricingIsStale={data.pricingIsStale}
         readOnly={!permissions.updateConfiguration}
       />
     </div>

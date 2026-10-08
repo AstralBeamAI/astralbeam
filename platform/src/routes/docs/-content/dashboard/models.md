@@ -9,12 +9,17 @@ Models connect your organization's agents to model providers. Let's add a provid
 3. Choose **OpenAI**, **Anthropic**, or **OpenRouter**, then set the **API URL**. OpenAI defaults to Responses and also offers Chat Completions for compatible gateways. Anthropic uses its Messages API. OpenRouter uses Chat Completions across its supported model providers. The provider is fixed once the connection is saved, so add another connection to use a different one.
 4. Enter the provider's **API key**. It is encrypted when saved. Later, the editor shows only the last four characters. Leave the key field blank to keep the stored key, or enter a replacement to rotate it. Changing the API URL requires entering the key again, because a stored key never follows its connection to another endpoint.
 5. Select the models to enable. All three providers offer catalog suggestions. For another model or private deployment, enter the exact **Custom model ID** and choose **Add model**. For OpenRouter, use the full model ID including its prefix, such as `anthropic/claude-sonnet-4.6`.
-6. Choose **Save provider**. Under **Test model**, select a saved model and choose **Test model** to check that it returns a reply. This sends a small request using your provider's key and may incur a charge.
-7. After the test succeeds, choose **Set up an agent**.
+6. Review each model's catalog defaults. Keep **Override catalog defaults** off to receive automatic updates. Turn it on to edit prices and token limits for this connection. A model without catalog defaults requires an override before it can run. Enter zero explicitly for a free model. The catalog does not supply an output maximum, so review the initial 4,096-token ceiling against your provider's supported maximum.
+7. Choose **Save provider**. Under **Test model**, select a saved model and choose **Test model** to check that it returns a reply. This sends a small request using your provider's key and may incur a charge. You can save a provider without enabling models and configure them later.
+8. After the test succeeds, choose **Set up an agent**.
 
 **NOTE**: Saving stores your configuration without making a model request. Catalog suggestions do not verify access, and your provider may restrict the models available to its key.
 
 Test results apply to the selected model and saved configuration at that moment. Editing the configuration or choosing another model clears the result. Each organization can run up to five tests per minute, and each request stops after 30 seconds.
+
+Catalog defaults refresh daily from Pydantic's genai-prices catalog. The editor shows the last successful refresh and warns when it is overdue. A failed refresh keeps the last valid defaults. Overrides belong to this model on this connection and do not change during catalog refreshes. Turning **Override catalog defaults** off discards your overrides and restores automatic updates to prices and token limits. Context pricing tiers apply to catalog prices, while overrides use the flat rates you enter. Expand **Cache pricing** to edit cache rates.
+
+The output cap bounds each model call, including reasoning tokens and later calls after tools. Set it at or below the provider-supported output maximum. When your context window includes both input and output, the output cap reduces the displayed input allowance. Missing prices or token bounds prevent a model from running. Existing custom models need configuration before their next chat run. These settings establish model readiness and request bounds. Tenant and tenant-user token or cost allowances are not enforced yet.
 
 ## Assign models to an agent
 

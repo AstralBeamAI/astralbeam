@@ -52,8 +52,9 @@ export function ProviderModelPicker({
       setCustomError("Enter a model ID between 1 and 256 characters")
       return
     }
-    onChange([...models.filter((item) => item.modelId !== modelId), model])
-    setCustomModels((current) => [...current.filter((item) => item.modelId !== modelId), model])
+    const selected = catalog.find((item) => item.modelId === modelId) ?? model
+    onChange([...models.filter((item) => item.modelId !== modelId), selected])
+    setCustomModels((current) => [...current.filter((item) => item.modelId !== modelId), selected])
     setCustomModelId("")
     setCustomError(null)
     setSearch("")

@@ -1,3 +1,4 @@
+import { modelUsageTestConfiguration } from "@/lib/model-providers/usage.test-support"
 import { chat } from "@tanstack/ai"
 import { Schema } from "effect"
 import { describe, expect, test } from "vitest"
@@ -23,6 +24,8 @@ describe("OpenAI Responses compatibility", () => {
       )
     }
     const adapter = createChatAdapter({
+      providerModelId: "configured-model",
+      usageConfiguration: modelUsageTestConfiguration,
       providerId: "provider-instance",
       providerName: "Configured OpenAI",
       providerType: "openai",
@@ -32,7 +35,11 @@ describe("OpenAI Responses compatibility", () => {
       modelId,
       fetch: responsesFetch,
     })
-    for await (const _event of chat({ adapter, messages: [{ role: "user", content: "Hello" }] })) {
+    for await (const _event of chat({
+      adapter,
+      modelOptions: { max_output_tokens: 4096 },
+      messages: [{ role: "user", content: "Hello" }],
+    })) {
       // Drain the run so the SDK maps and sends its request to the synthetic provider boundary.
     }
     expect(requests).toHaveLength(1)

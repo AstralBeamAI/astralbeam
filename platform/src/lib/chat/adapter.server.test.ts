@@ -1,9 +1,9 @@
 import { chat, EventType, type StreamChunk } from "@tanstack/ai"
-import { Schema } from "effect"
 import { afterEach, describe, expect, test, vi } from "vitest"
 
+import { modelUsageTestConfiguration } from "@/lib/model-providers/usage.test-support"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
-import { createChatAdapter } from "./adapter.server.ts"
+import { createChatAdapter, modelOutputOptions } from "./adapter.server.ts"
 
 const chatAdapterCases: readonly (Pick<
   ChatModelConfiguration,
@@ -53,14 +53,12 @@ describe("chat provider request routing", () => {
       vi.stubEnv("OPENROUTER_API_KEY", "unused-environment-openrouter-key")
       vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "unused-environment-anthropic-token")
       vi.stubEnv("OPENAI_ORG_ID", "unused-environment-openai-organization")
-      const configuredFetch: typeof fetch = (input, init) => {
-        if (typeof init?.body !== "string") throw new Error("Expected a JSON request body")
+      const configuredFetch: typeof fetch = async (input, init) => {
+        const request = new Request(input, init)
         requests.push({
           url: new URL(input instanceof Request ? input.url : input),
-          headers: new Headers(init.headers),
-          body: Schema.decodeUnknownSync(Schema.Struct({ model: Schema.String }))(
-            JSON.parse(init.body),
-          ),
+          headers: request.headers,
+          body: JSON.parse(await request.text()) as { model: string },
         })
         return Promise.resolve(
           Response.json(
@@ -71,13 +69,19 @@ describe("chat provider request routing", () => {
       }
       const adapter = createChatAdapter({
         ...configuration,
+        providerModelId: "configured-model",
+        usageConfiguration: modelUsageTestConfiguration,
         providerId: "provider-instance",
         providerName: "Configured provider",
         apiKey: "configured-instance-key",
         fetch: configuredFetch,
       })
       const events: StreamChunk[] = []
-      for await (const event of chat({ adapter, messages: [{ role: "user", content: "Hello" }] }))
+      for await (const event of chat({
+        adapter,
+        modelOptions: modelOutputOptions(configuration, 4096),
+        messages: [{ role: "user", content: "Hello" }],
+      }))
         events.push(event)
       expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(true)
       expect(requests).toHaveLength(1)
@@ -98,6 +102,40 @@ describe("chat provider request routing", () => {
         configuration.api === "anthropic-messages" ? null : "Bearer configured-instance-key",
       )
       expect(request.headers.get("openai-organization")).toBeNull()
+    },
+  )
+  test.each(chatAdapterCases)(
+    "rejects unbounded $providerType $api requests and disables transient retries",
+    async (configuration) => {
+      for (const cap of [4096, 4097]) {
+        let calls = 0
+        const adapter = createChatAdapter({
+          ...configuration,
+          providerModelId: "configured-model",
+          providerId: "provider",
+          providerName: "Test",
+          apiKey: "test-key",
+          usageConfiguration: modelUsageTestConfiguration,
+          fetch: () => {
+            calls += 1
+            return Promise.resolve(
+              Response.json(
+                { error: { message: "Synthetic error" } },
+                { status: 500, headers: { "retry-after-ms": "1" } },
+              ),
+            )
+          },
+        })
+        for await (const _event of chat({
+          adapter,
+          debug: false,
+          modelOptions: modelOutputOptions(configuration, cap),
+          messages: [{ role: "user", content: "Hello" }],
+        })) {
+          // Drain failures through the real SDK to catch hidden retries.
+        }
+        expect(calls).toBe(cap === 4096 ? 1 : 0)
+      }
     },
   )
 })

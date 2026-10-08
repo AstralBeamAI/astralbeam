@@ -2,7 +2,7 @@ import { chat, EventType, maxIterations } from "@tanstack/ai"
 import { Effect, Option, Schema } from "effect"
 import { Sse } from "effect/encoding"
 
-import { createChatAdapter } from "@/lib/chat/adapter.server"
+import { createChatAdapter, modelOutputOptions } from "@/lib/chat/adapter.server"
 import { ModelProviderTestFailed } from "./errors.ts"
 import type { ChatModelConfiguration } from "./model-providers.server.ts"
 
@@ -78,18 +78,20 @@ export const testProviderModel = Effect.fn("testProviderModel")(
         let completed = false
         for await (const chunk of chat({
           adapter: createChatAdapter({ ...configuration, fetch: guardedFetch }),
+          debug: false,
           messages: [{ role: "user", content: "Reply with OK." }],
           agentLoopStrategy: maxIterations(1),
-          modelOptions:
-            configuration.api === "responses"
-              ? { max_output_tokens: 1024 }
-              : configuration.api === "chat-completions" && configuration.providerType === "openai"
-                ? { max_completion_tokens: 1024 }
-                : { max_tokens: 1024 },
+          modelOptions: modelOutputOptions(
+            configuration,
+            Math.min(1024, configuration.usageConfiguration.outputCap),
+          ),
           abortController: controller,
         })) {
           if (chunk.type === EventType.RUN_ERROR)
-            throw failure ?? new ModelProviderTestFailed({ reason: "configuration" })
+            throw (
+              failure ??
+              new ModelProviderTestFailed({ reason: upstreamCompleted ? "configuration" : "empty" })
+            )
           if (chunk.type === EventType.TOOL_CALL_START)
             throw new ModelProviderTestFailed({ reason: "empty" })
           if (chunk.type === EventType.TEXT_MESSAGE_CONTENT && chunk.delta.trim()) hasText = true

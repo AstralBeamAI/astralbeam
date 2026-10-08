@@ -45,6 +45,7 @@ vi.mock("@tanstack/ai", async (original) => ({
     })()
   },
 }))
+import { modelUsageTestConfiguration } from "@/lib/model-providers/usage.test-support"
 
 import {
   ModelProviders,
@@ -86,6 +87,8 @@ const sandboxedAgent: ChatAgent = {
 
 const undecryptable = "undecryptable"
 const CHAT_TEST_MODEL: ChatModelConfiguration = {
+  providerModelId: "configured-model",
+  usageConfiguration: modelUsageTestConfiguration,
   providerId: "provider",
   providerName: "OpenAI",
   providerType: "openai",
@@ -386,6 +389,7 @@ describe("Chat.run", () => {
     Effect.gen(function* () {
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, {
+        max_output_tokens: 4096,
         reasoning: { effort: "high" },
       })
     }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
@@ -396,13 +400,15 @@ describe("Chat.run", () => {
       const events = yield* runChat()
       yield* Stream.runCollect(Stream.take(events, 1))
       assert.strictEqual(chatRunTest.options[0]!.adapter.model, "gateway-model")
-      assert.isUndefined(chatRunTest.options[0]!.modelOptions)
+      assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, { max_completion_tokens: 4096 })
       assert.strictEqual(chatRunTest.options[0]!.toolExecution, "sequential")
     }).pipe(
       Effect.provide(
         chatTestLayer({
           agent: sandboxedAgent,
           model: {
+            providerModelId: "configured-model",
+            usageConfiguration: modelUsageTestConfiguration,
             providerId: "provider",
             providerName: "Gateway",
             providerType: "openai",

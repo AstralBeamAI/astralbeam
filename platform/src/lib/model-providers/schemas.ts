@@ -1,6 +1,7 @@
 import { Schema } from "effect"
 
 import { DisplayNameSchema, enumSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
+import { ModelUsageConfigurationSchema } from "./usage-schemas.ts"
 
 const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "openrouter"] as const
 const ModelProviderTypeSchema = enumSchema(MODEL_PROVIDER_TYPES)
@@ -42,6 +43,7 @@ export const ProviderModelFieldsSchema = Schema.Struct({
     Schema.check(Schema.isMaxLength(256)),
   ),
   name: DisplayNameSchema,
+  usageConfiguration: Schema.optionalKey(Schema.NullOr(ModelUsageConfigurationSchema)),
 })
 
 export type ProviderModelFields = typeof ProviderModelFieldsSchema.Type

@@ -1,9 +1,13 @@
 import { ANTHROPIC_MODELS } from "@tanstack/ai-anthropic"
 import { OPENAI_CHAT_MODELS } from "@tanstack/ai-openai"
 import { createServerFn } from "@tanstack/react-start"
-import { Effect } from "effect"
+import { Clock, Effect } from "effect"
 
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
+import {
+  catalogModelUsageConfiguration,
+  readModelPriceCatalog,
+} from "@/lib/model-providers/pricing-catalog.server"
 import type { ModelProviderType, ProviderModelFields } from "@/lib/model-providers/schemas"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { runEffect } from "@/lib/runtime/server-fn.server"
@@ -31,6 +35,7 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
     runEffect(
       Effect.gen(function* () {
         const providers = yield* ModelProviders
+        const pricing = yield* readModelPriceCatalog
         const provider =
           data.id === null
             ? null
@@ -38,8 +43,38 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
                 organizationId: context.organizationId,
                 id: data.id,
               })
+        const pricedModels = (providerType: ModelProviderType) =>
+          [
+            ...new Map(
+              [
+                ...modelProviderCatalog[providerType],
+                ...(provider?.providerType === providerType ? provider.models : []),
+              ].map((model) => [model.modelId, model]),
+            ).values(),
+          ].map((model) => ({
+            modelId: model.modelId,
+            name: model.name,
+            usageConfiguration: catalogModelUsageConfiguration({
+              catalog: pricing,
+              providerType,
+              modelId: model.modelId,
+            }),
+          }))
+        const catalog = {
+          openai: pricedModels("openai"),
+          anthropic: pricedModels("anthropic"),
+          openrouter: pricedModels("openrouter"),
+        }
+        const now = yield* Clock.currentTimeMillis
         return {
-          data: { provider, catalog: modelProviderCatalog },
+          data: {
+            provider,
+            catalog,
+            pricingFetchedAt: pricing.fetchedAt,
+            pricingIsStale:
+              pricing.fetchedAt !== null &&
+              now - Date.parse(pricing.fetchedAt) > 48 * 60 * 60 * 1000,
+          },
           permissions: context.permissions,
         }
       }),

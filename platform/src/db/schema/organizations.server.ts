@@ -26,6 +26,7 @@ import {
   type ModelProviderApi,
 } from "../../lib/model-providers/schemas.ts"
 import { UuidV7Schema } from "../../lib/schemas.ts"
+import { ModelUsageConfigurationSchema } from "../../lib/model-providers/usage-schemas.ts"
 
 import {
   caseInsensitiveText,
@@ -168,6 +169,7 @@ export const providerModel = snakeCase.table(
     modelProviderId: uuid().notNull(),
     modelId: text().notNull(),
     name: text().notNull(),
+    usageConfiguration: schemaJsonb(ModelUsageConfigurationSchema),
     ...timestamps(),
   },
   (table) => [

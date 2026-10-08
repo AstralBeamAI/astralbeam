@@ -23,6 +23,23 @@ export function modelsPage(page: Page) {
       if (input.baseUrl) await page.getByLabel("API URL", { exact: true }).fill(input.baseUrl)
       await page.getByLabel("Custom model ID", { exact: true }).fill(input.modelId)
       await page.getByRole("button", { name: "Add model", exact: true }).click()
+      const override = page.getByRole("switch", {
+        name: `Override catalog defaults for ${input.modelId}`,
+        exact: true,
+      })
+      if (
+        await page
+          .getByText(
+            "No catalog defaults are available. Turn on to configure this model manually.",
+            { exact: true },
+          )
+          .isVisible()
+      ) {
+        await override.check()
+        await page.getByLabel(`Input price for ${input.modelId}`, { exact: true }).fill("2")
+        await page.getByLabel(`Output price for ${input.modelId}`, { exact: true }).fill("8")
+        await page.getByLabel(`Input maximum for ${input.modelId}`, { exact: true }).fill("128000")
+      }
       // A successful save must not flash the missing-key error before navigating.
       await page.evaluate(() => {
         new MutationObserver(() => {
