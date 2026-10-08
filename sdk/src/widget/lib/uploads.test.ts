@@ -7,6 +7,7 @@ import {
   pauseAttachmentUpload,
   resumeAttachmentUpload,
   disposeAttachmentUploads,
+  releaseAttachmentUpload,
 } from "./uploads.ts"
 
 afterEach(() => vi.unstubAllGlobals())
@@ -157,3 +158,61 @@ test("upload work caps two files and four part requests, and pause releases queu
   expect(peak).toBe(4)
   disposeAttachmentUploads(uploads)
 })
+
+test("acceptance releases only submitted browser resources without cancelling claimed storage", () => {
+  const cancelUpload = vi.fn()
+  const uploads = attachmentUploadState({ cancelUpload } as unknown as AstralBeamChatCore)
+  const revokeObjectURL = vi.fn()
+  vi.stubGlobal("URL", { revokeObjectURL })
+  for (const id of ["submitted", "unsent"]) {
+    uploads.files.set(id, new File(["hello"], "note.txt"))
+    uploads.previews.set(id, `blob:${id}`)
+  }
+  releaseAttachmentUpload({ uploads, id: "submitted" })
+  expect([...uploads.files.keys()]).toEqual(["unsent"])
+  expect([...uploads.previews.keys()]).toEqual(["unsent"])
+  expect(revokeObjectURL).toHaveBeenCalledWith("blob:submitted")
+  expect(cancelUpload).not.toHaveBeenCalled()
+  disposeAttachmentUploads(uploads)
+})
+
+test.each(["expired", "cancelled"] as const)(
+  "retry prepares a replacement for a %s session",
+  async (status) => {
+    const prepareUpload = vi.fn(() =>
+      Promise.resolve({
+        ...session,
+        id: "replacement",
+        status: "completed" as const,
+        fileId: "new-file",
+      }),
+    )
+    const chat = {
+      getUpload: vi.fn((id) =>
+        Promise.resolve(
+          id === "old"
+            ? { ...session, status }
+            : { ...session, status: "completed", fileId: "new-file" },
+        ),
+      ),
+      prepareUpload,
+      completeUpload: vi.fn(() =>
+        Promise.resolve({ ...session, status: "completed", fileId: "new-file" }),
+      ),
+    } as unknown as AstralBeamChatCore
+    const uploads = attachmentUploadState(chat)
+    let state: DraftAttachment = { ...draft, sessionId: "old" }
+    startAttachmentUpload({
+      uploads,
+      draft: state,
+      file: new File(["hello"], "note.txt"),
+      settle: (update) => {
+        state = { ...state, ...update }
+      },
+    })
+    await vi.waitFor(() => expect(state.status).toBe("ready"))
+    expect(prepareUpload).toHaveBeenCalledOnce()
+    expect(state.sessionId).toBe("replacement")
+    disposeAttachmentUploads(uploads)
+  },
+)

@@ -15,10 +15,10 @@ import {
   fileDeletion,
   multipartDeletion,
 } from "@/db/schema.server"
-import { Config } from "@/lib/config/config.server"
 import { ObjectStorage, objectStorageStream } from "@/lib/storage/object-storage.server"
 import { MultipartStorage } from "@/lib/storage/multipart-storage.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
+import { StorageUnavailable } from "@/lib/storage/errors"
 import { ChatThreads } from "../threads/threads.server"
 import type { ChatThreadScope } from "../threads/schemas"
 import { ChatFiles } from "./chat-files.server"
@@ -36,7 +36,6 @@ if (configured) {
 const makeRuntime = () =>
   ManagedRuntime.make(
     Layer.mergeAll(
-      Config.layer,
       Database.layer,
       DatabaseRateLimiter.layer,
       ObjectStorage.layer,
@@ -113,6 +112,65 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
     await runtime.dispose()
   })
 
+  test("failed multipart preparation frees active slots and records unknown-upload cleanup", async () => {
+    const multipart = await runtime.runPromise(MultipartStorage)
+    const unavailable = Uploads.layerNoDeps.pipe(
+      Layer.provide([
+        Database.layer,
+        DatabaseRateLimiter.layer,
+        ObjectStorage.layer,
+        StoredFiles.layer,
+        Layer.succeed(MultipartStorage, {
+          ...multipart,
+          create: () => Effect.fail(new StorageUnavailable()),
+        }),
+      ]),
+    )
+    for (let attempt = 0; attempt < 11; attempt++) {
+      await expect(
+        runtime.runPromise(
+          Effect.flatMap(Uploads, (service) => service.prepare(scope, input)).pipe(
+            Effect.provide(Layer.fresh(unavailable)),
+          ),
+        ),
+      ).rejects.toMatchObject({ _tag: "ChatThreadStorageUnavailable" })
+    }
+    expect(await db.select().from(fileUpload)).toHaveLength(0)
+    expect(
+      (await db.select().from(multipartDeletion)).filter((row) => row.uploadId === null),
+    ).toHaveLength(11)
+    expect((await runtime.runPromise(uploads.prepare(scope, input))).status).toBe("pending")
+  })
+
+  test("bad finalized content becomes cancelled and expired completed drafts report expiry", async () => {
+    for (const invalid of [
+      { ...input, sha256: "0".repeat(64) },
+      { ...input, contentType: "image/png" },
+    ]) {
+      const session = await runtime.runPromise(uploads.prepare(scope, invalid))
+      await uploadPart(session.id)
+      await expect(runtime.runPromise(uploads.complete(scope, session.id))).rejects.toMatchObject({
+        _tag: "UploadInvalid",
+      })
+      expect((await runtime.runPromise(uploads.status(scope, session.id))).status).toBe("cancelled")
+      const [row] = await db.select().from(fileUpload).where(eq(fileUpload.id, session.id))
+      expect(
+        await db
+          .select()
+          .from(multipartDeletion)
+          .where(eq(multipartDeletion.objectKey, row!.objectKey)),
+      ).toHaveLength(1)
+    }
+    const session = await runtime.runPromise(uploads.prepare(scope, input))
+    await uploadPart(session.id)
+    await runtime.runPromise(uploads.complete(scope, session.id))
+    await db
+      .update(fileUpload)
+      .set({ expiresAt: new Date(0) })
+      .where(eq(fileUpload.id, session.id))
+    expect((await runtime.runPromise(uploads.status(scope, session.id))).status).toBe("expired")
+  })
+
   test("completion verifies immutable final bytes, replays offline and survives restart", async () => {
     const session = await runtime.runPromise(uploads.prepare(scope, input))
     const url = await uploadPart(session.id)
@@ -131,14 +189,25 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
     expect(
       await runtime.runPromise(objects.get({ key: file!.objectKey, maxBytes: bytes.length })),
     ).toEqual(bytes)
-    const config = await runtime.runPromise(Config)
-    const streamed = await runtime.runPromise(Stream.runCollect(objectStorageStream(file!, config)))
+    const streamed = await runtime.runPromise(
+      objectStorageStream(file!).pipe(Effect.flatMap(Stream.runCollect)),
+    )
     expect(Buffer.concat(streamed.map((chunk) => Buffer.from(chunk)))).toEqual(Buffer.from(bytes))
+    let emitted = 0
     await expect(
       runtime.runPromise(
-        Stream.runCollect(objectStorageStream({ ...file!, sha256: "0".repeat(64) }, config)),
+        objectStorageStream({ ...file!, sha256: "0".repeat(64) }).pipe(
+          Effect.flatMap((stream) =>
+            Stream.runForEach(stream, () =>
+              Effect.sync(() => {
+                emitted++
+              }),
+            ),
+          ),
+        ),
       ),
     ).rejects.toMatchObject({ _tag: "StorageUnavailable" })
+    expect(emitted).toBe(0)
     const offline = Uploads.layerNoDeps.pipe(
       Layer.provide(
         Layer.mergeAll(
