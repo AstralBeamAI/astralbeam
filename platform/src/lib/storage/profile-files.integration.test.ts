@@ -251,6 +251,15 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
         (await db.select().from(userImageImport).where(eq(userImageImport.userId, owner.id)))[0]!
           .status,
       ).toBe("unavailable")
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.queueAvatar({ userId: owner.id, email: owner.email, source: owner.image! }),
+        ),
+      )
+      expect(
+        (await db.select().from(userImageImport).where(eq(userImageImport.userId, owner.id)))[0]!
+          .status,
+      ).toBe("pending")
       const avatar = await runtime.runPromise(
         Effect.flatMap(ProfileFiles, (files) => files.uploadAvatar(owner.id, image)),
       )

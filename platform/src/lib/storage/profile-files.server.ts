@@ -232,7 +232,8 @@ export class ProfileFiles extends Context.Service<
               if (
                 avatar?.sourceKind === "manual" ||
                 prior?.status === "disabled" ||
-                prior?.sourceUrl === source
+                (prior?.sourceUrl === source &&
+                  (prior.status === "pending" || (prior.status === "imported" && avatar)))
               )
                 return
               yield* tx
