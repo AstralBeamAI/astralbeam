@@ -41,3 +41,8 @@ export class ImageUploadRateLimited extends Schema.TaggedError<ImageUploadRateLi
 ) {
   override readonly message = "Too many image uploads. Please try again in a few minutes."
 }
+
+export class MultipartMissing extends Schema.TaggedError<MultipartMissing>()(
+  "MultipartMissing",
+  {},
+) {}
