@@ -59,9 +59,10 @@ export function modelWebCapabilities(
         "Web access requires OpenAI Responses. Select Responses for this connection in Models.",
     }
   if (
-    (model.providerType === "openai" && Object.hasOwn(MODEL_OPENAI_WITHOUT_WEB, model.modelId)) ||
-    (model.api === "anthropic-messages" &&
-      Object.hasOwn(MODEL_ANTHROPIC_WITHOUT_WEB, model.modelId))
+    knownEndpoint &&
+    ((model.providerType === "openai" && Object.hasOwn(MODEL_OPENAI_WITHOUT_WEB, model.modelId)) ||
+      (model.api === "anthropic-messages" &&
+        Object.hasOwn(MODEL_ANTHROPIC_WITHOUT_WEB, model.modelId)))
   )
     return {
       available: false,
