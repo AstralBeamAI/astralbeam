@@ -226,7 +226,7 @@ test("a sent attachment points only at data the composer itself sends", () => {
   const href = (value: string, mimeType?: string) =>
     describeSentAttachment({
       type: "document",
-      source: mimeType === undefined ? { value } : { value, mimeType },
+      source: mimeType === undefined ? { type: "data", value } : { type: "data", value, mimeType },
     }).href
 
   expect(href("cGRm", "application/pdf")).toBe("data:application/pdf;base64,cGRm")
@@ -251,4 +251,14 @@ test("provider URL media preserves allowed links and rejects active schemes", ()
     expect(href("https://example.com/generated.png")).toBe("https://example.com/generated.png")
     expect(href("javascript:alert(1)")).toBeUndefined()
   }
+})
+
+test("opaque provider file handles never become preview or download data", () => {
+  for (const type of ["image", "document", "audio", "video"] as const)
+    expect(
+      describeSentAttachment({
+        type,
+        source: { type: "file", value: "file-provider-context", mimeType: "image/png" },
+      }).href,
+    ).toBeUndefined()
 })

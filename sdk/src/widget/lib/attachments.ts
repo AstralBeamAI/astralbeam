@@ -293,7 +293,7 @@ export function describeSentAttachment(part: {
       : (mimeTypeKind(normalizeMimeType(part.source.mimeType ?? "")) ?? "text")
   // Provider URL media stays a URL. Inline media shares one data URI for preview and download.
   const href =
-    part.source.value.length === 0 || part.source.type === "file"
+    part.source.value.length === 0 || !["data", "url"].includes(part.source.type ?? "")
       ? undefined
       : safeAttachmentHref(
           part.source.type === "url" || part.source.value.startsWith("data:")

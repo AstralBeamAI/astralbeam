@@ -106,6 +106,18 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
     }),
   },
   tenantUser: {
+    uploads: relations.many.fileUpload({
+      from: [
+        relations.tenantUser.organizationId,
+        relations.tenantUser.tenantId,
+        relations.tenantUser.id,
+      ],
+      to: [
+        relations.fileUpload.organizationId,
+        relations.fileUpload.tenantId,
+        relations.fileUpload.tenantUserId,
+      ],
+    }),
     tenant: relations.one.tenant({
       from: [relations.tenantUser.organizationId, relations.tenantUser.tenantId],
       to: [relations.tenant.organizationId, relations.tenant.id],
@@ -134,7 +146,59 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
 }))
 
 const chatRelations = defineRelationsPart(schema, (relations) => ({
+  fileUpload: {
+    uploader: relations.one.tenantUser({
+      from: [
+        relations.fileUpload.organizationId,
+        relations.fileUpload.tenantId,
+        relations.fileUpload.tenantUserId,
+      ],
+      to: [
+        relations.tenantUser.organizationId,
+        relations.tenantUser.tenantId,
+        relations.tenantUser.id,
+      ],
+    }),
+    file: relations.one.fileObject({
+      from: relations.fileUpload.fileId,
+      to: relations.fileObject.id,
+    }),
+  },
+  chatFile: {
+    thread: relations.one.chatThread({
+      from: [
+        relations.chatFile.organizationId,
+        relations.chatFile.tenantId,
+        relations.chatFile.threadId,
+      ],
+      to: [
+        relations.chatThread.organizationId,
+        relations.chatThread.tenantId,
+        relations.chatThread.id,
+      ],
+    }),
+    file: relations.one.fileObject({ from: relations.chatFile.id, to: relations.fileObject.id }),
+  },
+  fileObject: {
+    upload: relations.one.fileUpload({
+      from: relations.fileObject.id,
+      to: relations.fileUpload.fileId,
+    }),
+    chatFile: relations.one.chatFile({ from: relations.fileObject.id, to: relations.chatFile.id }),
+  },
   chatThread: {
+    files: relations.many.chatFile({
+      from: [
+        relations.chatThread.organizationId,
+        relations.chatThread.tenantId,
+        relations.chatThread.id,
+      ],
+      to: [
+        relations.chatFile.organizationId,
+        relations.chatFile.tenantId,
+        relations.chatFile.threadId,
+      ],
+    }),
     tenant: relations.one.tenant({
       from: [relations.chatThread.organizationId, relations.chatThread.tenantId],
       to: [relations.tenant.organizationId, relations.tenant.id],
