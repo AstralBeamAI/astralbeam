@@ -3,7 +3,8 @@ import { Effect, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 const storageDatabase = vi.hoisted(() => {
-  const url = process.env.S3_TEST_DATABASE === "true" ? process.env.DATABASE_URL : undefined
+  const configured = process.env.DATABASE_URL
+  const url = configured === "postgres://test:test@127.0.0.1:5432/test" ? undefined : configured
   if (url) {
     const parsed = new URL(url)
     if (parsed.hostname !== "127.0.0.1" || !parsed.pathname.endsWith("_test"))
