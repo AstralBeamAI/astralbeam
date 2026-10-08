@@ -141,6 +141,83 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
+  test("replacing checkpoint media releases only files absent from saved history", async () => {
+    const thread = await create()
+    const accepted = await admit(thread.id)
+    const id = crypto.randomUUID()
+    const first = {
+      version: 1 as const,
+      parts: [
+        {
+          id,
+          type: "video",
+          source: {
+            type: "data",
+            value: Buffer.from("first generated clip").toString("base64"),
+            mimeType: "video/mp4",
+          },
+        },
+      ],
+    }
+    await runtime.runPromise(
+      service.checkpoint({ claim: accepted.claim!, payload: first, state: "draft" }),
+    )
+    const before = await db.select().from(chatFile).where(eq(chatFile.threadId, thread.id))
+    const second = {
+      ...first,
+      parts: [
+        {
+          ...first.parts[0]!,
+          source: {
+            ...first.parts[0]!.source,
+            value: Buffer.from("second generated clip").toString("base64"),
+          },
+        },
+      ],
+    }
+    await runtime.runPromise(
+      service.checkpoint({ claim: accepted.claim!, payload: second, state: "draft" }),
+    )
+    const after = await db.select().from(chatFile).where(eq(chatFile.threadId, thread.id))
+    expect(after).toHaveLength(1)
+    expect(after[0]!.id).not.toBe(before[0]!.id)
+    expect(await db.select().from(fileObject).where(eq(fileObject.id, before[0]!.id))).toHaveLength(
+      0,
+    )
+    const saved = await runtime.runPromise(
+      service.getMessage({ scope, id: thread.id, messageId: accepted.claim!.assistantMessageId }),
+    )
+    await runtime.runPromise(
+      service.admit({
+        scope,
+        id: thread.id,
+        payload: {
+          version: 1,
+          parts: saved.payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+        },
+      }),
+    )
+    await runtime.runPromise(
+      service.checkpoint({
+        claim: accepted.claim!,
+        payload: {
+          ...second,
+          parts: [
+            {
+              ...second.parts[0]!,
+              source: {
+                ...second.parts[0]!.source,
+                value: Buffer.from("third generated clip").toString("base64"),
+              },
+            },
+          ],
+        },
+        state: "draft",
+      }),
+    )
+    expect(await db.select().from(chatFile).where(eq(chatFile.id, after[0]!.id))).toHaveLength(1)
+  })
+
   test("administrative history and uploads preserve scope without granting participant actions", async () => {
     const thread = await create()
     await runtime.runPromise(

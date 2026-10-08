@@ -24,7 +24,10 @@ import type {
   ParticipantRecord,
 } from "../../../../../lib/chat/threads/threads.server"
 import { ChatRunInputInvalid } from "./errors"
-import { storedChatMediaSource } from "../../../../../lib/chat/attachments/stored-media.ts"
+import {
+  chatMediaPart,
+  storedChatMediaSource,
+} from "../../../../../lib/chat/attachments/stored-media.ts"
 import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "../../../../../lib/chat/threads/schemas.ts"
 
 const threadRole = Schema.Literals(["viewer", "member", "manager"])
@@ -341,7 +344,7 @@ export function messageResource(row: MessageRecord) {
     parts: row.payload.parts.map((part) => {
       const source = part.source
       if (
-        (part.type === "image" || part.type === "document") &&
+        chatMediaPart(part) &&
         Schema.is(Schema.JsonObject)(source) &&
         (source.type === "data" || Option.isSome(storedChatMediaSource(part)))
       ) {

@@ -511,6 +511,7 @@ const persistChatOutput = Effect.fnUntraced(function* (
   if (updated.length === 0) return yield* new ChatThreadConflict()
   yield* saveChatParts(db, claim.scope, claim.threadId, claim.assistantMessageId, payload)
   yield* files.claim(db, { ...claim.scope, threadId: claim.threadId }, payload)
+  yield* files.release(db, { ...claim.scope, threadId: claim.threadId }, message.payload, payload)
 })
 
 const releaseChatTurn = Effect.fnUntraced(function* (

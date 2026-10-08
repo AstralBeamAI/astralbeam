@@ -137,7 +137,8 @@ export function projectThreadMessages(
     const parts = message.parts.flatMap((part) => {
       const source = part.source
       if (
-        (part.type === "image" || part.type === "document") &&
+        typeof part.type === "string" &&
+        ["image", "document", "audio", "video"].includes(part.type) &&
         source &&
         typeof source === "object" &&
         !Array.isArray(source) &&

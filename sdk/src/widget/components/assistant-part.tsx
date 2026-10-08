@@ -19,12 +19,15 @@ import {
 } from "../lib/utils.ts"
 import { InlineQuestionnaire } from "./inline-questionnaire.tsx"
 import { MarkdownMessage } from "./markdown-message.tsx"
+import { SentAttachment } from "./user-message-body.tsx"
 import { SandboxPart } from "./sandbox-part.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
 
 interface AssistantPartProps {
   readOnly?: boolean | undefined
   part: MessagePart
+  messageId?: string | undefined
+  getAttachment?: ((messageId: string, partId: string) => Promise<Blob>) | undefined
   apiUrl: string
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
@@ -200,6 +203,8 @@ function QuestionnaireCallPart({
 export function AssistantPart({
   readOnly = false,
   part,
+  messageId,
+  getAttachment,
   apiUrl,
   widgets,
   toolTitles,
@@ -218,6 +223,13 @@ export function AssistantPart({
           </BubbleContent>
         </Bubble>
       )
+    case "image":
+    case "document":
+    case "audio":
+    case "video":
+      return messageId && getAttachment ? (
+        <SentAttachment part={part} messageId={messageId} getAttachment={getAttachment} />
+      ) : null
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
