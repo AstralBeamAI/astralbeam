@@ -2,6 +2,10 @@
 
 The composer takes files by default: paperclip button, drag and drop, or paste. Images and PDFs go to the model as-is. Every other file is delivered as a file the agent reads or analyzes.
 
+## Draft recovery
+
+With browser storage available, ready files and unsent text return after reloading or reopening a conversation in that browser, without sending automatically. Clearing storage removes drafts, and files still being read are not saved yet.
+
 ## Options
 
 Pass `attachments: false` to turn the feature off, or an object to narrow it.
