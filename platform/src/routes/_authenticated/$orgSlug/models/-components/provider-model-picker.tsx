@@ -1,5 +1,6 @@
 "use client"
 
+import { useMutation } from "@tanstack/react-query"
 import { useState } from "react"
 import { Schema } from "effect"
 
@@ -15,15 +16,25 @@ import {
   FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { ProviderModelFieldsSchema, type ProviderModelFields } from "@/lib/model-providers/schemas"
+import { parseServerFnError } from "@/lib/runtime/server-fn-error"
+import { getModelUsageDefaults } from "../-functions/get-model-provider-page-data"
+import {
+  ProviderModelFieldsSchema,
+  type ModelProviderType,
+  type ProviderModelFields,
+} from "@/lib/model-providers/schemas"
 
 export function ProviderModelPicker({
+  organizationSlug,
+  providerType,
   catalog,
   models,
   disabled,
   onChange,
   errors,
 }: {
+  organizationSlug: string
+  providerType: ModelProviderType
   catalog: readonly ProviderModelFields[]
   models: readonly ProviderModelFields[]
   disabled: boolean
@@ -34,6 +45,17 @@ export function ProviderModelPicker({
   const [customModelId, setCustomModelId] = useState("")
   const [customModels, setCustomModels] = useState<readonly ProviderModelFields[]>(models)
   const [customError, setCustomError] = useState<string | null>(null)
+  const lookup = useMutation({
+    mutationKey: ["model-usage-defaults", organizationSlug],
+    mutationFn: async (model: ProviderModelFields): Promise<ProviderModelFields> =>
+      models.find((item) => item.modelId === model.modelId) ??
+      catalog.find((item) => item.modelId === model.modelId) ?? {
+        ...model,
+        usageConfiguration: await getModelUsageDefaults({
+          data: { organizationSlug, providerType, modelId: model.modelId },
+        }),
+      },
+  })
   const choices = [
     ...new Map(
       [...catalog, ...customModels, ...models].map((model) => [model.modelId, model]),
@@ -52,12 +74,19 @@ export function ProviderModelPicker({
       setCustomError("Enter a model ID between 1 and 256 characters")
       return
     }
-    const selected = catalog.find((item) => item.modelId === modelId) ?? model
-    onChange([...models.filter((item) => item.modelId !== modelId), selected])
-    setCustomModels((current) => [...current.filter((item) => item.modelId !== modelId), selected])
-    setCustomModelId("")
-    setCustomError(null)
-    setSearch("")
+    lookup.mutate(model, {
+      onSuccess: (selected) => {
+        onChange([...models.filter((item) => item.modelId !== modelId), selected])
+        setCustomModels((current) => [
+          ...current.filter((item) => item.modelId !== modelId),
+          selected,
+        ])
+        setCustomModelId("")
+        setCustomError(null)
+        setSearch("")
+      },
+      onError: (error) => setCustomError(parseServerFnError(error).message),
+    })
   }
   return (
     <FieldSet aria-describedby="provider-models-description provider-models-error">

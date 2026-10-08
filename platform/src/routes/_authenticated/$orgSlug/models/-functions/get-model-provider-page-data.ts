@@ -1,14 +1,20 @@
 import { ANTHROPIC_MODELS } from "@tanstack/ai-anthropic"
 import { OPENAI_CHAT_MODELS } from "@tanstack/ai-openai"
 import { createServerFn } from "@tanstack/react-start"
-import { Clock, Effect } from "effect"
+import { Clock, Effect, Schema } from "effect"
 
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import {
   catalogModelUsageConfiguration,
   readModelPriceCatalog,
 } from "@/lib/model-providers/pricing-catalog.server"
-import type { ModelProviderType, ProviderModelFields } from "@/lib/model-providers/schemas"
+import {
+  ModelProviderFieldsSchema,
+  ProviderModelFieldsSchema,
+  type ModelProviderType,
+  type ProviderModelFields,
+} from "@/lib/model-providers/schemas"
+import { SlugSchema } from "@/lib/organizations/slug"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
@@ -78,6 +84,30 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         }
       }),
+      serverFnMeta.name,
+    ),
+  )
+
+export const getModelUsageDefaults = createServerFn({ method: "GET" })
+  .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
+  .validator(
+    toValidationSchema(
+      Schema.Struct({
+        organizationSlug: SlugSchema,
+        providerType: ModelProviderFieldsSchema.fields.providerType,
+        modelId: ProviderModelFieldsSchema.fields.modelId,
+      }),
+    ),
+  )
+  .handler(({ data, serverFnMeta }) =>
+    runEffect(
+      Effect.map(readModelPriceCatalog, (catalog) =>
+        catalogModelUsageConfiguration({
+          catalog,
+          providerType: data.providerType,
+          modelId: data.modelId,
+        }),
+      ),
       serverFnMeta.name,
     ),
   )

@@ -168,7 +168,8 @@ export function ProviderModelUsageFields({
           </div>
           <FieldDescription>
             All values are tokens. Set an input maximum or a context window. The output cap cannot
-            exceed the model output maximum.
+            exceed the model output maximum. Catalog output limits start at 4,096 tokens. Review
+            them against the output maximum supported by your provider.
           </FieldDescription>
           <details>
             <summary className="cursor-pointer text-sm font-medium">Cache pricing</summary>

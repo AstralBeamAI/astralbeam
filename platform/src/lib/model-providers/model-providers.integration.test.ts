@@ -193,11 +193,57 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           modelId: "test-model",
         })?.prices,
       ).toEqual({ inputPerMillion: "3", outputPerMillion: "4" })
+      const providerId = await runAppEffect(
+        saveIntegrationProvider(organizationId, {
+          models: [{ modelId: "test-model", name: "Catalog model" }],
+        }),
+      )
+      const withoutModel = {
+        ...refreshed,
+        providers: refreshed.providers.map((provider) => ({
+          ...provider,
+          models: provider.models.map((model) => ({
+            ...model,
+            id: "replacement",
+            match: { equals: "replacement" },
+          })),
+        })),
+      }
+      await runAppEffect(
+        Effect.flatMap(Config, (config) => config.writeModelPriceCatalog(withoutModel)),
+      )
+      await runAppEffect(
+        saveIntegrationProvider(organizationId, {
+          id: providerId,
+          lockVersion: 0,
+          name: "Renamed after removal",
+          models: [
+            {
+              modelId: "test-model",
+              name: "Catalog model",
+              usageConfiguration: {
+                ...modelUsageTestConfiguration,
+                pricingSource: { kind: "catalog", modelId: "test-model" },
+              },
+            },
+          ],
+        }),
+      )
+      const retained = await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) =>
+          service.get({ organizationId, id: providerId }),
+        ),
+      )
+      expect(retained!.models[0]!.usageConfiguration).toMatchObject({
+        pricingSource: { kind: "catalog" },
+        prices: { inputPerMillion: "3", outputPerMillion: "4" },
+      })
+
       vi.stubGlobal("fetch", () =>
         Promise.resolve(Response.json([{ id: "openai", api_pattern: "openai.com", models: [] }])),
       )
       await expect(runAppEffect(refreshModelPriceCatalog)).rejects.toThrow()
-      expect(await runAppEffect(readModelPriceCatalog)).toEqual(refreshed)
+      expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
     } finally {
       await runAppEffect(
         Effect.flatMap(Config, (config) => config.writeModelPriceCatalog(previous)),

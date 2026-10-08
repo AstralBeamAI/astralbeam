@@ -66,6 +66,8 @@ export function ModelProviderForm({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
+  const lookingUpModel =
+    useIsMutating({ mutationKey: ["model-usage-defaults", organizationSlug] }) > 0
   const testing = useIsMutating({ mutationKey: ["test-model-provider", existing?.id] }) > 0
   const [name, setName] = useState(existing?.name ?? "")
   const [providerType, setProviderType] = useState<ModelProviderType>(
@@ -127,9 +129,10 @@ export function ModelProviderForm({
       : []),
     ...(serverFieldError?.field === field ? [{ message: serverFieldError.message }] : []),
   ]
-  const disabled = saving || readOnly || testing
+  const disabled = saving || readOnly || testing || lookingUpModel
   const testDisabled =
     saving ||
+    lookingUpModel ||
     existing === null ||
     Result.isFailure(input) ||
     !equalModelProviderFields(input.success, { ...existing, apiKey: null })
@@ -299,6 +302,8 @@ export function ModelProviderForm({
             )}
             <ProviderModelPicker
               key={providerType}
+              organizationSlug={organizationSlug}
+              providerType={providerType}
               catalog={catalog[providerType]}
               models={models}
               onChange={setModels}

@@ -363,6 +363,22 @@ export class ModelProviders extends Context.Service<
         const apiKey = input.apiKey ?? (keyKept ? readModelProviderKey(existing) : null)
         if (!apiKey)
           return yield* keyKept ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
+        const savedModels =
+          existing?.providerType === input.providerType
+            ? yield* db
+                .select({
+                  modelId: providerModel.modelId,
+                  usageConfiguration: providerModel.usageConfiguration,
+                })
+                .from(providerModel)
+                .where(
+                  and(
+                    eq(providerModel.organizationId, input.organizationId),
+                    eq(providerModel.modelProviderId, existing.id),
+                  ),
+                )
+                .pipe(Effect.orDie)
+            : []
         const catalog = yield* readPricing
         const configuredModels = input.models.map((model) => ({
           ...model,
@@ -373,7 +389,11 @@ export class ModelProviders extends Context.Service<
             configured:
               model.usageConfiguration?.pricingSource.kind === "manual"
                 ? model.usageConfiguration
-                : null,
+                : savedModels.find(
+                    (saved) =>
+                      saved.modelId === model.modelId &&
+                      saved.usageConfiguration?.pricingSource.kind === "catalog",
+                  )?.usageConfiguration,
           }),
         }))
         if (configuredModels.some((model) => model.usageConfiguration === null))
