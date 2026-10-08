@@ -315,6 +315,7 @@ describe("Chat.run", () => {
       assert.notInclude(messages, "Caller replacement")
       assert.include(messages, "Saved caption")
       assert.notInclude(JSON.stringify(chatRunTest.hydrated), "unavailable-stored-image")
+      assert.notInclude(messages, "Unprocessed guidance")
     }).pipe(
       Effect.provide(
         chatTestLayer({
@@ -348,6 +349,16 @@ describe("Chat.run", () => {
                     },
                   },
                 ],
+              },
+            },
+            {
+              id: "unprocessed-guidance",
+              role: "user",
+              state: "complete",
+              payload: {
+                version: 1,
+                steering: {},
+                parts: [{ id: "guidance", type: "text", content: "Unprocessed guidance" }],
               },
             },
           ] as unknown as MessageRecord[],

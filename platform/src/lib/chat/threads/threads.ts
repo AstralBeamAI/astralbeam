@@ -50,6 +50,7 @@ import {
   ChatFileUnavailable,
   ChatThreadNotFound,
   ChatIdentityNotSynchronized,
+  ChatSteeringFinished,
   type ChatThreadError,
 } from "./errors.ts"
 import {
@@ -1006,6 +1007,12 @@ export class ChatThreads extends Context.Service<
     ) => Effect.Effect<void, ChatThreadError>
     // Admission commits prepared references, with permissions and file ownership checked in SQL.
     readonly admit: (input: AdmitInput) => Effect.Effect<ChatAdmission, ChatThreadError>
+    readonly steer: (
+      input: AdmitInput & { turnMessageId: string; clientId: string },
+    ) => Effect.Effect<{ thread: ThreadRecord; message: MessageRecord }, ChatThreadError>
+    readonly modelHistory: (input: {
+      claim: ChatWriterClaim
+    }) => Effect.Effect<MessageRecord[], ChatThreadError>
     readonly checkpoint: (input: {
       claim: ChatWriterClaim
       payload: ChatMessagePayload
@@ -1029,7 +1036,11 @@ export class ChatThreads extends Context.Service<
     readonly resolveTools: (
       input: ResolveToolsInput,
     ) => Effect.Effect<ChatAdmission, ChatThreadError>
-    readonly finish: (input: { claim: ChatWriterClaim }) => Effect.Effect<void, ChatThreadError>
+    readonly finish: (input: {
+      claim: ChatWriterClaim
+      payload?: ChatMessagePayload | undefined
+      continueSteering?: boolean | undefined
+    }) => Effect.Effect<ChatWriterClaim | undefined, ChatThreadError>
     readonly interrupt: (input: { claim: ChatWriterClaim }) => Effect.Effect<void, ChatThreadError>
   }
 >()("astralbeam/chat/threads/ChatThreads") {
@@ -1668,6 +1679,100 @@ export class ChatThreads extends Context.Service<
           .pipe(mapDatabaseErrors())
       })
 
+      const steer = Effect.fn("ChatThreads.steer")(
+        (input: AdmitInput & { turnMessageId: string; clientId: string }) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const thread = yield* readThread(tx, input, true)
+                yield* requireRole(thread)
+                const turn = yield* readMessage(tx, input, input.turnMessageId)
+                if (
+                  turn.role !== "user" ||
+                  turn.turnMessageId !== null ||
+                  turn.authorTenantUserId !== input.scope.tenantUserId ||
+                  turn.metadata.provenance?.clientId !== input.clientId
+                )
+                  return yield* new ChatThreadForbidden()
+                if (turn.turnState !== "running" && turn.turnState !== "waiting")
+                  return yield* new ChatSteeringFinished()
+                const payload = yield* decodePayload({
+                  ...input.payload,
+                  steering: {},
+                  provenance: { clientId: input.clientId },
+                }).pipe(Effect.orDie)
+                const [message] = yield* tx
+                  .insert(chatMessage)
+                  .values({
+                    ...rowScope(input.scope),
+                    threadId: input.id,
+                    parentMessageId: thread.currentLeafMessageId,
+                    turnMessageId: turn.id,
+                    role: "user",
+                    state: "complete",
+                    authorTenantUserId: input.scope.tenantUserId,
+                    metadata: chatMetadata(payload),
+                  })
+                  .returning()
+                yield* insertChatContent(tx, input.scope, input.id, message!.id, payload)
+                yield* tx
+                  .update(chatThread)
+                  .set({
+                    currentLeafMessageId: message!.id,
+                    lockVersion: sql`${chatThread.lockVersion} + 1`,
+                    updatedAt: sql`clock_timestamp()`,
+                  })
+                  .where(scopeWhere(input.scope, input.id))
+                return {
+                  thread: yield* readThread(tx, input),
+                  message: (yield* readChatMessages(tx, input.scope, input.id, [message!]))[0]!,
+                }
+              }),
+            )
+            .pipe(mapDatabaseErrors()),
+      )
+
+      const modelHistory = Effect.fn("ChatThreads.modelHistory")(
+        ({ claim }: { claim: ChatWriterClaim }) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const { thread } = yield* checkClaim(tx, claim)
+                const history = yield* historyMessages(
+                  tx,
+                  claim.scope,
+                  claim.threadId,
+                  yield* historyIds(tx, claim.scope, claim.threadId, thread.currentLeafMessageId),
+                )
+                for (const message of history) {
+                  if (
+                    message.role !== "user" ||
+                    message.turnMessageId !== claim.inputMessageId ||
+                    !message.metadata.steering ||
+                    message.metadata.steering.appliedToMessageId
+                  )
+                    continue
+                  message.metadata = {
+                    ...message.metadata,
+                    steering: { appliedToMessageId: claim.assistantMessageId },
+                  }
+                  message.payload = { ...message.payload, steering: message.metadata.steering }
+                  yield* tx
+                    .update(chatMessage)
+                    .set({ metadata: message.metadata })
+                    .where(
+                      and(
+                        messageWhere(claim.scope, claim.threadId),
+                        eq(chatMessage.id, message.id),
+                      ),
+                    )
+                }
+                return history
+              }),
+            )
+            .pipe(mapDatabaseErrors()),
+      )
+
       const checkpoint = Effect.fn("ChatThreads.checkpoint")(function* (input: {
         claim: ChatWriterClaim
         payload: ChatMessagePayload
@@ -1841,20 +1946,63 @@ export class ChatThreads extends Context.Service<
           .pipe(mapDatabaseErrors()),
       )
 
-      const finish = Effect.fn("ChatThreads.finish")(({ claim }: { claim: ChatWriterClaim }) =>
-        db
-          .transaction((tx) =>
-            Effect.gen(function* () {
-              const { message, thread } = yield* checkClaim(tx, claim)
-              if (message.state === "draft")
-                yield* persistChatOutput(tx, claim, message, message.payload, "complete")
-              const pending = (yield* unresolvedCalls(tx, claim.scope, thread)).some(
-                ({ message: source }) => source.turnMessageId === claim.inputMessageId,
-              )
-              yield* releaseChatTurn(tx, claim, pending ? "waiting" : "completed")
-            }),
-          )
-          .pipe(mapDatabaseErrors()),
+      const finish = Effect.fn("ChatThreads.finish")(
+        ({
+          claim,
+          payload,
+          continueSteering,
+        }: {
+          claim: ChatWriterClaim
+          payload?: ChatMessagePayload | undefined
+          continueSteering?: boolean | undefined
+        }) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const { message, thread } = yield* checkClaim(tx, claim)
+                if (message.state === "draft")
+                  yield* persistChatOutput(
+                    tx,
+                    claim,
+                    message,
+                    payload ?? message.payload,
+                    "complete",
+                  )
+                const pending = (yield* unresolvedCalls(tx, claim.scope, thread)).some(
+                  ({ message: source }) => source.turnMessageId === claim.inputMessageId,
+                )
+                const [steering] = yield* tx
+                  .select({ id: chatMessage.id })
+                  .from(chatMessage)
+                  .where(
+                    and(
+                      messageWhere(claim.scope, claim.threadId),
+                      eq(chatMessage.turnMessageId, claim.inputMessageId),
+                      eq(chatMessage.role, "user"),
+                      sql`${chatMessage.metadata}->'steering' is not null`,
+                      sql`${chatMessage.metadata}->'steering'->>'appliedToMessageId' is null`,
+                    ),
+                  )
+                  .limit(1)
+                if (!pending && steering) {
+                  if (!continueSteering) {
+                    yield* releaseChatTurn(tx, claim, "interrupted")
+                    return undefined
+                  }
+                  const next = yield* appendDraft(
+                    tx,
+                    claim.scope,
+                    thread,
+                    claim.inputMessageId,
+                    claim.invocationId,
+                  )
+                  return { ...claim, assistantMessageId: next.id }
+                }
+                yield* releaseChatTurn(tx, claim, pending ? "waiting" : "completed")
+                return undefined
+              }),
+            )
+            .pipe(mapDatabaseErrors()),
       )
 
       const interrupt = Effect.fn("ChatThreads.interrupt")(
@@ -1907,6 +2055,8 @@ export class ChatThreads extends Context.Service<
         assertActive,
         publishArtifact,
         nextDraft,
+        steer,
+        modelHistory,
         appendToolResults,
         resolveTools,
         finish,
