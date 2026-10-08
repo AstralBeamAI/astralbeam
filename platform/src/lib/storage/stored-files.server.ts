@@ -124,7 +124,13 @@ export class StoredFiles extends Context.Service<
           .returning()
           .pipe(mapDatabaseErrors())
         if (!file) return null
-        return yield* verifyPrepared(file).pipe(
+        return yield* Effect.gen(function* () {
+          if (!file.verifiedAt) {
+            const object = yield* storage.head({ key: file.objectKey })
+            if (object.size !== file.byteSize) return null
+          }
+          return yield* verifyPrepared(file)
+        }).pipe(
           Effect.catchTag("StorageObjectMissing", () => Effect.succeed(null)),
           Effect.catchTag("StorageIntegrityMismatch", () =>
             file.verifiedAt ? Effect.fail(new StorageUnavailable()) : Effect.succeed(null),

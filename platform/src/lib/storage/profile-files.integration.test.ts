@@ -42,11 +42,12 @@ const storage = Layer.succeed(ObjectStorage, {
     Effect.sync(() => {
       objects.set(key, bytes)
     }),
-  get: ({ key }) =>
+  get: ({ key, maxBytes }) =>
     Effect.gen(function* () {
       if (failRead) return yield* new StorageUnavailable()
       const bytes = objects.get(key)
       if (!bytes) return yield* new StorageObjectMissing()
+      if (bytes.length > maxBytes) return yield* new StorageUnavailable()
       return bytes
     }),
   remove: ({ key }) =>
@@ -120,7 +121,7 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
       expect((await db.select().from(user).where(eq(user.id, owner.id)))[0]!.image).toBe(embedded)
       expect(objects.size).toBe(1)
       failRead = false
-      objects.set(Array.from(objects.keys())[0]!, new Uint8Array([1, 2, 3]))
+      objects.set(Array.from(objects.keys())[0]!, new Uint8Array(image.length + 1))
       expect(
         await runtime.runPromise(
           Effect.flatMap(ProfileFiles, (files) =>
