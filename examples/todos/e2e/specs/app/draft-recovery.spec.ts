@@ -1,4 +1,6 @@
 import { Buffer } from "node:buffer"
+// @deno-types="../../../../../sdk/dist/server.d.ts"
+import { createAstralBeamToken } from "../../../../../sdk/dist/server.js"
 import { expect, test } from "../../fixtures.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
 import { todosPage } from "../../pages/todos-page.ts"
@@ -47,6 +49,19 @@ const acceptedStream = [
   .join("")
 
 test.beforeEach(async ({ context }) => {
+  // Each fixture owns its upload budget and sessions. Preflight checks the real token route.
+  const user = { ...seedTarget.user, id: `upload-draft-${crypto.randomUUID()}` }
+  await context.route("**/api/astralbeam/token", async (route) =>
+    route.fulfill({
+      json: {
+        token: await createAstralBeamToken({
+          apiKey: seedTarget.apiKey,
+          user,
+          tenant: seedTarget.tenant,
+        }),
+      },
+    }),
+  )
   await context.route("**/api/v1/chat/threads", (route) => route.fulfill({ json: thread }))
   await context.route(/\/api\/v1\/chat\/threads\?/, (route) =>
     route.fulfill({ json: { items: [thread, otherThread], page_after: null, page_before: null } }),
