@@ -209,10 +209,15 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await runtime.runPromise(service.finish({ claim: accepted.claim! }))
     const [published] = await db.select().from(fileObject).where(eq(fileObject.id, fileId))
     expect(published!.expiresAt).toBeNull()
-    const read = await runtime.runPromise(
-      Effect.flatMap(ChatFiles, (files) => files.read({ ...scope, threadId: thread.id }, fileId)),
-    )
-    expect(read.bytes).toEqual(bytes)
+    const restarted = ManagedRuntime.make(filesLayer)
+    try {
+      const read = await restarted.runPromise(
+        Effect.flatMap(ChatFiles, (files) => files.read({ ...scope, threadId: thread.id }, fileId)),
+      )
+      expect(read.bytes).toEqual(bytes)
+    } finally {
+      await restarted.dispose()
+    }
     expect(
       (
         await runtime.runPromise(

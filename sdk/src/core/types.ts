@@ -40,7 +40,7 @@ export interface SandboxCommandRun {
   finished: boolean
 }
 
-/** One file the agent published for the user, with the ticket its download is authorized by. */
+/** One published file, with its stored reference or legacy download ticket. */
 export interface SandboxArtifact {
   fileId?: string | undefined
   unavailable?: boolean | undefined

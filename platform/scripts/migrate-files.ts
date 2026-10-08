@@ -73,7 +73,6 @@ try {
             "chat_message.metadata.modelMessages",
             "cache_entry.value",
             "sandbox_artifacts",
-            "sandbox_artifacts",
           ]) {
         if (tableName === "sandbox_artifacts") {
           yield* migrateSandboxArtifacts(mode as "inventory" | "migrate" | "verify")
