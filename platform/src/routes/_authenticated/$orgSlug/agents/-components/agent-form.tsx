@@ -232,8 +232,8 @@ export function AgentForm({
               </FieldLabel>
             </Field>
             <FieldDescription>
-              Search the web and read public URLs through the selected model connection.
-              Provider charges may apply.
+              Search the web and read public URLs through the selected model connection. Provider
+              charges may apply.
             </FieldDescription>
 
             <Field>
