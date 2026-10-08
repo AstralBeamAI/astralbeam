@@ -256,6 +256,24 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       size: 6,
     })
     await runtime.runPromise(service.finish({ claim: second.claim! }))
+    await db
+      .update(chatMessage)
+      .set({
+        metadata: {
+          version: 1,
+          modelMessages: [
+            {
+              role: "tool",
+              content: JSON.stringify({
+                ticket: "historical-available",
+                path: "/workspace/report.txt",
+              }),
+            },
+            { role: "assistant", content: { opaque: true } },
+          ],
+        },
+      })
+      .where(eq(chatMessage.id, second.claim!.assistantMessageId))
     let fail = true
     const historical = ChatSandboxes.of({
       session: () => Effect.die("unused"),
@@ -298,6 +316,15 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         ),
       )
     expect(JSON.stringify(rows)).not.toContain("historical-")
+    const [continuation] = await db
+      .select()
+      .from(chatMessage)
+      .where(eq(chatMessage.id, second.claim!.assistantMessageId))
+    expect(JSON.stringify(continuation!.metadata)).not.toContain("historical-available")
+    expect(continuation!.metadata.modelMessages?.[1]).toEqual({
+      role: "assistant",
+      content: { opaque: true },
+    })
   })
 
   test("replacing checkpoint media releases only files absent from saved history", async () => {

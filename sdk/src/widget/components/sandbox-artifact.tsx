@@ -134,23 +134,14 @@ export function SandboxArtifactPart({
   // Unavailable downloads replace the row with the recovery message.
   const [downloadFailed, setDownloadFailed] = useState(false)
   const artifact = readSandboxArtifact(part)
-  const fileId = artifact?.fileId
-  const ticket = artifact?.ticket
   const getFile = useCallback(async () => {
-    if (fileId && getUploadedFile) return getUploadedFile(fileId)
-    if (fileId && getAttachment && part.artifactMessageId && part.artifactPartId)
+    const stored = readSandboxArtifact(part)
+    if (stored?.fileId && getUploadedFile) return getUploadedFile(stored.fileId)
+    if (stored?.fileId && getAttachment && part.artifactMessageId && part.artifactPartId)
       return getAttachment(part.artifactMessageId, part.artifactPartId)
-    if (ticket) return (await getChatFile({ ticket }, { apiUrl })).blob()
+    if (stored?.ticket) return (await getChatFile({ ticket: stored.ticket }, { apiUrl })).blob()
     throw new Error("File unavailable")
-  }, [
-    fileId,
-    ticket,
-    getAttachment,
-    getUploadedFile,
-    part.artifactMessageId,
-    part.artifactPartId,
-    apiUrl,
-  ])
+  }, [part, getAttachment, getUploadedFile, apiUrl])
   const refusal = sandboxRefusal(part)
   const failed = part.state === "error" || refusal !== undefined
   if (failed) {

@@ -5,7 +5,6 @@ import {
   TerminalWindowIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react"
-import type { ChatToolCallPart } from "../../core/threads.ts"
 import type { MessagePart } from "@tanstack/ai-client"
 import type { ReactNode } from "react"
 import { Spinner } from "@/widget/components/ui/spinner"
@@ -51,7 +50,7 @@ export function SandboxPart({
   if (part.name === SANDBOX_PUBLISH_ARTIFACT_TOOL) {
     return (
       <SandboxArtifactPart
-        part={part as ChatToolCallPart}
+        part={part}
         apiUrl={apiUrl}
         getAttachment={getAttachment}
         getUploadedFile={getUploadedFile}

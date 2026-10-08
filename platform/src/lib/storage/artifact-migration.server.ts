@@ -18,23 +18,23 @@ export function replaceArtifactContinuation(
   output: Schema.JsonObject,
 ) {
   if (!metadata.modelMessages) return metadata
-  return {
-    ...metadata,
-    modelMessages: metadata.modelMessages.map((message) => {
-      if (
-        !Schema.is(Schema.JsonObject)(message) ||
-        message.role !== "tool" ||
-        typeof message.content !== "string"
-      )
-        return message
-      const parsed = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject))(
-        message.content,
-      )
-      return Option.isSome(parsed) && parsed.value.ticket === ticket
-        ? { ...message, content: JSON.stringify(output) }
-        : message
-    }),
-  }
+  const modelMessages = metadata.modelMessages.map((message) => {
+    if (
+      !Schema.is(Schema.JsonObject)(message) ||
+      message.role !== "tool" ||
+      typeof message.content !== "string"
+    )
+      return message
+    const parsed = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject))(
+      message.content,
+    )
+    return Option.isSome(parsed) && parsed.value.ticket === ticket
+      ? { ...message, content: JSON.stringify(output) }
+      : message
+  })
+  return modelMessages.every((message, index) => message === metadata.modelMessages![index])
+    ? metadata
+    : { ...metadata, modelMessages }
 }
 
 export const migrateSandboxArtifacts = Effect.fn("migrateSandboxArtifacts")(function* (
@@ -209,6 +209,36 @@ export const migrateSandboxArtifacts = Effect.fn("migrateSandboxArtifacts")(func
               )
               .returning({ id: chatMessagePart.id })
             if (!part) return yield* new ChatThreadInvalid()
+            const continuations = yield* tx
+              .select()
+              .from(chatMessage)
+              .where(
+                and(
+                  eq(chatMessage.organizationId, row.organizationId),
+                  eq(chatMessage.tenantId, row.tenantId),
+                  eq(chatMessage.threadId, row.threadId),
+                ),
+              )
+              .for("update")
+            for (const continuation of continuations) {
+              const metadata = replaceArtifactContinuation(
+                continuation.metadata,
+                ticket,
+                updatedOutput,
+              )
+              if (metadata === continuation.metadata) continue
+              yield* tx
+                .update(chatMessage)
+                .set({ metadata })
+                .where(
+                  and(
+                    eq(chatMessage.organizationId, row.organizationId),
+                    eq(chatMessage.tenantId, row.tenantId),
+                    eq(chatMessage.threadId, row.threadId),
+                    eq(chatMessage.id, continuation.id),
+                  ),
+                )
+            }
             if (prepared) yield* files.claim(tx, scope, prepared)
             return true
           }),
