@@ -78,7 +78,8 @@ export function AgentToolFields({
             </FieldDescription>
             {models.some((model) => model.webAccess.available === null) && (
               <FieldDescription>
-                The provider will verify Web access for custom models when they are used.
+                The connection will verify Web access for custom models or API URLs when they are
+                used.
               </FieldDescription>
             )}
             {incompatible.length > 0 && (

@@ -187,7 +187,7 @@ export function AgentForm({
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Models</CardTitle>
+          <CardTitle id="agent-models-title">Models</CardTitle>
           <CardDescription id="agent-models-description">
             Choose models from your configured providers. The default handles new conversations.
           </CardDescription>

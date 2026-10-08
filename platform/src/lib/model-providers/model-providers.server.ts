@@ -307,6 +307,7 @@ export class ModelProviders extends Context.Service<
             providerName: modelProvider.name,
             providerType: modelProvider.providerType,
             api: modelProvider.api,
+            baseUrl: modelProvider.baseUrl,
           })
           .from(providerModel)
           .innerJoin(
@@ -318,9 +319,9 @@ export class ModelProviders extends Context.Service<
           )
           .where(eq(providerModel.organizationId, input.organizationId))
           .orderBy(asc(modelProvider.name), asc(providerModel.name), asc(providerModel.id))
-        return models.map(({ providerType, api, ...model }) => ({
+        return models.map(({ providerType, api, baseUrl, ...model }) => ({
           ...model,
-          webAccess: modelWebCapabilities({ providerType, api, modelId: model.modelId }),
+          webAccess: modelWebCapabilities({ providerType, api, baseUrl, modelId: model.modelId }),
         }))
       }, Effect.orDie)
 

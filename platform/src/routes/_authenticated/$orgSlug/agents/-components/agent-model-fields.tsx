@@ -30,7 +30,10 @@ export function AgentModelFields({
     label: `${model.name} (${model.providerName})`,
   }))
   return (
-    <FieldSet aria-describedby="agent-models-description agent-models-hint">
+    <FieldSet
+      aria-labelledby="agent-models-title"
+      aria-describedby="agent-models-description agent-models-hint"
+    >
       {models.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Enable a model in{" "}

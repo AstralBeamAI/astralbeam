@@ -40,10 +40,18 @@ const MODEL_ANTHROPIC_WITHOUT_WEB: Record<
 > = { "claude-opus-5-fast": true }
 
 export function modelWebCapabilities(
-  model: Pick<ChatModelConfiguration, "providerType" | "api" | "modelId">,
+  model: Pick<ChatModelConfiguration, "providerType" | "api" | "modelId"> & { baseUrl?: string },
 ): { available: boolean | null; reason: string | null } {
+  const endpoint =
+    model.api === "anthropic-messages"
+      ? "https://api.anthropic.com"
+      : model.providerType === "openrouter"
+        ? "https://openrouter.ai/api/v1"
+        : "https://api.openai.com/v1"
+  const knownEndpoint =
+    model.baseUrl === undefined || new URL(model.baseUrl).href.replace(/\/+$/, "") === endpoint
   if (model.providerType === "openrouter" && model.api === "chat-completions")
-    return { available: true, reason: null }
+    return { available: knownEndpoint ? true : null, reason: null }
   if (model.providerType === "openai" && model.api === "chat-completions")
     return {
       available: false,
@@ -62,12 +70,14 @@ export function modelWebCapabilities(
     }
   if (model.providerType === "openai" && model.api === "responses")
     return {
-      available: OPENAI_CHAT_MODELS.some((name) => name === model.modelId) ? true : null,
+      available:
+        knownEndpoint && OPENAI_CHAT_MODELS.some((name) => name === model.modelId) ? true : null,
       reason: null,
     }
   if (model.api === "anthropic-messages")
     return {
-      available: ANTHROPIC_MODELS.some((name) => name === model.modelId) ? true : null,
+      available:
+        knownEndpoint && ANTHROPIC_MODELS.some((name) => name === model.modelId) ? true : null,
       reason: null,
     }
   return {

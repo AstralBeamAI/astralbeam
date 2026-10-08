@@ -16,7 +16,7 @@ Models come from providers configured in [Models](./models.md). Select at least 
 
 File attachments are allowed by default. Turn the setting off and the agent refuses files.
 
-Web access lets the selected model search the web and read public URLs. When creating an agent, the form selects a known search-capable model when available and enables Web access when all selected models support it. You can turn it off in **Tools**. Custom model IDs require opting in because their capabilities are verified by the provider when used.
+Web access lets the selected model search the web and read public URLs. When creating an agent, the form selects a known search-capable model when available and enables Web access when all selected models support it. You can turn it off in **Tools**. Custom model IDs and API URLs require opting in because their capabilities are verified by the connection when used.
 
 Sandbox lets the agent write and run code. It starts enabled when the organization has a configured [sandbox connection](./sandboxes.md). Choose its connection or turn it off in **Tools**. Existing agents keep their saved tool settings.
 
