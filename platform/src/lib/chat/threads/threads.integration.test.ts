@@ -533,6 +533,26 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         ),
       )
     expect(progress).toHaveLength(1)
+    const canonical = await runtime.runPromise(
+      files.externalize(
+        { ...scope, threadId: thread.id },
+        {
+          version: 1,
+          parts: [
+            {
+              ...media,
+              id: crypto.randomUUID(),
+              source: { ...media.source, mimeType: `text/plain;${"x".repeat(6000)}` },
+            },
+          ],
+        },
+      ),
+    )
+    expect(canonical.parts[0]!.source).toMatchObject({
+      type: "file",
+      mimeType: "text/plain",
+      value: progress[0]!.id,
+    })
     for (const table of [
       "chat_message_part.payload",
       "chat_message.metadata.modelMessages",
@@ -652,7 +672,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           Effect.flatMap(ChatFiles, (guarded) =>
             guarded.externalize({ ...scope, threadId: thread.id }, oversized),
           ).pipe(
-              Effect.provide(Layer.fresh(ChatFiles.layerNoDeps)),
+            Effect.provide(Layer.fresh(ChatFiles.layerNoDeps)),
             Effect.provideService(StoredFiles, { ...storage, prepare }),
             Effect.result,
           ),

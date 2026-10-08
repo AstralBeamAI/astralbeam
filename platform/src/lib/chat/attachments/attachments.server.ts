@@ -83,7 +83,7 @@ function textEntry(shape: ContentShape, text: string) {
 }
 
 /** RFC 2045 parameters off, lower case, so `TEXT/PLAIN; charset=utf-8` compares equal. */
-function normalizeMimeType(value: unknown): string {
+export function normalizeMimeType(value: unknown): string {
   return Predicate.isString(value) ? (value.split(";")[0] ?? "").trim().toLowerCase() : ""
 }
 

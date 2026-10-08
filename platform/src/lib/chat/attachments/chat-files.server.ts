@@ -10,7 +10,7 @@ import { APP_HANDLE } from "@/lib/constants"
 import { StoredFiles, type StoredFile } from "@/lib/storage/stored-files.server"
 import { ChatThreadInvalid, ChatThreadStorageUnavailable } from "../threads/errors"
 import type { ChatMessagePayload, ChatThreadScope } from "../threads/schemas"
-import { decodeAttachmentBytes } from "./attachments.server"
+import { decodeAttachmentBytes, normalizeMimeType } from "./attachments.server"
 import { CHAT_ATTACHMENT_MAX_COUNT, CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./constants.server"
 import { chatMediaPart, storedChatMediaSource } from "./stored-media"
 
@@ -173,8 +173,9 @@ export class ChatFiles extends Context.Service<
             const bytes = decodeAttachmentBytes(source.value)
             if (!bytes || bytes.length > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
               return yield* new ChatThreadInvalid()
-            const contentType =
-              typeof source.mimeType === "string" ? source.mimeType : "application/octet-stream"
+            const contentType = normalizeMimeType(source.mimeType) || "application/octet-stream"
+            if (contentType.length > 255 || !/^[\w.+-]+\/[\w.+-]+$/.test(contentType))
+              return yield* new ChatThreadInvalid()
             const digest = createHash("sha256").update(bytes).digest("hex")
             const file = yield* storage
               .prepare({
@@ -189,7 +190,7 @@ export class ChatFiles extends Context.Service<
                 type: "file",
                 provider: APP_HANDLE,
                 value: file.id,
-                ...(source.mimeType === undefined ? {} : { mimeType: source.mimeType }),
+                ...(source.mimeType === undefined ? {} : { mimeType: contentType }),
               },
             }
           }),
@@ -254,7 +255,9 @@ export class ChatFiles extends Context.Service<
               type: "content",
               sha256,
               byteSize,
-              ...(source.mimeType === undefined ? {} : { mimeType: source.mimeType }),
+              ...(source.mimeType === undefined
+                ? {}
+                : { mimeType: normalizeMimeType(source.mimeType) }),
             },
           })
         }
