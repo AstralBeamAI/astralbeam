@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { expect, test, vi } from "vitest"
 import { slotNameForToolCall } from "../lib/utils.ts"
+import { projectThreadMessages } from "../../core/threads.ts"
+import { AssistantPart } from "./assistant-part.tsx"
 import { ChatTranscript } from "./chat-transcript.tsx"
 
 test.each(["render_widget", "ask_questionnaire"])(
@@ -56,3 +58,36 @@ test.each(["render_widget", "ask_questionnaire"])(
     expect(html).not.toContain("<slot")
   },
 )
+
+test.each(["audio", "video"])("restored assistant %s is an authenticated download", (type) => {
+  const messages = projectThreadMessages([
+    {
+      id: "answer",
+      role: "assistant",
+      state: "complete",
+      parts: [
+        {
+          id: "media",
+          type,
+          source: { type: "attachment", mimeType: `${type}/mp4` },
+          metadata: { filename: "clip.mp4" },
+        },
+      ],
+    },
+  ])
+  const html = renderToStaticMarkup(
+    <AssistantPart
+      part={messages[0]!.parts[0]!}
+      messageId="answer"
+      getAttachment={vi.fn()}
+      apiUrl="http://localhost/api"
+      widgets={{}}
+      toolTitles={{}}
+      activeSlots={new Map()}
+      interactiveToolIds={new Set()}
+      onQuestionnaireAnswers={vi.fn()}
+    />,
+  )
+  expect(html).toContain('aria-label="Download clip.mp4"')
+  expect(html).not.toContain('href="data:')
+})

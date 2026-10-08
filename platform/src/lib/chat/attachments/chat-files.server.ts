@@ -19,7 +19,7 @@ type ChatFileScope = Pick<ChatThreadScope, "organizationId" | "tenantId"> & {
   threadId: string
   tenantUserId?: string
 }
-type ChatFileExecutor = Pick<EffectDatabase, "select" | "insert" | "update">
+type ChatFileExecutor = Pick<EffectDatabase, "select" | "insert" | "update" | "delete">
 type ChatFileFailure = ChatThreadInvalid | ChatThreadStorageUnavailable
 const chatFileOwnerWhere = (scope: ChatFileScope) =>
   and(
@@ -56,6 +56,16 @@ export const mapChatPayloadMedia = Effect.fnUntraced(function* <E, R>(
   return { ...payload, parts, ...(payload.modelMessages ? { modelMessages } : {}) }
 })
 
+const chatPayloadFileIds = Effect.fnUntraced(function* (payload: ChatMessagePayload) {
+  const ids = new Set<string>()
+  yield* mapChatPayloadMedia(payload, (part) => {
+    const source = storedChatMediaSource(part)
+    if (chatMediaPart(part) && Option.isSome(source)) ids.add(source.value.value)
+    return Effect.succeed(part)
+  })
+  return ids
+})
+
 export class ChatFiles extends Context.Service<
   ChatFiles,
   {
@@ -75,6 +85,12 @@ export class ChatFiles extends Context.Service<
       db: ChatFileExecutor,
       scope: ChatFileScope,
       payload: ChatMessagePayload,
+    ) => Effect.Effect<void, ChatThreadInvalid>
+    readonly release: (
+      db: ChatFileExecutor,
+      scope: ChatFileScope,
+      previous: ChatMessagePayload,
+      next: ChatMessagePayload,
     ) => Effect.Effect<void, ChatThreadInvalid>
     readonly size: (
       scope: ChatFileScope,
@@ -287,12 +303,7 @@ export class ChatFiles extends Context.Service<
         scope: ChatFileScope,
         payload: ChatMessagePayload,
       ) {
-        const ids = new Set<string>()
-        yield* mapChatPayloadMedia(payload, (part) => {
-          const source = storedChatMediaSource(part)
-          if (chatMediaPart(part) && Option.isSome(source)) ids.add(source.value.value)
-          return Effect.succeed(part)
-        })
+        const ids = yield* chatPayloadFileIds(payload)
         for (const id of ids) {
           const [file] = yield* executor
             .select()
@@ -356,6 +367,29 @@ export class ChatFiles extends Context.Service<
             .pipe(mapDatabaseErrors())
         }
       })
+      const release = Effect.fn("ChatFiles.release")(function* (
+        executor: ChatFileExecutor,
+        scope: ChatFileScope,
+        previous: ChatMessagePayload,
+        next: ChatMessagePayload,
+      ) {
+        const before = yield* chatPayloadFileIds(previous)
+        const after = yield* chatPayloadFileIds(next)
+        for (const id of before) {
+          if (after.has(id)) continue
+          yield* executor
+            .delete(chatFile)
+            .where(
+              and(
+                chatFileOwnerWhere(scope),
+                eq(chatFile.id, id),
+                sql`not exists (select 1 from chat_message_part p where p.organization_id = ${scope.organizationId}::uuid and p.tenant_id = ${scope.tenantId}::uuid and p.thread_id = ${scope.threadId}::uuid and p.payload @> ${JSON.stringify({ source: { type: "file", provider: APP_HANDLE, value: id } })}::jsonb)`,
+                sql`not exists (select 1 from chat_message m where m.organization_id = ${scope.organizationId}::uuid and m.tenant_id = ${scope.tenantId}::uuid and m.thread_id = ${scope.threadId}::uuid and jsonb_path_exists(m.metadata, '$.modelMessages[*].content[*].source ? (@.type == "file" && @.provider == "astralbeam" && @.value == $fileId)', jsonb_build_object('fileId', ${id}::text)))`,
+              ),
+            )
+            .pipe(mapDatabaseErrors())
+        }
+      })
       const size = Effect.fn("ChatFiles.size")(function* (
         scope: ChatFileScope,
         parts: readonly (typeof Schema.JsonObject.Type)[],
@@ -375,6 +409,7 @@ export class ChatFiles extends Context.Service<
         hydrate,
         identity,
         claim,
+        release,
         size,
         read,
         metadata: findOwned,

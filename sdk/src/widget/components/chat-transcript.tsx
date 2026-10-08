@@ -158,6 +158,9 @@ export function ChatTranscript({
                             <AssistantPart
                               readOnly={readOnly}
                               part={part}
+                              messageId={message.id}
+                              getAttachment={getAttachment}
+                              getUploadedFile={getUploadedFile}
                               apiUrl={apiUrl}
                               widgets={widgets}
                               toolTitles={toolTitles}
