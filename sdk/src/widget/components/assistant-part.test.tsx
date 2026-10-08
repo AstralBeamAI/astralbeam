@@ -65,6 +65,12 @@ test.each(["audio", "video"])("restored assistant %s is an authenticated downloa
       id: "answer",
       role: "assistant",
       state: "complete",
+      parent_message_id: null,
+      author_tenant_user_id: null,
+      source_assistant_message_id: null,
+      source_tool_part_id: null,
+      response_target_id: null,
+      created_at: "2026-10-09T00:00:00Z",
       parts: [
         {
           id: "media",
