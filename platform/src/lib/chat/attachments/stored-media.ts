@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 
-import { APP_HANDLE } from "@/lib/constants"
-import { UuidV7Schema } from "@/lib/schemas"
+import { APP_HANDLE } from "../../constants.ts"
+import { UuidV7Schema } from "../../schemas.ts"
 
 export const StoredChatSourceSchema = Schema.Struct({
   type: Schema.Literal("file"),

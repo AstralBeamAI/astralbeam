@@ -11,7 +11,7 @@ import { StoredFiles, type StoredFile } from "@/lib/storage/stored-files.server"
 import { ChatThreadInvalid, ChatThreadStorageUnavailable } from "../threads/errors"
 import type { ChatMessagePayload, ChatThreadScope } from "../threads/schemas"
 import { decodeAttachmentBytes } from "./attachments.server"
-import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./constants.server"
+import { CHAT_ATTACHMENT_MAX_COUNT, CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./constants.server"
 import { chatMediaPart, storedChatMediaSource } from "./stored-media"
 
 type ChatFileScope = Pick<ChatThreadScope, "organizationId" | "tenantId"> & { threadId: string }
@@ -106,56 +106,95 @@ export class ChatFiles extends Context.Service<
           .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
         return { file, bytes }
       })
-      const externalize = Effect.fn("ChatFiles.externalize")(
-        (scope: ChatFileScope, payload: ChatMessagePayload) =>
-          mapChatPayloadMedia(
-            payload,
-            Effect.fnUntraced(function* (part) {
-              if (!chatMediaPart(part)) return part
-              const stored = storedChatMediaSource(part)
-              if (Option.isSome(stored)) {
-                const [file] = yield* db
-                  .select({ id: fileObject.id })
-                  .from(fileObject)
-                  .where(
-                    and(
-                      eq(fileObject.id, stored.value.value),
-                      isNotNull(fileObject.verifiedAt),
-                      sql`${fileObject.sourceIdentity} like ${`${chatFileIdentityPrefix(scope)}%`}`,
-                    ),
-                  )
-                  .pipe(mapDatabaseErrors())
-                if (!file) return yield* new ChatThreadInvalid()
-                return part
-              }
-              const source = part.source
-              if (!Schema.is(Schema.JsonObject)(source) || source.type !== "data") return part
-              if (typeof source.value !== "string") return yield* new ChatThreadInvalid()
-              const bytes = decodeAttachmentBytes(source.value)
-              if (!bytes || bytes.length > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
-                return yield* new ChatThreadInvalid()
-              const contentType =
-                typeof source.mimeType === "string" ? source.mimeType : "application/octet-stream"
-              const digest = createHash("sha256").update(bytes).digest("hex")
-              const file = yield* storage
-                .prepare({
-                  bytes,
-                  contentType,
-                  sourceIdentity: `${chatFileIdentityPrefix(scope)}${digest}:${contentType}`,
-                })
-                .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
-              return {
-                ...part,
-                source: {
-                  type: "file",
-                  provider: APP_HANDLE,
-                  value: file.id,
-                  ...(source.mimeType === undefined ? {} : { mimeType: source.mimeType }),
-                },
-              }
-            }),
-          ),
-      )
+      const externalize = Effect.fn("ChatFiles.externalize")(function* (
+        scope: ChatFileScope,
+        payload: ChatMessagePayload,
+      ) {
+        const continuation = (payload.modelMessages ?? []).flatMap((message) =>
+          Array.isArray(message.content)
+            ? (message.content as readonly Schema.Json[]).filter(Schema.is(Schema.JsonObject))
+            : [],
+        )
+        for (const entries of [payload.parts, continuation]) {
+          let count = 0
+          let total = 0
+          for (const part of entries) {
+            if (!chatMediaPart(part)) continue
+            const source = part.source
+            const stored = storedChatMediaSource(part)
+            if (Option.isSome(stored)) {
+              const [file] = yield* db
+                .select({ size: fileObject.byteSize })
+                .from(fileObject)
+                .where(
+                  and(
+                    eq(fileObject.id, stored.value.value),
+                    isNotNull(fileObject.verifiedAt),
+                    sql`${fileObject.sourceIdentity} like ${`${chatFileIdentityPrefix(scope)}%`}`,
+                  ),
+                )
+                .pipe(mapDatabaseErrors())
+              if (!file) return yield* new ChatThreadInvalid()
+              total += file.size
+            } else if (Schema.is(Schema.JsonObject)(source) && source.type === "data") {
+              const bytes =
+                typeof source.value === "string" ? decodeAttachmentBytes(source.value) : null
+              if (!bytes) return yield* new ChatThreadInvalid()
+              total += bytes.length
+            } else continue
+            count += 1
+            if (count > CHAT_ATTACHMENT_MAX_COUNT || total > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+              return yield* new ChatThreadInvalid()
+          }
+        }
+        return yield* mapChatPayloadMedia(
+          payload,
+          Effect.fnUntraced(function* (part) {
+            if (!chatMediaPart(part)) return part
+            const stored = storedChatMediaSource(part)
+            if (Option.isSome(stored)) {
+              const [file] = yield* db
+                .select({ id: fileObject.id })
+                .from(fileObject)
+                .where(
+                  and(
+                    eq(fileObject.id, stored.value.value),
+                    isNotNull(fileObject.verifiedAt),
+                    sql`${fileObject.sourceIdentity} like ${`${chatFileIdentityPrefix(scope)}%`}`,
+                  ),
+                )
+                .pipe(mapDatabaseErrors())
+              if (!file) return yield* new ChatThreadInvalid()
+              return part
+            }
+            const source = part.source
+            if (!Schema.is(Schema.JsonObject)(source) || source.type !== "data") return part
+            if (typeof source.value !== "string") return yield* new ChatThreadInvalid()
+            const bytes = decodeAttachmentBytes(source.value)
+            if (!bytes || bytes.length > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+              return yield* new ChatThreadInvalid()
+            const contentType =
+              typeof source.mimeType === "string" ? source.mimeType : "application/octet-stream"
+            const digest = createHash("sha256").update(bytes).digest("hex")
+            const file = yield* storage
+              .prepare({
+                bytes,
+                contentType,
+                sourceIdentity: `${chatFileIdentityPrefix(scope)}${digest}:${contentType}`,
+              })
+              .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
+            return {
+              ...part,
+              source: {
+                type: "file",
+                provider: APP_HANDLE,
+                value: file.id,
+                ...(source.mimeType === undefined ? {} : { mimeType: source.mimeType }),
+              },
+            }
+          }),
+        )
+      })
       const hydrate = Effect.fn("ChatFiles.hydrate")(
         (scope: ChatFileScope, payload: ChatMessagePayload) =>
           mapChatPayloadMedia(

@@ -1,4 +1,4 @@
-import { Effect, Schema, SchemaGetter } from "effect"
+import { Effect, Option, Schema, SchemaGetter } from "effect"
 import { HttpServerRequest } from "effect/http"
 import {
   HttpApi,
@@ -24,6 +24,7 @@ import type {
   ParticipantRecord,
 } from "../../../../../lib/chat/threads/threads.server"
 import { ChatRunInputInvalid } from "./errors"
+import { storedChatMediaSource } from "../../../../../lib/chat/attachments/stored-media.ts"
 import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "../../../../../lib/chat/threads/schemas.ts"
 
 const threadRole = Schema.Literals(["viewer", "member", "manager"])
@@ -342,7 +343,7 @@ export function messageResource(row: MessageRecord) {
       if (
         (part.type === "image" || part.type === "document") &&
         Schema.is(Schema.JsonObject)(source) &&
-        (source.type === "data" || source.type === "file")
+        (source.type === "data" || Option.isSome(storedChatMediaSource(part)))
       ) {
         return {
           ...part,
@@ -621,7 +622,7 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   const source = part?.source
   if (
     !Schema.is(Schema.JsonObject)(source) ||
-    (source.type !== "data" && source.type !== "file") ||
+    (source.type !== "data" && (!part || Option.isNone(storedChatMediaSource(part)))) ||
     typeof source.value !== "string"
   )
     return yield* new ChatThreadNotFound()

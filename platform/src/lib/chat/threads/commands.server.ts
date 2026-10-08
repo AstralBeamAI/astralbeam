@@ -1,5 +1,13 @@
 import { convertMessagesToModelMessages, normalizeToUIMessage } from "@tanstack/ai"
-import { type Cause, Effect, JsonSchema, Option, Schema, SchemaRepresentation } from "effect"
+import {
+  type Cause,
+  Effect,
+  JsonSchema,
+  Option,
+  Result,
+  Schema,
+  SchemaRepresentation,
+} from "effect"
 
 import { NonEmptyStringSchema } from "@/lib/schemas"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
@@ -188,55 +196,60 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
     if (Option.isSome(recovered))
       return { admission: undefined, receipt: recovered.value, clientId: options.clientId }
   }
-  const mediaBytes = parameters.parts.reduce(
-    (total, part) =>
-      chatMediaPart(part) &&
-      Schema.is(Schema.JsonObject)(part.source) &&
-      typeof part.source.byteSize === "number"
-        ? total + part.source.byteSize
-        : total,
-    0,
-  )
-  if (mediaBytes > CHAT_ATTACHMENT_MAX_TOTAL_BYTES) return yield* new ChatThreadInvalid()
-  if (thread.role === "viewer") return yield* new ChatThreadForbidden()
-  const agentId = thread.agentId === null ? null : `agent_${scope.organizationId}_${thread.agentId}`
-  if (agentId === null) return yield* new ChatThreadNotFound()
-  if (parameters.agentId !== undefined && parameters.agentId !== agentId)
-    return yield* new ChatThreadInvalid()
-  const agent = yield* agents
-    .resolveForChat({ organizationId: scope.organizationId, agentId })
-    .pipe(Effect.mapError(() => new ChatThreadNotFound()))
-  if (!agent.attachmentsEnabled && parts.some((part) => part.type !== "text"))
-    return yield* new ChatAttachmentsDisabled()
-  const hydrated = yield* files.hydrate(
-    { ...scope, threadId: id },
-    { version: 1, parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })) },
-  )
-  const hydratedParts = yield* Schema.decodeUnknownEffect(managedUserParts)(hydrated.parts).pipe(
-    Effect.mapError(() => new ChatThreadInvalid()),
-  )
-  const normalized = normalizeChatAttachments(
-    [
-      {
-        role: "user",
-        content: hydratedParts.map((part) =>
-          part.type === "text"
-            ? part
-            : { ...part, source: { ...part.source, mimeType: part.source.mimeType ?? "" } },
-        ),
-      },
-    ],
-    { sandbox: agent.sandboxProviderId !== null },
-  )
-  if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
-    return yield* new ChatThreadInvalid()
-  const prepared = yield* files.externalize(
-    { ...scope, threadId: id },
-    { version: 1, parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })) },
-  )
+  const preparation = yield* Effect.gen(function* () {
+    const mediaBytes = parameters.parts.reduce(
+      (total, part) =>
+        chatMediaPart(part) &&
+        Schema.is(Schema.JsonObject)(part.source) &&
+        typeof part.source.byteSize === "number"
+          ? total + part.source.byteSize
+          : total,
+      0,
+    )
+    if (mediaBytes > CHAT_ATTACHMENT_MAX_TOTAL_BYTES) return yield* new ChatThreadInvalid()
+    if (thread.role === "viewer") return yield* new ChatThreadForbidden()
+    const agentId =
+      thread.agentId === null ? null : `agent_${scope.organizationId}_${thread.agentId}`
+    if (agentId === null) return yield* new ChatThreadNotFound()
+    if (parameters.agentId !== undefined && parameters.agentId !== agentId)
+      return yield* new ChatThreadInvalid()
+    const agent = yield* agents
+      .resolveForChat({ organizationId: scope.organizationId, agentId })
+      .pipe(Effect.mapError(() => new ChatThreadNotFound()))
+    if (!agent.attachmentsEnabled && parts.some((part) => part.type !== "text"))
+      return yield* new ChatAttachmentsDisabled()
+    const hydrated = yield* files.hydrate(
+      { ...scope, threadId: id },
+      { version: 1, parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })) },
+    )
+    const hydratedParts = yield* Schema.decodeUnknownEffect(managedUserParts)(hydrated.parts).pipe(
+      Effect.mapError(() => new ChatThreadInvalid()),
+    )
+    const normalized = normalizeChatAttachments(
+      [
+        {
+          role: "user",
+          content: hydratedParts.map((part) =>
+            part.type === "text"
+              ? part
+              : { ...part, source: { ...part.source, mimeType: part.source.mimeType ?? "" } },
+          ),
+        },
+      ],
+      { sandbox: agent.sandboxProviderId !== null },
+    )
+    if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
+      return yield* new ChatThreadInvalid()
+    return yield* files.externalize(
+      { ...scope, threadId: id },
+      { version: 1, parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })) },
+    )
+  }).pipe(Effect.result)
   const accept = Effect.fnUntraced(function* (
     command: typeof chatAdmissionOperation.parameters.Type,
   ) {
+    if (Result.isFailure(preparation)) return yield* Effect.fail(preparation.failure)
+    const prepared = preparation.success
     admission = yield* threads.admit({
       scope,
       id: command.id,

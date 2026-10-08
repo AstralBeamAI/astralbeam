@@ -586,6 +586,80 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       ),
     )
     expect(replay).toMatchObject({ admission: undefined, receipt })
+    await db
+      .update(chatThread)
+      .set({ agentId: admitted.thread.agentId })
+      .where(eq(chatThread.id, thread.id))
+    const competingKey = `${scope.organizationId}:${scope.tenantId}:${thread.id}:${scope.tenantUserId}:${createHash("sha256").update("competing-intent").digest("hex")}`
+    const racingFiles = {
+      ...offline,
+      hydrate: () =>
+        Effect.promise(() =>
+          db.insert(cacheEntry).values({
+            namespace: "chat",
+            key: competingKey,
+            value: cache.value,
+            expiresAt: expiry,
+          }),
+        ).pipe(Effect.andThen(Effect.fail(new ChatThreadStorageUnavailable()))),
+    }
+    const raced = await runtime.runPromise(
+      prepareManagedChat({
+        scope,
+        idempotencyKey: "competing-intent",
+        params: {
+          threadId: thread.id,
+          runId: "racing-retry",
+          messages: [{ role: "user", content: parts }],
+          tools: [],
+          context: [],
+          aguiContext: [],
+          state: undefined,
+          forwardedProps: { clientId: targetA },
+        },
+      }).pipe(
+        Effect.provideService(ChatFiles, racingFiles),
+        Effect.provideService(Agents, {
+          resolveForChat: () =>
+            Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
+        } as unknown as typeof Agents.Service),
+      ),
+    )
+    expect(raced).toMatchObject({ admission: undefined, receipt })
+    const storage = await runtime.runPromise(StoredFiles)
+    const prepare = vi.fn(() => Effect.die("Oversized generated media must not reach S3"))
+    for (const oversized of [
+      {
+        version: 1 as const,
+        parts: Array.from({ length: 6 }, () => ({ ...media, id: crypto.randomUUID() })),
+      },
+      {
+        version: 1 as const,
+        parts: [],
+        modelMessages: [
+          {
+            role: "assistant",
+            content: Array.from({ length: 2 }, () => ({
+              ...media,
+              source: { ...media.source, value: Buffer.alloc(11 * 1024 * 1024).toString("base64") },
+            })),
+          },
+        ],
+      },
+    ]) {
+      expect(
+        await runtime.runPromise(
+          Effect.flatMap(ChatFiles, (guarded) =>
+            guarded.externalize({ ...scope, threadId: thread.id }, oversized),
+          ).pipe(
+            Effect.provide(ChatFiles.layerNoDeps),
+            Effect.provideService(StoredFiles, { ...storage, prepare }),
+            Effect.result,
+          ),
+        ),
+      ).toMatchObject({ _tag: "Failure", failure: { _tag: "ChatThreadInvalid" } })
+    }
+    expect(prepare).not.toHaveBeenCalled()
     const storedMedia = {
       ...media,
       source: {
