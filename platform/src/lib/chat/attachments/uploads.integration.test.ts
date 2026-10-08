@@ -113,6 +113,9 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
   })
 
   test("failed multipart preparation frees active slots and records unknown-upload cleanup", async () => {
+    const pendingBefore = (await db.select().from(multipartDeletion)).filter(
+      (row) => row.uploadId === null,
+    ).length
     const multipart = await runtime.runPromise(MultipartStorage)
     const unavailable = Uploads.layerNoDeps.pipe(
       Layer.provide([
@@ -138,7 +141,7 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
     expect(await db.select().from(fileUpload)).toHaveLength(0)
     expect(
       (await db.select().from(multipartDeletion)).filter((row) => row.uploadId === null),
-    ).toHaveLength(11)
+    ).toHaveLength(pendingBefore + 11)
     expect((await runtime.runPromise(uploads.prepare(scope, input))).status).toBe("pending")
   })
 
@@ -180,6 +183,12 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
       sha256: input.sha256,
       byteSize: bytes.length,
     })
+    const related = await db.query.fileUpload.findFirst({
+      where: { organizationId: scope.organizationId, tenantId: scope.tenantId, id: session.id },
+      with: { uploader: true, file: true },
+    })
+    expect(related!.uploader!.id).toBe(scope.tenantUserId)
+    expect(related!.file!.id).toBe(complete.fileId)
     const [file] = await db.select().from(fileObject).where(eq(fileObject.id, complete.fileId!))
     const [row] = await db.select().from(fileUpload).where(eq(fileUpload.id, session.id))
     expect(file!.objectKey).not.toBe(row!.objectKey)
