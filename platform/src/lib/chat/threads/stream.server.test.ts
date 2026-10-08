@@ -9,9 +9,8 @@ import {
 } from "@tanstack/ai"
 import { Effect, Schema } from "effect"
 import { describe, expect, test } from "vitest"
-import { modelUsageTestConfiguration } from "@/lib/model-providers/usage.test-support"
 
-import { createChatAdapter, modelOutputOptions } from "../adapter.server"
+import { createChatAdapter } from "../adapter.server"
 import { chatToolInputSchema } from "../tool-schema.server"
 import type { ChatThreads } from "./threads.server"
 import type { ChatMessagePayload, ChatToolResolution, ChatWriterClaim } from "./schemas"
@@ -81,8 +80,6 @@ async function exerciseManagedStream(options: {
   let snapshotVersion = 0
   let bufferedSnapshots = 0
   const model = {
-    providerModelId: "configured-model",
-    usageConfiguration: modelUsageTestConfiguration,
     providerId: "provider",
     providerName: "Synthetic",
     providerType: "openai" as const,
@@ -188,7 +185,6 @@ async function exerciseManagedStream(options: {
   })
   const source = chat({
     adapter: createChatAdapter(model),
-    modelOptions: modelOutputOptions(model, 4096),
     messages: history,
     tools: options.refresh ? [] : [tool],
     threadId: managed.claim.threadId,

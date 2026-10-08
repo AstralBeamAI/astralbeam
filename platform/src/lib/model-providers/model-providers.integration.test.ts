@@ -23,7 +23,6 @@ import {
   modelProvider,
   organization,
   organizationConfiguration,
-  providerModel,
 } from "@/db/schema.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { Config } from "@/lib/config/config.server"
@@ -134,55 +133,6 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       ).pipe(Effect.flip),
     )
     expect(refused._tag).toBe("ModelProviderUnreadable")
-  })
-
-  test("rejects unpriced custom models and guards legacy readiness", async () => {
-    const missing = await runAppEffect(
-      saveIntegrationProvider(organizationId, {
-        models: [{ modelId: "unknown", name: "Unknown" }],
-      }).pipe(Effect.flip),
-    )
-    expect(missing._tag).toBe("ModelUsageConfigurationMissing")
-    const providerId = await runAppEffect(saveIntegrationProvider(organizationId))
-    const initial = await runAppEffect(
-      Effect.flatMap(ModelProviders, (service) => service.get({ organizationId, id: providerId })),
-    )
-    const configuredModel = initial!.models[0]!
-    expect(configuredModel.usageConfiguration).toEqual(modelUsageTestConfiguration)
-    await db
-      .insert(agentModel)
-      .values({ organizationId, agentId, providerModelId: configuredModel.id, position: 0 })
-    await db
-      .update(providerModel)
-      .set({ usageConfiguration: null })
-      .where(
-        and(
-          eq(providerModel.organizationId, organizationId),
-          eq(providerModel.id, configuredModel.id),
-        ),
-      )
-    const legacy = await runAppEffect(
-      Effect.flatMap(ModelProviders, (service) =>
-        service.resolveForAgent({ organizationId, agentId }),
-      ).pipe(Effect.flip),
-    )
-    expect(legacy._tag).toBe("ModelUsageConfigurationMissing")
-    await db
-      .update(providerModel)
-      .set({ modelId: "gpt-4.1" })
-      .where(
-        and(
-          eq(providerModel.organizationId, organizationId),
-          eq(providerModel.id, configuredModel.id),
-        ),
-      )
-    const mapped = await runAppEffect(
-      Effect.flatMap(ModelProviders, (service) =>
-        service.resolveForAgent({ organizationId, agentId }),
-      ),
-    )
-    expect(mapped!.providerModelId).toBe(configuredModel.id)
-    expect(mapped!.usageConfiguration.pricingSource.kind).toBe("catalog")
   })
 
   test("persists and reads normalized v2 feed constraints", async () => {

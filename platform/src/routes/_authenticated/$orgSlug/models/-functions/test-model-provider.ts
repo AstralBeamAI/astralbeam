@@ -24,7 +24,6 @@ export const testModelProvider = createServerFn({ method: "POST" })
           [
             "ModelProviderChanged",
             "ModelProviderUnreadable",
-            "ModelUsageConfigurationMissing",
             "ModelProviderTestFailed",
             "ModelProviderTestRateLimited",
           ],

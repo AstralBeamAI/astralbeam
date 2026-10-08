@@ -81,8 +81,6 @@ export interface ChatModelConfiguration {
   readonly baseUrl: string
   readonly apiKey: string
   readonly modelId: string
-  readonly providerModelId: string
-  readonly usageConfiguration: ModelUsageConfiguration
   /** Enforces the deployment's private endpoint policy on every provider request. */
   readonly fetch: typeof fetch
 }
@@ -177,17 +175,13 @@ export class ModelProviders extends Context.Service<
     readonly resolveForAgent: (input: {
       readonly organizationId: string
       readonly agentId: string
-    }) => Effect.Effect<
-      ChatModelConfiguration | null,
-      ModelProviderUnreadable | ModelUsageConfigurationMissing
-    >
+    }) => Effect.Effect<ChatModelConfiguration | null, ModelProviderUnreadable>
     readonly testModel: (
       input: TestModelProviderInput,
     ) => Effect.Effect<
       void,
       | ModelProviderChanged
       | ModelProviderUnreadable
-      | ModelUsageConfigurationMissing
       | ModelProviderTestFailed
       | ModelProviderTestRateLimited
     >
@@ -550,8 +544,6 @@ export class ModelProviders extends Context.Service<
             api: modelProvider.api,
             baseUrl: modelProvider.baseUrl,
             modelId: providerModel.modelId,
-            providerModelId: providerModel.id,
-            usageConfiguration: providerModel.usageConfiguration,
             storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
           })
           .from(agentModel)
@@ -579,14 +571,6 @@ export class ModelProviders extends Context.Service<
           .limit(1)
           .pipe(Effect.orDie)
         if (!selected) return null
-        const catalog = yield* readPricing
-        const usageConfiguration = effectiveModelUsageConfiguration({
-          catalog,
-          providerType: selected.providerType,
-          modelId: selected.modelId,
-          configured: selected.usageConfiguration,
-        })
-        if (!usageConfiguration) return yield* new ModelUsageConfigurationMissing()
         const { storedCredentials, ...configuration } = selected
         const apiKey = readModelProviderKey({
           id: selected.providerId,
@@ -605,7 +589,6 @@ export class ModelProviders extends Context.Service<
         }
         return {
           ...configuration,
-          usageConfiguration,
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         }
@@ -617,10 +600,7 @@ export class ModelProviders extends Context.Service<
         const provider = yield* readModelProviderRow(input.organizationId, input.id)
         if (provider?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
         const [model] = yield* db
-          .select({
-            modelId: providerModel.modelId,
-            usageConfiguration: providerModel.usageConfiguration,
-          })
+          .select({ modelId: providerModel.modelId })
           .from(providerModel)
           .where(
             and(
@@ -634,14 +614,6 @@ export class ModelProviders extends Context.Service<
         if (!model) return yield* new ModelProviderChanged()
         const apiKey = readModelProviderKey(provider)
         if (!apiKey) return yield* new ModelProviderUnreadable()
-        const catalog = yield* readPricing
-        const usageConfiguration = effectiveModelUsageConfiguration({
-          catalog,
-          providerType: provider.providerType,
-          modelId: model.modelId,
-          configured: model.usageConfiguration,
-        })
-        if (!usageConfiguration) return yield* new ModelUsageConfigurationMissing()
         yield* rateLimiter
           .consume({
             key: hashedRateLimitKey("model-test", [input.organizationId]),
@@ -663,8 +635,6 @@ export class ModelProviders extends Context.Service<
           api: provider.api,
           baseUrl: provider.baseUrl,
           modelId: model.modelId,
-          providerModelId: input.modelId,
-          usageConfiguration,
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         })

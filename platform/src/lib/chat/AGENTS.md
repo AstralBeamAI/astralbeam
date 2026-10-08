@@ -67,7 +67,6 @@
 - Agent instructions and the attachment grant are agent configuration. `/api/v1/chat/config` exists so a client can narrow a grant for UX. It can never widen one, and a client-sent system prompt is refused rather than dropped.
 - Sandbox paths are contained against the provider's _real_ workspace root from `resolveHarnessCwd`, and re-checked at download time. Containment is not the security boundary, the sandbox is, but the agent's own files and the widget's file list depend on it.
 - Never expose raw provider errors, credentials, or database/setup details in chat responses. Use fixed actionable messages for allowlisted model provider error codes and `CHAT_MODEL_UNAVAILABLE_MESSAGE` for unknown model or stream failures, including iterator and middleware failures before SSE encoding. Record only redacted diagnostic metadata in server logs.
-- Resolve a configured model UUID and validated usage configuration before execution. Send and verify its output cap on every serialized inference request, keep provider SDK retries disabled, and suppress upstream default error logging with `debug: false`. The application's safe error and diagnostic boundary owns failures.
 
 ## Saved conversations
 

@@ -21,7 +21,7 @@ import {
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
-import { createChatAdapter, modelOutputOptions } from "./adapter.server"
+import { createChatAdapter } from "./adapter.server"
 import { createChatAttachmentTools } from "./attachments/tools.server"
 import {
   createChatAttachmentSnapshotMiddleware,
@@ -166,9 +166,6 @@ export class Chat extends Context.Service<
             Effect.catchTag("ModelProviderUnreadable", () =>
               Effect.fail(new ChatModelKeyUnreadable()),
             ),
-            Effect.catchTag("ModelUsageConfigurationMissing", () =>
-              Effect.fail(new ChatModelMissing()),
-            ),
           )
         if (!model) return yield* new ChatModelMissing()
         const history = yield* threads.history({
@@ -304,7 +301,6 @@ export class Chat extends Context.Service<
             return chatEventStream((abortController) => {
               const source = chat({
                 adapter: createChatAdapter(model),
-                debug: false,
                 messages,
                 systemPrompts,
                 // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
@@ -324,15 +320,12 @@ export class Chat extends Context.Service<
                 parentRunId: params.parentRunId,
                 resume: params.resume,
                 // Native OpenAI reasoning models keep main's effort. Other models reject the option.
-                modelOptions: {
-                  ...modelOutputOptions(model, model.usageConfiguration.outputCap),
-                  ...(model.providerType === "openai" &&
-                    model.api === "responses" &&
-                    /^(?:gpt-5|o\d)/.test(model.modelId) &&
-                    !model.modelId.endsWith("-chat-latest") && {
-                      reasoning: { effort: "high" },
-                    }),
-                },
+                ...(model.providerType === "openai" &&
+                  model.api === "responses" &&
+                  /^(?:gpt-5|o\d)/.test(model.modelId) &&
+                  !model.modelId.endsWith("-chat-latest") && {
+                    modelOptions: { reasoning: { effort: "high" } },
+                  }),
                 abortController,
               })
               return managedChatDelivery({ source, managed: input.managed, state: managed.state })
