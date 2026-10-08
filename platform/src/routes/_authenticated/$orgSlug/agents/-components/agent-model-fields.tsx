@@ -1,14 +1,7 @@
 import { Link } from "@tanstack/react-router"
 
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field"
 import {
   Select,
   SelectContent,
@@ -38,10 +31,6 @@ export function AgentModelFields({
   }))
   return (
     <FieldSet aria-describedby="agent-models-description agent-models-hint">
-      <FieldLegend>Models</FieldLegend>
-      <FieldDescription id="agent-models-description">
-        Choose models from your configured providers. The default model handles new chat runs.
-      </FieldDescription>
       {models.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Enable a model in{" "}

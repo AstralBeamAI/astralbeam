@@ -16,9 +16,9 @@ Models come from providers configured in [Models](./models.md). Select at least 
 
 File attachments are allowed by default. Turn the setting off and the agent refuses files.
 
-Web access lets the selected model search the web and read public URLs. Enable it in the agent configuration when your users need current information.
+Web access lets the selected model search the web and read public URLs. When creating an agent, the form selects a known search-capable model when available and enables Web access when all selected models support it. You can turn it off in **Tools**. Custom model IDs require opting in because their capabilities are verified by the provider when used.
 
-A sandbox provider is optional, and selecting one of the organization's [sandbox providers](./sandboxes.md) is what lets the agent write and run code.
+Sandbox lets the agent write and run code. It starts enabled when the organization has a configured [sandbox connection](./sandboxes.md). Choose its connection or turn it off in **Tools**. Existing agents keep their saved tool settings.
 
 You can change these settings later, and a change applies to the next request rather than to a reply already streaming.
 
@@ -56,7 +56,7 @@ While attachments are on, the accepted types, per-file sizes, and per-message co
 
 ## Web access
 
-Let's enable **Web access** in the agent configuration when your users need current information or answers from public URLs. The grant belongs to the agent, so an embedded browser client cannot enable it or replace its web tools.
+Let's review **Web access** under **Tools** when your users need current information or answers from public URLs. The grant belongs to the agent, so an embedded browser client cannot enable it or replace its web tools.
 
 Web access uses the selected model's existing connection. Choose OpenAI Responses, Anthropic Messages, or OpenRouter Chat Completions and a model that supports web tools. OpenRouter manages retrieval and may use an external search engine. An unsupported configuration fails with guidance to change the model or protocol. OpenAI Chat Completions requires switching the connection to Responses.
 
@@ -66,7 +66,7 @@ Citations link evidence to answer text, and web activity lists consulted sources
 
 ## Sandboxes
 
-Selecting a sandbox provider gives the agent its file and command tools. The agent gets one isolated sandbox per conversation, provisioned the first time it actually reaches for a tool, and files sent in that conversation are written into it.
+Enabling **Sandbox** and selecting its connection gives the agent its file and command tools. The agent gets one isolated sandbox per conversation, provisioned the first time it actually reaches for a tool, and files sent in that conversation are written into it.
 
 When the provider's configuration cannot be read as a run starts, the sandbox tools and their instructions drop together and the agent answers without them rather than failing.
 

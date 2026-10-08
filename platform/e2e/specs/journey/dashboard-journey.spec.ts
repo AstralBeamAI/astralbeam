@@ -127,7 +127,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(agents.cards()).toHaveCount(1)
 
     await agents.openAgent(starterAgent)
-    await expect(agents.publicId()).toHaveValue(/^agent_[0-9a-f-]{36}_[0-9a-f-]{36}$/)
+    await expect(agents.publicId()).toHaveText(/^agent_[0-9a-f-]{36}_[0-9a-f-]{36}$/)
     await expect(agents.defaultBadge()).toBeVisible()
     await agents.fillForm({
       name: starterAgent,
