@@ -1,3 +1,4 @@
+import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
 import { assert, describe, it } from "@effect/vitest"
 import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tanstack/ai"
 import { Effect, Layer, Stream } from "effect"
@@ -110,6 +111,7 @@ function chatTestLayer(options: {
   } as unknown as ChatSandboxes["Service"]
   return Chat.layerNoDeps.pipe(
     Layer.provide([
+      ChatFiles.layer,
       Layer.succeed(Agents, agents),
       Layer.succeed(ModelProviders, {
         resolveForAgent: () =>

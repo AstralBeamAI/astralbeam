@@ -8,6 +8,7 @@ import {
 } from "@tanstack/ai"
 import { Context, Effect, identity, Layer, Stream } from "effect"
 
+import { ChatFiles } from "./attachments/chat-files.server"
 import { ChatThreads, type MessageRecord } from "./threads/threads.server"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory } from "./threads/projection.server"
@@ -85,14 +86,29 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   history,
   model,
   sandbox,
+  storage,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
   readonly sandbox: boolean
+  readonly storage: typeof ChatFiles.Service
 }) {
+  const hydrated: MessageRecord[] = []
+  for (const message of history)
+    hydrated.push({
+      ...message,
+      payload: yield* storage.hydrate(
+        {
+          organizationId: message.organizationId,
+          tenantId: message.tenantId,
+          threadId: message.threadId,
+        },
+        message.payload,
+      ),
+    })
   const projected = yield* Effect.try({
     try: () =>
-      projectChatModelHistory(history, {
+      projectChatModelHistory(hydrated, {
         providerId: model.providerId,
         protocol: model.api,
         modelId: model.modelId,
@@ -137,6 +153,7 @@ export class Chat extends Context.Service<
       const sandboxes = yield* ChatSandboxes
       const modelProviders = yield* ModelProviders
       const threads = yield* ChatThreads
+      const storage = yield* ChatFiles
 
       const run = Effect.fn("Chat.run")(function* (input: {
         params: ChatParams
@@ -180,6 +197,7 @@ export class Chat extends Context.Service<
           files,
         } = yield* prepareChatHistory({
           history,
+          storage,
           model,
           sandbox: agent.sandboxProviderId !== null,
         })
@@ -266,6 +284,7 @@ export class Chat extends Context.Service<
                 })
                 const normalized = yield* prepareChatHistory({
                   history: saved,
+                  storage,
                   model,
                   sandbox: agent.sandboxProviderId !== null,
                 })
@@ -383,6 +402,12 @@ export class Chat extends Context.Service<
   )
 
   static readonly layer = Chat.layerNoDeps.pipe(
-    Layer.provide([Agents.layer, ChatSandboxes.layer, ModelProviders.layer, ChatThreads.layer]),
+    Layer.provide([
+      Agents.layer,
+      ChatSandboxes.layer,
+      ModelProviders.layer,
+      ChatThreads.layer,
+      ChatFiles.layer,
+    ]),
   )
 }

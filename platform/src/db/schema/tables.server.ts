@@ -31,3 +31,5 @@ export {
   organizationImageImport,
   fileDeletion,
 } from "./files.server.ts"
+
+export { chatFile } from "./chat-files.server.ts"

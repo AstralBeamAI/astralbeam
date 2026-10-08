@@ -1,10 +1,12 @@
 import { convertMessagesToModelMessages, normalizeToUIMessage } from "@tanstack/ai"
-import { type Cause, Effect, JsonSchema, Schema, SchemaRepresentation } from "effect"
+import { type Cause, Effect, JsonSchema, Option, Schema, SchemaRepresentation } from "effect"
 
 import { NonEmptyStringSchema } from "@/lib/schemas"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
 import { Agents } from "@/lib/agents/agents.server"
-import { withDatabaseIdempotency } from "@/db/lib/idempotency.server"
+import { readDatabaseIdempotency, withDatabaseIdempotency } from "@/db/lib/idempotency.server"
+import { ChatFiles } from "../attachments/chat-files.server"
+import { StoredChatSourceSchema } from "../attachments/stored-media"
 import { normalizeChatAttachments } from "../attachments/attachments.server"
 import { ChatAttachmentsDisabled, ChatSystemPromptRefused } from "../errors"
 import type { ChatParams } from "../types"
@@ -63,21 +65,24 @@ const managedUserParts = Schema.Array(
     Schema.Struct({ type: Schema.Literal("text"), content: Schema.String }),
     Schema.Struct({
       type: Schema.Literals(["image", "document", "audio", "video"]),
-      source: Schema.Struct({
-        type: Schema.Literal("data"),
-        value: Schema.String,
-        mimeType: Schema.optionalKey(Schema.String),
-      }),
+      source: Schema.Union([
+        Schema.Struct({
+          type: Schema.Literal("data"),
+          value: Schema.String,
+          mimeType: Schema.optionalKey(Schema.String),
+        }),
+        StoredChatSourceSchema,
+      ]),
       metadata: Schema.optionalKey(Schema.JsonObject),
     }),
   ]),
 ).check(Schema.isMinLength(1))
 
 const chatAdmissionOperation = {
-  name: "ChatAdmission/v1",
+  name: "ChatAdmission/v2",
   parameters: Schema.Struct({
     id: ApiUuidSchema,
-    parts: managedUserParts,
+    parts: Schema.Array(Schema.JsonObject),
     tools: Schema.Array(Schema.JsonObject),
     clientId: ApiUuidSchema,
     agentId: Schema.optionalKey(Schema.String),
@@ -103,6 +108,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
 }) {
   const threads = yield* ChatThreads
   const agents = yield* Agents
+  const files = yield* ChatFiles
   const { params, scope } = input
   const id = yield* Schema.decodeUnknownEffect(ApiUuidSchema)(params.threadId).pipe(
     Effect.mapError(() => new ChatThreadInvalid()),
@@ -155,38 +161,71 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   let rejected: ChatThreadError | ChatAttachmentsDisabled | undefined
   const parameters = {
     id,
-    parts,
+    parts: yield* files.identity({ ...scope, threadId: id }, parts),
     tools,
     clientId: options.clientId,
     ...(options.agentId === undefined ? {} : { agentId: options.agentId }),
   }
+  const idempotency =
+    input.idempotencyKey === undefined
+      ? undefined
+      : {
+          namespace: "chat",
+          scope: [scope.organizationId, scope.tenantId, thread.id, scope.tenantUserId].join(":"),
+          key: input.idempotencyKey,
+          operation: chatAdmissionOperation,
+          parameters,
+        }
+  if (idempotency) {
+    const recovered = yield* readDatabaseIdempotency(idempotency)
+    if (Option.isSome(recovered))
+      return { admission: undefined, receipt: recovered.value, clientId: options.clientId }
+  }
+  if (thread.role === "viewer") return yield* new ChatThreadForbidden()
+  const agentId = thread.agentId === null ? null : `agent_${scope.organizationId}_${thread.agentId}`
+  if (agentId === null) return yield* new ChatThreadNotFound()
+  if (parameters.agentId !== undefined && parameters.agentId !== agentId)
+    return yield* new ChatThreadInvalid()
+  const agent = yield* agents
+    .resolveForChat({ organizationId: scope.organizationId, agentId })
+    .pipe(Effect.mapError(() => new ChatThreadNotFound()))
+  if (!agent.attachmentsEnabled && parts.some((part) => part.type !== "text"))
+    return yield* new ChatAttachmentsDisabled()
+  const hydrated = yield* files.hydrate(
+    { ...scope, threadId: id },
+    { version: 1, parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })) },
+  )
+  const hydratedParts = yield* Schema.decodeUnknownEffect(managedUserParts)(hydrated.parts).pipe(
+    Effect.mapError(() => new ChatThreadInvalid()),
+  )
+  const normalized = normalizeChatAttachments(
+    [
+      {
+        role: "user",
+        content: hydratedParts.map((part) =>
+          part.type === "text"
+            ? part
+            : { ...part, source: { ...part.source, mimeType: part.source.mimeType ?? "" } },
+        ),
+      },
+    ],
+    { sandbox: agent.sandboxProviderId !== null },
+  )
+  if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
+    return yield* new ChatThreadInvalid()
+  const prepared = yield* files.externalize(
+    { ...scope, threadId: id },
+    { version: 1, parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })) },
+  )
   const accept = Effect.fnUntraced(function* (
     command: typeof chatAdmissionOperation.parameters.Type,
   ) {
-    // Recovery returns the authorized receipt even after write access or agent configuration changes.
-    // These checks apply only to a new admission, not to a previously accepted intent.
-    if (thread.role === "viewer") return yield* new ChatThreadForbidden()
-    const agentId =
-      thread.agentId === null ? null : `agent_${scope.organizationId}_${thread.agentId}`
-    if (agentId === null) return yield* new ChatThreadNotFound()
-    if (command.agentId !== undefined && command.agentId !== agentId)
-      return yield* new ChatThreadInvalid()
-    const agent = yield* agents
-      .resolveForChat({ organizationId: scope.organizationId, agentId })
-      .pipe(Effect.mapError(() => new ChatThreadNotFound()))
-    const normalized = normalizeChatAttachments(params.messages, {
-      sandbox: agent.sandboxProviderId !== null,
-    })
-    if (!agent.attachmentsEnabled && normalized.attachments.length > 0)
-      return yield* new ChatAttachmentsDisabled()
-    if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
-      return yield* new ChatThreadInvalid()
     admission = yield* threads.admit({
       scope,
       id: command.id,
       payload: {
         version: 1,
-        parts: command.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+        parts: prepared.parts,
         tools: command.tools,
         provenance: { clientId: command.clientId },
       },
@@ -200,23 +239,15 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   const receipt =
     input.idempotencyKey === undefined
       ? yield* accept(parameters)
-      : yield* withDatabaseIdempotency(
-          {
-            namespace: "chat",
-            scope: [scope.organizationId, scope.tenantId, thread.id, scope.tenantUserId].join(":"),
-            key: input.idempotencyKey,
-            operation: chatAdmissionOperation,
-            parameters,
-          },
-          (command) =>
-            accept(command).pipe(
-              Effect.catch((error) => {
-                // Rejected admission must not retain input. The shared helper caches typed failures.
-                // Restore this uncached failure after the transaction. See ../../../db/README.md#idempotent-database-writes.
-                rejected = error
-                return Effect.die(error)
-              }),
-            ),
+      : yield* withDatabaseIdempotency(idempotency!, (command) =>
+          accept(command).pipe(
+            Effect.catch((error) => {
+              // Rejected admission must not retain input. The shared helper caches typed failures.
+              // Restore this uncached failure after the transaction. See ../../../db/README.md#idempotent-database-writes.
+              rejected = error
+              return Effect.die(error)
+            }),
+          ),
         ).pipe(
           Effect.catchCause((cause) =>
             rejected &&

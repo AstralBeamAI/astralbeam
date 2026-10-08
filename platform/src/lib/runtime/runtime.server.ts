@@ -8,6 +8,7 @@ import { DatabaseMigrations } from "@/db/migration-runner.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import { Auth } from "@/lib/auth/auth.server"
+import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
 import { Chat } from "@/lib/chat/chat.server"
 import { ChatThreads } from "@/lib/chat/threads/threads.server"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
@@ -33,6 +34,7 @@ function makeAppLayer() {
     ApiKeys.layer,
     Auth.layer,
     Chat.layer,
+    ChatFiles.layer,
     ChatThreads.layer,
     ChatSandboxes.layer,
     Config.layer,

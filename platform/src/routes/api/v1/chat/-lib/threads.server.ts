@@ -342,7 +342,7 @@ export function messageResource(row: MessageRecord) {
       if (
         (part.type === "image" || part.type === "document") &&
         Schema.is(Schema.JsonObject)(source) &&
-        source.type === "data"
+        (source.type === "data" || source.type === "file")
       ) {
         return {
           ...part,
@@ -621,7 +621,7 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   const source = part?.source
   if (
     !Schema.is(Schema.JsonObject)(source) ||
-    source.type !== "data" ||
+    (source.type !== "data" && source.type !== "file") ||
     typeof source.value !== "string"
   )
     return yield* new ChatThreadNotFound()
@@ -634,7 +634,23 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
     typeof source.mimeType === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(source.mimeType)
       ? source.mimeType
       : "application/octet-stream"
-  const bytes = decodeAttachmentBytes(source.value)
+  const bytes =
+    source.type === "file"
+      ? yield* Effect.gen(function* () {
+          const { ChatFiles } = yield* Effect.promise(
+            () => import("@/lib/chat/attachments/chat-files.server"),
+          )
+          const files = yield* ChatFiles
+          return (yield* files.read(
+            {
+              organizationId: message.organizationId,
+              tenantId: message.tenantId,
+              threadId: message.threadId,
+            },
+            source.value as string,
+          )).bytes
+        })
+      : decodeAttachmentBytes(source.value)
   if (!bytes) return yield* new ChatThreadNotFound()
   return chatArtifactResponse({ bytes, mimeType, path })
 })

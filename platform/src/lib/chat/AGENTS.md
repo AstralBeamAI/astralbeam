@@ -31,7 +31,7 @@
 
 ## Attachments
 
-- Files ride inline in the run input as AG-UI media entries (`{ type, source: { type: "data", value, mimeType }, metadata }`) on the user's own message. `normalizeChatAttachments` rewrites those messages into what the model actually receives.
+- Files arrive as inline AG-UI media or verified AstralBeam file references. Store recognized media in S3 before committing message parts and provider continuation metadata, and hydrate it transiently for `normalizeChatAttachments` and model execution. Admission receipts compare ordered content identities and recover before contacting storage.
 - There are two deliveries. An image or PDF passes through as a provider file part. Everything else becomes a _file_, the user's message keeps one `[Attached: <handle>]` line and the contents reach the agent through `read_attachment` or through code in the sandbox. Nothing is quoted into the user's turn, so a file cannot impersonate the user's instructions, and paging replaces truncation.
 - A media entry on any non-user message is stripped, because the provider adapter maps a role it does not recognize as a user turn and would otherwise skip every check here.
 - Refusals become one sentence in the transcript the agent can relay: a non-`data` source, an unrecognized kind, a position past `CHAT_ATTACHMENT_MAX_COUNT` files on one message (the peer of the SDK composer's `MAX_ATTACHMENTS_PER_MESSAGE`, which stops there first), a per-kind size over `CHAT_ATTACHMENT_MAX_BYTES_BY_KIND`, the 20 MB run total, a failed magic-byte check, an undecodable payload, invalid UTF-8, or a text-less file with no sandbox to open it in.
@@ -62,7 +62,7 @@
 ## Invariants
 
 - Every tenant-scoped key folds in all three of organization id, tenant id, and tenant-user id: the rate-limit key, the sandbox instance-store namespace, and the artifact ticket. `threadId` is browser-supplied and upstream's `computeSandboxKey` is a 64-bit hash, so that key alone is not a tenant boundary.
-- An attachment source must stay `data`-only. A URL source would have the model provider fetch a caller-chosen host on this deployment's API key.
+- Accept only inline `data` and owned AstralBeam file sources at admission. A caller-supplied URL source would have the model provider fetch a caller-chosen host on this deployment's API key.
 - Every attachment cap is enforced here regardless of what the SDK composer already checked, because the caller need not be the SDK.
 - Agent instructions and the attachment grant are agent configuration. `/api/v1/chat/config` exists so a client can narrow a grant for UX. It can never widen one, and a client-sent system prompt is refused rather than dropped.
 - Sandbox paths are contained against the provider's _real_ workspace root from `resolveHarnessCwd`, and re-checked at download time. Containment is not the security boundary, the sandbox is, but the agent's own files and the widget's file list depend on it.

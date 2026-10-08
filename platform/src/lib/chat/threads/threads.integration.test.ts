@@ -1,3 +1,8 @@
+import { ChatFiles } from "../attachments/chat-files.server"
+import { createHash } from "node:crypto"
+import { migrateChatFiles } from "@/lib/storage/chat-migration.server"
+import { ChatThreadStorageUnavailable } from "./errors"
+import { chatFile, fileObject, fileDeletion } from "@/db/schema.server"
 import { and, eq, like, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from "vitest"
@@ -40,7 +45,9 @@ const payload: ChatMessagePayload = {
 const targetA = "019a0700-0000-7000-8000-000000000001"
 const targetB = "019a0700-0000-7000-8000-000000000002"
 
-const runtime = ManagedRuntime.make(Layer.mergeAll(Database.layer, ChatThreads.layer))
+const runtime = ManagedRuntime.make(
+  Layer.mergeAll(Database.layer, ChatThreads.layer, ChatFiles.layer),
+)
 
 describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   let db: ReturnType<typeof getAuthDatabase>
@@ -128,7 +135,14 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const message = await runtime.runPromise(
       service.directoryMessage({ ...input, messageId: snapshot.messages.items[0]!.id }),
     )
-    expect(message.payload.parts[1]).toMatchObject({ source: { value: "SGVsbG8=" } })
+    expect(message.payload.parts[1]).toMatchObject({
+      source: { type: "file", provider: "astralbeam" },
+    })
+    const files = await runtime.runPromise(ChatFiles)
+    const hydrated = await runtime.runPromise(
+      files.hydrate({ ...scope, threadId: thread.id }, message.payload),
+    )
+    expect(hydrated.parts[1]).toMatchObject({ source: { value: "SGVsbG8=" } })
     expect(snapshot.thread).not.toHaveProperty("role")
     for (const operation of [
       service.directorySnapshot({ ...input, scope: { organizationId: crypto.randomUUID() } }),
@@ -411,6 +425,142 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           ),
         ),
     ).toEqual([])
+  })
+
+  test("resumes historical chat media and receipts without retaining bytes or depending on S3 replay", async () => {
+    const thread = await create()
+    const admitted = await admit(thread.id)
+    const [part] = await db
+      .select()
+      .from(chatMessagePart)
+      .where(eq(chatMessagePart.messageId, admitted.inputMessage.id))
+    const media = {
+      type: "document" as const,
+      source: { type: "data" as const, value: "SGVsbG8=", mimeType: "text/plain" },
+      metadata: { filename: "note.txt" },
+    }
+    await db
+      .update(chatMessagePart)
+      .set({ payload: { version: 1, ...media } })
+      .where(eq(chatMessagePart.id, part!.id))
+    const continuation = [
+      { role: "user", content: [media], providerContext: { signature: "opaque-signature" } },
+    ]
+    await db
+      .update(chatMessage)
+      .set({ metadata: { version: 1, modelMessages: continuation } })
+      .where(eq(chatMessage.id, admitted.inputMessage.id))
+    const parts = [{ type: "text" as const, content: "Hello" }, media]
+    const receipt = {
+      threadId: thread.id,
+      acceptedMessageId: admitted.inputMessage.id,
+      threadVersion: admitted.thread.lockVersion,
+    }
+    const key = `${scope.organizationId}:${scope.tenantId}:${thread.id}:${scope.tenantUserId}:${createHash("sha256").update("historical-intent").digest("hex")}`
+    const expiry = new Date(Date.now() + 60_000)
+    await db.insert(cacheEntry).values({
+      namespace: "chat",
+      key,
+      value: JSON.stringify({
+        operation: "ChatAdmission/v1",
+        parameters: { id: thread.id, parts, tools: [], clientId: targetA },
+        outcome: { _tag: "Success", success: receipt },
+      }),
+      expiresAt: expiry,
+    })
+    const files = await runtime.runPromise(ChatFiles)
+    const interrupted = {
+      ...files,
+      externalize: (...args: Parameters<typeof files.externalize>) =>
+        files
+          .externalize(...args)
+          .pipe(Effect.andThen(Effect.fail(new ChatThreadStorageUnavailable()))),
+    }
+    expect(
+      await runtime.runPromise(
+        migrateChatFiles("chat_message_part.payload", "migrate").pipe(
+          Effect.provideService(ChatFiles, interrupted),
+          Effect.result,
+        ),
+      ),
+    ).toMatchObject({ _tag: "Failure" })
+    expect(
+      (await db.select().from(chatMessagePart).where(eq(chatMessagePart.id, part!.id)))[0]!.payload,
+    ).toEqual({ version: 1, ...media })
+    const progress = await db
+      .select()
+      .from(fileObject)
+      .where(
+        like(
+          fileObject.sourceIdentity,
+          `chat:${scope.organizationId}:${scope.tenantId}:${thread.id}:%`,
+        ),
+      )
+    expect(progress).toHaveLength(1)
+    for (const table of [
+      "chat_message_part.payload",
+      "chat_message.metadata.modelMessages",
+      "cache_entry.value",
+    ] as const) {
+      await runtime.runPromise(migrateChatFiles(table, "migrate"))
+      expect((await runtime.runPromise(migrateChatFiles(table, "migrate"))).migrated).toBe(0)
+      await runtime.runPromise(migrateChatFiles(table, "verify"))
+    }
+    const savedPart = (
+      await db.select().from(chatMessagePart).where(eq(chatMessagePart.id, part!.id))
+    )[0]!
+    expect(savedPart.payload).toMatchObject({ source: { type: "file", value: progress[0]!.id } })
+    const savedMessage = (
+      await db.select().from(chatMessage).where(eq(chatMessage.id, admitted.inputMessage.id))
+    )[0]!
+    expect(savedMessage.metadata).toMatchObject({
+      modelMessages: [{ providerContext: { signature: "opaque-signature" } }],
+    })
+    const cache = (await db.select().from(cacheEntry).where(eq(cacheEntry.key, key)))[0]!
+    expect(cache.expiresAt).toEqual(expiry)
+    expect(cache.value).not.toContain("SGVsbG8=")
+    expect(JSON.stringify(savedPart.payload) + JSON.stringify(savedMessage.metadata)).not.toContain(
+      "SGVsbG8=",
+    )
+    const offline = {
+      ...files,
+      hydrate: () => Effect.fail(new ChatThreadStorageUnavailable()),
+      externalize: () => Effect.fail(new ChatThreadStorageUnavailable()),
+    }
+    await db.update(chatThread).set({ agentId: null }).where(eq(chatThread.id, thread.id))
+    const replay = await runtime.runPromise(
+      prepareManagedChat({
+        scope,
+        idempotencyKey: "historical-intent",
+        params: {
+          threadId: thread.id,
+          runId: "retry",
+          messages: [{ role: "user", content: parts }],
+          tools: [],
+          context: [],
+          aguiContext: [],
+          state: undefined,
+          forwardedProps: { clientId: targetA },
+        },
+      }).pipe(
+        Effect.provideService(ChatFiles, offline),
+        Effect.provideService(Agents, {
+          resolveForChat: () => Effect.die("Must not resolve on replay"),
+        } as unknown as typeof Agents.Service),
+      ),
+    )
+    expect(replay).toMatchObject({ admission: undefined, receipt })
+    await db.delete(organization).where(eq(organization.id, scope.organizationId))
+    expect(await db.select().from(chatFile).where(eq(chatFile.id, progress[0]!.id))).toHaveLength(0)
+    expect(
+      await db.select().from(fileObject).where(eq(fileObject.id, progress[0]!.id)),
+    ).toHaveLength(0)
+    expect(
+      await db
+        .select()
+        .from(fileDeletion)
+        .where(eq(fileDeletion.objectKey, progress[0]!.objectKey)),
+    ).toHaveLength(1)
   })
 
   test("resolves synchronized identities and grants access only through explicit same-Tenant participants", async () => {
