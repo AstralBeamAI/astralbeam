@@ -465,6 +465,21 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         ac: organizationAccessControl,
         roles: organizationRoles,
         organizationHooks: organizationImageHooks,
+        // A logo import leaves no logo field to update. The adapter still updates this timestamp.
+        // https://better-auth.com/docs/concepts/database#extending-core-schema
+        schema: {
+          organization: {
+            additionalFields: {
+              updatedAt: {
+                type: "date",
+                input: false,
+                returned: false,
+                required: false,
+                onUpdate: () => new Date(),
+              },
+            },
+          },
+        },
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
