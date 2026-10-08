@@ -2,6 +2,7 @@ import {
   EventType,
   convertSchemaToJsonSchema,
   modelMessagesToUIMessages,
+  convertMessagesToModelMessages,
   type ChatMiddleware,
   type ModelMessage,
   type StreamChunk,
@@ -21,6 +22,7 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 import type { ChatThreads } from "./threads.server"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
 import { chatStoredJson } from "./projection.server"
+import { CHAT_WEB_EVIDENCE_EVENT, publicChatWebPart } from "../web-evidence.server"
 
 const CHAT_THREAD_EVENT = `${APP_HANDLE}_thread`
 
@@ -68,6 +70,14 @@ interface ManagedChatStreamState {
   readonly settledToolCalls: Set<string>
   readonly ready: StreamChunk[]
   readonly buffered: StreamChunk[]
+  readonly savedMessages: Map<
+    string,
+    { id: string; role: "assistant"; content: string; parts: (typeof Schema.JsonObject.Type)[] }
+  >
+  readonly nativeParts: Map<string, typeof Schema.JsonObject.Type>
+  web: typeof Schema.JsonObject.Type | undefined
+  rawWeb: readonly (typeof Schema.Json.Type)[] | undefined
+  providerUsage: typeof Schema.JsonObject.Type | undefined
 }
 
 function managedPartId(ids: Map<string, string>, key: string): string {
@@ -85,34 +95,40 @@ function managedToolPart(
 ) {
   const nativeId = Schema.decodeUnknownSync(Schema.String)(part.id)
   const tool = state.tools.find((candidate) => candidate.name === part.name)
-  const browser = tool !== undefined && !tool.execute
+  const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
+  const provider = metadata?.providerExecuted === true
+  const browser = !provider && tool !== undefined && !tool.execute
   const toolPartId = managedPartId(state.partIds, `tool:${nativeId}`)
   return {
     ...part,
     id: toolPartId,
     type: "tool-call",
     toolCallId: nativeId,
-    executionLocation: browser
-      ? "browser"
-      : Schema.decodeUnknownSync(Schema.String)(part.name).startsWith("sandbox_")
-        ? "sandbox"
-        : "server_api",
+    executionLocation: provider
+      ? "provider"
+      : browser
+        ? "browser"
+        : Schema.decodeUnknownSync(Schema.String)(part.name).startsWith("sandbox_")
+          ? "sandbox"
+          : "server_api",
     declaration: chatStoredJson({
       name: tool?.name ?? part.name,
       inputSchema: tool?.inputSchema ? convertSchemaToJsonSchema(tool.inputSchema) : undefined,
       outputSchema: tool?.outputSchema ? convertSchemaToJsonSchema(tool.outputSchema) : undefined,
     }),
-    targets: [
-      {
-        id: managedPartId(state.partIds, `target:${nativeId}`),
-        ...(browser
-          ? {
-              tenantUserId: state.claim.scope.tenantUserId,
-              clientId: options.managed.clientId,
-            }
-          : {}),
-      },
-    ],
+    targets: provider
+      ? []
+      : [
+          {
+            id: managedPartId(state.partIds, `target:${nativeId}`),
+            ...(browser
+              ? {
+                  tenantUserId: state.claim.scope.tenantUserId,
+                  clientId: options.managed.clientId,
+                }
+              : {}),
+          },
+        ],
   }
 }
 
@@ -121,29 +137,129 @@ function managedAssistantPayload(
   state: ManagedChatStreamState,
   messages: readonly ModelMessage[],
 ): ChatMessagePayload {
-  const models = messages.slice(state.phaseStart).filter((message) => message.role === "assistant")
+  const models = messages
+    .slice(state.phaseStart)
+    .filter((message) => message.role === "assistant")
+    .map((message) => structuredClone(message))
+  if (models.length === 0 && state.nativeParts.size)
+    models.push({ id: state.claim.assistantMessageId, role: "assistant", content: "" })
+  const first = models[0]
+  if (first) {
+    for (const message of models) {
+      for (const call of message.toolCalls ?? []) {
+        const native = state.nativeParts.get(call.id)
+        if (native)
+          call.metadata = {
+            ...(call.metadata as Record<string, unknown> | undefined),
+            ...(native.metadata as Record<string, unknown>),
+          }
+      }
+    }
+    const existing = new Set(
+      models.flatMap((message) => message.toolCalls ?? []).map((call) => call.id),
+    )
+    const missing = [...state.nativeParts.entries()]
+      .filter(([id]) => !existing.has(id))
+      .map(([id, part]) => ({
+        id,
+        type: "function" as const,
+        function: {
+          name: Schema.decodeUnknownSync(Schema.String)(part.name),
+          arguments: Schema.decodeUnknownSync(Schema.String)(part.arguments ?? "{}"),
+        },
+        metadata: part.metadata as Record<string, unknown>,
+      }))
+    if (missing.length) first.toolCalls = [...(first.toolCalls ?? []), ...missing]
+    if (
+      state.rawWeb?.length &&
+      (options.model.api === "anthropic-messages" || options.model.providerType === "openrouter")
+    )
+      first.metadata = { ...first.metadata, astralbeamWeb: state.rawWeb }
+  }
   const occurrences = new Map<string, number>()
   const occurrenceKey = (key: string) => {
     const count = occurrences.get(key) ?? 0
     occurrences.set(key, count + 1)
     return `${key}:${count}`
   }
+  let textOffset = 0
   const parts = models
     .flatMap((model) => modelMessagesToUIMessages([model]))
     .flatMap((message) =>
       message.parts.map((part) => {
-        const json = chatStoredJson(part)
-        if (part.type === "tool-call") return managedToolPart(options, state, json)
-        const key = `${message.id}:${part.type}:${"stepId" in part ? part.stepId : ""}`
+        const json = { ...chatStoredJson(part) }
+        if (part.type === "tool-call") {
+          const native = state.nativeParts.get(part.id)
+          return managedToolPart(
+            options,
+            state,
+            native
+              ? {
+                  ...json,
+                  ...native,
+                  metadata: {
+                    ...(Schema.is(Schema.JsonObject)(json.metadata)
+                      ? chatStoredJson(json.metadata)
+                      : {}),
+                    ...(Schema.is(Schema.JsonObject)(native.metadata)
+                      ? chatStoredJson(native.metadata)
+                      : {}),
+                    ...(state.web ? { web: state.web } : {}),
+                  },
+                }
+              : json,
+          )
+        }
+        const key = `${part.type}:${"stepId" in part ? part.stepId : ""}`
+        if (part.type === "text" && state.web) {
+          const offset = textOffset
+          textOffset += part.content.length
+          const citations = Schema.is(Schema.Array(Schema.JsonObject))(state.web.citations)
+            ? state.web.citations.flatMap((citation) => {
+                if (
+                  !Schema.is(Schema.JsonObject)(citation) ||
+                  typeof citation.endIndex !== "number" ||
+                  typeof citation.startIndex !== "number" ||
+                  citation.endIndex <= offset ||
+                  citation.endIndex > textOffset
+                )
+                  return []
+                return [
+                  {
+                    ...citation,
+                    startIndex: Math.max(0, citation.startIndex - offset),
+                    endIndex: citation.endIndex - offset,
+                  },
+                ]
+              })
+            : []
+          json.metadata = {
+            web: { sources: state.nativeParts.size ? [] : (state.web.sources ?? []), citations },
+          }
+        }
         return { ...json, type: part.type, id: managedPartId(state.partIds, occurrenceKey(key)) }
       }),
     )
   return {
     version: 1,
-    parts,
-    modelMessages: models.map((message) =>
+    parts: parts.map(publicChatWebPart),
+    modelMessages: (state.rawWeb?.length && options.model.api === "anthropic-messages" && first
+      ? [
+          {
+            ...first,
+            content: models
+              .map((message) => (typeof message.content === "string" ? message.content : ""))
+              .join(""),
+            toolCalls: models.flatMap((message) => message.toolCalls ?? []),
+          },
+        ]
+      : models
+    ).map((message) =>
       chatStoredJson({
         ...message,
+        ...(options.model.providerType === "openrouter"
+          ? { toolCalls: message.toolCalls?.filter((call) => !state.nativeParts.has(call.id)) }
+          : {}),
         id: managedPartId(
           state.modelIds,
           occurrenceKey(`model:${message.id}:${message.role}:${message.toolCallId ?? ""}`),
@@ -158,7 +274,14 @@ function managedAssistantPayload(
       providerType: options.model.providerType,
       protocol: options.model.api,
       modelId: options.model.modelId,
-      ...(state.usage ? { usage: state.usage } : {}),
+      ...(state.usage || state.providerUsage
+        ? {
+            usage: {
+              ...state.usage,
+              ...(state.providerUsage ? { providerUsage: state.providerUsage } : {}),
+            },
+          }
+        : {}),
     },
   }
 }
@@ -228,7 +351,20 @@ function managedPublicChunk(state: ManagedChatStreamState, chunk: StreamChunk): 
       ...chunk,
       messages: chunk.messages.map((message) => ({
         ...message,
-        id: state.messageIds.get(message.id) ?? message.id,
+        ...(message.role === "assistant"
+          ? {
+              metadata: {},
+              ...(message.toolCalls
+                ? { toolCalls: message.toolCalls.map((call) => ({ ...call, metadata: {} })) }
+                : {}),
+              parts: modelMessagesToUIMessages(
+                convertMessagesToModelMessages([message as unknown as ModelMessage]),
+              ).flatMap((ui) => ui.parts.map((part) => publicChatWebPart(chatStoredJson(part)))),
+            }
+          : {}),
+        id:
+          state.messageIds.get(message.id) ??
+          (message.role === "assistant" ? state.claim.assistantMessageId : message.id),
       })),
     }
   }
@@ -240,9 +376,45 @@ function managedPublicChunk(state: ManagedChatStreamState, chunk: StreamChunk): 
     return { ...chunk, messageId }
   }
   if (chunk.type === EventType.TOOL_CALL_START) {
-    return { ...chunk, parentMessageId: state.claim.assistantMessageId }
+    return {
+      ...chunk,
+      parentMessageId: state.claim.assistantMessageId,
+      ...(chunk.metadata?.providerExecuted === true
+        ? { metadata: { providerExecuted: true } }
+        : {}),
+    }
   }
+  if (chunk.type === EventType.TOOL_CALL_END && chunk.metadata?.providerExecuted === true)
+    return { ...chunk, metadata: { providerExecuted: true } }
   return chunk
+}
+
+function managedSavedChunk(state: ManagedChatStreamState, chunk: StreamChunk): StreamChunk {
+  if (chunk.type !== EventType.MESSAGES_SNAPSHOT || !state.payload.parts.length) return chunk
+  const parts = state.payload.parts.map((part) =>
+    part.type === "tool-call" && part.executionLocation !== "provider"
+      ? {
+          ...part,
+          id: Schema.decodeUnknownSync(Schema.String)(part.toolCallId),
+          applicationPartId: part.id,
+        }
+      : part,
+  )
+  const assistant = {
+    id: state.claim.assistantMessageId,
+    role: "assistant" as const,
+    content: "",
+    parts,
+  }
+  state.savedMessages.set(assistant.id, assistant)
+  const seen = new Set<string>()
+  const messages = chunk.messages.flatMap((message) => {
+    if (seen.has(message.id)) return []
+    seen.add(message.id)
+    return [state.savedMessages.get(message.id) ?? message]
+  })
+  if (!seen.has(assistant.id)) messages.push(assistant)
+  return { ...chunk, messages }
 }
 
 /** Native persistence owns snapshot timing. Application hooks own execution and commit gates. */
@@ -264,6 +436,11 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     settledToolCalls: new Set(),
     ready: [],
     buffered: [],
+    savedMessages: new Map(),
+    nativeParts: new Map(),
+    web: undefined,
+    rawWeb: undefined,
+    providerUsage: undefined,
   }
   for (const message of options.history) {
     const meta: unknown = message.metadata?.astralbeam
@@ -300,6 +477,12 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
   let completion: Promise<void> | undefined
   const checkpointInterrupted: NonNullable<ChatMiddleware["onAbort"]> = async (ctx) => {
     state.failed = true
+    for (const [id, part] of state.nativeParts)
+      if (part.state !== "complete")
+        state.nativeParts.set(id, {
+          ...part,
+          metadata: { ...Schema.decodeUnknownSync(Schema.JsonObject)(part.metadata), failed: true },
+        })
     await saveManagedProjection(
       options,
       state,
@@ -328,7 +511,9 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     },
     async onIteration(ctx, info) {
       if (state.phaseCount > 0) {
-        state.ready.push(...state.buffered.splice(0))
+        state.ready.push(
+          ...state.buffered.splice(0).map((chunk) => managedSavedChunk(state, chunk)),
+        )
         state.claim = await options.execute(options.threads.nextDraft({ claim: state.claim }))
       }
       state.phaseCount += 1
@@ -339,14 +524,14 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       state.partIds.clear()
       state.modelIds.clear()
       state.settledToolCalls.clear()
+      state.nativeParts.clear()
+      state.web = undefined
+      state.rawWeb = undefined
+      state.providerUsage = undefined
       state.messageIds.set(info.messageId, state.claim.assistantMessageId)
     },
     onUsage(_ctx, usage) {
-      state.usage = {
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        totalTokens: usage.totalTokens,
-      }
+      state.usage = chatStoredJson(usage)
     },
     async onInterruptBoundary(ctx) {
       if (ctx.phase === "beforeTools")
@@ -378,6 +563,81 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       }
     },
     onChunk(_ctx, chunk) {
+      if (chunk.type === EventType.CUSTOM && chunk.name === CHAT_WEB_EVIDENCE_EVENT) {
+        const evidence = Schema.decodeUnknownSync(Schema.JsonObject)(chunk.value)
+        state.web = Schema.decodeUnknownSync(Schema.JsonObject)(evidence.web)
+        state.rawWeb = Schema.decodeUnknownSync(Schema.Array(Schema.Json))(evidence.raw)
+        state.providerUsage = Schema.decodeUnknownSync(Schema.JsonObject)(evidence.providerUsage)
+        for (const block of state.rawWeb) {
+          if (!Schema.is(Schema.JsonObject)(block)) continue
+          const id = typeof block.tool_use_id === "string" ? block.tool_use_id : block.id
+          const content = Schema.is(Schema.JsonObject)(block.content) ? block.content : undefined
+          const failed =
+            block.status === "failed" ||
+            (typeof content?.type === "string" && content.type.endsWith("_error"))
+          const part = typeof id === "string" ? state.nativeParts.get(id) : undefined
+          if (failed && part && typeof id === "string")
+            state.nativeParts.set(id, {
+              ...part,
+              metadata: {
+                ...Schema.decodeUnknownSync(Schema.JsonObject)(part.metadata),
+                failed: true,
+              },
+            })
+        }
+        if (options.model.providerType === "openrouter") {
+          const counts = Schema.is(Schema.JsonObject)(state.providerUsage.server_tool_use)
+            ? state.providerUsage.server_tool_use
+            : {}
+          for (const name of ["web_search", "web_fetch"]) {
+            const count = counts[`${name}_requests`]
+            if (typeof count !== "number" || count <= 0) continue
+            const id = `${state.claim.assistantMessageId}:${name}`
+            state.nativeParts.set(id, {
+              id,
+              name,
+              arguments: "{}",
+              state: "complete",
+              metadata: {
+                providerExecuted: true,
+                aggregate: true,
+                requests: count,
+                web: state.web,
+              },
+            })
+          }
+        }
+        return null
+      }
+      if (
+        (chunk.type === EventType.TOOL_CALL_START || chunk.type === EventType.TOOL_CALL_END) &&
+        (chunk.metadata?.providerExecuted === true || state.nativeParts.has(chunk.toolCallId))
+      ) {
+        const previous = state.nativeParts.get(chunk.toolCallId) ?? {}
+        const metadata = {
+          ...(Schema.is(Schema.JsonObject)(previous.metadata)
+            ? chatStoredJson(previous.metadata)
+            : {}),
+          ...chatStoredJson(chunk.metadata ?? {}),
+        }
+        const result = Schema.is(Schema.JsonObject)(metadata.anthropic)
+          ? metadata.anthropic.result
+          : undefined
+        if (
+          Schema.is(Schema.JsonObject)(result) &&
+          typeof result.type === "string" &&
+          result.type.endsWith("_error")
+        )
+          metadata.failed = true
+        state.nativeParts.set(chunk.toolCallId, {
+          ...previous,
+          id: chunk.toolCallId,
+          ...(chunk.type === "TOOL_CALL_START"
+            ? { name: chunk.toolCallName }
+            : { arguments: JSON.stringify(chunk.input ?? {}), state: "complete" }),
+          metadata,
+        })
+      }
       // Native completion stays pending at a browser wait. The application commits
       // that boundary and releases ownership without awaiting terminal completion.
       if (chunk.type === EventType.RUN_FINISHED && chunk.outcome?.type === "interrupt")
@@ -458,5 +718,7 @@ export async function* managedChatDelivery(input: {
         .map((part) => part.toolCallId),
     },
   }
-  for (const chunk of input.state.buffered) yield chunk
+  for (const chunk of input.state.buffered) {
+    yield managedSavedChunk(input.state, chunk)
+  }
 }

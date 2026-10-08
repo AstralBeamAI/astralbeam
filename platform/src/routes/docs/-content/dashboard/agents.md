@@ -1,6 +1,6 @@
 # Agents
 
-An agent is one named configuration the embedded chat runs with: its instructions, models, whether it accepts file attachments, and whether it can run code in a sandbox. Let's configure an agent, then use its public ID to select it in your application.
+An agent is one named configuration the embedded chat runs with: its instructions, models, file attachments, web access, and sandbox. Let's configure an agent, then use its public ID to select it in your application.
 
 Each agent selects models from the organization's configured providers and uses one as its default. Request, attachment, and sandbox caps still come from the deployment's [Limits](/docs/sdk/limits).
 
@@ -15,6 +15,8 @@ The system prompt holds the agent's instructions, up to 32,768 characters, and e
 Models come from providers configured in [Models](./models.md). Select at least one enabled model, then choose the default model. The provider name distinguishes the same upstream model configured with different keys or API URLs.
 
 File attachments are allowed by default. Turn the setting off and the agent refuses files.
+
+Web access lets the selected model search the web and read public URLs. Enable it in the agent configuration when your users need current information.
 
 A sandbox provider is optional, and selecting one of the organization's [sandbox providers](./sandboxes.md) is what lets the agent write and run code.
 
@@ -52,6 +54,16 @@ The attachment setting is enforced at the chat endpoint rather than in the widge
 
 While attachments are on, the accepted types, per-file sizes, and per-message count come from the deployment. An SDK option can narrow them for your users but never widen them. See [Attachments](/docs/sdk/attachments) and [Limits](/docs/sdk/limits).
 
+## Web access
+
+Let's enable **Web access** in the agent configuration when your users need current information or answers from public URLs. The grant belongs to the agent, so an embedded browser client cannot enable it or replace its web tools.
+
+Web access uses the selected model's existing connection. Choose OpenAI Responses, Anthropic Messages, or OpenRouter Chat Completions and a model that supports web tools. OpenRouter manages retrieval and may use an external search engine. An unsupported configuration fails with guidance to change the model or protocol. OpenAI Chat Completions requires switching the connection to Responses.
+
+Citations link evidence to answer text, and web activity lists consulted sources separately. Both remain available in saved conversations and read-only transcripts. If you switch providers or models, follow-ups retain source links and available excerpts, while private provider evidence stays with its original connection and model.
+
+**NOTE**: web tools may add charges to the selected provider's bill. Each provider request permits up to five native calls, or five calls per tool when the provider exposes only a per-tool limit. Long Anthropic web operations share the existing model-turn budget. AstralBeam does not retry through a different provider.
+
 ## Sandboxes
 
 Selecting a sandbox provider gives the agent its file and command tools. The agent gets one isolated sandbox per conversation, provisioned the first time it actually reaches for a tool, and files sent in that conversation are written into it.
@@ -78,7 +90,7 @@ The public agent ID stops resolving at once, so any application still sending it
 
 Deleting the agent that was the default also clears the default, so set another one or every request without an agent ID keeps failing.
 
-Transcripts are not stored, so nothing is lost with the agent beyond its configuration.
+Saved conversations remain readable after deletion. Start a new conversation with another agent to continue chatting.
 
 ## Who can change agents
 

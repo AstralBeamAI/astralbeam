@@ -137,6 +137,7 @@ export const SEED_ORGANIZATIONS = [
         name: "Acme Inc Assistant",
         systemPrompt: SEED_STARTER_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
+        webAccessEnabled: false,
         sandboxProviderName: null,
       },
       {
@@ -144,6 +145,7 @@ export const SEED_ORGANIZATIONS = [
         name: "Todos Assistant",
         systemPrompt: SEED_TODOS_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
+        webAccessEnabled: false,
         sandboxProviderName: SEED_NAMES.dockerProvider,
       },
     ],
@@ -210,6 +212,7 @@ export const SEED_ORGANIZATIONS = [
         name: "Globex Corporation Assistant",
         systemPrompt: SEED_STARTER_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
+        webAccessEnabled: false,
         sandboxProviderName: null,
       },
     ],

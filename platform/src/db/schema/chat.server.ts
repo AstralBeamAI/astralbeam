@@ -194,6 +194,7 @@ const chatMessagePartExecutionLocationEnum = pgEnum("chat_message_part_execution
   "server_api",
   "sandbox",
   "browser",
+  "provider",
 ])
 
 /**

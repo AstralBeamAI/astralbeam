@@ -24,9 +24,23 @@ export function chatStoredJson(value: unknown): typeof Schema.JsonObject.Type {
 }
 
 function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.JsonObject.Type)[] {
+  const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
+  const web = Schema.is(Schema.JsonObject)(metadata?.web) ? metadata.web : undefined
+  const sources = Schema.is(Schema.Array(Schema.JsonObject))(web?.sources)
+    ? Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(web.sources)
+    : []
+  const citations = Schema.is(Schema.Array(Schema.JsonObject))(web?.citations)
+    ? Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(web.citations)
+    : []
+  const evidence = [...sources, ...citations].length
+    ? [{ type: "text", content: `Saved web evidence: ${JSON.stringify({ sources, citations })}` }]
+    : []
   switch (part.type) {
     case "text":
-      return [{ type: "text", content: Schema.decodeUnknownSync(Schema.String)(part.content) }]
+      return [
+        { type: "text", content: Schema.decodeUnknownSync(Schema.String)(part.content) },
+        ...evidence,
+      ]
     case "image":
     case "audio":
     case "video":
@@ -46,7 +60,8 @@ function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.J
     }
     case "tool-call": {
       const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
-      if (metadata?.providerExecuted === true) return []
+      if (metadata?.providerExecuted === true || part.executionLocation === "provider")
+        return evidence
       return [
         {
           type: "tool-call",
@@ -85,6 +100,7 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
     const missing: Schema.JsonObject[] = []
     for (const part of record.payload.parts) {
       if (part.type !== "tool-call" || !Array.isArray(part.targets)) continue
+      if (part.executionLocation === "provider") continue
       const targets = (part.targets as readonly Schema.Json[])
         .map((item) => Schema.decodeUnknownSync(Schema.JsonObject)(item))
         .sort((a, b) =>

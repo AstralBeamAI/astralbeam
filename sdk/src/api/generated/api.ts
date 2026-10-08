@@ -243,6 +243,7 @@ export const ChatHistoryPageEncodedPendingInteractionsItemExecutionLocation = {
   server_api: "server_api",
   sandbox: "sandbox",
   browser: "browser",
+  provider: "provider",
 } as const
 
 export type ChatHistoryPageEncodedPendingInteractionsItem = {

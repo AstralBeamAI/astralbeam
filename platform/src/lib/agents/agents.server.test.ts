@@ -19,6 +19,7 @@ const FIELDS = {
   name: "Support",
   systemPrompt: "Help",
   attachmentsEnabled: true,
+  webAccessEnabled: false,
   sandboxProviderId: null,
 }
 
@@ -120,6 +121,7 @@ describe("Agents", () => {
       id: STORED_AGENT_ID,
       systemPrompt: "Help",
       attachmentsEnabled: true,
+      webAccessEnabled: false,
       sandboxProviderId: null,
     }
     const { predicates, layer } = selectRecording([row])

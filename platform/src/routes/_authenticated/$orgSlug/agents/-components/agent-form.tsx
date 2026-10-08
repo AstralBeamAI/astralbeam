@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { createAgent } from "../-functions/create-agent"
@@ -61,6 +62,7 @@ export function AgentForm({
   const [name, setName] = useState(existing?.name ?? "")
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(existing?.attachmentsEnabled ?? true)
+  const [webAccessEnabled, setWebAccessEnabled] = useState(existing?.webAccessEnabled ?? false)
   const [sandboxProviderId, setSandboxProviderId] = useState(
     existing?.sandboxProviderId ?? NO_SANDBOX_PROVIDER,
   )
@@ -93,6 +95,7 @@ export function AgentForm({
       name: normalizedName,
       systemPrompt,
       attachmentsEnabled,
+      webAccessEnabled,
       modelIds,
       sandboxProviderId: selectedSandboxProviderId,
     }
@@ -215,6 +218,22 @@ export function AgentForm({
             <FieldDescription>
               Enforced by the chat endpoint; the SDK hides the composer&apos;s attach button when
               off.
+            </FieldDescription>
+
+            <Field orientation="horizontal">
+              <Switch
+                id="agent-web-access-enabled"
+                checked={webAccessEnabled}
+                disabled={disabled}
+                onCheckedChange={setWebAccessEnabled}
+              />
+              <FieldLabel htmlFor="agent-web-access-enabled" className="font-normal">
+                Web access
+              </FieldLabel>
+            </Field>
+            <FieldDescription>
+              Search the web and read public URLs through the selected model connection.
+              Provider charges may apply.
             </FieldDescription>
 
             <Field>
