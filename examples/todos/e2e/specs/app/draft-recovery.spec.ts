@@ -121,7 +121,8 @@ test("unsent text, images, and large files recover, and accepted files stay clea
   await page.reload()
   await chat.waitForReady()
   await expect(chat.composer()).toHaveValue("")
-  await expect(chat.attachmentChip(large.name)).toHaveCount(0)
+  for (const file of [image, large, later])
+    await expect(chat.attachmentChip(file.name)).toHaveCount(0)
   expect(submissions).toBe(1)
 })
 

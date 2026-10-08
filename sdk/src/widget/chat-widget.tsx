@@ -451,7 +451,10 @@ export function ChatWidget({
                 ).values(),
               ],
               settledAttachments: EMPTY_ATTACHMENTS,
-              savedAttachments: destination?.savedAttachments ?? EMPTY_ATTACHMENTS,
+              savedAttachments: [
+                ...(destination?.savedAttachments ?? []),
+                ...value.savedAttachments,
+              ],
             })
             threads.delete("")
             return { ...cached, threads }
