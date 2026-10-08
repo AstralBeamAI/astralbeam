@@ -20,7 +20,13 @@ export const uploadAvatar = createServerFn({ method: "POST" })
         return yield* files.uploadAvatar(session.user.id, data.bytes)
       }).pipe(
         Effect.catchTag(
-          ["SignInRequired", "InvalidImage", "StorageUnavailable", "StorageObjectMissing"],
+          [
+            "SignInRequired",
+            "InvalidImage",
+            "StorageUnavailable",
+            "StorageObjectMissing",
+            "AvatarUploadRateLimited",
+          ],
           exposeError,
         ),
       ),

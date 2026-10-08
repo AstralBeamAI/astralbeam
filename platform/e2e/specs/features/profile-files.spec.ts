@@ -57,6 +57,11 @@ test("avatars and existing logo APIs store files privately and enforce their own
       data: { image: "/api/files/avatars/019d0000-0000-7000-8000-000000000000" },
     })
     expect(foreign.status()).toBe(400)
+    const malformed = await page.request.post("/api/auth/update-user", {
+      headers: { origin: platformUrl },
+      data: { image: "/api/files/avatars/------------------------------------" },
+    })
+    expect(malformed.status()).toBe(400)
     const sessionResponse = await page.request.get("/api/auth/get-session")
     const session = (await sessionResponse.json()) as {
       session: { activeOrganizationId: string | null }
@@ -133,6 +138,21 @@ test("avatars and existing logo APIs store files privately and enforce their own
       await colleague.close()
       await pool.query('delete from "user" where id = $1', [colleagueId])
     }
+    const queuedLogo = await page.request.post("/api/auth/organization/update", {
+      headers: { origin: platformUrl },
+      data: { organizationId, data: { logo: "https://example.com/pending-logo.png" } },
+    })
+    expect(queuedLogo.status()).toBe(200)
+    const clearedLogo = await page.request.post("/api/auth/organization/update", {
+      headers: { origin: platformUrl },
+      data: { organizationId, data: { logo: null } },
+    })
+    expect(clearedLogo.status()).toBe(200)
+    const cancelled = await pool.query<{ status: string }>(
+      "select status from organization_image_import where organization_id = $1",
+      [organizationId],
+    )
+    expect(cancelled.rows[0]!.status).toBe("disabled")
     await userSettings.removeAvatar()
     expect((await page.request.get(avatarUrl!)).status()).toBe(404)
   } finally {

@@ -1,6 +1,7 @@
 import { and, eq, isNull, isNotNull, lte, sql } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { Database } from "@/db/database.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import { user } from "@/db/schema/authentication.server"
@@ -16,6 +17,7 @@ import { getGravatarAvatarUrl } from "@/lib/utils"
 import {
   ImageImportUnavailable,
   ImageSourceMissing,
+  AvatarUploadRateLimited,
   InvalidImage,
   StorageObjectMissing,
   StorageUnavailable,
@@ -45,7 +47,10 @@ export class ProfileFiles extends Context.Service<
     readonly uploadAvatar: (
       userId: string,
       bytes: Uint8Array,
-    ) => Effect.Effect<string, InvalidImage | StorageUnavailable | StorageObjectMissing>
+    ) => Effect.Effect<
+      string,
+      InvalidImage | StorageUnavailable | StorageObjectMissing | AvatarUploadRateLimited
+    >
     readonly validateAvatar: (
       userId: string,
       image: string | null | undefined,
@@ -68,7 +73,10 @@ export class ProfileFiles extends Context.Service<
       organizationId: string,
       source: string,
       expectedLogo: string | null,
+      generation?: string,
     ) => Effect.Effect<void>
+    readonly stageLogo: (organizationId: string, source: string) => Effect.Effect<string>
+    readonly cancelLogo: (organizationId: string) => Effect.Effect<void>
     readonly processImports: Effect.Effect<void>
     readonly migrate: (
       owner: ImageOwner,
@@ -83,6 +91,7 @@ export class ProfileFiles extends Context.Service<
       const db = yield* Database
       const files = yield* StoredFiles
       const sources = yield* ImageSources
+      const limiter = yield* DatabaseRateLimiter
       const ownedAvatar = (userId: string, image: string) =>
         db
           .select({ id: fileObject.id })
@@ -129,6 +138,15 @@ export class ProfileFiles extends Context.Service<
         bytes: Uint8Array,
       ) {
         const image = yield* verifiedImage(bytes)
+        yield* limiter
+          .consume({ key: `avatar-upload:${userId}`, limit: 10, window: "1 hour" })
+          .pipe(
+            Effect.catch((error) =>
+              error.reason._tag === "RateLimitExceeded"
+                ? Effect.fail(new AvatarUploadRateLimited())
+                : Effect.die(error),
+            ),
+          )
         const file = yield* files.prepare(image)
         yield* db
           .insert(userAvatar)
@@ -232,10 +250,36 @@ export class ProfileFiles extends Context.Service<
           )
           .pipe(mapDatabaseErrors())
       })
+      const stageLogo = Effect.fn("ProfileFiles.stageLogo")(function* (
+        organizationId: string,
+        source: string,
+      ) {
+        const [pending] = yield* db
+          .insert(organizationImageImport)
+          .values({ organizationId, sourceUrl: source, status: "superseded" })
+          .onConflictDoUpdate({
+            target: organizationImageImport.organizationId,
+            set: { sourceUrl: source, status: "superseded", generation: sql`uuidv7()` },
+          })
+          .returning({ generation: organizationImageImport.generation })
+          .pipe(mapDatabaseErrors())
+        return pending!.generation
+      })
+      const cancelLogo = Effect.fn("ProfileFiles.cancelLogo")(function* (organizationId: string) {
+        yield* db
+          .insert(organizationImageImport)
+          .values({ organizationId, sourceUrl: "", status: "disabled" })
+          .onConflictDoUpdate({
+            target: organizationImageImport.organizationId,
+            set: { sourceUrl: "", status: "disabled", generation: sql`uuidv7()` },
+          })
+          .pipe(mapDatabaseErrors())
+      })
       const queueLogo = Effect.fn("ProfileFiles.queueLogo")(function* (
         organizationId: string,
         source: string,
         expectedLogo: string | null,
+        generation?: string,
       ) {
         yield* db
           .transaction((tx) =>
@@ -247,6 +291,15 @@ export class ProfileFiles extends Context.Service<
                 .for("update")
                 .pipe(mapDatabaseErrors())
               if (!owner || owner.logo !== expectedLogo) return
+              if (generation) {
+                const [intent] = yield* tx
+                  .select({ generation: organizationImageImport.generation })
+                  .from(organizationImageImport)
+                  .where(eq(organizationImageImport.organizationId, organizationId))
+                  .for("update")
+                  .pipe(mapDatabaseErrors())
+                if (intent?.generation !== generation) return
+              }
               yield* tx
                 .insert(organizationImageImport)
                 .values({
@@ -266,7 +319,7 @@ export class ProfileFiles extends Context.Service<
                     attempts: 0,
                     retryAt: sql`now()`,
                   },
-                  setWhere: sql`${organizationImageImport.sourceUrl} <> ${source}`,
+                  setWhere: sql`${organizationImageImport.sourceUrl} <> ${source} or ${organizationImageImport.status} <> 'pending' or ${organizationImageImport.expectedLogo} is distinct from ${expectedLogo}`,
                 })
                 .pipe(mapDatabaseErrors())
             }),
@@ -615,12 +668,19 @@ export class ProfileFiles extends Context.Service<
         adoptLogo,
         queueAvatar,
         queueLogo,
+        stageLogo,
+        cancelLogo,
         processImports,
         migrate,
       })
     }),
   )
   static readonly layer = ProfileFiles.layerNoDeps.pipe(
-    Layer.provide([Database.layer, StoredFiles.layer, ImageSources.layer]),
+    Layer.provide([
+      Database.layer,
+      StoredFiles.layer,
+      ImageSources.layer,
+      DatabaseRateLimiter.layer,
+    ]),
   )
 }

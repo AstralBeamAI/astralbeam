@@ -9,6 +9,7 @@ const fixture = vi.hoisted(() => {
     throw new Error("Use a disposable loopback database ending in _test")
   return { url, source: (): Promise<Uint8Array> => Promise.resolve(new Uint8Array()) }
 })
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { Database, getAuthDatabase } from "@/db/database.server"
 import { user } from "@/db/schema/authentication.server"
 import {
@@ -64,6 +65,7 @@ const storedLayer = StoredFiles.layerNoDeps.pipe(Layer.provideMerge([Database.la
 const profileLayer = ProfileFiles.layerNoDeps.pipe(
   Layer.provideMerge([
     storedLayer,
+    DatabaseRateLimiter.layer,
     Layer.succeed(ImageSources, {
       fetch: () =>
         Effect.tryPromise({
@@ -278,6 +280,73 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
           .where(eq(organizationImageImport.organizationId, customer!.id)),
       ).toEqual([])
       const [logo] = await db.select().from(organization).where(eq(organization.id, customer!.id))
+      const source = "https://example.com/logo.png"
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.queueLogo(customer!.id, source, logo!.logo)),
+      )
+      await db
+        .update(organizationImageImport)
+        .set({ status: "imported" })
+        .where(eq(organizationImageImport.organizationId, customer!.id))
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.queueLogo(customer!.id, source, logo!.logo)),
+      )
+      expect(
+        (
+          await db
+            .select()
+            .from(organizationImageImport)
+            .where(eq(organizationImageImport.organizationId, customer!.id))
+        )[0]!.status,
+      ).toBe("pending")
+      const generation = await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.stageLogo(customer!.id, source)),
+      )
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.cancelLogo(customer!.id)),
+      )
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.queueLogo(customer!.id, source, logo!.logo, generation),
+        ),
+      )
+      expect(
+        (
+          await db
+            .select()
+            .from(organizationImageImport)
+            .where(eq(organizationImageImport.organizationId, customer!.id))
+        )[0]!.status,
+      ).toBe("disabled")
+      const malformed = await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.validateAvatar(owner.id, "/api/files/avatars/------------------------------------"),
+        ).pipe(Effect.result),
+      )
+      expect(malformed._tag).toBe("Failure")
+      await db.update(user).set({ image: avatar }).where(eq(user.id, owner.id))
+      await db.delete(userImageImport).where(eq(userImageImport.userId, owner.id))
+      await db.update(user).set({ image: null }).where(eq(user.id, owner.id))
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.queueAvatar({ userId: owner.id, email: owner.email }),
+        ),
+      )
+      expect(
+        (await db.select().from(userImageImport).where(eq(userImageImport.userId, owner.id)))[0]!
+          .status,
+      ).toBe("disabled")
+      const countBefore = objects.size
+      await db.execute(
+        sql`update rate_limit set count = 10 where key = ${`effect-rate-limit:avatar-upload:${owner.id}`}`,
+      )
+      const limited = await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.uploadAvatar(owner.id, image)).pipe(
+          Effect.result,
+        ),
+      )
+      expect(limited._tag).toBe("Failure")
+      expect(objects.size).toBe(countBefore)
       const [file] = await db.select().from(fileObject).where(eq(fileObject.id, logo!.logoFileId!))
       await db.delete(organization).where(eq(organization.id, customer!.id))
       expect(await db.select().from(fileObject).where(eq(fileObject.id, file!.id))).toEqual([])

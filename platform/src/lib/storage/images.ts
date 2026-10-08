@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect"
 
+import { UuidV7Schema } from "@/lib/schemas"
 import { InvalidImage } from "./errors"
 
 export const IMAGE_MAX_BYTES = 2 * 1024 * 1024
@@ -70,5 +71,6 @@ export function logoFileUrl(organizationId: string, id: string): string {
 }
 
 export function avatarFileId(url: string | null | undefined): string | undefined {
-  return url ? /^\/api\/files\/avatars\/([0-9a-f-]{36})$/.exec(url)?.[1] : undefined
+  const id = url ? /^\/api\/files\/avatars\/([^/]+)$/.exec(url)?.[1] : undefined
+  return Schema.is(UuidV7Schema)(id) ? id : undefined
 }

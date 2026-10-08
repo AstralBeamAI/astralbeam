@@ -13,6 +13,7 @@ import { ProfileFiles } from "./profile-files.server"
 interface ImageRequest {
   oauth?: boolean
   oauthSource?: string
+  logoGeneration?: string
   logoSource?: string
   logoFileId?: string
 }
@@ -122,7 +123,13 @@ export const organizationImageHooks = {
   beforeUpdateOrganization: async (input) => {
     await organizationRoleHooks.beforeUpdateOrganization(input)
     const source = input.organization.logo
-    if (source == null) return undefined
+    if (source === undefined) return undefined
+    if (source === null) {
+      await imageApiEffect(
+        Effect.flatMap(ProfileFiles, (files) => files.cancelLogo(input.member.organizationId)),
+      )
+      return undefined
+    }
     const state = await requests.get()
     if (source.startsWith("data:")) {
       const logo = await imageApiEffect(
@@ -136,6 +143,11 @@ export const organizationImageHooks = {
     }
     if (externalImageUrl(source)) {
       state.logoSource = source
+      state.logoGeneration = await imageApiEffect(
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.stageLogo(input.member.organizationId, source),
+        ),
+      )
       // An import retains the prior logo until its replacement is verified.
       delete input.organization.logo
       return undefined
@@ -148,11 +160,16 @@ export const organizationImageHooks = {
     return undefined
   },
   afterUpdateOrganization: async (input) => {
-    const source = (await requests.get()).logoSource
+    const { logoSource: source, logoGeneration } = await requests.get()
     if (source && input.organization)
       await runAppEffect(
         Effect.flatMap(ProfileFiles, (files) =>
-          files.queueLogo(input.member.organizationId, source, input.organization!.logo ?? null),
+          files.queueLogo(
+            input.member.organizationId,
+            source,
+            input.organization!.logo ?? null,
+            logoGeneration,
+          ),
         ),
       )
   },
