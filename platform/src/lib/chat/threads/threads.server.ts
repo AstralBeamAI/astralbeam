@@ -45,7 +45,7 @@ import {
 } from "@/db/schema/organizations.server"
 import type { ChatPrincipal } from "../types"
 import { ChatFiles } from "../attachments/chat-files.server"
-import { chatFile } from "@/db/schema/chat-files.server"
+import { chatFile } from "@/db/schema/chat.server"
 import { fileObject } from "@/db/schema/files.server"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants.server"
 import { parseAgentId } from "@/lib/agents/schemas"

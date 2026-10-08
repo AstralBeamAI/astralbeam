@@ -2,6 +2,9 @@ import { ChatFiles } from "../attachments/chat-files.server"
 import { createHash } from "node:crypto"
 import { migrateChatFiles } from "@/lib/storage/chat-migration.server"
 import { ChatThreadStorageUnavailable } from "./errors"
+import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
+import { StorageObjectMissing } from "@/lib/storage/errors"
 import { chatFile, fileObject, fileDeletion } from "@/db/schema.server"
 import { and, eq, like, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
@@ -45,9 +48,42 @@ const payload: ChatMessagePayload = {
 const targetA = "019a0700-0000-7000-8000-000000000001"
 const targetB = "019a0700-0000-7000-8000-000000000002"
 
-const runtime = ManagedRuntime.make(
-  Layer.mergeAll(Database.layer, ChatThreads.layer, ChatFiles.layer),
+const testObjects = new Map<string, Uint8Array>()
+const testStorage = process.env.S3_ENDPOINT
+  ? ObjectStorage.layer
+  : Layer.succeed(ObjectStorage, {
+      put: ({ key, bytes }) =>
+        Effect.sync(() => {
+          testObjects.set(key, bytes)
+        }),
+      get: ({ key }) =>
+        Effect.suspend(() =>
+          testObjects.has(key)
+            ? Effect.succeed(testObjects.get(key)!)
+            : Effect.fail(new StorageObjectMissing()),
+        ),
+      head: ({ key }) =>
+        Effect.suspend(() =>
+          testObjects.has(key)
+            ? Effect.succeed({
+                size: testObjects.get(key)!.length,
+                contentType: "application/octet-stream",
+              })
+            : Effect.fail(new StorageObjectMissing()),
+        ),
+      remove: ({ key }) =>
+        Effect.sync(() => {
+          testObjects.delete(key)
+        }),
+      testConnection: () => Effect.void,
+    })
+const filesLayer = ChatFiles.layerNoDeps.pipe(
+  Layer.provideMerge([
+    Database.layer,
+    StoredFiles.layerNoDeps.pipe(Layer.provide([Database.layer, testStorage])),
+  ]),
 )
+const runtime = ManagedRuntime.make(ChatThreads.layerNoDeps.pipe(Layer.provideMerge(filesLayer)))
 
 describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   let db: ReturnType<typeof getAuthDatabase>
@@ -550,6 +586,65 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       ),
     )
     expect(replay).toMatchObject({ admission: undefined, receipt })
+    const storedMedia = {
+      ...media,
+      source: {
+        type: "file" as const,
+        provider: "astralbeam",
+        value: progress[0]!.id,
+        mimeType: "text/plain",
+      },
+    }
+    const request = {
+      scope,
+      idempotencyKey: "too-many-files",
+      params: {
+        threadId: thread.id,
+        runId: "rejected",
+        messages: [
+          { role: "user" as const, content: Array.from({ length: 6 }, () => storedMedia) },
+        ],
+        tools: [],
+        context: [],
+        aguiContext: [],
+        state: undefined,
+        forwardedProps: { clientId: targetA },
+      },
+    }
+    const hydrate = vi.fn(() => Effect.die("Attachment caps must reject before storage reads"))
+    expect(
+      await runtime.runPromise(
+        prepareManagedChat(request).pipe(
+          Effect.provideService(ChatFiles, { ...files, hydrate }),
+          Effect.provideService(Agents, {} as typeof Agents.Service),
+          Effect.result,
+        ),
+      ),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "ChatThreadInvalid" } })
+    expect(hydrate).not.toHaveBeenCalled()
+    const identity = () =>
+      Effect.succeed(
+        [storedMedia, storedMedia].map((part) => ({
+          ...part,
+          source: { type: "content", byteSize: 11 * 1024 * 1024, sha256: progress[0]!.sha256 },
+        })),
+      )
+    expect(
+      await runtime.runPromise(
+        prepareManagedChat({
+          ...request,
+          params: {
+            ...request.params,
+            messages: [{ role: "user", content: [storedMedia, storedMedia] }],
+          },
+        }).pipe(
+          Effect.provideService(ChatFiles, { ...files, hydrate, identity }),
+          Effect.provideService(Agents, {} as typeof Agents.Service),
+          Effect.result,
+        ),
+      ),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "ChatThreadInvalid" } })
+    expect(hydrate).not.toHaveBeenCalled()
     await db.delete(organization).where(eq(organization.id, scope.organizationId))
     expect(await db.select().from(chatFile).where(eq(chatFile.id, progress[0]!.id))).toHaveLength(0)
     expect(

@@ -8,6 +8,11 @@ import { readDatabaseIdempotency, withDatabaseIdempotency } from "@/db/lib/idemp
 import { ChatFiles } from "../attachments/chat-files.server"
 import { StoredChatSourceSchema } from "../attachments/stored-media"
 import { normalizeChatAttachments } from "../attachments/attachments.server"
+import {
+  CHAT_ATTACHMENT_MAX_COUNT,
+  CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
+} from "../attachments/constants.server"
+import { chatMediaPart } from "../attachments/stored-media"
 import { ChatAttachmentsDisabled, ChatSystemPromptRefused } from "../errors"
 import type { ChatParams } from "../types"
 import { ChatThreads, type ChatAdmission, type ThreadInput } from "./threads.server"
@@ -149,6 +154,8 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   const parts = yield* Schema.decodeUnknownEffect(managedUserParts)(normalizedParts).pipe(
     Effect.mapError(() => new ChatThreadInvalid()),
   )
+  if (parts.filter(chatMediaPart).length > CHAT_ATTACHMENT_MAX_COUNT)
+    return yield* new ChatThreadInvalid()
   const tools = yield* Effect.try({
     try: () => params.tools.map(chatStoredJson),
     catch: () => new ChatThreadInvalid(),
@@ -181,6 +188,16 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
     if (Option.isSome(recovered))
       return { admission: undefined, receipt: recovered.value, clientId: options.clientId }
   }
+  const mediaBytes = parameters.parts.reduce(
+    (total, part) =>
+      chatMediaPart(part) &&
+      Schema.is(Schema.JsonObject)(part.source) &&
+      typeof part.source.byteSize === "number"
+        ? total + part.source.byteSize
+        : total,
+    0,
+  )
+  if (mediaBytes > CHAT_ATTACHMENT_MAX_TOTAL_BYTES) return yield* new ChatThreadInvalid()
   if (thread.role === "viewer") return yield* new ChatThreadForbidden()
   const agentId = thread.agentId === null ? null : `agent_${scope.organizationId}_${thread.agentId}`
   if (agentId === null) return yield* new ChatThreadNotFound()

@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Option, Schema } from "effect"
 
 import { Database, type EffectDatabase } from "@/db/database.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
-import { chatFile } from "@/db/schema/chat-files.server"
+import { chatFile } from "@/db/schema/chat.server"
 import { fileObject } from "@/db/schema/files.server"
 import { APP_HANDLE } from "@/lib/constants"
 import { StoredFiles, type StoredFile } from "@/lib/storage/stored-files.server"

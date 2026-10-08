@@ -21,6 +21,7 @@ import {
   timestamps,
   uuidV7,
 } from "../lib/columns.server.ts"
+import { fileObject } from "./files.server.ts"
 import { agent, tenant, tenantUser } from "./organizations.server.ts"
 
 const boundedChatJson = Schema.makeFilter(
@@ -399,3 +400,25 @@ export {
   chatMessageTurnStateEnum,
   chatMessagePartExecutionLocationEnum,
 }
+
+export const chatFile = snakeCase.table(
+  "chat_file",
+  {
+    organizationId: uuid().notNull(),
+    tenantId: uuid().notNull(),
+    threadId: uuid().notNull(),
+    id: uuid().notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.tenantId, table.threadId, table.id] }),
+    uniqueIndex("chat_file_object_uidx").on(table.id),
+    deferrableForeignKey({
+      columns: [table.organizationId, table.tenantId, table.threadId],
+      foreignColumns: [chatThread.organizationId, chatThread.tenantId, chatThread.id],
+    }).onDelete("cascade"),
+    deferrableForeignKey({ columns: [table.id], foreignColumns: [fileObject.id] }).onDelete(
+      "cascade",
+    ),
+  ],
+)
