@@ -21,17 +21,21 @@ interface ChatComposerProps {
   actionsSlot?: string | undefined
   draft: string
   onDraftChange: (draft: string) => void
+  readOnly?: boolean | undefined
   onSend: () => void
   onStop: () => void
+  onSteer?: (() => void) | undefined
+  saveAttachments?: boolean | undefined
+  sendBlocked?: boolean | undefined
   /** Retry unacknowledged input, or refresh saved history after an accepted response fails. */
   onRetry: (() => void) | undefined
   retryLabel: "Retry" | "Refresh"
   /** The chat is in its error state; `error` itself may still be undefined. */
   showError: boolean
   error: Error | undefined
-  /** A run is submitted or streaming; swaps the send button for a stop button. */
+  /** A run is submitted or streaming, so Stop is available alongside Queue. */
   streamBusy: boolean
-  /** `streamBusy` or host tools executing between runs; blocks sending. */
+  /** Processing or pending messages. New input enters the queue. */
   isBusy: boolean
   /** Authentication is not ready, so the composer cannot start a run. */
   authPending: boolean
@@ -49,8 +53,12 @@ export function ChatComposer({
   actionsSlot,
   draft,
   onDraftChange,
+  readOnly = false,
   onSend,
   onStop,
+  onSteer,
+  saveAttachments = false,
+  sendBlocked = false,
   onRetry,
   retryLabel,
   showError,
@@ -75,7 +83,7 @@ export function ChatComposer({
     attachments.filter((attachment) => attachment.status !== "error").length >=
     attachmentLimits.maxFiles
   const canAttach = attachmentLimits.enabled && !blocked
-  const sendDisabled = isBusy || blocked || reading || (draft.trim().length === 0 && !sendable)
+  const sendDisabled = sendBlocked || blocked || reading || (draft.trim().length === 0 && !sendable)
 
   const addFiles = (files: FileList | null) => {
     if (!canAttach || !files || files.length === 0) return
@@ -167,6 +175,7 @@ export function ChatComposer({
           </InputGroupAddon>
         )}
         <InputGroupTextarea
+          readOnly={readOnly}
           aria-label="Message"
           className="max-h-24 min-h-9"
           placeholder={
@@ -188,7 +197,9 @@ export function ChatComposer({
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault()
-              onSend()
+              if (sendDisabled) return
+              if ((event.metaKey || event.ctrlKey) && isBusy && onSteer) onSteer()
+              else onSend()
             }
           }}
         />
@@ -212,29 +223,42 @@ export function ChatComposer({
           {/* Host controls project here in the host page's own style; the slot lays out as
             display: contents, so each projected child is a flex item of this row. */}
           {actionsSlot && <slot name={actionsSlot} />}
-          {streamBusy ? (
-            <InputGroupButton
-              type="button"
-              variant="default"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onStop}
-            >
+          {streamBusy && (
+            <InputGroupButton type="button" variant="default" size="icon-sm" onClick={onStop}>
               <StopIcon />
               <span className="sr-only">Stop</span>
             </InputGroupButton>
-          ) : (
+          )}
+          {isBusy && onSteer && (
             <InputGroupButton
-              type="submit"
-              variant="default"
-              size="icon-sm"
-              className="ml-auto"
+              type="button"
+              size="sm"
+              title="Guide the current task after its current step finishes (⌘/Ctrl+Enter)"
               disabled={sendDisabled}
+              onClick={onSteer}
             >
-              <ArrowUpIcon />
-              <span className="sr-only">Send</span>
+              Steer
             </InputGroupButton>
           )}
+          <InputGroupButton
+            type="submit"
+            variant="default"
+            size={isBusy || saveAttachments ? "sm" : "icon-sm"}
+            className="ml-auto"
+            title={isBusy && !saveAttachments ? "Queue this message for the next task" : undefined}
+            disabled={sendDisabled}
+          >
+            {saveAttachments ? (
+              "Save attachments"
+            ) : isBusy ? (
+              "Queue"
+            ) : (
+              <>
+                <ArrowUpIcon />
+                <span className="sr-only">Send</span>
+              </>
+            )}
+          </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
     </form>

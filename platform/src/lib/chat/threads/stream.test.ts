@@ -150,6 +150,7 @@ async function exerciseManagedStream(options: {
             order.push("finish")
           }),
     get: () => Effect.succeed({ lockVersion: 3 }),
+    getMessage: () => Effect.succeed({ turnState: options.browser ? "waiting" : "completed" }),
   } as unknown as ChatThreads["Service"]
   const history: ModelMessage[] = [
     { id: managedStreamClaim.inputMessageId, role: "user", content: "Change it" },

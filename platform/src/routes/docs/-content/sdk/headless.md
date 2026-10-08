@@ -17,7 +17,7 @@ function MyChat() {
         <MyMessage key={message.id} message={message} />
       ))}
       <MyComposer
-        disabled={chat.auth.status !== "ready" || chat.status !== "ready"}
+        disabled={chat.auth.status !== "ready" || chat.threadLoading}
         onSend={(text) => void chat.sendMessage(text)}
       />
     </div>
@@ -50,6 +50,24 @@ chat.dispose()
 - `chat.updateOptions({ agentId })` applies the agent to new conversations. The current saved conversation retains its agent and transcript.
 - Unresolved tool outcomes require an explicit response or closure before their turn continues.
 - `capabilities` reflects the agent's dashboard policy. Render only what it grants.
+
+## Queuing and steering
+
+Messages queue while the current turn is processing, including host tools. Let's submit a follow-up or add guidance to the active turn.
+
+```ts
+await chat.sendMessage("Then summarize the result", { onQueued: () => showQueued() })
+await chat.sendMessage("Use the staging environment", undefined, { whenBusy: "steer" })
+await chat.resumeQueue()
+```
+
+- `onQueued` confirms local storage in the queue. `onAccepted` confirms server admission. Neither confirms that the model followed the guidance.
+- Steering enters the next model request after the current response and tool batch settle. Completed output and tool effects remain saved.
+- Read `pendingMessages` and `queuePaused`. Use `editPendingMessage`, `removePendingMessage`, `steerPendingMessage`, and `resumeQueue` through React's `core` handle.
+- Use `holdQueue()` while editing, then call its returned release function on save, cancel, or unmount. Paused queues stay paused.
+- Stop, errors, conversation changes, and reload pause delivery. Restored text requires explicit resume. Pending files require reattachment after reload.
+- Retry uncertain input with its original content and files. Accepted guidance appears in history with its incorporation state and is never resubmitted.
+- Queues stay within this browser tab and verified account. Background processing and cross-device queue synchronization are unavailable.
 
 ## Reading the transcript
 

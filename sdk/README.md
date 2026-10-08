@@ -111,6 +111,8 @@ Conversations are saved automatically and start private. The widget searches sav
 
 The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat.core`, for example `chat.core.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.
 
+Enter queues a follow-up while the assistant is processing. **Steer** or Cmd/Ctrl+Enter adds guidance before its next model request, after the current response and tool batch settle. Pending messages can be edited or removed. Stop, errors, conversation changes, and reload pause delivery. Resume the queue explicitly after recovery and reattach pending files after reload. See [Queuing and steering](https://astralbeam.ai/docs/sdk/headless#queuing-and-steering) for headless controls.
+
 By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account and API. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and ready attachments in browser storage per account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
 
 ## Tools and widgets

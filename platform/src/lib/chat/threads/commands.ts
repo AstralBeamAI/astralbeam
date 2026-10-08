@@ -18,6 +18,7 @@ import {
 import { chatStoredJson } from "./projection"
 import {
   ChatSubmissionReceiptSchema,
+  ChatUserPartsSchema,
   type ChatThreadScope,
   type ChatToolResolution,
 } from "./schemas"
@@ -58,26 +59,11 @@ const chatQuestionnaireArguments = Schema.fromJsonString(
 )
 const chatWidgetOutput = Schema.Struct({ widget: Schema.String, rendered: Schema.Boolean })
 const chatWidgetArguments = Schema.fromJsonString(Schema.Struct({ widget: Schema.String }))
-const managedUserParts = Schema.Array(
-  Schema.Union([
-    Schema.Struct({ type: Schema.Literal("text"), content: Schema.String }),
-    Schema.Struct({
-      type: Schema.Literals(["image", "document", "audio", "video"]),
-      source: Schema.Struct({
-        type: Schema.Literal("data"),
-        value: Schema.String,
-        mimeType: Schema.optionalKey(Schema.String),
-      }),
-      metadata: Schema.optionalKey(Schema.JsonObject),
-    }),
-  ]),
-).check(Schema.isMinLength(1))
-
 const chatAdmissionOperation = {
   name: "ChatAdmission/v1",
   parameters: Schema.Struct({
     id: ApiUuidSchema,
-    parts: managedUserParts,
+    parts: ChatUserPartsSchema,
     tools: Schema.Array(Schema.JsonObject),
     clientId: ApiUuidSchema,
     agentId: Schema.optionalKey(Schema.String),
@@ -140,7 +126,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       ).parts.map(chatStoredJson),
     catch: () => new ChatThreadInvalid(),
   })
-  const parts = yield* Schema.decodeUnknownEffect(managedUserParts)(normalizedParts).pipe(
+  const parts = yield* Schema.decodeUnknownEffect(ChatUserPartsSchema)(normalizedParts).pipe(
     Effect.mapError(() => new ChatThreadInvalid()),
   )
   const tools = yield* Effect.try({
@@ -228,6 +214,92 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
           ),
         )
   return { admission, receipt, clientId: options.clientId }
+})
+
+const chatSteeringOperation = {
+  name: "ChatSteering/v1",
+  parameters: Schema.Struct({
+    id: ApiUuidSchema,
+    turnMessageId: ApiUuidSchema,
+    clientId: ApiUuidSchema,
+    parts: ChatUserPartsSchema,
+  }),
+  success: ChatSubmissionReceiptSchema,
+  error: Schema.Never,
+}
+
+export const prepareManagedSteering = Effect.fn("prepareManagedSteering")(function* (input: {
+  scope: ChatThreadScope
+  id: string
+  turnMessageId: string
+  clientId: string
+  parts: typeof ChatUserPartsSchema.Type
+  idempotencyKey: string
+}) {
+  const threads = yield* ChatThreads
+  const agents = yield* Agents
+  const thread = yield* threads.get(input)
+  let rejected: ChatThreadError | ChatAttachmentsDisabled | undefined
+  const { scope, idempotencyKey, ...parameters } = input
+  return yield* withDatabaseIdempotency(
+    {
+      namespace: "chat",
+      scope: [scope.organizationId, scope.tenantId, thread.id, scope.tenantUserId].join(":"),
+      key: idempotencyKey,
+      operation: chatSteeringOperation,
+      parameters,
+    },
+    (command) =>
+      Effect.gen(function* () {
+        if (thread.role === "viewer") return yield* new ChatThreadForbidden()
+        if (thread.agentId === null) return yield* new ChatThreadNotFound()
+        const agent = yield* agents
+          .resolveForChat({
+            organizationId: scope.organizationId,
+            agentId: `agent_${scope.organizationId}_${thread.agentId}`,
+          })
+          .pipe(Effect.mapError(() => new ChatThreadNotFound()))
+        const normalized = normalizeChatAttachments(
+          [
+            { id: crypto.randomUUID(), role: "user", parts: [...command.parts] },
+          ] as unknown as ChatParams["messages"],
+          { sandbox: agent.sandboxProviderId !== null },
+        )
+        if (!agent.attachmentsEnabled && normalized.attachments.length)
+          return yield* new ChatAttachmentsDisabled()
+        if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
+          return yield* new ChatThreadInvalid()
+        const accepted = yield* threads.steer({
+          scope,
+          id: command.id,
+          turnMessageId: command.turnMessageId,
+          clientId: command.clientId,
+          payload: {
+            version: 1,
+            parts: command.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+          },
+        })
+        return {
+          threadId: accepted.thread.id,
+          acceptedMessageId: accepted.message.id,
+          threadVersion: accepted.thread.lockVersion,
+        }
+      }).pipe(
+        Effect.catch((error) => {
+          rejected = error
+          return Effect.die(error)
+        }),
+      ),
+  ).pipe(
+    Effect.catchCause((cause) =>
+      rejected &&
+      cause.reasons.every((reason) => reason._tag === "Die" && reason.defect === rejected)
+        ? Effect.fail<ChatThreadError | ChatAttachmentsDisabled | Cause.Cause.Error<typeof cause>>(
+            rejected,
+          )
+        : Effect.failCause(cause),
+    ),
+  )
 })
 
 export interface ManagedToolResultInput {

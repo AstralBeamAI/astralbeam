@@ -27,6 +27,9 @@ export interface ChatPendingInteraction {
 export interface SavedMessageMetadata {
   state: "draft" | "complete" | "interrupted"
   authorTenantUserId: string | null
+  turnMessageId?: string | null | undefined
+  turnState?: "running" | "waiting" | "completed" | "interrupted" | null | undefined
+  steeringAppliedToMessageId?: string | null | undefined
 }
 
 /** Application identities extend TanStack's tool part without replacing its provider identity. */
@@ -192,6 +195,9 @@ export function projectThreadMessages(
         astralbeam: {
           state: message.state,
           authorTenantUserId: message.author_tenant_user_id,
+          turnMessageId: message.turn_message_id,
+          turnState: message.turn_state,
+          steeringAppliedToMessageId: message.steering_applied_to_message_id,
         } satisfies SavedMessageMetadata,
       },
     })

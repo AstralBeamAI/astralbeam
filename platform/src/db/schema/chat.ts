@@ -32,6 +32,7 @@ const ChatMessageMetadataSchema = Schema.Struct({
   tools: Schema.optional(Schema.Array(Schema.JsonObject)),
   modelMessages: Schema.optional(Schema.Array(Schema.JsonObject)),
   invocationId: Schema.optional(Schema.String),
+  steering: Schema.optional(Schema.Struct({ appliedToMessageId: Schema.optional(ApiUuidSchema) })),
   provenance: Schema.optional(
     Schema.Struct({
       agentId: Schema.optional(Schema.NullOr(Schema.String)),
@@ -209,7 +210,7 @@ export const chatMessage = snakeCase.table(
     threadId: uuid().notNull(),
     // Preceding transcript node, immutable after insertion. Null identifies a root.
     parentMessageId: uuid(),
-    // Initiating user input for assistant/tool messages, null on user inputs. This differs from the preceding transcript node.
+    // Initiating input for assistant/tool output and steering. Null identifies an initiating user input.
     // Concurrent participant appends can interleave activity from several turns on the same parent-linked path.
     turnMessageId: uuid(),
     // Human author or browser-result submitter. Membership removal does not erase authorship.
@@ -268,7 +269,7 @@ export const chatMessage = snakeCase.table(
     check(
       "chat_message_role_check",
       sql`(
-    (${table.role} = 'user' and ${table.state} = 'complete' and ${table.authorTenantUserId} is not null and ${table.turnMessageId} is null and ${table.turnState} is not null)
+    (${table.role} = 'user' and ${table.state} = 'complete' and ${table.authorTenantUserId} is not null and ((${table.turnMessageId} is null and ${table.turnState} is not null) or (${table.turnMessageId} is not null and ${table.turnState} is null)))
     or (${table.role} in ('assistant', 'tool') and ${table.turnMessageId} is not null and ${table.turnState} is null)
   ) and (${table.role} = 'assistant' or ${table.state} = 'complete') and (${table.role} <> 'assistant' or ${table.authorTenantUserId} is null)`,
     ),

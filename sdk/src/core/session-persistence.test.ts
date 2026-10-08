@@ -94,6 +94,7 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
     if (path.endsWith("/threads") && init?.method === "POST") {
       created++
+      if (created === 1) return Promise.reject(new TypeError("Creation unavailable"))
       return Promise.resolve(Response.json(empty))
     }
     if (path.includes("/threads?"))
@@ -141,6 +142,9 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
     expect(created).toBe(0)
     await chat.sendMessage("First message")
     expect(created).toBe(1)
+    expect(chat.getState().pendingMessages).toHaveLength(1)
+    await chat.sendMessage("First message")
+    expect(created).toBe(2)
     expect(chat.getState().thread?.hasMessages).toBe(false)
     expect((await chat.searchThreads()).items).toEqual([])
     expect(chat.getState().messages).toEqual([])
@@ -148,8 +152,9 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
     expect(chat.getState().status).toBe("error")
     await chat.sendMessage("First message")
     expect((await chat.searchThreads()).items[0]?.title).toBe("First message")
-    expect(created).toBe(1)
+    expect(created).toBe(2)
     expect(chat.getState().thread?.hasMessages).toBe(true)
+    expect(chat.getState().pendingMessages).toEqual([])
   } finally {
     chat.dispose()
   }
@@ -1224,6 +1229,9 @@ test("older history is requested explicitly and rejoins tool results across page
   const user = {
     id: "user",
     role: "user",
+    author_tenant_user_id: currentUser.user.id,
+    turn_message_id: null,
+    turn_state: "completed",
     created_at: thread.created_at,
     parts: [{ type: "text", content: "Latest" }],
   }
@@ -1235,7 +1243,7 @@ test("older history is requested explicitly and rejoins tool results across page
       return Promise.resolve(
         Response.json(
           url.searchParams.has("page_after")
-            ? page([assistant])
+            ? page([{ ...user, id: "older-user" }, assistant])
             : { ...page([result, user]), page_after: "older" },
         ),
       )
@@ -1252,10 +1260,16 @@ test("older history is requested explicitly and rejoins tool results across page
     await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
     expect(pages).toHaveLength(1)
     expect(chat.getState().messages.map((message) => message.id)).toEqual(["user"])
+    expect(chat.getState().activeTurnId).toBe("user")
     await chat.loadOlderMessages()
     expect(pages).toHaveLength(2)
-    expect(chat.getState().messages.map((message) => message.id)).toEqual(["assistant", "user"])
-    expect(chat.getState().messages[0]?.parts[0]).toMatchObject({
+    expect(chat.getState().messages.map((message) => message.id)).toEqual([
+      "older-user",
+      "assistant",
+      "user",
+    ])
+    expect(chat.getState().activeTurnId).toBe("user")
+    expect(chat.getState().messages[1]?.parts[0]).toMatchObject({
       state: "complete",
       output: { complete: true },
     })
@@ -1477,13 +1491,16 @@ test.each(["auto", thread.id])(
   "inaccessible %s selections recover only automatic restoration",
   async (threadId) => {
     let stored: string | null = thread.id
+    const storage = new Map<string, string>()
     vi.stubGlobal("sessionStorage", {
-      getItem: () => stored,
-      setItem: (_key: string, value: string) => {
-        stored = value
+      getItem: (key: string) => (key.endsWith("]") ? stored : (storage.get(key) ?? null)),
+      setItem: (key: string, value: string) => {
+        if (key.endsWith("]")) stored = value
+        else storage.set(key, value)
       },
-      removeItem: () => {
-        stored = null
+      removeItem: (key: string) => {
+        if (key.endsWith("]")) stored = null
+        else storage.delete(key)
       },
     })
     vi.stubGlobal("fetch", (input: string | URL) => {

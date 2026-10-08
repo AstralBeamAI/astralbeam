@@ -32,6 +32,14 @@ export class ChatThreadInvalid extends Schema.TaggedError<ChatThreadInvalid>()(
   override readonly message = "This conversation operation is invalid"
 }
 
+export class ChatSteeringFinished extends Schema.TaggedError<ChatSteeringFinished>()(
+  "ChatSteeringFinished",
+  {},
+  { httpApiStatus: 409 },
+) {
+  override readonly message = "This turn has finished. Queue your message as a new turn"
+}
+
 export class ChatIdentityNotSynchronized extends Schema.TaggedError<ChatIdentityNotSynchronized>()(
   "ChatIdentityNotSynchronized",
   {},
@@ -46,3 +54,4 @@ export type ChatThreadError =
   | ChatThreadConflict
   | ChatThreadForbidden
   | ChatThreadInvalid
+  | ChatSteeringFinished
