@@ -81,6 +81,7 @@ export class ChatFiles extends Context.Service<
     readonly externalize: (
       scope: ChatFileScope,
       payload: ChatMessagePayload,
+      prepared?: Map<string, StoredFile>,
     ) => Effect.Effect<ChatMessagePayload, ChatFileFailure>
     readonly hydrate: (
       scope: ChatFileScope,
@@ -176,6 +177,7 @@ export class ChatFiles extends Context.Service<
       const externalize = Effect.fn("ChatFiles.externalize")(function* (
         scope: ChatFileScope,
         payload: ChatMessagePayload,
+        prepared?: Map<string, StoredFile>,
       ) {
         const continuation = (payload.modelMessages ?? []).flatMap((message) =>
           Array.isArray(message.content)
@@ -228,7 +230,8 @@ export class ChatFiles extends Context.Service<
               return yield* new ChatThreadInvalid()
           }
         }
-        return yield* mapChatPayloadMedia(
+        const current = new Map<string, StoredFile>()
+        const result = yield* mapChatPayloadMedia(
           payload,
           Effect.fnUntraced(function* (part) {
             if (!chatMediaPart(part)) return part
@@ -244,13 +247,32 @@ export class ChatFiles extends Context.Service<
             if (contentType.length > 255 || !/^[\w.+-]+\/[\w.+-]+$/.test(contentType))
               return yield* new ChatThreadInvalid()
             const digest = createHash("sha256").update(bytes).digest("hex")
-            const file = yield* storage
-              .prepare({
-                bytes,
-                contentType,
-                sourceIdentity: `${chatFileIdentityPrefix(scope)}${digest}:${contentType}`,
-              })
-              .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
+            const sourceIdentity = `${chatFileIdentityPrefix(scope)}${digest}:${contentType}`
+            let file = current.get(sourceIdentity)
+            if (!file) {
+              const cached = prepared?.get(sourceIdentity)
+              if (cached)
+                [file] = yield* db
+                  .select()
+                  .from(fileObject)
+                  .where(
+                    and(
+                      eq(fileObject.id, cached.id),
+                      eq(fileObject.objectKey, cached.objectKey),
+                      eq(fileObject.sourceIdentity, sourceIdentity),
+                      eq(fileObject.sha256, digest),
+                      eq(fileObject.byteSize, bytes.length),
+                      eq(fileObject.contentType, contentType),
+                      isNotNull(fileObject.verifiedAt),
+                      or(isNull(fileObject.expiresAt), gt(fileObject.expiresAt, sql`now()`)),
+                    ),
+                  )
+                  .pipe(mapDatabaseErrors())
+              file ??= yield* storage
+                .prepare({ bytes, contentType, sourceIdentity })
+                .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
+              current.set(sourceIdentity, file)
+            }
             return {
               ...part,
               source: {
@@ -262,6 +284,11 @@ export class ChatFiles extends Context.Service<
             }
           }),
         )
+        if (prepared) {
+          prepared.clear()
+          for (const [identity, file] of current) prepared.set(identity, file)
+        }
+        return result
       })
       const hydrate = Effect.fn("ChatFiles.hydrate")(
         (scope: ChatFileScope, payload: ChatMessagePayload) =>
