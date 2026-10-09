@@ -15,7 +15,11 @@ export const UploadInputSchema = Schema.Struct({
   byteSize: Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(20 * 1024 * 1024)),
   sha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)),
   agentId: Schema.optionalKey(Schema.String),
-}).annotate({ identifier: "ChatUploadInput" })
+})
+  .pipe(
+    Schema.encodeKeys({ contentType: "content_type", byteSize: "byte_size", agentId: "agent_id" }),
+  )
+  .annotate({ identifier: "ChatUploadInput" })
 export const UploadStatusSchema = Schema.Struct({
   id: ApiUuidSchema,
   status: Schema.Literals([
@@ -34,5 +38,15 @@ export const UploadStatusSchema = Schema.Struct({
   partSize: Schema.Int,
   parts: Schema.Array(Schema.Struct({ number: Schema.Int, size: Schema.Int })),
   fileId: Schema.NullOr(ApiUuidSchema),
-}).annotate({ identifier: "ChatUpload" })
+})
+  .pipe(
+    Schema.encodeKeys({
+      contentType: "content_type",
+      byteSize: "byte_size",
+      expiresAt: "expires_at",
+      partSize: "part_size",
+      fileId: "file_id",
+    }),
+  )
+  .annotate({ identifier: "ChatUpload" })
 export type UploadStatus = typeof UploadStatusSchema.Type

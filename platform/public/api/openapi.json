@@ -4995,7 +4995,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChatUpload"
+                  "$ref": "#/components/schemas/ChatUploadEncoded"
                 }
               }
             }
@@ -5270,7 +5270,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChatUploadInput"
+                "$ref": "#/components/schemas/ChatUploadInputEncoded"
               }
             }
           },
@@ -5306,7 +5306,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChatUpload"
+                  "$ref": "#/components/schemas/ChatUploadEncoded"
                 }
               }
             }
@@ -6249,7 +6249,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChatUpload"
+                  "$ref": "#/components/schemas/ChatUploadEncoded"
                 }
               }
             }
@@ -11978,7 +11978,7 @@
         },
         "additionalProperties": false
       },
-      "ChatUpload": {
+      "ChatUploadEncoded": {
         "type": "object",
         "properties": {
           "id": {
@@ -11999,19 +11999,19 @@
           "filename": {
             "type": "string"
           },
-          "contentType": {
+          "content_type": {
             "type": "string"
           },
-          "byteSize": {
+          "byte_size": {
             "type": "integer"
           },
           "sha256": {
             "type": "string"
           },
-          "expiresAt": {
+          "expires_at": {
             "type": "string"
           },
-          "partSize": {
+          "part_size": {
             "type": "integer"
           },
           "parts": {
@@ -12033,7 +12033,7 @@
               "additionalProperties": false
             }
           },
-          "fileId": {
+          "file_id": {
             "anyOf": [
               {
                 "type": "string",
@@ -12049,17 +12049,17 @@
           "id",
           "status",
           "filename",
-          "contentType",
-          "byteSize",
+          "content_type",
+          "byte_size",
           "sha256",
-          "expiresAt",
-          "partSize",
+          "expires_at",
+          "part_size",
           "parts",
-          "fileId"
+          "file_id"
         ],
         "additionalProperties": false
       },
-      "ChatUploadInput": {
+      "ChatUploadInputEncoded": {
         "type": "object",
         "properties": {
           "filename": {
@@ -12068,12 +12068,12 @@
             "maxLength": 120,
             "pattern": "^[^\\u0000]*$"
           },
-          "contentType": {
+          "content_type": {
             "type": "string",
             "minLength": 1,
             "maxLength": 255
           },
-          "byteSize": {
+          "byte_size": {
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 20971520
@@ -12081,14 +12081,14 @@
           "sha256": {
             "type": "string"
           },
-          "agentId": {
+          "agent_id": {
             "type": "string"
           }
         },
         "required": [
           "filename",
-          "contentType",
-          "byteSize",
+          "content_type",
+          "byte_size",
           "sha256"
         ],
         "additionalProperties": false

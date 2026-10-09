@@ -486,6 +486,89 @@ test("a missing session keeps fingerprint validation when upload discovery is un
   await expect(chat.sendButton()).toBeEnabled()
 })
 
+test("failed removal survives reload and retries cancellation", async ({ page }) => {
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+  let cancellations = 0
+  await page.route("**/api/v1/chat/uploads/*", async (route) => {
+    if (route.request().method() !== "DELETE") return route.continue()
+    cancellations++
+    if (cancellations === 1) return route.fulfill({ status: 503, json: { error: "Unavailable" } })
+    await route.continue()
+  })
+  await chat.attachmentChip(note.name).click()
+  await expect(page.getByText("Removal failed. Try Remove again.", { exact: true })).toBeVisible()
+  await captureMoment(page, "failed-file-removal-retains-the-draft")
+  await page.reload()
+  await expect(chat.attachmentChip(note.name)).toBeVisible()
+  await chat.attachmentChip(note.name).click()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  expect(cancellations).toBe(2)
+})
+
+test("the draft database upgrade preserves attachment metadata and removes legacy bytes", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const open = indexedDB.open("astralbeam:drafts", 1)
+    open.onupgradeneeded = () => {
+      open.result.createObjectStore("attachments").put(
+        [
+          {
+            id: "legacy",
+            name: "legacy.txt",
+            size: 5,
+            mimeType: "text/plain",
+            kind: "text",
+            status: "ready",
+            data: "aGVsbG8=",
+            preview: "data:text/plain;base64,aGVsbG8=",
+          },
+        ],
+        "legacy-draft",
+      )
+    }
+    open.onsuccess = () => open.result.close()
+  })
+  await todosPage(page).open()
+  await chatWidget(page).waitForReady()
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise<unknown>((resolve, reject) => {
+            const open = indexedDB.open("astralbeam:drafts", 2)
+            open.onsuccess = () => {
+              const database = open.result
+              const read = database
+                .transaction("attachments")
+                .objectStore("attachments")
+                .get("legacy-draft")
+              read.onsuccess = () => {
+                resolve(read.result)
+                database.close()
+              }
+              read.onerror = () => reject(read.error ?? new Error("Draft read failed"))
+            }
+            open.onerror = () => reject(open.error ?? new Error("Draft open failed"))
+          }),
+      ),
+    )
+    .toEqual([
+      {
+        id: "legacy",
+        name: "legacy.txt",
+        size: 5,
+        mimeType: "text/plain",
+        kind: "text",
+        status: "reselect",
+      },
+    ])
+})
+
 test("resetting a fresh draft cancels its unclaimed upload", async ({ page }) => {
   const capabilities = page.waitForResponse((response) => response.url().includes("/chat/config"))
   await todosPage(page).open()

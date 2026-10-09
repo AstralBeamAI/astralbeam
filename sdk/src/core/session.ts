@@ -23,8 +23,8 @@ import {
   completeChatUpload,
   cancelChatUpload,
   downloadStoredChatFile,
-  type ChatUpload,
-  type ChatUploadInput,
+  type ChatUploadEncoded as ChatUpload,
+  type ChatUploadInputEncoded as ChatUploadInput,
   type ChatConfiguration,
 } from "../api/generated/api.ts"
 import {
@@ -1175,7 +1175,20 @@ export function createAstralBeamChat(
       await getValidChatAuthToken(authentication)
     } catch (error) {
       if (navigation !== navigationGeneration) return
-      update({ unsentMessage: content })
+      if (!pendingSend || pendingSend.accepted || pendingSend.tools === undefined) {
+        pendingSend = {
+          content,
+          accepted: false,
+          key: newUuid(),
+          callbacks:
+            callbacks ??
+            (!pendingSend?.accepted &&
+            JSON.stringify(pendingSend?.content) === JSON.stringify(content)
+              ? pendingSend?.callbacks
+              : undefined),
+        }
+      }
+      update({ unsentMessage: pendingSend.content })
       reportError(error)
       return
     }
@@ -1218,12 +1231,19 @@ export function createAstralBeamChat(
     historyGeneration++
     update({ olderMessagesLoading: false })
     sending = true
-    if (!pendingSend || pendingSend.accepted || !samePendingContent) {
+    if (
+      !pendingSend ||
+      pendingSend.accepted ||
+      !samePendingContent ||
+      pendingSend.tools === undefined
+    ) {
       pendingSend = {
         content,
         accepted: false,
         key: newUuid(),
-        callbacks,
+        callbacks:
+          callbacks ??
+          (samePendingContent && !pendingSend?.accepted ? pendingSend?.callbacks : undefined),
       }
       client.stop()
       liveToolCalls.clear()
@@ -1377,9 +1397,9 @@ export function createAstralBeamChat(
       return response.blob()
     },
     prepareUpload: async (input, signal) => {
-      const agentId = input.agentId ?? state.thread?.agentId ?? live.agentId
+      const agentId = input.agent_id ?? state.thread?.agentId ?? live.agentId
       return prepareChatUpload(
-        { ...input, ...(agentId ? { agentId } : {}) },
+        { ...input, ...(agentId ? { agent_id: agentId } : {}) },
         await uploadOptions(signal),
       )
     },

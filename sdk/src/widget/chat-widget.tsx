@@ -205,9 +205,9 @@ export function ChatWidget({
                     sessionId: undefined,
                   }
                 const preview =
-                  session.status === "completed" && session.fileId && file.kind === "image"
+                  session.status === "completed" && session.file_id && file.kind === "image"
                     ? await chat
-                        .getUploadedFile(session.fileId)
+                        .getUploadedFile(session.file_id)
                         .then((blob) =>
                           cancelled
                             ? undefined
@@ -215,8 +215,8 @@ export function ChatWidget({
                         )
                         .catch(() => undefined)
                     : undefined
-                return session.status === "completed" && session.fileId
-                  ? { ...file, status: "ready" as const, fileId: session.fileId, preview }
+                return session.status === "completed" && session.file_id
+                  ? { ...file, status: "ready" as const, fileId: session.file_id, preview }
                   : {
                       ...file,
                       status: "reselect" as const,
@@ -455,8 +455,11 @@ export function ChatWidget({
     if (submittedAttachmentIds.has(id)) return
     debug?.("attachment", "attachment removed", { id })
     const file = attachments.find((attachment) => attachment.id === id)
-    if (file) removeAttachmentUpload({ uploads, draft: file })
-    setAttachments((current) => current.filter((attachment) => attachment.id !== id))
+    if (!file) return
+    void removeAttachmentUpload({ uploads, draft: file }).then(
+      () => setAttachments((current) => current.filter((attachment) => attachment.id !== id)),
+      () => settleAttachment(id, { status: "error", error: "Removal failed. Try Remove again." }),
+    )
   }
   const resumeAttachment = (id: string) => {
     const file = attachments.find((attachment) => attachment.id === id)

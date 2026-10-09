@@ -59,9 +59,13 @@ function openAttachmentDatabase(): Promise<IDBDatabase> {
     const request = indexedDB.open("astralbeam:drafts", 2)
     request.onupgradeneeded = () => {
       if (request.result.objectStoreNames.contains("attachments")) {
-        request.result.deleteObjectStore("attachments")
-      }
-      request.result.createObjectStore("attachments")
+        const cursor = request.transaction!.objectStore("attachments").openCursor()
+        cursor.onsuccess = () => {
+          if (!cursor.result) return
+          cursor.result.update((cursor.result.value as DraftAttachment[]).map(storedAttachment))
+          cursor.result.continue()
+        }
+      } else request.result.createObjectStore("attachments")
     }
     request.onsuccess = () => {
       const database = request.result
