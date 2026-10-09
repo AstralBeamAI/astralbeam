@@ -12,16 +12,29 @@ import { runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { ModelProviderPageInputSchema } from "../-lib/schemas"
 
-// Curated current chat models, rather than the SDK's full legacy catalog.
-// https://developers.openai.com/api/docs/models | https://platform.claude.com/docs/en/models/overview | https://openrouter.ai/rankings
+// Current provider lineups. GPT-6 tool restrictions keep it out of OpenRouter's Chat Completions suggestions.
+// https://developers.openai.com/api/docs/guides/latest-model | https://platform.claude.com/docs/en/models/overview | https://ai.google.dev/gemini-api/docs/models
 const modelProviderSuggestions: Record<ModelProviderType, readonly string[]> = {
-  openai: ["gpt-6.1-sol", "gpt-6-luna", "gpt-6-astra"],
-  anthropic: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"],
+  openai: [
+    "gpt-6.1-sol",
+    "gpt-6-astra",
+    "gpt-6-sol",
+    "gpt-6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+  ],
+  anthropic: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"],
   openrouter: [
+    "openai/gpt-5.6-sol",
+    "openai/gpt-5.6-terra",
     "openai/gpt-5.6-luna",
-    "anthropic/claude-sonnet-5.5",
     "anthropic/claude-opus-5.5",
+    "anthropic/claude-sonnet-5.5",
+    "anthropic/claude-haiku-5.5",
+    "anthropic/claude-fable-5.1",
     "google/gemini-3.8-flash",
+    "google/gemini-3.5-flash-lite",
     "z-ai/glm-5.3-flash",
   ],
 }
