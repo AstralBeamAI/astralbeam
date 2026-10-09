@@ -303,13 +303,7 @@ export function ModelProviderForm({
                 model={model}
                 catalogConfiguration={
                   catalog[providerType].find((item) => item.modelId === model.modelId)
-                    ?.usageConfiguration ??
-                  existing?.models.find(
-                    (item) =>
-                      item.modelId === model.modelId &&
-                      item.usageConfiguration?.pricingSource.kind === "catalog",
-                  )?.usageConfiguration ??
-                  null
+                    ?.usageConfiguration ?? null
                 }
                 disabled={disabled}
                 errors={(field) =>

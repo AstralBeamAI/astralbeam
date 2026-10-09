@@ -3,7 +3,7 @@ import { Effect } from "effect"
 
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import {
-  catalogModelUsageConfiguration,
+  effectiveModelUsageConfiguration,
   readModelPriceCatalog,
 } from "@/lib/model-providers/pricing-catalog.server"
 import type { ModelProviderType } from "@/lib/model-providers/schemas"
@@ -61,6 +61,7 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
                 ...modelProviderSuggestions[providerType].map((modelId) => ({
                   modelId,
                   name: modelId,
+                  usageConfiguration: null,
                 })),
                 ...(provider?.providerType === providerType ? provider.models : []),
               ].map((model) => [model.modelId, model]),
@@ -68,10 +69,14 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
           ].map((model) => ({
             modelId: model.modelId,
             name: model.name,
-            usageConfiguration: catalogModelUsageConfiguration({
+            usageConfiguration: effectiveModelUsageConfiguration({
               catalog: pricing,
               providerType,
               modelId: model.modelId,
+              configured:
+                model.usageConfiguration?.pricingSource.kind === "catalog"
+                  ? model.usageConfiguration
+                  : null,
             }),
           }))
         const catalog = {

@@ -2,13 +2,12 @@ import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
 
 import { Config } from "@/lib/config/config.server"
-import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime.server"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { OwnerOnboardingInput } from "@/lib/dogfood/schemas"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"
-import { modelPriceCatalogInitialization } from "@/lib/workflows/model-price-catalog-refresh.server"
 import { configureMiddleware } from "../-lib/configure-middleware"
+import { initializeModelPriceCatalog } from "../-lib/initialize-model-price-catalog.server"
 import type { ConfigureFieldError } from "../-lib/types"
 
 const SaveConfigValuesInput = Schema.Struct({
@@ -38,19 +37,7 @@ export const saveConfigValues = createServerFn({ method: "POST" })
             if (needsOnboarding && data.onboarding) yield* dogfood.provision(data.onboarding)
           }),
         )
-        if (
-          (yield* config.setupState).setupComplete &&
-          !(yield* config.readModelPriceCatalog)?.fetchedAt
-        ) {
-          yield* modelPriceCatalogInitialization.execute({}, { discard: true }).pipe(
-            provideClusterWorkflowEngine,
-            Effect.catchCause(() =>
-              Effect.logWarning(
-                "Initial pricing catalog submission failed. Daily refresh remains scheduled",
-              ),
-            ),
-          )
-        }
+        yield* initializeModelPriceCatalog
         return { fieldErrors: [] as readonly ConfigureFieldError[] }
       }).pipe(
         Effect.catchTag("ConfigUpdateInvalid", (error) =>

@@ -55,7 +55,7 @@ export async function seedConversations(
     .select({ value: configTable.value })
     .from(configTable)
     .where(eq(configTable.key, "dogfood_organization_id"))
-  if (!dogfood?.value) return { todos, astro: "no dogfood" }
+  if (!dogfood) return { todos, astro: "no dogfood" }
   const [configuration] = await transaction
     .select({ agentId: organizationConfiguration.defaultAgentId })
     .from(organizationConfiguration)

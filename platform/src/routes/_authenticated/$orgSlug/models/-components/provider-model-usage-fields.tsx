@@ -1,7 +1,5 @@
 "use client"
 
-import { Schema } from "effect"
-
 import {
   Field,
   FieldContent,
@@ -13,7 +11,6 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import type { ProviderModelFields } from "@/lib/model-providers/schemas"
 import {
-  ModelUsageConfigurationSchema,
   modelInputAllowance,
   type ModelUsageConfiguration,
 } from "@/lib/model-providers/usage-schemas"
@@ -57,7 +54,7 @@ export function ProviderModelUsageFields({
       maxOutputTokens: 4096,
       outputCap: 4096,
     }
-  const valid = Schema.is(ModelUsageConfigurationSchema)(configuration)
+  const hasCatalogDefaults = catalogConfiguration !== null
   const overrideId = `model-${model.modelId}-override`
   const priceFields = modelPricingFields.map(([key, label]) => {
     const id = `model-${model.modelId}-${key}`
@@ -105,7 +102,7 @@ export function ProviderModelUsageFields({
           <FieldDescription id={`${overrideId}-description`}>
             {overridden
               ? "Your settings stay fixed. Turn off to discard overrides and restore automatic updates."
-              : valid
+              : hasCatalogDefaults
                 ? "Prices and token limits update automatically from the catalog."
                 : "No catalog defaults are available. Turn on to configure this model manually."}
           </FieldDescription>
@@ -174,7 +171,7 @@ export function ProviderModelUsageFields({
           </details>
         </>
       ) : (
-        valid && (
+        hasCatalogDefaults && (
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             {[
               ["Input price", `$${configuration.prices.inputPerMillion}`],
@@ -189,11 +186,6 @@ export function ProviderModelUsageFields({
             ))}
           </dl>
         )
-      )}
-      {valid && configuration.contextTiers.length > 0 && (
-        <FieldDescription>
-          {`Context pricing tiers: ${configuration.contextTiers.length}`}
-        </FieldDescription>
       )}
     </div>
   )

@@ -1,4 +1,4 @@
-import { and, eq, ne, notInArray, sql } from "drizzle-orm"
+import { eq, notInArray, sql } from "drizzle-orm"
 import { Effect, Option, Result, Schema } from "effect"
 
 import type { EffectDatabase } from "@/db/database.server"
@@ -82,12 +82,7 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
   const stored = yield* db
     .select({ key: configTable.key, storedValue: sql<string>`${configTable.value}::text` })
     .from(configTable)
-    .where(
-      and(
-        ne(configTable.key, MODEL_PRICE_CATALOG_CONFIG_KEY),
-        excludedKeys.length > 0 ? notInArray(configTable.key, [...excludedKeys]) : undefined,
-      ),
-    )
+    .where(notInArray(configTable.key, [MODEL_PRICE_CATALOG_CONFIG_KEY, ...excludedKeys]))
     .pipe(
       Effect.map(Option.some),
       Effect.catchIf(
