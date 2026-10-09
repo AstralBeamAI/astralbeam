@@ -106,7 +106,7 @@ export function ProviderModelUsageFields({
             {overridden
               ? "Your settings stay fixed. Turn off to discard overrides and restore automatic updates."
               : valid
-                ? "Defaults update automatically. Turn on to use your own prices and token limits."
+                ? "Prices and token limits update automatically from the catalog."
                 : "No catalog defaults are available. Turn on to configure this model manually."}
           </FieldDescription>
         </FieldContent>
@@ -124,9 +124,6 @@ export function ProviderModelUsageFields({
           }
         />
       </Field>
-      <p className="text-xs text-muted-foreground">
-        Prices in USD per million tokens. Token limits are saved but not enforced yet.
-      </p>
       {overridden ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2">{priceFields.slice(0, 2)}</div>
@@ -167,9 +164,9 @@ export function ProviderModelUsageFields({
             })}
           </div>
           <FieldDescription>
-            All values are tokens. Set an input maximum or a context window. The output cap cannot
-            exceed the model output maximum. Catalog output limits start at 4,096 tokens. Review
-            them against the output maximum supported by your provider.
+            Set an input maximum or context window. Keep the output cap within the model output
+            maximum. Verify the default 4,096-token output maximum with your provider before
+            increasing it.
           </FieldDescription>
           <details>
             <summary className="cursor-pointer text-sm font-medium">Cache pricing</summary>
@@ -195,7 +192,7 @@ export function ProviderModelUsageFields({
       )}
       {valid && configuration.contextTiers.length > 0 && (
         <FieldDescription>
-          {`${configuration.contextTiers.length} context pricing tiers apply.`}
+          {`Context pricing tiers: ${configuration.contextTiers.length}`}
         </FieldDescription>
       )}
     </div>

@@ -121,7 +121,7 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await page.getByLabel("Name", { exact: true }).fill(`Catalog defaults ${runId}`)
     await page.getByLabel("API key", { exact: true }).fill("sk-catalog-browser-fixture")
     await page.getByLabel("Custom model ID", { exact: true }).fill("gpt-4.1-2025-04-14")
-    await page.getByRole("button", { name: "Add model", exact: true }).click()
+    await page.getByLabel("Custom model ID", { exact: true }).press("Enter")
     const override = page.getByRole("switch", {
       name: "Override catalog defaults for gpt-4.1-2025-04-14",
       exact: true,

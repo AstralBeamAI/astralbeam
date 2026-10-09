@@ -93,8 +93,7 @@ export function ProviderModelPicker({
     <FieldSet aria-describedby="provider-models-description provider-models-error">
       <FieldLegend>Models</FieldLegend>
       <FieldDescription id="provider-models-description">
-        Enable the models this connection can access. Catalog suggestions do not verify access.{" "}
-        {models.length} selected.
+        Choose models your API key can access. Test access after saving. {models.length} selected.
       </FieldDescription>
       {choices.length > 0 && (
         <>
@@ -160,6 +159,12 @@ export function ProviderModelPicker({
               setCustomModelId(event.target.value)
               setCustomError(null)
             }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                if (!disabled && customModelId.trim()) addCustomModel()
+              }
+            }}
           />
           <Button
             type="button"
@@ -167,7 +172,7 @@ export function ProviderModelPicker({
             disabled={disabled || !customModelId.trim()}
             onClick={addCustomModel}
           >
-            Add model
+            {lookup.isPending ? "Adding…" : "Add model"}
           </Button>
         </div>
         <FieldError id="custom-model-id-error">{customError}</FieldError>

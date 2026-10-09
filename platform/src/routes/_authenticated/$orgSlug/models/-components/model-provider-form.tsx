@@ -302,8 +302,7 @@ export function ModelProviderForm({
             />
             {providerType === "openrouter" && (
               <FieldDescription>
-                Use full OpenRouter model IDs, such as anthropic/claude-sonnet-4.6. OpenRouter
-                handles provider routing through its Chat Completions API.
+                Use full OpenRouter model IDs, such as anthropic/claude-sonnet-5.5.
               </FieldDescription>
             )}
             <ProviderModelPicker
@@ -330,7 +329,7 @@ export function ModelProviderForm({
             />
             <FieldDescription>
               {pricingFetchedAt === null ? (
-                "Using bundled catalog defaults. No successful refresh yet. Prices may be outdated."
+                "Using bundled prices, which may be outdated until the first catalog update."
               ) : (
                 <>
                   Catalog updated <LocalDateTime value={pricingFetchedAt} dateStyle="medium" />.
@@ -338,6 +337,9 @@ export function ModelProviderForm({
               )}
               {pricingIsStale &&
                 " Automatic updates are delayed. Last known defaults remain available."}
+            </FieldDescription>
+            <FieldDescription>
+              Prices are USD per million tokens. Token limits are saved, but not enforced yet.
             </FieldDescription>
             {models.map((model, index) => (
               <ProviderModelUsageFields
