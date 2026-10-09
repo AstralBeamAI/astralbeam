@@ -184,6 +184,7 @@ export function ChatWidget({
   }
   const draft = composer.text
   const uploads = useMemo(() => attachmentUploadState(chat), [chat])
+  const isCurrentAuthentication = chat.captureAuthentication()
   useEffect(() => () => disposeAttachmentUploads(uploads), [uploads, apiUrl, draftIdentity])
   const pendingAttachmentWrites = useRef(new Set<string>())
   useEffect(() => {
@@ -459,6 +460,7 @@ export function ChatWidget({
           file,
           settle: (update) => settleAttachment(pick.id, update),
           persist: persistPreparation,
+          isCurrentAuthentication,
         })
         continue
       }
@@ -478,7 +480,7 @@ export function ChatWidget({
     const file = composer.attachments.find((attachment) => attachment.id === id)
     if (!file) return
     settleAttachment(id, { status: "reading", error: undefined })
-    void removeAttachmentUpload({ uploads, draft: file, auth }).then(
+    void removeAttachmentUpload({ uploads, draft: file, isCurrentAuthentication }).then(
       () => setAttachments((current) => current.filter((attachment) => attachment.id !== id)),
       () => settleAttachment(id, { status: "error", error: "Removal failed. Try Remove again." }),
     )
@@ -492,6 +494,7 @@ export function ChatWidget({
         draft: file,
         settle: (update) => settleAttachment(id, update),
         persist: persistPreparation,
+        isCurrentAuthentication,
       })
     )
   }
@@ -512,6 +515,7 @@ export function ChatWidget({
         file,
         settle: (update) => settleAttachment(id, update),
         persist: persistPreparation,
+        isCurrentAuthentication,
       })
     } else {
       void readAttachmentData(file).then(
@@ -654,7 +658,7 @@ export function ChatWidget({
       identity: draftIdentity,
       threadId: "",
       attachments: drafts.threads.get("")?.attachments ?? [],
-      auth,
+      isCurrentAuthentication,
     }).catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
     setDrafts((current) => {
       const threads = new Map(current.threads)
@@ -673,7 +677,7 @@ export function ChatWidget({
       identity: draftIdentity,
       threadId: id,
       attachments: drafts.threads.get(id)?.attachments ?? [],
-      auth,
+      isCurrentAuthentication,
     })
   const forgetDraft = (id: string) => {
     const files = drafts.threads.get(id)?.attachments ?? []

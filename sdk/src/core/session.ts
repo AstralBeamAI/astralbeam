@@ -184,6 +184,8 @@ export interface AstralBeamChatCore {
   /** Start browser side effects after a React commit. Vanilla sessions start automatically. */
   start: () => void
   getState: () => AstralBeamChatState
+  /** Captures the authenticated scope without invalidating it on a same-identity token refresh. */
+  captureAuthentication: () => () => boolean
   /** Notifies on every state change; returns the unsubscribe. */
   subscribe: (listener: () => void) => () => void
   /**
@@ -1358,6 +1360,11 @@ export function createAstralBeamChat(
   return {
     start,
     getState: () => state,
+    captureAuthentication: () => {
+      const epoch = authEpoch
+      const signal = authentication.session.abortController.signal
+      return () => epoch === authEpoch && !signal.aborted
+    },
     subscribe: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
