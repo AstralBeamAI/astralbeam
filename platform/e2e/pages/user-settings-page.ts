@@ -19,7 +19,7 @@ export function userSettingsPage(page: Page) {
       await expect(page.getByRole("heading", { level: 1, name: "Security settings" })).toBeVisible()
     },
 
-    /** The one editable profile field; the avatar upload is out of scope for a headless run. */
+    /** Updates the editable display name. */
     async setDisplayName(name: string): Promise<void> {
       const save = page.getByRole("button", { name: /save changes/i }).first()
       await waitForHydration(save)
@@ -27,6 +27,26 @@ export function userSettingsPage(page: Page) {
       await save.click()
       // The field already held this value before submit, so only the toast proves the write.
       await expectToast(page, "Profile updated successfully")
+    },
+
+    async uploadAvatar(bytes: Buffer): Promise<void> {
+      await waitForHydration(
+        page.getByRole("button", { name: "Change avatar", exact: true }).first(),
+      )
+      await page
+        .locator('input[type="file"]')
+        .setInputFiles({ name: "avatar.png", mimeType: "image/png", buffer: bytes })
+      await expectToast(page, "Avatar changed successfully")
+    },
+
+    async removeAvatar(): Promise<void> {
+      await page.getByRole("button", { name: "Change avatar", exact: true }).last().click()
+      await page.getByRole("menuitem", { name: "Delete avatar" }).click()
+      await expectToast(page, "Avatar deleted successfully")
+    },
+
+    avatarImage(): Locator {
+      return page.locator('img[src^="/api/files/avatars/"]').first()
     },
 
     changePasswordCard(): Locator {

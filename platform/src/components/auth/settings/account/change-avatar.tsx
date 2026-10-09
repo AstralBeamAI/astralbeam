@@ -1,7 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, preserve database success when remote cleanup fails, label the avatar action, and apply strict lint compatibility, including explicitly voided async handlers.
+// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, use server uploads and durable cleanup, label the avatar action, and apply strict lint compatibility, including explicitly voided async handlers.
 
-import { fileToAvatarDataUrl } from "@better-auth-ui/core"
 import { useAuth, useSession, useUpdateUser } from "@better-auth-ui/react"
 import { TrashIcon as Trash2, UploadSimpleIcon as Upload } from "@phosphor-icons/react"
 import { type ChangeEvent, useRef, useState } from "react"
@@ -17,6 +16,7 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
+import { uploadAvatar } from "@/lib/storage/upload-avatar"
 
 export type ChangeAvatarProps = {
   className?: string
@@ -30,9 +30,8 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
 
-  const isPending = updatePending || isUploading || isDeleting
+  const isPending = updatePending || isUploading
 
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -45,7 +44,9 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
     try {
       const resized = (await avatar.resize?.(file, avatar.size, avatar.extension)) || file
 
-      const image = (await avatar.upload?.(resized)) || (await fileToAvatarDataUrl(resized))
+      const image = await uploadAvatar({
+        data: { bytes: new Uint8Array(await resized.arrayBuffer()) },
+      })
 
       updateUser(
         { image },
@@ -65,32 +66,11 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
   }
 
   function handleDelete() {
-    const currentImage = session?.user.image
-
     updateUser(
       { image: null },
       {
         onSuccess: () =>
-          void (async () => {
-            let cleanupFailed = false
-            if (currentImage) {
-              setIsDeleting(true)
-              try {
-                await avatar.delete?.(currentImage)
-              } catch {
-                cleanupFailed = true
-              } finally {
-                setIsDeleting(false)
-              }
-            }
-
-            toast.add({
-              title: cleanupFailed
-                ? "Your avatar was removed, but its previous file could not be deleted."
-                : localization.settings.avatarDeletedSuccess,
-              type: cleanupFailed ? "warning" : "success",
-            })
-          })(),
+          toast.add({ title: localization.settings.avatarDeletedSuccess, type: "success" }),
       },
     )
   }
@@ -102,7 +82,7 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,image/gif,image/webp"
         className="hidden"
         onChange={(e) => void handleFileChange(e)}
       />

@@ -1,5 +1,12 @@
 import process from "node:process"
-import { CreateBucketCommand, DeleteBucketCommand, S3Client } from "@aws-sdk/client-s3"
+import {
+  CreateBucketCommand,
+  DeleteBucketCommand,
+  DeleteObjectCommand,
+  ListObjectVersionsCommand,
+  PutBucketVersioningCommand,
+  S3Client,
+} from "@aws-sdk/client-s3"
 import { Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 
@@ -65,6 +72,31 @@ test.runIf(Boolean(process.env.S3_TEST_ENDPOINT))("S3-compatible object round tr
         } finally {
           yield* storage.remove({ key })
         }
+        yield* Effect.promise(() =>
+          client.send(
+            new PutBucketVersioningCommand({
+              Bucket: settings.bucket,
+              VersioningConfiguration: { Status: "Enabled" },
+            }),
+          ),
+        )
+        yield* storage.testConnection(settings)
+        yield* storage.put({ key, bytes, contentType: "text/plain" })
+        yield* storage.put({ key, bytes, contentType: "text/plain" })
+        yield* Effect.promise(() =>
+          client.send(new DeleteObjectCommand({ Bucket: settings.bucket, Key: key })),
+        )
+        const beforeCleanup = yield* Effect.promise(() =>
+          client.send(new ListObjectVersionsCommand({ Bucket: settings.bucket, Prefix: key })),
+        )
+        expect(beforeCleanup.Versions).toHaveLength(2)
+        expect(beforeCleanup.DeleteMarkers).toHaveLength(1)
+        yield* storage.remove({ key })
+        const afterCleanup = yield* Effect.promise(() =>
+          client.send(new ListObjectVersionsCommand({ Bucket: settings.bucket })),
+        )
+        expect(afterCleanup.Versions ?? []).toHaveLength(0)
+        expect(afterCleanup.DeleteMarkers ?? []).toHaveLength(0)
       }).pipe(Effect.provide(layer)),
     )
   } finally {
