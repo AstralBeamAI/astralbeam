@@ -1,6 +1,7 @@
 import { isAstralBeamApiError } from "../../api/api.ts"
 import type { AstralBeamChatCore } from "../../core/session.ts"
 import type { DraftAttachment } from "./types.ts"
+import { storedThreadAttachments } from "./drafts.ts"
 
 interface UploadSlots {
   active: number
@@ -197,6 +198,10 @@ export function startAttachmentUpload({
         (draft.sha256 && draft.sha256 !== sha256)
       ) {
         files.delete(draft.id)
+        const preview = uploads.previews.get(draft.id)
+        if (preview) URL.revokeObjectURL(preview)
+        uploads.previews.delete(draft.id)
+        settle({ preview: undefined })
         throw new Error("Choose the original file to resume this upload.")
       }
       const saved = draft.sessionId
@@ -287,6 +292,40 @@ export function removeAttachmentUpload({
 }) {
   releaseAttachmentUpload({ uploads, id: draft.id })
   if (draft.sessionId) void uploads.chat.cancelUpload(draft.sessionId).catch(() => undefined)
+}
+
+export async function discardAttachmentUploads({
+  uploads,
+  apiUrl,
+  identity,
+  threadId,
+  attachments,
+}: {
+  uploads: AttachmentUploads
+  apiUrl: string
+  identity: string
+  threadId: string
+  attachments: readonly DraftAttachment[]
+}) {
+  for (const file of attachments) releaseAttachmentUpload({ uploads, id: file.id })
+  const persisted = await storedThreadAttachments({ apiUrl, identity, threadId }).catch(() => [])
+  const files = new Map([...persisted, ...attachments].map((file) => [file.id, file]))
+  await Promise.all(
+    [...files.values()].map(async (file) => {
+      releaseAttachmentUpload({ uploads, id: file.id })
+      if (file.sessionId)
+        await uploads.chat.cancelUpload(file.sessionId).catch((error: unknown) => {
+          if (isAstralBeamApiError(error) && error.status === 404) return
+          throw error
+        })
+    }),
+  )
+  await storedThreadAttachments({
+    apiUrl,
+    identity,
+    threadId,
+    update: (current) => current.filter((file) => !files.has(file.id)),
+  })
 }
 
 export function disposeAttachmentUploads(uploads: AttachmentUploads) {
