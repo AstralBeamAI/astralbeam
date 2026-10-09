@@ -45,6 +45,41 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     vi.unstubAllEnvs()
   })
 
+  test("rotates explicitly supplied local credentials without resetting the pinned destination", async () => {
+    const localSettings = { ...destinationSettings, endpoint: "http://127.0.0.1:9000" }
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const config = yield* Config
+        yield* config.update(
+          destinationUpdates.map((update) =>
+            update.key === "s3_endpoint" ? { ...update, value: localSettings.endpoint } : update,
+          ),
+        )
+        yield* config.reserveStorageDestination(localSettings)
+        for (const [accessKey, secret, expectedSecret] of [
+          ["new-local-key", "new-local-secret", "new-local-secret"],
+          ["", "", "new-local-secret"],
+          ["next-local-key", "", "development-only-storage-key"],
+        ]) {
+          vi.stubEnv("RUSTFS_ACCESS_KEY", accessKey)
+          vi.stubEnv("RUSTFS_SECRET_KEY", secret)
+          yield* Effect.promise(() =>
+            getAuthDatabase().transaction((transaction) =>
+              seedConfig(transaction, "another_worktree"),
+            ),
+          )
+          yield* config.invalidate
+          expect((yield* config.snapshot).values).toMatchObject({
+            s3_endpoint: localSettings.endpoint,
+            s3_bucket: localSettings.bucket,
+            s3_access_key_id: accessKey || "new-local-key",
+            s3_secret_access_key: expectedSecret,
+          })
+        }
+      }).pipe(Effect.provide(Config.layer)),
+    )
+  })
+
   test("pins the destination across runtimes, permits credential rotation and rejects environment drift", async () => {
     const runtime = ManagedRuntime.make(Config.layer)
     try {

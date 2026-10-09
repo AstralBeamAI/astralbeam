@@ -1,7 +1,7 @@
 import process from "node:process"
 
 import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
-import { eq, like, sql } from "drizzle-orm"
+import { inArray, like, sql } from "drizzle-orm"
 
 import { configTable } from "../../src/db/schema.server.ts"
 
@@ -30,10 +30,11 @@ export async function seedConfig(
   await transaction.execute(
     sql`select pg_advisory_xact_lock(hashtextextended('file-storage-destination', 0))`,
   )
-  const [storagePin] = await transaction
-    .select({ key: configTable.key })
+  const storage = await transaction
+    .select()
     .from(configTable)
-    .where(eq(configTable.key, "s3_destination"))
+    .where(inArray(configTable.key, ["s3_destination", "s3_endpoint"]))
+  const storagePin = storage.some(({ key }) => key === "s3_destination")
   const values = {
     ...SEED_CONFIG_VALUES,
     s3_endpoint: `http://127.0.0.1:${process.env.RUSTFS_HOST_PORT || 9000}`,
@@ -41,8 +42,20 @@ export async function seedConfig(
     s3_access_key_id: process.env.RUSTFS_ACCESS_KEY || SEED_CONFIG_VALUES.s3_access_key_id,
     s3_secret_access_key: process.env.RUSTFS_SECRET_KEY || SEED_CONFIG_VALUES.s3_secret_access_key,
   }
+  const localStorage = localStorageEndpoint(
+    process.env.S3_ENDPOINT ||
+      storage.find(({ key, value }) => key === "s3_endpoint" && value.key === key)?.value.value ||
+      values.s3_endpoint,
+  )
+  const rotateCredentials =
+    localStorage && (process.env.RUSTFS_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY)
   for (const [key, value] of Object.entries(values)) {
-    if (storagePin && key.startsWith("s3_")) continue
+    if (
+      storagePin &&
+      key.startsWith("s3_") &&
+      !(rotateCredentials && ["s3_access_key_id", "s3_secret_access_key"].includes(key))
+    )
+      continue
     if (process.env[key.toUpperCase()]) {
       fromEnvironment.push(key)
       continue
@@ -61,6 +74,14 @@ export async function seedConfig(
   return { written, fromEnvironment }
 }
 
+function localStorageEndpoint(value: string) {
+  const endpoint = new URL(value.replace(/\/+$/, ""))
+  return ["127.0.0.1", "localhost", "rustfs"].includes(endpoint.hostname) &&
+    endpoint.pathname === "/"
+    ? endpoint
+    : undefined
+}
+
 export async function initializeStorage(database: SeedDatabase): Promise<void> {
   if (process.env.SKIP_DOCKER_COMPOSE === "true") return
   const rows = await database.select().from(configTable).where(like(configTable.key, "s3_%"))
@@ -68,12 +89,8 @@ export async function initializeStorage(database: SeedDatabase): Promise<void> {
     process.env[key.toUpperCase()] ||
     rows.find((row) => row.key === key && row.value.key === key)?.value.value ||
     ""
-  const endpoint = new URL(value("s3_endpoint").replace(/\/+$/, ""))
-  if (
-    !["127.0.0.1", "localhost", "rustfs"].includes(endpoint.hostname) ||
-    endpoint.pathname !== "/"
-  )
-    return
+  const endpoint = localStorageEndpoint(value("s3_endpoint"))
+  if (!endpoint) return
   const client = new S3Client({
     endpoint: endpoint.href,
     region: value("s3_region"),
