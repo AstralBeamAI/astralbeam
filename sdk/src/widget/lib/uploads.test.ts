@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest"
-import type { AstralBeamChatCore } from "../../core/session.ts"
+import { createAstralBeamChat, type AstralBeamChatCore } from "../../core/session.ts"
 import type { DraftAttachment } from "./types.ts"
 import { storedThreadAttachments } from "./drafts.ts"
 import {
@@ -43,6 +43,7 @@ const draft: DraftAttachment = {
   agentId: "origin-agent",
 }
 const persist = async () => {}
+const auth = { status: "loading" as const }
 
 test("wrong-file reselection never signs parts and lets the picker try again", async () => {
   const signUploadParts = vi.fn()
@@ -243,6 +244,7 @@ test.each([true, false])(
     const uploads = attachmentUploadState({
       cancelUpload,
       cancelPreparedUpload: cancelUpload,
+      getState: () => ({ auth }),
     } as unknown as AstralBeamChatCore)
     uploads.files.set(draft.id, new File(["hello"], "note.txt"))
     const controller = new AbortController()
@@ -268,6 +270,7 @@ test("failed preparation metadata keeps local and inline files removable offline
   const uploads = attachmentUploadState({
     prepareUpload,
     cancelPreparedUpload,
+    getState: () => ({ auth }),
   } as unknown as AstralBeamChatCore)
   let state = { ...draft }
   startAttachmentUpload({
@@ -308,6 +311,7 @@ test.each([false, true])(
     const uploads = attachmentUploadState({
       prepareUpload,
       cancelPreparedUpload,
+      getState: () => ({ auth }),
     } as unknown as AstralBeamChatCore)
     startAttachmentUpload({
       uploads,
@@ -378,6 +382,108 @@ test("an uncertain preparation retries the same attachment key and retains a pre
   disposeAttachmentUploads(uploads)
 })
 
+test.each(["identity", "api", "remove identity"] as const)(
+  "cleanup retains delayed IndexedDB targets through %s changes",
+  async (change) => {
+    let user = {
+      scope: "tenant",
+      organization: { id: "organization" },
+      tenant: { id: "tenant" },
+      user: { id: "owner" },
+    }
+    const cancellations: string[] = []
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const url = new URL(input)
+      if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(user))
+      if (init?.method === "DELETE") {
+        cancellations.push(url.href)
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    })
+    const chat = createAstralBeamChat({
+      fetchAstralBeamToken: () => ({
+        token: `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 300 }))}.signature`,
+      }),
+    })
+    let finish = (_files: DraftAttachment[]) => {}
+    vi.mocked(storedThreadAttachments).mockImplementationOnce(
+      () => new Promise((resolve) => (finish = resolve)),
+    )
+    try {
+      await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+      const auth = chat.getState().auth
+      const uploads = attachmentUploadState(chat)
+      const options = {
+        uploads,
+        apiUrl: "https://api.test",
+        identity: "owner",
+        threadId: "conversation",
+        attachments: [],
+        auth,
+      }
+      if (change === "remove identity")
+        uploads.tasks.set(draft.id, {
+          controller: new AbortController(),
+          prepareAttempted: true,
+          preparation: storedThreadAttachments(options).then(() => undefined),
+        })
+      const cleanup =
+        change === "remove identity"
+          ? removeAttachmentUpload({ uploads, draft, auth })
+          : discardAttachmentUploads(options)
+      await vi.waitFor(() => expect(storedThreadAttachments).toHaveBeenCalledOnce())
+      if (change !== "api") {
+        user = { ...user, user: { id: "replacement" } }
+        chat.retryAuthentication()
+      } else chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+      await vi.waitFor(() => {
+        expect(chat.getState().auth.status).toBe("ready")
+        expect(chat.getState().auth).not.toBe(auth)
+      })
+      finish([{ ...draft, prepareAttempted: true }])
+      await expect(cleanup).rejects.toThrow("Authentication changed")
+      expect(cancellations).toEqual([])
+      expect(storedThreadAttachments).toHaveBeenCalledOnce()
+    } finally {
+      finish([])
+      chat.dispose()
+    }
+  },
+)
+
+test("discard retains targets when authentication changes before the IndexedDB update", async () => {
+  const auth = { status: "loading" as const }
+  let current = auth
+  let stored: DraftAttachment[] = [{ ...draft, prepareAttempted: true }]
+  const cancelPreparedUpload = vi.fn(() => Promise.resolve())
+  const uploads = attachmentUploadState({
+    cancelPreparedUpload,
+    getState: () => ({ auth: current }),
+  } as unknown as AstralBeamChatCore)
+  vi.mocked(storedThreadAttachments).mockImplementation(({ update }) =>
+    Promise.resolve().then(() => {
+      if (update) {
+        current = { status: "loading" }
+        stored = update(stored)
+      }
+      return stored
+    }),
+  )
+  await expect(
+    discardAttachmentUploads({
+      uploads,
+      apiUrl: "https://api.test",
+      identity: "owner",
+      threadId: "conversation",
+      attachments: [],
+      auth,
+    }),
+  ).rejects.toThrow("Authentication changed")
+  expect(cancelPreparedUpload).toHaveBeenCalledOnce()
+  expect(stored).toEqual([{ ...draft, prepareAttempted: true }])
+})
+
 test("discard retains unreadable or transitioning targets and leaves claimed files to their conversation", async () => {
   const conflict = Object.assign(new Error("Retry completion"), {
     name: "AstralBeamApiError",
@@ -394,7 +500,11 @@ test("discard retains unreadable or transitioning targets and leaves claimed fil
     .mockRejectedValueOnce(claimed)
     .mockRejectedValueOnce(conflict)
     .mockRejectedValue(claimed)
-  const uploads = attachmentUploadState({ cancelUpload } as unknown as AstralBeamChatCore)
+  const auth = { status: "loading" as const }
+  const uploads = attachmentUploadState({
+    cancelUpload,
+    getState: () => ({ auth }),
+  } as unknown as AstralBeamChatCore)
   const pending = { ...draft, sessionId: "pending" }
   const discard = () =>
     discardAttachmentUploads({
@@ -403,6 +513,7 @@ test("discard retains unreadable or transitioning targets and leaves claimed fil
       identity: "owner",
       threadId: "conversation",
       attachments: [],
+      auth,
     })
   vi.mocked(storedThreadAttachments).mockRejectedValueOnce(new Error("Storage unavailable"))
   await expect(discard()).rejects.toThrow("Storage unavailable")
