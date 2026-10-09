@@ -1,5 +1,6 @@
-import { like } from "drizzle-orm"
-import { Effect, ManagedRuntime } from "effect"
+import { S3Client } from "@aws-sdk/client-s3"
+import { eq, like } from "drizzle-orm"
+import { Effect, Layer, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 const storageDatabase = vi.hoisted(() => {
@@ -14,7 +15,8 @@ const storageDatabase = vi.hoisted(() => {
 })
 
 import { getAuthDatabase } from "@/db/database.server"
-import { configTable } from "@/db/schema.server"
+import { configTable, fileDeletion } from "@/db/schema.server"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { Config } from "./config.server"
 import { seedConfig } from "../../../scripts/seed/config"
 
@@ -84,7 +86,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     } finally {
       await runtime.dispose()
     }
-    const restarted = ManagedRuntime.make(Config.layer)
+    const restarted = ManagedRuntime.make(Layer.merge(Config.layer, StoredFiles.layer))
     try {
       vi.stubEnv("S3_ENDPOINT", "http://127.0.0.1:9000")
       await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_b"))
@@ -118,6 +120,23 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
         ).pipe(Effect.result),
       )
       expect(pin._tag).toBe("Failure")
+      const objectKey = `destination-test/${crypto.randomUUID()}`
+      await getAuthDatabase()
+        .insert(fileDeletion)
+        .values({ objectKey, retryAt: new Date(0) })
+      const requests = vi.spyOn(S3Client.prototype, "send").mockResolvedValue(undefined)
+      try {
+        await restarted.runPromise(Effect.flatMap(StoredFiles, (files) => files.cleanup))
+        expect(requests).not.toHaveBeenCalled()
+        const [pending] = await getAuthDatabase()
+          .select()
+          .from(fileDeletion)
+          .where(eq(fileDeletion.objectKey, objectKey))
+        expect(pending?.attempts).toBe(1)
+      } finally {
+        requests.mockRestore()
+        await getAuthDatabase().delete(fileDeletion).where(eq(fileDeletion.objectKey, objectKey))
+      }
     } finally {
       await restarted.dispose()
     }

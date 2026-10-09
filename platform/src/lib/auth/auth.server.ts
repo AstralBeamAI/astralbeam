@@ -28,14 +28,18 @@ import { APP_NAME } from "@/lib/constants"
 import { Mailer } from "@/lib/email/email.server"
 import { organizationAccessControl, organizationRoles } from "@/lib/organizations/access"
 import { OrganizationSlugTaken, SignInRequired } from "@/lib/organizations/errors"
-import {
-  organizationApiKeyPlugin,
-  organizationProvisioningHooks,
-  organizationRoleHooks,
-} from "@/lib/organizations/hooks.server"
+import { organizationApiKeyPlugin } from "@/lib/organizations/hooks.server"
 import { forkAppEffect, runAppEffect } from "@/lib/runtime/app-effect.server"
 import { IS_TEST_RUNTIME } from "@/lib/runtime/environment.server"
 import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
+import {
+  assertOwnedAvatar,
+  isOAuthImageRequest,
+  enqueueAuthImage,
+  oauthProfileImage,
+  organizationImageHooks,
+  logoImportGenerationField,
+} from "@/lib/storage/auth-images.server"
 import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
 import {
   assertAuthEmailDelivered,
@@ -253,6 +257,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       ...(config.google && {
         google: {
           clientId: config.google.clientId,
+          mapProfileToUser: (profile) => oauthProfileImage(profile.picture),
           clientSecret: config.google.clientSecret,
           disableImplicitSignUp: true,
           requireEmailVerification: true,
@@ -261,6 +266,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       ...(config.github && {
         github: {
           clientId: config.github.clientId,
+          mapProfileToUser: (profile) => oauthProfileImage(profile.avatar_url),
           clientSecret: config.github.clientSecret,
           disableImplicitSignUp: true,
           requireEmailVerification: true,
@@ -409,6 +415,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       }),
       after: createAuthMiddleware(async (context) => {
         assertAuthEmailDelivered(context.request)
+        const imageUser = context.context.newSession?.user
+        if (imageUser && !isAPIError(context.context.returned)) await enqueueAuthImage(imageUser)
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
         const user = context.context.session?.user
         if (user) await notifyPasswordChanged(mailer, user)
@@ -418,6 +426,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       user: {
         create: {
           before: async (user, context) => {
+            if (await isOAuthImageRequest()) user.image = null
+            await assertOwnedAvatar(undefined, user.image)
             // It needs no service, and runAppEffect's type would cycle back through `Auth`.
             const termsAcceptedAt = config.legalAcceptanceRequired
               ? await Effect.runPromise(acceptedAtForUserCreation(context))
@@ -432,6 +442,16 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
           },
           after: async (user) => {
             if (user.emailVerified) await welcomeNewUser(mailer, user)
+            await enqueueAuthImage(user)
+          },
+        },
+        update: {
+          before: async (user, context) => {
+            if (await isOAuthImageRequest()) {
+              delete user.image
+              return
+            }
+            await assertOwnedAvatar(context?.context.session?.user.id, user.image)
           },
         },
       },
@@ -445,7 +465,23 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       organization({
         ac: organizationAccessControl,
         roles: organizationRoles,
-        organizationHooks: { ...organizationRoleHooks, ...organizationProvisioningHooks },
+        organizationHooks: organizationImageHooks,
+        // A logo import leaves no logo field to update. The adapter still updates this timestamp.
+        // https://better-auth.com/docs/concepts/database#extending-core-schema
+        schema: {
+          organization: {
+            additionalFields: {
+              logoImportGeneration: logoImportGenerationField,
+              updatedAt: {
+                type: "date",
+                input: false,
+                returned: false,
+                required: false,
+                onUpdate: () => new Date(),
+              },
+            },
+          },
+        },
         invitationExpiresIn: ORGANIZATION_INVITATION_EXPIRY_SECONDS,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
