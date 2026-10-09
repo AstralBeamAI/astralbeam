@@ -52,10 +52,10 @@ const resultSchema = Schema.Struct({
   isError: Schema.optionalKey(Schema.Boolean),
 })
 
-export async function validateToolResult(
+export function validateToolResult(
   output: object,
-  outputSchema?: ParametersSchema,
-): Promise<ToolResult> {
+  outputSchema?: ReturnType<typeof compileJsonSchema>,
+): ToolResult {
   const result =
     Symbol.toStringTag in output && output[Symbol.toStringTag] === "AstralBeam.ToolResult"
       ? output
@@ -63,13 +63,9 @@ export async function validateToolResult(
   const validated = Schema.decodeUnknownSync(resultSchema, { onExcessProperty: "error" })(
     Object.fromEntries(Object.entries(result)),
   )
-  if (outputSchema && !validated.isError) {
-    const output = await validateParameters(
-      toJsonSchema(outputSchema, "output"),
+  if (outputSchema && !validated.isError)
+    Schema.decodeUnknownSync(outputSchema, { onExcessProperty: "error" })(
       validated.structuredContent,
     )
-    if (output === null) throw new Error("Tool structuredContent failed output validation")
-    return { ...validated, structuredContent: output }
-  }
   return validated
 }
