@@ -160,6 +160,80 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
   })
 }
 
+/** Keep public saved parts separate from the provider replay projection. */
+export function projectChatPublicHistory(records: readonly ChatProjectionRecord[]) {
+  const messages = records
+    .filter((record) => record.role === "assistant")
+    .map((record) => ({
+      id: record.id,
+      role: "assistant" as const,
+      content: "",
+      parts: record.payload.parts.map((part) => {
+        const visible = structuredClone(part)
+        if (visible.type !== "tool-call" || visible.executionLocation === "provider") return visible
+        const results = records.filter(
+          (result) =>
+            result.role === "tool" &&
+            result.state === "complete" &&
+            result.sourceAssistantMessageId === record.id &&
+            result.sourceToolPartId === part.id,
+        )
+        const targets = Array.isArray(part.targets) ? part.targets : []
+        return {
+          ...visible,
+          id: part.toolCallId!,
+          applicationPartId: part.id,
+          ...(results.length === targets.length && results.length > 0
+            ? {
+                state: results.every((result) => result.payload.parts[0]?.outcome === "succeeded")
+                  ? "complete"
+                  : "error",
+                output:
+                  results.length === 1
+                    ? (results[0]!.payload.parts[0]?.output ?? null)
+                    : results.map((result) => ({
+                        responseTargetId: result.responseTargetId ?? null,
+                        output: result.payload.parts[0]?.output ?? null,
+                      })),
+              }
+            : {}),
+        }
+      }),
+    }))
+  settleChatWebActivity(messages)
+  return messages
+}
+
+/** A later provider result settles a deferred use without rewriting its saved node. */
+export function settleChatWebActivity(messages: { parts: Schema.JsonObject[] }[]) {
+  const completed = new Map(
+    messages
+      .flatMap((message) => message.parts)
+      .filter(
+        (part) =>
+          part.executionLocation === "provider" &&
+          (part.state === "complete" || part.state === "error"),
+      )
+      .map((part) => [part.toolCallId, part]),
+  )
+  for (const message of messages)
+    for (const part of message.parts) {
+      if (
+        part.executionLocation !== "provider" ||
+        part.state === "complete" ||
+        part.state === "error"
+      )
+        continue
+      const result = completed.get(part.toolCallId)
+      if (result) {
+        Object.assign(part, {
+          state: result.state,
+          output: result.state === "error" ? result.output : { sources: [] },
+        })
+      }
+    }
+}
+
 /** Opaque provider context is reusable only with the provider instance, protocol and model that produced it. */
 export function projectChatModelHistory(
   records: readonly ChatProjectionRecord[],

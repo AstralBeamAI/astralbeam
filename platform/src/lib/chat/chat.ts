@@ -10,7 +10,7 @@ import { Context, Effect, identity, Layer, Stream } from "effect"
 
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
-import { projectChatModelHistory } from "./threads/projection"
+import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
 import {
   managedChatDelivery,
   managedChatMiddleware,
@@ -264,6 +264,7 @@ export class Chat extends Context.Service<
           managed: input.managed,
           threads,
           history: convertMessagesToModelMessages(messages),
+          publicHistory: projectChatPublicHistory(history),
           tools,
           model,
           agentId: `agent_${input.principal.organization.id}_${agent.id}`,
@@ -300,6 +301,7 @@ export class Chat extends Context.Service<
                   systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
                 return {
                   providerMessages: convertMessagesToModelMessages(normalized.messages),
+                  publicHistory: projectChatPublicHistory(saved),
                   tools,
                   systemPrompts,
                 }

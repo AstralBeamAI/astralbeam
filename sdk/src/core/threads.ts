@@ -1,4 +1,5 @@
 import type { UIMessage } from "@tanstack/ai-client"
+import { isSettledToolCall } from "./messages.ts"
 import type { WebPartMetadata } from "./web.ts"
 import type { JwtOptions } from "../api/api.ts"
 import { listChatMessages, type ChatHistoryPageEncodedMessagesItem } from "../api/generated/api.ts"
@@ -208,6 +209,31 @@ export function projectThreadMessages(
       },
     })
   }
+  const completed = new Map(
+    messages
+      .flatMap((message) => message.parts)
+      .filter(
+        (part) =>
+          part.type === "tool-call" &&
+          (part as ChatToolCallPart).executionLocation === "provider" &&
+          (part.state === "complete" || part.state === "error"),
+      )
+      .map((part) => [(part as ChatToolCallPart).upstreamToolCallId, part as ChatToolCallPart]),
+  )
+  for (const message of messages)
+    for (const part of message.parts) {
+      if (
+        part.type !== "tool-call" ||
+        (part as ChatToolCallPart).executionLocation !== "provider" ||
+        isSettledToolCall(part)
+      )
+        continue
+      const result = completed.get((part as ChatToolCallPart).upstreamToolCallId)
+      if (result) {
+        part.state = result.state
+        part.output = result.state === "error" ? (result.output as unknown) : { sources: [] }
+      }
+    }
   return messages
 }
 

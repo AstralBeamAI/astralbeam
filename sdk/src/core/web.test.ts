@@ -59,5 +59,14 @@ describe("portable web evidence", () => {
     const running = { ...reloaded, state: "input-streaming" as const }
     expect(isSettledToolCall(running)).toBe(false)
     expect(lastPartInProgress([{ id: "live", role: "assistant", parts: [running] }])).toBe(true)
+    const deferred = projectThreadMessages([
+      {
+        ...records[0]!,
+        id: "deferred",
+        parts: [{ ...part, id: "pending", state: "input-complete" }],
+      },
+      records[0]!,
+    ])
+    expect(deferred[0]!.parts[0]).toMatchObject({ id: "pending", state: "complete" })
   })
 })

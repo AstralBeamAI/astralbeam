@@ -1,5 +1,7 @@
 import {
   chat,
+  StreamProcessor,
+  type UIMessage,
   EventType,
   toolDefinition,
   type ModelMessage,
@@ -16,7 +18,11 @@ import { createChatAdapter } from "./adapter.server"
 import { publicChatWebPart } from "./web-evidence.server"
 import { chatWebTools } from "./web.server"
 import { managedChatDelivery, managedChatMiddleware } from "./threads/stream.server"
-import { projectChatModelHistory } from "./threads/projection.server"
+import {
+  chatStoredJson,
+  projectChatModelHistory,
+  projectChatPublicHistory,
+} from "./threads/projection.server"
 import type { ChatThreads } from "./threads/threads.server"
 import type { ChatMessagePayload, ChatWriterClaim } from "./threads/schemas"
 
@@ -235,6 +241,25 @@ function nativeWebFixture(
   )
 }
 
+async function deferredAnthropicFixture(first: boolean, application: boolean) {
+  const response = nativeWebFixture("anthropic", first && !application, false, first && application)
+  const keep = first ? (application ? [0, 3] : [0]) : [1, 2]
+  const events = (await response.text())
+    .split("\n\n")
+    .filter(Boolean)
+    .map((frame) => JSON.parse(frame.split("data: ")[1]!) as { type: string; index?: number })
+  return new Response(
+    events
+      .filter((event) => event.index === undefined || keep.includes(event.index))
+      .map(
+        (event) =>
+          `event: ${event.type}\ndata: ${JSON.stringify(event.index === undefined ? event : { ...event, index: keep.indexOf(event.index) })}\n\n`,
+      )
+      .join(""),
+    { headers: { "Content-Type": "text/event-stream" } },
+  )
+}
+
 async function nativeWebRun(
   provider: "openai" | "anthropic" | "openrouter",
   options: {
@@ -245,6 +270,11 @@ async function nativeWebRun(
     cancel?: boolean
     model?: ChatModelConfiguration
     prompt?: string
+    history?: ModelMessage[]
+    publicHistory?: ReturnType<typeof projectChatPublicHistory>
+    browser?: boolean
+    response?: (request: number) => Promise<Response>
+    allowError?: boolean
   } = {},
 ) {
   const requests: Record<string, unknown>[] = []
@@ -263,6 +293,7 @@ async function nativeWebRun(
     baseUrl: "https://provider.example/v1",
     fetch: async (input, init) => {
       requests.push(JSON.parse(await new Request(input, init).text()) as Record<string, unknown>)
+      if (options.response) return options.response(requests.length)
       return nativeWebFixture(
         provider,
         options.pause && requests.length === 1,
@@ -283,7 +314,7 @@ async function nativeWebRun(
     assistantMessageId: crypto.randomUUID(),
     invocationId: crypto.randomUUID(),
   }
-  const history: ModelMessage[] = [
+  const history: ModelMessage[] = options.history ?? [
     { role: "user", id: claim.inputMessageId, content: options.prompt ?? "Find evidence" },
   ]
   const managed = { claim, threadVersion: 1, clientId: crypto.randomUUID() }
@@ -298,7 +329,10 @@ async function nativeWebRun(
     executed++
     return { found: true }
   })
-  const tools = [...chatWebTools(model, true, []), ...(options.application ? [lookup] : [])]
+  const tools = [
+    ...chatWebTools(model, true, []),
+    ...(options.application ? [options.browser ? { ...lookup, execute: undefined } : lookup] : []),
+  ]
   const threads = {
     checkpoint: ({ payload }: { payload: ChatMessagePayload }) =>
       Effect.sync(() => {
@@ -318,6 +352,7 @@ async function nativeWebRun(
     managed,
     threads,
     history,
+    publicHistory: options.publicHistory,
     tools,
     model,
     agentId: "agent",
@@ -353,13 +388,206 @@ async function nativeWebRun(
     }))
       chunks.push(chunk)
   } catch (cause) {
-    if (!options.cancel) throw cause
+    if (!options.cancel && !options.allowError) throw cause
     error = cause
   }
   return { requests, saved, chunks, executed, results, model, adapter, tools, error }
 }
 
 describe("native web access", () => {
+  test.each(["openai", "anthropic", "openrouter"] as const)(
+    "delivers saved citations and settled activity for native-only %s answers",
+    async (provider) => {
+      const result = await nativeWebRun(provider)
+      const processor = new StreamProcessor()
+      for (const chunk of result.chunks) processor.processChunk(chunk)
+      const parts = processor
+        .getMessages()
+        .filter((message) => message.role === "assistant")
+        .flatMap((message) => message.parts)
+      const saved = result.saved.at(-1)!.parts
+      expect(parts.map((part) => chatStoredJson(part).id)).toEqual(saved.map((part) => part.id))
+      expect(parts.find((part) => part.type === "text")).toMatchObject({
+        metadata: { web: { citations: [{ url: webTestSource.url }] } },
+      })
+      expect(parts.find((part) => part.type === "tool-call")).toMatchObject({ state: "complete" })
+      const sourceLists = parts.filter(
+        (part) => part.type === "tool-call" && JSON.stringify(part).includes(webTestSource.url),
+      )
+      expect(sourceLists).toHaveLength(1)
+    },
+  )
+
+  test.each([false, true])(
+    "preserves earlier citations at a browser wait, provider changed=%s",
+    async (changed) => {
+      const first = await nativeWebRun("anthropic")
+      const records = [
+        {
+          id: "previous-answer",
+          role: "assistant" as const,
+          state: "complete" as const,
+          payload: first.saved.at(-1)!,
+        },
+      ]
+      const second = await nativeWebRun("anthropic", {
+        application: true,
+        browser: true,
+        history: [
+          ...projectChatModelHistory(
+            records,
+            changed
+              ? undefined
+              : {
+                  providerId: first.model.providerId,
+                  protocol: first.model.api,
+                  modelId: first.model.modelId,
+                },
+          ),
+          { id: "follow-up", role: "user", content: "Explain that evidence" },
+        ],
+        publicHistory: projectChatPublicHistory(records),
+      })
+      const processor = new StreamProcessor()
+      processor.setMessages([
+        {
+          id: "previous-answer",
+          role: "assistant",
+          parts: records[0]!.payload.parts as unknown as UIMessage["parts"],
+        },
+      ])
+      for (const chunk of second.chunks) processor.processChunk(chunk)
+      expect(
+        processor.getMessages().find((message) => message.id === "previous-answer")!.parts,
+      ).toEqual(records[0]!.payload.parts)
+      expect(second.executed).toBe(0)
+      expect(second.results).toBe(0)
+      expect(JSON.stringify(processor.getMessages())).not.toContain("Saved web evidence:")
+    },
+  )
+
+  test.each([false, true])(
+    "records deferred Anthropic results, application turn=%s",
+    async (application) => {
+      const result = await nativeWebRun("anthropic", {
+        application,
+        response: async (request) => {
+          return deferredAnthropicFixture(request === 1, application)
+        },
+      })
+      expect(result.requests).toHaveLength(2)
+      expect(
+        result.saved.at(-1)!.parts.find((part) => part.executionLocation === "provider"),
+      ).toMatchObject({ name: "web_search", state: "complete", targets: [] })
+      expect(result.results).toBe(application ? 1 : 0)
+      const processor = new StreamProcessor()
+      for (const chunk of result.chunks) processor.processChunk(chunk)
+      expect(
+        processor
+          .getMessages()
+          .flatMap((message) => message.parts)
+          .filter(
+            (part) =>
+              part.type === "tool-call" && chatStoredJson(part).executionLocation === "provider",
+          )
+          .every((part) => part.type === "tool-call" && part.state === "complete"),
+      ).toBe(true)
+    },
+  )
+
+  test("deferred Anthropic activity settles across a saved browser-tool continuation", async () => {
+    const first = await nativeWebRun("anthropic", {
+      application: true,
+      browser: true,
+      response: () => deferredAnthropicFixture(true, true),
+    })
+    const decision = first.saved.at(-1)!
+    const application = decision.parts.find((part) => part.executionLocation === "browser")!
+    const target = (application.targets as { id: string }[])[0]!
+    const records = [
+      { id: "decision", role: "assistant" as const, state: "complete" as const, payload: decision },
+      {
+        id: "result",
+        role: "tool" as const,
+        state: "complete" as const,
+        sourceAssistantMessageId: "decision",
+        sourceToolPartId: String(application.id),
+        responseTargetId: target.id,
+        payload: {
+          version: 1 as const,
+          parts: [
+            {
+              id: "result-part",
+              type: "tool-result",
+              toolCallId: application.toolCallId!,
+              outcome: "succeeded",
+              output: { found: true },
+            },
+          ],
+        },
+      },
+    ]
+    const second = await nativeWebRun("anthropic", {
+      history: projectChatModelHistory(records, {
+        providerId: first.model.providerId,
+        protocol: first.model.api,
+        modelId: first.model.modelId,
+      }),
+      publicHistory: projectChatPublicHistory(records),
+      response: () => deferredAnthropicFixture(false, true),
+    })
+    expect(second.results).toBe(0)
+    expect(
+      second.saved.at(-1)!.parts.find((part) => part.executionLocation === "provider"),
+    ).toMatchObject({ state: "complete", targets: [] })
+    const processor = new StreamProcessor()
+    for (const chunk of second.chunks) processor.processChunk(chunk)
+    expect(
+      processor
+        .getMessages()
+        .find((message) => message.id === "decision")!
+        .parts.find((part) => part.type === "tool-call"),
+    ).toMatchObject({ state: "complete" })
+    expect(JSON.stringify(second.requests)).toContain("server_tool_use")
+  })
+
+  test.each(["response.incomplete", "response.failed", "disconnected"])(
+    "retains returned OpenAI evidence on %s",
+    async (terminal) => {
+      const result = await nativeWebRun("openai", {
+        allowError: true,
+        response: async () => {
+          const frames = (await nativeWebFixture("openai").text()).split("\n\n").filter(Boolean)
+          if (terminal === "disconnected") frames.pop()
+          else
+            frames[frames.length - 1] = frames
+              .at(-1)!
+              .replace("response.completed", terminal)
+              .replace(
+                '"status":"completed","output"',
+                '"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output"',
+              )
+          return new Response(frames.join("\n\n") + "\n\n", {
+            headers: { "Content-Type": "text/event-stream" },
+          })
+        },
+      })
+      expect(result.error).toBeDefined()
+      expect(result.saved.at(-1)!.parts.find((part) => part.type === "text")).toMatchObject({
+        metadata: { web: { citations: [{ url: webTestSource.url }] } },
+      })
+      expect(
+        result.saved.at(-1)!.parts.find((part) => part.executionLocation === "provider"),
+      ).toMatchObject({ state: "complete" })
+      expect(
+        result.chunks.some(
+          (chunk) =>
+            chunk.type === EventType.CUSTOM && (chunk.value as { saved?: boolean }).saved === true,
+        ),
+      ).toBe(false)
+    },
+  )
+
   test("streamed native evidence does not complete activity before a provider result", () => {
     const part = publicChatWebPart({
       type: "tool-call",

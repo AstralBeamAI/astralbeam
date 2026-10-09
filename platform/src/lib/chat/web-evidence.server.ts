@@ -208,10 +208,41 @@ function observeChatWebEvent(
       for (const annotation of annotations) appendChatWebCitation(state, annotation)
     }
     state.usage = { ...state.usage, ...chatWebRecord(event.usage) }
-  } else if (event.type === "response.completed") {
-    const response = chatWebRecord(event.response)
-    state.blocks = chatWebArray(response.output).map(chatWebRecord)
-    state.usage = chatWebRecord(response.usage)
+  } else {
+    const index = typeof event.output_index === "number" ? event.output_index : 0
+    if (event.type === "response.output_item.added" || event.type === "response.output_item.done")
+      state.blocks[index] = chatWebRecord(event.item)
+    if (
+      event.type === "response.content_part.added" ||
+      event.type === "response.content_part.done" ||
+      event.type === "response.output_text.delta" ||
+      event.type === "response.output_text.annotation.added"
+    ) {
+      const block = state.blocks[index]
+      if (block) {
+        const content = chatWebArray(block.content).map(chatWebRecord)
+        const partIndex = typeof event.content_index === "number" ? event.content_index : 0
+        const part = content[partIndex] ?? { type: "output_text", text: "" }
+        if (event.type === "response.output_text.delta")
+          part.text =
+            (typeof part.text === "string" ? part.text : "") +
+            (typeof event.delta === "string" ? event.delta : "")
+        if (event.type === "response.output_text.annotation.added")
+          part.annotations = [...chatWebArray(part.annotations), event.annotation!]
+        content[partIndex] = event.part ? chatWebRecord(event.part) : part
+        block.content = content
+      }
+    }
+    if (
+      event.type === "response.completed" ||
+      event.type === "response.incomplete" ||
+      event.type === "response.failed"
+    ) {
+      const response = chatWebRecord(event.response)
+      if (Array.isArray(response.output))
+        state.blocks = chatWebArray(response.output).map(chatWebRecord)
+      state.usage = { ...state.usage, ...chatWebRecord(response.usage) }
+    }
     let offset = 0
     for (const item of state.blocks) {
       for (const content of chatWebArray(item.content)) {

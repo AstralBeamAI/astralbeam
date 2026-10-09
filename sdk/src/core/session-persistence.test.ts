@@ -751,6 +751,15 @@ test.each([
                   id: "previous-assistant",
                   role: "assistant",
                   content: "",
+                  parts: [
+                    {
+                      ...assistant.parts[0],
+                      id: "provider-call",
+                      applicationPartId: "previous-part",
+                      state: "complete",
+                      output: { previous: true },
+                    },
+                  ],
                   toolCalls: [
                     {
                       id: "provider-call",
