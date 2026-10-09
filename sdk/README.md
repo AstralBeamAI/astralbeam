@@ -115,13 +115,13 @@ By default, `threadId: "auto"` restores this tab's selection after reload using 
 
 ## Tools and widgets
 
-Tools execute in your page. Widgets present your UI in the conversation. Object keys name tools and identify widgets, with no repeated `name` or `id` fields. See [Tools and widgets](https://astralbeam.ai/docs/sdk/tools-and-widgets).
+A tool does something: its `execute` runs in your page. A widget shows something: its `render` draws your UI into the conversation. Both are declared with a `description` and a `parameters` schema. See [Tools and widgets](https://astralbeam.ai/docs/sdk/tools-and-widgets).
 
 ```tsx
-import { defineTool, defineWidget } from "@astralbeam/sdk/react"
+import type { ToolRegistry, WidgetRegistry } from "@astralbeam/sdk/react"
 
 const tools = {
-  restart_service: defineTool({
+  restart_service: {
     title: "Restart a service",
     description: "Restart a service by name",
     widget: "systemStatus",
@@ -133,16 +133,16 @@ const tools = {
     execute: async ({ service }, { signal }) => ({
       restarted: await restartService(String(service), { signal }),
     }),
-  }),
-}
+  },
+} satisfies ToolRegistry
 const widgets = {
-  systemStatus: defineWidget({
+  systemStatus: {
     description: "Show system status",
     render: (_props, { result, status }) => (
       <StatusCard data={result?.structuredContent} loading={status === "pending"} />
     ),
-  }),
-}
+  },
+} satisfies WidgetRegistry
 ```
 
 - Set a tool's `widget` to a widget ID for result presentation. Standalone widgets expose their own `show_<id>` tools.
