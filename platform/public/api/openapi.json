@@ -12402,7 +12402,7 @@
               "attachments": {
                 "type": "boolean"
               },
-              "resolvedAgentId": {
+              "resolved_agent_id": {
                 "type": "string"
               },
               "uploads": {
@@ -12411,32 +12411,32 @@
                   "available": {
                     "type": "boolean"
                   },
-                  "maxFiles": {
+                  "max_files": {
                     "type": "integer"
                   },
-                  "maxTotalBytes": {
+                  "max_total_bytes": {
                     "type": "integer"
                   },
-                  "partSize": {
+                  "part_size": {
                     "type": "integer"
                   },
-                  "sessionHours": {
+                  "session_hours": {
                     "type": "integer"
                   }
                 },
                 "required": [
                   "available",
-                  "maxFiles",
-                  "maxTotalBytes",
-                  "partSize",
-                  "sessionHours"
+                  "max_files",
+                  "max_total_bytes",
+                  "part_size",
+                  "session_hours"
                 ],
                 "additionalProperties": false
               }
             },
             "required": [
               "attachments",
-              "resolvedAgentId",
+              "resolved_agent_id",
               "uploads"
             ],
             "additionalProperties": false

@@ -7,8 +7,7 @@ CREATE TABLE "file_deletion" (
 	"attempts" bigint DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
+);--> statement-breakpoint
 CREATE TABLE "file_object" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"object_key" text NOT NULL,
@@ -22,8 +21,7 @@ CREATE TABLE "file_object" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "file_object_size_check" CHECK ("byte_size" >= 0),
 	CONSTRAINT "file_object_sha256_check" CHECK ("sha256" ~ '^[0-9a-f]{64}$')
-);
---> statement-breakpoint
+);--> statement-breakpoint
 CREATE TABLE "organization_image_import" (
 	"organization_id" uuid,
 	"id" uuid DEFAULT uuidv7(),
@@ -37,16 +35,14 @@ CREATE TABLE "organization_image_import" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "organization_image_import_pkey" PRIMARY KEY("organization_id","id")
-);
---> statement-breakpoint
+);--> statement-breakpoint
 CREATE TABLE "organization_logo" (
 	"organization_id" uuid,
 	"id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "organization_logo_pkey" PRIMARY KEY("organization_id","id")
-);
---> statement-breakpoint
+);--> statement-breakpoint
 CREATE TABLE "user_avatar" (
 	"user_id" uuid,
 	"id" uuid,
@@ -54,8 +50,7 @@ CREATE TABLE "user_avatar" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "user_avatar_pkey" PRIMARY KEY("user_id","id")
-);
---> statement-breakpoint
+);--> statement-breakpoint
 CREATE TABLE "user_image_import" (
 	"user_id" uuid PRIMARY KEY,
 	"source_url" text,
@@ -67,8 +62,7 @@ CREATE TABLE "user_image_import" (
 	"retry_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
+);--> statement-breakpoint
 ALTER TABLE "organization" ADD COLUMN "logo_file_id" uuid;--> statement-breakpoint
 ALTER TABLE "organization" ADD COLUMN "logo_import_generation" uuid;--> statement-breakpoint
 ALTER TABLE "organization" ADD COLUMN "logo_import_source_url" text;--> statement-breakpoint

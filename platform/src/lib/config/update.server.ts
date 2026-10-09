@@ -25,7 +25,7 @@ export function validateConfigUpdates(
   updates: readonly ConfigUpdate[],
   environmentKeys: ReadonlySet<ConfigKey>,
 ) {
-  const changes: DatabaseConfigChange[] = []
+  const changes: (DatabaseConfigChange & { readonly key: ConfigKey })[] = []
   const issues: ConfigUpdateIssue[] = []
   const seenKeys = new Set<string>()
   for (const update of updates) {

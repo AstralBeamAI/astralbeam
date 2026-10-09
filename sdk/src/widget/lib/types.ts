@@ -54,6 +54,7 @@ export interface DraftAttachment {
   kind?: AttachmentKind | undefined
   status: "reading" | "uploading" | "paused" | "reselect" | "ready" | "error"
   agentId?: string | undefined
+  prepareAttempted?: boolean | undefined
   sessionId?: string | undefined
   sha256?: string | undefined
   fileId?: string | undefined

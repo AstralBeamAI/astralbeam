@@ -16,7 +16,7 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
-import { uploadAvatar } from "@/lib/storage/upload-avatar"
+import { uploadAvatar } from "@/routes/_authenticated/_user/settings/account/-functions/upload-avatar"
 
 export type ChangeAvatarProps = {
   className?: string

@@ -369,15 +369,15 @@ export interface ChatUploadInputEncoded {
 
 export type ChatConfigurationCapabilitiesUploads = {
   available: boolean
-  maxFiles: number
-  maxTotalBytes: number
-  partSize: number
-  sessionHours: number
+  max_files: number
+  max_total_bytes: number
+  part_size: number
+  session_hours: number
 }
 
 export type ChatConfigurationCapabilities = {
   attachments: boolean
-  resolvedAgentId: string
+  resolved_agent_id: string
   uploads: ChatConfigurationCapabilitiesUploads
 }
 

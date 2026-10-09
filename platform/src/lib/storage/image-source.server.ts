@@ -1,3 +1,4 @@
+import { verifiedImage } from "./image-validation.server"
 import { lookup } from "node:dns/promises"
 import { request as httpsRequest } from "node:https"
 import { BlockList } from "node:net"
@@ -5,7 +6,7 @@ import { Context, Effect, Layer } from "effect"
 
 import { isPrivateModelEndpointAddress } from "@/lib/model-providers/endpoints.server"
 import { ImageImportUnavailable, ImageSourceMissing, InvalidImage } from "./errors"
-import { IMAGE_MAX_BYTES, verifiedImage } from "./images"
+import { IMAGE_MAX_BYTES } from "./images"
 
 // Refuse special-purpose and address-translation destinations in external image imports.
 // https://www.iana.org/assignments/iana-ipv6-special-registry

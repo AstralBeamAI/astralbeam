@@ -26,7 +26,6 @@ import {
   downloadStoredChatFile,
   type ChatUploadEncoded as ChatUpload,
   type ChatUploadInputEncoded as ChatUploadInput,
-  type ChatConfiguration,
 } from "../api/generated/api.ts"
 import {
   astralBeamChatFetch,
@@ -157,7 +156,13 @@ export interface AstralBeamChatState {
   capabilities: {
     attachments: boolean
     resolvedAgentId?: string
-    uploads?: ChatConfiguration["capabilities"]["uploads"]
+    uploads?: {
+      available: boolean
+      maxFiles: number
+      maxTotalBytes: number
+      partSize: number
+      sessionHours: number
+    }
   }
   capabilitiesLoading: boolean
   /** The tool set currently declared to the agent, in declaration order. */
@@ -275,6 +280,7 @@ export function createAstralBeamChat(
   let stopAuthentication: (() => void) | undefined
   let unsubscribeAuthentication: (() => void) | undefined
   let identity: string | undefined
+  let authEpoch = 0
   let started = false
   let selectionGeneration = 0
   let navigationGeneration = 0
@@ -337,20 +343,22 @@ export function createAstralBeamChat(
     update({ error: failure, status: "error" })
     live.streamCallbacks?.onError?.(failure)
   }
-  const requestOptions = async (): Promise<JwtOptions> => {
+  const requestOptions = async (selectionBound = true): Promise<JwtOptions> => {
     const generation = selectionGeneration
-    const token = await getValidChatAuthToken(authentication)
-    if (generation !== selectionGeneration)
+    const epoch = authEpoch
+    const auth = { ...authentication }
+    const token = await getValidChatAuthToken(auth)
+    if (epoch !== authEpoch || (selectionBound && generation !== selectionGeneration))
       throw new DOMException("Conversation changed", "AbortError")
     return {
-      apiUrl: authentication.apiUrl,
+      apiUrl: auth.apiUrl,
       astralBeamToken: token,
       cache: "no-store",
       signal: AbortSignal.any([
-        requestController.signal,
-        authentication.session.abortController.signal,
+        ...(selectionBound ? [requestController.signal] : []),
+        auth.session.abortController.signal,
       ]),
-      fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
+      fetchClient: (input, init) => fetchAuthenticatedChat({ ...auth, input, init }),
     }
   }
   const uploadOptions = async (signal?: AbortSignal): Promise<JwtOptions> => {
@@ -384,8 +392,14 @@ export function createAstralBeamChat(
       update({
         capabilities: {
           attachments,
-          resolvedAgentId: body.capabilities.resolvedAgentId,
-          uploads: body.capabilities.uploads,
+          resolvedAgentId: body.capabilities.resolved_agent_id,
+          uploads: body.capabilities.uploads && {
+            available: body.capabilities.uploads.available,
+            maxFiles: body.capabilities.uploads.max_files,
+            maxTotalBytes: body.capabilities.uploads.max_total_bytes,
+            partSize: body.capabilities.uploads.part_size,
+            sessionHours: body.capabilities.uploads.session_hours,
+          },
         },
         capabilitiesLoading: false,
       })
@@ -1107,16 +1121,17 @@ export function createAstralBeamChat(
   const deleteThread = async (thread = state.thread, beforeDelete?: () => Promise<void>) => {
     if (!thread || thread.role !== "manager") return false
     const generation = selectionGeneration
+    const epoch = authEpoch
     try {
-      const options = await requestOptions()
+      const options = await requestOptions(false)
       if (generation !== selectionGeneration) return false
       await beforeDelete?.()
-      if (generation !== selectionGeneration) return false
+      if (epoch !== authEpoch) return false
       await deleteChatThread(thread.id, { expected_version: String(thread.version) }, options)
-      if (generation === selectionGeneration && state.thread?.id === thread.id) newThread()
+      if (epoch === authEpoch && state.thread?.id === thread.id) newThread()
       return true
     } catch (error) {
-      if (generation === selectionGeneration) reportError(error)
+      if (epoch === authEpoch) reportError(error)
       return false
     }
   }
@@ -1303,6 +1318,7 @@ export function createAstralBeamChat(
     if (auth.status === "ready") {
       const nextIdentity = authenticationIdentity(auth.currentUser)
       if (identity !== undefined && identity !== nextIdentity) {
+        authEpoch++
         navigationGeneration++
         pendingSends.clear()
         threadToolResults.clear()
@@ -1349,9 +1365,11 @@ export function createAstralBeamChat(
     updateOptions: (next) => {
       const agent = live.agentId
       const apiUrl = live.apiUrl
+      const tokenSource = live.fetchAstralBeamToken
       const selectedId = live.threadId
       const { widgets, onRenderWidget } = live
       live = { ...live, ...next }
+      if (live.apiUrl !== apiUrl || live.fetchAstralBeamToken !== tokenSource) authEpoch++
       debug = createDebugLogger(live.debug)
       updateAuthentication(authentication, {
         apiUrl: live.apiUrl,

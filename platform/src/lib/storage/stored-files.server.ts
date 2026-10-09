@@ -22,7 +22,6 @@ export class StoredFiles extends Context.Service<
       bytes: Uint8Array
       contentType: string
       sourceIdentity?: string
-      reuseVerified?: boolean
     }) => Effect.Effect<StoredFile, StorageUnavailable | StorageObjectMissing>
     readonly resume: (
       sourceIdentity: string,
@@ -88,7 +87,6 @@ export class StoredFiles extends Context.Service<
         bytes: Uint8Array
         contentType: string
         sourceIdentity?: string
-        reuseVerified?: boolean
       }) {
         const sha256 = yield* fileSha256(input.bytes)
         const objectKey = `files/${crypto.randomUUID()}`
@@ -140,7 +138,6 @@ export class StoredFiles extends Context.Service<
           file.contentType !== input.contentType
         )
           return yield* new StorageUnavailable()
-        if (input.reuseVerified && file.verifiedAt) return file
         const upload = storage
           .put({
             key: file.objectKey,

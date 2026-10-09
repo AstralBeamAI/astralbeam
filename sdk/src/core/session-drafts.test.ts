@@ -170,6 +170,54 @@ test.each(["send", "delete"] as const)(
   },
 )
 
+test.each(["selection", "api", "identity"] as const)(
+  "deletion after draft cleanup stays bound to authentication through a %s change",
+  async (change) => {
+    let user = currentUser
+    const deletes: { path: string; aborted: boolean | undefined }[] = []
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const url = new URL(input)
+      if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(user))
+      if (init?.method === "DELETE") {
+        deletes.push({ path: url.pathname, aborted: init.signal?.aborted })
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      if (url.pathname.endsWith("/messages")) return Promise.resolve(Response.json(page(threadA)))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    })
+    const chat = createAstralBeamChat({ threadId: threadA, fetchAstralBeamToken: token })
+    let finish = () => {}
+    const beforeDelete = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
+    )
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+      const deletion = chat.deleteThread(undefined, beforeDelete)
+      await vi.waitFor(() => expect(beforeDelete).toHaveBeenCalledOnce())
+      if (change === "selection") chat.reset()
+      else if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+      else {
+        user = { ...currentUser, user: { id: "different-user" } }
+        chat.retryAuthentication()
+      }
+      await vi.waitFor(() =>
+        expect(chat.getState().auth).toMatchObject({ status: "ready", currentUser: user }),
+      )
+      finish()
+      expect(await deletion).toBe(change === "selection")
+      expect(deletes).toEqual(
+        change === "selection" ? [{ path: `/api/v1/chat/threads/${threadA}`, aborted: false }] : [],
+      )
+    } finally {
+      finish()
+      chat.dispose()
+    }
+  },
+)
+
 test("new-conversation callbacks survive a token refresh failure and acknowledge acceptance", async () => {
   const onThreadReady = vi.fn<(id: string) => void>()
   const onAccepted = vi.fn()
