@@ -90,7 +90,7 @@ export async function seedConfig(
 
 function localStorageEndpoint(value: string) {
   const endpoint = new URL(value)
-  return ["127.0.0.1", "localhost", "rustfs"].includes(endpoint.hostname) &&
+  return ["127.0.0.1", "localhost", "[::1]", "rustfs"].includes(endpoint.hostname) &&
     endpoint.pathname === "/"
     ? endpoint
     : undefined

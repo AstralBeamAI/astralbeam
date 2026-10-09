@@ -129,7 +129,8 @@ databases_are_external() {
 start_databases() {
   [ -f "$WORKSPACE_PATH/docker-compose.yml" ] || return 0
   if databases_are_external; then
-    export SKIP_DOCKER_COMPOSE=true
+    # Explicit storage endpoints, including the devcontainer's RustFS service, are provisioned separately.
+    if [ -z "${S3_ENDPOINT:-}" ]; then export SKIP_DOCKER_COMPOSE=true; fi
     return
   fi
   # macOS development runs the native checkout against a database the developer already runs, so
