@@ -68,7 +68,6 @@ export class ChatFiles extends Context.Service<
     readonly externalize: (
       scope: ChatFileScope,
       payload: ChatMessagePayload,
-      options?: { reuseVerified?: boolean },
     ) => Effect.Effect<ChatMessagePayload, ChatFileFailure>
     readonly hydrate: (
       scope: ChatFileScope,
@@ -126,7 +125,6 @@ export class ChatFiles extends Context.Service<
       const externalize = Effect.fn("ChatFiles.externalize")(function* (
         scope: ChatFileScope,
         payload: ChatMessagePayload,
-        options?: { reuseVerified?: boolean },
       ) {
         const continuation = (payload.modelMessages ?? []).flatMap((message) =>
           Array.isArray(message.content)
@@ -210,7 +208,6 @@ export class ChatFiles extends Context.Service<
                 bytes,
                 contentType,
                 sourceIdentity: `${chatFileIdentityPrefix(scope)}${digest}:${contentType}`,
-                reuseVerified: options?.reuseVerified === true,
               })
               .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
             return {
