@@ -433,6 +433,7 @@ export async function discardAttachmentUploads({
   identity,
   threadId,
   attachments,
+  attachmentIds,
   isCurrentAuthentication = uploads.chat.captureAuthentication(),
 }: {
   uploads: AttachmentUploads
@@ -440,6 +441,7 @@ export async function discardAttachmentUploads({
   identity: string
   threadId: string
   attachments: readonly DraftAttachment[]
+  attachmentIds?: ReadonlySet<string>
   isCurrentAuthentication?: () => boolean
 }) {
   checkUploadAuthentication(isCurrentAuthentication)
@@ -451,6 +453,7 @@ export async function discardAttachmentUploads({
       prepareAttempted:
         (file.prepareAttempted || files.get(file.id)?.prepareAttempted) ?? file.prepareAttempted,
     })
+  if (attachmentIds) for (const id of files.keys()) if (!attachmentIds.has(id)) files.delete(id)
   await Promise.all(
     [...files.values()].map(async (file) => {
       checkUploadAuthentication(isCurrentAuthentication)

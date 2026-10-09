@@ -533,6 +533,7 @@ export function ChatWidget({
     const sentAttachmentIds = new Set(
       attachments.filter((file) => file.status === "ready").map((file) => file.id),
     )
+    setSubmittedAttachmentIds((current) => new Set([...current, ...sentAttachmentIds]))
     let submissionDraftKey = draftKey
     void chat.sendMessage(
       parts.length === 0
@@ -545,7 +546,6 @@ export function ChatWidget({
           },
       {
         onThreadReady: (id) => {
-          setSubmittedAttachmentIds((current) => new Set([...current, ...sentAttachmentIds]))
           if (submissionDraftKey !== "") return
           submissionDraftKey = id
           const text = storedThreadDraft(apiUrl, draftIdentity, "")
@@ -627,24 +627,48 @@ export function ChatWidget({
   }
 
   const resetThread = () => {
+    if (!isCurrentAuthentication()) return
     // The session's reset is the client's own: it aborts an active stream, drops queued sends,
     // resets resume state, and disposes the live widget renders.
     chat.reset()
     setSubmittedAttachmentIds(new Set())
-    storedThreadDraft(apiUrl, draftIdentity, "", "")
+    const fresh = drafts.threads.get("")
+    if (!fresh?.attachmentsLoaded || fresh.storageError) return
+    const resetText = fresh.text
+    const files = fresh.attachments
+    const attachmentIds = new Set(files.map((file) => file.id))
     void discardAttachmentUploads({
       uploads,
       apiUrl,
       identity: draftIdentity,
       threadId: "",
-      attachments: drafts.threads.get("")?.attachments ?? [],
+      attachments: files,
+      attachmentIds,
       isCurrentAuthentication,
-    }).catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
-    setDrafts((current) => {
-      const threads = new Map(current.threads)
-      threads.set("", { ...EMPTY_DRAFT, attachmentsLoaded: true })
-      return { ...current, threads }
     })
+      .then(() => {
+        if (!isCurrentAuthentication()) return
+        if (storedThreadDraft(apiUrl, draftIdentity, "") === resetText)
+          storedThreadDraft(apiUrl, draftIdentity, "", "")
+        setDrafts((current) => {
+          if (
+            !isCurrentAuthentication() ||
+            current.apiUrl !== apiUrl ||
+            current.identity !== draftIdentity
+          )
+            return current
+          const value = current.threads.get("") ?? EMPTY_DRAFT
+          return {
+            ...current,
+            threads: new Map(current.threads).set("", {
+              ...value,
+              text: value.text === resetText ? "" : value.text,
+              attachments: value.attachments.filter((file) => !attachmentIds.has(file.id)),
+            }),
+          }
+        })
+      })
+      .catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
   }
 
   const focusComposer = () =>

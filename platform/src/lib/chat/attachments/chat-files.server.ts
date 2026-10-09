@@ -214,6 +214,8 @@ export class ChatFiles extends Context.Service<
               key = `${createHash("sha256").update(bytes).digest("hex")}:${contentType}`
             } else continue
             const kind = attachmentKind(contentType)
+            if (!kind && (part.type === "image" || part.type === "document"))
+              return yield* new ChatThreadInvalid()
             if (kind && size > CHAT_ATTACHMENT_MAX_BYTES_BY_KIND[kind])
               return yield* new ChatThreadInvalid()
             representationBytes += size

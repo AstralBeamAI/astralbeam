@@ -1108,6 +1108,26 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const storage = await runtime.runPromise(StoredFiles)
     const prepare = vi.fn(() => Effect.die("Oversized generated media must not reach S3"))
     for (const oversized of [
+      ...["image", "document"].flatMap((type) =>
+        [undefined, "application/octet-stream"].flatMap((mimeType) => {
+          const part = {
+            type,
+            source: {
+              type: "data",
+              value: "SGVsbG8=",
+              ...(mimeType ? { mimeType } : {}),
+            },
+          }
+          return [
+            { version: 1 as const, parts: [{ ...part, id: crypto.randomUUID() }] },
+            {
+              version: 1 as const,
+              parts: [],
+              modelMessages: [{ role: "assistant", content: [part] }],
+            },
+          ]
+        }),
+      ),
       {
         version: 1 as const,
         parts: Array.from({ length: 5 }, (_, index) => ({
