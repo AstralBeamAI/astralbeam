@@ -78,7 +78,6 @@ export function uploadHandlers(api: typeof ApiV1) {
         () => import("@/db/schema.server"),
       )
       const { mapDatabaseErrors } = yield* Effect.promise(() => import("@/db/lib/sqlstate.server"))
-      const { Config } = yield* Effect.promise(() => import("@/lib/config/config.server"))
       const { chatStoredFileResponse } = yield* Effect.promise(() => import("./files.server"))
       const { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } = yield* Effect.promise(
         () => import("@/lib/chat/attachments/constants.server"),
@@ -87,7 +86,6 @@ export function uploadHandlers(api: typeof ApiV1) {
       const uploads = yield* Uploads
       const agents = yield* Agents
       const db = yield* Database
-      const config = yield* Config
       const services = yield* Effect.context<
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof consumeRestRateLimit>>
@@ -186,9 +184,7 @@ export function uploadHandlers(api: typeof ApiV1) {
               .where(and(eq(fileObject.id, params.id), isNotNull(fileObject.verifiedAt)))
               .pipe(mapDatabaseErrors())
             if (!file) return yield* new UploadNotFound()
-            return yield* chatStoredFileResponse(file, filename ?? "file").pipe(
-              Effect.provideService(Config, config),
-            )
+            return yield* chatStoredFileResponse(file, filename ?? "file")
           }),
         )
     }),

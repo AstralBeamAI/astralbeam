@@ -9,7 +9,6 @@ import {
   disposeAttachmentUploads,
   releaseAttachmentUpload,
   removeAttachmentUpload,
-  getAttachmentUpload,
 } from "./uploads.ts"
 
 afterEach(() => vi.unstubAllGlobals())
@@ -186,8 +185,8 @@ test("acceptance releases only submitted browser resources without cancelling cl
   disposeAttachmentUploads(uploads)
 })
 
-test.each(["expired", "cancelled", "missing"] as const)(
-  "retry prepares a replacement for a %s session",
+test.each(["expired", "cancelled", "missing", "unavailable"] as const)(
+  "retry handles a %s session without losing its identity",
   async (status) => {
     const prepareUpload = vi.fn(() =>
       Promise.resolve({
@@ -199,9 +198,12 @@ test.each(["expired", "cancelled", "missing"] as const)(
     )
     const chat = {
       getUpload: vi.fn((id) => {
-        if (id === "old" && status === "missing")
+        if (id === "old" && (status === "missing" || status === "unavailable"))
           return Promise.reject(
-            Object.assign(new Error("Not found"), { name: "AstralBeamApiError", status: 404 }),
+            Object.assign(new Error("Upload unavailable"), {
+              name: "AstralBeamApiError",
+              status: status === "missing" ? 404 : 503,
+            }),
           )
         return Promise.resolve(
           id === "old"
@@ -224,29 +226,12 @@ test.each(["expired", "cancelled", "missing"] as const)(
         state = { ...state, ...update }
       },
     })
-    await vi.waitFor(() => expect(state.status).toBe("ready"))
-    expect(prepareUpload).toHaveBeenCalledOnce()
-    expect(state.sessionId).toBe("replacement")
+    await vi.waitFor(() => expect(state.status).toBe(status === "unavailable" ? "error" : "ready"))
+    expect(prepareUpload).toHaveBeenCalledTimes(status === "unavailable" ? 0 : 1)
+    expect(state.sessionId).toBe(status === "unavailable" ? "old" : "replacement")
     disposeAttachmentUploads(uploads)
   },
 )
-
-test("missing sessions recover while transient API failures retain their identity", async () => {
-  const chat = {
-    getUpload: vi
-      .fn()
-      .mockRejectedValue(
-        Object.assign(new Error("Not found"), { name: "AstralBeamApiError", status: 404 }),
-      ),
-  } as unknown as AstralBeamChatCore
-  expect(await getAttachmentUpload({ chat, id: "removed" })).toBeUndefined()
-  const unavailable = Object.assign(new Error("Unavailable"), {
-    name: "AstralBeamApiError",
-    status: 503,
-  })
-  vi.mocked(chat.getUpload).mockRejectedValue(unavailable)
-  await expect(getAttachmentUpload({ chat, id: "retryable" })).rejects.toBe(unavailable)
-})
 
 test("discarding a paused draft cancels its server session and releases its browser resources", () => {
   const cancelUpload = vi.fn(() => Promise.resolve())

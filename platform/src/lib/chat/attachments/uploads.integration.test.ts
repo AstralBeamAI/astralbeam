@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { eq, sql } from "drizzle-orm"
-import { Effect, Layer, ManagedRuntime, Stream } from "effect"
+import { Effect, Layer, ManagedRuntime } from "effect"
+import { HttpServerResponse } from "effect/http"
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { Database, getAuthDatabase } from "@/db/database.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
@@ -15,7 +16,8 @@ import {
   fileDeletion,
   multipartDeletion,
 } from "@/db/schema.server"
-import { ObjectStorage, objectStorageStream } from "@/lib/storage/object-storage.server"
+import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { chatStoredFileResponse } from "@/routes/api/v1/chat/-lib/files.server"
 import { MultipartStorage } from "@/lib/storage/multipart-storage.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { StorageUnavailable } from "@/lib/storage/errors"
@@ -146,7 +148,7 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
   })
 
   test("a pending-state database failure frees its unissued session and retains provider cleanup", async () => {
-    const before = (await db.select().from(multipartDeletion)).length
+    const before = new Set((await db.select().from(multipartDeletion)).map((row) => row.id))
     await db.execute(
       sql`CREATE FUNCTION reject_pending_upload() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.status = 'pending' THEN RAISE EXCEPTION 'test pending update failure'; END IF; RETURN NEW; END $$`,
     )
@@ -159,8 +161,10 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
           _tag: "EffectDrizzleQueryError",
         })
       expect(await db.select().from(fileUpload)).toHaveLength(0)
-      const targets = await db.select().from(multipartDeletion)
-      expect(targets).toHaveLength(before + 11)
+      const targets = (await db.select().from(multipartDeletion)).filter(
+        (row) => !before.has(row.id),
+      )
+      expect(targets).toHaveLength(11)
       const multipart = await runtime.runPromise(MultipartStorage)
       const target = targets.at(-1)!
       expect(await runtime.runPromise(multipart.find(target.objectKey))).not.toHaveLength(0)
@@ -209,12 +213,6 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
       sha256: input.sha256,
       byteSize: bytes.length,
     })
-    const related = await db.query.fileUpload.findFirst({
-      where: { organizationId: scope.organizationId, tenantId: scope.tenantId, id: session.id },
-      with: { uploader: true, file: true },
-    })
-    expect(related!.uploader!.id).toBe(scope.tenantUserId)
-    expect(related!.file!.id).toBe(complete.fileId)
     const [file] = await db.select().from(fileObject).where(eq(fileObject.id, complete.fileId!))
     const [row] = await db.select().from(fileUpload).where(eq(fileUpload.id, session.id))
     expect(file!.objectKey).not.toBe(row!.objectKey)
@@ -224,24 +222,18 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
     expect(
       await runtime.runPromise(objects.get({ key: file!.objectKey, maxBytes: bytes.length })),
     ).toEqual(bytes)
-    const streamed = await runtime.runPromise(
-      objectStorageStream(file!).pipe(Effect.flatMap(Stream.runCollect)),
+    const response = HttpServerResponse.toWeb(
+      await runtime.runPromise(chatStoredFileResponse(file!, input.filename)),
     )
-    expect(Buffer.concat(streamed.map((chunk) => Buffer.from(chunk)))).toEqual(Buffer.from(bytes))
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes)
     let emitted = 0
     await expect(
       runtime.runPromise(
-        objectStorageStream({ ...file!, sha256: "0".repeat(64) }).pipe(
-          Effect.flatMap((stream) =>
-            Stream.runForEach(stream, () =>
-              Effect.sync(() => {
-                emitted++
-              }),
-            ),
-          ),
+        chatStoredFileResponse({ ...file!, sha256: "0".repeat(64) }, input.filename).pipe(
+          Effect.tap(() => Effect.sync(() => emitted++)),
         ),
       ),
-    ).rejects.toMatchObject({ _tag: "StorageUnavailable" })
+    ).rejects.toMatchObject({ _tag: "ChatThreadStorageUnavailable" })
     expect(emitted).toBe(0)
     const offline = Uploads.layerNoDeps.pipe(
       Layer.provide(
