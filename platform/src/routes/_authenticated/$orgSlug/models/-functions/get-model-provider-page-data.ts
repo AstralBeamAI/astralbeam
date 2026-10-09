@@ -1,5 +1,3 @@
-import { ANTHROPIC_MODELS } from "@tanstack/ai-anthropic"
-import { OPENAI_CHAT_MODELS } from "@tanstack/ai-openai"
 import { createServerFn } from "@tanstack/react-start"
 import { Clock, Effect } from "effect"
 
@@ -8,24 +6,24 @@ import {
   catalogModelUsageConfiguration,
   readModelPriceCatalog,
 } from "@/lib/model-providers/pricing-catalog.server"
-import type { ModelProviderType, ProviderModelFields } from "@/lib/model-providers/schemas"
+import type { ModelProviderType } from "@/lib/model-providers/schemas"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { ModelProviderPageInputSchema } from "../-lib/schemas"
 
-// Suggestions are a subset of the public catalog. https://openrouter.ai/api/v1/models
-const openRouterModelSuggestions = [
-  "openai/gpt-5.4",
-  "openai/gpt-5.2",
-  "anthropic/claude-sonnet-4.6",
-  "google/gemini-3-flash-preview",
-]
-
-const modelProviderCatalog: Record<ModelProviderType, readonly ProviderModelFields[]> = {
-  openai: OPENAI_CHAT_MODELS.map((modelId) => ({ modelId, name: modelId })),
-  anthropic: ANTHROPIC_MODELS.map((modelId) => ({ modelId, name: modelId })),
-  openrouter: openRouterModelSuggestions.map((modelId) => ({ modelId, name: modelId })),
+// Curated current chat models, rather than the SDK's full legacy catalog.
+// https://developers.openai.com/api/docs/models | https://platform.claude.com/docs/en/models/overview | https://openrouter.ai/rankings
+const modelProviderSuggestions: Record<ModelProviderType, readonly string[]> = {
+  openai: ["gpt-6.1-sol", "gpt-6-luna", "gpt-6-astra"],
+  anthropic: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"],
+  openrouter: [
+    "openai/gpt-5.6-luna",
+    "anthropic/claude-sonnet-5.5",
+    "anthropic/claude-opus-5.5",
+    "google/gemini-3.8-flash",
+    "z-ai/glm-5.3-flash",
+  ],
 }
 
 export const getModelProviderPageData = createServerFn({ method: "GET" })
@@ -47,7 +45,10 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
           [
             ...new Map(
               [
-                ...modelProviderCatalog[providerType],
+                ...modelProviderSuggestions[providerType].map((modelId) => ({
+                  modelId,
+                  name: modelId,
+                })),
                 ...(provider?.providerType === providerType ? provider.models : []),
               ].map((model) => [model.modelId, model]),
             ).values(),
