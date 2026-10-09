@@ -45,8 +45,12 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     vi.unstubAllEnvs()
   })
 
-  test("rotates explicitly supplied local credentials without resetting the pinned destination", async () => {
-    const localSettings = { ...destinationSettings, endpoint: "http://127.0.0.1:9000" }
+  test.each([
+    ["http://127.0.0.1:9000", true],
+    ["http://rustfs:9000", true],
+    ["http://127.0.0.1:9100", false],
+  ] as const)("RustFS credential rotation: %s", async (endpoint, rotates) => {
+    const localSettings = { ...destinationSettings, endpoint }
     await Effect.runPromise(
       Effect.gen(function* () {
         const config = yield* Config
@@ -72,8 +76,8 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
           expect((yield* config.snapshot).values).toMatchObject({
             s3_endpoint: localSettings.endpoint,
             s3_bucket: localSettings.bucket,
-            s3_access_key_id: accessKey || "new-local-key",
-            s3_secret_access_key: expectedSecret,
+            s3_access_key_id: rotates ? accessKey || "new-local-key" : "first-key",
+            s3_secret_access_key: rotates ? expectedSecret : "first-secret",
           })
         }
       }).pipe(Effect.provide(Config.layer)),

@@ -1,14 +1,16 @@
 import { createServer } from "node:http"
 import { once } from "node:events"
 
-import { Effect, Layer, Logger } from "effect"
-import { expect, test } from "vitest"
+import { S3Client } from "@aws-sdk/client-s3"
+import { Effect, Layer, Logger, ManagedRuntime } from "effect"
+import { expect, test, vi } from "vitest"
 
 import { Config } from "@/lib/config/config.server"
 import { ObjectStorage } from "./object-storage.server"
 
 test("rejects corrupt downloads and missing metadata, and cleans up after cancellation", async () => {
   const objects = new Map<string, Uint8Array>()
+  const metadataCredentials: string[] = []
   let omitHeadSize = false
   let corruptDownloads = true
   let denyMissing = false
@@ -20,6 +22,9 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
   const server = createServer((request, response) => {
     const respond = async () => {
       const key = new URL(request.url!, "http://localhost").pathname
+      if (key === "/test/metadata") {
+        metadataCredentials.push(request.headers.authorization ?? "")
+      }
       if (key === "/test/denied") {
         response.writeHead(403, {
           "Content-Type": "application/xml",
@@ -78,7 +83,7 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
   const layer = ObjectStorage.layerNoDeps.pipe(
     Layer.provide(
       Layer.succeed(Config, {
-        snapshot: Effect.succeed({
+        snapshot: Effect.sync(() => ({
           issues: [],
           values: {
             s3_endpoint: settings.endpoint,
@@ -88,7 +93,7 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
             s3_secret_access_key: settings.secretAccessKey,
             s3_path_style: "true",
           },
-        }),
+        })),
       } as unknown as Config["Service"]),
     ),
   )
@@ -103,13 +108,24 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     expect(objects.size).toBe(0)
     omitHeadSize = true
     objects.set("/test/metadata", new Uint8Array([1]))
-    const metadata = await Effect.runPromise(
-      Effect.flatMap(ObjectStorage, (storage) => storage.head({ key: "metadata" })).pipe(
-        Effect.result,
-        Effect.provide(layer),
-      ),
-    )
-    expect(metadata).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+    const runtime = ManagedRuntime.make(layer)
+    const requests = vi.spyOn(S3Client.prototype, "send")
+    try {
+      const inspect = Effect.flatMap(ObjectStorage, (storage) =>
+        storage.head({ key: "metadata" }),
+      ).pipe(Effect.result)
+      const metadata = await runtime.runPromise(inspect)
+      expect(metadata).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+      await runtime.runPromise(inspect)
+      expect(requests.mock.contexts[1]).toBe(requests.mock.contexts[0])
+      settings.accessKeyId = "rotated-fixture-key"
+      await runtime.runPromise(inspect)
+      expect(requests.mock.contexts[2]).not.toBe(requests.mock.contexts[0])
+      expect(metadataCredentials[2]).toContain("Credential=rotated-fixture-key/")
+    } finally {
+      await runtime.dispose()
+      requests.mockRestore()
+    }
     objects.delete("/test/metadata")
     omitHeadSize = false
     corruptDownloads = false

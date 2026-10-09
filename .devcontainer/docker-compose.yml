@@ -5,6 +5,9 @@ services:
       - "127.0.0.1:${MAILPIT_WEB_HOST_PORT:-8025}:8025"
 
   astralbeam:
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-development}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-development-only-storage-key}
     # Paths are relative to the first Compose file in devcontainer.json
     build:
       context: .

@@ -57,7 +57,11 @@ export async function seedConfig(
           values.s3_endpoint,
   )
   const rotateCredentials =
-    localStorage && (process.env.RUSTFS_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY)
+    localStorage &&
+    localStorage.protocol === "http:" &&
+    localStorage.port ===
+      (localStorage.hostname === "rustfs" ? "9000" : new URL(values.s3_endpoint).port) &&
+    (process.env.RUSTFS_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY)
   for (const [key, value] of Object.entries(values)) {
     if (
       storagePin &&
