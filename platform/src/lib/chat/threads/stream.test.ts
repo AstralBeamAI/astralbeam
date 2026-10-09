@@ -259,6 +259,7 @@ describe("managed TanStack persistence boundaries", () => {
     expect(result.failed).toBe(false)
     expect(result.executed).toBe(1)
     expect(result.requests).toBe(2)
+    expect(result.prompts).toMatchObject([{ max_tokens: 4096 }, { max_tokens: 4096 }])
     expect(result.results).toHaveLength(1)
     expect(result.order.indexOf("decision")).toBeLessThan(result.order.indexOf("execute"))
     expect(result.order.indexOf("result")).toBeLessThan(result.order.lastIndexOf("decision"))

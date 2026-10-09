@@ -45,7 +45,7 @@ const modelTestConfiguration: ModelConfiguration = {
   maxInputTokens: 128_000,
   contextWindowTokens: null,
   maxOutputTokens: 8192,
-  outputCap: 4096,
+  outputCap: 3072,
 }
 
 const modelIntegrationKey = `sk-${"x".repeat(32)}`

@@ -398,7 +398,7 @@ describe("Chat.run", () => {
       const events = yield* runChat()
       yield* Stream.runCollect(Stream.take(events, 1))
       assert.strictEqual(chatRunTest.options[0]!.adapter.model, "gateway-model")
-      assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, { max_completion_tokens: 4096 })
+      assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, { max_tokens: 4096 })
       assert.strictEqual(chatRunTest.options[0]!.toolExecution, "sequential")
     }).pipe(
       Effect.provide(

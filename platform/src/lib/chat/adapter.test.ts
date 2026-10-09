@@ -8,13 +8,22 @@ import { createChatAdapter, modelOutputOptions } from "./adapter.ts"
 const chatAdapterCases: readonly (Pick<
   ChatModelConfiguration,
   "providerType" | "api" | "baseUrl" | "modelId"
-> & { readonly path: string })[] = [
+> & { readonly path: string; readonly capField: string })[] = [
   {
     providerType: "openai",
     api: "responses",
     baseUrl: "https://openai.example/v1",
     modelId: "custom-openai-model",
     path: "/v1/responses",
+    capField: "max_output_tokens",
+  },
+  {
+    providerType: "openai",
+    api: "chat-completions",
+    baseUrl: "https://api.openai.com/v1",
+    modelId: "gpt-5.6-terra",
+    path: "/v1/chat/completions",
+    capField: "max_completion_tokens",
   },
   {
     providerType: "openai",
@@ -22,6 +31,7 @@ const chatAdapterCases: readonly (Pick<
     baseUrl: "https://gateway.example/v1",
     modelId: "custom-compatible-model",
     path: "/v1/chat/completions",
+    capField: "max_tokens",
   },
   {
     providerType: "anthropic",
@@ -29,6 +39,7 @@ const chatAdapterCases: readonly (Pick<
     baseUrl: "https://anthropic.example",
     modelId: "custom-claude-model",
     path: "/v1/messages",
+    capField: "max_tokens",
   },
   {
     providerType: "openrouter",
@@ -36,6 +47,7 @@ const chatAdapterCases: readonly (Pick<
     baseUrl: "https://openrouter.ai/api/v1",
     modelId: "anthropic/claude-sonnet-4.6",
     path: "/api/v1/chat/completions",
+    capField: "max_tokens",
   },
 ]
 
@@ -91,13 +103,11 @@ describe("chat provider request routing", () => {
       expect(request.url.origin).toBe(new URL(configuration.baseUrl).origin)
       expect(request.url.pathname).toBe(configuration.path)
       expect(request.body.model).toBe(configuration.modelId)
-      const capField =
-        configuration.api === "responses"
-          ? "max_output_tokens"
-          : configuration.providerType === "openai"
-            ? "max_completion_tokens"
-            : "max_tokens"
-      expect(request.body[capField]).toBe(128)
+      expect(request.body[configuration.capField]).toBe(128)
+      for (const field of ["max_tokens", "max_completion_tokens", "max_output_tokens"].filter(
+        (field) => field !== configuration.capField,
+      ))
+        expect(request.body).not.toHaveProperty(field)
       expect(
         request.headers.get(
           configuration.api === "anthropic-messages" ? "x-api-key" : "authorization",

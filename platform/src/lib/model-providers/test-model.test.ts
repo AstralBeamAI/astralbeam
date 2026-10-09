@@ -58,7 +58,7 @@ describe("testProviderModel", () => {
   it.effect("uses each actual adapter with a bounded text request and returns no model text", () =>
     Effect.gen(function* () {
       for (const [providerType, api, tokenField] of [
-        ["openai", "chat-completions", "max_completion_tokens"],
+        ["openai", "chat-completions", "max_tokens"],
         ["openrouter", "chat-completions", "max_tokens"],
         ["openai", "responses", "max_output_tokens"],
         ["anthropic", "anthropic-messages", "max_tokens"],
@@ -77,7 +77,7 @@ describe("testProviderModel", () => {
         )
         assert.strictEqual(request.model, "saved-model")
         assert.strictEqual(request[tokenField], 1024)
-        if (tokenField === "max_completion_tokens") assert.notProperty(request, "max_tokens")
+        assert.notProperty(request, "max_completion_tokens")
         assert.deepEqual(request.tools ?? [], [])
       }
     }),

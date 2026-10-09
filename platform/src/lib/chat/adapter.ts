@@ -6,10 +6,12 @@ import { Schema } from "effect"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
-function outputTokenField(configuration: Pick<ChatModelConfiguration, "api" | "providerType">) {
+function outputTokenField(configuration: Pick<ChatModelConfiguration, "api" | "baseUrl">) {
+  // Compatible gateways retain max_tokens. https://docs.ollama.com/api/openai-compatibility
   return configuration.api === "responses"
     ? "max_output_tokens"
-    : configuration.api === "chat-completions" && configuration.providerType === "openai"
+    : configuration.api === "chat-completions" &&
+        new URL(configuration.baseUrl).hostname === "api.openai.com"
       ? "max_completion_tokens"
       : "max_tokens"
 }

@@ -32,6 +32,7 @@ The enabled provider models define what can be assigned to agents. Remove a mode
 ## Troubleshooting
 
 - If a model request fails, check the provider's API URL, API format, key access, and exact model ID. Tenant users see only that the assistant is unavailable, so the provider's own error never reaches them.
+- Custom Chat Completions endpoints must support `max_tokens`. Direct OpenAI requests use `max_completion_tokens`. For an OpenAI proxy, prefer Responses when the proxy supports it.
 - If saving refuses the API URL with `Use a public HTTPS API URL. This server does not allow HTTP or private network endpoints`, the deployment accepts only public HTTPS endpoints. A self-hosted deployment's operator can allow private endpoints in [Configuration](/docs/self-hosting/configuration#model-providers).
 - If the stored key cannot be read, enter it again in the provider editor and save.
 - If an agent has no model choices, enable a model on a provider first.

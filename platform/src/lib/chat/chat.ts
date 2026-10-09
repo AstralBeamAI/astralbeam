@@ -64,7 +64,7 @@ const modelErrorMessages: Readonly<Record<string, string>> = {
 
 /**
  * A run's AG-UI events. Interrupting the stream, as a dropped client does, aborts the provider
- * request and then closes TanStack's iterator, so billing stops with the connection.
+ * request and then closes TanStack's iterator. Provider-side billing may continue.
  */
 function chatEventStream(start: (abortController: AbortController) => AsyncIterable<StreamChunk>) {
   return Stream.unwrap(
