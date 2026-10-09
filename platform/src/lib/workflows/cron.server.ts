@@ -2,6 +2,7 @@ import { Cron, Layer } from "effect"
 import { ClusterCron } from "effect/cluster"
 
 import expiredCacheCleanup from "./expired-cache-cleanup.server.ts"
+import fileMaintenance from "./file-maintenance.server.ts"
 import modelPriceCatalogRefresh from "./model-price-catalog-refresh.server.ts"
 
 export const scheduledWorkflowsLayer = Layer.mergeAll(
@@ -11,6 +12,13 @@ export const scheduledWorkflowsLayer = Layer.mergeAll(
     calculateNextRunFromPrevious: false,
     skipIfOlderThan: "10 minutes",
     execute: expiredCacheCleanup,
+  }),
+  ClusterCron.make({
+    name: "FileMaintenance/v1",
+    cron: Cron.parseUnsafe("0 * * * * *", "UTC"),
+    calculateNextRunFromPrevious: false,
+    skipIfOlderThan: "10 minutes",
+    execute: fileMaintenance,
   }),
   ClusterCron.make({
     name: "ModelPriceCatalogRefresh/v1",

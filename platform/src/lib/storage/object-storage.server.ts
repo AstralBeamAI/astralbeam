@@ -2,6 +2,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectVersionsCommand,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
@@ -94,14 +95,18 @@ export class ObjectStorage extends Context.Service<
         lookup: acquireStorageClient,
         idleTimeToLive: "1 minute",
       })
-      const settings = Effect.map(config.snapshot, ({ values }): StorageConnection => ({
-        endpoint: values.s3_endpoint!,
-        region: values.s3_region!,
-        bucket: values.s3_bucket!,
-        accessKeyId: values.s3_access_key_id!,
-        secretAccessKey: values.s3_secret_access_key!,
-        pathStyle: values.s3_path_style === "true",
-      }))
+      const settings = Effect.flatMap(config.snapshot, ({ values, issues }) =>
+        issues.some((issue) => issue.key.startsWith("s3_"))
+          ? Effect.fail(new StorageUnavailable())
+          : Effect.succeed<StorageConnection>({
+              endpoint: values.s3_endpoint!,
+              region: values.s3_region!,
+              bucket: values.s3_bucket!,
+              accessKeyId: values.s3_access_key_id!,
+              secretAccessKey: values.s3_secret_access_key!,
+              pathStyle: values.s3_path_style === "true",
+            }),
+      )
 
       const withClient = <A>(
         run: (client: S3Client, connection: StorageConnection) => Effect.Effect<A, StorageFailure>,
@@ -154,6 +159,32 @@ export class ObjectStorage extends Context.Service<
             abortSignal,
           }),
         ).pipe(Effect.asVoid)
+      const removeObjectVersions = (client: S3Client, bucket: string, key: string) =>
+        Effect.gen(function* () {
+          const page = yield* storageRequest(async (abortSignal) => {
+            try {
+              return await client.send(
+                new ListObjectVersionsCommand({ Bucket: bucket, Prefix: key, MaxKeys: 1000 }),
+                { abortSignal },
+              )
+            } catch (error) {
+              if (error instanceof Error && error.name === "NotImplemented") return null
+              throw error
+            }
+          })
+          if (page === null) return yield* removeObject(client, bucket, key)
+          for (const version of [...(page.Versions ?? []), ...(page.DeleteMarkers ?? [])]) {
+            if (version.Key !== key) continue
+            if (!version.VersionId) return yield* new StorageUnavailable()
+            yield* removeObject(client, bucket, key, version.VersionId)
+          }
+          // Retry from the first page after deleting it, since deletion changes pagination markers.
+          // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectVersions.html
+          if (page.IsTruncated) return yield* new StorageUnavailable()
+        }).pipe(
+          Effect.timeout("30 seconds"),
+          Effect.catchTag("TimeoutError", () => Effect.fail(new StorageUnavailable())),
+        )
 
       return ObjectStorage.of({
         put: Effect.fn("ObjectStorage.put")((input) =>
@@ -205,7 +236,9 @@ export class ObjectStorage extends Context.Service<
           ),
         ),
         remove: Effect.fn("ObjectStorage.remove")((input) =>
-          withClient((client, connection) => removeObject(client, connection.bucket, input.key)),
+          withClient((client, connection) =>
+            removeObjectVersions(client, connection.bucket, input.key),
+          ),
         ),
         testConnection: Effect.fn("ObjectStorage.testConnection")((connection) =>
           Effect.scoped(
@@ -238,14 +271,15 @@ export class ObjectStorage extends Context.Service<
                   !bytes.every((value, index) => actual[index] === value)
                 )
                   return yield* new StorageUnavailable()
+                yield* removeObjectVersions(client, connection.bucket, key)
               }).pipe(
                 Effect.onError(() =>
-                  removeObject(client, connection.bucket, key, versionId).pipe(
+                  removeObjectVersions(client, connection.bucket, key).pipe(
+                    Effect.catch(() => removeObject(client, connection.bucket, key, versionId)),
                     Effect.catch(() => Effect.logWarning("Storage connection test cleanup failed")),
                   ),
                 ),
               )
-              yield* removeObject(client, connection.bucket, key, versionId)
               yield* storageRequest((abortSignal) =>
                 client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
                   abortSignal,

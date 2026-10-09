@@ -122,7 +122,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "File storage",
     label: "S3 access-key ID",
     description:
-      "Object read, write, and delete permissions. AWS also needs s3:ListBucket, and versioned buckets need s3:DeleteObjectVersion.",
+      "Object read, write, and delete permissions. AWS also needs s3:ListBucket, s3:ListBucketVersions, and s3:DeleteObjectVersion.",
     kind: "secret",
     required: true,
     schema: NonEmptyStringSchema,

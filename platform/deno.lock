@@ -7,6 +7,7 @@
     "npm:@better-auth-ui/core@1.7.12": "1.7.12_@better-auth+api-key@1.7.7_better-auth@1.7.7_vite@8.3.2_vitest@5.0.3",
     "npm:@better-auth-ui/react@1.7.12": "1.7.12_@better-auth-ui+core@1.7.12_@better-auth+api-key@1.7.7_@tanstack+react-query@5.104.1_better-auth@1.7.7_react@19.3.0_react-dom@19.3.0_react-email@6.9.2_tailwindcss@4.3.3_zod@4.6.5",
     "npm:@better-auth/api-key@^1.7.7": "1.7.7_better-auth@1.7.7_vite@8.3.2_vitest@5.0.3",
+    "npm:@better-auth/core@1.7.7": "1.7.7_@better-auth+utils@0.4.2_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4",
     "npm:@better-auth/drizzle-adapter@^1.7.7": "1.7.7_@better-auth+core@1.7.7__@better-auth+utils@0.4.2__@better-fetch+fetch@1.3.2__better-call@1.4.0__jose@6.2.10__kysely@0.29.6__nanostores@1.5.4_@better-auth+utils@0.4.2_drizzle-orm@1.0.0-rc.5-ab785fc_@better-fetch+fetch@1.3.2_better-call@1.4.0_jose@6.2.10_kysely@0.29.6_nanostores@1.5.4_pg@8.23.1",
     "npm:@csstools/color-helpers@6.1.0": "6.1.0",
     "npm:@csstools/css-color-parser@4.1.10": "4.1.10_@csstools+css-parser-algorithms@4.0.0_@csstools+css-tokenizer@4.0.0",
@@ -83,6 +84,7 @@
     "npm:oxlint@1.85.0": "1.85.0_oxlint-tsgolint@7.0.2002",
     "npm:oxlint@^1.85.0": "1.85.0_oxlint-tsgolint@7.0.2002",
     "npm:pg@^8.23.1": "8.23.1",
+    "npm:purejsimage@0.17": "0.17.0",
     "npm:react-dom@^19.3.0": "19.3.0_react@19.3.0",
     "npm:react-email@6.9.2": "6.9.2_react@19.3.0_react-dom@19.3.0",
     "npm:react-email@^6.9.2": "6.9.2_react@19.3.0_react-dom@19.3.0",
@@ -8125,6 +8127,9 @@
     "punycode@2.3.1": {
       "integrity": "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg=="
     },
+    "purejsimage@0.17.0": {
+      "integrity": "sha512-u/A6tC4FYCRqL61QMAHiTEwKByh17txytXalgAjKhv84lFQfDNVaRc8H816dLqsTpm5MaEz9pd7UzHc0qaaJ8A=="
+    },
     "pvtsutils@1.3.6": {
       "integrity": "sha512-PLgQXQ6H2FWCaeRak8vvk1GW462lMxB5s3Jm673N82zI4vqtVUPuZdffdZbPDFRoU8kAhItWFtPCWiPpp4/EDg==",
       "dependencies": [
@@ -9471,6 +9476,7 @@
         "npm:@better-auth-ui/core@1.7.12",
         "npm:@better-auth-ui/react@1.7.12",
         "npm:@better-auth/api-key@^1.7.7",
+        "npm:@better-auth/core@1.7.7",
         "npm:@better-auth/drizzle-adapter@^1.7.7",
         "npm:@csstools/color-helpers@6.1.0",
         "npm:@csstools/css-color-parser@4.1.10",
@@ -9540,6 +9546,7 @@
         "npm:oxlint-tsgolint@^7.0.2002",
         "npm:oxlint@^1.85.0",
         "npm:pg@^8.23.1",
+        "npm:purejsimage@0.17",
         "npm:react-dom@^19.3.0",
         "npm:react-email@^6.9.2",
         "npm:react@^19.3.0",
