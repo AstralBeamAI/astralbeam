@@ -236,6 +236,19 @@ test("new-conversation callbacks identify the destination and acknowledge input 
       { type: "text", content: "Start a saved conversation" },
     ])
     expect(settled).not.toHaveBeenCalled()
+    failAuthentication = true
+    chat.retryAuthentication()
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("error"))
+    const onBusyAccepted = vi.fn()
+    await chat.sendMessage("Wait for the active response", { onAccepted: onBusyAccepted })
+    stream!.enqueue(
+      new TextEncoder().encode(
+        `data: ${JSON.stringify({ ...accepted, value: { ...accepted.value, version: 3 } })}\n\n`,
+      ),
+    )
+    await vi.waitFor(() => expect(chat.getState().thread?.version).toBe(3))
+    expect(onBusyAccepted).not.toHaveBeenCalled()
+    expect(chat.getState().unsentMessage).toBeUndefined()
     chat.reset()
     stream?.close()
     stream = undefined
