@@ -1,4 +1,4 @@
-import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
 import { Uploads } from "@/lib/chat/attachments/uploads.server"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
@@ -175,7 +175,7 @@ function queryFailure(cause: object) {
 }
 
 const restTestServices = Layer.mergeAll(
-  Layer.succeed(ObjectStorage, {} as typeof ObjectStorage.Service),
+  Layer.succeed(StoredFiles, {} as typeof StoredFiles.Service),
   ChatFiles.layer.pipe(Layer.orDie),
   Uploads.layer.pipe(Layer.orDie),
   Layer.succeed(SqlClient.SqlClient, {} as typeof SqlClient.SqlClient.Service),

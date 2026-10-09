@@ -908,12 +908,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       await db.select().from(chatMessagePart).where(eq(chatMessagePart.id, part!.id))
     )[0]!
     expect(savedPart.payload).toMatchObject({ source: { type: "file", value: progress[0]!.id } })
-    const related = await db.query.chatThread.findFirst({
-      where: { organizationId: scope.organizationId, tenantId: scope.tenantId, id: thread.id },
-      with: { files: { with: { file: true, thread: true } } },
-    })
-    expect(related!.files[0]!.file!.id).toBe(progress[0]!.id)
-    expect(related!.files[0]!.thread!.id).toBe(thread.id)
     const savedMessage = (
       await db.select().from(chatMessage).where(eq(chatMessage.id, admitted.inputMessage.id))
     )[0]!

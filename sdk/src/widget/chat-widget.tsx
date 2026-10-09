@@ -208,7 +208,11 @@ export function ChatWidget({
                   session.status === "completed" && session.fileId && file.kind === "image"
                     ? await chat
                         .getUploadedFile(session.fileId)
-                        .then((blob) => attachmentUploadPreview({ uploads, id: file.id, blob }))
+                        .then((blob) =>
+                          cancelled
+                            ? undefined
+                            : attachmentUploadPreview({ uploads, id: file.id, blob }),
+                        )
                         .catch(() => undefined)
                     : undefined
                 return session.status === "completed" && session.fileId
@@ -468,7 +472,7 @@ export function ChatWidget({
   const reselectAttachment = (id: string, file: File) => {
     const draftFile = attachments.find((attachment) => attachment.id === id)
     if (!draftFile) return
-    if (capabilities.uploads?.available) {
+    if (draftFile.sessionId || draftFile.sha256 || capabilities.uploads?.available) {
       startAttachmentUpload({
         uploads,
         draft: draftFile,

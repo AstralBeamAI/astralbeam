@@ -446,7 +446,7 @@ test("submitted files stay pinned while admission waits and acceptance clears th
   await expect(chat.attachmentChip(note.name)).toHaveCount(0)
 })
 
-test("a session removed by maintenance can be replaced after original-file reselection", async ({
+test("a missing session keeps fingerprint validation when upload discovery is unavailable", async ({
   page,
 }) => {
   const capabilities = page.waitForResponse((response) => response.url().includes("/chat/config"))
@@ -464,11 +464,25 @@ test("a session removed by maintenance can be replaced after original-file resel
   await page.route(`**/api/v1/chat/uploads/${id}`, (route) =>
     route.fulfill({ status: 404, json: { error: "Upload not found" } }),
   )
+  await page.route("**/api/v1/chat/config?*", async (route) => {
+    const response = await route.fetch()
+    const { uploads: _uploads, ...capabilities } = (await response.json()) as Record<
+      string,
+      unknown
+    >
+    await route.fulfill({ json: capabilities })
+  })
   await page.reload()
   await expect(page.getByText("Choose the original file to resume", { exact: true })).toBeVisible()
   const picker = page.waitForEvent("filechooser")
   await page.getByRole("button", { name: `Resume ${note.name}`, exact: true }).click()
-  await (await picker).setFiles(note)
+  await (await picker).setFiles({ ...note, buffer: Buffer.alloc(note.buffer.length, "x") })
+  await expect(
+    page.getByText("Choose the original file to resume this upload.", { exact: true }),
+  ).toBeVisible()
+  const original = page.waitForEvent("filechooser")
+  await page.getByRole("button", { name: `Resume ${note.name}`, exact: true }).click()
+  await (await original).setFiles(note)
   await expect(chat.sendButton()).toBeEnabled()
 })
 

@@ -1,8 +1,7 @@
 import { HttpServerResponse } from "effect/http"
 import { Effect } from "effect"
-import { objectStorageStream } from "@/lib/storage/object-storage.server"
 import { ChatThreadStorageUnavailable } from "@/lib/chat/threads/errors"
-import type { StoredFile } from "@/lib/storage/stored-files.server"
+import { StoredFiles, type StoredFile } from "@/lib/storage/stored-files.server"
 
 import {
   artifactContentDisposition,
@@ -14,22 +13,10 @@ export const chatStoredFileResponse = Effect.fn("chatStoredFileResponse")(functi
   file: StoredFile,
   path: string,
 ) {
-  const stream = yield* objectStorageStream(file).pipe(
-    Effect.mapError(() => new ChatThreadStorageUnavailable()),
-  )
-  return HttpServerResponse.stream(stream, {
-    contentType: file.contentType,
-    headers: {
-      "Content-Disposition": artifactContentDisposition(
-        isInlineArtifactMimeType(file.contentType) ? "inline" : "attachment",
-        path,
-      ),
-      "Content-Length": String(file.byteSize),
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "sandbox; default-src 'none'",
-    },
-  })
+  const bytes = yield* (yield* StoredFiles)
+    .read(file)
+    .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
+  return chatArtifactResponse({ bytes, mimeType: file.contentType, path })
 })
 
 export function chatArtifactResponse({ bytes, mimeType, path }: ChatArtifact) {

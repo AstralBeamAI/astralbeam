@@ -2,7 +2,7 @@ import { Effect } from "effect"
 import { expect, test } from "vitest"
 import type { MessageRecord } from "@/lib/chat/threads/threads.server"
 import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
-import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { messageResource, savedChatAttachmentResponse } from "./threads.server"
 
 test("opaque provider file handles remain context and never reach UUID download lookup", async () => {
@@ -17,7 +17,7 @@ test("opaque provider file handles remain context and never reach UUID download 
     await Effect.runPromise(
       savedChatAttachmentResponse(message, "part").pipe(
         Effect.provideService(ChatFiles, {} as typeof ChatFiles.Service),
-        Effect.provideService(ObjectStorage, {} as typeof ObjectStorage.Service),
+        Effect.provideService(StoredFiles, {} as typeof StoredFiles.Service),
         Effect.result,
       ),
     ),
