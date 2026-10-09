@@ -536,7 +536,7 @@ test("failed removal after a narrower file limit survives reload and retries can
   )
   await page.goto("/__upload-draft")
   const { capabilities } = (await (await capabilityResponse).json()) as {
-    capabilities: { resolvedAgentId: string }
+    capabilities: { resolved_agent_id: string }
   }
   const chat = chatWidget(page)
   await chat.waitForReady()
@@ -544,7 +544,7 @@ test("failed removal after a narrower file limit survives reload and retries can
   const completed = page.waitForResponse((response) => response.url().endsWith("/complete"))
   await chat.attach(note)
   expect((await prepared).request().postDataJSON()).toMatchObject({
-    agent_id: capabilities.resolvedAgentId,
+    agent_id: capabilities.resolved_agent_id,
   })
   await completed
   await expect(chat.sendButton()).toBeEnabled()

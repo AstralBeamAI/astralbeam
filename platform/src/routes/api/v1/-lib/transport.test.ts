@@ -1170,6 +1170,23 @@ describe("REST API through the Effect Fetch handler", () => {
         expect(await response.json()).toMatchObject({ status })
       }
     }
+    restTestState.agent.mockReturnValue(
+      Effect.succeed({ attachments: true, resolvedAgentId: "resolved-agent" }),
+    )
+    const configuration = await restRequest("/chat/config", { headers })
+    expect(await configuration.json()).toEqual({
+      capabilities: {
+        attachments: true,
+        resolved_agent_id: "resolved-agent",
+        uploads: {
+          available: true,
+          max_files: 5,
+          max_total_bytes: 20 * 1024 * 1024,
+          part_size: 8 * 1024 * 1024,
+          session_hours: 24,
+        },
+      },
+    })
     restTestState.agent.mockReturnValue(Effect.fail(new ChatAgentNotFound()))
     const missing = await restRequest("/chat/config", { headers })
     expect(missing.status).toBe(404)

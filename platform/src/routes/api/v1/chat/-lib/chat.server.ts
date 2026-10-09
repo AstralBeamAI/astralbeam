@@ -75,8 +75,15 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
             maxTotalBytes: Schema.Int,
             partSize: Schema.Int,
             sessionHours: Schema.Int,
-          }),
-        }),
+          }).pipe(
+            Schema.encodeKeys({
+              maxFiles: "max_files",
+              maxTotalBytes: "max_total_bytes",
+              partSize: "part_size",
+              sessionHours: "session_hours",
+            }),
+          ),
+        }).pipe(Schema.encodeKeys({ resolvedAgentId: "resolved_agent_id" })),
       }).annotate({ identifier: "ChatConfiguration" }),
     })
       .annotate(OpenApi.Summary, "Get chat capabilities")

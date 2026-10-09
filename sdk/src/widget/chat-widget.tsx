@@ -303,10 +303,16 @@ export function ChatWidget({
             if (
               !saved ||
               saved.sessionId !== file.sessionId ||
+              saved.prepareAttempted !== file.prepareAttempted ||
               saved.sha256 !== file.sha256 ||
               saved.fileId !== file.fileId
             )
-              stored.set(file.id, file)
+              stored.set(file.id, {
+                ...file,
+                prepareAttempted:
+                  (file.prepareAttempted || stored.get(file.id)?.prepareAttempted) ??
+                  file.prepareAttempted,
+              })
           }
           return [...stored.values()]
         },
@@ -410,6 +416,13 @@ export function ChatWidget({
       }
       return current
     })
+  const persistPreparation = (file: DraftAttachment) =>
+    storedThreadAttachments({
+      apiUrl,
+      identity: draftIdentity,
+      threadId: draftKey,
+      update: (files) => [...files.filter((current) => current.id !== file.id), file],
+    }).then(() => undefined)
   const addAttachmentFiles = (files: File[]) => {
     const picked = acceptAttachmentFiles({
       files,
@@ -420,6 +433,7 @@ export function ChatWidget({
       file,
       draft: {
         ...draft,
+        prepareAttempted: false,
         agentId: capabilities.resolvedAgentId ?? chatState.thread?.agentId ?? options.agentId,
       },
     }))
@@ -444,6 +458,7 @@ export function ChatWidget({
           draft: pick,
           file,
           settle: (update) => settleAttachment(pick.id, update),
+          persist: persistPreparation,
         })
         continue
       }
@@ -476,6 +491,7 @@ export function ChatWidget({
         uploads,
         draft: file,
         settle: (update) => settleAttachment(id, update),
+        persist: persistPreparation,
       })
     )
   }
@@ -495,6 +511,7 @@ export function ChatWidget({
         draft: draftFile,
         file,
         settle: (update) => settleAttachment(id, update),
+        persist: persistPreparation,
       })
     } else {
       void readAttachmentData(file).then(

@@ -1618,7 +1618,19 @@ test("multipart preparation honors the resolved default agent after conversation
     if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
     if (url.pathname.endsWith("/config"))
       return Promise.resolve(
-        Response.json({ capabilities: { attachments: true, resolvedAgentId: "default-agent" } }),
+        Response.json({
+          capabilities: {
+            attachments: true,
+            resolved_agent_id: "default-agent",
+            uploads: {
+              available: true,
+              max_files: 5,
+              max_total_bytes: 20 * 1024 * 1024,
+              part_size: 8 * 1024 * 1024,
+              session_hours: 24,
+            },
+          },
+        }),
       )
     if (url.pathname.endsWith("/uploads")) {
       prepared = JSON.parse(init!.body as string)
@@ -1638,6 +1650,13 @@ test("multipart preparation honors the resolved default agent after conversation
     )
     const draftAgent = chat.getState().capabilities.resolvedAgentId
     assert(draftAgent)
+    expect(chat.getState().capabilities.uploads).toEqual({
+      available: true,
+      maxFiles: 5,
+      maxTotalBytes: 20 * 1024 * 1024,
+      partSize: 8 * 1024 * 1024,
+      sessionHours: 24,
+    })
     chat.updateOptions({ agentId: "different-agent" })
     await chat.prepareUpload({
       agent_id: draftAgent,

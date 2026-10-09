@@ -47,6 +47,7 @@ function storedAttachment(file: DraftAttachment): DraftAttachment {
     mimeType: file.mimeType,
     kind: file.kind,
     agentId: file.agentId,
+    prepareAttempted: file.prepareAttempted,
     sessionId: file.sessionId,
     sha256: file.sha256,
     fileId: file.fileId,
