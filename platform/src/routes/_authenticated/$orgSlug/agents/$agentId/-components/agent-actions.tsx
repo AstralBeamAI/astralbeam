@@ -1,6 +1,6 @@
 "use client"
 
-import { StarIcon, TrashIcon } from "@phosphor-icons/react"
+import { DotsThreeIcon, StarIcon, TrashIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 
@@ -13,9 +13,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { toast } from "@/components/ui/toast"
 import type { Agent } from "@/lib/agents/agents.server"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
@@ -73,31 +78,46 @@ export function AgentActions({
     }
   }
 
-  if (!canSetDefault && !canDelete) return null
+  if ((!canSetDefault || isDefault) && !canDelete) return null
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {canSetDefault && !isDefault && (
-        <Button type="button" variant="outline" disabled={busy} onClick={() => void makeDefault()}>
-          <StarIcon aria-hidden="true" />
-          Set as default
-        </Button>
-      )}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              disabled={busy}
+              aria-label="Agent actions"
+              title="Agent actions"
+            />
+          }
+        >
+          <DotsThreeIcon aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-40">
+          {canSetDefault && !isDefault && (
+            <DropdownMenuItem disabled={busy} onClick={() => void makeDefault()}>
+              <StarIcon aria-hidden="true" />
+              Set as default
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={busy}
+              onClick={() => setDeleteOpen(true)}
+            >
+              <TrashIcon aria-hidden="true" />
+              Delete
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
       {canDelete && (
         <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-          <AlertDialogTrigger
-            render={
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                aria-label={`Delete ${agent.name}`}
-              />
-            }
-          >
-            <TrashIcon aria-hidden="true" />
-            Delete
-          </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete {agent.name}?</AlertDialogTitle>
@@ -118,6 +138,6 @@ export function AgentActions({
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </div>
+    </>
   )
 }

@@ -3,47 +3,34 @@
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 import { Schema } from "effect"
-
 import type { Agent, AgentSandboxProvider } from "@/lib/agents/agents.server"
 import type { ModelChoice } from "@/lib/model-providers/model-providers.server"
 import { AgentNameSchema, AgentSystemPromptSchema } from "@/lib/agents/schemas"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { createAgent } from "../-functions/create-agent"
 import { updateAgent } from "../-functions/update-agent"
 import { AgentModelFields } from "./agent-model-fields"
-
-/** Stands in for a null provider, which the Select cannot represent with an empty value. */
-const NO_SANDBOX_PROVIDER = "none"
+import { AgentToolFields } from "./agent-tool-fields"
 
 const AGENT_NAME_MAX_LENGTH = 100
 const AGENT_SYSTEM_PROMPT_MAX_LENGTH = 32_768
 
 export type AgentFormProps = {
   organizationSlug: string
-  /** Null on the create page, where the agent's ID does not exist yet. */
   agent: Agent | null
   sandboxProviders: readonly AgentSandboxProvider[]
   models: readonly ModelChoice[]
@@ -59,33 +46,53 @@ export function AgentForm({
 }: AgentFormProps) {
   const navigate = useNavigate()
   const router = useRouter()
+  const initialModel = models.find((model) => model.webAccess.available === true) ?? models[0]
+  const initialModelIds = existing ? existing.modelIds : initialModel ? [initialModel.id] : []
+  const initialSandboxId = existing ? existing.sandboxProviderId : (sandboxProviders[0]?.id ?? null)
   const [name, setName] = useState(existing?.name ?? "")
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(existing?.attachmentsEnabled ?? true)
-  const [webAccessEnabled, setWebAccessEnabled] = useState(existing?.webAccessEnabled ?? false)
-  const [sandboxProviderId, setSandboxProviderId] = useState(
-    existing?.sandboxProviderId ?? NO_SANDBOX_PROVIDER,
+  const [modelIds, setModelIds] = useState<string[]>([...initialModelIds])
+  const [webAccessOverride, setWebAccessOverride] = useState<boolean | null>(
+    existing?.webAccessEnabled ?? null,
   )
-  const [modelIds, setModelIds] = useState<string[]>([...(existing?.modelIds ?? [])])
+  const [sandboxEnabled, setSandboxEnabled] = useState(initialSandboxId !== null)
+  const [sandboxProviderId, setSandboxProviderId] = useState<string | null>(initialSandboxId)
   const [saving, setSaving] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
-
-  // Base UI resolves the trigger's label from `items`, not from the rendered options.
-  const sandboxProviderItems = [
-    { label: "None", value: NO_SANDBOX_PROVIDER },
-    ...sandboxProviders.map((provider) => ({
-      label: `${provider.name} (${provider.providerType})`,
-      value: provider.id,
-    })),
-  ]
-  const selectedSandboxProviderId =
-    sandboxProviderId === NO_SANDBOX_PROVIDER ? null : sandboxProviderId
+  const selectedModels = models.filter((model) => modelIds.includes(model.id))
+  const webAccessEnabled =
+    webAccessOverride ??
+    (selectedModels.length > 0 &&
+      selectedModels.every((model) => model.webAccess.available === true))
+  const selectedSandboxProviderId = sandboxEnabled ? sandboxProviderId : null
   const normalizedName = name.trim()
   const valid =
     Schema.is(AgentNameSchema)(normalizedName) &&
     Schema.is(AgentSystemPromptSchema)(systemPrompt) &&
-    modelIds.length > 0
+    modelIds.length > 0 &&
+    (!sandboxEnabled || sandboxProviderId !== null) &&
+    (!webAccessEnabled || selectedModels.every((model) => model.webAccess.available !== false))
+  const dirty =
+    normalizedName !== (existing?.name ?? "") ||
+    systemPrompt !== (existing?.systemPrompt ?? "") ||
+    attachmentsEnabled !== (existing?.attachmentsEnabled ?? true) ||
+    JSON.stringify(modelIds) !== JSON.stringify(initialModelIds) ||
+    webAccessEnabled !==
+      (existing?.webAccessEnabled ?? initialModel?.webAccess.available === true) ||
+    sandboxEnabled !== (initialSandboxId !== null) ||
+    selectedSandboxProviderId !== initialSandboxId
 
+  const discard = () => {
+    setName(existing?.name ?? "")
+    setSystemPrompt(existing?.systemPrompt ?? "")
+    setAttachmentsEnabled(existing?.attachmentsEnabled ?? true)
+    setModelIds([...initialModelIds])
+    setWebAccessOverride(existing?.webAccessEnabled ?? null)
+    setSandboxEnabled(initialSandboxId !== null)
+    setSandboxProviderId(initialSandboxId)
+    setNameError(null)
+  }
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!valid || readOnly) return
@@ -132,19 +139,13 @@ export function AgentForm({
       setSaving(false)
     }
   }
-
   const disabled = saving || readOnly
 
   return (
-    <form onSubmit={(event) => void saveAgent(event)} className="max-w-2xl">
+    <form onSubmit={(event) => void saveAgent(event)} className="w-full max-w-2xl space-y-5">
       <Card>
         <CardHeader>
-          <CardTitle>{existing ? "Configuration" : "New agent"}</CardTitle>
-          <CardDescription>
-            {existing
-              ? "The agent ID can't change. You can update the other settings."
-              : "Name the agent and write its system prompt. Its ID is assigned on creation."}
-          </CardDescription>
+          <CardTitle>Instructions</CardTitle>
         </CardHeader>
         <CardContent>
           <FieldGroup>
@@ -166,20 +167,6 @@ export function AgentForm({
               <FieldError id="agent-name-error">{nameError}</FieldError>
               <FieldDescription>Unique within this organization.</FieldDescription>
             </Field>
-
-            {existing && (
-              <Field>
-                <FieldLabel htmlFor="agent-public-id">Agent ID</FieldLabel>
-                <Input
-                  id="agent-public-id"
-                  value={existing.id}
-                  readOnly
-                  className="font-mono text-xs"
-                />
-                <FieldDescription>This identifier cannot be changed.</FieldDescription>
-              </Field>
-            )}
-
             <Field>
               <FieldLabel htmlFor="agent-system-prompt">System prompt</FieldLabel>
               <Textarea
@@ -187,89 +174,91 @@ export function AgentForm({
                 value={systemPrompt}
                 required
                 maxLength={AGENT_SYSTEM_PROMPT_MAX_LENGTH}
-                rows={12}
+                rows={8}
                 disabled={disabled}
                 onChange={(event) => setSystemPrompt(event.target.value)}
               />
               <FieldDescription>
-                The agent&apos;s instructions. They are owned here; the SDK cannot override them.
-              </FieldDescription>
-            </Field>
-
-            <AgentModelFields
-              organizationSlug={organizationSlug}
-              models={models}
-              modelIds={modelIds}
-              disabled={disabled}
-              onChange={setModelIds}
-            />
-
-            <Field orientation="horizontal">
-              <Checkbox
-                id="agent-attachments-enabled"
-                checked={attachmentsEnabled}
-                disabled={disabled}
-                onCheckedChange={(next) => setAttachmentsEnabled(next === true)}
-              />
-              <FieldLabel htmlFor="agent-attachments-enabled" className="font-normal">
-                Allow file attachments
-              </FieldLabel>
-            </Field>
-            <FieldDescription>
-              Enforced by the chat endpoint; the SDK hides the composer&apos;s attach button when
-              off.
-            </FieldDescription>
-
-            <Field orientation="horizontal">
-              <Switch
-                id="agent-web-access-enabled"
-                checked={webAccessEnabled}
-                disabled={disabled}
-                onCheckedChange={setWebAccessEnabled}
-              />
-              <FieldLabel htmlFor="agent-web-access-enabled" className="font-normal">
-                Web access
-              </FieldLabel>
-            </Field>
-            <FieldDescription>
-              Search the web and read public URLs through the selected model connection. Provider
-              charges may apply.
-            </FieldDescription>
-
-            <Field>
-              <FieldLabel htmlFor="agent-sandbox-provider">Sandbox provider</FieldLabel>
-              <Select
-                items={sandboxProviderItems}
-                value={sandboxProviderId}
-                onValueChange={(value) => setSandboxProviderId(value ?? NO_SANDBOX_PROVIDER)}
-                disabled={disabled}
-              >
-                <SelectTrigger id="agent-sandbox-provider" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_SANDBOX_PROVIDER}>None</SelectItem>
-                  {sandboxProviders.map((provider) => (
-                    <SelectItem key={provider.id} value={provider.id}>
-                      {provider.name} ({provider.providerType})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldDescription>
-                Optional. An agent with a provider gets one isolated sandbox per conversation.
+                Instructions for this agent. Your application cannot override them.
               </FieldDescription>
             </Field>
           </FieldGroup>
         </CardContent>
-        {!readOnly && (
-          <CardFooter className="justify-end gap-2">
-            <Button type="submit" disabled={!valid || saving}>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle id="agent-models-title">Models</CardTitle>
+          <CardDescription id="agent-models-description">
+            Choose models from your configured providers. The default handles new conversations.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AgentModelFields
+            organizationSlug={organizationSlug}
+            models={models}
+            modelIds={modelIds}
+            disabled={disabled}
+            onChange={setModelIds}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Tools</CardTitle>
+          <CardDescription>Choose what this agent can do.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AgentToolFields
+            organizationSlug={organizationSlug}
+            models={selectedModels}
+            webAccessEnabled={webAccessEnabled}
+            onWebAccessChange={setWebAccessOverride}
+            sandboxEnabled={sandboxEnabled}
+            onSandboxChange={setSandboxEnabled}
+            sandboxProviderId={sandboxProviderId}
+            onSandboxProviderChange={setSandboxProviderId}
+            sandboxProviders={sandboxProviders}
+            disabled={disabled}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Conversation</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel htmlFor="agent-attachments-enabled">File attachments</FieldLabel>
+              <FieldDescription id="agent-attachments-description">
+                Let users attach files to their messages.
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id="agent-attachments-enabled"
+              checked={attachmentsEnabled}
+              disabled={disabled}
+              onCheckedChange={setAttachmentsEnabled}
+              aria-describedby="agent-attachments-description"
+            />
+          </Field>
+        </CardContent>
+      </Card>
+      {!readOnly && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground" role="status">
+            {saving ? "Saving…" : dirty ? "Unsaved changes" : "Changes apply to the next request."}
+          </p>
+          <div className="ms-auto flex gap-2">
+            <Button type="button" variant="outline" disabled={!dirty || saving} onClick={discard}>
+              Discard
+            </Button>
+            <Button type="submit" disabled={!valid || saving || (existing !== null && !dirty)}>
               {saving ? "Saving…" : existing ? "Save changes" : "Create agent"}
             </Button>
-          </CardFooter>
-        )}
-      </Card>
+          </div>
+        </div>
+      )}
     </form>
   )
 }

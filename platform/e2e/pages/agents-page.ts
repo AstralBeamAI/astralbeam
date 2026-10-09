@@ -46,10 +46,13 @@ export function agentsPage(page: Page) {
       await page.locator("#agent-name").fill(name)
       await page.locator("#agent-system-prompt").fill(systemPrompt)
       if (attachmentsEnabled !== undefined) {
-        // The shadcn checkbox keeps its id on a hidden proxy input, so drive it through its role.
-        const checkbox = page.getByRole("checkbox", { name: "Allow file attachments", exact: true })
-        if ((await checkbox.isChecked()) !== attachmentsEnabled) await checkbox.click()
-        await expect(checkbox).toBeChecked({ checked: attachmentsEnabled })
+        const toggle = page.getByRole("switch", { name: "File attachments", exact: true })
+        await toggle.setChecked(attachmentsEnabled)
+        await expect(toggle).toBeChecked({ checked: attachmentsEnabled })
+      }
+      if (models) {
+        for (const checkbox of await page.getByRole("checkbox", { name: /./ }).all())
+          await checkbox.uncheck()
       }
       for (const model of models ?? []) {
         await page.getByRole("checkbox", { name: model, exact: true }).check()
@@ -74,12 +77,15 @@ export function agentsPage(page: Page) {
     },
 
     async setAsDefault(): Promise<void> {
-      await page.getByRole("button", { name: "Set as default" }).click()
-      await expect(page.getByRole("button", { name: "Set as default" })).toBeHidden()
+      await page.getByRole("button", { name: "Agent actions" }).click()
+      await page.getByRole("menuitem", { name: "Set as default" }).click()
+      await expect(this.defaultBadge()).toBeVisible()
     },
 
     async deleteAgent(name: string): Promise<void> {
-      await page.getByRole("button", { name: `Delete ${name}` }).click()
+      await page.getByRole("button", { name: "Agent actions" }).click()
+      await page.getByRole("menuitem", { name: "Delete", exact: true }).click()
+      await expect(page.getByRole("heading", { name: `Delete ${name}?` })).toBeVisible()
       await page.getByRole("button", { name: "Delete agent" }).click()
       await expect(page.getByRole("heading", { level: 1, name: "Agents" })).toBeVisible()
     },
