@@ -1,6 +1,6 @@
 import { Schema, SchemaGetter } from "effect"
 
-import { NonEmptyStringSchema } from "@/lib/schemas"
+import { NonEmptyStringSchema } from "../schemas.ts"
 
 export const StorageEndpointSchema = Schema.URLFromString.check(
   Schema.makeFilter(
