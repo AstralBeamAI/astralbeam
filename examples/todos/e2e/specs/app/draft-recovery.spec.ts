@@ -487,10 +487,14 @@ test("a missing session keeps fingerprint validation when upload discovery is un
 })
 
 test("failed removal survives reload and retries cancellation", async ({ page }) => {
+  const capabilities = page.waitForResponse((response) => response.url().includes("/chat/config"))
   await todosPage(page).open()
   const chat = chatWidget(page)
   await chat.waitForReady()
+  await capabilities
+  const completed = page.waitForResponse((response) => response.url().endsWith("/complete"))
   await chat.attach(note)
+  await completed
   await expect(chat.sendButton()).toBeEnabled()
   let cancellations = 0
   let rejectRemoval = () => {}
