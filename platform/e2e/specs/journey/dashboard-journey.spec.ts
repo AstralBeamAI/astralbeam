@@ -33,7 +33,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   const renamedOrganization = `${identity.organizationName} Renamed`
   const movedSlug = `${identity.organizationSlug}-moved`
   const modelProviderName = `Journey OpenAI ${identity.runId}`
-  const journeyModelId = "gpt-5.6-terra"
+  const journeyModelId = "gpt-6.1-sol"
   const journeyModelLabel = `${journeyModelId} (${modelProviderName})`
 
   await test.step("an operator configures an unconfigured deployment", async () => {
