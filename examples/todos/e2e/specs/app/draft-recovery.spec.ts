@@ -450,14 +450,31 @@ for (const failure of ["disabled", "quota"] as const) {
   })
 }
 
-test("submitted files stay pinned while admission waits and acceptance clears them", async ({
+test("submitted files stay pinned while thread creation and admission wait, then acceptance clears them", async ({
   page,
 }) => {
+  let createThread!: () => void
+  const threadCreation = new Promise<void>((resolve) => {
+    createThread = resolve
+  })
+  let creatingThread = false
+  await page.route("**/api/v1/chat/threads", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback()
+    creatingThread = true
+    await threadCreation
+    await route.fulfill({ json: thread })
+  })
+  let cancellations = 0
+  page.on("request", (request) => {
+    if (request.method() === "DELETE" && request.url().includes("/chat/uploads")) cancellations++
+  })
   let accept!: () => void
   const accepted = new Promise<void>((resolve) => {
     accept = resolve
   })
+  let admitting = false
   await page.route("**/api/v1/chat", async (route) => {
+    admitting = true
     await accepted
     await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
   })
@@ -469,9 +486,19 @@ test("submitted files stay pinned while admission waits and acceptance clears th
   await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
   await chat.sendButton().click()
+  await expect.poll(() => creatingThread).toBe(true)
   await expect(
     page.getByRole("button", { name: `Remove ${note.name}`, exact: true }),
   ).toBeDisabled()
+  expect(admitting).toBe(false)
+  expect(cancellations).toBe(0)
+  await captureMoment(page, "submitted-file-pinned-before-thread-creation")
+  createThread()
+  await expect.poll(() => admitting).toBe(true)
+  await expect(
+    page.getByRole("button", { name: `Remove ${note.name}`, exact: true }),
+  ).toBeDisabled()
+  expect(cancellations).toBe(0)
   accept()
   await expect(chat.attachmentChip(note.name)).toHaveCount(0)
 })
@@ -680,21 +707,76 @@ test("the draft database upgrade preserves attachment metadata and removes legac
     ])
 })
 
-test("resetting a fresh draft cancels its unclaimed upload", async ({ page }) => {
+test("failed fresh draft reset stays visible and retry preserves newer text and files", async ({
+  page,
+}) => {
   const capabilities = page.waitForResponse((response) => response.url().includes("/chat/config"))
   await todosPage(page).open()
   await capabilities
   const chat = chatWidget(page)
   await chat.waitForReady()
+  await chat.composer().fill("Keep the failed reset draft")
   await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
+  let cancellations = 0
+  let hydrationRequested = false
+  let releaseHydration = () => {}
+  const hydration = new Promise<void>((resolve) => {
+    releaseHydration = resolve
+  })
+  let release = () => {}
+  const retry = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route("**/api/v1/chat/uploads/*", async (route) => {
+    if (route.request().method() === "GET" && !hydrationRequested) {
+      hydrationRequested = true
+      await hydration
+      return route.continue()
+    }
+    if (route.request().method() !== "DELETE") return route.continue()
+    cancellations++
+    if (cancellations === 1) return route.fulfill({ status: 503, json: { error: "Unavailable" } })
+    await retry
+    await route.continue()
+  })
+  await page.reload()
+  await expect.poll(() => hydrationRequested).toBe(true)
+  await chat.reset()
+  await expect(chat.composer()).toHaveValue("Keep the failed reset draft")
+  expect(cancellations).toBe(0)
+  releaseHydration()
+  await expect(chat.attachmentChip(note.name)).toBeVisible()
+  await expect(chat.sendButton()).toBeEnabled()
+  const failed = page.waitForResponse(
+    (response) => response.status() === 503 && response.request().method() === "DELETE",
+  )
+  await chat.reset()
+  await failed
+  await expect(chat.composer()).toHaveValue("Keep the failed reset draft")
+  await expect(chat.attachmentChip(note.name)).toBeVisible()
+  await expect(chat.newChatButton()).toBeEnabled()
+  await captureMoment(page, "failed-fresh-reset-retains-text-and-files")
   const cancelled = page.waitForResponse(
     (response) =>
       response.url().includes("/chat/uploads/") && response.request().method() === "DELETE",
   )
   await chat.reset()
+  await expect.poll(() => cancellations).toBe(2)
+  await chat.composer().fill("Added while reset is pending")
+  await chat.attach(image)
+  await expect(chat.sendButton()).toBeEnabled()
+  release()
   expect((await cancelled).status()).toBe(204)
   await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await expect(chat.attachmentChip(image.name)).toBeVisible()
+  await expect(chat.composer()).toHaveValue("Added while reset is pending")
+  await captureMoment(page, "fresh-reset-retry-preserves-newer-edits")
+  await page.reload()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await expect(chat.attachmentChip(image.name)).toBeVisible()
+  await expect(chat.composer()).toHaveValue("Added while reset is pending")
+  expect(cancellations).toBe(2)
 })
 
 test("deleting an unopened persisted draft cancels its unfinished upload", async ({ page }) => {
