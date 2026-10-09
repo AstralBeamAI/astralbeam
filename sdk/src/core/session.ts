@@ -212,6 +212,9 @@ export interface AstralBeamChatCore {
   getOptions: () => Readonly<AstralBeamChatCoreOptions>
   /** @internal Binds one interactive view without transferring session ownership. */
   attachView: (view: ChatView) => { update: (view: ChatView) => void; dispose: () => void }
+      },
+  /** Captures the authenticated scope without invalidating it on a same-identity token refresh. */
+  captureAuthentication: () => () => boolean
   /** Notifies on every state change; returns the unsubscribe. */
   subscribe: (listener: () => void) => () => void
   /**
@@ -1640,6 +1643,11 @@ export function createAstralBeamChat(
           refresh()
         },
       }
+      },
+    captureAuthentication: () => {
+      const epoch = authEpoch
+      const signal = authentication.session.abortController.signal
+      return () => epoch === authEpoch && !signal.aborted
     },
     subscribe: (listener) => {
       listeners.add(listener)

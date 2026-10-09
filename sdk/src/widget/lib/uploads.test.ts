@@ -48,11 +48,11 @@ const draft: DraftAttachment = {
   agentId: "origin-agent",
 }
 const persist = async () => {}
-const auth = { status: "loading" as const }
+const captureAuthentication = () => () => true
 
 test("wrong-file reselection never signs parts and lets the picker try again", async () => {
   const signUploadParts = vi.fn()
-  const chat = { signUploadParts } as unknown as AstralBeamChatCore
+  const chat = { signUploadParts, captureAuthentication } as unknown as AstralBeamChatCore
   const revokeObjectURL = vi.fn()
   vi.stubGlobal("URL", { createObjectURL: () => "blob:wrong-file", revokeObjectURL })
   const uploads = attachmentUploadState(chat)
@@ -111,6 +111,7 @@ test("an expired part URL is replaced and progress completes only after server v
     }),
   )
   const chat = {
+    captureAuthentication,
     prepareUpload: vi.fn(() => Promise.resolve(session)),
     getUpload: vi.fn(() => Promise.resolve(session)),
     signUploadParts,
@@ -160,6 +161,7 @@ test("upload work caps two files and four part requests, and pause releases queu
     Promise.resolve({ ...session, byte_size: 9 * 1024 * 1024 }),
   )
   const chat = {
+    captureAuthentication,
     prepareUpload,
     getUpload: vi.fn(() => Promise.resolve({ ...session, byte_size: 9 * 1024 * 1024 })),
     signUploadParts: vi.fn((_id, parts: number[]) =>
@@ -209,6 +211,7 @@ test.each(["expired", "cancelled", "missing", "unavailable"] as const)(
   async (status) => {
     const prepareUpload = vi.fn()
     const chat = {
+      captureAuthentication,
       getUpload: vi.fn(() => {
         if (status === "missing" || status === "unavailable")
           return Promise.reject(
@@ -249,7 +252,7 @@ test.each([true, false])(
     const uploads = attachmentUploadState({
       cancelUpload,
       cancelPreparedUpload: cancelUpload,
-      getState: () => ({ auth }),
+      captureAuthentication,
     } as unknown as AstralBeamChatCore)
     uploads.files.set(draft.id, new File(["hello"], "note.txt"))
     const controller = new AbortController()
@@ -275,7 +278,7 @@ test("failed preparation metadata keeps local and inline files removable offline
   const uploads = attachmentUploadState({
     prepareUpload,
     cancelPreparedUpload,
-    getState: () => ({ auth }),
+    captureAuthentication,
   } as unknown as AstralBeamChatCore)
   let state = { ...draft }
   startAttachmentUpload({
@@ -303,7 +306,10 @@ test("failed preparation metadata keeps local and inline files removable offline
 
 test("failed metadata persistence never converts an uncertain preparation to inline", async () => {
   const prepareUpload = vi.fn()
-  const uploads = attachmentUploadState({ prepareUpload } as unknown as AstralBeamChatCore)
+  const uploads = attachmentUploadState({
+    prepareUpload,
+    captureAuthentication,
+  } as unknown as AstralBeamChatCore)
   let state: DraftAttachment = { ...draft, prepareAttempted: true }
   startAttachmentUpload({
     uploads,
@@ -338,7 +344,7 @@ test.each([false, true])(
     const uploads = attachmentUploadState({
       prepareUpload,
       cancelPreparedUpload,
-      getState: () => ({ auth }),
+      captureAuthentication,
     } as unknown as AstralBeamChatCore)
     startAttachmentUpload({
       uploads,
@@ -372,6 +378,7 @@ test("an uncertain preparation retries the same attachment key and retains a pre
     .mockRejectedValueOnce(new Error("Response lost"))
     .mockResolvedValue({ ...session, status: "preparing" })
   const chat = {
+    captureAuthentication,
     prepareUpload,
     getUpload: vi.fn(() => Promise.resolve({ ...session, status: "preparing" })),
   } as unknown as AstralBeamChatCore
@@ -409,8 +416,8 @@ test("an uncertain preparation retries the same attachment key and retains a pre
   disposeAttachmentUploads(uploads)
 })
 
-test.each(["identity", "api", "remove identity"] as const)(
-  "cleanup retains delayed IndexedDB targets through %s changes",
+test.each(["identity", "api", "remove identity", "401 refresh", "prepare identity"] as const)(
+  "delayed attachment work respects authentication during %s",
   async (change) => {
     let user = {
       scope: "tenant",
@@ -419,12 +426,19 @@ test.each(["identity", "api", "remove identity"] as const)(
       user: { id: "owner" },
     }
     const cancellations: string[] = []
+    const preparations = vi.fn()
     vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
       const url = new URL(input)
       if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(user))
       if (init?.method === "DELETE") {
         cancellations.push(url.href)
+        if (change === "401 refresh" && cancellations.length === 1)
+          return Promise.resolve(new Response(null, { status: 401 }))
         return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      if (url.pathname.endsWith("/chat/uploads") && init?.method === "POST") {
+        preparations()
+        return Promise.resolve(Response.json(session))
       }
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
     })
@@ -434,20 +448,31 @@ test.each(["identity", "api", "remove identity"] as const)(
       }),
     })
     let finish = (_files: DraftAttachment[]) => {}
-    vi.mocked(storedThreadAttachments).mockImplementationOnce(
-      () => new Promise((resolve) => (finish = resolve)),
-    )
+    let stored: DraftAttachment[] = [{ ...draft, prepareAttempted: true }]
+    vi.mocked(storedThreadAttachments)
+      .mockImplementation(({ update }) => {
+        if (update) stored = update(stored)
+        return Promise.resolve(stored)
+      })
+      .mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)))
     try {
       await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
       const auth = chat.getState().auth
+      const isCurrentAuthentication = chat.captureAuthentication()
       const uploads = attachmentUploadState(chat)
+      const waitForAuthChange = () =>
+        vi.waitFor(() => {
+          expect(chat.getState().auth.status).toBe("ready")
+          expect(chat.getState().auth).not.toBe(auth)
+        })
+      const waitForUpload = () => vi.waitFor(() => expect(uploads.fileSlots.active).toBe(0))
       const options = {
         uploads,
         apiUrl: "https://api.test",
         identity: "owner",
         threadId: "conversation",
         attachments: [],
-        auth,
+        isCurrentAuthentication,
       }
       if (change === "remove identity")
         uploads.tasks.set(draft.id, {
@@ -455,23 +480,60 @@ test.each(["identity", "api", "remove identity"] as const)(
           prepareAttempted: true,
           preparation: storedThreadAttachments(options).then(() => undefined),
         })
+      if (change === "prepare identity")
+        startAttachmentUpload({
+          uploads,
+          draft,
+          file: new File(["hello"], "note.txt"),
+          isCurrentAuthentication,
+          settle: () => {},
+          persist: (file) =>
+            storedThreadAttachments({ ...options, update: () => [file] }).then(() => undefined),
+        })
       const cleanup =
         change === "remove identity"
-          ? removeAttachmentUpload({ uploads, draft, auth })
-          : discardAttachmentUploads(options)
+          ? removeAttachmentUpload({ uploads, draft, isCurrentAuthentication })
+          : change === "prepare identity"
+            ? undefined
+            : discardAttachmentUploads(options)
+      const result = cleanup?.catch((error: unknown) => error)
       await vi.waitFor(() => expect(storedThreadAttachments).toHaveBeenCalledOnce())
-      if (change !== "api") {
+      if (change !== "api" && change !== "401 refresh") {
         user = { ...user, user: { id: "replacement" } }
         chat.retryAuthentication()
-      } else chat.updateOptions({ apiUrl: "https://replacement.example/api" })
-      await vi.waitFor(() => {
-        expect(chat.getState().auth.status).toBe("ready")
-        expect(chat.getState().auth).not.toBe(auth)
-      })
+      } else if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+      if (change !== "401 refresh") await waitForAuthChange()
       finish([{ ...draft, prepareAttempted: true }])
-      await expect(cleanup).rejects.toThrow("Authentication changed")
-      expect(cancellations).toEqual([])
-      expect(storedThreadAttachments).toHaveBeenCalledOnce()
+      const settle = vi.fn()
+      if (change === "prepare identity") {
+        await waitForUpload()
+        startAttachmentUpload({
+          uploads,
+          draft: { ...draft, id: "stale" },
+          file: new File(["hello"], "note.txt"),
+          isCurrentAuthentication,
+          settle,
+          persist,
+        })
+      }
+      const error = await result
+      expect(error instanceof Error ? error.message : undefined).toBe(
+        change === "401 refresh" || change === "prepare identity"
+          ? undefined
+          : "Authentication changed",
+      )
+      expect(cancellations).toHaveLength(change === "401 refresh" ? 2 : 0)
+      expect(chat.getState().auth).not.toBe(auth)
+      expect(isCurrentAuthentication()).toBe(change === "401 refresh")
+      expect(stored[0]?.prepareAttempted).toBe(
+        change === "401 refresh" ? undefined : change !== "prepare identity",
+      )
+      expect(storedThreadAttachments).toHaveBeenCalledTimes(
+        change === "401 refresh" || change === "prepare identity" ? 2 : 1,
+      )
+      expect(preparations).not.toHaveBeenCalled()
+      expect(uploads.files.has("stale")).toBe(false)
+      expect(settle).not.toHaveBeenCalled()
     } finally {
       finish([])
       chat.dispose()
@@ -479,19 +541,64 @@ test.each(["identity", "api", "remove identity"] as const)(
   },
 )
 
+test("partial discard retains files and previews until all cancellation and metadata cleanup succeed", async () => {
+  const first = { ...draft, id: "first", sessionId: "first-session" }
+  const second = { ...draft, id: "second", sessionId: "second-session" }
+  let stored: DraftAttachment[] = [first, second]
+  vi.mocked(storedThreadAttachments).mockImplementation(({ update }) => {
+    if (update) stored = update(stored)
+    return Promise.resolve(stored)
+  })
+  const cancelUpload = vi
+    .fn()
+    .mockResolvedValueOnce(undefined)
+    .mockRejectedValueOnce(new Error("Offline"))
+    .mockResolvedValue(undefined)
+  const uploads = attachmentUploadState({
+    cancelUpload,
+    captureAuthentication,
+  } as unknown as AstralBeamChatCore)
+  const revokeObjectURL = vi.fn()
+  vi.stubGlobal("URL", { revokeObjectURL })
+  for (const file of stored) {
+    uploads.files.set(file.id, new File(["hello"], "note.txt"))
+    uploads.previews.set(file.id, `blob:${file.id}`)
+    uploads.tasks.set(file.id, { controller: new AbortController(), prepareAttempted: true })
+  }
+  const discard = () =>
+    discardAttachmentUploads({
+      uploads,
+      apiUrl: "https://api.test",
+      identity: "owner",
+      threadId: "conversation",
+      attachments: [],
+    })
+  await expect(discard()).rejects.toThrow("Offline")
+  expect(stored).toEqual([first, second])
+  expect(uploads.files.size).toBe(2)
+  expect(uploads.previews.size).toBe(2)
+  expect([...uploads.tasks.values()].every((task) => task.controller.signal.aborted)).toBe(true)
+  expect(revokeObjectURL).not.toHaveBeenCalled()
+  await discard()
+  expect(stored).toEqual([])
+  expect(uploads.files.size).toBe(0)
+  expect(uploads.tasks.size).toBe(0)
+  expect(uploads.previews.size).toBe(0)
+  expect(revokeObjectURL).toHaveBeenCalledTimes(2)
+})
+
 test("discard retains targets when authentication changes before the IndexedDB update", async () => {
-  const auth = { status: "loading" as const }
-  let current = auth
+  let authorized = true
   let stored: DraftAttachment[] = [{ ...draft, prepareAttempted: true }]
   const cancelPreparedUpload = vi.fn(() => Promise.resolve())
   const uploads = attachmentUploadState({
     cancelPreparedUpload,
-    getState: () => ({ auth: current }),
+    captureAuthentication: () => () => authorized,
   } as unknown as AstralBeamChatCore)
   vi.mocked(storedThreadAttachments).mockImplementation(({ update }) =>
     Promise.resolve().then(() => {
       if (update) {
-        current = { status: "loading" }
+        authorized = false
         stored = update(stored)
       }
       return stored
@@ -504,7 +611,6 @@ test("discard retains targets when authentication changes before the IndexedDB u
       identity: "owner",
       threadId: "conversation",
       attachments: [],
-      auth,
     }),
   ).rejects.toThrow("Authentication changed")
   expect(cancelPreparedUpload).toHaveBeenCalledOnce()
@@ -527,10 +633,9 @@ test("discard retains unreadable or transitioning targets and leaves claimed fil
     .mockRejectedValueOnce(claimed)
     .mockRejectedValueOnce(conflict)
     .mockRejectedValue(claimed)
-  const auth = { status: "loading" as const }
   const uploads = attachmentUploadState({
     cancelUpload,
-    getState: () => ({ auth }),
+    captureAuthentication,
   } as unknown as AstralBeamChatCore)
   const pending = { ...draft, sessionId: "pending" }
   const discard = () =>
@@ -540,7 +645,6 @@ test("discard retains unreadable or transitioning targets and leaves claimed fil
       identity: "owner",
       threadId: "conversation",
       attachments: [],
-      auth,
     })
   vi.mocked(storedThreadAttachments).mockRejectedValueOnce(new Error("Storage unavailable"))
   await expect(discard()).rejects.toThrow("Storage unavailable")
